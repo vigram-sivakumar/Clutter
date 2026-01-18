@@ -444,10 +444,7 @@ export const NoteEditor = ({
   const addEmojiButtonRef = useRef<HTMLButtonElement>(null);
   const previousNoteIdRef = useRef<string | null>(null); // Track note switches for transition
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 🔥 BLOCK-LEVEL PERSISTENCE (Apple Notes Architecture)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // Load editor content from blocks table instead of legacy notes.content
+  // Editor content state
   const [editorContent, setEditorContent] = useState<string | undefined>(
     undefined
   );
@@ -1841,7 +1838,7 @@ export const NoteEditor = ({
               onTitleChange={(value) => {
                 if (isDailyNote) return; // Prevent title changes for daily notes
 
-                // ✅ APPLE NOTES: Title edits allowed (metadata via saveNoteMeta)
+                // Update title
                 setTitle(value);
                 debouncedSave({ title: value });
               }}
@@ -1888,7 +1885,7 @@ export const NoteEditor = ({
 
             {/* Editor */}
             <PageContent>
-              {/* 🎯 Apple Notes UX: Editor never disappears, only content changes */}
+              {/* Editor shell - persists across note switches */}
               <div
                 className="editor-shell"
                 style={{
@@ -1904,7 +1901,7 @@ export const NoteEditor = ({
                 }}
               >
                 <TipTapWrapper
-                  key={currentNoteId} // ✅ APPLE NOTES: Force full remount on note change
+                  key={currentNoteId} // Force full remount on note change
                   noteId={currentNoteId}
                   ref={editorRef}
                   value={editorContent}

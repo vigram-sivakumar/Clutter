@@ -46,7 +46,7 @@ import { useTheme } from '../../../../hooks/useTheme';
 import HardBreak from '@tiptap/extension-hard-break';
 
 interface TipTapWrapperProps {
-  noteId?: string; // REQUIRED for block-level persistence (Apple Notes architecture)
+  noteId?: string; // Note identifier for editor instance
   value?: string;
   onChange?: (_value: string) => void;
   onTagsChange?: (_tags: string[]) => void; // NEW: Callback when tags in content change

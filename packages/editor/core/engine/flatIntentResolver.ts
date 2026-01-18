@@ -13,9 +13,9 @@ import type { EditorEngine } from './EditorEngine';
 import type { EditorIntent, IntentResult } from './intent';
 import { collectSubtreeFromIndex, type BlockWithPosition } from '../../utils/subtreeUtils';
 import {
-  placeCursorAtBlockStart,
-  placeCursorAtBlockEnd,
-  placeCursorAtSafePosition,
+  placeCursorAtBlockStart: _placeCursorAtBlockStart,
+  placeCursorAtBlockEnd: _placeCursorAtBlockEnd,
+  placeCursorAtSafePosition: _placeCursorAtSafePosition,
 } from '../../utils/cursorUtils';
 
 export class FlatIntentResolver {
@@ -468,7 +468,7 @@ export class FlatIntentResolver {
     if (process.env.NODE_ENV !== 'production' && childrenToPromote.length > 0) {
       // Check the NEW document after promotion and delete
       const newBlocks: Array<{ node: any; indent: number; blockId: string }> = [];
-      tr.doc.descendants((node: any, pos: number) => {
+      tr.doc.descendants((node: any, _pos: number) => {
         if (node.attrs?.blockId) {
           newBlocks.push({
             node,
@@ -521,7 +521,7 @@ export class FlatIntentResolver {
     // - Cursor placement is a NAVIGATIONAL concern
     // - They must be decoupled
     //
-    // This matches Apple Notes, Craft, Notion behavior.
+    // This matches modern note-taking apps (Craft, Notion) behavior.
     //
     // 🔒 SELECTION TYPE RESET LAW:
     // Cursor placement MUST happen in a separate transaction to prevent

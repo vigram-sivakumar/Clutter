@@ -23,8 +23,8 @@ export const BlockIdGenerator = Extension.create({
         key: new PluginKey('blockIdGenerator'),
 
         appendTransaction: (transactions, _oldState, newState) => {
-          // ✅ APPLE NOTES RULE: Block identity is assigned ONLY during user edits
-          // NEVER during hydration - blocks from DB already have IDs
+          // Block identity is assigned ONLY during user edits
+          // NEVER during hydration - blocks from state already have IDs
           const hasUserEdit = transactions.some((tr) => tr.getMeta('isUserEdit') === true);
           
           // Hard block: ONLY run on explicit user edits

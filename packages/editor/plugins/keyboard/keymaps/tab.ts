@@ -1,9 +1,7 @@
 /**
  * Tab Keymap - Pure ProseMirror structural indentation
  *
- * Apple Notes Architecture:
- * - No intents, no resolver, no engine
- * - Direct ProseMirror transaction dispatch
+ * Direct ProseMirror transaction dispatch (no intents, no resolver, no engine)
  * - Tab changes indent attribute on current block AND its visual subtree
  *
  * Visual Subtree:

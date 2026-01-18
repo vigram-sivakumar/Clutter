@@ -184,7 +184,7 @@ export class KeyboardEngine {
       //   - Cursor to disappear
       //   - Selection to drift
       //
-      // This matches Apple Notes, Craft, Notion, Workflowy.
+      // This matches modern note-taking apps (Craft, Notion, Workflowy).
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       if (intents.length > 0) {
         if (allSucceeded) {

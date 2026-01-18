@@ -11,7 +11,7 @@
  * the outermost element for TipTap keyboard events to work properly.
  */
 
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { typography, spacing } from '../tokens';
@@ -32,7 +32,7 @@ export function ParagraphBlock({
   // 🔒 EPHEMERAL BLOCK TOLERANCE
   // Paragraphs without blockId are ephemeral (mid-transaction state)
   // BlockIdGenerator assigns blockId after user input transactions complete
-  // Render must be tolerant - invariants enforce at persistence boundary only
+  // Render must be tolerant - invariants enforced after transaction completion
   const blockId = node.attrs.blockId;
   const isEphemeral = !blockId;
 

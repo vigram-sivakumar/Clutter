@@ -2,7 +2,7 @@
  * EditorProvider - Injects dependencies into editor
  * 
  * This component is the boundary between:
- * - App (owns state, persistence, domain logic)
+ * - App (owns state, storage, domain logic)
  * - Editor (behavioral engine, no state ownership)
  * 
  * The app provides implementations through props.

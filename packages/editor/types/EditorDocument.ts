@@ -18,7 +18,7 @@
  * Wraps TipTap JSON with versioning for:
  * - Schema migrations
  * - Future metadata
- * - Editor independence from persistence
+ * - Editor independence from app state
  */
 export interface EditorDocument {
   /** Schema version for migrations */
@@ -79,9 +79,9 @@ export type TipTapMark = {
 };
 
 /**
- * Serialized format for persistence
+ * Serialized format for storage
  * 
- * This is what gets stored in the database.
+ * This is what gets stored in app state.
  * Identical to EditorDocument but semantically distinct.
  */
 export type SerializedEditorDocument = {

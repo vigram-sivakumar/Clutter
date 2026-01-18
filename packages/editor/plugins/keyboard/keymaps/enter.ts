@@ -1,9 +1,7 @@
 /**
  * Enter Keymap - Pure ProseMirror structural block creation
  *
- * Apple Notes Architecture:
- * - No intents, no resolver, no engine
- * - Direct ProseMirror transaction dispatch
+ * Direct ProseMirror transaction dispatch (no intents, no resolver, no engine)
  * - Enter creates blocks based on cursor position and hierarchy
  *
  * Phase 2 Implementation (Complete):
@@ -73,7 +71,7 @@ function dispatchUserEdit(view: any, tr: any): void {
  * Create clean block attributes for new blocks
  * Whitelists only essential attributes, preventing attr leakage (e.g., collapsed)
  *
- * ⚠️ APPLE NOTES RULE: Do NOT assign blockId here
+ * ⚠️ RULE: Do NOT assign blockId here
  * blockId is assigned ONLY when cursor enters the block (lazy assignment)
  *
  * @param node - Source node to copy attrs from

@@ -1,9 +1,7 @@
 /**
  * Backspace Keymap - Pure ProseMirror backspace behavior
  *
- * Apple Notes Architecture:
- * - No intents, no resolver, no engine
- * - Direct ProseMirror transaction dispatch
+ * Direct ProseMirror transaction dispatch (no intents, no resolver, no engine)
  * - Backspace at start of indented block reduces indent
  * - Otherwise, fallback to default ProseMirror behavior
  */

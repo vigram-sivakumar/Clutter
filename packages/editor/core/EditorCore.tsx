@@ -73,14 +73,11 @@ import Gapcursor from '@tiptap/extension-gapcursor';
 import History from '@tiptap/extension-history';
 import { MarkdownShortcuts } from '../plugins/MarkdownShortcuts';
 
-// Keyboard plugins (enabled for Apple Notes architecture)
+// Keyboard plugins
 import { BackspaceHandler } from '../plugins/BackspaceHandler';
 import { TabHandler } from '../plugins/TabHandler';
 import { KeyboardShortcuts } from '../plugins/KeyboardShortcuts';
 import { BlockIdGenerator } from '../extensions/BlockIdGenerator';
-
-// Block-level persistence (Apple Notes architecture)
-// Persistence removed - local-only mode
 
 // All plugins enabled (except UndoRedo - using TipTap History instead)
 import { UserInputMarker } from '../plugins/UserInputMarker';
@@ -164,7 +161,7 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
     
     const activeNoteIdRef = useRef<string | null>(null);
     const prevDocRef = useRef<any>(null);
-    // ✅ APPLE NOTES: Hard lock to prevent ALL mutations during content loading
+    // Hard lock to prevent ALL mutations during content loading
     const isHydratingRef = useRef<boolean>(false);
 
     // Create editor instance
@@ -277,20 +274,18 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
         },
       },
       onUpdate: ({ editor, transaction }) => {
-        // 🔒 APPLE NOTES: ABSOLUTE HARD LOCK - No mutations during hydration
+        // ABSOLUTE HARD LOCK - No mutations during hydration
         if (isHydratingRef.current) return;
         
         // 🔒 Only persist user edits (authoritative signal from UserInputMarker)
         if (transaction.getMeta('isUserEdit') !== true) return;
         if (!onChange) return;
 
-        // Persistence removed - local-only mode
         prevDocRef.current = editor.state.doc;
         onChange(editor.getJSON());
       },
       onSelectionUpdate: ({ editor }) => {
-        // ✅ APPLE NOTES RULE: Lazy blockId assignment
-        // Only assign blockId when cursor enters a block
+        // Lazy blockId assignment: Only assign blockId when cursor enters a block
         // This prevents premature ID generation for helper/scaffolding blocks
         
         const { selection } = editor.state;
@@ -321,17 +316,17 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
           editor.view.dispatch(tr);
         }
       },
-    }, [noteId]); // ✅ APPLE NOTES: Recreate editor when note changes
+    }, [noteId]); // Recreate editor when note changes
 
     // Reset refs when editor recreates for new note
     useEffect(() => {
       if (!editor) return;
-      // ✅ APPLE NOTES: Reset refs when editor recreates for new note
+      // Reset refs when editor recreates for new note
       activeNoteIdRef.current = null;
       prevDocRef.current = null;
     }, [editor]);
 
-    // ✅ APPLE NOTES: Destroy editor on unmount to prevent state leaks
+    // Destroy editor on unmount to prevent state leaks
     useEffect(() => {
       return () => {
         if (editor) {
@@ -432,7 +427,7 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
 
       activeNoteIdRef.current = noteId;
       
-      // ✅ APPLE NOTES: HARD LOCK - Prevent ALL mutations during load
+      // HARD LOCK - Prevent ALL mutations during load
       isHydratingRef.current = true;
 
       // Parse JSON string to object
@@ -440,7 +435,7 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
         ? JSON.parse(incomingContent) 
         : incomingContent;
       
-      // ✅ APPLE NOTES: Use setContent with emitUpdate: false
+      // Use setContent with emitUpdate: false
       // This treats content as authoritative and prevents ProseMirror from normalizing away empty text nodes
       // The false parameter means "don't trigger update event" - critical for hydration
       try {
@@ -462,7 +457,7 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
       // ✅ Set baseline immediately after hydration (not after first edit)
       prevDocRef.current = editor.state.doc;
 
-      // ✅ APPLE NOTES: Release lock after current frame completes
+      // Release lock after current frame completes
       // This ensures all synchronous ProseMirror mutations are done
       requestAnimationFrame(() => {
         isHydratingRef.current = false;

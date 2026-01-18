@@ -1,13 +1,9 @@
 /**
  * KeyboardShortcuts Plugin - Centralized structural keyboard shortcuts
  *
- * Apple Notes Architecture:
- * - Direct key → handler wiring
- * - No intents, no resolver, no engine
+ * Direct key → handler wiring (no intents, no resolver, no engine)
  * - Handlers return boolean: true = consumed, false = fallback
- *
- * After Apple Notes migration, all structural keyboard logic uses direct
- * ProseMirror transactions instead of the intent/resolver system.
+ * - All structural keyboard logic uses direct ProseMirror transactions
  */
 
 import { Extension } from '@tiptap/core';
