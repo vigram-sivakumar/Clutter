@@ -415,9 +415,7 @@ export const TaskView = ({
       {/* Today Section */}
       <SidebarSection
         title={todaySectionTitle}
-        titleColor={
-          todayTasks.length > 0 ? colors.semantic.calendarAccent : undefined
-        }
+        titleColor={colors.semantic.calendarAccent} // Always highlight "Today" date
         isCollapsed={taskTodayCollapsed}
         onToggle={() => setTaskTodayCollapsed(!taskTodayCollapsed)}
         isToggleDisabled={todayTasks.length === 0 && taskTodayCollapsed} // Only disable when empty AND collapsed
