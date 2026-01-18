@@ -5,13 +5,12 @@ import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   // StrictMode disabled for desktop app - causes race conditions with database initialization
-    <HashRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
-      <App />
-    </HashRouter>
+  <HashRouter
+    future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    }}
+  >
+    <App />
+  </HashRouter>
 );
-

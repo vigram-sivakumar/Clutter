@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -10,22 +11,20 @@ export default defineConfig({
       '@clutter/ui': path.resolve(__dirname, '../../packages/ui/src'),
     },
   },
+  // Reduce console noise
+  clearScreen: false,
+  logLevel: 'warn',
+  // Tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 3000,
+    port: 1420,
     strictPort: true,
-    open: false,
-    hmr: {
-      overlay: true,
+    watch: {
+      // Tell Vite to ignore watching `src-tauri`
+      ignored: ['**/src-tauri/**'],
     },
-  },
-  optimizeDeps: {
-    // IMPORTANT: Exclude workspace packages so they use the alias (source files)
-    // instead of being pre-bundled from their dist folder
-    exclude: ['@clutter/ui', '@clutter/shared'],
   },
   build: {
     outDir: 'dist',
     sourcemap: true,
   },
 });
-

@@ -7,7 +7,7 @@ function App() {
   const createNote = useNotesStore((state) => state.createNote);
   const setCurrentNoteId = useNotesStore((state) => state.setCurrentNoteId);
   const notes = useNotesStore((state) => state.notes);
-  
+
   // Seed with one empty note on mount (dev convenience)
   useEffect(() => {
     if (notes.length === 0) {
@@ -17,11 +17,18 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
   return (
     <ThemeProvider>
       <Routes>
-        <Route path="/" element={<NotesContainer isInitialized={true}><></></NotesContainer>} />
+        <Route
+          path="/"
+          element={
+            <NotesContainer isInitialized={true}>
+              <></>
+            </NotesContainer>
+          }
+        />
       </Routes>
     </ThemeProvider>
   );
