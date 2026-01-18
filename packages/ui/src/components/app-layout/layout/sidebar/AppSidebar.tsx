@@ -228,10 +228,7 @@ export const AppSidebar = ({
         const newToday = new Date();
         newToday.setHours(0, 0, 0, 0); // Normalize to start of day
 
-        console.log(
-          '📅 Day changed! Updating calendar to',
-          newToday.toLocaleDateString()
-        );
+        
 
         // Update selected date to today
         setSelectedDate(newToday);
@@ -655,11 +652,7 @@ export const AppSidebar = ({
     getItemId: (note) => note.id,
     onSingleSelect: (noteId) => {
       // 🔍 DIAGNOSTIC: Track sidebar note selection
-      console.log('📌 Sidebar click', {
-        noteId: noteId,
-        noteTitle: visibleNotes.find(n => n.id === noteId)?.title,
-        timestamp: new Date().toISOString(),
-      });
+      
       
       setCurrentNoteId(noteId);
       onNoteClickFromSidebar?.();
@@ -1801,7 +1794,7 @@ export const AppSidebar = ({
 
   const handleDeleteTag = useCallback(
     (tag: string) => {
-      console.log('🗑️ [DEBUG] handleDeleteTag called from sidebar:', tag);
+      
 
       // Soft delete the tag using the store's deleteTag function
       const { deleteTag } = useTagsStore.getState();

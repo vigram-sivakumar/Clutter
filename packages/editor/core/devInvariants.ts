@@ -39,14 +39,7 @@ export function warnIfNodeViewMutates(
     return;
   }
 
-  console.warn(
-    `[Invariant] NodeView mutation during structural delete`,
-    {
-      source,
-      detail,
-      hint: 'View is asserting authority during delete. This can cause PM selection reconciliation issues.',
-    }
-  );
+  // NodeView mutation during structural delete
 }
 
 /**
@@ -73,14 +66,6 @@ export function warnIfNodeSelectionResurrected(editor: any) {
   const { NodeSelection } = require('@tiptap/pm/state');
 
   if (editor.state.selection instanceof NodeSelection) {
-    console.warn(
-      `[Invariant] NodeSelection detected after structural delete`,
-      {
-        selection: editor.state.selection,
-        from: editor.state.selection.from,
-        to: editor.state.selection.to,
-        hint: 'PM is re-inferring NodeSelection from DOM. This violates the Selection Authority Law.',
-      }
-    );
+    // NodeSelection detected after structural delete
   }
 }

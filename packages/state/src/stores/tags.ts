@@ -204,9 +204,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
     const existing = get().tagMetadata[key];
 
     if (!existing) {
-      console.warn(
-        `⚠️ Tag "${tagName}" not found in metadata - creating it for soft delete`
-      );
       // Create metadata entry if it doesn't exist
       get().upsertTagMetadata(tagName, '', true, false, undefined);
     }
@@ -288,12 +285,10 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
     const existing = get().tagMetadata[key];
 
     if (!existing) {
-      console.warn(`⚠️ Tag "${tagName}" not found in metadata`);
       return;
     }
 
     if (!existing.deletedAt) {
-      console.warn(`⚠️ Tag "${tagName}" is not deleted`);
       return;
     }
 

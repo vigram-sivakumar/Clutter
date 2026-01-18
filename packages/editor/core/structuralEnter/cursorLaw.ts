@@ -120,16 +120,6 @@ export function resolveStructuralEnter(
   // 🔒 RULE 2: CHILD-FIRST PREFERENCE (hierarchy-preserving)
   // If cursor is at end AND block has indented children, create child (not sibling)
 
-  // 🔍 SURGICAL DIAGNOSTIC (temporary - remove after verification)
-  if (process.env.NODE_ENV !== 'production' && atEnd) {
-    console.log('[ENTER DECISION]', {
-      blockId: blockId?.slice(0, 8) || 'undefined',
-      blockType,
-      hasIndentedChildren: hasIndentedChildren(context),
-      atEnd,
-    });
-  }
-
   if (atEnd && canCreateChild(context)) {
     return {
       intent: { kind: 'create-child' },

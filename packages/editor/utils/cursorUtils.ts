@@ -49,17 +49,9 @@ export function placeCursorAtBlockStart(
         // pos = start of block (boundary)
         // pos + 1 = inside inline content (safe for TextSelection)
         cursorPos = pos + 1;
-        console.log('[Cursor] Placed at block start', {
-          blockId: blockId.slice(0, 8),
-          blockType,
-          pos: cursorPos,
-        });
+        
       } else {
-        console.error('[Cursor][INVARIANT VIOLATION] Block is not a textblock', {
-          blockId: blockId.slice(0, 8),
-          blockType,
-          isTextblock: node.isTextblock,
-        });
+        
       }
       return false; // Stop searching
     }
@@ -116,18 +108,9 @@ export function placeCursorAtBlockEnd(
         // pos + 1 = start of inline content
         // pos + 1 + content.size = end of inline content
         cursorPos = pos + 1 + node.content.size;
-        console.log('[Cursor] Placed at block end', {
-          blockId: blockId.slice(0, 8),
-          blockType,
-          pos: cursorPos,
-          contentSize: node.content.size,
-        });
+        
       } else {
-        console.error('[Cursor][INVARIANT VIOLATION] Block is not a textblock', {
-          blockId: blockId.slice(0, 8),
-          blockType,
-          isTextblock: node.isTextblock,
-        });
+        
       }
       return false; // Stop searching
     }
@@ -178,7 +161,7 @@ export function placeCursorAtSafePosition(doc: PMNode): Selection {
   
   if (firstTextblockPos === null) {
     // No textblocks found - use document start as absolute fallback
-    console.warn('[Cursor] No textblocks found, using doc start');
+    
     firstTextblockPos = 1;
   }
   

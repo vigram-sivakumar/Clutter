@@ -490,21 +490,21 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log('🏷️ Tag button clicked');
+              
               
               // Get selected text
               const { state, view } = editor;
               const { from, to, $from } = state.selection;
               const selectedText = state.doc.textBetween(from, to).trim();
-              console.log('Selected text:', selectedText);
+              
               
               if (selectedText) {
                 const depth = $from.depth;
-                console.log('Block depth:', depth, 'Node:', $from.node(depth).type.name);
+                
                 
                 // Don't allow tagging at document level
                 if (depth === 0) {
-                  console.log('❌ Cannot tag at document level');
+                  
                   return;
                 }
                 
@@ -515,16 +515,16 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
                   // Tag was added, delete the selected text
                   tr.delete(from, to);
                   
-                  console.log('✅ Dispatching transaction with new tag:', selectedText);
+                  
                   
                   // Dispatch transaction
                   view.dispatch(tr);
                   editor.commands.focus();
                 } else {
-                  console.log('⚠️ Tag already exists, not adding');
+                  
                 }
               } else {
-                console.log('❌ No text selected');
+                
               }
             }}
             icon={<Tag />}

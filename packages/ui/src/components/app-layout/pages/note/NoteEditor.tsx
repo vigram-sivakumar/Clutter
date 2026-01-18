@@ -129,9 +129,9 @@ export const NoteEditor = ({
 
   // 🔍 DIAGNOSTIC: Track component lifecycle (MOUNT/UNMOUNT)
   useEffect(() => {
-    console.log('🟢 NoteEditor MOUNT');
+    
     return () => {
-      console.error('🔴 NoteEditor UNMOUNT');
+      
     };
   }, []);
 
@@ -181,28 +181,15 @@ export const NoteEditor = ({
 
   // Track note switches for UI transitions
   useEffect(() => {
-    console.log('🧭 NOTE SESSION START', {
-      noteId: currentNoteId,
-      timestamp: Date.now(),
-    });
+    
   }, [currentNoteId]);
 
   // 🔍 DIAGNOSTIC: Note ID Invariant Check (MOVED HERE - after currentNote is defined)
-  console.log('🧭 NOTE ID INVARIANT CHECK', {
-    routeNoteId: currentNoteId,
-    stateNoteId: currentNote?.id,
-    stateTitle: currentNote?.title,
-    timestamp: Date.now(),
-  });
+  
 
   // 🚨 ASSERTION: Detect split-brain state
   if (currentNote && currentNoteId && currentNote.id !== currentNoteId) {
-    console.error('🚨 NOTE ID MISMATCH - SPLIT BRAIN STATE DETECTED', {
-      routeNoteId: currentNoteId,
-      stateNoteId: currentNote.id,
-      stateTitle: currentNote.title,
-      stackTrace: new Error().stack,
-    });
+    
   }
 
   // Local state for UI (derived from currentNote)
@@ -272,11 +259,7 @@ export const NoteEditor = ({
   const folderPathIds = useBreadcrumbFolderIds(mainView, currentNote);
 
   // 🔍 DIAGNOSTIC: Track breadcrumb note identity
-  console.log('🧭 Breadcrumbs calculated', {
-    noteId: currentNote?.id,
-    title: currentNote?.title,
-    breadcrumbsCount: breadcrumbs?.length,
-  });
+  
 
   // Restore last viewed note or open today's daily note on first load (only in editor mode)
   useEffect(() => {
@@ -1908,12 +1891,7 @@ export const NoteEditor = ({
                   autoFocus={false}
                   onReady={() => {
                     // 🔍 DIAGNOSTIC: Verify noteId consistency
-                    console.log('[NOTE ID DIAGNOSTIC]', {
-                      currentNoteId: currentNoteId,
-                      currentNoteDbId: currentNote?.id,
-                      match: currentNoteId === currentNote?.id,
-                      timestamp: new Date().toISOString(),
-                    });
+                    
                   }}
                   onChange={(value) => {
                     // Save content directly to state (synchronous, local-only)

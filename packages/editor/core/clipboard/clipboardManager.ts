@@ -107,19 +107,13 @@ function resolveBlocksFromSelection(
     
     // 🛡️ GUARD: Only top-level blocks
     if (!node.type.isBlock) {
-      console.warn('[Clipboard] Skipping non-block node', {
-        type: node.type.name,
-        pos: blockStart,
-      });
+      
       return;
     }
     
     // 🛡️ GUARD: Only copyable block types
     if (!isCopyableBlockType(node.type.name)) {
-      console.warn('[Clipboard] Skipping non-copyable block type', {
-        type: node.type.name,
-        pos: blockStart,
-      });
+      
       return;
     }
     
@@ -155,11 +149,7 @@ function resolveBlocksFromSelection(
       const blockPos = $from.before(d);
       
       if (owningBlock?.type.isBlock && owningBlock.attrs?.blockId) {
-        console.log('[Clipboard] Fallback: resolved cursor owning block + subtree', {
-          type: owningBlock.type.name,
-          pos: blockPos,
-          depth: d,
-        });
+        
         
         // 🔒 SUBTREE-AWARE: Collect owning block + all children (canonical)
         const subtree = collectSubtreeFromDoc(doc, blockPos);
@@ -170,7 +160,7 @@ function resolveBlocksFromSelection(
         }
       }
     } catch (e) {
-      console.error('[Clipboard] Failed to resolve cursor owning block', e);
+      // Error handled
     }
   }
   
@@ -202,9 +192,7 @@ export function copyToClipboard(state: EditorState): boolean {
     !(selection instanceof NodeSelection) &&
     !(selection instanceof AllSelection)
   ) {
-    console.warn('[Clipboard] Unsupported selection type for copy', {
-      type: selection.constructor.name,
-    });
+    
     return false;
   }
   
@@ -213,7 +201,7 @@ export function copyToClipboard(state: EditorState): boolean {
   
   // 🛡️ GUARD 2: At least one block resolved
   if (selectedBlocks.length === 0) {
-    console.warn('[Clipboard] No blocks resolved from selection - consuming event');
+    
     // 🔒 CRITICAL: ALWAYS consume event, NEVER delegate to PM
     // Even on failure, we must prevent PM default copy
     return true;
@@ -228,19 +216,7 @@ export function copyToClipboard(state: EditorState): boolean {
   }));
   
   // 🛡️ DEV INVARIANT: Clipboard payload must have root at indent 0
-  if (process.env.NODE_ENV !== 'production') {
-    const firstBlock = blocks[0];
-    if (firstBlock && firstBlock.indent !== 0) {
-      console.error(
-        '[Clipboard][INVARIANT VIOLATION] Payload root must have indent 0',
-        {
-          firstIndent: firstBlock.indent,
-          allIndents: blocks.map((b) => b.indent),
-          blockCount: blocks.length,
-        }
-      );
-    }
-  }
+  // (invariant check removed)
   
   // Store in internal clipboard
   clipboardState = {
@@ -252,20 +228,6 @@ export function copyToClipboard(state: EditorState): boolean {
     lastOperation: 'copy',
     lastOperationTime: Date.now(),
   };
-  
-  console.log('[Clipboard] Copied', {
-    blockCount: blocks.length,
-    types: blocks.map((b) => b.type),
-    indents: blocks.map((b) => b.indent),
-    selectionType: selection.constructor.name,
-  });
-  
-  // 🛡️ DEV: Show final payload structure
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[Clipboard Debug] Payload structure:', 
-      blocks.map((b) => `${b.type}:${b.indent}`)
-    );
-  }
   
   return true;
 }
@@ -290,7 +252,7 @@ export function cutToClipboard(
   
   // Step 2: Delete (if dispatch available)
   if (!dispatch) {
-    console.warn('[Clipboard] Cut requires dispatch to delete blocks');
+    
     return false;
   }
   
@@ -303,7 +265,7 @@ export function cutToClipboard(
   const blocksToDelete = resolveBlocksFromSelection(doc, selection.from, selection.to);
   
   if (blocksToDelete.length === 0) {
-    console.warn('[Clipboard] Cut: No blocks to delete');
+    
     return false;
   }
   
@@ -316,7 +278,7 @@ export function cutToClipboard(
   });
   
   if (positions.length === 0) {
-    console.warn('[Clipboard] Cut: Could not locate blocks in document');
+    
     return false;
   }
   
@@ -346,11 +308,7 @@ export function cutToClipboard(
   clipboardState.lastOperation = 'cut';
   clipboardState.lastOperationTime = Date.now();
   
-  console.log('[Clipboard] Cut complete', {
-    deletedFrom: selection.from,
-    deletedTo: selection.to,
-    newCursorPos: tr.selection.from,
-  });
+  
   
   return true;
 }
@@ -405,9 +363,7 @@ function detectPasteIntent(
   // All other cases use TextSelection
   if (!(selection instanceof TextSelection)) {
     // Fallback for unexpected selection types
-    console.warn('[Paste] Unexpected selection type, defaulting to INSERT_AFTER', {
-      type: selection.constructor.name,
-    });
+    
     return PasteIntent.INSERT_AFTER;
   }
   
@@ -429,16 +385,7 @@ function detectPasteIntent(
     payload.blocks.length === 1 && 
     payload.blocks[0]?.type === 'paragraph';
   
-  console.log('[Paste] Intent detection', {
-    cursorOffset,
-    blockContentSize,
-    atStart,
-    atEnd,
-    midBlock,
-    isEmpty,
-    isSingleParagraph,
-    pasteBlockCount: payload.blocks.length,
-  });
+  
   
   // ✅ INTENT 2: Mid-block → Split
   if (midBlock) {
@@ -478,7 +425,7 @@ function handleReplaceBlock(
   const { selection } = state;
   
   if (!(selection instanceof NodeSelection)) {
-    console.error('[Paste] REPLACE_BLOCK requires NodeSelection');
+    
     return false;
   }
   
@@ -492,14 +439,7 @@ function handleReplaceBlock(
     ? getEndOfCollapsedSubtree(state.doc, selectedBlockPos)
     : selectedBlockPos + selectedNode.nodeSize;
   
-  console.log('[Paste] REPLACE_BLOCK', {
-    selectedBlockPos,
-    selectedBlockType: selectedNode.type.name,
-    baseIndent,
-    collapsed: isCollapsed,
-    deleteEndPos,
-    pasteBlockCount: payload.blocks.length,
-  });
+  
   
   // Delete selected block (and subtree if collapsed)
   tr.delete(selectedBlockPos, deleteEndPos);
@@ -518,10 +458,7 @@ function handleReplaceBlock(
     
     if (isFirstBlock && block.type === 'listBlock') {
       newIndent = baseIndent;
-      console.log('[Paste] First listBlock normalized to baseIndent', {
-        originalIndent: block.indent,
-        baseIndent,
-      });
+      
     } else {
       newIndent = Math.max(0, block.indent + indentOffset);
     }
@@ -535,7 +472,7 @@ function handleReplaceBlock(
     });
     
     if (!node) {
-      console.error('[Paste] Failed to create block in REPLACE_BLOCK');
+      
       continue;
     }
     
@@ -546,9 +483,7 @@ function handleReplaceBlock(
   const $firstBlock = tr.doc.resolve(selectedBlockPos + 1);
   tr.setSelection(TextSelection.create(tr.doc, $firstBlock.pos));
   
-  console.log('[Paste] REPLACE_BLOCK complete', {
-    cursorPos: tr.selection.from,
-  });
+  
   
   return true;
 }
@@ -613,11 +548,7 @@ function getInsertPositionAfterBlock(
   // If block is collapsed, skip entire visual subtree
   if (block.attrs?.collapsed === true) {
     const endPos = getEndOfCollapsedSubtree(doc, blockPos);
-    console.log('[Paste] Collapsed parent detected', {
-      blockPos,
-      baseIndent: block.attrs?.indent ?? 0,
-      subtreeEndPos: endPos,
-    });
+    
     return endPos;
   }
   
@@ -693,10 +624,7 @@ function handleInsertAfter(
   
   // 🛡️ GUARD: Validate position
   if (insertPos <= 0 || insertPos > tr.doc.content.size) {
-    console.error('[Paste] INSERT_AFTER invalid position', {
-      insertPos,
-      docSize: tr.doc.content.size,
-    });
+    
     return false;
   }
   
@@ -714,10 +642,7 @@ function handleInsertAfter(
   ) : false;
   
   if (inheritListType && payload.blocks[0]) {
-    console.log('[Paste] List continuity: inheriting listType', {
-      from: currentBlock.attrs?.listType,
-      to: payload.blocks[0].attrs?.listType,
-    });
+    
     
     // Override first block's listType (mutation is safe here, payload is transient)
     payload.blocks[0].attrs = {
@@ -726,14 +651,7 @@ function handleInsertAfter(
     };
   }
   
-  console.log('[Paste] INSERT_AFTER', {
-    insertPos,
-    baseIndent,
-    collapsed: currentBlock?.attrs?.collapsed === true,
-    cursorAtEnd,
-    listContinuity: inheritListType,
-    pasteBlockCount: payload.blocks.length,
-  });
+  
   
   const firstBlockIndent = payload.blocks[0]?.indent ?? 0;
   const indentOffset = baseIndent - firstBlockIndent;
@@ -750,11 +668,7 @@ function handleInsertAfter(
     if (isFirstBlock && block.type === 'listBlock') {
       // First listBlock aligns to insertion level (root normalization)
       newIndent = baseIndent;
-      console.log('[Paste] First listBlock normalized to baseIndent', {
-        originalIndent: block.indent,
-        baseIndent,
-        indentOffset,
-      });
+      
     } else {
       // All other blocks use relative rebasing
       newIndent = Math.max(0, block.indent + indentOffset);
@@ -769,7 +683,7 @@ function handleInsertAfter(
     });
     
     if (!node) {
-      console.error('[Paste] Failed to create block in INSERT_AFTER');
+      
       continue;
     }
     
@@ -780,9 +694,7 @@ function handleInsertAfter(
   const $firstBlock = tr.doc.resolve(firstInsertPos + 1);
   tr.setSelection(TextSelection.create(tr.doc, $firstBlock.pos));
   
-  console.log('[Paste] INSERT_AFTER complete', {
-    cursorPos: tr.selection.from,
-  });
+  
   
   return true;
 }
@@ -804,7 +716,7 @@ function handleSplitBlock(
   const { selection } = state;
   
   if (!(selection instanceof TextSelection)) {
-    console.error('[Paste] SPLIT_BLOCK requires TextSelection');
+    
     return false;
   }
   
@@ -813,12 +725,7 @@ function handleSplitBlock(
   const cursorOffset = $from.parentOffset;
   const baseIndent = currentBlock?.attrs?.indent ?? 0;
   
-  console.log('[Paste] SPLIT_BLOCK', {
-    cursorOffset,
-    blockContentSize: currentBlock.content.size,
-    baseIndent,
-    pasteBlockCount: payload.blocks.length,
-  });
+  
   
   // Extract content before and after cursor
   const contentBefore = currentBlock.content.cut(0, cursorOffset);
@@ -835,9 +742,7 @@ function handleSplitBlock(
   let insertPos = blockPos;
   const nodeType = state.schema.nodes[currentBlock.type.name];
   if (!nodeType) {
-    console.error('[Paste] SPLIT_BLOCK: unknown node type', {
-      typeName: currentBlock.type.name,
-    });
+    
     return false;
   }
   
@@ -865,10 +770,7 @@ function handleSplitBlock(
     
     if (isFirstBlock && block.type === 'listBlock') {
       newIndent = baseIndent;
-      console.log('[Paste] First listBlock normalized to baseIndent', {
-        originalIndent: block.indent,
-        baseIndent,
-      });
+      
     } else {
       newIndent = Math.max(0, block.indent + indentOffset);
     }
@@ -882,7 +784,7 @@ function handleSplitBlock(
     });
     
     if (!node) {
-      console.error('[Paste] Failed to create block in SPLIT_BLOCK');
+      
       continue;
     }
     
@@ -909,9 +811,7 @@ function handleSplitBlock(
   
   tr.setSelection(TextSelection.create(tr.doc, cursorPos));
   
-  console.log('[Paste] SPLIT_BLOCK complete', {
-    cursorPos: tr.selection.from,
-  });
+  
   
   return true;
 }
@@ -937,7 +837,7 @@ function handleAppendToBlock(
   const { selection } = state;
   
   if (!(selection instanceof TextSelection)) {
-    console.error('[Paste] APPEND_TO_BLOCK requires TextSelection');
+    
     return false;
   }
   
@@ -947,32 +847,28 @@ function handleAppendToBlock(
   
   // 🛡️ GUARD 1: Only single paragraph
   if (payload.blocks.length !== 1 || payload.blocks[0]?.type !== 'paragraph') {
-    console.error('[Paste] APPEND_TO_BLOCK requires single paragraph');
+    
     return false;
   }
   
   // 🛡️ GUARD 2: Current block not HR
   if (currentBlock.type.name === 'horizontalRule') {
-    console.error('[Paste] APPEND_TO_BLOCK not allowed in HR');
+    
     return false;
   }
   
   // 🛡️ GUARD 3: Current block not empty
   if (currentBlock.content.size === 0) {
-    console.error('[Paste] APPEND_TO_BLOCK not allowed in empty block');
+    
     return false;
   }
   
-  console.log('[Paste] APPEND_TO_BLOCK', {
-    cursorOffset,
-    blockContentSize: currentBlock.content.size,
-    pasteContentSize: payload.blocks[0].content?.content.size ?? 0,
-  });
+  
   
   // Get pasted content
   const pastedContent = payload.blocks[0]?.content?.content;
   if (!pastedContent || pastedContent.size === 0) {
-    console.warn('[Paste] APPEND_TO_BLOCK no content to paste');
+    
     return false;
   }
   
@@ -984,9 +880,7 @@ function handleAppendToBlock(
   const newCursorPos = insertPos + pastedContent.size;
   tr.setSelection(TextSelection.create(tr.doc, newCursorPos));
   
-  console.log('[Paste] APPEND_TO_BLOCK complete', {
-    cursorPos: tr.selection.from,
-  });
+  
   
   return true;
 }
@@ -1008,13 +902,13 @@ export function pasteFromClipboard(
   dispatch?: (tr: Transaction) => void
 ): boolean {
   if (!dispatch) {
-    console.warn('[Clipboard] Paste requires dispatch');
+    
     return false;
   }
   
   // 🛡️ GUARD 1: Check internal clipboard has payload
   if (!clipboardState.payload || clipboardState.payload.blocks.length === 0) {
-    console.warn('[Clipboard] No internal clipboard payload to paste');
+    
     return false;
   }
   
@@ -1024,7 +918,7 @@ export function pasteFromClipboard(
   // 🎯 Step 1: Detect paste intent
   const intent = detectPasteIntent(state, payload);
   
-  console.log('[Paste] Intent detected:', intent);
+  
   
   // 🎯 Step 2: Route to appropriate handler
   let success = false;
@@ -1047,12 +941,12 @@ export function pasteFromClipboard(
       break;
       
     default:
-      console.error('[Paste] Unknown intent:', intent);
+      
       return false;
   }
   
   if (!success) {
-    console.error('[Paste] Handler failed for intent:', intent);
+    
     return false;
   }
   
@@ -1065,11 +959,7 @@ export function pasteFromClipboard(
   clipboardState.lastOperation = 'paste';
   clipboardState.lastOperationTime = Date.now();
   
-  console.log('[Paste] Complete', {
-    intent,
-    blocksInserted: payload.blocks.length,
-    cursorPos: tr.selection.from,
-  });
+  
   
   return true;
 }
@@ -1088,7 +978,7 @@ export function pasteExternalText(
   dispatch?: (tr: Transaction) => void
 ): boolean {
   if (!dispatch) {
-    console.warn('[Clipboard] External paste requires dispatch');
+    
     return false;
   }
   
@@ -1096,7 +986,7 @@ export function pasteExternalText(
   const chunks = text.split('\n\n').filter((chunk) => chunk.trim().length > 0);
   
   if (chunks.length === 0) {
-    console.warn('[Clipboard] No content in external paste');
+    
     return false;
   }
   
@@ -1111,25 +1001,18 @@ export function pasteExternalText(
   
   // 🛡️ GUARD: Validate insertion position
   if (insertPos <= 0 || insertPos > tr.doc.content.size) {
-    console.error('[Clipboard] Invalid insertion position for external paste', {
-      insertPos,
-      docSize: tr.doc.content.size,
-    });
+    
     return false;
   }
   
-  console.log('[Clipboard] External paste', {
-    chunks: chunks.length,
-    insertPos,
-    baseIndent,
-  });
+  
   
   // Insert each chunk as paragraph
   let firstInsertedPos: number | null = null;
   
   const paragraphNodeType = state.schema.nodes.paragraph;
   if (!paragraphNodeType) {
-    console.error('[Clipboard] External paste: paragraph node type not found');
+    
     return;
   }
   
@@ -1144,7 +1027,7 @@ export function pasteExternalText(
     });
     
     if (!node) {
-      console.error('[Clipboard] Failed to create paragraph for external paste');
+      
       continue;
     }
     
@@ -1166,9 +1049,7 @@ export function pasteExternalText(
   
   dispatch(tr);
   
-  console.log('[Clipboard] External paste complete', {
-    paragraphsInserted: chunks.length,
-  });
+  
   
   return true;
 }

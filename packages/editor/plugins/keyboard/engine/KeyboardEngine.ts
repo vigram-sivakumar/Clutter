@@ -89,22 +89,18 @@ export class KeyboardEngine {
     fetch('http://127.0.0.1:7244/ingest/a7f9fa0e-3f72-4ff3-8c3a-792215d634cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'KeyboardEngine.ts:86',message:'KeyboardEngine.handle ENTRY',data:{key,hasResolver:!!this.resolver,rulesCount:this.rules.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C,D'})}).catch(()=>{});
     // #endregion
 
-    console.log(
-      `🔧 [KeyboardEngine] Checking ${this.rules.length} rules for ${key}`
-    );
+    
 
     for (const rule of this.rules) {
       // Check if rule applies
-      console.log(
-        `🔍 [KeyboardEngine] Evaluating rule: ${rule.id} (priority: ${rule.priority})`
-      );
+      
 
       if (!rule.when(ctx)) {
-        console.log(`   ⏭️  Skipped - condition not met`);
+        
         continue;
       }
 
-      console.log(`   ✓ Condition met - executing rule`);
+      
 
       // Execute rule - can return intent(s) or boolean (legacy)
       const result = rule.execute(ctx);
@@ -112,55 +108,50 @@ export class KeyboardEngine {
       // Handle legacy boolean return (for backwards compatibility during transition)
       if (typeof result === 'boolean') {
         if (result) {
-          console.log(`   ✅ Rule succeeded (legacy boolean): ${rule.id}`);
+          
           if (rule.stopPropagation !== false) {
-            console.log(`   🛑 Stopping propagation`);
+            
             return handled(undefined, `Legacy rule: ${rule.id}`);
           }
-          console.log(`   ⏩ Continuing to next rule (fallthrough)`);
+          
         } else {
-          console.log(`   ❌ Rule failed (legacy boolean): ${rule.id}`);
+          
         }
         continue;
       }
 
       // Handle intent-based return
       if (!result) {
-        console.log(`   ❌ Rule returned null: ${rule.id}`);
+        
         continue;
       }
 
       // Normalize to array of intents
       const intents = Array.isArray(result) ? result : [result];
 
-      console.log(`   🎯 Rule emitted ${intents.length} intent(s): ${rule.id}`);
+      
 
       // Route intents through resolver
       let allSucceeded = true;
       let failureReason: string | undefined;
 
       for (const intent of intents) {
-        console.log(`      → Intent: ${intent.type}`);
+        
 
         if (this.resolver) {
           // NEW: Route through IntentResolver
           const intentResult = this.resolver.resolve(intent);
 
           if (intentResult.success) {
-            console.log(`      ✅ Intent resolved: ${intent.type}`);
+            
           } else {
-            console.log(
-              `      ❌ Intent failed: ${intent.type}`,
-              intentResult.reason
-            );
+            
             allSucceeded = false;
             failureReason = intentResult.reason;
           }
         } else {
           // NO RESOLVER: Log warning but continue
-          console.warn(
-            `      ⚠️  No resolver set - intent not executed: ${intent.type}`
-          );
+          
           allSucceeded = false;
           failureReason = 'No resolver available';
         }
@@ -188,9 +179,9 @@ export class KeyboardEngine {
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       if (intents.length > 0) {
         if (allSucceeded) {
-          console.log(`   ✅ All intents succeeded: ${rule.id}`);
+          
           if (rule.stopPropagation !== false) {
-            console.log(`   🛑 Stopping propagation`);
+            
             return handled(intents[0].type, 'Success');
           }
         } else {
@@ -209,26 +200,22 @@ export class KeyboardEngine {
 
           if (isStructuralIntent) {
             // 🔒 STRUCTURAL INTENT: Consume key even on failure
-            console.log(
-              `   🛡️  Structural intent failed: ${rule.id} - consuming key (no fallback)`
-            );
+            
             return handled(
               firstIntent.type,
               `Structural intent blocked: ${failureReason || 'Intent failed'}`
             );
           } else {
             // 🔁 TEXT INTENT: Allow fallback
-            console.log(
-              `   ⚠️  Intent emitted but failed: ${rule.id} - allowing fallback`
-            );
+            
             return notHandled(failureReason || 'Intent failed');
           }
         }
-        console.log(`   ⏩ Continuing to next rule (fallthrough)`);
+        
       }
     }
 
-    console.log(`❌ [KeyboardEngine] No rule handled ${key}`);
+    
     return notHandled('No matching rule');
   }
 

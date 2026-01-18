@@ -158,27 +158,14 @@ function insertSiblingAbove(editor: Editor): boolean {
   const cursorPos = insertPos + 1;
   tr.setSelection(TextSelection.create(tr.doc, cursorPos));
 
-  console.log('[INSERT SIBLING ABOVE]', {
-    insertPos,
-    cursorPos,
-    nodeType: node.type.name,
-    indent: node.attrs.indent ?? 0,
-    newBlockId: newNode.attrs.blockId?.substring(0, 8),
-    isEmpty: node.content.size === 0,
-    selectionBefore: state.selection.from,
-    selectionAfter: cursorPos,
-  });
+  
 
   dispatchUserEdit(view, tr);
   
   // Verify cursor position after dispatch
   setTimeout(() => {
     const currentPos = editor.state.selection.from;
-    console.log('[CURSOR AFTER INSERT]', {
-      expected: cursorPos,
-      actual: currentPos,
-      matches: currentPos === cursorPos,
-    });
+    
   }, 0);
   
   return true;
@@ -205,27 +192,14 @@ function insertSiblingBelow(editor: Editor, indent: number): boolean {
   const cursorPos = insertPos + 1;
   tr.setSelection(TextSelection.create(tr.doc, cursorPos));
 
-  console.log('[INSERT SIBLING BELOW]', {
-    insertPos,
-    cursorPos,
-    nodeType: node.type.name,
-    indent,
-    newBlockId: newNode.attrs.blockId?.substring(0, 8),
-    isEmpty: node.content.size === 0,
-    selectionBefore: state.selection.from,
-    selectionAfter: cursorPos,
-  });
+  
 
   dispatchUserEdit(view, tr);
   
   // Verify cursor position after dispatch
   setTimeout(() => {
     const currentPos = editor.state.selection.from;
-    console.log('[CURSOR AFTER INSERT]', {
-      expected: cursorPos,
-      actual: currentPos,
-      matches: currentPos === cursorPos,
-    });
+    
   }, 0);
   
   return true;
@@ -426,12 +400,7 @@ export function handleEnter(editor: Editor): boolean {
   // 8️⃣ START OF BLOCK → insert sibling ABOVE
   // ─────────────────────────────────────────────
   if (atStart) {
-    console.log('[ENTER KEY] atStart - creating sibling ABOVE', {
-      isEmpty,
-      indent,
-      nodeType,
-      blockId: node.attrs.blockId?.substring(0, 8),
-    });
+    
     return insertSiblingAbove(editor);
   }
 
@@ -442,33 +411,25 @@ export function handleEnter(editor: Editor): boolean {
     const isToggle =
       node.type.name === 'listBlock' && node.attrs.listType === 'toggle';
 
-    console.log('[ENTER KEY] atEnd - checking children', {
-      isEmpty,
-      indent,
-      nodeType,
-      hasChildren,
-      isToggle,
-      isExpandedContainer,
-      blockId: node.attrs.blockId?.substring(0, 8),
-    });
+    
 
     // ✅ TOGGLE RULE:
     // Expanded toggles ALWAYS create a child
     if (isToggle && isExpandedContainer) {
-      console.log('[ENTER KEY] Creating child (toggle rule)');
+      
       return insertFirstChild(editor, indent);
     }
 
     // ✅ UNIVERSAL STRUCTURAL RULE:
     // Any block that already has children → create child
     if (hasChildren) {
-      console.log('[ENTER KEY] Creating child (has children)');
+      
       return insertFirstChild(editor, indent);
     }
 
     // ✅ DEFAULT:
     // No children → create sibling
-    console.log('[ENTER KEY] Creating sibling BELOW');
+    
     return insertSiblingBelow(editor, indent);
   }
 

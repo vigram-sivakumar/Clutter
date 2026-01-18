@@ -19,10 +19,10 @@ let failCount = 0;
 function assert(condition: boolean, message: string): void {
   testCount++;
   if (condition) {
-    console.log(`  ✅ ${message}`);
+    
     passCount++;
   } else {
-    console.log(`  ❌ FAILED: ${message}`);
+    
     failCount++;
   }
 }
@@ -37,13 +37,12 @@ function assertEqual(actual: any, expected: any, message: string): void {
 }
 
 function test(name: string, fn: () => void): void {
-  console.log(`\n📝 ${name}`);
+  
   try {
     fn();
   } catch (error) {
-    console.log(
-      `  ❌ ERROR: ${error instanceof Error ? error.message : String(error)}`
-    );
+      // Error handled
+    
     failCount++;
   }
 }
@@ -91,8 +90,8 @@ function addBlock(
 
 // ===== TESTS =====
 
-console.log('\n🧪 VERIFYING: engine.deleteBlock() - Child Promotion Primitive');
-console.log('='.repeat(70));
+
+
 
 // TEST 1: Delete Leaf Block (No Children)
 test('TEST 1: Delete leaf block with no children', () => {
@@ -415,17 +414,17 @@ test('EDGE CASE: Multiple undo/redo cycles (no corruption)', () => {
 
 // ===== SUMMARY =====
 
-console.log('\n' + '='.repeat(70));
-console.log(`\n📊 VERIFICATION SUMMARY:`);
-console.log(`   Total Assertions: ${testCount}`);
-console.log(`   ✅ Passed: ${passCount}`);
-console.log(`   ❌ Failed: ${failCount}`);
+
+
+
+
+
 
 if (failCount === 0) {
-  console.log(`\n🎉 ALL TESTS PASSED - Child Promotion Invariant verified!`);
-  console.log(`\n✅ Editor Law #8 implementation is CORRECT`);
+  
+  
   process.exit(0);
 } else {
-  console.log(`\n❌ SOME TESTS FAILED - See errors above`);
+  
   process.exit(1);
 }

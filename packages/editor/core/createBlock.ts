@@ -89,12 +89,6 @@ export function createBlock(
 
   // 🛡️ Position validation (same guard as enterOnSelectedBlock)
   if (insertPos <= 0 || insertPos > tr.doc.content.size) {
-    console.error('[createBlock] Invalid insert position', {
-      insertPos,
-      docSize: tr.doc.content.size,
-      type,
-      indent,
-    });
     return null;
   }
 
@@ -112,11 +106,7 @@ export function createBlock(
 
   // 🛡️ Verify indent was set correctly (same guard as enterOnSelectedBlock)
   if (node.attrs.indent !== indent) {
-    console.error('[createBlock] Indent mismatch', {
-      expected: indent,
-      actual: node.attrs.indent,
-      type,
-    });
+    // Indent mismatch detected
   }
 
   // Insert into transaction

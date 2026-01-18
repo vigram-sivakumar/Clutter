@@ -33,7 +33,7 @@ const MAX_INDENT_LEVEL = 4;
 
 function log(label: string, data?: any) {
   if (DEBUG) {
-    console.log(`[INDENT-PHASE2] ${label}`, data || '');
+    
   }
 }
 
@@ -647,30 +647,21 @@ export function insertParagraphAfterBlock(
   blockPos: number,
   blockNode: PMNode
 ): boolean {
-  console.log('📝 [insertParagraphAfterBlock] Starting paragraph insertion');
+  
 
   const { state } = editor;
   const paragraphType = state.schema.nodes.paragraph;
   if (!paragraphType) {
-    console.log('   ❌ No paragraph type in schema');
+    
     return false;
   }
 
   const { tr } = state;
   const afterBlock = blockPos + blockNode.nodeSize;
 
-  console.log('   📍 Position calculation:', {
-    blockPos,
-    blockNodeSize: blockNode.nodeSize,
-    afterBlock,
-    blockType: blockNode.type.name,
-  });
+  
 
-  console.log('   📍 Selection BEFORE transaction:', {
-    from: state.selection.from,
-    to: state.selection.to,
-    parent: state.selection.$from.parent.type.name,
-  });
+  
 
   // New paragraph is sibling (same parent and level)
   const newParagraph = paragraphType.create({
@@ -680,31 +671,23 @@ export function insertParagraphAfterBlock(
     parentToggleId: blockNode.attrs.parentToggleId || null,
   });
 
-  console.log('   ➕ Inserting paragraph at position:', afterBlock);
+  
   tr.insert(afterBlock, newParagraph);
 
   const targetPos = afterBlock + 1;
   const targetSelection = TextSelection.create(tr.doc, targetPos);
 
-  console.log('   🎯 Setting selection to:', {
-    targetPos,
-    selectionFrom: targetSelection.from,
-    selectionTo: targetSelection.to,
-  });
+  
 
   tr.setSelection(targetSelection);
 
-  console.log('   📤 Dispatching transaction...');
+  
   editor.view.dispatch(tr);
 
   // 🔍 Log selection AFTER dispatch (with requestAnimationFrame)
   requestAnimationFrame(() => {
     const sel = editor.state.selection;
-    console.log('   ✅ Transaction complete. Selection AFTER dispatch:', {
-      from: sel.from,
-      to: sel.to,
-      parent: sel.$from.parent.type.name,
-    });
+    
   });
 
   return true;

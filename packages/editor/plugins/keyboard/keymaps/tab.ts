@@ -119,20 +119,11 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
     const maxAllowedIndent = prevBlock ? prevBlock.indent + 1 : 0;
 
     if (newIndent > maxAllowedIndent) {
-      console.log('[Tab] Indent blocked - cannot skip levels', {
-        current: baseIndent,
-        attempted: newIndent,
-        maxAllowed: maxAllowedIndent,
-      });
       return true; // Consume key but don't change anything
     }
 
     // Hard cap at MAX_INDENT
     if (newIndent > MAX_INDENT) {
-      console.log('[Tab] Indent blocked - max level reached', {
-        current: baseIndent,
-        max: MAX_INDENT,
-      });
       return true; // Consume key
     }
   } else {
@@ -154,17 +145,6 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
       break; // Stop at first block not deeper than base
     }
   }
-
-  console.log('[Tab] Range operation', {
-    direction: isShift ? 'outdent' : 'indent',
-    baseIndent,
-    newIndent,
-    affectedCount: affectedRange.length,
-    affectedBlocks: affectedRange.map((i) => ({
-      indent: blocks[i].indent,
-      newIndent: blocks[i].indent + delta,
-    })),
-  });
 
   // RANGE MUTATION: Apply indent delta to all affected blocks
   for (const index of affectedRange) {
@@ -204,12 +184,6 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
         tr.setNodeMarkup(parentBlock.pos, undefined, {
           ...parentBlock.node.attrs,
           collapsed: false,
-        });
-
-        console.log('[Tab] Auto-expanded collapsed parent', {
-          parentType: parentBlock.node.type.name,
-          parentIndent: parentBlock.indent,
-          childIndent: newIndent,
         });
       }
     }

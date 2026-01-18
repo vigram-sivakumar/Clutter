@@ -76,11 +76,6 @@ export class EditorEngine {
     this.cursor = null;
     this.modeManager = new ModeManager();
     this.undoController = new UndoController(this);
-
-    // Log mode changes
-    this.modeManager.onModeChange((newMode, oldMode) => {
-      console.log(`[Engine] Mode: ${oldMode} → ${newMode}`);
-    });
   }
 
   // ===== MODE MANAGEMENT =====
@@ -122,8 +117,6 @@ export class EditorEngine {
    * - Triggers change listeners
    */
   dispatch(command: EditorCommand): void {
-    console.log(`[Engine] Dispatch: ${command.description}`);
-
     // Apply the command
     command.apply(this);
 
@@ -438,7 +431,6 @@ export class EditorEngine {
     // Step 1: Get block to delete
     const block = this.getBlock(blockId);
     if (!block) {
-      console.warn(`[Engine.deleteBlock] Block ${blockId} not found`);
       return null;
     }
 
@@ -448,16 +440,12 @@ export class EditorEngine {
     // Step 3: Get block's parent
     const parent = this.getParent(blockId);
     if (!parent) {
-      console.warn(`[Engine.deleteBlock] Block ${blockId} has no parent`);
       return null;
     }
 
     // Step 4: Get block's index in parent.children
     const indexInParent = parent.children.indexOf(blockId);
     if (indexInParent === -1) {
-      console.warn(
-        `[Engine.deleteBlock] Block ${blockId} not found in parent.children`
-      );
       return null;
     }
 
@@ -486,10 +474,6 @@ export class EditorEngine {
 
     // Step 9: Delete block from tree
     delete this.tree.nodes[blockId];
-
-    console.log(
-      `[Engine.deleteBlock] ✅ Deleted ${blockId}, promoted ${children.length} children`
-    );
 
     return deletionMetadata;
   }

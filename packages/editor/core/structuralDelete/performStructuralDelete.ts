@@ -33,9 +33,6 @@ export function performStructuralDelete({
   const resolver = editor._resolver;
 
   if (!engine || !resolver) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[StructuralDelete] Missing engine or resolver');
-    }
     return false;
   }
 
@@ -68,7 +65,6 @@ export function performStructuralDelete({
       });
 
       if (!result || result.success === false) {
-        console.warn('[StructuralDelete] Delete failed for block:', blockId);
         continue;
       }
 
@@ -87,7 +83,6 @@ export function performStructuralDelete({
     const cursorTarget = lastResult.cursorTarget;
 
     if (!cursorTarget) {
-      console.warn('[StructuralDelete] No cursor target returned from resolver');
       return true; // Delete succeeded, but no cursor to place
     }
 
@@ -128,17 +123,9 @@ function applyDeletionCursor(
       const selection = state.selection.constructor.create(state.doc, pos);
       tr.setSelection(selection);
       view.dispatch(tr);
-      
-      console.log('[StructuralDelete] Cursor placed:', {
-        blockId: target.blockId.slice(0, 8),
-        placement: target.placement,
-        pos,
-      });
     } catch (e) {
-      console.warn('[StructuralDelete] Failed to place cursor:', e);
+      // Failed to place cursor
     }
-  } else {
-    console.warn('[StructuralDelete] Could not find position for block:', target.blockId);
   }
 }
 

@@ -307,12 +307,6 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
           tr.setMeta('isUserEdit', false);
           tr.setMeta('addToHistory', false);
           
-          console.log('[LAZY BLOCKID]', {
-            nodeType: node.type.name,
-            blockId: tr.doc.nodeAt(pos)?.attrs.blockId?.substring(0, 8),
-            reason: 'Cursor entered block without ID',
-          });
-          
           editor.view.dispatch(tr);
         }
       },
@@ -441,17 +435,11 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
       try {
         const result = editor.commands.setContent(contentObj, false);
         if (!result) {
-          console.error('[HYDRATION] ❌ setContent returned false', {
-            noteId,
-            contentPreview: JSON.stringify(contentObj).substring(0, 200),
-          });
+          // setContent returned false
         }
       } catch (error) {
-        console.error('[HYDRATION] ❌ setContent threw error', {
-          noteId,
-          error,
-          contentPreview: JSON.stringify(contentObj).substring(0, 200),
-        });
+      // Error handled
+        // setContent threw error
       }
 
       // ✅ Set baseline immediately after hydration (not after first edit)

@@ -204,18 +204,18 @@ export const HorizontalRule = Node.create({
           const engine = getEngine(this.editor);
 
           if (!engine) {
-            console.error('[HorizontalRule.Backspace] EditorEngine not found');
+            
             return false;
           }
 
           if (!blockId) {
-            console.warn('[HorizontalRule.Backspace] No blockId found');
+            
             return false;
           }
 
           // ✅ USE ENGINE PRIMITIVE: Delete HR via DeleteBlockCommand
           // This ensures children are promoted (Editor Law #8)
-          console.log(`[HorizontalRule.Backspace] Deleting HR: ${blockId}`);
+          
           const cmd = new DeleteBlockCommand(blockId);
           engine.dispatch(cmd);
           return true;
@@ -229,18 +229,18 @@ export const HorizontalRule = Node.create({
           const engine = getEngine(this.editor);
 
           if (!engine) {
-            console.error('[HorizontalRule.Delete] EditorEngine not found');
+            
             return false;
           }
 
           if (!blockId) {
-            console.warn('[HorizontalRule.Delete] No blockId found');
+            
             return false;
           }
 
           // ✅ USE ENGINE PRIMITIVE: Delete HR via DeleteBlockCommand
           // This ensures children are promoted (Editor Law #8)
-          console.log(`[HorizontalRule.Delete] Deleting HR: ${blockId}`);
+          
           const cmd = new DeleteBlockCommand(blockId);
           engine.dispatch(cmd);
           return true;

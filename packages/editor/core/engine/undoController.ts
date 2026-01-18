@@ -198,13 +198,6 @@ export class UndoController {
     }
 
     this._pendingGroup = [];
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[UndoController] Flushed group:', {
-        command: commandToAdd.description,
-        historySize: this._past.length,
-      });
-    }
   }
 
   /**
@@ -232,14 +225,6 @@ export class UndoController {
     this._engine.focus = command.metadata.beforeFocus;
     this._engine.cursor = command.metadata.beforeCursor;
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[UndoController] Undo:', {
-        command: command.description,
-        historySize: this._past.length,
-        futureSize: this._future.length,
-      });
-    }
-
     return true;
   }
 
@@ -263,14 +248,6 @@ export class UndoController {
     this._engine.selection = command.metadata.afterSelection;
     this._engine.focus = command.metadata.afterFocus;
     this._engine.cursor = command.metadata.afterCursor;
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[UndoController] Redo:', {
-        command: command.description,
-        historySize: this._past.length,
-        futureSize: this._future.length,
-      });
-    }
 
     return true;
   }

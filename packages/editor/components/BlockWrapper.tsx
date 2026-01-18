@@ -91,10 +91,7 @@ export function BlockWrapper({
       onMouseDown={(e) => {
         // 🔬 FORENSIC: Track mouse interactions on blocks
         if (import.meta.env.DEV) {
-          console.log('[UI] block mouseDown', {
-            target: (e.target as HTMLElement).tagName,
-            dataType,
-          });
+          
         }
       }}
       style={{

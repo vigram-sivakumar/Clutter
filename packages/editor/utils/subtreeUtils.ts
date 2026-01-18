@@ -48,10 +48,7 @@ export function collectSubtreeFromIndex(
   anchorIndex: number
 ): BlockWithPosition[] {
   if (anchorIndex < 0 || anchorIndex >= blocks.length) {
-    console.error('[Subtree] Invalid anchor index', {
-      anchorIndex,
-      blocksLength: blocks.length,
-    });
+    
     return [];
   }
 
@@ -66,25 +63,13 @@ export function collectSubtreeFromIndex(
     // 🔒 HARD STOP — cannot re-enter subtree
     // Once indent <= baseIndent, we've hit a sibling or outdent
     if (block.indent <= baseIndent) {
-      console.log('[Subtree] Boundary hit at index', {
-        boundaryIndex: i,
-        boundaryIndent: block.indent,
-        baseIndent,
-        subtreeSize: subtree.length,
-      });
+      
       break; // STOP FOREVER
     }
 
     // Child block - add to subtree
     subtree.push(block);
   }
-
-  console.log('[Subtree] Collection complete', {
-    anchorIndex,
-    baseIndent,
-    subtreeSize: subtree.length,
-    indents: subtree.map((b) => b.indent),
-  });
 
   return subtree;
 }
@@ -118,10 +103,6 @@ export function collectSubtreeFromDoc(
   // Step 2: Find anchor index
   const anchorIndex = blocks.findIndex((b) => b.pos === startPos);
   if (anchorIndex === -1) {
-    console.error('[Subtree] Anchor position not found', {
-      startPos,
-      availablePositions: blocks.map((b) => b.pos),
-    });
     return [];
   }
 
@@ -151,24 +132,14 @@ export function validateSubtree(subtree: BlockWithPosition[]): boolean {
 
     // All children must have indent > baseIndent
     if (block.indent <= baseIndent) {
-      console.error('[Subtree][INVARIANT VIOLATION] Child has invalid indent', {
-        childIndex: i,
-        childIndent: block.indent,
-        baseIndent,
-      });
+      
       return false;
     }
 
     // No invalid jumps (e.g., 0 → 2)
     const prev = subtree[i - 1];
     if (block.indent > prev.indent + 1) {
-      console.error('[Subtree][INVARIANT VIOLATION] Invalid indent jump', {
-        prevIndex: i - 1,
-        prevIndent: prev.indent,
-        currIndex: i,
-        currIndent: block.indent,
-        jump: block.indent - prev.indent,
-      });
+      
       return false;
     }
   }

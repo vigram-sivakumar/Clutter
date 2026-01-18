@@ -184,22 +184,10 @@ export class InsertTextCommand implements EditorCommand {
 
   apply(_engine: EditorEngine): void {
     // TODO: Implement when we connect to ProseMirror
-    console.log(
-      '[InsertTextCommand] apply',
-      this._blockId,
-      this._text,
-      this._offset
-    );
   }
 
   undo(_engine: EditorEngine): void {
     // TODO: Implement when we connect to ProseMirror
-    console.log(
-      '[InsertTextCommand] undo',
-      this._blockId,
-      this._text,
-      this._offset
-    );
   }
 
   // Allow merging consecutive typing
@@ -259,16 +247,11 @@ export class DeleteTextCommand implements EditorCommand {
   }
 
   apply(_engine: EditorEngine): void {
-    console.log(
-      '[DeleteTextCommand] apply',
-      this._blockId,
-      this._from,
-      this._to
-    );
+    // TODO: Implement when we connect to ProseMirror
   }
 
   undo(_engine: EditorEngine): void {
-    console.log('[DeleteTextCommand] undo - restore', this._deletedText);
+    // TODO: Implement when we connect to ProseMirror
   }
 }
 
@@ -590,17 +573,10 @@ export class DeleteBlockCommand implements EditorCommand {
   apply(engine: EditorEngine): void {
     // Use engine primitive which implements child promotion
     this.deletionMetadata = engine.deleteBlock(this._blockId);
-
-    if (!this.deletionMetadata) {
-      console.error(
-        `[DeleteBlockCommand] Failed to delete block ${this._blockId}`
-      );
-    }
   }
 
   undo(engine: EditorEngine): void {
     if (!this.deletionMetadata) {
-      console.warn('[DeleteBlockCommand] No deletion metadata for undo');
       return;
     }
 
@@ -612,15 +588,11 @@ export class DeleteBlockCommand implements EditorCommand {
 
     // Step 2: Get parent
     if (!originalParentId) {
-      console.warn('[DeleteBlockCommand] No original parent for undo');
       return;
     }
 
     const parent = engine.tree.nodes[originalParentId];
     if (!parent) {
-      console.warn(
-        `[DeleteBlockCommand] Parent ${originalParentId} not found for undo`
-      );
       return;
     }
 
@@ -640,10 +612,6 @@ export class DeleteBlockCommand implements EditorCommand {
         child.parentId = this._blockId;
       }
     }
-
-    console.log(
-      `[DeleteBlockCommand] ✅ Undo: Restored ${this._blockId} with ${promotedChildren.length} children`
-    );
   }
 }
 

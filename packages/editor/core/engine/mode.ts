@@ -59,9 +59,6 @@ export class ModeManager {
     this.previousMode = oldMode;
     this.mode = newMode;
 
-    const reasonStr = reason ? ` (${reason})` : '';
-    console.log(`[ModeManager] ${oldMode} → ${newMode}${reasonStr}`);
-
     // Notify listeners
     this.listeners.forEach((fn) => fn(newMode, oldMode));
   }

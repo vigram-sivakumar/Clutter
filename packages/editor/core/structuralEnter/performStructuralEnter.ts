@@ -26,23 +26,13 @@ export function performStructuralEnter({
   editor: Editor;
   source: StructuralEnterSource;
 }): boolean {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[Keyboard] Editor identity:', editor);
-  }
-
   const engine = (editor as any)._engine;
 
   if (!engine) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[StructuralEnter] Engine not attached – aborting');
-    }
     return false; // ❌ Abort - Engine not ready
   }
 
   if (!engine.tree || !engine.tree.nodes) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('[StructuralEnter] Engine tree not initialized – aborting');
-    }
     return false; // ❌ Abort - Engine not ready
   }
 
@@ -51,7 +41,6 @@ export function performStructuralEnter({
     (id) => id !== 'root'
   ).length;
   if (engineBlockCount === 0) {
-    console.warn('[StructuralEnter] Engine not ready – aborting');
     return false; // ❌ Abort - Engine not ready
   }
 
@@ -59,7 +48,6 @@ export function performStructuralEnter({
   const { selection } = state;
 
   if (!selection.empty) {
-    console.warn('[StructuralEnter] Non-empty selection, skipping');
     return true; // ✅ Consume anyway
   }
 
@@ -68,54 +56,15 @@ export function performStructuralEnter({
   const blockNode = $from.node($from.depth);
 
   if (!blockNode || !blockNode.attrs?.blockId) {
-    console.warn('[StructuralEnter] Current block not found');
     return true; // ✅ Consume anyway
   }
 
   const blockId = blockNode.attrs.blockId;
 
-  // 🔍 DIAGNOSTIC: Show what PM has vs what Engine has
-  if (process.env.NODE_ENV !== 'production') {
-    // Get ALL blockIds from PM document
-    // 🔒 CRITICAL: Only collect BLOCK nodes, not inline/text/mark nodes
-    const pmBlockIds: string[] = [];
-    editor.state.doc.descendants((node: any) => {
-      if (node.isBlock && node.attrs?.blockId) {
-        pmBlockIds.push(node.attrs.blockId);
-      }
-      return false; // Do not descend into block children
-    });
-
-    const engineBlockIds = Object.keys(engine.tree.nodes).filter(
-      (id) => id !== 'root'
-    );
-
-    console.log('[StructuralEnter] DIAGNOSTIC:', {
-      cursorInBlock: blockId.substring(0, 8),
-      pmBlockIds: pmBlockIds.map((id) => id.substring(0, 8)),
-      engineBlockIds: engineBlockIds.map((id) => id.substring(0, 8)),
-      match: engineBlockIds.includes(blockId) ? '✅' : '❌ MISMATCH',
-    });
-
-    // 🔒 SANITY ASSERTION: PM and Engine must have same block count
-    if (pmBlockIds.length !== engineBlockIds.length) {
-      console.warn('[Invariant] PM/Engine block count mismatch:', {
-        pmCount: pmBlockIds.length,
-        engineCount: engineBlockIds.length,
-        pmBlockIds: pmBlockIds.map((id) => id.substring(0, 8)),
-        engineBlockIds: engineBlockIds.map((id) => id.substring(0, 8)),
-      });
-    }
-  }
-
   // 🔒 GUARD: Cursor block must exist in Engine (PM-Engine consistency)
   const block = engine.getBlock(blockId);
 
   if (!block) {
-    console.warn('[StructuralEnter] Cursor block not in engine – aborting');
-    console.warn(
-      '[StructuralEnter] Engine not ready. Allowing PM default or retry on next keypress.'
-    );
     return false; // ❌ Abort - Engine not ready, don't pretend we handled it
   }
 
@@ -160,17 +109,6 @@ export function performStructuralEnter({
     inheritedAttrs.listType = blockNode.attrs.listType;
   }
 
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[StructuralEnter] Insertion context:', {
-      blockId: blockId.substring(0, 8),
-      blockType: currentBlockType,
-      hasChildren: engine.hasChildren ? engine.hasChildren(blockId) : false,
-      intent: decision.intent.kind,
-      nextBlockType,
-      listType: inheritedAttrs.listType || 'N/A',
-    });
-  }
-
   // 🧱 Execute structure explicitly via createBlock()
   const newBlockId = crypto.randomUUID();
 
@@ -185,7 +123,6 @@ export function performStructuralEnter({
   });
 
   if (currentBlockPos === null) {
-    console.error('[StructuralEnter] Could not find block position');
     return true;
   }
 
@@ -293,37 +230,6 @@ export function performStructuralEnter({
       editor.view.dispatch(tr);
     }
   });
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[StructuralEnter]', {
-      source,
-      intent: decision.intent.kind,
-      newBlockId: newBlockId.substring(0, 8),
-    });
-
-    // 🛡️ DEV INVARIANT: Check for duplicate blockIds
-    // If this fires, Enter created a duplicate identity (should never happen)
-    requestAnimationFrame(() => {
-      const engine = (editor as any)._engine;
-      if (engine && engine.tree && engine.tree.nodes) {
-        const ids = Object.keys(engine.tree.nodes).filter(
-          (id) => id !== 'root'
-        );
-        const uniqueIds = new Set(ids);
-
-        if (uniqueIds.size !== ids.length) {
-          const duplicates = ids.filter(
-            (id: string, index: number) => ids.indexOf(id) !== index
-          );
-          console.error('[Invariant] Duplicate blockId detected after Enter', {
-            duplicates: duplicates.map((id: string) => id.substring(0, 8)),
-            totalBlocks: ids.length,
-            uniqueBlocks: uniqueIds.size,
-          });
-        }
-      }
-    });
-  }
 
   return true;
 }

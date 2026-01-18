@@ -348,16 +348,7 @@ export const NotesView = ({
                       }
                       onDragLeaveForReorder={onNoteDragLeaveForReorder}
                       onDropForReorder={(id, pos) => {
-                        console.log(
-                          '[SidebarNotesView] 📝 Note Drop For Reorder (Folder):',
-                          {
-                            noteId: id,
-                            position: pos,
-                            context: notesContext,
-                            folderId: folder.id,
-                            folderName: folder.name,
-                          }
-                        );
+                        
                         onNoteDropForReorder?.(id, pos, notesContext);
                       }}
                       dropPosition={
@@ -462,14 +453,7 @@ export const NotesView = ({
             }
             onDragLeaveForReorder={onNoteDragLeaveForReorder}
             onDropForReorder={(id, pos) => {
-              console.log(
-                '[SidebarNotesView] 📝 Note Drop For Reorder (Favourites):',
-                {
-                  noteId: id,
-                  position: pos,
-                  context: 'favourites',
-                }
-              );
+              
               onNoteDropForReorder?.(id, pos, 'favourites');
             }}
             dropPosition={
@@ -629,14 +613,7 @@ export const NotesView = ({
                         }
                         onDragLeaveForReorder={onNoteDragLeaveForReorder}
                         onDropForReorder={(id, pos) => {
-                          console.log(
-                            '[SidebarNotesView] 📝 Note Drop For Reorder (Cluttered):',
-                            {
-                              noteId: id,
-                              position: pos,
-                              context: CLUTTERED_FOLDER_ID,
-                            }
-                          );
+                          
                           onNoteDropForReorder?.(id, pos, CLUTTERED_FOLDER_ID);
                         }}
                         dropPosition={

@@ -69,7 +69,7 @@ export const AutocompleteDropdown = ({
         {children || (
           <DropdownItem
             label="Dropdown Skeleton - Ready to build!"
-            onClick={() => console.log('Skeleton clicked')}
+            onClick={() => {}}
           />
         )}
       </div>

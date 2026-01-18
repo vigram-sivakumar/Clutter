@@ -47,10 +47,7 @@ export const CalendarDateGrid = ({
           newToday.getDate()
         );
 
-        console.log(
-          '📅 CalendarDateGrid: Day changed! Updating today to',
-          normalizedToday.toLocaleDateString()
-        );
+        
 
         // Update today
         setToday(normalizedToday);

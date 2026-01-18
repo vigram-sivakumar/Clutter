@@ -283,14 +283,14 @@ export function BlockHandle({ editor, getPos, indent = 0 }: BlockHandleProps) {
     
     const blockId = node.attrs?.blockId;
     if (!blockId) {
-      console.warn('[BlockHandle] Cannot select block without blockId');
+      
       return;
     }
     
     // Get engine from editor (attached by EditorCore)
     const engine = (editor as any)._engine;
     if (!engine) {
-      console.warn('[BlockHandle] Engine not found on editor instance');
+      
       return;
     }
     
@@ -305,10 +305,7 @@ export function BlockHandle({ editor, getPos, indent = 0 }: BlockHandleProps) {
       editor.view.focus();
     }
     
-    console.log('[BlockHandle] Engine selection updated:', {
-      blockId: blockId.slice(0, 8),
-      pmSelectionType: editor.state.selection.constructor.name,
-    });
+    
     
     // 🎯 EXCEPTION: For empty text blocks with explicit EDIT intent,
     // place cursor inside to enable immediate typing.
@@ -319,7 +316,7 @@ export function BlockHandle({ editor, getPos, indent = 0 }: BlockHandleProps) {
     if (node.isTextblock && node.content.size === 0) {
       // Empty block: place cursor inside for editing
       editor.chain().setTextSelection(pos + 1).run();
-      console.log('[BlockHandle] Empty block: cursor placed for editing');
+      
     }
   };
 

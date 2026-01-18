@@ -79,10 +79,7 @@ export const BlockIdGenerator = Extension.create({
 
             // Parent not found → treat as root
             if (!parentNode) {
-              console.warn('⚠️ BlockIdGenerator: parent not found', {
-                blockId: blockNode.attrs.blockId?.substring(0, 8),
-                parentBlockId: parentBlockId?.substring(0, 8),
-              });
+              
               return 0;
             }
 
@@ -101,14 +98,7 @@ export const BlockIdGenerator = Extension.create({
           // This cleans up legacy data where inline/text nodes incorrectly have blockIds
           newState.doc.descendants((node, pos) => {
             if (!node.isBlock && node.attrs?.blockId !== undefined) {
-              console.warn(
-                '[BlockIdGenerator] Stripping blockId from non-block node:',
-                {
-                  type: node.type.name,
-                  blockId: node.attrs.blockId?.substring(0, 8),
-                  pos,
-                }
-              );
+              
               tr.setNodeMarkup(pos, undefined, {
                 ...node.attrs,
                 blockId: undefined,
@@ -143,15 +133,7 @@ export const BlockIdGenerator = Extension.create({
                   (node.attrs.indent === 0 || node.attrs.level === 0);
 
                 if (isEmptyNonParagraph) {
-                  console.error(
-                    '[Invariant] Empty non-paragraph block at root persisted after keyboard normalization:',
-                    {
-                      type: node.type.name,
-                      indent: node.attrs.indent ?? node.attrs.level,
-                      blockId: node.attrs.blockId?.substring(0, 8),
-                      pos,
-                    }
-                  );
+                  
                 }
               }
             }
@@ -173,22 +155,9 @@ export const BlockIdGenerator = Extension.create({
               const newBlockId = crypto.randomUUID();
 
               if (isDuplicate) {
-                console.warn(
-                  '[BlockIdGenerator] Duplicate blockId detected (cloned node) - regenerating:',
-                  {
-                    type: node.type.name,
-                    duplicateId: currentBlockId.substring(0, 8),
-                    newBlockId: newBlockId.substring(0, 8),
-                    pos,
-                  }
-                );
+                
               } else {
-                console.log('[BlockIdGenerator] Adding missing blockId:', {
-                  type: node.type.name,
-                  newBlockId: newBlockId.substring(0, 8),
-                  pos,
-                  editorInitialized: this.editor?.isInitialized ?? 'unknown',
-                });
+                
               }
 
               tr.setNodeMarkup(pos, undefined, {
@@ -243,16 +212,7 @@ export const BlockIdGenerator = Extension.create({
           if (process.env.NODE_ENV !== 'production') {
             newState.doc.descendants((node) => {
               if (!node.isBlock && node.attrs?.blockId !== undefined) {
-                console.error(
-                  '[BlockIdGenerator] ❌ INVARIANT VIOLATION: Non-block node has blockId:',
-                  {
-                    type: node.type.name,
-                    blockId: node.attrs.blockId?.substring(0, 8),
-                    isBlock: node.isBlock,
-                    isText: node.isText,
-                    isLeaf: node.isLeaf,
-                  }
-                );
+                
               }
             });
           }

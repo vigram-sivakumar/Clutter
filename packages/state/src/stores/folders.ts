@@ -42,11 +42,7 @@ const sanitizeFolder = (folder: any): Folder => {
   const hasInvalidProps = Object.keys(folder).some(key => !validProps.includes(key));
   
   if (hasInvalidProps) {
-    console.warn('🔧 Sanitizing corrupted folder:', {
-      id: folder.id,
-      name: folder.name,
-      invalidProps: Object.keys(folder).filter(key => !validProps.includes(key))
-    });
+    // Sanitizing corrupted folder
   }
   
   return {
@@ -74,7 +70,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
       createFolder: (name: string, parentId: string | null = null, emoji: string | null = null, tags: string[] = []) => {
     // Validate input types to prevent corruption
     if (typeof name !== 'string') {
-      console.error('❌ createFolder: name must be a string, got:', typeof name, name);
       return null;
     }
     
@@ -82,7 +77,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     if (parentId) {
       const depth = get().getFolderDepth(parentId);
       if (depth >= MAX_FOLDER_DEPTH) {
-        console.error(`Cannot create folder: Maximum nesting depth (${MAX_FOLDER_DEPTH}) reached`);
         return null; // Return null instead of creating
       }
     }
@@ -112,7 +106,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     folders: [...state.folders, newFolder],
   }));
   
-  console.log('✅ Created folder:', { id, name, parentId, emoji, tags });
   return id;
   },
   
@@ -147,8 +140,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     const descendantIds = getDescendantFolders(id);
     const allFolderIds = [id, ...descendantIds];
     
-    console.log(`🗑️ Deleting folder "${id}" with ${descendantIds.length} descendants (keepNotes: ${keepNotes})`);
-    
     // Soft delete the folder and all descendants
     set((state) => ({
       folders: state.folders.map((folder) =>
@@ -167,8 +158,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     if (notesInFolders.length > 0) {
       if (keepNotes) {
         // Move notes to root (Cluttered) instead of deleting
-        console.log(`📦 Moving ${notesInFolders.length} notes to Cluttered`);
-        
         const updatedNotes = notes.map((note: any) =>
           allFolderIds.includes(note.folderId) && !note.deletedAt
             ? { ...note, folderId: null, updatedAt: now }
@@ -179,8 +168,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
         
       } else {
         // Delete notes together with folder (original behavior)
-        console.log(`🗑️ Cascading delete to ${notesInFolders.length} notes`);
-        
         const updatedNotes = notes.map((note: any) =>
           allFolderIds.includes(note.folderId) && !note.deletedAt
             ? { ...note, deletedAt: now }
@@ -220,8 +207,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     const descendantIds = getDescendantFolders(id);
     const allFolderIds = [id, ...descendantIds];
     
-    console.log(`♻️ Restoring folder "${id}" with ${descendantIds.length} descendants`);
-    
     // Restore the folder and all descendants
     set((state) => ({
       folders: state.folders.map((folder) => {
@@ -246,8 +231,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     );
     
     if (notesInFolders.length > 0) {
-      console.log(`♻️ Cascading restore to ${notesInFolders.length} notes`);
-      
       const updatedNotes = notes.map((note: any) =>
         allFolderIds.includes(note.folderId) && note.deletedAt !== null
           ? { ...note, deletedAt: null, updatedAt: now }
@@ -277,7 +260,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
       const folderSubtreeDepth = get().getFolderDepth(folderId) - get().getFolderDepth(get().folders.find(f => f.id === folderId)?.parentId ?? null);
       
       if (targetDepth + folderSubtreeDepth >= MAX_FOLDER_DEPTH) {
-        console.error(`Cannot move folder: Would exceed maximum nesting depth (${MAX_FOLDER_DEPTH})`);
         return;
       }
     }
@@ -385,7 +367,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     // If parent doesn't exist or is deleted, restore to root
     const parent = folders.find((f) => f.id === folder.parentId);
     if (!parent || parent.deletedAt) {
-      console.warn(`Parent folder deleted, restoring "${folder.name}" to root`);
       return null;
     }
     

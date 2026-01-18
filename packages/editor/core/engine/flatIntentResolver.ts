@@ -13,9 +13,9 @@ import type { EditorEngine } from './EditorEngine';
 import type { EditorIntent, IntentResult } from './intent';
 import { collectSubtreeFromIndex, type BlockWithPosition } from '../../utils/subtreeUtils';
 import {
-  placeCursorAtBlockStart: _placeCursorAtBlockStart,
-  placeCursorAtBlockEnd: _placeCursorAtBlockEnd,
-  placeCursorAtSafePosition: _placeCursorAtSafePosition,
+  placeCursorAtBlockStart as _placeCursorAtBlockStart,
+  placeCursorAtBlockEnd as _placeCursorAtBlockEnd,
+  placeCursorAtSafePosition as _placeCursorAtSafePosition,
 } from '../../utils/cursorUtils';
 
 export class FlatIntentResolver {
@@ -47,6 +47,7 @@ export class FlatIntentResolver {
           };
       }
     } catch (error) {
+      // Error handled
       return {
         success: false,
         intent,
@@ -131,13 +132,6 @@ export class FlatIntentResolver {
     const newIndent = baseIndent + 1;
 
     if (newIndent > maxAllowedIndent) {
-      console.log('[FLAT INDENT] Blocked:', {
-        selectedBlock: blockId.slice(0, 8),
-        currentIndent: baseIndent,
-        attemptedIndent: newIndent,
-        maxAllowed: maxAllowedIndent,
-        prevBlockIndent: prevBlock?.indent,
-      });
       return {
         success: false,
         intent,
@@ -155,17 +149,6 @@ export class FlatIntentResolver {
         break; // Stop at first block not deeper than base
       }
     }
-
-    console.log('[FLAT INDENT] Range:', {
-      selectedBlock: blockId.slice(0, 8),
-      baseIndent,
-      affectedCount: affectedRange.length,
-      affectedBlocks: affectedRange.map((i) => ({
-        blockId: blocks[i].node.attrs.blockId.slice(0, 8),
-        oldIndent: blocks[i].indent,
-        newIndent: blocks[i].indent + 1,
-      })),
-    });
 
     // 🔥 RANGE MUTATION: Indent all affected blocks
     for (const index of affectedRange) {
@@ -264,17 +247,6 @@ export class FlatIntentResolver {
         break; // Stop at first block not deeper than base
       }
     }
-
-    console.log('[FLAT OUTDENT] Range:', {
-      selectedBlock: blockId.slice(0, 8),
-      baseIndent,
-      affectedCount: affectedRange.length,
-      affectedBlocks: affectedRange.map((i) => ({
-        blockId: blocks[i].node.attrs.blockId.slice(0, 8),
-        oldIndent: blocks[i].indent,
-        newIndent: Math.max(0, blocks[i].indent - 1),
-      })),
-    });
 
     // 🔥 RANGE MUTATION: Outdent all affected blocks
     for (const index of affectedRange) {
@@ -393,13 +365,6 @@ export class FlatIntentResolver {
     const children = subtree.slice(1);
     const childrenToPromote = children.map((_, i) => selectedIndex + 1 + i);
 
-    console.log('[FLAT DELETE] Deleting block:', {
-      block: blockId.slice(0, 8),
-      baseIndent,
-      childrenCount: childrenToPromote.length,
-      willPromote: childrenToPromote.length > 0,
-    });
-
     // 🔥 STEP 1: Promote children BEFORE deleting parent
     // (Positions remain valid because we haven't deleted anything yet)
     //
@@ -422,20 +387,6 @@ export class FlatIntentResolver {
     const maxAttachIndent = baseIndent + 1;
     const finalAttachIndent = Math.min(attachmentIndent, maxAttachIndent);
     
-    if (childrenToPromote.length > 0) {
-      console.log('[FLAT DELETE] Promoting children with structural reattachment:', {
-        count: childrenToPromote.length,
-        deletedBlockIndent: baseIndent,
-        previousBlock: previousBlock ? {
-          blockId: previousBlock.node.attrs?.blockId?.slice(0, 8),
-          indent: previousBlock.indent,
-        } : null,
-        rawAttachmentIndent: attachmentIndent,
-        clampedAttachmentIndent: finalAttachIndent,
-        originalIndents: childrenToPromote.map((i) => blocks[i].indent),
-      });
-    }
-    
     for (const index of childrenToPromote) {
       const child = blocks[index];
       
@@ -443,15 +394,6 @@ export class FlatIntentResolver {
       // Each child maintains its relative depth but attaches to surviving structure
       const relativeDepth = child.indent - baseIndent - 1; // Depth relative to deleted parent
       const newIndent = finalAttachIndent + relativeDepth;
-      
-      console.log('[FLAT DELETE] Promoting child:', {
-        blockId: child.node.attrs?.blockId?.slice(0, 8),
-        oldIndent: child.indent,
-        newIndent,
-        relativeDepth,
-        attachmentBase: finalAttachIndent,
-        pos: child.pos,
-      });
       
       tr.setNodeMarkup(child.pos, undefined, {
         ...child.node.attrs,
@@ -485,27 +427,13 @@ export class FlatIntentResolver {
         const curr = newBlocks[i];
         
         if (curr.indent > prev.indent + 1) {
-          console.error('[FLAT DELETE][INVARIANT VIOLATION] Invalid indent jump', {
-            prevBlock: prev.blockId.slice(0, 8),
-            prevIndent: prev.indent,
-            currBlock: curr.blockId.slice(0, 8),
-            currIndent: curr.indent,
-            jump: curr.indent - prev.indent,
-          });
+          // Invalid indent jump detected
         }
         
         if (curr.indent < 0) {
-          console.error('[FLAT DELETE][INVARIANT VIOLATION] Negative indent detected', {
-            blockId: curr.blockId.slice(0, 8),
-            indent: curr.indent,
-          });
+          // Negative indent detected
         }
       }
-      
-      console.log('[FLAT DELETE] Post-delete validation passed', {
-        totalBlocks: newBlocks.length,
-        indents: newBlocks.map((b) => b.indent),
-      });
     }
 
     // 🔥 STEP 3: DETERMINE CURSOR TARGET (BUT DO NOT PLACE IT YET)
@@ -539,7 +467,6 @@ export class FlatIntentResolver {
       const prevBlockId = prevBlock.node.attrs?.blockId;
       
       if (!prevBlockId) {
-        console.error('[FLAT DELETE] Previous block has no blockId');
         return {
           success: false,
           intent,
@@ -551,13 +478,6 @@ export class FlatIntentResolver {
         blockId: prevBlockId,
         placement: 'end',
       };
-      
-      console.log('[FLAT DELETE] Cursor target → END of previous surviving block (DELETION CURSOR LAW):', {
-        prevBlockId: prevBlockId.slice(0, 8),
-        prevBlockIndent: prevBlock.indent,
-        promotedChildrenCount: childrenToPromote.length,
-        note: 'Promotion is structural; cursor is navigational (decoupled)',
-      });
     } else {
       // ✅ EXCEPTION: First block deleted, no previous block exists
       // Cursor goes to START of first remaining block
@@ -565,8 +485,6 @@ export class FlatIntentResolver {
         blockId: '', // Will use safe position finder
         placement: 'safe',
       };
-      
-      console.log('[FLAT DELETE] Cursor target → START of first remaining block (first block deleted)');
     }
 
     // Mark for undo
@@ -575,8 +493,6 @@ export class FlatIntentResolver {
 
     // 🔒 PHASE 2: Apply delete + promotion ONLY (NO CURSOR)
     view.dispatch(tr);
-
-    console.log('[FLAT DELETE] Phase 2 complete: delete + promotion applied');
 
     return {
       success: true,

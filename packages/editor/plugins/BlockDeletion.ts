@@ -72,9 +72,7 @@ export const BlockDeletion = Extension.create({
                 event.preventDefault();
                 event.stopPropagation();
 
-                console.log(
-                  `[BlockDeletion] Multi-block delete: ${blocks.length} blocks`
-                );
+                
 
                 const blockIds = blocks
                   .map((b) => b.node.attrs?.blockId)
@@ -82,7 +80,7 @@ export const BlockDeletion = Extension.create({
 
                 // Create explicit snapshot
                 if (!engine || !engine.blocks) {
-                  console.warn('[BlockDeletion] Engine or blocks not available');
+                  
                   return false;
                 }
 
@@ -112,13 +110,11 @@ export const BlockDeletion = Extension.create({
 
               const blockIds = engine.selection.blockIds;
 
-              console.log(
-                `[BlockDeletion] Engine block delete: ${blockIds.length} block(s)`
-              );
+              
 
               // Create explicit snapshot
               if (!engine.blocks) {
-                console.warn('[BlockDeletion] Engine blocks not available');
+                
                 return false;
               }
 
