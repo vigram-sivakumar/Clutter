@@ -211,10 +211,11 @@ export const useUIStateStore = create<UIStateStore>()(
       hasManuallyToggledFavourites: false,
       hasManuallyToggledFolders: false,
 
-      taskTodayCollapsed: false,
-      taskOverdueCollapsed: false,
-      taskUpcomingCollapsed: false,
-      taskUnplannedCollapsed: false,
+      // Task folders collapsed by default when empty (first-time user)
+      taskTodayCollapsed: true,
+      taskOverdueCollapsed: true,
+      taskUpcomingCollapsed: true,
+      taskUnplannedCollapsed: true,
       taskCompletedCollapsed: true,
 
       allTagsCollapsed: false,
