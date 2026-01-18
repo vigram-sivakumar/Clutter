@@ -66,8 +66,7 @@ type MainView =
   | { type: 'dailyNotesMonthView'; year: string; month: string }; // View showing daily notes for a month
 
 // Helper to check if TipTap JSON content is empty
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const isContentEmpty = (content: string): boolean => {
+const _isContentEmpty = (content: string): boolean => {
   try {
     if (!content || content.trim() === '') return true;
 
@@ -127,7 +126,7 @@ export const NoteEditor = ({
   isInitialized = true,
 }: NotesContainerProps) => {
   // Removed: session refs no longer needed without async block loading
-  
+
   // 🔍 DIAGNOSTIC: Track component lifecycle (MOUNT/UNMOUNT)
   useEffect(() => {
     console.log('🟢 NoteEditor MOUNT');
@@ -135,7 +134,7 @@ export const NoteEditor = ({
       console.error('🔴 NoteEditor UNMOUNT');
     };
   }, []);
-  
+
   // Notes store
   const {
     notes,
@@ -179,7 +178,7 @@ export const NoteEditor = ({
       notes.find((n) => n.id === currentNoteId && !n.deletedAt) || null;
     return note;
   }, [notes, currentNoteId]);
-  
+
   // Track note switches for UI transitions
   useEffect(() => {
     console.log('🧭 NOTE SESSION START', {
@@ -195,7 +194,7 @@ export const NoteEditor = ({
     stateTitle: currentNote?.title,
     timestamp: Date.now(),
   });
-  
+
   // 🚨 ASSERTION: Detect split-brain state
   if (currentNote && currentNoteId && currentNote.id !== currentNoteId) {
     console.error('🚨 NOTE ID MISMATCH - SPLIT BRAIN STATE DETECTED', {
@@ -226,7 +225,7 @@ export const NoteEditor = ({
   const [tagsVisible, setTagsVisible] = useState(
     currentNote?.tagsVisible ?? true
   );
-  
+
   // 🔥 CRITICAL: Sync local state when currentNote changes (prevents stale title/emoji/metadata)
   // This fixes the bug where switching notes kept old title/emoji because useState only initializes once
   useEffect(() => {
@@ -241,7 +240,7 @@ export const NoteEditor = ({
       setTagsVisible(true);
       return;
     }
-    
+
     // Update local state from currentNote
     setSelectedEmoji(currentNote.emoji || null);
     setTitle(currentNote.title || '');
@@ -271,7 +270,7 @@ export const NoteEditor = ({
   // Centralized breadcrumb generation
   const breadcrumbs = useBreadcrumbs(mainView, currentNote, currentNoteId);
   const folderPathIds = useBreadcrumbFolderIds(mainView, currentNote);
-  
+
   // 🔍 DIAGNOSTIC: Track breadcrumb note identity
   console.log('🧭 Breadcrumbs calculated', {
     noteId: currentNote?.id,
@@ -449,39 +448,33 @@ export const NoteEditor = ({
   // 🔥 BLOCK-LEVEL PERSISTENCE (Apple Notes Architecture)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // Load editor content from blocks table instead of legacy notes.content
-  const [editorContent, setEditorContent] = useState<string | undefined>(undefined);
+  const [editorContent, setEditorContent] = useState<string | undefined>(
+    undefined
+  );
 
   useEffect(() => {
-    // 🔒 SINGLE SOURCE OF TRUTH ENFORCEMENT (Apple Notes Architecture)
-    // When block journal is enabled, editor content ONLY comes from blocks table.
-    // currentNote?.content is POISON — it must never hydrate the editor.
-    
     if (!currentNoteId) {
       // No note selected → empty editor
       setEditorContent(undefined);
       return;
     }
-    
-    // Simple local-only content loading
+
+    // Load content from current note
     setEditorContent(currentNote?.content);
   }, [currentNoteId]); // Only reload when note switches, NOT on content changes
 
-  // 🎨 UX: Detect note switching for Apple Notes-style micro transition
+  // Detect note switching for micro transition
   const isSwitchingNote =
     currentNoteId !== previousNoteIdRef.current &&
     previousNoteIdRef.current !== null;
 
   // Auto-save with debounce (defined early so it can be used in effects)
-  const [debouncedSave] = useDebounce(
-    (updates: Partial<Note>) => {
-      // ✅ APPLE NOTES: Metadata updates via saveNoteMeta (content via block journal)
-      if (currentNoteId) {
-        // ✅ Use updateNoteMeta - debouncedSave is only for metadata, never content
-        updateNoteMeta(currentNoteId, updates);
-      }
-    },
-    500
-  );
+  const [debouncedSave] = useDebounce((updates: Partial<Note>) => {
+    if (currentNoteId) {
+      // Update note metadata only (content is updated synchronously)
+      updateNoteMeta(currentNoteId, updates);
+    }
+  }, 500);
 
   // 🔄 Sync tags when they change externally (e.g., from tag rename)
   useEffect(() => {
@@ -1847,7 +1840,7 @@ export const NoteEditor = ({
               title={title}
               onTitleChange={(value) => {
                 if (isDailyNote) return; // Prevent title changes for daily notes
-                
+
                 // ✅ APPLE NOTES: Title edits allowed (metadata via saveNoteMeta)
                 setTitle(value);
                 debouncedSave({ title: value });
@@ -1861,7 +1854,7 @@ export const NoteEditor = ({
               onRemoveEmoji={handleRemoveEmoji}
               emojiButtonRef={emojiButtonRef}
               hasContent={
-                (editorContent && editorContent !== '{"type":"doc","content":[]}')
+                editorContent && editorContent !== '{"type":"doc","content":[]}'
               }
               isFavorite={isFavorite}
               contextMenuItems={noteContextMenuItems}
@@ -1926,26 +1919,8 @@ export const NoteEditor = ({
                     });
                   }}
                   onChange={(value) => {
-                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                    // 🔥 PERSISTENCE ARCHITECTURE FORK
-                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                    // 
-                    // ENABLE_BLOCK_JOURNAL = true  → Intent-based persistence (Apple Notes)
-                    // ENABLE_BLOCK_JOURNAL = false → Legacy autosave (deprecated)
-                    // 
-                    // When block journal is enabled:
-                    // - Intent extraction happens in EditorCore.onUpdate
-                    // - This onChange path is GATED (silent, no writes)
-                    // - Zustand updates are suppressed
-                    // - No autosave triggers
-                    // 
-                    // This is NOT a feature flag. This is an isolation gate.
-                    // Once block journal is validated, legacy path will be DELETED.
-                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                    
-                    // Local-only mode: save content directly to state
+                    // Save content directly to state (synchronous, local-only)
                     updateNoteContent(currentNoteId, value);
-                    // When block journal enabled: no-op (intents handle everything)
                   }}
                   onTagClick={handleShowTagFilter}
                   onNavigate={handleNavigate}

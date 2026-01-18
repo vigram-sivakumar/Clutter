@@ -8,12 +8,7 @@
  * Supports loading legacy HTML content with automatic fallback.
  */
 
-import {
-  useCallback,
-  useRef,
-  forwardRef,
-  useImperativeHandle,
-} from 'react';
+import { useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { generateJSON } from '@tiptap/core';
 
 // Editor imports from @clutter/editor package
@@ -37,7 +32,6 @@ import {
   Code as CodeMark,
   WavyUnderline,
   Link,
-  ENABLE_BLOCK_JOURNAL,
 } from '@clutter/editor';
 import { placeholders } from '@clutter/editor';
 import { CustomHighlight } from '@clutter/editor';
@@ -124,7 +118,6 @@ function extractTagsFromContent(content: any): string[] {
   return uniqueTags;
 }
 
-
 /**
  * 🔧 DOM Selection Normalizer
  *
@@ -175,7 +168,7 @@ export const TipTapWrapper = forwardRef<
       onFocus,
       onBlur,
       autoFocus: _autoFocus = false,
-      isHydrating = false,
+      isHydrating: _isHydrating = false,
       onContentApplied: _onContentApplied,
       editorContext,
       isFrozen = false,
@@ -185,7 +178,7 @@ export const TipTapWrapper = forwardRef<
     const previousTags = useRef<string[]>([]);
     const editorCoreRef = useRef<EditorCoreHandle>(null);
     const isUpdatingFromEditor = useRef(false);
-    
+
     // Get theme from UI and map to EditorTheme format
     const { colors, mode } = useTheme();
     const editorTheme: EditorTheme = {
