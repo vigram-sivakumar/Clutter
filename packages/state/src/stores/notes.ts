@@ -1,19 +1,10 @@
 /**
  * Notes store using Zustand
- * Manages all notes with file-based persistence (Tauri) and localStorage (web)
- * Designed for iCloud Drive sync compatibility
+ * Local-only, synchronous state management
  */
 
 import { create } from 'zustand';
 import { Note, DAILY_NOTES_FOLDER_ID } from '@clutter/domain';
-import { shouldAllowSave } from './hydration';
-
-// Block journal imports (Apple Notes architecture)
-let createInitialBlockForNote: ((noteId: string) => Promise<void>) | null = null;
-
-export function setCreateInitialBlockHandler(handler: (noteId: string) => Promise<void>) {
-  createInitialBlockForNote = handler;
-}
 
 // Generate a unique ID
 const generateId = () => {
@@ -72,67 +63,40 @@ interface NotesStore {
   // State
   notes: Note[];
   currentNoteId: string | null;
-  isLoading: boolean;
-  error: string | null;
   
   // Derived
   currentNote: Note | null;
   
   // Actions
-  setNotes: (notes: Note[]) => void;
-  setCurrentNoteId: (id: string | null) => void;
-  createNote: (initialValues?: Partial<Note>, setAsCurrent?: boolean) => Promise<Note>;
-  updateNote: (id: string, updates: Partial<Note>) => void;
-  deleteNote: (id: string) => void;
-  duplicateNote: (id: string) => Note | null;
-  restoreNote: (id: string) => void;
-  permanentlyDeleteNote: (id: string) => void;
+  setNotes: (_notes: Note[]) => void;
+  setCurrentNoteId: (_id: string | null) => void;
+  createNote: (_initialValues?: Partial<Note>, _setAsCurrent?: boolean) => Promise<Note>;
+  updateNote: (_id: string, _updates: Partial<Note>) => void;
+  deleteNote: (_id: string) => void;
+  duplicateNote: (_id: string) => Note | null;
+  restoreNote: (_id: string) => void;
+  permanentlyDeleteNote: (_id: string) => void;
   
   // Single-writer pattern (prevents race conditions)
-  updateNoteContent: (id: string, content: string) => void;
-  updateNoteMeta: (id: string, updates: Omit<Partial<Note>, 'content' | 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateNoteContent: (_id: string, _content: string) => void;
+  updateNoteMeta: (_id: string, _updates: Omit<Partial<Note>, 'content' | 'id' | 'createdAt' | 'updatedAt'>) => void;
   
   // Daily notes
-  findDailyNoteByDate: (date: Date) => Note | null;
-  createDailyNote: (date: Date, setAsCurrent?: boolean) => Promise<Note>;
+  findDailyNoteByDate: (_date: Date) => Note | null;
+  createDailyNote: (_date: Date, _setAsCurrent?: boolean) => Promise<Note>;
   updateDailyNoteTitles: () => void;
   
-  // Storage integration (to be implemented by platform)
-  saveNote: (note: Note) => Promise<void>;
-  loadNotes: () => Promise<void>;
-  
   // Helpers
-  getNoteById: (id: string) => Note | null;
+  getNoteById: (_id: string) => Note | null;
   getActiveNotes: () => Note[];
   getDeletedNotes: () => Note[];
-  searchNotes: (query: string) => Note[];
+  searchNotes: (_query: string) => Note[];
 }
-
-// Platform-specific storage handlers (set by app initialization)
-let storageHandlers: {
-  save: (note: Note) => Promise<void>;
-  load: () => Promise<Note[]>;
-  delete: (id: string) => Promise<void>;
-} | null = null;
-
-export const setStorageHandlers = (handlers: typeof storageHandlers) => {
-  storageHandlers = handlers;
-};
-
-// Export for use by other stores (e.g., folders need to save notes during cascade delete)
-export const getStorageHandlers = () => storageHandlers;
-
-// Create initial notes (empty by default)
-const createInitialNotes = (): Note[] => {
-  return [];
-};
 
 export const useNotesStore = create<NotesStore>()((set, get) => ({
   // Initial state
-  notes: createInitialNotes(),
+  notes: [],
   currentNoteId: null,
-  isLoading: false,
-  error: null,
   
   // Derived state (computed in selectors)
   get currentNote() {
@@ -142,81 +106,26 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
   
   // Actions
   setNotes: (notes) => {
-    // 🚨 DEV-ONLY INVARIANT: Never clear notes list while editor is active
-    if (process.env.NODE_ENV === 'development') {
-      const currentNote = get().currentNoteId;
-      if (notes.length === 0 && currentNote) {
-        throw new Error(
-          `INVARIANT VIOLATION: Notes list cleared while editor active (currentNoteId: ${currentNote})`
-        );
-      }
-    }
-    
     set({ notes });
   },
   
   setCurrentNoteId: (id) => {
-    // Save to localStorage to restore on next launch
-    try {
-      if (id) {
-        (globalThis as any).localStorage?.setItem('clutter-last-note-id', id);
-      } else {
-        (globalThis as any).localStorage?.removeItem('clutter-last-note-id');
-      }
-    } catch {
-      // localStorage not available (SSR or restricted environment)
-    }
     set({ currentNoteId: id });
   },
   
   createNote: async (initialValues, setAsCurrent = true) => {
     const note = createEmptyNote(initialValues);
     
-    // 🔍 DIAGNOSTIC: Track note creation
-    console.log('🆕 Creating note', {
-      noteId: note.id,
-      title: note.title,
-      setAsCurrent,
-      timestamp: new Date().toISOString(),
-    });
-    
-    // Add note to state WITHOUT setting as current yet
+    // Add note to state
     set((state) => ({
       notes: [note, ...state.notes],
-      // ❌ DO NOT set currentNoteId yet - block creation must complete first
+      currentNoteId: setAsCurrent ? note.id : state.currentNoteId,
     }));
-    
-    // ✅ APPLE NOTES: Save metadata immediately (before block creation)
-    if (storageHandlers) {
-      console.log('💾 Saving note metadata immediately:', note.id, note.title);
-      await storageHandlers.save(note).catch((err) => {
-        console.error('Failed to save note metadata:', err);
-      });
-    }
-    
-    // ✅ APPLE NOTES: Create initial block BEFORE allowing navigation
-    if (createInitialBlockForNote) {
-      console.log('⏳ Awaiting initial block creation before navigation...');
-      await createInitialBlockForNote(note.id);
-      console.log('✅ Initial block ready, allowing navigation');
-    }
-    
-    // ✅ NOW set as current (after block exists)
-    if (setAsCurrent) {
-      set({ currentNoteId: note.id });
-    }
     
     return note;
   },
   
-  // ⚠️ DEPRECATED: Use updateNoteContent() or updateNoteMeta() instead
-  // This method allows multi-writer races and will be removed in a future version
   updateNote: (id, updates) => {
-    // 🚨 DEV-ONLY: Crash if content write attempted (prevents regressions)
-    if (process.env.NODE_ENV === 'development' && 'content' in updates) {
-      throw new Error('❌ INVARIANT VIOLATION: Use updateNoteContent() for content writes, not updateNote()');
-    }
-    
     const now = new Date().toISOString();
     const hadTagsBefore = get().notes.find(n => n.id === id)?.tags;
     
@@ -231,43 +140,15 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     // Update tags cache if tags changed (deferred to avoid render-phase updates)
     const note = get().notes.find(n => n.id === id);
     if (note && hadTagsBefore && updates.tags && JSON.stringify(hadTagsBefore) !== JSON.stringify(updates.tags)) {
-      // Use setTimeout to defer cache update outside of render cycle
       setTimeout(() => {
         import('./tags').then(({ useTagsStore }) => {
           useTagsStore.getState().updateTagsCache();
         });
       }, 0);
     }
-    
-    // ⚠️ REMOVED: Storage save removed to prevent race conditions
-    // Content persistence is now ONLY handled by useAutoSave
-    // Metadata persistence is handled by updateNoteMeta
   },
   
-  // 🛡️ SINGLE-WRITER INVARIANT: Content has ONE writer (prevents race conditions)
   updateNoteContent: (id, content) => {
-    console.log('[ZUSTAND updateNoteContent]', {
-      noteId: id.slice(0, 8),
-      contentLength: content?.length || 0,
-      contentPreview: content?.substring(0, 100),
-      timestamp: Date.now(),
-    });
-
-    // 🛡️ CRITICAL: Never accept pure boot state (completely empty, no structure)
-    // But DO allow intentional empty (has doc structure, just no content)
-    const isPureBootState = (
-      !content || 
-      content.trim() === '' ||
-      content === '""' ||
-      content === '{}'
-    );
-    
-    if (isPureBootState) {
-      console.warn('🚫 Rejected pure boot state for note:', id);
-      return;
-    }
-    
-    // Allow saves with structure even if empty (intentional deletions)
     const now = new Date().toISOString();
     set((state) => ({
       notes: state.notes.map((note) =>
@@ -276,14 +157,8 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
           : note
       ),
     }));
-    
-    console.log('[ZUSTAND] ✅ Note content updated in store:', id.slice(0, 8));
-    
-    // ✅ Content persistence is ONLY handled by useAutoSave (debounced, intelligent)
-    // No direct save here to avoid race conditions
   },
   
-  // Update note metadata (everything except content)
   updateNoteMeta: (id, updates) => {
     const now = new Date().toISOString();
     const hadTagsBefore = get().notes.find(n => n.id === id)?.tags;
@@ -305,23 +180,13 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
         });
       }, 0);
     }
-    
-    // Metadata changes save immediately (they're lightweight and don't race with content)
-    if (note && storageHandlers) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('updateNoteMeta')) return;
-      
-      storageHandlers.save(note).catch((err) => {
-        console.error('❌ Failed to save note metadata:', err);
-      });
-    }
   },
   
   deleteNote: (id) => {
     const note = get().notes.find(n => n.id === id);
     const hadTags = note?.tags && note.tags.length > 0;
     
-    // Always soft delete (notes go to "Recently deleted" for 30 days)
+    // Soft delete (notes go to "Recently deleted")
     const now = new Date().toISOString();
     set((state) => ({
       notes: state.notes.map((note) =>
@@ -338,18 +203,6 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
           useTagsStore.getState().updateTagsCache();
         });
       }, 0);
-    }
-    
-    // Save soft delete to storage
-    if (note && storageHandlers) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('deleteNote')) return;
-      
-      // ✅ Get the UPDATED note with deletedAt
-      const updatedNote = get().notes.find(n => n.id === id);
-      if (updatedNote) {
-        storageHandlers.save(updatedNote).catch(() => {});
-      }
     }
   },
   
@@ -372,11 +225,6 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       currentNoteId: duplicate.id,
     }));
     
-    // Save duplicate immediately
-    if (storageHandlers) {
-      storageHandlers.save(duplicate).catch(() => {});
-    }
-    
     return duplicate;
   },
   
@@ -385,18 +233,15 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     const hadTags = note?.tags && note.tags.length > 0;
     
     const now = new Date().toISOString();
-    
-    // 🗓️ SMART RESTORE: Check if this is a daily note being restored
     let updates: Partial<Note> = { deletedAt: null, updatedAt: now };
     
-    // ✅ NEW: Check if parent folder is deleted (lazy import to avoid circular dependency)
+    // Check if parent folder is deleted (lazy import to avoid circular dependency)
     if (note?.folderId) {
       try {
         const { useFoldersStore } = require('./folders');
         const folder = useFoldersStore.getState().folders.find((f: any) => f.id === note.folderId);
         
         if (folder?.deletedAt) {
-          console.log(`⚠️ Parent folder is deleted, moving note to Cluttered`);
           updates = {
             ...updates,
             folderId: null,  // Move to Cluttered (root)
@@ -417,18 +262,16 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       
       if (existingDailyNote) {
         // Convert to regular note (Cluttered)
-        console.log(`⚠️ Daily note for ${note.dailyNoteDate} already exists, converting to regular note`);
         updates = {
           ...updates,
-          dailyNoteDate: null,  // Clear daily note marker
-          folderId: null,       // Move to Cluttered (root)
+          dailyNoteDate: null,
+          folderId: null,
         };
       } else {
         // Restore as daily note
-        console.log(`📅 Restoring daily note for ${note.dailyNoteDate}`);
         updates = {
           ...updates,
-          folderId: DAILY_NOTES_FOLDER_ID,  // Keep as daily note
+          folderId: DAILY_NOTES_FOLDER_ID,
         };
       }
     }
@@ -449,15 +292,6 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
         });
       }, 0);
     }
-    
-    // Save to storage
-    const restoredNote = get().notes.find(n => n.id === id);
-    if (restoredNote && storageHandlers) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('restoreNote')) return;
-      
-      storageHandlers.save(restoredNote).catch(() => {});
-    }
   },
   
   permanentlyDeleteNote: (id) => {
@@ -465,13 +299,6 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       notes: state.notes.filter((note) => note.id !== id),
       currentNoteId: state.currentNoteId === id ? null : state.currentNoteId,
     }));
-    
-    // Delete from storage (database)
-    if (storageHandlers) {
-      storageHandlers.delete(id).catch((err) => {
-        console.error(`❌ Failed to permanently delete note ${id} from database:`, err);
-      });
-    }
   },
   
   // Daily notes
@@ -482,7 +309,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     const day = String(date.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD in local time
     
-    // Find all daily notes for this date (there might be duplicates)
+    // Find all daily notes for this date
     const dailyNotes = get().notes.filter(n => n.dailyNoteDate === dateStr && !n.deletedAt);
     
     if (dailyNotes.length === 0) return null;
@@ -501,22 +328,20 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD in local time
     const title = formatDailyNoteTitle(date);
     
-    // 🔧 Convert any deleted daily note for this date to a regular note
+    // Convert any deleted daily note for this date to a regular note
     const deletedDailyNote = get().notes.find(n => 
       n.dailyNoteDate === dateStr && 
       n.deletedAt !== null
     );
     
     if (deletedDailyNote) {
-      console.log(`♻️ Converting deleted daily note ${deletedDailyNote.id} to regular note (new daily note created for ${dateStr})`);
-      
       // Create a fixed title without "Today/Yesterday" prefix
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const fixedTitle = `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
       
       get().updateNote(deletedDailyNote.id, {
         dailyNoteDate: null,  // Convert to regular note
-        title: fixedTitle,     // Fixed title: "Thu, 1 Jan 2026"
+        title: fixedTitle,
         updatedAt: new Date().toISOString(),
       });
     }
@@ -528,31 +353,11 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       folderId: DAILY_NOTES_FOLDER_ID, // Special folder for daily notes
     });
     
-    // Add note to state WITHOUT setting as current yet
+    // Add note to state
     set((state) => ({
       notes: [note, ...state.notes],
-      // ❌ DO NOT set currentNoteId yet - block creation must complete first
+      currentNoteId: setAsCurrent ? note.id : state.currentNoteId,
     }));
-    
-    // ✅ APPLE NOTES: Save metadata immediately (before block creation)
-    if (storageHandlers) {
-      console.log('💾 Saving daily note metadata immediately:', note.id, note.title);
-      await storageHandlers.save(note).catch((err) => {
-        console.error('Failed to save daily note metadata:', err);
-      });
-    }
-    
-    // ✅ APPLE NOTES: Create initial block BEFORE allowing navigation
-    if (createInitialBlockForNote) {
-      console.log('⏳ Awaiting initial block creation (daily note) before navigation...');
-      await createInitialBlockForNote(note.id);
-      console.log('✅ Initial block ready (daily note), allowing navigation');
-    }
-    
-    // ✅ NOW set as current (after block exists)
-    if (setAsCurrent) {
-      set({ currentNoteId: note.id });
-    }
     
     return note;
   },
@@ -562,8 +367,6 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     const dailyNotes = notes.filter(n => n.dailyNoteDate && !n.deletedAt);
     
     if (dailyNotes.length === 0) return;
-    
-    // console.log(`🗓️ Updating ${dailyNotes.length} daily note titles...`);
     
     dailyNotes.forEach(note => {
       // Parse the date from dailyNoteDate (YYYY-MM-DD format)
@@ -576,62 +379,9 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       
       // Update if changed
       if (newTitle !== note.title) {
-        console.log(`📝 Updating daily note title: "${note.title}" → "${newTitle}"`);
         get().updateNoteMeta(note.id, { title: newTitle });
       }
     });
-    
-    // console.log('✅ Daily note titles updated');
-  },
-  
-  // Storage integration
-  saveNote: async (note) => {
-    if (storageHandlers) {
-      await storageHandlers.save(note);
-    }
-  },
-  
-  loadNotes: async () => {
-    if (!storageHandlers) {
-      console.log('⚠️ loadNotes: No storageHandlers configured');
-      return;
-    }
-    
-    // 🚨 APPLE NOTES INVARIANT: Never reload notes list during runtime
-    // This would invalidate active editor sessions
-    const currentNote = get().currentNoteId;
-    if (currentNote) {
-      console.error('🚫 FORBIDDEN: loadNotes() called while editor is active', { currentNote });
-      throw new Error('INVARIANT VIOLATION: Cannot reload notes list while editor is active');
-    }
-    
-    set({ isLoading: true, error: null });
-    
-    try {
-      const loadedNotes = await storageHandlers.load();
-      console.log(`📂 Loaded ${loadedNotes.length} notes from files`);
-      
-      // Merge loaded notes with existing notes (from localStorage)
-      // This prevents data loss when files haven't been written yet
-      const existingNotes = get().notes;
-      console.log(`💾 Existing ${existingNotes.length} notes in memory (localStorage)`);
-      
-      const mergedNotes = [...loadedNotes];
-      
-      // Add existing notes that aren't in the loaded set
-      existingNotes.forEach(existingNote => {
-        if (!loadedNotes.find(loaded => loaded.id === existingNote.id)) {
-          console.log(`➕ Keeping note from localStorage that's not in files: ${existingNote.id} "${existingNote.title}"`);
-          mergedNotes.push(existingNote);
-        }
-      });
-      
-      console.log(`✅ Final merged notes count: ${mergedNotes.length}`);
-      set({ notes: mergedNotes, isLoading: false });
-    } catch (error) {
-      console.error('❌ Error loading notes:', error);
-      set({ error: (error as Error).message, isLoading: false });
-    }
   },
   
   // Helpers
@@ -655,4 +405,3 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     });
   },
 }));
-

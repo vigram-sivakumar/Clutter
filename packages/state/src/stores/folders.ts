@@ -5,23 +5,7 @@
 
 import { create } from 'zustand';
 import { Folder } from '@clutter/domain';
-import { shouldAllowSave } from './hydration';
-import { useNotesStore, getStorageHandlers } from './notes';
-
-// Platform-specific storage handlers (set by app initialization)
-let saveFolderHandler: ((folder: Folder) => Promise<void>) | null = null;
-let deleteFolderHandler: ((folderId: string) => Promise<void>) | null = null;
-
-export const setSaveFolderHandler = (handler: typeof saveFolderHandler) => {
-  saveFolderHandler = handler;
-};
-
-export const setDeleteFolderHandler = (handler: typeof deleteFolderHandler) => {
-  deleteFolderHandler = handler;
-};
-
-// Export for use by other stores (e.g., tags need to save folders during rename/delete)
-export { saveFolderHandler };
+import { useNotesStore } from './notes';
 
 // Maximum folder nesting depth
 const MAX_FOLDER_DEPTH = 10;
@@ -30,26 +14,26 @@ interface FoldersState {
   folders: Folder[];
   
   // Actions
-  createFolder: (name: string, parentId?: string | null, emoji?: string | null, tags?: string[]) => string | null;
-  updateFolder: (id: string, updates: Partial<Folder>) => void;
-  deleteFolder: (id: string, options?: { keepNotes?: boolean }) => void;
-  restoreFolder: (id: string) => void;
-  permanentlyDeleteFolder: (id: string) => void;
-  toggleFolderExpanded: (id: string) => void;
-  moveFolder: (folderId: string, newParentId: string | null) => void;
-  setFolders: (folders: Folder[]) => void; // For hydration from database
+  createFolder: (_name: string, _parentId?: string | null, _emoji?: string | null, _tags?: string[]) => string | null;
+  updateFolder: (_id: string, _updates: Partial<Folder>) => void;
+  deleteFolder: (_id: string, _options?: { keepNotes?: boolean }) => void;
+  restoreFolder: (_id: string) => void;
+  permanentlyDeleteFolder: (_id: string) => void;
+  toggleFolderExpanded: (_id: string) => void;
+  moveFolder: (_folderId: string, _newParentId: string | null) => void;
+  setFolders: (_folders: Folder[]) => void; // For hydration from database
   
   // Queries
-  getFolderPath: (folderId: string | null) => string[];
-  getFolderPathWithIds: (folderId: string | null) => Array<{ id: string; name: string }>;
-  getChildFolders: (parentId: string | null) => Folder[];
-  getFolderDepth: (folderId: string | null) => number;
+  getFolderPath: (_folderId: string | null) => string[];
+  getFolderPathWithIds: (_folderId: string | null) => Array<{ id: string; name: string }>;
+  getChildFolders: (_parentId: string | null) => Folder[];
+  getFolderDepth: (_folderId: string | null) => number;
   getDeletedFolders: () => Folder[];
-  getSafeParentForRestore: (folderId: string) => string | null;
+  getSafeParentForRestore: (_folderId: string) => string | null;
 }
 
 // Helper function to sanitize folder data (for future use in migrations)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+/* Disabled in local-only mode
 const sanitizeFolder = (folder: any): Folder => {
   // Valid folder properties
   const validProps = ['id', 'name', 'parentId', 'description', 'descriptionVisible', 'color', 'emoji', 'tags', 'tagsVisible', 'isFavorite', 'isExpanded', 'createdAt', 'updatedAt', 'deletedAt'];
@@ -82,6 +66,7 @@ const sanitizeFolder = (folder: any): Folder => {
     deletedAt: folder.deletedAt,
   };
 };
+*/
 
 export const useFoldersStore = create<FoldersState>()((set, get) => ({
       folders: [],
@@ -127,16 +112,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     folders: [...state.folders, newFolder],
   }));
   
-  // Save to database immediately (folders are structural, must persist)
-  if (saveFolderHandler) {
-    // 🛡️ Guard: Don't save during hydration
-    if (!shouldAllowSave('createFolder')) return id;
-    
-    saveFolderHandler(newFolder).catch((err) => {
-      console.error('❌ Failed to save folder:', err);
-    });
-  }
-  
   console.log('✅ Created folder:', { id, name, parentId, emoji, tags });
   return id;
   },
@@ -150,16 +125,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
       ),
     }));
     
-    // Save to database immediately
-    const updatedFolder = get().folders.find(f => f.id === id);
-    if (updatedFolder && saveFolderHandler) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('updateFolder')) return;
-      
-      saveFolderHandler(updatedFolder).catch((err) => {
-        console.error('❌ Failed to save folder update:', err);
-      });
-    }
   },
   
   deleteFolder: (id: string, options?: { keepNotes?: boolean }) => {
@@ -212,25 +177,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
         
         setNotes(updatedNotes);
         
-        // Save moved notes to database
-        const noteStorageHandlers = getStorageHandlers();
-        
-        if (noteStorageHandlers?.save && shouldAllowSave('deleteFolder-moveNotes')) {
-          const notesToSave = updatedNotes.filter((note: any) =>
-            allFolderIds.includes(note.folderId) === false && 
-            notesInFolders.find((n: any) => n.id === note.id)
-          );
-          
-          Promise.all(
-            notesToSave.map((note: any) =>
-              noteStorageHandlers.save(note).catch((err: any) => {
-                console.error(`❌ Failed to save note move for ${note.id}:`, err);
-              })
-            )
-          ).then(() => {
-            console.log(`✅ Saved ${notesToSave.length} note moves`);
-          });
-        }
       } else {
         // Delete notes together with folder (original behavior)
         console.log(`🗑️ Cascading delete to ${notesInFolders.length} notes`);
@@ -243,46 +189,9 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
         
         setNotes(updatedNotes);
         
-        // Save deleted notes to database
-        const noteStorageHandlers = getStorageHandlers();
-        
-        if (noteStorageHandlers?.save && shouldAllowSave('deleteFolder-notes')) {
-          const notesToSave = updatedNotes.filter((note: any) =>
-            allFolderIds.includes(note.folderId) && note.deletedAt === now
-          );
-          
-          Promise.all(
-            notesToSave.map((note: any) =>
-              noteStorageHandlers.save(note).catch((err: any) => {
-                console.error(`❌ Failed to save note deletion for ${note.id}:`, err);
-              })
-            )
-          ).then(() => {
-            console.log(`✅ Saved ${notesToSave.length} note deletions`);
-          });
-        }
       }
     }
     
-    // Save all deleted folders to database
-    const deletedFolders = get().folders.filter(f => allFolderIds.includes(f.id));
-    
-    if (saveFolderHandler) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('deleteFolder')) return;
-      
-      // Save all folders in parallel
-      const handler = saveFolderHandler; // Copy to satisfy TypeScript null check
-      Promise.all(
-        deletedFolders.map(folder => 
-          handler(folder).catch((err) => {
-            console.error(`❌ Failed to save folder deletion for ${folder.id}:`, err);
-          })
-        )
-      ).then(() => {
-        console.log(`✅ Saved ${deletedFolders.length} folder deletions`);
-      });
-    }
   },
   
   restoreFolder: (id: string) => {
@@ -347,45 +256,8 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
       
       setNotes(updatedNotes);
       
-      // 🆕 SAVE all restored notes to database
-      const noteStorageHandlers = getStorageHandlers();
-      
-      if (noteStorageHandlers?.save && shouldAllowSave('restoreFolder-notes')) {
-        const notesToSave = updatedNotes.filter((note: any) =>
-          allFolderIds.includes(note.folderId) && note.deletedAt === null && note.updatedAt === now
-        );
-        
-        Promise.all(
-          notesToSave.map((note: any) =>
-            noteStorageHandlers.save(note).catch((err: any) => {
-              console.error(`❌ Failed to save note restore for ${note.id}:`, err);
-            })
-          )
-        ).then(() => {
-          console.log(`✅ Saved ${notesToSave.length} note restores`);
-        });
-      }
     }
     
-    // Save all restored folders to database
-    const restoredFolders = get().folders.filter(f => allFolderIds.includes(f.id));
-    
-    if (saveFolderHandler) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('restoreFolder')) return;
-      
-      // Save all folders in parallel
-      const handler = saveFolderHandler; // Copy to satisfy TypeScript null check
-      Promise.all(
-        restoredFolders.map(folder => 
-          handler(folder).catch((err) => {
-            console.error(`❌ Failed to save folder restore for ${folder.id}:`, err);
-          })
-        )
-      ).then(() => {
-        console.log(`✅ Saved ${restoredFolders.length} folder restores`);
-      });
-    }
   },
   
   toggleFolderExpanded: (id: string) => {
@@ -418,16 +290,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
       ),
     }));
     
-    // Save move to database
-    const movedFolder = get().folders.find(f => f.id === folderId);
-    if (movedFolder && saveFolderHandler) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('moveFolder')) return;
-      
-      saveFolderHandler(movedFolder).catch((err) => {
-        console.error('❌ Failed to save folder move:', err);
-      });
-    }
   },
   
   getFolderPath: (folderId: string | null): string[] => {
@@ -534,13 +396,6 @@ export const useFoldersStore = create<FoldersState>()((set, get) => ({
     set((state) => ({
       folders: state.folders.filter((folder) => folder.id !== id),
     }));
-    
-    // Delete from storage (database)
-    if (deleteFolderHandler) {
-      deleteFolderHandler(id).catch((err) => {
-        console.error(`❌ Failed to permanently delete folder ${id} from database:`, err);
-      });
-    }
   },
   
   setFolders: (folders: Folder[]) => {

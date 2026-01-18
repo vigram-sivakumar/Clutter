@@ -5,25 +5,9 @@
 
 import { useMemo } from 'react';
 import { create } from 'zustand';
-import { useNotesStore, getStorageHandlers } from './notes';
-import {
-  useFoldersStore,
-  saveFolderHandler as getFolderHandler,
-} from './folders';
+import { useNotesStore } from './notes';
+import { useFoldersStore } from './folders';
 import type { Tag } from '@clutter/domain';
-import { shouldAllowSave } from './hydration';
-
-// Platform-specific storage handlers (set by app initialization)
-let saveTagHandler: ((_tag: Tag) => Promise<void>) | null = null;
-let deleteTagHandler: ((_tagName: string) => Promise<void>) | null = null;
-
-export const setSaveTagHandler = (handler: typeof saveTagHandler) => {
-  saveTagHandler = handler;
-};
-
-export const setDeleteTagHandler = (handler: typeof deleteTagHandler) => {
-  deleteTagHandler = handler;
-};
 
 interface TagsState {
   // Map of tag name (lowercase) to tag metadata
@@ -106,15 +90,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
         },
       }));
 
-      // Save metadata to database
-      if (saveTagHandler) {
-        // 🛡️ Guard: Don't save during hydration
-        if (!shouldAllowSave('updateTagMetadata')) return;
-
-        saveTagHandler(updatedTag).catch((err) => {
-          console.error('❌ Failed to save tag metadata:', err);
-        });
-      }
     }
   },
 
@@ -148,15 +123,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
       },
     }));
 
-    // Save metadata to database
-    if (saveTagHandler) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('upsertTagMetadata')) return;
-
-      saveTagHandler(tag).catch((err) => {
-        console.error('❌ Failed to save tag metadata:', err);
-      });
-    }
   },
 
   renameTag: (oldTag: string, newTag: string) => {
@@ -186,24 +152,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
     if (notesUpdated > 0) {
       setNotes(updatedNotes);
 
-      // 🆕 SAVE all updated notes to database
-      const noteStorageHandlers = getStorageHandlers();
-
-      if (noteStorageHandlers?.save && shouldAllowSave('renameTag-notes')) {
-        const notesToSave = updatedNotes.filter(
-          (note) =>
-            note.tags.some((t) => t.toLowerCase() === newKey) &&
-            note.updatedAt === now
-        );
-
-        Promise.all(
-          notesToSave.map((note) =>
-            noteStorageHandlers.save(note).catch((err) => {
-              console.error(`❌ Failed to save note ${note.id}:`, err);
-            })
-          )
-        );
-      }
     }
 
     // 1b. Update all folders that have this tag (batch update)
@@ -225,24 +173,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
     if (foldersUpdated > 0) {
       useFoldersStore.setState({ folders: updatedFolders });
 
-      // 🆕 SAVE all updated folders to database
-      const saveFolderHandler = getFolderHandler;
-
-      if (saveFolderHandler && shouldAllowSave('renameTag-folders')) {
-        const foldersToSave = updatedFolders.filter(
-          (folder) =>
-            folder.tags?.some((t) => t.toLowerCase() === newKey) &&
-            folder.updatedAt === now
-        );
-
-        Promise.all(
-          foldersToSave.map((folder) =>
-            saveFolderHandler(folder).catch((err) => {
-              console.error(`❌ Failed to save folder ${folder.id}:`, err);
-            })
-          )
-        );
-      }
     }
 
     // 2. Update tag metadata (move from old key to new key)
@@ -262,19 +192,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
         return { tagMetadata: newTagMetadata };
       });
 
-      // Save the renamed metadata to database
-      if (saveTagHandler && shouldAllowSave('renameTag-metadata')) {
-        saveTagHandler(updatedMetadata).catch((err) => {
-          console.error('❌ Failed to save renamed tag metadata:', err);
-        });
-      }
-
-      // Delete the old metadata from database
-      if (deleteTagHandler && shouldAllowSave('renameTag-delete-old')) {
-        deleteTagHandler(oldTag).catch((err) => {
-          console.error('❌ Failed to delete old tag metadata:', err);
-        });
-      }
     }
 
     // 3. Update the cache
@@ -314,22 +231,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
 
       setNotes(updatedNotes);
 
-      // Save all updated notes to database
-      const noteStorageHandlers = getStorageHandlers();
-
-      if (noteStorageHandlers?.save && shouldAllowSave('deleteTag-notes')) {
-        const notesToSave = updatedNotes.filter((note) =>
-          notesWithTag.some((n) => n.id === note.id)
-        );
-
-        Promise.all(
-          notesToSave.map((note) =>
-            noteStorageHandlers.save(note).catch((err) => {
-              console.error(`❌ Failed to save note ${note.id}:`, err);
-            })
-          )
-        );
-      }
     }
 
     // 2. Remove tag from all folders
@@ -352,22 +253,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
 
       useFoldersStore.setState({ folders: updatedFolders });
 
-      // Save all updated folders to database
-      const saveFolderHandler = getFolderHandler;
-
-      if (saveFolderHandler && shouldAllowSave('deleteTag-folders')) {
-        const foldersToSave = updatedFolders.filter((folder) =>
-          foldersWithTag.some((f) => f.id === folder.id)
-        );
-
-        Promise.all(
-          foldersToSave.map((folder) =>
-            saveFolderHandler(folder).catch((err) => {
-              console.error(`❌ Failed to save folder ${folder.id}:`, err);
-            })
-          )
-        );
-      }
     }
 
     // 3. Soft delete tag metadata (set deletedAt)
@@ -392,12 +277,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
       },
     }));
 
-    // 4. Save tag metadata to database
-    if (saveTagHandler && shouldAllowSave('deleteTag-metadata')) {
-      saveTagHandler(updatedTag).catch((err) => {
-        console.error('❌ Failed to save deleted tag metadata:', err);
-      });
-    }
 
     // 5. Update cache to exclude deleted tag
     get().updateTagsCache();
@@ -432,12 +311,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
       },
     }));
 
-    // Save updated metadata to database
-    if (saveTagHandler && shouldAllowSave('restoreTag-metadata')) {
-      saveTagHandler(restoredTag).catch((err) => {
-        console.error('❌ Failed to save restored tag metadata:', err);
-      });
-    }
 
     // Update cache to include restored tag
     get().updateTagsCache();
@@ -453,12 +326,6 @@ export const useTagsStore = create<TagsState>()((set, get) => ({
       return { tagMetadata: newTagMetadata };
     });
 
-    // 2. Delete tag metadata from database
-    if (deleteTagHandler && shouldAllowSave('permanentlyDeleteTag-metadata')) {
-      deleteTagHandler(tagName).catch((err) => {
-        console.error('❌ Failed to permanently delete tag metadata:', err);
-      });
-    }
 
     // 3. Update cache
     get().updateTagsCache();

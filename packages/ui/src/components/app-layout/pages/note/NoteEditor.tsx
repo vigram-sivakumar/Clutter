@@ -39,13 +39,6 @@ import { useConfirmation } from '@clutter/shared';
 import { Note } from '@clutter/domain';
 import { useTheme } from '../../../../hooks/useTheme';
 import { useUIPreferences } from '../../../../hooks/useUIPreferences';
-import { 
-  ENABLE_BLOCK_JOURNAL,
-  rebuildBlocks,
-  loadBlocksForNote,
-  blocksToDoc,
-  flushPendingWrites,
-} from '@clutter/editor';
 import { sizing } from '../../../../tokens/sizing';
 import { getTagColor } from '../../../../utils/tagColors';
 import { FilledButton, SecondaryButton } from '../../../ui-buttons';
@@ -73,6 +66,7 @@ type MainView =
   | { type: 'dailyNotesMonthView'; year: string; month: string }; // View showing daily notes for a month
 
 // Helper to check if TipTap JSON content is empty
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const isContentEmpty = (content: string): boolean => {
   try {
     if (!content || content.trim() === '') return true;
@@ -208,7 +202,6 @@ export const NoteEditor = ({
     routeNoteId: currentNoteId,
     stateNoteId: currentNote?.id,
     stateTitle: currentNote?.title,
-    blockJournalEnabled: ENABLE_BLOCK_JOURNAL,
     timestamp: Date.now(),
   });
   
@@ -478,130 +471,8 @@ export const NoteEditor = ({
       return;
     }
     
-    if (!ENABLE_BLOCK_JOURNAL) {
-      // Block journal disabled → use legacy path (for gradual rollout)
-      setEditorContent(currentNote?.content);
-      return;
-    }
-
-    // Block journal enabled → ONLY load from blocks (crash-safe path)
-    const loadNoteFromBlocks = async () => {
-      // 🔥 CAPTURE SESSION AT START (async race protection)
-      const sessionAtStart = noteSessionRef.current;
-      
-      // 🔒 ONE-SHOT GUARD: Prevent duplicate block loads per session
-      if (activeSessionRef.current === sessionAtStart) {
-        console.warn('⛔ Duplicate session start blocked', {
-          noteId: currentNoteId,
-          session: sessionAtStart,
-        });
-        return;
-      }
-      
-      // Claim session ownership
-      activeSessionRef.current = sessionAtStart;
-      
-      // 🚨 HARD ASSERT: Verify session integrity
-      console.assert(
-        activeSessionRef.current === sessionAtStart,
-        '🚨 MULTIPLE EDITOR SESSIONS DETECTED',
-        { noteId: currentNoteId, session: sessionAtStart }
-      );
-      
-      try {
-        console.log('🔄 BLOCK LOAD START', {
-          noteId: currentNoteId,
-          session: sessionAtStart,
-        });
-        
-        // Step 0: WRITE BARRIER - Flush pending writes for causal consistency
-        // Ensures journal contains all prior user edits before rebuild reads it
-        await flushPendingWrites(currentNoteId);
-        
-        // Step 1: Rebuild blocks from journal (crash recovery)
-        await rebuildBlocks(currentNoteId);
-        
-        // 🔍 DIAGNOSTIC: After rebuild
-        console.log('[BLOCK LOAD] After rebuild', {
-          noteId: currentNoteId,
-          session: sessionAtStart,
-        });
-        
-        // 🛑 ABORT if note changed mid-flight
-        if (sessionAtStart !== noteSessionRef.current) {
-          console.warn('🛑 BLOCK LOAD ABORTED (stale session)', {
-            noteId: currentNoteId,
-            startedWith: sessionAtStart,
-            current: noteSessionRef.current,
-          });
-          return;
-        }
-        
-        // Step 2: Load blocks from snapshot table
-        const blocks = await loadBlocksForNote(currentNoteId);
-        
-        // 🔍 DIAGNOSTIC: After snapshot load
-        console.log('[BLOCK LOAD] Loaded from snapshot', {
-          noteId: currentNoteId,
-          blockCount: blocks.length,
-          blockIds: blocks.map((b: any) => b.blockId),
-          session: sessionAtStart,
-        });
-        
-        // ✅ APPLE NOTES INVARIANT: Note must NEVER mount without blocks
-        if (blocks.length === 0) {
-          console.error('🚨 INVARIANT VIOLATION: Note mounted without blocks', {
-            noteId: currentNoteId,
-            session: sessionAtStart,
-          });
-          throw new Error(
-            `INVARIANT VIOLATION: Note ${currentNoteId} has zero blocks. ` +
-            `This should never happen - initial block must be created before navigation.`
-          );
-        }
-        
-        // 🛑 ABORT if note changed during load
-        if (sessionAtStart !== noteSessionRef.current) {
-          console.warn('🛑 BLOCK APPLY ABORTED (stale session)', {
-            noteId: currentNoteId,
-            blocksLoaded: blocks.length,
-          });
-          return;
-        }
-        
-        console.log('✅ BLOCK LOAD APPLIED', {
-          noteId: currentNoteId,
-          blocks: blocks.length,
-          session: sessionAtStart,
-        });
-        
-        // Step 3: Convert to ProseMirror JSON (ALWAYS returns object)
-        const pmJson = blocksToDoc(blocks);
-        
-        // 🔍 DIAGNOSTIC: Before setEditorContent
-        console.log('[BLOCK LOAD] Before setEditorContent', {
-          noteId: currentNoteId,
-          pmJsonType: typeof pmJson,
-          pmJsonContentLength: (pmJson as any).content?.length,
-          session: sessionAtStart,
-        });
-        
-        // Step 4: Set editor content (ONLY valid write path)
-        // Convert object to JSON string for editor
-        setEditorContent(JSON.stringify(pmJson));
-        
-      } catch (error) {
-        // Only apply error state if still in same session
-        if (sessionAtStart === noteSessionRef.current) {
-          console.error('[BLOCK LOAD] ❌ Error loading blocks:', error);
-          setEditorContent(undefined);
-        } else {
-          console.warn('🛑 ERROR IGNORED (stale session)');
-        }
-      }
-    };
-
-    loadNoteFromBlocks();
+    // Simple local-only content loading
+    setEditorContent(currentNote?.content);
   }, [currentNoteId]); // Only reload when note switches, NOT on content changes
 
   // 🎨 UX: Detect note switching for Apple Notes-style micro transition
@@ -1999,9 +1870,7 @@ export const NoteEditor = ({
               onRemoveEmoji={handleRemoveEmoji}
               emojiButtonRef={emojiButtonRef}
               hasContent={
-                ENABLE_BLOCK_JOURNAL 
-                  ? (editorContent && editorContent !== '{"type":"doc","content":[]}')
-                  : (currentNote?.content && !isContentEmpty(currentNote.content))
+                (editorContent && editorContent !== '{"type":"doc","content":[]}')
               }
               isFavorite={isFavorite}
               contextMenuItems={noteContextMenuItems}
@@ -2054,7 +1923,7 @@ export const NoteEditor = ({
                   key={currentNoteId} // ✅ APPLE NOTES: Force full remount on note change
                   noteId={currentNoteId}
                   ref={editorRef}
-                  value={ENABLE_BLOCK_JOURNAL ? editorContent : currentNote?.content}
+                  value={editorContent}
                   autoFocus={false}
                   onReady={() => {
                     // 🔍 DIAGNOSTIC: Verify noteId consistency
@@ -2083,11 +1952,8 @@ export const NoteEditor = ({
                     // Once block journal is validated, legacy path will be DELETED.
                     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                     
-                    // ✅ APPLE NOTES: Editor never saves content
-                    // Persistence happens ONLY via block intents in EditorCore
-                    if (!ENABLE_BLOCK_JOURNAL) {
-                      updateNoteContent(currentNoteId, value);
-                    }
+                    // Local-only mode: save content directly to state
+                    updateNoteContent(currentNoteId, value);
                     // When block journal enabled: no-op (intents handle everything)
                   }}
                   onTagClick={handleShowTagFilter}

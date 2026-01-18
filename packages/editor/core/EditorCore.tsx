@@ -80,9 +80,7 @@ import { KeyboardShortcuts } from '../plugins/KeyboardShortcuts';
 import { BlockIdGenerator } from '../extensions/BlockIdGenerator';
 
 // Block-level persistence (Apple Notes architecture)
-import { extractBlockIntents } from '../persistence/extractBlockIntents';
-import { appendBlockIntents } from '../persistence/appendBlockIntents';
-import { ENABLE_BLOCK_JOURNAL } from '../persistence/config';
+// Persistence removed - local-only mode
 
 // All plugins enabled (except UndoRedo - using TipTap History instead)
 import { UserInputMarker } from '../plugins/UserInputMarker';
@@ -285,28 +283,17 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
         // 🔒 Only persist user edits (authoritative signal from UserInputMarker)
         if (transaction.getMeta('isUserEdit') !== true) return;
         if (!onChange) return;
-        if (!transaction.docChanged) return;
 
-        const intents = extractBlockIntents(
-          prevDocRef.current,
-          editor.state.doc,
-          transaction,
-          noteId
-        );
-
-        if (intents.length > 0 && ENABLE_BLOCK_JOURNAL && noteId) {
-          appendBlockIntents(noteId, intents);
-        }
-
+        // Persistence removed - local-only mode
         prevDocRef.current = editor.state.doc;
         onChange(editor.getJSON());
       },
-      onSelectionUpdate: ({ editor, transaction }) => {
+      onSelectionUpdate: ({ editor }) => {
         // ✅ APPLE NOTES RULE: Lazy blockId assignment
         // Only assign blockId when cursor enters a block
         // This prevents premature ID generation for helper/scaffolding blocks
         
-        const { selection, schema } = editor.state;
+        const { selection } = editor.state;
         const { $from } = selection;
         const node = $from.parent;
         

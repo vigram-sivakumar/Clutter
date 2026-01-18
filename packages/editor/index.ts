@@ -89,12 +89,3 @@ export {
   endStructuralDelete,
   isStructuralDeleteInProgress,
 } from './core/structuralDeleteState';
-
-// Persistence: Block-level intent journal (Apple Notes architecture)
-export { ENABLE_BLOCK_JOURNAL } from './persistence/config';
-export { appendBlockIntents, flushPendingWrites } from './persistence/appendBlockIntents';
-export { rebuildBlocks, rebuildAllBlocks } from './persistence/rebuildBlocks';
-export { loadBlocksForNote } from './persistence/loadBlocksForNote';
-export { blocksToDoc } from './persistence/blocksToDoc';
-export type { BlockIntent } from './persistence/extractBlockIntents';
-export type { BlockData } from './persistence/loadBlocksForNote';
