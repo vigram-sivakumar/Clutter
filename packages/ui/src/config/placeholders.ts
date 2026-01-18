@@ -44,22 +44,22 @@ export const SIDEBAR_EMPTY_STATES = {
   // --- Tasks Tab ---
   today: {
     message: "You're all clear for today 🧹. Press",
-    shortcut: ['⌘ T'],
+    shortcut: ['⌘', 'T'],
     suffix: 'to create a new task.',
   },
   overdue: {
-    message: 'No overdue tasks. Press',
-    shortcut: null,
+    message: 'Press',
+    shortcut: ['⌘', 'T'],
     suffix: 'to create a new task.',
   },
   upcoming: {
-    message: 'Nothing scheduled ahead. Press',
+    message: 'Press',
     shortcut: ['⌘', 'T'],
     suffix: 'to create a new task.',
   },
   someday: {
-    message: 'Ideas for later go here. Press',
-    shortcut: ['⌘ T'],
+    message: 'Press',
+    shortcut: ['⌘', 'T'],
     suffix: 'to create a new task.',
   },
   completed: {
