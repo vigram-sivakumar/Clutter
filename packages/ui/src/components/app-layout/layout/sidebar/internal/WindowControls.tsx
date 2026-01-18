@@ -7,6 +7,32 @@ import { DragRegion } from '../../DragRegion';
 // Check if running in Tauri (native app)
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
+// MacButton Component for native window controls
+interface MacButtonProps {
+  color: string;
+  onClick: () => void;
+}
+
+const MacButton = ({ color, onClick }: MacButtonProps) => (
+  <button
+    onClick={onClick}
+    style={
+      {
+        width: 12,
+        height: 12,
+        borderRadius: '50%',
+        backgroundColor: color,
+        border: 'none',
+        cursor: 'pointer',
+        WebkitAppRegion: 'no-drag',
+        padding: 0,
+        flexShrink: 0,
+      } as any
+    }
+    aria-label={`Window control: ${color}`}
+  />
+);
+
 interface WindowControlsProps {
   /**
    * Show the sidebar toggle button on the right side
@@ -78,8 +104,40 @@ export const WindowControls = ({
         height: '100%',
       }}
     >
-      {/* macOS Window Controls - disabled (Tauri removed) */}
-      {/* Web-only version - no window controls needed */}
+      {/* macOS Window Controls - enabled for Tauri */}
+      {isTauri && variant === 'sidebar' && (
+        <div
+          style={
+            {
+              display: 'flex',
+              gap: 8,
+              WebkitAppRegion: 'no-drag',
+            } as any
+          }
+        >
+          <MacButton
+            color="#FF5F57"
+            onClick={async () => {
+              const { appWindow } = await import('@tauri-apps/api/window');
+              appWindow.close();
+            }}
+          />
+          <MacButton
+            color="#FEBC2E"
+            onClick={async () => {
+              const { appWindow } = await import('@tauri-apps/api/window');
+              appWindow.minimize();
+            }}
+          />
+          <MacButton
+            color="#28C840"
+            onClick={async () => {
+              const { appWindow } = await import('@tauri-apps/api/window');
+              appWindow.toggleMaximize();
+            }}
+          />
+        </div>
+      )}
 
       {/* Sidebar variant: Spacer and toggle button */}
       {variant === 'sidebar' && showToggleButton && (

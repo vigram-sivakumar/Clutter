@@ -3,23 +3,26 @@ import { useTheme } from '../../../../../hooks/useTheme';
 import { Pencil, Trash2, Plus, MoreVertical } from '../../../../../icons';
 import { Button, TertiaryButton } from '../../../../ui-buttons';
 import { ContextMenu } from '../../../../ui-primitives/ContextMenu';
-import { sidebarBehavior, shouldShowQuickAdd, shouldShowContextMenu } from '../config/sidebarConfig';
+import {
+  shouldShowQuickAdd,
+  shouldShowContextMenu,
+} from '../config/sidebarConfig';
 import { getNoteIcon, getFolderIcon } from '../../../../../utils/itemIcons';
 
 /**
  * useSidebarActions
  * Unified action builder for notes, folders, and tags
- * 
+ *
  * This hook eliminates the duplication of:
  * - noteActionsCache (350+ lines)
  * - folderActionsCache (350+ lines)
  * - tagActionsCache (100+ lines)
- * 
+ *
  * Pattern:
  * - Single source of truth for action building
  * - Memoized for performance
  * - Type-safe with config rules
- * 
+ *
  * Usage:
  * ```ts
  * const noteActions = useSidebarActions({
@@ -33,7 +36,7 @@ import { getNoteIcon, getFolderIcon } from '../../../../../utils/itemIcons';
  *     onOpenChange: setOpenContextMenuId,
  *   },
  * });
- * 
+ *
  * // Then in render:
  * <SidebarItemNote actions={noteActions.get(noteId)} />
  * ```
@@ -41,16 +44,16 @@ import { getNoteIcon, getFolderIcon } from '../../../../../utils/itemIcons';
 
 interface ActionHandlers {
   // Create handlers
-  onAdd?: (parentId: string) => void;
-  
+  onAdd?: (_parentId: string) => void;
+
   // Edit handlers
-  onRename?: (id: string) => void;
-  onDelete?: (id: string) => void;
-  onEmojiClick?: (id: string, element: HTMLButtonElement) => void;
-  onEmojiDismiss?: (id: string) => void;
-  
+  onRename?: (_id: string) => void;
+  onDelete?: (_id: string) => void;
+  onEmojiClick?: (_id: string, _element: HTMLButtonElement) => void;
+  onEmojiDismiss?: (_id: string) => void;
+
   // Context menu state
-  onOpenChange?: (id: string | null) => void;
+  onOpenChange?: (_id: string | null) => void;
 }
 
 interface ItemMetadata {
@@ -69,24 +72,24 @@ interface UseSidebarActionsProps {
 }
 
 interface ActionBuilders {
-  get: (id: string) => ReactNode[];
-  getQuickAdd: (id: string) => ReactNode | null;
-  getContextMenu: (id: string) => ReactNode | null;
+  get: (_id: string) => ReactNode[];
+  getQuickAdd: (_id: string) => ReactNode | null;
+  getContextMenu: (_id: string) => ReactNode | null;
 }
 
 /**
  * Build standardized action menu items
  */
 function buildActionMenu(
-  type: 'note' | 'folder' | 'tag',
+  _type: 'note' | 'folder' | 'tag',
   id: string,
   metadata: ItemMetadata,
   handlers: ActionHandlers,
   currentIcon: ReactNode,
-  colors: any
+  _colors: any
 ): any[] {
   const hasCustomEmoji = !!metadata.emoji;
-  
+
   return [
     // Edit row: Rename + Emoji Picker
     {
@@ -157,30 +160,30 @@ export function useSidebarActions({
   handlers,
 }: UseSidebarActionsProps): ActionBuilders {
   const { colors } = useTheme();
-  
+
   /**
    * Memoized action cache
    * Builds all actions once and caches them
    */
   const actionCache = useMemo(() => {
     const cache = new Map<string, ReactNode[]>();
-    
+
     items.forEach((item) => {
       const actions: ReactNode[] = [];
-      
+
       // Check if this item should show actions based on config
       const showQuickAdd = shouldShowQuickAdd(
         type,
         item.context,
         item.isSystemFolder
       );
-      
+
       const showContextMenu = shouldShowContextMenu(
         type,
         item.context,
         item.isSystemFolder
       );
-      
+
       // Quick Add button (+ icon)
       if (showQuickAdd && handlers.onAdd) {
         actions.push(
@@ -195,74 +198,92 @@ export function useSidebarActions({
           />
         );
       }
-      
+
       // Context Menu (⋮ icon)
       if (showContextMenu) {
         // Get current icon for emoji picker button
-        const currentIcon = type === 'note'
-          ? getNoteIcon({
-              emoji: item.emoji,
-              dailyNoteDate: item.dailyNoteDate,
-              hasContent: item.hasContent,
-              size: 16,
-              color: colors.text.secondary,
-            })
-          : type === 'folder'
-          ? getFolderIcon({
-              folderId: item.id,
-              emoji: item.emoji,
-              isOpen: false,
-              size: 16,
-              color: colors.text.secondary,
-            })
-          : null;
-        
+        const currentIcon =
+          type === 'note'
+            ? getNoteIcon({
+                emoji: item.emoji,
+                dailyNoteDate: item.dailyNoteDate,
+                hasContent: item.hasContent,
+                size: 16,
+                color: colors.text.secondary,
+              })
+            : type === 'folder'
+              ? getFolderIcon({
+                  folderId: item.id,
+                  emoji: item.emoji,
+                  isOpen: false,
+                  size: 16,
+                  color: colors.text.secondary,
+                })
+              : null;
+
         actions.push(
           <ContextMenu
             key="more"
-            items={buildActionMenu(type, item.id, item, handlers, currentIcon, colors)}
-            onOpenChange={(isOpen) => handlers.onOpenChange?.(isOpen ? item.id : null)}
+            items={buildActionMenu(
+              type,
+              item.id,
+              item,
+              handlers,
+              currentIcon,
+              colors
+            )}
+            onOpenChange={(isOpen) =>
+              handlers.onOpenChange?.(isOpen ? item.id : null)
+            }
           >
-            <TertiaryButton
-              icon={<MoreVertical size={16} />}
-              size="xs"
-            />
+            <TertiaryButton icon={<MoreVertical size={16} />} size="xs" />
           </ContextMenu>
         );
       }
-      
+
       cache.set(item.id, actions);
     });
-    
+
     return cache;
   }, [items, type, handlers, colors]);
-  
+
   /**
    * Get actions for a specific item
    */
-  const get = useCallback((id: string): ReactNode[] => {
-    return actionCache.get(id) || [];
-  }, [actionCache]);
-  
+  const get = useCallback(
+    (id: string): ReactNode[] => {
+      return actionCache.get(id) || [];
+    },
+    [actionCache]
+  );
+
   /**
    * Get only quick add button (for convenience)
    */
-  const getQuickAdd = useCallback((id: string): ReactNode | null => {
-    const actions = actionCache.get(id) || [];
-    return actions[0] || null;
-  }, [actionCache]);
-  
+  const getQuickAdd = useCallback(
+    (id: string): ReactNode | null => {
+      const actions = actionCache.get(id) || [];
+      return actions[0] || null;
+    },
+    [actionCache]
+  );
+
   /**
    * Get only context menu (for convenience)
    */
-  const getContextMenu = useCallback((id: string): ReactNode | null => {
-    const actions = actionCache.get(id) || [];
-    // Context menu is second action if quick add exists, otherwise first
-    const item = items.find(i => i.id === id);
-    const hasQuickAdd = item ? shouldShowQuickAdd(type, item.context, item.isSystemFolder) : false;
-    return hasQuickAdd ? (actions[1] || null) : (actions[0] || null);
-  }, [actionCache, items, type]);
-  
+  const getContextMenu = useCallback(
+    (id: string): ReactNode | null => {
+      const actions = actionCache.get(id) || [];
+      // Context menu is second action if quick add exists, otherwise first
+      const item = items.find((i) => i.id === id);
+      const hasQuickAdd = item
+        ? shouldShowQuickAdd(type, item.context, item.isSystemFolder)
+        : false;
+      return hasQuickAdd ? actions[1] || null : actions[0] || null;
+    },
+    [actionCache, items, type]
+  );
+
   return {
     get,
     getQuickAdd,
@@ -294,4 +315,3 @@ export function useTagActions(
 ): ActionBuilders {
   return useSidebarActions({ type: 'tag', items: tags, handlers });
 }
-

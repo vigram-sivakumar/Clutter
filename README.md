@@ -1,6 +1,6 @@
 # Clutter Notes 2.0
 
-A cross-platform note-taking application built with a modern monorepo architecture.
+A native macOS note-taking application built with a modern monorepo architecture.
 
 ## 🏗️ Project Structure
 
@@ -9,12 +9,13 @@ This is a Turborepo monorepo containing:
 ```
 clutter-notes/
 ├── apps/
-│   ├── web/          # React + TypeScript web application (Vite)
-│   ├── desktop/      # Tauri desktop application (wraps web app)
-│   └── mobile/       # React Native mobile application (Expo)
+│   └── desktop/      # Tauri native macOS application (React + Rust)
 ├── packages/
-│   ├── shared/       # Shared types, utilities, and hooks
-│   └── ui/           # Design system tokens (Notion-inspired)
+│   ├── domain/       # Pure types & constants
+│   ├── state/        # Zustand stores
+│   ├── shared/       # Utilities & hooks
+│   ├── editor/       # TipTap-based editor engine
+│   └── ui/           # Design system (Notion-inspired)
 └── [root configs]    # Turborepo, TypeScript, ESLint, Prettier, etc.
 ```
 
@@ -24,8 +25,8 @@ clutter-notes/
 
 - **Node.js** >= 18.0.0
 - **npm** >= 9.0.0
-- **Rust** (for Tauri desktop app) - [Install Rust](https://www.rust-lang.org/tools/install)
-- **Expo CLI** (for mobile app) - Will be installed automatically
+- **Rust** (for Tauri) - [Install Rust](https://www.rust-lang.org/tools/install)
+- **macOS** - Currently Mac-only (Windows/Linux support possible with Tauri)
 
 ### Installation
 
@@ -53,42 +54,28 @@ npm run prepare
 
 ### Root Level
 
-- `npm run build` - Build all apps and packages
-- `npm run build:web` - Build only web app
-- `npm run build:desktop` - Build desktop app (includes Tauri build)
-- `npm run build:mobile` - Build mobile app
-- `npm run build:packages` - Build shared packages only
-- `npm run dev` - Start all apps in development mode
-- `npm run dev:web` - Start web app only
+- `npm run dev` - Start desktop app in development mode
 - `npm run dev:desktop` - Start desktop app with Tauri
-- `npm run dev:mobile` - Start mobile app with Expo
+- `npm run build` - Build all packages and desktop app
+- `npm run build:desktop` - Build desktop app (includes Tauri build)
+- `npm run build:packages` - Build shared packages only
 - `npm run lint` - Lint all packages
 - `npm run format` - Format all code with Prettier
 - `npm run type-check` - Type check all packages
 - `npm run clean` - Clean all build artifacts
 
-### App-Specific Scripts
+### Desktop App Scripts
 
-#### Web App (`apps/web`)
+From the root directory:
 
-- `npm run dev` - Start Vite dev server (http://localhost:3000)
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
+- `npm run dev:desktop` - Start Tauri app in dev mode
+- `npm run build:desktop` - Build production app
 
-#### Desktop App (`apps/desktop`)
+From `apps/desktop`:
 
 - `npm run tauri:dev` - Start Tauri dev mode
-- `npm run tauri:build` - Build native app for macOS/Windows
-- `npm run dev` - Start Vite dev server (http://localhost:1420)
-
-#### Mobile App (`apps/mobile`)
-
-- `npm run start` - Start Expo dev server
-- `npm run android` - Run on Android
-- `npm run ios` - Run on iOS
-- `npm run web` - Run in web browser
-- `npm run build:android` - Build Android APK/AAB
-- `npm run build:ios` - Build iOS app
+- `npm run tauri:build` - Build native macOS app
+- `npm run dev` - Start Vite dev server only (for testing)
 
 ## 🎨 Design System
 
@@ -114,18 +101,15 @@ import { colors, spacing, typography } from '@clutter/ui';
 - **Monorepo**: Turborepo
 - **Language**: TypeScript (strict mode)
 - **State Management**: Zustand
-- **Routing**: React Router (web/desktop), Expo Router (mobile)
+- **Routing**: React Router
 
-### Web & Desktop
+### Desktop App
 
 - **Framework**: React 18
 - **Build Tool**: Vite
-- **Desktop**: Tauri (Rust + Web)
-
-### Mobile
-
-- **Framework**: React Native
-- **Tooling**: Expo
+- **Desktop Runtime**: Tauri (Rust + WebView)
+- **Editor**: TipTap (ProseMirror-based)
+- **UI Components**: Custom design system
 
 ### Tooling
 
@@ -136,17 +120,8 @@ import { colors, spacing, typography } from '@clutter/ui';
 
 ## 📱 Building for Production
 
-### Web
+### macOS Desktop App
 
-```bash
-npm run build:web
-```
-
-Output: `apps/web/dist/`
-
-### Desktop (Tauri)
-
-**macOS:**
 ```bash
 cd apps/desktop
 npm run tauri:build
@@ -154,27 +129,16 @@ npm run tauri:build
 
 Output: `apps/desktop/src-tauri/target/release/bundle/`
 
-**Windows:**
-```bash
-cd apps/desktop
-npm run tauri:build
-```
+This creates:
 
-Output: `apps/desktop/src-tauri/target/release/bundle/`
+- `.app` bundle for macOS
+- `.dmg` installer (macOS disk image)
 
-### Mobile
+**Distribution:**
 
-**Android:**
-```bash
-cd apps/mobile
-npm run build:android
-```
-
-**iOS:**
-```bash
-cd apps/mobile
-npm run build:ios
-```
+- Sign the app with your Apple Developer certificate
+- Notarize for macOS Gatekeeper
+- Distribute via direct download or Mac App Store
 
 ## 🔧 Development Workflow
 
@@ -202,35 +166,19 @@ npm run dev
 
 ## 📝 Environment Variables
 
-### Web & Desktop
-
 Use `VITE_` prefix for environment variables:
 
 ```env
 VITE_APP_NAME=Clutter Notes
-VITE_API_URL=http://localhost:3001
 ```
 
 Access in code:
 
 ```typescript
-import.meta.env.VITE_APP_NAME
+import.meta.env.VITE_APP_NAME;
 ```
 
-### Mobile
-
-Use `EXPO_PUBLIC_` prefix:
-
-```env
-EXPO_PUBLIC_APP_NAME=Clutter Notes
-EXPO_PUBLIC_API_URL=http://localhost:3001
-```
-
-Access in code:
-
-```typescript
-process.env.EXPO_PUBLIC_APP_NAME
-```
+**Note:** Currently, Clutter stores data locally (no backend/API).
 
 ## 🏛️ Architecture Decisions
 
@@ -252,7 +200,7 @@ process.env.EXPO_PUBLIC_APP_NAME
 
 - Minimal boilerplate
 - Simple API
-- Works across all platforms
+- Lightweight and fast
 - No context providers needed
 
 ### Why Notion Design System?
@@ -271,14 +219,16 @@ If you encounter Rust compilation errors:
 1. Ensure Rust is installed: `rustc --version`
 2. Update Rust: `rustup update`
 3. Clean build: `cd apps/desktop && rm -rf src-tauri/target`
+4. Kill existing processes: `pkill -f "tauri dev"`
 
-### Expo Issues
+### Port Already in Use
 
-If Expo fails to start:
+If port 1420 is already in use:
 
-1. Clear cache: `cd apps/mobile && npm run clean`
-2. Reinstall: `rm -rf node_modules && npm install`
-3. Reset Expo: `npx expo start --clear`
+```bash
+lsof -ti:1420 | xargs kill -9
+npm run dev:desktop
+```
 
 ### TypeScript Errors
 
@@ -294,14 +244,25 @@ If packages aren't linking correctly:
 1. Clean install: `npm run clean && npm install`
 2. Verify workspaces in root `package.json`
 
-## 📚 Next Steps
+### Icon Not Updating
 
-This is a foundation setup. To start building:
+If app icon doesn't change after replacement:
 
-1. **Design UI components** using tokens from `@clutter/ui`
-2. **Set up state management** stores in `packages/shared`
-3. **Create routes** in each app
-4. **Implement features** using shared logic
+1. Quit the app completely (Cmd+Q)
+2. Rebuild: `npm run tauri:build`
+3. macOS caches icons - restart may be needed
+
+## 📚 Development Roadmap
+
+Current status: **macOS native app with custom editor**
+
+Potential future enhancements:
+
+1. **Cloud Sync** - Add backend for multi-device sync
+2. **iOS/iPadOS** - Tauri mobile support (when available)
+3. **Windows/Linux** - Tauri already supports these platforms
+4. **Plugins** - Extend editor with custom functionality
+5. **Collaboration** - Real-time multi-user editing
 
 ## 📄 License
 
@@ -310,4 +271,3 @@ This is a foundation setup. To start building:
 ## 🤝 Contributing
 
 [Add contributing guidelines here]
-

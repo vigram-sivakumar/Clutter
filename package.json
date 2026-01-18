@@ -11,6 +11,7 @@
     "build:desktop": "turbo run build --filter=@clutter/desktop",
     "build:packages": "turbo run build --filter=@clutter/domain --filter=@clutter/state --filter=@clutter/shared --filter=@clutter/editor --filter=@clutter/ui",
     "dev": "turbo run dev --filter=@clutter/desktop",
+    "dev:desktop": "cd apps/desktop && npm run tauri:dev",
     "dev:packages": "turbo run build --filter=@clutter/domain --filter=@clutter/state --filter=@clutter/shared --filter=@clutter/editor --filter=@clutter/ui --watch",
     "lint": "turbo run lint",
     "lint:arch": "./scripts/check-editor-invariants.sh",
