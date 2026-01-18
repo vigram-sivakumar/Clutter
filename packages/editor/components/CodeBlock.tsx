@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { useTheme } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 import { placeholders, spacing } from '../tokens';
 import { Code as CodeIcon } from '@clutter/ui';
 import { usePlaceholder } from '../hooks/usePlaceholder';
@@ -25,7 +25,7 @@ export function CodeBlock({
   getPos,
   updateAttributes: _updateAttributes,
 }: NodeViewProps) {
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
   const { language, indent = 0 } = node.attrs;
 
   // Check if this block is selected
@@ -53,19 +53,20 @@ export function CodeBlock({
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const handleUpdate = () => {
+    const handleSelection = () => {
       forceUpdate((prev) => prev + 1);
     };
 
-    editor.on('update', handleUpdate);
-    editor.on('selectionUpdate', handleUpdate); // Re-render on selection change for placeholder focus detection
-    editor.on('focus', handleUpdate);
-    editor.on('blur', handleUpdate);
+    // ✅ Only re-render on selection / focus changes (NOT on typing)
+    // ProseMirror handles text DOM updates directly - React must not interfere
+    // Removed 'update' listener to prevent re-rendering entire block tree on every keystroke
+    editor.on('selectionUpdate', handleSelection); // Re-render on selection change for placeholder focus detection
+    editor.on('focus', handleSelection);
+    editor.on('blur', handleSelection);
     return () => {
-      editor.off('update', handleUpdate);
-      editor.off('selectionUpdate', handleUpdate);
-      editor.off('focus', handleUpdate);
-      editor.off('blur', handleUpdate);
+      editor.off('selectionUpdate', handleSelection);
+      editor.off('focus', handleSelection);
+      editor.off('blur', handleSelection);
     };
   }, [editor]);
 

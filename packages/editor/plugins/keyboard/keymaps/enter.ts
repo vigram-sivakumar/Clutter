@@ -61,8 +61,20 @@ import { TextSelection } from 'prosemirror-state';
 // ═══════════════════════════════════════════════════
 
 /**
+ * Dispatch a transaction marked as user edit
+ * This is the ONLY way keyboard handlers should dispatch transactions
+ */
+function dispatchUserEdit(view: any, tr: any): void {
+  tr.setMeta('isUserEdit', true);
+  view.dispatch(tr);
+}
+
+/**
  * Create clean block attributes for new blocks
  * Whitelists only essential attributes, preventing attr leakage (e.g., collapsed)
+ *
+ * ⚠️ APPLE NOTES RULE: Do NOT assign blockId here
+ * blockId is assigned ONLY when cursor enters the block (lazy assignment)
  *
  * @param node - Source node to copy attrs from
  * @param indent - Indent level for the new block
@@ -70,7 +82,8 @@ import { TextSelection } from 'prosemirror-state';
  */
 function createCleanBlockAttrs(node: any, indent: number): Record<string, any> {
   const attrs: Record<string, any> = {
-    blockId: crypto.randomUUID(),
+    // ❌ DO NOT assign blockId here - it will be assigned when cursor lands
+    // blockId: crypto.randomUUID(),  // REMOVED
     indent,
   };
 
@@ -140,13 +153,36 @@ function insertSiblingAbove(editor: Editor): boolean {
   // Use depth-safe position calculation
   const insertPos = $from.before($from.depth);
 
-  tr.insert(
-    insertPos,
-    node.type.create(createCleanBlockAttrs(node, node.attrs.indent ?? 0))
-  );
+  const newNode = node.type.create(createCleanBlockAttrs(node, node.attrs.indent ?? 0));
+  tr.insert(insertPos, newNode);
 
-  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
-  view.dispatch(tr);
+  // Calculate cursor position inside the new block
+  const cursorPos = insertPos + 1;
+  tr.setSelection(TextSelection.create(tr.doc, cursorPos));
+
+  console.log('[INSERT SIBLING ABOVE]', {
+    insertPos,
+    cursorPos,
+    nodeType: node.type.name,
+    indent: node.attrs.indent ?? 0,
+    newBlockId: newNode.attrs.blockId?.substring(0, 8),
+    isEmpty: node.content.size === 0,
+    selectionBefore: state.selection.from,
+    selectionAfter: cursorPos,
+  });
+
+  dispatchUserEdit(view, tr);
+  
+  // Verify cursor position after dispatch
+  setTimeout(() => {
+    const currentPos = editor.state.selection.from;
+    console.log('[CURSOR AFTER INSERT]', {
+      expected: cursorPos,
+      actual: currentPos,
+      matches: currentPos === cursorPos,
+    });
+  }, 0);
+  
   return true;
 }
 
@@ -164,10 +200,36 @@ function insertSiblingBelow(editor: Editor, indent: number): boolean {
   const blockPos = $from.before();
   const insertPos = getSubtreeEndPosition(state, blockPos, indent);
 
-  tr.insert(insertPos, node.type.create(createCleanBlockAttrs(node, indent)));
+  const newNode = node.type.create(createCleanBlockAttrs(node, indent));
+  tr.insert(insertPos, newNode);
 
-  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
-  view.dispatch(tr);
+  // Calculate cursor position inside the new block
+  const cursorPos = insertPos + 1;
+  tr.setSelection(TextSelection.create(tr.doc, cursorPos));
+
+  console.log('[INSERT SIBLING BELOW]', {
+    insertPos,
+    cursorPos,
+    nodeType: node.type.name,
+    indent,
+    newBlockId: newNode.attrs.blockId?.substring(0, 8),
+    isEmpty: node.content.size === 0,
+    selectionBefore: state.selection.from,
+    selectionAfter: cursorPos,
+  });
+
+  dispatchUserEdit(view, tr);
+  
+  // Verify cursor position after dispatch
+  setTimeout(() => {
+    const currentPos = editor.state.selection.from;
+    console.log('[CURSOR AFTER INSERT]', {
+      expected: cursorPos,
+      actual: currentPos,
+      matches: currentPos === cursorPos,
+    });
+  }, 0);
+  
   return true;
 }
 
@@ -192,10 +254,10 @@ function insertFirstChild(editor: Editor, parentIndent: number): boolean {
 
   if (isToggle) {
     // TOGGLE EXCEPTION: Always create paragraph child
+    // ⚠️ No blockId assigned - will be assigned when cursor enters
     tr.insert(
       insertPos,
       state.schema.nodes.paragraph!.create({
-        blockId: crypto.randomUUID(),
         indent: parentIndent + 1,
       })
     );
@@ -208,7 +270,7 @@ function insertFirstChild(editor: Editor, parentIndent: number): boolean {
   }
 
   tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
-  view.dispatch(tr);
+  dispatchUserEdit(view, tr);
   return true;
 }
 
@@ -266,7 +328,13 @@ export function handleEnter(editor: Editor): boolean {
   if (isEmpty) {
     // 3️⃣ EMPTY CONTAINER → COLLAPSE
     if (isExpandedContainer) {
-      editor.commands.updateAttributes(nodeType, { collapsed: true });
+      const tr = state.tr;
+      tr.setNodeMarkup($from.before(), undefined, {
+        ...node.attrs,
+        collapsed: true,
+      });
+      tr.setMeta('isUserEdit', true);
+      view.dispatch(tr);
       return true;
     }
 
@@ -277,7 +345,7 @@ export function handleEnter(editor: Editor): boolean {
 
       tr.setNodeMarkup($from.before(), undefined, cleanAttrs);
 
-      view.dispatch(tr);
+      dispatchUserEdit(view, tr);
       return true;
     }
 
@@ -287,17 +355,17 @@ export function handleEnter(editor: Editor): boolean {
       const pos = $from.before();
 
       // Use node.nodeSize for exact replacement range
+      // ⚠️ No blockId assigned - will be assigned when cursor enters
       tr.replaceWith(
         pos,
         pos + node.nodeSize,
         state.schema.nodes.paragraph!.create({
-          blockId: crypto.randomUUID(),
           indent,
         })
       );
 
       tr.setSelection(TextSelection.create(tr.doc, pos + 1));
-      view.dispatch(tr);
+      dispatchUserEdit(view, tr);
       return true;
     }
 
@@ -313,7 +381,7 @@ export function handleEnter(editor: Editor): boolean {
         cleanAttrs
       );
 
-      view.dispatch(tr);
+      dispatchUserEdit(view, tr);
       return true;
     }
   }
@@ -337,12 +405,12 @@ export function handleEnter(editor: Editor): boolean {
     tr.delete(from, to);
 
     // Insert paragraph child
+    // ⚠️ No blockId assigned - will be assigned when cursor enters
     const insertPos = $from.after();
     tr.insert(
       insertPos,
       state.schema.nodes.paragraph!.create(
         {
-          blockId: crypto.randomUUID(),
           indent: indent + 1,
         },
         after
@@ -360,6 +428,12 @@ export function handleEnter(editor: Editor): boolean {
   // 8️⃣ START OF BLOCK → insert sibling ABOVE
   // ─────────────────────────────────────────────
   if (atStart) {
+    console.log('[ENTER KEY] atStart - creating sibling ABOVE', {
+      isEmpty,
+      indent,
+      nodeType,
+      blockId: node.attrs.blockId?.substring(0, 8),
+    });
     return insertSiblingAbove(editor);
   }
 
@@ -370,31 +444,59 @@ export function handleEnter(editor: Editor): boolean {
     const isToggle =
       node.type.name === 'listBlock' && node.attrs.listType === 'toggle';
 
+    console.log('[ENTER KEY] atEnd - checking children', {
+      isEmpty,
+      indent,
+      nodeType,
+      hasChildren,
+      isToggle,
+      isExpandedContainer,
+      blockId: node.attrs.blockId?.substring(0, 8),
+    });
+
     // ✅ TOGGLE RULE:
     // Expanded toggles ALWAYS create a child
     if (isToggle && isExpandedContainer) {
+      console.log('[ENTER KEY] Creating child (toggle rule)');
       return insertFirstChild(editor, indent);
     }
 
     // ✅ UNIVERSAL STRUCTURAL RULE:
     // Any block that already has children → create child
     if (hasChildren) {
+      console.log('[ENTER KEY] Creating child (has children)');
       return insertFirstChild(editor, indent);
     }
 
     // ✅ DEFAULT:
     // No children → create sibling
+    console.log('[ENTER KEY] Creating sibling BELOW');
     return insertSiblingBelow(editor, indent);
   }
 
   // ─────────────────────────────────────────────
   // 1️⃣1️⃣ MIDDLE OF BLOCK → SPLIT (generic fallback)
   // ─────────────────────────────────────────────
-  editor
-    .chain()
-    .splitBlock()
-    .updateAttributes(node.type.name, { indent })
-    .run();
+  const tr = state.tr;
+  const from = $from.before() + 1 + $from.parentOffset;
+  const to = $from.after() - 1;
+
+  // Text after cursor
+  const after = node.content.cut($from.parentOffset);
+
+  // Remove text after cursor from current node
+  tr.delete(from, to);
+
+  // Insert new block with remaining content
+  const insertPos = $from.after();
+  tr.insert(
+    insertPos,
+    node.type.create(createCleanBlockAttrs(node, indent), after)
+  );
+
+  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+  tr.setMeta('isUserEdit', true);
+  view.dispatch(tr);
 
   return true;
 }

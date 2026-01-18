@@ -9,11 +9,10 @@
 import { useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { patterns, spacing } from '../tokens';
-import { useTheme } from '@clutter/ui';
+import { patterns, spacing, sizing } from '../tokens';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 import { useBlockSelection } from '../hooks/useBlockSelection';
 import { FoldHorizontal, UnfoldHorizontal } from '@clutter/ui';
-import { sizing } from '@clutter/ui';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
 import { BlockHandle } from './BlockHandle';
 import { useBlockHidden } from '../hooks/useBlockHidden';
@@ -32,7 +31,7 @@ export function HorizontalRule({
   getPos,
   updateAttributes,
 }: HorizontalRuleProps) {
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
   const hrStyle = node.attrs.style || 'plain';
   const fullWidth = node.attrs.fullWidth ?? true;
   const colorMode = node.attrs.color || 'default';

@@ -15,14 +15,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useFloating, autoUpdate, offset, flip, shift } from '@floating-ui/react';
 import { createPortal } from 'react-dom';
-import { Tag } from '@clutter/ui';
-import { TagContextContent } from '@clutter/ui';
+import { Tag, TagContextContent, getTagColor, Trash2 } from '@clutter/ui';
 import { useEditorContext } from '../context/EditorContext';
-import { getTagColor } from '@clutter/ui';
-import { sizing } from '@clutter/ui';
-import { spacing } from '@clutter/ui';
-import { useTheme } from '@clutter/ui';
-import { Trash2 } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
+import { sizing, spacing } from '../tokens';
 
 interface BlockTagEditorProps {
   tags: string[];
@@ -32,7 +28,7 @@ interface BlockTagEditorProps {
 
 export function BlockTagEditor({ tags, onUpdate, onTagClick }: BlockTagEditorProps) {
   const { getTagMetadata, onUpdateTagMetadata, onUpsertTagMetadata, onRenameTag } = useEditorContext();
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
 
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);

@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { useTheme } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 import { radius } from '@clutter/ui';
 
 interface BlockSelectionHaloProps {
@@ -18,7 +18,7 @@ export function BlockSelectionHalo({
   isSelected,
   indent = 0,
 }: BlockSelectionHaloProps) {
-  const { colors: _colors } = useTheme();
+  const { colors: _colors } = useEditorTheme();
 
   return (
     <div

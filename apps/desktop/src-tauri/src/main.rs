@@ -26,6 +26,9 @@ fn main() {
             database::save_ui_state,
             database::load_ui_state,
             database::load_all_ui_state,
+            database::append_block_intents,
+            database::rebuild_blocks_from_journal,
+            database::load_blocks_for_note,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -12,12 +12,12 @@
  * - Checkbox sync (parent -> children)
  */
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { spacing, sizing, typography } from '../tokens';
 import type { ListBlockAttrs } from '../types';
-import { useTheme } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
 // import { Placeholder } from './Placeholder'; // No longer used - CSS handles placeholders
@@ -326,7 +326,11 @@ export function ListBlock({
   getPos,
   updateAttributes,
 }: ListBlockProps) {
-  const { colors } = useTheme();
+  if (!node.attrs.blockId) {
+    throw new Error('Invariant violation: ListBlock rendered without blockId');
+  }
+
+  const { colors } = useEditorTheme();
   const attrs = node.attrs as ListBlockAttrs;
   const { listType, checked, collapsed, priority, indent } = attrs;
 
@@ -341,20 +345,20 @@ export function ListBlock({
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const handleUpdate = () => {
-      // Trigger re-render on any document change
+    const handleSelection = () => {
       forceUpdate((prev) => prev + 1);
     };
 
-    editor.on('update', handleUpdate);
-    editor.on('selectionUpdate', handleUpdate); // Re-render on selection change for placeholder focus detection
-    editor.on('focus', handleUpdate);
-    editor.on('blur', handleUpdate);
+    // ✅ Only re-render on selection / focus changes (NOT on typing)
+    // ProseMirror handles text DOM updates directly - React must not interfere
+    // Removed 'update' listener to prevent re-rendering entire block tree on every keystroke
+    editor.on('selectionUpdate', handleSelection); // Re-render on selection change for placeholder focus detection
+    editor.on('focus', handleSelection);
+    editor.on('blur', handleSelection);
     return () => {
-      editor.off('update', handleUpdate);
-      editor.off('selectionUpdate', handleUpdate);
-      editor.off('focus', handleUpdate);
-      editor.off('blur', handleUpdate);
+      editor.off('selectionUpdate', handleSelection);
+      editor.off('focus', handleSelection);
+      editor.off('blur', handleSelection);
     };
   }, [editor]);
 

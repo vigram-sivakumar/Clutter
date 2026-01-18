@@ -6,7 +6,7 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { HASHTAG_REGEX, insertTag } from '@clutter/ui';
+import { HASHTAG_REGEX, insertTag } from '../utils/tagUtils';
 import type { EditorTag } from '../types';
 
 export interface HashtagAutocompleteOptions {

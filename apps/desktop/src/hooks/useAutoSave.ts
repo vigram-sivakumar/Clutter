@@ -172,20 +172,29 @@ export function useAutoSave(isEnabled: boolean = true, isHydrated: boolean = fal
     }
 
     // Debounce: Save after 2 seconds of no changes
+    console.log('[AUTOSAVE] 🕐 Debounce started:', {
+      changedNotesCount: changedNotes.length,
+      noteIds: changedNotes.map((n: Note) => n.id.slice(0, 8)),
+    });
+
     saveTimeoutRef.current = setTimeout(async () => {
+      console.log('[AUTOSAVE] 💾 Debounce fired, saving', changedNotes.length, 'notes');
       
       // Save all changed notes in parallel for better performance
       await Promise.allSettled(
         changedNotes.map(async (note: Note) => {
           try {
+            console.log('[AUTOSAVE] Saving note:', note.id.slice(0, 8), 'content length:', note.content.length);
             await saveNoteToDatabase(note);
             // Update last saved hash
             lastSavedHashRef.current.set(note.id, hashContent(note.content));
+            console.log('[AUTOSAVE] ✅ Saved note:', note.id.slice(0, 8));
           } catch (error) {
             console.error(`❌ Auto-save failed for ${note.id}:`, error);
           }
         })
       );
+      console.log('[AUTOSAVE] ✅ Batch save complete');
     }, 2000); // 2 second debounce (like Notion)
 
     return () => {

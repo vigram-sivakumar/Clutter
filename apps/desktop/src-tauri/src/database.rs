@@ -249,6 +249,50 @@ pub fn init_database(db_path: String, state: State<DbConnection>) -> Result<Stri
     )
     .map_err(|e| e.to_string())?;
     
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🔥 BLOCK INTENT JOURNAL (Apple Notes Architecture)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Crash-safe, append-only log of all block-level operations
+    // Every keystroke survives force-quit, crash, power loss
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS block_journal (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note_id TEXT NOT NULL,
+            block_id TEXT NOT NULL,
+            intent_type TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at INTEGER NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Blocks Snapshot Table (Apple Notes Architecture)
+    // Fast, materialized view of current block state
+    // Rebuilt from journal on startup for crash recovery
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS blocks (
+            block_id TEXT PRIMARY KEY,
+            note_id TEXT NOT NULL,
+            block_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            attrs TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        )",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Index for fast note-level queries
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_blocks_note_id ON blocks(note_id)",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+    
     // Store connection in state
     *state.0.lock().unwrap() = Some(conn);
     
@@ -898,3 +942,295 @@ pub fn load_all_ui_state(state: State<DbConnection>) -> Result<HashMap<String, S
     Ok(settings)
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🔥 BLOCK INTENT JOURNAL (Apple Notes Architecture)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Append block intents to the journal (crash-safe, immediate write)
+/// 
+/// This is the core of Apple Notes-style persistence:
+/// - No debounce, no batching, no delays
+/// - Single transaction per batch (atomic)
+/// - WAL ensures durability (survives crashes)
+/// - Append-only (no updates, no deletes)
+#[tauri::command]
+pub fn append_block_intents(
+    note_id: String,
+    intents: Vec<serde_json::Value>,
+    timestamp: i64,
+    state: State<DbConnection>,
+) -> Result<(), String> {
+    let mut conn_guard = state.0.lock().unwrap();
+    let conn = conn_guard.as_mut().ok_or("Database not initialized")?;
+
+    // Single transaction for all intents (atomic batch)
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    for intent in intents {
+        let block_id = intent["blockId"]
+            .as_str()
+            .ok_or("Missing blockId")?;
+        let intent_type = intent["type"]
+            .as_str()
+            .ok_or("Missing intent type")?;
+
+        tx.execute(
+            "INSERT INTO block_journal (note_id, block_id, intent_type, payload, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                &note_id,
+                block_id,
+                intent_type,
+                intent.to_string(),
+                timestamp,
+            ),
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    // Commit transaction (WAL guarantees this survives crashes)
+    tx.commit().map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/// REBUILD BLOCKS FROM JOURNAL (Apple Notes Architecture)
+/// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/// 
+/// Replays the intent journal to rebuild the blocks snapshot table.
+/// 
+/// Call this:
+/// - On app startup (crash recovery)
+/// - After journal accumulates too many entries (consolidation)
+/// 
+/// Guarantees:
+/// - Blocks table always reflects latest state
+/// - Journal remains source of truth
+/// - Idempotent (safe to call multiple times)
+#[tauri::command]
+pub fn rebuild_blocks_from_journal(
+    note_id: String,
+    state: State<DbConnection>,
+) -> Result<(), String> {
+    let mut conn_guard = state.0.lock().unwrap();
+    let conn = conn_guard.as_mut().ok_or("Database not initialized")?;
+
+    // Read all intents for this note, ordered chronologically
+    // Collect them first, then drop the statement so we can start a transaction
+    let intents: Vec<(String, String, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT block_id, intent_type, payload
+             FROM block_journal
+             WHERE note_id = ?
+             ORDER BY id ASC"
+        ).map_err(|e| e.to_string())?;
+
+        let rows = stmt.query_map([&note_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        }).map_err(|e| e.to_string())?;
+
+        rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?
+    }; // Statement is dropped here, releasing the immutable borrow
+
+    // 🔍 DIAGNOSTIC: Log intent count and IDs
+    eprintln!("[REBUILD] noteId: {}", note_id);
+    eprintln!("[REBUILD] intent count: {}", intents.len());
+    eprintln!("[REBUILD] intent block_ids: {:?}", 
+        intents.iter().map(|(bid, _, _)| bid.as_str()).collect::<Vec<_>>());
+
+    // Start transaction for atomic snapshot rebuild
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    // Clear existing blocks for this note (idempotent rebuild)
+    tx.execute(
+        "DELETE FROM blocks WHERE note_id = ?",
+        [&note_id]
+    ).map_err(|e| e.to_string())?;
+
+    // Replay each intent to rebuild blocks
+    for (block_id, intent_type, payload) in intents {
+        let intent: serde_json::Value = serde_json::from_str(&payload)
+            .map_err(|e| format!("Invalid JSON in journal: {}", e))?;
+
+        match intent_type.as_str() {
+            "create_block" | "update_content" => {
+                let block_type = intent.get("blockType")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("paragraph");
+                
+                let content = intent.get("newContent")
+                    .or_else(|| intent.get("content"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                
+                // Create default attrs as a binding to avoid temporary value drop
+                let default_attrs = serde_json::json!({});
+                let attrs = intent.get("attrs").unwrap_or(&default_attrs);
+
+                tx.execute(
+                    "INSERT INTO blocks (block_id, note_id, block_type, content, attrs, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                     ON CONFLICT(block_id) DO UPDATE SET
+                       block_type = excluded.block_type,
+                       content = excluded.content,
+                       attrs = excluded.attrs,
+                       updated_at = excluded.updated_at",
+                    (
+                        &block_id,
+                        &note_id,
+                        block_type,
+                        content,
+                        attrs.to_string(),
+                        intent.get("timestamp")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or_else(|| chrono::Utc::now().timestamp_millis()),
+                    )
+                ).map_err(|e| e.to_string())?;
+            }
+
+            "delete_block" => {
+                tx.execute(
+                    "DELETE FROM blocks WHERE block_id = ?",
+                    [&block_id]
+                ).map_err(|e| e.to_string())?;
+            }
+
+            "split_block" => {
+                // Split creates a new block - handle like create_block
+                if let Some(new_block_id) = intent.get("newBlockId").and_then(|v| v.as_str()) {
+                    let content = intent.get("newContent").and_then(|v| v.as_str()).unwrap_or("");
+                    let block_type = intent.get("blockType").and_then(|v| v.as_str()).unwrap_or("paragraph");
+                    
+                    tx.execute(
+                        "INSERT INTO blocks (block_id, note_id, block_type, content, attrs, updated_at)
+                         VALUES (?1, ?2, ?3, ?4, '{}', ?5)
+                         ON CONFLICT(block_id) DO UPDATE SET
+                           content = excluded.content,
+                           updated_at = excluded.updated_at",
+                        (
+                            new_block_id,
+                            &note_id,
+                            block_type,
+                            content,
+                            intent.get("timestamp").and_then(|v| v.as_i64())
+                                .unwrap_or_else(|| chrono::Utc::now().timestamp_millis()),
+                        )
+                    ).map_err(|e| e.to_string())?;
+                }
+            }
+
+            "merge_blocks" => {
+                // Merge deletes the second block
+                if let Some(deleted_block_id) = intent.get("deletedBlockId").and_then(|v| v.as_str()) {
+                    tx.execute(
+                        "DELETE FROM blocks WHERE block_id = ?",
+                        [deleted_block_id]
+                    ).map_err(|e| e.to_string())?;
+                }
+                
+                // Update the kept block with merged content
+                if let Some(merged_content) = intent.get("newContent").and_then(|v| v.as_str()) {
+                    tx.execute(
+                        "UPDATE blocks SET content = ?, updated_at = ?
+                         WHERE block_id = ?",
+                        (
+                            merged_content,
+                            intent.get("timestamp").and_then(|v| v.as_i64())
+                                .unwrap_or_else(|| chrono::Utc::now().timestamp_millis()),
+                            &block_id,
+                        )
+                    ).map_err(|e| e.to_string())?;
+                }
+            }
+
+            "update_attrs" => {
+                if let Some(attrs) = intent.get("newAttrs") {
+                    tx.execute(
+                        "UPDATE blocks SET attrs = ?, updated_at = ?
+                         WHERE block_id = ?",
+                        (
+                            attrs.to_string(),
+                            intent.get("timestamp").and_then(|v| v.as_i64())
+                                .unwrap_or_else(|| chrono::Utc::now().timestamp_millis()),
+                            &block_id,
+                        )
+                    ).map_err(|e| e.to_string())?;
+                }
+            }
+
+            _ => {
+                // Unknown intent types are logged but don't fail the rebuild
+                eprintln!("Warning: Unknown intent type '{}' for block {}", intent_type, block_id);
+            }
+        }
+    }
+
+    // 🔍 DIAGNOSTIC: Count final blocks in snapshot before commit
+    let final_count: i64 = tx.query_row(
+        "SELECT COUNT(*) FROM blocks WHERE note_id = ?",
+        [&note_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+    
+    eprintln!("[REBUILD] final block count in snapshot: {}", final_count);
+
+    // Commit the rebuilt snapshot
+    tx.commit().map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/// LOAD BLOCKS FOR NOTE (Editor Initialization)
+/// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+/// 
+/// Returns all blocks for a note in a format ready for editor loading.
+/// 
+/// Call this:
+/// - On note open
+/// - After rebuild_blocks_from_journal completes
+/// 
+/// Returns blocks ordered by update time (chronological creation order).
+#[tauri::command]
+pub fn load_blocks_for_note(
+    note_id: String,
+    state: State<DbConnection>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let conn_guard = state.0.lock().unwrap();
+    let conn = conn_guard.as_ref().ok_or("Database not initialized")?;
+
+    let mut stmt = conn.prepare(
+        "SELECT block_id, block_type, content, attrs
+         FROM blocks
+         WHERE note_id = ?
+         ORDER BY updated_at ASC"
+    ).map_err(|e| e.to_string())?;
+
+    let blocks = stmt.query_map([&note_id], |row| {
+        let attrs_str = row.get::<_, String>(3)?;
+        let attrs = serde_json::from_str::<serde_json::Value>(&attrs_str)
+            .unwrap_or(serde_json::json!({}));
+        
+        Ok(serde_json::json!({
+            "blockId": row.get::<_, String>(0)?,
+            "type": row.get::<_, String>(1)?,
+            "content": row.get::<_, String>(2)?,
+            "attrs": attrs
+        }))
+    }).map_err(|e| e.to_string())?
+      .collect::<Result<Vec<_>, _>>()
+      .map_err(|e| e.to_string())?;
+
+    // 🔍 DIAGNOSTIC: Log loaded block count and IDs
+    eprintln!("[LOAD BLOCKS] noteId: {}", note_id);
+    eprintln!("[LOAD BLOCKS] returned block count: {}", blocks.len());
+    eprintln!("[LOAD BLOCKS] block IDs: {:?}", 
+        blocks.iter().map(|b| b["blockId"].as_str().unwrap_or("")).collect::<Vec<_>>());
+
+    Ok(blocks)
+}

@@ -39,6 +39,13 @@ import { useConfirmation } from '@clutter/shared';
 import { Note } from '@clutter/domain';
 import { useTheme } from '../../../../hooks/useTheme';
 import { useUIPreferences } from '../../../../hooks/useUIPreferences';
+import { 
+  ENABLE_BLOCK_JOURNAL,
+  rebuildBlocks,
+  loadBlocksForNote,
+  blocksToDoc,
+  flushPendingWrites,
+} from '@clutter/editor';
 import { sizing } from '../../../../tokens/sizing';
 import { getTagColor } from '../../../../utils/tagColors';
 import { FilledButton, SecondaryButton } from '../../../ui-buttons';
@@ -119,14 +126,27 @@ const useDebounce = <T extends (..._args: any[]) => void>(
 interface NotesContainerProps {
   children?: ReactNode;
   isInitialized?: boolean;
-  onHydrationChange?: (_isHydrated: boolean) => void;
 }
 
 export const NoteEditor = ({
   children,
   isInitialized = true,
-  onHydrationChange,
 }: NotesContainerProps) => {
+  // 🔥 NOTE SESSION TOKEN: Prevents stale async work from affecting UI
+  // Increments once per note switch to abort old async effects
+  const noteSessionRef = useRef(0);
+  
+  // 🔒 ACTIVE SESSION GUARD: Prevents duplicate block loads per session
+  const activeSessionRef = useRef<number | null>(null);
+  
+  // 🔍 DIAGNOSTIC: Track component lifecycle (MOUNT/UNMOUNT)
+  useEffect(() => {
+    console.log('🟢 NoteEditor MOUNT');
+    return () => {
+      console.error('🔴 NoteEditor UNMOUNT');
+    };
+  }, []);
+  
   // Notes store
   const {
     notes,
@@ -170,6 +190,37 @@ export const NoteEditor = ({
       notes.find((n) => n.id === currentNoteId && !n.deletedAt) || null;
     return note;
   }, [notes, currentNoteId]);
+  
+  // 🔥 INCREMENT SESSION ON NOTE SWITCH (prevents async races)
+  useEffect(() => {
+    noteSessionRef.current += 1;
+    activeSessionRef.current = null; // Clear active session lock on note switch
+    
+    console.log('🧭 NOTE SESSION START', {
+      noteId: currentNoteId,
+      session: noteSessionRef.current,
+      timestamp: Date.now(),
+    });
+  }, [currentNoteId]);
+
+  // 🔍 DIAGNOSTIC: Note ID Invariant Check (MOVED HERE - after currentNote is defined)
+  console.log('🧭 NOTE ID INVARIANT CHECK', {
+    routeNoteId: currentNoteId,
+    stateNoteId: currentNote?.id,
+    stateTitle: currentNote?.title,
+    blockJournalEnabled: ENABLE_BLOCK_JOURNAL,
+    timestamp: Date.now(),
+  });
+  
+  // 🚨 ASSERTION: Detect split-brain state
+  if (currentNote && currentNoteId && currentNote.id !== currentNoteId) {
+    console.error('🚨 NOTE ID MISMATCH - SPLIT BRAIN STATE DETECTED', {
+      routeNoteId: currentNoteId,
+      stateNoteId: currentNote.id,
+      stateTitle: currentNote.title,
+      stackTrace: new Error().stack,
+    });
+  }
 
   // Local state for UI (derived from currentNote)
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(
@@ -191,22 +242,32 @@ export const NoteEditor = ({
   const [tagsVisible, setTagsVisible] = useState(
     currentNote?.tagsVisible ?? true
   );
+  
+  // 🔥 CRITICAL: Sync local state when currentNote changes (prevents stale title/emoji/metadata)
+  // This fixes the bug where switching notes kept old title/emoji because useState only initializes once
+  useEffect(() => {
+    if (!currentNote) {
+      // Clear all local state when no note is selected
+      setSelectedEmoji(null);
+      setTitle('');
+      setDescription('');
+      setTags([]);
+      setIsFavorite(false);
+      setDescriptionVisible(true);
+      setTagsVisible(true);
+      return;
+    }
+    
+    // Update local state from currentNote
+    setSelectedEmoji(currentNote.emoji || null);
+    setTitle(currentNote.title || '');
+    setDescription(currentNote.description || '');
+    setTags(currentNote.tags || []);
+    setIsFavorite(currentNote.isFavorite || false);
+    setDescriptionVisible(currentNote.descriptionVisible ?? true);
+    setTagsVisible(currentNote.tagsVisible ?? true);
+  }, [currentNote]);
   const [showMarkdownShortcuts, setShowMarkdownShortcuts] = useState(false);
-
-  // 🛡️ HYDRATION GATE: Explicit load state (no ambiguity between "loading" and "empty")
-  type EditorLoadState =
-    | { status: 'loading' }
-    | { status: 'ready'; document: string }; // JSON string document
-
-  // Canonical empty document (empty ≠ undefined ≠ not loaded)
-  const EMPTY_DOC = JSON.stringify({
-    type: 'doc',
-    content: [{ type: 'paragraph' }],
-  });
-
-  const [editorState, setEditorState] = useState<EditorLoadState>({
-    status: 'loading',
-  });
 
   const [isEmojiTrayOpen, setIsEmojiTrayOpen] = useState(false);
   const [emojiTrayPosition, setEmojiTrayPosition] = useState<{
@@ -217,17 +278,6 @@ export const NoteEditor = ({
   // Content width toggle state
   const [isFullWidth, setIsFullWidth] = useState(false);
 
-  // 🛡️ Hydration lifecycle (production-grade fix for empty content bug)
-  const [isHydrated, setIsHydrated] = useState(false);
-  const lastHydratedNoteIdRef = useRef<string | null>(null); // Track which note was last hydrated
-
-  // Report hydration state to parent (for auto-save gating)
-  useEffect(() => {
-    if (onHydrationChange) {
-      onHydrationChange(isHydrated);
-    }
-  }, [isHydrated, onHydrationChange]);
-
   // Main view state
   const [mainView, setMainView] = useState<MainView>({ type: 'editor' });
 
@@ -237,6 +287,13 @@ export const NoteEditor = ({
   // Centralized breadcrumb generation
   const breadcrumbs = useBreadcrumbs(mainView, currentNote, currentNoteId);
   const folderPathIds = useBreadcrumbFolderIds(mainView, currentNote);
+  
+  // 🔍 DIAGNOSTIC: Track breadcrumb note identity
+  console.log('🧭 Breadcrumbs calculated', {
+    noteId: currentNote?.id,
+    title: currentNote?.title,
+    breadcrumbsCount: breadcrumbs?.length,
+  });
 
   // Restore last viewed note or open today's daily note on first load (only in editor mode)
   useEffect(() => {
@@ -403,7 +460,149 @@ export const NoteEditor = ({
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const addEmojiButtonRef = useRef<HTMLButtonElement>(null);
   const previousNoteIdRef = useRef<string | null>(null); // Track note switches for transition
-  const editorHadFocusRef = useRef(false); // Track if editor had focus (for smart focus restoration)
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 🔥 BLOCK-LEVEL PERSISTENCE (Apple Notes Architecture)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Load editor content from blocks table instead of legacy notes.content
+  const [editorContent, setEditorContent] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // 🔒 SINGLE SOURCE OF TRUTH ENFORCEMENT (Apple Notes Architecture)
+    // When block journal is enabled, editor content ONLY comes from blocks table.
+    // currentNote?.content is POISON — it must never hydrate the editor.
+    
+    if (!currentNoteId) {
+      // No note selected → empty editor
+      setEditorContent(undefined);
+      return;
+    }
+    
+    if (!ENABLE_BLOCK_JOURNAL) {
+      // Block journal disabled → use legacy path (for gradual rollout)
+      setEditorContent(currentNote?.content);
+      return;
+    }
+
+    // Block journal enabled → ONLY load from blocks (crash-safe path)
+    const loadNoteFromBlocks = async () => {
+      // 🔥 CAPTURE SESSION AT START (async race protection)
+      const sessionAtStart = noteSessionRef.current;
+      
+      // 🔒 ONE-SHOT GUARD: Prevent duplicate block loads per session
+      if (activeSessionRef.current === sessionAtStart) {
+        console.warn('⛔ Duplicate session start blocked', {
+          noteId: currentNoteId,
+          session: sessionAtStart,
+        });
+        return;
+      }
+      
+      // Claim session ownership
+      activeSessionRef.current = sessionAtStart;
+      
+      // 🚨 HARD ASSERT: Verify session integrity
+      console.assert(
+        activeSessionRef.current === sessionAtStart,
+        '🚨 MULTIPLE EDITOR SESSIONS DETECTED',
+        { noteId: currentNoteId, session: sessionAtStart }
+      );
+      
+      try {
+        console.log('🔄 BLOCK LOAD START', {
+          noteId: currentNoteId,
+          session: sessionAtStart,
+        });
+        
+        // Step 0: WRITE BARRIER - Flush pending writes for causal consistency
+        // Ensures journal contains all prior user edits before rebuild reads it
+        await flushPendingWrites(currentNoteId);
+        
+        // Step 1: Rebuild blocks from journal (crash recovery)
+        await rebuildBlocks(currentNoteId);
+        
+        // 🔍 DIAGNOSTIC: After rebuild
+        console.log('[BLOCK LOAD] After rebuild', {
+          noteId: currentNoteId,
+          session: sessionAtStart,
+        });
+        
+        // 🛑 ABORT if note changed mid-flight
+        if (sessionAtStart !== noteSessionRef.current) {
+          console.warn('🛑 BLOCK LOAD ABORTED (stale session)', {
+            noteId: currentNoteId,
+            startedWith: sessionAtStart,
+            current: noteSessionRef.current,
+          });
+          return;
+        }
+        
+        // Step 2: Load blocks from snapshot table
+        const blocks = await loadBlocksForNote(currentNoteId);
+        
+        // 🔍 DIAGNOSTIC: After snapshot load
+        console.log('[BLOCK LOAD] Loaded from snapshot', {
+          noteId: currentNoteId,
+          blockCount: blocks.length,
+          blockIds: blocks.map((b: any) => b.blockId),
+          session: sessionAtStart,
+        });
+        
+        // ✅ APPLE NOTES INVARIANT: Note must NEVER mount without blocks
+        if (blocks.length === 0) {
+          console.error('🚨 INVARIANT VIOLATION: Note mounted without blocks', {
+            noteId: currentNoteId,
+            session: sessionAtStart,
+          });
+          throw new Error(
+            `INVARIANT VIOLATION: Note ${currentNoteId} has zero blocks. ` +
+            `This should never happen - initial block must be created before navigation.`
+          );
+        }
+        
+        // 🛑 ABORT if note changed during load
+        if (sessionAtStart !== noteSessionRef.current) {
+          console.warn('🛑 BLOCK APPLY ABORTED (stale session)', {
+            noteId: currentNoteId,
+            blocksLoaded: blocks.length,
+          });
+          return;
+        }
+        
+        console.log('✅ BLOCK LOAD APPLIED', {
+          noteId: currentNoteId,
+          blocks: blocks.length,
+          session: sessionAtStart,
+        });
+        
+        // Step 3: Convert to ProseMirror JSON (ALWAYS returns object)
+        const pmJson = blocksToDoc(blocks);
+        
+        // 🔍 DIAGNOSTIC: Before setEditorContent
+        console.log('[BLOCK LOAD] Before setEditorContent', {
+          noteId: currentNoteId,
+          pmJsonType: typeof pmJson,
+          pmJsonContentLength: (pmJson as any).content?.length,
+          session: sessionAtStart,
+        });
+        
+        // Step 4: Set editor content (ONLY valid write path)
+        // Convert object to JSON string for editor
+        setEditorContent(JSON.stringify(pmJson));
+        
+      } catch (error) {
+        // Only apply error state if still in same session
+        if (sessionAtStart === noteSessionRef.current) {
+          console.error('[BLOCK LOAD] ❌ Error loading blocks:', error);
+          setEditorContent(undefined);
+        } else {
+          console.warn('🛑 ERROR IGNORED (stale session)');
+        }
+      }
+    };
+
+    loadNoteFromBlocks();
+  }, [currentNoteId]); // Only reload when note switches, NOT on content changes
 
   // 🎨 UX: Detect note switching for Apple Notes-style micro transition
   const isSwitchingNote =
@@ -411,8 +610,9 @@ export const NoteEditor = ({
     previousNoteIdRef.current !== null;
 
   // Auto-save with debounce (defined early so it can be used in effects)
-  const [debouncedSave, cancelDebouncedSave] = useDebounce(
+  const [debouncedSave] = useDebounce(
     (updates: Partial<Note>) => {
+      // ✅ APPLE NOTES: Metadata updates via saveNoteMeta (content via block journal)
       if (currentNoteId) {
         // ✅ Use updateNoteMeta - debouncedSave is only for metadata, never content
         updateNoteMeta(currentNoteId, updates);
@@ -421,71 +621,7 @@ export const NoteEditor = ({
     500
   );
 
-  // 🛡️ Hydrate editor content when note changes (CRITICAL FIX)
-  // This effect runs on initial mount AND when switching notes
-  useEffect(() => {
-    if (!currentNote) {
-      return;
-    }
-
-    // Skip hydration only if both note ID and editor state match
-    if (
-      lastHydratedNoteIdRef.current === currentNote.id &&
-      editorState.status === 'ready'
-    ) {
-      return;
-    }
-
-    // Track which note we're hydrating
-    lastHydratedNoteIdRef.current = currentNote.id;
-
-    setIsHydrated(false);
-
-    // 🛡️ CRITICAL: Cancel any pending debounced saves from previous note
-    cancelDebouncedSave();
-
-    // ⬇️ DB → Editor: Load content into React state
-    const document =
-      currentNote.content && currentNote.content.trim() !== ''
-        ? currentNote.content
-        : EMPTY_DOC;
-
-    // Update editor state (TipTapWrapper will handle loading via content prop)
-    setEditorState({
-      status: 'ready',
-      document,
-    });
-
-    // Wait for React + ProseMirror to fully settle before mounting editor
-    requestAnimationFrame(() => {
-      // Sync UI state
-      setSelectedEmoji(currentNote.emoji);
-      setTitle(currentNote.title);
-      setDescription(currentNote.description);
-      setDescriptionVisible(currentNote.descriptionVisible ?? true);
-      setTags(currentNote.tags);
-      setTagsVisible(currentNote.tagsVisible ?? true);
-      setIsFavorite(currentNote.isFavorite);
-      setShowDescriptionInput(!!currentNote.description);
-
-      // 🔓 Second rAF: Let ProseMirror internal state flush
-      requestAnimationFrame(() => {
-        setIsHydrated(true);
-
-        // 🎯 Focus restoration: Only restore focus if editor had it before note switch
-        // This prevents cursor jumps and unexpected caret flashes
-        if (editorHadFocusRef.current) {
-          editorRef.current?.focus();
-        }
-
-        // 🎨 Update previous note ID for transition tracking
-        previousNoteIdRef.current = currentNote.id;
-      });
-    });
-  }, [currentNote, currentNoteId, cancelDebouncedSave, editorState.status]); // ✅ Runs on mount + note changes
-
   // 🔄 Sync tags when they change externally (e.g., from tag rename)
-  // This runs independently of the hydration effect above
   useEffect(() => {
     if (currentNote && currentNote.id === currentNoteId) {
       // Only update if tags actually changed (avoid unnecessary re-renders)
@@ -496,35 +632,6 @@ export const NoteEditor = ({
       }
     }
   }, [currentNote, currentNoteId, tags]); // Watch for currentNote changes
-
-  // 🔄 Sync editor content when it changes externally (e.g., task toggle from sidebar)
-  // This handles updates to the current note's content from outside the editor
-  useEffect(() => {
-    if (!currentNote || !currentNoteId || !isHydrated) {
-      return;
-    }
-
-    // Only apply if this is the current note in the editor
-    if (currentNote.id !== currentNoteId) {
-      return;
-    }
-
-    // Get current content from store and editor state
-    const storeContent =
-      currentNote.content && currentNote.content.trim() !== ''
-        ? currentNote.content
-        : EMPTY_DOC;
-    const editorContent =
-      editorState.status === 'ready' ? editorState.document : EMPTY_DOC;
-
-    // If content differs, it's an external change - update editor state
-    if (storeContent !== editorContent) {
-      setEditorState({
-        status: 'ready',
-        document: storeContent,
-      });
-    }
-  }, [currentNote?.content, currentNoteId, isHydrated, editorState]); // Watch for content changes
 
   // Update view context when current note is deleted
   useEffect(() => {
@@ -562,7 +669,7 @@ export const NoteEditor = ({
     if (
       targetBlockId &&
       currentNoteId &&
-      editorState.status === 'ready' &&
+      currentNote &&
       mainView.type === 'editor'
     ) {
       // Small delay to ensure the editor content is fully rendered
@@ -574,7 +681,7 @@ export const NoteEditor = ({
 
       return () => clearTimeout(timer);
     }
-  }, [targetBlockId, currentNoteId, editorState.status, mainView.type]);
+  }, [targetBlockId, currentNoteId, currentNote, mainView.type]);
 
   const handleToggleFavorite = useCallback(() => {
     setIsFavorite((prev) => {
@@ -1205,7 +1312,7 @@ export const NoteEditor = ({
 
   // Handler for calendar date selection (for daily notes)
   const handleDateSelect = useCallback(
-    (date: Date) => {
+    async (date: Date) => {
       // Try to find existing daily note for this date
       const existingNote = findDailyNoteByDate(date);
 
@@ -1215,21 +1322,21 @@ export const NoteEditor = ({
         setMainView({ type: 'editor' });
       } else {
         // Create new daily note
-        const newDailyNote = createDailyNote(date);
-        setCurrentNoteId(newDailyNote.id);
+        await createDailyNote(date); // ✅ AWAIT block creation
+        // Note: setCurrentNoteId is called internally after block exists
         setMainView({ type: 'editor' });
       }
     },
-    [findDailyNoteByDate, createDailyNote, setCurrentNoteId]
+    [findDailyNoteByDate, createDailyNote, setMainView]
   );
 
   const handleCreateNoteWithTag = useCallback(
-    (tag: string) => {
-      const newNote = createNote({ tags: [tag] });
-      setCurrentNoteId(newNote.id);
+    async (tag: string) => {
+      await createNote({ tags: [tag] }); // ✅ AWAIT block creation
+      // Note: setCurrentNoteId is called internally after block exists
       setMainView({ type: 'editor' }); // Switch to full-page editor
     },
-    [createNote, setCurrentNoteId, setMainView]
+    [createNote, setMainView]
   );
 
   const handleCreateFolderWithTag = useCallback(
@@ -1878,20 +1985,23 @@ export const NoteEditor = ({
               title={title}
               onTitleChange={(value) => {
                 if (isDailyNote) return; // Prevent title changes for daily notes
+                
+                // ✅ APPLE NOTES: Title edits allowed (metadata via saveNoteMeta)
                 setTitle(value);
                 debouncedSave({ title: value });
               }}
               onTitleEnter={() => editorRef.current?.focus()}
               dailyNoteDate={currentNote?.dailyNoteDate}
-              readOnlyTitle={isDailyNote}
+              readOnlyTitle={isDailyNote} // ✅ Only daily notes have read-only titles
               selectedEmoji={selectedEmoji}
               isEmojiTrayOpen={isEmojiTrayOpen}
               onEmojiClick={() => openEmojiTray(emojiButtonRef)}
               onRemoveEmoji={handleRemoveEmoji}
               emojiButtonRef={emojiButtonRef}
               hasContent={
-                editorState.status === 'ready' &&
-                !isContentEmpty(editorState.document)
+                ENABLE_BLOCK_JOURNAL 
+                  ? (editorContent && editorContent !== '{"type":"doc","content":[]}')
+                  : (currentNote?.content && !isContentEmpty(currentNote.content))
               }
               isFavorite={isFavorite}
               contextMenuItems={noteContextMenuItems}
@@ -1941,30 +2051,47 @@ export const NoteEditor = ({
                 }}
               >
                 <TipTapWrapper
+                  key={currentNoteId} // ✅ APPLE NOTES: Force full remount on note change
+                  noteId={currentNoteId}
                   ref={editorRef}
-                  value={
-                    editorState.status === 'ready'
-                      ? editorState.document
-                      : undefined
-                  }
+                  value={ENABLE_BLOCK_JOURNAL ? editorContent : currentNote?.content}
                   autoFocus={false}
-                  onChange={(value) => {
-                    // Update editor state
-                    setEditorState({
-                      status: 'ready',
-                      document: value,
+                  onReady={() => {
+                    // 🔍 DIAGNOSTIC: Verify noteId consistency
+                    console.log('[NOTE ID DIAGNOSTIC]', {
+                      currentNoteId: currentNoteId,
+                      currentNoteDbId: currentNote?.id,
+                      match: currentNoteId === currentNote?.id,
+                      timestamp: new Date().toISOString(),
                     });
-                    // Persist to database
-                    updateNoteContent(currentNoteId, value);
+                  }}
+                  onChange={(value) => {
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    // 🔥 PERSISTENCE ARCHITECTURE FORK
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    // 
+                    // ENABLE_BLOCK_JOURNAL = true  → Intent-based persistence (Apple Notes)
+                    // ENABLE_BLOCK_JOURNAL = false → Legacy autosave (deprecated)
+                    // 
+                    // When block journal is enabled:
+                    // - Intent extraction happens in EditorCore.onUpdate
+                    // - This onChange path is GATED (silent, no writes)
+                    // - Zustand updates are suppressed
+                    // - No autosave triggers
+                    // 
+                    // This is NOT a feature flag. This is an isolation gate.
+                    // Once block journal is validated, legacy path will be DELETED.
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    
+                    // ✅ APPLE NOTES: Editor never saves content
+                    // Persistence happens ONLY via block intents in EditorCore
+                    if (!ENABLE_BLOCK_JOURNAL) {
+                      updateNoteContent(currentNoteId, value);
+                    }
+                    // When block journal enabled: no-op (intents handle everything)
                   }}
                   onTagClick={handleShowTagFilter}
                   onNavigate={handleNavigate}
-                  onFocus={() => {
-                    editorHadFocusRef.current = true;
-                  }}
-                  onBlur={() => {
-                    editorHadFocusRef.current = false;
-                  }}
                   onTagsChange={(extractedTags) => {
                     // Merge extracted tags from editor with existing metadata tags
                     setTags((prevTags) => {

@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { useTheme } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 import { radius } from '@clutter/ui';
 import { DismissButton } from '@clutter/ui';
 
@@ -23,7 +23,7 @@ export function TaskPriorityIndicator({
   previewPriority,
   onDismiss,
 }: TaskPriorityIndicatorProps) {
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
   const [isHovered, setIsHovered] = useState(false);
 
   // Show preview if typing, otherwise show committed

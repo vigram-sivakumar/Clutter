@@ -11,6 +11,14 @@
 import type { Editor } from '@tiptap/core';
 
 /**
+ * Dispatch a transaction marked as user edit
+ */
+function dispatchUserEdit(view: any, tr: any): void {
+  tr.setMeta('isUserEdit', true);
+  view.dispatch(tr);
+}
+
+/**
  * Handle Backspace key - outdent if at start of indented block
  * 
  * @param editor - TipTap editor instance
@@ -39,7 +47,7 @@ export function handleBackspace(editor: Editor): boolean {
       }
     );
     
-    view.dispatch(tr);
+    dispatchUserEdit(view, tr);
     return true; // Consumed - don't delete
   }
   

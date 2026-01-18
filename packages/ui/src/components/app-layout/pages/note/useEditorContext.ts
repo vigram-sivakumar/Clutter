@@ -99,8 +99,8 @@ export function useEditorContext(): EditorContextValue {
       },
       
       // Note/folder operations
-      onCreateNote: (title: string, navigate?: boolean) => {
-        const note = createNote({ title }, navigate);
+      onCreateNote: async (title: string, navigate?: boolean) => {
+        const note = await createNote({ title }, navigate); // ✅ AWAIT
         return {
           id: note.id,
           title: note.title,
@@ -121,8 +121,8 @@ export function useEditorContext(): EditorContextValue {
           isDailyNote: true,
         };
       },
-      onCreateDailyNote: (date: Date, navigate?: boolean) => {
-        const note = createDailyNote(date, navigate);
+      onCreateDailyNote: async (date: Date, navigate?: boolean) => {
+        const note = await createDailyNote(date, navigate); // ✅ AWAIT
         return {
           id: note.id,
           title: note.title,

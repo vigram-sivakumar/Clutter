@@ -654,6 +654,13 @@ export const AppSidebar = ({
     items: visibleNotes,
     getItemId: (note) => note.id,
     onSingleSelect: (noteId) => {
+      // 🔍 DIAGNOSTIC: Track sidebar note selection
+      console.log('📌 Sidebar click', {
+        noteId: noteId,
+        noteTitle: visibleNotes.find(n => n.id === noteId)?.title,
+        timestamp: new Date().toISOString(),
+      });
+      
       setCurrentNoteId(noteId);
       onNoteClickFromSidebar?.();
     },
@@ -940,14 +947,14 @@ export const AppSidebar = ({
   ]);
 
   // Handlers
-  const handleCreateNote = useCallback(() => {
+  const handleCreateNote = useCallback(async () => {
     // Simply create a new note - no auto-deletion (matches Notion/Craft/Tana)
-    const newNote = createNote();
-    setCurrentNoteId(newNote.id);
+    const newNote = await createNote(); // ✅ AWAIT block creation
+    // Note: setCurrentNoteId is called internally by createNote after block exists
 
     // Notify parent to switch to full-page editor view
     onNoteClickFromSidebar?.();
-  }, [createNote, setCurrentNoteId, onNoteClickFromSidebar]);
+  }, [createNote, onNoteClickFromSidebar]);
 
   const handleCreateFolder = useCallback(
     (parentId?: string) => {

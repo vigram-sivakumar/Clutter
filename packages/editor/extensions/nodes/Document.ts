@@ -14,8 +14,8 @@ export const Document = Node.create({
   // Top-level node
   topNode: true,
 
-  // Can contain any block content
-  content: 'block+',
+  // Can contain zero or more blocks
+  content: 'block*',
 
   // No parsing needed - this is the root
   parseHTML() {

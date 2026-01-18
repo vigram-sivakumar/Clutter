@@ -10,7 +10,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Editor } from '@tiptap/react';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import { DragHandle, Trash2, Copy, ChevronUp, ChevronDown, Type } from '@clutter/ui';
-import { useTheme } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 import { isMultiBlockSelection, getSelectedBlocks, executeOnSelectedBlocks, getSelectedBlockCount } from '../utils/multiSelection';
 
 export interface BlockHandleProps {
@@ -23,7 +23,7 @@ export interface BlockHandleProps {
 let anchorBlockPos: number | null = null;
 
 export function BlockHandle({ editor, getPos, indent = 0 }: BlockHandleProps) {
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
   const [showMenu, setShowMenu] = useState(false);
   const [isFirstInMultiSelection, setIsFirstInMultiSelection] = useState(false);
   const [isInMultiSelection, setIsInMultiSelection] = useState(false);

@@ -8,6 +8,13 @@ import { create } from 'zustand';
 import { Note, DAILY_NOTES_FOLDER_ID } from '@clutter/domain';
 import { shouldAllowSave } from './hydration';
 
+// Block journal imports (Apple Notes architecture)
+let createInitialBlockForNote: ((noteId: string) => Promise<void>) | null = null;
+
+export function setCreateInitialBlockHandler(handler: (noteId: string) => Promise<void>) {
+  createInitialBlockForNote = handler;
+}
+
 // Generate a unique ID
 const generateId = () => {
   return `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -74,7 +81,7 @@ interface NotesStore {
   // Actions
   setNotes: (notes: Note[]) => void;
   setCurrentNoteId: (id: string | null) => void;
-  createNote: (initialValues?: Partial<Note>, setAsCurrent?: boolean) => Note;
+  createNote: (initialValues?: Partial<Note>, setAsCurrent?: boolean) => Promise<Note>;
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   duplicateNote: (id: string) => Note | null;
@@ -87,7 +94,7 @@ interface NotesStore {
   
   // Daily notes
   findDailyNoteByDate: (date: Date) => Note | null;
-  createDailyNote: (date: Date, setAsCurrent?: boolean) => Note;
+  createDailyNote: (date: Date, setAsCurrent?: boolean) => Promise<Note>;
   updateDailyNoteTitles: () => void;
   
   // Storage integration (to be implemented by platform)
@@ -134,7 +141,19 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
   },
   
   // Actions
-  setNotes: (notes) => set({ notes }),
+  setNotes: (notes) => {
+    // 🚨 DEV-ONLY INVARIANT: Never clear notes list while editor is active
+    if (process.env.NODE_ENV === 'development') {
+      const currentNote = get().currentNoteId;
+      if (notes.length === 0 && currentNote) {
+        throw new Error(
+          `INVARIANT VIOLATION: Notes list cleared while editor active (currentNoteId: ${currentNote})`
+        );
+      }
+    }
+    
+    set({ notes });
+  },
   
   setCurrentNoteId: (id) => {
     // Save to localStorage to restore on next launch
@@ -150,19 +169,41 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     set({ currentNoteId: id });
   },
   
-  createNote: (initialValues, setAsCurrent = true) => {
+  createNote: async (initialValues, setAsCurrent = true) => {
     const note = createEmptyNote(initialValues);
+    
+    // 🔍 DIAGNOSTIC: Track note creation
+    console.log('🆕 Creating note', {
+      noteId: note.id,
+      title: note.title,
+      setAsCurrent,
+      timestamp: new Date().toISOString(),
+    });
+    
+    // Add note to state WITHOUT setting as current yet
     set((state) => ({
       notes: [note, ...state.notes],
-      currentNoteId: setAsCurrent ? note.id : state.currentNoteId,
+      // ❌ DO NOT set currentNoteId yet - block creation must complete first
     }));
     
-    // Save immediately when note is created
+    // ✅ APPLE NOTES: Save metadata immediately (before block creation)
     if (storageHandlers) {
-      console.log('💾 Saving note immediately:', note.id, note.title);
-      storageHandlers.save(note).catch((err) => {
-        console.error('Failed to save note:', err);
+      console.log('💾 Saving note metadata immediately:', note.id, note.title);
+      await storageHandlers.save(note).catch((err) => {
+        console.error('Failed to save note metadata:', err);
       });
+    }
+    
+    // ✅ APPLE NOTES: Create initial block BEFORE allowing navigation
+    if (createInitialBlockForNote) {
+      console.log('⏳ Awaiting initial block creation before navigation...');
+      await createInitialBlockForNote(note.id);
+      console.log('✅ Initial block ready, allowing navigation');
+    }
+    
+    // ✅ NOW set as current (after block exists)
+    if (setAsCurrent) {
+      set({ currentNoteId: note.id });
     }
     
     return note;
@@ -205,6 +246,13 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
   
   // 🛡️ SINGLE-WRITER INVARIANT: Content has ONE writer (prevents race conditions)
   updateNoteContent: (id, content) => {
+    console.log('[ZUSTAND updateNoteContent]', {
+      noteId: id.slice(0, 8),
+      contentLength: content?.length || 0,
+      contentPreview: content?.substring(0, 100),
+      timestamp: Date.now(),
+    });
+
     // 🛡️ CRITICAL: Never accept pure boot state (completely empty, no structure)
     // But DO allow intentional empty (has doc structure, just no content)
     const isPureBootState = (
@@ -228,6 +276,8 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
           : note
       ),
     }));
+    
+    console.log('[ZUSTAND] ✅ Note content updated in store:', id.slice(0, 8));
     
     // ✅ Content persistence is ONLY handled by useAutoSave (debounced, intelligent)
     // No direct save here to avoid race conditions
@@ -443,7 +493,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     )[0] || null;
   },
   
-  createDailyNote: (date, setAsCurrent = true) => {
+  createDailyNote: async (date, setAsCurrent = true) => {
     // Use local date string to avoid timezone issues
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -478,13 +528,31 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       folderId: DAILY_NOTES_FOLDER_ID, // Special folder for daily notes
     });
     
+    // Add note to state WITHOUT setting as current yet
     set((state) => ({
       notes: [note, ...state.notes],
-      currentNoteId: setAsCurrent ? note.id : state.currentNoteId,
+      // ❌ DO NOT set currentNoteId yet - block creation must complete first
     }));
     
-    // Daily note will be saved automatically when user adds content
-    // (via auto-save mechanism or when switching notes)
+    // ✅ APPLE NOTES: Save metadata immediately (before block creation)
+    if (storageHandlers) {
+      console.log('💾 Saving daily note metadata immediately:', note.id, note.title);
+      await storageHandlers.save(note).catch((err) => {
+        console.error('Failed to save daily note metadata:', err);
+      });
+    }
+    
+    // ✅ APPLE NOTES: Create initial block BEFORE allowing navigation
+    if (createInitialBlockForNote) {
+      console.log('⏳ Awaiting initial block creation (daily note) before navigation...');
+      await createInitialBlockForNote(note.id);
+      console.log('✅ Initial block ready (daily note), allowing navigation');
+    }
+    
+    // ✅ NOW set as current (after block exists)
+    if (setAsCurrent) {
+      set({ currentNoteId: note.id });
+    }
     
     return note;
   },
@@ -527,6 +595,14 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     if (!storageHandlers) {
       console.log('⚠️ loadNotes: No storageHandlers configured');
       return;
+    }
+    
+    // 🚨 APPLE NOTES INVARIANT: Never reload notes list during runtime
+    // This would invalidate active editor sessions
+    const currentNote = get().currentNoteId;
+    if (currentNote) {
+      console.error('🚫 FORBIDDEN: loadNotes() called while editor is active', { currentNote });
+      throw new Error('INVARIANT VIOLATION: Cannot reload notes list while editor is active');
     }
     
     set({ isLoading: true, error: null });

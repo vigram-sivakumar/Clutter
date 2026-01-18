@@ -12,6 +12,7 @@ import {
   useFoldersStore,
   useTagsStore,
   setStorageHandlers,
+  setCreateInitialBlockHandler,
   setSaveFolderHandler,
   setDeleteFolderHandler,
   setSaveTagHandler,
@@ -27,7 +28,7 @@ import {
   loadAllNotesFromDatabase,
   loadAllFoldersFromDatabase,
   loadAllTagsFromDatabase,
-  saveNoteToDatabase,
+  saveNoteMeta,
   saveFolderToDatabase,
   saveTagToDatabase,
   deleteTagFromDatabase,
@@ -35,13 +36,14 @@ import {
   deleteFolderPermanently,
   migrateOrphanedNotes,
   verifyDatabaseIntegrity,
+  createInitialBlockForNote,
 } from './lib/database';
-import { useAutoSave } from './hooks/useAutoSave';
+// import { useAutoSave } from './hooks/useAutoSave'; // ✅ Disabled - content via block journal
 
 function App() {
   const [storageFolder, setStorageFolder] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [isEditorHydrated, setIsEditorHydrated] = useState(false);
+  // const [isEditorHydrated, setIsEditorHydrated] = useState(false); // ✅ No longer needed
   const setNotes = useNotesStore((state) => state.setNotes);
   const setFolders = useFoldersStore((state) => state.setFolders);
   const setTagMetadata = useTagsStore((state) => state.setTagMetadata);
@@ -50,12 +52,14 @@ function App() {
   );
   const createDailyNote = useNotesStore((state) => state.createDailyNote);
   const setCurrentNoteId = useNotesStore((state) => state.setCurrentNoteId);
+  const currentNoteId = useNotesStore((state) => state.currentNoteId); // 🔥 For hard remount
   const updateDailyNoteTitles = useNotesStore(
     (state) => state.updateDailyNoteTitles
   );
 
-  // Enable auto-save to SQLite (only after database is initialized AND editor is hydrated)
-  useAutoSave(isInitialized, isEditorHydrated);
+  // 🚫 DISABLED: Content persistence is now handled by block journal
+  // Metadata is saved immediately via saveNoteMeta()
+  // useAutoSave(isInitialized, isEditorHydrated);
 
   // Initialize global midnight updater for current date tracking
   useEffect(() => {
@@ -109,10 +113,11 @@ function App() {
 
         // Set up storage handlers for notes, folders and tags (BEFORE loading data)
         setStorageHandlers({
-          save: saveNoteToDatabase,
+          save: saveNoteMeta, // ✅ APPLE NOTES: Save metadata only (content via block journal)
           load: loadAllNotesFromDatabase,
           delete: deleteNotePermanently,
         });
+        setCreateInitialBlockHandler(createInitialBlockForNote); // ✅ APPLE NOTES: Initial block creation
         setSaveFolderHandler(saveFolderToDatabase);
         setDeleteFolderHandler(deleteFolderPermanently);
         setSaveTagHandler(saveTagToDatabase);
@@ -270,7 +275,7 @@ function App() {
         let dailyNote = findDailyNoteByDate(today);
 
         if (!dailyNote) {
-          dailyNote = createDailyNote(today, false); // Don't set as current yet
+          dailyNote = await createDailyNote(today, false); // ✅ AWAIT block creation
         }
 
         if (dailyNote) {
@@ -385,7 +390,6 @@ function App() {
             element={
               <NotesContainer
                 isInitialized={isInitialized}
-                onHydrationChange={setIsEditorHydrated}
               >
                 <></>
               </NotesContainer>

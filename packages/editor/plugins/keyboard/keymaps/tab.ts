@@ -45,6 +45,14 @@ const MAX_INDENT = 8;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
+ * Dispatch a transaction marked as user edit
+ */
+function dispatchUserEdit(view: any, tr: any): void {
+  tr.setMeta('isUserEdit', true);
+  view.dispatch(tr);
+}
+
+/**
  * Handle Tab key - indent or outdent current block and its visual subtree
  *
  * @param editor - TipTap editor instance
@@ -214,6 +222,6 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
   tr.setMeta('historyGroup', isShift ? 'outdent-block' : 'indent-block');
 
   // Apply transaction
-  view.dispatch(tr);
+  dispatchUserEdit(view, tr);
   return true; // Key consumed
 }

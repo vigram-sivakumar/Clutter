@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { placeholders } from '../tokens';
-import { useTheme } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 
 interface PlaceholderProps {
   /** Custom placeholder text (defaults to "Type '/' for commands") */
@@ -22,7 +22,7 @@ interface PlaceholderProps {
  * Placeholder text overlay for empty focused blocks
  */
 export function Placeholder({ text = placeholders.default, style }: PlaceholderProps) {
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
 
   return (
     <span

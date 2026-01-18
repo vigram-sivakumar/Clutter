@@ -5,10 +5,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
-import { useTheme } from '@clutter/ui';
-import { sizing } from '@clutter/ui';
-import { spacing } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
 import * as Icons from '@clutter/ui';
+import { sizing, spacing } from '../tokens';
 import { filterSlashCommands, type SlashCommand, type CommandGroup } from '../plugins/SlashCommands';
 
 interface SlashCommandMenuProps {
@@ -16,7 +15,7 @@ interface SlashCommandMenuProps {
 }
 
 export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);

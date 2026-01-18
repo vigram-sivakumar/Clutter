@@ -13,7 +13,7 @@ import { ParagraphBlock } from '../../components/ParagraphBlock';
 import {
   findAncestorNode,
 } from '../../utils/keyboardHelpers';
-import { HASHTAG_REGEX, insertTag } from '@clutter/ui';
+import { HASHTAG_REGEX, insertTag } from '../../utils/tagUtils';
 import { BackspaceRules } from '../../utils/keyboardRules';
 import type { EditorEngine } from '../../core/engine/EditorEngine';
 import { DeleteBlockCommand } from '../../core/engine/command';

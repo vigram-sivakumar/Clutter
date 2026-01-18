@@ -79,7 +79,13 @@ import { TabHandler } from '../plugins/TabHandler';
 import { KeyboardShortcuts } from '../plugins/KeyboardShortcuts';
 import { BlockIdGenerator } from '../extensions/BlockIdGenerator';
 
+// Block-level persistence (Apple Notes architecture)
+import { extractBlockIntents } from '../persistence/extractBlockIntents';
+import { appendBlockIntents } from '../persistence/appendBlockIntents';
+import { ENABLE_BLOCK_JOURNAL } from '../persistence/config';
+
 // All plugins enabled (except UndoRedo - using TipTap History instead)
+import { UserInputMarker } from '../plugins/UserInputMarker';
 import { SlashCommands } from '../plugins/SlashCommands';
 import { TaskPriority } from '../plugins/TaskPriority';
 import { EscapeMarks } from '../plugins/EscapeMarks';
@@ -100,7 +106,10 @@ import { FloatingToolbar } from '@clutter/ui';
 
 // Tokens
 import { spacing, typography, placeholders } from '../tokens';
-import { useTheme } from '@clutter/ui';
+
+// Theme
+import { EditorThemeProvider, useEditorTheme } from '../theme/EditorThemeContext';
+import type { EditorTheme } from '@clutter/shared';
 
 // Editor Context
 import { useEditorContext } from '../context/EditorContext';
@@ -109,10 +118,12 @@ import { useEditorContext } from '../context/EditorContext';
 import HardBreak from '@tiptap/extension-hard-break';
 
 interface EditorCoreProps {
-  content?: object | null;
+  theme: EditorTheme;
+  noteId: string;
+  incomingContent?: object | null;
   onChange?: (_content: object) => void;
-  onTagClick?: (_tag: string) => void; // Callback when a tag is clicked for navigation
-  onNavigate?: (_linkType: 'note' | 'folder', _targetId: string) => void; // Callback when a note/folder link is clicked
+  onTagClick?: (_tag: string) => void;
+  onNavigate?: (_linkType: 'note' | 'folder', _targetId: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
   placeholder?: string;
@@ -122,16 +133,27 @@ interface EditorCoreProps {
 }
 
 export const EditorCore = forwardRef<EditorCoreHandle, EditorCoreProps>(
+  (props, ref) => {
+    const { theme, ...innerProps } = props;
+    return (
+      <EditorThemeProvider theme={theme}>
+        <EditorCoreInner {...innerProps} ref={ref} />
+      </EditorThemeProvider>
+    );
+  }
+);
+
+// Internal component that consumes theme from context
+const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'theme'>>(
   (
     {
-      content,
+      noteId,
+      incomingContent,
       onChange,
       onTagClick,
       onNavigate,
       onFocus,
       onBlur,
-      // placeholder prop kept for API compatibility but not used
-      // (placeholders are handled by individual React components)
       placeholder: _placeholder = placeholders.default,
       editable = true,
       className,
@@ -139,18 +161,21 @@ export const EditorCore = forwardRef<EditorCoreHandle, EditorCoreProps>(
     },
     ref
   ) => {
-    const { colors } = useTheme();
+    const { colors } = useEditorTheme();
     const { availableTags } = useEditorContext();
-
-    // Track if we're updating from the editor (to prevent clearing history)
-    const isInternalUpdate = useRef(false);
-
-    // Track if editor has been hydrated (Apple Notes rule: hydrate once, ignore after)
-    const hasHydratedRef = useRef(false);
+    
+    const activeNoteIdRef = useRef<string | null>(null);
+    const prevDocRef = useRef<any>(null);
+    // ✅ APPLE NOTES: Hard lock to prevent ALL mutations during content loading
+    const isHydratingRef = useRef<boolean>(false);
 
     // Create editor instance
     const editor = useEditor({
       extensions: [
+        // 🔒 User Input Marker (HIGHEST PRIORITY)
+        // Marks all user input with isUserEdit meta - single source of truth
+        UserInputMarker,
+        
         // Core nodes
         Document,
         Text,
@@ -212,10 +237,8 @@ export const EditorCore = forwardRef<EditorCoreHandle, EditorCoreProps>(
         // Collapse plugin (wrapped as TipTap extension)
         CollapseExtension,
       ] as any[],
-      content: content || {
-        type: 'doc',
-        content: [{ type: 'paragraph' }],
-      },
+      content: null,
+      autofocus: false,
       editable,
       editorProps: {
         attributes: {
@@ -256,24 +279,80 @@ export const EditorCore = forwardRef<EditorCoreHandle, EditorCoreProps>(
         },
       },
       onUpdate: ({ editor, transaction }) => {
-        // Only fire onChange if document actually changed (not just selection)
-        if (onChange && transaction.docChanged) {
-          // Mark that this update is coming from the editor (internal)
-          isInternalUpdate.current = true;
-          onChange(editor.getJSON());
-          // Reset flag after a short delay to allow parent to update prop
-          setTimeout(() => {
-            isInternalUpdate.current = false;
-          }, 0);
+        // 🔒 APPLE NOTES: ABSOLUTE HARD LOCK - No mutations during hydration
+        if (isHydratingRef.current) return;
+        
+        // 🔒 Only persist user edits (authoritative signal from UserInputMarker)
+        if (transaction.getMeta('isUserEdit') !== true) return;
+        if (!onChange) return;
+        if (!transaction.docChanged) return;
+
+        const intents = extractBlockIntents(
+          prevDocRef.current,
+          editor.state.doc,
+          transaction,
+          noteId
+        );
+
+        if (intents.length > 0 && ENABLE_BLOCK_JOURNAL && noteId) {
+          appendBlockIntents(noteId, intents);
+        }
+
+        prevDocRef.current = editor.state.doc;
+        onChange(editor.getJSON());
+      },
+      onSelectionUpdate: ({ editor, transaction }) => {
+        // ✅ APPLE NOTES RULE: Lazy blockId assignment
+        // Only assign blockId when cursor enters a block
+        // This prevents premature ID generation for helper/scaffolding blocks
+        
+        const { selection, schema } = editor.state;
+        const { $from } = selection;
+        const node = $from.parent;
+        
+        // Check if cursor is in a block without a blockId
+        if (node.isBlock && !node.attrs.blockId) {
+          const tr = editor.state.tr;
+          const pos = $from.before($from.depth);
+          
+          // Assign blockId to the block the cursor just entered
+          tr.setNodeMarkup(pos, undefined, {
+            ...node.attrs,
+            blockId: crypto.randomUUID(),
+          });
+          
+          // Mark as system transaction (not user edit)
+          tr.setMeta('isUserEdit', false);
+          tr.setMeta('addToHistory', false);
+          
+          console.log('[LAZY BLOCKID]', {
+            nodeType: node.type.name,
+            blockId: tr.doc.nodeAt(pos)?.attrs.blockId?.substring(0, 8),
+            reason: 'Cursor entered block without ID',
+          });
+          
+          editor.view.dispatch(tr);
         }
       },
-      onSelectionUpdate: ({ editor: _editor, transaction: _transaction }) => {
-        // Selection update callback (can be used for future selection tracking)
-      },
-    });
+    }, [noteId]); // ✅ APPLE NOTES: Recreate editor when note changes
 
-    // Apple Notes Architecture: No engine/resolver needed
-    // Keyboard shortcuts use direct ProseMirror transactions
+    // Reset refs when editor recreates for new note
+    useEffect(() => {
+      if (!editor) return;
+      // ✅ APPLE NOTES: Reset refs when editor recreates for new note
+      activeNoteIdRef.current = null;
+      prevDocRef.current = null;
+    }, [editor]);
+
+    // ✅ APPLE NOTES: Destroy editor on unmount to prevent state leaks
+    useEffect(() => {
+      return () => {
+        if (editor) {
+          editor.destroy();
+        }
+      };
+    }, [editor]);
+
 
     // Store onTagClick callback in editor instance so node views can access it
     useEffect(() => {
@@ -358,17 +437,50 @@ export const EditorCore = forwardRef<EditorCoreHandle, EditorCoreProps>(
       [editor]
     );
 
-    // Hydrate editor once (Apple Notes rule: ignore silently after first hydration)
+    // Hydration effect
     useEffect(() => {
-      if (!editor || !content) return;
+      if (!editor) return;
+      if (!incomingContent) return;
+      if (activeNoteIdRef.current === noteId) return;
 
-      if (hasHydratedRef.current) {
-        return; // Apple Notes rule: ignore silently
+      activeNoteIdRef.current = noteId;
+      
+      // ✅ APPLE NOTES: HARD LOCK - Prevent ALL mutations during load
+      isHydratingRef.current = true;
+
+      // Parse JSON string to object
+      const contentObj = typeof incomingContent === 'string' 
+        ? JSON.parse(incomingContent) 
+        : incomingContent;
+      
+      // ✅ APPLE NOTES: Use setContent with emitUpdate: false
+      // This treats content as authoritative and prevents ProseMirror from normalizing away empty text nodes
+      // The false parameter means "don't trigger update event" - critical for hydration
+      try {
+        const result = editor.commands.setContent(contentObj, false);
+        if (!result) {
+          console.error('[HYDRATION] ❌ setContent returned false', {
+            noteId,
+            contentPreview: JSON.stringify(contentObj).substring(0, 200),
+          });
+        }
+      } catch (error) {
+        console.error('[HYDRATION] ❌ setContent threw error', {
+          noteId,
+          error,
+          contentPreview: JSON.stringify(contentObj).substring(0, 200),
+        });
       }
 
-      hasHydratedRef.current = true;
-      editor.commands.setContent(content, false);
-    }, [editor]);
+      // ✅ Set baseline immediately after hydration (not after first edit)
+      prevDocRef.current = editor.state.doc;
+
+      // ✅ APPLE NOTES: Release lock after current frame completes
+      // This ensures all synchronous ProseMirror mutations are done
+      requestAnimationFrame(() => {
+        isHydratingRef.current = false;
+      });
+    }, [editor, incomingContent, noteId]);
 
     // Update editable state
     useEffect(() => {

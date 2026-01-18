@@ -23,17 +23,24 @@ export const BlockIdGenerator = Extension.create({
         key: new PluginKey('blockIdGenerator'),
 
         appendTransaction: (transactions, _oldState, newState) => {
-          // Only process transactions that actually changed the document
-          const docChanged = transactions.some((tr) => tr.docChanged);
-          if (!docChanged) return null;
+          // ✅ APPLE NOTES RULE: Block identity is assigned ONLY during user edits
+          // NEVER during hydration - blocks from DB already have IDs
+          const hasUserEdit = transactions.some((tr) => tr.getMeta('isUserEdit') === true);
+          
+          // Hard block: ONLY run on explicit user edits
+          if (!hasUserEdit) return null;
 
-          // SAFETY: Skip if this is our own transaction (prevent infinite loop)
+          // Prevent infinite loops from our own transactions
           if (transactions.some((tr) => tr.getMeta('blockIdGenerator'))) {
             return null;
           }
 
+          const docChanged = transactions.some((tr) => tr.docChanged);
+          if (!docChanged) return null;
+
           const tr = newState.tr;
           tr.setMeta('blockIdGenerator', true); // Mark as our transaction
+          tr.setMeta('addToHistory', false); // ✅ Prevent undo pollution
           let modified = false;
 
           // Track level updates within this transaction
@@ -263,159 +270,4 @@ export const BlockIdGenerator = Extension.create({
     ];
   },
 
-  onCreate() {
-    // Run when editor is created - adds blockId AND computes correct levels
-    console.log('[BlockIdGenerator] onCreate - will run after setTimeout(0)');
-    setTimeout(() => {
-      if (!this.editor) return;
-
-      console.log('[BlockIdGenerator] onCreate - executing now');
-      const { state } = this.editor;
-      const tr = state.tr;
-      let modified = false;
-
-      // Track level updates within this transaction
-      const levelUpdates = new Map<string, number>();
-
-      // 🔒 CRITICAL: Track seen blockIds to detect duplicates during onCreate
-      const seenBlockIds = new Set<string>();
-
-      // Helper: Compute level as parent's level + 1, capped at MAX_INDENT_LEVEL
-      const computeLevel = (blockNode: any): number => {
-        const parentBlockId = blockNode.attrs.parentBlockId;
-
-        // No parent OR parent is root → level 0
-        // Root is a virtual container, not a real block, so don't attempt lookup
-        if (!parentBlockId || parentBlockId === 'root') return 0;
-
-        // Check if parent's level was updated in THIS transaction
-        if (levelUpdates.has(parentBlockId)) {
-          const parentLevel = levelUpdates.get(parentBlockId)!;
-          const computedLevel = parentLevel + 1;
-          return Math.min(computedLevel, MAX_INDENT_LEVEL);
-        }
-
-        // Find the immediate parent in the document
-        let parentNode: any = null;
-        state.doc.descendants((node: any) => {
-          if (node.attrs?.blockId === parentBlockId) {
-            parentNode = node;
-            return false;
-          }
-          return true;
-        });
-
-        // Parent not found → treat as root
-        if (!parentNode) {
-          console.warn('⚠️ BlockIdGenerator: parent not found', {
-            blockId: blockNode.attrs.blockId?.substring(0, 8),
-            parentBlockId: parentBlockId?.substring(0, 8),
-          });
-          return 0;
-        }
-
-        // HARD RULE: toggleHeader is NEVER a structural parent
-        if (NON_STRUCTURAL_PARENTS.has(parentNode.type.name)) {
-          return 0;
-        }
-
-        // ✅ Compute as parent's level + 1, capped at MAX_INDENT_LEVEL
-        const parentLevel = parentNode.attrs.level || 0;
-        const computedLevel = parentLevel + 1;
-        return Math.min(computedLevel, MAX_INDENT_LEVEL);
-      };
-
-      state.doc.descendants((node, pos) => {
-        // Only process nodes that have blockId attribute defined in their schema
-        if (!node.attrs || node.attrs.blockId === undefined) return;
-
-        const currentBlockId = node.attrs.blockId;
-
-        // 🔒 BLOCK IDENTITY LAW: blockIds must be UNIQUE per node instance
-        // During onCreate, content may already have blockIds (e.g., from database)
-        // But we must detect duplicates in case of data corruption
-        const isDuplicate = currentBlockId && seenBlockIds.has(currentBlockId);
-        const needsNewId =
-          !currentBlockId || currentBlockId === '' || isDuplicate;
-
-        if (!needsNewId) {
-          // Node has valid, unique blockId - preserve it
-          seenBlockIds.add(currentBlockId);
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(
-              '[BlockIdGenerator] onCreate - node has blockId, skipping:',
-              {
-                type: node.type.name,
-                blockId: currentBlockId.substring(0, 8),
-              }
-            );
-          }
-          return; // ✅ Skip this node completely
-        }
-
-        // Add or regenerate blockId
-        if (needsNewId) {
-          const newBlockId = crypto.randomUUID();
-
-          if (isDuplicate) {
-            console.warn(
-              '[BlockIdGenerator] onCreate - duplicate blockId detected (data corruption) - regenerating:',
-              {
-                type: node.type.name,
-                duplicateId: currentBlockId.substring(0, 8),
-                newBlockId: newBlockId.substring(0, 8),
-                pos,
-              }
-            );
-          } else {
-            console.log(
-              '[BlockIdGenerator] onCreate - adding missing blockId:',
-              {
-                type: node.type.name,
-                newBlockId: newBlockId.substring(0, 8),
-                pos,
-              }
-            );
-          }
-
-          tr.setNodeMarkup(pos, undefined, {
-            ...node.attrs,
-            blockId: newBlockId,
-          });
-
-          // Track the new blockId
-          seenBlockIds.add(newBlockId);
-          modified = true;
-          return; // Skip level sync for newly created blocks
-        }
-
-        // ✅ ALWAYS sync level based on parentBlockId
-        // - If parentBlockId exists: level = parent's level + 1
-        // - If parentBlockId is null: level = 0 (root)
-        if (node.attrs.level !== undefined) {
-          const correctLevel = computeLevel(node);
-          const currentLevel = node.attrs.level || 0;
-
-          if (currentLevel !== correctLevel) {
-            tr.setNodeMarkup(pos, undefined, {
-              ...node.attrs,
-              level: correctLevel,
-            });
-
-            // Track this level update so children can use the new value
-            levelUpdates.set(node.attrs.blockId, correctLevel);
-
-            modified = true;
-          } else {
-            // Track current level so children can reference it
-            levelUpdates.set(node.attrs.blockId, currentLevel);
-          }
-        }
-      });
-
-      if (modified) {
-        this.editor.view.dispatch(tr);
-      }
-    }, 0);
-  },
 });

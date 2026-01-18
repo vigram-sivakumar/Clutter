@@ -6,8 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useTheme } from '@clutter/ui';
-import { spacing } from '@clutter/ui';
+import { useEditorTheme } from '../theme/EditorThemeContext';
+import { spacing } from '../tokens';
 
 interface MentionPillProps {
   icon: React.ReactNode;
@@ -26,7 +26,7 @@ export function MentionPill({
   onClick,
   ...rest 
 }: MentionPillProps) {
-  const { colors } = useTheme();
+  const { colors } = useEditorTheme();
   const [isHovered, setIsHovered] = useState(false);
   const [hoverEnabled, setHoverEnabled] = useState(false);
 

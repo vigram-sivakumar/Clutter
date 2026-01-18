@@ -37,16 +37,22 @@ import {
   Code as CodeMark,
   WavyUnderline,
   Link,
+  ENABLE_BLOCK_JOURNAL,
 } from '@clutter/editor';
 import { placeholders } from '@clutter/editor';
 import { CustomHighlight } from '@clutter/editor';
 import { TextColor } from '@clutter/editor';
 import { Callout } from '@clutter/editor';
 
+// Theme
+import type { EditorTheme } from '@clutter/shared';
+import { useTheme } from '../../../../hooks/useTheme';
+
 // HardBreak for line breaks (Shift+Enter)
 import HardBreak from '@tiptap/extension-hard-break';
 
 interface TipTapWrapperProps {
+  noteId?: string; // REQUIRED for block-level persistence (Apple Notes architecture)
   value?: string;
   onChange?: (_value: string) => void;
   onTagsChange?: (_tags: string[]) => void; // NEW: Callback when tags in content change
@@ -118,18 +124,6 @@ function extractTagsFromContent(content: any): string[] {
   return uniqueTags;
 }
 
-// 🎯 CANONICAL EMPTY DOCUMENT
-// TipTap must NEVER receive null - always a valid ProseMirror document
-const EMPTY_DOC = {
-  type: 'doc',
-  content: [
-    {
-      type: 'paragraph',
-      attrs: { id: 'empty-paragraph' },
-      content: [],
-    },
-  ],
-};
 
 /**
  * 🔧 DOM Selection Normalizer
@@ -172,6 +166,7 @@ export const TipTapWrapper = forwardRef<
 >(
   (
     {
+      noteId,
       value,
       onChange,
       onTagsChange,
@@ -191,31 +186,12 @@ export const TipTapWrapper = forwardRef<
     const editorCoreRef = useRef<EditorCoreHandle>(null);
     const isUpdatingFromEditor = useRef(false);
     
-    // Lock initial content permanently (Apple Notes rule: never sync editor from React)
-    const initialContentRef = useRef<object | null>(null);
-    
-    if (initialContentRef.current === null) {
-      // Parse initial content once
-      if (!value) {
-        initialContentRef.current = EMPTY_DOC;
-      } else {
-        try {
-          // Try to parse as JSON first (new format)
-          initialContentRef.current = JSON.parse(value);
-        } catch (jsonError) {
-          try {
-            // Fallback to HTML parsing (legacy format)
-            initialContentRef.current = generateJSON(value, htmlExtensions);
-          } catch (htmlError) {
-            console.error(
-              '❌ TipTapWrapper: Failed to parse document, using EMPTY_DOC',
-              htmlError
-            );
-            initialContentRef.current = EMPTY_DOC;
-          }
-        }
-      }
-    }
+    // Get theme from UI and map to EditorTheme format
+    const { colors, mode } = useTheme();
+    const editorTheme: EditorTheme = {
+      colors,
+      mode,
+    };
 
     // Expose methods to parent
     useImperativeHandle(ref, () => ({
@@ -230,19 +206,8 @@ export const TipTapWrapper = forwardRef<
     // Handle content changes - save as JSON string (not HTML)
     const handleChange = useCallback(
       (newContent: object) => {
-        // 🛡️ Block onChange during parent hydration
-        if (isHydrating) {
-          return;
-        }
-
-        // ❌ REMOVED: normalizeDomSelection() was removing the caret from empty paragraphs!
-        // This was being called on EVERY keystroke and removing selection from element nodes
-        // which prevented clicking on empty paragraphs and made the caret disappear after Enter
-
-        // Extract tags from content
         const extractedTags = extractTagsFromContent(newContent);
 
-        // Check if tags have changed
         const tagsChanged =
           extractedTags.length !== previousTags.current.length ||
           extractedTags.some(
@@ -256,25 +221,38 @@ export const TipTapWrapper = forwardRef<
         }
 
         if (onChange) {
-          try {
-            // Save as JSON string for task counting and better performance
-            const jsonString = JSON.stringify(newContent);
-            // Set flag before calling onChange to prevent circular update in useMemo
-            isUpdatingFromEditor.current = true;
-            onChange(jsonString);
-          } catch (error) {
-            // Silently fail
-          }
+          const jsonString = JSON.stringify(newContent);
+          isUpdatingFromEditor.current = true;
+          onChange(jsonString);
+          setTimeout(() => {
+            isUpdatingFromEditor.current = false;
+          }, 0);
         }
       },
-      [onChange, onTagsChange, isHydrating]
+      [onChange, onTagsChange]
     );
+
+    // Parse incoming value into content object
+    let incomingContent: object | null = null;
+    if (value) {
+      try {
+        incomingContent = JSON.parse(value);
+      } catch (jsonError) {
+        try {
+          incomingContent = generateJSON(value, htmlExtensions);
+        } catch (htmlError) {
+          incomingContent = null;
+        }
+      }
+    }
 
     return (
       <EditorProvider value={editorContext}>
         <EditorCore
           ref={editorCoreRef}
-          content={initialContentRef.current}
+          theme={editorTheme}
+          noteId={noteId || ''}
+          incomingContent={incomingContent}
           onChange={handleChange}
           onTagClick={onTagClick}
           onNavigate={onNavigate}

@@ -11,7 +11,7 @@
  * the outermost element for TipTap keyboard events to work properly.
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { typography, spacing } from '../tokens';
@@ -29,6 +29,30 @@ export function ParagraphBlock({
   getPos,
   updateAttributes,
 }: NodeViewProps) {
+  // 🔒 EPHEMERAL BLOCK TOLERANCE
+  // Paragraphs without blockId are ephemeral (mid-transaction state)
+  // BlockIdGenerator assigns blockId after user input transactions complete
+  // Render must be tolerant - invariants enforce at persistence boundary only
+  const blockId = node.attrs.blockId;
+  const isEphemeral = !blockId;
+
+  if (isEphemeral) {
+    // Minimal ephemeral render (cursor placeholder or mid-transaction)
+    return (
+      <NodeViewWrapper
+        as="div"
+        style={{
+          fontSize: typography.fontSize,
+          lineHeight: typography.lineHeight,
+          paddingLeft: spacing.indentUnit * 0 + 'px',
+        }}
+      >
+        <NodeViewContent />
+      </NodeViewWrapper>
+    );
+  }
+
+  // From here on, blockId is guaranteed to exist (persisted block)
   const tags = node.attrs.tags || [];
   const hasTags = tags.length > 0;
   // 🔥 FLAT MODEL: indent is the ONLY structural attribute
@@ -59,19 +83,20 @@ export function ParagraphBlock({
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const handleUpdate = () => {
+    const handleSelection = () => {
       forceUpdate((prev) => prev + 1);
     };
 
-    editor.on('update', handleUpdate);
-    editor.on('selectionUpdate', handleUpdate); // Re-render on selection change for placeholder focus detection
-    editor.on('focus', handleUpdate); // Re-render when editor gains focus
-    editor.on('blur', handleUpdate); // Re-render when editor loses focus
+    // ✅ Only re-render on selection / focus changes (NOT on typing)
+    // ProseMirror handles text DOM updates directly - React must not interfere
+    // Removed 'update' listener to prevent re-rendering entire block tree on every keystroke
+    editor.on('selectionUpdate', handleSelection); // Re-render on selection change for placeholder focus detection
+    editor.on('focus', handleSelection); // Re-render when editor gains focus
+    editor.on('blur', handleSelection); // Re-render when editor loses focus
     return () => {
-      editor.off('update', handleUpdate);
-      editor.off('selectionUpdate', handleUpdate);
-      editor.off('focus', handleUpdate);
-      editor.off('blur', handleUpdate);
+      editor.off('selectionUpdate', handleSelection);
+      editor.off('focus', handleSelection);
+      editor.off('blur', handleSelection);
     };
   }, [editor]);
 

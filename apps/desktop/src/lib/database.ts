@@ -38,9 +38,66 @@ export async function initDatabase(): Promise<string> {
 }
 
 /**
+ * 🆕 APPLE NOTES: Save note METADATA only (no content)
+ * Metadata = id, title, emoji, folderId, tags, dates
+ * Content is handled by block journal separately
+ * 
+ * ✅ NEVER BLOCKED - metadata must always persist
+ * ✅ MATCHES RUST SCHEMA EXACTLY (all required fields)
+ */
+export async function saveNoteMeta(note: Note): Promise<void> {
+  try {
+    console.log('[SAVE META] 💾 Saving note metadata', {
+      noteId: note.id,
+      title: note.title,
+      folderId: note.folderId,
+    });
+    
+    // ✅ Save metadata - COMPLETE Rust schema match (camelCase for Serde)
+    await invoke('save_note', {
+      note: {
+        id: note.id,
+        title: note.title,
+        description: note.description || '', // REQUIRED by Rust
+        descriptionVisible: note.descriptionVisible ?? false, // REQUIRED by Rust
+        emoji: note.emoji,
+        content: '', // ❌ Empty - content via block journal
+        tags: note.tags || [],
+        tagsVisible: note.tagsVisible ?? false,
+        isFavorite: note.isFavorite ?? false,
+        folderId: note.folderId,
+        dailyNoteDate: note.dailyNoteDate,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        deletedAt: note.deletedAt,
+      },
+    });
+    
+    console.log('[SAVE META] ✅ Metadata saved', { noteId: note.id });
+  } catch (error) {
+    console.error('[SAVE META] ❌ Failed to save metadata:', error);
+    throw error;
+  }
+}
+
+/**
  * Save a note to SQLite database with FK validation
+ * 
+ * 🚫 DEPRECATED: Use saveNoteMeta for metadata + block journal for content
  */
 export async function saveNoteToDatabase(note: Note): Promise<void> {
+  // 🛑 HARD BLOCK: Legacy saves are FORBIDDEN when block journal is enabled
+  const ENABLE_BLOCK_JOURNAL = true;
+  if (ENABLE_BLOCK_JOURNAL) {
+    console.error('🛑 LEGACY SAVE BLOCKED — Block Journal Enabled', {
+      noteId: note.id,
+      title: note.title,
+      hasContent: !!note.content,
+      stack: new Error().stack,
+    });
+    return; // 🔥 ABORT — Do NOT write to notes table
+  }
+  
   console.log('💾 Saving note to database:', {
     id: note.id,
     title: note.title,
@@ -48,6 +105,7 @@ export async function saveNoteToDatabase(note: Note): Promise<void> {
     contentLength: note.content?.length || 0,
     contentPreview: note.content?.substring(0, 50)
   });
+  
   try {
     await invoke<string>('save_note', { note });
     console.log('✅ Note saved to database:', note.id);
@@ -115,14 +173,17 @@ export async function loadNoteFromDatabase(noteId: string): Promise<Note | null>
  */
 export async function loadAllNotesFromDatabase(): Promise<Note[]> {
   try {
+    console.log('[DB LOAD] 📂 Loading all notes from database...');
     const notes = await invoke<Note[]>('load_all_notes');
-    // console.log('📂 Loaded notes from database:', notes.map(n => ({
-    //   id: n.id,
-    //   title: n.title,
-    //   hasContent: !!n.content,
-    //   contentLength: n.content?.length || 0,
-    //   contentPreview: n.content?.substring(0, 50)
-    // })));
+    console.log('[DB LOAD] ✅ Loaded', notes.length, 'notes from database');
+    notes.forEach(n => {
+      console.log('[DB LOAD] Note:', {
+        id: n.id, // 🔧 FULL ID (not truncated)
+        title: n.title.substring(0, 30),
+        contentLength: n.content?.length || 0,
+        contentPreview: n.content?.substring(0, 50)
+      });
+    });
     return notes;
   } catch (error) {
     console.error('❌ SQLite load all error:', error);
@@ -376,3 +437,51 @@ export async function verifyDatabaseIntegrity(): Promise<{
   }
 }
 
+/**
+ * ✅ APPLE NOTES: Create initial block for a new note
+ * Every note must have at least one block before the editor mounts
+ * 
+ * Idempotent: Safe to call multiple times (checks if block already exists)
+ */
+export async function createInitialBlockForNote(noteId: string): Promise<void> {
+  // Dynamic imports to avoid circular dependency
+  const { appendBlockIntents, loadBlocksForNote } = await import('@clutter/editor');
+  
+  // ✅ IDEMPOTENT GUARD: Skip if blocks already exist
+  const existing = await loadBlocksForNote(noteId);
+  if (existing.length > 0) {
+    console.log('[APPLE NOTES] Initial block already exists, skipping', {
+      noteId,
+      existingBlockCount: existing.length,
+    });
+    return;
+  }
+  
+  const initialBlockId = crypto.randomUUID();
+  
+  console.log('[APPLE NOTES] Creating initial block at note creation', {
+    noteId,
+    blockId: initialBlockId,
+  });
+  
+  await appendBlockIntents(noteId, [
+    {
+      type: 'create_block',
+      blockId: initialBlockId,
+      blockType: 'paragraph',
+      content: JSON.stringify({
+        type: 'paragraph',
+        attrs: { blockId: initialBlockId },
+        // ⚠️ CRITICAL: No empty text nodes - ProseMirror forbids text: ""
+        // Empty paragraphs must have NO content key at all
+      }),
+      attrs: {},
+      timestamp: Date.now(),
+    },
+  ]);
+  
+  console.log('[APPLE NOTES] ✅ Initial block created and persisted', {
+    noteId,
+    blockId: initialBlockId,
+  });
+}
