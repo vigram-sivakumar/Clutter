@@ -126,12 +126,7 @@ export const NoteEditor = ({
   children,
   isInitialized = true,
 }: NotesContainerProps) => {
-  // 🔥 NOTE SESSION TOKEN: Prevents stale async work from affecting UI
-  // Increments once per note switch to abort old async effects
-  const noteSessionRef = useRef(0);
-  
-  // 🔒 ACTIVE SESSION GUARD: Prevents duplicate block loads per session
-  const activeSessionRef = useRef<number | null>(null);
+  // Removed: session refs no longer needed without async block loading
   
   // 🔍 DIAGNOSTIC: Track component lifecycle (MOUNT/UNMOUNT)
   useEffect(() => {
@@ -185,14 +180,10 @@ export const NoteEditor = ({
     return note;
   }, [notes, currentNoteId]);
   
-  // 🔥 INCREMENT SESSION ON NOTE SWITCH (prevents async races)
+  // Track note switches for UI transitions
   useEffect(() => {
-    noteSessionRef.current += 1;
-    activeSessionRef.current = null; // Clear active session lock on note switch
-    
     console.log('🧭 NOTE SESSION START', {
       noteId: currentNoteId,
-      session: noteSessionRef.current,
       timestamp: Date.now(),
     });
   }, [currentNoteId]);
