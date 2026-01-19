@@ -62,11 +62,10 @@ import { setBlockIndent } from '../../../domain/indentOperations';
 // ═══════════════════════════════════════════════════
 
 /**
- * Dispatch a transaction marked as user edit
- * This is the ONLY way keyboard handlers should dispatch transactions
+ * Dispatch a transaction from keyboard handler
+ * User edits are automatically tracked via TipTap's addToHistory mechanism
  */
 function dispatchUserEdit(view: any, tr: any): void {
-  tr.setMeta('isUserEdit', true);
   view.dispatch(tr);
 }
 

@@ -12,17 +12,14 @@ module.exports = {
     // 🔒 UI BOUNDARY: Presentational components
     // ✅ CAN import: domain, state, shared
     // ❌ CANNOT import: editor, apps
-    //
-    // ⚠️ TEMPORARY: Warnings only until Phase 2-4 (Editor Extraction) is complete
-    // TODO: Change to 'error' after moving editor components out of UI
     'no-restricted-imports': [
-      'warn',
+      'error',
       {
         patterns: [
           {
             group: ['@clutter/editor', '@clutter/editor/*'],
             message:
-              '⚠️ ui should not import from editor. Apps compose editor + ui. (Will be enforced after Phase 2-4)',
+              '❌ ui cannot import from editor. Apps compose editor + ui separately. (Phase 2-4 Complete)',
           },
         ],
       },

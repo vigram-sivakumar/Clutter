@@ -328,8 +328,10 @@ const EditorCoreInner = forwardRef<
           // ABSOLUTE HARD LOCK - No mutations during hydration
           if (isHydratingRef.current) return;
 
-          // 🔒 Only persist user edits (authoritative signal from UserInputMarker)
-          if (transaction.getMeta('isUserEdit') !== true) return;
+          // 🔒 Only persist user edits (using TipTap's standard addToHistory mechanism)
+          // Internal operations (BlockIdGenerator, etc.) set addToHistory: false
+          // All user typing/keyboard shortcuts default to addToHistory: true
+          if (transaction.getMeta('addToHistory') === false) return;
           if (!onChange) return;
 
           const content = editor.getJSON();

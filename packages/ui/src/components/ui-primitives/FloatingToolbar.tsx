@@ -1,8 +1,15 @@
 /**
  * Floating Toolbar
  * Shows formatting options when text is selected
+ * 
+ * ⚠️ ARCHITECTURAL EXCEPTION:
+ * This file imports utilities from @clutter/editor (addTagToBlock, isMultiBlockSelection).
+ * These are editor behavior utilities needed for toolbar functionality.
+ * This component should move to apps/ or editor package in Phase 5.
+ * ESLint exception documented here until migration is complete.
  */
 
+/* eslint-disable no-restricted-imports */
 import { useEffect, useState, useRef } from 'react';
 import { useEditor } from '@tiptap/react';
 import { NodeSelection } from '@tiptap/pm/state';

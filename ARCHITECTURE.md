@@ -169,6 +169,34 @@ The editor package is now **fully isolated from app logic**:
 
 ---
 
+## ✅ Completed: UI Package Boundary Enforcement (Phase 4.5)
+
+### **UI → Editor Boundary Enforcement - COMPLETE**
+
+The UI package boundary rule has been upgraded from `'warn'` to `'error'`:
+
+1. ✅ **ESLint Rule:** Changed from warning to error level in `packages/ui/.eslintrc.js`
+2. ✅ **Documented Exceptions:** Three temporary exceptions documented with inline comments:
+   - `TipTapWrapper.tsx` - Composition/adapter component (should move to apps/)
+   - `useEditorContext.ts` - State adapter hook (should move to apps/)
+   - `FloatingToolbar.tsx` - Editor behavior component (should move to editor/ or apps/)
+3. ✅ **Exception Tracking:** Created `packages/ui/ARCHITECTURAL_EXCEPTIONS.md` to track migration plan
+4. ✅ **Verification:** ESLint enforces boundary with zero violations outside documented exceptions
+
+**Result:**
+
+- ✅ Architectural boundaries enforced at build time (error level)
+- ✅ All exceptions documented with migration plans
+- ✅ Clear separation: UI = presentational, Apps = composition
+- ✅ Ready for Phase 5: Move adapters to apps layer
+
+**Migration Path (Phase 5):**
+- Move `TipTapWrapper.tsx` → `apps/desktop/adapters/`
+- Move `useEditorContext.ts` → `apps/desktop/adapters/`
+- Move `FloatingToolbar.tsx` → `@clutter/editor` or `apps/desktop/components/`
+
+---
+
 ## 🔒 Transaction Mutation Ownership
 
 ### **Critical Architectural Rule**
@@ -256,4 +284,4 @@ npx eslint packages --ext .ts,.tsx | grep "no-restricted-imports"
 
 ---
 
-**Last Updated:** Phase 2-4 Complete (Editor Isolation) - January 2026
+**Last Updated:** Phase 4.5 Complete (UI Boundary Enforcement) - January 2026

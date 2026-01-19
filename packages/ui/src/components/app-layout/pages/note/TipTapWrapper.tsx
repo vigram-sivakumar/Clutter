@@ -6,8 +6,14 @@
  *
  * Saves content as JSON strings for better performance and easier task counting.
  * Supports loading legacy HTML content with automatic fallback.
+ * 
+ * ⚠️ ARCHITECTURAL EXCEPTION:
+ * This file imports from @clutter/editor, violating the UI package boundary.
+ * This is a composition/adapter layer that should move to apps/ in Phase 5.
+ * ESLint exception documented here until migration is complete.
  */
 
+/* eslint-disable no-restricted-imports */
 import { useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { generateJSON } from '@tiptap/core';
 import { ErrorBoundary } from 'react-error-boundary';

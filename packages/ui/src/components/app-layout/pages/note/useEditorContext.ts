@@ -6,8 +6,14 @@
  * 
  * CRITICAL: This lives in UI package temporarily - should move to app layer
  * when Phase 5 splits shared → domain + state.
+ * 
+ * ⚠️ ARCHITECTURAL EXCEPTION:
+ * This file imports from @clutter/editor, violating the UI package boundary.
+ * This is an adapter that should move to apps/ in Phase 5.
+ * ESLint exception documented here until migration is complete.
  */
 
+/* eslint-disable no-restricted-imports */
 import { useMemo } from 'react';
 import { useTagsStore, useNotesStore, useFoldersStore } from '@clutter/state';
 import { EditorContextValue, EditorTag, EditorLinkedNote, EditorFolder } from '@clutter/editor';

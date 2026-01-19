@@ -25,8 +25,9 @@ export const BlockIdGenerator = Extension.create({
         appendTransaction: (transactions, _oldState, newState) => {
           // Block identity is assigned ONLY during user edits
           // NEVER during hydration - blocks from state already have IDs
+          // Use TipTap's standard addToHistory mechanism to detect user edits
           const hasUserEdit = transactions.some(
-            (tr) => tr.getMeta('isUserEdit') === true
+            (tr) => tr.getMeta('addToHistory') !== false && tr.docChanged
           );
 
           // Hard block: ONLY run on explicit user edits
