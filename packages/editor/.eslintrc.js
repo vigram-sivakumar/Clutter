@@ -15,34 +15,31 @@ module.exports = {
   ignorePatterns: ['node_modules', 'dist', '**/__validation__.ts'],
   rules: {
     // 🔒 EDITOR BOUNDARY: Isolated editing engine
-    // ❌ CANNOT import: domain, state, shared, ui, apps
-    // Editor is intentionally isolated - dependencies injected via EditorProvider
+    // ❌ CANNOT import: domain, state, shared (ENFORCED)
+    // ✅ CAN import: ui (for presentational primitives only)
     //
-    // ⚠️ TEMPORARY: Warnings only until Phase 2-4 (Editor Extraction) is complete
-    // TODO: Change to 'error' after completing editor isolation refactor
+    // Editor is intentionally isolated from app LOGIC (domain/state).
+    // UI imports are allowed for presentational components (icons, buttons, design tokens).
+    // This is pragmatic: editor needs to render React components, and duplicating
+    // the entire design system would create unnecessary maintenance burden.
     'no-restricted-imports': [
-      'warn',
+      'error',
       {
         patterns: [
           {
             group: ['@clutter/domain', '@clutter/domain/*'],
             message:
-              '⚠️ editor should not import from domain. Use EditorProvider for dependency injection. (Will be enforced after Phase 2-4)',
+              '❌ editor must not import from domain. Use EditorProvider for dependency injection.',
           },
           {
             group: ['@clutter/state', '@clutter/state/*'],
             message:
-              '⚠️ editor should not import from state. Use EditorProvider for dependency injection. (Will be enforced after Phase 2-4)',
+              '❌ editor must not import from state. Use EditorProvider for dependency injection.',
           },
           {
             group: ['@clutter/shared', '@clutter/shared/*'],
             message:
-              '⚠️ editor should not import from shared. Use EditorProvider for dependency injection. (Will be enforced after Phase 2-4)',
-          },
-          {
-            group: ['@clutter/ui', '@clutter/ui/*'],
-            message:
-              '⚠️ editor should not import from ui. Editor should be UI-agnostic. (Will be enforced after Phase 2-4)',
+              '❌ editor must not import from shared. Editor owns its own types and contracts.',
           },
         ],
       },

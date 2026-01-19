@@ -7,7 +7,13 @@ export default defineConfig({
   splitting: true,
   sourcemap: true,
   clean: true,
-  external: ['@clutter/shared', '@clutter/ui', 'react', 'react-dom', '@tiptap/react', '@tiptap/core', '@tiptap/pm'],
+  external: [
+    '@clutter/ui',
+    'react',
+    'react-dom',
+    '@tiptap/react',
+    '@tiptap/core',
+    '@tiptap/pm',
+  ],
   tsconfig: './tsconfig.json',
 });
-

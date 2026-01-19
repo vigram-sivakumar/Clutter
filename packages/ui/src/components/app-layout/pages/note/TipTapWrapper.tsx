@@ -39,7 +39,7 @@ import { TextColor } from '@clutter/editor';
 import { Callout } from '@clutter/editor';
 
 // Theme
-import type { EditorTheme } from '@clutter/shared';
+import type { EditorTheme } from '@clutter/editor';
 import { useTheme } from '../../../../hooks/useTheme';
 
 // HardBreak for line breaks (Shift+Enter)

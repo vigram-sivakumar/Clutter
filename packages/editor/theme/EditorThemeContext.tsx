@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import type { EditorTheme } from '@clutter/shared';
+import type { EditorTheme } from '../types/EditorTheme';
 
 const EditorThemeContext = createContext<EditorTheme | null>(null);
 
@@ -20,9 +20,7 @@ export function EditorThemeProvider({
 export function useEditorTheme(): EditorTheme {
   const theme = useContext(EditorThemeContext);
   if (!theme) {
-    throw new Error(
-      'useEditorTheme must be used within <EditorThemeProvider>'
-    );
+    throw new Error('useEditorTheme must be used within <EditorThemeProvider>');
   }
   return theme;
 }

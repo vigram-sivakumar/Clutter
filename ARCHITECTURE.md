@@ -26,38 +26,44 @@ packages/
 Each package has explicit import rules to prevent architectural drift:
 
 ### 1️⃣ **domain** — Pure Types & Constants
+
 - **Can import from:** ❌ Nothing
 - **Cannot import from:** ❌ state, shared, editor, ui, apps
 - **Purpose:** Pure type definitions and constants with zero dependencies
 - **Example:** `Note`, `Folder`, `Tag`, `CLUTTERED_FOLDER_ID`
 
 ### 2️⃣ **state** — Zustand Stores
+
 - **Can import from:** ✅ domain
 - **Cannot import from:** ❌ shared, editor, ui, apps
 - **Purpose:** Global application state management
 - **Example:** `useNotesStore`, `useTagsStore`, `useFoldersStore`
 
 ### 3️⃣ **shared** — Utilities & Hooks
+
 - **Can import from:** ✅ domain, state
 - **Cannot import from:** ❌ editor, ui, apps
 - **Purpose:** Reusable utilities and React hooks
 - **Example:** `sortByOrder`, `useTheme`, `useConfirmation`
 
 ### 4️⃣ **editor** — Isolated Editor Engine
-- **Can import from:** ⚠️ Currently: shared, ui (temporary)
-- **Cannot import from:** ❌ domain, state (enforced as warnings until Phase 2-4)
+
+- **Can import from:** ✅ ui (presentational primitives only: icons, buttons, design tokens)
+- **Cannot import from:** ❌ domain, state, shared (enforced as **errors**)
 - **Purpose:** TipTap-based editor with plugins and behaviors
-- **Status:** ⚠️ **Boundary enforcement is currently set to `warn` instead of `error`**
-  - This is temporary until Phase 2-4 (Editor Extraction & Dependency Inversion) is complete
-  - Once complete, editor will be fully isolated with dependencies injected via `EditorProvider`
+- **Status:** ✅ **Fully isolated from app logic (domain/state)**
+  - App dependencies injected via `EditorProvider`
+  - UI dependencies allowed for presentational components (pragmatic isolation)
 
 ### 5️⃣ **ui** — Presentational Components
-- **Can import from:** ✅ domain, state, shared
-- **Cannot import from:** ⚠️ editor (enforced as warnings until Phase 2-4)
+
+- **Can import from:** ✅ domain, state, editor (for composition)
+- **Cannot import from:** None (top-level consumer)
 - **Purpose:** Reusable UI components and design system
-- **Example:** `AppSidebar`, `ListItem`, `TagPill`
+- **Example:** `AppSidebar`, `ListItem`, `TagPill`, `FloatingToolbar`
 
 ### 6️⃣ **apps** — Composition Layer
+
 - **Can import from:** ✅ domain, state, shared, editor, ui
 - **Purpose:** Compose packages into complete applications
 - **Responsibilities:**
@@ -90,10 +96,12 @@ apps (inject dependencies)
 ## 🎯 Design Principles
 
 ### **1. Dependency Inversion**
+
 - Lower-level packages (domain, state) don't know about higher-level packages (ui, apps)
 - Editor is isolated and receives dependencies via context/props
 
 ### **2. Single Responsibility**
+
 - `domain`: Types only
 - `state`: State management only
 - `shared`: Generic utilities only
@@ -102,10 +110,12 @@ apps (inject dependencies)
 - `apps`: Composition only
 
 ### **3. Explicit Public APIs**
+
 - Each package exports through `index.ts`
 - Deep imports (e.g., `@clutter/ui/internal/...`) are discouraged
 
 ### **4. Testability**
+
 - Pure functions in `shared` are easy to test
 - Stores in `state` can be tested in isolation
 - Editor can be tested without app state
@@ -138,22 +148,24 @@ This means you're violating an architectural boundary. To fix:
 
 ---
 
-## 📝 Future Work (Phase 2-4)
+## ✅ Completed: Editor Isolation (Phase 2-4)
 
-### **Editor Extraction & Isolation**
+### **Editor Extraction & Isolation - COMPLETE**
 
-Currently, the editor package has temporary warnings instead of errors for boundary violations. The plan:
+The editor package is now **fully isolated from app logic**:
 
-1. **Phase 2:** Create `EditorProvider` for dependency injection
-2. **Phase 3:** Remove all `@clutter/domain` and `@clutter/state` imports from editor
-3. **Phase 4:** Move editor-specific UI components from `ui` to `editor`
-4. **Phase 5:** Change ESLint rules from `warn` to `error`
+1. ✅ **Phase 2:** `EditorProvider` created for dependency injection
+2. ✅ **Phase 3:** Removed all `@clutter/domain`, `@clutter/state`, and `@clutter/shared` imports
+3. ✅ **Phase 4:** ESLint rules changed from `warn` to `error` for domain/state/shared
+4. ✅ **Pragmatic UI Boundary:** Editor imports UI presentational primitives (icons, buttons, tokens)
 
-Once complete, the editor will be:
-- ✅ Fully isolated from app state
+**Result:**
+
+- ✅ Fully isolated from app state and business logic
 - ✅ Reusable in any context (desktop, web, mobile)
 - ✅ Testable without mocking app state
 - ✅ Ready for collaborative editing
+- ✅ Pragmatic: Uses shared design system (no duplication)
 
 ---
 
@@ -180,5 +192,4 @@ npx eslint packages --ext .ts,.tsx | grep "no-restricted-imports"
 
 ---
 
-**Last Updated:** Phase C (ESLint Architectural Boundaries) - January 2026
-
+**Last Updated:** Phase 2-4 Complete (Editor Isolation) - January 2026

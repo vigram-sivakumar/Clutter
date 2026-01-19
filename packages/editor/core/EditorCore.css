@@ -1,0 +1,177 @@
+/**
+ * EditorCore Styles
+ * Uses CSS custom properties for theme-reactive colors
+ */
+
+.ProseMirror {
+  outline: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--editor-text-default);
+}
+
+/* Use flexbox gap for consistent block spacing */
+.ProseMirror {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Reset margins on all block elements - gap handles spacing */
+.ProseMirror p,
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror pre,
+.ProseMirror blockquote,
+.ProseMirror hr {
+  margin: 0;
+}
+
+/* ============================================
+ * PLACEHOLDER STYLES - CSS-based
+ * ============================================ */
+
+/* ============================================
+ * PLACEHOLDER STYLES - CSS-based (simplified)
+ * JavaScript hook handles all logic for when to show
+ * ============================================ */
+
+/* ============================================
+ * CANONICAL PLACEHOLDER (Apple / Notion / Craft Pattern)
+ * ============================================
+ * 
+ * PLACEHOLDER LAW:
+ * - Placeholder NEVER creates DOM structure
+ * - Rendered via CSS ::before on content element
+ * - data-empty on wrapper (node.content.size === 0)
+ * - data-placeholder on wrapper (text, controlled by focus logic)
+ * - ::before painted on [data-node-view-content] where caret lives
+ * 
+ * Result: Placeholder appears inline in text area, like native <input placeholder>
+ */
+.ProseMirror [data-empty="true"][data-placeholder] [contenteditable="true"]::before {
+  content: attr(data-placeholder);
+  color: var(--editor-text-tertiary);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* Focus styles */
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Code block */
+.ProseMirror pre {
+  position: relative;
+}
+
+/* ============================================
+ * SELECTION STYLES
+ * ============================================ */
+
+/* Text selection (when dragging cursor through text) */
+.ProseMirror ::selection {
+  background-color: rgba(35, 131, 226, 0.3);
+}
+
+/* Hide text selection when block is selected (has halo) */
+.ProseMirror :has([data-block-selected="true"]) ::selection {
+  background-color: transparent;
+}
+
+/* ❌ REMOVED: This was making ALL text selection invisible!
+ * Previous rule: .ProseMirror [data-node-view-wrapper]::selection
+ * Made selection transparent inside ALL blocks (every block uses NodeViewWrapper)
+ * 
+ * SELECTION OWNERSHIP LAW:
+ * - Browser owns text selection rendering
+ * - Editor owns structural selection rendering (halos)
+ * - Never suppress browser text selection with CSS
+ */
+
+/* Prevent selection on br placeholders only */
+.ProseMirror br.ProseMirror-trailingBreak::selection {
+  background-color: transparent !important;
+}
+
+/* Horizontal Rule selection */
+.ProseMirror hr.ProseMirror-selectednode,
+.ProseMirror [data-type="horizontalRule"].ProseMirror-selectednode {
+  background-color: var(--editor-focus-border-20);
+  outline: none;
+  border-radius: 4px;
+  box-shadow: 0 0 0 4px var(--editor-focus-border-20);
+}
+
+/* Connector and collapse rendering moved to React component for unlimited nesting */
+
+/* CRITICAL FIX: Hide collapsed subtasks completely from flex layout
+ * Hidden listBlocks have data-hidden="true" on their inner div
+ * We need to hide the outer .react-renderer wrapper (direct child of .ProseMirror)
+ * Using attribute selector on child + direct descendant
+ */
+.ProseMirror > div[class*="react-renderer"]:has([data-hidden="true"]) {
+  display: none !important;
+}
+
+/* Fallback for browsers without :has() support */
+@supports not (selector(:has(*))) {
+  .ProseMirror [data-type="listBlock"][data-hidden="true"] {
+    position: absolute !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+}
+
+/* PHASE 5: Slash command styling - unique and polished */
+/* The "/" symbol - accent color with background pill */
+.ProseMirror .slash-command-symbol {
+  color: var(--editor-orange);
+  font-weight: 600;
+  background-color: var(--editor-orange-bg);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin: 0;
+  caret-color: var(--editor-text-default); /* Keep cursor default color so "/" stands out */
+}
+
+/* The query text after "/" - plain styling, lighter color */
+.ProseMirror .slash-command-query {
+  color: var(--editor-text-tertiary);
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  font-weight: 500;
+  caret-color: var(--editor-text-default); /* Keep cursor default color */
+}
+
+
+/* Focus Fade - Smooth gradient opacity (10 chars before cursor) */
+/* Only in standalone paragraphs (4+ chars, skips markdown/slash commands) */
+/* Appears while typing, disappears after 3s inactivity */
+/* Gradient from 100% visible (far from cursor) to 30% faded (near cursor) */
+.ProseMirror .focus-fade-gradient {
+  color: var(--editor-text-default);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 1) 0%,      /* 100% opacity at start (far from cursor - visible) */
+    rgba(0, 0, 0, 0.3) 100%   /* 30% opacity at end (closest to cursor - faded) */
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  caret-color: var(--editor-text-default); /* Keep cursor visible */
+}
+
+/* Date Mention - Notion-style relative dates (@Today, @Yesterday, etc.) */
+/* Styles are handled inline in MentionPill.tsx */
