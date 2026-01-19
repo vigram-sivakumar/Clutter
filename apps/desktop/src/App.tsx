@@ -4,14 +4,21 @@ import { ThemeProvider, NotesContainer } from '@clutter/ui';
 import { useNotesStore } from '@clutter/state';
 
 function App() {
-  const createNote = useNotesStore((state) => state.createNote);
+  const findDailyNoteByDate = useNotesStore(
+    (state) => state.findDailyNoteByDate
+  );
+  const createDailyNote = useNotesStore((state) => state.createDailyNote);
   const setCurrentNoteId = useNotesStore((state) => state.setCurrentNoteId);
-  const notes = useNotesStore((state) => state.notes);
 
-  // Seed with one empty note on mount (dev convenience)
+  // Open or create today's daily note on mount
   useEffect(() => {
-    if (notes.length === 0) {
-      createNote({ title: 'Welcome to Clutter' }).then((note) => {
+    const today = new Date();
+    const existingDailyNote = findDailyNoteByDate(today);
+
+    if (existingDailyNote) {
+      setCurrentNoteId(existingDailyNote.id);
+    } else {
+      createDailyNote(today).then((note) => {
         setCurrentNoteId(note.id);
       });
     }

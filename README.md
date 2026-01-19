@@ -19,6 +19,22 @@ clutter-notes/
 └── [root configs]    # Turborepo, TypeScript, ESLint, Prettier, etc.
 ```
 
+## ✨ Features
+
+### Current Features
+
+- **Daily Notes** - Automatically creates and opens today's daily note on launch (e.g., "Today, 19 Jan 2026")
+- **Rich Text Editor** - TipTap-based editor with block-level editing
+- **Organization** - Folders, tags, and favorites for organizing notes
+- **Notion-Inspired UI** - Clean, minimal design with familiar interaction patterns
+- **Custom Block IDs** - Unique identifiers for editor blocks to support future collaboration features
+
+### App Behavior
+
+- **Launch**: Automatically opens or creates today's daily note
+- **Daily Notes**: Special folder for date-based notes with relative titles (Today/Yesterday/Tomorrow)
+- **Deleted Daily Notes**: Converted to regular notes when recreating the same date
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -178,8 +194,6 @@ Access in code:
 import.meta.env.VITE_APP_NAME;
 ```
 
-**Note:** Currently, Clutter stores data locally (no backend/API).
-
 ## 🏛️ Architecture Decisions
 
 ### Why Turborepo?
@@ -209,6 +223,40 @@ import.meta.env.VITE_APP_NAME;
 - Excellent UX patterns
 - Familiar to many users
 - Well-documented interaction patterns
+
+## ⚠️ Known Limitations
+
+### Data Persistence (Critical)
+
+**Current State:**
+
+- Notes, folders, and tags are stored **in-memory only**
+- All note data is **lost on app refresh or restart**
+- Only UI preferences (sidebar state, theme) persist via localStorage
+
+**What This Means:**
+
+- The app is currently suitable for **development and testing only**
+- Do not use for important notes that you need to keep
+- Data loss will occur every time you close or refresh the app
+
+**Persistence Status by Store:**
+
+- ✅ UI State (sidebar, collapsed groups) - **Persisted** to localStorage
+- ✅ Theme - **Persisted** to localStorage
+- ✅ Item Ordering - **Persisted** to localStorage
+- ❌ Notes - **Not persisted** (lost on refresh)
+- ❌ Folders - **Not persisted** (lost on refresh)
+- ❌ Tags - **Not persisted** (lost on refresh)
+
+**Roadmap:**
+See Development Roadmap below - data persistence is the current top priority.
+
+### Platform Support
+
+- **macOS**: Primary development platform (tested)
+- **Windows/Linux**: Tauri supports these platforms but untested
+- **Mobile**: Not yet supported (planned via Tauri mobile)
 
 ## 🐛 Troubleshooting
 
@@ -254,15 +302,51 @@ If app icon doesn't change after replacement:
 
 ## 📚 Development Roadmap
 
-Current status: **macOS native app with custom editor**
+### Current Status
 
-Potential future enhancements:
+**In Active Development** - Core features functional but data not persisted
 
-1. **Cloud Sync** - Add backend for multi-device sync
-2. **iOS/iPadOS** - Tauri mobile support (when available)
-3. **Windows/Linux** - Tauri already supports these platforms
-4. **Plugins** - Extend editor with custom functionality
-5. **Collaboration** - Real-time multi-user editing
+The app includes:
+
+- ✅ Daily notes system with automatic date handling
+- ✅ Rich text editor with TipTap
+- ✅ Folders and tags organization
+- ✅ Notion-inspired UI
+- ❌ **Data persistence** (critical gap)
+
+### Phase 1: Data Persistence (Current Priority)
+
+**Goal:** Make the app production-ready by persisting all user data
+
+1. **LocalStorage Implementation** (Short-term)
+   - Add Zustand persist middleware to notes, folders, and tags stores
+   - Ensures data survives refresh
+   - Quick solution for desktop app
+
+2. **SQLite Migration** (Medium-term)
+   - Migrate from localStorage to SQLite via Tauri
+   - Better performance for large datasets
+   - Enables advanced queries and relationships
+   - Proper backend for desktop app
+
+3. **Data Migration**
+   - Automatic migration from localStorage to SQLite
+   - Export/import functionality
+
+### Phase 2: Stability & Polish
+
+1. **Testing** - Comprehensive test coverage
+2. **Performance** - Optimize editor and rendering
+3. **Cross-Platform** - Test and fix Windows/Linux issues
+4. **Production Build** - Stable macOS app ready for distribution
+
+### Phase 3: Advanced Features
+
+1. **Cloud Sync** - Backend for multi-device sync
+2. **Mobile Apps** - iOS/iPadOS via Tauri mobile
+3. **Plugins** - Extend editor with custom functionality
+4. **Collaboration** - Real-time multi-user editing
+5. **Search** - Full-text search across all notes
 
 ## 📄 License
 

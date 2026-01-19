@@ -191,6 +191,7 @@ The UI package boundary rule has been upgraded from `'warn'` to `'error'`:
 - ✅ Ready for Phase 5: Move adapters to apps layer
 
 **Migration Path (Phase 5):**
+
 - Move `TipTapWrapper.tsx` → `apps/desktop/adapters/`
 - Move `useEditorContext.ts` → `apps/desktop/adapters/`
 - Move `FloatingToolbar.tsx` → `@clutter/editor` or `apps/desktop/components/`
@@ -261,6 +262,179 @@ This rule ensures data integrity, prevents attribute loss, and maintains clear b
 
 ---
 
+## 💾 Data Persistence Architecture
+
+### **Current State (Phase 0)**
+
+**Status:** In-memory only (notes, folders, tags)
+
+The application currently has **two-tier persistence**:
+
+#### Tier 1: Persisted (localStorage)
+
+- ✅ `uiState` - Sidebar state, collapsed groups, calendar view
+- ✅ `theme` - Dark/light mode preference
+- ✅ `ordering` - Custom ordering for notes and folders
+
+**Implementation:** Zustand `persist` middleware with localStorage
+
+#### Tier 2: Not Persisted (memory only)
+
+- ❌ `notes` - All note content and metadata
+- ❌ `folders` - Folder structure
+- ❌ `tags` - Tag definitions and metadata
+- ❌ `currentDate` - Date tracking for daily notes
+
+**Impact:** All user content is lost on app refresh/restart
+
+### **Migration Plan**
+
+#### Phase 1: localStorage Persistence (Short-term)
+
+**Goal:** Quick win to prevent data loss during development
+
+```typescript
+// Add to packages/state/src/stores/notes.ts
+import { persist } from 'zustand/middleware';
+
+export const useNotesStore = create<NotesStore>()(
+  persist(
+    (set, get) => ({
+      // ... store implementation
+    }),
+    {
+      name: 'clutter-notes-storage',
+      storage: /* same safe localStorage wrapper as uiState */
+    }
+  )
+);
+```
+
+**Pros:**
+
+- Quick to implement (follow uiState pattern)
+- No backend changes needed
+- Works immediately in browser and Tauri
+
+**Cons:**
+
+- Limited storage capacity (~5-10MB)
+- No relational queries
+- JSON serialization overhead
+- Not suitable for large note collections
+
+#### Phase 2: SQLite Backend (Medium-term)
+
+**Goal:** Production-ready persistence with proper database
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────┐
+│         React Frontend              │
+│    (Zustand stores + UI)            │
+└──────────────┬──────────────────────┘
+               │
+               │ Tauri Commands
+               │ (IPC Bridge)
+               ▼
+┌─────────────────────────────────────┐
+│       Tauri Rust Backend            │
+│                                     │
+│  ┌──────────────────────────────┐  │
+│  │   SQLite Database            │  │
+│  │   - notes.db                 │  │
+│  │   - Tables: notes, folders,  │  │
+│  │     tags, tag_metadata       │  │
+│  └──────────────────────────────┘  │
+└─────────────────────────────────────┘
+```
+
+**Implementation Steps:**
+
+1. **Database Schema Design**
+   - Define tables for notes, folders, tags, tag_metadata
+   - Add indexes for common queries (search, date ranges)
+   - Design relationships (foreign keys)
+
+2. **Tauri Commands** (Rust backend)
+
+   ```rust
+   #[tauri::command]
+   async fn get_all_notes() -> Result<Vec<Note>, String>
+
+   #[tauri::command]
+   async fn create_note(note: Note) -> Result<Note, String>
+
+   #[tauri::command]
+   async fn update_note(id: String, updates: NoteUpdates) -> Result<(), String>
+   ```
+
+3. **Store Refactoring** (TypeScript frontend)
+   - Replace local state mutations with Tauri command calls
+   - Add optimistic updates for better UX
+   - Handle async operations and error states
+
+4. **Migration**
+   - Detect localStorage data on first SQLite launch
+   - Automatically migrate to SQLite
+   - Keep localStorage backup for rollback
+
+**Pros:**
+
+- Unlimited storage capacity
+- Fast queries with indexes
+- Relational data integrity
+- Native file system access
+- Foundation for advanced features
+
+**Cons:**
+
+- More complex implementation
+- Requires Rust backend code
+- Async operations (latency considerations)
+
+#### Phase 3: Cloud Sync (Long-term)
+
+**Goal:** Multi-device synchronization
+
+- SQLite remains local source of truth
+- Background sync to cloud backend
+- Conflict resolution for concurrent edits
+- Offline-first architecture
+
+### **Design Principles**
+
+1. **Local-First**
+   - Local database is always authoritative
+   - Cloud is backup/sync layer only
+   - App works fully offline
+
+2. **Optimistic Updates**
+   - UI updates immediately
+   - Background persistence
+   - Rollback on errors
+
+3. **Single Writer**
+   - Each store owns its persistence logic
+   - No cross-store transactions (simplicity over ACID)
+   - Tags cache is derived state (recalculated on load)
+
+4. **Migration Safety**
+   - Always support data export before migrations
+   - Automatic backups before schema changes
+   - Rollback capability
+
+### **Current Limitations**
+
+See `KNOWN_ISSUES.md` for details on:
+
+- Data loss on refresh (critical)
+- No export/import functionality
+- No backup mechanism
+
+---
+
 ## 🔍 Checking Boundaries
 
 ```bash
@@ -278,10 +452,14 @@ npx eslint packages --ext .ts,.tsx | grep "no-restricted-imports"
 
 ## 📚 Related Documents
 
+- `README.md` — Project overview and getting started
+- `KNOWN_ISSUES.md` — Known issues and technical debt
+- `DEV_SETUP.md` — Development workflow and troubleshooting
 - `PROJECT_STRUCTURE.md` — Detailed file structure
 - `packages/editor/types/EditorDocument.ts` — Editor's data contract
+- `packages/ui/ARCHITECTURAL_EXCEPTIONS.md` — Tracked boundary exceptions
 - `apps/desktop/adapters/` — Adapter layer between app and editor
 
 ---
 
-**Last Updated:** Phase 4.5 Complete (UI Boundary Enforcement) - January 2026
+**Last Updated:** January 19, 2026 - Added Data Persistence Architecture section
