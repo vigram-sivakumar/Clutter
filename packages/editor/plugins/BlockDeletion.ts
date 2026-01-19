@@ -50,19 +50,47 @@ export const BlockDeletion = Extension.create({
         key: blockDeletionPluginKey,
         props: {
           handleKeyDown(view, event) {
+            console.log('🔍 [BlockDeletion] handleKeyDown called', {
+              key: event.key,
+              timestamp: Date.now(),
+            });
+
             const { state } = view;
             const { selection } = state;
             const editor = (this as any).editor;
 
-            if (!editor) return false;
+            if (!editor) {
+              console.log('❌ [BlockDeletion] No editor, returning false');
+              return false;
+            }
 
             const engine = getEngine(editor);
-            if (!engine) return false;
+
+            console.log('🔍 [BlockDeletion] Engine check', {
+              hasEngine: !!engine,
+              engineValue: engine,
+              editorHasEngineProperty: '_engine' in editor,
+              editorEngineValue: (editor as any)._engine,
+            });
+
+            if (!engine) {
+              console.log(
+                '❌ [BlockDeletion] No engine found, returning false - THIS BLOCKS BACKSPACE!'
+              );
+              return false;
+            }
 
             // Only handle Delete and Backspace keys
             if (event.key !== 'Delete' && event.key !== 'Backspace') {
+              console.log(
+                '⏭️ [BlockDeletion] Not Delete/Backspace, passing through'
+              );
               return false;
             }
+
+            console.log(
+              '✅ [BlockDeletion] Has engine, checking selection type...'
+            );
 
             // Case 1: Multi-block selection (Shift+Click, Cmd+A)
             const isMultiBlock = isMultiBlockSelection(editor);
@@ -72,15 +100,12 @@ export const BlockDeletion = Extension.create({
                 event.preventDefault();
                 event.stopPropagation();
 
-                
-
                 const blockIds = blocks
                   .map((b) => b.node.attrs?.blockId)
                   .filter(Boolean);
 
                 // Create explicit snapshot
                 if (!engine || !engine.blocks) {
-                  
                   return false;
                 }
 
@@ -110,11 +135,8 @@ export const BlockDeletion = Extension.create({
 
               const blockIds = engine.selection.blockIds;
 
-              
-
               // Create explicit snapshot
               if (!engine.blocks) {
-                
                 return false;
               }
 

@@ -46,8 +46,9 @@ declare module '@tiptap/core' {
 export const Heading = Node.create({
   name: 'heading',
 
-  // Higher priority so keyboard handlers run before global handlers
-  priority: 1000,
+  // ❌ REMOVED: priority: 1000 was breaking composition input
+  // Keyboard handlers should not interfere with ProseMirror's input system
+  // priority: 1000,
 
   // Block-level content
   group: 'block',
@@ -63,8 +64,7 @@ export const Heading = Node.create({
     return {
       blockId: {
         default: null,
-        parseHTML: (element) =>
-          element.getAttribute('data-block-id') || null,
+        parseHTML: (element) => element.getAttribute('data-block-id') || null,
         renderHTML: (attributes) => {
           if (attributes.blockId) {
             return { 'data-block-id': attributes.blockId };

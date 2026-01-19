@@ -39,7 +39,12 @@ export const KeyboardShortcuts = Extension.create({
       Enter: ({ editor }) => handleEnter(editor),
 
       // Backspace: Outdent if at start of indented block
-      Backspace: ({ editor }) => handleBackspace(editor),
+      Backspace: ({ editor }) => {
+        console.log('🎯 [KeyboardShortcuts] Backspace handler called!');
+        const result = handleBackspace(editor);
+        console.log('🎯 [KeyboardShortcuts] Backspace result:', result);
+        return result;
+      },
 
       // Arrow keys: Navigate between blocks
       ArrowLeft: ({ editor }) => {

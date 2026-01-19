@@ -46,8 +46,9 @@ declare module '@tiptap/core' {
 export const ListBlock = Node.create({
   name: 'listBlock',
 
-  // Higher priority so keyboard handlers run before global handlers
-  priority: 1000,
+  // ❌ REMOVED: priority: 1000 was breaking composition input after ~29 chars
+  // Keyboard handlers that just return false don't need high priority
+  // priority: 1000,
 
   // Block-level content
   group: 'block',
@@ -194,6 +195,9 @@ export const ListBlock = Node.create({
       // Node extensions must not handle structural keyboard logic.
 
       Enter: ({ editor }) => {
+        // 🔒 ONLY handle Enter for listBlock nodes, not other block types
+        const { $from } = editor.state.selection;
+        if ($from.parent.type.name !== 'listBlock') return false;
         // NEW: Use rule engine for Enter behavior
         // This handles:
         // - splitListItem (priority 110) - splits at cursor position
@@ -212,7 +216,11 @@ export const ListBlock = Node.create({
         return false;
       },
 
-      Backspace: ({ editor: _editor }) => {
+      Backspace: ({ editor }) => {
+        // 🔒 ONLY handle Backspace for listBlock nodes, not other block types
+        const { $from } = editor.state.selection;
+        if ($from.parent.type.name !== 'listBlock') return false;
+
         // 🔥 FLAT MODEL: ALL structural deletion handled by KeyboardShortcuts → FlatIntentResolver
         // This node-level handler must NOT handle structural operations
         // Return false → pass through to high-priority KeyboardShortcuts plugin
@@ -258,7 +266,11 @@ export const ListBlock = Node.create({
       // 🔒 Delete - NEUTERED (Step 4 - Exclusive Ownership)
       // ALL Delete behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules
       // Node extensions must NEVER mutate state in keyboard handlers.
-      Delete: () => {
+      Delete: ({ editor }) => {
+        // 🔒 ONLY handle Delete for listBlock nodes, not other block types
+        const { $from } = editor.state.selection;
+        if ($from.parent.type.name !== 'listBlock') return false;
+
         return false; // Delegate to KeyboardEngine
       },
     };

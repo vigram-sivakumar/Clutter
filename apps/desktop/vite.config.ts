@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      '@clutter/editor': path.resolve(__dirname, '../../packages/editor'),
       '@clutter/shared': path.resolve(__dirname, '../../packages/shared/src'),
       '@clutter/ui': path.resolve(__dirname, '../../packages/ui/src'),
     },

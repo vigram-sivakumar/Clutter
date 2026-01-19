@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@clutter/domain": "*",
+    "@clutter/editor": "*",
     "@clutter/shared": "*",
     "@clutter/state": "*",
     "@clutter/ui": "*",

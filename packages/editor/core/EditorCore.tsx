@@ -71,16 +71,16 @@ import { DateMention as DateMentionNode } from '../extensions/nodes/DateMention'
 import { NoteLink } from '../extensions/nodes/NoteLink';
 import Gapcursor from '@tiptap/extension-gapcursor';
 import History from '@tiptap/extension-history';
+import HardBreak from '@tiptap/extension-hard-break';
 import { MarkdownShortcuts } from '../plugins/MarkdownShortcuts';
+import { BlockIdGenerator } from '../extensions/BlockIdGenerator';
 
 // Keyboard plugins
 import { BackspaceHandler } from '../plugins/BackspaceHandler';
 import { TabHandler } from '../plugins/TabHandler';
 import { KeyboardShortcuts } from '../plugins/KeyboardShortcuts';
-import { BlockIdGenerator } from '../extensions/BlockIdGenerator';
 
 // All plugins enabled (except UndoRedo - using TipTap History instead)
-import { UserInputMarker } from '../plugins/UserInputMarker';
 import { SlashCommands } from '../plugins/SlashCommands';
 import { TaskPriority } from '../plugins/TaskPriority';
 import { EscapeMarks } from '../plugins/EscapeMarks';
@@ -103,14 +103,14 @@ import { FloatingToolbar } from '@clutter/ui';
 import { spacing, typography, placeholders } from '../tokens';
 
 // Theme
-import { EditorThemeProvider, useEditorTheme } from '../theme/EditorThemeContext';
+import {
+  EditorThemeProvider,
+  useEditorTheme,
+} from '../theme/EditorThemeContext';
 import type { EditorTheme } from '@clutter/shared';
 
 // Editor Context
 import { useEditorContext } from '../context/EditorContext';
-
-// HardBreak extension for line breaks (Shift+Enter)
-import HardBreak from '@tiptap/extension-hard-break';
 
 interface EditorCoreProps {
   theme: EditorTheme;
@@ -139,7 +139,10 @@ export const EditorCore = forwardRef<EditorCoreHandle, EditorCoreProps>(
 );
 
 // Internal component that consumes theme from context
-const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'theme'>>(
+const EditorCoreInner = forwardRef<
+  EditorCoreHandle,
+  Omit<EditorCoreProps, 'theme'>
+>(
   (
     {
       noteId,
@@ -158,163 +161,171 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
   ) => {
     const { colors } = useEditorTheme();
     const { availableTags } = useEditorContext();
-    
+
     const activeNoteIdRef = useRef<string | null>(null);
     const prevDocRef = useRef<any>(null);
     // Hard lock to prevent ALL mutations during content loading
     const isHydratingRef = useRef<boolean>(false);
 
     // Create editor instance
-    const editor = useEditor({
-      extensions: [
-        // 🔒 User Input Marker (HIGHEST PRIORITY)
-        // Marks all user input with isUserEdit meta - single source of truth
-        UserInputMarker,
-        
-        // Core nodes
-        Document,
-        Text,
-        Paragraph,
-        Heading,
-        ListBlock,
-        Blockquote,
-        CodeBlock,
-        HorizontalRule,
-        Callout,
-        DateMentionNode,
-        NoteLink.configure({
-          onNavigate,
-        }),
+    const editor = useEditor(
+      {
+        extensions: [
+          // Core TipTap nodes
+          Document,
+          Text,
+          Paragraph,
 
-        // Built-in TipTap extensions
-        HardBreak.configure({
-          keepMarks: true,
-        }),
-        Gapcursor,
-        History,
+          // Marks
+          Bold,
+          Italic,
+          Underline,
+          Strike,
+          Code,
+          Link,
+          WavyUnderline,
+          TextColor,
+          CustomHighlight,
 
-        // Marks
-        Bold,
-        Italic,
-        Underline,
-        Strike,
-        Code,
-        Link,
-        WavyUnderline,
-        TextColor,
-        CustomHighlight,
+          // Block nodes - ✅ FIXED: ListBlock priority removed & node-type guards added
+          Heading,
+          ListBlock,
+          Blockquote,
+          CodeBlock,
+          HorizontalRule,
+          Callout,
+          DateMentionNode,
+          NoteLink.configure({
+            onNavigate,
+          }),
 
-        // Input rules
-        MarkdownShortcuts,
+          // Built-in TipTap extensions
+          HardBreak.configure({
+            keepMarks: true,
+          }),
+          Gapcursor,
+          History,
 
-        // Keyboard plugins
-        BlockIdGenerator, // Auto-generate blockId for all blocks
-        KeyboardShortcuts, // Centralized Tab/Shift+Tab → indent/outdent intents
-        TabHandler, // Fallback Tab handler - prevents focus navigation
-        BackspaceHandler, // Handle backspace behavior
+          // ⚡ All plugins re-enabled
+          MarkdownShortcuts.configure({
+            // No config needed, just verifying it's loaded
+          }),
 
-        // All other plugins
-        SlashCommands,
-        TaskPriority, // Highlight priority indicators (!, !!, !!!) in tasks
-        EscapeMarks,
-        DoubleSpaceEscape,
-        SelectAll, // Progressive Cmd+A: block text → block node → all blocks
-        BlockDeletion, // Handle DELETE/Backspace for node-selected blocks
-        HashtagDetection, // Simple #tag detection (moves to metadata)
-        HashtagAutocomplete.configure({
-          getColors: () => colors,
-          getTags: () => availableTags,
-        }),
-        AtMention.configure({
-          getColors: () => colors,
-        }),
-
-        // Collapse plugin (wrapped as TipTap extension)
-        CollapseExtension,
-      ] as any[],
-      content: null,
-      autofocus: false,
-      editable,
-      editorProps: {
-        attributes: {
-          class: 'editor-content',
+          // ✅ RE-ENABLED
+          BlockIdGenerator,
+          KeyboardShortcuts,
+          TabHandler,
+          BackspaceHandler,
+          SlashCommands,
+          TaskPriority,
+          EscapeMarks,
+          DoubleSpaceEscape,
+          SelectAll,
+          BlockDeletion,
+          HashtagDetection,
+          HashtagAutocomplete.configure({
+            getColors: () => colors,
+            getTags: () => availableTags,
+          }),
+          AtMention.configure({
+            getColors: () => colors,
+          }),
+          CollapseExtension,
+        ] as any[],
+        content: incomingContent || {
+          type: 'doc',
+          content: [{ type: 'paragraph' }],
         },
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔑 Tab handling is done by TipTap extensions (KeyboardShortcuts)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        //
-        // We do NOT preventDefault here at the ProseMirror level.
-        // Instead, TipTap extensions decide:
-        //   - KeyboardShortcuts (priority 1000): handles indent/outdent intents
-        //     → returns result.handled (true = consume, false = fallback)
-        //   - TabHandler (priority 100): fallback to prevent focus navigation
-        //     → only runs if KeyboardShortcuts returns false
-        //
-        // This allows proper fallback when indent is blocked:
-        //   Intent blocked → result.handled = false → browser handles Tab
-        //
-        // CRITICAL: ProseMirror handleKeyDown runs BEFORE TipTap extensions.
-        // If we preventDefault here, TipTap never gets to decide fallback.
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        handleKeyDown(_view, _event) {
-          return false; // Let TipTap extensions handle all keys
-        },
-        handleDOMEvents: {
-          // ❌ REMOVED mousedown preventDefault - it prevented clicking into empty blocks
-          // ProseMirror handles its own selection and mousedown behavior
-          // We don't need to prevent default browser behavior
-          focus: () => {
-            onFocus?.();
-            return false; // Allow default focus behavior
+        autofocus: false,
+        editable,
+        editorProps: {
+          attributes: {
+            class: 'editor-content',
           },
-          blur: () => {
-            onBlur?.();
-            return false; // Allow default blur behavior
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          // 🔑 Tab handling is done by TipTap extensions (KeyboardShortcuts)
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          //
+          // We do NOT preventDefault here at the ProseMirror level.
+          // Instead, TipTap extensions decide:
+          //   - KeyboardShortcuts (priority 1000): handles indent/outdent intents
+          //     → returns result.handled (true = consume, false = fallback)
+          //   - TabHandler (priority 100): fallback to prevent focus navigation
+          //     → only runs if KeyboardShortcuts returns false
+          //
+          // This allows proper fallback when indent is blocked:
+          //   Intent blocked → result.handled = false → browser handles Tab
+          //
+          // CRITICAL: ProseMirror handleKeyDown runs BEFORE TipTap extensions.
+          // If we preventDefault here, TipTap never gets to decide fallback.
+          // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          handleKeyDown(_view, _event) {
+            // Let TipTap extensions handle all keyboard events
+            return false;
+          },
+          handleDOMEvents: {
+            // ❌ REMOVED mousedown preventDefault - it prevented clicking into empty blocks
+            // ProseMirror handles its own selection and mousedown behavior
+            // We don't need to prevent default browser behavior
+            focus: () => {
+              onFocus?.();
+              return false; // Allow default focus behavior
+            },
+            blur: () => {
+              onBlur?.();
+              return false; // Allow default blur behavior
+            },
           },
         },
-      },
-      onUpdate: ({ editor, transaction }) => {
-        // ABSOLUTE HARD LOCK - No mutations during hydration
-        if (isHydratingRef.current) return;
-        
-        // 🔒 Only persist user edits (authoritative signal from UserInputMarker)
-        if (transaction.getMeta('isUserEdit') !== true) return;
-        if (!onChange) return;
+        onUpdate: ({ editor, transaction }) => {
+          // ABSOLUTE HARD LOCK - No mutations during hydration
+          if (isHydratingRef.current) return;
 
-        prevDocRef.current = editor.state.doc;
-        onChange(editor.getJSON());
+          // 🔒 Only persist user edits (authoritative signal from UserInputMarker)
+          if (transaction.getMeta('isUserEdit') !== true) return;
+          if (!onChange) return;
+
+          prevDocRef.current = editor.state.doc;
+          onChange(editor.getJSON());
+        },
+        onTransaction: ({ transaction }) => {
+          // 🔍 DIAGNOSTIC: Catch invalid transactions
+          if (transaction.docChanged && !transaction.selectionSet) {
+            console.error(
+              '❌ INVALID TRANSACTION: docChanged without selectionSet',
+              {
+                steps: transaction.steps.length,
+                docBefore: transaction.before.textContent.substring(0, 50),
+                docAfter: transaction.doc.textContent.substring(0, 50),
+                selectionType: transaction.selection?.constructor?.name,
+              }
+            );
+          }
+        },
+        onSelectionUpdate: () => {
+          // ⚠️ READ ONLY — DO NOT MUTATE DOCUMENT HERE
+          //
+          // ❌ DISABLED: Lazy blockId assignment
+          // Root cause: onSelectionUpdate is an OBSERVER, not an action handler
+          // Mutating here caused INVALID TRANSACTION errors (doc changed without selection update)
+          //
+          // This corrupted editor state:
+          // - Cursor lag behind text
+          // - Backspace silently failing
+          // - Selection pointing to stale document positions
+          //
+          // Proper solution: Assign blockId at creation time, not reactively
+
+          return; // ❌ DO NOT MUTATE HERE
+        },
       },
-      onSelectionUpdate: ({ editor }) => {
-        // Lazy blockId assignment: Only assign blockId when cursor enters a block
-        // This prevents premature ID generation for helper/scaffolding blocks
-        
-        const { selection } = editor.state;
-        const { $from } = selection;
-        const node = $from.parent;
-        
-        // Check if cursor is in a block without a blockId
-        if (node.isBlock && !node.attrs.blockId) {
-          const tr = editor.state.tr;
-          const pos = $from.before($from.depth);
-          
-          // Assign blockId to the block the cursor just entered
-          tr.setNodeMarkup(pos, undefined, {
-            ...node.attrs,
-            blockId: crypto.randomUUID(),
-          });
-          
-          // Mark as system transaction (not user edit)
-          tr.setMeta('isUserEdit', false);
-          tr.setMeta('addToHistory', false);
-          
-          editor.view.dispatch(tr);
-        }
-      },
-    }, [noteId]); // Recreate editor when note changes
+      [noteId]
+    ); // Recreate editor when note changes
 
     // Reset refs when editor recreates for new note
     useEffect(() => {
       if (!editor) return;
+
       // Reset refs when editor recreates for new note
       activeNoteIdRef.current = null;
       prevDocRef.current = null;
@@ -328,7 +339,6 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
         }
       };
     }, [editor]);
-
 
     // Store onTagClick callback in editor instance so node views can access it
     useEffect(() => {
@@ -420,15 +430,16 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
       if (activeNoteIdRef.current === noteId) return;
 
       activeNoteIdRef.current = noteId;
-      
+
       // HARD LOCK - Prevent ALL mutations during load
       isHydratingRef.current = true;
 
       // Parse JSON string to object
-      const contentObj = typeof incomingContent === 'string' 
-        ? JSON.parse(incomingContent) 
-        : incomingContent;
-      
+      const contentObj =
+        typeof incomingContent === 'string'
+          ? JSON.parse(incomingContent)
+          : incomingContent;
+
       // Use setContent with emitUpdate: false
       // This treats content as authoritative and prevents ProseMirror from normalizing away empty text nodes
       // The false parameter means "don't trigger update event" - critical for hydration
@@ -438,7 +449,7 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
           // setContent returned false
         }
       } catch (error) {
-      // Error handled
+        // Error handled
         // setContent threw error
       }
 
@@ -561,7 +572,7 @@ const EditorCoreInner = forwardRef<EditorCoreHandle, Omit<EditorCoreProps, 'them
          */
         .ProseMirror [data-empty="true"][data-placeholder] [contenteditable="true"]::before {
           content: attr(data-placeholder);
-          color: ${colors.text.placeholder};
+          color: ${colors.text.tertiary};
           pointer-events: none;
           user-select: none;
           white-space: nowrap;

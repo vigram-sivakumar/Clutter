@@ -1,6 +1,6 @@
 /**
  * Blockquote Node - Quoted text block
- * 
+ *
  * Block element with left border for quoted content.
  * Contains inline content (text with marks).
  * - Markdown: > text
@@ -11,9 +11,9 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { Blockquote as BlockquoteComponent } from '../../components/Blockquote';
-import { 
-  createShiftEnterHandler, 
-  createWrapperEnterHandler, 
+import {
+  createShiftEnterHandler,
+  createWrapperEnterHandler,
   createWrapperBackspaceHandler,
 } from '../../utils/keyboardHelpers';
 
@@ -41,8 +41,9 @@ declare module '@tiptap/core' {
 export const Blockquote = Node.create({
   name: 'blockquote',
 
-  // Higher priority so keyboard handlers run before global handlers
-  priority: 1000,
+  // ❌ REMOVED: priority: 1000 was breaking composition input
+  // Keyboard handlers should not interfere with ProseMirror's input system
+  // priority: 1000,
 
   // Block-level content
   group: 'block',

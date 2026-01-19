@@ -10,9 +10,7 @@ import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
 import { ParagraphBlock } from '../../components/ParagraphBlock';
-import {
-  findAncestorNode,
-} from '../../utils/keyboardHelpers';
+import { findAncestorNode } from '../../utils/keyboardHelpers';
 import { HASHTAG_REGEX, insertTag } from '../../utils/tagUtils';
 import { BackspaceRules } from '../../utils/keyboardRules';
 import type { EditorEngine } from '../../core/engine/EditorEngine';
@@ -50,8 +48,9 @@ export const Paragraph = Node.create({
   // Contains inline content (text with marks)
   content: 'inline*',
 
-  // Priority for parsing
-  priority: 1000,
+  // ❌ REMOVED: priority: 1000 was breaking composition input
+  // Keyboard handlers that return false don't need high priority
+  // priority: 1000,
 
   // Attributes
   addAttributes() {
@@ -63,8 +62,7 @@ export const Paragraph = Node.create({
         // 3. parseHTML (loading saved content)
         // NEVER by PM schema defaults (prevents regeneration during transactions)
         default: null,
-        parseHTML: (element) =>
-          element.getAttribute('data-block-id') || null,
+        parseHTML: (element) => element.getAttribute('data-block-id') || null,
         renderHTML: (attributes) => {
           if (attributes.blockId) {
             return { 'data-block-id': attributes.blockId };
@@ -210,6 +208,9 @@ export const Paragraph = Node.create({
       // ALL Backspace behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules
       // Node extensions must NEVER mutate state in keyboard handlers.
       Backspace: () => {
+        console.log(
+          '📄 [Paragraph Extension] Backspace called (neutered, should delegate)'
+        );
         return false; // Delegate to KeyboardEngine
       },
 
@@ -217,6 +218,9 @@ export const Paragraph = Node.create({
       // ALL Delete behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules
       // Node extensions must NEVER mutate state in keyboard handlers.
       Delete: () => {
+        console.log(
+          '📄 [Paragraph Extension] Delete called (neutered, should delegate)'
+        );
         return false; // Delegate to KeyboardEngine
       },
     };

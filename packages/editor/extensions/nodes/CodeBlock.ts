@@ -1,6 +1,6 @@
 /**
  * CodeBlock Node - Multi-line code block
- * 
+ *
  * Block element for code with syntax highlighting.
  * - Language attribute for highlighting
  * - Monospace font
@@ -33,8 +33,9 @@ declare module '@tiptap/core' {
 export const CodeBlock = Node.create({
   name: 'codeBlock',
 
-  // Higher priority so Enter handler runs before defaults
-  priority: 1000,
+  // ❌ REMOVED: priority: 1000 was breaking composition input
+  // Keyboard handlers should not interfere with ProseMirror's input system
+  // priority: 1000,
 
   // Block-level content
   group: 'block',
@@ -137,7 +138,7 @@ export const CodeBlock = Node.create({
   addKeyboardShortcuts() {
     return {
       'Mod-Alt-c': () => this.editor.commands.toggleCodeBlock(),
-      
+
       // NOTE: Tab inside code blocks has special behavior (inserts literal tab).
       // This is preserved as it's content editing, not structural.
       // Structural indent/outdent via keyboard rules (indent-block/outdent-block intents).
@@ -151,11 +152,11 @@ export const CodeBlock = Node.create({
         // Check if we're inside a codeBlock
         const { state } = editor;
         const { $from } = state.selection;
-        
+
         if ($from.parent.type.name === this.name) {
           return editor.commands.insertContent('\n');
         }
-        
+
         return false;
       },
 

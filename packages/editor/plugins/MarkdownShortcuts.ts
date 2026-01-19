@@ -182,7 +182,9 @@ export const MarkdownShortcuts = Extension.create({
               ];
             }
 
-            if (!replacement) return false;
+            if (!replacement) {
+              return false;
+            }
 
             // Find the outermost block to replace
             // Walk up from current node to find any wrapper (listBlock, blockquote, callout)

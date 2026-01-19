@@ -1,6 +1,6 @@
 /**
  * Callout Node - Colored callout blocks (info, warning, error, success)
- * 
+ *
  * Block element with colored left border and background.
  * Contains inline content (text with marks).
  */
@@ -8,9 +8,9 @@
 import { Node, mergeAttributes } from '@tiptap/react';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { Callout as CalloutComponent } from '../../components/Callout';
-import { 
-  createShiftEnterHandler, 
-  createWrapperEnterHandler, 
+import {
+  createShiftEnterHandler,
+  createWrapperEnterHandler,
   createWrapperBackspaceHandler,
 } from '../../utils/keyboardHelpers';
 import { EnterRules } from '../../utils/keyboardRules';
@@ -32,10 +32,11 @@ declare module '@tiptap/core' {
 
 export const Callout = Node.create({
   name: 'callout',
-  
-  // Higher priority so keyboard handlers run before global handlers
-  priority: 1000,
-  
+
+  // ❌ REMOVED: priority: 1000 was breaking composition input
+  // Keyboard handlers should not interfere with ProseMirror's input system
+  // priority: 1000,
+
   group: 'block',
   content: 'inline*',
   defining: true,
@@ -53,7 +54,8 @@ export const Callout = Node.create({
       },
       type: {
         default: 'info',
-        parseHTML: (element) => element.getAttribute('data-callout-type') || 'info',
+        parseHTML: (element) =>
+          element.getAttribute('data-callout-type') || 'info',
         renderHTML: (attributes) => {
           return {
             'data-callout-type': attributes.type,
@@ -84,19 +86,27 @@ export const Callout = Node.create({
     return [{ tag: 'div[data-type="callout"]' }];
   },
   renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'callout' }), 0];
+    return [
+      'div',
+      mergeAttributes(HTMLAttributes, { 'data-type': 'callout' }),
+      0,
+    ];
   },
   addNodeView() {
     return ReactNodeViewRenderer(CalloutComponent) as any;
   },
   addCommands() {
     return {
-      setCallout: (attrs) => ({ commands }) => {
-        return commands.wrapIn(this.name, attrs);
-      },
-      toggleCallout: (attrs) => ({ commands }) => {
-        return commands.toggleWrap(this.name, attrs);
-      },
+      setCallout:
+        (attrs) =>
+        ({ commands }) => {
+          return commands.wrapIn(this.name, attrs);
+        },
+      toggleCallout:
+        (attrs) =>
+        ({ commands }) => {
+          return commands.toggleWrap(this.name, attrs);
+        },
     };
   },
   addKeyboardShortcuts() {
@@ -104,9 +114,8 @@ export const Callout = Node.create({
     // via keyboard rules emitting indent-block / outdent-block intents.
     // Node extensions must not handle structural keyboard logic.
     return {
-
       'Shift-Enter': createShiftEnterHandler('callout'),
-      
+
       // 🔒 Enter - NEUTERED (Step 4 - Exclusive Ownership)
       // ALL Enter behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules
       // Node extensions must NEVER mutate state in keyboard handlers.

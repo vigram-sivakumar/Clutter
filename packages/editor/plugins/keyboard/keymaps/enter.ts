@@ -151,23 +151,22 @@ function insertSiblingAbove(editor: Editor): boolean {
   // Use depth-safe position calculation
   const insertPos = $from.before($from.depth);
 
-  const newNode = node.type.create(createCleanBlockAttrs(node, node.attrs.indent ?? 0));
+  const newNode = node.type.create(
+    createCleanBlockAttrs(node, node.attrs.indent ?? 0)
+  );
   tr.insert(insertPos, newNode);
 
   // Calculate cursor position inside the new block
   const cursorPos = insertPos + 1;
   tr.setSelection(TextSelection.create(tr.doc, cursorPos));
 
-  
-
   dispatchUserEdit(view, tr);
-  
+
   // Verify cursor position after dispatch
   setTimeout(() => {
     const currentPos = editor.state.selection.from;
-    
   }, 0);
-  
+
   return true;
 }
 
@@ -192,16 +191,13 @@ function insertSiblingBelow(editor: Editor, indent: number): boolean {
   const cursorPos = insertPos + 1;
   tr.setSelection(TextSelection.create(tr.doc, cursorPos));
 
-  
-
   dispatchUserEdit(view, tr);
-  
+
   // Verify cursor position after dispatch
   setTimeout(() => {
     const currentPos = editor.state.selection.from;
-    
   }, 0);
-  
+
   return true;
 }
 
@@ -305,8 +301,9 @@ export function handleEnter(editor: Editor): boolean {
         ...node.attrs,
         collapsed: true,
       });
-      tr.setMeta('isUserEdit', true);
-      view.dispatch(tr);
+      // ✅ FIX: Must set selection when doc changes
+      tr.setSelection(selection);
+      dispatchUserEdit(view, tr);
       return true;
     }
 
@@ -392,7 +389,8 @@ export function handleEnter(editor: Editor): boolean {
     // Cursor into paragraph
     tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
 
-    view.dispatch(tr);
+    // ✅ FIX: Use dispatchUserEdit for consistency
+    dispatchUserEdit(view, tr);
     return true;
   }
 
@@ -400,7 +398,6 @@ export function handleEnter(editor: Editor): boolean {
   // 8️⃣ START OF BLOCK → insert sibling ABOVE
   // ─────────────────────────────────────────────
   if (atStart) {
-    
     return insertSiblingAbove(editor);
   }
 
@@ -411,25 +408,21 @@ export function handleEnter(editor: Editor): boolean {
     const isToggle =
       node.type.name === 'listBlock' && node.attrs.listType === 'toggle';
 
-    
-
     // ✅ TOGGLE RULE:
     // Expanded toggles ALWAYS create a child
     if (isToggle && isExpandedContainer) {
-      
       return insertFirstChild(editor, indent);
     }
 
     // ✅ UNIVERSAL STRUCTURAL RULE:
     // Any block that already has children → create child
     if (hasChildren) {
-      
       return insertFirstChild(editor, indent);
     }
 
     // ✅ DEFAULT:
     // No children → create sibling
-    
+
     return insertSiblingBelow(editor, indent);
   }
 
@@ -454,8 +447,8 @@ export function handleEnter(editor: Editor): boolean {
   );
 
   tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
-  tr.setMeta('isUserEdit', true);
-  view.dispatch(tr);
+  // ✅ FIX: Use dispatchUserEdit instead of manual meta + dispatch
+  dispatchUserEdit(view, tr);
 
   return true;
 }

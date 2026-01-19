@@ -51,16 +51,19 @@ export function replaceBlock(
 
   tr.setSelection(TextSelection.create(tr.doc, newCursorPos));
 
+  // ✅ Mark as user edit so it persists
+  tr.setMeta('isUserEdit', true);
+
   view.dispatch(tr);
 }
 
 /**
  * Helper attributes that should be preserved when converting blocks
- * 
+ *
  * 🔒 BLOCK IDENTITY LAW (Phase 2):
  * When a node type changes (paragraph → heading, paragraph → HR, etc.),
  * blockId MUST be regenerated. NEVER preserve blockId across type changes.
- * 
+ *
  * 🔥 FLAT MODEL (Phase 2):
  * Only preserve indent. No parentBlockId, no level, no parentToggleId.
  * Hierarchy is determined solely by indent values.
@@ -138,7 +141,7 @@ export interface BlockCreator {
 
 /**
  * 🔒 STEP 2C.3: Slash command block creation helpers
- * 
+ *
  * All helpers follow the Block Creation Law:
  * - Always generate new blockId
  * - Always use indent (flat model)
@@ -200,7 +203,7 @@ export const createBlock: BlockCreator = {
       indent: preservedAttrs?.indent ?? 0, // 🔥 FLAT MODEL
       collapsed: false,
     };
-    
+
     return textNode
       ? schema.nodes.codeBlock.create(attrs, textNode)
       : schema.nodes.codeBlock.create(attrs);
