@@ -65,31 +65,7 @@ type MainView =
   | { type: 'dailyNotesYearView'; year: string } // View showing daily notes for a year
   | { type: 'dailyNotesMonthView'; year: string; month: string }; // View showing daily notes for a month
 
-// Helper to check if TipTap JSON content is empty
-const _isContentEmpty = (content: string): boolean => {
-  try {
-    if (!content || content.trim() === '') return true;
-
-    const json = JSON.parse(content);
-    // Empty TipTap document: {"type":"doc","content":[{"type":"paragraph"}]} or similar
-    if (!json.content || json.content.length === 0) return true;
-
-    // Check if all nodes are empty paragraphs
-    return json.content.every((node: any) => {
-      if (
-        node.type === 'paragraph' &&
-        (!node.content || node.content.length === 0)
-      ) {
-        return true;
-      }
-      return false;
-    });
-  } catch {
-    return true; // If parsing fails, consider it empty
-  }
-};
-
-// Debounce helper with cancel function
+// Debounce helper
 const useDebounce = <T extends (..._args: any[]) => void>(
   fn: T,
   delay: number
@@ -106,14 +82,7 @@ const useDebounce = <T extends (..._args: any[]) => void>(
     [fn, delay]
   );
 
-  const cancel = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  return [debouncedFn, cancel] as const;
+  return debouncedFn;
 };
 
 interface NotesContainerProps {
@@ -126,14 +95,6 @@ export const NoteEditor = ({
   isInitialized = true,
 }: NotesContainerProps) => {
   // Removed: session refs no longer needed without async block loading
-
-  // 🔍 DIAGNOSTIC: Track component lifecycle (MOUNT/UNMOUNT)
-  useEffect(() => {
-    
-    return () => {
-      
-    };
-  }, []);
 
   // Notes store
   const {
@@ -181,16 +142,8 @@ export const NoteEditor = ({
 
   // Track note switches for UI transitions
   useEffect(() => {
-    
+    previousNoteIdRef.current = currentNoteId;
   }, [currentNoteId]);
-
-  // 🔍 DIAGNOSTIC: Note ID Invariant Check (MOVED HERE - after currentNote is defined)
-  
-
-  // 🚨 ASSERTION: Detect split-brain state
-  if (currentNote && currentNoteId && currentNote.id !== currentNoteId) {
-    
-  }
 
   // Local state for UI (derived from currentNote)
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(
@@ -257,9 +210,6 @@ export const NoteEditor = ({
   // Centralized breadcrumb generation
   const breadcrumbs = useBreadcrumbs(mainView, currentNote, currentNoteId);
   const folderPathIds = useBreadcrumbFolderIds(mainView, currentNote);
-
-  // 🔍 DIAGNOSTIC: Track breadcrumb note identity
-  
 
   // Restore last viewed note or open today's daily note on first load (only in editor mode)
   useEffect(() => {
@@ -449,7 +399,7 @@ export const NoteEditor = ({
     previousNoteIdRef.current !== null;
 
   // Auto-save with debounce (defined early so it can be used in effects)
-  const [debouncedSave] = useDebounce((updates: Partial<Note>) => {
+  const debouncedSave = useDebounce((updates: Partial<Note>) => {
     if (currentNoteId) {
       // Update note metadata only (content is updated synchronously)
       updateNoteMeta(currentNoteId, updates);
@@ -1889,10 +1839,6 @@ export const NoteEditor = ({
                   ref={editorRef}
                   value={editorContent}
                   autoFocus={false}
-                  onReady={() => {
-                    // 🔍 DIAGNOSTIC: Verify noteId consistency
-                    
-                  }}
                   onChange={(value) => {
                     // Save content directly to state (synchronous, local-only)
                     updateNoteContent(currentNoteId, value);
