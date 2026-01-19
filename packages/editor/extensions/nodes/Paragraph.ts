@@ -10,22 +10,9 @@ import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
 import { ParagraphBlock } from '../../components/ParagraphBlock';
-import { findAncestorNode } from '../../utils/keyboardHelpers';
-import { HASHTAG_REGEX, insertTag } from '../../utils/tagUtils';
-import { BackspaceRules } from '../../utils/keyboardRules';
-import type { EditorEngine } from '../../core/engine/EditorEngine';
-import { DeleteBlockCommand } from '../../core/engine/command';
 
 // NOTE: indentBlock/outdentBlock removed - now handled via keyboard rules
 // NOTE: Arrow navigation removed - now centralized in KeyboardShortcuts.ts
-
-/**
- * Get EditorEngine from TipTap editor instance
- * Engine is attached by EditorCore during initialization
- */
-function getEngine(editor: any): EditorEngine | null {
-  return editor._engine || null;
-}
 
 declare module '@tiptap/core' {
   // eslint-disable-next-line no-unused-vars

@@ -82,10 +82,3 @@ export { Callout as CalloutComponent } from './components/Callout';
 // Utils
 export { addTagToBlock } from './utils/tagUtils';
 export { isMultiBlockSelection } from './utils/multiSelection';
-
-// Core: Structural delete state (sentinel for DEV invariants)
-export {
-  beginStructuralDelete,
-  endStructuralDelete,
-  isStructuralDeleteInProgress,
-} from './core/structuralDeleteState';

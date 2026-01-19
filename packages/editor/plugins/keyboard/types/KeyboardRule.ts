@@ -14,7 +14,6 @@
  */
 
 import type { KeyboardContext } from './KeyboardContext';
-import type { EditorIntent } from '../../../core/engine';
 
 /**
  * KeyboardRule interface
@@ -46,15 +45,12 @@ export interface KeyboardRule {
   /**
    * Execute the rule
    *
-   * NEW: Returns intent(s) to be resolved by IntentResolver
-   * OLD: Executed commands directly via ctx.editor.chain()
+   * Executes TipTap commands directly via ctx.editor.chain()
    *
    * @param _ctx - Immutable keyboard context
-   * @returns EditorIntent, array of intents, or null if rule doesn't apply
+   * @returns boolean indicating if the rule was handled successfully
    */
-  execute(
-    _ctx: KeyboardContext
-  ): EditorIntent | EditorIntent[] | null | boolean;
+  execute(_ctx: KeyboardContext): boolean;
 
   /**
    * Should we stop checking more rules after this one?

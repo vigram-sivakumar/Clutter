@@ -22,15 +22,6 @@
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { HorizontalRule as HorizontalRuleComponent } from '../../components/HorizontalRule';
-import type { EditorEngine } from '../../core/engine/EditorEngine';
-import { DeleteBlockCommand } from '../../core/engine/command';
-
-/**
- * Get EditorEngine from TipTap editor instance
- */
-function getEngine(editor: any): EditorEngine | null {
-  return editor._engine || null;
-}
 
 declare module '@tiptap/core' {
   // eslint-disable-next-line no-unused-vars
@@ -200,50 +191,16 @@ export const HorizontalRule = Node.create({
         const { selection } = this.editor.state;
         // Check if HR is selected (NodeSelection)
         if (selection.node?.type.name === this.name) {
-          const blockId = selection.node.attrs?.blockId;
-          const engine = getEngine(this.editor);
-
-          if (!engine) {
-            
-            return false;
-          }
-
-          if (!blockId) {
-            
-            return false;
-          }
-
-          // ✅ USE ENGINE PRIMITIVE: Delete HR via DeleteBlockCommand
-          // This ensures children are promoted (Editor Law #8)
-          
-          const cmd = new DeleteBlockCommand(blockId);
-          engine.dispatch(cmd);
-          return true;
+          // Delete the horizontal rule using TipTap commands
+          return this.editor.commands.deleteSelection();
         }
         return false;
       },
       Delete: () => {
         const { selection } = this.editor.state;
         if (selection.node?.type.name === this.name) {
-          const blockId = selection.node.attrs?.blockId;
-          const engine = getEngine(this.editor);
-
-          if (!engine) {
-            
-            return false;
-          }
-
-          if (!blockId) {
-            
-            return false;
-          }
-
-          // ✅ USE ENGINE PRIMITIVE: Delete HR via DeleteBlockCommand
-          // This ensures children are promoted (Editor Law #8)
-          
-          const cmd = new DeleteBlockCommand(blockId);
-          engine.dispatch(cmd);
-          return true;
+          // Delete the horizontal rule using TipTap commands
+          return this.editor.commands.deleteSelection();
         }
         return false;
       },

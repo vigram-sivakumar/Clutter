@@ -5,25 +5,25 @@
  * Rules emit intents, which are routed through IntentResolver.
  *
  * This is the only place where rules are actually evaluated.
- * 
+ *
  * ═══════════════════════════════════════════════════════════════════════════
  * 🔒 SELECTION INVARIANT (ARCHITECTURAL LAW)
  * ═══════════════════════════════════════════════════════════════════════════
- * 
+ *
  * ProseMirror:
  *   - TextSelection ONLY
  *   - NEVER NodeSelection
- * 
+ *
  * Block selection:
  *   - Represented by blockId(s) in the Engine
  *   - Keyboard rules operate on Engine block selection
  *   - PM selection remains TextSelection at all times
- * 
+ *
  * Keyboard rules MUST NOT:
  *   - Check for NodeSelection
  *   - Rely on NodeSelection state
  *   - Mutate PM selection to NodeSelection
- * 
+ *
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -31,27 +31,17 @@ import type { Editor } from '@tiptap/core';
 import type { KeyboardRule } from '../types/KeyboardRule';
 import type { KeyboardContext } from '../types/KeyboardContext';
 import { createKeyboardContext } from '../types/KeyboardContext';
-import type { IntentResolver } from '../../../core/engine';
 import type { KeyHandlingResult } from '../types/KeyHandlingResult';
 import { handled, notHandled } from '../types/KeyHandlingResult';
 
 /**
- * KeyboardEngine - Evaluates rules and routes intents
+ * KeyboardEngine - Evaluates rules and executes commands
  */
 export class KeyboardEngine {
   private rules: KeyboardRule[] = [];
-  private resolver: IntentResolver | null = null;
 
-  constructor(rules: KeyboardRule[] = [], resolver?: IntentResolver) {
+  constructor(rules: KeyboardRule[] = []) {
     this.setRules(rules);
-    this.resolver = resolver || null;
-  }
-
-  /**
-   * Set the intent resolver
-   */
-  setResolver(resolver: IntentResolver): void {
-    this.resolver = resolver;
   }
 
   /**
@@ -84,23 +74,33 @@ export class KeyboardEngine {
    */
   handle(editor: Editor, key: KeyboardContext['key']): KeyHandlingResult {
     const ctx = createKeyboardContext(editor, key);
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a7f9fa0e-3f72-4ff3-8c3a-792215d634cd',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'KeyboardEngine.ts:86',message:'KeyboardEngine.handle ENTRY',data:{key,hasResolver:!!this.resolver,rulesCount:this.rules.length},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C,D'})}).catch(()=>{});
-    // #endregion
 
-    
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a7f9fa0e-3f72-4ff3-8c3a-792215d634cd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'KeyboardEngine.ts:86',
+        message: 'KeyboardEngine.handle ENTRY',
+        data: {
+          key,
+          hasResolver: !!this.resolver,
+          rulesCount: this.rules.length,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'initial',
+        hypothesisId: 'C,D',
+      }),
+    }).catch(() => {});
+    // #endregion
 
     for (const rule of this.rules) {
       // Check if rule applies
-      
 
       if (!rule.when(ctx)) {
-        
         continue;
       }
-
-      
 
       // Execute rule - can return intent(s) or boolean (legacy)
       const result = rule.execute(ctx);
@@ -108,50 +108,36 @@ export class KeyboardEngine {
       // Handle legacy boolean return (for backwards compatibility during transition)
       if (typeof result === 'boolean') {
         if (result) {
-          
           if (rule.stopPropagation !== false) {
-            
             return handled(undefined, `Legacy rule: ${rule.id}`);
           }
-          
-        } else {
-          
         }
         continue;
       }
 
       // Handle intent-based return
       if (!result) {
-        
         continue;
       }
 
       // Normalize to array of intents
       const intents = Array.isArray(result) ? result : [result];
 
-      
-
       // Route intents through resolver
       let allSucceeded = true;
       let failureReason: string | undefined;
 
       for (const intent of intents) {
-        
-
         if (this.resolver) {
           // NEW: Route through IntentResolver
           const intentResult = this.resolver.resolve(intent);
 
-          if (intentResult.success) {
-            
-          } else {
-            
+          if (!intentResult.success) {
             allSucceeded = false;
             failureReason = intentResult.reason;
           }
         } else {
           // NO RESOLVER: Log warning but continue
-          
           allSucceeded = false;
           failureReason = 'No resolver available';
         }
@@ -179,9 +165,7 @@ export class KeyboardEngine {
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       if (intents.length > 0) {
         if (allSucceeded) {
-          
           if (rule.stopPropagation !== false) {
-            
             return handled(intents[0].type, 'Success');
           }
         } else {
@@ -200,22 +184,20 @@ export class KeyboardEngine {
 
           if (isStructuralIntent) {
             // 🔒 STRUCTURAL INTENT: Consume key even on failure
-            
+
             return handled(
               firstIntent.type,
               `Structural intent blocked: ${failureReason || 'Intent failed'}`
             );
           } else {
             // 🔁 TEXT INTENT: Allow fallback
-            
+
             return notHandled(failureReason || 'Intent failed');
           }
         }
-        
       }
     }
 
-    
     return notHandled('No matching rule');
   }
 
@@ -228,11 +210,8 @@ export class KeyboardEngine {
 }
 
 /**
- * Create a keyboard engine with rules (and optional resolver)
+ * Create a keyboard engine with rules
  */
-export function createKeyboardEngine(
-  rules: KeyboardRule[],
-  resolver?: IntentResolver
-): KeyboardEngine {
-  return new KeyboardEngine(rules, resolver);
+export function createKeyboardEngine(rules: KeyboardRule[]): KeyboardEngine {
+  return new KeyboardEngine(rules);
 }
