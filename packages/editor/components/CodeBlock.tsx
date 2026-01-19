@@ -14,7 +14,6 @@ import { placeholders, spacing } from '../tokens';
 import { Code as CodeIcon } from '@clutter/ui';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
-// import { Placeholder } from './Placeholder'; // No longer used - CSS handles placeholders
 import { BlockHandle } from './BlockHandle';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
 import { useBlockHidden } from '../hooks/useBlockHidden';

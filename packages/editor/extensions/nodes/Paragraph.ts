@@ -192,9 +192,6 @@ export const Paragraph = Node.create({
       // ALL Backspace behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules
       // Node extensions must NEVER mutate state in keyboard handlers.
       Backspace: () => {
-        console.log(
-          '📄 [Paragraph Extension] Backspace called (neutered, should delegate)'
-        );
         return false; // Delegate to KeyboardEngine
       },
 
@@ -202,9 +199,6 @@ export const Paragraph = Node.create({
       // ALL Delete behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules
       // Node extensions must NEVER mutate state in keyboard handlers.
       Delete: () => {
-        console.log(
-          '📄 [Paragraph Extension] Delete called (neutered, should delegate)'
-        );
         return false; // Delegate to KeyboardEngine
       },
     };

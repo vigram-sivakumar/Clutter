@@ -94,37 +94,8 @@ export function createKeyboardContext(
  * Navigation helpers for KeyboardContext
  */
 
-/**
- * Check if a block is hidden by a collapsed parent
- *
- * Walks the document to find if any ancestor block is collapsed.
- * This matches the logic in CollapsePlugin.
- *
- * CRITICAL: Hidden blocks are non-existent to navigation.
- */
-function isBlockHidden(doc: PMNode, blockNode: PMNode): boolean {
-  const parentBlockId = blockNode.attrs?.parentBlockId;
-
-  if (!parentBlockId) {
-    return false; // Root-level blocks are never hidden
-  }
-
-  // Find if any ancestor is collapsed
-  let isHidden = false;
-
-  doc.descendants((node) => {
-    if (
-      node.attrs?.blockId === parentBlockId &&
-      node.attrs?.collapsed === true
-    ) {
-      isHidden = true;
-      return false; // Stop traversal
-    }
-    return true;
-  });
-
-  return isHidden;
-}
+// NOTE: Collapsed block visibility is handled by CollapsePlugin
+// (uses flat indent model, not parentBlockId)
 
 /**
  * Is cursor at the start of the current block?
@@ -160,15 +131,11 @@ export function getPreviousBlock(
   let index = $from.index(parentDepth);
 
   // Walk backwards to find first visible block
+  // NOTE: CollapsePlugin handles visibility via decorations
   while (index > 0) {
     index--;
     const prevNode = parent.child(index);
     const prevPos = $from.before($from.depth) - prevNode.nodeSize;
-
-    // Skip if hidden by collapsed parent
-    if (isBlockHidden(doc, prevNode)) {
-      continue;
-    }
 
     return { pos: prevPos, node: prevNode };
   }
@@ -196,49 +163,10 @@ export function getNextBlock(
   const startIndex = $from.index(parentDepth);
   let currentPos = $from.after($from.depth);
 
-  // #region agent log
-  const currentNode = $from.parent;
-  const skippedBlocks: any[] = [];
-  // #endregion
-
   // Walk forward to find first visible block
+  // NOTE: CollapsePlugin handles visibility via decorations
   for (let index = startIndex + 1; index < parent.childCount; index++) {
     const nextNode = parent.child(index);
-
-    // Skip if hidden by collapsed parent
-    if (isBlockHidden(doc, nextNode)) {
-      // #region agent log
-      skippedBlocks.push({
-        indent: nextNode.attrs?.indent,
-        blockId: nextNode.attrs?.blockId?.substring(0, 8),
-      });
-      // #endregion
-      currentPos += nextNode.nodeSize;
-      continue;
-    }
-
-    // #region agent log
-    // H2: Log what getNextBlock returns and what it skipped
-    fetch('http://127.0.0.1:7244/ingest/a7f9fa0e-3f72-4ff3-8c3a-792215d634cd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'KeyboardContext.ts:getNextBlock',
-        message: 'Found next block',
-        data: {
-          currentIndent: currentNode.attrs?.indent,
-          nextIndent: nextNode.attrs?.indent,
-          skippedCount: skippedBlocks.length,
-          skippedBlocks: skippedBlocks,
-          positionDivergence: skippedBlocks.length > 0,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        hypothesisId: 'H2',
-      }),
-    }).catch(() => {});
-    // #endregion
-
     return { pos: currentPos, node: nextNode };
   }
 

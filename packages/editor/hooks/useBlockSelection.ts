@@ -30,7 +30,6 @@
 import { useEffect, useState } from 'react';
 import { Editor } from '@tiptap/core';
 import { isMultiBlockSelection } from '../utils/multiSelection';
-import { warnIfNodeViewMutates } from '../core/devInvariants';
 
 interface UseBlockSelectionProps {
   editor: Editor;
@@ -75,15 +74,6 @@ export function useBlockSelection({
       if (engine.selection.kind === 'block') {
         const selected = engine.selection.blockIds.includes(blockId);
         
-        // 🛡️ DEV INVARIANT: Warn if halo mutation during structural delete
-        if (selected !== isSelected) {
-          warnIfNodeViewMutates('useBlockSelection/engine-block', {
-            blockId: blockId.slice(0, 8),
-            wasSelected: isSelected,
-            nowSelected: selected,
-          });
-        }
-        
         setIsSelected(selected);
         return;
       }
@@ -103,15 +93,6 @@ export function useBlockSelection({
         // Check if this block is covered by the selection
         const isFullyCovered = from <= contentStart && to >= contentEnd;
         const finalSelected = isFullyCovered && from !== to;
-        
-        // 🛡️ DEV INVARIANT: Warn if halo mutation during structural delete
-        if (finalSelected !== isSelected) {
-          warnIfNodeViewMutates('useBlockSelection/multi-block', {
-            blockId: blockId.slice(0, 8),
-            wasSelected: isSelected,
-            nowSelected: finalSelected,
-          });
-        }
         
         setIsSelected(finalSelected);
         return;

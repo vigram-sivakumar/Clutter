@@ -28,14 +28,6 @@ export const UserInputMarker = Extension.create({
         key: new PluginKey('userInputMarker'),
 
         appendTransaction: (transactions, _oldState, newState) => {
-          // Log all transactions for debugging
-          if (transactions.some((tr) => tr.docChanged)) {
-            console.log('📋 [UserInputMarker] Transaction detected', {
-              count: transactions.length,
-              docChanged: transactions.filter((tr) => tr.docChanged).length,
-              steps: transactions.map((tr) => tr.steps.length),
-            });
-          }
 
           // Already marked - pass through
           if (transactions.some((tr) => tr.getMeta('isUserEdit') === true)) {

@@ -75,26 +75,6 @@ export class KeyboardEngine {
   handle(editor: Editor, key: KeyboardContext['key']): KeyHandlingResult {
     const ctx = createKeyboardContext(editor, key);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a7f9fa0e-3f72-4ff3-8c3a-792215d634cd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'KeyboardEngine.ts:86',
-        message: 'KeyboardEngine.handle ENTRY',
-        data: {
-          key,
-          hasResolver: !!this.resolver,
-          rulesCount: this.rules.length,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        runId: 'initial',
-        hypothesisId: 'C,D',
-      }),
-    }).catch(() => {});
-    // #endregion
-
     for (const rule of this.rules) {
       // Check if rule applies
 

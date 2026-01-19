@@ -222,43 +222,8 @@ export const ListBlock = Node.create({
         // 🔥 FLAT MODEL: ALL structural deletion handled by KeyboardShortcuts → FlatIntentResolver
         // This node-level handler must NOT handle structural operations
         // Return false → pass through to high-priority KeyboardShortcuts plugin
+        // Backspace behavior now handled by KeyboardShortcuts → KeyboardEngine
         return false;
-
-        // LEGACY CODE BELOW (DISABLED IN FLAT MODEL)
-        // This code used DeleteBlockCommand (tree model)
-        // In flat model, delete-block intent goes through FlatIntentResolver.handleDeleteBlock()
-        /*
-        const { state } = editor;
-        const { selection } = state;
-        const { $from, empty } = selection;
-
-        // Only handle if selection is empty (cursor, not range)
-        if (!empty) return false;
-
-        // Get current list block
-        const currentListBlock = $from.parent;
-        if (currentListBlock.type.name !== 'listBlock') return false;
-
-        const listBlockPos = $from.before($from.depth);
-        const currentBlockId = currentListBlock.attrs?.blockId;
-
-        // Check if cursor is at start of block
-        const atStart = $from.parentOffset === 0;
-
-        // CASE 1: EMPTY LIST BLOCK
-        // NOW FULLY HANDLED BY KeyboardShortcuts plugin (priority 1000)
-        // - convertEmptyList rule (priority 105): empty list → paragraph
-        // - deleteEmptyParagraph rule (priority 100): paragraph → delete
-        // This handler never sees empty lists anymore
-        const context =
-          BackspaceRules.getEmptyListBlockBackspaceContext(editor);
-        if (context.isEmpty) {
-          return false; // Let KeyboardShortcuts handle it
-        }
-
-        // CASE 2: NON-EMPTY LIST BLOCK
-        // (ALL LEGACY CODE COMMENTED OUT - SEE ABOVE)
-        */
       },
 
       // 🔒 Delete - NEUTERED (Step 4 - Exclusive Ownership)

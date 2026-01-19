@@ -43,13 +43,6 @@ export interface CodeBlockAttrs {
 }
 
 /**
- * Node attributes for ToggleBlock
- */
-export interface ToggleBlockAttrs {
-  collapsed: boolean;
-}
-
-/**
  * Mark attributes for Link
  */
 export interface LinkAttrs {

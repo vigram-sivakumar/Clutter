@@ -14,7 +14,6 @@ import { typography, spacing } from '../tokens';
 import { useEditorTheme } from '../theme/EditorThemeContext';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
-// import { Placeholder } from './Placeholder'; // No longer used - CSS handles placeholders
 import { BlockSelectionHalo } from './BlockSelectionHalo';
 import { useBlockHidden } from '../hooks/useBlockHidden';
 

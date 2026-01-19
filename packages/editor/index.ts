@@ -57,7 +57,6 @@ export {
   filterSlashCommands,
 } from './plugins/SlashCommands';
 export type { SlashCommand } from './plugins/SlashCommands';
-export { BackspaceHandler } from './plugins/BackspaceHandler';
 export { EscapeMarks } from './plugins/EscapeMarks';
 export { DoubleSpaceEscape } from './plugins/DoubleSpaceEscape';
 
@@ -78,6 +77,7 @@ export { Blockquote as BlockquoteComponent } from './components/Blockquote';
 export { CodeBlock as CodeBlockComponent } from './components/CodeBlock';
 export { HorizontalRule as HorizontalRuleComponent } from './components/HorizontalRule';
 export { Callout as CalloutComponent } from './components/Callout';
+export { EditorErrorFallback } from './components/EditorErrorFallback';
 
 // Utils
 export { addTagToBlock } from './utils/tagUtils';
