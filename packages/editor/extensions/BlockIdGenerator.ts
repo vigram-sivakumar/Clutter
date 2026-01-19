@@ -12,7 +12,6 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { updateBlockAttrs } from '../domain/updateBlockAttrs';
 
 export const BlockIdGenerator = Extension.create({
   name: 'blockIdGenerator',
@@ -51,48 +50,23 @@ export const BlockIdGenerator = Extension.create({
           // We must regenerate blockIds for clones to maintain uniqueness invariant
           const seenBlockIds = new Set<string>();
 
-          // 🔒 SANITIZATION: Strip blockIds from non-block nodes (one-time migration)
-          // This cleans up legacy data where inline/text nodes incorrectly have blockIds
-          // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for cleanup/migration
+          // 🔒 SINGLE-PASS TRAVERSAL: Sanitize non-block nodes AND assign/repair blockIds
+          // Combined into one pass to avoid position invalidation bugs
+          // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for cleanup/migration/blockId repair
           newState.doc.descendants((node, pos) => {
+            // SANITIZATION: Strip blockIds from non-block nodes (one-time migration)
+            // This cleans up legacy data where inline/text nodes incorrectly have blockIds
             if (!node.isBlock && node.attrs?.blockId !== undefined) {
               tr.setNodeMarkup(pos, undefined, {
                 ...node.attrs,
                 blockId: undefined,
               });
               modified = true;
+              return; // Skip further processing for non-block nodes
             }
-          });
 
-          // Traverse all nodes in the document
-          newState.doc.descendants((node, pos) => {
-            // Only process nodes that have blockId attribute defined in their schema
+            // Only process block nodes that have blockId attribute defined in their schema
             if (!node.attrs || node.attrs.blockId === undefined) return;
-
-            // 🔒 DEV INVARIANT: Empty non-paragraph blocks at root should not persist
-            // AFTER keyboard normalization rules have run
-            //
-            // NOTE: This only checks AFTER keyboard events (Enter/Backspace),
-            // not during document initialization, slash commands, etc.
-            // Empty blocks are LEGAL during creation - they should only be
-            // normalized when user interacts with them via keyboard.
-            if (process.env.NODE_ENV !== 'production') {
-              // Only check if this transaction is from a keyboard normalization rule
-              const isFromKeyboardNormalization = transactions.some(
-                (tr) => tr.getMeta('keyboardNormalization') === true
-              );
-
-              if (isFromKeyboardNormalization) {
-                const isEmptyNonParagraph =
-                  node.type.name !== 'paragraph' &&
-                  node.type.name !== 'horizontalRule' && // HR is not a textblock
-                  node.content.size === 0 &&
-                  node.attrs.indent === 0; // At root level
-
-                // Empty non-paragraph blocks at root are handled by keyboard normalization
-                // No logging needed in production
-              }
-            }
 
             // 🔒 BLOCK IDENTITY LAW: blockIds must be UNIQUE per node instance
             // ProseMirror clones nodes (e.g., during normalization, wrapping, lifting)
@@ -108,6 +82,12 @@ export const BlockIdGenerator = Extension.create({
               !currentBlockId || currentBlockId === '' || isDuplicate;
 
             if (needsNewId) {
+              // 🔒 FIX: Track the old duplicate blockId BEFORE regenerating
+              // This ensures subsequent nodes with the same old ID are also detected as duplicates
+              if (isDuplicate && currentBlockId) {
+                seenBlockIds.add(currentBlockId);
+              }
+
               const newBlockId = crypto.randomUUID();
 
               // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for blockId repair/migration
@@ -128,8 +108,9 @@ export const BlockIdGenerator = Extension.create({
           });
 
           // 🔒 DEV-ONLY INVARIANT: No non-block node should ever have a blockId
+          // This validates the post-mutation document to catch any violations
           if (process.env.NODE_ENV !== 'production') {
-            newState.doc.descendants((node) => {
+            tr.doc.descendants((node) => {
               if (!node.isBlock && node.attrs?.blockId !== undefined) {
                 console.error(
                   '[BlockIdGenerator] Non-block node has blockId (should not happen)',
