@@ -23,23 +23,11 @@ function dispatchUserEdit(view: any, tr: any): void {
  * @returns true if handled (key consumed), false if should fallback to default behavior
  */
 export function handleBackspace(editor: Editor): boolean {
-  console.log('🔑 [handleBackspace] Function called');
-
   const { state, view } = editor;
   const { $from, empty } = state.selection;
 
-  console.log('🔑 [handleBackspace] Selection state', {
-    empty,
-    parentOffset: $from.parentOffset,
-    nodeType: $from.parent.type.name,
-    indent: $from.parent.attrs?.indent,
-  });
-
   // Only handle if selection is empty (cursor) and at start of block
   if (!empty || $from.parentOffset !== 0) {
-    console.log(
-      '🔑 [handleBackspace] Not at block start, returning false (allow default)'
-    );
     return false;
   }
 
@@ -50,10 +38,8 @@ export function handleBackspace(editor: Editor): boolean {
   // If block has indent, reduce it
   const currentIndent = node.attrs.indent ?? 0;
   if (currentIndent > 0) {
-    const tr = state.tr.setNodeMarkup($from.before(), undefined, {
-      ...node.attrs,
-      indent: currentIndent - 1,
-    });
+    const tr = state.tr;
+    outdentBlock(tr, $from.before());
 
     dispatchUserEdit(view, tr);
     return true; // Consumed - don't delete

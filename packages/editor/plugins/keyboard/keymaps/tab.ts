@@ -12,8 +12,8 @@
 
 import type { Editor } from '@tiptap/core';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
-
-const MAX_INDENT = 8;
+import { setBlockIndent, MAX_INDENT } from '../../../domain/indentOperations';
+import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRUCTURAL INVARIANTS (DO NOT VIOLATE)
@@ -151,13 +151,8 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
     const block = blocks[index];
     const blockNewIndent = block.indent + delta;
 
-    // Clamp to valid range [0, MAX_INDENT]
-    const clampedIndent = Math.max(0, Math.min(MAX_INDENT, blockNewIndent));
-
-    tr.setNodeMarkup(block.pos, undefined, {
-      ...block.node.attrs,
-      indent: clampedIndent,
-    });
+    // Use centralized indent operation (auto-clamps)
+    setBlockIndent(tr, block.pos, blockNewIndent, { clamp: true });
   }
 
   // AUTO-EXPAND COLLAPSED PARENT: When indenting creates a new parent-child relationship
@@ -181,8 +176,7 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
 
       // If parent is collapsed toggle/task, expand it
       if (isCollapsed && isToggleOrTask) {
-        tr.setNodeMarkup(parentBlock.pos, undefined, {
-          ...parentBlock.node.attrs,
+        updateBlockAttrs(tr, parentBlock.pos, {
           collapsed: false,
         });
       }

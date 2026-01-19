@@ -12,6 +12,7 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { updateBlockAttrs } from '../domain/updateBlockAttrs';
 
 export const BlockIdGenerator = Extension.create({
   name: 'blockIdGenerator',
@@ -51,6 +52,7 @@ export const BlockIdGenerator = Extension.create({
 
           // 🔒 SANITIZATION: Strip blockIds from non-block nodes (one-time migration)
           // This cleans up legacy data where inline/text nodes incorrectly have blockIds
+          // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for cleanup/migration
           newState.doc.descendants((node, pos) => {
             if (!node.isBlock && node.attrs?.blockId !== undefined) {
               tr.setNodeMarkup(pos, undefined, {
@@ -86,12 +88,8 @@ export const BlockIdGenerator = Extension.create({
                   node.content.size === 0 &&
                   node.attrs.indent === 0; // At root level
 
-                if (isEmptyNonParagraph) {
-                  console.warn(
-                    '[BlockIdGenerator] Empty non-paragraph block at root after keyboard normalization',
-                    node.type.name
-                  );
-                }
+                // Empty non-paragraph blocks at root are handled by keyboard normalization
+                // No logging needed in production
               }
             }
 
@@ -111,12 +109,8 @@ export const BlockIdGenerator = Extension.create({
             if (needsNewId) {
               const newBlockId = crypto.randomUUID();
 
-              if (isDuplicate) {
-                console.log(
-                  `[BlockIdGenerator] Regenerating duplicate blockId: ${currentBlockId} → ${newBlockId}`
-                );
-              }
-
+              // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for blockId repair/migration
+              // This is the ONLY place that can SET (not update) blockIds on existing blocks
               tr.setNodeMarkup(pos, undefined, {
                 ...node.attrs,
                 blockId: newBlockId,

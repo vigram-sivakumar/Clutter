@@ -16,6 +16,9 @@
 
 import { Editor } from '@tiptap/core';
 import { TextSelection } from 'prosemirror-state';
+import { createBlockNode } from '../../../domain/createBlock';
+import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
+import { setBlockIndent } from '../../../domain/indentOperations';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRUCTURAL INVARIANTS (DO NOT VIOLATE)
@@ -80,8 +83,8 @@ function dispatchUserEdit(view: any, tr: any): void {
  */
 function createCleanBlockAttrs(node: any, indent: number): Record<string, any> {
   const attrs: Record<string, any> = {
-    // ❌ DO NOT assign blockId here - it will be assigned when cursor lands
-    // blockId: crypto.randomUUID(),  // REMOVED
+    // 🔒 BLOCK IDENTITY LAW: Always assign blockId eagerly (never rely on lazy assignment)
+    blockId: crypto.randomUUID(),
     indent,
   };
 
@@ -222,13 +225,13 @@ function insertFirstChild(editor: Editor, parentIndent: number): boolean {
 
   if (isToggle) {
     // TOGGLE EXCEPTION: Always create paragraph child
-    // ⚠️ No blockId assigned - will be assigned when cursor enters
-    tr.insert(
-      insertPos,
-      state.schema.nodes.paragraph!.create({
-        indent: parentIndent + 1,
-      })
-    );
+    // Use unified block creation function
+    const paragraphNode = createBlockNode(state.schema, {
+      type: 'paragraph',
+      indent: parentIndent + 1,
+      tags: [],
+    });
+    tr.insert(insertPos, paragraphNode);
   } else {
     // All other blocks: clone parent type
     tr.insert(
@@ -297,8 +300,7 @@ export function handleEnter(editor: Editor): boolean {
     // 3️⃣ EMPTY CONTAINER → COLLAPSE
     if (isExpandedContainer) {
       const tr = state.tr;
-      tr.setNodeMarkup($from.before(), undefined, {
-        ...node.attrs,
+      updateBlockAttrs(tr, $from.before(), {
         collapsed: true,
       });
       // ✅ FIX: Must set selection when doc changes
@@ -312,7 +314,8 @@ export function handleEnter(editor: Editor): boolean {
       const tr = state.tr;
       const cleanAttrs = createCleanBlockAttrs(node, indent - 1);
 
-      tr.setNodeMarkup($from.before(), undefined, cleanAttrs);
+      // Use centralized attribute update
+      updateBlockAttrs(tr, $from.before(), cleanAttrs);
 
       dispatchUserEdit(view, tr);
       return true;
@@ -344,6 +347,8 @@ export function handleEnter(editor: Editor): boolean {
       const tr = state.tr;
       const cleanAttrs = createCleanBlockAttrs(node, 0);
 
+      // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for node type conversion
+      // updateBlockAttrs() doesn't support changing node types (paragraph → heading, etc.)
       tr.setNodeMarkup(
         $from.before(),
         state.schema.nodes.paragraph,
