@@ -156,18 +156,7 @@ export const Heading = Node.create({
       // via keyboard rules emitting indent-block / outdent-block intents.
       // Node extensions must not handle structural keyboard logic.
 
-      // Shift+Enter: Insert line break (soft break)
-      'Shift-Enter': ({ editor }) => {
-        // Check if we're inside a heading
-        const { state } = editor;
-        const { $from } = state.selection;
-
-        if ($from.parent.type.name === this.name) {
-          return editor.commands.setHardBreak();
-        }
-
-        return false;
-      },
+      // NOTE: Shift+Enter handled by built-in HardBreak extension
 
       // PHASE 3.3.a: Enter handler REMOVED
       // ProseMirror handles splitting naturally now that containers are real

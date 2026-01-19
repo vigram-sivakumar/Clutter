@@ -21,7 +21,6 @@ import { ReactNodeViewRenderer } from '@tiptap/react';
 import { spacing } from '../../tokens';
 import type { ListType, ListBlockAttrs } from '../../types';
 import { ListBlock as ListBlockComponent } from '../../components/ListBlock';
-import { createShiftEnterHandler } from '../../utils/keyboardHelpers';
 import { handleEnter } from '../../plugins/keyboard';
 // NOTE: Arrow navigation removed - now centralized in KeyboardShortcuts.ts
 
@@ -187,8 +186,7 @@ export const ListBlock = Node.create({
       // NOTE: Arrow navigation is centrally handled in KeyboardShortcuts.ts
       // Removed from here to prevent TipTap handler collision (multiple extensions = cursor freeze)
 
-      // Shift+Enter: Insert line break (soft break)
-      'Shift-Enter': createShiftEnterHandler('listBlock'),
+      // NOTE: Shift+Enter handled by built-in HardBreak extension
 
       // NOTE: Tab / Shift+Tab behavior is centrally handled
       // via keyboard rules emitting indent-block / outdent-block intents.

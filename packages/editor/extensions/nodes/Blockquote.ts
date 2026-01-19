@@ -11,11 +11,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { Blockquote as BlockquoteComponent } from '../../components/Blockquote';
-import {
-  createShiftEnterHandler,
-  createWrapperEnterHandler,
-  createWrapperBackspaceHandler,
-} from '../../utils/keyboardHelpers';
 
 // NOTE: indentBlock/outdentBlock removed - now handled via keyboard rules
 
@@ -133,8 +128,7 @@ export const Blockquote = Node.create({
       // via keyboard rules emitting indent-block / outdent-block intents.
       // Node extensions must not handle structural keyboard logic.
 
-      // Shift+Enter: Insert line break (hard break)
-      'Shift-Enter': createShiftEnterHandler('blockquote'),
+      // NOTE: Shift+Enter handled by built-in HardBreak extension
 
       // 🔒 Enter - NEUTERED (Step 4 - Exclusive Ownership)
       // ALL Enter behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules

@@ -433,10 +433,35 @@ const EditorCoreInner = forwardRef<
       isHydratingRef.current = true;
 
       // Parse JSON string to object
-      const contentObj =
-        typeof incomingContent === 'string'
-          ? JSON.parse(incomingContent)
-          : incomingContent;
+      let contentObj;
+      try {
+        contentObj =
+          typeof incomingContent === 'string'
+            ? JSON.parse(incomingContent)
+            : incomingContent;
+      } catch (parseError) {
+        console.error(
+          '[EditorCore] Failed to parse incoming content',
+          parseError
+        );
+        // Fall back to empty paragraph
+        contentObj = {
+          type: 'doc',
+          content: [{ type: 'paragraph' }],
+        };
+      }
+
+      // Validate structure - must be a doc node
+      if (!contentObj || contentObj.type !== 'doc') {
+        console.error(
+          '[EditorCore] Invalid content structure (not a doc)',
+          contentObj
+        );
+        contentObj = {
+          type: 'doc',
+          content: [{ type: 'paragraph' }],
+        };
+      }
 
       // Use setContent with emitUpdate: false
       // This treats content as authoritative and prevents ProseMirror from normalizing away empty text nodes
@@ -444,11 +469,24 @@ const EditorCoreInner = forwardRef<
       try {
         const result = editor.commands.setContent(contentObj, false);
         if (!result) {
-          // setContent returned false
+          console.error('[EditorCore] setContent returned false', contentObj);
+          // Attempt fallback to empty paragraph
+          editor.commands.setContent({
+            type: 'doc',
+            content: [{ type: 'paragraph' }],
+          });
         }
       } catch (error) {
-        // Error handled
-        // setContent threw error
+        console.error('[EditorCore] setContent threw error', error, contentObj);
+        // Attempt fallback to empty paragraph
+        try {
+          editor.commands.setContent({
+            type: 'doc',
+            content: [{ type: 'paragraph' }],
+          });
+        } catch (fallbackError) {
+          console.error('[EditorCore] Fallback also failed', fallbackError);
+        }
       }
 
       // ✅ Set baseline immediately after hydration (not after first edit)

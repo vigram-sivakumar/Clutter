@@ -136,10 +136,7 @@ export const Paragraph = Node.create({
       // via keyboard rules emitting indent-block / outdent-block intents.
       // Node extensions must not handle structural keyboard logic.
 
-      // Shift+Enter: Insert line break (soft break)
-      'Shift-Enter': ({ editor }) => {
-        return editor.commands.setHardBreak();
-      },
+      // NOTE: Shift+Enter handled by built-in HardBreak extension
 
       // 🔒 Enter - NEUTERED (Step 4 - Exclusive Ownership)
       // ALL Enter behavior now handled by KeyboardShortcuts → KeyboardEngine → Rules
@@ -178,8 +175,8 @@ export const Paragraph = Node.create({
           afterBlock,
           paragraphType.create({
             blockId: crypto.randomUUID(), // ✅ NEW ID for new paragraph!
-            level: 0,
-            parentBlockId: null,
+            indent: 0,
+            collapsed: false,
             tags: [],
           })
         );
