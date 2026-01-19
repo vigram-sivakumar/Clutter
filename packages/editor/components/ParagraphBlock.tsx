@@ -35,15 +35,8 @@ export function ParagraphBlock({
   const blockId = node.attrs.blockId;
   const isEphemeral = !blockId;
 
-  console.log('[ParagraphBlock] Rendering:', {
-    blockId,
-    isEphemeral,
-    allAttrs: node.attrs,
-  });
-
   if (isEphemeral) {
     // Minimal ephemeral render (cursor placeholder or mid-transaction)
-    console.warn('[ParagraphBlock] ⚠️ EPHEMERAL RENDER - No blockId!');
     return (
       <NodeViewWrapper
         as="div"

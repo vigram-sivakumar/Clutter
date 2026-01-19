@@ -169,6 +169,70 @@ The editor package is now **fully isolated from app logic**:
 
 ---
 
+## 🔒 Transaction Mutation Ownership
+
+### **Critical Architectural Rule**
+
+**Only `@clutter/editor` may manipulate ProseMirror transactions.**
+
+This rule ensures data integrity, prevents attribute loss, and maintains clear boundaries between presentation and behavior layers.
+
+### **What This Means**
+
+**✅ Editor Package (`@clutter/editor`):**
+
+- ✅ May create and mutate ProseMirror transactions
+- ✅ May call `tr.setNodeMarkup`, `tr.delete`, `tr.insert`, etc.
+- ✅ May import from `@tiptap/pm/state`, `@tiptap/pm/model`
+- ✅ Must use centralized functions: `updateBlockAttrs()`, `createBlock()`
+
+**❌ UI Package (`@clutter/ui`):**
+
+- ❌ May NOT manipulate ProseMirror transactions directly
+- ❌ May NOT call `tr.setNodeMarkup` or other transaction methods
+- ❌ May NOT import from `@tiptap/pm/state`
+- ✅ Must call editor commands or APIs only
+- ✅ Stays in React/presentation layer
+
+**❌ Other Packages (`@clutter/domain`, `@clutter/state`, `@clutter/shared`):**
+
+- ❌ May NOT import ProseMirror types or manipulate transactions
+- ✅ Define pure types and business logic only
+
+### **Enforcement**
+
+1. **Centralized Mutation APIs:**
+   - `updateBlockAttrs()` - Single source of truth for attribute updates
+   - `createBlock()` - Single source of truth for block creation
+   - No raw `setNodeMarkup` calls outside these functions (except documented exceptions)
+
+2. **ESLint Boundaries:**
+   - Editor cannot import from `domain`, `state`, `shared`
+   - UI can import from editor for commands/types only
+   - Transaction manipulation only in editor package
+
+3. **Code Review:**
+   - Any `setNodeMarkup` call triggers review
+   - Any `@tiptap/pm` import outside editor triggers review
+
+### **Why This Matters**
+
+**Without this rule:**
+
+- ❌ Attribute loss (especially `blockId`)
+- ❌ Invariant violations scattered across packages
+- ❌ Difficult debugging (who changed what?)
+- ❌ Architecture drift over time
+
+**With this rule:**
+
+- ✅ Single source of truth for mutations
+- ✅ Invariants enforced centrally
+- ✅ Clear ownership and debugging
+- ✅ Stable, predictable behavior
+
+---
+
 ## 🔍 Checking Boundaries
 
 ```bash

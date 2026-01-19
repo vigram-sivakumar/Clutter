@@ -36,7 +36,6 @@
     "vitest": "^4.0.17"
   },
   "dependencies": {
-    "@clutter/shared": "*",
     "@clutter/ui": "*",
     "@tiptap/core": "^2.1.13",
     "@tiptap/extension-bullet-list": "^2.27.1",

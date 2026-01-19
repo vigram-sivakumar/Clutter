@@ -1,17 +1,17 @@
 /**
  * @clutter/ui - Design System & Components
- * 
+ *
  * This package contains:
  * - Design tokens (colors, spacing, typography, etc.)
  * - Reusable UI components
  * - Application layout components
  * - Icons
- * 
+ *
  * Dependencies: @clutter/domain, @clutter/state, @clutter/shared
- * 
+ *
  * ⚠️ Note: This package currently exports many components.
  * In production, consider limiting public exports to only what apps need.
- * 
+ *
  * Public API: All exports below are public.
  * Internal files (e.g., /internal/ directories) should not be imported directly.
  */
@@ -50,6 +50,4 @@ export * from './components';
 // ============================================
 // UTILITIES
 // ============================================
-export * from './utils/tagOperations';
 export * from './utils/tagColors';
-

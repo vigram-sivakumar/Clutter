@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
 import { useEditorTheme } from '../theme/EditorThemeContext';
 import * as Icons from '@clutter/ui';
-import { sizing, spacing } from '@clutter/ui';
+import { sizing, spacing } from '../tokens';
 import {
   filterSlashCommands,
   type SlashCommand,

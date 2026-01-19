@@ -1,11 +1,12 @@
 /**
  * Editor Design Tokens
- * 
+ *
  * Centralized constants for spacing, sizing, and typography.
  * All values in pixels unless otherwise noted.
  */
 
 export const spacing = {
+  // Semantic spacing (editor-specific)
   /** Total visual spacing between blocks (gap + margin) */
   block: 8,
   /** Flexbox gap between sibling blocks */
@@ -18,6 +19,21 @@ export const spacing = {
   inline: 8,
   /** Visual offset for blocks inside a toggle (independent of hierarchy) */
   toggleIndent: 32,
+
+  // Scale-based spacing (matches UI design system for component layouts)
+  '0': '0px',
+  '2': '2px',
+  '4': '4px',
+  '6': '6px',
+  '8': '8px',
+  '12': '12px',
+  '16': '16px',
+  '20': '20px',
+  '24': '24px',
+  '32': '32px',
+  '40': '40px',
+  '48': '48px',
+  '64': '64px',
 } as const;
 
 export const sizing = {
@@ -29,11 +45,34 @@ export const sizing = {
   lineHeight: 24,
   /** Icon size within markers */
   icon: 16,
+
+  /** Border radius scale (matches UI design system) */
+  radius: {
+    none: '0px',
+    sm: '3px',
+    md: '4px',
+    lg: '6px',
+    xl: '8px',
+    full: '9999px',
+  },
+
+  /** Z-index scale (matches UI design system) */
+  zIndex: {
+    base: 0,
+    dropdown: 1000,
+    sticky: 1020,
+    fixed: 1030,
+    modalBackdrop: 1040,
+    modal: 1050,
+    popover: 1060,
+    tooltip: 1070,
+  },
 } as const;
 
 export const typography = {
   /** Font family stack (system fonts - same as v1) */
-  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"',
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"',
   /** Body text size */
   body: 16,
   bodySmall: 14,
@@ -101,15 +140,15 @@ export const patterns = {
   /**
    * Smooth S-curve wave pattern using cubic bezier curves
    * Used by: WavyUnderline mark, HorizontalRule (wavy style)
-   * 
+   *
    * Geometry: viewBox 16x6, stroke-width 1.2
    * The pattern tiles seamlessly at 16px intervals
    */
   wave: {
     /** SVG path for the wave curve */
-    path: "M0 3 C4 3, 4 1, 8 1 S12 3, 16 3",
+    path: 'M0 3 C4 3, 4 1, 8 1 S12 3, 16 3',
     /** ViewBox dimensions */
-    viewBox: "0 0 16 6",
+    viewBox: '0 0 16 6',
     /** Pattern tile width */
     width: 16,
     /** Pattern tile height */

@@ -229,22 +229,16 @@ export const TipTapWrapper = forwardRef<
 
     // Parse incoming value into content object
     let incomingContent: object | null = null;
-    console.log('[TipTapWrapper] Parsing value:', { value, valueType: typeof value });
     if (value) {
       try {
         incomingContent = JSON.parse(value);
-        console.log('[TipTapWrapper] Parsed JSON:', incomingContent);
       } catch (jsonError) {
         try {
           incomingContent = generateJSON(value, htmlExtensions);
-          console.log('[TipTapWrapper] Parsed HTML:', incomingContent);
         } catch (htmlError) {
-          console.warn('[TipTapWrapper] Parse failed, using null');
           incomingContent = null;
         }
       }
-    } else {
-      console.log('[TipTapWrapper] No value, incomingContent = null');
     }
 
     return (

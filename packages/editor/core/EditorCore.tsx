@@ -132,7 +132,6 @@ function createEmptyParagraph() {
       },
     ],
   };
-  console.log('[createEmptyParagraph] Created:', { blockId, result });
   return result;
 }
 
@@ -288,14 +287,7 @@ const EditorCoreInner = forwardRef<
           }),
           CollapseExtension,
         ] as any[],
-        content: (() => {
-          const content = incomingContent || createEmptyParagraph();
-          console.log('[EditorCore] Using content:', {
-            incomingContent,
-            finalContent: content,
-          });
-          return content;
-        })(),
+        content: incomingContent || createEmptyParagraph(),
         autofocus: false,
         editable,
         editorProps: {
