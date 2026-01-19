@@ -322,10 +322,9 @@ export function ListBlock({
     : 0;
 
   // Check if this task is a child of the previous task (for showing connectors)
-  const showConnector = useMemo(() => {
-    if (listType !== 'task') return false;
-    return isChildOfPreviousTask(editor, getPos);
-  }, [listType, editor, getPos, editor.state.doc]);
+  // TODO: Implement isChildOfPreviousTask() function for visual task connectors
+  // Temporarily disabled to avoid runtime error. See ARCHITECTURE.md for implementation plan.
+  const showConnector = false;
 
   // Handle checkbox toggle
   const handleCheckboxChange = useCallback(() => {
