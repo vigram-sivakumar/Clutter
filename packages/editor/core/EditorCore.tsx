@@ -4,30 +4,23 @@
  * Core editor with all extensions, plugins, and behavior.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * 🔒 SELECTION INVARIANT (ARCHITECTURAL LAW)
+ * 🔒 SELECTION PATTERN
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * ProseMirror:
- *   - TextSelection ONLY
- *   - NEVER NodeSelection
+ * Text Editing:
+ *   - TextSelection for all normal editing operations
+ *   - Users select text, apply formatting, type, delete, etc.
  *
- * Block selection:
- *   - Represented by blockId(s) in the Engine
- *   - Reflected visually via UI (halo)
- *   - PM selection does NOT change when halo is clicked
+ * Block Highlighting (Intentional NodeSelection):
+ *   - NodeSelection used ONLY for visual block highlighting (task navigation)
+ *   - Triggered when user clicks task in sidebar → scrollToBlock(blockId, highlight=true)
+ *   - Creates blue halo around entire block
+ *   - Selection persists until user clicks elsewhere
  *
- * Keyboard / Delete / Backspace:
- *   - Operate on Engine block selection (blockId-based)
- *   - Never rely on PM NodeSelection
- *   - PM selection remains TextSelection at all times
- *
- * WHY THIS MATTERS:
- *   Model owns truth. View reflects it. Never the reverse.
- *   NodeSelection leaks view authority into the model, causing:
- *   - Delete breaking backspace
- *   - Backspace breaking delete
- *   - Enter breaking lists
- *   - Cascading selection bugs
+ * Why This Works:
+ *   - NodeSelection is opt-in, controlled, and intentional
+ *   - Only used for navigation/highlighting, never for editing operations
+ *   - Standard keyboard/delete operations remain TextSelection-based
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -100,7 +93,7 @@ import { AtMentionMenu } from '../components/AtMentionMenu';
 import { FloatingToolbar } from '@clutter/ui';
 
 // Tokens
-import { spacing, typography, placeholders } from '../tokens';
+import { placeholders } from '../tokens';
 
 // Styles
 import './EditorCore.css';
@@ -350,30 +343,32 @@ const EditorCoreInner = forwardRef<
       }
     }, [editor, onTagClick]);
 
+    // Helper: Focus editor end, creating new paragraph if needed
+    const focusEditorEnd = useCallback(() => {
+      if (!editor) return;
+
+      const { doc } = editor.state;
+      const lastNode = doc.lastChild;
+      const isLastBlockEmpty = lastNode && lastNode.textContent.trim() === '';
+
+      if (isLastBlockEmpty) {
+        // Just focus the existing empty block
+        editor.commands.focus('end');
+      } else {
+        // Create a new paragraph and focus it
+        editor.commands.focus('end');
+        editor.commands.insertContentAt(doc.content.size, {
+          type: 'paragraph',
+        });
+        editor.commands.focus('end');
+      }
+    }, [editor]);
+
     // Expose methods to parent via ref
     useImperativeHandle(
       ref,
       () => ({
-        focus: () => {
-          if (editor) {
-            const { doc } = editor.state;
-            const lastNode = doc.lastChild;
-            const isLastBlockEmpty =
-              lastNode && lastNode.textContent.trim() === '';
-
-            if (isLastBlockEmpty) {
-              // Just focus the existing empty block
-              editor.commands.focus('end');
-            } else {
-              // Create a new paragraph and focus it
-              editor.commands.focus('end');
-              editor.commands.insertContentAt(doc.content.size, {
-                type: 'paragraph',
-              });
-              editor.commands.focus('end');
-            }
-          }
-        },
+        focus: focusEditorEnd,
         scrollToBlock: (blockId: string, highlight: boolean = true) => {
           if (!editor) return;
 
@@ -473,8 +468,6 @@ const EditorCoreInner = forwardRef<
       }
     }, [editable, editor]);
 
-    // 🔬 FORENSIC: Log selection on focus events
-
     // Handle click on empty space to focus editor
     const handleWrapperClick = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
@@ -485,26 +478,11 @@ const EditorCoreInner = forwardRef<
         const editorContent = target.closest('.ProseMirror');
 
         if (!editorContent) {
-          // Click was outside editor content
-          const { doc } = editor.state;
-          const lastNode = doc.lastChild;
-          const isLastBlockEmpty =
-            lastNode && lastNode.textContent.trim() === '';
-
-          if (isLastBlockEmpty) {
-            // Just focus the existing empty block
-            editor.commands.focus('end');
-          } else {
-            // Create a new paragraph and focus it
-            editor.commands.focus('end');
-            editor.commands.insertContentAt(doc.content.size, {
-              type: 'paragraph',
-            });
-            editor.commands.focus('end');
-          }
+          // Click was outside editor content - focus end
+          focusEditorEnd();
         }
       },
-      [editor]
+      [editor, focusEditorEnd]
     );
 
     if (!editor) {
