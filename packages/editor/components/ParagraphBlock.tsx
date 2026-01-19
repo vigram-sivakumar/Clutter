@@ -17,7 +17,6 @@ import type { NodeViewProps } from '@tiptap/react';
 import { typography, spacing } from '../tokens';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
-// import { Placeholder } from './Placeholder'; // No longer used - CSS handles placeholders
 import { BlockTagEditor } from './BlockTagEditor';
 import { BlockHandle } from './BlockHandle';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
@@ -36,8 +35,15 @@ export function ParagraphBlock({
   const blockId = node.attrs.blockId;
   const isEphemeral = !blockId;
 
+  console.log('[ParagraphBlock] Rendering:', {
+    blockId,
+    isEphemeral,
+    allAttrs: node.attrs,
+  });
+
   if (isEphemeral) {
     // Minimal ephemeral render (cursor placeholder or mid-transaction)
+    console.warn('[ParagraphBlock] ⚠️ EPHEMERAL RENDER - No blockId!');
     return (
       <NodeViewWrapper
         as="div"

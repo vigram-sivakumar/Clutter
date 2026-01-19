@@ -116,13 +116,14 @@ import { useEditorContext } from '../context/EditorContext';
  * This function ensures new notes and error fallbacks start with valid block structure.
  */
 function createEmptyParagraph() {
-  return {
+  const blockId = crypto.randomUUID();
+  const result = {
     type: 'doc',
     content: [
       {
         type: 'paragraph',
         attrs: {
-          blockId: crypto.randomUUID(),
+          blockId,
           indent: 0,
           collapsed: false,
           tags: [],
@@ -131,6 +132,8 @@ function createEmptyParagraph() {
       },
     ],
   };
+  console.log('[createEmptyParagraph] Created:', { blockId, result });
+  return result;
 }
 
 /**
@@ -285,7 +288,14 @@ const EditorCoreInner = forwardRef<
           }),
           CollapseExtension,
         ] as any[],
-        content: incomingContent || createEmptyParagraph(),
+        content: (() => {
+          const content = incomingContent || createEmptyParagraph();
+          console.log('[EditorCore] Using content:', {
+            incomingContent,
+            finalContent: content,
+          });
+          return content;
+        })(),
         autofocus: false,
         editable,
         editorProps: {

@@ -149,6 +149,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
   },
   
   updateNoteContent: (id, content) => {
+    console.log('[NotesStore] updateNoteContent:', { id, contentLength: content.length, contentPreview: content.substring(0, 200) });
     const now = new Date().toISOString();
     set((state) => ({
       notes: state.notes.map((note) =>
@@ -187,6 +188,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     const hadTags = note?.tags && note.tags.length > 0;
     
     // Soft delete (notes go to "Recently deleted")
+    // Keep currentNoteId set - user stays on the note, UI updates context to "deleted"
     const now = new Date().toISOString();
     set((state) => ({
       notes: state.notes.map((note) =>
@@ -238,6 +240,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     // Check if parent folder is deleted (lazy import to avoid circular dependency)
     if (note?.folderId) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { useFoldersStore } = require('./folders');
         const folder = useFoldersStore.getState().folders.find((f: any) => f.id === note.folderId);
         

@@ -218,12 +218,17 @@ function createCallout(
 
   // ✅ Preserve structural context when converting
   const preservedAttrs = getPreservedAttrs(currentBlock);
-  const replacement = createBlockNode(state.schema, {
-    type: 'callout',
-    type: calloutType,
-    indent: preservedAttrs.indent,
-    content,
-  });
+  // Create callout node directly due to 'type' property collision
+  const calloutNode = state.schema.nodes.callout.create(
+    {
+      blockId: crypto.randomUUID(),
+      indent: preservedAttrs.indent,
+      collapsed: false,
+      type: calloutType as 'info' | 'warning' | 'error' | 'success',
+    },
+    content
+  );
+  const replacement = calloutNode;
 
   // Preserve cursor position
   const cursorOffset = calculateCursorOffset($from.pos, blockStart, slashRange);

@@ -10,6 +10,7 @@
 
 import { useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { generateJSON } from '@tiptap/core';
+import { ErrorBoundary } from 'react-error-boundary';
 
 // Editor imports from @clutter/editor package
 import {
@@ -37,6 +38,7 @@ import { placeholders } from '@clutter/editor';
 import { CustomHighlight } from '@clutter/editor';
 import { TextColor } from '@clutter/editor';
 import { Callout } from '@clutter/editor';
+import { EditorErrorFallback } from '@clutter/editor';
 
 // Theme
 import type { EditorTheme } from '@clutter/editor';
@@ -227,33 +229,48 @@ export const TipTapWrapper = forwardRef<
 
     // Parse incoming value into content object
     let incomingContent: object | null = null;
+    console.log('[TipTapWrapper] Parsing value:', { value, valueType: typeof value });
     if (value) {
       try {
         incomingContent = JSON.parse(value);
+        console.log('[TipTapWrapper] Parsed JSON:', incomingContent);
       } catch (jsonError) {
         try {
           incomingContent = generateJSON(value, htmlExtensions);
+          console.log('[TipTapWrapper] Parsed HTML:', incomingContent);
         } catch (htmlError) {
+          console.warn('[TipTapWrapper] Parse failed, using null');
           incomingContent = null;
         }
       }
+    } else {
+      console.log('[TipTapWrapper] No value, incomingContent = null');
     }
 
     return (
       <EditorProvider value={editorContext}>
-        <EditorCore
-          ref={editorCoreRef}
-          theme={editorTheme}
-          noteId={noteId || ''}
-          incomingContent={incomingContent}
-          onChange={handleChange}
-          onTagClick={onTagClick}
-          onNavigate={onNavigate}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          placeholder={placeholders.default}
-          editable={!isFrozen}
-        />
+        <ErrorBoundary
+          FallbackComponent={EditorErrorFallback}
+          onReset={() => {
+            // Reset editor state on error boundary reset
+            // This will remount EditorCore with clean state
+          }}
+          resetKeys={[noteId, value]} // Reset boundary when note changes
+        >
+          <EditorCore
+            ref={editorCoreRef}
+            theme={editorTheme}
+            noteId={noteId || ''}
+            incomingContent={incomingContent}
+            onChange={handleChange}
+            onTagClick={onTagClick}
+            onNavigate={onNavigate}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            placeholder={placeholders.default}
+            editable={!isFrozen}
+          />
+        </ErrorBoundary>
       </EditorProvider>
     );
   }

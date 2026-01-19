@@ -7,9 +7,14 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@clutter/editor': path.resolve(__dirname, '../../packages/editor'),
-      '@clutter/shared': path.resolve(__dirname, '../../packages/shared/src'),
-      '@clutter/ui': path.resolve(__dirname, '../../packages/ui/src'),
+      // 🔥 DEV MODE: Use source files directly, not dist
+      // This enables hot reload and immediate feedback during development
+      // No package rebuilds needed - changes apply instantly
+      '@clutter/editor': path.resolve(__dirname, '../../packages/editor/index.ts'),
+      '@clutter/state': path.resolve(__dirname, '../../packages/state/src/index.ts'),
+      '@clutter/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@clutter/ui': path.resolve(__dirname, '../../packages/ui/src/index.ts'),
+      '@clutter/domain': path.resolve(__dirname, '../../packages/domain/src/index.ts'),
     },
   },
   // Reduce console noise
