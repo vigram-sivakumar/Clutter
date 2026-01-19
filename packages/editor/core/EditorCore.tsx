@@ -69,8 +69,6 @@ import { MarkdownShortcuts } from '../plugins/MarkdownShortcuts';
 import { BlockIdGenerator } from '../extensions/BlockIdGenerator';
 
 // Keyboard plugins
-import { BackspaceHandler } from '../plugins/BackspaceHandler';
-import { TabHandler } from '../plugins/TabHandler';
 import { KeyboardShortcuts } from '../plugins/KeyboardShortcuts';
 
 // All plugins enabled (except UndoRedo - using TipTap History instead)
@@ -107,6 +105,67 @@ import type { EditorTheme } from '../types/EditorTheme';
 
 // Editor Context
 import { useEditorContext } from '../context/EditorContext';
+
+/**
+ * Create an empty paragraph with full block identity
+ *
+ * BLOCK IDENTITY LAW:
+ * All blocks in the document MUST have a blockId, including the initial empty paragraph.
+ * No blocks should ever exist with blockId: null in a persisted state.
+ *
+ * This function ensures new notes and error fallbacks start with valid block structure.
+ */
+function createEmptyParagraph() {
+  return {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        attrs: {
+          blockId: crypto.randomUUID(),
+          indent: 0,
+          collapsed: false,
+          tags: [],
+        },
+        content: [],
+      },
+    ],
+  };
+}
+
+/**
+ * Validate that all blocks in the document have a blockId
+ *
+ * This is a safety check to prevent persisting malformed documents.
+ * Should only run in development to catch bugs early.
+ */
+function validateBlockIds(doc: any): boolean {
+  if (process.env.NODE_ENV === 'production') return true;
+
+  let isValid = true;
+
+  if (doc.content && Array.isArray(doc.content)) {
+    for (const node of doc.content) {
+      if (node.type !== 'doc' && node.attrs?.blockId === undefined) {
+        // Node has blockId attribute in schema but it's not set
+        console.error(
+          '[EditorCore] Block without blockId detected before save',
+          { type: node.type, attrs: node.attrs }
+        );
+        isValid = false;
+      } else if (node.attrs?.blockId === null) {
+        // blockId is explicitly null (invalid state)
+        console.error(
+          '[EditorCore] Block with null blockId detected before save',
+          { type: node.type, attrs: node.attrs }
+        );
+        isValid = false;
+      }
+    }
+  }
+
+  return isValid;
+}
 
 interface EditorCoreProps {
   theme: EditorTheme;
@@ -210,8 +269,6 @@ const EditorCoreInner = forwardRef<
           // ✅ RE-ENABLED
           BlockIdGenerator,
           KeyboardShortcuts,
-          TabHandler,
-          BackspaceHandler,
           SlashCommands,
           TaskPriority,
           EscapeMarks,
@@ -228,10 +285,7 @@ const EditorCoreInner = forwardRef<
           }),
           CollapseExtension,
         ] as any[],
-        content: incomingContent || {
-          type: 'doc',
-          content: [{ type: 'paragraph' }],
-        },
+        content: incomingContent || createEmptyParagraph(),
         autofocus: false,
         editable,
         editorProps: {
@@ -243,14 +297,9 @@ const EditorCoreInner = forwardRef<
           // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           //
           // We do NOT preventDefault here at the ProseMirror level.
-          // Instead, TipTap extensions decide:
-          //   - KeyboardShortcuts (priority 1000): handles indent/outdent intents
-          //     → returns result.handled (true = consume, false = fallback)
-          //   - TabHandler (priority 100): fallback to prevent focus navigation
-          //     → only runs if KeyboardShortcuts returns false
-          //
-          // This allows proper fallback when indent is blocked:
-          //   Intent blocked → result.handled = false → browser handles Tab
+          // KeyboardShortcuts extension handles indent/outdent and returns:
+          //   - true (consume Tab) when indent/outdent succeeds
+          //   - false (allow fallback) when blocked
           //
           // CRITICAL: ProseMirror handleKeyDown runs BEFORE TipTap extensions.
           // If we preventDefault here, TipTap never gets to decide fallback.
@@ -281,8 +330,19 @@ const EditorCoreInner = forwardRef<
           if (transaction.getMeta('isUserEdit') !== true) return;
           if (!onChange) return;
 
+          const content = editor.getJSON();
+
+          // 🔒 DEV-ONLY: Validate all blocks have blockId before persisting
+          if (!validateBlockIds(content)) {
+            console.error(
+              '[EditorCore] Blocked save: document contains blocks without blockId',
+              content
+            );
+            return; // Prevent save in dev if validation fails
+          }
+
           prevDocRef.current = editor.state.doc;
-          onChange(editor.getJSON());
+          onChange(content);
         },
         onTransaction: ({ transaction }) => {
           // 🔍 DIAGNOSTIC: Catch invalid transactions
@@ -359,6 +419,12 @@ const EditorCoreInner = forwardRef<
         editor.commands.focus('end');
         editor.commands.insertContentAt(doc.content.size, {
           type: 'paragraph',
+          attrs: {
+            blockId: crypto.randomUUID(), // 🔒 BLOCK IDENTITY LAW: Always assign blockId
+            indent: 0,
+            collapsed: false,
+            tags: [],
+          },
         });
         editor.commands.focus('end');
       }
@@ -445,10 +511,7 @@ const EditorCoreInner = forwardRef<
           parseError
         );
         // Fall back to empty paragraph
-        contentObj = {
-          type: 'doc',
-          content: [{ type: 'paragraph' }],
-        };
+        contentObj = createEmptyParagraph();
       }
 
       // Validate structure - must be a doc node
@@ -457,10 +520,7 @@ const EditorCoreInner = forwardRef<
           '[EditorCore] Invalid content structure (not a doc)',
           contentObj
         );
-        contentObj = {
-          type: 'doc',
-          content: [{ type: 'paragraph' }],
-        };
+        contentObj = createEmptyParagraph();
       }
 
       // Use setContent with emitUpdate: false
@@ -471,19 +531,13 @@ const EditorCoreInner = forwardRef<
         if (!result) {
           console.error('[EditorCore] setContent returned false', contentObj);
           // Attempt fallback to empty paragraph
-          editor.commands.setContent({
-            type: 'doc',
-            content: [{ type: 'paragraph' }],
-          });
+          editor.commands.setContent(createEmptyParagraph());
         }
       } catch (error) {
         console.error('[EditorCore] setContent threw error', error, contentObj);
         // Attempt fallback to empty paragraph
         try {
-          editor.commands.setContent({
-            type: 'doc',
-            content: [{ type: 'paragraph' }],
-          });
+          editor.commands.setContent(createEmptyParagraph());
         } catch (fallbackError) {
           console.error('[EditorCore] Fallback also failed', fallbackError);
         }

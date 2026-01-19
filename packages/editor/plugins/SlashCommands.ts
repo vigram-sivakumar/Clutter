@@ -8,7 +8,8 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Editor } from '@tiptap/core';
 import type { ListType } from '../types';
-import { replaceBlock, createBlock } from '../utils/blockReplacement';
+import { replaceBlock } from '../utils/blockReplacement';
+import { createBlockNode } from '../domain/createBlock';
 
 export const SLASH_PLUGIN_KEY = new PluginKey('slashCommands');
 
@@ -96,13 +97,13 @@ function createListBlock(
 
   // ✅ Preserve structural context when converting
   const preservedAttrs = getPreservedAttrs(currentBlock);
-  const replacement = createBlock.listBlock(
-    state.schema,
+  const replacement = createBlockNode(state.schema, {
+    type: 'listBlock',
     listType,
+    checked: listType === 'task' ? false : null,
+    indent: preservedAttrs.indent,
     content,
-    false,
-    preservedAttrs
-  );
+  });
 
   // Preserve cursor position
   const cursorOffset = calculateCursorOffset($from.pos, blockStart, slashRange);
@@ -127,11 +128,11 @@ function createParagraph(
 
   // ✅ Preserve structural context when converting
   const preservedAttrs = getPreservedAttrs(currentBlock);
-  const replacement = createBlock.paragraph(
-    state.schema,
+  const replacement = createBlockNode(state.schema, {
+    type: 'paragraph',
+    indent: preservedAttrs.indent,
     content,
-    preservedAttrs
-  );
+  });
 
   // Preserve cursor position
   const cursorOffset = calculateCursorOffset($from.pos, blockStart, slashRange);
@@ -157,12 +158,12 @@ function createHeading(
 
   // ✅ Preserve structural context when converting
   const preservedAttrs = getPreservedAttrs(currentBlock);
-  const replacement = createBlock.heading(
-    state.schema,
-    level,
+  const replacement = createBlockNode(state.schema, {
+    type: 'heading',
+    headingLevel: level,
+    indent: preservedAttrs.indent,
     content,
-    preservedAttrs
-  );
+  });
 
   // Preserve cursor position
   const cursorOffset = calculateCursorOffset($from.pos, blockStart, slashRange);
@@ -187,11 +188,11 @@ function createBlockquote(
 
   // ✅ Preserve structural context when converting
   const preservedAttrs = getPreservedAttrs(currentBlock);
-  const replacement = createBlock.blockquote(
-    state.schema,
+  const replacement = createBlockNode(state.schema, {
+    type: 'blockquote',
+    indent: preservedAttrs.indent,
     content,
-    preservedAttrs
-  );
+  });
 
   // Preserve cursor position
   const cursorOffset = calculateCursorOffset($from.pos, blockStart, slashRange);
@@ -200,7 +201,7 @@ function createBlockquote(
 
 function createCallout(
   editor: Editor,
-  type: 'info' | 'warning' | 'error' | 'success',
+  calloutType: 'info' | 'warning' | 'error' | 'success',
   slashRange?: { from: number; to: number }
 ) {
   const { view } = editor;
@@ -217,12 +218,12 @@ function createCallout(
 
   // ✅ Preserve structural context when converting
   const preservedAttrs = getPreservedAttrs(currentBlock);
-  const replacement = createBlock.callout(
-    state.schema,
-    type,
+  const replacement = createBlockNode(state.schema, {
+    type: 'callout',
+    type: calloutType,
+    indent: preservedAttrs.indent,
     content,
-    preservedAttrs
-  );
+  });
 
   // Preserve cursor position
   const cursorOffset = calculateCursorOffset($from.pos, blockStart, slashRange);
@@ -252,11 +253,11 @@ function createCodeBlock(
 
   // ✅ Preserve structural context when converting
   const preservedAttrs = getPreservedAttrs(currentBlock);
-  const replacement = createBlock.codeBlock(
-    state.schema,
-    textContent,
-    preservedAttrs
-  );
+  const replacement = createBlockNode(state.schema, {
+    type: 'codeBlock',
+    indent: preservedAttrs.indent,
+    content: textContent,
+  });
 
   replaceBlock(view, blockStart, blockEnd, replacement);
 }
@@ -322,15 +323,19 @@ function createHorizontalRule(editor: Editor, style: 'plain' | 'wavy') {
   const { blockStart, blockEnd } = findBlockBoundaries(state, $from);
   const currentBlock = $from.parent;
 
-  // ✅ Preserve structural context (level, parentBlockId)
+  // ✅ Preserve structural context (indent only)
   const preservedAttrs = getPreservedAttrs(currentBlock);
 
   // HR is always an array: [hr, paragraph] - just like markdown shortcuts
   const replacement = [
-    createBlock.horizontalRule(state.schema, style, preservedAttrs),
-    createBlock.paragraph(state.schema, undefined, {
-      blockId: crypto.randomUUID(), // New block after HR gets new ID
-      ...preservedAttrs,
+    createBlockNode(state.schema, {
+      type: 'horizontalRule',
+      style,
+      indent: preservedAttrs.indent,
+    }),
+    createBlockNode(state.schema, {
+      type: 'paragraph',
+      indent: preservedAttrs.indent,
     }),
   ];
 

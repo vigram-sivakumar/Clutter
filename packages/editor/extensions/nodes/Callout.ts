@@ -93,13 +93,29 @@ export const Callout = Node.create({
     return {
       setCallout:
         (attrs) =>
-        ({ commands }) => {
-          return commands.wrapIn(this.name, attrs);
+        ({ commands, state }) => {
+          // 🔒 BLOCK IDENTITY LAW: Assign blockId when wrapping
+          const { $from } = state.selection;
+          const currentNode = $from.node($from.depth);
+          return commands.wrapIn(this.name, {
+            blockId: crypto.randomUUID(),
+            indent: currentNode?.attrs?.indent ?? 0,
+            collapsed: false,
+            ...attrs, // Allow override of type, etc.
+          });
         },
       toggleCallout:
         (attrs) =>
-        ({ commands }) => {
-          return commands.toggleWrap(this.name, attrs);
+        ({ commands, state }) => {
+          // 🔒 BLOCK IDENTITY LAW: Assign blockId when wrapping
+          const { $from } = state.selection;
+          const currentNode = $from.node($from.depth);
+          return commands.toggleWrap(this.name, {
+            blockId: crypto.randomUUID(),
+            indent: currentNode?.attrs?.indent ?? 0,
+            collapsed: false,
+            ...attrs, // Allow override of type, etc.
+          });
         },
     };
   },

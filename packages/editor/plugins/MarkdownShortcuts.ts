@@ -7,7 +7,8 @@
 
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
-import { replaceBlock, createBlock } from '../utils/blockReplacement';
+import { replaceBlock } from '../utils/blockReplacement';
+import { createBlockNode } from '../domain/createBlock';
 
 const SHORTCUTS_KEY = new PluginKey('markdownShortcuts');
 
@@ -58,127 +59,115 @@ export const MarkdownShortcuts = Extension.create({
 
             // # + space → H1
             if (textBefore === '# ') {
-              replacement = createBlock.heading(
-                state.schema,
-                1,
-                undefined,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'heading',
+                headingLevel: 1,
+                indent: preservedAttrs.indent,
+              });
             }
             // ## + space → H2
             else if (textBefore === '## ') {
-              replacement = createBlock.heading(
-                state.schema,
-                2,
-                undefined,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'heading',
+                headingLevel: 2,
+                indent: preservedAttrs.indent,
+              });
             }
             // ### + space → H3
             else if (textBefore === '### ') {
-              replacement = createBlock.heading(
-                state.schema,
-                3,
-                undefined,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'heading',
+                headingLevel: 3,
+                indent: preservedAttrs.indent,
+              });
             }
             // >> + space → toggle list (flat schema)
             else if (textBefore === '>> ') {
-              replacement = createBlock.listBlock(
-                state.schema,
-                'toggle',
-                undefined,
-                false,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'listBlock',
+                listType: 'toggle',
+                checked: null,
+                indent: preservedAttrs.indent,
+              });
             }
             // > + space → blockquote
             else if (textBefore === '> ') {
-              replacement = createBlock.blockquote(
-                state.schema,
-                undefined,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'blockquote',
+                indent: preservedAttrs.indent,
+              });
             }
             // * or - + space → bullet
             else if (textBefore === '* ' || textBefore === '- ') {
-              replacement = createBlock.listBlock(
-                state.schema,
-                'bullet',
-                undefined,
-                false,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'listBlock',
+                listType: 'bullet',
+                checked: null,
+                indent: preservedAttrs.indent,
+              });
             }
             // 1. + space → numbered
             else if (textBefore === '1. ') {
-              replacement = createBlock.listBlock(
-                state.schema,
-                'numbered',
-                undefined,
-                false,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'listBlock',
+                listType: 'numbered',
+                checked: null,
+                indent: preservedAttrs.indent,
+              });
             }
             // [] + space → task unchecked
             else if (textBefore === '[] ') {
-              replacement = createBlock.listBlock(
-                state.schema,
-                'task',
-                undefined,
-                false,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'listBlock',
+                listType: 'task',
+                checked: false,
+                indent: preservedAttrs.indent,
+              });
             }
             // [ ] + space → task unchecked
             else if (textBefore === '[ ] ') {
-              replacement = createBlock.listBlock(
-                state.schema,
-                'task',
-                undefined,
-                false,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'listBlock',
+                listType: 'task',
+                checked: false,
+                indent: preservedAttrs.indent,
+              });
             }
             // [x] or [X] + space → task checked
             else if (textBefore === '[x] ' || textBefore === '[X] ') {
-              replacement = createBlock.listBlock(
-                state.schema,
-                'task',
-                undefined,
-                true,
-                preservedAttrs
-              );
+              replacement = createBlockNode(state.schema, {
+                type: 'listBlock',
+                listType: 'task',
+                checked: true,
+                indent: preservedAttrs.indent,
+              });
             }
             // --- → HR (plain) - triggers on third dash
             else if (textBefore === '---') {
               replacement = [
-                createBlock.horizontalRule(
-                  state.schema,
-                  'plain',
-                  preservedAttrs
-                ),
-                createBlock.paragraph(
-                  state.schema,
-                  undefined,
-                  preservedAttrs // createBlock.paragraph generates new blockId automatically
-                ),
+                createBlockNode(state.schema, {
+                  type: 'horizontalRule',
+                  style: 'plain',
+                  indent: preservedAttrs.indent,
+                }),
+                createBlockNode(state.schema, {
+                  type: 'paragraph',
+                  indent: preservedAttrs.indent,
+                }),
               ];
             }
             // *** → HR (wavy)
             else if (textBefore === '***') {
               replacement = [
-                createBlock.horizontalRule(
-                  state.schema,
-                  'wavy',
-                  preservedAttrs
-                ),
-                createBlock.paragraph(
-                  state.schema,
-                  undefined,
-                  preservedAttrs // createBlock.paragraph generates new blockId automatically
-                ),
+                createBlockNode(state.schema, {
+                  type: 'horizontalRule',
+                  style: 'wavy',
+                  indent: preservedAttrs.indent,
+                }),
+                createBlockNode(state.schema, {
+                  type: 'paragraph',
+                  indent: preservedAttrs.indent,
+                }),
               ];
             }
 

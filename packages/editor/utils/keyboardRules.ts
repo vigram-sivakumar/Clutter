@@ -1,9 +1,9 @@
 /**
  * Keyboard Rules: Detection Logic
- * 
+ *
  * These functions only DETECT context and return boolean/data.
  * They do NOT execute actions or modify the editor state.
- * 
+ *
  * Purpose: Centralize decision logic while keeping execution in nodes.
  */
 
@@ -21,7 +21,7 @@ export const EnterRules = {
   isInEmptyParagraph(editor: Editor): boolean {
     const { $from } = editor.state.selection;
     const para = $from.parent;
-    
+
     return para.type.name === 'paragraph' && para.textContent === '';
   },
 
@@ -31,7 +31,7 @@ export const EnterRules = {
   isCurrentBlockEmpty(editor: Editor): boolean {
     const { $from } = editor.state.selection;
     const block = $from.parent;
-    
+
     return block.textContent === '';
   },
 
@@ -46,20 +46,25 @@ export const EnterRules = {
   } {
     const { $from } = editor.state.selection;
     const para = $from.parent;
-    
+
     if (para.type.name !== 'paragraph' || para.textContent !== '') {
       return { inWrapper: false, isDirectChild: false };
     }
-    
-    const wrapper = findAncestorNode(editor, ['listBlock', 'toggleBlock', 'blockquote', 'callout']);
+
+    const wrapper = findAncestorNode(editor, [
+      'listBlock',
+      'toggleBlock',
+      'blockquote',
+      'callout',
+    ]);
     if (!wrapper) {
       return { inWrapper: false, isDirectChild: false };
     }
-    
+
     // Check if paragraph is a direct child of the wrapper
     const parentOfPara = $from.node($from.depth - 1);
     const isDirectChild = parentOfPara.type.name === wrapper.node.type.name;
-    
+
     return {
       inWrapper: true,
       wrapper,
@@ -80,14 +85,14 @@ export const EnterRules = {
     if (!listBlock) {
       return { isEmpty: false };
     }
-    
+
     // ListBlock now has inline content directly (no nested paragraph)
     const isEmpty = listBlock.node.textContent === '';
-    
+
     if (!isEmpty) {
       return { isEmpty: false };
     }
-    
+
     return {
       isEmpty: true,
       listBlock,
@@ -105,21 +110,25 @@ export const EnterRules = {
     listBlock?: { pos: number; node: PMNode; depth: number };
   } {
     const listBlockContext = this.getEmptyListBlockContext(editor);
-    
+
     if (!listBlockContext.isEmpty) {
       return { shouldExit: false };
     }
-    
+
     const attrs = listBlockContext.attrs;
-    
-    // If level > 0, should outdent instead
-    if (attrs.level > 0) {
+
+    // If indent > 0, should outdent instead
+    if (attrs.indent > 0) {
       return { shouldExit: false };
     }
-    
+
     // Check if inside a wrapper
-    const wrapper = findAncestorNode(editor, ['toggleBlock', 'blockquote', 'callout']);
-    
+    const wrapper = findAncestorNode(editor, [
+      'toggleBlock',
+      'blockquote',
+      'callout',
+    ]);
+
     return {
       shouldExit: !!wrapper,
       wrapper,
@@ -133,7 +142,7 @@ export const EnterRules = {
   isInEmptyHeading(editor: Editor): boolean {
     const { $from } = editor.state.selection;
     const heading = $from.parent;
-    
+
     return heading.type.name === 'heading' && heading.textContent === '';
   },
 
@@ -148,26 +157,27 @@ export const EnterRules = {
   } {
     const { state } = editor;
     const { $from } = state.selection;
-    
+
     const toggleBlock = findAncestorNode(editor, 'toggleBlock');
     if (!toggleBlock) {
       return { inHeader: false };
     }
-    
+
     const headerParagraphPos = toggleBlock.pos + 1;
     const headerParagraph = toggleBlock.node.firstChild;
-    
+
     if (!headerParagraph) {
       return { inHeader: false };
     }
-    
-    const isInHeader = $from.pos >= headerParagraphPos && 
-                      $from.pos <= headerParagraphPos + headerParagraph.nodeSize;
-    
+
+    const isInHeader =
+      $from.pos >= headerParagraphPos &&
+      $from.pos <= headerParagraphPos + headerParagraph.nodeSize;
+
     if (!isInHeader) {
       return { inHeader: false };
     }
-    
+
     return {
       inHeader: true,
       isEmpty: headerParagraph.textContent === '',
@@ -211,7 +221,10 @@ export const EnterRules = {
    * Detect: Is cursor in a wrapper block (blockquote, callout) with context for Enter behavior?
    * Returns wrapper info, current paragraph, and conditions
    */
-  getWrapperBlockContext(editor: Editor, wrapperType: 'blockquote' | 'callout' | 'toggleHeader'): {
+  getWrapperBlockContext(
+    editor: Editor,
+    wrapperType: 'blockquote' | 'callout' | 'toggleHeader'
+  ): {
     inWrapper: boolean;
     wrapperPos?: number;
     wrapperNode?: PMNode;
@@ -282,7 +295,7 @@ export const BackspaceRules = {
   isInEmptyParagraphAtStart(editor: Editor): boolean {
     const { $from } = editor.state.selection;
     const para = $from.parent;
-    
+
     return (
       $from.parentOffset === 0 &&
       para.type.name === 'paragraph' &&
@@ -301,19 +314,24 @@ export const BackspaceRules = {
   } {
     const { state } = editor;
     const { $from } = state.selection;
-    
+
     const paragraphPos = $from.before($from.depth);
     const beforePos = paragraphPos - 1;
-    
+
     if (beforePos < 0) {
       return { hasStructuralBlock: false };
     }
-    
+
     const $before = state.doc.resolve(beforePos);
     const nodeBefore = $before.parent;
-    
-    const structuralBlocks = ['blockquote', 'callout', 'toggleBlock', 'codeBlock'];
-    
+
+    const structuralBlocks = [
+      'blockquote',
+      'callout',
+      'toggleBlock',
+      'codeBlock',
+    ];
+
     if (structuralBlocks.includes(nodeBefore.type.name)) {
       return {
         hasStructuralBlock: true,
@@ -321,7 +339,7 @@ export const BackspaceRules = {
         blockType: nodeBefore.type.name,
       };
     }
-    
+
     return { hasStructuralBlock: false };
   },
 
@@ -330,10 +348,16 @@ export const BackspaceRules = {
    */
   shouldLetWrapperHandleBackspace(editor: Editor): boolean {
     const { $from } = editor.state.selection;
-    
+
     // Check if we're inside a block that has its own backspace handler
-    const ancestor = findAncestorNode(editor, ['listBlock', 'blockquote', 'callout', 'toggleBlock', 'codeBlock']);
-    
+    const ancestor = findAncestorNode(editor, [
+      'listBlock',
+      'blockquote',
+      'callout',
+      'toggleBlock',
+      'codeBlock',
+    ]);
+
     return !!ancestor;
   },
 
@@ -386,25 +410,37 @@ export const BackspaceRules = {
 
     // Must be at start of paragraph
     if ($from.parentOffset !== 0) {
-      return { isEmpty: false, shouldOutdent: false, shouldConvertToParagraph: false };
+      return {
+        isEmpty: false,
+        shouldOutdent: false,
+        shouldConvertToParagraph: false,
+      };
     }
 
     const listBlock = findAncestorNode(editor, 'listBlock');
     if (!listBlock) {
-      return { isEmpty: false, shouldOutdent: false, shouldConvertToParagraph: false };
+      return {
+        isEmpty: false,
+        shouldOutdent: false,
+        shouldConvertToParagraph: false,
+      };
     }
 
     const paragraph = listBlock.node.firstChild;
     const isEmpty = !paragraph || paragraph.textContent === '';
 
     if (!isEmpty) {
-      return { isEmpty: false, shouldOutdent: false, shouldConvertToParagraph: false };
+      return {
+        isEmpty: false,
+        shouldOutdent: false,
+        shouldConvertToParagraph: false,
+      };
     }
 
     const attrs = listBlock.node.attrs;
 
-    // If level > 0, should outdent
-    if (attrs.level > 0) {
+    // If indent > 0, should outdent
+    if (attrs.indent > 0) {
       return {
         isEmpty: true,
         listBlock,
@@ -428,7 +464,10 @@ export const BackspaceRules = {
    * Detect: Is cursor at start of empty paragraph in a wrapper block (blockquote, callout)?
    * Returns wrapper info and whether to convert to paragraph
    */
-  getWrapperBlockBackspaceContext(editor: Editor, wrapperType: 'blockquote' | 'callout' | 'toggleHeader'): {
+  getWrapperBlockBackspaceContext(
+    editor: Editor,
+    wrapperType: 'blockquote' | 'callout' | 'toggleHeader'
+  ): {
     inWrapper: boolean;
     wrapperPos?: number;
     wrapperNode?: PMNode;
@@ -481,4 +520,3 @@ export const BackspaceRules = {
     };
   },
 };
-

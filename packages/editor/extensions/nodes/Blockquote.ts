@@ -103,13 +103,27 @@ export const Blockquote = Node.create({
     return {
       setBlockquote:
         () =>
-        ({ commands }) => {
-          return commands.wrapIn(this.name);
+        ({ commands, state }) => {
+          // 🔒 BLOCK IDENTITY LAW: Assign blockId when wrapping
+          const { $from } = state.selection;
+          const currentNode = $from.node($from.depth);
+          return commands.wrapIn(this.name, {
+            blockId: crypto.randomUUID(),
+            indent: currentNode?.attrs?.indent ?? 0,
+            collapsed: false,
+          });
         },
       toggleBlockquote:
         () =>
-        ({ commands }) => {
-          return commands.toggleWrap(this.name);
+        ({ commands, state }) => {
+          // 🔒 BLOCK IDENTITY LAW: Assign blockId when wrapping
+          const { $from } = state.selection;
+          const currentNode = $from.node($from.depth);
+          return commands.toggleWrap(this.name, {
+            blockId: crypto.randomUUID(),
+            indent: currentNode?.attrs?.indent ?? 0,
+            collapsed: false,
+          });
         },
       unsetBlockquote:
         () =>

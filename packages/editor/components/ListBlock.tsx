@@ -12,7 +12,13 @@
  * - Checkbox sync (parent -> children)
  */
 
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import React, {
+  useMemo,
+  useCallback,
+  useState,
+  useEffect,
+  useRef,
+} from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { spacing, sizing, typography } from '../tokens';
@@ -20,7 +26,6 @@ import type { ListBlockAttrs } from '../types';
 import { useEditorTheme } from '../theme/EditorThemeContext';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
-// import { Placeholder } from './Placeholder'; // No longer used - CSS handles placeholders
 import { MarkerContainer } from './BlockWrapper';
 import { BlockHandle } from './BlockHandle';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
@@ -36,7 +41,7 @@ type ListBlockProps = NodeViewProps;
 function calculateListNumber(
   editor: NodeViewProps['editor'],
   getPos: () => number | undefined,
-  level: number
+  indent: number
 ): number {
   const pos = getPos();
   if (pos === undefined) return 1;
@@ -49,11 +54,11 @@ function calculateListNumber(
 
     if (node.type.name === 'listBlock') {
       const attrs = node.attrs as ListBlockAttrs;
-      if (attrs.listType === 'numbered' && attrs.level === level) {
+      if (attrs.listType === 'numbered' && attrs.indent === indent) {
         count++;
       }
-      // Reset on non-numbered lists or lower level lists
-      if (attrs.listType !== 'numbered' || attrs.level < level) {
+      // Reset on non-numbered lists or lower indent
+      if (attrs.listType !== 'numbered' || attrs.indent < indent) {
         count = 1;
       }
     } else if (
@@ -226,99 +231,16 @@ function countHiddenChildren(
   return count;
 }
 
-/**
- * Check if this task is a child of its parent task (Notion-style)
- * Parent does NOT need to be the immediate previous sibling.
- * We only require that the parent task appears somewhere above.
- */
-function isChildOfPreviousTask(
-  editor: NodeViewProps['editor'],
-  getPos: () => number | undefined
-): boolean {
-  const pos = getPos();
-  if (pos === undefined) return false;
-
-  const doc = editor.state.doc;
-  const currentNode = doc.nodeAt(pos);
-  if (!currentNode) return false;
-
-  const parentBlockId = currentNode.attrs.parentBlockId;
-  if (!parentBlockId) return false;
-
-  let foundParent = false;
-
-  // Walk backwards through the document to find the parent task
-  doc.nodesBetween(0, pos, (node, nodePos) => {
-    if (nodePos >= pos) return false;
-
-    if (node.type.name === 'listBlock') {
-      const attrs = node.attrs as ListBlockAttrs;
-
-      if (attrs.listType === 'task' && attrs.blockId === parentBlockId) {
-        foundParent = true;
-        return false; // Stop once parent is found
-      }
-    }
-
-    return true;
-  });
-
-  return foundParent;
-}
-
-/**
- * Update all children's checked state
- */
-function updateChildrenChecked(
-  editor: NodeViewProps['editor'],
-  getPos: () => number | undefined,
-  checked: boolean
-): void {
-  const pos = getPos();
-  if (pos === undefined) return;
-
-  const { state } = editor;
-  const currentNode = state.doc.nodeAt(pos);
-  if (!currentNode) return;
-
-  const currentBlockId = currentNode.attrs.blockId;
-  if (!currentBlockId) return;
-
-  const { tr } = state;
-  const updates: { pos: number; attrs: ListBlockAttrs }[] = [];
-
-  // Recursively update all descendants by parentBlockId
-  const updateDescendants = (parentId: string) => {
-    state.doc.descendants((node, nodePos) => {
-      if (node.type.name === 'listBlock') {
-        const attrs = node.attrs as ListBlockAttrs;
-
-        // If this node's parent matches, update it and recurse
-        if (attrs.parentBlockId === parentId && attrs.listType === 'task') {
-          updates.push({ pos: nodePos, attrs: { ...attrs, checked } });
-          // Recursively update this node's children
-          if (attrs.blockId) {
-            updateDescendants(attrs.blockId);
-          }
-        }
-      }
-      return true;
-    });
-  };
-
-  // Start recursion from current block's ID
-  updateDescendants(currentBlockId);
-
-  // Apply all updates in reverse order (to maintain positions)
-  for (let i = updates.length - 1; i >= 0; i--) {
-    const update = updates[i]!;
-    tr.setNodeMarkup(update.pos, undefined, update.attrs);
-  }
-
-  if (updates.length > 0) {
-    editor.view.dispatch(tr);
-  }
-}
+// TODO: Task cascading (parent → child checked state)
+// This feature was removed during flat model migration.
+// The old implementation relied on parentBlockId (tree model).
+//
+// To reimplement:
+// - Use indent-based hierarchy (find children by indent > parent.indent)
+// - Walk forward from current task until indent returns to same/less
+// - Update all tasks in that range
+//
+// Defer until indent/outdent is fully battle-tested.
 
 export function ListBlock({
   node,
@@ -410,35 +332,12 @@ export function ListBlock({
     const newChecked = !checked;
     updateAttributes({ checked: newChecked });
 
-    // Cascade to all children (both check and uncheck - Notion-style)
-    if (childrenInfo.hasChildren) {
-      updateChildrenChecked(editor, getPos, newChecked);
-    }
+    // NOTE: Task cascading temporarily disabled (see TODO comment above)
+    // Was: if (childrenInfo.hasChildren) updateChildrenChecked(editor, getPos, newChecked);
   }, [checked, updateAttributes, editor, getPos, childrenInfo.hasChildren]);
 
   // Handle collapse toggle
   const handleToggleCollapse = useCallback(() => {
-    // #region agent log
-    // H4: Log when collapse state changes
-    fetch('http://127.0.0.1:7244/ingest/a7f9fa0e-3f72-4ff3-8c3a-792215d634cd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'ListBlock.tsx:handleToggleCollapse',
-        message: 'User toggled collapse',
-        data: {
-          blockId: node.attrs.blockId?.substring(0, 8),
-          wasCollapsed: collapsed,
-          willBeCollapsed: !collapsed,
-          hasChildren: hasChildrenFlag,
-          indent: node.attrs.indent,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        hypothesisId: 'H4',
-      }),
-    }).catch(() => {});
-    // #endregion
     updateAttributes({ collapsed: !collapsed });
   }, [
     collapsed,
