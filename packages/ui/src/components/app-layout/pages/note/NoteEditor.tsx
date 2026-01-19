@@ -377,22 +377,6 @@ export const NoteEditor = ({
   const addEmojiButtonRef = useRef<HTMLButtonElement>(null);
   const previousNoteIdRef = useRef<string | null>(null); // Track note switches for transition
 
-  // Editor content state
-  const [editorContent, setEditorContent] = useState<string | undefined>(
-    undefined
-  );
-
-  useEffect(() => {
-    if (!currentNoteId) {
-      // No note selected → empty editor
-      setEditorContent(undefined);
-      return;
-    }
-
-    // Load content from current note
-    setEditorContent(currentNote?.content);
-  }, [currentNoteId]); // Only reload when note switches, NOT on content changes
-
   // Detect note switching for micro transition
   const isSwitchingNote =
     currentNoteId !== previousNoteIdRef.current &&
@@ -1784,7 +1768,8 @@ export const NoteEditor = ({
               onRemoveEmoji={handleRemoveEmoji}
               emojiButtonRef={emojiButtonRef}
               hasContent={
-                editorContent && editorContent !== '{"type":"doc","content":[]}'
+                currentNote?.content &&
+                currentNote.content !== '{"type":"doc","content":[]}'
               }
               isFavorite={isFavorite}
               contextMenuItems={noteContextMenuItems}
@@ -1837,7 +1822,7 @@ export const NoteEditor = ({
                   key={currentNoteId} // Force full remount on note change
                   noteId={currentNoteId}
                   ref={editorRef}
-                  value={editorContent}
+                  value={currentNote?.content}
                   autoFocus={false}
                   onChange={(value) => {
                     // Save content directly to state (synchronous, local-only)

@@ -349,6 +349,9 @@ const EditorCoreInner = forwardRef<
           onChange(content);
         },
         onTransaction: ({ transaction }) => {
+          // Skip validation during hydration - expected behavior when loading content
+          if (isHydratingRef.current) return;
+
           // 🔍 DIAGNOSTIC: Catch invalid transactions
           if (transaction.docChanged && !transaction.selectionSet) {
             console.error(

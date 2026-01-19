@@ -33,14 +33,23 @@ export function replaceBlock(
   // Create transaction to replace the block
   let tr = state.tr.replaceWith(from, to, replacement);
 
-  // If cursorOffset specified, position cursor relative to block start
+  // Always set selection to maintain ProseMirror invariant:
+  // doc-changing transactions must set a valid selection
   if (cursorOffset !== undefined) {
+    // Use specified offset
     const newPos = from + cursorOffset;
     // Ensure position is valid within the new block
     const maxPos = from + replacement.nodeSize;
     const safePos = Math.min(Math.max(from, newPos), maxPos - 1);
     tr = tr.setSelection(
       state.selection.constructor.near(tr.doc.resolve(safePos))
+    );
+  } else {
+    // Default: Position cursor at start of new block content (after opening tag)
+    // This is correct for markdown shortcuts (e.g., # → heading, cursor ready to type)
+    const defaultPos = from + 1;
+    tr = tr.setSelection(
+      state.selection.constructor.near(tr.doc.resolve(defaultPos))
     );
   }
 
