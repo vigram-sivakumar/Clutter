@@ -1,6 +1,6 @@
 /**
  * DropdownContainer - Shared visual primitive for all dropdown types
- * 
+ *
  * Handles:
  * - Consistent styling (colors, padding, shadows, radius)
  * - Portal rendering
@@ -12,7 +12,11 @@ import { useRef, useEffect, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../../hooks/useTheme';
 import { sizing } from '../../../tokens/sizing';
-import { spacing } from '../../../tokens/spacing';
+import {
+  getDropdownContainerStyles,
+  getDropdownScrollbarCSS,
+  getDropdownTransitionStyles,
+} from '../../../styles/dropdownStyles';
 
 interface DropdownContainerProps {
   isOpen: boolean;
@@ -41,7 +45,10 @@ export const DropdownContainer = ({
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         onClose();
       }
     };
@@ -62,16 +69,18 @@ export const DropdownContainer = ({
     if (!isOpen) return;
 
     // Find the actual scrolling container (.scroll-wrapper in AppLayout)
-    const scrollContainer = document.querySelector('.scroll-wrapper') as HTMLElement;
-    
+    const scrollContainer = document.querySelector(
+      '.scroll-wrapper'
+    ) as HTMLElement;
+
     if (scrollContainer) {
       // Save scroll position and original overflow
       const scrollY = scrollContainer.scrollTop;
       const originalOverflow = scrollContainer.style.overflow;
-      
+
       // Block scrolling on the container
       scrollContainer.style.overflow = 'hidden';
-      
+
       return () => {
         // Restore scrolling
         scrollContainer.style.overflow = originalOverflow;
@@ -106,50 +115,23 @@ export const DropdownContainer = ({
   const content = (
     <>
       {/* Custom scrollbar styles */}
-      <style>{`
-        .dropdown-container {
-          scrollbar-width: thin;
-          scrollbar-color: ${colors.border.default} transparent;
-        }
-        .dropdown-container::-webkit-scrollbar {
-          width: 6px;
-        }
-        .dropdown-container::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .dropdown-container::-webkit-scrollbar-thumb {
-          background-color: ${colors.border.default};
-          border-radius: 3px;
-        }
-        .dropdown-container::-webkit-scrollbar-thumb:hover {
-          background-color: ${colors.border.focus};
-        }
-      `}</style>
+      <style>{getDropdownScrollbarCSS(colors)}</style>
 
       <div
         ref={containerRef}
         className="dropdown-container"
         style={{
           position: 'fixed',
-          ...(position.top !== undefined ? { top: position.top } : { bottom: position.bottom }),
+          ...(position.top !== undefined
+            ? { top: position.top }
+            : { bottom: position.bottom }),
           left: position.left,
-          backgroundColor: colors.background.default,
-          border: `1px solid ${colors.border.default}`,
-          borderRadius: sizing.radius.lg,
-          boxShadow: `0 ${spacing['6']} ${spacing['16']} ${colors.shadow.md}`,
+          ...getDropdownContainerStyles(colors),
           zIndex: sizing.zIndex.dropdown,
-          padding: spacing['4'],
           minWidth,
           maxWidth,
           maxHeight,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          scrollBehavior: 'smooth',
-          // Smooth transitions for position and size changes
-          transition: position.top !== undefined 
-            ? 'top 200ms cubic-bezier(0.4, 0, 0.2, 1), max-height 200ms cubic-bezier(0.4, 0, 0.2, 1)'
-            : 'bottom 200ms cubic-bezier(0.4, 0, 0.2, 1), max-height 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-          willChange: position.top !== undefined ? 'top, max-height' : 'bottom, max-height',
+          ...getDropdownTransitionStyles(position),
         }}
         onMouseDown={(e) => {
           e.preventDefault();
@@ -161,6 +143,7 @@ export const DropdownContainer = ({
     </>
   );
 
-  return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
+  return typeof document !== 'undefined'
+    ? createPortal(content, document.body)
+    : null;
 };
-
