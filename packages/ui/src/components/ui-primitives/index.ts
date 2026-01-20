@@ -8,6 +8,10 @@ export { SegmentedControl } from './SegmentedControl';
 export { CountBadge } from './CountBadge';
 export { AutocompleteDropdown } from './AutocompleteDropdown';
 export { FloatingContainer } from './FloatingContainer';
+export type {
+  FloatingPosition,
+  FloatingContainerProps,
+} from './FloatingContainer';
 export {
   RightClickContextMenuProvider,
   useRightClickMenu,
