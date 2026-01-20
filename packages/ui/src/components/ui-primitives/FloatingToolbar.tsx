@@ -203,7 +203,7 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
         left: position.left,
         transform: 'translateX(-50%)',
       }}
-      lockScroll={false}
+      lockScroll={true}
       dismissOnEscape={false}
     >
       <div
