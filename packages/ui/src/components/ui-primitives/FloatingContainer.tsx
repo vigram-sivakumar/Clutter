@@ -5,15 +5,15 @@
  * - Portal rendering to document.body
  * - Fixed positioning relative to viewport
  * - Z-index management
+ * - Outside interaction detection (signals, doesn't decide)
  * - Basic layout and visibility
  *
  * Later steps will add:
  * - Scroll locking (Step 4)
- * - Click-outside handling (Step 5)
  * - Collision detection (future)
  */
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { sizing } from '../../tokens/sizing';
 
@@ -34,6 +34,7 @@ export interface FloatingContainerProps {
   position: FloatingPosition;
   children: ReactNode;
   className?: string;
+  onInteractOutside?: (event: MouseEvent) => void;
   lockScroll?: boolean; // Reserved for Step 4
 }
 
@@ -42,11 +43,35 @@ export const FloatingContainer = ({
   position,
   children,
   className,
+  onInteractOutside,
 }: FloatingContainerProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Detect clicks outside the container
+  useEffect(() => {
+    if (!isOpen || !onInteractOutside) return;
+
+    const handlePointerDown = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        onInteractOutside(e);
+      }
+    };
+
+    // Use capture phase to intercept before React's synthetic events
+    document.addEventListener('mousedown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown, true);
+    };
+  }, [isOpen, onInteractOutside]);
+
   if (!isOpen) return null;
 
   const content = (
     <div
+      ref={containerRef}
       data-floating-container
       className={className}
       style={{
