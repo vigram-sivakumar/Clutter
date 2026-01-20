@@ -136,6 +136,25 @@ export const WindowControls = ({
               appWindow.toggleMaximize();
             }}
           />
+          {/* Dev-only: Hard Reset button */}
+          {import.meta.env.DEV && (
+            <MacButton
+              color="#9C27B0"
+              onClick={async () => {
+                // Clear all browser storage
+                localStorage.clear();
+                sessionStorage.clear();
+
+                const dbs = await indexedDB.databases();
+                dbs.forEach((db) => {
+                  if (db.name) indexedDB.deleteDatabase(db.name);
+                });
+
+                // Reload the webview (Tauri v1 compatible)
+                window.location.reload();
+              }}
+            />
+          )}
         </div>
       )}
 

@@ -28,14 +28,7 @@ function App() {
   return (
     <ThemeProvider>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <NotesContainer isInitialized={true}>
-              <></>
-            </NotesContainer>
-          }
-        />
+        <Route path="/" element={<NotesContainer isInitialized={true} />} />
       </Routes>
     </ThemeProvider>
   );
