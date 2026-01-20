@@ -1,9 +1,9 @@
 /**
  * AutocompleteDropdown - Dropdown for autocomplete/suggestions (typing-triggered)
- * 
+ *
  * Used for editor suggestions like @ mentions, / commands, # tags
  * Uses shared dropdown primitives for consistent styling
- * 
+ *
  * Features:
  * - Automatic scroll-into-view for selected items (keyboard navigation)
  * - Scroll blocking (handled by DropdownContainer)
@@ -34,7 +34,12 @@ export const AutocompleteDropdown = ({
 
   // Auto-scroll selected item into view (for keyboard navigation)
   useEffect(() => {
-    if (!isOpen || selectedIndex === undefined || selectedIndex < 0 || !containerRef.current) {
+    if (
+      !isOpen ||
+      selectedIndex === undefined ||
+      selectedIndex < 0 ||
+      !containerRef.current
+    ) {
       return;
     }
 
@@ -51,12 +56,13 @@ export const AutocompleteDropdown = ({
   }, [isOpen, selectedIndex]);
 
   if (!position) return null;
-  
+
   return (
     <DropdownContainer
       isOpen={isOpen}
       position={position}
       onClose={onClose}
+      dismissOnEscape={true}
       minWidth="220px"
       maxWidth="220px"
       maxHeight="300px"
@@ -64,7 +70,7 @@ export const AutocompleteDropdown = ({
       <div ref={containerRef}>
         {/* Optional header */}
         {header && <DropdownHeader label={header} />}
-        
+
         {/* Children (DropdownItems) or skeleton */}
         {children || (
           <DropdownItem

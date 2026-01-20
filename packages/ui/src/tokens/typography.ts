@@ -12,6 +12,7 @@ export const typography = {
 
   // Font sizes
   fontSize: {
+    '10': '10px',
     '12': '12px',
     '14': '14px',
     '16': '16px',
@@ -52,7 +53,7 @@ export const typography = {
   // Based on fontSize × lineHeight ratio
   lineHeightPx: {
     xs: '14px', // 12px font line height - used for small headers
-    sm: '20px',   // 14px font line height - used for inline elements (date, link)
+    sm: '20px', // 14px font line height - used for inline elements (date, link)
     base: '24px', // 16 × 1.5 = 24px - used for icon/marker alignment
   },
 
@@ -100,4 +101,3 @@ export const typography = {
 } as const;
 
 export type TypographyToken = typeof typography;
-

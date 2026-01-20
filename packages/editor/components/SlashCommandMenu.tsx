@@ -1,13 +1,18 @@
 /**
  * Slash Command Menu Component
- * Renders the command menu with theme-aware styling
+ * Renders the command menu with shared dropdown primitives
  */
 
 import { useState, useEffect, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
 import { useEditorTheme } from '../theme/EditorThemeContext';
 import * as Icons from '@clutter/ui';
-import { sizing, spacing } from '../tokens';
+import {
+  DropdownContainer,
+  DropdownHeader,
+  DropdownItem,
+  DropdownSeparator,
+} from '@clutter/ui';
 import {
   filterSlashCommands,
   type SlashCommand,
@@ -27,7 +32,7 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
     top: number;
     left: number;
   } | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Subscribe to editor storage changes
   useEffect(() => {
@@ -81,83 +86,28 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
     };
   }, [editor, isOpen]);
 
-  // Click outside to dismiss
+  // Handle close event from DropdownContainer (click-outside or ESC)
+  const handleClose = () => {
+    if (!editor) return;
+    const storage = (editor.storage as any).slashCommands;
+    storage.isOpen = false;
+    storage.userClosed = true; // Prevent auto-reopening
+    storage.manuallyClosedAt = Date.now();
+    editor.view.dispatch(editor.view.state.tr);
+  };
+
+  // Scroll selected item into view
   useEffect(() => {
-    if (!isOpen || !editor) return;
+    if (!isOpen || !containerRef.current) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
-      // Don't close if clicking on the menu itself
-      if (menuRef.current && menuRef.current.contains(e.target as Node)) {
-        return;
-      }
+    const items = containerRef.current.querySelectorAll('button');
+    const selectedItem = items[selectedIndex];
 
-      // PHASE 5: Don't close if clicking inside the editor - let view.update handle it
-      // Only close if clicking completely outside (other UI elements)
-      const editorElement = editor.view.dom;
-      if (editorElement.contains(e.target as Node)) {
-        return; // Let the view update logic handle editor clicks
-      }
-
-      // Clicking outside both menu and editor - close immediately
-      const storage = (editor.storage as any).slashCommands;
-      storage.isOpen = false;
-      storage.manuallyClosedAt = Date.now();
-      editor.view.dispatch(editor.view.state.tr);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, editor]);
-
-  // Prevent page scrolling when menu is open
-  useEffect(() => {
-    if (isOpen) {
-      // Save current scroll position
-      const scrollY = window.scrollY;
-
-      // Prevent scrolling
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-
-      return () => {
-        // Restore scrolling
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.width = '';
-
-        // Restore scroll position
-        window.scrollTo(0, scrollY);
-      };
-    }
-  }, [isOpen]);
-
-  // Scroll selected item into view - smooth scrolling with proper button targeting
-  // MUST be before early return to follow Rules of Hooks
-  useEffect(() => {
-    if (!isOpen || !menuRef.current) return;
-
-    const container = menuRef.current;
-
-    // Find all button elements (commands)
-    const buttons = container.querySelectorAll('button');
-    const selectedButton = buttons[selectedIndex];
-
-    if (selectedButton) {
-      const containerRect = container.getBoundingClientRect();
-      const buttonRect = selectedButton.getBoundingClientRect();
-
-      const isAboveView = buttonRect.top < containerRect.top;
-      const isBelowView = buttonRect.bottom > containerRect.bottom;
-
-      if (isAboveView || isBelowView) {
-        selectedButton.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-        });
-      }
+    if (selectedItem) {
+      selectedItem.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
     }
   }, [isOpen, selectedIndex, query]);
 
@@ -209,234 +159,74 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
   const shouldShowGroups = query === '' && groupedCommands;
 
   return (
-    <>
-      {/* Custom scrollbar styles */}
-      <style>{`
-        .slash-command-menu {
-          scrollbar-width: thin;
-          scrollbar-color: ${colors.border.default} transparent;
-        }
-        .slash-command-menu::-webkit-scrollbar {
-          width: 6px;
-        }
-        .slash-command-menu::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .slash-command-menu::-webkit-scrollbar-thumb {
-          background-color: ${colors.border.default};
-          border-radius: 3px;
-        }
-        .slash-command-menu::-webkit-scrollbar-thumb:hover {
-          background-color: ${colors.border.focus};
-        }
-      `}</style>
-      <div
-        ref={menuRef}
-        className="slash-command-menu"
-        style={{
-          position: 'absolute',
-          top: '24px',
-          left: 0,
-          backgroundColor: colors.background.default,
-          border: `1px solid ${colors.border.default}`,
-          borderRadius: sizing.radius.lg,
-          boxShadow: `0 ${spacing['4']} ${spacing['12']} ${colors.shadow.md}`,
-          zIndex: sizing.zIndex.dropdown,
-          padding: spacing['4'],
-          width: '240px', // PHASE 5: Fixed width for consistency
-          // Exactly 6 items (measured: ~47px per item * 6 + 8px container padding)
-          maxHeight: '310px',
-          overflowY: 'auto',
-          scrollBehavior: 'smooth', // PHASE 5: Smooth scrolling
-        }}
-      >
+    <DropdownContainer
+      isOpen={isOpen}
+      position={{ top: position.top, left: position.left }}
+      onClose={handleClose}
+      dismissOnEscape={true}
+      minWidth="240px"
+      maxWidth="240px"
+      maxHeight="310px"
+    >
+      <div ref={containerRef}>
         {shouldShowGroups
-          ? // PHASE 5: Render grouped commands with labels
+          ? // Render grouped commands with section headers
             Object.entries(groupedCommands!).map(
               ([groupKey, groupCommands], groupIndex) => {
                 const group = groupKey as CommandGroup;
 
                 return (
                   <div key={group}>
-                    {/* Group Label */}
-                    <div
-                      style={{
-                        padding: `${spacing['4']} ${spacing['8']}`,
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: colors.text.tertiary,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        marginTop: groupIndex > 0 ? spacing['6'] : 0,
-                      }}
-                    >
-                      {groupLabels[group]}
-                    </div>
+                    {groupIndex > 0 && (
+                      <DropdownSeparator key={`separator-${group}`} />
+                    )}
+                    <DropdownHeader label={groupLabels[group]} />
 
-                    {/* Commands in this group */}
                     {groupCommands.map((command) => {
                       const globalIndex = commands.indexOf(command);
                       const Icon = (Icons as any)[command.icon];
                       const isSelected = globalIndex === selectedIndex;
 
                       return (
-                        <button
+                        <DropdownItem
                           key={command.id}
-                          type="button"
-                          style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: spacing['6'],
-                            padding: `${spacing['6']} ${spacing['8']}`,
-                            borderRadius: sizing.radius.sm,
-                            border: 'none',
-                            cursor: 'pointer',
-                            backgroundColor: isSelected
-                              ? colors.background.hover
-                              : 'transparent',
-                            color: isSelected
-                              ? colors.text.default
-                              : colors.text.secondary,
-                            transition:
-                              'background-color 150ms cubic-bezier(0.2, 0, 0, 1)',
-                            textAlign: 'left',
-                          }}
+                          icon={Icon ? <Icon size={16} /> : undefined}
+                          label={command.title}
+                          isSelected={isSelected}
+                          onClick={() => handleSelect(globalIndex)}
                           onMouseEnter={() => {
                             (
                               editor.storage as any
                             ).slashCommands.selectedIndex = globalIndex;
                             setSelectedIndex(globalIndex);
                           }}
-                          onMouseDown={(e) => {
-                            e.preventDefault(); // Prevent focus loss
-                          }}
-                          onClick={() => handleSelect(globalIndex)}
-                        >
-                          <div
-                            style={{
-                              width: '20px',
-                              height: '20px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: colors.text.tertiary,
-                              // marginTop: '1px', // Align icon with title text line
-                            }}
-                          >
-                            {Icon && <Icon size={16} />}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: '14px',
-                                fontWeight: 500,
-                                color: isSelected
-                                  ? colors.text.default
-                                  : colors.text.secondary,
-                                lineHeight: '20px',
-                              }}
-                            >
-                              {command.title}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: '12px',
-                                color: colors.text.tertiary,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
-                              {command.description}
-                            </div>
-                          </div>
-                        </button>
+                        />
                       );
                     })}
                   </div>
                 );
               }
             )
-          : // PHASE 5: Render flat list when searching
+          : // Render flat list when searching
             commands.map((command, index) => {
               const Icon = (Icons as any)[command.icon];
               const isSelected = index === selectedIndex;
 
               return (
-                <button
+                <DropdownItem
                   key={command.id}
-                  type="button"
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: spacing['6'],
-                    padding: `${spacing['6']} ${spacing['8']}`,
-                    borderRadius: sizing.radius.sm,
-                    border: 'none',
-                    cursor: 'pointer',
-                    backgroundColor: isSelected
-                      ? colors.background.hover
-                      : 'transparent',
-                    color: isSelected
-                      ? colors.text.default
-                      : colors.text.secondary,
-                    transition:
-                      'background-color 150ms cubic-bezier(0.2, 0, 0, 1)',
-                    textAlign: 'left',
-                  }}
+                  icon={Icon ? <Icon size={16} /> : undefined}
+                  label={command.title}
+                  isSelected={isSelected}
+                  onClick={() => handleSelect(index)}
                   onMouseEnter={() => {
                     (editor.storage as any).slashCommands.selectedIndex = index;
                     setSelectedIndex(index);
                   }}
-                  onMouseDown={(e) => {
-                    e.preventDefault(); // Prevent focus loss
-                  }}
-                  onClick={() => handleSelect(index)}
-                >
-                  <div
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: colors.text.tertiary,
-                      marginTop: '1px', // Align icon with title text line
-                    }}
-                  >
-                    {Icon && <Icon size={16} />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        color: isSelected
-                          ? colors.text.default
-                          : colors.text.secondary,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {command.title}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '12px',
-                        color: colors.text.tertiary,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {command.description}
-                    </div>
-                  </div>
-                </button>
+                />
               );
             })}
       </div>
-    </>
+    </DropdownContainer>
   );
 }

@@ -105,15 +105,8 @@ export const AtMention = Extension.create<AtMentionOptions>({
               return true;
             }
 
-            // Close on Escape
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              storage.active = false;
-              storage.userClosed = true; // Prevent auto-reopening
-              view.dispatch(view.state.tr);
-              return true;
-            }
+            // ESC is handled by FloatingMenu via dismissOnEscape prop
+            // No need for duplicate handler here - UI layer owns dismissal interactions
 
             // Arrow key navigation
             if (event.key === 'ArrowDown') {

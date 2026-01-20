@@ -1,6 +1,6 @@
 /**
  * DropdownHeader - Shared header/label for dropdown sections
- * 
+ *
  * Used for section titles within dropdowns
  * Style matches SlashCommands - uppercase, small, subtle
  */
@@ -21,7 +21,7 @@ export const DropdownHeader = ({ label, marginTop }: DropdownHeaderProps) => {
   return (
     <div
       style={{
-        fontSize: typography.fontSize['12'],
+        fontSize: typography.fontSize['10'],
         fontWeight: typography.fontWeight.semibold,
         lineHeight: typography.lineHeight.tight,
         color: colors.text.tertiary,
@@ -38,4 +38,3 @@ export const DropdownHeader = ({ label, marginTop }: DropdownHeaderProps) => {
     </div>
   );
 };
-

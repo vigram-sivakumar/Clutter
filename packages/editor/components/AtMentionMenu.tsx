@@ -492,15 +492,8 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         }
       }
 
-      // Handle Escape
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        storage.active = false;
-        storage.userClosed = true; // Prevent auto-reopening
-        editor.view.dispatch(editor.view.state.tr);
-      }
+      // ESC is handled by FloatingMenu via dismissOnEscape prop
+      // No need for duplicate handler here - UI layer owns dismissal interactions
     };
 
     // Add listener in capture phase with highest priority

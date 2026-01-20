@@ -37,6 +37,7 @@ declare module '@tiptap/core' {
       startPos: number;
       selectedIndex: number;
       manuallyClosedAt: number | null; // PHASE 5: Track manual close to prevent immediate reopen
+      userClosed: boolean; // Track explicit user dismissal (ESC or click-outside)
     };
   }
 }
@@ -533,6 +534,7 @@ export const SlashCommands = Extension.create({
       startPos: 0,
       selectedIndex: 0,
       manuallyClosedAt: null, // PHASE 5: Track manual close
+      userClosed: false, // Track explicit user dismissal
     };
   },
 
@@ -623,19 +625,8 @@ export const SlashCommands = Extension.create({
         return true;
       },
 
-      Escape: () => {
-        const storage = this.editor.storage.slashCommands;
-
-        if (!storage.isOpen) {
-          return false;
-        }
-
-        storage.isOpen = false;
-        storage.manuallyClosedAt = Date.now(); // PHASE 5: Mark as manually closed
-        this.editor.view.dispatch(this.editor.state.tr);
-
-        return true;
-      },
+      // ESC is handled by FloatingMenu via dismissOnEscape prop
+      // No need for duplicate handler here - UI layer owns dismissal interactions
     };
   },
 
@@ -742,6 +733,11 @@ export const SlashCommands = Extension.create({
 
                 // Check if we need to open or update the menu
                 if (!storage.isOpen) {
+                  // Don't auto-open if user explicitly closed the menu
+                  if (storage.userClosed) {
+                    return;
+                  }
+
                   // Don't auto-open if menu was just manually closed (within 300ms)
                   const now = Date.now();
                   if (
@@ -781,8 +777,12 @@ export const SlashCommands = Extension.create({
                 storage.isOpen = false;
                 storage.startPos = null;
                 storage.query = '';
+                storage.userClosed = false; // Reset flag when slash is removed
                 storage.manuallyClosedAt = Date.now();
                 view.dispatch(view.state.tr);
+              } else if (!slashCommandAtCursor) {
+                // No slash command present - reset userClosed flag
+                storage.userClosed = false;
               }
             },
           };
@@ -861,6 +861,7 @@ export const SlashCommands = Extension.create({
                 editor.storage.slashCommands.query = '';
                 editor.storage.slashCommands.startPos = from;
                 editor.storage.slashCommands.selectedIndex = 0;
+                editor.storage.slashCommands.userClosed = false; // Reset on manual "/" typing
                 editor.storage.slashCommands.manuallyClosedAt = null;
 
                 // Dispatch after "/" is inserted to trigger React re-render
@@ -934,6 +935,7 @@ export const SlashCommands = Extension.create({
                       storage.query = query;
                       storage.startPos = slashPos;
                       storage.selectedIndex = 0;
+                      storage.userClosed = false; // Reset on backspace reopen
                       storage.manuallyClosedAt = null; // Clear manual close flag
 
                       view.dispatch(view.state.tr);
