@@ -195,6 +195,11 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
     setShowLinkInput(false);
   };
 
+  // Get boundary rect from content wrapper for horizontal clamping
+  const boundaryRect = editor?.view.dom
+    .closest('.content-wrapper')
+    ?.getBoundingClientRect();
+
   return (
     <FloatingMenu
       isOpen={isVisible}
@@ -205,6 +210,7 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
       }}
       lockScroll={true}
       dismissOnEscape={false}
+      boundaryRect={boundaryRect}
     >
       <div
         tabIndex={-1}
