@@ -7,6 +7,7 @@ export { KeyboardShortcut } from './KeyboardShortcut';
 export { SegmentedControl } from './SegmentedControl';
 export { CountBadge } from './CountBadge';
 export { AutocompleteDropdown } from './AutocompleteDropdown';
+export { FloatingContainer } from './FloatingContainer';
 export {
   RightClickContextMenuProvider,
   useRightClickMenu,
