@@ -98,8 +98,6 @@ interface NoteHeaderProps extends Partial<ActionControls> {
   tagsVisible: boolean;
   onAddTag: (_tag: string) => void;
   onRemoveTag: (_tag: string) => void;
-  onEditTag: (_oldTag: string, _newTag: string) => void;
-  onColorChange?: (_tag: string, _color: string) => void;
   onShowTagInput: () => void;
   onCancelTagInput: () => void;
   onToggleTagsVisibility: () => void;
@@ -169,8 +167,6 @@ interface FolderHeaderProps extends Partial<ActionControls> {
   tagsVisible?: boolean;
   onAddTag?: (_tag: string) => void;
   onRemoveTag?: (_tag: string) => void;
-  onEditTag?: (_oldTag: string, _newTag: string) => void;
-  onColorChange?: (_tag: string, _color: string) => void;
   onShowTagInput?: () => void;
   onCancelTagInput?: () => void;
   onToggleTagsVisibility?: () => void;
@@ -480,8 +476,6 @@ export const PageTitleSection = forwardRef<
           tagsVisible={props.tagsVisible ?? true}
           onAddTag={props.onAddTag}
           onRemoveTag={props.onRemoveTag}
-          onEditTag={props.onEditTag}
-          onColorChange={props.onColorChange}
           onShowTagInput={props.onShowTagInput}
           onCancelTagInput={props.onCancelTagInput}
           onToggleVisibility={props.onToggleTagsVisibility}
@@ -826,8 +820,6 @@ export const PageTitleSection = forwardRef<
           tagsVisible={props.tagsVisible ?? true}
           onAddTag={props.onAddTag}
           onRemoveTag={props.onRemoveTag}
-          onEditTag={props.onEditTag}
-          onColorChange={props.onColorChange}
           onShowTagInput={props.onShowTagInput}
           onCancelTagInput={props.onCancelTagInput}
           onToggleVisibility={props.onToggleTagsVisibility}

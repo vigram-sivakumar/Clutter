@@ -478,98 +478,6 @@ export const NoteEditor = ({
     [debouncedSave]
   );
 
-  const handleEditTag = useCallback(
-    (oldTag: string, newTag: string) => {
-      const trimmedOldTag = oldTag.trim();
-      const trimmedNewTag = newTag.trim();
-
-      if (!trimmedNewTag) return;
-
-      // If tag name didn't change (case-insensitive), do nothing
-      if (trimmedNewTag.toLowerCase() === trimmedOldTag.toLowerCase()) return;
-
-      // Before renaming, ensure the tag has a color saved to metadata
-      // This preserves the visual appearance through the rename
-      const metadata = getTagMetadata(trimmedOldTag);
-      if (!metadata?.color) {
-        // Save the current hash-based color so it's preserved after rename
-        const currentVisualColor = getTagColor(trimmedOldTag);
-        if (metadata) {
-          updateTagMetadata(trimmedOldTag, { color: currentVisualColor });
-        } else {
-          upsertTagMetadata(trimmedOldTag, '', true, false, currentVisualColor);
-        }
-      }
-
-      // Use global rename to update all notes with this tag
-      renameTag(trimmedOldTag, trimmedNewTag);
-
-      // Update local state for immediate UI update
-      setTags((prevTags) => {
-        // Find old tag case-insensitively
-        const oldIndex = prevTags.findIndex(
-          (t) => t.toLowerCase() === trimmedOldTag.toLowerCase()
-        );
-        let newTags: string[];
-
-        if (oldIndex === -1) {
-          // Old tag not found, just add new one if it doesn't exist
-          const exists = prevTags.some(
-            (t) => t.toLowerCase() === trimmedNewTag.toLowerCase()
-          );
-          if (!exists) {
-            newTags = [...prevTags, trimmedNewTag]; // Store with original case
-          } else {
-            return prevTags;
-          }
-        } else {
-          // Remove old tag
-          const withoutOld = prevTags.filter((_, i) => i !== oldIndex);
-
-          // Check if new tag already exists elsewhere (case-insensitive)
-          const exists = withoutOld.some(
-            (t) => t.toLowerCase() === trimmedNewTag.toLowerCase()
-          );
-          if (exists) {
-            newTags = withoutOld;
-          } else {
-            // Insert new tag at the same position as old tag with original case
-            newTags = [
-              ...withoutOld.slice(0, oldIndex),
-              trimmedNewTag,
-              ...withoutOld.slice(oldIndex),
-            ];
-          }
-        }
-
-        debouncedSave({ tags: newTags });
-        return newTags;
-      });
-    },
-    [
-      debouncedSave,
-      renameTag,
-      getTagMetadata,
-      getTagColor,
-      updateTagMetadata,
-      upsertTagMetadata,
-    ]
-  );
-
-  const handleColorChange = useCallback(
-    (tag: string, color: string) => {
-      // Update tag metadata with the new color (upsert to handle tags without existing metadata)
-      const existing = getTagMetadata(tag);
-      if (existing) {
-        updateTagMetadata(tag, { color });
-      } else {
-        // Create metadata with the color for tags that don't have metadata yet
-        upsertTagMetadata(tag, '', true, false, color);
-      }
-    },
-    [getTagMetadata, updateTagMetadata, upsertTagMetadata]
-  );
-
   const handleDescriptionChange = useCallback(
     (value: string) => {
       setDescription(value);
@@ -1785,8 +1693,6 @@ export const NoteEditor = ({
               tagsVisible={tagsVisible}
               onAddTag={handleAddTag}
               onRemoveTag={handleRemoveTag}
-              onEditTag={handleEditTag}
-              onColorChange={handleColorChange}
               onShowTagInput={handleShowTagInput}
               onCancelTagInput={handleCancelTagInput}
               onToggleTagsVisibility={handleToggleTagsVisibility}
