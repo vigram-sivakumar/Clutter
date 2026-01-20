@@ -12,6 +12,8 @@ export type {
   FloatingPosition,
   FloatingContainerProps,
 } from './FloatingContainer';
+export { FloatingMenu } from './FloatingMenu';
+export type { FloatingMenuProps } from './FloatingMenu';
 export {
   RightClickContextMenuProvider,
   useRightClickMenu,
