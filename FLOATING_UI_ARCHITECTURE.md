@@ -47,9 +47,74 @@ The floating UI architecture consists of three layers, each with a single, clear
 
 1. **Single Responsibility** - Each component has one job
 2. **Signal, Don't Decide** - Primitives signal interactions, parents decide behavior
-3. **Pure Positioning** - Positioning is separate from interaction logic
+3. **Anchor vs Layout Policy** - Components provide intent (anchor points), FloatingMenu applies policy (flip, clamp, measure)
 4. **Reference Counting** - Scroll locks are managed via reference counting
 5. **No Duplicate Handlers** - One handler per interaction type, owned by the correct layer
+6. **Measured, Not Hardcoded** - Dimensions are measured dynamically, never hardcoded
+
+---
+
+## Core Architectural Principle: Anchor vs Layout Policy
+
+**The most important rule in the floating UI architecture:**
+
+### Components Provide Intent (Anchors), FloatingMenu Applies Policy
+
+**Application Components** calculate **where they want** the menu to appear:
+
+- Selection coordinates (top, left, bottom)
+- Caret position
+- Button position
+
+**FloatingMenu** decides **where the menu actually appears**:
+
+- Measures actual menu dimensions
+- Flips above/below based on space
+- Clamps horizontally to boundaries
+- Ensures menu stays in viewport
+
+### Example: FloatingToolbar
+
+**❌ Wrong (Layout Policy in Component):**
+
+```typescript
+// Component doing layout math
+const toolbarWidth = 400; // ❌ Hardcoded
+const toolbarHeight = 48; // ❌ Hardcoded
+
+// Clamp to viewport
+const minLeft = toolbarWidth / 2 + 16;
+const maxLeft = window.innerWidth - toolbarWidth / 2 - 16;
+left = Math.max(minLeft, Math.min(maxLeft, left)); // ❌ Policy
+
+// Flip decision
+if (top < 8) {
+  top = end.bottom + 8; // ❌ Policy
+}
+```
+
+**✅ Correct (Pure Anchor Calculation):**
+
+```typescript
+// Component provides anchor only
+const left = (start.left + end.left) / 2; // Horizontal center
+const top = start.top; // Selection top
+const bottom = end.bottom; // Selection bottom
+
+// FloatingMenu handles:
+// - Measuring actual width/height
+// - Flipping above/below
+// - Clamping to boundaries
+// - Viewport constraints
+```
+
+**Why This Matters:**
+
+1. **No Hardcoded Dimensions** - Menu measures itself dynamically
+2. **No Duplicate Logic** - All positioning in one place
+3. **Declarative API** - "Show at this anchor" vs "flip here, clamp there"
+4. **Consistent Behavior** - All menus/toolbars follow same rules
+5. **Easier Testing** - Policy is isolated and testable
 
 ---
 
@@ -94,11 +159,16 @@ The floating UI architecture consists of three layers, each with a single, clear
 
 **Location:** `packages/ui/src/components/ui-primitives/FloatingMenu.tsx`
 
-**Responsibility:** Coordination layer for interaction modes
+**Responsibility:** Coordination layer for ALL layout policy and interaction modes
 
 **What it does:**
 
 - Wraps `FloatingContainer`
+- **Owns all layout policy** (flip, clamp, measure)
+- Measures actual menu dimensions (width and height)
+- **Vertical flip logic** (open above or below anchor point)
+- **Horizontal boundary clamping** (optional, for toolbars)
+- Viewport clamping (ensures menu stays on screen)
 - Manages scroll locking via `scrollLock.ts`
 - Handles ESC key dismissal
 - Forwards `onInteractOutside` signals
@@ -107,15 +177,21 @@ The floating UI architecture consists of three layers, each with a single, clear
 
 - Render visual UI (delegates to FloatingContainer)
 - Handle keyboard navigation (Arrow keys, Enter, Tab)
-- Decide z-index or positioning
+- **Calculate anchor points** (parent components provide these)
+- Decide z-index (FloatingContainer owns this)
 
 ```typescript
 <FloatingMenu
   isOpen={isOpen}
-  position={{ top: 100, left: 50 }}
+  position={{
+    top: 100,        // Anchor point (selection top edge)
+    bottom: 120,     // Optional: for flip calculation
+    left: 50,        // Anchor point (horizontal center)
+  }}
   lockScroll={true}
   dismissOnEscape={true}
   onInteractOutside={handleClose}
+  boundaryRect={contentWrapperRect} // Optional: for horizontal clamping
 >
   {children}
 </FloatingMenu>
@@ -146,6 +222,59 @@ acquireScrollLock();
 releaseScrollLock();
 
 // Multiple overlays = multiple locks (reference counted)
+```
+
+---
+
+#### **FloatingToolbar (Example Application)**
+
+**Location:** `packages/ui/src/components/ui-primitives/FloatingToolbar.tsx`
+
+**Responsibility:** Selection-based formatting toolbar
+
+**What it does:**
+
+- Calculates selection anchor points (top, left, bottom)
+- Shows/hides based on selection state
+- Provides formatting buttons (bold, italic, etc.)
+- Manages nested UI state (color picker, link input)
+
+**What it does NOT do:**
+
+- ❌ Decide final position (FloatingMenu does this)
+- ❌ Hardcode dimensions (FloatingMenu measures)
+- ❌ Handle viewport clamping (FloatingMenu does this)
+- ❌ Handle flip logic (FloatingMenu does this)
+
+**Example Usage:**
+
+```typescript
+// In component: Calculate anchor ONLY
+const left = (start.left + end.left) / 2;
+const top = start.top;
+const bottom = end.bottom;
+
+// Get boundary for clamping
+const boundaryRect = editor.view.dom
+  .closest('.content-wrapper')
+  ?.getBoundingClientRect();
+
+// FloatingMenu handles all layout policy
+<FloatingMenu
+  isOpen={isVisible}
+  position={{ top, left, bottom }}
+  lockScroll={true}
+  dismissOnEscape={false}
+  boundaryRect={boundaryRect}
+>
+  <div>{/* Toolbar content */}</div>
+</FloatingMenu>
+```
+
+**Key Pattern:**
+
+```
+Selection coords → Anchor calculation → FloatingMenu (policy) → Final position
 ```
 
 ---
@@ -235,20 +364,25 @@ releaseScrollLock();
 
 ### Clear Ownership Table
 
-| Concern                     | Owner             | Location      |
-| --------------------------- | ----------------- | ------------- |
-| **Portal rendering**        | FloatingContainer | Foundation    |
-| **Fixed positioning**       | FloatingContainer | Foundation    |
-| **Z-index**                 | FloatingContainer | Foundation    |
-| **Click-outside detection** | FloatingContainer | Foundation    |
-| **ESC dismissal**           | FloatingMenu      | Foundation    |
-| **Scroll locking**          | FloatingMenu      | Foundation    |
-| **Dropdown styling**        | DropdownContainer | UI Primitives |
-| **Item styling**            | DropdownItem      | UI Primitives |
-| **Arrow key navigation**    | Plugin (editor)   | Application   |
-| **Enter/Tab execution**     | Plugin (editor)   | Application   |
-| **Command filtering**       | Component         | Application   |
-| **State management**        | Component         | Application   |
+| Concern                         | Owner             | Location      |
+| ------------------------------- | ----------------- | ------------- |
+| **Portal rendering**            | FloatingContainer | Foundation    |
+| **Fixed positioning**           | FloatingContainer | Foundation    |
+| **Z-index**                     | FloatingContainer | Foundation    |
+| **Click-outside detection**     | FloatingContainer | Foundation    |
+| **ESC dismissal**               | FloatingMenu      | Foundation    |
+| **Scroll locking**              | FloatingMenu      | Foundation    |
+| **Vertical flip** (above/below) | FloatingMenu      | Foundation    |
+| **Horizontal clamping**         | FloatingMenu      | Foundation    |
+| **Viewport clamping**           | FloatingMenu      | Foundation    |
+| **Width/height measurement**    | FloatingMenu      | Foundation    |
+| **Anchor calculation**          | Component         | Application   |
+| **Dropdown styling**            | DropdownContainer | UI Primitives |
+| **Item styling**                | DropdownItem      | UI Primitives |
+| **Arrow key navigation**        | Plugin (editor)   | Application   |
+| **Enter/Tab execution**         | Plugin (editor)   | Application   |
+| **Command filtering**           | Component         | Application   |
+| **State management**            | Component         | Application   |
 
 ---
 
@@ -493,7 +627,7 @@ view() {
 
 - Dropdowns: ✅ Yes (via `DropdownContainer` which enables by default)
 - Tooltips: ❌ No
-- Floating toolbar: ❌ No (doesn't trap focus)
+- Floating toolbar: ✅ Yes (prevents accidental scrolling during formatting)
 
 **Architecture:**
 
@@ -506,6 +640,9 @@ view() {
 ```typescript
 // DropdownContainer enables scroll locking by default
 <DropdownContainer {...props} />
+
+// FloatingMenu with manual scroll lock
+<FloatingMenu lockScroll={true} {...props} />
 ```
 
 **Manual Usage:**
@@ -520,6 +657,78 @@ useEffect(() => {
   }
 }, [isOpen]);
 ```
+
+---
+
+### Boundary Clamping (Toolbar-Specific)
+
+**Purpose:** Prevent toolbars from overflowing into sidebar or beyond editor content area.
+
+**When to Use:**
+
+- Toolbars: ✅ Yes (feels "owned" by editor content)
+- Menus: ❌ No (intentionally unbounded, can overflow)
+
+**Architecture:**
+
+```typescript
+// In FloatingToolbar
+const boundaryRect = editor.view.dom
+  .closest('.content-wrapper')
+  ?.getBoundingClientRect();
+
+<FloatingMenu
+  boundaryRect={boundaryRect}  // ← Enables horizontal clamping
+  {...props}
+/>
+```
+
+**How It Works:**
+
+1. FloatingMenu measures toolbar width
+2. Calculates min/max horizontal positions within boundary
+3. Clamps toolbar center point to stay within bounds
+4. Accounts for `transform: translateX(-50%)` centering
+5. Adds 8px padding from boundary edges
+
+**Visual Behavior:**
+
+```
+┌─────────────────────────────────────┐
+│ Sidebar │ Content Area (720px)      │
+├─────────┼───────────────────────────┤
+│         │ ┌─────────────────┐       │
+│         │ │ Text selection  │       │
+│         │ └─────────────────┘       │
+│         │     ▲                      │
+│         │ ┌───┴────────┐            │
+│         │ │  Toolbar   │ ← Clamped  │
+│         │ └────────────┘            │
+└─────────┴───────────────────────────┘
+
+// Near left edge:
+│         │ ┌──────┐                  │
+│         │ │ Sel. │                  │
+│         │ └──────┘                  │
+│         │ ▲                         │
+│         │ │ ┌────────────┐         │
+│         │ └─┤  Toolbar   │         │
+│         │   └────────────┘         │
+//           ^ Clamped to not overlap sidebar
+```
+
+**Boundary Element:**
+
+- Target: `.content-wrapper` (720px or 100% in full-width mode)
+- Why: Represents the visual editor content area
+- Alternatives considered:
+  - `.editor-shell` ❌ Too narrow (excludes title)
+  - `.scroll-wrapper` ❌ Too wide (includes scrollbar)
+
+**UX Rule (Document This):**
+
+> **Toolbars** feel attached to content → bounded  
+> **Menus** feel transient → unbounded
 
 ---
 
@@ -830,8 +1039,42 @@ const MyMenu = () => {
 
 ## Change Log
 
-**2026-01-20** - Initial unified architecture documentation
+**2026-01-20 (Updated)** - Complete floating UI architecture with toolbar integration
 
-- SlashCommandMenu migrated to shared primitives
-- AtMentionMenu ESC handlers cleaned up
-- Comprehensive testing suite established
+**Phase 1: Foundation**
+
+- Created FloatingContainer primitive (portal, positioning, click-outside)
+- Created FloatingMenu coordination layer (scroll lock, ESC dismissal)
+- Created scrollLock.ts utility (reference-counted)
+- Established architectural principles (signal, don't decide)
+
+**Phase 2: Menu Migration**
+
+- Migrated SlashCommandMenu to shared primitives (-210 lines)
+- Cleaned up duplicate ESC handlers in AtMentionMenu
+- Introduced `userClosed` flag pattern
+- Added DropdownSeparator between command groups
+
+**Phase 3: Toolbar Integration**
+
+- Migrated FloatingToolbar to FloatingMenu
+- Added boundary clamping (prevents sidebar overflow)
+- Moved all layout policy from toolbar to FloatingMenu
+- Implemented vertical flip logic (open above/below)
+- Dynamic dimension measurement (no hardcoded 400px/48px)
+- Enabled scroll locking for toolbar
+
+**Phase 4: Testing & Documentation**
+
+- 73 automated tests passing
+- Comprehensive manual testing checklist
+- Complete architecture documentation
+- Before/after migration examples
+
+**Key Learnings:**
+
+- Anchor vs Layout Policy separation is critical
+- Components provide intent, FloatingMenu applies policy
+- Toolbars bounded, menus unbounded (UX principle)
+- Measured dimensions, never hardcoded
+- Single source of truth for all positioning logic
