@@ -7,13 +7,14 @@
  * Responsibilities:
  * - Manage scroll locking (using reference-counted utility)
  * - Pass through positioning to FloatingContainer
- * - Handle interaction signals (outside clicks)
+ * - Handle interaction signals (outside clicks, ESC key)
  * - Provide consistent behavior across all floating menus
  *
  * Does NOT handle:
  * - Menu content (that's SlashCommandMenu, etc)
  * - Position calculation (that's done by menu components)
  * - Portal rendering (that's FloatingContainer)
+ * - Dismissal decisions (parent decides via onInteractOutside)
  */
 
 import { ReactNode, useEffect } from 'react';
@@ -26,7 +27,8 @@ export interface FloatingMenuProps {
   children: ReactNode;
   className?: string;
   lockScroll?: boolean;
-  onInteractOutside?: (event: MouseEvent) => void;
+  dismissOnEscape?: boolean;
+  onInteractOutside?: (event: MouseEvent | KeyboardEvent) => void;
 }
 
 export const FloatingMenu = ({
@@ -35,6 +37,7 @@ export const FloatingMenu = ({
   children,
   className,
   lockScroll = false,
+  dismissOnEscape = false,
   onInteractOutside,
 }: FloatingMenuProps) => {
   // Manage scroll lock lifecycle
@@ -46,6 +49,23 @@ export const FloatingMenu = ({
       releaseScrollLock();
     };
   }, [isOpen, lockScroll]);
+
+  // Handle ESC key dismissal
+  useEffect(() => {
+    if (!isOpen || !dismissOnEscape || !onInteractOutside) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onInteractOutside(e); // Signal, parent decides
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, dismissOnEscape, onInteractOutside]);
 
   return (
     <FloatingContainer

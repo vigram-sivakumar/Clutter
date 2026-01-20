@@ -5,9 +5,17 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
-import { AutocompleteDropdown, DropdownItem, DropdownHeader, DropdownSeparator } from '@clutter/ui';
+import {
+  AutocompleteDropdown,
+  DropdownItem,
+  DropdownHeader,
+  DropdownSeparator,
+} from '@clutter/ui';
 import { At, CalendarBlank, Note, Folder } from '@clutter/ui';
-import { filterDateSuggestions, type DateSuggestion } from '../utils/dateParser';
+import {
+  filterDateSuggestions,
+  type DateSuggestion,
+} from '../utils/dateParser';
 import { searchEntities, type EntitySuggestion } from '../utils/entitySearch';
 import { useEditorContext } from '../context/EditorContext';
 
@@ -16,7 +24,7 @@ interface AtMentionMenuProps {
   onNavigate?: (type: 'note' | 'folder', id: string) => void;
 }
 
-type MenuItem = 
+type MenuItem =
   | { type: 'date'; suggestion: DateSuggestion }
   | { type: 'createDailyNote'; date: DateSuggestion }
   | { type: 'entity'; suggestion: EntitySuggestion }
@@ -25,7 +33,11 @@ type MenuItem =
 
 export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [position, setPosition] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
+  const [position, setPosition] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+  } | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1); // -1 = no selection
   const [query, setQuery] = useState('');
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -56,7 +68,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
   // Build complete menu items list
   const menuItems = useMemo((): MenuItem[] => {
     const items: MenuItem[] = [];
-    
+
     // Check if daily note exists for the date suggestion
     let existingDailyNote = null;
     if (dateSuggestions.length > 0) {
@@ -76,15 +88,15 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     if (dateSuggestions.length > 0) {
       if (existingDailyNote) {
         // Show existing daily note
-        items.push({ 
-          type: 'entity', 
+        items.push({
+          type: 'entity',
           suggestion: {
             type: 'note',
             id: existingDailyNote.id,
             title: existingDailyNote.title,
             emoji: existingDailyNote.emoji,
             isDailyNote: true,
-          }
+          },
         });
       } else {
         // Show create option
@@ -93,14 +105,15 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     }
 
     // 3. LINK TO section - regular notes and folders (excluding daily notes)
-    const regularMatches = entityResults.matches.filter(s => !s.isDailyNote);
-    const hasLinkSection = regularMatches.length > 0 || 
-                          entityResults.showCreateNote || 
-                          entityResults.showCreateFolder;
+    const regularMatches = entityResults.matches.filter((s) => !s.isDailyNote);
+    const hasLinkSection =
+      regularMatches.length > 0 ||
+      entityResults.showCreateNote ||
+      entityResults.showCreateFolder;
 
     if (hasLinkSection) {
       // Entity matches (excluding daily notes - they're in their own section)
-      regularMatches.forEach(suggestion => {
+      regularMatches.forEach((suggestion) => {
         items.push({ type: 'entity', suggestion });
       });
 
@@ -121,119 +134,140 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       const storage = (editor.storage as any).atMention;
       if (storage) {
         storage.active = false;
+        storage.userClosed = true; // Prevent auto-reopening
         editor.view.dispatch(editor.view.state.tr);
       }
     }
   }, [editor]);
 
-  const handleItemClick = useCallback((item: MenuItem) => {
-    if (!editor) return;
+  const handleItemClick = useCallback(
+    (item: MenuItem) => {
+      if (!editor) return;
 
-    const storage = (editor.storage as any).atMention;
-    if (!storage || storage.startPos === null) return;
+      const storage = (editor.storage as any).atMention;
+      if (!storage || storage.startPos === null) return;
 
-    const { from } = editor.state.selection;
+      const { from } = editor.state.selection;
 
-    switch (item.type) {
-      case 'date': {
-        // Insert date mention (keeps @)
-        editor.chain()
-          .focus()
-          .deleteRange({ from: storage.startPos, to: from })
-          .insertDateMention({ date: item.suggestion.date, label: item.suggestion.label })
-          .insertContent(' ')
-          .run();
-        break;
-      }
+      switch (item.type) {
+        case 'date': {
+          // Insert date mention (keeps @)
+          editor
+            .chain()
+            .focus()
+            .deleteRange({ from: storage.startPos, to: from })
+            .insertDateMention({
+              date: item.suggestion.date,
+              label: item.suggestion.label,
+            })
+            .insertContent(' ')
+            .run();
+          break;
+        }
 
-      case 'createDailyNote': {
-        // Parse date from suggestion
-        const dateStr = item.date.date; // ISO format YYYY-MM-DD
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const targetDate = new Date(year, month - 1, day);
+        case 'createDailyNote': {
+          // Parse date from suggestion
+          const dateStr = item.date.date; // ISO format YYYY-MM-DD
+          const [year, month, day] = dateStr.split('-').map(Number);
+          const targetDate = new Date(year, month - 1, day);
 
-        // Check if daily note already exists
-        const existingNote = onFindDailyNote(targetDate);
-        const dailyNote = existingNote || onCreateDailyNote(targetDate, false); // Don't navigate
+          // Check if daily note already exists
+          const existingNote = onFindDailyNote(targetDate);
+          const dailyNote =
+            existingNote || onCreateDailyNote(targetDate, false); // Don't navigate
 
-        // Insert link to daily note (NO @ - NodeView will render icon)
-        editor.chain()
-          .focus()
-          .deleteRange({ from: storage.startPos, to: from })
-          .insertNoteLink({
-            linkType: 'note',
-            targetId: dailyNote.id,
-            label: dailyNote.title, // Just title, no emoji/icon
-            emoji: dailyNote.emoji, // Store emoji separately
-          })
-          .insertContent(' ')
-          .run();
-
-        // Don't navigate (per user requirement)
-        break;
-      }
-
-      case 'entity': {
-        // Insert link to existing entity (NO @ - NodeView will render icon)
-        const { suggestion } = item;
-
-        editor.chain()
-          .focus()
-          .deleteRange({ from: storage.startPos, to: from })
-          .insertNoteLink({
-            linkType: suggestion.type,
-            targetId: suggestion.id,
-            label: suggestion.title, // Just title, no emoji/icon
-            emoji: suggestion.emoji, // Store emoji separately
-          })
-          .insertContent(' ')
-          .run();
-        break;
-      }
-
-      case 'createNote': {
-        // Create new note and link to it (NO @ - NodeView will render icon)
-        const newNote = onCreateNote({ title: item.query }, false); // Don't navigate
-
-        editor.chain()
-          .focus()
-          .deleteRange({ from: storage.startPos, to: from })
-          .insertNoteLink({
-            linkType: 'note',
-            targetId: newNote.id,
-            label: newNote.title, // Just title, no icon
-            emoji: null,
-          })
-          .insertContent(' ')
-          .run();
-
-        // Don't navigate (per user requirement)
-        break;
-      }
-
-      case 'createFolder': {
-        // Create new folder and link to it (NO @ - NodeView will render icon)
-        const newFolderId = onCreateFolder(item.query);
-        if (newFolderId) {
-          editor.chain()
+          // Insert link to daily note (NO @ - NodeView will render icon)
+          editor
+            .chain()
             .focus()
             .deleteRange({ from: storage.startPos, to: from })
             .insertNoteLink({
-              linkType: 'folder',
-              targetId: newFolderId,
-              label: item.query, // Just title, no icon
+              linkType: 'note',
+              targetId: dailyNote.id,
+              label: dailyNote.title, // Just title, no emoji/icon
+              emoji: dailyNote.emoji, // Store emoji separately
+            })
+            .insertContent(' ')
+            .run();
+
+          // Don't navigate (per user requirement)
+          break;
+        }
+
+        case 'entity': {
+          // Insert link to existing entity (NO @ - NodeView will render icon)
+          const { suggestion } = item;
+
+          editor
+            .chain()
+            .focus()
+            .deleteRange({ from: storage.startPos, to: from })
+            .insertNoteLink({
+              linkType: suggestion.type,
+              targetId: suggestion.id,
+              label: suggestion.title, // Just title, no emoji/icon
+              emoji: suggestion.emoji, // Store emoji separately
+            })
+            .insertContent(' ')
+            .run();
+          break;
+        }
+
+        case 'createNote': {
+          // Create new note and link to it (NO @ - NodeView will render icon)
+          const newNote = onCreateNote({ title: item.query }, false); // Don't navigate
+
+          editor
+            .chain()
+            .focus()
+            .deleteRange({ from: storage.startPos, to: from })
+            .insertNoteLink({
+              linkType: 'note',
+              targetId: newNote.id,
+              label: newNote.title, // Just title, no icon
               emoji: null,
             })
             .insertContent(' ')
             .run();
-        }
-        // Don't navigate (per user requirement)
-        break;
-      }
-    }
 
-    handleClose();
-  }, [editor, handleClose, onCreateNote, onCreateFolder, onFindDailyNote, onCreateDailyNote, onNavigate]);
+          // Don't navigate (per user requirement)
+          break;
+        }
+
+        case 'createFolder': {
+          // Create new folder and link to it (NO @ - NodeView will render icon)
+          const newFolderId = onCreateFolder(item.query);
+          if (newFolderId) {
+            editor
+              .chain()
+              .focus()
+              .deleteRange({ from: storage.startPos, to: from })
+              .insertNoteLink({
+                linkType: 'folder',
+                targetId: newFolderId,
+                label: item.query, // Just title, no icon
+                emoji: null,
+              })
+              .insertContent(' ')
+              .run();
+          }
+          // Don't navigate (per user requirement)
+          break;
+        }
+      }
+
+      handleClose();
+    },
+    [
+      editor,
+      handleClose,
+      onCreateNote,
+      onCreateFolder,
+      onFindDailyNote,
+      onCreateDailyNote,
+      onNavigate,
+    ]
+  );
 
   // Keep refs in sync with latest values
   useEffect(() => {
@@ -246,12 +280,13 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
   useEffect(() => {
     if (!editor) return;
 
-    let cachedPosition: { top?: number; bottom?: number; left: number } | null = null;
+    let cachedPosition: { top?: number; bottom?: number; left: number } | null =
+      null;
     let cachedStartPos: number | null = null;
 
     const calculatePosition = (startPos: number) => {
       const coords = editor.view.coordsAtPos(startPos);
-      
+
       const menuWidth = 220;
       const menuMaxHeight = 300;
       const gap = 4;
@@ -262,12 +297,15 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       const itemHeight = 32; // Each dropdown item (28px + gaps)
       const padding = 8; // Container padding
       const separatorHeight = 8; // Separators between sections
-      
+
       // More accurate height: count headers, items, separators, padding
       const sectionCount = itemCount > 0 ? (itemCount <= 2 ? 2 : 3) : 1; // DATE, DAILY NOTE, maybe LINK TO
       const estimatedMenuHeight = Math.min(
-        menuMaxHeight, 
-        (itemCount * itemHeight) + (headerHeight * sectionCount) + (padding * 2) + (separatorHeight * (sectionCount - 1))
+        menuMaxHeight,
+        itemCount * itemHeight +
+          headerHeight * sectionCount +
+          padding * 2 +
+          separatorHeight * (sectionCount - 1)
       );
 
       // Viewport boundaries
@@ -277,7 +315,8 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       // Determine if we should show above or below
       const spaceBelow = viewportHeight - coords.bottom;
       const spaceAbove = coords.top;
-      const showAbove = spaceBelow < estimatedMenuHeight + gap + 8 && spaceAbove > spaceBelow;
+      const showAbove =
+        spaceBelow < estimatedMenuHeight + gap + 8 && spaceAbove > spaceBelow;
 
       let left = coords.left;
 
@@ -314,11 +353,15 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       // Handle arrow navigation
       if (storage.navigateDown) {
         storage.navigateDown = false;
-        setSelectedIndex(prev => {
-          const newIndex = prev === -1 ? 0 : Math.min(prev + 1, menuItems.length - 1);
+        setSelectedIndex((prev) => {
+          const newIndex =
+            prev === -1 ? 0 : Math.min(prev + 1, menuItems.length - 1);
           // Scroll into view on next tick
           setTimeout(() => {
-            itemRefs.current[newIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            itemRefs.current[newIndex]?.scrollIntoView({
+              block: 'nearest',
+              behavior: 'smooth',
+            });
           }, 0);
           return newIndex;
         });
@@ -327,11 +370,14 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
 
       if (storage.navigateUp) {
         storage.navigateUp = false;
-        setSelectedIndex(prev => {
+        setSelectedIndex((prev) => {
           const newIndex = prev === -1 ? 0 : Math.max(prev - 1, 0);
           // Scroll into view on next tick
           setTimeout(() => {
-            itemRefs.current[newIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            itemRefs.current[newIndex]?.scrollIntoView({
+              block: 'nearest',
+              behavior: 'smooth',
+            });
           }, 0);
           return newIndex;
         });
@@ -352,7 +398,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       if (isNowOpen && currentStartPos !== null) {
         const startPosChanged = cachedStartPos !== currentStartPos;
         const queryChanged = currentQuery !== (storage as any).lastQuery;
-        
+
         if (!wasOpen || startPosChanged || queryChanged) {
           // Menu just opened OR moved to different @ position OR query changed (items may have changed)
           // Use RAF to batch position updates for smooth transitions
@@ -362,7 +408,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
             (storage as any).lastQuery = currentQuery;
             setPosition(cachedPosition);
           });
-          
+
           // Reset selection to no item when menu opens
           if (!wasOpen || startPosChanged) {
             setSelectedIndex(-1);
@@ -380,7 +426,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
 
     editor.on('transaction', updateMenu);
     updateMenu();
-    
+
     return () => {
       editor.off('transaction', updateMenu);
     };
@@ -402,10 +448,16 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        setSelectedIndex(prev => {
-          const newIndex = prev === -1 ? 0 : Math.min(prev + 1, menuItemsRef.current.length - 1);
+        setSelectedIndex((prev) => {
+          const newIndex =
+            prev === -1
+              ? 0
+              : Math.min(prev + 1, menuItemsRef.current.length - 1);
           setTimeout(() => {
-            itemRefs.current[newIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            itemRefs.current[newIndex]?.scrollIntoView({
+              block: 'nearest',
+              behavior: 'smooth',
+            });
           }, 0);
           return newIndex;
         });
@@ -416,10 +468,13 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        setSelectedIndex(prev => {
+        setSelectedIndex((prev) => {
           const newIndex = prev === -1 ? 0 : Math.max(prev - 1, 0);
           setTimeout(() => {
-            itemRefs.current[newIndex]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            itemRefs.current[newIndex]?.scrollIntoView({
+              block: 'nearest',
+              behavior: 'smooth',
+            });
           }, 0);
           return newIndex;
         });
@@ -430,7 +485,8 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        const indexToSelect = selectedIndexRef.current === -1 ? 0 : selectedIndexRef.current;
+        const indexToSelect =
+          selectedIndexRef.current === -1 ? 0 : selectedIndexRef.current;
         if (menuItemsRef.current[indexToSelect] && handleItemClickRef.current) {
           handleItemClickRef.current(menuItemsRef.current[indexToSelect]);
         }
@@ -442,6 +498,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         event.stopPropagation();
         event.stopImmediatePropagation();
         storage.active = false;
+        storage.userClosed = true; // Prevent auto-reopening
         editor.view.dispatch(editor.view.state.tr);
       }
     };
@@ -473,20 +530,28 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       }
 
       // Add DAILY NOTE header before first daily note item
-      if (!hasRenderedDailyNoteSection && (item.type === 'createDailyNote' || (item.type === 'entity' && item.suggestion.isDailyNote))) {
+      if (
+        !hasRenderedDailyNoteSection &&
+        (item.type === 'createDailyNote' ||
+          (item.type === 'entity' && item.suggestion.isDailyNote))
+      ) {
         hasRenderedDailyNoteSection = true;
         // Only add separator if we rendered date section before
         if (hasRenderedDateSection) {
           items.push(<DropdownSeparator key="separator-daily" />);
         }
-        items.push(<DropdownHeader key="daily-note-header" label="DAILY NOTE" />);
+        items.push(
+          <DropdownHeader key="daily-note-header" label="DAILY NOTE" />
+        );
       }
 
       // Add LINK TO header before first entity/create item (non-daily-note)
-      if (!inLinkSection && 
-          ((item.type === 'entity' && !item.suggestion.isDailyNote) || 
-           item.type === 'createNote' || 
-           item.type === 'createFolder')) {
+      if (
+        !inLinkSection &&
+        ((item.type === 'entity' && !item.suggestion.isDailyNote) ||
+          item.type === 'createNote' ||
+          item.type === 'createFolder')
+      ) {
         inLinkSection = true;
         // Only add separator if we rendered previous sections
         if (hasRenderedDateSection || hasRenderedDailyNoteSection) {
@@ -499,7 +564,10 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       switch (item.type) {
         case 'date':
           items.push(
-            <div key={`date-${index}`} ref={el => itemRefs.current[index] = el}>
+            <div
+              key={`date-${index}`}
+              ref={(el) => (itemRefs.current[index] = el)}
+            >
               <DropdownItem
                 icon={<At />}
                 label={item.suggestion.label}
@@ -513,7 +581,10 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
 
         case 'createDailyNote':
           items.push(
-            <div key={`create-daily-${index}`} ref={el => itemRefs.current[index] = el}>
+            <div
+              key={`create-daily-${index}`}
+              ref={(el) => (itemRefs.current[index] = el)}
+            >
               <DropdownItem
                 icon={<CalendarBlank />}
                 label={`Create "${query}"`}
@@ -527,14 +598,23 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         case 'entity': {
           const { suggestion } = item;
           // Use CalendarBlank for daily notes, Note for regular notes, Folder for folders
-          const icon = suggestion.isDailyNote ? <CalendarBlank /> :
-                       suggestion.type === 'folder' ? <Folder /> : 
-                       <Note />;
+          const icon = suggestion.isDailyNote ? (
+            <CalendarBlank />
+          ) : suggestion.type === 'folder' ? (
+            <Folder />
+          ) : (
+            <Note />
+          );
           const emoji = suggestion.emoji;
-          const displayLabel = emoji ? `${emoji} ${suggestion.title}` : suggestion.title;
+          const displayLabel = emoji
+            ? `${emoji} ${suggestion.title}`
+            : suggestion.title;
 
           items.push(
-            <div key={`entity-${index}`} ref={el => itemRefs.current[index] = el}>
+            <div
+              key={`entity-${index}`}
+              ref={(el) => (itemRefs.current[index] = el)}
+            >
               <DropdownItem
                 icon={!emoji ? icon : undefined}
                 label={displayLabel}
@@ -548,7 +628,10 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
 
         case 'createNote':
           items.push(
-            <div key={`create-note-${index}`} ref={el => itemRefs.current[index] = el}>
+            <div
+              key={`create-note-${index}`}
+              ref={(el) => (itemRefs.current[index] = el)}
+            >
               <DropdownItem
                 icon={<Note />}
                 label={`Create "${item.query}"`}
@@ -561,7 +644,10 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
 
         case 'createFolder':
           items.push(
-            <div key={`create-folder-${index}`} ref={el => itemRefs.current[index] = el}>
+            <div
+              key={`create-folder-${index}`}
+              ref={(el) => (itemRefs.current[index] = el)}
+            >
               <DropdownItem
                 icon={<Folder />}
                 label={`Create "${item.query}"`}
@@ -587,4 +673,3 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     </AutocompleteDropdown>
   );
 }
-

@@ -34,7 +34,7 @@ export interface FloatingContainerProps {
   position: FloatingPosition;
   children: ReactNode;
   className?: string;
-  onInteractOutside?: (event: MouseEvent) => void;
+  onInteractOutside?: (event: MouseEvent | KeyboardEvent) => void;
   lockScroll?: boolean; // Reserved for Step 4
 }
 

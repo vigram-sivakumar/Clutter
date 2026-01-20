@@ -1,6 +1,6 @@
 /**
  * AtMention Plugin - @ trigger for dates and note/folder linking
- * 
+ *
  * Shows dropdown with date options and link suggestions when typing @
  */
 
@@ -29,6 +29,7 @@ export const AtMention = Extension.create<AtMentionOptions>({
       shouldSelect: false, // Flag to trigger selection on Enter
       navigateDown: false, // Flag for arrow down
       navigateUp: false, // Flag for arrow up
+      userClosed: false, // Flag to prevent auto-reopening after user explicitly closed
     };
   },
 
@@ -39,7 +40,7 @@ export const AtMention = Extension.create<AtMentionOptions>({
     return [
       new Plugin({
         key: pluginKey,
-        
+
         view() {
           return {
             update(view) {
@@ -56,21 +57,30 @@ export const AtMention = Extension.create<AtMentionOptions>({
 
               const pos = selection.from;
               const $pos = view.state.doc.resolve(pos);
-              const textBefore = $pos.parent.textContent.slice(0, $pos.parentOffset);
-              
+              const textBefore = $pos.parent.textContent.slice(
+                0,
+                $pos.parentOffset
+              );
+
               // Match @ at the end of text (with optional query after it, including spaces)
               const match = textBefore.match(/@([\w\s]*)$/);
-              
+
               if (match) {
                 const query = match[1]; // Capture query (can include spaces)
                 const atPos = pos - query.length - 1; // Position of @
-                storage.active = true;
-                storage.startPos = atPos;
-                storage.query = query;
+
+                // Only activate if user hasn't explicitly closed the menu
+                if (!storage.userClosed) {
+                  storage.active = true;
+                  storage.startPos = atPos;
+                  storage.query = query;
+                }
               } else {
+                // Reset userClosed when @ is no longer in text (user deleted it or moved away)
                 storage.active = false;
                 storage.startPos = null;
                 storage.query = '';
+                storage.userClosed = false;
               }
             },
           };
@@ -87,11 +97,11 @@ export const AtMention = Extension.create<AtMentionOptions>({
             if (event.key === 'Enter') {
               event.preventDefault();
               event.stopPropagation();
-              
+
               // Trigger selection via storage flag
               storage.shouldSelect = true;
               view.dispatch(view.state.tr);
-              
+
               return true;
             }
 
@@ -100,6 +110,7 @@ export const AtMention = Extension.create<AtMentionOptions>({
               event.preventDefault();
               event.stopPropagation();
               storage.active = false;
+              storage.userClosed = true; // Prevent auto-reopening
               view.dispatch(view.state.tr);
               return true;
             }
@@ -128,4 +139,3 @@ export const AtMention = Extension.create<AtMentionOptions>({
     ];
   },
 });
-
