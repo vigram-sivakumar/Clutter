@@ -6,14 +6,16 @@
  *
  * Responsibilities:
  * - Manage scroll locking (using reference-counted utility)
- * - Pass through positioning to FloatingContainer
+ * - Handle ALL layout policy (flip, clamp, measure)
  * - Handle interaction signals (outside clicks, ESC key)
  * - Provide consistent behavior across all floating menus
  * - Constrain positioning within boundaries (optional, for toolbars)
+ * - Vertical flip (open above or below anchor)
+ * - Viewport clamping
  *
  * Does NOT handle:
  * - Menu content (that's SlashCommandMenu, etc)
- * - Position calculation (that's done by menu components)
+ * - Anchor point calculation (that's done by menu components)
  * - Portal rendering (that's FloatingContainer)
  * - Dismissal decisions (parent decides via onInteractOutside)
  */
@@ -48,13 +50,15 @@ export const FloatingMenu = ({
 }: FloatingMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuWidth, setMenuWidth] = useState<number | null>(null);
+  const [menuHeight, setMenuHeight] = useState<number | null>(null);
 
-  // Measure menu width for boundary clamping
+  // Measure menu dimensions for positioning logic
   useLayoutEffect(() => {
     if (!isOpen || !menuRef.current) return;
 
     const rect = menuRef.current.getBoundingClientRect();
     setMenuWidth(rect.width);
+    setMenuHeight(rect.height);
   }, [isOpen, children]); // Re-measure if content changes
 
   // Manage scroll lock lifecycle
@@ -84,9 +88,36 @@ export const FloatingMenu = ({
     };
   }, [isOpen, dismissOnEscape, onInteractOutside]);
 
-  // Clamp position horizontally if boundary is provided
-  let finalPosition = position;
-  if (boundaryRect && menuWidth && position.left !== undefined) {
+  // Calculate final position with all layout policy applied
+  const finalPosition = { ...position };
+
+  // Vertical flip logic: decide whether to open above or below anchor
+  if (
+    menuHeight !== null &&
+    position.top !== undefined &&
+    position.bottom !== undefined
+  ) {
+    const gap = 8; // Gap between menu and selection
+    const viewportPadding = 8; // Minimum distance from viewport edges
+
+    // Try opening above first (preferred for toolbars)
+    const topIfAbove = position.top - menuHeight - gap;
+    const fitsAbove = topIfAbove >= viewportPadding;
+
+    if (fitsAbove) {
+      // Open above selection
+      finalPosition.top = topIfAbove;
+    } else {
+      // Open below selection
+      finalPosition.top = position.bottom + gap;
+    }
+
+    // Remove bottom from final position (it was only for flip calculation)
+    delete finalPosition.bottom;
+  }
+
+  // Horizontal boundary clamping (optional, for toolbars)
+  if (boundaryRect && menuWidth && finalPosition.left !== undefined) {
     const halfWidth = menuWidth / 2;
     const padding = 8; // Minimum distance from boundary edges
 
@@ -95,12 +126,12 @@ export const FloatingMenu = ({
     const maxLeft = boundaryRect.right - halfWidth - padding;
 
     // Clamp the left position
-    const clampedLeft = Math.max(minLeft, Math.min(maxLeft, position.left));
+    const clampedLeft = Math.max(
+      minLeft,
+      Math.min(maxLeft, finalPosition.left)
+    );
 
-    finalPosition = {
-      ...position,
-      left: clampedLeft,
-    };
+    finalPosition.left = clampedLeft;
   }
 
   return (

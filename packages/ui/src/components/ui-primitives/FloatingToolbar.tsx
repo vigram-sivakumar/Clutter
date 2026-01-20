@@ -69,7 +69,7 @@ const ToolbarDivider = () => {
 export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
   const { colors, mode } = useTheme();
   const [isVisible, setIsVisible] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [position, setPosition] = useState({ top: 0, left: 0, bottom: 0 });
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [selectedColor, setSelectedColor] =
     useState<(typeof HIGHLIGHT_COLORS)[number]>('yellow'); // Shared for both text color and highlight
@@ -128,29 +128,15 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
       const start = view.coordsAtPos(from);
       const end = view.coordsAtPos(to);
 
-      // Calculate center position
-      let left = (start.left + end.left) / 2;
-
-      // Get toolbar width (approximate) and ensure it stays within viewport
-      const toolbarWidth = 400; // Approximate width of toolbar
-      const minLeft = toolbarWidth / 2 + 16; // 16px padding from edge
-      const maxLeft = window.innerWidth - toolbarWidth / 2 - 16;
-
-      // Clamp position to viewport bounds
-      left = Math.max(minLeft, Math.min(maxLeft, left));
-
-      // Calculate top position - ensure it stays within viewport
-      const toolbarHeight = 48; // Approximate height
-      let top = start.top - toolbarHeight - 8; // 8px gap above selection
-
-      // If toolbar would go off-screen at top, show below selection instead
-      if (top < 8) {
-        top = end.bottom + 8; // Show below selection with 8px gap
-      }
+      // Calculate selection anchor (pure intent, no layout policy)
+      const left = (start.left + end.left) / 2; // Horizontal center
+      const top = start.top; // Selection top edge
+      const bottom = end.bottom; // Selection bottom edge
 
       setPosition({
         top,
         left,
+        bottom, // Pass bottom for flip calculation in FloatingMenu
       });
       setIsVisible(true);
     };
@@ -205,6 +191,7 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
       isOpen={isVisible}
       position={{
         top: position.top,
+        bottom: position.bottom, // For flip calculation in FloatingMenu
         left: position.left,
         transform: 'translateX(-50%)',
       }}
