@@ -352,7 +352,7 @@ const EditorCoreInner = forwardRef<
           // Skip validation during hydration - expected behavior when loading content
           if (isHydratingRef.current) return;
 
-          // 🔍 DIAGNOSTIC: Catch invalid transactions
+          // 🔍 DIAGNOSTIC: Catch invalid transactions (should never fire after fixes)
           if (transaction.docChanged && !transaction.selectionSet) {
             console.error(
               '❌ INVALID TRANSACTION: docChanged without selectionSet',
@@ -360,7 +360,6 @@ const EditorCoreInner = forwardRef<
                 steps: transaction.steps.length,
                 docBefore: transaction.before.textContent.substring(0, 50),
                 docAfter: transaction.doc.textContent.substring(0, 50),
-                selectionType: transaction.selection?.constructor?.name,
               }
             );
           }

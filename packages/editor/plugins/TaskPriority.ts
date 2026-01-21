@@ -90,6 +90,9 @@ export const TaskPriority = Extension.create({
         priority: priorityLevel,
       });
 
+      // 🔒 CRITICAL: Preserve selection after document modification
+      tr.setSelection(state.selection);
+
       view.dispatch(tr);
       return true;
     };
