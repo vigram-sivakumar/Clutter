@@ -410,30 +410,6 @@ const EditorCoreInner = forwardRef<
       }
     }, [editor, onTagClick]);
 
-    // 🔍 DIAGNOSTIC: Enable Enter key debugging
-    useEffect(() => {
-      if (!editor || !import.meta.env.DEV) return;
-
-      let cleanup: (() => void) | null = null;
-
-      import('../diagnostics/EnterKeyDebugger').then(
-        ({ enableEnterKeyDiagnostics, disableEnterKeyDiagnostics }) => {
-          enableEnterKeyDiagnostics(editor);
-          console.log(
-            '🔍 Enter key diagnostics active - press Enter to see trace'
-          );
-          cleanup = disableEnterKeyDiagnostics;
-        }
-      );
-
-      // Cleanup on unmount or editor change
-      return () => {
-        if (cleanup) {
-          cleanup();
-        }
-      };
-    }, [editor]);
-
     // Helper: Focus editor end, creating new paragraph if needed
     const focusEditorEnd = useCallback(() => {
       if (!editor) return;

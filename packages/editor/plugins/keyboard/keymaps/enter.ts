@@ -303,8 +303,16 @@ export function handleEnter(editor: Editor): boolean {
       // Use centralized attribute update
       updateBlockAttrs(tr, $from.before(), cleanAttrs);
 
+      // ✅ FIX: Must set selection when doc changes
+      tr.setSelection(selection);
       dispatchUserEdit(view, tr);
       return true;
+    }
+
+    // 🐛 FIX: EMPTY BLOCK AT ROOT → INSERT BELOW (not above)
+    // For empty blocks at indent 0, user expects new block to appear below
+    if (indent === 0 && (atStart || atEnd)) {
+      return insertSiblingBelow(editor, indent);
     }
 
     // 5️⃣ EMPTY CALLOUT / BLOCKQUOTE → EXIT CONTAINER
@@ -341,6 +349,8 @@ export function handleEnter(editor: Editor): boolean {
         cleanAttrs
       );
 
+      // ✅ FIX: Must set selection when doc changes
+      tr.setSelection(selection);
       dispatchUserEdit(view, tr);
       return true;
     }

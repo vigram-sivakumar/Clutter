@@ -27,7 +27,7 @@ export const KeyboardShortcuts = Extension.create({
   name: 'keyboardShortcuts',
 
   // HIGH PRIORITY - must run BEFORE TabHandler (which has priority 100)
-  priority: 1000,
+  priority: 1001,
 
   addKeyboardShortcuts() {
     return {
