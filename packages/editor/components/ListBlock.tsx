@@ -619,6 +619,7 @@ export function ListBlock({
 
   return (
     <NodeViewWrapper
+      data-block-id={node.attrs.blockId}
       data-type="listBlock"
       data-list-type={listType}
       data-indent={blockIndent}

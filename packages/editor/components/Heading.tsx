@@ -85,6 +85,7 @@ export function Heading({ node, editor, getPos }: NodeViewProps) {
   return (
     <NodeViewWrapper
       as="div"
+      data-block-id={node.attrs.blockId}
       data-type="heading"
       data-heading-level={headingLevel}
       data-indent={blockIndent}

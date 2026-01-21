@@ -122,6 +122,7 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
   return (
     <NodeViewWrapper
       as="div"
+      data-block-id={node.attrs.blockId}
       data-type="callout"
       data-callout-type={type}
       data-indent={blockIndent}

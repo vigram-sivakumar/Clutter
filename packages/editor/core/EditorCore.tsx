@@ -89,6 +89,7 @@ import { CollapseExtension } from '../extensions/CollapseExtension';
 import { SlashCommandMenu } from '../components/SlashCommandMenu';
 import { AtMentionMenu } from '../components/AtMentionMenu';
 import { FloatingToolbar } from '@clutter/ui';
+import { EditorChromeLayer } from '../components/EditorChromeLayer';
 
 // Tokens
 import { placeholders } from '../tokens';
@@ -600,6 +601,7 @@ const EditorCoreInner = forwardRef<
       <div
         className={className}
         style={{
+          position: 'relative', // Allow absolute positioning of chrome layer
           minHeight: '100%',
           cursor: 'text',
           flex: 1,
@@ -611,6 +613,9 @@ const EditorCoreInner = forwardRef<
       >
         {/* Editor content */}
         <EditorContent editor={editor} />
+
+        {/* Editor chrome layer (interaction overlay) */}
+        <EditorChromeLayer editor={editor} />
 
         {/* UI Components */}
         <SlashCommandMenu editor={editor as any} />

@@ -78,6 +78,7 @@ export function Blockquote({ node, editor, getPos }: NodeViewProps) {
   return (
     <NodeViewWrapper
       as="div"
+      data-block-id={node.attrs.blockId}
       data-type="blockquote"
       data-indent={blockIndent}
       data-empty={isEmpty ? 'true' : undefined}

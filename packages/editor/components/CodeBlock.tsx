@@ -73,6 +73,7 @@ export function CodeBlock({
   return (
     <NodeViewWrapper
       as="pre"
+      data-block-id={node.attrs.blockId}
       data-type="codeBlock"
       data-language={language}
       data-indent={indent}

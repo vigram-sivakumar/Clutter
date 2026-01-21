@@ -21,6 +21,7 @@ import { BlockTagEditor } from './BlockTagEditor';
 import { BlockHandle } from './BlockHandle';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
 import { useBlockHidden } from '../hooks/useBlockHidden';
+import { USE_NEW_CHROME } from './EditorChromeLayer';
 
 export function ParagraphBlock({
   node,
@@ -113,6 +114,7 @@ export function ParagraphBlock({
   return (
     <NodeViewWrapper
       as="div"
+      data-block-id={blockId}
       data-type="paragraph"
       data-indent={blockIndent}
       data-empty={isEmpty ? 'true' : undefined}
@@ -143,7 +145,10 @@ export function ParagraphBlock({
       />
 
       {/* Block handle (⋮⋮) - shows on hover */}
-      <BlockHandle editor={editor} getPos={getPos} indent={indent} />
+      {/* Step 5: Disable old handle when new chrome is active */}
+      {!USE_NEW_CHROME && (
+        <BlockHandle editor={editor} getPos={getPos} indent={indent} />
+      )}
 
       <NodeViewContent
         as="div"
