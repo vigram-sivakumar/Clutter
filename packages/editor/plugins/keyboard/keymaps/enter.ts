@@ -330,10 +330,10 @@ function handleEnterImpl(editor: Editor): boolean {
     // 4️⃣ EMPTY BLOCK + INDENTED → OUTDENT (only)
     if (indent > 0) {
       const tr = state.tr;
-      const cleanAttrs = createCleanBlockAttrs(node, indent - 1);
 
-      // Use centralized attribute update
-      updateBlockAttrs(tr, $from.before(), cleanAttrs);
+      // 🔒 CRITICAL: Only pass changed attributes (indent), not full attrs with blockId
+      // updateBlockAttrs() rejects blockId changes to preserve block identity
+      updateBlockAttrs(tr, $from.before(), { indent: indent - 1 });
 
       // ✅ FIX: Map position after attribute change, use TextSelection.near() for safety
       const mappedPos = tr.mapping.map($from.pos);
@@ -375,7 +375,14 @@ function handleEnterImpl(editor: Editor): boolean {
     // This runs AFTER outdent, so requires a separate Enter press
     if (indent === 0 && nodeType !== 'paragraph') {
       const tr = state.tr;
-      const cleanAttrs = createCleanBlockAttrs(node, 0);
+
+      // 🔒 CRITICAL: Preserve existing blockId when converting node type
+      // createCleanBlockAttrs() generates NEW blockId (for new blocks only!)
+      // When converting existing block, must preserve identity
+      const cleanAttrs = {
+        blockId: node.attrs.blockId, // Preserve existing ID
+        indent: 0,
+      };
 
       // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for node type conversion
       // updateBlockAttrs() doesn't support changing node types (paragraph → heading, etc.)
