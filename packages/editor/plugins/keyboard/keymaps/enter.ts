@@ -18,6 +18,7 @@ import { Editor } from '@tiptap/core';
 import { TextSelection } from 'prosemirror-state';
 import { createBlockNode } from '../../../domain/createBlock';
 import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
+import { shouldDeferToUI } from '../utils';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRUCTURAL INVARIANTS (DO NOT VIOLATE)
@@ -60,6 +61,22 @@ import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
 // HELPERS
 // ═══════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════
+// 🔒 PROSEMIRROR POSITION MAPPING GOLDEN RULE
+// ═══════════════════════════════════════════════════
+//
+// When to MAP positions:
+//   ✅ DELETE → compute pos → MAP → use mapped pos
+//   ✅ Any mutation (setNodeMarkup, replaceWith) → MAP
+//
+// When NOT to MAP:
+//   ❌ INSERT at pos → use pos directly (pos + 1 for cursor)
+//
+// Rule: Mapping is ONLY for positions that existed BEFORE a mutation
+// Never map the insertion point itself after tr.insert()
+//
+// ═══════════════════════════════════════════════════
+
 /**
  * Dispatch a transaction from keyboard handler
  * User edits are automatically tracked via TipTap's addToHistory mechanism
@@ -72,8 +89,10 @@ function dispatchUserEdit(view: any, tr: any): void {
  * Create clean block attributes for new blocks
  * Whitelists only essential attributes, preventing attr leakage (e.g., collapsed)
  *
- * ⚠️ RULE: Do NOT assign blockId here
- * blockId is assigned ONLY when cursor enters the block (lazy assignment)
+ * 🔒 BLOCK IDENTITY LAW:
+ * blockId MUST be assigned at creation time (eager assignment)
+ * Never rely on lazy assignment for structural blocks
+ * BlockIdGenerator exists only as a safety net, not as the primary mechanism
  *
  * @param node - Source node to copy attrs from
  * @param indent - Indent level for the new block
@@ -81,7 +100,6 @@ function dispatchUserEdit(view: any, tr: any): void {
  */
 function createCleanBlockAttrs(node: any, indent: number): Record<string, any> {
   const attrs: Record<string, any> = {
-    // 🔒 BLOCK IDENTITY LAW: Always assign blockId eagerly (never rely on lazy assignment)
     blockId: crypto.randomUUID(),
     indent,
   };
@@ -157,9 +175,11 @@ function insertSiblingAbove(editor: Editor): boolean {
   );
   tr.insert(insertPos, newNode);
 
-  // Calculate cursor position inside the new block
+  // 🔒 GOLDEN RULE: After tr.insert(), use position directly (don't map)
+  // insertPos is the insertion point - mapping it would shift it incorrectly
+  // Use TextSelection.near() for safety - guarantees valid text position
   const cursorPos = insertPos + 1;
-  tr.setSelection(TextSelection.create(tr.doc, cursorPos));
+  tr.setSelection(TextSelection.near(tr.doc.resolve(cursorPos), 1));
 
   dispatchUserEdit(view, tr);
   return true;
@@ -182,9 +202,11 @@ function insertSiblingBelow(editor: Editor, indent: number): boolean {
   const newNode = node.type.create(createCleanBlockAttrs(node, indent));
   tr.insert(insertPos, newNode);
 
-  // Calculate cursor position inside the new block
+  // 🔒 GOLDEN RULE: After tr.insert(), use position directly (don't map)
+  // insertPos is the insertion point - mapping it would shift it incorrectly
+  // Use TextSelection.near() for safety - guarantees valid text position
   const cursorPos = insertPos + 1;
-  tr.setSelection(TextSelection.create(tr.doc, cursorPos));
+  tr.setSelection(TextSelection.near(tr.doc.resolve(cursorPos), 1));
 
   dispatchUserEdit(view, tr);
   return true;
@@ -202,8 +224,10 @@ function insertFirstChild(editor: Editor, parentIndent: number): boolean {
   const node = $from.parent;
   const tr = state.tr;
 
-  // Explicit: insert after parent node, before subtree
-  const insertPos = $from.before() + node.nodeSize;
+  // 🔒 STRUCTURALLY SAFE: Insert right after parent, before any children
+  // Use nodeAt() to get actual node size from document, not $from.parent
+  const blockPos = $from.before();
+  const insertPos = blockPos + state.doc.nodeAt(blockPos)!.nodeSize;
 
   // Check if parent is a toggle
   const isToggle =
@@ -226,7 +250,10 @@ function insertFirstChild(editor: Editor, parentIndent: number): boolean {
     );
   }
 
-  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+  // 🔒 GOLDEN RULE: After tr.insert(), use position directly (don't map)
+  // insertPos is the insertion point - mapping it would shift it incorrectly
+  // Use TextSelection.near() for safety - guarantees valid text position
+  tr.setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1), 1));
   dispatchUserEdit(view, tr);
   return true;
 }
@@ -236,6 +263,10 @@ function insertFirstChild(editor: Editor, parentIndent: number): boolean {
 // ═══════════════════════════════════════════════════
 
 export function handleEnter(editor: Editor): boolean {
+  // 🔒 GOLDEN RULE: UI intent ALWAYS wins over structural intent
+  // Let UI handlers (menus, dropdowns, autocomplete) take precedence
+  if (shouldDeferToUI(editor)) return false;
+
   const { state, view } = editor;
   const { selection } = state;
 
@@ -330,7 +361,10 @@ export function handleEnter(editor: Editor): boolean {
         })
       );
 
-      tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+      // 🔒 GOLDEN RULE: After replaceWith(), map the position
+      // replaceWith mutates the document, so old positions must be mapped
+      const mappedPos = tr.mapping.map(pos);
+      tr.setSelection(TextSelection.create(tr.doc, mappedPos + 1));
       dispatchUserEdit(view, tr);
       return true;
     }
@@ -357,38 +391,72 @@ export function handleEnter(editor: Editor): boolean {
   }
 
   // ─────────────────────────────────────────────
-  // 7️⃣ TOGGLE MIDDLE → PARAGRAPH CHILD WITH TEXT MOVE
+  // 🔒 COMPUTE POSITION ONCE (before any mutations)
   // ─────────────────────────────────────────────
   const isListBlock = nodeType === 'listBlock';
   const isToggle = isListBlock && node.attrs.listType === 'toggle';
   const inMiddle = !atStart && !atEnd;
 
+  // ═══════════════════════════════════════════════════════════════════
+  // MIDDLE SPLIT (AUTHORITATIVE - runs BEFORE START/END helpers)
+  // ═══════════════════════════════════════════════════════════════════
+  // 🔒 ARCHITECTURAL RULE: Middle-split is single owner
+  // START/END helpers only run if cursor is definitively at edges
+  // This prevents offset drift after delete from triggering wrong helpers
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ─────────────────────────────────────────────
+  // 7️⃣ TOGGLE MIDDLE → PARAGRAPH CHILD WITH TEXT MOVE
+  // ─────────────────────────────────────────────
+  // 🔒 ARCHITECTURAL BOUNDARY: Toggle owns middle-split completely
+  // This handler is the SINGLE AUTHORITY for toggle middle splits
+  // Generic middle-split logic (below) never applies to toggles
+  // DO NOT let toggle logic drift into generic logic
   if (isToggle && inMiddle) {
     const tr = state.tr;
 
     // Text after cursor
     const after = node.content.cut($from.parentOffset);
 
+    // 🎯 UX RULE: Insert position depends on collapsed state (same as generic split)
+    // - Collapsed with children → insert after subtree (sibling)
+    // - Expanded or no children → insert as first child
+    const isCollapsed = node.attrs.collapsed === true;
+    const blockPos = $from.before();
+
+    // 🔒 POSITION INVARIANT: Compute position BEFORE mutation
+    // Then map it after delete to maintain validity
+    const insertPos =
+      isCollapsed && hasChildren
+        ? getSubtreeEndPosition(state, blockPos, indent)
+        : $from.after();
+
     // Remove text after cursor from toggle
     const from = $from.before() + 1 + $from.parentOffset;
     const to = $from.after() - 1;
     tr.delete(from, to);
 
+    // Map position to new document after delete
+    const mappedInsertPos = tr.mapping.map(insertPos);
+
+    // Compute correct indent based on position semantics
+    const newIndent = isCollapsed && hasChildren ? indent : indent + 1;
+
     // Insert paragraph child
     // ⚠️ No blockId assigned - will be assigned when cursor enters
-    const insertPos = $from.after();
     tr.insert(
-      insertPos,
+      mappedInsertPos,
       state.schema.nodes.paragraph!.create(
         {
-          indent: indent + 1,
+          indent: newIndent,
         },
         after
       )
     );
 
-    // Cursor into paragraph
-    tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+    // Cursor into paragraph (use mapped position)
+    // Use TextSelection.near() for safety - guarantees valid text position
+    tr.setSelection(TextSelection.near(tr.doc.resolve(mappedInsertPos + 1), 1));
 
     // ✅ FIX: Use dispatchUserEdit for consistency
     dispatchUserEdit(view, tr);
@@ -396,14 +464,73 @@ export function handleEnter(editor: Editor): boolean {
   }
 
   // ─────────────────────────────────────────────
-  // 8️⃣ START OF BLOCK → insert sibling ABOVE
+  // 8️⃣ GENERIC MIDDLE SPLIT (non-toggle blocks)
+  // ─────────────────────────────────────────────
+  if (inMiddle) {
+    const tr = state.tr;
+
+    // Text after cursor
+    const after = node.content.cut($from.parentOffset);
+
+    // 🎯 UX RULE: Insert position depends on collapsed state
+    // - Collapsed with children → insert after subtree (sibling, visible)
+    // - Expanded with children → insert as first child (above existing children)
+    // - No children → insert right after parent (same in both cases)
+    const isCollapsed = node.attrs.collapsed === true;
+    const blockPos = $from.before();
+
+    // 🔒 POSITION INVARIANT: Compute position BEFORE mutation
+    // Then map it after delete to maintain validity
+    let insertPos: number;
+    if (isCollapsed && hasChildren) {
+      // Collapsed → split becomes sibling (user can't see children)
+      insertPos = getSubtreeEndPosition(state, blockPos, indent);
+    } else {
+      // Expanded or no children → split goes right after parent
+      insertPos = $from.after();
+    }
+
+    // Remove text after cursor from current node
+    const from = $from.before() + 1 + $from.parentOffset;
+    const to = $from.after() - 1;
+    tr.delete(from, to);
+
+    // Map position to new document after delete
+    const mappedInsertPos = tr.mapping.map(insertPos);
+
+    // Compute correct indent based on position semantics
+    // Expanded + children → first child (indent + 1)
+    // Collapsed + children → sibling (indent)
+    // No children → sibling (indent)
+    const newIndent = !isCollapsed && hasChildren ? indent + 1 : indent;
+
+    // Insert new block with remaining content
+    tr.insert(
+      mappedInsertPos,
+      node.type.create(createCleanBlockAttrs(node, newIndent), after)
+    );
+
+    // Use TextSelection.near() for safety - guarantees valid text position
+    tr.setSelection(TextSelection.near(tr.doc.resolve(mappedInsertPos + 1), 1));
+    // ✅ FIX: Use dispatchUserEdit instead of manual meta + dispatch
+    dispatchUserEdit(view, tr);
+
+    return true;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // START/END HELPERS (only run if NOT middle)
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ─────────────────────────────────────────────
+  // 9️⃣ START OF BLOCK → insert sibling ABOVE
   // ─────────────────────────────────────────────
   if (atStart) {
     return insertSiblingAbove(editor);
   }
 
   // ─────────────────────────────────────────────
-  // 9️⃣ END OF BLOCK
+  // 🔟 END OF BLOCK
   // ─────────────────────────────────────────────
   if (atEnd) {
     const isToggle =
@@ -428,28 +555,9 @@ export function handleEnter(editor: Editor): boolean {
   }
 
   // ─────────────────────────────────────────────
-  // 1️⃣1️⃣ MIDDLE OF BLOCK → SPLIT (generic fallback)
+  // 1️⃣1️⃣ FALLBACK (should never reach here)
   // ─────────────────────────────────────────────
-  const tr = state.tr;
-  const from = $from.before() + 1 + $from.parentOffset;
-  const to = $from.after() - 1;
-
-  // Text after cursor
-  const after = node.content.cut($from.parentOffset);
-
-  // Remove text after cursor from current node
-  tr.delete(from, to);
-
-  // Insert new block with remaining content
-  const insertPos = $from.after();
-  tr.insert(
-    insertPos,
-    node.type.create(createCleanBlockAttrs(node, indent), after)
-  );
-
-  tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
-  // ✅ FIX: Use dispatchUserEdit instead of manual meta + dispatch
-  dispatchUserEdit(view, tr);
-
-  return true;
+  // If we reach this point, something is wrong with position detection
+  // Fall back to creating a sibling below as safest option
+  return insertSiblingBelow(editor, indent);
 }

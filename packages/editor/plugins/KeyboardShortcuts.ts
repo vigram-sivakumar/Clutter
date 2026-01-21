@@ -16,6 +16,7 @@ import {
   handleArrowUp,
   handleArrowDown,
 } from './keyboard/keymaps';
+import { shouldDeferToUI } from './keyboard/utils';
 import {
   copyToClipboard,
   cutToClipboard,
@@ -44,32 +45,33 @@ export const KeyboardShortcuts = Extension.create({
       },
 
       // Arrow keys: Navigate between blocks
+      // 🔒 GOLDEN RULE: UI intent ALWAYS wins over structural intent
       ArrowLeft: ({ editor }) => {
-        const result = handleArrowLeft(editor);
-        return result.handled;
+        if (shouldDeferToUI(editor)) return false;
+        return handleArrowLeft(editor);
       },
       ArrowRight: ({ editor }) => {
-        const result = handleArrowRight(editor);
-        return result.handled;
+        if (shouldDeferToUI(editor)) return false;
+        return handleArrowRight(editor);
       },
       ArrowUp: ({ editor }) => {
-        const result = handleArrowUp(editor);
-        return result.handled;
+        if (shouldDeferToUI(editor)) return false;
+        return handleArrowUp(editor);
       },
       ArrowDown: ({ editor }) => {
-        const result = handleArrowDown(editor);
-        return result.handled;
+        if (shouldDeferToUI(editor)) return false;
+        return handleArrowDown(editor);
       },
 
       // Cmd/Ctrl+C: Copy selected blocks
       'Mod-c': ({ editor }) => {
-        copyToClipboard(editor);
+        copyToClipboard(editor.state);
         return true; // Always consume to prevent default browser copy
       },
 
       // Cmd/Ctrl+X: Cut selected blocks
       'Mod-x': ({ editor }) => {
-        cutToClipboard(editor);
+        cutToClipboard(editor.state);
         return true; // Always consume
       },
 
@@ -77,7 +79,7 @@ export const KeyboardShortcuts = Extension.create({
       'Mod-v': ({ editor }) => {
         const clipboardState = getClipboardState();
         if (clipboardState) {
-          pasteFromClipboard(editor);
+          pasteFromClipboard(editor.state);
           return true;
         }
         return false; // Let default paste handle it

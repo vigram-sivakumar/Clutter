@@ -14,6 +14,7 @@ import type { Editor } from '@tiptap/core';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { setBlockIndent, MAX_INDENT } from '../../../domain/indentOperations';
 import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
+import { shouldDeferToUI } from '../utils';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRUCTURAL INVARIANTS (DO NOT VIOLATE)
@@ -58,6 +59,11 @@ function dispatchUserEdit(view: any, tr: any): void {
  * @returns true if handled (key consumed), false if should fallback
  */
 export function handleTab(editor: Editor, isShift: boolean = false): boolean {
+  // 🔒 GOLDEN RULE: UI intent ALWAYS wins over structural intent
+  // Let UI handlers (menus, dropdowns, autocomplete) take precedence
+  if (shouldDeferToUI(editor)) return false;
+  // Note: HashtagAutocomplete uses handleKeyDown so it already blocks automatically
+
   const { state, view } = editor;
   const selection = state.selection;
 
@@ -119,17 +125,20 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
     const maxAllowedIndent = prevBlock ? prevBlock.indent + 1 : 0;
 
     if (newIndent > maxAllowedIndent) {
-      return true; // Consume key but don't change anything
+      // 🔒 GOLDEN RULE: Don't consume without action - let default behavior run
+      return false;
     }
 
     // Hard cap at MAX_INDENT
     if (newIndent > MAX_INDENT) {
-      return true; // Consume key
+      // 🔒 GOLDEN RULE: Don't consume without action - let default behavior run
+      return false;
     }
   } else {
     // For outdent: minimum is 0
     if (newIndent < 0) {
-      return true; // Already at minimum, consume key
+      // 🔒 GOLDEN RULE: Don't consume without action - let default behavior run
+      return false;
     }
   }
 
@@ -156,30 +165,22 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
   }
 
   // AUTO-EXPAND COLLAPSED PARENT: When indenting creates a new parent-child relationship
-  if (!isShift && newIndent === baseIndent + 1) {
-    // Find the parent block (nearest previous block with indent === newIndent - 1)
-    let parentIndex = -1;
-    for (let i = selectedIndex - 1; i >= 0; i--) {
-      if (blocks[i].indent === newIndent - 1) {
-        parentIndex = i;
-        break;
-      }
-    }
+  // 🔒 CORRECTNESS: Only the IMMEDIATELY PREVIOUS block becomes the parent
+  // Searching backwards can find wrong ancestors (e.g., grandparent instead of parent)
+  const prevBlock = selectedIndex > 0 ? blocks[selectedIndex - 1] : null;
 
-    if (parentIndex !== -1) {
-      const parentBlock = blocks[parentIndex];
-      const isCollapsed = parentBlock.node.attrs?.collapsed === true;
-      const isToggleOrTask =
-        parentBlock.node.type.name === 'listBlock' &&
-        (parentBlock.node.attrs.listType === 'toggle' ||
-          parentBlock.node.attrs.listType === 'task');
+  if (prevBlock && !isShift && newIndent === prevBlock.indent + 1) {
+    const isCollapsed = prevBlock.node.attrs?.collapsed === true;
+    const isToggleOrTask =
+      prevBlock.node.type.name === 'listBlock' &&
+      (prevBlock.node.attrs.listType === 'toggle' ||
+        prevBlock.node.attrs.listType === 'task');
 
-      // If parent is collapsed toggle/task, expand it
-      if (isCollapsed && isToggleOrTask) {
-        updateBlockAttrs(tr, parentBlock.pos, {
-          collapsed: false,
-        });
-      }
+    // If parent is collapsed toggle/task, expand it
+    if (isCollapsed && isToggleOrTask) {
+      updateBlockAttrs(tr, prevBlock.pos, {
+        collapsed: false,
+      });
     }
   }
 
@@ -187,8 +188,14 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
   tr.setMeta('addToHistory', true);
   tr.setMeta('historyGroup', isShift ? 'outdent-block' : 'indent-block');
 
-  // 🔒 CRITICAL: Preserve selection after attribute changes
-  tr.setSelection(state.selection);
+  // 🔒 CRITICAL: Recreate selection at same position using NEW document
+  // After attribute changes, state.selection points to OLD document
+  // Use TextSelection.near() for safety - guarantees valid text position after structural mutations
+  if (selection instanceof NodeSelection) {
+    tr.setSelection(NodeSelection.create(tr.doc, selection.from));
+  } else {
+    tr.setSelection(TextSelection.near(tr.doc.resolve(selection.from), 1));
+  }
 
   // Apply transaction
   dispatchUserEdit(view, tr);
