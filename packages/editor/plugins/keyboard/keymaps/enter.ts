@@ -320,8 +320,9 @@ function handleEnterImpl(editor: Editor): boolean {
       updateBlockAttrs(tr, $from.before(), {
         collapsed: true,
       });
-      // ✅ FIX: Must set selection when doc changes
-      tr.setSelection(selection);
+      // ✅ FIX: Map position after attribute change, use TextSelection.near() for safety
+      const mappedPos = tr.mapping.map($from.pos);
+      tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), 1));
       dispatchUserEdit(view, tr);
       return true;
     }
@@ -334,8 +335,9 @@ function handleEnterImpl(editor: Editor): boolean {
       // Use centralized attribute update
       updateBlockAttrs(tr, $from.before(), cleanAttrs);
 
-      // ✅ FIX: Must set selection when doc changes
-      tr.setSelection(selection);
+      // ✅ FIX: Map position after attribute change, use TextSelection.near() for safety
+      const mappedPos = tr.mapping.map($from.pos);
+      tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), 1));
       dispatchUserEdit(view, tr);
       return true;
     }
@@ -383,8 +385,9 @@ function handleEnterImpl(editor: Editor): boolean {
         cleanAttrs
       );
 
-      // ✅ FIX: Must set selection when doc changes
-      tr.setSelection(selection);
+      // ✅ FIX: Map position after setNodeMarkup, use TextSelection.near() for safety
+      const mappedPos = tr.mapping.map($from.pos);
+      tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), 1));
       dispatchUserEdit(view, tr);
       return true;
     }

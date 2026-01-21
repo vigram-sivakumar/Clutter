@@ -8,7 +8,7 @@
  */
 
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { updateBlockAttrs } from '../domain/updateBlockAttrs';
 
 export const TASK_PRIORITY_PLUGIN_KEY = new PluginKey('taskPriority');
@@ -90,8 +90,9 @@ export const TaskPriority = Extension.create({
         priority: priorityLevel,
       });
 
-      // 🔒 CRITICAL: Preserve selection after document modification
-      tr.setSelection(state.selection);
+      // 🔒 CRITICAL: Map position after delete + attribute change, use TextSelection.near() for safety
+      const mappedPos = tr.mapping.map($from.pos);
+      tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), 1));
 
       view.dispatch(tr);
       return true;
