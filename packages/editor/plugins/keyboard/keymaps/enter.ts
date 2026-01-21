@@ -354,19 +354,22 @@ function handleEnterImpl(editor: Editor): boolean {
       const pos = $from.before();
 
       // Use node.nodeSize for exact replacement range
-      // ⚠️ No blockId assigned - will be assigned when cursor enters
+      // 🔒 CRITICAL: Use createBlockNode to ensure blockId is assigned at creation
+      // Never rely on BlockIdGenerator as primary mechanism (architectural violation)
       tr.replaceWith(
         pos,
         pos + node.nodeSize,
-        state.schema.nodes.paragraph!.create({
+        createBlockNode(state.schema, {
+          type: 'paragraph',
           indent,
         })
       );
 
       // 🔒 GOLDEN RULE: After replaceWith(), map the position
       // replaceWith mutates the document, so old positions must be mapped
+      // Use TextSelection.near() for safety - guarantees valid text position
       const mappedPos = tr.mapping.map(pos);
-      tr.setSelection(TextSelection.create(tr.doc, mappedPos + 1));
+      tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos + 1), 1));
       dispatchUserEdit(view, tr);
       return true;
     }
@@ -453,15 +456,15 @@ function handleEnterImpl(editor: Editor): boolean {
     const newIndent = isCollapsed && hasChildren ? indent : indent + 1;
 
     // Insert paragraph child
-    // ⚠️ No blockId assigned - will be assigned when cursor enters
+    // 🔒 CRITICAL: Use createBlockNode to ensure blockId is assigned at creation
+    // Consistent with insertFirstChild (line 239) which also uses createBlockNode
     tr.insert(
       mappedInsertPos,
-      state.schema.nodes.paragraph!.create(
-        {
-          indent: newIndent,
-        },
-        after
-      )
+      createBlockNode(state.schema, {
+        type: 'paragraph',
+        indent: newIndent,
+        content: after,
+      })
     );
 
     // Cursor into paragraph (use mapped position)
