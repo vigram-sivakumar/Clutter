@@ -187,11 +187,12 @@ function handleTabImpl(editor: Editor, isShift: boolean = false): boolean {
   // 🔒 CRITICAL: Recreate selection at same position using NEW document
   // After attribute changes, state.selection points to OLD document
   // Use TextSelection.near() for safety - guarantees valid text position after structural mutations
-  if (selection instanceof NodeSelection) {
-    tr.setSelection(NodeSelection.create(tr.doc, selection.from));
-  } else {
-    tr.setSelection(TextSelection.near(tr.doc.resolve(selection.from), 1));
-  }
+  // 🔒 SELECTION SAFETY: Always use TextSelection.near() after mutations
+  // NodeSelection.create() is unsafe after setBlockIndent() because:
+  // - selection.from may no longer point to a node boundary
+  // - Document structure changed, positions may have shifted
+  // - TextSelection.near() guarantees valid position (matches Enter/Backspace)
+  tr.setSelection(TextSelection.near(tr.doc.resolve(selection.from), 1));
 
   // Apply transaction
   dispatchUserEdit(view, tr);
