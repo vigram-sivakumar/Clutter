@@ -320,6 +320,51 @@ export function createBlockNodeDynamic(
 }
 
 /**
+ * Create clean block attributes for cloning/duplicating existing blocks
+ *
+ * Use this when you need to create a NEW block based on an existing block's
+ * attributes, but want to:
+ * - Generate a NEW blockId (for the new block)
+ * - Whitelist only essential structural attributes
+ * - Prevent state leakage (e.g., collapsed, checked)
+ *
+ * 🔒 BLOCK IDENTITY LAW:
+ * This function ALWAYS generates a new blockId. Never use this to UPDATE
+ * an existing block's attributes. For updates, use updateBlockAttrs().
+ *
+ * @param sourceNode - Existing block node to copy attributes from
+ * @param indent - Indent level for the new block
+ * @returns Clean attrs object with new blockId and whitelisted properties
+ *
+ * @example
+ * ```ts
+ * // Create sibling below current block
+ * const cleanAttrs = createCleanBlockAttrs(node, node.attrs.indent);
+ * tr.insert(pos, node.type.create(cleanAttrs));
+ * ```
+ */
+export function createCleanBlockAttrs(
+  sourceNode: PMNode,
+  indent: number
+): Record<string, any> {
+  const attrs: Record<string, any> = {
+    blockId: crypto.randomUUID(), // Always new ID for new block
+    indent,
+  };
+
+  // Whitelist: only copy if present on source node
+  if (sourceNode.attrs.listType !== undefined) {
+    attrs.listType = sourceNode.attrs.listType;
+  }
+
+  if (sourceNode.attrs.calloutType !== undefined) {
+    attrs.calloutType = sourceNode.attrs.calloutType;
+  }
+
+  return attrs;
+}
+
+/**
  * Validation helper: Assert all blocks in a document have blockIds
  * (Development-only guard)
  */

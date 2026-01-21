@@ -1,6 +1,6 @@
-# Custom ESLint Rules for Keyboard Architecture
+# Custom ESLint Rules for Editor Architecture
 
-This directory contains custom ESLint rules that enforce architectural contracts for keyboard handlers.
+This directory contains custom ESLint rules that enforce architectural contracts for the editor.
 
 ## Status
 
@@ -12,13 +12,45 @@ The rules are fully implemented and ready to use, but are not currently loaded d
 
 ### `require-ui-safety-wrapper`
 
+**Category:** Keyboard Architecture  
+**Severity:** Error
+
 Enforces that all keyboard handlers in `/keyboard/keymaps/` are wrapped with `withUISafety()`.
 
 **What it catches:**
 
-- ✅ Unwrapped function exports
-- ✅ Direct function declarations
-- ✅ Missing withUISafety wrapper
+- ❌ Unwrapped function exports
+- ❌ Direct function declarations
+- ❌ Missing withUISafety wrapper
+
+**Why this matters:**
+UI intent must always win over structural handlers to prevent menu/autocomplete conflicts.
+
+---
+
+### `no-manual-block-create`
+
+**Category:** Block Identity  
+**Severity:** Error
+
+Prevents manual `.create()` calls on ProseMirror schema nodes, which can bypass blockId assignment.
+
+**What it catches:**
+
+- ❌ `state.schema.nodes.paragraph.create({ ... })`
+- ❌ `schema.nodes['heading'].create({ ... })`
+- ❌ Any direct `.create()` on schema nodes
+
+**What it enforces:**
+
+- ✅ Use `createBlockNode(schema, { type: 'paragraph', ... })`
+- ✅ Use `createCleanBlockAttrs(node, indent)` for cloning
+
+**Why this matters:**
+Manual `.create()` calls bypass blockId assignment, creating temporal identity gaps and potential race conditions. All blocks must have IDs assigned at creation time, not lazily via BlockIdGenerator.
+
+**Exceptions:**
+Use `// eslint-disable-next-line no-manual-block-create` for legitimate low-level operations (rare).
 
 ## How to Enable
 
@@ -28,14 +60,15 @@ ESLint 9+ has native support for local plugins:
 
 ```javascript
 // .eslintrc.js
-const keyboardPlugin = require('./.eslint-local');
+const editorPlugin = require('./.eslint-local');
 
 module.exports = {
   plugins: {
-    keyboard: keyboardPlugin,
+    editor: editorPlugin,
   },
   rules: {
-    'keyboard/require-ui-safety-wrapper': 'error',
+    'editor/require-ui-safety-wrapper': 'error',
+    'editor/no-manual-block-create': 'error',
   },
 };
 ```
@@ -56,6 +89,7 @@ module.exports = {
   plugins: ['local'],
   rules: {
     'local/require-ui-safety-wrapper': 'error',
+    'local/no-manual-block-create': 'error',
   },
 };
 ```
@@ -84,5 +118,6 @@ rm test-handler.ts
 
 - `index.js` - Plugin entry point
 - `rules/index.js` - Rules registry
-- `rules/require-ui-safety-wrapper.js` - Main enforcement rule
+- `rules/require-ui-safety-wrapper.js` - Keyboard handler wrapper enforcement
+- `rules/no-manual-block-create.js` - Block creation pattern enforcement
 - `README.md` - This file

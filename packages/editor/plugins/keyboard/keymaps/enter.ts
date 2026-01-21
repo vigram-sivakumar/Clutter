@@ -16,7 +16,10 @@
 
 import { Editor } from '@tiptap/core';
 import { TextSelection } from 'prosemirror-state';
-import { createBlockNode } from '../../../domain/createBlock';
+import {
+  createBlockNode,
+  createCleanBlockAttrs,
+} from '../../../domain/createBlock';
 import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
 import { withUISafety } from '../withUISafety';
 
@@ -46,9 +49,10 @@ import { withUISafety } from '../withUISafety';
 //    - Prevents paragraphs from being misclassified as containers
 //
 // 5. ATTRIBUTE LEAKAGE PREVENTION:
-//    - Use createCleanBlockAttrs for ALL new block creation
+//    - Use createCleanBlockAttrs (domain/createBlock) for cloning existing blocks
+//    - Use createBlockNode (domain/createBlock) for creating from scratch
 //    - Whitelist only: blockId, indent, listType, calloutType
-//    - Never copy: collapsed, or any state attributes
+//    - Never copy: collapsed, checked, or any transient state attributes
 //
 // 6. CURSOR POSITION SEMANTICS:
 //    - START (offset === 0): Insert sibling ABOVE
@@ -83,37 +87,6 @@ import { withUISafety } from '../withUISafety';
  */
 function dispatchUserEdit(view: any, tr: any): void {
   view.dispatch(tr);
-}
-
-/**
- * Create clean block attributes for new blocks
- * Whitelists only essential attributes, preventing attr leakage (e.g., collapsed)
- *
- * 🔒 BLOCK IDENTITY LAW:
- * blockId MUST be assigned at creation time (eager assignment)
- * Never rely on lazy assignment for structural blocks
- * BlockIdGenerator exists only as a safety net, not as the primary mechanism
- *
- * @param node - Source node to copy attrs from
- * @param indent - Indent level for the new block
- * @returns Clean attrs object with only whitelisted properties
- */
-function createCleanBlockAttrs(node: any, indent: number): Record<string, any> {
-  const attrs: Record<string, any> = {
-    blockId: crypto.randomUUID(),
-    indent,
-  };
-
-  // Whitelist: only copy if present on source node
-  if (node.attrs.listType !== undefined) {
-    attrs.listType = node.attrs.listType;
-  }
-
-  if (node.attrs.calloutType !== undefined) {
-    attrs.calloutType = node.attrs.calloutType;
-  }
-
-  return attrs;
 }
 
 /**
@@ -315,7 +288,7 @@ function handleEnterImpl(editor: Editor): boolean {
 
   if (isEmpty) {
     // 3️⃣ EMPTY CONTAINER → COLLAPSE
-    if (isExpandedContainer) {
+    if (isExpandedContainer && indent === 0) {
       const tr = state.tr;
       updateBlockAttrs(tr, $from.before(), {
         collapsed: true,
