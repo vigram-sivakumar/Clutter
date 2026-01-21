@@ -18,7 +18,6 @@ import { Editor } from '@tiptap/core';
 import { TextSelection } from 'prosemirror-state';
 import { createBlockNode } from '../../../domain/createBlock';
 import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
-import { setBlockIndent } from '../../../domain/indentOperations';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRUCTURAL INVARIANTS (DO NOT VIOLATE)
@@ -163,12 +162,6 @@ function insertSiblingAbove(editor: Editor): boolean {
   tr.setSelection(TextSelection.create(tr.doc, cursorPos));
 
   dispatchUserEdit(view, tr);
-
-  // Verify cursor position after dispatch
-  setTimeout(() => {
-    const currentPos = editor.state.selection.from;
-  }, 0);
-
   return true;
 }
 
@@ -194,12 +187,6 @@ function insertSiblingBelow(editor: Editor, indent: number): boolean {
   tr.setSelection(TextSelection.create(tr.doc, cursorPos));
 
   dispatchUserEdit(view, tr);
-
-  // Verify cursor position after dispatch
-  setTimeout(() => {
-    const currentPos = editor.state.selection.from;
-  }, 0);
-
   return true;
 }
 

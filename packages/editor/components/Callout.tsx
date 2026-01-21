@@ -77,7 +77,7 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
   const { colors } = useEditorTheme();
   const type = (node.attrs.type as CalloutType) || 'info';
   const styles = getCalloutStyles(type, colors);
-  
+
   // 🔥 FLAT MODEL: indent is the ONLY structural attribute
   const blockIndent = node.attrs.indent ?? 0;
 
@@ -101,20 +101,18 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const handleSelection = () => {
+    const handleFocusChange = () => {
       forceUpdate((prev) => prev + 1);
     };
 
-    // ✅ Only re-render on selection / focus changes (NOT on typing)
-    // ProseMirror handles text DOM updates directly - React must not interfere
-    // Removed 'update' listener to prevent re-rendering entire block tree on every keystroke
-    editor.on('selectionUpdate', handleSelection); // Re-render on selection change for placeholder focus detection
-    editor.on('focus', handleSelection);
-    editor.on('blur', handleSelection);
+    // 🔒 CRITICAL FIX: Do NOT listen to selectionUpdate
+    // React re-renders on selection change interfere with ProseMirror's cursor placement
+    // Only re-render on focus/blur - selection handled by useMemo in usePlaceholder
+    editor.on('focus', handleFocusChange);
+    editor.on('blur', handleFocusChange);
     return () => {
-      editor.off('selectionUpdate', handleSelection);
-      editor.off('focus', handleSelection);
-      editor.off('blur', handleSelection);
+      editor.off('focus', handleFocusChange);
+      editor.off('blur', handleFocusChange);
     };
   }, [editor]);
 

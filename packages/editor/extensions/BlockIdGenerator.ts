@@ -122,6 +122,25 @@ export const BlockIdGenerator = Extension.create({
           }
 
           if (modified) {
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            // 🔒 PROSEMIRROR INVARIANT: Selection Preservation
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            //
+            // This hook only adds metadata (blockId attributes).
+            // It does NOT intend to change cursor position.
+            //
+            // Therefore: MUST preserve the selection that was already
+            // correctly set by the original transaction (e.g., Enter handler).
+            //
+            // Rule: If appendTransaction modifies the document, it MUST
+            // explicitly set selection (either preserve or intentionally move).
+            //
+            // Failure to preserve causes:
+            // - Cursor staying in wrong block after Enter
+            // - "INVALID TRANSACTION" diagnostic errors
+            // - Non-deterministic selection bugs
+            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            tr.setSelection(newState.selection);
             return tr;
           }
 

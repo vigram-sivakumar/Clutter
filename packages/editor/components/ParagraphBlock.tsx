@@ -78,24 +78,25 @@ export function ParagraphBlock({
   // 🔥 COLLAPSE PROPAGATION: Check if we're hidden by a collapsed ancestor
   const isHidden = useBlockHidden(editor, getPos);
 
-  // Force re-render when document updates (to react to parent toggle collapse and selection changes)
+  // Force re-render when editor focus changes (for placeholder visibility)
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const handleSelection = () => {
+    const handleFocusChange = () => {
       forceUpdate((prev) => prev + 1);
     };
 
-    // ✅ Only re-render on selection / focus changes (NOT on typing)
-    // ProseMirror handles text DOM updates directly - React must not interfere
-    // Removed 'update' listener to prevent re-rendering entire block tree on every keystroke
-    editor.on('selectionUpdate', handleSelection); // Re-render on selection change for placeholder focus detection
-    editor.on('focus', handleSelection); // Re-render when editor gains focus
-    editor.on('blur', handleSelection); // Re-render when editor loses focus
+    // 🔒 CRITICAL FIX: Do NOT listen to selectionUpdate
+    // Reason: React re-renders on every selection change interfere with ProseMirror's cursor placement
+    // This was causing "cursor stays in old block" bug after Enter key
+    //
+    // Solution: Only re-render on focus/blur changes
+    // Selection changes are handled by useMemo dependencies in usePlaceholder hook
+    editor.on('focus', handleFocusChange); // Re-render when editor gains focus
+    editor.on('blur', handleFocusChange); // Re-render when editor loses focus
     return () => {
-      editor.off('selectionUpdate', handleSelection);
-      editor.off('focus', handleSelection);
-      editor.off('blur', handleSelection);
+      editor.off('focus', handleFocusChange);
+      editor.off('blur', handleFocusChange);
     };
   }, [editor]);
 

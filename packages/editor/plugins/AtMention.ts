@@ -100,7 +100,11 @@ export const AtMention = Extension.create<AtMentionOptions>({
 
               // Trigger selection via storage flag
               storage.shouldSelect = true;
-              view.dispatch(view.state.tr);
+              // 🔒 CRITICAL: Preserve selection when dispatching signal transaction
+              // This empty dispatch notifies React components, but must not clobber cursor
+              const tr = view.state.tr;
+              tr.setSelection(view.state.selection);
+              view.dispatch(tr);
 
               return true;
             }
@@ -113,7 +117,10 @@ export const AtMention = Extension.create<AtMentionOptions>({
               event.preventDefault();
               event.stopPropagation();
               storage.navigateDown = true;
-              view.dispatch(view.state.tr);
+              // 🔒 Preserve selection when dispatching signal transaction
+              const tr = view.state.tr;
+              tr.setSelection(view.state.selection);
+              view.dispatch(tr);
               return true;
             }
 
@@ -121,7 +128,10 @@ export const AtMention = Extension.create<AtMentionOptions>({
               event.preventDefault();
               event.stopPropagation();
               storage.navigateUp = true;
-              view.dispatch(view.state.tr);
+              // 🔒 Preserve selection when dispatching signal transaction
+              const tr = view.state.tr;
+              tr.setSelection(view.state.selection);
+              view.dispatch(tr);
               return true;
             }
 

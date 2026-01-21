@@ -24,7 +24,7 @@ interface SlashCommandMenuProps {
 }
 
 export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
-  const { colors } = useEditorTheme();
+  const { colors: _colors } = useEditorTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -93,7 +93,10 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
     storage.isOpen = false;
     storage.userClosed = true; // Prevent auto-reopening
     storage.manuallyClosedAt = Date.now();
-    editor.view.dispatch(editor.view.state.tr);
+    // 🔒 Preserve selection when dispatching signal transaction
+    const tr = editor.view.state.tr;
+    tr.setSelection(editor.view.state.selection);
+    editor.view.dispatch(tr);
   };
 
   // Scroll selected item into view

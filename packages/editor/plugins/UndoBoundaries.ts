@@ -1,7 +1,7 @@
 /**
  * UndoBoundaries Extension
  * Creates undo/redo boundaries on specific events for granular undo behavior (like Notion)
- * 
+ *
  * Key feature: Forces each block creation/deletion to be a separate undo step
  */
 
@@ -13,41 +13,48 @@ export const UndoBoundaries = Extension.create({
 
   addProseMirrorPlugins() {
     let lastDocSize = 0;
-    let lastBlockCount = 0;
-    
+    let _lastBlockCount = 0;
+
     return [
       new Plugin({
         key: new PluginKey('undoBoundaries'),
-        
+
         appendTransaction(transactions, oldState, newState) {
           // Check if document structure changed (blocks added/removed)
           const oldDocSize = oldState.doc.content.size;
           const newDocSize = newState.doc.content.size;
           const oldChildCount = oldState.doc.content.childCount;
           const newChildCount = newState.doc.content.childCount;
-          
+
           // If block count changed (new paragraph, list item, etc.)
           if (oldChildCount !== newChildCount) {
             // Force history boundary by returning a transaction marked with closeHistory
             const tr = newState.tr;
             tr.setMeta('addToHistory', false);
             tr.setMeta('closeHistoryGroup', true);
-            lastBlockCount = newChildCount;
+            // 🔒 Preserve selection (annotation pattern - only adding metadata)
+            tr.setSelection(newState.selection);
+            _lastBlockCount = newChildCount;
             return tr;
           }
-          
+
           // If document size changed significantly (indicating structural change)
-          if (Math.abs(newDocSize - oldDocSize) > 50 && newDocSize !== lastDocSize) {
+          if (
+            Math.abs(newDocSize - oldDocSize) > 50 &&
+            newDocSize !== lastDocSize
+          ) {
             const tr = newState.tr;
             tr.setMeta('addToHistory', false);
             tr.setMeta('closeHistoryGroup', true);
+            // 🔒 Preserve selection (annotation pattern - only adding metadata)
+            tr.setSelection(newState.selection);
             lastDocSize = newDocSize;
             return tr;
           }
-          
+
           return null;
         },
-        
+
         props: {
           handleTextInput(view, from, to, text) {
             // Create undo boundary on space (word boundary)

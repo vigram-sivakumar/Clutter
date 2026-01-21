@@ -135,7 +135,10 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       if (storage) {
         storage.active = false;
         storage.userClosed = true; // Prevent auto-reopening
-        editor.view.dispatch(editor.view.state.tr);
+        // 🔒 Preserve selection when dispatching signal transaction
+        const tr = editor.view.state.tr;
+        tr.setSelection(editor.view.state.selection);
+        editor.view.dispatch(tr);
       }
     }
   }, [editor]);

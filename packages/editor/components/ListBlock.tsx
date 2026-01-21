@@ -12,13 +12,7 @@
  * - Checkbox sync (parent -> children)
  */
 
-import React, {
-  useMemo,
-  useCallback,
-  useState,
-  useEffect,
-  useRef,
-} from 'react';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { spacing, sizing, typography } from '../tokens';
@@ -267,20 +261,18 @@ export function ListBlock({
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const handleSelection = () => {
+    const handleFocusChange = () => {
       forceUpdate((prev) => prev + 1);
     };
 
-    // ✅ Only re-render on selection / focus changes (NOT on typing)
-    // ProseMirror handles text DOM updates directly - React must not interfere
-    // Removed 'update' listener to prevent re-rendering entire block tree on every keystroke
-    editor.on('selectionUpdate', handleSelection); // Re-render on selection change for placeholder focus detection
-    editor.on('focus', handleSelection);
-    editor.on('blur', handleSelection);
+    // 🔒 CRITICAL FIX: Do NOT listen to selectionUpdate
+    // React re-renders on selection change interfere with ProseMirror's cursor placement
+    // Only re-render on focus/blur - selection handled by useMemo in usePlaceholder
+    editor.on('focus', handleFocusChange);
+    editor.on('blur', handleFocusChange);
     return () => {
-      editor.off('selectionUpdate', handleSelection);
-      editor.off('focus', handleSelection);
-      editor.off('blur', handleSelection);
+      editor.off('focus', handleFocusChange);
+      editor.off('blur', handleFocusChange);
     };
   }, [editor]);
 
