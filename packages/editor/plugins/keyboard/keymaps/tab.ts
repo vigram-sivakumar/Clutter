@@ -187,6 +187,9 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
   tr.setMeta('addToHistory', true);
   tr.setMeta('historyGroup', isShift ? 'outdent-block' : 'indent-block');
 
+  // 🔒 CRITICAL: Preserve selection after attribute changes
+  tr.setSelection(state.selection);
+
   // Apply transaction
   dispatchUserEdit(view, tr);
   return true; // Key consumed

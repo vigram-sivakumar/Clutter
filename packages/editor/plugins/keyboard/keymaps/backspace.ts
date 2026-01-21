@@ -40,6 +40,7 @@ export function handleBackspace(editor: Editor): boolean {
   if (currentIndent > 0) {
     const tr = state.tr;
     outdentBlock(tr, $from.before());
+    tr.setSelection(state.selection); // 🔒 CRITICAL: Preserve selection after attribute change
 
     dispatchUserEdit(view, tr);
     return true; // Consumed - don't delete
