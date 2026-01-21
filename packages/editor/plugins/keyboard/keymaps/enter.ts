@@ -284,32 +284,9 @@ function handleEnterImpl(editor: Editor): boolean {
   // ─────────────────────────────────────────────
 
   if (isEmpty) {
-    // 3️⃣ EMPTY EXPANDED CONTAINER (ROOT) → COLLAPSE INSTEAD OF STRUCTURAL CHANGE
-    // UX rule:
-    // - First Enter on an empty expanded container (toggle/task) collapses it
-    // - Prevents accidental creation of invisible children or siblings
-    // - Structural changes (outdent / convert / insert) happen on subsequent Enters
-    if (isExpandedContainer && indent === 0) {
-      const tr = state.tr;
-      updateBlockAttrs(tr, $from.before(), {
-        collapsed: true,
-      });
-      // ✅ FIX: Map position after attribute change, use TextSelection.near() for safety
-      const mappedPos = tr.mapping.map($from.pos);
-      tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), 1));
-      dispatchUserEdit(view, tr);
-      return true;
-    }
-
-    // 4️⃣ EMPTY CHILD AT END → CREATE SIBLING (UX: continue writing at same level)
-    // Allow empty child blocks to create siblings when cursor is at END
-    // This matches Notion/Linear behavior: Enter at end continues, Backspace reduces hierarchy
-    if (indent > 0 && atEnd) {
-      return insertSiblingBelow(editor, indent);
-    }
-
-    // 5️⃣ EMPTY BLOCK + INDENTED → OUTDENT (only)
-    // For empty child at START or non-empty child: reduce hierarchy first
+    // 3️⃣ EMPTY BLOCK + INDENTED → OUTDENT (ALWAYS FIRST)
+    // 🔒 INVARIANT: Empty blocks ALWAYS normalize (outdent) before creating structure
+    // This enforces the two-step normalization rule regardless of cursor position
     if (indent > 0) {
       const tr = state.tr;
 
@@ -324,7 +301,7 @@ function handleEnterImpl(editor: Editor): boolean {
       return true;
     }
 
-    // 6️⃣ EMPTY CALLOUT / BLOCKQUOTE → EXIT CONTAINER
+    // 4️⃣ EMPTY CALLOUT / BLOCKQUOTE → EXIT CONTAINER
     if (nodeType === 'callout' || nodeType === 'blockquote') {
       const tr = state.tr;
       const pos = $from.before();
@@ -350,7 +327,7 @@ function handleEnterImpl(editor: Editor): boolean {
       return true;
     }
 
-    // 7️⃣ EMPTY BLOCK AT ROOT (indent 0) → CONVERT TO PARAGRAPH
+    // 5️⃣ EMPTY BLOCK AT ROOT (indent 0) → CONVERT TO PARAGRAPH
     // 🔒 CRITICAL: This MUST run BEFORE sibling insertion
     // UX rule: Normalize type before creating structure
     // Empty task/toggle/heading → paragraph, THEN sibling on next Enter
@@ -380,12 +357,38 @@ function handleEnterImpl(editor: Editor): boolean {
       return true;
     }
 
-    // 8️⃣ EMPTY PARAGRAPH AT ROOT → INSERT SIBLING BELOW
+    // 6️⃣ EMPTY PARAGRAPH AT ROOT → INSERT SIBLING BELOW
     // This runs AFTER conversion, so empty task → para → sibling (two Enter presses)
     // Matches Notion/Linear behavior: normalize before creating structure
     if (indent === 0 && (atStart || atEnd)) {
       return insertSiblingBelow(editor, indent);
     }
+  }
+
+  // ─────────────────────────────────────────────
+  // NON-EMPTY BLOCK RULES (structure creation OK)
+  // ─────────────────────────────────────────────
+
+  // 7️⃣ NON-EMPTY EXPANDED CONTAINER (ROOT) → COLLAPSE
+  // Collapse is only meaningful for non-empty containers
+  // Empty containers should normalize (handled above)
+  if (isExpandedContainer && indent === 0 && node.content.size > 0) {
+    const tr = state.tr;
+    updateBlockAttrs(tr, $from.before(), {
+      collapsed: true,
+    });
+    // ✅ FIX: Map position after attribute change, use TextSelection.near() for safety
+    const mappedPos = tr.mapping.map($from.pos);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), 1));
+    dispatchUserEdit(view, tr);
+    return true;
+  }
+
+  // 8️⃣ NON-EMPTY CHILD AT END → CREATE SIBLING
+  // UX: Continue writing at same level instead of forcing outdent
+  // Empty children always outdent first (handled above in rule 3)
+  if (indent > 0 && atEnd && node.content.size > 0) {
+    return insertSiblingBelow(editor, indent);
   }
 
   // ─────────────────────────────────────────────
@@ -553,7 +556,7 @@ function handleEnterImpl(editor: Editor): boolean {
   }
 
   // ─────────────────────────────────────────────
-  // 1️⃣1️⃣ FALLBACK (should never reach here)
+  // 1️⃣3️⃣ FALLBACK (should never reach here)
   // ─────────────────────────────────────────────
   // If we reach this point, something is wrong with position detection
   // Fall back to creating a sibling below as safest option
