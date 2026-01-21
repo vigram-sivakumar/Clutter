@@ -14,7 +14,7 @@ import type { Editor } from '@tiptap/core';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { setBlockIndent, MAX_INDENT } from '../../../domain/indentOperations';
 import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
-import { shouldDeferToUI } from '../utils';
+import { withUISafety } from '../withUISafety';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRUCTURAL INVARIANTS (DO NOT VIOLATE)
@@ -52,18 +52,14 @@ function dispatchUserEdit(view: any, tr: any): void {
 }
 
 /**
- * Handle Tab key - indent or outdent current block and its visual subtree
+ * Handle Tab key - implementation
+ * (Wrapped with withUISafety for automatic UI intent handling)
  *
  * @param editor - TipTap editor instance
  * @param isShift - true for Shift+Tab (outdent), false for Tab (indent)
  * @returns true if handled (key consumed), false if should fallback
  */
-export function handleTab(editor: Editor, isShift: boolean = false): boolean {
-  // 🔒 GOLDEN RULE: UI intent ALWAYS wins over structural intent
-  // Let UI handlers (menus, dropdowns, autocomplete) take precedence
-  if (shouldDeferToUI(editor)) return false;
-  // Note: HashtagAutocomplete uses handleKeyDown so it already blocks automatically
-
+function handleTabImpl(editor: Editor, isShift: boolean = false): boolean {
   const { state, view } = editor;
   const selection = state.selection;
 
@@ -201,3 +197,13 @@ export function handleTab(editor: Editor, isShift: boolean = false): boolean {
   dispatchUserEdit(view, tr);
   return true; // Key consumed
 }
+
+/**
+ * Handle Tab key (with Shift+Tab support)
+ *
+ * 🔒 WRAPPED WITH UI SAFETY:
+ * - Automatically defers to UI handlers (slash commands, mentions, etc.)
+ * - Returns false when UI is active, true when structural edit applied
+ * - See withUISafety wrapper for enforcement details
+ */
+export const handleTab = withUISafety(handleTabImpl, 'handleTab');

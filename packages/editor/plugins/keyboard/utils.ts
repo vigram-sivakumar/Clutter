@@ -7,10 +7,26 @@
 import { Editor } from '@tiptap/core';
 
 /**
- * Check if UI handlers (menus, dropdowns, autocomplete) are active
+ * @deprecated
+ * This function is deprecated. Use withUISafety wrapper instead.
  *
- * 🔒 GOLDEN RULE: UI intent ALWAYS wins over structural intent
- * When UI is active, structural handlers must defer (return false)
+ * Migration:
+ * Before:
+ *   export function handleMyKey(editor: Editor): boolean {
+ *     if (shouldDeferToUI(editor)) return false;
+ *     // ... handler logic
+ *   }
+ *
+ * After:
+ *   import { withUISafety } from '../withUISafety';
+ *
+ *   function handleMyKeyImpl(editor: Editor): boolean {
+ *     // ... handler logic (no manual check needed)
+ *   }
+ *
+ *   export const handleMyKey = withUISafety(handleMyKeyImpl, 'handleMyKey');
+ *
+ * See: packages/editor/plugins/keyboard/ARCHITECTURE.md for details
  *
  * @param editor - TipTap editor instance
  * @returns true if any UI component is active and should handle the key

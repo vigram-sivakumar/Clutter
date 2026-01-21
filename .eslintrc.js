@@ -43,6 +43,10 @@ module.exports = {
     ],
     // Allow 'any' during rapid development - can tighten later
     '@typescript-eslint/no-explicit-any': 'warn',
+    // Custom keyboard architecture rules
+    // Note: Custom plugin requires ESLint 9+ or eslint-plugin-local package
+    // For now, the withUISafety wrapper + code review enforce the pattern
+    // 'keyboard/require-ui-safety-wrapper': 'error',
   },
   overrides: [
     {

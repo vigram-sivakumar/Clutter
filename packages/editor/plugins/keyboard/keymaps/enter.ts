@@ -18,7 +18,7 @@ import { Editor } from '@tiptap/core';
 import { TextSelection } from 'prosemirror-state';
 import { createBlockNode } from '../../../domain/createBlock';
 import { updateBlockAttrs } from '../../../domain/updateBlockAttrs';
-import { shouldDeferToUI } from '../utils';
+import { withUISafety } from '../withUISafety';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRUCTURAL INVARIANTS (DO NOT VIOLATE)
@@ -262,11 +262,11 @@ function insertFirstChild(editor: Editor, parentIndent: number): boolean {
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════
 
-export function handleEnter(editor: Editor): boolean {
-  // 🔒 GOLDEN RULE: UI intent ALWAYS wins over structural intent
-  // Let UI handlers (menus, dropdowns, autocomplete) take precedence
-  if (shouldDeferToUI(editor)) return false;
-
+/**
+ * Handle Enter key press - implementation
+ * (Wrapped with withUISafety for automatic UI intent handling)
+ */
+function handleEnterImpl(editor: Editor): boolean {
   const { state, view } = editor;
   const { selection } = state;
 
@@ -561,3 +561,13 @@ export function handleEnter(editor: Editor): boolean {
   // Fall back to creating a sibling below as safest option
   return insertSiblingBelow(editor, indent);
 }
+
+/**
+ * Handle Enter key press
+ *
+ * 🔒 WRAPPED WITH UI SAFETY:
+ * - Automatically defers to UI handlers (slash commands, mentions, etc.)
+ * - Returns false when UI is active, true when structural edit applied
+ * - See withUISafety wrapper for enforcement details
+ */
+export const handleEnter = withUISafety(handleEnterImpl, 'handleEnter');

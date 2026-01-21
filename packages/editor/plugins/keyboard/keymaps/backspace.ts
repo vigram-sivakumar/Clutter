@@ -9,7 +9,7 @@
 import type { Editor } from '@tiptap/core';
 import { TextSelection } from 'prosemirror-state';
 import { outdentBlock } from '../../../domain/indentOperations';
-import { shouldDeferToUI } from '../utils';
+import { withUISafety } from '../withUISafety';
 
 /**
  * Dispatch a transaction from keyboard handler
@@ -60,16 +60,13 @@ function getSubtreeEndPosition(
 }
 
 /**
- * Handle Backspace key - outdent if at start of indented block, or join with previous block
+ * Handle Backspace key - implementation
+ * (Wrapped with withUISafety for automatic UI intent handling)
  *
  * @param editor - TipTap editor instance
  * @returns true if handled (key consumed), false if should fallback to default behavior
  */
-export function handleBackspace(editor: Editor): boolean {
-  // 🔒 GOLDEN RULE: UI intent ALWAYS wins over structural intent
-  // Let UI handlers (menus, dropdowns, autocomplete) take precedence
-  if (shouldDeferToUI(editor)) return false;
-
+function handleBackspaceImpl(editor: Editor): boolean {
   const { state, view } = editor;
   const { $from, empty } = state.selection;
 
@@ -190,3 +187,16 @@ export function handleBackspace(editor: Editor): boolean {
   // Block not empty - let default behavior handle joining content
   return false;
 }
+
+/**
+ * Handle Backspace key
+ *
+ * 🔒 WRAPPED WITH UI SAFETY:
+ * - Automatically defers to UI handlers (slash commands, mentions, etc.)
+ * - Returns false when UI is active, true when structural edit applied
+ * - See withUISafety wrapper for enforcement details
+ */
+export const handleBackspace = withUISafety(
+  handleBackspaceImpl,
+  'handleBackspace'
+);
