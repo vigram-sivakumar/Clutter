@@ -139,8 +139,14 @@ export const BlockIdGenerator = Extension.create({
             // - Cursor staying in wrong block after Enter
             // - "INVALID TRANSACTION" diagnostic errors
             // - Non-deterministic selection bugs
+            //
+            // 🔒 CRITICAL: Map selection through transaction changes
+            // After setNodeMarkup calls, the document positions have changed.
+            // We must map the selection to ensure it points to valid positions
+            // in the NEW document, not the old one.
             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            tr.setSelection(newState.selection);
+            const mappedSelection = newState.selection.map(tr.doc, tr.mapping);
+            tr.setSelection(mappedSelection);
             return tr;
           }
 
