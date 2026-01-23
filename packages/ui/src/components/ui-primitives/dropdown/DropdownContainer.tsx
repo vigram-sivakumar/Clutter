@@ -32,6 +32,8 @@ interface DropdownContainerProps {
   maxWidth?: string;
   maxHeight?: string;
   dismissOnEscape?: boolean;
+  /** Estimated height for predictive flip calculation (avoids flicker) */
+  estimatedHeight?: number;
 }
 
 export const DropdownContainer = ({
@@ -43,6 +45,7 @@ export const DropdownContainer = ({
   maxWidth = '220px',
   maxHeight = '300px',
   dismissOnEscape = true,
+  estimatedHeight,
 }: DropdownContainerProps) => {
   const { colors } = useTheme();
 
@@ -58,6 +61,7 @@ export const DropdownContainer = ({
         dismissOnEscape={dismissOnEscape}
         onInteractOutside={onClose}
         className="dropdown-container"
+        estimatedHeight={estimatedHeight}
       >
         <div
           style={{

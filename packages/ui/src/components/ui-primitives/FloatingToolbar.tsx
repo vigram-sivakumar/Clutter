@@ -198,6 +198,7 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
       lockScroll={true}
       dismissOnEscape={false}
       boundaryRect={boundaryRect}
+      preferAbove={true}
     >
       <div
         tabIndex={-1}

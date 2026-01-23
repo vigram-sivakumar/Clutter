@@ -20,6 +20,8 @@ interface AutocompleteDropdownProps {
   children?: ReactNode;
   /** Index of currently selected item (for keyboard navigation) */
   selectedIndex?: number;
+  /** Estimated height for predictive flip calculation (avoids flicker) */
+  estimatedHeight?: number;
 }
 
 export const AutocompleteDropdown = ({
@@ -29,6 +31,7 @@ export const AutocompleteDropdown = ({
   header,
   children,
   selectedIndex,
+  estimatedHeight,
 }: AutocompleteDropdownProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +69,7 @@ export const AutocompleteDropdown = ({
       minWidth="220px"
       maxWidth="220px"
       maxHeight="300px"
+      estimatedHeight={estimatedHeight}
     >
       <div ref={containerRef}>
         {/* Optional header */}

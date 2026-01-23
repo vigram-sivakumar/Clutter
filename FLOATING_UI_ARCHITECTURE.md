@@ -1039,7 +1039,33 @@ const MyMenu = () => {
 
 ## Change Log
 
-**2026-01-20 (Updated)** - Complete floating UI architecture with toolbar integration
+**2026-01-23 (Updated)** - Completed viewport collision detection refactor + configurable flip
+
+**What Changed:**
+- ✅ Implemented universal viewport clamping in FloatingMenu (horizontal + vertical)
+- ✅ Added `estimatedHeight` prop for predictive flip calculations
+- ✅ Added `preferAbove` prop for configurable flip direction preference
+- ✅ Removed manual collision detection from AtMentionMenu (~50 lines)
+- ✅ Updated SlashCommandMenu to support vertical flip
+- ✅ Added `estimatedHeight` threading through DropdownContainer → AutocompleteDropdown
+- ✅ Fixed flip logic with smart defaults:
+  - **Menus** (`preferAbove=false`): Open below, flip above if insufficient space
+  - **Toolbars** (`preferAbove=true`): Open above, flip below if insufficient space
+- ✅ All menus/toolbars now provide anchor points, FloatingMenu handles positioning
+
+**Impact:**
+- ✅ BlockOptionsMenu works at all screen edges
+- ✅ SlashCommandMenu and AtMentionMenu open below (natural behavior)
+- ✅ FloatingToolbar opens above (toolbar UX pattern)
+- ✅ Smart flipping when insufficient space in preferred direction
+- ✅ Consistent collision behavior across ALL floating UI
+- ✅ Architecture principle fully restored: FloatingMenu owns ALL layout policy
+- ✅ -50 lines of duplicate collision code removed
+- ✅ Predictive flip eliminates flicker in dynamic menus
+
+---
+
+**2026-01-20** - Complete floating UI architecture with toolbar integration
 
 **Phase 1: Foundation**
 

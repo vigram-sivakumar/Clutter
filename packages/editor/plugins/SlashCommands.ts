@@ -38,6 +38,9 @@ declare module '@tiptap/core' {
       selectedIndex: number;
       manuallyClosedAt: number | null; // PHASE 5: Track manual close to prevent immediate reopen
       userClosed: boolean; // Track explicit user dismissal (ESC or click-outside)
+      openedFromBlockMenu: boolean; // Track if opened from block menu "Turn into"
+      blockMenuCallback: (() => void) | null; // Callback to reopen block menu
+      customPosition: { top: number; left: number } | null; // Custom position when opened from block menu
     };
   }
 }
@@ -535,6 +538,9 @@ export const SlashCommands = Extension.create({
       selectedIndex: 0,
       manuallyClosedAt: null, // PHASE 5: Track manual close
       userClosed: false, // Track explicit user dismissal
+      openedFromBlockMenu: false, // Track if opened from block menu
+      blockMenuCallback: null, // Callback to reopen block menu
+      customPosition: null, // Custom position when opened from block menu
     };
   },
 
@@ -772,8 +778,9 @@ export const SlashCommands = Extension.create({
                   storage.selectedIndex = 0;
                   view.dispatch(view.state.tr);
                 }
-              } else if (storage.isOpen) {
+              } else if (storage.isOpen && !storage.openedFromBlockMenu) {
                 // No slash command at cursor but menu is open - close it
+                // (unless opened from block menu "Turn into")
                 storage.isOpen = false;
                 storage.startPos = null;
                 storage.query = '';

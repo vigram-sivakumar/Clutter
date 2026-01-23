@@ -10,8 +10,11 @@
  * - Handle interaction signals (outside clicks, ESC key)
  * - Provide consistent behavior across all floating menus
  * - Constrain positioning within boundaries (optional, for toolbars)
- * - Vertical flip (open above or below anchor)
- * - Viewport clamping
+ * - Vertical flip with configurable preference:
+ *   - preferAbove=false (default): Menus open below, flip above if insufficient space
+ *   - preferAbove=true: Toolbars open above, flip below if insufficient space
+ * - Viewport clamping (horizontal and vertical - prevents off-screen menus)
+ * - Predictive flip calculation (using estimatedHeight when provided)
  *
  * Does NOT handle:
  * - Menu content (that's SlashCommandMenu, etc)
@@ -36,6 +39,14 @@ export interface FloatingMenuProps {
   // Used for content-attached UI (e.g. FloatingToolbar).
   // Menus intentionally do not pass this.
   boundaryRect?: DOMRect;
+  // estimatedHeight allows predictive flip calculation before measurement.
+  // Used for menus with dynamic content (e.g., AtMentionMenu) to avoid flicker.
+  // If not provided, uses measured height after render.
+  estimatedHeight?: number;
+  // preferAbove controls flip direction preference.
+  // true = prefer opening above (toolbars), false = prefer opening below (menus)
+  // Default: false (menus)
+  preferAbove?: boolean;
 }
 
 export const FloatingMenu = ({
@@ -47,6 +58,8 @@ export const FloatingMenu = ({
   dismissOnEscape = false,
   onInteractOutside,
   boundaryRect,
+  estimatedHeight,
+  preferAbove = false,
 }: FloatingMenuProps) => {
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuWidth, setMenuWidth] = useState<number | null>(null);
@@ -92,31 +105,65 @@ export const FloatingMenu = ({
   const finalPosition = { ...position };
 
   // Vertical flip logic: decide whether to open above or below anchor
+  // Use estimatedHeight for predictive flip (avoids flicker), or measured height
+  const heightForFlip = estimatedHeight ?? menuHeight;
+  
   if (
-    menuHeight !== null &&
+    heightForFlip !== null &&
     position.top !== undefined &&
     position.bottom !== undefined
   ) {
     const gap = 8; // Gap between menu and selection
     const viewportPadding = 8; // Minimum distance from viewport edges
 
-    // Try opening above first (preferred for toolbars)
-    const topIfAbove = position.top - menuHeight - gap;
+    // Calculate both options
+    const topIfBelow = position.bottom + gap;
+    const topIfAbove = position.top - heightForFlip - gap;
+    
+    // Check which direction has space
+    const fitsBelow = topIfBelow + heightForFlip <= window.innerHeight - viewportPadding;
     const fitsAbove = topIfAbove >= viewportPadding;
 
-    if (fitsAbove) {
-      // Open above selection
-      finalPosition.top = topIfAbove;
+    if (preferAbove) {
+      // Prefer above (toolbars), flip below only if insufficient space above
+      if (fitsAbove || !fitsBelow) {
+        finalPosition.top = topIfAbove;
+      } else {
+        finalPosition.top = topIfBelow;
+      }
     } else {
-      // Open below selection
-      finalPosition.top = position.bottom + gap;
+      // Prefer below (menus), flip above only if insufficient space below
+      if (fitsBelow || !fitsAbove) {
+        finalPosition.top = topIfBelow;
+      } else {
+        finalPosition.top = topIfAbove;
+      }
     }
 
     // Remove bottom from final position (it was only for flip calculation)
     delete finalPosition.bottom;
   }
 
-  // Horizontal boundary clamping (optional, for toolbars)
+  // Viewport clamping: ensure menu stays within viewport bounds
+  // This applies to ALL menus (prevents off-screen menus)
+  if (menuWidth && menuHeight && finalPosition.left !== undefined && finalPosition.top !== undefined) {
+    const padding = 8; // Minimum distance from viewport edges
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Horizontal clamping
+    const minLeft = padding;
+    const maxLeft = viewportWidth - menuWidth - padding;
+    finalPosition.left = Math.max(minLeft, Math.min(maxLeft, finalPosition.left));
+
+    // Vertical clamping (ensures menu doesn't overflow viewport vertically)
+    const minTop = padding;
+    const maxTop = viewportHeight - menuHeight - padding;
+    finalPosition.top = Math.max(minTop, Math.min(maxTop, finalPosition.top));
+  }
+
+  // Horizontal boundary clamping (optional, for toolbars with specific boundaries)
+  // This OVERRIDES viewport clamping if boundaryRect is provided
   if (boundaryRect && menuWidth && finalPosition.left !== undefined) {
     const halfWidth = menuWidth / 2;
     const padding = 8; // Minimum distance from boundary edges

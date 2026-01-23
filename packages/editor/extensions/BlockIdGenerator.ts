@@ -1,13 +1,15 @@
 /**
  * BlockIdGenerator Extension
  *
- * Automatically generates blockId for all blocks that don't have one.
+ * Automatically generates blockId and timestamps for all blocks that need them.
  * Runs as a ProseMirror plugin that intercepts every transaction.
  *
- * FLAT MODEL:
- * - Only assigns blockId (unique identifier)
- * - Does NOT compute hierarchy (uses indent attribute only)
+ * RESPONSIBILITIES:
+ * - Assigns blockId (unique identifier) to blocks without one
+ * - Sets createdAt timestamp for new blocks
+ * - Sets updatedAt timestamp for new blocks
  * - Detects and fixes duplicate blockIds from cloned nodes
+ * - Does NOT compute hierarchy (uses indent attribute only - FLAT MODEL)
  */
 
 import { Extension } from '@tiptap/core';
@@ -81,23 +83,32 @@ export const BlockIdGenerator = Extension.create({
             const needsNewId =
               !currentBlockId || currentBlockId === '' || isDuplicate;
 
-            if (needsNewId) {
+            // CASE 3: Node has blockId but missing timestamps → add timestamps
+            const needsTimestamps =
+              !node.attrs.createdAt || !node.attrs.updatedAt;
+
+            if (needsNewId || needsTimestamps) {
               // 🔒 FIX: Track the old duplicate blockId BEFORE regenerating
               // This ensures subsequent nodes with the same old ID are also detected as duplicates
               if (isDuplicate && currentBlockId) {
                 seenBlockIds.add(currentBlockId);
               }
 
-              const newBlockId = crypto.randomUUID();
+              const newBlockId = needsNewId ? crypto.randomUUID() : currentBlockId;
+              const now = new Date().toISOString();
 
               // ⚠️ EXCEPTION: Direct setNodeMarkup allowed here for blockId repair/migration
               // This is the ONLY place that can SET (not update) blockIds on existing blocks
               tr.setNodeMarkup(pos, undefined, {
                 ...node.attrs,
                 blockId: newBlockId,
+                // Set createdAt only if it doesn't exist (preserve existing timestamps)
+                createdAt: node.attrs.createdAt || now,
+                // Set updatedAt to now (new block or regenerated)
+                updatedAt: now,
               });
 
-              // Track the NEW blockId
+              // Track the blockId as seen
               seenBlockIds.add(newBlockId);
               modified = true;
               return;

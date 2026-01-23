@@ -288,57 +288,16 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     let cachedStartPos: number | null = null;
 
     const calculatePosition = (startPos: number) => {
+      // FloatingMenu now handles ALL collision detection and flip logic
+      // We just provide the anchor point (where @ symbol is)
       const coords = editor.view.coordsAtPos(startPos);
-
-      const menuWidth = 220;
-      const menuMaxHeight = 300;
-      const gap = 4;
-
-      // Calculate actual menu height based on current items (header + items + padding)
-      const itemCount = menuItemsRef.current.length;
-      const headerHeight = 24; // Section headers (DATE, DAILY NOTE, LINK TO)
-      const itemHeight = 32; // Each dropdown item (28px + gaps)
-      const padding = 8; // Container padding
-      const separatorHeight = 8; // Separators between sections
-
-      // More accurate height: count headers, items, separators, padding
-      const sectionCount = itemCount > 0 ? (itemCount <= 2 ? 2 : 3) : 1; // DATE, DAILY NOTE, maybe LINK TO
-      const estimatedMenuHeight = Math.min(
-        menuMaxHeight,
-        itemCount * itemHeight +
-          headerHeight * sectionCount +
-          padding * 2 +
-          separatorHeight * (sectionCount - 1)
-      );
-
-      // Viewport boundaries
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-
-      // Determine if we should show above or below
-      const spaceBelow = viewportHeight - coords.bottom;
-      const spaceAbove = coords.top;
-      const showAbove =
-        spaceBelow < estimatedMenuHeight + gap + 8 && spaceAbove > spaceBelow;
-
-      let left = coords.left;
-
-      // Check if menu goes beyond right edge
-      if (left + menuWidth > viewportWidth) {
-        left = viewportWidth - menuWidth - 8;
-      }
-      left = Math.max(8, left);
-
-      if (showAbove) {
-        // Anchor to bottom (distance from bottom of viewport to top of @ symbol)
-        // Add small gap to keep @ visible
-        const bottom = viewportHeight - coords.top + gap + 4;
-        return { bottom, left };
-      } else {
-        // Show below cursor
-        const top = coords.bottom + gap;
-        return { top, left };
-      }
+      
+      // Return both top and bottom for FloatingMenu's flip calculation
+      return {
+        top: coords.top,
+        bottom: coords.bottom,
+        left: coords.left,
+      };
     };
 
     const updateMenu = () => {
@@ -511,6 +470,24 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     return null;
   }
 
+  // Calculate estimated height for predictive flip (avoids flicker)
+  const itemCount = menuItems.length;
+  const headerHeight = 24; // Section headers
+  const itemHeight = 32; // Each dropdown item
+  const padding = 8; // Container padding
+  const separatorHeight = 8; // Separators between sections
+  const maxHeight = 300; // maxHeight prop value
+  
+  // Count sections: DATE, DAILY NOTE, LINK TO (max 3)
+  const sectionCount = itemCount > 0 ? (itemCount <= 2 ? 2 : 3) : 1;
+  const estimatedHeight = Math.min(
+    maxHeight,
+    itemCount * itemHeight +
+      headerHeight * sectionCount +
+      padding * 2 +
+      separatorHeight * (sectionCount - 1)
+  );
+
   // Render menu items with sections
   const renderMenuItems = () => {
     const items: JSX.Element[] = [];
@@ -664,6 +641,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       isOpen={isOpen}
       position={position}
       onClose={handleClose}
+      estimatedHeight={estimatedHeight}
     >
       {renderMenuItems()}
     </AutocompleteDropdown>
