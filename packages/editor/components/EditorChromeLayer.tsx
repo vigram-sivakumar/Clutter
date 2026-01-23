@@ -1,469 +1,424 @@
 /**
- * EditorChromeLayer - Top-level container for editor interaction chrome
+ * EditorChromeLayer - Single overlay chrome system (Notion/Craft pattern)
  *
- * STEP 5: Real handle rendering (Paragraph only)
- * - Tracks hover, typing, selection, menu state
- * - Renders real handle for blocks with data-block-id
- * - Replaces BlockHandle for Paragraph blocks when USE_NEW_CHROME = true
+ * ANTI-FLICKER ARCHITECTURE:
+ * 1. Atomic state updates (single state object)
+ * 2. GPU-accelerated positioning (transform, not top/left)
+ * 3. requestAnimationFrame for smooth updates
+ * 4. Centralized configuration (one place to edit)
  *
- * ARCHITECTURAL BOUNDARY:
- * - Chrome = editor-owned interaction overlay (ephemeral, hover-only)
- * - Blocks = semantic content structure (persistent, always rendered)
- * - Chrome and blocks are separate layers that must never couple
+ * DOM ISOLATION (Critical for clean semantics):
+ * - Chrome is mounted OUTSIDE the cursor:text container
+ * - Ghost overlay pattern: pointerEvents: 'none' on root, 'auto' on buttons
+ * - No contentEditable, preventDefault, or userSelect hacks needed
+ * - Browser never confuses chrome with text editing context
+ *
+ * CRAFT-STYLE HOVER ZONES:
+ * - Each block has invisible hover-only divs in gutters (data-hover-only="true")
+ * - These divs extend into left (64px) and right (40px) gutter areas
+ * - Always hoverable (pointerEvents: 'auto'), positioned absolutely
+ * - When hovered, trigger block hover detection → chrome appears
+ * - Hover zones provide continuous coverage from block → gutter → chrome
+ * - No gaps, no bridge padding needed - seamless hover experience
  */
 
-import { useState, useEffect, useRef } from 'react';
-import type { Editor } from '@tiptap/react';
-import { DragHandle } from '@clutter/ui';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import type { Editor } from '@tiptap/core';
+import { Plus, MoreHorizontal, DotsSixVertical } from '@clutter/ui';
 import { TextSelection } from '@tiptap/pm/state';
+import { useEditorTheme } from '../theme/EditorThemeContext';
+import { spacing } from '../tokens';
 
-// ═══════════════════════════════════════════════════════════════
-// 🚦 KILL-SWITCH: Set to false to instantly revert to old chrome
-// ═══════════════════════════════════════════════════════════════
-export const USE_NEW_CHROME = true;
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION (Single place to edit all chrome behavior)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const CHROME_CONFIG = {
+  // Timing
+  HIDE_DELAY: 150,           // ms - Grace period to move from block to chrome
+  TYPING_TIMEOUT: 1000,      // ms - Hide chrome for 1s after typing
+  TRANSITION_DURATION: 120,  // ms - Opacity fade duration
+  
+  // Layout
+  GUTTER_LEFT: spacing.hoverZoneLeft,   // px - Left gutter width (matches hover-only div width)
+  GUTTER_RIGHT: spacing.hoverZoneRight, // px - Right gutter width (matches hover-only div width)
+  GAP: 4,                               // px - Gap between buttons
+  
+  // Button sizes
+  BUTTON_SIZE: 24,           // px - Standard button size
+  HANDLER_WIDTH: 20,         // px - Drag handler width (narrower)
+  ICON_SIZE: 16,             // px - Icon size
+  BORDER_RADIUS: 4,          // px - Button border radius
+  
+  // Z-index
+  Z_INDEX: 10,
+} as const;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface ChromeState {
+  blockId: string | null;
+  x: number;
+  y: number;
+  width: number;
+  visible: boolean;
+}
 
 interface EditorChromeLayerProps {
   editor: Editor;
+  containerRef: React.RefObject<HTMLDivElement>;
 }
 
-// Extended rect type with content-start offset for chrome anchoring
-interface BlockRect extends DOMRect {
-  contentStartOffset: number; // padding-top + border-top
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Shared anchor position for Shift+Click range selection (Finder-style)
-let anchorBlockPos: number | null = null;
+export function EditorChromeLayer({ editor, containerRef }: EditorChromeLayerProps) {
+  const { colors } = useEditorTheme();
 
-export function EditorChromeLayer({ editor }: EditorChromeLayerProps) {
-  // ═══════════════════════════════════════════════════════════════
-  // STATE SIGNALS (matching existing BlockHandle behavior)
-  // ═══════════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────────────────────
+  // State
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // 1. Hover Detection
-  const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
+  const [chrome, setChrome] = useState<ChromeState>({
+    blockId: null,
+    x: 0,
+    y: 0,
+    width: 0,
+    visible: false,
+  });
 
-  // 2. Typing Suppression (Notion-style)
   const [isTyping, setIsTyping] = useState(false);
-  const [hasMouseMovedAfterTyping, setHasMouseMovedAfterTyping] =
-    useState(true);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // 3. Selection State
-  const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+  // ─────────────────────────────────────────────────────────────────────────
+  // Refs
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // 4. Menu State (for future use)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [menuOpenForBlockId, setMenuOpenForBlockId] = useState<string | null>(
-    null
-  );
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const rafHandleRef = useRef<number | null>(null);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isOverChromeRef = useRef(false);
+  const anchorBlockPosRef = useRef<number | null>(null);
 
-  // 5. Block Position Tracking (for chrome positioning)
-  const [blockRects, setBlockRects] = useState<Record<string, BlockRect>>({});
+  // ─────────────────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // ═══════════════════════════════════════════════════════════════
-  // TYPING DETECTION (mirrors BlockHandle logic exactly)
-  // ═══════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    const handleTyping = () => {
-      setIsTyping(true);
-      setHasMouseMovedAfterTyping(false);
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+  const scheduleHide = useCallback(() => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+    }
+    hideTimeoutRef.current = setTimeout(() => {
+      if (!isOverChromeRef.current) {
+        setChrome(prev => ({ ...prev, blockId: null, visible: false }));
       }
-
-      // Mark typing as stopped after 1 second
-      typingTimeoutRef.current = setTimeout(() => {
-        setIsTyping(false);
-        // Note: chrome stays hidden until mouse moves
-      }, 1000);
-    };
-
-    editor.on('update', handleTyping);
-
-    return () => {
-      editor.off('update', handleTyping);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, [editor]);
-
-  // ═══════════════════════════════════════════════════════════════
-  // MOUSE MOVEMENT DETECTION (re-enable chrome after typing)
-  // ═══════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    const handleMouseMove = () => {
-      if (!hasMouseMovedAfterTyping) {
-        setHasMouseMovedAfterTyping(true);
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, [hasMouseMovedAfterTyping]);
-
-  // ═══════════════════════════════════════════════════════════════
-  // HOVER DETECTION (which block is under mouse)
-  // ═══════════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    const handleMouseOver = (e: MouseEvent) => {
-      // Find closest block element with data-block-id
-      const target = e.target as HTMLElement;
-      const blockElement = target.closest('[data-block-id]');
-
-      if (blockElement) {
-        const blockId = blockElement.getAttribute('data-block-id');
-        setHoveredBlockId(blockId);
-      } else {
-        setHoveredBlockId(null);
-      }
-    };
-
-    document.addEventListener('mouseover', handleMouseOver);
-
-    return () => {
-      document.removeEventListener('mouseover', handleMouseOver);
-    };
+    }, CHROME_CONFIG.HIDE_DELAY);
   }, []);
 
-  // ═══════════════════════════════════════════════════════════════
-  // SELECTION TRACKING (which blocks are selected)
-  // ═══════════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────────────────────
+  // Hover Detection
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    // Cancel any pending operations
+    if (rafHandleRef.current) {
+      cancelAnimationFrame(rafHandleRef.current);
+    }
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+
+    // Find block under cursor
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const blockElement = target?.closest('[data-block-id]') as HTMLElement | null;
+    const blockId = blockElement?.getAttribute('data-block-id');
+
+    if (!blockId || !blockElement) {
+      scheduleHide();
+      return;
+    }
+
+    // Use RAF to batch positioning with next paint
+    rafHandleRef.current = requestAnimationFrame(() => {
+      const rect = blockElement.getBoundingClientRect();
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      
+      if (!containerRect) return;
+
+      // Atomic state update prevents flicker
+      setChrome({
+        blockId,
+        x: rect.left - containerRect.left,
+        y: rect.top - containerRect.top,
+        width: rect.width,
+        visible: true,
+      });
+    });
+  }, [containerRef, scheduleHide]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (rafHandleRef.current) {
+      cancelAnimationFrame(rafHandleRef.current);
+    }
+    scheduleHide();
+  }, [scheduleHide]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Event Listeners
+  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    const updateSelection = () => {
-      const { selection, doc } = editor.state;
-      const { from, to } = selection;
+    const container = containerRef.current;
+    if (!container) return;
 
-      // Collect unique block IDs that intersect the selection
-      // Use Set to prevent duplicates when selection spans multiple positions in same block
-      const selectedIds = new Set<string>();
-
-      doc.nodesBetween(from, to, (node) => {
-        if (node.attrs?.blockId) {
-          selectedIds.add(node.attrs.blockId);
-        }
-      });
-
-      setSelectedBlockIds([...selectedIds]);
-    };
-
-    updateSelection();
-    editor.on('selectionUpdate', updateSelection);
-    editor.on('update', updateSelection);
+    container.addEventListener('mousemove', handleMouseMove);
+    container.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
-      editor.off('selectionUpdate', updateSelection);
-      editor.off('update', updateSelection);
+      container.removeEventListener('mousemove', handleMouseMove);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+      if (rafHandleRef.current) cancelAnimationFrame(rafHandleRef.current);
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, [containerRef, handleMouseMove, handleMouseLeave]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Typing Detection
+  // ─────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      setIsTyping(true);
+
+      typingTimeoutRef.current = setTimeout(() => {
+        setIsTyping(false);
+      }, CHROME_CONFIG.TYPING_TIMEOUT);
+    };
+
+    editor.on('update', handleUpdate);
+
+    return () => {
+      editor.off('update', handleUpdate);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     };
   }, [editor]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // BLOCK POSITION MEASUREMENT (for chrome overlay positioning)
-  // ═══════════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────────────────────
+  // Chrome Actions
+  // ─────────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    const updateRects = () => {
-      const rects: Record<string, BlockRect> = {};
+  const handleInsertBelow = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-      // Find the editor-shell coordinate root
-      const editorRoot = editor.view.dom.closest(
-        '.editor-shell'
-      ) as HTMLElement;
-      if (!editorRoot) return;
+    if (!chrome.blockId) return;
 
-      // Get editor-shell's viewport position (our coordinate system origin)
-      const editorRect = editorRoot.getBoundingClientRect();
+    const { state, view } = editor;
+    let blockPos: number | null = null;
+    let blockNode: any = null;
 
-      // Measure all blocks and convert from viewport space to editor-shell space
-      document.querySelectorAll('[data-block-id]').forEach((el) => {
-        const id = el.getAttribute('data-block-id');
-        if (!id) return;
-
-        const blockRect = el.getBoundingClientRect();
-
-        // Calculate content-start offset (padding + border)
-        // This anchors chrome to the first line of text, not the block edge
-        const styles = window.getComputedStyle(el);
-        const paddingTop = parseFloat(styles.paddingTop) || 0;
-        const borderTop = parseFloat(styles.borderTopWidth) || 0;
-        const contentStartOffset = paddingTop + borderTop;
-
-        // Convert viewport coordinates to editor-relative coordinates
-        // This makes chrome position correctly even when scrolling
-        rects[id] = {
-          top: blockRect.top - editorRect.top,
-          left: blockRect.left - editorRect.left,
-          right: blockRect.right - editorRect.left,
-          bottom: blockRect.bottom - editorRect.top,
-          width: blockRect.width,
-          height: blockRect.height,
-          x: blockRect.x - editorRect.left,
-          y: blockRect.y - editorRect.top,
-          contentStartOffset, // Offset from block edge to content start
-        } as BlockRect;
-      });
-
-      setBlockRects(rects);
-    };
-
-    // Update on hover/selection changes
-    updateRects();
-
-    // Update on window resize
-    window.addEventListener('resize', updateRects);
-
-    return () => {
-      window.removeEventListener('resize', updateRects);
-    };
-  }, [hoveredBlockId, selectedBlockIds, editor]);
-
-  // ═══════════════════════════════════════════════════════════════
-  // VISIBILITY DECISION FUNCTION (matching current behavior)
-  // ═══════════════════════════════════════════════════════════════
-
-  const shouldShowChromeFor = (blockId: string): boolean => {
-    // Multi-selection: only first block
-    if (selectedBlockIds.length > 1) {
-      return blockId === selectedBlockIds[0];
-    }
-
-    // Menu override: always show
-    if (menuOpenForBlockId === blockId) {
-      return true;
-    }
-
-    // Typing suppression: hide until mouse moves
-    if (isTyping || !hasMouseMovedAfterTyping) {
-      return false;
-    }
-
-    // Hover gate: must be hovering
-    return hoveredBlockId === blockId;
-  };
-
-  // ═══════════════════════════════════════════════════════════════
-  // CHROME INTERACTION (Step 5 - handle click only, no menu yet)
-  // ═══════════════════════════════════════════════════════════════
-
-  // Helper: Find block position by blockId
-  const getBlockPosByBlockId = (blockId: string): number | null => {
-    let foundPos: number | null = null;
-    editor.state.doc.descendants((node, pos) => {
-      if (node.attrs?.blockId === blockId) {
-        foundPos = pos;
-        return false; // Stop traversing
+    state.doc.descendants((node, pos: number) => {
+      if (node.attrs.blockId === chrome.blockId) {
+        blockPos = pos;
+        blockNode = node;
+        return false;
       }
     });
-    return foundPos;
-  };
 
-  // Handle click on drag handle (mirrors BlockHandle logic)
-  const handleHandleClick = (blockId: string, e: React.MouseEvent) => {
-    const pos = getBlockPosByBlockId(blockId);
-    if (pos === null) return;
+    if (blockPos === null || !blockNode) return;
 
-    // Shift+Click: Range selection (Finder-style)
-    if (e.shiftKey && anchorBlockPos !== null && anchorBlockPos !== pos) {
-      const doc = editor.state.doc;
+    const insertPos: number = Number(blockPos) + Number(blockNode.nodeSize);
+    const newParagraph = state.schema.nodes.paragraph?.create();
+    
+    if (!newParagraph) return;
+    
+    view.dispatch(state.tr.insert(insertPos, newParagraph));
+    view.focus();
+    
+    const cursorPos: number = Number(insertPos) + 1;
+    const newSelection = TextSelection.create(state.doc, cursorPos);
+    view.dispatch(state.tr.setSelection(newSelection));
+  }, [chrome.blockId, editor]);
 
-      // Get the anchor and target block nodes
-      const anchorNode = doc.nodeAt(anchorBlockPos);
-      const targetNode = doc.nodeAt(pos);
+  const handleBlockSelect = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-      if (anchorNode && targetNode) {
-        // Determine selection direction
-        const firstBlockPos = Math.min(anchorBlockPos, pos);
-        const lastBlockPos = Math.max(anchorBlockPos, pos);
+    if (!chrome.blockId) return;
 
-        // Calculate positions inside the content (not at block boundaries)
-        const fromNode = doc.nodeAt(firstBlockPos);
-        const toNode = doc.nodeAt(lastBlockPos);
+    const { state, view } = editor;
+    let blockPos: number | null = null;
 
-        if (fromNode && toNode) {
-          // Select from start of first block's content to end of last block's content
-          const from = firstBlockPos + 1; // Inside first block
-          const to = lastBlockPos + toNode.nodeSize - 1; // Inside last block
-
-          // Create a TextSelection spanning the content of all blocks
-          const tr = editor.state.tr.setSelection(
-            TextSelection.create(doc, from, to)
-          );
-          editor.view.dispatch(tr);
-          editor.view.focus();
-
-          // Don't update anchor - keep it for further Shift+Clicks
-          return;
-        }
+    state.doc.descendants((node, pos) => {
+      if (node.attrs.blockId === chrome.blockId) {
+        blockPos = pos + 1;
+        return false;
       }
+    });
+
+    if (blockPos === null) return;
+
+    if (e.shiftKey && anchorBlockPosRef.current !== null) {
+      // Range selection
+      const from = Math.min(anchorBlockPosRef.current, blockPos);
+      const to = Math.max(anchorBlockPosRef.current, blockPos);
+      const rangeSelection = TextSelection.create(state.doc, from, to);
+      view.dispatch(state.tr.setSelection(rangeSelection));
+    } else {
+      // Single block selection
+      anchorBlockPosRef.current = blockPos;
+      const pointSelection = TextSelection.create(state.doc, blockPos);
+      view.dispatch(state.tr.setSelection(pointSelection));
     }
 
-    // Normal click: reset anchor and select this block
-    anchorBlockPos = pos;
+    view.focus();
+  }, [chrome.blockId, editor]);
 
-    const node = editor.state.doc.nodeAt(pos);
-    if (!node) return;
+  const handleOpenMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Open menu for block:', chrome.blockId);
+  }, [chrome.blockId]);
 
-    const nodeBlockId = node.attrs?.blockId;
-    if (!nodeBlockId) return;
+  // ─────────────────────────────────────────────────────────────────────────
+  // Chrome Container Handlers
+  // ─────────────────────────────────────────────────────────────────────────
 
-    // Get engine from editor (attached by EditorCore)
-    const engine = (editor as any)._engine;
-    if (!engine) return;
-
-    // Update ENGINE selection (not ProseMirror)
-    engine.selection = {
-      kind: 'block',
-      blockIds: [nodeBlockId],
-    };
-
-    // Ensure editor has focus (but don't move cursor)
-    if (!editor.view.hasFocus()) {
-      editor.view.focus();
-    }
-
-    // For empty text blocks, place cursor inside for editing
-    if (node.isTextblock && node.content.size === 0) {
-      editor
-        .chain()
-        .setTextSelection(pos + 1)
-        .run();
-    }
+  const chromeContainerHandlers = {
+    onMouseEnter: () => {
+      isOverChromeRef.current = true;
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
+    },
+    onMouseLeave: () => {
+      isOverChromeRef.current = false;
+      scheduleHide();
+    },
   };
 
-  // ═══════════════════════════════════════════════════════════════
-  // DEBUG LOGGING (dev mode only - for state inspection)
-  // ═══════════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────────────────────
+  // Styles
+  // ─────────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[EditorChromeLayer] State:', {
-        hoveredBlockId,
-        isTyping,
-        hasMouseMovedAfterTyping,
-        selectedBlockIds,
-        menuOpenForBlockId,
-      });
-    }
-  }, [
-    hoveredBlockId,
-    isTyping,
-    hasMouseMovedAfterTyping,
-    selectedBlockIds,
-    menuOpenForBlockId,
-  ]);
+  const shouldShow = chrome.visible && !isTyping;
 
-  // ═══════════════════════════════════════════════════════════════
-  // RENDER: Real chrome (Step 5 - Paragraph handle only)
-  // ═══════════════════════════════════════════════════════════════
+  const baseButtonStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: 'none',
+    background: 'transparent',
+    borderRadius: CHROME_CONFIG.BORDER_RADIUS,
+    color: colors.text.secondary,
+    transition: `background-color ${CHROME_CONFIG.TRANSITION_DURATION}ms ease`,
+  };
+
+  const buttonHoverHandlers = {
+    onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.style.backgroundColor = colors.background.hover;
+    },
+    onMouseLeave: (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.currentTarget.style.backgroundColor = 'transparent';
+    },
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div
-      className="editor-chrome-layer"
-      data-hovered-block={hoveredBlockId || undefined}
-      data-is-typing={isTyping ? 'true' : undefined}
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        pointerEvents: 'none', // Layer is non-interactive by default
-        zIndex: 10,
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex: CHROME_CONFIG.Z_INDEX,
       }}
     >
-      {/* Render chrome for blocks that should show it */}
-      {Object.entries(blockRects).map(([blockId, rect]) => {
-        if (!shouldShowChromeFor(blockId)) return null;
+      {/* Left Chrome */}
+      <div
+        {...chromeContainerHandlers}
+        style={{
+          position: 'absolute',
+          display: 'flex',
+          alignItems: 'center',
+          gap: CHROME_CONFIG.GAP,
+          transform: `translate(${chrome.x - CHROME_CONFIG.GUTTER_LEFT}px, ${chrome.y}px)`,
+          opacity: shouldShow ? 1 : 0,
+          pointerEvents: shouldShow ? 'auto' : 'none',
+          transition: `opacity ${CHROME_CONFIG.TRANSITION_DURATION}ms ease`,
+        }}
+      >
+        <button
+          onClick={handleInsertBelow}
+          onMouseDown={(e) => e.preventDefault()}
+          {...buttonHoverHandlers}
+          style={{
+            ...baseButtonStyle,
+            width: CHROME_CONFIG.BUTTON_SIZE,
+            height: CHROME_CONFIG.BUTTON_SIZE,
+            // cursor: 'pointer',
+          }}
+          aria-label="Insert block below"
+        >
+          <Plus size={CHROME_CONFIG.ICON_SIZE} />
+        </button>
 
-        // Check if this is a paragraph block (Step 5 scope)
-        const blockElement = document.querySelector(
-          `[data-block-id="${blockId}"]`
-        );
-        const isParagraph =
-          blockElement?.getAttribute('data-type') === 'paragraph';
+        <button
+          onClick={handleBlockSelect}
+          onMouseDown={(e) => e.preventDefault()}
+          {...buttonHoverHandlers}
+          style={{
+            ...baseButtonStyle,
+            width: CHROME_CONFIG.HANDLER_WIDTH,
+            height: CHROME_CONFIG.BUTTON_SIZE,
+            // cursor: 'grab',
+          }}
+          aria-label="Select block"
+        >
+          <DotsSixVertical size={CHROME_CONFIG.ICON_SIZE} weight="bold" />
+        </button>
+      </div>
 
-        return (
-          <div key={blockId}>
-            {/* LEFT CHROME - Real handle for Paragraph only, placeholder for others */}
-            {USE_NEW_CHROME && isParagraph ? (
-              // REAL HANDLE (Paragraph only)
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleHandleClick(blockId, e);
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{
-                  position: 'absolute',
-                  top: rect.top + rect.contentStartOffset, // Anchor to content-start, not block edge
-                  left: rect.left - 32,
-                  width: 24,
-                  height: 28, // Fixed interaction target (not text height)
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  borderRadius: 4,
-                  pointerEvents: 'auto', // INTERACTIVE
-                  userSelect: 'none',
-                }}
-              >
-                <DragHandle size={16} />
-              </div>
-            ) : (
-              // PLACEHOLDER (other blocks)
-              <div
-                style={{
-                  position: 'absolute',
-                  top: rect.top + rect.contentStartOffset, // Anchor to content-start
-                  left: rect.left - 56,
-                  width: 48,
-                  height: 28, // Fixed interaction target
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'rgba(0, 0, 255, 0.05)', // Debug tint (blue)
-                  borderRadius: 6,
-                  pointerEvents: 'none',
-                }}
-              >
-                <div style={{ fontSize: 12, opacity: 0.6, userSelect: 'none' }}>
-                  ＋ ⋮⋮
-                </div>
-              </div>
-            )}
-
-            {/* RIGHT CHROME (placeholder - no functionality yet) */}
-            <div
-              style={{
-                position: 'absolute',
-                top: rect.top + rect.contentStartOffset, // Anchor to content-start
-                left: rect.right + 8,
-                width: 32,
-                height: 28, // Fixed interaction target
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255, 0, 0, 0.05)', // Debug tint (red)
-                borderRadius: 6,
-                pointerEvents: 'none',
-              }}
-            >
-              <div style={{ fontSize: 12, opacity: 0.6, userSelect: 'none' }}>
-                ⋯
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {/* Right Chrome */}
+      <div
+        {...chromeContainerHandlers}
+        style={{
+          position: 'absolute',
+          display: 'flex',
+          alignItems: 'center',
+          transform: `translate(${chrome.x + chrome.width}px, ${chrome.y}px)`,
+          opacity: shouldShow ? 1 : 0,
+          pointerEvents: shouldShow ? 'auto' : 'none',
+          transition: `opacity ${CHROME_CONFIG.TRANSITION_DURATION}ms ease`,
+        }}
+      >
+        <button
+          onClick={handleOpenMenu}
+          onMouseDown={(e) => e.preventDefault()}
+          {...buttonHoverHandlers}
+          style={{
+            ...baseButtonStyle,
+            width: CHROME_CONFIG.BUTTON_SIZE,
+            height: CHROME_CONFIG.BUTTON_SIZE,
+            // cursor: 'pointer',
+          }}
+          aria-label="Block options"
+        >
+          <MoreHorizontal size={CHROME_CONFIG.ICON_SIZE} weight="bold" />
+        </button>
+      </div>
     </div>
   );
 }
