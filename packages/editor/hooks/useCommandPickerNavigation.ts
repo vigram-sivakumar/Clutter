@@ -95,13 +95,13 @@ export function useCommandPickerNavigation({
     }
   }, [isActive, initialIndex]);
 
-  // Navigation functions (with wrapping behavior)
+  // Navigation functions
   const selectNext = () => {
-    setSelectedIndex((prev) => (prev + 1) % itemCount);
+    setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
   };
 
   const selectPrevious = () => {
-    setSelectedIndex((prev) => (prev - 1 + itemCount) % itemCount);
+    setSelectedIndex((prev) => Math.max(prev - 1, 0));
   };
 
   const selectCurrent = () => {
@@ -111,6 +111,7 @@ export function useCommandPickerNavigation({
   };
 
   // Auto-scroll selected item into view
+  // Depends on itemCount so scroll updates when filtering results
   useEffect(() => {
     if (!isActive || !containerRef?.current) return;
 
@@ -123,7 +124,7 @@ export function useCommandPickerNavigation({
         block: 'nearest',
       });
     }
-  }, [isActive, selectedIndex, containerRef]);
+  }, [isActive, selectedIndex, itemCount, containerRef]);
 
   // Global keyboard handler (ONLY active when isActive === true)
   useEffect(() => {
