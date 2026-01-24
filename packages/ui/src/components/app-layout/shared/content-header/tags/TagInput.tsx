@@ -120,12 +120,12 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (displayCount > 0) {
-        setSelectedIndex((prev) => (prev === -1 ? 0 : Math.min(prev + 1, displayCount - 1)));
+        setSelectedIndex((prev) => (prev === -1 ? 0 : (prev + 1) % displayCount)); // Wrap to start
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (displayCount > 0) {
-        setSelectedIndex((prev) => (prev === -1 ? displayCount - 1 : Math.max(prev - 1, 0)));
+        setSelectedIndex((prev) => (prev === -1 ? displayCount - 1 : (prev - 1 + displayCount) % displayCount)); // Wrap to end
       }
     }
   }, [selectedIndex, displayCount, value, existingTags, allTags, suggestions, onAddTag, onCancel]);

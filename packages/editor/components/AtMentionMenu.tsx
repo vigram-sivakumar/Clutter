@@ -312,12 +312,12 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       // Update query
       setQuery(currentQuery);
 
-      // Handle arrow navigation
+      // Handle arrow navigation (with wrap-around)
       if (storage.navigateDown) {
         storage.navigateDown = false;
         setSelectedIndex((prev) => {
-          const newIndex =
-            prev === -1 ? 0 : Math.min(prev + 1, menuItems.length - 1);
+          const itemCount = menuItems.length;
+          const newIndex = prev === -1 ? 0 : (prev + 1) % itemCount; // Wrap to start
           // Scroll into view on next tick
           setTimeout(() => {
             itemRefs.current[newIndex]?.scrollIntoView({
@@ -333,7 +333,8 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       if (storage.navigateUp) {
         storage.navigateUp = false;
         setSelectedIndex((prev) => {
-          const newIndex = prev === -1 ? 0 : Math.max(prev - 1, 0);
+          const itemCount = menuItems.length;
+          const newIndex = prev === -1 ? itemCount - 1 : (prev - 1 + itemCount) % itemCount; // Wrap to end
           // Scroll into view on next tick
           setTimeout(() => {
             itemRefs.current[newIndex]?.scrollIntoView({
@@ -405,16 +406,14 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         return;
       }
 
-      // Handle ArrowDown
+      // Handle ArrowDown (with wrap-around)
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         setSelectedIndex((prev) => {
-          const newIndex =
-            prev === -1
-              ? 0
-              : Math.min(prev + 1, menuItemsRef.current.length - 1);
+          const itemCount = menuItemsRef.current.length;
+          const newIndex = prev === -1 ? 0 : (prev + 1) % itemCount; // Wrap to start
           setTimeout(() => {
             itemRefs.current[newIndex]?.scrollIntoView({
               block: 'nearest',
@@ -425,13 +424,14 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         });
       }
 
-      // Handle ArrowUp
+      // Handle ArrowUp (with wrap-around)
       if (event.key === 'ArrowUp') {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         setSelectedIndex((prev) => {
-          const newIndex = prev === -1 ? 0 : Math.max(prev - 1, 0);
+          const itemCount = menuItemsRef.current.length;
+          const newIndex = prev === -1 ? itemCount - 1 : (prev - 1 + itemCount) % itemCount; // Wrap to end
           setTimeout(() => {
             itemRefs.current[newIndex]?.scrollIntoView({
               block: 'nearest',
