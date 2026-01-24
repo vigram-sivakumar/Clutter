@@ -22,7 +22,7 @@
  * - No gaps, no bridge padding needed - seamless hover experience
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { Editor } from '@tiptap/core';
 import {
   Plus,
@@ -37,15 +37,21 @@ import {
   ArrowUpDown,
   Link,
   ChevronRight,
+  ChevronLeft,
   DropdownContainer,
   DropdownItem,
   DropdownSeparator,
   DropdownHeader,
+  Input,
+  Button,
 } from '@clutter/ui';
 import { TextSelection } from '@tiptap/pm/state';
 import { useEditorTheme } from '../theme/EditorThemeContext';
 import { spacing } from '../tokens';
 import { formatDateTime } from '../utils/dateFormatting';
+import { useCommandPickerNavigation } from '../hooks/useCommandPickerNavigation';
+import { CommandList } from './CommandList';
+import { filterSlashCommands, type SlashCommand } from '../plugins/SlashCommands';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION (Single place to edit all chrome behavior)
@@ -115,6 +121,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedMenuIndex, setSelectedMenuIndex] = useState(-1); // -1 = no selection
+  const [menuView, setMenuView] = useState<'main' | 'turnInto'>('main');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ─────────────────────────────────────────────────────────────────────────
   // Refs
@@ -357,10 +365,45 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const handleTurnInto = useCallback(() => {
     if (!chrome.blockId) return;
     
-    // TODO: Implement inline block types view in the block menu
-    // Will show block type options directly in the menu instead of opening slash command menu
-    console.log('Turn into clicked - to be implemented');
+    // Switch to Turn Into view
+    setMenuView('turnInto');
+    setSearchQuery(''); // Reset search
+    setSelectedMenuIndex(-1); // Reset main menu selection
   }, [chrome.blockId]);
+
+  const handleBackToMenu = useCallback(() => {
+    setMenuView('main');
+    setSearchQuery(''); // Clear search
+    setSelectedMenuIndex(-1); // Reset selection
+  }, []);
+
+  const handleSlashCommandSelect = useCallback((command: SlashCommand) => {
+    if (!chrome.blockId) return;
+
+    const { state } = editor;
+    let blockPos: number | null = null;
+    let blockNode: any = null;
+
+    state.doc.descendants((node, pos: number) => {
+      if (node.attrs.blockId === chrome.blockId) {
+        blockPos = pos;
+        blockNode = node;
+        return false;
+      }
+    });
+
+    if (blockPos === null || !blockNode) return;
+
+    // Execute the command with the block range
+    const from = blockPos as number;
+    const to = from + blockNode.nodeSize;
+    command.execute(editor, { from, to });
+
+    // Close menu and reset view
+    setIsMenuOpen(false);
+    setMenuView('main');
+    setSearchQuery('');
+  }, [chrome.blockId, editor]);
 
   const handleAddDescription = useCallback(() => {
     console.log('Add description for block:', chrome.blockId);
@@ -471,6 +514,40 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const blockTimestamps = getBlockTimestamps();
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Turn Into View State (Command Picker)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Filter slash commands based on search query
+  const filteredCommands = useMemo(() => {
+    return filterSlashCommands(searchQuery);
+  }, [searchQuery]);
+
+  // Convert SlashCommand to CommandItem format for CommandList
+  const commandItems = useMemo(() => {
+    return filteredCommands.map((cmd: SlashCommand) => ({
+      id: cmd.id,
+      title: cmd.title,
+      description: cmd.description,
+      icon: cmd.icon,
+      group: cmd.group,
+    }));
+  }, [filteredCommands]);
+
+  // Keyboard navigation for Turn Into view (only active when menuView === 'turnInto')
+  const { selectedIndex: commandSelectedIndex, setSelectedIndex: setCommandSelectedIndex } = 
+    useCommandPickerNavigation({
+      isActive: isMenuOpen && menuView === 'turnInto',
+      itemCount: commandItems.length,
+      onSelect: (index) => {
+        const command = filteredCommands[index];
+        if (command) {
+          handleSlashCommandSelect(command);
+        }
+      },
+      containerRef: menuContainerRef,
+    });
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Chrome Container Handlers
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -525,9 +602,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // Count total actionable menu items (excludes DropdownHeaders and DropdownSeparators)
   const totalMenuItems = 8; // Turn into, Add description, Duplicate, Move to, Delete, Insert above, Insert below, Copy link
 
-  // Keyboard handler for menu navigation
+  // Keyboard handler for menu navigation (ONLY for main menu view)
   useEffect(() => {
-    if (!isMenuOpen) return;
+    if (!isMenuOpen || menuView !== 'main') return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'ArrowDown') {
@@ -574,6 +651,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     };
   }, [
     isMenuOpen,
+    menuView,
     selectedMenuIndex,
     totalMenuItems,
     handleTurnInto,
@@ -701,6 +779,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
           onClose={() => {
             setIsMenuOpen(false);
             setSelectedMenuIndex(-1); // Reset selection when menu closes
+            setMenuView('main'); // Reset to main view
+            setSearchQuery(''); // Clear search
             // Schedule hide check when menu closes (will hide if not hovering chrome)
             scheduleHide();
           }}
@@ -709,80 +789,125 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
           maxHeight="400px"
         >
           <div ref={menuContainerRef}>
-            <DropdownItem
-              icon={<Type size={16} />}
-              label="Turn into"
-              trailing={<ChevronRight size={14} />}
-              onClick={handleTurnInto}
-              isSelected={selectedMenuIndex === 0}
-              onMouseEnter={() => setSelectedMenuIndex(0)}
-            />
-            <DropdownItem
-              icon={<FileText size={16} />}
-              label="Add a description"
-              onClick={handleAddDescription}
-              isSelected={selectedMenuIndex === 1}
-              onMouseEnter={() => setSelectedMenuIndex(1)}
-            />
+            {menuView === 'main' ? (
+              // Main menu view
+              <>
+                <DropdownItem
+                  icon={<Type size={16} />}
+                  label="Turn into"
+                  trailing={<ChevronRight size={14} />}
+                  onClick={handleTurnInto}
+                  isSelected={selectedMenuIndex === 0}
+                  onMouseEnter={() => setSelectedMenuIndex(0)}
+                />
+                <DropdownItem
+                  icon={<FileText size={16} />}
+                  label="Add a description"
+                  onClick={handleAddDescription}
+                  isSelected={selectedMenuIndex === 1}
+                  onMouseEnter={() => setSelectedMenuIndex(1)}
+                />
 
-            <DropdownSeparator />
+                <DropdownSeparator />
 
-            <DropdownItem
-              icon={<Copy size={16} />}
-              label="Duplicate"
-              onClick={handleDuplicate}
-              isSelected={selectedMenuIndex === 2}
-              onMouseEnter={() => setSelectedMenuIndex(2)}
-            />
-            <DropdownItem
-              icon={<Folder size={16} />}
-              label="Move to"
-              onClick={handleMoveTo}
-              isSelected={selectedMenuIndex === 3}
-              onMouseEnter={() => setSelectedMenuIndex(3)}
-            />
-            <DropdownItem
-              icon={<Trash2 size={16} />}
-              label="Delete"
-              onClick={handleDelete}
-              isSelected={selectedMenuIndex === 4}
-              onMouseEnter={() => setSelectedMenuIndex(4)}
-            />
+                <DropdownItem
+                  icon={<Copy size={16} />}
+                  label="Duplicate"
+                  onClick={handleDuplicate}
+                  isSelected={selectedMenuIndex === 2}
+                  onMouseEnter={() => setSelectedMenuIndex(2)}
+                />
+                <DropdownItem
+                  icon={<Folder size={16} />}
+                  label="Move to"
+                  onClick={handleMoveTo}
+                  isSelected={selectedMenuIndex === 3}
+                  onMouseEnter={() => setSelectedMenuIndex(3)}
+                />
+                <DropdownItem
+                  icon={<Trash2 size={16} />}
+                  label="Delete"
+                  onClick={handleDelete}
+                  isSelected={selectedMenuIndex === 4}
+                  onMouseEnter={() => setSelectedMenuIndex(4)}
+                />
 
-            <DropdownSeparator />
+                <DropdownSeparator />
 
-            <DropdownItem
-              icon={<ArrowUpDown size={16} />}
-              label="Insert block above"
-              onClick={handleInsertAbove}
-              isSelected={selectedMenuIndex === 5}
-              onMouseEnter={() => setSelectedMenuIndex(5)}
-            />
-            <DropdownItem
-              icon={<ArrowUpDown size={16} />}
-              label="Insert block below"
-              onClick={handleInsertBelowFromMenu}
-              isSelected={selectedMenuIndex === 6}
-              onMouseEnter={() => setSelectedMenuIndex(6)}
-            />
-            <DropdownItem
-              icon={<Link size={16} />}
-              label="Copy link to block"
-              onClick={handleCopyLink}
-              isSelected={selectedMenuIndex === 7}
-              onMouseEnter={() => setSelectedMenuIndex(7)}
-            />
+                <DropdownItem
+                  icon={<ArrowUpDown size={16} />}
+                  label="Insert block above"
+                  onClick={handleInsertAbove}
+                  isSelected={selectedMenuIndex === 5}
+                  onMouseEnter={() => setSelectedMenuIndex(5)}
+                />
+                <DropdownItem
+                  icon={<ArrowUpDown size={16} />}
+                  label="Insert block below"
+                  onClick={handleInsertBelowFromMenu}
+                  isSelected={selectedMenuIndex === 6}
+                  onMouseEnter={() => setSelectedMenuIndex(6)}
+                />
+                <DropdownItem
+                  icon={<Link size={16} />}
+                  label="Copy link to block"
+                  onClick={handleCopyLink}
+                  isSelected={selectedMenuIndex === 7}
+                  onMouseEnter={() => setSelectedMenuIndex(7)}
+                />
 
-            <DropdownSeparator />
+                <DropdownSeparator />
 
-            <DropdownHeader 
-              label={`Created: ${blockTimestamps.createdAt ? formatDateTime(new Date(blockTimestamps.createdAt)) : 'N/A'}`} 
-              hint="" 
-            />
-            <DropdownHeader 
-              label={`Last edited: ${blockTimestamps.updatedAt ? formatDateTime(new Date(blockTimestamps.updatedAt)) : 'N/A'}`} 
-              hint="" 
-            />
+                <DropdownHeader 
+                  label={`Created: ${blockTimestamps.createdAt ? formatDateTime(new Date(blockTimestamps.createdAt)) : 'N/A'}`} 
+                  hint="" 
+                />
+                <DropdownHeader 
+                  label={`Last edited: ${blockTimestamps.updatedAt ? formatDateTime(new Date(blockTimestamps.updatedAt)) : 'N/A'}`} 
+                  hint="" 
+                />
+              </>
+            ) : (
+              // Turn Into view (command picker)
+              <>
+                <div style={{ padding: '8px' }}>
+                  <Button 
+                    variant="tertiary" 
+                    onClick={handleBackToMenu}
+                    style={{ marginBottom: '8px', width: '100%', justifyContent: 'flex-start' }}
+                  >
+                    <ChevronLeft size={16} style={{ marginRight: '4px' }} />
+                    Back to block options
+                  </Button>
+                  
+                  <Input
+                    autoFocus
+                    placeholder="Search block types..."
+                    value={searchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                <CommandList
+                  items={commandItems}
+                  selectedIndex={commandSelectedIndex}
+                  onSelect={(index) => {
+                    const command = filteredCommands[index];
+                    if (command) {
+                      handleSlashCommandSelect(command);
+                    }
+                  }}
+                  onItemHover={(index) => setCommandSelectedIndex(index)}
+                  showGroups={searchQuery === ''}
+                  groupLabels={{
+                    text: 'Basic Blocks',
+                    lists: 'Lists',
+                    media: 'Media',
+                    callouts: 'Callouts',
+                  }}
+                />
+              </>
+            )}
           </div>
         </DropdownContainer>
       )}
