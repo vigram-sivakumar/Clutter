@@ -25,6 +25,21 @@ export const HashtagAutocomplete = Extension.create<HashtagAutocompleteOptions>(
     };
   },
 
+  addStorage() {
+    return {
+      active: false,
+    };
+  },
+
+  onUpdate() {
+    // Sync plugin state to storage for UI intent system
+    const pluginKey = new PluginKey('hashtagAutocomplete');
+    const state = pluginKey.getState(this.editor.state);
+    if (state) {
+      this.storage.active = state.active;
+    }
+  },
+
   addProseMirrorPlugins() {
     const pluginKey = new PluginKey('hashtagAutocomplete');
     let dropdown: HTMLElement | null = null;

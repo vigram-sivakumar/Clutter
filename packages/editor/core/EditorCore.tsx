@@ -77,7 +77,6 @@ import { SlashCommands } from '../plugins/SlashCommands';
 import { TaskPriority } from '../plugins/TaskPriority';
 import { EscapeMarks } from '../plugins/EscapeMarks';
 import { DoubleSpaceEscape } from '../plugins/DoubleSpaceEscape';
-import { HashtagDetection } from '../plugins/HashtagDetection';
 import { HashtagAutocomplete } from '../plugins/HashtagAutocomplete';
 import { AtMention } from '../plugins/AtMention';
 import { SelectAll } from '../plugins/SelectAll';
@@ -289,7 +288,6 @@ const EditorCoreInner = forwardRef<
           DoubleSpaceEscape,
           SelectAll,
           BlockDeletion,
-          HashtagDetection,
           HashtagAutocomplete.configure({
             getColors: () => colors,
             getTags: () => availableTags,
