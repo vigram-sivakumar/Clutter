@@ -325,12 +325,20 @@ export function createBlockNodeDynamic(
  * Use this when you need to create a NEW block based on an existing block's
  * attributes, but want to:
  * - Generate a NEW blockId (for the new block)
- * - Whitelist only essential structural attributes
+ * - Whitelist only essential type-defining attributes
  * - Prevent state leakage (e.g., collapsed, checked)
  *
  * 🔒 BLOCK IDENTITY LAW:
  * This function ALWAYS generates a new blockId. Never use this to UPDATE
  * an existing block's attributes. For updates, use updateBlockAttrs().
+ *
+ * Whitelisted attributes (defining block "kind", not state):
+ * - headingLevel (1, 2, 3)
+ * - listType (bullet, numbered, task, toggle)
+ * - type (callout: info, warning, error, success)
+ * - language (codeBlock)
+ * - tags (paragraph)
+ * - style, fullWidth, color (horizontalRule)
  *
  * @param sourceNode - Existing block node to copy attributes from
  * @param indent - Indent level for the new block
@@ -338,7 +346,7 @@ export function createBlockNodeDynamic(
  *
  * @example
  * ```ts
- * // Create sibling below current block
+ * // Create sibling below current block (preserves heading level, list type, etc.)
  * const cleanAttrs = createCleanBlockAttrs(node, node.attrs.indent);
  * tr.insert(pos, node.type.create(cleanAttrs));
  * ```
@@ -352,13 +360,43 @@ export function createCleanBlockAttrs(
     indent,
   };
 
-  // Whitelist: only copy if present on source node
+  // Whitelist: only copy type-specific attributes from source node
+  // These define the "kind" of block, not transient state
+
+  // Heading attributes
+  if (sourceNode.attrs.headingLevel !== undefined) {
+    attrs.headingLevel = sourceNode.attrs.headingLevel;
+  }
+
+  // ListBlock attributes
   if (sourceNode.attrs.listType !== undefined) {
     attrs.listType = sourceNode.attrs.listType;
   }
 
-  if (sourceNode.attrs.calloutType !== undefined) {
-    attrs.calloutType = sourceNode.attrs.calloutType;
+  // Callout attributes
+  if (sourceNode.attrs.type !== undefined) {
+    attrs.type = sourceNode.attrs.type;
+  }
+
+  // CodeBlock attributes
+  if (sourceNode.attrs.language !== undefined) {
+    attrs.language = sourceNode.attrs.language;
+  }
+
+  // Paragraph attributes
+  if (sourceNode.attrs.tags !== undefined) {
+    attrs.tags = sourceNode.attrs.tags;
+  }
+
+  // HorizontalRule attributes
+  if (sourceNode.attrs.style !== undefined) {
+    attrs.style = sourceNode.attrs.style;
+  }
+  if (sourceNode.attrs.fullWidth !== undefined) {
+    attrs.fullWidth = sourceNode.attrs.fullWidth;
+  }
+  if (sourceNode.attrs.color !== undefined) {
+    attrs.color = sourceNode.attrs.color;
   }
 
   return attrs;
