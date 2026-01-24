@@ -222,6 +222,47 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     }, CHROME_CONFIG.HIDE_DELAY);
   }, [isMenuOpen]);
 
+  // Update chrome to follow cursor position (used after insertions)
+  const updateChromeForCursor = useCallback(() => {
+    const { selection, doc } = editor.state;
+    const cursorPos = selection.$anchor.pos;
+    
+    // Find block containing cursor by traversing document
+    let foundBlockId: string | null = null;
+    doc.descendants((node, pos) => {
+      if (foundBlockId) return false; // Already found
+      
+      const nodeEnd = pos + node.nodeSize;
+      if (pos <= cursorPos && cursorPos <= nodeEnd && node.attrs?.blockId) {
+        foundBlockId = node.attrs.blockId;
+        return false; // Stop traversing
+      }
+    });
+    
+    if (!foundBlockId) return;
+    
+    // Find DOM element for this block
+    const blockElement = containerRef.current?.querySelector(
+      `[data-block-id="${foundBlockId}"]`
+    ) as HTMLElement | null;
+    
+    if (!blockElement) return;
+    
+    const rect = blockElement.getBoundingClientRect();
+    const containerRect = containerRef.current?.getBoundingClientRect();
+    
+    if (!containerRect) return;
+    
+    // Update chrome to new block
+    setChrome({
+      blockId: foundBlockId,
+      x: rect.left - containerRect.left,
+      y: rect.top - containerRect.top,
+      width: rect.width,
+      visible: true,
+    });
+  }, [editor, containerRef]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Hover Detection
   // ─────────────────────────────────────────────────────────────────────────
@@ -356,7 +397,10 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     
     view.dispatch(tr);
     view.focus();
-  }, [chrome.blockId, editor]);
+    
+    // Update chrome to follow cursor to new block
+    setTimeout(() => updateChromeForCursor(), 0);
+  }, [chrome.blockId, editor, updateChromeForCursor]);
 
   const handleBlockSelect = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -513,8 +557,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     view.dispatch(tr);
     view.focus();
     
+    // Update chrome to follow cursor to new block
+    setTimeout(() => updateChromeForCursor(), 0);
+    
     setIsMenuOpen(false);
-  }, [chrome.blockId, editor]);
+  }, [chrome.blockId, editor, updateChromeForCursor]);
 
   const handleInsertBelowFromMenu = useCallback(() => {
     handleInsertBelow(); // No event needed - it's optional now
