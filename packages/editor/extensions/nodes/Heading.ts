@@ -12,7 +12,7 @@
 
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { Heading as HeadingComponent } from '../../components/Heading';
+import { Heading as HeadingComponent } from '../../components/blocks/Heading';
 import type { HeadingLevel } from '../../types';
 // PHASE 3.3.a: Imports removed - handlers disabled
 // import {

@@ -21,7 +21,7 @@
 
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { HorizontalRule as HorizontalRuleComponent } from '../../components/HorizontalRule';
+import { HorizontalRule as HorizontalRuleComponent } from '../../components/blocks/HorizontalRule';
 
 declare module '@tiptap/core' {
   // eslint-disable-next-line no-unused-vars

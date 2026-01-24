@@ -88,11 +88,9 @@ export function BlockWrapper({
       data-level={level}
       data-toggle={parentToggleId || undefined}
       className={className}
-      onMouseDown={(e) => {
+      onMouseDown={(_e) => {
         // 🔬 FORENSIC: Track mouse interactions on blocks
-        if (import.meta.env.DEV) {
-          
-        }
+        // Development tracking placeholder - currently unused
       }}
       style={{
         display: 'flex',

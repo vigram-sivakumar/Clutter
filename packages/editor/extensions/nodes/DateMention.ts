@@ -7,7 +7,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { DateMentionView } from '../../components/DateMentionView';
+import { DateMentionView } from '../../components/inline/DateMentionView';
 
 export interface DateMentionOptions {
   HTMLAttributes: Record<string, any>;

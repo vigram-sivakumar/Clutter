@@ -9,7 +9,7 @@
 import { Node } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
-import { ParagraphBlock } from '../../components/ParagraphBlock';
+import { ParagraphBlock } from '../../components/blocks/ParagraphBlock';
 
 // NOTE: indentBlock/outdentBlock removed - now handled via keyboard rules
 // NOTE: Arrow navigation removed - now centralized in KeyboardShortcuts.ts

@@ -10,7 +10,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { Blockquote as BlockquoteComponent } from '../../components/Blockquote';
+import { Blockquote as BlockquoteComponent } from '../../components/blocks/Blockquote';
 
 // NOTE: indentBlock/outdentBlock removed - now handled via keyboard rules
 

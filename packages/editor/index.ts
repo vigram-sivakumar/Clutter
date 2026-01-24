@@ -61,7 +61,7 @@ export { EscapeMarks } from './plugins/EscapeMarks';
 export { DoubleSpaceEscape } from './plugins/DoubleSpaceEscape';
 
 // Components: Block renderers
-export { SlashCommandMenu } from './components/SlashCommandMenu';
+export { SlashCommandMenu } from './components/menus/SlashCommandMenu';
 export {
   BlockWrapper,
   MarkerContainer,
@@ -69,15 +69,15 @@ export {
   getBlockContainerStyle,
   getMarkerStyle,
   getContentStyle,
-} from './components/BlockWrapper';
-export { Paragraph as ParagraphComponent } from './components/Paragraph';
-export { Heading as HeadingComponent } from './components/Heading';
-export { ListBlock as ListBlockComponent } from './components/ListBlock';
-export { Blockquote as BlockquoteComponent } from './components/Blockquote';
-export { CodeBlock as CodeBlockComponent } from './components/CodeBlock';
-export { HorizontalRule as HorizontalRuleComponent } from './components/HorizontalRule';
-export { Callout as CalloutComponent } from './components/Callout';
-export { EditorErrorFallback } from './components/EditorErrorFallback';
+} from './components/blocks/BlockWrapper';
+export { Paragraph as ParagraphComponent } from './components/blocks/Paragraph';
+export { Heading as HeadingComponent } from './components/blocks/Heading';
+export { ListBlock as ListBlockComponent } from './components/blocks/ListBlock';
+export { Blockquote as BlockquoteComponent } from './components/blocks/Blockquote';
+export { CodeBlock as CodeBlockComponent } from './components/blocks/CodeBlock';
+export { HorizontalRule as HorizontalRuleComponent } from './components/blocks/HorizontalRule';
+export { Callout as CalloutComponent } from './components/blocks/Callout';
+export { EditorErrorFallback } from './components/shared/EditorErrorFallback';
 
 // Utils
 export { addTagToBlock } from './utils/tagUtils';

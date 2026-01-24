@@ -8,7 +8,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { NoteLinkView } from '../../components/NoteLinkView';
+import { NoteLinkView } from '../../components/inline/NoteLinkView';
 
 export interface NoteLinkOptions {
   HTMLAttributes: Record<string, any>;

@@ -20,7 +20,7 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { spacing } from '../../tokens';
 import type { ListType, ListBlockAttrs } from '../../types';
-import { ListBlock as ListBlockComponent } from '../../components/ListBlock';
+import { ListBlock as ListBlockComponent } from '../../components/blocks/ListBlock';
 import { handleEnter } from '../../plugins/keyboard';
 // NOTE: Arrow navigation removed - now centralized in KeyboardShortcuts.ts
 

@@ -13,7 +13,7 @@ import {
   type CommandGroup,
 } from '../plugins/SlashCommands';
 import { useCommandPickerNavigation } from '../hooks/useCommandPickerNavigation';
-import { CommandList } from './CommandList';
+import { CommandList } from '../shared/CommandList';
 
 interface SlashCommandMenuProps {
   editor: Editor | null;

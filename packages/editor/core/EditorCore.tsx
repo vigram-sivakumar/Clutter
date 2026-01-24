@@ -87,10 +87,10 @@ import { BlockDeletion } from '../plugins/BlockDeletion';
 import { CollapseExtension } from '../extensions/CollapseExtension';
 
 // UI Components
-import { SlashCommandMenu } from '../components/SlashCommandMenu';
-import { AtMentionMenu } from '../components/AtMentionMenu';
+import { SlashCommandMenu } from '../components/menus/SlashCommandMenu';
+import { AtMentionMenu } from '../components/menus/AtMentionMenu';
 import { FloatingToolbar } from '@clutter/ui';
-import { EditorChromeLayer } from '../components/EditorChromeLayer';
+import { EditorChromeLayer } from '../components/chrome/EditorChromeLayer';
 
 // Tokens
 import { placeholders } from '../tokens';

@@ -10,7 +10,7 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { TextSelection } from '@tiptap/pm/state';
-import { CodeBlock as CodeBlockComponent } from '../../components/CodeBlock';
+import { CodeBlock as CodeBlockComponent } from '../../components/blocks/CodeBlock';
 // NOTE: Structural keyboard logic is handled via keyboard rules (indent/outdent intents)
 
 // NOTE: indentBlock/outdentBlock removed - now handled via keyboard rules

@@ -51,7 +51,7 @@ import { spacing } from '../tokens';
 import { formatDateTime } from '../utils/dateFormatting';
 import { useCommandPickerNavigation } from '../hooks/useCommandPickerNavigation';
 import { useBlockById } from '../hooks/useBlockById';
-import { CommandList } from './CommandList';
+import { CommandList } from '../shared/CommandList';
 import { filterSlashCommands, type SlashCommand } from '../plugins/SlashCommands';
 import { convertBlock, type BlockConversionSpec } from '../utils/blockConversion';
 

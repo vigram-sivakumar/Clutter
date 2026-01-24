@@ -7,7 +7,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/react';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { Callout as CalloutComponent } from '../../components/Callout';
+import { Callout as CalloutComponent } from '../../components/blocks/Callout';
 
 // NOTE: indentBlock/outdentBlock removed - now handled via keyboard rules
 

@@ -472,7 +472,7 @@ transition: `opacity ${CHROME_CONFIG.TRANSITION_DURATION}ms ease`,
 
 ```tsx
 // EditorCore.tsx
-import { EditorChromeLayer } from '../components/EditorChromeLayer';
+import { EditorChromeLayer } from '../components/chrome/EditorChromeLayer';
 
 function EditorCore() {
   const editorContainerRef = useRef<HTMLDivElement>(null);
