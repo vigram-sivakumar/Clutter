@@ -13,6 +13,7 @@
 
 import type { Editor } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
+import { TextSelection } from '@tiptap/pm/state';
 import { createBlockNode } from '../domain/createBlock';
 
 /**
@@ -85,6 +86,12 @@ export function convertBlock(
 
   // Replace the block in one transaction
   const tr = state.tr.replaceWith(blockPos, blockPos + blockNode.nodeSize, newNode);
+  
+  // CRITICAL: Set selection after document change (ProseMirror invariant)
+  // Place cursor at the end of the block's content
+  const endPos = blockPos + newNode.nodeSize - 1;
+  tr.setSelection(TextSelection.near(tr.doc.resolve(endPos)));
+  
   view.dispatch(tr);
 }
 
