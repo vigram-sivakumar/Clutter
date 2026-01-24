@@ -52,6 +52,7 @@ import { formatDateTime } from '../utils/dateFormatting';
 import { useCommandPickerNavigation } from '../hooks/useCommandPickerNavigation';
 import { CommandList } from './CommandList';
 import { filterSlashCommands, type SlashCommand } from '../plugins/SlashCommands';
+import { convertBlock, type BlockConversionSpec } from '../utils/blockConversion';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION (Single place to edit all chrome behavior)
@@ -96,6 +97,68 @@ interface EditorChromeLayerProps {
   createdAt?: string; // ISO string from note metadata
   updatedAt?: string; // ISO string from note metadata
   deletedAt?: string | null; // ISO string from note metadata (null if not deleted)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Map SlashCommand to BlockConversionSpec
+ * 
+ * This bridges the gap between the slash command registry (UI-focused)
+ * and the block conversion utility (editor-focused).
+ */
+function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
+  switch (command.id) {
+    // Text blocks
+    case 'text':
+      return { type: 'paragraph' };
+    case 'heading1':
+      return { type: 'heading', headingLevel: 1 };
+    case 'heading2':
+      return { type: 'heading', headingLevel: 2 };
+    case 'heading3':
+      return { type: 'heading', headingLevel: 3 };
+    
+    // Lists
+    case 'bulletList':
+      return { type: 'listBlock', listType: 'bullet' };
+    case 'numberedList':
+      return { type: 'listBlock', listType: 'numbered' };
+    case 'todoList':
+      return { type: 'listBlock', listType: 'task' };
+    case 'toggleList':
+      return { type: 'listBlock', listType: 'toggle' };
+    
+    // Callouts
+    case 'quote':
+      return { type: 'blockquote' };
+    case 'callout-info':
+      return { type: 'callout', calloutType: 'info' };
+    case 'callout-warning':
+      return { type: 'callout', calloutType: 'warning' };
+    case 'callout-error':
+      return { type: 'callout', calloutType: 'error' };
+    case 'callout-success':
+      return { type: 'callout', calloutType: 'success' };
+    
+    // Code
+    case 'code':
+      return { type: 'codeBlock' };
+    
+    // Commands that insert rather than convert (not supported in block menu)
+    case 'divider':
+    case 'divider-wavy':
+    case 'image':
+    case 'video':
+    case 'file':
+      return null;
+    
+    default:
+      console.warn(`[mapCommandToSpec] Unknown command: ${command.id}`);
+      return null;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -380,24 +443,15 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const handleSlashCommandSelect = useCallback((command: SlashCommand) => {
     if (!chrome.blockId) return;
 
-    const { state } = editor;
-    let blockPos: number | null = null;
-    let blockNode: any = null;
+    // Map SlashCommand to BlockConversionSpec
+    const spec = mapCommandToSpec(command);
+    if (!spec) {
+      console.warn(`[BlockOptionsMenu] Cannot convert command: ${command.id}`);
+      return;
+    }
 
-    state.doc.descendants((node, pos: number) => {
-      if (node.attrs.blockId === chrome.blockId) {
-        blockPos = pos;
-        blockNode = node;
-        return false;
-      }
-    });
-
-    if (blockPos === null || !blockNode) return;
-
-    // Execute the command with the block range
-    const from = blockPos as number;
-    const to = from + blockNode.nodeSize;
-    command.execute(editor, { from, to });
+    // Convert the block by ID (not cursor position!)
+    convertBlock(editor, chrome.blockId, spec);
 
     // Close menu and reset view
     setIsMenuOpen(false);
@@ -786,7 +840,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
           }}
           minWidth="240px"
           maxWidth="240px"
-          maxHeight="400px"
+          maxHeight="359px"
         >
           <div ref={menuContainerRef}>
             {menuView === 'main' ? (
@@ -870,14 +924,18 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
             ) : (
               // Turn Into view (command picker)
               <>
-                <div style={{ padding: '8px' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '4px',
+                  marginBottom: '8px',
+                  }}>
                   <Button 
                     variant="tertiary" 
                     onClick={handleBackToMenu}
-                    style={{ marginBottom: '8px', width: '100%', justifyContent: 'flex-start' }}
+                    style={{ justifyContent: 'flex-start' }}
                   >
                     <ChevronLeft size={16} style={{ marginRight: '4px' }} />
-                    Back to block options
                   </Button>
                   
                   <Input
