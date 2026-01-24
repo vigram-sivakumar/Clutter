@@ -572,8 +572,14 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // ─────────────────────────────────────────────────────────────────────────
 
   // Filter slash commands based on search query
+  // Also exclude commands that can't be converted (dividers, media)
   const filteredCommands = useMemo(() => {
-    return filterSlashCommands(searchQuery);
+    const allCommands = filterSlashCommands(searchQuery);
+    
+    // Exclude insert-only commands that can't convert existing blocks
+    const excludedCommands = ['divider', 'dividerWavy', 'image', 'video', 'file'];
+    
+    return allCommands.filter(cmd => !excludedCommands.includes(cmd.id));
   }, [searchQuery]);
 
   // Convert SlashCommand to CommandItem format for CommandList
