@@ -315,8 +315,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
       view.dispatch(state.tr.setSelection(pointSelection));
     }
 
-    // Don't focus - clicking chrome = clicking outside editor
-    view.dom.blur();
+    // Don't blur editor - maintain focus for keyboard handling
+    // Blurring breaks slash command Enter key and other keyboard interactions
   }, [chrome.blockId, editor]);
 
   const handleOpenMenu = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
@@ -343,8 +343,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
       left: buttonRect.left - menuWidth - gap,
     });
     
-    // Blur editor to hide caret while menu is open
-    editor.view.dom.blur();
+    // Don't blur editor - maintain focus for keyboard handling
+    // The caret will be hidden by CSS when menu is open (via isMenuOpen state)
     
     setIsMenuOpen(true);
     setSelectedMenuIndex(-1); // Reset selection when menu opens

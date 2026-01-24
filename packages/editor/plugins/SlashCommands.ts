@@ -34,7 +34,7 @@ declare module '@tiptap/core' {
     slashCommands: {
       isOpen: boolean;
       query: string;
-      startPos: number | null;
+      startPos: number;
       selectedIndex: number;
       manuallyClosedAt: number | null; // PHASE 5: Track manual close to prevent immediate reopen
       userClosed: boolean; // Track explicit user dismissal (ESC or click-outside)
@@ -531,7 +531,7 @@ export const SlashCommands = Extension.create({
     return {
       isOpen: false,
       query: '',
-      startPos: null,
+      startPos: 0,
       selectedIndex: 0,
       manuallyClosedAt: null, // PHASE 5: Track manual close
       userClosed: false, // Track explicit user dismissal
@@ -544,7 +544,7 @@ export const SlashCommands = Extension.create({
       Tab: () => {
         const storage = this.editor.storage.slashCommands;
 
-        if (!storage || !storage.isOpen || storage.startPos === null) {
+        if (!storage || !storage.isOpen) {
           return false;
         }
 
@@ -569,7 +569,7 @@ export const SlashCommands = Extension.create({
       Enter: () => {
         const storage = this.editor.storage.slashCommands;
 
-        if (!storage || !storage.isOpen || storage.startPos === null) {
+        if (!storage || !storage.isOpen) {
           return false; // Let default Enter behavior work
         }
 
