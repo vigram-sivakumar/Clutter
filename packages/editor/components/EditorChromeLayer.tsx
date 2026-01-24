@@ -50,6 +50,7 @@ import { useEditorTheme } from '../theme/EditorThemeContext';
 import { spacing } from '../tokens';
 import { formatDateTime } from '../utils/dateFormatting';
 import { useCommandPickerNavigation } from '../hooks/useCommandPickerNavigation';
+import { useBlockById } from '../hooks/useBlockById';
 import { CommandList } from './CommandList';
 import { filterSlashCommands, type SlashCommand } from '../plugins/SlashCommands';
 import { convertBlock, type BlockConversionSpec } from '../utils/blockConversion';
@@ -200,6 +201,12 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const menuContainerRef = useRef<HTMLDivElement>(null);
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Hooks
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const findBlock = useBlockById(editor);
+
+  // ─────────────────────────────────────────────────────────────────────────
   // Helpers
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -328,19 +335,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
     if (!chrome.blockId) return;
 
+    const result = findBlock(chrome.blockId);
+    if (!result) return;
+
+    const { pos: blockPos, node: blockNode } = result;
     const { state, view } = editor;
-    let blockPos: number | null = null;
-    let blockNode: any = null;
-
-    state.doc.descendants((node, pos: number) => {
-      if (node.attrs.blockId === chrome.blockId) {
-        blockPos = pos;
-        blockNode = node;
-        return false;
-      }
-    });
-
-    if (blockPos === null || !blockNode) return;
 
     const insertPos: number = Number(blockPos) + Number(blockNode.nodeSize);
     const newParagraph = state.schema.nodes.paragraph?.create();
@@ -361,17 +360,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
     if (!chrome.blockId) return;
 
+    const result = findBlock(chrome.blockId);
+    if (!result) return;
+
+    const blockPos = result.pos + 1; // Position inside the block
     const { state, view } = editor;
-    let blockPos: number | null = null;
-
-    state.doc.descendants((node, pos) => {
-      if (node.attrs.blockId === chrome.blockId) {
-        blockPos = pos + 1;
-        return false;
-      }
-    });
-
-    if (blockPos === null) return;
 
     if (e.shiftKey && anchorBlockPosRef.current !== null) {
       // Range selection
@@ -480,23 +473,13 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const handleDelete = useCallback(() => {
     if (!chrome.blockId) return;
 
+    const result = findBlock(chrome.blockId);
+    if (!result) return;
+
+    const { pos, node } = result;
     const { state, view } = editor;
-    let blockPos: number | null = null;
-    let blockNode: any = null;
-
-    state.doc.descendants((node, pos: number) => {
-      if (node.attrs.blockId === chrome.blockId) {
-        blockPos = pos;
-        blockNode = node;
-        return false;
-      }
-    });
-
-    if (blockPos === null || !blockNode) return;
-
-    // TypeScript assertion: blockPos is definitely a number here due to guard above
-    const from = blockPos as number;
-    const to = from + blockNode.nodeSize;
+    const from = pos;
+    const to = pos + node.nodeSize;
     const tr = state.tr.delete(from, to);
     view.dispatch(tr);
     // Don't focus - user must click to focus manually
@@ -507,17 +490,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const handleInsertAbove = useCallback(() => {
     if (!chrome.blockId) return;
 
+    const result = findBlock(chrome.blockId);
+    if (!result) return;
+
+    const blockPos = result.pos;
     const { state, view } = editor;
-    let blockPos: number | null = null;
-
-    state.doc.descendants((node, pos: number) => {
-      if (node.attrs.blockId === chrome.blockId) {
-        blockPos = pos;
-        return false;
-      }
-    });
-
-    if (blockPos === null) return;
 
     const newParagraph = state.schema.nodes.paragraph?.create();
     if (!newParagraph) return;
@@ -550,22 +527,25 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const getBlockTimestamps = useCallback(() => {
     if (!chrome.blockId) return { createdAt: null, updatedAt: null };
 
-    const { state } = editor;
-    let blockCreatedAt: string | null = null;
-    let blockUpdatedAt: string | null = null;
+    const result = findBlock(chrome.blockId);
+    if (!result) return { createdAt: null, updatedAt: null };
 
-    state.doc.descendants((node) => {
-      if (node.attrs?.blockId === chrome.blockId) {
-        blockCreatedAt = node.attrs.createdAt || null;
-        blockUpdatedAt = node.attrs.updatedAt || null;
-        return false; // Stop traversing
-      }
-    });
-
-    return { createdAt: blockCreatedAt, updatedAt: blockUpdatedAt };
-  }, [chrome.blockId, editor]);
+    return {
+      createdAt: result.node.attrs.createdAt || null,
+      updatedAt: result.node.attrs.updatedAt || null,
+    };
+  }, [chrome.blockId, findBlock]);
 
   const blockTimestamps = getBlockTimestamps();
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Keyboard Navigation Modes
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Explicit keyboard mode flags for clarity and maintainability
+  // Defined here before hooks that depend on them
+  const isMainMenuKeyboardActive = isMenuOpen && menuView === 'main';
+  const isTurnIntoKeyboardActive = isMenuOpen && menuView === 'turnInto';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Turn Into View State (Command Picker)
@@ -593,10 +573,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     }));
   }, [filteredCommands]);
 
-  // Keyboard navigation for Turn Into view (only active when menuView === 'turnInto')
+  // Keyboard navigation for TURN INTO view
+  // Note: Must be defined after isMainMenuKeyboardActive/isTurnIntoKeyboardActive
   const { selectedIndex: commandSelectedIndex, setSelectedIndex: setCommandSelectedIndex } = 
     useCommandPickerNavigation({
-      isActive: isMenuOpen && menuView === 'turnInto',
+      isActive: isTurnIntoKeyboardActive,
       itemCount: commandItems.length,
       onSelect: (index) => {
         const command = filteredCommands[index];
@@ -662,9 +643,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // Count total actionable menu items (excludes DropdownHeaders and DropdownSeparators)
   const totalMenuItems = 8; // Turn into, Add description, Duplicate, Move to, Delete, Insert above, Insert below, Copy link
 
-  // Keyboard handler for menu navigation (ONLY for main menu view)
+  // Keyboard handler for MAIN MENU navigation
   useEffect(() => {
-    if (!isMenuOpen || menuView !== 'main') return;
+    if (!isMainMenuKeyboardActive) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'ArrowDown') {
@@ -710,8 +691,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
       document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [
-    isMenuOpen,
-    menuView,
+    isMainMenuKeyboardActive,
     selectedMenuIndex,
     totalMenuItems,
     handleTurnInto,
