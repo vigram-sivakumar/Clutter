@@ -114,12 +114,12 @@ export function useCommandPickerNavigation({
   // Navigation functions
   const selectNext = () => {
     hasKeyboardNavigatedRef.current = true; // Mark keyboard usage
-    setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
+    setSelectedIndex((prev) => (prev + 1) % itemCount); // Wrap to start
   };
 
   const selectPrevious = () => {
     hasKeyboardNavigatedRef.current = true; // Mark keyboard usage
-    setSelectedIndex((prev) => Math.max(prev - 1, 0));
+    setSelectedIndex((prev) => (prev - 1 + itemCount) % itemCount); // Wrap to end
   };
 
   const selectCurrent = () => {
