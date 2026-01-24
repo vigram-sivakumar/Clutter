@@ -222,6 +222,36 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     }, CHROME_CONFIG.HIDE_DELAY);
   }, [isMenuOpen]);
 
+  // Get block result with validation (common pattern)
+  const getBlockResult = useCallback(() => {
+    if (!chrome.blockId) return null;
+    const result = findBlock(chrome.blockId);
+    if (!result) return null;
+    return result;
+  }, [chrome.blockId, findBlock]);
+
+  // Insert paragraph at position and focus
+  const insertParagraphAt = useCallback((insertPos: number) => {
+    const { state, view } = editor;
+    const newParagraph = state.schema.nodes.paragraph?.create();
+    if (!newParagraph) return false;
+
+    const tr = state.tr.insert(insertPos, newParagraph);
+    const cursorPos = Number(insertPos) + 1;
+    tr.setSelection(TextSelection.create(tr.doc, cursorPos));
+    
+    view.dispatch(tr);
+    view.focus();
+    return true;
+  }, [editor]);
+
+  // Reset menu to main view
+  const resetMenuToMain = useCallback(() => {
+    setMenuView('main');
+    setSearchQuery('');
+    setSelectedMenuIndex(-1);
+  }, []);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Hover Detection
   // ─────────────────────────────────────────────────────────────────────────
@@ -345,37 +375,20 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     e?.preventDefault();
     e?.stopPropagation();
 
-    if (!chrome.blockId) return;
-
-    const result = findBlock(chrome.blockId);
+    const result = getBlockResult();
     if (!result) return;
 
     const { pos: blockPos, node: blockNode } = result;
-    const { state, view } = editor;
-
     const insertPos: number = Number(blockPos) + Number(blockNode.nodeSize);
-    const newParagraph = state.schema.nodes.paragraph?.create();
     
-    if (!newParagraph) return;
-    
-    // Combine insert and selection into single transaction to avoid stale state
-    const tr = state.tr.insert(insertPos, newParagraph);
-    const cursorPos: number = Number(insertPos) + 1;
-    
-    // Create selection using the transaction's updated doc (after insert)
-    tr.setSelection(TextSelection.create(tr.doc, cursorPos));
-    
-    view.dispatch(tr);
-    view.focus();
-  }, [chrome.blockId, editor]);
+    insertParagraphAt(insertPos);
+  }, [getBlockResult, insertParagraphAt]);
 
   const handleBlockSelect = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!chrome.blockId) return;
-
-    const result = findBlock(chrome.blockId);
+    const result = getBlockResult();
     if (!result) return;
 
     const blockPos = result.pos + 1; // Position inside the block
@@ -396,7 +409,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
     // Don't blur editor - maintain focus for keyboard handling
     // Blurring breaks slash command Enter key and other keyboard interactions
-  }, [chrome.blockId, editor]);
+  }, [getBlockResult, editor]);
 
   const handleOpenMenu = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -443,10 +456,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   }, [chrome.blockId]);
 
   const handleBackToMenu = useCallback(() => {
-    setMenuView('main');
-    setSearchQuery(''); // Clear search
-    setSelectedMenuIndex(-1); // Reset selection
-  }, []);
+    resetMenuToMain();
+  }, [resetMenuToMain]);
 
   const handleSlashCommandSelect = useCallback((command: SlashCommand) => {
     if (!chrome.blockId) return;
@@ -463,9 +474,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
     // Close menu and reset view
     setIsMenuOpen(false);
-    setMenuView('main');
-    setSearchQuery('');
-  }, [chrome.blockId, editor]);
+    resetMenuToMain();
+  }, [chrome.blockId, editor, resetMenuToMain]);
 
   const handleAddDescription = useCallback(() => {
     console.log('Add description for block:', chrome.blockId);
@@ -486,9 +496,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   }, [chrome.blockId]);
 
   const handleDelete = useCallback(() => {
-    if (!chrome.blockId) return;
-
-    const result = findBlock(chrome.blockId);
+    const result = getBlockResult();
     if (!result) return;
 
     const { pos, node } = result;
@@ -500,32 +508,17 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     // Don't focus - user must click to focus manually
     
     setIsMenuOpen(false);
-  }, [chrome.blockId, editor]);
+  }, [getBlockResult, editor]);
 
   const handleInsertAbove = useCallback(() => {
-    if (!chrome.blockId) return;
-
-    const result = findBlock(chrome.blockId);
+    const result = getBlockResult();
     if (!result) return;
 
     const blockPos = result.pos;
-    const { state, view } = editor;
-
-    const newParagraph = state.schema.nodes.paragraph?.create();
-    if (!newParagraph) return;
-
-    // Combine insert and selection into single transaction to avoid stale state
-    const tr = state.tr.insert(blockPos, newParagraph);
-    const cursorPos: number = Number(blockPos) + 1;
-    
-    // Create selection using the transaction's updated doc (after insert)
-    tr.setSelection(TextSelection.create(tr.doc, cursorPos));
-    
-    view.dispatch(tr);
-    view.focus();
+    insertParagraphAt(blockPos);
     
     setIsMenuOpen(false);
-  }, [chrome.blockId, editor]);
+  }, [getBlockResult, insertParagraphAt]);
 
   const handleInsertBelowFromMenu = useCallback(() => {
     handleInsertBelow(); // No event needed - it's optional now (also hides chrome)
@@ -543,16 +536,14 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // ─────────────────────────────────────────────────────────────────────────
 
   const getBlockTimestamps = useCallback(() => {
-    if (!chrome.blockId) return { createdAt: null, updatedAt: null };
-
-    const result = findBlock(chrome.blockId);
+    const result = getBlockResult();
     if (!result) return { createdAt: null, updatedAt: null };
 
     return {
       createdAt: result.node.attrs.createdAt || null,
       updatedAt: result.node.attrs.updatedAt || null,
     };
-  }, [chrome.blockId, findBlock]);
+  }, [getBlockResult]);
 
   const blockTimestamps = getBlockTimestamps();
 
@@ -839,9 +830,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
           position={menuPosition}
           onClose={() => {
             setIsMenuOpen(false);
-            setSelectedMenuIndex(-1); // Reset selection when menu closes
-            setMenuView('main'); // Reset to main view
-            setSearchQuery(''); // Clear search
+            resetMenuToMain();
             // Schedule hide check when menu closes (will hide if not hovering chrome)
             scheduleHide();
           }}
