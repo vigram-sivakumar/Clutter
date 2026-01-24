@@ -200,7 +200,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
   const commandListRef = useRef<HTMLDivElement>(null); // Separate ref for Turn Into command list
-  const hasUsedKeyboardRef = useRef(false); // Track keyboard intent for Turn Into menu
 
   // ─────────────────────────────────────────────────────────────────────────
   // Hooks
@@ -577,8 +576,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
   // Keyboard navigation for TURN INTO view
   // Note: Must be defined after isMainMenuKeyboardActive/isTurnIntoKeyboardActive
-  const { selectedIndex: commandSelectedIndex, setSelectedIndex: setCommandSelectedIndex } = 
-    useCommandPickerNavigation({
+  const { 
+    selectedIndex: commandSelectedIndex, 
+    setSelectedIndex: setCommandSelectedIndex,
+    hasKeyboardNavigatedRef, // Hook tracks keyboard usage internally
+  } = useCommandPickerNavigation({
       isActive: isTurnIntoKeyboardActive,
       itemCount: commandItems.length,
       onSelect: (index) => {
@@ -589,20 +591,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
       },
       containerRef: commandListRef, // Use separate ref to exclude Back button
     });
-
-  // Mark keyboard usage for Turn Into menu (establishes ownership)
-  useEffect(() => {
-    if (isTurnIntoKeyboardActive && commandSelectedIndex !== -1) {
-      hasUsedKeyboardRef.current = true;
-    }
-  }, [isTurnIntoKeyboardActive, commandSelectedIndex]);
-
-  // Reset keyboard ownership when leaving Turn Into view
-  useEffect(() => {
-    if (!isTurnIntoKeyboardActive) {
-      hasUsedKeyboardRef.current = false;
-    }
-  }, [isTurnIntoKeyboardActive]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Chrome Container Handlers
@@ -960,7 +948,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
                     }}
                     onItemHover={(index) => {
                       // Gate hover updates after keyboard navigation starts (ownership enforcement)
-                      if (hasUsedKeyboardRef.current) return;
+                      if (hasKeyboardNavigatedRef.current) return;
                       setCommandSelectedIndex(index);
                     }}
                     showGroups={searchQuery === ''}

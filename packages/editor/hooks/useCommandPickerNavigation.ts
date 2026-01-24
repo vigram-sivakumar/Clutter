@@ -13,7 +13,7 @@
  * This prevents global keyboard hijacking when the picker is not visible.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type RefObject } from 'react';
 
 export interface UseCommandPickerNavigationOptions {
   /**
@@ -70,6 +70,12 @@ export interface UseCommandPickerNavigationResult {
    * Select the current item (calls onSelect)
    */
   selectCurrent: () => void;
+
+  /**
+   * Ref tracking whether keyboard navigation has been used
+   * Used to gate mouse hover updates (ownership enforcement)
+   */
+  hasKeyboardNavigatedRef: RefObject<boolean>;
 }
 
 export function useCommandPickerNavigation({
@@ -80,6 +86,9 @@ export function useCommandPickerNavigation({
   containerRef,
 }: UseCommandPickerNavigationOptions): UseCommandPickerNavigationResult {
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
+  
+  // Track keyboard navigation intent (for ownership enforcement)
+  const hasKeyboardNavigatedRef = useRef(false);
 
   // Reset index when itemCount changes (e.g., filtering results)
   useEffect(() => {
@@ -95,12 +104,21 @@ export function useCommandPickerNavigation({
     }
   }, [isActive, initialIndex]);
 
+  // Reset keyboard navigation flag when becoming inactive
+  useEffect(() => {
+    if (!isActive) {
+      hasKeyboardNavigatedRef.current = false;
+    }
+  }, [isActive]);
+
   // Navigation functions
   const selectNext = () => {
+    hasKeyboardNavigatedRef.current = true; // Mark keyboard usage
     setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
   };
 
   const selectPrevious = () => {
+    hasKeyboardNavigatedRef.current = true; // Mark keyboard usage
     setSelectedIndex((prev) => Math.max(prev - 1, 0));
   };
 
@@ -161,5 +179,6 @@ export function useCommandPickerNavigation({
     selectNext,
     selectPrevious,
     selectCurrent,
+    hasKeyboardNavigatedRef,
   };
 }
