@@ -34,13 +34,10 @@ declare module '@tiptap/core' {
     slashCommands: {
       isOpen: boolean;
       query: string;
-      startPos: number;
+      startPos: number | null;
       selectedIndex: number;
       manuallyClosedAt: number | null; // PHASE 5: Track manual close to prevent immediate reopen
       userClosed: boolean; // Track explicit user dismissal (ESC or click-outside)
-      openedFromBlockMenu: boolean; // Track if opened from block menu "Turn into"
-      blockMenuCallback: (() => void) | null; // Callback to reopen block menu
-      customPosition: { top: number; left: number } | null; // Custom position when opened from block menu
     };
   }
 }
@@ -534,13 +531,10 @@ export const SlashCommands = Extension.create({
     return {
       isOpen: false,
       query: '',
-      startPos: 0,
+      startPos: null,
       selectedIndex: 0,
       manuallyClosedAt: null, // PHASE 5: Track manual close
       userClosed: false, // Track explicit user dismissal
-      openedFromBlockMenu: false, // Track if opened from block menu
-      blockMenuCallback: null, // Callback to reopen block menu
-      customPosition: null, // Custom position when opened from block menu
     };
   },
 
@@ -550,7 +544,7 @@ export const SlashCommands = Extension.create({
       Tab: () => {
         const storage = this.editor.storage.slashCommands;
 
-        if (!storage || !storage.isOpen) {
+        if (!storage || !storage.isOpen || storage.startPos === null) {
           return false;
         }
 
@@ -575,7 +569,7 @@ export const SlashCommands = Extension.create({
       Enter: () => {
         const storage = this.editor.storage.slashCommands;
 
-        if (!storage || !storage.isOpen) {
+        if (!storage || !storage.isOpen || storage.startPos === null) {
           return false; // Let default Enter behavior work
         }
 
@@ -778,9 +772,8 @@ export const SlashCommands = Extension.create({
                   storage.selectedIndex = 0;
                   view.dispatch(view.state.tr);
                 }
-              } else if (storage.isOpen && !storage.openedFromBlockMenu) {
+              } else if (storage.isOpen) {
                 // No slash command at cursor but menu is open - close it
-                // (unless opened from block menu "Turn into")
                 storage.isOpen = false;
                 storage.startPos = null;
                 storage.query = '';

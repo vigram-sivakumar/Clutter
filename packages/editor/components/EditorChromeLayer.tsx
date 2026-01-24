@@ -115,7 +115,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedMenuIndex, setSelectedMenuIndex] = useState(-1); // -1 = no selection
-  const [, forceUpdate] = useState({}); // Used to re-render when slash menu state changes
 
   // ─────────────────────────────────────────────────────────────────────────
   // Refs
@@ -149,10 +148,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // ─────────────────────────────────────────────────────────────────────────
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    // Don't update chrome position while any menu is open - keeps chrome locked on menu block
-    const slashStorage = editor ? (editor.storage as any).slashCommands : null;
-    const isSlashOpenFromBlockMenu = slashStorage?.isOpen && slashStorage?.openedFromBlockMenu;
-    if (isMenuOpen || isSlashOpenFromBlockMenu) return;
+    // Don't update chrome position while menu is open - keeps chrome locked on menu block
+    if (isMenuOpen) return;
 
     // Cancel any pending operations
     if (rafHandleRef.current) {
@@ -249,25 +246,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     };
   }, [editor]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Slash Menu State Tracking
-  // ─────────────────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    const handleTransaction = () => {
-      // Force re-render when slash menu state changes to update dismiss icon
-      const slashStorage = (editor.storage as any).slashCommands;
-      if (slashStorage?.openedFromBlockMenu !== undefined) {
-        forceUpdate({});
-      }
-    };
-
-    editor.on('transaction', handleTransaction);
-
-    return () => {
-      editor.off('transaction', handleTransaction);
-    };
-  }, [editor]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Chrome Actions
@@ -347,26 +325,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     
     if (!editor) return;
     
-    const slashStorage = (editor.storage as any).slashCommands;
-    
-    // Check if we should close menus
+    // Toggle menu
     if (isMenuOpen) {
-      // Block menu is open, close it
       setIsMenuOpen(false);
-      return;
-    }
-    
-    if (slashStorage?.isOpen && slashStorage?.openedFromBlockMenu) {
-      // Slash menu is open from block menu, close it
-      slashStorage.isOpen = false;
-      slashStorage.userClosed = true;
-      slashStorage.openedFromBlockMenu = false;
-      slashStorage.blockMenuCallback = null;
-      slashStorage.customPosition = null;
-      // Dispatch transaction to update UI
-      const tr = editor.view.state.tr;
-      tr.setMeta('closeSlashMenu', true);
-      editor.view.dispatch(tr);
       return;
     }
     
@@ -395,55 +356,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
   const handleTurnInto = useCallback(() => {
     if (!chrome.blockId) return;
-
-    const { state, view } = editor;
-    let blockPos: number | null = null;
-
-    // Find the block position
-    state.doc.descendants((node, pos: number) => {
-      if (node.attrs.blockId === chrome.blockId) {
-        blockPos = pos;
-        return false;
-      }
-    });
-
-    if (blockPos === null) return;
-
-    // Capture blockPos and menuPosition
-    const capturedBlockPos = blockPos;
-    const capturedMenuPosition = menuPosition;
-
-    // IMPORTANT: Set slash menu state BEFORE closing block menu
-    // This prevents icon flicker (ensures shouldShowDismissIcon stays true)
-    const storage = (editor.storage as any).slashCommands;
-    storage.isOpen = true;
-    storage.query = ''; // Show all commands
-    storage.startPos = capturedBlockPos + 1; // Inside the block (for content extraction)
-    storage.selectedIndex = 0;
-    storage.userClosed = false;
-    storage.openedFromBlockMenu = true;
-    storage.customPosition = capturedMenuPosition; // Use block menu position
-    storage.blockMenuCallback = () => {
-      // Reopen block menu when back button is clicked
-      setIsMenuOpen(true);
-    };
-
-    // Close block menu (icon stays as X because slash is now marked as open)
-    setIsMenuOpen(false);
-
-    // Use setTimeout to allow React to unmount block menu before showing slash menu
-    setTimeout(() => {
-      // Set selection to trigger transaction event
-      const newState = view.state;
-      const tr = newState.tr.setSelection(
-        TextSelection.create(newState.doc, capturedBlockPos + 1)
-      );
-      // Add meta to ensure transaction fires
-      tr.setMeta('openSlashMenu', true);
-      view.dispatch(tr);
-      view.focus();
-    }, 0); // Minimal delay just to ensure clean unmount
-  }, [chrome.blockId, editor, menuPosition]);
+    
+    // TODO: Implement inline block types view in the block menu
+    // Will show block type options directly in the menu instead of opening slash command menu
+    console.log('Turn into clicked - to be implemented');
+  }, [chrome.blockId]);
 
   const handleAddDescription = useCallback(() => {
     console.log('Add description for block:', chrome.blockId);
@@ -575,16 +492,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // Styles
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Check if any menu in the flow is open (block menu or slash menu opened from block menu)
-  const slashStorage = editor ? (editor.storage as any).slashCommands : null;
-  const isSlashOpenFromBlockMenu = slashStorage?.isOpen && slashStorage?.openedFromBlockMenu;
-  const isAnyMenuOpen = isMenuOpen || isSlashOpenFromBlockMenu;
+  // Show chrome when hovering (and not typing) OR when menu is open
+  const shouldShow = (chrome.visible && !isTyping) || isMenuOpen;
   
-  // Show chrome when hovering (and not typing) OR when any menu in the flow is open
-  const shouldShow = (chrome.visible && !isTyping) || isAnyMenuOpen;
-  
-  // Show dismiss icon when any menu in the flow is open
-  const shouldShowDismissIcon = isAnyMenuOpen;
+  // Show dismiss icon when menu is open
+  const shouldShowDismissIcon = isMenuOpen;
 
   const baseButtonStyle: React.CSSProperties = {
     display: 'flex',

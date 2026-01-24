@@ -29,8 +29,7 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [position, setPosition] = useState<{
-    top?: number;
-    bottom?: number;
+    top: number;
     left: number;
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -39,7 +38,7 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
   useEffect(() => {
     if (!editor) return;
 
-    let cachedPosition: { top?: number; bottom?: number; left: number } | null = null;
+    let cachedPosition: { top: number; left: number } | null = null;
     let cachedStartPos: number | null = null;
 
     const updateMenu = () => {
@@ -54,25 +53,16 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
       setQuery(storage.query);
       setSelectedIndex(storage.selectedIndex);
 
-      // Calculate position when opening OR when startPos changes
-      // FloatingMenu handles collision detection and flip logic
+      // PHASE 5: Calculate position when opening OR when startPos changes
+      // This handles both initial open and switching between slash commands
       if (isNowOpen) {
         const startPosChanged = cachedStartPos !== currentStartPos;
 
         if (!wasOpen || startPosChanged) {
-          // Check if we have a custom position (opened from block menu)
-          if (storage.customPosition) {
-            // Use the custom position from block menu
-            cachedPosition = storage.customPosition;
-          } else {
-            // Normal slash command - position at cursor
-            const coords = editor.view.coordsAtPos(currentStartPos);
-            cachedPosition = {
-              top: coords.top,
-              bottom: coords.bottom,
-              left: coords.left,
-            };
-          }
+          // Menu just opened OR moved to different slash command
+          // Calculate position at the START of slash command (where "/" is)
+          const coords = editor.view.coordsAtPos(currentStartPos);
+          cachedPosition = { top: coords.bottom + 4, left: coords.left };
           cachedStartPos = currentStartPos;
           setPosition(cachedPosition);
         }
@@ -103,9 +93,6 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
     storage.isOpen = false;
     storage.userClosed = true; // Prevent auto-reopening
     storage.manuallyClosedAt = Date.now();
-    storage.openedFromBlockMenu = false; // Reset flag
-    storage.blockMenuCallback = null; // Clear callback
-    storage.customPosition = null; // Clear custom position
     // 🔒 Preserve selection when dispatching signal transaction
     const tr = editor.view.state.tr;
     tr.setSelection(editor.view.state.selection);
@@ -127,6 +114,90 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
     }
   }, [isOpen, selectedIndex, query]);
 
+  // Global keyboard handler to intercept keys before editor gets them
+  // This ensures Enter/Arrow keys work correctly even when structural handlers are active
+  useEffect(() => {
+    if (!isOpen || !editor) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const storage = (editor.storage as any).slashCommands;
+
+      if (!storage?.isOpen) {
+        return;
+      }
+
+      const commands = filterSlashCommands(storage.query);
+      if (commands.length === 0) return;
+
+      // Handle ArrowDown
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        storage.selectedIndex = Math.min(storage.selectedIndex + 1, commands.length - 1);
+        setSelectedIndex(storage.selectedIndex);
+        editor.view.dispatch(editor.state.tr);
+      }
+
+      // Handle ArrowUp
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        storage.selectedIndex = Math.max(storage.selectedIndex - 1, 0);
+        setSelectedIndex(storage.selectedIndex);
+        editor.view.dispatch(editor.state.tr);
+      }
+
+      // Handle Enter
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        const command = commands[storage.selectedIndex];
+        if (!command || storage.startPos === null) return;
+
+        const { from } = editor.state.selection;
+        const range = { from: storage.startPos, to: from };
+
+        // Close menu
+        storage.isOpen = false;
+
+        // Execute command
+        command.execute(editor, range);
+      }
+
+      // Tab: select first command
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const command = commands[0];
+        if (!command || storage.startPos === null) return;
+
+        const { from } = editor.state.selection;
+        const range = { from: storage.startPos, to: from };
+
+        // Close menu
+        storage.isOpen = false;
+
+        // Execute command
+        command.execute(editor, range);
+      }
+
+      // ESC is handled by DropdownContainer via dismissOnEscape prop
+    };
+
+    // Add listener in capture phase with highest priority
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [isOpen, editor]);
+
   if (!isOpen || !position || !editor) {
     return null;
   }
@@ -143,9 +214,6 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
 
     // Close menu
     storage.isOpen = false;
-    storage.openedFromBlockMenu = false; // Reset flag
-    storage.blockMenuCallback = null; // Clear callback
-    storage.customPosition = null; // Clear custom position
 
     // Execute command with slash range - command handles everything in ONE transaction
     command.execute(editor, range);
@@ -177,36 +245,10 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
   // When searching, show flat list (no groups)
   const shouldShowGroups = query === '' && groupedCommands;
 
-  // Check if opened from block menu
-  const storage = editor ? (editor.storage as any).slashCommands : null;
-  const openedFromBlockMenu = storage?.openedFromBlockMenu || false;
-
-  // Handle back button click
-  const handleBack = () => {
-    if (!editor) return;
-    const storage = (editor.storage as any).slashCommands;
-    
-    // Close slash menu and reset state
-    storage.isOpen = false;
-    storage.openedFromBlockMenu = false;
-    storage.customPosition = null;
-    
-    // Dispatch transaction to trigger UI updates
-    const tr = editor.view.state.tr;
-    tr.setMeta('closeSlashMenu', true);
-    editor.view.dispatch(tr);
-    
-    // Call the callback to reopen block menu
-    if (storage.blockMenuCallback) {
-      storage.blockMenuCallback();
-      storage.blockMenuCallback = null;
-    }
-  };
-
   return (
     <DropdownContainer
       isOpen={isOpen}
-      position={position}
+      position={{ top: position.top, left: position.left }}
       onClose={handleClose}
       dismissOnEscape={true}
       minWidth="240px"
@@ -214,18 +256,6 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
       maxHeight="310px"
     >
       <div ref={containerRef}>
-        {/* Back button when opened from block menu */}
-        {openedFromBlockMenu && (
-          <>
-            <DropdownItem
-              icon={<Icons.ChevronLeft size={16} />}
-              label="Back to block options"
-              onClick={handleBack}
-            />
-            <DropdownSeparator />
-          </>
-        )}
-        
         {shouldShowGroups
           ? // Render grouped commands with section headers
             Object.entries(groupedCommands!).map(
