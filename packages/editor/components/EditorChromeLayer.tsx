@@ -704,9 +704,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     handleCopyLink,
   ]);
 
-  // Auto-scroll selected item into view
+  // Auto-scroll selected item into view (ONLY for main menu)
   useEffect(() => {
-    if (!isMenuOpen || selectedMenuIndex === -1 || !menuContainerRef.current) return;
+    if (!isMainMenuKeyboardActive || selectedMenuIndex === -1 || !menuContainerRef.current) return;
 
     const items = menuContainerRef.current.querySelectorAll('button');
     const selectedItem = items[selectedMenuIndex];
@@ -717,7 +717,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
         behavior: 'smooth',
       });
     }
-  }, [isMenuOpen, selectedMenuIndex]);
+  }, [isMainMenuKeyboardActive, selectedMenuIndex]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render

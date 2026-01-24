@@ -95,13 +95,13 @@ export function useCommandPickerNavigation({
     }
   }, [isActive, initialIndex]);
 
-  // Navigation functions
+  // Navigation functions (with wrapping behavior)
   const selectNext = () => {
-    setSelectedIndex((prev) => Math.min(prev + 1, itemCount - 1));
+    setSelectedIndex((prev) => (prev + 1) % itemCount);
   };
 
   const selectPrevious = () => {
-    setSelectedIndex((prev) => Math.max(prev - 1, 0));
+    setSelectedIndex((prev) => (prev - 1 + itemCount) % itemCount);
   };
 
   const selectCurrent = () => {
