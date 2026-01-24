@@ -126,7 +126,7 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
       return { type: 'listBlock', listType: 'bullet' };
     case 'numberedList':
       return { type: 'listBlock', listType: 'numbered' };
-    case 'todoList':
+    case 'taskList':
       return { type: 'listBlock', listType: 'task' };
     case 'toggleList':
       return { type: 'listBlock', listType: 'toggle' };
