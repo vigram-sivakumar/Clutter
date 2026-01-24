@@ -348,10 +348,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     if (!newParagraph) return;
     
     // Combine insert and selection into single transaction to avoid stale state
+    const tr = state.tr.insert(insertPos, newParagraph);
     const cursorPos: number = Number(insertPos) + 1;
-    const tr = state.tr
-      .insert(insertPos, newParagraph)
-      .setSelection(TextSelection.create(state.tr.doc, cursorPos));
+    
+    // Create selection using the transaction's updated doc (after insert)
+    tr.setSelection(TextSelection.create(tr.doc, cursorPos));
     
     view.dispatch(tr);
     view.focus();
@@ -503,10 +504,11 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     if (!newParagraph) return;
 
     // Combine insert and selection into single transaction to avoid stale state
+    const tr = state.tr.insert(blockPos, newParagraph);
     const cursorPos: number = Number(blockPos) + 1;
-    const tr = state.tr
-      .insert(blockPos, newParagraph)
-      .setSelection(TextSelection.create(state.tr.doc, cursorPos));
+    
+    // Create selection using the transaction's updated doc (after insert)
+    tr.setSelection(TextSelection.create(tr.doc, cursorPos));
     
     view.dispatch(tr);
     view.focus();
