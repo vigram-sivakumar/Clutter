@@ -199,6 +199,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   const anchorBlockPosRef = useRef<number | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
+  const commandListRef = useRef<HTMLDivElement>(null); // Separate ref for Turn Into command list
 
   // ─────────────────────────────────────────────────────────────────────────
   // Hooks
@@ -585,7 +586,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
           handleSlashCommandSelect(command);
         }
       },
-      containerRef: menuContainerRef,
+      containerRef: commandListRef, // Use separate ref to exclude Back button
     });
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -932,24 +933,26 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
                   />
                 </div>
 
-                <CommandList
-                  items={commandItems}
-                  selectedIndex={commandSelectedIndex}
-                  onSelect={(index) => {
-                    const command = filteredCommands[index];
-                    if (command) {
-                      handleSlashCommandSelect(command);
-                    }
-                  }}
-                  onItemHover={(index) => setCommandSelectedIndex(index)}
-                  showGroups={searchQuery === ''}
-                  groupLabels={{
-                    text: 'Basic Blocks',
-                    lists: 'Lists',
-                    media: 'Media',
-                    callouts: 'Callouts',
-                  }}
-                />
+                <div ref={commandListRef}>
+                  <CommandList
+                    items={commandItems}
+                    selectedIndex={commandSelectedIndex}
+                    onSelect={(index) => {
+                      const command = filteredCommands[index];
+                      if (command) {
+                        handleSlashCommandSelect(command);
+                      }
+                    }}
+                    onItemHover={(index) => setCommandSelectedIndex(index)}
+                    showGroups={searchQuery === ''}
+                    groupLabels={{
+                      text: 'Basic Blocks',
+                      lists: 'Lists',
+                      media: 'Media',
+                      callouts: 'Callouts',
+                    }}
+                  />
+                </div>
               </>
             )}
           </div>
