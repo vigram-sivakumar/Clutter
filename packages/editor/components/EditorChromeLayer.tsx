@@ -913,7 +913,8 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
               <>
                 <div style={{ 
                   display: 'flex', 
-                  flexDirection: 'column', 
+                  flexDirection: 'column',
+                  alignItems: 'flex-start', 
                   gap: '4px',
                   marginBottom: '8px',
                   }}>
@@ -925,12 +926,12 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
                     <ChevronLeft size={16} style={{ marginRight: '4px' }} />
                   </Button>
                   
-                  <Input
+                  {/* <Input
                     autoFocus
                     placeholder="Search block types..."
                     value={searchQuery}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                  />
+                  /> */}
                 </div>
 
                 <div ref={commandListRef}>
