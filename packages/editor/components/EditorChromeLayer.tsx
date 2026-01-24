@@ -330,9 +330,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // Chrome Actions
   // ─────────────────────────────────────────────────────────────────────────
 
-  const handleInsertBelow = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleInsertBelow = useCallback((e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
 
     if (!chrome.blockId) return;
 
@@ -347,12 +347,13 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     
     if (!newParagraph) return;
     
-    view.dispatch(state.tr.insert(insertPos, newParagraph));
-    
-    // Set cursor in the new block and focus editor so user can start typing
+    // Combine insert and selection into single transaction to avoid stale state
     const cursorPos: number = Number(insertPos) + 1;
-    const newSelection = TextSelection.create(state.doc, cursorPos);
-    view.dispatch(state.tr.setSelection(newSelection));
+    const tr = state.tr
+      .insert(insertPos, newParagraph)
+      .setSelection(TextSelection.create(state.tr.doc, cursorPos));
+    
+    view.dispatch(tr);
     view.focus();
   }, [chrome.blockId, editor]);
 
@@ -501,19 +502,20 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     const newParagraph = state.schema.nodes.paragraph?.create();
     if (!newParagraph) return;
 
-    view.dispatch(state.tr.insert(blockPos, newParagraph));
-
-    // Set cursor in the new block and focus editor so user can start typing
+    // Combine insert and selection into single transaction to avoid stale state
     const cursorPos: number = Number(blockPos) + 1;
-    const newSelection = TextSelection.create(state.doc, cursorPos);
-    view.dispatch(state.tr.setSelection(newSelection));
+    const tr = state.tr
+      .insert(blockPos, newParagraph)
+      .setSelection(TextSelection.create(state.tr.doc, cursorPos));
+    
+    view.dispatch(tr);
     view.focus();
     
     setIsMenuOpen(false);
   }, [chrome.blockId, editor]);
 
   const handleInsertBelowFromMenu = useCallback(() => {
-    handleInsertBelow({} as React.MouseEvent);
+    handleInsertBelow(); // No event needed - it's optional now
     setIsMenuOpen(false);
   }, [handleInsertBelow]);
 
