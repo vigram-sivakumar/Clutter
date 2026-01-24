@@ -325,6 +325,17 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     };
   }, [editor]);
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Hide Chrome When Menu Closes
+  // ─────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    // When menu closes, hide chrome so user must hover to see it again
+    if (!isMenuOpen) {
+      setChrome(prev => ({ ...prev, visible: false }));
+    }
+  }, [isMenuOpen]);
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // Chrome Actions
@@ -356,9 +367,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     
     view.dispatch(tr);
     view.focus();
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId, editor]);
 
   const handleBlockSelect = useCallback((e: React.MouseEvent) => {
@@ -457,36 +465,24 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     setIsMenuOpen(false);
     setMenuView('main');
     setSearchQuery('');
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId, editor]);
 
   const handleAddDescription = useCallback(() => {
     console.log('Add description for block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement add description
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId]);
 
   const handleDuplicate = useCallback(() => {
     console.log('Duplicate block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement duplicate block
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId]);
 
   const handleMoveTo = useCallback(() => {
     console.log('Move to for block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement move to menu
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId]);
 
   const handleDelete = useCallback(() => {
@@ -504,9 +500,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     // Don't focus - user must click to focus manually
     
     setIsMenuOpen(false);
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId, editor]);
 
   const handleInsertAbove = useCallback(() => {
@@ -532,9 +525,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     view.focus();
     
     setIsMenuOpen(false);
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId, editor]);
 
   const handleInsertBelowFromMenu = useCallback(() => {
@@ -546,9 +536,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     console.log('Copy link to block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement copy link to block
-    
-    // Hide chrome - user must hover to see it again
-    setChrome(prev => ({ ...prev, visible: false }));
   }, [chrome.blockId]);
 
   // ─────────────────────────────────────────────────────────────────────────
