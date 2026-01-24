@@ -348,11 +348,12 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     if (!newParagraph) return;
     
     view.dispatch(state.tr.insert(insertPos, newParagraph));
-    // Don't focus - user must click to focus manually
     
+    // Set cursor in the new block and focus editor so user can start typing
     const cursorPos: number = Number(insertPos) + 1;
     const newSelection = TextSelection.create(state.doc, cursorPos);
     view.dispatch(state.tr.setSelection(newSelection));
+    view.focus();
   }, [chrome.blockId, editor]);
 
   const handleBlockSelect = useCallback((e: React.MouseEvent) => {
@@ -501,11 +502,12 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     if (!newParagraph) return;
 
     view.dispatch(state.tr.insert(blockPos, newParagraph));
-    // Don't focus - user must click to focus manually
 
+    // Set cursor in the new block and focus editor so user can start typing
     const cursorPos: number = Number(blockPos) + 1;
     const newSelection = TextSelection.create(state.doc, cursorPos);
     view.dispatch(state.tr.setSelection(newSelection));
+    view.focus();
     
     setIsMenuOpen(false);
   }, [chrome.blockId, editor]);
