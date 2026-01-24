@@ -45,12 +45,21 @@ export const BlockTimestampTracker = Extension.create({
               const from = step.from;
               const to = step.to || from;
 
-              // Find all blocks in the affected range
-              newState.doc.nodesBetween(from, to, (node, pos) => {
-                if (node.isBlock && node.attrs?.blockId) {
-                  modifiedBlocks.add(pos);
-                }
-              });
+              // Clamp positions to valid document range
+              // Positions from the old state may be out of bounds in the new state
+              const docSize = newState.doc.content.size;
+              const safeFrom = Math.max(0, Math.min(from, docSize));
+              const safeTo = Math.max(0, Math.min(to, docSize));
+
+              // Only traverse if range is valid
+              if (safeFrom <= safeTo && safeFrom < docSize) {
+                // Find all blocks in the affected range
+                newState.doc.nodesBetween(safeFrom, safeTo, (node, pos) => {
+                  if (node && node.isBlock && node.attrs?.blockId) {
+                    modifiedBlocks.add(pos);
+                  }
+                });
+              }
             });
           });
 

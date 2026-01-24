@@ -114,6 +114,57 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
     }
   }, [isOpen, selectedIndex, query]);
 
+  // Global keyboard handler to intercept Enter/Arrow keys before structural handlers
+  // This is necessary because KeyboardShortcuts extension runs before SlashCommands
+  useEffect(() => {
+    if (!isOpen || !editor) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const storage = (editor.storage as any).slashCommands;
+      if (!storage?.isOpen) return;
+
+      const commands = filterSlashCommands(storage.query);
+      if (commands.length === 0) return;
+
+      // Intercept Enter/Arrow keys in capture phase
+      if (['Enter', 'ArrowUp', 'ArrowDown', 'Tab'].includes(event.key)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        if (event.key === 'Enter') {
+          const command = commands[storage.selectedIndex];
+          if (command) {
+            const { from } = editor.state.selection;
+            const range = { from: storage.startPos, to: from };
+            storage.isOpen = false;
+            command.execute(editor, range);
+          }
+        } else if (event.key === 'ArrowDown') {
+          storage.selectedIndex = Math.min(storage.selectedIndex + 1, commands.length - 1);
+          setSelectedIndex(storage.selectedIndex);
+          editor.view.dispatch(editor.state.tr);
+        } else if (event.key === 'ArrowUp') {
+          storage.selectedIndex = Math.max(storage.selectedIndex - 1, 0);
+          setSelectedIndex(storage.selectedIndex);
+          editor.view.dispatch(editor.state.tr);
+        } else if (event.key === 'Tab') {
+          const command = commands[0];
+          if (command) {
+            const { from } = editor.state.selection;
+            const range = { from: storage.startPos, to: from };
+            storage.isOpen = false;
+            command.execute(editor, range);
+          }
+        }
+      }
+    };
+
+    // Use capture phase to intercept before structural handlers
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, editor]);
+
   if (!isOpen || !position || !editor) {
     return null;
   }
