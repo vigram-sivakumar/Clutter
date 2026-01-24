@@ -134,13 +134,13 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
     // Callouts
     case 'quote':
       return { type: 'blockquote' };
-    case 'callout-info':
+    case 'calloutInfo':
       return { type: 'callout', calloutType: 'info' };
-    case 'callout-warning':
+    case 'calloutWarning':
       return { type: 'callout', calloutType: 'warning' };
-    case 'callout-error':
+    case 'calloutError':
       return { type: 'callout', calloutType: 'error' };
-    case 'callout-success':
+    case 'calloutSuccess':
       return { type: 'callout', calloutType: 'success' };
     
     // Code
@@ -149,7 +149,7 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
     
     // Commands that insert rather than convert (not supported in block menu)
     case 'divider':
-    case 'divider-wavy':
+    case 'dividerWavy':
     case 'image':
     case 'video':
     case 'file':
