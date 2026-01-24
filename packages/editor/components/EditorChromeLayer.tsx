@@ -222,47 +222,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     }, CHROME_CONFIG.HIDE_DELAY);
   }, [isMenuOpen]);
 
-  // Update chrome to follow cursor position (used after insertions)
-  const updateChromeForCursor = useCallback(() => {
-    const { selection, doc } = editor.state;
-    const cursorPos = selection.$anchor.pos;
-    
-    // Find block containing cursor by traversing document
-    let foundBlockId: string | null = null;
-    doc.descendants((node, pos) => {
-      if (foundBlockId) return false; // Already found
-      
-      const nodeEnd = pos + node.nodeSize;
-      if (pos <= cursorPos && cursorPos <= nodeEnd && node.attrs?.blockId) {
-        foundBlockId = node.attrs.blockId;
-        return false; // Stop traversing
-      }
-    });
-    
-    if (!foundBlockId) return;
-    
-    // Find DOM element for this block
-    const blockElement = containerRef.current?.querySelector(
-      `[data-block-id="${foundBlockId}"]`
-    ) as HTMLElement | null;
-    
-    if (!blockElement) return;
-    
-    const rect = blockElement.getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    
-    if (!containerRect) return;
-    
-    // Update chrome to new block
-    setChrome({
-      blockId: foundBlockId,
-      x: rect.left - containerRect.left,
-      y: rect.top - containerRect.top,
-      width: rect.width,
-      visible: true,
-    });
-  }, [editor, containerRef]);
-
   // ─────────────────────────────────────────────────────────────────────────
   // Hover Detection
   // ─────────────────────────────────────────────────────────────────────────
@@ -398,9 +357,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     view.dispatch(tr);
     view.focus();
     
-    // Update chrome to follow cursor to new block
-    setTimeout(() => updateChromeForCursor(), 0);
-  }, [chrome.blockId, editor, updateChromeForCursor]);
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId, editor]);
 
   const handleBlockSelect = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -499,36 +458,36 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     setMenuView('main');
     setSearchQuery('');
     
-    // Update chrome to follow cursor
-    setTimeout(() => updateChromeForCursor(), 0);
-  }, [chrome.blockId, editor, updateChromeForCursor]);
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId, editor]);
 
   const handleAddDescription = useCallback(() => {
     console.log('Add description for block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement add description
     
-    // Update chrome to follow cursor
-    setTimeout(() => updateChromeForCursor(), 0);
-  }, [chrome.blockId, updateChromeForCursor]);
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId]);
 
   const handleDuplicate = useCallback(() => {
     console.log('Duplicate block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement duplicate block
     
-    // Update chrome to follow cursor
-    setTimeout(() => updateChromeForCursor(), 0);
-  }, [chrome.blockId, updateChromeForCursor]);
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId]);
 
   const handleMoveTo = useCallback(() => {
     console.log('Move to for block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement move to menu
     
-    // Update chrome to follow cursor
-    setTimeout(() => updateChromeForCursor(), 0);
-  }, [chrome.blockId, updateChromeForCursor]);
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId]);
 
   const handleDelete = useCallback(() => {
     if (!chrome.blockId) return;
@@ -546,9 +505,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     
     setIsMenuOpen(false);
     
-    // Update chrome to follow cursor
-    setTimeout(() => updateChromeForCursor(), 0);
-  }, [chrome.blockId, editor, updateChromeForCursor]);
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId, editor]);
 
   const handleInsertAbove = useCallback(() => {
     if (!chrome.blockId) return;
@@ -572,14 +531,14 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     view.dispatch(tr);
     view.focus();
     
-    // Update chrome to follow cursor to new block
-    setTimeout(() => updateChromeForCursor(), 0);
-    
     setIsMenuOpen(false);
-  }, [chrome.blockId, editor, updateChromeForCursor]);
+    
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId, editor]);
 
   const handleInsertBelowFromMenu = useCallback(() => {
-    handleInsertBelow(); // No event needed - it's optional now
+    handleInsertBelow(); // No event needed - it's optional now (also hides chrome)
     setIsMenuOpen(false);
   }, [handleInsertBelow]);
 
@@ -588,9 +547,9 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     setIsMenuOpen(false);
     // TODO: Implement copy link to block
     
-    // Update chrome to follow cursor
-    setTimeout(() => updateChromeForCursor(), 0);
-  }, [chrome.blockId, updateChromeForCursor]);
+    // Hide chrome - user must hover to see it again
+    setChrome(prev => ({ ...prev, visible: false }));
+  }, [chrome.blockId]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Get Block Timestamps
