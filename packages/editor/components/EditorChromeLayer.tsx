@@ -916,15 +916,13 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
                   flexDirection: 'column',
                   alignItems: 'flex-start', 
                   gap: '4px',
-                  marginBottom: '8px',
+                  // marginBottom: '8px',
                   }}>
                   <Button 
                     variant="tertiary" 
                     onClick={handleBackToMenu}
-                    style={{ justifyContent: 'flex-start' }}
-                  >
-                    <ChevronLeft size={16} style={{ marginRight: '4px' }} />
-                  </Button>
+                    icon={<ChevronLeft size={16} />}
+                  />
                   
                   {/* <Input
                     autoFocus
