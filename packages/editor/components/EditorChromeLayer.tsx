@@ -62,7 +62,7 @@ import { convertBlock, type BlockConversionSpec } from '../utils/blockConversion
 const CHROME_CONFIG = {
   // Timing
   HIDE_DELAY: 150,           // ms - Grace period to move from block to chrome
-  TYPING_TIMEOUT: 1000,      // ms - Hide chrome for 1s after typing
+  TYPING_TIMEOUT: 300,       // ms - Hide chrome for 300ms after typing/cursor movement
   TRANSITION_DURATION: 120,  // ms - Opacity fade duration
   
   // Layout
