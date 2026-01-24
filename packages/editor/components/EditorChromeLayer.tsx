@@ -828,9 +828,6 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
             // Schedule hide check when menu closes (will hide if not hovering chrome)
             scheduleHide();
           }}
-          minWidth="240px"
-          maxWidth="240px"
-          maxHeight="359px"
         >
           <div ref={menuContainerRef}>
             {menuView === 'main' ? (

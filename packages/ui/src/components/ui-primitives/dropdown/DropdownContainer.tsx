@@ -28,6 +28,7 @@ interface DropdownContainerProps {
   position: { top?: number; bottom?: number; left: number };
   onClose: () => void;
   children: ReactNode;
+  width?: string;
   minWidth?: string;
   maxWidth?: string;
   maxHeight?: string;
@@ -41,9 +42,10 @@ export const DropdownContainer = ({
   position,
   onClose,
   children,
-  minWidth = '220px',
-  maxWidth = '220px',
-  maxHeight = '300px',
+  width = '220px',
+  minWidth = '180px',
+  maxWidth = 'calc(100vw - 24px)',
+  maxHeight = '70vh',
   dismissOnEscape = true,
   estimatedHeight,
 }: DropdownContainerProps) => {
@@ -66,6 +68,7 @@ export const DropdownContainer = ({
         <div
           style={{
             ...getDropdownContainerStyles(colors),
+            width,
             minWidth,
             maxWidth,
             maxHeight,

@@ -218,9 +218,6 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
       position={{ top: position.top, left: position.left }}
       onClose={handleClose}
       dismissOnEscape={true}
-      minWidth="240px"
-      maxWidth="240px"
-      maxHeight="310px"
     >
       <div ref={containerRef}>
         {shouldShowGroups

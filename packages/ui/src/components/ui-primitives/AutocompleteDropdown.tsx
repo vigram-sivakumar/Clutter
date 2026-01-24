@@ -66,9 +66,6 @@ export const AutocompleteDropdown = ({
       position={position}
       onClose={onClose}
       dismissOnEscape={true}
-      minWidth="220px"
-      maxWidth="220px"
-      maxHeight="300px"
       estimatedHeight={estimatedHeight}
     >
       <div ref={containerRef}>
