@@ -14,12 +14,12 @@
 import { useCallback, useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { typography, spacing } from '../tokens';
-import { usePlaceholder } from '../hooks/usePlaceholder';
-import { useBlockSelection } from '../hooks/useBlockSelection';
+import { typography, spacing } from '../../tokens';
+import { usePlaceholder } from '../../hooks/usePlaceholder';
+import { useBlockSelection } from '../../hooks/useBlockSelection';
 import { BlockTagEditor } from './BlockTagEditor';
-import { BlockSelectionHalo } from './BlockSelectionHalo';
-import { useBlockHidden } from '../hooks/useBlockHidden';
+import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
+import { useBlockHidden } from '../../hooks/useBlockHidden';
 
 export function ParagraphBlock({
   node,

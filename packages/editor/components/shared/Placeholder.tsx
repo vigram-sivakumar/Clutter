@@ -8,8 +8,8 @@
  */
 
 import React from 'react';
-import { placeholders } from '../tokens';
-import { useEditorTheme } from '../theme/EditorThemeContext';
+import { placeholders } from '../../tokens';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
 
 interface PlaceholderProps {
   /** Custom placeholder text (defaults to "Type '/' for commands") */

@@ -9,13 +9,13 @@
 import { useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { useEditorTheme } from '../theme/EditorThemeContext';
-import { placeholders, spacing } from '../tokens';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
+import { placeholders, spacing } from '../../tokens';
 import { Code as CodeIcon } from '@clutter/ui';
-import { usePlaceholder } from '../hooks/usePlaceholder';
-import { useBlockSelection } from '../hooks/useBlockSelection';
-import { BlockSelectionHalo } from './BlockSelectionHalo';
-import { useBlockHidden } from '../hooks/useBlockHidden';
+import { usePlaceholder } from '../../hooks/usePlaceholder';
+import { useBlockSelection } from '../../hooks/useBlockSelection';
+import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
+import { useBlockHidden } from '../../hooks/useBlockHidden';
 
 export function CodeBlock({
   node,

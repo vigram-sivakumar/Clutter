@@ -15,13 +15,13 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { spacing, sizing, typography } from '../tokens';
+import { spacing, sizing, typography } from '../../tokens';
 import type { ListBlockAttrs } from '../types';
-import { useEditorTheme } from '../theme/EditorThemeContext';
-import { usePlaceholder } from '../hooks/usePlaceholder';
-import { useBlockSelection } from '../hooks/useBlockSelection';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
+import { usePlaceholder } from '../../hooks/usePlaceholder';
+import { useBlockSelection } from '../../hooks/useBlockSelection';
 import { MarkerContainer } from './BlockWrapper';
-import { BlockSelectionHalo } from './BlockSelectionHalo';
+import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
 import { TaskPriorityIndicator } from './TaskPriorityIndicator';
 import { Checkbox } from '@clutter/ui';
 

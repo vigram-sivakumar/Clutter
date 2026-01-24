@@ -6,8 +6,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useEditorTheme } from '../theme/EditorThemeContext';
-import { spacing } from '../tokens';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
+import { spacing } from '../../tokens';
 
 interface MentionPillProps {
   icon: React.ReactNode;

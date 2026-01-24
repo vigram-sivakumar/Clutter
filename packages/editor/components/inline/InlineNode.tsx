@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { animations } from '@clutter/ui';
-import { spacing, sizing, typography, getWaveStyles, patterns } from '../tokens';
+import { spacing, sizing, typography, getWaveStyles, patterns } from '../../tokens';
 
 interface InlineNodeProps {
   icon: React.ReactNode;

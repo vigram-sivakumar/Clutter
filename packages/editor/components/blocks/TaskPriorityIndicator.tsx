@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { useEditorTheme } from '../theme/EditorThemeContext';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
 import { radius } from '@clutter/ui';
 import { DismissButton } from '@clutter/ui';
 

@@ -9,12 +9,12 @@
 import { useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { patterns, spacing, sizing } from '../tokens';
-import { useEditorTheme } from '../theme/EditorThemeContext';
-import { useBlockSelection } from '../hooks/useBlockSelection';
+import { patterns, spacing, sizing } from '../../tokens';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
+import { useBlockSelection } from '../../hooks/useBlockSelection';
 import { FoldHorizontal, UnfoldHorizontal } from '@clutter/ui';
-import { BlockSelectionHalo } from './BlockSelectionHalo';
-import { useBlockHidden } from '../hooks/useBlockHidden';
+import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
+import { useBlockHidden } from '../../hooks/useBlockHidden';
 
 interface HorizontalRuleProps extends NodeViewProps {
   // NodeViewProps already includes node, we just need to specify updateAttributes

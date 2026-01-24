@@ -22,8 +22,8 @@
 import { useCallback } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { typography } from '../tokens';
-import { usePlaceholder } from '../hooks/usePlaceholder';
+import { typography } from '../../tokens';
+import { usePlaceholder } from '../../hooks/usePlaceholder';
 import { BlockTagEditor } from './BlockTagEditor';
 
 export function Paragraph({

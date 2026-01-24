@@ -17,7 +17,7 @@
  */
 
 import React from 'react';
-import { spacing, sizing, typography } from '../tokens';
+import { spacing, sizing, typography } from '../../tokens';
 
 interface BlockWrapperProps {
   /** Content to render in the marker area (optional) */

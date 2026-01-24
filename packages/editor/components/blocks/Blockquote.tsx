@@ -9,12 +9,12 @@
 import { useMemo, useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { spacing, sizing, typography } from '../tokens';
-import { useEditorTheme } from '../theme/EditorThemeContext';
-import { usePlaceholder } from '../hooks/usePlaceholder';
-import { useBlockSelection } from '../hooks/useBlockSelection';
-import { BlockSelectionHalo } from './BlockSelectionHalo';
-import { useBlockHidden } from '../hooks/useBlockHidden';
+import { spacing, sizing, typography } from '../../tokens';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
+import { usePlaceholder } from '../../hooks/usePlaceholder';
+import { useBlockSelection } from '../../hooks/useBlockSelection';
+import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
+import { useBlockHidden } from '../../hooks/useBlockHidden';
 
 export function Blockquote({ node, editor, getPos }: NodeViewProps) {
   const { colors } = useEditorTheme();

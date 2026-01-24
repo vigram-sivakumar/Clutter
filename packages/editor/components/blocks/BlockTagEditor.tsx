@@ -11,7 +11,7 @@
 
 import React, { useCallback } from 'react';
 import { Tag } from '@clutter/ui';
-import { spacing } from '../tokens';
+import { spacing } from '../../tokens';
 
 interface BlockTagEditorProps {
   tags: string[];

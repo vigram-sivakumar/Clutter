@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { useEditorTheme } from '../theme/EditorThemeContext';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
 import { radius } from '@clutter/ui';
 
 interface BlockSelectionHaloProps {

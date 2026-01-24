@@ -15,9 +15,9 @@ import { At, CalendarBlank, Note, Folder } from '@clutter/ui';
 import {
   filterDateSuggestions,
   type DateSuggestion,
-} from '../utils/dateParser';
-import { searchEntities, type EntitySuggestion } from '../utils/entitySearch';
-import { useEditorContext } from '../context/EditorContext';
+} from '../../utils/dateParser';
+import { searchEntities, type EntitySuggestion } from '../../utils/entitySearch';
+import { useEditorContext } from '../../context/EditorContext';
 
 interface AtMentionMenuProps {
   editor: Editor | null;
