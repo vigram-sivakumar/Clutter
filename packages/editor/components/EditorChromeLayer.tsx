@@ -498,25 +498,37 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     setIsMenuOpen(false);
     setMenuView('main');
     setSearchQuery('');
-  }, [chrome.blockId, editor]);
+    
+    // Update chrome to follow cursor
+    setTimeout(() => updateChromeForCursor(), 0);
+  }, [chrome.blockId, editor, updateChromeForCursor]);
 
   const handleAddDescription = useCallback(() => {
     console.log('Add description for block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement add description
-  }, [chrome.blockId]);
+    
+    // Update chrome to follow cursor
+    setTimeout(() => updateChromeForCursor(), 0);
+  }, [chrome.blockId, updateChromeForCursor]);
 
   const handleDuplicate = useCallback(() => {
     console.log('Duplicate block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement duplicate block
-  }, [chrome.blockId]);
+    
+    // Update chrome to follow cursor
+    setTimeout(() => updateChromeForCursor(), 0);
+  }, [chrome.blockId, updateChromeForCursor]);
 
   const handleMoveTo = useCallback(() => {
     console.log('Move to for block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement move to menu
-  }, [chrome.blockId]);
+    
+    // Update chrome to follow cursor
+    setTimeout(() => updateChromeForCursor(), 0);
+  }, [chrome.blockId, updateChromeForCursor]);
 
   const handleDelete = useCallback(() => {
     if (!chrome.blockId) return;
@@ -533,7 +545,10 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     // Don't focus - user must click to focus manually
     
     setIsMenuOpen(false);
-  }, [chrome.blockId, editor]);
+    
+    // Update chrome to follow cursor
+    setTimeout(() => updateChromeForCursor(), 0);
+  }, [chrome.blockId, editor, updateChromeForCursor]);
 
   const handleInsertAbove = useCallback(() => {
     if (!chrome.blockId) return;
@@ -572,7 +587,10 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     console.log('Copy link to block:', chrome.blockId);
     setIsMenuOpen(false);
     // TODO: Implement copy link to block
-  }, [chrome.blockId]);
+    
+    // Update chrome to follow cursor
+    setTimeout(() => updateChromeForCursor(), 0);
+  }, [chrome.blockId, updateChromeForCursor]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Get Block Timestamps
