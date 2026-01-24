@@ -60,9 +60,16 @@ export const HashtagAutocomplete = Extension.create<HashtagAutocompleteOptions>(
       const currentBlock = $pos.parent;
       const blockPos = $pos.before($pos.depth);
       
+      // Extract tag name from "Create" option if needed
+      let tagName = selectedTag;
+      if (selectedTag.startsWith('Create "') && selectedTag.endsWith('"')) {
+        // Extract: 'Create "tagname"' -> 'tagname'
+        tagName = selectedTag.slice(8, -1);
+      }
+      
       // Use shared insertTag utility
       const tr = editorState.tr;
-      insertTag(tr, hashPos, pos, blockPos, currentBlock.attrs, selectedTag);
+      insertTag(tr, hashPos, pos, blockPos, currentBlock.attrs, tagName);
       
       view.dispatch(tr);
       
@@ -101,7 +108,18 @@ export const HashtagAutocomplete = Extension.create<HashtagAutocompleteOptions>(
 
       suggestions.forEach((tag, index) => {
         const item = document.createElement('div');
-        item.textContent = `#${tag}`;
+        
+        // Check if this is a "Create" option
+        const isCreateOption = tag.startsWith('Create "') && tag.endsWith('"');
+        
+        if (isCreateOption) {
+          // Extract tag name: 'Create "tagname"' -> 'tagname'
+          const tagName = tag.slice(8, -1);
+          item.innerHTML = `<span style="opacity: 0.7;">Create tag:</span> <span style="font-weight: 500;">#${tagName}</span>`;
+        } else {
+          item.textContent = `#${tag}`;
+        }
+        
         item.style.cssText = `
           padding: 6px 8px;
           cursor: pointer;
@@ -178,12 +196,23 @@ export const HashtagAutocomplete = Extension.create<HashtagAutocompleteOptions>(
               const allTags = availableTags.map(t => t.label);
               
               // Filter tags by query
-              const suggestions = allTags
+              let suggestions = allTags
                 .filter(tag => tag.toLowerCase().startsWith(query.toLowerCase()))
                 .slice(0, 10);
+              
+              // If empty query, show all tags (up to 10)
+              if (query === '') {
+                suggestions = allTags.slice(0, 10);
+              }
+              
+              // If no matches, show "Create new tag" option
+              // This ensures suggestions is never empty when # is detected
+              if (suggestions.length === 0) {
+                suggestions = [`Create "${query || 'tag'}"`];
+              }
 
               return {
-                active: suggestions.length > 0,
+                active: true, // Always show dropdown when # is detected
                 query,
                 suggestions,
                 selectedIndex: 0,
@@ -213,7 +242,17 @@ export const HashtagAutocomplete = Extension.create<HashtagAutocompleteOptions>(
               const state = pluginKey.getState(view.state);
               currentState = state; // Update state reference
               
-              if (!state.active || state.suggestions.length === 0) {
+              if (!state.active) {
+                if (dropdown) {
+                  dropdown.remove();
+                  dropdown = null;
+                  currentSuggestions = [];
+                }
+                return;
+              }
+              
+              // If no suggestions, show "Type to create new tag" message
+              if (state.suggestions.length === 0) {
                 if (dropdown) {
                   dropdown.remove();
                   dropdown = null;
