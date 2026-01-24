@@ -16,6 +16,9 @@ export {
   getTodayDateString,
   formatTaskDateLabel,
   compareDates,
+  formatDateTime,
+  formatDateWithRelative,
+  MONTH_NAMES,
 } from './utils/dateFormatting';
 
 // Utils: Sorting (used by UI components)

@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { Note, DAILY_NOTES_FOLDER_ID } from '@clutter/domain';
+import { formatDateWithRelative, MONTH_NAMES } from '../utils/dateFormatting';
 
 // Generate a unique ID
 const generateId = () => {
@@ -33,46 +34,7 @@ const createEmptyNote = (initialValues?: Partial<Note>): Note => {
   };
 };
 
-// Internal helper: Get relative date prefix ("Today", "Yesterday", "Tomorrow", or empty)
-const getRelativeDatePrefix = (date: Date): string => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const targetDate = new Date(date);
-  targetDate.setHours(0, 0, 0, 0);
-
-  const diffDays = Math.floor(
-    (targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  if (diffDays === 0) return 'Today, ';
-  if (diffDays === -1) return 'Yesterday, ';
-  if (diffDays === 1) return 'Tomorrow, ';
-  return '';
-};
-
-// Internal helper: Format daily note title ("Today, 3 Jan 2026" or "3 Jan 2026")
-const formatDailyNoteTitle = (date: Date): string => {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  const prefix = getRelativeDatePrefix(date);
-  const dateStr = `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-
-  return `${prefix}${dateStr}`;
-};
+// No longer needed - using shared formatDateWithRelative
 
 interface NotesStore {
   // State
@@ -353,7 +315,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD in local time
-    const title = formatDailyNoteTitle(date);
+    const title = formatDateWithRelative(date);
 
     // Convert any deleted daily note for this date to a regular note
     const deletedDailyNote = get().notes.find(
@@ -362,21 +324,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
 
     if (deletedDailyNote) {
       // Create a fixed title without "Today/Yesterday" prefix
-      const months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
-      const fixedTitle = `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+      const fixedTitle = `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
 
       get().updateNote(deletedDailyNote.id, {
         dailyNoteDate: null, // Convert to regular note
@@ -415,7 +363,7 @@ export const useNotesStore = create<NotesStore>()((set, get) => ({
       const noteDate = new Date(year, month - 1, day);
 
       // Generate new title with current relative prefix
-      const newTitle = formatDailyNoteTitle(noteDate);
+      const newTitle = formatDateWithRelative(noteDate);
 
       // Update if changed
       if (newTitle !== note.title) {

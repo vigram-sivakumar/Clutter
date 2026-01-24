@@ -141,9 +141,34 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
         fontFamily: typography.fontFamily,
         fontSize: typography.body,
         lineHeight: typography.lineHeightRatio,
+        position: 'relative',
         marginLeft: indent,
       }}
     >
+      {/* Craft-style hover-only zones */}
+      <div
+        data-hover-only="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: -spacing.hoverZoneLeft,
+          width: spacing.hoverZoneLeft,
+          height: '100%',
+          pointerEvents: 'auto',
+        }}
+      />
+      <div
+        data-hover-only="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: -spacing.hoverZoneRight,
+          width: spacing.hoverZoneRight,
+          height: '100%',
+          pointerEvents: 'auto',
+        }}
+      />
+
       {/* Icon container - rounded with background */}
       <div
         style={{

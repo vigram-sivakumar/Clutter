@@ -20,6 +20,12 @@ export const spacing = {
   /** Visual offset for blocks inside a toggle (independent of hierarchy) */
   toggleIndent: 32,
 
+  // Chrome hover zones (invisible divs that extend block hover area)
+  /** Width of left hover zone (invisible hover-only div in left gutter) */
+  hoverZoneLeft: 64,
+  /** Width of right hover zone (invisible hover-only div in right gutter) */
+  hoverZoneRight: 40,
+
   // Scale-based spacing (matches UI design system for component layouts)
   '0': '0px',
   '2': '2px',

@@ -14,7 +14,6 @@ import { useEditorTheme } from '../theme/EditorThemeContext';
 import { useBlockSelection } from '../hooks/useBlockSelection';
 import { FoldHorizontal, UnfoldHorizontal } from '@clutter/ui';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
-import { BlockHandle } from './BlockHandle';
 import { useBlockHidden } from '../hooks/useBlockHidden';
 
 interface HorizontalRuleProps extends NodeViewProps {
@@ -95,27 +94,34 @@ export function HorizontalRule({
         position: 'relative',
         cursor: 'pointer',
         paddingLeft,
-        // No margin - parent uses gap for spacing
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Invisible hover bridge - covers gap between handle and content */}
+      {/* Craft-style hover-only zones */}
       <div
-        contentEditable={false}
+        data-hover-only="true"
         style={{
           position: 'absolute',
-          left: paddingLeft - 32,
           top: 0,
-          width: 32,
+          left: -spacing.hoverZoneLeft,
+          width: spacing.hoverZoneLeft,
           height: '100%',
           pointerEvents: 'auto',
-          userSelect: 'none',
+        }}
+      />
+      <div
+        data-hover-only="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: -spacing.hoverZoneRight,
+          width: spacing.hoverZoneRight,
+          height: '100%',
+          pointerEvents: 'auto',
         }}
       />
 
-      {/* Block handle (⋮⋮) - shows on hover */}
-      <BlockHandle editor={editor} getPos={getPos} indent={paddingLeft} />
       {/* HR line container with conditional width */}
       <div
         style={{
@@ -263,14 +269,6 @@ export function HorizontalRule({
 
       {/* Block selection halo */}
       <BlockSelectionHalo isSelected={isSelected} indent={paddingLeft} />
-
-      {/* CSS to show handle on hover or when menu is open (but not while typing or in multi-selection) */}
-      <style>{`
-        .block-handle-wrapper:hover .block-handle:not([data-is-typing="true"]):not([data-in-multi-selection="true"]),
-        .block-handle[data-menu-open="true"] {
-          opacity: 1 !important;
-        }
-      `}</style>
     </NodeViewWrapper>
   );
 }

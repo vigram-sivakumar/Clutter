@@ -67,6 +67,7 @@ import History from '@tiptap/extension-history';
 import HardBreak from '@tiptap/extension-hard-break';
 import { MarkdownShortcuts } from '../plugins/MarkdownShortcuts';
 import { BlockIdGenerator } from '../extensions/BlockIdGenerator';
+import { BlockTimestampTracker } from '../extensions/BlockTimestampTracker';
 
 // Keyboard plugins
 import { KeyboardShortcuts } from '../plugins/KeyboardShortcuts';
@@ -183,6 +184,10 @@ interface EditorCoreProps {
   editable?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  // Note metadata for chrome layer
+  createdAt?: string; // ISO string from note
+  updatedAt?: string; // ISO string from note
+  deletedAt?: string | null; // ISO string from note (null if not deleted)
 }
 
 export const EditorCore = forwardRef<EditorCoreHandle, EditorCoreProps>(
@@ -214,6 +219,9 @@ const EditorCoreInner = forwardRef<
       editable = true,
       className,
       style,
+      createdAt,
+      updatedAt,
+      deletedAt,
     },
     ref
   ) => {
@@ -224,6 +232,8 @@ const EditorCoreInner = forwardRef<
     const prevDocRef = useRef<any>(null);
     // Hard lock to prevent ALL mutations during content loading
     const isHydratingRef = useRef<boolean>(false);
+    // Ref to editor container for chrome positioning
+    const editorContainerRef = useRef<HTMLDivElement>(null);
 
     // Create editor instance
     const editor = useEditor(
@@ -271,6 +281,7 @@ const EditorCoreInner = forwardRef<
 
           // ✅ RE-ENABLED
           BlockIdGenerator,
+          BlockTimestampTracker,
           KeyboardShortcuts,
           SlashCommands,
           TaskPriority,
@@ -599,23 +610,35 @@ const EditorCoreInner = forwardRef<
 
     return (
       <div
+        ref={editorContainerRef}
         className={className}
         style={{
           position: 'relative', // Allow absolute positioning of chrome layer
           minHeight: '100%',
-          cursor: 'text',
           flex: 1,
           // paddingBottom: '15vh',  // Inner clickable space (outer 30vh is on container)
           ...cssVariables,
           ...style,
         }}
-        onClick={handleWrapperClick}
       >
-        {/* Editor content */}
-        <EditorContent editor={editor} />
+        {/* Editor content wrapper - isolated text semantic boundary */}
+        <div
+          style={{
+            cursor: 'text',
+          }}
+          onClick={handleWrapperClick}
+        >
+          <EditorContent editor={editor} />
+        </div>
 
-        {/* Editor chrome layer (interaction overlay) */}
-        <EditorChromeLayer editor={editor} />
+        {/* Chrome overlay layer - OUTSIDE text context */}
+        <EditorChromeLayer 
+          editor={editor} 
+          containerRef={editorContainerRef}
+          createdAt={createdAt}
+          updatedAt={updatedAt}
+          deletedAt={deletedAt}
+        />
 
         {/* UI Components */}
         <SlashCommandMenu editor={editor as any} />

@@ -6,13 +6,12 @@
  * Includes inline placeholder support for empty headings.
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { typography, spacing } from '../tokens';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
-import { BlockHandle } from './BlockHandle';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
 import { useBlockHidden } from '../hooks/useBlockHidden';
 
@@ -102,22 +101,29 @@ export function Heading({ node, editor, getPos }: NodeViewProps) {
         paddingLeft: indent,
       }}
     >
-      {/* Invisible hover bridge - covers gap between handle and content */}
+      {/* Craft-style hover-only zones */}
       <div
-        contentEditable={false}
+        data-hover-only="true"
         style={{
           position: 'absolute',
-          left: indent - 32,
           top: 0,
-          width: 32,
+          left: -spacing.hoverZoneLeft,
+          width: spacing.hoverZoneLeft,
           height: '100%',
           pointerEvents: 'auto',
-          userSelect: 'none',
         }}
       />
-
-      {/* Block handle (⋮⋮) - shows on hover */}
-      <BlockHandle editor={editor} getPos={getPos} indent={indent} />
+      <div
+        data-hover-only="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: -spacing.hoverZoneRight,
+          width: spacing.hoverZoneRight,
+          height: '100%',
+          pointerEvents: 'auto',
+        }}
+      />
 
       <NodeViewContent
         as={`h${headingLevel}` as any}
@@ -133,14 +139,6 @@ export function Heading({ node, editor, getPos }: NodeViewProps) {
 
       {/* Block selection halo */}
       <BlockSelectionHalo isSelected={isSelected} indent={indent} />
-
-      {/* CSS to show handle on hover or when menu is open (but not while typing or in multi-selection) */}
-      <style>{`
-        .block-handle-wrapper:hover .block-handle:not([data-is-typing="true"]):not([data-in-multi-selection="true"]),
-        .block-handle[data-menu-open="true"] {
-          opacity: 1 !important;
-        }
-      `}</style>
     </NodeViewWrapper>
   );
 }

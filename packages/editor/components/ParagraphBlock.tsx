@@ -18,10 +18,8 @@ import { typography, spacing } from '../tokens';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
 import { BlockTagEditor } from './BlockTagEditor';
-import { BlockHandle } from './BlockHandle';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
 import { useBlockHidden } from '../hooks/useBlockHidden';
-import { USE_NEW_CHROME } from './EditorChromeLayer';
 
 export function ParagraphBlock({
   node,
@@ -120,40 +118,47 @@ export function ParagraphBlock({
       data-empty={isEmpty ? 'true' : undefined}
       data-placeholder={placeholderText || undefined}
       data-hidden={isHidden ? 'true' : undefined}
-      className="block-handle-wrapper"
       style={{
         display: 'block',
         fontFamily: typography.fontFamily,
         fontSize: typography.body,
         lineHeight: typography.lineHeightRatio,
         position: 'relative',
+        width: '100%',
         paddingLeft: indent,
+        marginLeft: 0,
+        marginRight: 0,
       }}
     >
-      {/* Invisible hover bridge - covers gap between handle and content */}
+      {/* Craft-style hover-only zones */}
       <div
-        contentEditable={false}
+        data-hover-only="true"
         style={{
           position: 'absolute',
-          left: indent - 32,
           top: 0,
-          width: 32,
+          left: -spacing.hoverZoneLeft,
+          width: spacing.hoverZoneLeft,
           height: '100%',
           pointerEvents: 'auto',
-          userSelect: 'none',
         }}
       />
-
-      {/* Block handle (⋮⋮) - shows on hover */}
-      {/* Step 5: Disable old handle when new chrome is active */}
-      {!USE_NEW_CHROME && (
-        <BlockHandle editor={editor} getPos={getPos} indent={indent} />
-      )}
+      <div
+        data-hover-only="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: -spacing.hoverZoneRight,
+          width: spacing.hoverZoneRight,
+          height: '100%',
+          pointerEvents: 'auto',
+        }}
+      />
 
       <NodeViewContent
         as="div"
         style={{
-          display: 'inline',
+          display: 'block',
+          width: '100%',
           minWidth: '1ch',
         }}
       />
@@ -165,14 +170,6 @@ export function ParagraphBlock({
 
       {/* Block selection halo */}
       <BlockSelectionHalo isSelected={isSelected} indent={indent} />
-
-      {/* CSS to show handle on hover or when menu is open (but not while typing or in multi-selection) */}
-      <style>{`
-        .block-handle-wrapper:hover .block-handle:not([data-is-typing="true"]):not([data-in-multi-selection="true"]),
-        .block-handle[data-menu-open="true"] {
-          opacity: 1 !important;
-        }
-      `}</style>
     </NodeViewWrapper>
   );
 }

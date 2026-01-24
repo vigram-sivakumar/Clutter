@@ -13,6 +13,7 @@ import { spacing } from '../tokens/spacing';
 interface Colors {
   background: {
     default: string;
+    secondary: string;
   };
   border: {
     default: string;
@@ -27,7 +28,7 @@ interface Colors {
  * Get base container styles for dropdown/floating menus
  */
 export const getDropdownContainerStyles = (colors: Colors) => ({
-  backgroundColor: colors.background.default,
+  backgroundColor: colors.background.secondary,
   border: `1px solid ${colors.border.default}`,
   borderRadius: sizing.radius.lg,
   boxShadow: `0 ${spacing['6']} ${spacing['16']} ${colors.shadow.md}`,

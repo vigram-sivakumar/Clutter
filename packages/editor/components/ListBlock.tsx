@@ -21,7 +21,6 @@ import { useEditorTheme } from '../theme/EditorThemeContext';
 import { usePlaceholder } from '../hooks/usePlaceholder';
 import { useBlockSelection } from '../hooks/useBlockSelection';
 import { MarkerContainer } from './BlockWrapper';
-import { BlockHandle } from './BlockHandle';
 import { BlockSelectionHalo } from './BlockSelectionHalo';
 import { TaskPriorityIndicator } from './TaskPriorityIndicator';
 import { Checkbox } from '@clutter/ui';
@@ -632,29 +631,35 @@ export function ListBlock({
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        paddingLeft: totalIndent,
         fontFamily: typography.fontFamily,
         fontSize: typography.body,
         lineHeight: typography.lineHeightRatio,
+        paddingLeft: totalIndent,
       }}
     >
-      {/* Invisible hover bridge - covers gap between handle and content */}
-      {/* Applied to ALL blocks (bullet, numbered, task) to keep handle visible when hovering */}
+      {/* Craft-style hover-only zones */}
       <div
-        contentEditable={false}
+        data-hover-only="true"
         style={{
           position: 'absolute',
-          left: indent - 32, // Adjust with indentation: cover handle (24px) + gap (8px)
           top: 0,
-          width: 32,
+          left: -spacing.hoverZoneLeft,
+          width: spacing.hoverZoneLeft,
           height: '100%',
           pointerEvents: 'auto',
-          userSelect: 'none',
-          // Uncomment to visualize: backgroundColor: 'rgba(255,0,0,0.1)',
         }}
       />
-      {/* Block handle (⋮⋮) - shows on hover */}
-      <BlockHandle editor={editor} getPos={getPos} indent={indent} />
+      <div
+        data-hover-only="true"
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: -spacing.hoverZoneRight,
+          width: spacing.hoverZoneRight,
+          height: '100%',
+          pointerEvents: 'auto',
+        }}
+      />
 
       {/* Main row: marker (24px) + gap (4px) + content */}
       <div
@@ -707,14 +712,6 @@ export function ListBlock({
 
       {/* Block selection halo */}
       <BlockSelectionHalo isSelected={isSelected} indent={totalIndent} />
-
-      {/* CSS to show handle on hover or when menu is open (but not while typing or in multi-selection) */}
-      <style>{`
-        .block-handle-wrapper:hover .block-handle:not([data-is-typing="true"]):not([data-in-multi-selection="true"]),
-        .block-handle[data-menu-open="true"] {
-          opacity: 1 !important;
-        }
-      `}</style>
     </NodeViewWrapper>
   );
 }

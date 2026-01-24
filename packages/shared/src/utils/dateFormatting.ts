@@ -194,5 +194,60 @@ export const groupByDate = <T>(
   return groups;
 };
 
+/**
+ * Format date and time with relative prefix (12-hour format)
+ * Used for displaying timestamps like "Created" and "Last edited"
+ * 
+ * @param date - Date object to format
+ * @returns Formatted string (e.g., "Today, 2:30 PM" or "23 Jan 2026, 2:30 PM")
+ */
+export const formatDateTime = (date: Date): string => {
+  const formattedDate = `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+  
+  // Format time (12-hour format with AM/PM)
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // 0 should be 12
+  const formattedTime = `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  
+  // Check if it's today
+  const today = new Date();
+  const isToday = date.getDate() === today.getDate() &&
+                  date.getMonth() === today.getMonth() &&
+                  date.getFullYear() === today.getFullYear();
+  
+  return isToday ? `Today, ${formattedTime}` : `${formattedDate}, ${formattedTime}`;
+};
+
+/**
+ * Format date with relative prefix (no time)
+ * Used for daily note titles
+ * 
+ * @param date - Date object to format
+ * @returns Formatted string (e.g., "Today, 23 Jan 2026" or "23 Jan 2026")
+ */
+export const formatDateWithRelative = (date: Date): string => {
+  const formattedDate = `${date.getDate()} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+  
+  // Check if it's today, yesterday, or tomorrow
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const targetDate = new Date(date);
+  targetDate.setHours(0, 0, 0, 0);
+  
+  const diffDays = Math.floor(
+    (targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  
+  if (diffDays === 0) return `Today, ${formattedDate}`;
+  if (diffDays === -1) return `Yesterday, ${formattedDate}`;
+  if (diffDays === 1) return `Tomorrow, ${formattedDate}`;
+  
+  return formattedDate;
+};
+
 // Export constants for use in other modules
 export { DAY_NAMES, MONTH_NAMES, MONTH_NAMES_FULL };
