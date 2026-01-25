@@ -78,6 +78,7 @@ import { TaskPriority } from '../plugins/TaskPriority';
 import { EscapeMarks } from '../plugins/EscapeMarks';
 import { DoubleSpaceEscape } from '../plugins/DoubleSpaceEscape';
 import { AtMention } from '../plugins/AtMention';
+import { HashtagMention } from '../plugins/HashtagMention';
 import { SelectAll } from '../plugins/SelectAll';
 import { BlockDeletion } from '../plugins/BlockDeletion';
 // import { UndoRedo } from '../plugins/UndoRedo'; // ❌ Disabled - using TipTap History
@@ -87,6 +88,7 @@ import { CollapseExtension } from '../extensions/CollapseExtension';
 // UI Components
 import { SlashCommandMenu } from '../components/menus/SlashCommandMenu';
 import { AtMentionMenu } from '../components/menus/AtMentionMenu';
+import { HashtagMentionMenuEditor } from '../components/menus/HashtagMentionMenuEditor';
 import { FloatingToolbar } from '@clutter/ui';
 import { EditorChromeLayer } from '../components/chrome/EditorChromeLayer';
 
@@ -287,6 +289,9 @@ const EditorCoreInner = forwardRef<
           SelectAll,
           BlockDeletion,
           AtMention.configure({
+            getColors: () => colors,
+          }),
+          HashtagMention.configure({
             getColors: () => colors,
           }),
           CollapseExtension,
@@ -635,6 +640,7 @@ const EditorCoreInner = forwardRef<
         {/* UI Components */}
         <SlashCommandMenu editor={editor as any} />
         <AtMentionMenu editor={editor as any} />
+        <HashtagMentionMenuEditor editor={editor as any} />
         <FloatingToolbar editor={editor} />
       </div>
     );

@@ -1,4 +1,5 @@
 // Menu Components
 export { AtMentionMenu } from './AtMentionMenu';
 export { SlashCommandMenu } from './SlashCommandMenu';
-export { TagAutosuggestionMenu } from './TagAutosuggestionMenu';
+export { HashtagMentionMenu } from './HashtagMentionMenu';
+export { HashtagMentionMenuEditor } from './HashtagMentionMenuEditor';

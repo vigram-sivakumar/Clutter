@@ -1,7 +1,7 @@
 /**
- * TagAutosuggestionMenu - Dropdown menu for tag suggestions
+ * HashtagMentionMenu - Dropdown menu for tag suggestions
  *
- * Shows tag suggestions as user types in TagInput
+ * Shows tag suggestions as user types (both in title section and editor blocks)
  */
 
 import { useMemo } from 'react';
@@ -14,7 +14,7 @@ import {
   useTheme,
 } from '@clutter/ui';
 
-interface TagAutosuggestionMenuProps {
+interface HashtagMentionMenuProps {
   isOpen: boolean;
   position: { top?: number; bottom?: number; left: number } | null;
   onClose: () => void;
@@ -25,7 +25,7 @@ interface TagAutosuggestionMenuProps {
   existingTags: string[]; // Tags already added to the note
 }
 
-export const TagAutosuggestionMenu = ({
+export const HashtagMentionMenu = ({
   isOpen,
   position,
   onClose,
@@ -34,7 +34,7 @@ export const TagAutosuggestionMenu = ({
   onSelectTag,
   query,
   existingTags,
-}: TagAutosuggestionMenuProps) => {
+}: HashtagMentionMenuProps) => {
   const notes = useNotesStore((state) => state.notes);
   const allTags = useAllTags();
   const { colors } = useTheme();
