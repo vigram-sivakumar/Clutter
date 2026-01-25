@@ -35,12 +35,10 @@ export function DateMentionView({ node }: NodeViewProps) {
         <InlineToken>
           <TokenPill 
             variant="date"
-            icon={<At style={{ width: '16px', height: '16px' }} />}
+            icon={<At style={{ width: '1em', height: '1em' }} />}
             color={color}
             style={{
               transition: 'color 300ms ease',
-              fontSize: '16px',
-              lineHeight: '24px',
             }}
           >
             {label}

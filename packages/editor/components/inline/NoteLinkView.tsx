@@ -34,14 +34,14 @@ export function NoteLinkView({ node, editor }: NodeViewProps) {
     const isDailyNote = linkType === 'note' && /\w+,\s\w+\s\d+\s\d{4}/.test(label);
 
     if (isDailyNote) {
-      return <CalendarBlank style={{ width: '16px', height: '16px' }} />;
+      return <CalendarBlank style={{ width: '1em', height: '1em' }} />;
     }
 
     if (linkType === 'folder') {
-      return <Folder style={{ width: '16px', height: '16px' }} />;
+      return <Folder style={{ width: '1em', height: '1em' }} />;
     }
 
-    return <Note style={{ width: '16px', height: '16px' }} />;
+    return <Note style={{ width: '1em', height: '1em' }} />;
   };
 
   // Handle click to navigate
@@ -72,8 +72,6 @@ export function NoteLinkView({ node, editor }: NodeViewProps) {
             onClick={handleClick}
             style={{
               transition: 'color 300ms ease',
-              fontSize: '16px',
-              lineHeight: '24px',
             }}
           >
             {label}

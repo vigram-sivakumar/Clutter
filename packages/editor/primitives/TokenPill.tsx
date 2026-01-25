@@ -47,7 +47,11 @@ export function TokenPill({
         // Core layout (internal only)
         display: 'inline-flex',
         alignItems: 'center',
+        
+        // CRITICAL: Never define line-height or font-size other than these
         lineHeight: 1,
+        fontSize: '1em',
+        
         gap: '4px',
         padding: '2px 6px',
         borderRadius: '4px',
@@ -58,7 +62,7 @@ export function TokenPill({
         color,
         cursor: onClick ? 'pointer' : 'default',
         
-        // Allow overrides
+        // Allow overrides (but fontSize/lineHeight should never be overridden)
         ...style,
       }}
     >
@@ -69,6 +73,11 @@ export function TokenPill({
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
+            
+            // Icon sizing - use em units to scale with text
+            width: '1em',
+            height: '1em',
+            flexShrink: 0,
           }}
         >
           {icon}
@@ -79,6 +88,7 @@ export function TokenPill({
         style={{
           display: 'inline-flex',
           alignItems: 'center',
+          lineHeight: 1,
         }}
       >
         {children}
