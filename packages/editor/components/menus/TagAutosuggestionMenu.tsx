@@ -11,9 +11,6 @@ import {
   AutocompleteDropdown,
   DropdownItem,
   TagPill,
-  HashStraight,
-  getTagColor,
-  useTheme,
 } from '@clutter/ui';
 
 interface TagAutosuggestionMenuProps {
@@ -39,7 +36,6 @@ export const TagAutosuggestionMenu = ({
 }: TagAutosuggestionMenuProps) => {
   const notes = useNotesStore((state) => state.notes);
   const allTags = useAllTags();
-  const { colors } = useTheme();
 
   // Filter to exclude already-added tags
   const existingTagsLower = useMemo(
@@ -90,11 +86,6 @@ export const TagAutosuggestionMenu = ({
       return null;
     }
 
-    const colorName = getTagColor(trimmedQuery);
-    const tagColor = colors.accent[colorName as keyof typeof colors.accent];
-    const iconColor =
-      tagColor && 'text' in tagColor ? tagColor.text : colors.text.secondary;
-
     return (
       <AutocompleteDropdown
         isOpen={isOpen}
@@ -103,11 +94,12 @@ export const TagAutosuggestionMenu = ({
         selectedIndex={0}
       >
         <DropdownItem
-          icon={<HashStraight size={16} style={{ color: iconColor }} />}
-          label={`Create "${trimmedQuery}"`}
           isSelected={selectedIndex === 0}
           onClick={() => onSelectTag(trimmedQuery)}
-        />
+          compact={true}
+        >
+          <TagPill label={trimmedQuery} />
+        </DropdownItem>
       </AutocompleteDropdown>
     );
   }
