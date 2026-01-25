@@ -11,6 +11,7 @@ import {
   AutocompleteDropdown,
   DropdownItem,
   TagPill,
+  useTheme,
 } from '@clutter/ui';
 
 interface TagAutosuggestionMenuProps {
@@ -36,6 +37,7 @@ export const TagAutosuggestionMenu = ({
 }: TagAutosuggestionMenuProps) => {
   const notes = useNotesStore((state) => state.notes);
   const allTags = useAllTags();
+  const { colors } = useTheme();
 
   // Filter to exclude already-added tags
   const existingTagsLower = useMemo(
@@ -98,7 +100,12 @@ export const TagAutosuggestionMenu = ({
           onClick={() => onSelectTag(trimmedQuery)}
           compact={true}
         >
-          <TagPill label={trimmedQuery} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: colors.text.secondary, fontSize: '14px' }}>
+              Create
+            </span>
+            <TagPill label={trimmedQuery} />
+          </div>
         </DropdownItem>
       </AutocompleteDropdown>
     );
