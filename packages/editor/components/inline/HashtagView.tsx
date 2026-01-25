@@ -11,17 +11,16 @@ export function HashtagView({ node }: NodeViewProps) {
   const { tag } = node.attrs;
 
   return (
-    <NodeViewWrapper
-      as="span"
-      className="hashtag-mention"
-      style={{
-        // Match inline positioning of other mentions
-        display: 'inline-flex',
-        verticalAlign: '-2.5px',
-        alignItems: 'center',
-      }}
-    >
-      <TagPill label={tag} />
+    <NodeViewWrapper as="span" className="hashtag-mention">
+      <span
+        style={{
+          display: 'inline-flex',
+          verticalAlign: '-2.5px',
+          alignItems: 'center',
+        }}
+      >
+        <TagPill label={tag} />
+      </span>
     </NodeViewWrapper>
   );
 }
