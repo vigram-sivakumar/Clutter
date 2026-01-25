@@ -1,8 +1,14 @@
 /**
  * MentionPill - Shared component for all mention types
  * 
- * Provides consistent styling for date mentions, note links, folder links, etc.
- * Used by DateMentionView and NoteLinkView.
+ * @deprecated This component is being replaced by the InlineToken + TokenPill primitives.
+ * All inline mentions now use the typography primitives for proper baseline alignment.
+ * 
+ * Migration: Use InlineToken + TokenPill instead.
+ * - InlineToken: Owns the inline baseline (inline-block, no flex)
+ * - TokenPill: Internal layout (inline-flex for icon + label)
+ * 
+ * This component is kept for backwards compatibility but should not be used in new code.
  */
 
 import React, { useState, useEffect } from 'react';

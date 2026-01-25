@@ -60,6 +60,9 @@ export type { SlashCommand } from './plugins/SlashCommands';
 export { EscapeMarks } from './plugins/EscapeMarks';
 export { DoubleSpaceEscape } from './plugins/DoubleSpaceEscape';
 
+// Primitives: Typography (foundational)
+export { InlineToken, TokenPill } from './primitives';
+
 // Components: Block renderers
 export { SlashCommandMenu } from './components/menus/SlashCommandMenu';
 export { HashtagMentionMenu } from './components/menus/HashtagMentionMenu';
