@@ -11,13 +11,12 @@
  * the outermost element for TipTap keyboard events to work properly.
  */
 
-import { useCallback, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { typography, spacing } from '../../tokens';
 import { usePlaceholder } from '../../hooks/usePlaceholder';
 import { useBlockSelection } from '../../hooks/useBlockSelection';
-import { BlockTagEditor } from './BlockTagEditor';
 import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
 import { useBlockHidden } from '../../hooks/useBlockHidden';
 
@@ -25,7 +24,6 @@ export function ParagraphBlock({
   node,
   editor,
   getPos,
-  updateAttributes,
 }: NodeViewProps) {
   // 🔒 EPHEMERAL BLOCK TOLERANCE
   // Paragraphs without blockId are ephemeral (mid-transaction state)
@@ -51,8 +49,6 @@ export function ParagraphBlock({
   }
 
   // From here on, blockId is guaranteed to exist (persisted block)
-  const tags = node.attrs.tags || [];
-  const hasTags = tags.length > 0;
   // 🔥 FLAT MODEL: indent is the ONLY structural attribute
   const blockIndent = node.attrs.indent ?? 0;
 
@@ -64,7 +60,6 @@ export function ParagraphBlock({
     node,
     editor,
     getPos,
-    customText: hasTags ? 'Start typing...' : undefined,
   });
 
   // Check if this block is selected
@@ -98,13 +93,6 @@ export function ParagraphBlock({
       editor.off('blur', handleFocusChange);
     };
   }, [editor]);
-
-  const handleUpdateTags = useCallback(
-    (newTags: string[]) => {
-      updateAttributes({ tags: newTags });
-    },
-    [updateAttributes]
-  );
 
   // Calculate indent based on blockIndent (hierarchy)
   const indent = blockIndent * spacing.indent;
@@ -161,11 +149,6 @@ export function ParagraphBlock({
           width: '100%',
           minWidth: '1ch',
         }}
-      />
-      <BlockTagEditor
-        tags={tags}
-        onUpdate={handleUpdateTags}
-        onTagClick={(editor as any).onTagClick}
       />
 
       {/* Block selection halo */}

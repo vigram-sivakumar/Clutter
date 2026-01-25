@@ -17,5 +17,4 @@ export {
   getMarkerStyle,
   getContentStyle,
 } from './BlockWrapper';
-export { BlockTagEditor } from './BlockTagEditor';
 export { TaskPriorityIndicator } from './TaskPriorityIndicator';

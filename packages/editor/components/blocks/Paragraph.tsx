@@ -19,22 +19,16 @@
  * - Placeholder shows only when block is focused (CSS + usePlaceholder handles this)
  */
 
-import { useCallback } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { typography } from '../../tokens';
 import { usePlaceholder } from '../../hooks/usePlaceholder';
-import { BlockTagEditor } from './BlockTagEditor';
 
 export function Paragraph({
   node,
   editor,
   getPos,
-  updateAttributes,
 }: NodeViewProps) {
-  const tags = node.attrs.tags || [];
-  const hasTags = tags.length > 0;
-
   // Canonical emptiness check (ProseMirror source of truth)
   const isEmpty = node.content.size === 0;
 
@@ -44,15 +38,7 @@ export function Paragraph({
     node,
     editor,
     getPos,
-    customText: hasTags ? 'Start typing...' : undefined,
   });
-
-  const handleUpdateTags = useCallback(
-    (newTags: string[]) => {
-      updateAttributes({ tags: newTags });
-    },
-    [updateAttributes]
-  );
 
   return (
     <NodeViewWrapper
@@ -74,11 +60,6 @@ export function Paragraph({
           display: 'inline',
           minWidth: '1ch',
         }}
-      />
-      <BlockTagEditor
-        tags={tags}
-        onUpdate={handleUpdateTags}
-        onTagClick={(editor as any).onTagClick}
       />
     </NodeViewWrapper>
   );
