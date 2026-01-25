@@ -7,7 +7,6 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
-import { TextSelection } from '@tiptap/pm/state';
 import { useAllTags } from '@clutter/state';
 import { HashtagMentionMenu } from './HashtagMentionMenu';
 
@@ -64,43 +63,20 @@ export function HashtagMentionMenuEditor({
       const storage = (editor.storage as any).hashtagMention;
       if (!storage || storage.startPos === null) return;
 
-      const { view } = editor;
-      const { state } = view;
-      const { from } = state.selection;
-      const startPos = storage.startPos;
+      const { from } = editor.state.selection;
 
-      // Validate positions
-      if (startPos < 0 || from < 0 || startPos > from) {
-        console.error('Invalid positions for tag insertion:', { startPos, from });
-        storage.active = false;
-        storage.userClosed = true;
-        return;
-      }
+      // Insert #tag inline (delete #query and replace with #tag + space)
+      // Same pattern as AtMention
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: storage.startPos, to: from })
+        .insertContent(`#${tag} `)
+        .run();
 
-      // Deactivate menu immediately
-      storage.active = false;
-      storage.userClosed = true;
-
-      // Create transaction: delete #query range and insert #tag with space
-      const tr = state.tr;
-      
-      // Delete the #query range
-      tr.delete(startPos, from);
-      
-      // Insert #tag + space
-      tr.insertText(`#${tag} `, startPos);
-      
-      // Set selection after the inserted content (using tr.doc which is the updated document)
-      const newPos = startPos + tag.length + 2; // # + tag + space
-      tr.setSelection(TextSelection.create(tr.doc, newPos));
-      
-      // Dispatch transaction
-      view.dispatch(tr);
-      
-      // Focus editor
-      view.focus();
+      handleClose();
     },
-    [editor]
+    [editor, handleClose]
   );
 
   // Keep ref in sync
@@ -161,10 +137,23 @@ export function HashtagMentionMenuEditor({
       }
 
       // Check if Enter was pressed (shouldSelect flag)
-      if (storage.shouldSelect && isOpen && suggestions.length > 0) {
+      if (storage.shouldSelect && isOpen) {
         storage.shouldSelect = false; // Reset flag
-        const indexToSelect = selectedIndex === -1 ? 0 : selectedIndex;
-        const tagToSelect = suggestions[indexToSelect] || query.trim();
+        
+        // If we have suggestions, use the selected one
+        // If no suggestions but we have a query, create new tag with query
+        let tagToSelect: string;
+        if (suggestions.length > 0) {
+          const indexToSelect = selectedIndex === -1 ? 0 : selectedIndex;
+          tagToSelect = suggestions[indexToSelect];
+        } else if (query.trim()) {
+          // Create mode - use the query as the tag name
+          tagToSelect = query.trim();
+        } else {
+          // No suggestions and no query - nothing to select
+          return;
+        }
+        
         handleSelectTag(tagToSelect);
         return;
       }
@@ -248,9 +237,22 @@ export function HashtagMentionMenuEditor({
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        const indexToSelect =
-          selectedIndexRef.current === -1 ? 0 : selectedIndexRef.current;
-        const tagToSelect = suggestions[indexToSelect] || query.trim();
+        
+        // If we have suggestions, use the selected one
+        // If no suggestions but we have a query, create new tag with query
+        let tagToSelect: string;
+        if (suggestions.length > 0) {
+          const indexToSelect =
+            selectedIndexRef.current === -1 ? 0 : selectedIndexRef.current;
+          tagToSelect = suggestions[indexToSelect];
+        } else if (query.trim()) {
+          // Create mode - use the query as the tag name
+          tagToSelect = query.trim();
+        } else {
+          // No suggestions and no query - nothing to select
+          return;
+        }
+        
         handleSelectTag(tagToSelect);
       }
     };
