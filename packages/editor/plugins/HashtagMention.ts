@@ -12,7 +12,7 @@ export interface HashtagMentionOptions {
 }
 
 export const HashtagMention = Extension.create<HashtagMentionOptions>({
-  name: 'hashtagMention',
+  name: 'hashtagTrigger',
   priority: 9999, // High priority (slightly lower than AtMention)
 
   addOptions() {
@@ -34,7 +34,7 @@ export const HashtagMention = Extension.create<HashtagMentionOptions>({
   },
 
   addProseMirrorPlugins() {
-    const pluginKey = new PluginKey('hashtagMention');
+    const pluginKey = new PluginKey('hashtagTrigger');
     const editor = this.editor;
 
     return [
@@ -45,7 +45,7 @@ export const HashtagMention = Extension.create<HashtagMentionOptions>({
           return {
             update(view) {
               const { selection } = view.state;
-              const storage = editor.storage.hashtagMention;
+              const storage = editor.storage.hashtagTrigger;
               if (!storage) return;
 
               // Check if we should show dropdown
@@ -89,7 +89,7 @@ export const HashtagMention = Extension.create<HashtagMentionOptions>({
 
         props: {
           handleKeyDown(view, event) {
-            const storage = editor.storage.hashtagMention;
+            const storage = editor.storage.hashtagTrigger;
             if (!storage || !storage.active) {
               return false;
             }

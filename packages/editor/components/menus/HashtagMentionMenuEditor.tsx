@@ -44,7 +44,7 @@ export function HashtagMentionMenuEditor({
 
   const handleClose = useCallback(() => {
     if (editor) {
-      const storage = (editor.storage as any).hashtagMention;
+      const storage = (editor.storage as any).hashtagTrigger;
       if (storage) {
         storage.active = false;
         storage.userClosed = true; // Prevent auto-reopening
@@ -60,7 +60,7 @@ export function HashtagMentionMenuEditor({
     (tag: string) => {
       if (!editor) return;
 
-      const storage = (editor.storage as any).hashtagMention;
+      const storage = (editor.storage as any).hashtagTrigger;
       if (!storage || storage.startPos === null) return;
 
       const { from } = editor.state.selection;
@@ -104,7 +104,7 @@ export function HashtagMentionMenuEditor({
     };
 
     const updateMenu = () => {
-      const storage = (editor.storage as any).hashtagMention;
+      const storage = (editor.storage as any).hashtagTrigger;
       if (!storage) return;
 
       const wasOpen = isOpen;
@@ -202,7 +202,7 @@ export function HashtagMentionMenuEditor({
     if (!isOpen || !editor) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const storage = (editor.storage as any).hashtagMention;
+      const storage = (editor.storage as any).hashtagTrigger;
 
       if (!storage?.active) {
         return;
