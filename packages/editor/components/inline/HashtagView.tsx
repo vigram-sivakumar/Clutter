@@ -1,5 +1,5 @@
 /**
- * HashtagView - React NodeView for Hashtag nodes
+ * HashtagView - React NodeView for HashtagMention nodes
  * Renders hashtag mentions with TagPill styling (same as dropdown)
  */
 
@@ -13,7 +13,7 @@ export function HashtagView({ node }: NodeViewProps) {
   return (
     <NodeViewWrapper
       as="span"
-      className="hashtag"
+      className="hashtag-mention"
       style={{
         // Match inline positioning of other mentions
         display: 'inline-flex',

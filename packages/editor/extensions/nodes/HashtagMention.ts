@@ -1,5 +1,5 @@
 /**
- * Hashtag - Inline atomic node for hashtag mentions (#tag)
+ * HashtagMention - Inline atomic node for hashtag mentions (#tag)
  * 
  * Stores tag name and displays with TagPill styling
  * Cursor jumps over it (atomic) like DateMention
@@ -9,23 +9,23 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import { HashtagView } from '../../components/inline/HashtagView';
 
-export interface HashtagOptions {
+export interface HashtagMentionOptions {
   HTMLAttributes: Record<string, any>;
 }
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    hashtag: {
+    hashtagMention: {
       /**
        * Insert a hashtag mention
        */
-      insertHashtag: (attributes: { tag: string }) => ReturnType;
+      insertHashtagMention: (attributes: { tag: string }) => ReturnType;
     };
   }
 }
 
-export const Hashtag = Node.create<HashtagOptions>({
-  name: 'hashtag',
+export const HashtagMention = Node.create<HashtagMentionOptions>({
+  name: 'hashtagMention',
 
   group: 'inline',
   
@@ -63,7 +63,7 @@ export const Hashtag = Node.create<HashtagOptions>({
   parseHTML() {
     return [
       {
-        tag: 'span[data-type="hashtag"]',
+        tag: 'span[data-type="hashtag-mention"]',
       },
     ];
   },
@@ -75,8 +75,8 @@ export const Hashtag = Node.create<HashtagOptions>({
         this.options.HTMLAttributes,
         HTMLAttributes,
         {
-          'data-type': 'hashtag',
-          class: 'hashtag',
+          'data-type': 'hashtag-mention',
+          class: 'hashtag-mention',
         }
       ),
       node.attrs.tag, // Display text (styling handled by NodeView)
@@ -89,7 +89,7 @@ export const Hashtag = Node.create<HashtagOptions>({
 
   addCommands() {
     return {
-      insertHashtag: attributes => ({ commands }) => {
+      insertHashtagMention: attributes => ({ commands }) => {
         return commands.insertContent({
           type: this.name,
           attrs: attributes,
