@@ -14,9 +14,8 @@ export function HashtagView({ node }: NodeViewProps) {
     <NodeViewWrapper as="span" className="hashtag-mention">
       <span
         style={{
-          display: 'inline-flex',
-          verticalAlign: '-2.5px',
-          alignItems: 'center',
+          display: 'inline-block',
+          verticalAlign: 'baseline',
         }}
       >
         <TagPill label={tag} />

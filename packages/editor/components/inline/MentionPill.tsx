@@ -40,19 +40,17 @@ export function MentionPill({
 
   const pillStyle: React.CSSProperties = {
     position: 'relative',
+    display: 'inline-block',
+    verticalAlign: 'baseline',
+    cursor: 'pointer',
+    transition: 'color 300ms ease, background-color 300ms ease',
+  };
+
+  const innerStyle: React.CSSProperties = {
     display: 'inline-flex',
-    verticalAlign: '-2.5px',
     alignItems: 'center',
     gap: spacing['4'],
     color: (isHovered && hoverEnabled) ? colors.text.hover : colors.text.tertiary,
-    // backgroundColor: (isHovered && hoverEnabled) ? colors.background.hover : colors.background.tertiary,
-    // padding: '0px 4px',
-    // margin: spacing['2'],
-    // borderRadius: '3px',
-    // height: '22px',
-    cursor: 'pointer',
-    transition: 'color 300ms ease, background-color 300ms ease',
-    
   };
 
   const iconStyle: React.CSSProperties = {
@@ -87,8 +85,10 @@ export function MentionPill({
       onClick={onClick}
       {...rest}
     >
-      <span className="mention-icon" style={iconStyle}>{styledIcon}</span>
-      <span className="mention-label" style={labelStyle}>{label}</span>
+      <span style={innerStyle}>
+        <span className="mention-icon" style={iconStyle}>{styledIcon}</span>
+        <span className="mention-label" style={labelStyle}>{label}</span>
+      </span>
     </span>
   );
 }
