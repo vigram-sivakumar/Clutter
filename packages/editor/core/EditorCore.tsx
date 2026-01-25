@@ -62,6 +62,7 @@ import { CustomHighlight } from '../extensions/marks/Highlight';
 import { TextColor } from '../extensions/marks/TextColor';
 import { DateMention as DateMentionNode } from '../extensions/nodes/DateMention';
 import { NoteLink } from '../extensions/nodes/NoteLink';
+import { Hashtag } from '../extensions/nodes/Hashtag';
 import Gapcursor from '@tiptap/extension-gapcursor';
 import History from '@tiptap/extension-history';
 import HardBreak from '@tiptap/extension-hard-break';
@@ -265,6 +266,7 @@ const EditorCoreInner = forwardRef<
           NoteLink.configure({
             onNavigate,
           }),
+          Hashtag,
 
           // Built-in TipTap extensions
           HardBreak.configure({

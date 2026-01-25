@@ -65,13 +65,14 @@ export function HashtagMentionMenuEditor({
 
       const { from } = editor.state.selection;
 
-      // Insert #tag inline (delete #query and replace with #tag + space)
-      // Same pattern as AtMention
+      // Insert hashtag node (delete #query and replace with styled hashtag + space)
+      // Same pattern as AtMention (uses custom node instead of plain text)
       editor
         .chain()
         .focus()
         .deleteRange({ from: storage.startPos, to: from })
-        .insertContent(`#${tag} `)
+        .insertHashtag({ tag })
+        .insertContent(' ')
         .run();
 
       handleClose();
