@@ -59,15 +59,15 @@ export const TagAutosuggestionMenu = ({
     });
   }, [allTags, notes]);
 
-  // When no query, show all tags sorted by count (most used first)
-  // When there's a query, show filtered suggestions
+  // When no query, show all tags sorted alphabetically
+  // When there's a query, show filtered suggestions (already sorted by parent)
   // Always exclude tags already added to the note
   const displayTags = useMemo(() => {
     if (!query.trim()) {
-      // No input - show all tags sorted by usage, excluding existing ones
+      // No input - show all tags sorted alphabetically, excluding existing ones
       return [...tagsWithCounts]
         .filter(({ tag }) => !existingTagsLower.includes(tag.toLowerCase()))
-        .sort((a, b) => b.count - a.count);
+        .sort((a, b) => a.tag.toLowerCase().localeCompare(b.tag.toLowerCase()));
     } else {
       // Has input - show filtered suggestions with their counts, excluding existing ones
       return suggestions
