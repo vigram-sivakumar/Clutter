@@ -70,9 +70,10 @@ export function TokenPill({
         <span 
           className="token-pill__icon"
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            // CRITICAL: inline-block, NOT inline-flex
+            // This prevents SVG from participating in flex baseline math
+            display: 'inline-block',
+            verticalAlign: 'text-top',
             
             // Icon sizing - use em units to scale with text
             width: '1em',
