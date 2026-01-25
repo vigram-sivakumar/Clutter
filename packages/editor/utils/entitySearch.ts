@@ -51,7 +51,11 @@ export function searchEntities(
   // Note: EditorLinkedNote only has id, title, emoji, isDailyNote
   // App is responsible for filtering out deleted notes before passing to editor
   const noteMatches = allNotes
-    .filter(note => note.title.toLowerCase().includes(normalizedQuery))
+    .filter(note => {
+      // Defensive: Skip notes with invalid titles
+      if (!note || typeof note.title !== 'string') return false;
+      return note.title.toLowerCase().includes(normalizedQuery);
+    })
     .map(note => ({
       type: 'note' as const,
       id: note.id,
@@ -64,7 +68,11 @@ export function searchEntities(
   // Note: EditorFolder only has id, name, emoji
   // App is responsible for filtering out deleted folders before passing to editor
   const folderMatches = allFolders
-    .filter(folder => folder.name.toLowerCase().includes(normalizedQuery))
+    .filter(folder => {
+      // Defensive: Skip folders with invalid names
+      if (!folder || typeof folder.name !== 'string') return false;
+      return folder.name.toLowerCase().includes(normalizedQuery);
+    })
     .map(folder => ({
       type: 'folder' as const,
       id: folder.id,
@@ -85,17 +93,17 @@ export function searchEntities(
   // 2. Query is at least 2 characters (avoid showing "Create 'a'" etc.)
   // 3. No strong match (title doesn't start with query)
   const hasExactNoteMatch = noteMatches.some(
-    n => n.title.toLowerCase() === normalizedQuery
+    n => typeof n.title === 'string' && n.title.toLowerCase() === normalizedQuery
   );
   const hasExactFolderMatch = folderMatches.some(
-    f => f.title.toLowerCase() === normalizedQuery
+    f => typeof f.title === 'string' && f.title.toLowerCase() === normalizedQuery
   );
 
   const hasStrongNoteMatch = noteMatches.some(
-    n => n.title.toLowerCase().startsWith(normalizedQuery)
+    n => typeof n.title === 'string' && n.title.toLowerCase().startsWith(normalizedQuery)
   );
   const hasStrongFolderMatch = folderMatches.some(
-    f => f.title.toLowerCase().startsWith(normalizedQuery)
+    f => typeof f.title === 'string' && f.title.toLowerCase().startsWith(normalizedQuery)
   );
 
   return {

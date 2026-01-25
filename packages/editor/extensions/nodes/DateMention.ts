@@ -110,6 +110,51 @@ export const DateMention = Node.create<DateMentionOptions>({
     };
   },
 
+  addKeyboardShortcuts() {
+    return {
+      // Handle Backspace: delete node and set selection explicitly
+      Backspace: () => {
+        const { state } = this.editor;
+        const { $from } = state.selection;
+        
+        // Check if cursor is right after this node type
+        const nodeBefore = $from.nodeBefore;
+        if (nodeBefore && nodeBefore.type.name === this.name) {
+          return this.editor.commands.command(({ tr, dispatch }) => {
+            if (dispatch) {
+              const posBeforeNode = $from.pos - nodeBefore.nodeSize;
+              tr.delete(posBeforeNode, $from.pos);
+              // Explicitly set selection after deletion
+              tr.setSelection(state.selection.constructor.near(tr.doc.resolve(posBeforeNode)));
+            }
+            return true;
+          });
+        }
+        return false;
+      },
+      
+      // Handle Delete: delete node and set selection explicitly
+      Delete: () => {
+        const { state } = this.editor;
+        const { $from } = state.selection;
+        
+        // Check if cursor is right before this node type
+        const nodeAfter = $from.nodeAfter;
+        if (nodeAfter && nodeAfter.type.name === this.name) {
+          return this.editor.commands.command(({ tr, dispatch }) => {
+            if (dispatch) {
+              tr.delete($from.pos, $from.pos + nodeAfter.nodeSize);
+              // Explicitly set selection after deletion
+              tr.setSelection(state.selection.constructor.near(tr.doc.resolve($from.pos)));
+            }
+            return true;
+          });
+        }
+        return false;
+      },
+    };
+  },
+
   addNodeView() {
     return ReactNodeViewRenderer(DateMentionView);
   },

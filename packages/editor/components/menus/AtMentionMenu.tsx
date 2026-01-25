@@ -3,6 +3,27 @@
  * Renders dropdown with two sections: DATE and LINK TO
  */
 
+/**
+ * Extract title from potentially nested object (defensive)
+ * Handles bug where callbacks return {title: {title: "text"}} instead of {title: "text"}
+ */
+function extractTitle(title: unknown, fallback: string): string {
+  if (typeof title === 'string') return title || fallback;
+  if (typeof title === 'object' && title !== null && 'title' in title) {
+    return extractTitle((title as { title: unknown }).title, fallback);
+  }
+  return fallback;
+}
+
+/**
+ * Type for AtMention plugin storage
+ */
+interface AtMentionStorage {
+  startPos: number;
+  query: string;
+  lastQuery?: string;
+}
+
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
 import {
@@ -131,7 +152,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
 
   const handleClose = useCallback(() => {
     if (editor) {
-      const storage = (editor.storage as any).atMention;
+      const storage = (editor.storage as { atMention: AtMentionStorage }).atMention;
       if (storage) {
         storage.active = false;
         storage.userClosed = true; // Prevent auto-reopening
@@ -147,7 +168,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     (item: MenuItem) => {
       if (!editor) return;
 
-      const storage = (editor.storage as any).atMention;
+      const storage = (editor.storage as { atMention: AtMentionStorage }).atMention;
       if (!storage || storage.startPos === null) return;
 
       const { from } = editor.state.selection;
@@ -179,6 +200,9 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
           const dailyNote =
             existingNote || onCreateDailyNote(targetDate, false); // Don't navigate
 
+          // Handle nested title object (bug in callback)
+          const noteTitle = extractTitle(dailyNote.title, 'Daily Note');
+
           // Insert link to daily note (NO @ - NodeView will render icon)
           editor
             .chain()
@@ -187,7 +211,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
             .insertNoteLink({
               linkType: 'note',
               targetId: dailyNote.id,
-              label: dailyNote.title, // Just title, no emoji/icon
+              label: noteTitle,
               emoji: dailyNote.emoji, // Store emoji separately
             })
             .insertContent(' ')
@@ -200,6 +224,9 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         case 'entity': {
           // Insert link to existing entity (NO @ - NodeView will render icon)
           const { suggestion } = item;
+          
+          // Handle nested title object (defensive)
+          const entityTitle = extractTitle(suggestion.title, 'Untitled');
 
           editor
             .chain()
@@ -208,7 +235,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
             .insertNoteLink({
               linkType: suggestion.type,
               targetId: suggestion.id,
-              label: suggestion.title, // Just title, no emoji/icon
+              label: entityTitle,
               emoji: suggestion.emoji, // Store emoji separately
             })
             .insertContent(' ')
@@ -219,6 +246,9 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         case 'createNote': {
           // Create new note and link to it (NO @ - NodeView will render icon)
           const newNote = onCreateNote({ title: item.query }, false); // Don't navigate
+          
+          // Handle nested title object (bug in onCreateNote callback)
+          const noteTitle = extractTitle(newNote.title, item.query);
 
           editor
             .chain()
@@ -227,7 +257,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
             .insertNoteLink({
               linkType: 'note',
               targetId: newNote.id,
-              label: newNote.title, // Just title, no icon
+              label: noteTitle,
               emoji: null,
             })
             .insertContent(' ')
@@ -301,7 +331,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     };
 
     const updateMenu = () => {
-      const storage = (editor.storage as any).atMention;
+      const storage = (editor.storage as { atMention: AtMentionStorage }).atMention;
       if (!storage) return;
 
       const wasOpen = isOpen;
@@ -360,7 +390,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
       // Calculate position when opening OR when startPos changes OR when menu items change
       if (isNowOpen && currentStartPos !== null) {
         const startPosChanged = cachedStartPos !== currentStartPos;
-        const queryChanged = currentQuery !== (storage as any).lastQuery;
+        const queryChanged = currentQuery !== storage.lastQuery;
 
         if (!wasOpen || startPosChanged || queryChanged) {
           // Menu just opened OR moved to different @ position OR query changed (items may have changed)
@@ -368,7 +398,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
           requestAnimationFrame(() => {
             cachedPosition = calculatePosition(currentStartPos);
             cachedStartPos = currentStartPos;
-            (storage as any).lastQuery = currentQuery;
+            storage.lastQuery = currentQuery;
             setPosition(cachedPosition);
           });
 
@@ -381,7 +411,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
         // Menu closed - clear cache
         cachedPosition = null;
         cachedStartPos = null;
-        (storage as any).lastQuery = '';
+        storage.lastQuery = '';
         setPosition(null);
         setSelectedIndex(-1);
       }
@@ -400,7 +430,7 @@ export function AtMentionMenu({ editor, onNavigate }: AtMentionMenuProps) {
     if (!isOpen || !editor) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const storage = (editor.storage as any).atMention;
+      const storage = (editor.storage as { atMention: AtMentionStorage }).atMention;
 
       if (!storage?.active) {
         return;

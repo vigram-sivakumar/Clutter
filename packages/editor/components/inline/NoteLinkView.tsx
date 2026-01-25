@@ -56,7 +56,7 @@ export function NoteLinkView({ node, editor }: NodeViewProps) {
     }
   };
 
-  const color = (isHovered && hoverEnabled) ? colors.text.hover : colors.text.tertiary;
+  const backgroundColor = (isHovered && hoverEnabled) ? colors.background.hover : 'transparent';
 
   return (
     <NodeViewWrapper as="span" className="note-link">
@@ -68,13 +68,14 @@ export function NoteLinkView({ node, editor }: NodeViewProps) {
           <TokenPill 
             variant="page"
             icon={renderIcon()}
-            color={color}
+            color={colors.text.tertiary}
+            backgroundColor={backgroundColor}
             onClick={handleClick}
             style={{
-              transition: 'color 300ms ease',
+              transition: 'background-color 300ms ease',
             }}
           >
-            {label}
+            {label || 'Untitled'}
           </TokenPill>
         </InlineToken>
       </span>

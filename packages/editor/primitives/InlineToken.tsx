@@ -1,31 +1,8 @@
-/**
- * InlineToken - The ONLY inline participant
- * 
- * Purpose:
- * - Own the inline baseline
- * - Isolate editor / NodeView / React wrappers
- * - Guarantee identical alignment across all mentions
- * - Fix inline box height to match text (prevent cursor growth)
- * 
- * Rules (enforced):
- * - Exactly one element participates in inline flow
- * - That element is inline-block
- * - Height is FIXED to 1em (matches text, prevents cursor growth)
- * - No flex, no padding at this level
- * - No font-size changes
- * - No vertical-align hacks elsewhere
- * 
- * Critical Architecture:
- * - This creates a 1em × 1em layout box (matches text height)
- * - Visual pill inside is absolutely positioned (doesn't affect line height)
- * - This is how Notion/Craft prevent cursor growth
- */
-
 import React from 'react';
 
 interface InlineTokenProps {
   children: React.ReactNode;
-  as?: 'span'; // future-proof, but keep constrained
+  as?: 'span';
 }
 
 export function InlineToken({
@@ -40,23 +17,45 @@ export function InlineToken({
       data-inline-token
       contentEditable={false}
       style={{
-        // Hard invariants - DO NOT MODIFY
+        /* THE ONLY INLINE PARTICIPANT */
         display: 'inline-block',
         verticalAlign: 'baseline',
-        
-        // CRITICAL: Fixed height to match text (prevents cursor growth)
-        fontSize: '1em',
-        lineHeight: '1em',
+
+        /* Lock line metrics */
         height: '1em',
-        
-        // Position context for absolutely positioned pill
+        lineHeight: '1em',
+        fontSize: 'inherit',
+
+        /* Anchor absolute visuals */
         position: 'relative',
-        
+
         padding: 0,
         margin: 0,
+        whiteSpace: 'nowrap',
       }}
     >
-      {children}
+      {/* WIDTH RESERVATION (layout-only) */}
+      <span
+        aria-hidden
+        style={{
+          visibility: 'hidden',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+        }}
+      >
+        {children}
+      </span>
+
+      {/* VISUAL LAYER (absolute, no layout impact) */}
+      <span
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'auto',
+        }}
+      >
+        {children}
+      </span>
     </Component>
   );
 }

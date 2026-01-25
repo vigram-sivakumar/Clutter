@@ -6,16 +6,15 @@
 import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { InlineToken, TokenPill } from '../../primitives';
-import { useTheme, getTagColor } from '@clutter/ui';
-import { useTagsStore } from '@clutter/state';
+import { useTheme, getTagColor, HashStraight } from '@clutter/ui';
 
 export function HashtagView({ node }: NodeViewProps) {
   const { tag } = node.attrs;
   const { colors } = useTheme();
-  const tagMetadata = useTagsStore((state) => state.getTagMetadata(tag));
   
-  // Get color (custom or hash-based)
-  const colorName = tagMetadata?.color || getTagColor(tag);
+  // Get color (hash-based)
+  // TODO: Support custom tag colors via EditorProvider dependency injection
+  const colorName = getTagColor(tag);
   const accentColor = colors.accent[colorName as keyof typeof colors.accent];
   const tagColor = (accentColor && 'bg' in accentColor && 'text' in accentColor ? accentColor : colors.accent.default) as { bg: string; text: string };
 
@@ -24,6 +23,7 @@ export function HashtagView({ node }: NodeViewProps) {
       <InlineToken>
         <TokenPill 
           variant="hashtag"
+          icon={<HashStraight style={{ width: '1em', height: '1em' }} />}
           backgroundColor={tagColor.bg}
           color={tagColor.text}
         >

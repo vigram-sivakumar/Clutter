@@ -24,7 +24,7 @@ export function DateMentionView({ node }: NodeViewProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  const color = (isHovered && hoverEnabled) ? colors.text.hover : colors.text.tertiary;
+  const backgroundColor = (isHovered && hoverEnabled) ? colors.background.hover : 'transparent';
 
   return (
     <NodeViewWrapper as="span" className="date-mention">
@@ -36,9 +36,10 @@ export function DateMentionView({ node }: NodeViewProps) {
           <TokenPill 
             variant="date"
             icon={<At style={{ width: '1em', height: '1em' }} />}
-            color={color}
+            color={colors.text.tertiary}
+            backgroundColor={backgroundColor}
             style={{
-              transition: 'color 300ms ease',
+              transition: 'background-color 300ms ease',
             }}
           >
             {label}
