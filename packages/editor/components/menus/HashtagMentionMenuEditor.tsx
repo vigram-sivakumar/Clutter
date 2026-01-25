@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
+import { TextSelection } from '@tiptap/pm/state';
 import { useAllTags } from '@clutter/state';
 import { HashtagMentionMenu } from './HashtagMentionMenu';
 
@@ -63,19 +64,43 @@ export function HashtagMentionMenuEditor({
       const storage = (editor.storage as any).hashtagMention;
       if (!storage || storage.startPos === null) return;
 
-      const { from } = editor.state.selection;
+      const { view } = editor;
+      const { state } = view;
+      const { from } = state.selection;
+      const startPos = storage.startPos;
 
-      // Insert #tag inline (keep the # and add space after)
-      editor
-        .chain()
-        .focus()
-        .deleteRange({ from: storage.startPos, to: from })
-        .insertContent(`#${tag} `)
-        .run();
+      // Validate positions
+      if (startPos < 0 || from < 0 || startPos > from) {
+        console.error('Invalid positions for tag insertion:', { startPos, from });
+        storage.active = false;
+        storage.userClosed = true;
+        return;
+      }
 
-      handleClose();
+      // Deactivate menu immediately
+      storage.active = false;
+      storage.userClosed = true;
+
+      // Create transaction: delete #query range and insert #tag with space
+      const tr = state.tr;
+      
+      // Delete the #query range
+      tr.delete(startPos, from);
+      
+      // Insert #tag + space
+      tr.insertText(`#${tag} `, startPos);
+      
+      // Set selection after the inserted content (using tr.doc which is the updated document)
+      const newPos = startPos + tag.length + 2; // # + tag + space
+      tr.setSelection(TextSelection.create(tr.doc, newPos));
+      
+      // Dispatch transaction
+      view.dispatch(tr);
+      
+      // Focus editor
+      view.focus();
     },
-    [editor, handleClose]
+    [editor]
   );
 
   // Keep ref in sync
