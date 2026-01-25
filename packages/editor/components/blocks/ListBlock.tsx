@@ -22,7 +22,6 @@ import { usePlaceholder } from '../../hooks/usePlaceholder';
 import { useBlockSelection } from '../../hooks/useBlockSelection';
 import { MarkerContainer } from './BlockWrapper';
 import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
-import { TaskPriorityIndicator } from './TaskPriorityIndicator';
 import { Checkbox } from '@clutter/ui';
 
 // Props are provided by TipTap's ReactNodeViewRenderer
@@ -697,15 +696,6 @@ export function ListBlock({
           <NodeViewContent as="div" />
         </div>
       </div>
-
-      {/* Priority indicators - outside the block (mirrors handle position) */}
-      {listType === 'task' && (
-        <TaskPriorityIndicator
-          committedPriority={committedPriority}
-          previewPriority={previewPriority}
-          onDismiss={() => updateAttributes({ priority: 0 })}
-        />
-      )}
 
       {/* Toggle row for tasks with children */}
       {renderToggleRow()}
