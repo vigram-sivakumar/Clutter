@@ -1,17 +1,22 @@
 /**
- * TokenPill - Internal layout for inline tokens
+ * TokenPill - Visual layer for inline tokens (does NOT affect line height)
+ * 
+ * Architecture:
+ * - Absolutely positioned inside InlineToken
+ * - Centered on baseline using transform
+ * - Padding/background do NOT affect inline box height
+ * - This is how Notion/Craft prevent cursor growth
  * 
  * Responsibilities (allowed):
- * - Use inline-flex
+ * - Use inline-flex for internal layout
  * - Align icons
- * - Set background
- * - Control height
- * - Handle hover, cursor, focus
+ * - Set background, padding, border-radius
+ * - Handle hover, cursor, onClick
  * 
  * Must NEVER:
- * - Escape inline flow
- * - Change vertical alignment
- * - Rely on negative offsets
+ * - Affect inline box height (already absolute)
+ * - Define line-height > 1
+ * - Use fixed font-size (inherit via 1em)
  */
 
 import React from 'react';
@@ -44,6 +49,13 @@ export function TokenPill({
       data-variant={variant}
       onClick={onClick}
       style={{
+        // CRITICAL: Absolute positioning removes from inline layout
+        // This prevents padding from affecting line height
+        position: 'absolute',
+        left: 0,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        
         // Core layout (internal only)
         display: 'inline-flex',
         alignItems: 'center',
