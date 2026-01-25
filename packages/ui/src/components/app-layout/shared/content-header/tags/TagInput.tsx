@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, KeyboardEvent, useCallback } from 'react';
 import { useTagSuggestions, useAllTags } from '@clutter/state';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { radius } from '../../../../../tokens/radius';
-import { TagAutosuggestion } from './TagAutosuggestion';
+import { TagAutosuggestion } from '@clutter/editor';
 
 interface TagInputProps {
   onAddTag: (tag: string) => void;

@@ -7,12 +7,14 @@
 import { useMemo } from 'react';
 import { useNotesStore } from '@clutter/state';
 import { useAllTags } from '@clutter/state';
-import { AutocompleteDropdown } from '../../../../ui-primitives/AutocompleteDropdown';
-import { DropdownItem } from '../../../../ui-primitives/dropdown';
-import { TagPill } from './Tag';
-import { HashStraight } from '../../../../../icons';
-import { getTagColor } from '../../../../../utils/tagColors';
-import { useTheme } from '../../../../../hooks/useTheme';
+import {
+  AutocompleteDropdown,
+  DropdownItem,
+  TagPill,
+  HashStraight,
+  getTagColor,
+  useTheme,
+} from '@clutter/ui';
 
 interface TagAutosuggestionProps {
   isOpen: boolean;
