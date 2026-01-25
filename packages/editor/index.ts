@@ -80,5 +80,4 @@ export { Callout as CalloutComponent } from './components/blocks/Callout';
 export { EditorErrorFallback } from './components/shared/EditorErrorFallback';
 
 // Utils
-export { addTagToBlock } from './utils/tagUtils';
 export { isMultiBlockSelection } from './utils/multiSelection';

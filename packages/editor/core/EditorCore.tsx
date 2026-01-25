@@ -77,7 +77,6 @@ import { SlashCommands } from '../plugins/SlashCommands';
 import { TaskPriority } from '../plugins/TaskPriority';
 import { EscapeMarks } from '../plugins/EscapeMarks';
 import { DoubleSpaceEscape } from '../plugins/DoubleSpaceEscape';
-import { HashtagAutocomplete } from '../plugins/HashtagAutocomplete';
 import { AtMention } from '../plugins/AtMention';
 import { SelectAll } from '../plugins/SelectAll';
 import { BlockDeletion } from '../plugins/BlockDeletion';
@@ -88,7 +87,6 @@ import { CollapseExtension } from '../extensions/CollapseExtension';
 // UI Components
 import { SlashCommandMenu } from '../components/menus/SlashCommandMenu';
 import { AtMentionMenu } from '../components/menus/AtMentionMenu';
-import { HashtagMenu } from '../components/menus/HashtagMenu';
 import { FloatingToolbar } from '@clutter/ui';
 import { EditorChromeLayer } from '../components/chrome/EditorChromeLayer';
 
@@ -226,7 +224,6 @@ const EditorCoreInner = forwardRef<
     ref
   ) => {
     const { colors } = useEditorTheme();
-    const { availableTags } = useEditorContext();
 
     const activeNoteIdRef = useRef<string | null>(null);
     const prevDocRef = useRef<any>(null);
@@ -289,9 +286,6 @@ const EditorCoreInner = forwardRef<
           DoubleSpaceEscape,
           SelectAll,
           BlockDeletion,
-          HashtagAutocomplete.configure({
-            getTags: () => availableTags,
-          }),
           AtMention.configure({
             getColors: () => colors,
           }),
@@ -641,7 +635,6 @@ const EditorCoreInner = forwardRef<
         {/* UI Components */}
         <SlashCommandMenu editor={editor as any} />
         <AtMentionMenu editor={editor as any} />
-        <HashtagMenu editor={editor as any} />
         <FloatingToolbar editor={editor} />
       </div>
     );

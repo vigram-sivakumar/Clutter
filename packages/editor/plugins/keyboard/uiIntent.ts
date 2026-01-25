@@ -58,11 +58,6 @@ const UI_HANDLERS: readonly UIHandlerConfig[] = [
     isActive: (editor) => editor.storage.atMention?.active ?? false,
     priority: 10000,
   },
-  {
-    name: 'hashtagAutocomplete',
-    isActive: (editor) => editor.storage.hashtagAutocomplete?.active ?? false,
-    priority: 10000,
-  },
   // Future UI components go here
 ] as const;
 
