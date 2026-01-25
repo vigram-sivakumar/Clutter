@@ -5,14 +5,14 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Editor } from '@tiptap/core';
-import { useEditorTheme } from '../theme/EditorThemeContext';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
 import { DropdownContainer } from '@clutter/ui';
 import {
   filterSlashCommands,
   type SlashCommand,
   type CommandGroup,
-} from '../plugins/SlashCommands';
-import { useCommandPickerNavigation } from '../hooks/useCommandPickerNavigation';
+} from '../../plugins/SlashCommands';
+import { useCommandPickerNavigation } from '../../hooks/useCommandPickerNavigation';
 import { CommandList } from '../shared/CommandList';
 
 interface SlashCommandMenuProps {

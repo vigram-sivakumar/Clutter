@@ -46,14 +46,14 @@ import {
   Button,
 } from '@clutter/ui';
 import { TextSelection } from '@tiptap/pm/state';
-import { useEditorTheme } from '../theme/EditorThemeContext';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
 import { spacing } from '../../tokens';
-import { formatDateTime } from '../utils/dateFormatting';
-import { useCommandPickerNavigation } from '../hooks/useCommandPickerNavigation';
-import { useBlockById } from '../hooks/useBlockById';
+import { formatDateTime } from '../../utils/dateFormatting';
+import { useCommandPickerNavigation } from '../../hooks/useCommandPickerNavigation';
+import { useBlockById } from '../../hooks/useBlockById';
 import { CommandList } from '../shared/CommandList';
-import { filterSlashCommands, type SlashCommand } from '../plugins/SlashCommands';
-import { convertBlock, type BlockConversionSpec } from '../utils/blockConversion';
+import { filterSlashCommands, type SlashCommand } from '../../plugins/SlashCommands';
+import { convertBlock, type BlockConversionSpec } from '../../utils/blockConversion';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION (Single place to edit all chrome behavior)
