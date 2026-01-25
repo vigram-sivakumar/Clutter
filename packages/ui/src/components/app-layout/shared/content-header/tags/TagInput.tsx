@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, KeyboardEvent, useCallback } from 'react';
 import { useTagSuggestions, useAllTags } from '@clutter/state';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { radius } from '../../../../../tokens/radius';
-import { TagAutosuggestion } from '@clutter/editor';
+import { TagAutosuggestionMenu } from '@clutter/editor';
 
 interface TagInputProps {
   onAddTag: (tag: string) => void;
@@ -33,7 +33,7 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
   // Get tag suggestions derived from notes (but not when editing)
   const suggestions = isEditing ? [] : useTagSuggestions(value, existingTags);
   
-  // Calculate actual display count (matches TagAutosuggestion logic)
+  // Calculate actual display count (matches TagAutosuggestionMenu logic)
   // When empty query, show all tags; when filtered, show suggestions; when no matches, show create option (1)
   const displayCount = value.trim() === '' 
     ? allTags.length 
@@ -82,7 +82,7 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
       e.preventDefault();
       const trimmedValue = value.trim();
       
-      // Get the actual displayed items (matches TagAutosuggestion logic)
+      // Get the actual displayed items (matches TagAutosuggestionMenu logic)
       let displayedItems: string[];
       if (trimmedValue === '') {
         displayedItems = allTags;
@@ -232,7 +232,7 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
       </div>
 
       {/* Tag Autosuggestion Dropdown */}
-      <TagAutosuggestion
+      <TagAutosuggestionMenu
         isOpen={isFocused && !isEditing}
         position={dropdownPosition}
         onClose={handleCloseDropdown}

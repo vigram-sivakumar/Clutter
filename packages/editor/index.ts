@@ -62,7 +62,7 @@ export { DoubleSpaceEscape } from './plugins/DoubleSpaceEscape';
 
 // Components: Block renderers
 export { SlashCommandMenu } from './components/menus/SlashCommandMenu';
-export { TagAutosuggestion } from './components/menus/TagAutosuggestion';
+export { TagAutosuggestionMenu } from './components/menus/TagAutosuggestionMenu';
 export {
   BlockWrapper,
   MarkerContainer,

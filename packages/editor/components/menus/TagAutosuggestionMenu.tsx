@@ -1,5 +1,5 @@
 /**
- * TagAutosuggestion - Dropdown for tag suggestions
+ * TagAutosuggestionMenu - Dropdown menu for tag suggestions
  *
  * Shows tag suggestions as user types in TagInput
  */
@@ -16,7 +16,7 @@ import {
   useTheme,
 } from '@clutter/ui';
 
-interface TagAutosuggestionProps {
+interface TagAutosuggestionMenuProps {
   isOpen: boolean;
   position: { top?: number; bottom?: number; left: number } | null;
   onClose: () => void;
@@ -27,7 +27,7 @@ interface TagAutosuggestionProps {
   existingTags: string[]; // Tags already added to the note
 }
 
-export const TagAutosuggestion = ({
+export const TagAutosuggestionMenu = ({
   isOpen,
   position,
   onClose,
@@ -36,7 +36,7 @@ export const TagAutosuggestion = ({
   onSelectTag,
   query,
   existingTags,
-}: TagAutosuggestionProps) => {
+}: TagAutosuggestionMenuProps) => {
   const notes = useNotesStore((state) => state.notes);
   const allTags = useAllTags();
   const { colors } = useTheme();
