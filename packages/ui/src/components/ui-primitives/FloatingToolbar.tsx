@@ -3,8 +3,8 @@
  * Shows formatting options when text is selected
  *
  * ⚠️ ARCHITECTURAL EXCEPTION:
- * This file imports utilities from @clutter/editor (addTagToBlock, isMultiBlockSelection).
- * These are editor behavior utilities needed for toolbar functionality.
+ * This file imports utilities from @clutter/editor (isMultiBlockSelection).
+ * This is an editor behavior utility needed for toolbar functionality.
  * This component should move to apps/ or editor package in Phase 5.
  * ESLint exception documented here until migration is complete.
  */
@@ -27,13 +27,12 @@ import {
   Check,
   X,
   ChevronDown,
-  Tag,
 } from '../../icons';
 import { colors as colorTokens } from '../../tokens/colors';
 import { Button } from '../ui-buttons/Button';
 import { Input } from './Input';
 import { FloatingMenu } from './FloatingMenu';
-import { addTagToBlock, isMultiBlockSelection } from '@clutter/editor';
+import { isMultiBlockSelection } from '@clutter/editor';
 
 interface FloatingToolbarProps {
   editor: ReturnType<typeof useEditor>;
@@ -548,43 +547,6 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
                 }
                 setShowLinkInput(true);
               }}
-            />
-
-            {/* Tag - converts selected text to tag */}
-            <Button
-              variant="tertiary"
-              size="medium"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-
-                // Get selected text
-                const { state, view } = editor;
-                const { from, to, $from } = state.selection;
-                const selectedText = state.doc.textBetween(from, to).trim();
-
-                if (selectedText) {
-                  const depth = $from.depth;
-
-                  // Don't allow tagging at document level
-                  if (depth === 0) {
-                    return;
-                  }
-
-                  // Use shared utility to add tag to block
-                  const tr = addTagToBlock(state, selectedText, depth);
-
-                  if (tr) {
-                    // Tag was added, delete the selected text
-                    tr.delete(from, to);
-
-                    // Dispatch transaction
-                    view.dispatch(tr);
-                    editor.commands.focus();
-                  }
-                }
-              }}
-              icon={<Tag />}
             />
           </>
         )}
