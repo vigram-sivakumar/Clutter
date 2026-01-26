@@ -8,7 +8,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { NoteLinkInline } from '../../components/inline/NoteLinkInline';
+import { ReferenceLinkInline } from '../../components/inline/ReferenceLinkInline';
 
 export interface NoteLinkOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -188,7 +188,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(NoteLinkInline);
+    return ReactNodeViewRenderer(ReferenceLinkInline);
   },
 });
 

@@ -1,5 +1,6 @@
 /**
- * NoteLinkInline - React NodeView for NoteLink nodes
+ * ReferenceLinkInline - React NodeView for NoteLink nodes
+ * Handles both note and folder links
  * Uses InlineToken primitive to ensure baseline alignment
  */
 
@@ -10,7 +11,7 @@ import { CalendarBlank, Note, Folder } from '@clutter/ui';
 import { InlineToken, TokenPill } from '../../primitives';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
 
-export function NoteLinkInline({ node, editor }: NodeViewProps) {
+export function ReferenceLinkInline({ node, editor }: NodeViewProps) {
   const { linkType, targetId, label, emoji } = node.attrs;
   const { colors } = useEditorTheme();
   const [isHovered, setIsHovered] = useState(false);
