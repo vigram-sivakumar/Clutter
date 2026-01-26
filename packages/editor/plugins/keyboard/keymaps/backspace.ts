@@ -111,9 +111,10 @@ function handleBackspaceImpl(editor: Editor): boolean {
     if (currentIndent === 0 && nodeType !== 'paragraph') {
       const tr = state.tr;
 
-      // Preserve only blockId and indent, reset everything else
+      // Preserve blockId, createdAt, and reset other attributes
       const cleanAttrs = {
         blockId: node.attrs.blockId,
+        createdAt: node.attrs.createdAt, // Preserve creation timestamp
         indent: 0,
       };
 

@@ -76,13 +76,24 @@ export function convertBlock(
   // Build type-specific attributes
   const typeAttrs = buildTypeAttrs(spec);
 
-  // Create replacement node
-  const newNode = createBlockNode(state.schema, {
-    type: spec.type,
-    ...typeAttrs,
-    content: blockNode.content, // Preserve content
+  // Get the target node type
+  const targetType = state.schema.nodes[spec.type];
+  if (!targetType) {
+    console.warn(`[convertBlock] Unknown block type: ${spec.type}`);
+    return;
+  }
+
+  // Preserve block identity and timestamps during conversion
+  const preservedAttrs = {
+    blockId: blockNode.attrs.blockId, // Preserve block identity
+    createdAt: blockNode.attrs.createdAt, // Preserve creation timestamp
     indent: blockNode.attrs.indent ?? 0, // Preserve indent
-  });
+    collapsed: blockNode.attrs.collapsed ?? false, // Preserve collapsed state
+    ...typeAttrs, // Add type-specific attributes
+  };
+
+  // Create replacement node with preserved attributes
+  const newNode = targetType.create(preservedAttrs, blockNode.content);
 
   // Replace the block in one transaction
   const tr = state.tr.replaceWith(blockPos, blockPos + blockNode.nodeSize, newNode);

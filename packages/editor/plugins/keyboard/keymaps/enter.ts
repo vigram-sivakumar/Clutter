@@ -334,11 +334,12 @@ function handleEnterImpl(editor: Editor): boolean {
     if (indent === 0 && nodeType !== 'paragraph') {
       const tr = state.tr;
 
-      // 🔒 CRITICAL: Preserve existing blockId when converting node type
+      // 🔒 CRITICAL: Preserve existing blockId and createdAt when converting node type
       // createCleanBlockAttrs() generates NEW blockId (for new blocks only!)
-      // When converting existing block, must preserve identity
+      // When converting existing block, must preserve identity and creation timestamp
       const cleanAttrs = {
         blockId: node.attrs.blockId, // Preserve existing ID
+        createdAt: node.attrs.createdAt, // Preserve creation timestamp
         indent: 0,
       };
 
