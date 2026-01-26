@@ -1,22 +1,23 @@
 /**
- * HashtagMentionMenuEditor - Editor integration for hashtag mentions
- *
- * Wraps HashtagMentionMenu component and integrates with HashtagMention plugin
- * for inline #tag autocomplete in editor blocks
+ * HashtagMenu - Inline #tag autocomplete for editor
+ * Shows tag suggestions as user types #
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { Editor } from '@tiptap/core';
-import { useAllTags } from '@clutter/state';
-import { HashtagMentionMenu } from './HashtagMentionMenu';
+import { useNotesStore, useAllTags } from '@clutter/state';
+import {
+  AutocompleteDropdown,
+  DropdownItem,
+  TagPill,
+  useTheme,
+} from '@clutter/ui';
 
-interface HashtagMentionMenuEditorProps {
+interface HashtagMenuProps {
   editor: Editor | null;
 }
 
-export function HashtagMentionMenuEditor({
-  editor,
-}: HashtagMentionMenuEditorProps) {
+export function HashtagMenu({ editor }: HashtagMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<{
     top?: number;
@@ -27,9 +28,9 @@ export function HashtagMentionMenuEditor({
   const [query, setQuery] = useState('');
 
   const selectedIndexRef = useRef(selectedIndex);
-
-  // Get all available tags
+  const notes = useNotesStore((state) => state.notes);
   const allTags = useAllTags();
+  const { colors } = useTheme();
 
   // Filter tags based on query
   const suggestions = useMemo(() => {
@@ -42,13 +43,40 @@ export function HashtagMentionMenuEditor({
       .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [query, allTags]);
 
+  // Calculate tag counts
+  const tagsWithCounts = useMemo(() => {
+    return allTags.map((tag) => {
+      const count = notes.filter(
+        (note) =>
+          !note.deletedAt &&
+          note.tags.some((t) => t.toLowerCase() === tag.toLowerCase())
+      ).length;
+      return { tag, count };
+    });
+  }, [allTags, notes]);
+
+  // Display tags with counts
+  const displayTags = useMemo(() => {
+    if (!query.trim()) {
+      return [...tagsWithCounts].sort((a, b) =>
+        a.tag.toLowerCase().localeCompare(b.tag.toLowerCase())
+      );
+    } else {
+      return suggestions.map((tag) => {
+        const tagData = tagsWithCounts.find(
+          (t) => t.tag.toLowerCase() === tag.toLowerCase()
+        );
+        return { tag, count: tagData?.count || 0 };
+      });
+    }
+  }, [query, tagsWithCounts, suggestions]);
+
   const handleClose = useCallback(() => {
     if (editor) {
       const storage = (editor.storage as any).hashtagTrigger;
       if (storage) {
         storage.active = false;
-        storage.userClosed = true; // Prevent auto-reopening
-        // 🔒 Preserve selection when dispatching signal transaction
+        storage.userClosed = true;
         const tr = editor.view.state.tr;
         tr.setSelection(editor.view.state.selection);
         editor.view.dispatch(tr);
@@ -65,8 +93,6 @@ export function HashtagMentionMenuEditor({
 
       const { from } = editor.state.selection;
 
-      // Insert hashtag mention node (delete #query and replace with styled hashtag + space)
-      // Same pattern as AtMention (uses custom node instead of plain text)
       editor
         .chain()
         .focus()
@@ -95,7 +121,6 @@ export function HashtagMentionMenuEditor({
 
     const calculatePosition = (startPos: number) => {
       const coords = editor.view.coordsAtPos(startPos);
-
       return {
         top: coords.top,
         bottom: coords.bottom,
@@ -112,10 +137,9 @@ export function HashtagMentionMenuEditor({
       const currentStartPos = storage.startPos;
       const currentQuery = storage.query || '';
 
-      // Update query
       setQuery(currentQuery);
 
-      // Handle arrow navigation (with wrap-around)
+      // Handle arrow navigation
       if (storage.navigateDown) {
         storage.navigateDown = false;
         setSelectedIndex((prev) => {
@@ -137,24 +161,20 @@ export function HashtagMentionMenuEditor({
         return;
       }
 
-      // Check if Enter was pressed (shouldSelect flag)
+      // Check if Enter was pressed
       if (storage.shouldSelect && isOpen) {
-        storage.shouldSelect = false; // Reset flag
-        
-        // If we have suggestions, use the selected one
-        // If no suggestions but we have a query, create new tag with query
+        storage.shouldSelect = false;
+
         let tagToSelect: string;
         if (suggestions.length > 0) {
           const indexToSelect = selectedIndex === -1 ? 0 : selectedIndex;
           tagToSelect = suggestions[indexToSelect];
         } else if (query.trim()) {
-          // Create mode - use the query as the tag name
           tagToSelect = query.trim();
         } else {
-          // No suggestions and no query - nothing to select
           return;
         }
-        
+
         handleSelectTag(tagToSelect);
         return;
       }
@@ -174,13 +194,11 @@ export function HashtagMentionMenuEditor({
             setPosition(cachedPosition);
           });
 
-          // Reset selection to no item when menu opens
           if (!wasOpen || startPosChanged) {
             setSelectedIndex(-1);
           }
         }
       } else {
-        // Menu closed - clear cache
         cachedPosition = null;
         cachedStartPos = null;
         (storage as any).lastQuery = '';
@@ -208,7 +226,6 @@ export function HashtagMentionMenuEditor({
         return;
       }
 
-      // Handle ArrowDown (with wrap-around)
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         event.stopPropagation();
@@ -220,7 +237,6 @@ export function HashtagMentionMenuEditor({
         });
       }
 
-      // Handle ArrowUp (with wrap-around)
       if (event.key === 'ArrowUp') {
         event.preventDefault();
         event.stopPropagation();
@@ -233,32 +249,26 @@ export function HashtagMentionMenuEditor({
         });
       }
 
-      // Handle Enter
       if (event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        
-        // If we have suggestions, use the selected one
-        // If no suggestions but we have a query, create new tag with query
+
         let tagToSelect: string;
         if (suggestions.length > 0) {
           const indexToSelect =
             selectedIndexRef.current === -1 ? 0 : selectedIndexRef.current;
           tagToSelect = suggestions[indexToSelect];
         } else if (query.trim()) {
-          // Create mode - use the query as the tag name
           tagToSelect = query.trim();
         } else {
-          // No suggestions and no query - nothing to select
           return;
         }
-        
+
         handleSelectTag(tagToSelect);
       }
     };
 
-    // Add listener in capture phase with highest priority
     document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
@@ -270,16 +280,57 @@ export function HashtagMentionMenuEditor({
     return null;
   }
 
+  // No matches but has query - show "Create" option
+  if (displayTags.length === 0 && query.trim()) {
+    const trimmedQuery = query.trim();
+
+    return (
+      <AutocompleteDropdown
+        isOpen={isOpen}
+        position={position}
+        onClose={handleClose}
+        selectedIndex={0}
+      >
+        <DropdownItem
+          isSelected={selectedIndex === 0}
+          onClick={() => handleSelectTag(trimmedQuery)}
+          compact={true}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ color: colors.text.secondary, fontSize: '14px' }}>
+              Create
+            </span>
+            <TagPill label={trimmedQuery} />
+          </div>
+        </DropdownItem>
+      </AutocompleteDropdown>
+    );
+  }
+
+  // No items to show at all
+  if (displayTags.length === 0) {
+    return null;
+  }
+
+  // Show regular tag suggestions
   return (
-    <HashtagMentionMenu
+    <AutocompleteDropdown
       isOpen={isOpen}
       position={position}
       onClose={handleClose}
-      suggestions={suggestions}
       selectedIndex={selectedIndex}
-      onSelectTag={handleSelectTag}
-      query={query}
-      existingTags={[]} // Could track tags in current note if needed
-    />
+    >
+      {displayTags.map(({ tag, count }, index) => (
+        <DropdownItem
+          key={tag}
+          isSelected={index === selectedIndex}
+          onClick={() => handleSelectTag(tag)}
+          compact={true}
+          count={count}
+        >
+          <TagPill label={tag} />
+        </DropdownItem>
+      ))}
+    </AutocompleteDropdown>
   );
 }

@@ -89,7 +89,7 @@ import { CollapseExtension } from '../extensions/CollapseExtension';
 // UI Components
 import { SlashCommandMenu } from '../components/menus/SlashCommandMenu';
 import { AtMentionMenu } from '../components/menus/AtMentionMenu';
-import { HashtagMentionMenuEditor } from '../components/menus/HashtagMentionMenuEditor';
+import { HashtagMenu } from '../components/menus/HashtagMenu';
 import { FloatingToolbar } from '@clutter/ui';
 import { EditorChromeLayer } from '../components/chrome/EditorChromeLayer';
 
@@ -642,7 +642,7 @@ const EditorCoreInner = forwardRef<
         {/* UI Components */}
         <SlashCommandMenu editor={editor as any} />
         <AtMentionMenu editor={editor as any} />
-        <HashtagMentionMenuEditor editor={editor as any} />
+        <HashtagMenu editor={editor as any} />
         <FloatingToolbar editor={editor} />
       </div>
     );

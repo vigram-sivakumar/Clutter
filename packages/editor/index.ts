@@ -65,7 +65,7 @@ export { InlineToken, TokenPill } from './primitives';
 
 // Components: Block renderers
 export { SlashCommandMenu } from './components/menus/SlashCommandMenu';
-export { HashtagMentionMenu } from './components/menus/HashtagMentionMenu';
+export { HashtagMenu } from './components/menus/HashtagMenu';
 export {
   BlockWrapper,
   MarkerContainer,
