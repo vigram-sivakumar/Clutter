@@ -7,10 +7,6 @@
  * Public API: Only exports what is consumed by >1 package.
  */
 
-// Theme Contracts (used by editor and UI)
-export type { EditorTheme, EditorThemeColors } from './theme/EditorTheme';
-export { isEditorTheme } from './theme/EditorTheme';
-
 // Utils: Date formatting (used by UI components)
 export {
   getTodayDateString,
