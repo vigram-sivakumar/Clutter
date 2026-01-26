@@ -74,6 +74,28 @@ export const Callout = Node.create({
           'data-collapsed': attributes.collapsed || false,
         }),
       },
+      // Block metadata: creation timestamp
+      createdAt: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-created-at') || null,
+        renderHTML: (attributes) => {
+          if (attributes.createdAt) {
+            return { 'data-created-at': attributes.createdAt };
+          }
+          return {};
+        },
+      },
+      // Block metadata: last updated timestamp
+      updatedAt: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-updated-at') || null,
+        renderHTML: (attributes) => {
+          if (attributes.updatedAt) {
+            return { 'data-updated-at': attributes.updatedAt };
+          }
+          return {};
+        },
+      },
     };
   },
   parseHTML() {
