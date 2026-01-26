@@ -1,5 +1,5 @@
 /**
- * DateMentionView - React NodeView for DateMention nodes
+ * DateMentionInline - React NodeView for DateMention nodes
  * Uses InlineToken primitive to ensure baseline alignment
  */
 
@@ -10,7 +10,7 @@ import { At } from '@clutter/ui';
 import { InlineToken, TokenPill } from '../../primitives';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
 
-export function DateMentionView({ node }: NodeViewProps) {
+export function DateMentionInline({ node }: NodeViewProps) {
   const { label } = node.attrs;
   const { colors } = useEditorTheme();
   const [isHovered, setIsHovered] = useState(false);
@@ -49,4 +49,3 @@ export function DateMentionView({ node }: NodeViewProps) {
     </NodeViewWrapper>
   );
 }
-

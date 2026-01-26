@@ -1,5 +1,6 @@
 // Inline Components
-export { DateMentionView } from './DateMentionView';
+export { DateMentionInline } from './DateMentionInline';
+export { HashtagInline } from './HashtagInline';
+export { NoteLinkInline } from './NoteLinkInline';
 export { MentionPill } from './MentionPill';
-export { NoteLinkView } from './NoteLinkView';
 export { InlineNode } from './InlineNode';

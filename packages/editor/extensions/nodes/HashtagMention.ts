@@ -7,7 +7,7 @@
 
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { HashtagView } from '../../components/inline/HashtagView';
+import { HashtagInline } from '../../components/inline/HashtagInline';
 
 export interface HashtagMentionOptions {
   HTMLAttributes: Record<string, any>;
@@ -144,6 +144,6 @@ export const HashtagMention = Node.create<HashtagMentionOptions>({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(HashtagView);
+    return ReactNodeViewRenderer(HashtagInline);
   },
 });

@@ -1,5 +1,5 @@
 /**
- * HashtagView - React NodeView for HashtagMention nodes
+ * HashtagInline - React NodeView for HashtagMention nodes
  * Uses InlineToken primitive to ensure baseline alignment
  */
 
@@ -8,7 +8,7 @@ import type { NodeViewProps } from '@tiptap/react';
 import { InlineToken, TokenPill } from '../../primitives';
 import { useTheme, getTagColor, HashStraight } from '@clutter/ui';
 
-export function HashtagView({ node }: NodeViewProps) {
+export function HashtagInline({ node }: NodeViewProps) {
   const { tag } = node.attrs;
   const { colors } = useTheme();
   
