@@ -75,7 +75,6 @@ export {
   getMarkerStyle,
   getContentStyle,
 } from './components/blocks/BlockWrapper';
-export { Paragraph as ParagraphComponent } from './components/blocks/Paragraph';
 export { Heading as HeadingComponent } from './components/blocks/Heading';
 export { ListBlock as ListBlockComponent } from './components/blocks/ListBlock';
 export { Blockquote as BlockquoteComponent } from './components/blocks/Blockquote';
