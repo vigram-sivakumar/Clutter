@@ -1,3 +1,10 @@
+/**
+ * ContextMenu - Reusable context menu component
+ *
+ * Note: This component replaced the previous RightClickContextMenu implementation.
+ * The new design uses a simpler, more flexible API without global context.
+ */
+
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '../../hooks/useTheme';

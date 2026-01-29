@@ -90,7 +90,7 @@ import { CollapseExtension } from '../extensions/CollapseExtension';
 import { SlashCommandMenu } from '../components/menus/SlashCommandMenu';
 import { AtMentionMenu } from '../components/menus/AtMentionMenu';
 import { HashtagMenu } from '../components/menus/HashtagMenu';
-import { FloatingToolbar } from '@clutter/ui';
+import { FloatingToolbar } from '../components/ui/FloatingToolbar';
 import { EditorChromeLayer } from '../components/chrome/EditorChromeLayer';
 
 // Tokens
@@ -631,8 +631,8 @@ const EditorCoreInner = forwardRef<
         </div>
 
         {/* Chrome overlay layer - OUTSIDE text context */}
-        <EditorChromeLayer 
-          editor={editor} 
+        <EditorChromeLayer
+          editor={editor}
           containerRef={editorContainerRef}
           createdAt={createdAt}
           updatedAt={updatedAt}

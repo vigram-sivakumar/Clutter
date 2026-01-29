@@ -2,22 +2,22 @@
  * Floating Toolbar
  * Shows formatting options when text is selected
  *
- * ⚠️ ARCHITECTURAL EXCEPTION:
- * This file imports utilities from @clutter/editor (isMultiBlockSelection).
- * This is an editor behavior utility needed for toolbar functionality.
- * This component should move to apps/ or editor package in Phase 5.
- * ESLint exception documented here until migration is complete.
+ * Editor-specific UI component that uses editor utilities and state.
+ * Lives in editor package to maintain proper architectural boundaries.
  */
 
-/* eslint-disable no-restricted-imports */
 import { useEffect, useState, useRef } from 'react';
 import { useEditor } from '@tiptap/react';
 import { NodeSelection } from '@tiptap/pm/state';
-import { useTheme } from '../../hooks/useTheme';
-import { spacing } from '../../tokens/spacing';
-import { sizing } from '../../tokens/sizing';
-import { radius } from '../../tokens/radius';
 import {
+  useTheme,
+  spacing,
+  sizing,
+  radius,
+  colors as colorTokens,
+  Button,
+  Input,
+  FloatingMenu,
   Bold,
   Italic,
   Strikethrough,
@@ -27,12 +27,8 @@ import {
   Check,
   X,
   ChevronDown,
-} from '../../icons';
-import { colors as colorTokens } from '../../tokens/colors';
-import { Button } from '../ui-buttons/Button';
-import { Input } from './Input';
-import { FloatingMenu } from './FloatingMenu';
-import { isMultiBlockSelection } from '@clutter/editor';
+} from '@clutter/ui';
+import { isMultiBlockSelection } from '../../utils/multiSelection';
 
 interface FloatingToolbarProps {
   editor: ReturnType<typeof useEditor>;

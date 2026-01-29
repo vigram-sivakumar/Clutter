@@ -1,6 +1,5 @@
 export { ContextMenu } from './ContextMenu';
 export { Input } from './Input';
-export { FloatingToolbar } from './FloatingToolbar';
 export { FloatingActionBar } from './FloatingActionBar';
 export { ThemeProvider } from './ThemeProvider';
 export { KeyboardShortcut } from './KeyboardShortcut';
@@ -14,12 +13,6 @@ export type {
 } from './FloatingContainer';
 export { FloatingMenu } from './FloatingMenu';
 export type { FloatingMenuProps } from './FloatingMenu';
-export {
-  RightClickContextMenuProvider,
-  useRightClickMenu,
-  createRightClickHandler,
-} from './RightClickContextMenu';
-export type { RightClickMenuItem } from './RightClickContextMenu';
 
 // Dropdown Primitives
 export {
