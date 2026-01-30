@@ -150,8 +150,17 @@ export function useBlock({
     };
 
     const clearAllFocusClasses = () => {
-      // Global clear: remove .block-focused from all blocks when editor loses focus
-      // This prevents stale placeholders when clicking outside the editor
+      const doc = editor.state.doc;
+
+      // RULE 1: Empty editor → placeholder must persist even on blur
+      // This is a UX affordance: teaches user where to start, avoids "dead white box"
+      const isEditorEmpty =
+        doc.childCount === 1 && doc.firstChild?.content.size === 0;
+
+      if (isEditorEmpty) return; // Keep placeholder visible for empty editor
+
+      // RULE 2: Non-empty editor → clear all placeholders on blur
+      // Focus-driven placeholders should disappear when editor loses focus
       document
         .querySelectorAll('.block-focused')
         .forEach((el) => el.classList.remove('block-focused'));
