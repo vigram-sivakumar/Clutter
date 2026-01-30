@@ -433,23 +433,64 @@ export function EditorChromeLayer({
         const rangeSelection = TextSelection.create(state.doc, from, to);
         view.dispatch(state.tr.setSelection(rangeSelection));
       } else {
-        // Check if this block has children (is a parent with nested content)
-        const hasChildren =
-          result.node.content.size > 0 &&
-          result.node.childCount > 0 &&
-          (result.node.type.name === 'listItem' ||
-            result.node.type.name === 'toggleList' ||
-            result.node.type.name === 'details');
+        // Check if this block has indented children (flat document structure)
+        const currentIndent = result.node.attrs.indent ?? 0;
+        const hasIndentAttr = 'indent' in result.node.attrs;
 
-        if (hasChildren) {
-          // Parent block with children - select entire subtree using TextSelection
-          // This will show halos on all blocks in the subtree
-          const from = blockPos + 1; // Start inside the parent
-          const to = blockPos + result.node.nodeSize - 1; // End inside the last child
-          const rangeSelection = TextSelection.create(state.doc, from, to);
-          view.dispatch(state.tr.setSelection(rangeSelection));
+        if (hasIndentAttr) {
+          // Find all subsequent blocks with higher indent (logical children)
+          // Scan only top-level document blocks, not nested content
+          const { doc } = state;
+          let endPos = blockPos + result.node.nodeSize;
+          let foundChildren = false;
+
+          // Find current block index in document by position
+          let currentBlockIndex = -1;
+          let currentPos = 0;
+          for (let i = 0; i < doc.childCount; i++) {
+            if (currentPos === blockPos) {
+              currentBlockIndex = i;
+              break;
+            }
+            currentPos += doc.child(i).nodeSize;
+          }
+
+          // Scan subsequent top-level blocks
+          if (currentBlockIndex >= 0) {
+            for (let i = currentBlockIndex + 1; i < doc.childCount; i++) {
+              const node = doc.child(i);
+
+              // Check if node has indent attribute
+              if (!('indent' in node.attrs)) {
+                break;
+              }
+
+              const nodeIndent = node.attrs.indent ?? 0;
+
+              // If we hit a block at same or lower indent level, stop
+              if (nodeIndent <= currentIndent) {
+                break;
+              }
+
+              // Block has higher indent - it's a child
+              foundChildren = true;
+              endPos += node.nodeSize;
+            }
+          }
+
+          if (foundChildren) {
+            // Select from start of parent to end of last child
+            const from = blockPos + 1;
+            const to = endPos - 1;
+            const rangeSelection = TextSelection.create(state.doc, from, to);
+            view.dispatch(state.tr.setSelection(rangeSelection));
+          } else {
+            // No children - select just this block
+            const nodeSelection = NodeSelection.create(state.doc, blockPos);
+            view.dispatch(state.tr.setSelection(nodeSelection));
+          }
         } else {
-          // Leaf block or simple block - select just this block (NodeSelection)
+          // No indent attribute - select just this block
           const nodeSelection = NodeSelection.create(state.doc, blockPos);
           view.dispatch(state.tr.setSelection(nodeSelection));
         }
