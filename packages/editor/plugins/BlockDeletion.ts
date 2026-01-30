@@ -7,7 +7,7 @@
 
 import { Extension } from '@tiptap/core';
 import type { Editor } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import {
   isMultiBlockSelection,
   getSelectedBlocks,
@@ -39,9 +39,39 @@ export const BlockDeletion = Extension.create({
             if (isMultiBlock) {
               const blocks = getSelectedBlocks(editor);
               if (blocks && blocks.length > 1) {
-                // Delete all selected blocks using TipTap commands
                 event.preventDefault();
-                editor.commands.deleteSelection();
+
+                const { state } = view;
+                let tr = state.tr;
+
+                // Remember the position of the first block
+                const firstBlockPos = blocks[0]?.pos ?? 0;
+
+                // Check if we're deleting all blocks
+                const deletingAllBlocks =
+                  blocks.length === state.doc.childCount;
+
+                // Delete in reverse order to preserve positions
+                for (let i = blocks.length - 1; i >= 0; i--) {
+                  const block = blocks[i];
+                  if (block) {
+                    tr = tr.delete(block.pos, block.pos + block.nodeSize);
+                  }
+                }
+
+                // If we deleted everything, create an empty paragraph
+                if (deletingAllBlocks) {
+                  const emptyParagraph = state.schema.nodes.paragraph.create();
+                  tr = tr.insert(0, emptyParagraph);
+                  // Place cursor inside the new paragraph
+                  tr = tr.setSelection(TextSelection.create(tr.doc, 1));
+                } else {
+                  // Set selection to a safe position after deletion
+                  const newPos = Math.min(firstBlockPos, tr.doc.content.size);
+                  tr = tr.setSelection(TextSelection.create(tr.doc, newPos));
+                }
+
+                view.dispatch(tr);
                 return true;
               }
             }
