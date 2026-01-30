@@ -128,19 +128,23 @@ export function useBlock({
       const pos = getPos();
       if (pos === undefined) return;
 
-      const { from, to } = editor.state.selection;
-      const nodeStart = pos;
-      const nodeEnd = pos + node.nodeSize;
-
-      // Inclusive intersection check for multi-node selections
-      // Handles: collapsed cursor, drag selection, Shift+Arrow, block selection
-      const isFocused =
-        (from >= nodeStart && from < nodeEnd) || // Selection starts in block
-        (to > nodeStart && to <= nodeEnd) || // Selection ends in block
-        (from <= nodeStart && to >= nodeEnd); // Selection encompasses block
-
       const el = document.querySelector(`[data-block-id="${blockId}"]`);
       if (!el) return; // Safety: node removed but effect still running
+
+      const { from, empty } = editor.state.selection;
+
+      // 🚫 RULE: Placeholders are caret affordances, not selection affordances
+      // Only show placeholder for collapsed cursor (empty = true)
+      // Range selections (Ctrl+A, drag, Shift+Arrow) show NO placeholder
+      if (!empty) {
+        el.classList.remove('block-focused');
+        return;
+      }
+
+      // Check if collapsed cursor is within this block's boundaries
+      const nodeStart = pos;
+      const nodeEnd = pos + node.nodeSize;
+      const isFocused = from >= nodeStart && from < nodeEnd;
 
       el.classList.toggle('block-focused', isFocused);
     };
