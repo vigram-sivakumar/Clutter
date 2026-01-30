@@ -59,6 +59,10 @@ import {
   convertBlock,
   type BlockConversionSpec,
 } from '../../utils/blockConversion';
+import {
+  getSelectedBlocks,
+  isMultiBlockSelection,
+} from '../../utils/multiSelection';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION (Single place to edit all chrome behavior)
