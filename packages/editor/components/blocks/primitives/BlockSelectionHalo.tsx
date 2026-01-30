@@ -1,12 +1,22 @@
 /**
- * BlockSelectionHalo - Visual overlay for selected blocks
+ * BlockSelectionHalo - Visual selection indicator
  *
- * Notion-style blue halo that appears when entire block is selected
- * (not when text inside is selected)
+ * Shows blue glow around selected blocks.
+ * Positioned absolutely to avoid affecting layout.
+ *
+ * CRITICAL CONTRACT:
+ * The `indent` prop MUST equal the paddingLeft/marginLeft applied to the block wrapper.
+ * This ensures the halo aligns with the visual block edge.
+ *
+ * Usage:
+ * ```tsx
+ * const { indent } = useBlock({ ... });
+ * <BlockSelectionHalo isSelected={isSelected} indent={indent} />
+ * ```
  */
 
 import React from 'react';
-import { useEditorTheme } from '../../theme/EditorThemeContext';
+import { useEditorTheme } from '../../../theme/EditorThemeContext';
 import { radius } from '@clutter/ui';
 
 interface BlockSelectionHaloProps {

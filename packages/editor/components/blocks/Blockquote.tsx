@@ -1,61 +1,25 @@
 /**
- * Blockquote - React node view for blockquotes
+ * Blockquote - React node view for blockquotes with block primitives
  *
- * PHASE 3 REFACTOR: Uses shared hooks and components.
+ * Refactored to use block primitives for consistency.
  * Uses uniform block structure with marker area (border line).
- * No margin - parent handles spacing via gap.
+ * Includes connector logic for adjacent blockquotes.
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { spacing, sizing, typography } from '../../tokens';
+import { spacing, sizing } from '../../tokens';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
-import { usePlaceholder } from '../../hooks/usePlaceholder';
-import { useBlockSelection } from '../../hooks/useBlockSelection';
-import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
-import { useBlockHidden } from '../../hooks/useBlockHidden';
+import {
+  useBlock,
+  BlockHoverZones,
+  MarkerContainer,
+  BlockSelectionHalo,
+} from './primitives';
 
 export function Blockquote({ node, editor, getPos }: NodeViewProps) {
   const { colors } = useEditorTheme();
-
-  // 🔥 FLAT MODEL: indent is the ONLY structural attribute
-  const blockIndent = node.attrs.indent ?? 0;
-
-  // Canonical emptiness check (ProseMirror source of truth)
-  const isEmpty = node.content.size === 0;
-
-  // Check if this block is selected
-  const isSelected = useBlockSelection({
-    editor,
-    getPos,
-    nodeSize: node.nodeSize,
-  });
-
-  // Placeholder text (includes focus detection via usePlaceholder)
-  const placeholderText = usePlaceholder({ node, editor, getPos });
-
-  // 🔥 COLLAPSE PROPAGATION: Check if we're hidden by a collapsed ancestor
-  const isHidden = useBlockHidden(editor, getPos);
-
-  // Force re-render when document updates (to react to parent toggle collapse)
-  const [, forceUpdate] = useState(0);
-
-  useEffect(() => {
-    const handleFocusChange = () => {
-      forceUpdate((prev) => prev + 1);
-    };
-
-    // 🔒 CRITICAL FIX: Do NOT listen to selectionUpdate
-    // React re-renders on selection change interfere with ProseMirror's cursor placement
-    // Only re-render on focus/blur - selection handled by useMemo in usePlaceholder
-    editor.on('focus', handleFocusChange);
-    editor.on('blur', handleFocusChange);
-    return () => {
-      editor.off('focus', handleFocusChange);
-      editor.off('blur', handleFocusChange);
-    };
-  }, [editor]);
 
   // Check if next sibling is also a blockquote (for connector rendering)
   const hasNextBlockquote = useMemo(() => {
@@ -71,63 +35,29 @@ export function Blockquote({ node, editor, getPos }: NodeViewProps) {
     }
   }, [editor.state.doc, getPos, node.nodeSize]);
 
-  // Calculate indent (flat model)
-  const indent = blockIndent * spacing.indent;
+  // Use block primitives for all common functionality
+  const { wrapperProps, isSelected, indent } = useBlock({
+    node,
+    editor,
+    getPos,
+    styleOverrides: {
+      display: 'flex', // Blockquote-specific: flex layout
+      alignItems: 'stretch',
+      gap: spacing.inline,
+    },
+  });
 
   return (
     <NodeViewWrapper
       as="div"
-      data-block-id={node.attrs.blockId}
-      data-type="blockquote"
-      data-indent={blockIndent}
-      data-empty={isEmpty ? 'true' : undefined}
-      data-placeholder={placeholderText || undefined}
-      data-hidden={isHidden ? 'true' : undefined}
+      {...wrapperProps}
       className="block-handle-wrapper"
-      style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        gap: spacing.inline,
-        fontFamily: typography.fontFamily,
-        fontSize: typography.body,
-        lineHeight: typography.lineHeightRatio,
-        position: 'relative',
-        paddingLeft: indent,
-      }}
     >
-      {/* Craft-style hover-only zones */}
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: -spacing.hoverZoneLeft,
-          width: spacing.hoverZoneLeft,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: -spacing.hoverZoneRight,
-          width: spacing.hoverZoneRight,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
+      {/* Hover detection zones */}
+      <BlockHoverZones />
 
       {/* Marker area - 3px border line in 24px container */}
-      <div
-        style={{
-          width: sizing.markerContainer,
-          flexShrink: 0,
-          display: 'flex',
-          justifyContent: 'center',
-        }}
-      >
+      <MarkerContainer>
         <div
           className="blockquote-line"
           style={{
@@ -136,8 +66,9 @@ export function Blockquote({ node, editor, getPos }: NodeViewProps) {
             borderRadius: 2,
           }}
         />
-      </div>
-      {/* Content area with placeholder */}
+      </MarkerContainer>
+
+      {/* Content area */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <NodeViewContent
           as="div"
@@ -161,7 +92,7 @@ export function Blockquote({ node, editor, getPos }: NodeViewProps) {
         />
       )}
 
-      {/* Block selection halo */}
+      {/* Block selection visual */}
       <BlockSelectionHalo isSelected={isSelected} indent={indent} />
     </NodeViewWrapper>
   );

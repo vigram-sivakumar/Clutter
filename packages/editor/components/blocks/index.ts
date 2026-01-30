@@ -7,12 +7,15 @@ export { HorizontalRule } from './HorizontalRule';
 export { ListBlock } from './ListBlock';
 export { ParagraphBlock } from './ParagraphBlock';
 
-// Block UI Components
+// Block Primitives (new architecture)
 export {
-  BlockWrapper,
+  useBlock,
+  BlockHoverZones,
+  BlockContent,
   MarkerContainer,
-  blockStyles,
+  BlockSelectionHalo,
   getBlockContainerStyle,
   getMarkerStyle,
   getContentStyle,
-} from './BlockWrapper';
+  blockStyleObjects,
+} from './primitives';

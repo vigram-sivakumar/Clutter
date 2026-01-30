@@ -1,30 +1,30 @@
 /**
- * ListBlock - React node view for list items
+ * ListBlock - React node view for list items with block primitives
  *
- * Notion-style structure:
- * - [Marker 24px] [Content flex:1]
- * - Connector via CSS pseudo-element (in padding area)
- * - No ul/ol/li - all divs
+ * Refactored to use block primitives for consistency.
+ * Notion-style structure with 4 list types: bullet, numbered, task, toggle.
  *
- * Features:
- * - L-shaped connectors for nested items (CSS)
- * - Collapse toggle with completion count for tasks with children
- * - Checkbox sync (parent -> children)
+ * Domain logic preserved:
+ * - L-shaped connectors for nested items
+ * - Collapse toggle with completion count
+ * - Task checkbox sync
+ * - Numbering calculation
  */
 
-import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { spacing, sizing, typography } from '../../tokens';
 import type { ListBlockAttrs } from '../types';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
-import { usePlaceholder } from '../../hooks/usePlaceholder';
-import { useBlockSelection } from '../../hooks/useBlockSelection';
-import { MarkerContainer } from './BlockWrapper';
-import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
 import { Checkbox } from '@clutter/ui';
+import {
+  useBlock,
+  BlockHoverZones,
+  MarkerContainer,
+  BlockSelectionHalo,
+} from './primitives';
 
-// Props are provided by TipTap's ReactNodeViewRenderer
 type ListBlockProps = NodeViewProps;
 
 /**
@@ -74,9 +74,6 @@ function calculateListNumber(
 
 /**
  * Get children info for a task (FLAT MODEL)
- *
- * RULE: Count contiguous following task blocks with indent > current indent
- * This gives us the visual subtree of tasks under this task
  */
 function getChildrenInfo(
   editor: NodeViewProps['editor'],
@@ -107,7 +104,7 @@ function getChildrenInfo(
   if (currentIndex === -1)
     return { total: 0, completed: 0, hasChildren: false };
 
-  // 🔥 FLAT MODEL: Count contiguous following TASK blocks with indent > current
+  // FLAT MODEL: Count contiguous following TASK blocks with indent > current
   let total = 0;
   let completed = 0;
 
@@ -118,7 +115,7 @@ function getChildrenInfo(
     // Stop if we've exited the visual subtree
     if (blockIndent <= currentIndent) break;
 
-    // Only count task blocks (not bullets, numbered, toggles)
+    // Only count task blocks
     if (block.type.name === 'listBlock' && block.attrs.listType === 'task') {
       total++;
       if (block.attrs.checked) {
@@ -132,9 +129,6 @@ function getChildrenInfo(
 
 /**
  * Check if a block has children (FLAT MODEL)
- *
- * RULE: A block has children if the next block has greater indent
- * NO parent pointers. Pure array logic.
  */
 function blockHasChildren(
   editor: NodeViewProps['editor'],
@@ -149,10 +143,7 @@ function blockHasChildren(
 
   const currentIndent = currentNode.attrs.indent ?? 0;
 
-  // Find current block index and next block
-  let currentIndex = -1;
-  let nextNode: any = null;
-
+  // Collect all blocks in order
   const blocks: any[] = [];
   doc.descendants((node) => {
     if (node.attrs?.blockId) {
@@ -161,25 +152,21 @@ function blockHasChildren(
     return true;
   });
 
-  currentIndex = blocks.findIndex(
+  const currentIndex = blocks.findIndex(
     (n) => n.attrs.blockId === currentNode.attrs.blockId
   );
   if (currentIndex === -1 || currentIndex === blocks.length - 1) {
-    return false; // No next block
+    return false;
   }
 
-  nextNode = blocks[currentIndex + 1];
+  const nextNode = blocks[currentIndex + 1];
   const nextIndent = nextNode.attrs.indent ?? 0;
 
-  // Has children if next block is more indented
   return nextIndent > currentIndent;
 }
 
 /**
  * Count hidden children (FLAT MODEL)
- *
- * RULE: Count all contiguous following blocks with indent > current indent
- * This is the "visual subtree" - same logic as range-based outdent
  */
 function countHiddenChildren(
   editor: NodeViewProps['editor'],
@@ -203,36 +190,24 @@ function countHiddenChildren(
     return true;
   });
 
-  // Find current block index
   const currentIndex = blocks.findIndex(
     (n) => n.attrs.blockId === currentNode.attrs.blockId
   );
   if (currentIndex === -1) return 0;
 
-  // 🔥 FLAT MODEL: Count contiguous following blocks with indent > current
+  // Count contiguous following blocks with indent > current
   let count = 0;
   for (let i = currentIndex + 1; i < blocks.length; i++) {
     const blockIndent = blocks[i].attrs.indent ?? 0;
     if (blockIndent > currentIndent) {
       count++;
     } else {
-      break; // Stop at first block not deeper than current
+      break;
     }
   }
 
   return count;
 }
-
-// TODO: Task cascading (parent → child checked state)
-// This feature was removed during flat model migration.
-// The old implementation relied on parentBlockId (tree model).
-//
-// To reimplement:
-// - Use indent-based hierarchy (find children by indent > parent.indent)
-// - Walk forward from current task until indent returns to same/less
-// - Update all tasks in that range
-//
-// Defer until indent/outdent is fully battle-tested.
 
 export function ListBlock({
   node,
@@ -248,40 +223,12 @@ export function ListBlock({
   const attrs = node.attrs as ListBlockAttrs;
   const { listType, checked, collapsed, priority, indent } = attrs;
 
-  // Check if this block is selected
-  const isSelected = useBlockSelection({
-    editor,
-    getPos,
-    nodeSize: node.nodeSize,
-  });
-
-  // Force re-render when document updates (for reactive children info)
-  const [, forceUpdate] = useState(0);
-
-  useEffect(() => {
-    const handleFocusChange = () => {
-      forceUpdate((prev) => prev + 1);
-    };
-
-    // 🔒 CRITICAL FIX: Do NOT listen to selectionUpdate
-    // React re-renders on selection change interfere with ProseMirror's cursor placement
-    // Only re-render on focus/blur - selection handled by useMemo in usePlaceholder
-    editor.on('focus', handleFocusChange);
-    editor.on('blur', handleFocusChange);
-    return () => {
-      editor.off('focus', handleFocusChange);
-      editor.off('blur', handleFocusChange);
-    };
-  }, [editor]);
-
-  // 🔥 FLAT MODEL: Calculate indent FIRST (used by other calculations)
-  const blockIndent = indent ?? 0;
-
   // Calculate list number for numbered lists
   const listNumber = useMemo(() => {
     if (listType !== 'numbered') return 0;
+    const blockIndent = indent ?? 0;
     return calculateListNumber(editor, getPos, blockIndent);
-  }, [editor, getPos, listType, blockIndent, editor.state.doc]);
+  }, [editor, getPos, listType, indent, editor.state.doc]);
 
   // Get children info for tasks
   const childrenInfo = useMemo(() => {
@@ -290,18 +237,12 @@ export function ListBlock({
     return getChildrenInfo(editor, getPos);
   }, [editor, getPos, listType, editor.state.doc]);
 
-  // 🔥 FLAT MODEL: Check if this block has children (works for all types)
+  // Check if this block has children
   const hasChildrenFlag = useMemo(() => {
     return blockHasChildren(editor, getPos);
   }, [editor, getPos, editor.state.doc]);
 
-  // Canonical emptiness check (ProseMirror source of truth)
-  const isEmpty = node.content.size === 0;
-
-  // Placeholder text (includes focus detection via usePlaceholder)
-  const placeholderText = usePlaceholder({ node, editor, getPos });
-
-  // Get priority level from attribute (set when user types ! and presses space)
+  // Get priority level from attribute
   const committedPriority = priority || 0;
 
   // Detect uncommitted priority from text content (preview as user types)
@@ -312,29 +253,18 @@ export function ListBlock({
     : 0;
 
   // Check if this task is a child of the previous task (for showing connectors)
-  // TODO: Implement isChildOfPreviousTask() function for visual task connectors
-  // Temporarily disabled to avoid runtime error. See ARCHITECTURE.md for implementation plan.
-  const showConnector = false;
+  const showConnector = false; // Temporarily disabled
 
   // Handle checkbox toggle
   const handleCheckboxChange = useCallback(() => {
     const newChecked = !checked;
     updateAttributes({ checked: newChecked });
-
-    // NOTE: Task cascading temporarily disabled (see TODO comment above)
-    // Was: if (childrenInfo.hasChildren) updateChildrenChecked(editor, getPos, newChecked);
-  }, [checked, updateAttributes, editor, getPos, childrenInfo.hasChildren]);
+  }, [checked, updateAttributes]);
 
   // Handle collapse toggle
   const handleToggleCollapse = useCallback(() => {
     updateAttributes({ collapsed: !collapsed });
-  }, [
-    collapsed,
-    updateAttributes,
-    node.attrs.blockId,
-    node.attrs.indent,
-    hasChildrenFlag,
-  ]);
+  }, [collapsed, updateAttributes]);
 
   // Keyboard handler for checkbox (Space/Enter)
   const handleCheckboxKeyDown = useCallback(
@@ -374,21 +304,32 @@ export function ListBlock({
     return result;
   };
 
-  // 🔥 FLAT MODEL: Calculate total padding for rendering
-  const totalIndent = blockIndent * spacing.indent;
-
   // Calculate display level for marker styling (cycles based on indent)
+  const blockIndent = indent ?? 0;
   const displayLevel = blockIndent;
+
+  // Use block primitives for all common functionality
+  const {
+    wrapperProps,
+    isSelected,
+    indent: totalIndent,
+  } = useBlock({
+    node,
+    editor,
+    getPos,
+    styleOverrides: {
+      display: 'flex', // ListBlock-specific: flex layout
+      flexDirection: 'column',
+    },
+  });
 
   // Render the marker content (bullet, number, or checkbox)
   const renderMarkerContent = () => {
     switch (listType) {
       case 'bullet': {
-        // Cycle through 3 bullet styles based on display level
         const bulletStyle = displayLevel % 3;
 
         if (bulletStyle === 0) {
-          // Level 0, 3, 6... → • filled circle
           return (
             <span
               style={{
@@ -400,7 +341,6 @@ export function ListBlock({
             />
           );
         } else if (bulletStyle === 1) {
-          // Level 1, 4, 7... → ○ hollow circle
           return (
             <span
               style={{
@@ -413,7 +353,6 @@ export function ListBlock({
             />
           );
         } else {
-          // Level 2, 5, 8... → ■ filled square
           return (
             <span
               style={{
@@ -427,19 +366,15 @@ export function ListBlock({
       }
 
       case 'numbered': {
-        // Cycle through 3 numbering styles based on display level
         const numberStyle = displayLevel % 3;
         let displayNumber: string;
 
         if (numberStyle === 0) {
-          // Level 0, 3, 6... → 1. decimal
           displayNumber = `${listNumber}.`;
         } else if (numberStyle === 1) {
-          // Level 1, 4, 7... → a. lowercase letter
-          const letterIndex = ((listNumber - 1) % 26) + 1; // Wrap after 'z'
+          const letterIndex = ((listNumber - 1) % 26) + 1;
           displayNumber = `${String.fromCharCode(96 + letterIndex)}.`;
         } else {
-          // Level 2, 5, 8... → i. lowercase roman
           displayNumber = `${toRomanNumeral(listNumber)}.`;
         }
 
@@ -464,7 +399,6 @@ export function ListBlock({
             onChange={handleCheckboxChange}
             onKeyDown={handleCheckboxKeyDown}
             onClick={(e) => {
-              // Only remove focus ring on mouse click, not keyboard activation
               if (e.detail !== 0) {
                 e.currentTarget.blur();
               }
@@ -477,15 +411,14 @@ export function ListBlock({
               e.currentTarget.style.outline = 'none';
             }}
             size={sizing.marker}
+            priority={Math.max(committedPriority, previewPriority)}
           />
         );
       }
 
       case 'toggle': {
-        // Toggle marker: chevron that rotates based on collapsed state
         return (
           <svg
-            onClick={handleToggleCollapse}
             width={sizing.marker}
             height={sizing.marker}
             viewBox="0 0 24 24"
@@ -494,6 +427,7 @@ export function ListBlock({
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
+            onClick={handleToggleCollapse}
             style={{
               cursor: 'pointer',
               transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
@@ -512,19 +446,13 @@ export function ListBlock({
 
   // Render toggle row (below text, for tasks/toggles with children)
   const renderToggleRow = () => {
-    // 🔥 FLAT MODEL: Show caret for ANY block with children (task or toggle)
-    // In flat model, collapse is universal - any block can collapse its visual children
-    // ALSO show message for empty toggles
     const shouldShow =
       (listType === 'task' && childrenInfo.hasChildren) ||
-      listType === 'toggle'; // Show for all toggles (with or without children)
+      listType === 'toggle';
 
     if (!shouldShow) return null;
 
-    // Align with text: marker container (24px) + gap (4px) = 28px
     const toggleMarginLeft = sizing.markerContainer + spacing.inline;
-
-    // STEP 4: Count hidden children for collapsed blocks
     const hiddenCount = collapsed ? countHiddenChildren(editor, getPos) : 0;
 
     return (
@@ -541,7 +469,7 @@ export function ListBlock({
           userSelect: 'none',
         }}
       >
-        {/* Chevron icon (tasks only - toggles use caret in marker) */}
+        {/* Chevron icon (tasks only) */}
         {listType === 'task' && (
           <svg
             width={12}
@@ -560,7 +488,7 @@ export function ListBlock({
             <polyline points="6 9 12 15 18 9" />
           </svg>
         )}
-        {/* Completion count (tasks only, shown ALWAYS - expanded or collapsed) */}
+        {/* Completion count (tasks only) */}
         {listType === 'task' && childrenInfo.hasChildren && (
           <span
             style={{
@@ -573,7 +501,7 @@ export function ListBlock({
             {childrenInfo.completed}/{childrenInfo.total} subtasks
           </span>
         )}
-        {/* Hidden children counter (toggles only, shown when collapsed) */}
+        {/* Hidden children counter (toggles only, when collapsed) */}
         {listType === 'toggle' && collapsed && hiddenCount > 0 && (
           <span
             style={{
@@ -586,7 +514,7 @@ export function ListBlock({
             {hiddenCount} hidden {hiddenCount === 1 ? 'item' : 'items'}
           </span>
         )}
-        {/* Empty toggle message (toggles only, shown when no children) */}
+        {/* Empty toggle message */}
         {listType === 'toggle' && !hasChildrenFlag && (
           <span
             style={{
@@ -617,50 +545,16 @@ export function ListBlock({
 
   return (
     <NodeViewWrapper
-      data-block-id={node.attrs.blockId}
-      data-type="listBlock"
+      {...wrapperProps}
       data-list-type={listType}
-      data-indent={blockIndent}
       data-checked={checked}
       data-collapsed={collapsed}
-      data-empty={isEmpty ? 'true' : undefined}
-      data-placeholder={placeholderText || undefined}
       className="block-handle-wrapper"
-      style={{
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: typography.fontFamily,
-        fontSize: typography.body,
-        lineHeight: typography.lineHeightRatio,
-        paddingLeft: totalIndent,
-      }}
     >
-      {/* Craft-style hover-only zones */}
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: -spacing.hoverZoneLeft,
-          width: spacing.hoverZoneLeft,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: -spacing.hoverZoneRight,
-          width: spacing.hoverZoneRight,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
+      {/* Hover detection zones */}
+      <BlockHoverZones />
 
-      {/* Main row: marker (24px) + gap (4px) + content */}
+      {/* Main row: marker + content */}
       <div
         style={{
           display: 'flex',
@@ -668,15 +562,12 @@ export function ListBlock({
           gap: spacing.inline,
         }}
       >
-        {/* PHASE 3 REFACTOR: Use shared MarkerContainer component */}
         <div style={{ color: colors.text.tertiary, position: 'relative' }}>
           {/* L-shaped connector for nested task items */}
-          {/* Only show when previous sibling is also a task */}
           {showConnector && (
             <div
               style={{
                 position: 'absolute',
-                // Start at parent's checkbox center: -spacing.indent + markerContainer/2
                 left: -spacing.indent + sizing.markerContainer / 2,
                 top: 0,
                 width: 12,
@@ -700,7 +591,7 @@ export function ListBlock({
       {/* Toggle row for tasks with children */}
       {renderToggleRow()}
 
-      {/* Block selection halo */}
+      {/* Block selection visual */}
       <BlockSelectionHalo isSelected={isSelected} indent={totalIndent} />
     </NodeViewWrapper>
   );

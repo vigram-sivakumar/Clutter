@@ -1,8 +1,8 @@
 /**
- * HorizontalRule - React node view for horizontal rules
+ * HorizontalRule - React node view for horizontal rules with block primitives
  *
+ * Refactored to use block primitives for consistency.
  * Uses inline SVG for wavy pattern with theme-aware colors.
- * Both plain and wavy styles use the same divider color from theme.
  * Supports width toggle: full width or 128px centered.
  */
 
@@ -11,13 +11,10 @@ import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { patterns, spacing, sizing } from '../../tokens';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
-import { useBlockSelection } from '../../hooks/useBlockSelection';
 import { FoldHorizontal, UnfoldHorizontal } from '@clutter/ui';
-import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
-import { useBlockHidden } from '../../hooks/useBlockHidden';
+import { useBlock, BlockHoverZones, BlockSelectionHalo } from './primitives';
 
 interface HorizontalRuleProps extends NodeViewProps {
-  // NodeViewProps already includes node, we just need to specify updateAttributes
   updateAttributes: (_attrs: Record<string, any>) => void;
 }
 
@@ -36,24 +33,10 @@ export function HorizontalRule({
   const colorMode = node.attrs.color || 'default';
   const [isHovered, setIsHovered] = useState(false);
 
-  // Check if this block is selected
-  const isSelected = useBlockSelection({
-    editor,
-    getPos,
-    nodeSize: node.nodeSize,
-  });
-
-  // 🔥 FLAT MODEL: Read indent directly from attributes
-  const blockIndent = node.attrs.indent || 0;
-  const INDENT_WIDTH = spacing.indent;
-  const paddingLeft = blockIndent * INDENT_WIDTH;
-
-  // 🔒 BLOCK IDENTITY: Read blockId (required for Engine sync)
-  const blockId = node.attrs.blockId;
-
   // 🎯 INDENT RENDERING RULE:
   // indent = 0 → Full width (section separator)
   // indent >= 1 → Indented like any other block (left-aligned, not centered)
+  const blockIndent = node.attrs.indent || 0;
   const isFullWidth = blockIndent === 0;
 
   // Toggle between default divider color and accent orange
@@ -68,59 +51,32 @@ export function HorizontalRule({
     updateAttributes({ color: colorMode === 'default' ? 'accent' : 'default' });
   };
 
-  // 🔒 COLLAPSE CONTRACT: All blocks must expose collapsed state to DOM
-  // HR is always collapsed=false (it's a leaf node), but must expose the attribute
-  const collapsed = node.attrs.collapsed ?? false;
-
-  // 🔥 COLLAPSE PROPAGATION: Check if we're hidden by a collapsed ancestor
-  const isHidden = useBlockHidden(editor, getPos);
+  // Use block primitives for all common functionality
+  const { wrapperProps, isSelected, indent } = useBlock({
+    node,
+    editor,
+    getPos,
+    styleOverrides: {
+      height: HR_HEIGHT, // HorizontalRule-specific: fixed height
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: isFullWidth ? 'center' : 'flex-start', // Left-align when indented
+      cursor: 'pointer',
+    },
+  });
 
   return (
     <NodeViewWrapper
       as="div"
-      data-type="horizontalRule"
-      data-block-id={blockId}
+      {...wrapperProps}
       data-style={hrStyle}
       data-full-width={fullWidth}
-      data-indent={blockIndent}
-      data-collapsed={collapsed}
-      data-hidden={isHidden ? 'true' : undefined}
       className="block-handle-wrapper"
-      style={{
-        height: HR_HEIGHT,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: isFullWidth ? 'center' : 'flex-start', // 🔥 Left-align when indented
-        position: 'relative',
-        cursor: 'pointer',
-        paddingLeft,
-      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Craft-style hover-only zones */}
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: -spacing.hoverZoneLeft,
-          width: spacing.hoverZoneLeft,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: -spacing.hoverZoneRight,
-          width: spacing.hoverZoneRight,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
+      {/* Hover detection zones */}
+      <BlockHoverZones />
 
       {/* HR line container with conditional width */}
       <div
@@ -129,7 +85,7 @@ export function HorizontalRule({
             isFullWidth && fullWidth
               ? '100%' // Full width at root level
               : fullWidth
-                ? `calc(100% - ${paddingLeft}px)` // Full remaining width when indented
+                ? `calc(100% - ${indent}px)` // Full remaining width when indented
                 : '128px', // Fixed width when toggled off
           display: 'flex',
           alignItems: 'center',
@@ -198,7 +154,6 @@ export function HorizontalRule({
             display: 'flex',
             alignItems: 'center',
             backgroundColor: colors.background.default,
-            // border: `1px solid ${colors.border.default}`,
             borderRadius: sizing.radius.sm,
             padding: '0 4px',
             overflow: 'hidden',
@@ -217,7 +172,6 @@ export function HorizontalRule({
               color: colors.text.secondary,
               transition: 'background-color 0.15s ease',
               borderRadius: sizing.radius.sm,
-              // borderRight: `1px solid ${colors.border.default}`,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = colors.background.hover;
@@ -267,8 +221,8 @@ export function HorizontalRule({
         </div>
       </div>
 
-      {/* Block selection halo */}
-      <BlockSelectionHalo isSelected={isSelected} indent={paddingLeft} />
+      {/* Block selection visual */}
+      <BlockSelectionHalo isSelected={isSelected} indent={indent} />
     </NodeViewWrapper>
   );
 }

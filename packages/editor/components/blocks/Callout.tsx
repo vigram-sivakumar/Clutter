@@ -1,21 +1,18 @@
 /**
- * Callout - React node view for callout boxes
+ * Callout - React node view for callout boxes with block primitives
  *
- * PHASE 3 REFACTOR: Uses shared hooks and components.
+ * Refactored to use block primitives for consistency.
  * Styled callout boxes for info, warning, error, success messages.
- * Uses the editor token system and patterns.
+ * Uses marginLeft for indentation (indentMode: 'margin').
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { Info, AlertTriangle, XCircle, CheckCircle } from '@clutter/ui';
-import { typography, spacing } from '../../tokens';
+import { typography } from '../../tokens';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
-import { usePlaceholder } from '../../hooks/usePlaceholder';
-import { useBlockSelection } from '../../hooks/useBlockSelection';
-import { BlockSelectionHalo } from '../chrome/BlockSelectionHalo';
-import { useBlockHidden } from '../../hooks/useBlockHidden';
+import { useBlock, BlockHoverZones, BlockSelectionHalo } from './primitives';
 
 type CalloutType = 'info' | 'warning' | 'error' | 'success';
 
@@ -78,96 +75,32 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
   const type = (node.attrs.type as CalloutType) || 'info';
   const styles = getCalloutStyles(type, colors);
 
-  // 🔥 FLAT MODEL: indent is the ONLY structural attribute
-  const blockIndent = node.attrs.indent ?? 0;
-
-  // Canonical emptiness check (ProseMirror source of truth)
-  const isEmpty = node.content.size === 0;
-
-  // Check if this block is selected
-  const isSelected = useBlockSelection({
+  // Use block primitives with marginLeft indentation (not paddingLeft)
+  const { wrapperProps, isSelected, indent } = useBlock({
+    node,
     editor,
     getPos,
-    nodeSize: node.nodeSize,
+    indentMode: 'margin', // Critical: Callout uses marginLeft, not paddingLeft
+    styleOverrides: {
+      display: 'flex', // Callout-specific: flex layout
+      alignItems: 'flex-start',
+      gap: 8,
+      padding: 16,
+      backgroundColor: styles.backgroundColor,
+      border: `1px solid ${styles.borderColor}`,
+      borderRadius: 4,
+    },
   });
-
-  // Placeholder text (includes focus detection via usePlaceholder)
-  const placeholderText = usePlaceholder({ node, editor, getPos });
-
-  // 🔥 COLLAPSE PROPAGATION: Check if we're hidden by a collapsed ancestor
-  const isHidden = useBlockHidden(editor, getPos);
-
-  // Force re-render when document updates (to react to parent toggle collapse)
-  const [, forceUpdate] = useState(0);
-
-  useEffect(() => {
-    const handleFocusChange = () => {
-      forceUpdate((prev) => prev + 1);
-    };
-
-    // 🔒 CRITICAL FIX: Do NOT listen to selectionUpdate
-    // React re-renders on selection change interfere with ProseMirror's cursor placement
-    // Only re-render on focus/blur - selection handled by useMemo in usePlaceholder
-    editor.on('focus', handleFocusChange);
-    editor.on('blur', handleFocusChange);
-    return () => {
-      editor.off('focus', handleFocusChange);
-      editor.off('blur', handleFocusChange);
-    };
-  }, [editor]);
-
-  // Calculate indent (flat model)
-  const indent = blockIndent * spacing.indent;
 
   return (
     <NodeViewWrapper
       as="div"
-      data-block-id={node.attrs.blockId}
-      data-type="callout"
+      {...wrapperProps}
       data-callout-type={type}
-      data-indent={blockIndent}
-      data-empty={isEmpty ? 'true' : undefined}
-      data-placeholder={placeholderText || undefined}
-      data-hidden={isHidden ? 'true' : undefined}
       className="callout-block"
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-        padding: 16,
-        backgroundColor: styles.backgroundColor,
-        border: `1px solid ${styles.borderColor}`,
-        borderRadius: 4,
-        fontFamily: typography.fontFamily,
-        fontSize: typography.body,
-        lineHeight: typography.lineHeightRatio,
-        position: 'relative',
-        marginLeft: indent,
-      }}
     >
-      {/* Craft-style hover-only zones */}
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: -spacing.hoverZoneLeft,
-          width: spacing.hoverZoneLeft,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
-      <div
-        data-hover-only="true"
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: -spacing.hoverZoneRight,
-          width: spacing.hoverZoneRight,
-          height: '100%',
-          pointerEvents: 'auto',
-        }}
-      />
+      {/* Hover detection zones */}
+      <BlockHoverZones />
 
       {/* Icon container - rounded with background */}
       <div
@@ -195,7 +128,7 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
         />
       </div>
 
-      {/* Block selection halo */}
+      {/* Block selection visual */}
       <BlockSelectionHalo isSelected={isSelected} indent={indent} />
     </NodeViewWrapper>
   );

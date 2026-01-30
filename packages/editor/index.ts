@@ -68,13 +68,16 @@ export { SlashCommandMenu } from './components/menus/SlashCommandMenu';
 export { HashtagMenu } from './components/menus/HashtagMenu';
 export { HashtagMenuUI } from './components/menus/HashtagMenuUI';
 export {
-  BlockWrapper,
   MarkerContainer,
-  blockStyles,
   getBlockContainerStyle,
   getMarkerStyle,
   getContentStyle,
-} from './components/blocks/BlockWrapper';
+  blockStyleObjects,
+  useBlock,
+  BlockHoverZones,
+  BlockContent,
+  BlockSelectionHalo,
+} from './components/blocks/primitives';
 export { Heading as HeadingComponent } from './components/blocks/Heading';
 export { ListBlock as ListBlockComponent } from './components/blocks/ListBlock';
 export { Blockquote as BlockquoteComponent } from './components/blocks/Blockquote';
