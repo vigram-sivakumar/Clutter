@@ -9,19 +9,18 @@
  * 3. RULE 3: Never show multiple placeholders (only one at a time)
  * 4. RULE 4: Placeholder follows caret, not hover
  *
- * CRITICAL: Dependencies must be primitive values, not object references.
- * Using editor.state.selection or editor.state.doc directly will NOT
- * trigger re-computation when selection changes, causing stale placeholders
- * to appear in multiple blocks (violation of RULE 3).
+ * IMPLEMENTATION NOTE:
+ * This hook computes placeholder state directly on every render without
+ * memoization. While this seems inefficient, it's actually correct because:
+ * 1. Selection changes on every cursor move → no cache hits anyway
+ * 2. useMemo adds complexity and can cause sync issues with batched renders
+ * 3. The computation is trivial (simple comparisons)
+ * 4. TipTap already controls when this component re-renders
  *
- * ALSO CRITICAL: Must extract getPos() VALUE before useMemo, not call inside.
- * Depending on getPos function reference won't detect when the position value
- * changes, causing placeholder to stick in wrong block when cursor moves.
- *
- * This hook re-runs on every selection change to update focus state.
+ * Previous attempts to use useMemo caused bugs where multiple placeholders
+ * would appear simultaneously due to stale cached values during batched updates.
  */
 
-import { useMemo } from 'react';
 import type { Editor } from '@tiptap/core';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { placeholders } from '../tokens';
@@ -48,55 +47,35 @@ export function usePlaceholder({
   getPos,
   customText,
 }: UsePlaceholderProps): string | null {
-  // Extract primitive values for useMemo dependencies
-  // Using object references like editor.state.selection doesn't trigger re-computation
+  // Early exit: not empty
   const isEmpty = node.content.size === 0;
-  const selectionFrom = editor.state.selection.from;
-  const selectionTo = editor.state.selection.to;
-  const docTextContent = editor.state.doc.textContent;
-  const docChildCount = editor.state.doc.childCount;
-  const editorHasFocus = editor.isFocused;
-  const nodeSize = node.nodeSize;
+  if (!isEmpty) return null;
 
-  // CRITICAL: Must extract position VALUE, not just depend on getPos function
-  // getPos function reference doesn't change, but its return value does
+  // Get position
   const pos = getPos();
+  if (pos === undefined) return null;
 
-  return useMemo(() => {
-    if (!isEmpty) return null;
-    if (pos === undefined) return null;
+  // RULE 1: Always show on first block if editor is completely empty
+  const isEditorEmpty =
+    editor.state.doc.textContent === '' && editor.state.doc.childCount === 1;
+  const isFirstBlock = pos <= 1;
 
-    // Check if editor is empty (only one empty block)
-    const isEditorEmpty = docTextContent === '' && docChildCount === 1;
-    // First block can be at pos 0 or 1 depending on node structure
-    const isFirstBlock = pos <= 1;
+  if (isEditorEmpty && isFirstBlock) {
+    return customText || placeholders.default;
+  }
 
-    // RULE 1: Always show on first block if editor is completely empty
-    if (isEditorEmpty && isFirstBlock) {
-      return customText || placeholders.default;
-    }
+  // RULE 2: Show on focused empty blocks (only if editor has focus)
+  if (!editor.isFocused) return null;
 
-    // RULE 2: Show on focused empty blocks (only if editor has focus)
-    if (!editorHasFocus) return null;
+  // Check if cursor is within this block's boundaries
+  const { from, to } = editor.state.selection;
+  const nodeStart = pos;
+  const nodeEnd = pos + node.nodeSize;
+  const isFocused = from >= nodeStart && to <= nodeEnd;
 
-    const nodeStart = pos;
-    const nodeEnd = pos + nodeSize;
-    const isFocused = selectionFrom >= nodeStart && selectionTo <= nodeEnd;
+  if (isFocused) {
+    return customText || placeholders.default;
+  }
 
-    if (isFocused) {
-      return customText || placeholders.default;
-    }
-
-    return null;
-  }, [
-    isEmpty,
-    selectionFrom,
-    selectionTo,
-    docTextContent,
-    docChildCount,
-    editorHasFocus,
-    pos,
-    nodeSize,
-    customText,
-  ]);
+  return null;
 }
