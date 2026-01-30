@@ -14,6 +14,10 @@
  * trigger re-computation when selection changes, causing stale placeholders
  * to appear in multiple blocks (violation of RULE 3).
  *
+ * ALSO CRITICAL: Must extract getPos() VALUE before useMemo, not call inside.
+ * Depending on getPos function reference won't detect when the position value
+ * changes, causing placeholder to stick in wrong block when cursor moves.
+ *
  * This hook re-runs on every selection change to update focus state.
  */
 
@@ -52,11 +56,14 @@ export function usePlaceholder({
   const docTextContent = editor.state.doc.textContent;
   const docChildCount = editor.state.doc.childCount;
   const editorHasFocus = editor.isFocused;
+  const nodeSize = node.nodeSize;
+
+  // CRITICAL: Must extract position VALUE, not just depend on getPos function
+  // getPos function reference doesn't change, but its return value does
+  const pos = getPos();
 
   return useMemo(() => {
     if (!isEmpty) return null;
-
-    const pos = getPos();
     if (pos === undefined) return null;
 
     // Check if editor is empty (only one empty block)
@@ -73,7 +80,7 @@ export function usePlaceholder({
     if (!editorHasFocus) return null;
 
     const nodeStart = pos;
-    const nodeEnd = pos + node.nodeSize;
+    const nodeEnd = pos + nodeSize;
     const isFocused = selectionFrom >= nodeStart && selectionTo <= nodeEnd;
 
     if (isFocused) {
@@ -88,8 +95,8 @@ export function usePlaceholder({
     docTextContent,
     docChildCount,
     editorHasFocus,
-    getPos,
-    node.nodeSize,
+    pos,
+    nodeSize,
     customText,
   ]);
 }
