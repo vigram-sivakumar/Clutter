@@ -120,25 +120,26 @@ export function useBlock({
   const isHidden = useBlockHidden(editor, getPos);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Force re-render on focus/blur (for placeholder visibility)
+  // Force re-render on selection change (for placeholder visibility)
   // ─────────────────────────────────────────────────────────────────────────
 
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
-    const handleFocusChange = () => {
+    const handleUpdate = () => {
       forceUpdate((prev) => prev + 1);
     };
 
-    // 🔒 CRITICAL: Do NOT listen to selectionUpdate
-    // React re-renders on selection change interfere with ProseMirror's cursor placement
-    // Only re-render on focus/blur - selection handled by useMemo in usePlaceholder
-    editor.on('focus', handleFocusChange);
-    editor.on('blur', handleFocusChange);
+    // Listen to selection updates for placeholder visibility
+    // usePlaceholder needs fresh selection state to compute focus correctly
+    editor.on('selectionUpdate', handleUpdate);
+    editor.on('focus', handleUpdate);
+    editor.on('blur', handleUpdate);
 
     return () => {
-      editor.off('focus', handleFocusChange);
-      editor.off('blur', handleFocusChange);
+      editor.off('selectionUpdate', handleUpdate);
+      editor.off('focus', handleUpdate);
+      editor.off('blur', handleUpdate);
     };
   }, [editor]);
 
