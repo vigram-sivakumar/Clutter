@@ -47,23 +47,27 @@
  * - Placeholder NEVER creates DOM structure
  * - Rendered via CSS ::before on content element
  * - data-empty on wrapper (node.content.size === 0)
- * - data-placeholder on wrapper (text, controlled by focus logic)
+ * - data-placeholder on wrapper (marker attribute for selector)
+ * - --placeholder-text CSS variable (text content, inherited by ::before)
  * - ::before painted on innermost content container where caret lives
  * 
  * Result: Placeholder appears inline in text area, like native <input placeholder>
  * 
- * SELECTOR EXPLANATION:
- * [data-empty="true"][data-placeholder] - Wrapper with both attributes
- * [data-node-view-content-react] - TipTap's innermost React content container
- * ::before - Pseudo-element for placeholder text
+ * ARCHITECTURE:
+ * 1. useBlock hook sets data-empty, data-placeholder, and --placeholder-text
+ * 2. CSS selector matches [data-empty="true"][data-placeholder]
+ * 3. ::before reads inherited CSS variable var(--placeholder-text)
+ * 4. CSS variable inheritance allows ::before on child to access parent's text
  * 
  * NOTE: TipTap creates nested structure:
- * [data-node-view-content] (outer)
- *   └─ [data-node-view-content-react] (inner, where text lives)
- * We target the inner one for ::before to work correctly.
+ * <div data-empty="true" data-placeholder style="--placeholder-text: '...'">
+ *   <div data-node-view-content>
+ *     <div data-node-view-content-react>  ← ::before here, inherits variable
+ * 
+ * We use CSS variables instead of attr() because attr() cannot read parent attributes.
  */
 .ProseMirror [data-empty="true"][data-placeholder] [data-node-view-content-react]::before {
-  content: attr(data-placeholder);
+  content: var(--placeholder-text);
   color: var(--editor-text-tertiary);
   pointer-events: none;
   user-select: none;

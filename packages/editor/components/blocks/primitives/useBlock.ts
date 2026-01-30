@@ -165,6 +165,9 @@ export function useBlock({
         lineHeight: typography.lineHeightRatio,
         [indentProperty]: totalIndent,
         width: '100%',
+        // CSS variable for placeholder text (inherited by ::before pseudo-element)
+        ...(placeholderText &&
+          ({ '--placeholder-text': `"${placeholderText}"` } as any)),
         ...styleOverrides,
       },
     };
