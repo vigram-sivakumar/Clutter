@@ -34,11 +34,11 @@ export const BlockDeletion = Extension.create({
               return false;
             }
 
-            // Case 1: Multi-block selection (Shift+Click, Cmd+A)
+            // Case 1: Multi-block selection (Shift+Click, Cmd+A, AllSelection)
             const isMultiBlock = isMultiBlockSelection(editor);
             if (isMultiBlock) {
               const blocks = getSelectedBlocks(editor);
-              if (blocks && blocks.length > 1) {
+              if (blocks && blocks.length > 0) {
                 event.preventDefault();
 
                 const { state } = view;
@@ -76,7 +76,7 @@ export const BlockDeletion = Extension.create({
               }
             }
 
-            // Case 2: Single block selection → delegate to default handlers
+            // Case 2: Single text selection → delegate to default handlers
             return false;
           },
         },
