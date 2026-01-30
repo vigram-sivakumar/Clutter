@@ -78,13 +78,6 @@ body {
   overflow: hidden;
 }
 
-/* Placeholder for contentEditable */
-[contenteditable][data-placeholder]:empty:before {
-  content: attr(data-placeholder);
-  color: var(--color-text-placeholder);
-  pointer-events: none;
-}
-
 /* Placeholder for input elements */
 input::placeholder {
   color: var(--color-text-placeholder);
