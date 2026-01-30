@@ -65,6 +65,12 @@ function isBlockFullySelected(state: any): boolean {
     return false;
   }
 
+  // Must NOT be an empty selection (collapsed cursor)
+  // Only range selections can be "fully selected"
+  if (selection.empty) {
+    return false;
+  }
+
   // Must be in the same block
   const blockDepth = $from.depth;
   if (blockDepth === 0) return false;
