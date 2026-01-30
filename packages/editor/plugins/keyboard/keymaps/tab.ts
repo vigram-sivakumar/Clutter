@@ -89,17 +89,48 @@ function handleTabImpl(editor: Editor, isShift: boolean = false): boolean {
   const tr = state.tr;
 
   // Collect all blocks in document order with positions
-  const blocks: Array<{ pos: number; node: any; indent: number }> = [];
+  const blocks: Array<{
+    pos: number;
+    node: any;
+    indent: number;
+    collapsed: boolean;
+  }> = [];
   doc.descendants((n: any, pos: number) => {
     if (n.attrs?.blockId) {
       blocks.push({
         pos,
         node: n,
         indent: n.attrs.indent ?? 0,
+        collapsed: n.attrs.collapsed ?? false,
       });
     }
     return true;
   });
+
+  // Track visibility using same algorithm as CollapsePlugin
+  // This prevents finding hidden children as "prevBlock"
+  const isVisible: boolean[] = new Array(blocks.length).fill(true);
+  let hiddenIndent: number | null = null;
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    // If we're hiding, check if this block should remain hidden
+    if (hiddenIndent !== null && block.indent > hiddenIndent) {
+      isVisible[i] = false;
+      continue;
+    }
+
+    // This block is visible
+    // If this block is collapsed, start hiding deeper blocks
+    if (block.collapsed) {
+      hiddenIndent = block.indent;
+    }
+    // If we were hiding and this block is at same/less indent, stop hiding
+    else if (hiddenIndent !== null && block.indent <= hiddenIndent) {
+      hiddenIndent = null;
+    }
+  }
 
   // Find the selected block index
   const selectedIndex = blocks.findIndex((b) => b.pos === blockPos);
@@ -117,7 +148,14 @@ function handleTabImpl(editor: Editor, isShift: boolean = false): boolean {
   if (!isShift) {
     // For indent: can only indent to prevBlock.indent + 1
     // This prevents indent jumps and maintains flat list invariant
-    const prevBlock = selectedIndex > 0 ? blocks[selectedIndex - 1] : null;
+    // 🔒 FIX: Find last VISIBLE block, not just previous in array
+    let prevBlock = null;
+    for (let i = selectedIndex - 1; i >= 0; i--) {
+      if (isVisible[i]) {
+        prevBlock = blocks[i];
+        break;
+      }
+    }
     const maxAllowedIndent = prevBlock ? prevBlock.indent + 1 : 0;
 
     if (newIndent > maxAllowedIndent) {
@@ -161,20 +199,30 @@ function handleTabImpl(editor: Editor, isShift: boolean = false): boolean {
   }
 
   // AUTO-EXPAND COLLAPSED PARENT: When indenting creates a new parent-child relationship
-  // 🔒 CORRECTNESS: Only the IMMEDIATELY PREVIOUS block becomes the parent
-  // Searching backwards can find wrong ancestors (e.g., grandparent instead of parent)
-  const prevBlock = selectedIndex > 0 ? blocks[selectedIndex - 1] : null;
+  // 🔒 CORRECTNESS: Find last VISIBLE block (skip hidden children)
+  // This ensures we expand the actual parent, not a hidden sibling
+  let prevVisibleBlock = null;
+  for (let i = selectedIndex - 1; i >= 0; i--) {
+    if (isVisible[i]) {
+      prevVisibleBlock = blocks[i];
+      break;
+    }
+  }
 
-  if (prevBlock && !isShift && newIndent === prevBlock.indent + 1) {
-    const isCollapsed = prevBlock.node.attrs?.collapsed === true;
+  if (
+    prevVisibleBlock &&
+    !isShift &&
+    newIndent === prevVisibleBlock.indent + 1
+  ) {
+    const isCollapsed = prevVisibleBlock.node.attrs?.collapsed === true;
     const isToggleOrTask =
-      prevBlock.node.type.name === 'listBlock' &&
-      (prevBlock.node.attrs.listType === 'toggle' ||
-        prevBlock.node.attrs.listType === 'task');
+      prevVisibleBlock.node.type.name === 'listBlock' &&
+      (prevVisibleBlock.node.attrs.listType === 'toggle' ||
+        prevVisibleBlock.node.attrs.listType === 'task');
 
     // If parent is collapsed toggle/task, expand it
     if (isCollapsed && isToggleOrTask) {
-      updateBlockAttrs(tr, prevBlock.pos, {
+      updateBlockAttrs(tr, prevVisibleBlock.pos, {
         collapsed: false,
       });
     }

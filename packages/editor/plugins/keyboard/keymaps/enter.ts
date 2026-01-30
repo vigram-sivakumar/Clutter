@@ -264,6 +264,7 @@ function handleEnterImpl(editor: Editor): boolean {
     node.type.name === 'listBlock' &&
     (node.attrs.listType === 'toggle' || node.attrs.listType === 'task');
   const isExpandedContainer = isContainer && node.attrs.collapsed === false;
+  const isCollapsedContainer = isContainer && node.attrs.collapsed === true;
 
   // Check if this block has children (next block has higher indent)
   // 🔒 OPTIMIZATION: O(1) check using resolve instead of O(n) document traversal
@@ -370,22 +371,7 @@ function handleEnterImpl(editor: Editor): boolean {
   // NON-EMPTY BLOCK RULES (structure creation OK)
   // ─────────────────────────────────────────────
 
-  // 7️⃣ NON-EMPTY EXPANDED CONTAINER (ROOT) → COLLAPSE
-  // Collapse is only meaningful for non-empty containers
-  // Empty containers should normalize (handled above)
-  if (isExpandedContainer && indent === 0 && node.content.size > 0) {
-    const tr = state.tr;
-    updateBlockAttrs(tr, $from.before(), {
-      collapsed: true,
-    });
-    // ✅ FIX: Map position after attribute change, use TextSelection.near() for safety
-    const mappedPos = tr.mapping.map($from.pos);
-    tr.setSelection(TextSelection.near(tr.doc.resolve(mappedPos), 1));
-    dispatchUserEdit(view, tr);
-    return true;
-  }
-
-  // 8️⃣ NON-EMPTY CHILD AT END → CREATE SIBLING
+  // 7️⃣ NON-EMPTY CHILD AT END → CREATE SIBLING
   // UX: Continue writing at same level instead of forcing outdent
   // Empty children always outdent first (handled above in rule 3)
   if (indent > 0 && atEnd && node.content.size > 0) {
@@ -408,7 +394,7 @@ function handleEnterImpl(editor: Editor): boolean {
   // ═══════════════════════════════════════════════════════════════════
 
   // ─────────────────────────────────────────────
-  // 9️⃣ TOGGLE MIDDLE → PARAGRAPH CHILD WITH TEXT MOVE
+  // 8️⃣ TOGGLE MIDDLE → PARAGRAPH CHILD WITH TEXT MOVE
   // ─────────────────────────────────────────────
   // 🔒 ARCHITECTURAL BOUNDARY: Toggle owns middle-split completely
   // This handler is the SINGLE AUTHORITY for toggle middle splits
@@ -466,7 +452,7 @@ function handleEnterImpl(editor: Editor): boolean {
   }
 
   // ─────────────────────────────────────────────
-  // 🔟 GENERIC MIDDLE SPLIT (non-toggle blocks)
+  // 9️⃣ GENERIC MIDDLE SPLIT (non-toggle blocks)
   // ─────────────────────────────────────────────
   if (inMiddle) {
     const tr = state.tr;
@@ -525,18 +511,25 @@ function handleEnterImpl(editor: Editor): boolean {
   // ═══════════════════════════════════════════════════════════════════
 
   // ─────────────────────────────────────────────
-  // 1️⃣1️⃣ START OF BLOCK → insert sibling ABOVE
+  // 🔟 START OF BLOCK → insert sibling ABOVE
   // ─────────────────────────────────────────────
   if (atStart) {
     return insertSiblingAbove(editor);
   }
 
   // ─────────────────────────────────────────────
-  // 1️⃣2️⃣ END OF BLOCK
+  // 1️⃣1️⃣ END OF BLOCK
   // ─────────────────────────────────────────────
   if (atEnd) {
     const isToggle =
       node.type.name === 'listBlock' && node.attrs.listType === 'toggle';
+
+    // ✅ COLLAPSED CONTAINER RULE:
+    // If collapsed with children → create sibling AFTER subtree
+    // UX: User can't see children, so Enter should continue at same level
+    if (isCollapsedContainer && hasChildren) {
+      return insertSiblingBelow(editor, indent);
+    }
 
     // ✅ TOGGLE RULE:
     // Expanded toggles ALWAYS create a child
@@ -557,7 +550,7 @@ function handleEnterImpl(editor: Editor): boolean {
   }
 
   // ─────────────────────────────────────────────
-  // 1️⃣3️⃣ FALLBACK (should never reach here)
+  // 1️⃣2️⃣ FALLBACK (should never reach here)
   // ─────────────────────────────────────────────
   // If we reach this point, something is wrong with position detection
   // Fall back to creating a sibling below as safest option
