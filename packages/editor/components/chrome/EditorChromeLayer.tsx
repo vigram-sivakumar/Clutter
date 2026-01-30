@@ -42,7 +42,6 @@ import {
   DropdownItem,
   DropdownSeparator,
   DropdownHeader,
-  Input,
   Button,
 } from '@clutter/ui';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
@@ -175,9 +174,9 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
 export function EditorChromeLayer({
   editor,
   containerRef,
-  createdAt,
-  updatedAt,
-  deletedAt,
+  createdAt: _createdAt,
+  updatedAt: _updatedAt,
+  deletedAt: _deletedAt,
 }: EditorChromeLayerProps) {
   const { colors } = useEditorTheme();
 

@@ -26,7 +26,7 @@
  * ```
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useEffect } from 'react';
 import type { Editor } from '@tiptap/core';
 import { typography, spacing } from '../../../tokens';
 import { usePlaceholder } from '../../../hooks/usePlaceholder';

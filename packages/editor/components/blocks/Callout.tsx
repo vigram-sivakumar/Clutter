@@ -10,7 +10,6 @@ import React from 'react';
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { Info, AlertTriangle, XCircle, CheckCircle } from '@clutter/ui';
-import { typography } from '../../tokens';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
 import { useBlock, BlockHoverZones, BlockSelectionHalo } from './primitives';
 

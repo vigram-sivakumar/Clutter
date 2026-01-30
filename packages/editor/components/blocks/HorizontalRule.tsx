@@ -9,7 +9,7 @@
 import { useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
-import { patterns, spacing, sizing } from '../../tokens';
+import { patterns, sizing } from '../../tokens';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
 import { FoldHorizontal, UnfoldHorizontal } from '@clutter/ui';
 import { useBlock, BlockHoverZones, BlockSelectionHalo } from './primitives';
