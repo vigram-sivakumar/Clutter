@@ -24,36 +24,6 @@ import { Extension } from '@tiptap/core';
 export const SelectAllPluginKey = new PluginKey('selectAll');
 
 /**
- * Check if we should allow native browser select-all
- *
- * CTRL+A LAW - Case A: Text editing context
- * - Editor is focused
- * - TextSelection or empty selection exists
- * - User expects native browser highlight
- *
- * Result: DO NOT preventDefault, let browser paint selection
- */
-function shouldAllowNativeSelectAll(state: any): boolean {
-  const { selection } = state;
-
-  // If we already have a NodeSelection or AllSelection,
-  // user is in structural mode (Case B)
-  if (selection instanceof NodeSelection || selection instanceof AllSelection) {
-    return false;
-  }
-
-  // If block is fully selected as text, allow progressive behavior
-  // (this is the second Ctrl+A press)
-  if (isBlockFullySelected(state)) {
-    return false;
-  }
-
-  // Otherwise: first Ctrl+A in text context
-  // Let browser handle it natively
-  return true;
-}
-
-/**
  * Check if selection covers all text in the current block
  */
 function isBlockFullySelected(state: any): boolean {
@@ -177,23 +147,31 @@ export const SelectAll = Extension.create({
         const { state, view } = editor;
         const { dispatch } = view;
 
-        // GUARD: Allow native browser select-all in text context (Case A)
-        // This lets the browser paint the visible text highlight
-        if (shouldAllowNativeSelectAll(state)) {
-          return false; // Let browser handle it
-        }
+        const blockFullySelected = isBlockFullySelected(state);
+        const nodeSelected = isNodeSelected(state);
+
+        console.log('🔍 Ctrl+A:', {
+          blockFullySelected,
+          nodeSelected,
+          selectionType: state.selection.constructor.name,
+          empty: state.selection.empty,
+        });
 
         // Step 1: Check if block is fully selected as text → select as node
-        if (isBlockFullySelected(state)) {
+        if (blockFullySelected) {
+          console.log('→ Block fully selected, converting to NodeSelection');
           return selectCurrentBlockAsNode(state, dispatch);
         }
 
         // Step 2: Check if block is selected as a node → select all blocks
-        if (isNodeSelected(state)) {
+        if (nodeSelected) {
+          console.log('→ Node selected, selecting all blocks (AllSelection)');
           return selectAllBlocks(state, dispatch);
         }
 
-        // Step 3: Fallback (shouldn't hit this due to guard, but safety)
+        // Step 3: Default - select current block's text
+        // This prevents browser from selecting entire document
+        console.log('→ Selecting current block text (TextSelection)');
         return selectCurrentBlock(state, dispatch);
       },
     };
