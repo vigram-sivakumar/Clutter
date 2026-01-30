@@ -1,35 +1,21 @@
 /**
  * useBlockSelection - Hook to detect if current block is selected
  *
- * ═══════════════════════════════════════════════════════════════════════════
- * 🔒 SELECTION INVARIANT: Engine owns selection, PM does not
- * ═══════════════════════════════════════════════════════════════════════════
+ * Returns true when block should show selection halo based on ProseMirror selection:
  *
- * This hook ONLY reads Engine selection state.
- * It NEVER observes ProseMirror selection.
+ * 1. NodeSelection: Block is selected as a structural unit
+ * 2. AllSelection: Document-wide selection (Ctrl+A final state)
+ * 3. Multi-block TextSelection: Block is fully covered by range selection
  *
- * PM selection is write-only from this system's perspective.
- * Reading PM selection creates an observer feedback loop:
- *   PM → DOM → Hook → DOM → PM (resurrection)
- *
- * By reading Engine only, we break the cycle:
- *   Engine → Hook → DOM (paint only)
- *   PM selection → ignored
- *
- * Returns true when:
- * - Block is in Engine.selection.blockIds (halo click)
- * - Block is part of multi-block Engine selection (Shift+Click, Cmd+A)
- *
- * Returns false when:
- * - Engine selection is 'none' or 'text'
- * - Block is not in Engine.selection.blockIds
- *
- * ═══════════════════════════════════════════════════════════════════════════
+ * Selection ownership:
+ * - ProseMirror owns selection state (source of truth)
+ * - This hook reads PM selection to determine halo visibility
+ * - Halos are pure visual indicators, they don't affect selection
  */
 
 import { useEffect, useState } from 'react';
 import { Editor } from '@tiptap/core';
-import { isMultiBlockSelection } from '../utils/multiSelection';
+import { NodeSelection, AllSelection } from '@tiptap/pm/state';
 
 interface UseBlockSelectionProps {
   editor: Editor;
@@ -52,60 +38,48 @@ export function useBlockSelection({
         return;
       }
 
-      // Get Engine from editor (attached by EditorCore)
-      const engine = (editor as any)._engine;
-      if (!engine) {
+      const { selection } = editor.state;
+
+      // Case 1: NodeSelection - block is selected as structural unit
+      if (selection instanceof NodeSelection) {
+        // Check if this specific block is the selected node
+        const selectedPos = selection.from;
+        const isThisBlock = selectedPos === pos;
+        setIsSelected(isThisBlock);
+        return;
+      }
+
+      // Case 2: AllSelection - entire document selected (Ctrl+A final state)
+      if (selection instanceof AllSelection) {
+        setIsSelected(true);
+        return;
+      }
+
+      // Case 3: TextSelection covering multiple blocks
+      // Show halo if this block is fully covered by the selection
+      const { from, to } = selection;
+
+      // Only show halos for non-collapsed selections
+      if (from === to) {
         setIsSelected(false);
         return;
       }
 
-      // Get current block's blockId
-      const currentNode = editor.state.doc.nodeAt(pos);
-      const blockId = currentNode?.attrs?.blockId;
-      if (!blockId) {
-        setIsSelected(false);
-        return;
-      }
+      const blockStart = pos;
+      const blockEnd = pos + nodeSize;
+      const contentStart = blockStart + 1; // Skip opening token
+      const contentEnd = blockEnd - 1; // Skip closing token
 
-      // 🔒 Read from ENGINE selection ONLY (never PM selection)
-      // This prevents the observer feedback loop that resurrects NodeSelection
+      // Block is selected if selection fully covers its content
+      const isFullyCovered = from <= contentStart && to >= contentEnd;
 
-      // Case 1: Engine block selection (halo click) → show halo
-      if (engine.selection.kind === 'block') {
-        const selected = engine.selection.blockIds.includes(blockId);
-        
-        setIsSelected(selected);
-        return;
-      }
-
-      // Case 2: Multi-block TextSelection (Shift+Click, Cmd+A) → show halo
-      // This is the only case where we check PM selection, because
-      // multi-block text selection is still represented as TextSelection in PM
-      const isMultiBlock = isMultiBlockSelection(editor);
-      if (isMultiBlock) {
-        const { selection } = editor.state;
-        const blockStart = pos;
-        const blockEnd = pos + nodeSize;
-        const { from, to } = selection;
-        const contentStart = blockStart + 1;
-        const contentEnd = blockEnd - 1;
-
-        // Check if this block is covered by the selection
-        const isFullyCovered = from <= contentStart && to >= contentEnd;
-        const finalSelected = isFullyCovered && from !== to;
-        
-        setIsSelected(finalSelected);
-        return;
-      }
-
-      // Case 3: Engine selection is 'none' or 'text' → NO halo
-      setIsSelected(false);
+      setIsSelected(isFullyCovered);
     };
 
-    // Listen to both editor events and engine changes
+    // Listen to selection changes
     editor.on('selectionUpdate', checkSelection);
     editor.on('focus', checkSelection);
-    editor.on('update', checkSelection); // Also check on document updates
+    editor.on('update', checkSelection);
 
     // Initial check
     checkSelection();

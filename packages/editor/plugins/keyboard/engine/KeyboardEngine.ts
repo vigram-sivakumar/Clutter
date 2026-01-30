@@ -7,23 +7,18 @@
  * This is the only place where rules are actually evaluated.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * 🔒 SELECTION INVARIANT (ARCHITECTURAL LAW)
+ * SELECTION MODEL
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * ProseMirror:
- *   - TextSelection ONLY
- *   - NEVER NodeSelection
+ * ProseMirror owns selection state:
+ *   - TextSelection for text editing and ranges
+ *   - NodeSelection for structural block selection (shows halo)
+ *   - AllSelection for document-wide selection (Ctrl+A final state)
  *
- * Block selection:
- *   - Represented by blockId(s) in the Engine
- *   - Keyboard rules operate on Engine block selection
- *   - PM selection remains TextSelection at all times
+ * Keyboard rules operate on PM selection state directly.
+ * Visual halos are rendered based on PM selection type.
  *
- * Keyboard rules MUST NOT:
- *   - Check for NodeSelection
- *   - Rely on NodeSelection state
- *   - Mutate PM selection to NodeSelection
- *
+ * This matches modern note-taking apps (Craft, Notion, Workflowy).
  * ═══════════════════════════════════════════════════════════════════════════
  */
 

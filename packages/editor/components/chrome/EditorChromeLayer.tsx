@@ -45,15 +45,21 @@ import {
   Input,
   Button,
 } from '@clutter/ui';
-import { TextSelection } from '@tiptap/pm/state';
+import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { useEditorTheme } from '../../theme/EditorThemeContext';
 import { spacing } from '../../tokens';
 import { formatDateTime } from '../../utils/dateFormatting';
 import { useCommandPickerNavigation } from '../../hooks/useCommandPickerNavigation';
 import { useBlockById } from '../../hooks/useBlockById';
 import { CommandList } from '../shared/CommandList';
-import { filterSlashCommands, type SlashCommand } from '../../plugins/SlashCommands';
-import { convertBlock, type BlockConversionSpec } from '../../utils/blockConversion';
+import {
+  filterSlashCommands,
+  type SlashCommand,
+} from '../../plugins/SlashCommands';
+import {
+  convertBlock,
+  type BlockConversionSpec,
+} from '../../utils/blockConversion';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION (Single place to edit all chrome behavior)
@@ -61,21 +67,21 @@ import { convertBlock, type BlockConversionSpec } from '../../utils/blockConvers
 
 const CHROME_CONFIG = {
   // Timing
-  HIDE_DELAY: 150,           // ms - Grace period to move from block to chrome
-  TYPING_TIMEOUT: 300,       // ms - Hide chrome for 300ms after typing/cursor movement
-  TRANSITION_DURATION: 120,  // ms - Opacity fade duration
-  
+  HIDE_DELAY: 150, // ms - Grace period to move from block to chrome
+  TYPING_TIMEOUT: 300, // ms - Hide chrome for 300ms after typing/cursor movement
+  TRANSITION_DURATION: 120, // ms - Opacity fade duration
+
   // Layout
-  GUTTER_LEFT: spacing.hoverZoneLeft,   // px - Left gutter width (matches hover-only div width)
+  GUTTER_LEFT: spacing.hoverZoneLeft, // px - Left gutter width (matches hover-only div width)
   GUTTER_RIGHT: spacing.hoverZoneRight, // px - Right gutter width (matches hover-only div width)
-  GAP: 4,                               // px - Gap between buttons
-  
+  GAP: 4, // px - Gap between buttons
+
   // Button sizes
-  BUTTON_SIZE: 24,           // px - Standard button size
-  HANDLER_WIDTH: 20,         // px - Drag handler width (narrower)
-  ICON_SIZE: 16,             // px - Icon size
-  BORDER_RADIUS: 4,          // px - Button border radius
-  
+  BUTTON_SIZE: 24, // px - Standard button size
+  HANDLER_WIDTH: 20, // px - Drag handler width (narrower)
+  ICON_SIZE: 16, // px - Icon size
+  BORDER_RADIUS: 4, // px - Button border radius
+
   // Z-index
   Z_INDEX: 10,
 } as const;
@@ -106,7 +112,7 @@ interface EditorChromeLayerProps {
 
 /**
  * Map SlashCommand to BlockConversionSpec
- * 
+ *
  * This bridges the gap between the slash command registry (UI-focused)
  * and the block conversion utility (editor-focused).
  */
@@ -121,7 +127,7 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
       return { type: 'heading', headingLevel: 2 };
     case 'heading3':
       return { type: 'heading', headingLevel: 3 };
-    
+
     // Lists
     case 'bulletList':
       return { type: 'listBlock', listType: 'bullet' };
@@ -131,7 +137,7 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
       return { type: 'listBlock', listType: 'task' };
     case 'toggleList':
       return { type: 'listBlock', listType: 'toggle' };
-    
+
     // Callouts
     case 'quote':
       return { type: 'blockquote' };
@@ -143,11 +149,11 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
       return { type: 'callout', calloutType: 'error' };
     case 'calloutSuccess':
       return { type: 'callout', calloutType: 'success' };
-    
+
     // Code
     case 'code':
       return { type: 'codeBlock' };
-    
+
     // Commands that insert rather than convert (not supported in block menu)
     case 'divider':
     case 'dividerWavy':
@@ -155,7 +161,7 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
     case 'video':
     case 'file':
       return null;
-    
+
     default:
       console.warn(`[mapCommandToSpec] Unknown command: ${command.id}`);
       return null;
@@ -166,7 +172,13 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, deletedAt }: EditorChromeLayerProps) {
+export function EditorChromeLayer({
+  editor,
+  containerRef,
+  createdAt,
+  updatedAt,
+  deletedAt,
+}: EditorChromeLayerProps) {
   const { colors } = useEditorTheme();
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -183,7 +195,10 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
   const [isTyping, setIsTyping] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
   const [selectedMenuIndex, setSelectedMenuIndex] = useState(-1); // -1 = no selection
   const [menuView, setMenuView] = useState<'main' | 'turnInto'>('main');
   const [searchQuery, setSearchQuery] = useState('');
@@ -217,7 +232,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     }
     hideTimeoutRef.current = setTimeout(() => {
       if (!isOverChromeRef.current && !isMenuOpen) {
-        setChrome(prev => ({ ...prev, blockId: null, visible: false }));
+        setChrome((prev) => ({ ...prev, blockId: null, visible: false }));
       }
     }, CHROME_CONFIG.HIDE_DELAY);
   }, [isMenuOpen]);
@@ -231,19 +246,22 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   }, [chrome.blockId, findBlock]);
 
   // Insert paragraph at position and focus
-  const insertParagraphAt = useCallback((insertPos: number) => {
-    const { state, view } = editor;
-    const newParagraph = state.schema.nodes.paragraph?.create();
-    if (!newParagraph) return false;
+  const insertParagraphAt = useCallback(
+    (insertPos: number) => {
+      const { state, view } = editor;
+      const newParagraph = state.schema.nodes.paragraph?.create();
+      if (!newParagraph) return false;
 
-    const tr = state.tr.insert(insertPos, newParagraph);
-    const cursorPos = Number(insertPos) + 1;
-    tr.setSelection(TextSelection.create(tr.doc, cursorPos));
-    
-    view.dispatch(tr);
-    view.focus();
-    return true;
-  }, [editor]);
+      const tr = state.tr.insert(insertPos, newParagraph);
+      const cursorPos = Number(insertPos) + 1;
+      tr.setSelection(TextSelection.create(tr.doc, cursorPos));
+
+      view.dispatch(tr);
+      view.focus();
+      return true;
+    },
+    [editor]
+  );
 
   // Reset menu to main view
   const resetMenuToMain = useCallback(() => {
@@ -256,51 +274,56 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // Hover Detection
   // ─────────────────────────────────────────────────────────────────────────
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    // Don't update chrome position while menu is open - keeps chrome locked on menu block
-    if (isMenuOpen) return;
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      // Don't update chrome position while menu is open - keeps chrome locked on menu block
+      if (isMenuOpen) return;
 
-    // Cancel any pending operations
-    if (rafHandleRef.current) {
-      cancelAnimationFrame(rafHandleRef.current);
-    }
-    if (hideTimeoutRef.current) {
-      clearTimeout(hideTimeoutRef.current);
-      hideTimeoutRef.current = null;
-    }
+      // Cancel any pending operations
+      if (rafHandleRef.current) {
+        cancelAnimationFrame(rafHandleRef.current);
+      }
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+        hideTimeoutRef.current = null;
+      }
 
-    // Find block under cursor
-    const target = document.elementFromPoint(e.clientX, e.clientY);
-    const blockElement = target?.closest('[data-block-id]') as HTMLElement | null;
-    const blockId = blockElement?.getAttribute('data-block-id');
+      // Find block under cursor
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      const blockElement = target?.closest(
+        '[data-block-id]'
+      ) as HTMLElement | null;
+      const blockId = blockElement?.getAttribute('data-block-id');
 
-    if (!blockId || !blockElement) {
-      scheduleHide();
-      return;
-    }
+      if (!blockId || !blockElement) {
+        scheduleHide();
+        return;
+      }
 
-    // Use RAF to batch positioning with next paint
-    rafHandleRef.current = requestAnimationFrame(() => {
-      const rect = blockElement.getBoundingClientRect();
-      const containerRect = containerRef.current?.getBoundingClientRect();
-      
-      if (!containerRect) return;
+      // Use RAF to batch positioning with next paint
+      rafHandleRef.current = requestAnimationFrame(() => {
+        const rect = blockElement.getBoundingClientRect();
+        const containerRect = containerRef.current?.getBoundingClientRect();
 
-      // Atomic state update prevents flicker
-      // Skip update if still hovering the same visible block (performance optimization)
-      setChrome(prev => {
-        if (prev.blockId === blockId && prev.visible) return prev;
-        
-        return {
-          blockId,
-          x: rect.left - containerRect.left,
-          y: rect.top - containerRect.top,
-          width: rect.width,
-          visible: true,
-        };
+        if (!containerRect) return;
+
+        // Atomic state update prevents flicker
+        // Skip update if still hovering the same visible block (performance optimization)
+        setChrome((prev) => {
+          if (prev.blockId === blockId && prev.visible) return prev;
+
+          return {
+            blockId,
+            x: rect.left - containerRect.left,
+            y: rect.top - containerRect.top,
+            width: rect.width,
+            visible: true,
+          };
+        });
       });
-    });
-  }, [isMenuOpen, containerRef, scheduleHide]);
+    },
+    [isMenuOpen, containerRef, scheduleHide]
+  );
 
   const handleMouseLeave = useCallback(() => {
     if (rafHandleRef.current) {
@@ -362,85 +385,96 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   useEffect(() => {
     // When menu closes, hide chrome so user must hover to see it again
     if (!isMenuOpen) {
-      setChrome(prev => ({ ...prev, visible: false }));
+      setChrome((prev) => ({ ...prev, visible: false }));
     }
   }, [isMenuOpen]);
-
 
   // ─────────────────────────────────────────────────────────────────────────
   // Chrome Actions
   // ─────────────────────────────────────────────────────────────────────────
 
-  const handleInsertBelow = useCallback((e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
+  const handleInsertBelow = useCallback(
+    (e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
 
-    const result = getBlockResult();
-    if (!result) return;
+      const result = getBlockResult();
+      if (!result) return;
 
-    const { pos: blockPos, node: blockNode } = result;
-    const insertPos: number = Number(blockPos) + Number(blockNode.nodeSize);
-    
-    insertParagraphAt(insertPos);
-  }, [getBlockResult, insertParagraphAt]);
+      const { pos: blockPos, node: blockNode } = result;
+      const insertPos: number = Number(blockPos) + Number(blockNode.nodeSize);
 
-  const handleBlockSelect = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+      insertParagraphAt(insertPos);
+    },
+    [getBlockResult, insertParagraphAt]
+  );
 
-    const result = getBlockResult();
-    if (!result) return;
+  const handleBlockSelect = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    const blockPos = result.pos + 1; // Position inside the block
-    const { state, view } = editor;
+      const result = getBlockResult();
+      if (!result) return;
 
-    if (e.shiftKey && anchorBlockPosRef.current !== null) {
-      // Range selection
-      const from = Math.min(anchorBlockPosRef.current, blockPos);
-      const to = Math.max(anchorBlockPosRef.current, blockPos);
-      const rangeSelection = TextSelection.create(state.doc, from, to);
-      view.dispatch(state.tr.setSelection(rangeSelection));
-    } else {
-      // Single block selection
-      anchorBlockPosRef.current = blockPos;
-      const pointSelection = TextSelection.create(state.doc, blockPos);
-      view.dispatch(state.tr.setSelection(pointSelection));
-    }
+      const blockPos = result.pos; // Position of the block itself
+      const { state, view } = editor;
 
-    // Don't blur editor - maintain focus for keyboard handling
-    // Blurring breaks slash command Enter key and other keyboard interactions
-  }, [getBlockResult, editor]);
+      if (e.shiftKey && anchorBlockPosRef.current !== null) {
+        // Range selection - select from anchor to current block
+        const from = Math.min(anchorBlockPosRef.current, blockPos + 1);
+        const to = Math.max(
+          anchorBlockPosRef.current,
+          blockPos + result.node.nodeSize - 1
+        );
+        const rangeSelection = TextSelection.create(state.doc, from, to);
+        view.dispatch(state.tr.setSelection(rangeSelection));
+      } else {
+        // Single block selection - use NodeSelection to show halo
+        anchorBlockPosRef.current = blockPos + 1;
+        const nodeSelection = NodeSelection.create(state.doc, blockPos);
+        view.dispatch(state.tr.setSelection(nodeSelection));
+      }
 
-  const handleOpenMenu = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!editor) return;
-    
-    // Toggle menu
-    if (isMenuOpen) {
-      setIsMenuOpen(false);
-      return;
-    }
-    
-    if (!menuButtonRef.current) return;
-    
-    const buttonRect = menuButtonRef.current.getBoundingClientRect();
-    const menuWidth = 240; // Standard dropdown width
-    const gap = 8; // Gap between button and menu
-    
-    // Position menu to the LEFT of the button
-    setMenuPosition({
-      top: buttonRect.top,
-      left: buttonRect.left - menuWidth - gap,
-    });
-    
-    // Don't blur editor - maintain focus for keyboard handling
-    // The caret will be hidden by CSS when menu is open (via isMenuOpen state)
-    
-    setIsMenuOpen(true);
-    setSelectedMenuIndex(-1); // Reset selection when menu opens
-  }, [isMenuOpen, editor]);
+      // Don't blur editor - maintain focus for keyboard handling
+      // Blurring breaks slash command Enter key and other keyboard interactions
+    },
+    [getBlockResult, editor]
+  );
+
+  const handleOpenMenu = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!editor) return;
+
+      // Toggle menu
+      if (isMenuOpen) {
+        setIsMenuOpen(false);
+        return;
+      }
+
+      if (!menuButtonRef.current) return;
+
+      const buttonRect = menuButtonRef.current.getBoundingClientRect();
+      const menuWidth = 240; // Standard dropdown width
+      const gap = 8; // Gap between button and menu
+
+      // Position menu to the LEFT of the button
+      setMenuPosition({
+        top: buttonRect.top,
+        left: buttonRect.left - menuWidth - gap,
+      });
+
+      // Don't blur editor - maintain focus for keyboard handling
+      // The caret will be hidden by CSS when menu is open (via isMenuOpen state)
+
+      setIsMenuOpen(true);
+      setSelectedMenuIndex(-1); // Reset selection when menu opens
+    },
+    [isMenuOpen, editor]
+  );
 
   // ─────────────────────────────────────────────────────────────────────────
   // Block Menu Actions
@@ -448,7 +482,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
   const handleTurnInto = useCallback(() => {
     if (!chrome.blockId) return;
-    
+
     // Switch to Turn Into view
     setMenuView('turnInto');
     setSearchQuery(''); // Reset search
@@ -459,23 +493,28 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     resetMenuToMain();
   }, [resetMenuToMain]);
 
-  const handleSlashCommandSelect = useCallback((command: SlashCommand) => {
-    if (!chrome.blockId) return;
+  const handleSlashCommandSelect = useCallback(
+    (command: SlashCommand) => {
+      if (!chrome.blockId) return;
 
-    // Map SlashCommand to BlockConversionSpec
-    const spec = mapCommandToSpec(command);
-    if (!spec) {
-      console.warn(`[BlockOptionsMenu] Cannot convert command: ${command.id}`);
-      return;
-    }
+      // Map SlashCommand to BlockConversionSpec
+      const spec = mapCommandToSpec(command);
+      if (!spec) {
+        console.warn(
+          `[BlockOptionsMenu] Cannot convert command: ${command.id}`
+        );
+        return;
+      }
 
-    // Convert the block by ID (not cursor position!)
-    convertBlock(editor, chrome.blockId, spec);
+      // Convert the block by ID (not cursor position!)
+      convertBlock(editor, chrome.blockId, spec);
 
-    // Close menu and reset view
-    setIsMenuOpen(false);
-    resetMenuToMain();
-  }, [chrome.blockId, editor, resetMenuToMain]);
+      // Close menu and reset view
+      setIsMenuOpen(false);
+      resetMenuToMain();
+    },
+    [chrome.blockId, editor, resetMenuToMain]
+  );
 
   const handleAddDescription = useCallback(() => {
     console.log('Add description for block:', chrome.blockId);
@@ -506,7 +545,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
     const tr = state.tr.delete(from, to);
     view.dispatch(tr);
     // Don't focus - user must click to focus manually
-    
+
     setIsMenuOpen(false);
   }, [getBlockResult, editor]);
 
@@ -516,7 +555,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
     const blockPos = result.pos;
     insertParagraphAt(blockPos);
-    
+
     setIsMenuOpen(false);
   }, [getBlockResult, insertParagraphAt]);
 
@@ -564,11 +603,17 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
   // Also exclude commands that can't be converted (dividers, media)
   const filteredCommands = useMemo(() => {
     const allCommands = filterSlashCommands(searchQuery);
-    
+
     // Exclude insert-only commands that can't convert existing blocks
-    const excludedCommands = ['divider', 'dividerWavy', 'image', 'video', 'file'];
-    
-    return allCommands.filter(cmd => !excludedCommands.includes(cmd.id));
+    const excludedCommands = [
+      'divider',
+      'dividerWavy',
+      'image',
+      'video',
+      'file',
+    ];
+
+    return allCommands.filter((cmd) => !excludedCommands.includes(cmd.id));
   }, [searchQuery]);
 
   // Convert SlashCommand to CommandItem format for CommandList
@@ -584,21 +629,21 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
   // Keyboard navigation for TURN INTO view
   // Note: Must be defined after isMainMenuKeyboardActive/isTurnIntoKeyboardActive
-  const { 
-    selectedIndex: commandSelectedIndex, 
+  const {
+    selectedIndex: commandSelectedIndex,
     setSelectedIndex: setCommandSelectedIndex,
     hasKeyboardNavigatedRef, // Hook tracks keyboard usage internally
   } = useCommandPickerNavigation({
-      isActive: isTurnIntoKeyboardActive,
-      itemCount: commandItems.length,
-      onSelect: (index) => {
-        const command = filteredCommands[index];
-        if (command) {
-          handleSlashCommandSelect(command);
-        }
-      },
-      containerRef: commandListRef, // Use separate ref to exclude Back button
-    });
+    isActive: isTurnIntoKeyboardActive,
+    itemCount: commandItems.length,
+    onSelect: (index) => {
+      const command = filteredCommands[index];
+      if (command) {
+        handleSlashCommandSelect(command);
+      }
+    },
+    containerRef: commandListRef, // Use separate ref to exclude Back button
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // Chrome Container Handlers
@@ -624,7 +669,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
   // Show chrome when hovering (and not typing) OR when menu is open
   const shouldShow = (chrome.visible && !isTyping) || isMenuOpen;
-  
+
   // Show dismiss icon when menu is open
   const shouldShowDismissIcon = isMenuOpen;
 
@@ -673,7 +718,10 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
         event.preventDefault();
         event.stopPropagation();
         setSelectedMenuIndex((prev) => {
-          const newIndex = prev === -1 ? totalMenuItems - 1 : (prev - 1 + totalMenuItems) % totalMenuItems;
+          const newIndex =
+            prev === -1
+              ? totalMenuItems - 1
+              : (prev - 1 + totalMenuItems) % totalMenuItems;
           return newIndex;
         });
       }
@@ -681,7 +729,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
       if (event.key === 'Enter' && selectedMenuIndex !== -1) {
         event.preventDefault();
         event.stopPropagation();
-        
+
         // Execute the action based on selectedMenuIndex
         const actions = [
           handleTurnInto,
@@ -693,7 +741,7 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
           handleInsertBelowFromMenu,
           handleCopyLink,
         ];
-        
+
         actions[selectedMenuIndex]?.();
       }
     };
@@ -718,7 +766,12 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
   // Auto-scroll selected item into view (ONLY for main menu)
   useEffect(() => {
-    if (!isMainMenuKeyboardActive || selectedMenuIndex === -1 || !menuContainerRef.current) return;
+    if (
+      !isMainMenuKeyboardActive ||
+      selectedMenuIndex === -1 ||
+      !menuContainerRef.current
+    )
+      return;
 
     const items = menuContainerRef.current.querySelectorAll('button');
     const selectedItem = items[selectedMenuIndex];
@@ -905,31 +958,33 @@ export function EditorChromeLayer({ editor, containerRef, createdAt, updatedAt, 
 
                 <DropdownSeparator />
 
-                <DropdownHeader 
-                  label={`Created: ${blockTimestamps.createdAt ? formatDateTime(new Date(blockTimestamps.createdAt)) : 'N/A'}`} 
-                  hint="" 
+                <DropdownHeader
+                  label={`Created: ${blockTimestamps.createdAt ? formatDateTime(new Date(blockTimestamps.createdAt)) : 'N/A'}`}
+                  hint=""
                 />
-                <DropdownHeader 
-                  label={`Last edited: ${blockTimestamps.updatedAt ? formatDateTime(new Date(blockTimestamps.updatedAt)) : 'N/A'}`} 
-                  hint="" 
+                <DropdownHeader
+                  label={`Last edited: ${blockTimestamps.updatedAt ? formatDateTime(new Date(blockTimestamps.updatedAt)) : 'N/A'}`}
+                  hint=""
                 />
               </>
             ) : (
               // Turn Into view (command picker)
               <>
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  alignItems: 'flex-start', 
-                  gap: '4px',
-                  // marginBottom: '8px',
-                  }}>
-                  <Button 
-                    variant="tertiary" 
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: '4px',
+                    // marginBottom: '8px',
+                  }}
+                >
+                  <Button
+                    variant="tertiary"
                     onClick={handleBackToMenu}
                     icon={<ChevronLeft size={16} />}
                   />
-                  
+
                   {/* <Input
                     autoFocus
                     placeholder="Search block types..."
