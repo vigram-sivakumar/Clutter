@@ -69,21 +69,12 @@ export const SelectAll = Extension.create({
 
         const nodeSelected = isNodeSelected(state);
 
-        console.log('🔍 Ctrl+A:', {
-          nodeSelected,
-          selectionType: state.selection.constructor.name,
-        });
-
         // Step 1: If current block is selected as node → select all blocks
         if (nodeSelected) {
-          console.log(
-            '→ NodeSelection detected, selecting all blocks (AllSelection)'
-          );
           return selectAllBlocks(state, dispatch);
         }
 
         // Step 2: Default - select current block as node (blue halo)
-        console.log('→ Selecting current block as NodeSelection (blue halo)');
         return selectCurrentBlockAsNode(state, dispatch);
       },
     };
