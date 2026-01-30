@@ -505,8 +505,21 @@ export function EditorChromeLayer({
         return;
       }
 
-      // Convert the block by ID (not cursor position!)
-      convertBlock(editor, chrome.blockId, spec);
+      // Check for multiselection - convert all selected blocks
+      if (isMultiBlockSelection(editor)) {
+        const blocks = getSelectedBlocks(editor);
+
+        // Convert each block (no need for reverse order since we're not deleting)
+        blocks.forEach((block) => {
+          const blockId = block.node.attrs.blockId;
+          if (blockId) {
+            convertBlock(editor, blockId, spec);
+          }
+        });
+      } else {
+        // Single block - convert the block by ID (not cursor position!)
+        convertBlock(editor, chrome.blockId, spec);
+      }
 
       // Close menu and reset view
       setIsMenuOpen(false);
@@ -522,29 +535,55 @@ export function EditorChromeLayer({
   }, [chrome.blockId]);
 
   const handleDuplicate = useCallback(() => {
-    console.log('Duplicate block:', chrome.blockId);
+    if (isMultiBlockSelection(editor)) {
+      console.log('Duplicate multiple blocks (TODO)');
+      // TODO: Implement duplicate for multiple blocks
+    } else {
+      console.log('Duplicate block:', chrome.blockId);
+      // TODO: Implement duplicate for single block
+    }
     setIsMenuOpen(false);
-    // TODO: Implement duplicate block
-  }, [chrome.blockId]);
+  }, [chrome.blockId, editor]);
 
   const handleMoveTo = useCallback(() => {
-    console.log('Move to for block:', chrome.blockId);
+    if (isMultiBlockSelection(editor)) {
+      console.log('Move multiple blocks (TODO)');
+      // TODO: Implement move to for multiple blocks
+    } else {
+      console.log('Move to for block:', chrome.blockId);
+      // TODO: Implement move to menu for single block
+    }
     setIsMenuOpen(false);
-    // TODO: Implement move to menu
-  }, [chrome.blockId]);
+  }, [chrome.blockId, editor]);
 
   const handleDelete = useCallback(() => {
-    const result = getBlockResult();
-    if (!result) return;
-
-    const { pos, node } = result;
     const { state, view } = editor;
-    const from = pos;
-    const to = pos + node.nodeSize;
-    const tr = state.tr.delete(from, to);
-    view.dispatch(tr);
-    // Don't focus - user must click to focus manually
 
+    // Check for multiselection - delete all selected blocks
+    if (isMultiBlockSelection(editor)) {
+      const blocks = getSelectedBlocks(editor);
+      let tr = state.tr;
+
+      // Delete in reverse order to preserve positions
+      for (let i = blocks.length - 1; i >= 0; i--) {
+        const block = blocks[i];
+        if (block) {
+          tr = tr.delete(block.pos, block.pos + block.nodeSize);
+        }
+      }
+
+      view.dispatch(tr);
+    } else {
+      // Single block deletion
+      const result = getBlockResult();
+      if (!result) return;
+
+      const { pos, node } = result;
+      const tr = state.tr.delete(pos, pos + node.nodeSize);
+      view.dispatch(tr);
+    }
+
+    // Don't focus - user must click to focus manually
     setIsMenuOpen(false);
   }, [getBlockResult, editor]);
 
@@ -564,10 +603,29 @@ export function EditorChromeLayer({
   }, [handleInsertBelow]);
 
   const handleCopyLink = useCallback(() => {
-    console.log('Copy link to block:', chrome.blockId);
+    const baseUrl = window.location.href.split('#')[0];
+
+    if (isMultiBlockSelection(editor)) {
+      // Multi-selection: Copy page link (can't highlight multiple blocks)
+      navigator.clipboard.writeText(baseUrl).catch((err) => {
+        console.error('Failed to copy page link:', err);
+      });
+    } else {
+      // Single selection: Copy link to specific block
+      const result = getBlockResult();
+      if (!result) return;
+
+      const blockId = result.node.attrs.blockId;
+      if (blockId) {
+        const blockUrl = `${baseUrl}#${blockId}`;
+        navigator.clipboard.writeText(blockUrl).catch((err) => {
+          console.error('Failed to copy block link:', err);
+        });
+      }
+    }
+
     setIsMenuOpen(false);
-    // TODO: Implement copy link to block
-  }, [chrome.blockId]);
+  }, [chrome.blockId, editor, getBlockResult]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Get Block Timestamps
@@ -671,6 +729,10 @@ export function EditorChromeLayer({
 
   // Show dismiss icon when menu is open
   const shouldShowDismissIcon = isMenuOpen;
+
+  // Check if multiple blocks are selected (for menu behavior)
+  const isMultiSelected = isMultiBlockSelection(editor);
+  const selectedCount = isMultiSelected ? getSelectedBlocks(editor).length : 1;
 
   const baseButtonStyle: React.CSSProperties = {
     display: 'flex',
@@ -905,6 +967,7 @@ export function EditorChromeLayer({
                   onClick={handleAddDescription}
                   isSelected={selectedMenuIndex === 1}
                   onMouseEnter={() => setSelectedMenuIndex(1)}
+                  disabled={isMultiSelected}
                 />
 
                 <DropdownSeparator />
@@ -949,7 +1012,11 @@ export function EditorChromeLayer({
                 />
                 <DropdownItem
                   icon={<Link size={16} />}
-                  label="Copy link to block"
+                  label={
+                    isMultiSelected
+                      ? `Copy link to all (${selectedCount})`
+                      : 'Copy link to block'
+                  }
                   onClick={handleCopyLink}
                   isSelected={selectedMenuIndex === 7}
                   onMouseEnter={() => setSelectedMenuIndex(7)}
