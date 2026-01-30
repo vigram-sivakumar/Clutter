@@ -19,6 +19,8 @@ export const BlockDeletion = Extension.create({
   name: 'blockDeletion',
 
   addProseMirrorPlugins() {
+    const editor = this.editor; // Capture editor in closure
+
     return [
       new Plugin({
         key: blockDeletionPluginKey,
@@ -29,15 +31,28 @@ export const BlockDeletion = Extension.create({
               return false;
             }
 
-            const editor = (this as { editor?: Editor }).editor;
             if (!editor) {
+              console.log('❌ BlockDeletion: No editor');
               return false;
             }
 
+            const { selection } = editor.state;
+            console.log('🔍 BlockDeletion handler called:', {
+              key: event.key,
+              selectionType: selection.constructor.name,
+              from: selection.from,
+              to: selection.to,
+              docSize: editor.state.doc.content.size,
+            });
+
             // Case 1: Multi-block selection (Shift+Click, Cmd+A, AllSelection)
             const isMultiBlock = isMultiBlockSelection(editor);
+            console.log('🔍 isMultiBlockSelection:', isMultiBlock);
+
             if (isMultiBlock) {
               const blocks = getSelectedBlocks(editor);
+              console.log('🔍 blocks:', blocks?.length);
+
               if (blocks && blocks.length > 0) {
                 event.preventDefault();
 
