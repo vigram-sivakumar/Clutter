@@ -571,6 +571,9 @@ export function EditorChromeLayer({
       // Remember the position of the first block for cursor placement
       const firstBlockPos = blocks[0]?.pos ?? 0;
 
+      // Check if we're deleting all blocks
+      const deletingAllBlocks = blocks.length === state.doc.childCount;
+
       // Delete in reverse order to preserve positions
       for (let i = blocks.length - 1; i >= 0; i--) {
         const block = blocks[i];
@@ -579,10 +582,17 @@ export function EditorChromeLayer({
         }
       }
 
-      // Set selection to a safe position after deletion
-      // Try to place cursor at the position of the first deleted block
-      const newPos = Math.min(firstBlockPos, tr.doc.content.size);
-      tr = tr.setSelection(TextSelection.create(tr.doc, newPos));
+      // If we deleted everything, create an empty paragraph
+      if (deletingAllBlocks) {
+        const emptyParagraph = state.schema.nodes.paragraph.create();
+        tr = tr.insert(0, emptyParagraph);
+        // Place cursor inside the new paragraph
+        tr = tr.setSelection(TextSelection.create(tr.doc, 1));
+      } else {
+        // Set selection to a safe position after deletion
+        const newPos = Math.min(firstBlockPos, tr.doc.content.size);
+        tr = tr.setSelection(TextSelection.create(tr.doc, newPos));
+      }
 
       view.dispatch(tr);
     } else {
@@ -593,9 +603,17 @@ export function EditorChromeLayer({
       const { pos, node } = result;
       let tr = state.tr.delete(pos, pos + node.nodeSize);
 
-      // Set selection to a safe position after deletion
-      const newPos = Math.min(pos, tr.doc.content.size);
-      tr = tr.setSelection(TextSelection.create(tr.doc, newPos));
+      // If we deleted the last block, create an empty paragraph
+      if (tr.doc.childCount === 0) {
+        const emptyParagraph = state.schema.nodes.paragraph.create();
+        tr = tr.insert(0, emptyParagraph);
+        // Place cursor inside the new paragraph
+        tr = tr.setSelection(TextSelection.create(tr.doc, 1));
+      } else {
+        // Set selection to a safe position after deletion
+        const newPos = Math.min(pos, tr.doc.content.size);
+        tr = tr.setSelection(TextSelection.create(tr.doc, newPos));
+      }
 
       view.dispatch(tr);
     }
