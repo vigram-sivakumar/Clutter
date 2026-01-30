@@ -145,13 +145,24 @@ export function useBlock({
       el.classList.toggle('block-focused', isFocused);
     };
 
-    // Listen to selection changes (not focus/blur)
-    // This updates focus class on: cursor move, Enter, click, arrow keys, etc.
+    const clearAllFocusClasses = () => {
+      // Global clear: remove .block-focused from all blocks when editor loses focus
+      // This prevents stale placeholders when clicking outside the editor
+      document
+        .querySelectorAll('.block-focused')
+        .forEach((el) => el.classList.remove('block-focused'));
+    };
+
+    // Listen to selection changes and blur events
+    // selectionUpdate: Apply focus class to intersecting blocks
+    // blur: Clear all focus classes (prevents stale placeholders)
     editor.on('selectionUpdate', updateFocusClass);
+    editor.on('blur', clearAllFocusClasses);
     updateFocusClass(); // Set initial state
 
     return () => {
       editor.off('selectionUpdate', updateFocusClass);
+      editor.off('blur', clearAllFocusClasses);
     };
   }, [editor, blockId, getPos, node.nodeSize]);
 
