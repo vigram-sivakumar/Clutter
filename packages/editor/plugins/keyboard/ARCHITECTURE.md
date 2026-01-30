@@ -288,6 +288,7 @@ function handleEnterImpl(editor: Editor): boolean {
 | `withUISafety.ts`                                  | Automatic guard wrapper                        |
 | `ARCHITECTURE.md`                                  | This document (the contract)                   |
 | `.eslint-local/rules/require-ui-safety-wrapper.js` | ESLint enforcement                             |
+| `COLLAPSED_CONTAINERS.md`                          | Collapsed toggle/task keyboard behavior        |
 | `utils.ts`                                         | ⚠️ Deprecated `shouldDeferToUI` (migrate away) |
 
 ---
@@ -311,9 +312,10 @@ This architecture transitions from:
 
 ## 📄 **VERSION HISTORY**
 
-| Version | Date       | Changes                       |
-| ------- | ---------- | ----------------------------- |
-| 1.0     | 2026-01-20 | Initial architecture contract |
+| Version | Date       | Changes                                  |
+| ------- | ---------- | ---------------------------------------- |
+| 1.0     | 2026-01-20 | Initial architecture contract            |
+| 1.1     | 2026-01-29 | Added collapsed containers documentation |
 
 ---
 

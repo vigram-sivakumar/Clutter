@@ -1,6 +1,6 @@
 # Complete Blocks Reference - Clutter Editor
 
-**Generated:** 2026-01-26  
+**Last Updated:** 2026-01-29  
 **Purpose:** Complete documentation of all block types, attributes, and behavior for redesign
 
 ---
@@ -32,6 +32,33 @@ Clutter uses a **flat block structure** (Notion/Craft-style):
 - No nested block structures (e.g., no `<ul><li>` nesting)
 - Indentation is controlled by `indent` attribute only
 - Parent-child relationships are derived from indent levels, not DOM structure
+
+### **Block Primitives Architecture**
+
+All block components use a **unified primitives system** that separates mechanics from meaning:
+
+**Block Mechanics** (handled by primitives):
+
+- Hover detection zones
+- Selection halos
+- Layout (padding, margin, positioning)
+- Focus/blur handling
+- Indent calculation
+
+**Block Meaning** (handled by components):
+
+- Domain-specific logic (list numbering, task state, etc.)
+- Content rendering
+- Specialized behavior
+
+**Benefits:**
+
+- 27% code reduction across all blocks (1,818 → 1,323 lines)
+- Single source of truth for common behavior
+- Consistent UX across all block types
+- One place to fix bugs
+
+**Documentation:** See `packages/editor/components/blocks/BLOCK_COMPONENTS.md`
 
 ### **Block Identity**
 
@@ -665,6 +692,13 @@ All keyboard behavior is centralized:
 
 **Exception:** CodeBlock Tab (inserts literal `\t`)
 
+**Collapsed Containers:**
+
+- Enter in collapsed container → creates sibling after subtree (not invisible child)
+- Tab under collapsed container → auto-expands parent (prevents invisible children)
+
+**Documentation:** See `packages/editor/plugins/keyboard/COLLAPSED_CONTAINERS.md`
+
 ### **6. Block Conversion**
 
 Use `convertBlock()` utility:
@@ -778,6 +812,28 @@ interface LinkAttrs {
 ```
 
 **HTML:** `<a href="url" target="_blank" rel="noopener">text</a>`
+
+---
+
+## Related Documentation
+
+### Architecture
+
+- `packages/editor/components/blocks/BLOCK_COMPONENTS.md` - Block primitives architecture
+- `packages/editor/components/blocks/primitives/README.md` - Primitives API reference
+- `BLOCK_CREATION_CONTRACT.md` - Block creation rules
+- `.cursor/skills/editor-architecture/SKILL.md` - Architectural enforcement
+
+### Keyboard Behavior
+
+- `packages/editor/plugins/keyboard/ARCHITECTURE.md` - Keyboard handler contract
+- `packages/editor/plugins/keyboard/COLLAPSED_CONTAINERS.md` - Collapsed toggle/task behavior
+
+### Other Features
+
+- `FLOATING_UI_ARCHITECTURE.md` - Floating menus and dropdowns
+- `packages/editor/EDITOR_CHROME_LAYER.md` - Block chrome (hover controls)
+- `packages/editor/BLOCK_TIMESTAMPS.md` - Timestamp tracking
 
 ---
 
