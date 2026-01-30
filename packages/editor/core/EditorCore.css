@@ -48,16 +48,21 @@
  * - Rendered via CSS ::before on content element
  * - data-empty on wrapper (node.content.size === 0)
  * - data-placeholder on wrapper (text, controlled by focus logic)
- * - ::before painted on [data-node-view-content] where caret lives
+ * - ::before painted on innermost content container where caret lives
  * 
  * Result: Placeholder appears inline in text area, like native <input placeholder>
  * 
  * SELECTOR EXPLANATION:
  * [data-empty="true"][data-placeholder] - Wrapper with both attributes
- * [data-node-view-content] - TipTap's content container
+ * [data-node-view-content-react] - TipTap's innermost React content container
  * ::before - Pseudo-element for placeholder text
+ * 
+ * NOTE: TipTap creates nested structure:
+ * [data-node-view-content] (outer)
+ *   └─ [data-node-view-content-react] (inner, where text lives)
+ * We target the inner one for ::before to work correctly.
  */
-.ProseMirror [data-empty="true"][data-placeholder] [data-node-view-content]::before {
+.ProseMirror [data-empty="true"][data-placeholder] [data-node-view-content-react]::before {
   content: attr(data-placeholder);
   color: var(--editor-text-tertiary);
   pointer-events: none;
