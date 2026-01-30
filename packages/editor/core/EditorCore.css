@@ -51,8 +51,13 @@
  * - ::before painted on [data-node-view-content] where caret lives
  * 
  * Result: Placeholder appears inline in text area, like native <input placeholder>
+ * 
+ * SELECTOR EXPLANATION:
+ * [data-empty="true"][data-placeholder] - Wrapper with both attributes
+ * [data-node-view-content] - TipTap's content container
+ * ::before - Pseudo-element for placeholder text
  */
-.ProseMirror [data-empty="true"][data-placeholder] [contenteditable="true"]::before {
+.ProseMirror [data-empty="true"][data-placeholder] [data-node-view-content]::before {
   content: attr(data-placeholder);
   color: var(--editor-text-tertiary);
   pointer-events: none;
