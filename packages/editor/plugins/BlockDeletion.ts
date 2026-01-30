@@ -32,27 +32,13 @@ export const BlockDeletion = Extension.create({
             }
 
             if (!editor) {
-              console.log('❌ BlockDeletion: No editor');
               return false;
             }
 
-            const { selection } = editor.state;
-            console.log('🔍 BlockDeletion handler called:', {
-              key: event.key,
-              selectionType: selection.constructor.name,
-              from: selection.from,
-              to: selection.to,
-              docSize: editor.state.doc.content.size,
-            });
-
             // Case 1: Multi-block selection (Shift+Click, Cmd+A, AllSelection)
             const isMultiBlock = isMultiBlockSelection(editor);
-            console.log('🔍 isMultiBlockSelection:', isMultiBlock);
-
             if (isMultiBlock) {
               const blocks = getSelectedBlocks(editor);
-              console.log('🔍 blocks:', blocks?.length);
-
               if (blocks && blocks.length > 0) {
                 event.preventDefault();
 
