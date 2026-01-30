@@ -539,15 +539,51 @@ export function EditorChromeLayer({
   }, [chrome.blockId]);
 
   const handleDuplicate = useCallback(() => {
+    const { state, view } = editor;
+    let tr = state.tr;
+
     if (isMultiBlockSelection(editor)) {
-      console.log('Duplicate multiple blocks (TODO)');
-      // TODO: Implement duplicate for multiple blocks
+      // Duplicate multiple blocks
+      const blocks = getSelectedBlocks(editor);
+
+      // Find the position after the last selected block
+      const lastBlock = blocks[blocks.length - 1];
+      if (!lastBlock) return;
+
+      let insertPos = lastBlock.pos + lastBlock.nodeSize;
+
+      // Clone and insert each block in order
+      blocks.forEach((block) => {
+        const clonedNode = block.node.copy(block.node.content);
+        tr = tr.insert(insertPos, clonedNode);
+        insertPos += clonedNode.nodeSize;
+      });
+
+      // Set selection to the first duplicated block
+      const firstDuplicatedPos = lastBlock.pos + lastBlock.nodeSize;
+      tr = tr.setSelection(NodeSelection.create(tr.doc, firstDuplicatedPos));
+
+      view.dispatch(tr);
     } else {
-      console.log('Duplicate block:', chrome.blockId);
-      // TODO: Implement duplicate for single block
+      // Duplicate single block
+      const result = getBlockResult();
+      if (!result) return;
+
+      const { pos, node } = result;
+      const insertPos = pos + node.nodeSize;
+
+      // Clone the node (preserves all attributes including content)
+      const clonedNode = node.copy(node.content);
+      tr = tr.insert(insertPos, clonedNode);
+
+      // Set selection to the duplicated block
+      tr = tr.setSelection(NodeSelection.create(tr.doc, insertPos));
+
+      view.dispatch(tr);
     }
+
     setIsMenuOpen(false);
-  }, [chrome.blockId, editor]);
+  }, [chrome.blockId, editor, getBlockResult]);
 
   const handleMoveTo = useCallback(() => {
     if (isMultiBlockSelection(editor)) {
