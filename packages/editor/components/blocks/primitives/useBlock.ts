@@ -106,8 +106,8 @@ export function useBlock({
   // Canonical emptiness check (ProseMirror source of truth)
   const isEmpty = node.content.size === 0;
 
-  // Get placeholder text (with focus detection)
-  const placeholderText = usePlaceholder({ node, editor, getPos });
+  // Get placeholder text (structural only, no focus logic)
+  const placeholderText = usePlaceholder({ node });
 
   // Check selection state
   const isSelected = useBlockSelection({
@@ -120,28 +120,40 @@ export function useBlock({
   const isHidden = useBlockHidden(editor, getPos);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Force re-render on selection change (for placeholder visibility)
+  // Manage focus state via CSS class (imperative DOM, no React re-render)
   // ─────────────────────────────────────────────────────────────────────────
 
-  const [, forceUpdate] = useState(0);
-
   useEffect(() => {
-    const handleUpdate = () => {
-      forceUpdate((prev) => prev + 1);
+    const updateFocusClass = () => {
+      const pos = getPos();
+      if (pos === undefined) return;
+
+      const { from, to } = editor.state.selection;
+      const nodeStart = pos;
+      const nodeEnd = pos + node.nodeSize;
+
+      // Inclusive intersection check for multi-node selections
+      // Handles: collapsed cursor, drag selection, Shift+Arrow, block selection
+      const isFocused =
+        (from >= nodeStart && from < nodeEnd) || // Selection starts in block
+        (to > nodeStart && to <= nodeEnd) || // Selection ends in block
+        (from <= nodeStart && to >= nodeEnd); // Selection encompasses block
+
+      const el = document.querySelector(`[data-block-id="${blockId}"]`);
+      if (!el) return; // Safety: node removed but effect still running
+
+      el.classList.toggle('block-focused', isFocused);
     };
 
-    // Listen to selection updates for placeholder visibility
-    // usePlaceholder needs fresh selection state to compute focus correctly
-    editor.on('selectionUpdate', handleUpdate);
-    editor.on('focus', handleUpdate);
-    editor.on('blur', handleUpdate);
+    // Listen to selection changes (not focus/blur)
+    // This updates focus class on: cursor move, Enter, click, arrow keys, etc.
+    editor.on('selectionUpdate', updateFocusClass);
+    updateFocusClass(); // Set initial state
 
     return () => {
-      editor.off('selectionUpdate', handleUpdate);
-      editor.off('focus', handleUpdate);
-      editor.off('blur', handleUpdate);
+      editor.off('selectionUpdate', updateFocusClass);
     };
-  }, [editor]);
+  }, [editor, blockId, getPos, node.nodeSize]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Build wrapper props

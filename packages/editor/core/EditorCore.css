@@ -47,26 +47,33 @@
  * - Placeholder NEVER creates DOM structure
  * - Rendered via CSS ::before on content element
  * - data-empty on wrapper (node.content.size === 0)
- * - data-placeholder on wrapper (marker attribute for selector)
+ * - data-placeholder on wrapper (marker attribute with text)
  * - --placeholder-text CSS variable (text content, inherited by ::before)
+ * - .block-focused class (added/removed imperatively via selectionUpdate)
  * - ::before painted on innermost content container where caret lives
  * 
  * Result: Placeholder appears inline in text area, like native <input placeholder>
  * 
- * ARCHITECTURE:
- * 1. useBlock hook sets data-empty, data-placeholder, and --placeholder-text
- * 2. CSS selector matches [data-empty="true"][data-placeholder]
- * 3. ::before reads inherited CSS variable var(--placeholder-text)
- * 4. CSS variable inheritance allows ::before on child to access parent's text
+ * ARCHITECTURE (3-Layer Separation):
+ * 1. Data Layer (React/useBlock):
+ *    - Sets data-empty, data-placeholder, --placeholder-text
+ *    - Placeholder text is structural (all empty blocks get it)
+ * 2. Interaction Layer (DOM/selectionUpdate):
+ *    - Adds/removes .block-focused class imperatively
+ *    - Zero React re-renders on cursor movement
+ * 3. Presentation Layer (CSS):
+ *    - Placeholder exists on all empty blocks
+ *    - Only visible when block has .block-focused class
  * 
- * NOTE: TipTap creates nested structure:
- * <div data-empty="true" data-placeholder style="--placeholder-text: '...'">
+ * DOM Structure:
+ * <div data-empty="true" data-placeholder class="block-focused" 
+ *      style="--placeholder-text: '...'">
  *   <div data-node-view-content>
- *     <div data-node-view-content-react>  ← ::before here, inherits variable
+ *     <div data-node-view-content-react>  ← ::before here
  * 
  * We use CSS variables instead of attr() because attr() cannot read parent attributes.
  */
-.ProseMirror [data-empty="true"][data-placeholder] [data-node-view-content-react]::before {
+.ProseMirror [data-empty="true"][data-placeholder].block-focused [data-node-view-content-react]::before {
   content: var(--placeholder-text);
   color: var(--editor-text-tertiary);
   pointer-events: none;
