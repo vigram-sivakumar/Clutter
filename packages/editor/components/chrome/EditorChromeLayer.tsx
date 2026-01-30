@@ -568,6 +568,9 @@ export function EditorChromeLayer({
       const blocks = getSelectedBlocks(editor);
       let tr = state.tr;
 
+      // Remember the position of the first block for cursor placement
+      const firstBlockPos = blocks[0]?.pos ?? 0;
+
       // Delete in reverse order to preserve positions
       for (let i = blocks.length - 1; i >= 0; i--) {
         const block = blocks[i];
@@ -576,6 +579,11 @@ export function EditorChromeLayer({
         }
       }
 
+      // Set selection to a safe position after deletion
+      // Try to place cursor at the position of the first deleted block
+      const newPos = Math.min(firstBlockPos, tr.doc.content.size);
+      tr = tr.setSelection(TextSelection.create(tr.doc, newPos));
+
       view.dispatch(tr);
     } else {
       // Single block deletion
@@ -583,7 +591,12 @@ export function EditorChromeLayer({
       if (!result) return;
 
       const { pos, node } = result;
-      const tr = state.tr.delete(pos, pos + node.nodeSize);
+      let tr = state.tr.delete(pos, pos + node.nodeSize);
+
+      // Set selection to a safe position after deletion
+      const newPos = Math.min(pos, tr.doc.content.size);
+      tr = tr.setSelection(TextSelection.create(tr.doc, newPos));
+
       view.dispatch(tr);
     }
 
