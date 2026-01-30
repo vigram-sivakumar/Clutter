@@ -1,21 +1,14 @@
 /**
  * Progressive Select All Plugin
  *
- * Implements Notion/Craft-style Cmd+A behavior:
- * 1. First Cmd+A: Browser native select-all (visible highlight)
- * 2. Second Cmd+A: Select the entire current block (NodeSelection)
- * 3. Third Cmd+A: Select all blocks in the document (AllSelection)
- *
- * SELECTION OWNERSHIP LAW:
- * - Text selection = browser renders (native highlight)
- * - Structural selection = editor renders (halos)
- * - Never replace each other
+ * Implements simplified Cmd+A behavior:
+ * 1. First Cmd+A: Select current block (NodeSelection - blue halo)
+ * 2. Second Cmd+A: Select all blocks (AllSelection - all blue halos)
  */
 
 import {
   Plugin,
   PluginKey,
-  TextSelection,
   AllSelection,
   NodeSelection,
 } from '@tiptap/pm/state';
@@ -24,84 +17,11 @@ import { Extension } from '@tiptap/core';
 export const SelectAllPluginKey = new PluginKey('selectAll');
 
 /**
- * Check if selection covers all text in the current block
- */
-function isBlockFullySelected(state: any): boolean {
-  const { selection } = state;
-  const { $from, $to, from, to } = selection;
-
-  // Must be a TextSelection (note: constructor name has underscore prefix)
-  if (selection.constructor.name !== '_TextSelection') {
-    return false;
-  }
-
-  // Must NOT be an empty selection (collapsed cursor)
-  // Only range selections can be "fully selected"
-  if (selection.empty) {
-    return false;
-  }
-
-  // Must be in the same block
-  const blockDepth = $from.depth;
-  if (blockDepth === 0) return false;
-
-  // Check if $from and $to are in the same block
-  if ($from.depth !== $to.depth) {
-    return false;
-  }
-
-  // Check if they share the same parent block
-  const fromParent = $from.node(blockDepth);
-  const toParent = $to.node(blockDepth);
-
-  if (fromParent !== toParent) {
-    return false;
-  }
-
-  const blockStart = $from.start(blockDepth);
-  const blockEnd = $from.end(blockDepth);
-
-  // Check if selection spans the entire block content
-  return from === blockStart && to === blockEnd;
-}
-
-/**
  * Check if selection is a NodeSelection on a single block
  */
 function isNodeSelected(state: any): boolean {
   const { selection } = state;
   return selection.constructor.name === '_NodeSelection';
-}
-
-/**
- * Select all text in the current block
- */
-function selectCurrentBlock(state: any, dispatch: any): boolean {
-  const { selection, doc } = state;
-  const { $from } = selection;
-
-  const blockDepth = $from.depth;
-  if (blockDepth === 0) {
-    // At document level, select first block
-    if (doc.childCount > 0) {
-      const firstBlock = doc.child(0);
-      const tr = state.tr.setSelection(
-        TextSelection.create(doc, 1, firstBlock.nodeSize - 1)
-      );
-      dispatch(tr);
-      return true;
-    }
-    return false;
-  }
-
-  const blockStart = $from.start(blockDepth);
-  const blockEnd = $from.end(blockDepth);
-
-  const tr = state.tr.setSelection(
-    TextSelection.create(doc, blockStart, blockEnd)
-  );
-  dispatch(tr);
-  return true;
 }
 
 /**
@@ -147,32 +67,24 @@ export const SelectAll = Extension.create({
         const { state, view } = editor;
         const { dispatch } = view;
 
-        const blockFullySelected = isBlockFullySelected(state);
         const nodeSelected = isNodeSelected(state);
 
         console.log('🔍 Ctrl+A:', {
-          blockFullySelected,
           nodeSelected,
           selectionType: state.selection.constructor.name,
-          empty: state.selection.empty,
         });
 
-        // Step 1: Check if block is fully selected as text → select as node
-        if (blockFullySelected) {
-          console.log('→ Block fully selected, converting to NodeSelection');
-          return selectCurrentBlockAsNode(state, dispatch);
-        }
-
-        // Step 2: Check if block is selected as a node → select all blocks
+        // Step 1: If current block is selected as node → select all blocks
         if (nodeSelected) {
-          console.log('→ Node selected, selecting all blocks (AllSelection)');
+          console.log(
+            '→ NodeSelection detected, selecting all blocks (AllSelection)'
+          );
           return selectAllBlocks(state, dispatch);
         }
 
-        // Step 3: Default - select current block's text
-        // This prevents browser from selecting entire document
-        console.log('→ Selecting current block text (TextSelection)');
-        return selectCurrentBlock(state, dispatch);
+        // Step 2: Default - select current block as node (blue halo)
+        console.log('→ Selecting current block as NodeSelection (blue halo)');
+        return selectCurrentBlockAsNode(state, dispatch);
       },
     };
   },
