@@ -433,10 +433,29 @@ export function EditorChromeLayer({
         const rangeSelection = TextSelection.create(state.doc, from, to);
         view.dispatch(state.tr.setSelection(rangeSelection));
       } else {
-        // Single block selection - use NodeSelection to show halo
+        // Check if this block has children (is a parent with nested content)
+        const hasChildren =
+          result.node.content.size > 0 &&
+          result.node.childCount > 0 &&
+          (result.node.type.name === 'listItem' ||
+            result.node.type.name === 'toggleList' ||
+            result.node.type.name === 'details');
+
+        if (hasChildren) {
+          // Parent block with children - select entire subtree using TextSelection
+          // This will show halos on all blocks in the subtree
+          const from = blockPos + 1; // Start inside the parent
+          const to = blockPos + result.node.nodeSize - 1; // End inside the last child
+          const rangeSelection = TextSelection.create(state.doc, from, to);
+          view.dispatch(state.tr.setSelection(rangeSelection));
+        } else {
+          // Leaf block or simple block - select just this block (NodeSelection)
+          const nodeSelection = NodeSelection.create(state.doc, blockPos);
+          view.dispatch(state.tr.setSelection(nodeSelection));
+        }
+
+        // Store this position as the anchor for potential Shift+Click range
         anchorBlockPosRef.current = blockPos + 1;
-        const nodeSelection = NodeSelection.create(state.doc, blockPos);
-        view.dispatch(state.tr.setSelection(nodeSelection));
       }
 
       // Don't blur editor - maintain focus for keyboard handling
