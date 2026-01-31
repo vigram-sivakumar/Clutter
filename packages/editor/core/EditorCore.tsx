@@ -359,17 +359,6 @@ const EditorCoreInner = forwardRef<
                     const from = Math.min(anchorStart, clickedStart);
                     const to = Math.max(anchorEnd, clickedEnd);
 
-                    console.log('🔍 Shift+Click inside block:', {
-                      anchorPos,
-                      anchorSize,
-                      anchorRange: `${anchorStart} → ${anchorEnd}`,
-                      clickedBlockPos,
-                      clickedBlockSize: clickedBlock.nodeSize,
-                      clickedRange: `${clickedStart} → ${clickedEnd}`,
-                      from,
-                      to,
-                    });
-
                     const tr = view.state.tr.setSelection(
                       TextSelection.create(view.state.doc, from, to)
                     );
