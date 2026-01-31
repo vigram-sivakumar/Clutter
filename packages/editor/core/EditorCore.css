@@ -105,6 +105,20 @@
   background-color: transparent;
 }
 
+/* Block drag selection (decoration-based, Notion-style) */
+.ProseMirror .block-drag-selected {
+  position: relative;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.9);
+  background-color: rgba(35, 131, 226, 0.08);
+  transition: box-shadow 0.1s ease, background-color 0.1s ease;
+}
+
+/* Hide text selection during block drag */
+.ProseMirror .block-drag-selected ::selection {
+  background-color: transparent;
+}
+
 /* ❌ REMOVED: This was making ALL text selection invisible!
  * Previous rule: .ProseMirror [data-node-view-wrapper]::selection
  * Made selection transparent inside ALL blocks (every block uses NodeViewWrapper)

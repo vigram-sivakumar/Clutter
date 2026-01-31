@@ -33,8 +33,14 @@ import React, {
   useRef,
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import { Editor } from '@tiptap/core';
-import { NodeSelection, TextSelection } from '@tiptap/pm/state';
+import { Editor, Extension } from '@tiptap/core';
+import {
+  NodeSelection,
+  TextSelection,
+  Plugin,
+  PluginKey,
+} from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 export interface EditorCoreHandle {
   focus: () => void;
@@ -239,13 +245,12 @@ const EditorCoreInner = forwardRef<
       pos: number; // Block position
       size: number; // Block nodeSize
     } | null>(null);
-    // Drag state for multi-block drag selection
+    // Drag state for multi-block drag selection (decoration-based, not TextSelection)
     const dragStateRef = useRef<{
       isDragging: boolean;
       startBlockPos: number;
       startBlockSize: number;
-      lastFrom: number; // Track last selection to avoid redundant updates
-      lastTo: number;
+      hoveredBlockPos: number; // Current hovered block during drag
       blocks: Array<{
         // Y-only hit-testing map (built on drag start)
         pos: number; // Block position in document
@@ -258,10 +263,76 @@ const EditorCoreInner = forwardRef<
       isDragging: false,
       startBlockPos: -1,
       startBlockSize: 0,
-      lastFrom: -1,
-      lastTo: -1,
+      hoveredBlockPos: -1,
       blocks: [],
     });
+
+    // Plugin key for block drag decorations
+    const blockDragKey = useRef(new PluginKey('blockDrag'));
+
+    // Create block drag decoration extension (Notion-style block selection)
+    // Renders visual selection via decorations, NOT TextSelection
+    const BlockDragExtension = useRef(
+      Extension.create({
+        name: 'blockDrag',
+
+        addProseMirrorPlugins() {
+          return [
+            new Plugin({
+              key: blockDragKey.current,
+              state: {
+                init() {
+                  return DecorationSet.empty;
+                },
+                apply(tr, decorations) {
+                  // Get drag state from transaction metadata
+                  const dragMeta = tr.getMeta(blockDragKey.current);
+                  if (dragMeta !== undefined) {
+                    if (!dragMeta.isDragging) {
+                      return DecorationSet.empty;
+                    }
+
+                    // Create decorations for all blocks in range
+                    const { startPos, startSize, hoveredPos, hoveredSize } =
+                      dragMeta;
+                    const decorationArray: Decoration[] = [];
+
+                    // Calculate block range (anchor to head)
+                    const from = Math.min(startPos, hoveredPos);
+                    const to = Math.max(
+                      startPos + startSize,
+                      hoveredPos + hoveredSize
+                    );
+
+                    // Add decoration for each block in range
+                    tr.doc.nodesBetween(from, to, (node, pos) => {
+                      if (pos >= from && pos < to && node.type.name !== 'doc') {
+                        decorationArray.push(
+                          Decoration.node(pos, pos + node.nodeSize, {
+                            class: 'block-drag-selected',
+                          })
+                        );
+                        return false; // Don't descend into children
+                      }
+                    });
+
+                    return DecorationSet.create(tr.doc, decorationArray);
+                  }
+
+                  // Map decorations through document changes
+                  return decorations.map(tr.mapping, tr.doc);
+                },
+              },
+              props: {
+                decorations(state) {
+                  return this.getState(state);
+                },
+              },
+            }),
+          ];
+        },
+      })
+    );
 
     // Create editor instance
     const editor = useEditor(
@@ -318,6 +389,7 @@ const EditorCoreInner = forwardRef<
           DoubleSpaceEscape,
           SelectAll,
           BlockDeletion,
+          BlockDragExtension.current,
           AtMention.configure({
             getColors: () => colors,
           }),
@@ -426,8 +498,7 @@ const EditorCoreInner = forwardRef<
                       isDragging: false, // Not dragging yet, just mousedown
                       startBlockPos: clickedBlockPos,
                       startBlockSize: clickedBlock.nodeSize,
-                      lastFrom: -1,
-                      lastTo: -1,
+                      hoveredBlockPos: -1,
                       blocks: blockRects,
                     };
                   }
@@ -497,43 +568,49 @@ const EditorCoreInner = forwardRef<
                 event.stopPropagation();
               }
 
-              // ANCHOR-LOCKED SELECTION (Notion/Apple model)
-              // Anchor endpoints are frozen - only head moves
-              const anchorStart = dragStateRef.current.startBlockPos + 1;
-              const anchorEnd =
-                dragStateRef.current.startBlockPos +
-                dragStateRef.current.startBlockSize -
-                1;
-              const headStart = hoveredBlock.pos + 1;
-              const headEnd = hoveredBlock.pos + hoveredBlock.size - 1;
+              // Update hovered block position
+              if (hoveredBlock.pos !== dragStateRef.current.hoveredBlockPos) {
+                dragStateRef.current.hoveredBlockPos = hoveredBlock.pos;
 
-              const from = Math.min(anchorStart, headStart);
-              const to = Math.max(anchorEnd, headEnd);
+                // DECORATION-BASED SELECTION (Notion/Apple model)
+                // Visual selection via decorations, NOT TextSelection
+                // PM selection stays collapsed at anchor point
+                const tr = view.state.tr;
+                tr.setMeta(blockDragKey.current, {
+                  isDragging: true,
+                  startPos: dragStateRef.current.startBlockPos,
+                  startSize: dragStateRef.current.startBlockSize,
+                  hoveredPos: hoveredBlock.pos,
+                  hoveredSize: hoveredBlock.size,
+                });
 
-              // Only dispatch if selection range actually changed
-              if (
-                from !== dragStateRef.current.lastFrom ||
-                to !== dragStateRef.current.lastTo
-              ) {
-                const tr = view.state.tr.setSelection(
-                  TextSelection.create(view.state.doc, from, to)
+                // Keep PM selection collapsed at anchor (text selection inert)
+                const anchorStart = dragStateRef.current.startBlockPos + 1;
+                tr.setSelection(
+                  TextSelection.create(view.state.doc, anchorStart)
                 );
-                view.dispatch(tr);
 
-                dragStateRef.current.lastFrom = from;
-                dragStateRef.current.lastTo = to;
+                view.dispatch(tr);
               }
 
               return true; // Block ALL other handlers during multi-block drag
             },
-            mouseup: () => {
+            mouseup: (view) => {
+              // Clear decorations if we were dragging
+              if (dragStateRef.current.isDragging) {
+                const tr = view.state.tr;
+                tr.setMeta(blockDragKey.current, {
+                  isDragging: false,
+                });
+                view.dispatch(tr);
+              }
+
               // Reset drag state
               dragStateRef.current = {
                 isDragging: false,
                 startBlockPos: -1,
                 startBlockSize: 0,
-                lastFrom: -1,
-                lastTo: -1,
+                hoveredBlockPos: -1,
                 blocks: [],
               };
               return false; // Allow default behavior
