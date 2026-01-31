@@ -34,7 +34,7 @@ import React, {
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
-import { NodeSelection, TextSelection } from '@tiptap/pm/state';
+import { NodeSelection, TextSelection, AllSelection } from '@tiptap/pm/state';
 
 export interface EditorCoreHandle {
   focus: () => void;
@@ -335,62 +335,59 @@ const EditorCoreInner = forwardRef<
                 top: event.clientY,
               });
 
-              // Handle Shift+Click for range selection
-              if (pos && event.shiftKey && anchorBlockPosRef.current !== null) {
+              if (pos) {
                 const $pos = view.state.doc.resolve(pos.pos);
                 const blockDepth = $pos.depth > 0 ? 1 : 0;
 
                 if (blockDepth > 0) {
                   const clickedBlockPos = $pos.before(blockDepth);
                   const clickedBlock = $pos.node(blockDepth);
-                  const { pos: anchorPos, size: anchorSize } =
-                    anchorBlockPosRef.current;
 
-                  // Calculate proper range endpoints
-                  const anchorStart = anchorPos + 1;
-                  const anchorEnd = anchorPos + anchorSize - 1;
-                  const clickedStart = clickedBlockPos + 1;
-                  const clickedEnd =
-                    clickedBlockPos + clickedBlock.nodeSize - 1;
+                  // Handle Shift+Click for range selection between blocks
+                  if (event.shiftKey && anchorBlockPosRef.current !== null) {
+                    const { pos: anchorPos, size: anchorSize } =
+                      anchorBlockPosRef.current;
 
-                  const from = Math.min(anchorStart, clickedStart);
-                  const to = Math.max(anchorEnd, clickedEnd);
+                    // Calculate proper range endpoints
+                    const anchorStart = anchorPos + 1;
+                    const anchorEnd = anchorPos + anchorSize - 1;
+                    const clickedStart = clickedBlockPos + 1;
+                    const clickedEnd =
+                      clickedBlockPos + clickedBlock.nodeSize - 1;
 
-                  const tr = view.state.tr.setSelection(
-                    TextSelection.create(view.state.doc, from, to)
-                  );
-                  view.dispatch(tr);
+                    const from = Math.min(anchorStart, clickedStart);
+                    const to = Math.max(anchorEnd, clickedEnd);
 
-                  event.preventDefault();
-                  return true; // Handled
-                }
-              }
-
-              // If there's an active text selection, handle clicks outside it
-              const { selection } = view.state;
-              if (!selection.empty) {
-                if (pos) {
-                  // Click inside editor - check if outside current selection range
-                  if (pos.pos < selection.from || pos.pos > selection.to) {
-                    // Collapse selection to clicked position
                     const tr = view.state.tr.setSelection(
-                      TextSelection.create(view.state.doc, pos.pos)
+                      TextSelection.create(view.state.doc, from, to)
                     );
                     view.dispatch(tr);
+
+                    event.preventDefault();
+                    return true; // Handled
+                  } else {
+                    // Regular click (no Shift) - clear anchor and any block selection
+                    anchorBlockPosRef.current = null;
+
+                    // If current selection is NodeSelection or AllSelection,
+                    // convert to TextSelection at clicked position to clear halos
+                    const { selection } = view.state;
+                    if (
+                      selection instanceof NodeSelection ||
+                      selection instanceof AllSelection
+                    ) {
+                      // Convert to TextSelection at clicked position
+                      const textPos = pos.pos;
+                      const tr = view.state.tr.setSelection(
+                        TextSelection.create(view.state.doc, textPos)
+                      );
+                      view.dispatch(tr);
+                    }
                   }
-                } else {
-                  // Click outside editor content (chrome, gutter, empty margin)
-                  // Collapse selection to end of document
-                  const endPos = view.state.doc.content.size;
-                  const tr = view.state.tr.setSelection(
-                    TextSelection.create(view.state.doc, endPos)
-                  );
-                  view.dispatch(tr);
-                  return true; // Handled - prevent default
                 }
               }
 
-              return false; // Allow default behavior
+              return false; // Allow default behavior (native text selection)
             },
             focus: () => {
               onFocus?.();
