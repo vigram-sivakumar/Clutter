@@ -97,7 +97,7 @@
 
 /* Text selection (when dragging cursor through text) */
 .ProseMirror ::selection {
-  background-color: rgba(35, 131, 226, 0.3);
+  background-color: var(--editor-selection-text);
 }
 
 /* Hide text selection when block is selected (has halo) */
@@ -106,12 +106,12 @@
 }
 
 /* Block drag selection (decoration-based, Notion-style) */
+/* Matches BlockSelectionHalo style - no border, just background */
 .ProseMirror .block-drag-selected {
   position: relative;
   border-radius: 4px;
-  box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.9);
-  background-color: rgba(35, 131, 226, 0.08);
-  transition: box-shadow 0.1s ease, background-color 0.1s ease;
+  background-color: var(--editor-selection-bg);
+  transition: background-color 0.1s ease;
 }
 
 /* Hide text selection during block drag */

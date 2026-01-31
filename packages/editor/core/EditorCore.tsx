@@ -895,6 +895,9 @@ const EditorCoreInner = forwardRef<
       '--editor-focus-border-20': `${colors.border.focus}20`,
       '--editor-orange': colors.semantic.orange,
       '--editor-orange-bg': `${colors.semantic.orange}10`,
+      '--editor-selection': colors.selection.default,
+      '--editor-selection-bg': `${colors.selection.default}14`, // 14 = 0.14 opacity in hex (20% of 255 ≈ 51 ≈ 0x33, but 14 in hex is used for 14% alpha)
+      '--editor-selection-text': `${colors.selection.default}30`, // 30% opacity for text selection
     } as React.CSSProperties;
 
     return (

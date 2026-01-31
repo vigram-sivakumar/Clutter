@@ -38,6 +38,9 @@ export interface EditorThemeColors {
   semantic: {
     orange: string;
   };
+  selection: {
+    default: string; // Base selection color
+  };
 }
 
 /**
@@ -62,6 +65,7 @@ export function isEditorTheme(obj: any): obj is EditorTheme {
     obj.colors.border &&
     obj.colors.shadow &&
     obj.colors.semantic &&
+    obj.colors.selection &&
     (obj.mode === 'light' || obj.mode === 'dark')
   );
 }

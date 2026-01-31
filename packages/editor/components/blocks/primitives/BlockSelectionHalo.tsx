@@ -28,7 +28,10 @@ export function BlockSelectionHalo({
   isSelected,
   indent = 0,
 }: BlockSelectionHaloProps) {
-  const { colors: _colors } = useEditorTheme();
+  const { colors } = useEditorTheme();
+
+  // Convert hex to rgba with 0.14 opacity (14% alpha)
+  const selectionBg = `${colors.selection.default}24`; // 24 in hex ≈ 36 decimal ≈ 14% of 255
 
   return (
     <div
@@ -39,7 +42,7 @@ export function BlockSelectionHalo({
         right: -2, // Extend 2px right
         bottom: -2, // Extend 2px down
         left: indent - 2, // Extend 2px left (accounting for indent)
-        background: 'rgba(35, 131, 226, 0.14)',
+        background: selectionBg,
         borderRadius: radius['3'],
         opacity: isSelected ? 1 : 0,
         transition: 'opacity 200ms ease',

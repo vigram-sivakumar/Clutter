@@ -136,6 +136,11 @@ export const editorColors = {
   },
   /** Wavy underline color (orange) */
   wavyUnderline: '#FF8C00',
+  /** Block selection color (halos, drag selection, multi-select) */
+  selection: {
+    light: '#2383e2', // Blue (matches Notion/Apple selection blue)
+    dark: '#2383e2', // Same blue for dark mode
+  },
 } as const;
 
 /**

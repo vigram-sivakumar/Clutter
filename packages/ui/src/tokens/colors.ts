@@ -93,6 +93,11 @@ export const colors = {
       calendarAccent: '#FD4E00', // Calendar today/selected highlight
     },
 
+    // Selection colors - block selection, drag selection, multi-select
+    selection: {
+      default: '#2383e2', // Blue (Notion/Apple selection blue)
+    },
+
     // Button colors - explicit state tokens for solid buttons
     button: {
       primary: {
@@ -176,6 +181,11 @@ export const colors = {
       info: '#3b8ef6', // Notion info blue
       orange: '#FF8C00', // Notion orange
       calendarAccent: '#FD4E00', // Calendar today/selected highlight
+    },
+
+    // Selection colors - block selection, drag selection, multi-select
+    selection: {
+      default: '#2383e2', // Blue (Notion/Apple selection blue)
     },
 
     // Button colors - explicit state tokens for solid buttons
