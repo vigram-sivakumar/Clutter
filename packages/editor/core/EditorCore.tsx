@@ -271,7 +271,16 @@ const EditorCoreInner = forwardRef<
     const blockDragKey = useRef(new PluginKey('blockDrag'));
 
     // Create block drag decoration extension (Notion-style block selection)
-    // Renders visual selection via decorations, NOT TextSelection
+    //
+    // ARCHITECTURAL INVARIANT:
+    // During drag, ProseMirror selection is READ-ONLY (collapsed at anchor).
+    // Visual selection is rendered ONLY via decorations.
+    // This separation prevents cursor drift, chrome interference, and empty block issues.
+    //
+    // Lifecycle:
+    //   mousedown → collapse PM selection once
+    //   mousemove → update decorations only (NO setSelection)
+    //   mouseup   → clear decorations
     const BlockDragExtension = useRef(
       Extension.create({
         name: 'blockDrag',
@@ -501,6 +510,15 @@ const EditorCoreInner = forwardRef<
                       hoveredBlockPos: -1,
                       blocks: blockRects,
                     };
+
+                    // INVARIANT: Collapse PM selection ONCE at drag start
+                    // From this point forward, PM selection is frozen (read-only)
+                    // All visual selection is handled by decorations
+                    const anchorPos = clickedBlockPos + 1;
+                    const tr = view.state.tr.setSelection(
+                      TextSelection.create(view.state.doc, anchorPos)
+                    );
+                    view.dispatch(tr);
                   }
                 }
               }
@@ -572,9 +590,9 @@ const EditorCoreInner = forwardRef<
               if (hoveredBlock.pos !== dragStateRef.current.hoveredBlockPos) {
                 dragStateRef.current.hoveredBlockPos = hoveredBlock.pos;
 
-                // DECORATION-BASED SELECTION (Notion/Apple model)
-                // Visual selection via decorations, NOT TextSelection
-                // PM selection stays collapsed at anchor point
+                // PURE DECORATION-BASED SELECTION (Notion/Apple model)
+                // Visual selection via decorations ONLY
+                // PM selection stays frozen (collapsed at anchor from mousedown)
                 const tr = view.state.tr;
                 tr.setMeta(blockDragKey.current, {
                   isDragging: true,
@@ -584,12 +602,7 @@ const EditorCoreInner = forwardRef<
                   hoveredSize: hoveredBlock.size,
                 });
 
-                // Keep PM selection collapsed at anchor (text selection inert)
-                const anchorStart = dragStateRef.current.startBlockPos + 1;
-                tr.setSelection(
-                  TextSelection.create(view.state.doc, anchorStart)
-                );
-
+                // NO setSelection here - PM selection is read-only during drag
                 view.dispatch(tr);
               }
 
@@ -606,6 +619,8 @@ const EditorCoreInner = forwardRef<
               }
 
               // Reset drag state
+              // PM selection remains wherever it was collapsed (at anchor)
+              // User can now interact normally with text selection
               dragStateRef.current = {
                 isDragging: false,
                 startBlockPos: -1,
