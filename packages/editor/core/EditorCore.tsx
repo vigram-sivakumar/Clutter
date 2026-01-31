@@ -33,14 +33,8 @@ import React, {
   useRef,
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import { Editor, Extension } from '@tiptap/core';
-import {
-  NodeSelection,
-  TextSelection,
-  Plugin,
-  PluginKey,
-} from '@tiptap/pm/state';
-import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { Editor } from '@tiptap/core';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 
 export interface EditorCoreHandle {
   focus: () => void;
@@ -245,103 +239,6 @@ const EditorCoreInner = forwardRef<
       pos: number; // Block position
       size: number; // Block nodeSize
     } | null>(null);
-    // Drag state for multi-block drag selection (decoration-based, not TextSelection)
-    const dragStateRef = useRef<{
-      isDragging: boolean;
-      startBlockPos: number;
-      startBlockSize: number;
-      hoveredBlockPos: number; // Current hovered block during drag
-      blocks: Array<{
-        // Y-only hit-testing map (built on drag start)
-        pos: number; // Block position in document
-        size: number; // Block nodeSize
-        top: number; // Screen Y coordinate (top edge)
-        bottom: number; // Screen Y coordinate (bottom edge)
-        centerY: number; // Vertical center - used for nearest-block calculation
-      }>;
-    }>({
-      isDragging: false,
-      startBlockPos: -1,
-      startBlockSize: 0,
-      hoveredBlockPos: -1,
-      blocks: [],
-    });
-
-    // Plugin key for block drag decorations
-    const blockDragKey = useRef(new PluginKey('blockDrag'));
-
-    // Create block drag decoration extension (Notion-style block selection)
-    //
-    // ARCHITECTURAL INVARIANT:
-    // During drag, ProseMirror selection is READ-ONLY (collapsed at anchor).
-    // Visual selection is rendered ONLY via decorations.
-    // This separation prevents cursor drift, chrome interference, and empty block issues.
-    //
-    // Lifecycle:
-    //   mousedown → collapse PM selection once
-    //   mousemove → update decorations only (NO setSelection)
-    //   mouseup   → clear decorations
-    const BlockDragExtension = useRef(
-      Extension.create({
-        name: 'blockDrag',
-
-        addProseMirrorPlugins() {
-          return [
-            new Plugin({
-              key: blockDragKey.current,
-              state: {
-                init() {
-                  return DecorationSet.empty;
-                },
-                apply(tr, decorations) {
-                  // Get drag state from transaction metadata
-                  const dragMeta = tr.getMeta(blockDragKey.current);
-                  if (dragMeta !== undefined) {
-                    if (!dragMeta.isDragging) {
-                      return DecorationSet.empty;
-                    }
-
-                    // Create decorations for all blocks in range
-                    const { startPos, startSize, hoveredPos, hoveredSize } =
-                      dragMeta;
-                    const decorationArray: Decoration[] = [];
-
-                    // Calculate block range (anchor to head)
-                    const from = Math.min(startPos, hoveredPos);
-                    const to = Math.max(
-                      startPos + startSize,
-                      hoveredPos + hoveredSize
-                    );
-
-                    // Add decoration for each block in range
-                    tr.doc.nodesBetween(from, to, (node, pos) => {
-                      if (pos >= from && pos < to && node.type.name !== 'doc') {
-                        decorationArray.push(
-                          Decoration.node(pos, pos + node.nodeSize, {
-                            class: 'block-drag-selected',
-                          })
-                        );
-                        return false; // Don't descend into children
-                      }
-                    });
-
-                    return DecorationSet.create(tr.doc, decorationArray);
-                  }
-
-                  // Map decorations through document changes
-                  return decorations.map(tr.mapping, tr.doc);
-                },
-              },
-              props: {
-                decorations(state) {
-                  return this.getState(state);
-                },
-              },
-            }),
-          ];
-        },
-      })
-    );
 
     // Create editor instance
     const editor = useEditor(
@@ -398,7 +295,6 @@ const EditorCoreInner = forwardRef<
           DoubleSpaceEscape,
           SelectAll,
           BlockDeletion,
-          BlockDragExtension.current,
           AtMention.configure({
             getColors: () => colors,
           }),
@@ -431,9 +327,8 @@ const EditorCoreInner = forwardRef<
             return false;
           },
           handleDOMEvents: {
-            // ❌ REMOVED mousedown preventDefault - it prevented clicking into empty blocks
-            // ProseMirror handles its own selection and mousedown behavior
-            // We don't need to prevent default browser behavior
+            // Shift+Click inside block for range selection
+            // Drag-to-select = native text selection (matches Notion)
             mousedown: (view, event) => {
               const pos = view.posAtCoords({
                 left: event.clientX,
@@ -470,165 +365,11 @@ const EditorCoreInner = forwardRef<
 
                     event.preventDefault();
                     return true; // Handled
-                  } else {
-                    // Build Y-only block hit-testing map for drag
-                    const blockRects: Array<{
-                      pos: number;
-                      size: number;
-                      top: number;
-                      bottom: number;
-                      centerY: number;
-                    }> = [];
-
-                    // Snapshot all block positions and screen coordinates
-                    view.state.doc.descendants((node, pos) => {
-                      if (
-                        node.type.name !== 'doc' &&
-                        pos < view.state.doc.content.size
-                      ) {
-                        const domNode = view.nodeDOM(pos);
-                        if (domNode && domNode instanceof HTMLElement) {
-                          const rect = domNode.getBoundingClientRect();
-                          const centerY = rect.top + rect.height / 2;
-                          blockRects.push({
-                            pos,
-                            size: node.nodeSize,
-                            top: rect.top,
-                            bottom: rect.bottom,
-                            centerY,
-                          });
-                        }
-                      }
-                      return false; // Only top-level blocks
-                    });
-
-                    // Initialize drag state for potential multi-block drag
-                    dragStateRef.current = {
-                      isDragging: false, // Not dragging yet, just mousedown
-                      startBlockPos: clickedBlockPos,
-                      startBlockSize: clickedBlock.nodeSize,
-                      hoveredBlockPos: -1,
-                      blocks: blockRects,
-                    };
-
-                    // INVARIANT: Collapse PM selection ONCE at drag start
-                    // From this point forward, PM selection is frozen (read-only)
-                    // All visual selection is handled by decorations
-                    const anchorPos = clickedBlockPos + 1;
-                    const tr = view.state.tr.setSelection(
-                      TextSelection.create(view.state.doc, anchorPos)
-                    );
-                    view.dispatch(tr);
                   }
                 }
               }
 
-              return false; // Allow default behavior
-            },
-            mousemove: (view, event) => {
-              // Only process if we have a valid start position
-              if (dragStateRef.current.startBlockPos === -1) {
-                return false;
-              }
-
-              // ANCHOR-LOCKED DRAG: Once in block-drag mode, always prevent ProseMirror interference
-              if (dragStateRef.current.isDragging) {
-                event.preventDefault();
-                event.stopPropagation();
-              }
-
-              // Y-ONLY HIT-TESTING (Notion/Apple model)
-              // Chrome, gutter, X position - all irrelevant
-              const y = event.clientY;
-              const blocks = dragStateRef.current.blocks;
-
-              if (blocks.length === 0) {
-                // No blocks available - bail out
-                return false;
-              }
-
-              // Find NEAREST block by vertical center distance (handles empty blocks)
-              let hoveredBlock = blocks[0]!;
-              let minDistance = Math.abs(y - hoveredBlock.centerY);
-
-              for (const block of blocks) {
-                const distance = Math.abs(y - block.centerY);
-                if (distance < minDistance) {
-                  minDistance = distance;
-                  hoveredBlock = block;
-                }
-              }
-
-              // Check if start block is empty (no text content)
-              const startBlock = view.state.doc.nodeAt(
-                dragStateRef.current.startBlockPos
-              );
-              const isStartBlockEmpty =
-                startBlock && startBlock.textContent.trim().length === 0;
-
-              // Check if we've moved to a different block
-              if (hoveredBlock.pos === dragStateRef.current.startBlockPos) {
-                // For empty blocks, immediately enter block-drag mode
-                // (no text selection possible)
-                if (isStartBlockEmpty) {
-                  dragStateRef.current.isDragging = true;
-                  event.preventDefault();
-                  event.stopPropagation();
-                  // Don't return - continue to handle selection
-                } else {
-                  // Still in same block - allow default text selection
-                  return false;
-                }
-              } else {
-                // Moved to different block - enter block-drag mode
-                dragStateRef.current.isDragging = true;
-                event.preventDefault();
-                event.stopPropagation();
-              }
-
-              // Update hovered block position
-              if (hoveredBlock.pos !== dragStateRef.current.hoveredBlockPos) {
-                dragStateRef.current.hoveredBlockPos = hoveredBlock.pos;
-
-                // PURE DECORATION-BASED SELECTION (Notion/Apple model)
-                // Visual selection via decorations ONLY
-                // PM selection stays frozen (collapsed at anchor from mousedown)
-                const tr = view.state.tr;
-                tr.setMeta(blockDragKey.current, {
-                  isDragging: true,
-                  startPos: dragStateRef.current.startBlockPos,
-                  startSize: dragStateRef.current.startBlockSize,
-                  hoveredPos: hoveredBlock.pos,
-                  hoveredSize: hoveredBlock.size,
-                });
-
-                // NO setSelection here - PM selection is read-only during drag
-                view.dispatch(tr);
-              }
-
-              return true; // Block ALL other handlers during multi-block drag
-            },
-            mouseup: (view) => {
-              // Clear decorations if we were dragging
-              if (dragStateRef.current.isDragging) {
-                const tr = view.state.tr;
-                tr.setMeta(blockDragKey.current, {
-                  isDragging: false,
-                });
-                view.dispatch(tr);
-              }
-
-              // Reset drag state
-              // PM selection remains wherever it was collapsed (at anchor)
-              // User can now interact normally with text selection
-              dragStateRef.current = {
-                isDragging: false,
-                startBlockPos: -1,
-                startBlockSize: 0,
-                hoveredBlockPos: -1,
-                blocks: [],
-              };
-              return false; // Allow default behavior
+              return false; // Allow default behavior (native text selection)
             },
             focus: () => {
               onFocus?.();
