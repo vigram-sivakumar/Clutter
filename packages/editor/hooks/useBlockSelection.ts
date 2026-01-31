@@ -55,10 +55,25 @@ export function useBlockSelection({
         return;
       }
 
-      // Case 3: TextSelection - no halos (matches Notion behavior)
-      // In Notion, drag/text selection across blocks does NOT show halos
-      // Only NodeSelection (handler clicks) and AllSelection (Ctrl+A) show halos
-      setIsSelected(false);
+      // Case 3: TextSelection covering multiple blocks
+      // Show halo if this block is fully covered by the selection
+      const { from, to } = selection;
+
+      // Only show halos for non-collapsed selections
+      if (from === to) {
+        setIsSelected(false);
+        return;
+      }
+
+      const blockStart = pos;
+      const blockEnd = pos + nodeSize;
+      const contentStart = blockStart + 1; // Skip opening token
+      const contentEnd = blockEnd - 1; // Skip closing token
+
+      // Block is selected if selection fully covers its content
+      const isFullyCovered = from <= contentStart && to >= contentEnd;
+
+      setIsSelected(isFullyCovered);
     };
 
     // Listen to selection changes

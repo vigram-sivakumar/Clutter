@@ -335,41 +335,62 @@ const EditorCoreInner = forwardRef<
                 top: event.clientY,
               });
 
-              if (pos) {
+              // Handle Shift+Click for range selection
+              if (pos && event.shiftKey && anchorBlockPosRef.current !== null) {
                 const $pos = view.state.doc.resolve(pos.pos);
                 const blockDepth = $pos.depth > 0 ? 1 : 0;
 
                 if (blockDepth > 0) {
                   const clickedBlockPos = $pos.before(blockDepth);
                   const clickedBlock = $pos.node(blockDepth);
+                  const { pos: anchorPos, size: anchorSize } =
+                    anchorBlockPosRef.current;
 
-                  // Handle Shift+Click for range selection between blocks
-                  if (event.shiftKey && anchorBlockPosRef.current !== null) {
-                    const { pos: anchorPos, size: anchorSize } =
-                      anchorBlockPosRef.current;
+                  // Calculate proper range endpoints
+                  const anchorStart = anchorPos + 1;
+                  const anchorEnd = anchorPos + anchorSize - 1;
+                  const clickedStart = clickedBlockPos + 1;
+                  const clickedEnd =
+                    clickedBlockPos + clickedBlock.nodeSize - 1;
 
-                    // Calculate proper range endpoints
-                    const anchorStart = anchorPos + 1;
-                    const anchorEnd = anchorPos + anchorSize - 1;
-                    const clickedStart = clickedBlockPos + 1;
-                    const clickedEnd =
-                      clickedBlockPos + clickedBlock.nodeSize - 1;
+                  const from = Math.min(anchorStart, clickedStart);
+                  const to = Math.max(anchorEnd, clickedEnd);
 
-                    const from = Math.min(anchorStart, clickedStart);
-                    const to = Math.max(anchorEnd, clickedEnd);
+                  const tr = view.state.tr.setSelection(
+                    TextSelection.create(view.state.doc, from, to)
+                  );
+                  view.dispatch(tr);
 
-                    const tr = view.state.tr.setSelection(
-                      TextSelection.create(view.state.doc, from, to)
-                    );
-                    view.dispatch(tr);
-
-                    event.preventDefault();
-                    return true; // Handled
-                  }
+                  event.preventDefault();
+                  return true; // Handled
                 }
               }
 
-              return false; // Allow default behavior (native text selection)
+              // If there's an active text selection, handle clicks outside it
+              const { selection } = view.state;
+              if (!selection.empty) {
+                if (pos) {
+                  // Click inside editor - check if outside current selection range
+                  if (pos.pos < selection.from || pos.pos > selection.to) {
+                    // Collapse selection to clicked position
+                    const tr = view.state.tr.setSelection(
+                      TextSelection.create(view.state.doc, pos.pos)
+                    );
+                    view.dispatch(tr);
+                  }
+                } else {
+                  // Click outside editor content (chrome, gutter, empty margin)
+                  // Collapse selection to end of document
+                  const endPos = view.state.doc.content.size;
+                  const tr = view.state.tr.setSelection(
+                    TextSelection.create(view.state.doc, endPos)
+                  );
+                  view.dispatch(tr);
+                  return true; // Handled - prevent default
+                }
+              }
+
+              return false; // Allow default behavior
             },
             focus: () => {
               onFocus?.();
