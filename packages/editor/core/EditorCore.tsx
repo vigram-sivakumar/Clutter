@@ -239,6 +239,16 @@ const EditorCoreInner = forwardRef<
       pos: number; // Block position
       size: number; // Block nodeSize
     } | null>(null);
+    // Drag state for multi-block drag selection
+    const dragStateRef = useRef<{
+      isDragging: boolean;
+      startBlockPos: number;
+      startBlockSize: number;
+    }>({
+      isDragging: false,
+      startBlockPos: -1,
+      startBlockSize: 0,
+    });
 
     // Create editor instance
     const editor = useEditor(
@@ -367,15 +377,76 @@ const EditorCoreInner = forwardRef<
                     event.preventDefault();
                     return true; // Handled
                   } else {
-                    // Regular click - set anchor for future Shift+Click
-                    anchorBlockPosRef.current = {
-                      pos: clickedBlockPos,
-                      size: clickedBlock.nodeSize,
+                    // Initialize drag state for potential multi-block drag
+                    dragStateRef.current = {
+                      isDragging: false, // Not dragging yet, just mousedown
+                      startBlockPos: clickedBlockPos,
+                      startBlockSize: clickedBlock.nodeSize,
                     };
                   }
                 }
               }
 
+              return false; // Allow default behavior
+            },
+            mousemove: (view, event) => {
+              // Only process if we have a valid start position
+              if (dragStateRef.current.startBlockPos === -1) {
+                return false;
+              }
+
+              const pos = view.posAtCoords({
+                left: event.clientX,
+                top: event.clientY,
+              });
+
+              if (pos) {
+                const $pos = view.state.doc.resolve(pos.pos);
+                const blockDepth = $pos.depth > 0 ? 1 : 0;
+
+                if (blockDepth > 0) {
+                  const currentBlockPos = $pos.before(blockDepth);
+
+                  // Check if we've moved to a different block
+                  if (currentBlockPos !== dragStateRef.current.startBlockPos) {
+                    // Multi-block drag detected!
+                    dragStateRef.current.isDragging = true;
+
+                    const currentBlock = $pos.node(blockDepth);
+
+                    // Calculate selection range
+                    const startStart = dragStateRef.current.startBlockPos + 1;
+                    const startEnd =
+                      dragStateRef.current.startBlockPos +
+                      dragStateRef.current.startBlockSize -
+                      1;
+                    const currentStart = currentBlockPos + 1;
+                    const currentEnd =
+                      currentBlockPos + currentBlock.nodeSize - 1;
+
+                    const from = Math.min(startStart, currentStart);
+                    const to = Math.max(startEnd, currentEnd);
+
+                    // Create block selection (shows halos)
+                    const tr = view.state.tr.setSelection(
+                      TextSelection.create(view.state.doc, from, to)
+                    );
+                    view.dispatch(tr);
+
+                    return true; // Handled
+                  }
+                }
+              }
+
+              return false; // Allow default text selection within single block
+            },
+            mouseup: () => {
+              // Reset drag state
+              dragStateRef.current = {
+                isDragging: false,
+                startBlockPos: -1,
+                startBlockSize: 0,
+              };
               return false; // Allow default behavior
             },
             focus: () => {
