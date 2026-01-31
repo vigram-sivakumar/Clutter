@@ -244,10 +244,14 @@ const EditorCoreInner = forwardRef<
       isDragging: boolean;
       startBlockPos: number;
       startBlockSize: number;
+      lastFrom: number; // Track last selection to avoid redundant updates
+      lastTo: number;
     }>({
       isDragging: false,
       startBlockPos: -1,
       startBlockSize: 0,
+      lastFrom: -1,
+      lastTo: -1,
     });
 
     // Create editor instance
@@ -382,6 +386,8 @@ const EditorCoreInner = forwardRef<
                       isDragging: false, // Not dragging yet, just mousedown
                       startBlockPos: clickedBlockPos,
                       startBlockSize: clickedBlock.nodeSize,
+                      lastFrom: -1,
+                      lastTo: -1,
                     };
                   }
                 }
@@ -395,50 +401,78 @@ const EditorCoreInner = forwardRef<
                 return false;
               }
 
+              // ANCHOR-LOCKED DRAG: Once in block-drag mode, always prevent ProseMirror interference
+              if (dragStateRef.current.isDragging) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+
               const pos = view.posAtCoords({
                 left: event.clientX,
                 top: event.clientY,
               });
 
-              if (pos) {
-                const $pos = view.state.doc.resolve(pos.pos);
-                const blockDepth = $pos.depth > 0 ? 1 : 0;
-
-                if (blockDepth > 0) {
-                  const currentBlockPos = $pos.before(blockDepth);
-
-                  // Check if we've moved to a different block
-                  if (currentBlockPos !== dragStateRef.current.startBlockPos) {
-                    // Multi-block drag detected!
-                    dragStateRef.current.isDragging = true;
-
-                    const currentBlock = $pos.node(blockDepth);
-
-                    // Calculate selection range
-                    const startStart = dragStateRef.current.startBlockPos + 1;
-                    const startEnd =
-                      dragStateRef.current.startBlockPos +
-                      dragStateRef.current.startBlockSize -
-                      1;
-                    const currentStart = currentBlockPos + 1;
-                    const currentEnd =
-                      currentBlockPos + currentBlock.nodeSize - 1;
-
-                    const from = Math.min(startStart, currentStart);
-                    const to = Math.max(startEnd, currentEnd);
-
-                    // Create block selection (shows halos)
-                    const tr = view.state.tr.setSelection(
-                      TextSelection.create(view.state.doc, from, to)
-                    );
-                    view.dispatch(tr);
-
-                    return true; // Handled
-                  }
+              if (!pos) {
+                // Cursor outside editor - if dragging, block all handlers
+                if (dragStateRef.current.isDragging) {
+                  return true;
                 }
+                return false;
               }
 
-              return false; // Allow default text selection within single block
+              const $pos = view.state.doc.resolve(pos.pos);
+              const blockDepth = $pos.depth > 0 ? 1 : 0;
+
+              if (blockDepth === 0) {
+                // Cursor in chrome/gutter - if dragging, block all handlers
+                if (dragStateRef.current.isDragging) {
+                  return true;
+                }
+                return false;
+              }
+
+              // Cursor is inside a block
+              const currentBlockPos = $pos.before(blockDepth);
+
+              // Check if we've moved to a different block
+              if (currentBlockPos === dragStateRef.current.startBlockPos) {
+                // Still in same block - allow default text selection
+                return false;
+              }
+
+              // MULTI-BLOCK DRAG DETECTED
+              dragStateRef.current.isDragging = true;
+
+              const currentBlock = $pos.node(blockDepth);
+
+              // ANCHOR-LOCKED SELECTION (Notion/Apple model)
+              // Anchor endpoints are frozen - only head moves
+              const anchorStart = dragStateRef.current.startBlockPos + 1;
+              const anchorEnd =
+                dragStateRef.current.startBlockPos +
+                dragStateRef.current.startBlockSize -
+                1;
+              const headStart = currentBlockPos + 1;
+              const headEnd = currentBlockPos + currentBlock.nodeSize - 1;
+
+              const from = Math.min(anchorStart, headStart);
+              const to = Math.max(anchorEnd, headEnd);
+
+              // Only dispatch if selection range actually changed
+              if (
+                from !== dragStateRef.current.lastFrom ||
+                to !== dragStateRef.current.lastTo
+              ) {
+                const tr = view.state.tr.setSelection(
+                  TextSelection.create(view.state.doc, from, to)
+                );
+                view.dispatch(tr);
+
+                dragStateRef.current.lastFrom = from;
+                dragStateRef.current.lastTo = to;
+              }
+
+              return true; // Block ALL other handlers during multi-block drag
             },
             mouseup: () => {
               // Reset drag state
@@ -446,6 +480,8 @@ const EditorCoreInner = forwardRef<
                 isDragging: false,
                 startBlockPos: -1,
                 startBlockSize: 0,
+                lastFrom: -1,
+                lastTo: -1,
               };
               return false; // Allow default behavior
             },
