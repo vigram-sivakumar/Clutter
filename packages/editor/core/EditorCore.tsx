@@ -246,12 +246,20 @@ const EditorCoreInner = forwardRef<
       startBlockSize: number;
       lastFrom: number; // Track last selection to avoid redundant updates
       lastTo: number;
+      blocks: Array<{
+        // Y-only hit-testing map (built on drag start)
+        pos: number; // Block position in document
+        size: number; // Block nodeSize
+        top: number; // Screen Y coordinate (top edge)
+        bottom: number; // Screen Y coordinate (bottom edge)
+      }>;
     }>({
       isDragging: false,
       startBlockPos: -1,
       startBlockSize: 0,
       lastFrom: -1,
       lastTo: -1,
+      blocks: [],
     });
 
     // Create editor instance
@@ -381,6 +389,34 @@ const EditorCoreInner = forwardRef<
                     event.preventDefault();
                     return true; // Handled
                   } else {
+                    // Build Y-only block hit-testing map for drag
+                    const blockRects: Array<{
+                      pos: number;
+                      size: number;
+                      top: number;
+                      bottom: number;
+                    }> = [];
+
+                    // Snapshot all block positions and screen coordinates
+                    view.state.doc.descendants((node, pos) => {
+                      if (
+                        node.type.name !== 'doc' &&
+                        pos < view.state.doc.content.size
+                      ) {
+                        const domNode = view.nodeDOM(pos);
+                        if (domNode && domNode instanceof HTMLElement) {
+                          const rect = domNode.getBoundingClientRect();
+                          blockRects.push({
+                            pos,
+                            size: node.nodeSize,
+                            top: rect.top,
+                            bottom: rect.bottom,
+                          });
+                        }
+                      }
+                      return false; // Only top-level blocks
+                    });
+
                     // Initialize drag state for potential multi-block drag
                     dragStateRef.current = {
                       isDragging: false, // Not dragging yet, just mousedown
@@ -388,6 +424,7 @@ const EditorCoreInner = forwardRef<
                       startBlockSize: clickedBlock.nodeSize,
                       lastFrom: -1,
                       lastTo: -1,
+                      blocks: blockRects,
                     };
                   }
                 }
@@ -407,43 +444,34 @@ const EditorCoreInner = forwardRef<
                 event.stopPropagation();
               }
 
-              const pos = view.posAtCoords({
-                left: event.clientX,
-                top: event.clientY,
-              });
+              // Y-ONLY HIT-TESTING (Notion/Apple model)
+              // Chrome, gutter, X position - all irrelevant
+              const y = event.clientY;
+              const blocks = dragStateRef.current.blocks;
 
-              if (!pos) {
-                // Cursor outside editor - if dragging, block all handlers
-                if (dragStateRef.current.isDragging) {
-                  return true;
+              // Find block by Y coordinate overlap
+              let hoveredBlock = blocks.find(
+                (b) => y >= b.top && y <= b.bottom
+              );
+
+              // If cursor is outside all blocks, clamp to first/last
+              if (!hoveredBlock) {
+                if (blocks.length === 0) {
+                  // No blocks available - bail out
+                  return false;
                 }
-                return false;
+                hoveredBlock =
+                  y < blocks[0]!.top ? blocks[0]! : blocks[blocks.length - 1]!;
               }
-
-              const $pos = view.state.doc.resolve(pos.pos);
-              const blockDepth = $pos.depth > 0 ? 1 : 0;
-
-              if (blockDepth === 0) {
-                // Cursor in chrome/gutter - if dragging, block all handlers
-                if (dragStateRef.current.isDragging) {
-                  return true;
-                }
-                return false;
-              }
-
-              // Cursor is inside a block
-              const currentBlockPos = $pos.before(blockDepth);
 
               // Check if we've moved to a different block
-              if (currentBlockPos === dragStateRef.current.startBlockPos) {
+              if (hoveredBlock.pos === dragStateRef.current.startBlockPos) {
                 // Still in same block - allow default text selection
                 return false;
               }
 
               // MULTI-BLOCK DRAG DETECTED
               dragStateRef.current.isDragging = true;
-
-              const currentBlock = $pos.node(blockDepth);
 
               // ANCHOR-LOCKED SELECTION (Notion/Apple model)
               // Anchor endpoints are frozen - only head moves
@@ -452,8 +480,8 @@ const EditorCoreInner = forwardRef<
                 dragStateRef.current.startBlockPos +
                 dragStateRef.current.startBlockSize -
                 1;
-              const headStart = currentBlockPos + 1;
-              const headEnd = currentBlockPos + currentBlock.nodeSize - 1;
+              const headStart = hoveredBlock.pos + 1;
+              const headEnd = hoveredBlock.pos + hoveredBlock.size - 1;
 
               const from = Math.min(anchorStart, headStart);
               const to = Math.max(anchorEnd, headEnd);
@@ -482,6 +510,7 @@ const EditorCoreInner = forwardRef<
                 startBlockSize: 0,
                 lastFrom: -1,
                 lastTo: -1,
+                blocks: [],
               };
               return false; // Allow default behavior
             },
