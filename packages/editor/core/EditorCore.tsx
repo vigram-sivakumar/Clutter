@@ -470,14 +470,32 @@ const EditorCoreInner = forwardRef<
                 }
               }
 
+              // Check if start block is empty (no text content)
+              const startBlock = view.state.doc.nodeAt(
+                dragStateRef.current.startBlockPos
+              );
+              const isStartBlockEmpty =
+                startBlock && startBlock.textContent.trim().length === 0;
+
               // Check if we've moved to a different block
               if (hoveredBlock.pos === dragStateRef.current.startBlockPos) {
-                // Still in same block - allow default text selection
-                return false;
+                // For empty blocks, immediately enter block-drag mode
+                // (no text selection possible)
+                if (isStartBlockEmpty) {
+                  dragStateRef.current.isDragging = true;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  // Don't return - continue to handle selection
+                } else {
+                  // Still in same block - allow default text selection
+                  return false;
+                }
+              } else {
+                // Moved to different block - enter block-drag mode
+                dragStateRef.current.isDragging = true;
+                event.preventDefault();
+                event.stopPropagation();
               }
-
-              // MULTI-BLOCK DRAG DETECTED
-              dragStateRef.current.isDragging = true;
 
               // ANCHOR-LOCKED SELECTION (Notion/Apple model)
               // Anchor endpoints are frozen - only head moves
