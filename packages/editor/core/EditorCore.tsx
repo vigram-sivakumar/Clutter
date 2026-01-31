@@ -34,7 +34,7 @@ import React, {
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
-import { NodeSelection } from '@tiptap/pm/state';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 
 export interface EditorCoreHandle {
   focus: () => void;
@@ -234,6 +234,11 @@ const EditorCoreInner = forwardRef<
     const isHydratingRef = useRef<boolean>(false);
     // Ref to editor container for chrome positioning
     const editorContainerRef = useRef<HTMLDivElement>(null);
+    // Anchor block info for Shift+Click range selection
+    const anchorBlockPosRef = useRef<{
+      pos: number; // Block position
+      size: number; // Block nodeSize
+    } | null>(null);
 
     // Create editor instance
     const editor = useEditor(
@@ -325,6 +330,65 @@ const EditorCoreInner = forwardRef<
             // ❌ REMOVED mousedown preventDefault - it prevented clicking into empty blocks
             // ProseMirror handles its own selection and mousedown behavior
             // We don't need to prevent default browser behavior
+            mousedown: (view, event) => {
+              const pos = view.posAtCoords({
+                left: event.clientX,
+                top: event.clientY,
+              });
+
+              if (pos) {
+                const $pos = view.state.doc.resolve(pos.pos);
+                const blockDepth = $pos.depth > 0 ? 1 : 0;
+
+                if (blockDepth > 0) {
+                  const clickedBlockPos = $pos.before(blockDepth);
+                  const clickedBlock = $pos.node(blockDepth);
+
+                  // Handle Shift+Click for range selection between blocks
+                  if (event.shiftKey && anchorBlockPosRef.current !== null) {
+                    const { pos: anchorPos, size: anchorSize } =
+                      anchorBlockPosRef.current;
+
+                    // Calculate proper range endpoints
+                    const anchorStart = anchorPos + 1;
+                    const anchorEnd = anchorPos + anchorSize - 1;
+                    const clickedStart = clickedBlockPos + 1;
+                    const clickedEnd =
+                      clickedBlockPos + clickedBlock.nodeSize - 1;
+
+                    const from = Math.min(anchorStart, clickedStart);
+                    const to = Math.max(anchorEnd, clickedEnd);
+
+                    console.log('🔍 Shift+Click inside block:', {
+                      anchorPos,
+                      anchorSize,
+                      anchorRange: `${anchorStart} → ${anchorEnd}`,
+                      clickedBlockPos,
+                      clickedBlockSize: clickedBlock.nodeSize,
+                      clickedRange: `${clickedStart} → ${clickedEnd}`,
+                      from,
+                      to,
+                    });
+
+                    const tr = view.state.tr.setSelection(
+                      TextSelection.create(view.state.doc, from, to)
+                    );
+                    view.dispatch(tr);
+
+                    event.preventDefault();
+                    return true; // Handled
+                  } else {
+                    // Regular click - set anchor for future Shift+Click
+                    anchorBlockPosRef.current = {
+                      pos: clickedBlockPos,
+                      size: clickedBlock.nodeSize,
+                    };
+                  }
+                }
+              }
+
+              return false; // Allow default behavior
+            },
             focus: () => {
               onFocus?.();
               return false; // Allow default focus behavior
@@ -634,6 +698,7 @@ const EditorCoreInner = forwardRef<
         <EditorChromeLayer
           editor={editor}
           containerRef={editorContainerRef}
+          anchorBlockPosRef={anchorBlockPosRef}
           createdAt={createdAt}
           updatedAt={updatedAt}
           deletedAt={deletedAt}

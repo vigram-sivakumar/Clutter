@@ -104,6 +104,10 @@ interface ChromeState {
 interface EditorChromeLayerProps {
   editor: Editor;
   containerRef: React.RefObject<HTMLDivElement>;
+  anchorBlockPosRef: React.RefObject<{
+    pos: number;
+    size: number;
+  } | null>; // Shared anchor for Shift+Click range selection
   createdAt?: string; // ISO string from note metadata
   updatedAt?: string; // ISO string from note metadata
   deletedAt?: string | null; // ISO string from note metadata (null if not deleted)
@@ -178,6 +182,7 @@ function mapCommandToSpec(command: SlashCommand): BlockConversionSpec | null {
 export function EditorChromeLayer({
   editor,
   containerRef,
+  anchorBlockPosRef,
   createdAt: _createdAt,
   updatedAt: _updatedAt,
   deletedAt: _deletedAt,
@@ -214,7 +219,7 @@ export function EditorChromeLayer({
   const rafHandleRef = useRef<number | null>(null);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isOverChromeRef = useRef(false);
-  const anchorBlockPosRef = useRef<number | null>(null);
+  // anchorBlockPosRef is now passed as a prop from EditorCore for shared Shift+Click behavior
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
   const commandListRef = useRef<HTMLDivElement>(null); // Separate ref for Turn Into command list
@@ -425,11 +430,29 @@ export function EditorChromeLayer({
 
       if (e.shiftKey && anchorBlockPosRef.current !== null) {
         // Range selection - select from anchor to current block
-        const from = Math.min(anchorBlockPosRef.current, blockPos + 1);
-        const to = Math.max(
-          anchorBlockPosRef.current,
-          blockPos + result.node.nodeSize - 1
-        );
+        const { pos: anchorPos, size: anchorSize } = anchorBlockPosRef.current;
+
+        // Calculate proper range endpoints
+        const anchorStart = anchorPos + 1;
+        const anchorEnd = anchorPos + anchorSize - 1;
+        const currentStart = blockPos + 1;
+        const currentEnd = blockPos + result.node.nodeSize - 1;
+
+        const from = Math.min(anchorStart, currentStart);
+        const to = Math.max(anchorEnd, currentEnd);
+
+        console.log('🔍 Shift+Click handler range selection:', {
+          anchorPos,
+          anchorSize,
+          anchorRange: `${anchorStart} → ${anchorEnd}`,
+          currentBlockPos: blockPos,
+          currentBlockSize: result.node.nodeSize,
+          currentRange: `${currentStart} → ${currentEnd}`,
+          from,
+          to,
+          selectionRange: `${from} → ${to}`,
+        });
+
         const rangeSelection = TextSelection.create(state.doc, from, to);
         view.dispatch(state.tr.setSelection(rangeSelection));
       } else {
@@ -495,8 +518,11 @@ export function EditorChromeLayer({
           view.dispatch(state.tr.setSelection(nodeSelection));
         }
 
-        // Store this position as the anchor for potential Shift+Click range
-        anchorBlockPosRef.current = blockPos + 1;
+        // Store this block info as the anchor for potential Shift+Click range
+        anchorBlockPosRef.current = {
+          pos: blockPos,
+          size: result.node.nodeSize,
+        };
       }
 
       // Don't blur editor - maintain focus for keyboard handling
