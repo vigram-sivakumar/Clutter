@@ -441,18 +441,6 @@ export function EditorChromeLayer({
         const from = Math.min(anchorStart, currentStart);
         const to = Math.max(anchorEnd, currentEnd);
 
-        console.log('🔍 Shift+Click handler range selection:', {
-          anchorPos,
-          anchorSize,
-          anchorRange: `${anchorStart} → ${anchorEnd}`,
-          currentBlockPos: blockPos,
-          currentBlockSize: result.node.nodeSize,
-          currentRange: `${currentStart} → ${currentEnd}`,
-          from,
-          to,
-          selectionRange: `${from} → ${to}`,
-        });
-
         const rangeSelection = TextSelection.create(state.doc, from, to);
         view.dispatch(state.tr.setSelection(rangeSelection));
       } else {
