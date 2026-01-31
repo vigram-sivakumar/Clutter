@@ -252,6 +252,7 @@ const EditorCoreInner = forwardRef<
         size: number; // Block nodeSize
         top: number; // Screen Y coordinate (top edge)
         bottom: number; // Screen Y coordinate (bottom edge)
+        centerY: number; // Vertical center - used for nearest-block calculation
       }>;
     }>({
       isDragging: false,
@@ -395,6 +396,7 @@ const EditorCoreInner = forwardRef<
                       size: number;
                       top: number;
                       bottom: number;
+                      centerY: number;
                     }> = [];
 
                     // Snapshot all block positions and screen coordinates
@@ -406,11 +408,13 @@ const EditorCoreInner = forwardRef<
                         const domNode = view.nodeDOM(pos);
                         if (domNode && domNode instanceof HTMLElement) {
                           const rect = domNode.getBoundingClientRect();
+                          const centerY = rect.top + rect.height / 2;
                           blockRects.push({
                             pos,
                             size: node.nodeSize,
                             top: rect.top,
                             bottom: rect.bottom,
+                            centerY,
                           });
                         }
                       }
@@ -449,19 +453,21 @@ const EditorCoreInner = forwardRef<
               const y = event.clientY;
               const blocks = dragStateRef.current.blocks;
 
-              // Find block by Y coordinate overlap
-              let hoveredBlock = blocks.find(
-                (b) => y >= b.top && y <= b.bottom
-              );
+              if (blocks.length === 0) {
+                // No blocks available - bail out
+                return false;
+              }
 
-              // If cursor is outside all blocks, clamp to first/last
-              if (!hoveredBlock) {
-                if (blocks.length === 0) {
-                  // No blocks available - bail out
-                  return false;
+              // Find NEAREST block by vertical center distance (handles empty blocks)
+              let hoveredBlock = blocks[0]!;
+              let minDistance = Math.abs(y - hoveredBlock.centerY);
+
+              for (const block of blocks) {
+                const distance = Math.abs(y - block.centerY);
+                if (distance < minDistance) {
+                  minDistance = distance;
+                  hoveredBlock = block;
                 }
-                hoveredBlock =
-                  y < blocks[0]!.top ? blocks[0]! : blocks[blocks.length - 1]!;
               }
 
               // Check if we've moved to a different block
