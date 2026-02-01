@@ -51,9 +51,9 @@
  *   - Not selection restoration, not focus tricks
  *
  * Edge Cases Handled:
- *   - Blur: Auto-appends empty paragraph (stabilization boundary)
  *   - Delete-all: BlockDeletion.ts recreates one paragraph
  *   - Creation: createEmptyParagraph() for initial state
+ *   - Blur: No auto-creation (pure lazy model)
  *
  * Mental Model:
  *   Whitespace is not content. Whitespace is intent. Intent creates content.
@@ -408,42 +408,7 @@ const EditorCoreInner = forwardRef<
               onFocus?.();
               return false; // Allow default focus behavior
             },
-            blur: (view) => {
-              // EMPTY BLOCK INVARIANT: Enforce at stabilization boundary (blur)
-              // When focus leaves, ensure document ends with empty paragraph
-              const doc = view.state.doc;
-              const last = doc.lastChild;
-
-              if (last && last.textContent.trim() !== '') {
-                // Auto-fix: Append empty paragraph with explicit selection
-                const paragraphType = view.state.schema.nodes.paragraph;
-                if (paragraphType) {
-                  const pos = doc.content.size;
-                  const tr = view.state.tr;
-
-                  const emptyParagraph = paragraphType.create({
-                    blockId: crypto.randomUUID(),
-                    indent: 0,
-                    collapsed: false,
-                    tags: [],
-                  });
-
-                  tr.insert(pos, emptyParagraph);
-
-                  // 🔑 REQUIRED: Set selection inside new empty paragraph
-                  // ProseMirror contract: docChanged requires selectionSet
-                  tr.setSelection(TextSelection.create(tr.doc, pos + 1));
-
-                  view.dispatch(tr);
-
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log(
-                      '✅ EMPTY BLOCK INVARIANT: Auto-appended trailing paragraph on blur'
-                    );
-                  }
-                }
-              }
-
+            blur: () => {
               onBlur?.();
               return false; // Allow default blur behavior
             },
