@@ -534,28 +534,6 @@ const EditorCoreInner = forwardRef<
       }
     }, [editor, onTagClick]);
 
-    // Runway click handler: Insert new paragraph at end when user clicks in empty space
-    // Notion pattern: Lazy creation, not permanent empty block
-    const insertParagraphAtEndAndFocus = useCallback(() => {
-      if (!editor) return;
-
-      const { doc } = editor.state;
-
-      editor
-        .chain()
-        .insertContentAt(doc.content.size, {
-          type: 'paragraph',
-          attrs: {
-            blockId: crypto.randomUUID(), // 🔒 BLOCK IDENTITY LAW: Always assign blockId
-            indent: 0,
-            collapsed: false,
-            tags: [],
-          },
-        })
-        .focus('end')
-        .run();
-    }, [editor]);
-
     // Expose methods to parent via ref
     useImperativeHandle(
       ref,
@@ -687,7 +665,7 @@ const EditorCoreInner = forwardRef<
     }, [editable, editor]);
 
     // Runway click handler: Detect clicks BELOW content (Y-position based)
-    // Notion pattern: Only clicks below last block create new paragraph
+    // Notion pattern: Focus existing empty paragraph OR create new one
     const handleRunwayClick = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
@@ -699,19 +677,44 @@ const EditorCoreInner = forwardRef<
 
         if (!lastBlock) return;
 
-        const lastBlockRect = lastBlock.getBoundingClientRect();
-        const clickY = e.clientY;
+        const lastRect = lastBlock.getBoundingClientRect();
 
-        // 🚨 CRITICAL GUARD: Only create block if click is BELOW content
-        // +4px tolerance buffer (matches Notion)
-        if (clickY <= lastBlockRect.bottom + 4) {
-          return; // Click is inside or near content → do nothing
+        // Only react to clicks BELOW content (+4px tolerance)
+        if (e.clientY <= lastRect.bottom + 4) {
+          return;
         }
 
-        // ✅ Click is in runway below content → create paragraph
-        insertParagraphAtEndAndFocus();
+        const { doc } = editor.state;
+        const lastNode = doc.lastChild;
+
+        // 🔒 GUARD: If last block is already empty paragraph → just focus
+        const isLastEmptyParagraph =
+          lastNode &&
+          lastNode.type.name === 'paragraph' &&
+          lastNode.textContent.trim() === '';
+
+        if (isLastEmptyParagraph) {
+          // ✅ Just focus — DO NOT create another
+          editor.commands.focus('end');
+          return;
+        }
+
+        // ✅ Create new paragraph ONLY when needed
+        editor
+          .chain()
+          .insertContentAt(doc.content.size, {
+            type: 'paragraph',
+            attrs: {
+              blockId: crypto.randomUUID(),
+              indent: 0,
+              collapsed: false,
+              tags: [],
+            },
+          })
+          .focus('end')
+          .run();
       },
-      [editor, insertParagraphAtEndAndFocus]
+      [editor]
     );
 
     if (!editor) {
