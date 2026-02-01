@@ -414,17 +414,25 @@ const EditorCoreInner = forwardRef<
               const last = doc.lastChild;
 
               if (last && last.textContent.trim() !== '') {
-                // Auto-fix: Append empty paragraph
+                // Auto-fix: Append empty paragraph with explicit selection
                 const paragraphType = view.state.schema.nodes.paragraph;
                 if (paragraphType) {
+                  const pos = doc.content.size;
                   const tr = view.state.tr;
+
                   const emptyParagraph = paragraphType.create({
                     blockId: crypto.randomUUID(),
                     indent: 0,
                     collapsed: false,
                     tags: [],
                   });
-                  tr.insert(doc.content.size, emptyParagraph);
+
+                  tr.insert(pos, emptyParagraph);
+
+                  // 🔑 REQUIRED: Set selection inside new empty paragraph
+                  // ProseMirror contract: docChanged requires selectionSet
+                  tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+
                   view.dispatch(tr);
 
                   if (process.env.NODE_ENV === 'development') {
