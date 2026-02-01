@@ -699,22 +699,10 @@ const EditorCoreInner = forwardRef<
       }
     }, [editable, editor]);
 
-    // Handle click on empty space to focus editor
-    const handleWrapperClick = useCallback(
-      (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!editor) return;
-
-        // Check if click is on the wrapper itself (not on content)
-        const target = e.target as HTMLElement;
-        const editorContent = target.closest('.ProseMirror');
-
-        if (!editorContent) {
-          // Click was outside editor content - focus end
-          focusEditorEnd();
-        }
-      },
-      [editor, focusEditorEnd]
-    );
+    // ❌ REMOVED: Wrapper click detection is no longer needed
+    // After CSS runway fix, the trailing empty paragraph has physical height,
+    // so clicks naturally land inside it. ProseMirror handles focus natively.
+    // No wrapper click detection, no coordinate math, no DOM heuristics.
 
     if (!editor) {
       return null;
@@ -750,7 +738,6 @@ const EditorCoreInner = forwardRef<
           style={{
             cursor: 'text',
           }}
-          onClick={handleWrapperClick}
         >
           <EditorContent editor={editor} />
         </div>

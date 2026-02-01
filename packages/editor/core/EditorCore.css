@@ -120,6 +120,39 @@
   background-color: transparent !important;
 }
 
+/* ============================================
+ * CLICK RUNWAY - Trailing Empty Paragraph
+ * ============================================
+ * 
+ * ARCHITECTURAL RULE:
+ * The editor never has "empty space" — the trailing empty paragraph IS the space.
+ * 
+ * Instead of detecting "clicks outside content" with JS, we give the trailing
+ * empty paragraph physical height so clicks naturally land inside it.
+ * 
+ * This matches Notion/Apple Notes behavior exactly:
+ * - No wrapper click detection
+ * - No coordinate math
+ * - Native ProseMirror focus handling
+ * - CSS layout, not JS events
+ * 
+ * Result:
+ * - Click below content → lands in trailing paragraph → cursor places naturally
+ * - Placeholder host is always visible
+ * - Drag selection has physical terminus
+ * - No "white space" bugs
+ */
+
+/* All empty paragraphs need breathing room */
+.ProseMirror [data-empty="true"][data-type="paragraph"] {
+  min-height: 1.5em;
+}
+
+/* Trailing empty paragraph = click runway (6rem provides comfortable click target) */
+.ProseMirror [data-empty="true"][data-type="paragraph"]:last-child {
+  min-height: 6rem;
+}
+
 /* Horizontal Rule selection */
 .ProseMirror hr.ProseMirror-selectednode,
 .ProseMirror [data-type="horizontalRule"].ProseMirror-selectednode {
