@@ -166,16 +166,25 @@ export function useBlock({
         .forEach((el) => el.classList.remove('block-focused'));
     };
 
-    // Listen to selection changes and blur events
-    // selectionUpdate: Apply focus class to intersecting blocks
-    // blur: Clear all focus classes (prevents stale placeholders)
+    const restoreFocusClass = () => {
+      // On focus, re-evaluate which block should have focus
+      // Critical: selectionUpdate doesn't fire if cursor position unchanged
+      updateFocusClass();
+    };
+
+    // Listen to selection changes, blur, and focus events
+    // selectionUpdate: Cursor moved → update focused block
+    // blur: Editor lost focus → clear all focus state
+    // focus: Editor regained focus → recompute focus state
     editor.on('selectionUpdate', updateFocusClass);
     editor.on('blur', clearAllFocusClasses);
+    editor.on('focus', restoreFocusClass);
     updateFocusClass(); // Set initial state
 
     return () => {
       editor.off('selectionUpdate', updateFocusClass);
       editor.off('blur', clearAllFocusClasses);
+      editor.off('focus', restoreFocusClass);
     };
   }, [editor, blockId, getPos, node.nodeSize]);
 
