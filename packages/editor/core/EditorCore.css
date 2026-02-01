@@ -31,6 +31,22 @@
 }
 
 /* ============================================
+ * HOVER ZONES - Non-editable UI chrome
+ * ============================================ */
+
+/* 
+ * CRITICAL: Hover zones live inside contenteditable but must not be editable
+ * - contentEditable={false} in JSX prevents caret placement
+ * - user-select: none prevents text selection
+ * - cursor: pointer shows correct affordance (not I-beam)
+ */
+[data-hover-only="true"] {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+/* ============================================
  * PLACEHOLDER STYLES - CSS-based
  * ============================================ */
 

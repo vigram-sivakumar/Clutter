@@ -10,7 +10,15 @@
  * - Always rendered (not conditional)
  * - Positioned absolutely outside block content
  * - pointerEvents: 'auto' to capture hover
+ * - contentEditable: false to prevent caret placement
+ * - userSelect: 'none' to prevent text selection
+ * - cursor: 'pointer' to show correct affordance (not I-beam)
  * - Dimensions defined in tokens.ts (spacing.hoverZoneLeft/Right)
+ *
+ * CRITICAL:
+ * These zones live inside NodeViewWrapper (contenteditable tree) but must
+ * not be editable. Browser would otherwise show I-beam cursor and allow
+ * caret placement, causing click/focus/selection bugs.
  */
 
 import { spacing } from '../../../tokens';
@@ -21,6 +29,8 @@ export function BlockHoverZones() {
       {/* Left hover zone */}
       <div
         data-hover-only="true"
+        contentEditable={false}
+        suppressContentEditableWarning
         style={{
           position: 'absolute',
           top: 0,
@@ -28,12 +38,16 @@ export function BlockHoverZones() {
           width: spacing.hoverZoneLeft,
           height: '100%',
           pointerEvents: 'auto',
+          userSelect: 'none',
+          cursor: 'pointer',
         }}
       />
 
       {/* Right hover zone */}
       <div
         data-hover-only="true"
+        contentEditable={false}
+        suppressContentEditableWarning
         style={{
           position: 'absolute',
           top: 0,
@@ -41,6 +55,8 @@ export function BlockHoverZones() {
           width: spacing.hoverZoneRight,
           height: '100%',
           pointerEvents: 'auto',
+          userSelect: 'none',
+          cursor: 'pointer',
         }}
       />
     </>
