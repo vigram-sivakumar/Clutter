@@ -646,6 +646,47 @@ const EditorCoreInner = forwardRef<
       }
     }, [editable, editor]);
 
+    // 🔍 DEBUG: Document-level click logger (proof of pointer-events passthrough)
+    useEffect(() => {
+      if (process.env.NODE_ENV !== 'development') return;
+
+      const handler = (e: MouseEvent) => {
+        console.log('[DOCUMENT CLICK]', e.target);
+      };
+      document.addEventListener('click', handler);
+      return () => document.removeEventListener('click', handler);
+    }, []);
+
+    // 🔒 CRITICAL: Document-level deselect on outside click
+    // ProseMirror only reacts to events inside its DOM
+    // Clicking outside requires explicit deselection
+    useEffect(() => {
+      if (!editor) return;
+
+      const onDocumentMouseDown = (e: MouseEvent) => {
+        const container = editorContainerRef.current;
+        if (!container) return;
+
+        // Check if click is outside editor container
+        if (!container.contains(e.target as Node)) {
+          const sel = editor.state.selection;
+
+          // Clear NodeSelection when clicking outside
+          if (sel instanceof NodeSelection) {
+            const pos = Math.max(1, editor.state.doc.content.size - 1);
+            const tr = editor.state.tr.setSelection(
+              TextSelection.create(editor.state.doc, pos)
+            );
+            editor.view.dispatch(tr);
+          }
+        }
+      };
+
+      document.addEventListener('mousedown', onDocumentMouseDown);
+      return () =>
+        document.removeEventListener('mousedown', onDocumentMouseDown);
+    }, [editor]);
+
     // Runway click handler: Detect clicks BELOW content (Y-position based)
     // Notion pattern: Focus existing empty paragraph OR create new one
     const handleRunwayClick = useCallback(
