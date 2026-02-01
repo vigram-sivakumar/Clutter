@@ -23,6 +23,23 @@
  *   - Drag across blocks → text selection (NOT block selection)
  *   - Block selection ONLY via handlers (⋮⋮ icon)
  *
+ * Selection Clearing (Critical):
+ *   - Click outside editor → clears NodeSelection/AllSelection
+ *   - Document-level mousedown handler enforces this
+ *   - NodeSelection and AllSelection are "sticky" (don't self-clear)
+ *   - Must explicitly replace with TextSelection
+ *
+ * Intent Separation (The Core Principle):
+ *   TextSelection = text intent → Floating toolbar (formatting)
+ *   NodeSelection = structural intent → Block menu (move/delete/duplicate)
+ *   AllSelection = bulk structural intent → Block menu
+ *
+ *   Rules:
+ *   - TextSelection NEVER shows block halo (even if multi-block)
+ *   - Block halos ONLY for NodeSelection/AllSelection
+ *   - Floating toolbar ONLY for TextSelection (any range)
+ *   - These intents never overlap
+ *
  * ═══════════════════════════════════════════════════════════════════════════
  * 🎯 RUNWAY PATTERN (Notion Lazy-Creation Model)
  * ═══════════════════════════════════════════════════════════════════════════
