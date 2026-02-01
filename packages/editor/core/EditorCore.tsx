@@ -404,7 +404,14 @@ const EditorCoreInner = forwardRef<
 
               return false; // Allow default behavior (native text selection)
             },
-            focus: () => {
+            focus: (view) => {
+              // 🔍 DEBUG: Log focus events to track selection resurrection
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[EDITOR FOCUS]', {
+                  selection: view.state.selection.constructor.name,
+                });
+              }
+
               onFocus?.();
               return false; // Allow default focus behavior
             },
@@ -454,7 +461,7 @@ const EditorCoreInner = forwardRef<
             );
           }
         },
-        onSelectionUpdate: () => {
+        onSelectionUpdate: ({ editor }) => {
           // ⚠️ READ ONLY — DO NOT MUTATE DOCUMENT HERE
           //
           // ❌ DISABLED: Lazy blockId assignment
@@ -467,6 +474,16 @@ const EditorCoreInner = forwardRef<
           // - Selection pointing to stale document positions
           //
           // Proper solution: Assign blockId at creation time, not reactively
+
+          // 🔍 DEBUG: Log every selection change
+          if (process.env.NODE_ENV === 'development') {
+            const sel = editor.state.selection;
+            console.log('[SELECTION UPDATE]', {
+              type: sel.constructor.name,
+              from: sel.from,
+              to: sel.to,
+            });
+          }
 
           return; // ❌ DO NOT MUTATE HERE
         },
@@ -634,6 +651,14 @@ const EditorCoreInner = forwardRef<
     const handleRunwayClick = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
+
+        // 🔍 DEBUG: Log runway clicks
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[RUNWAY CLICK]', {
+            selection: editor.state.selection.constructor.name,
+            target: e.target,
+          });
+        }
 
         // 🔒 CRITICAL: Actively replace NodeSelection with TextSelection
         // NodeSelection is "sticky" — it does NOT clear itself
