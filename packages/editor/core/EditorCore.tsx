@@ -70,7 +70,7 @@ import React, {
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
-import { NodeSelection, TextSelection } from '@tiptap/pm/state';
+import { NodeSelection, TextSelection, AllSelection } from '@tiptap/pm/state';
 
 export interface EditorCoreHandle {
   focus: () => void;
@@ -671,8 +671,9 @@ const EditorCoreInner = forwardRef<
         if (!container.contains(e.target as Node)) {
           const sel = editor.state.selection;
 
-          // Clear NodeSelection when clicking outside
-          if (sel instanceof NodeSelection) {
+          // Clear block-level selections (NodeSelection OR AllSelection)
+          // Both must be cleared on outside clicks to match Notion behavior
+          if (sel instanceof NodeSelection || sel instanceof AllSelection) {
             const pos = Math.max(1, editor.state.doc.content.size - 1);
             const tr = editor.state.tr.setSelection(
               TextSelection.create(editor.state.doc, pos)
@@ -701,10 +702,13 @@ const EditorCoreInner = forwardRef<
           });
         }
 
-        // 🔒 CRITICAL: Actively replace NodeSelection with TextSelection
-        // NodeSelection is "sticky" — it does NOT clear itself
-        // Must explicitly replace it, or it resurrects on focus
-        if (editor.state.selection instanceof NodeSelection) {
+        // 🔒 CRITICAL: Actively replace block-level selections with TextSelection
+        // NodeSelection and AllSelection are "sticky" — they do NOT clear themselves
+        // Must explicitly replace them, or they resurrect on focus
+        if (
+          editor.state.selection instanceof NodeSelection ||
+          editor.state.selection instanceof AllSelection
+        ) {
           const { doc } = editor.state;
           const pos = Math.max(1, doc.content.size - 1);
           const tr = editor.state.tr.setSelection(
