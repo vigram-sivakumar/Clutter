@@ -404,14 +404,7 @@ const EditorCoreInner = forwardRef<
 
               return false; // Allow default behavior (native text selection)
             },
-            focus: (view) => {
-              // 🔍 DEBUG: Log focus events to track selection resurrection
-              if (process.env.NODE_ENV === 'development') {
-                console.log('[EDITOR FOCUS]', {
-                  selection: view.state.selection.constructor.name,
-                });
-              }
-
+            focus: () => {
               onFocus?.();
               return false; // Allow default focus behavior
             },
@@ -461,7 +454,7 @@ const EditorCoreInner = forwardRef<
             );
           }
         },
-        onSelectionUpdate: ({ editor }) => {
+        onSelectionUpdate: () => {
           // ⚠️ READ ONLY — DO NOT MUTATE DOCUMENT HERE
           //
           // ❌ DISABLED: Lazy blockId assignment
@@ -474,16 +467,6 @@ const EditorCoreInner = forwardRef<
           // - Selection pointing to stale document positions
           //
           // Proper solution: Assign blockId at creation time, not reactively
-
-          // 🔍 DEBUG: Log every selection change
-          if (process.env.NODE_ENV === 'development') {
-            const sel = editor.state.selection;
-            console.log('[SELECTION UPDATE]', {
-              type: sel.constructor.name,
-              from: sel.from,
-              to: sel.to,
-            });
-          }
 
           return; // ❌ DO NOT MUTATE HERE
         },
@@ -646,17 +629,6 @@ const EditorCoreInner = forwardRef<
       }
     }, [editable, editor]);
 
-    // 🔍 DEBUG: Document-level click logger (proof of pointer-events passthrough)
-    useEffect(() => {
-      if (process.env.NODE_ENV !== 'development') return;
-
-      const handler = (e: MouseEvent) => {
-        console.log('[DOCUMENT CLICK]', e.target);
-      };
-      document.addEventListener('click', handler);
-      return () => document.removeEventListener('click', handler);
-    }, []);
-
     // 🔒 CRITICAL: Document-level deselect on outside click
     // ProseMirror only reacts to events inside its DOM
     // Clicking outside requires explicit deselection
@@ -693,14 +665,6 @@ const EditorCoreInner = forwardRef<
     const handleRunwayClick = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
-
-        // 🔍 DEBUG: Log runway clicks
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[RUNWAY CLICK]', {
-            selection: editor.state.selection.constructor.name,
-            target: e.target,
-          });
-        }
 
         // 🔒 CRITICAL: Actively replace block-level selections with TextSelection
         // NodeSelection and AllSelection are "sticky" — they do NOT clear themselves
