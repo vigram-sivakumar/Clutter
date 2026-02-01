@@ -38,12 +38,12 @@
  * CRITICAL: Hover zones live inside contenteditable but must not be editable
  * - contentEditable={false} in JSX prevents caret placement
  * - user-select: none prevents text selection
- * - cursor: pointer shows correct affordance (not I-beam)
+ * - cursor: default (not I-beam, not pointer - these are invisible detection zones)
  */
 [data-hover-only="true"] {
   user-select: none;
   -webkit-user-select: none;
-  cursor: pointer;
+  cursor: default;
 }
 
 /* ============================================

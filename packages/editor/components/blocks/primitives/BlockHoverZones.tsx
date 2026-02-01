@@ -12,13 +12,17 @@
  * - pointerEvents: 'auto' to capture hover
  * - contentEditable: false to prevent caret placement
  * - userSelect: 'none' to prevent text selection
- * - cursor: 'pointer' to show correct affordance (not I-beam)
+ * - cursor: 'default' (not I-beam, not pointer - invisible detection zones)
  * - Dimensions defined in tokens.ts (spacing.hoverZoneLeft/Right)
  *
  * CRITICAL:
  * These zones live inside NodeViewWrapper (contenteditable tree) but must
  * not be editable. Browser would otherwise show I-beam cursor and allow
  * caret placement, causing click/focus/selection bugs.
+ *
+ * NOTE:
+ * These are invisible hover DETECTION zones, not directly clickable elements.
+ * They trigger chrome to appear - the chrome BUTTONS are what's clickable.
  */
 
 import { spacing } from '../../../tokens';
@@ -39,7 +43,7 @@ export function BlockHoverZones() {
           height: '100%',
           pointerEvents: 'auto',
           userSelect: 'none',
-          cursor: 'pointer',
+          cursor: 'default',
         }}
       />
 
@@ -56,7 +60,7 @@ export function BlockHoverZones() {
           height: '100%',
           pointerEvents: 'auto',
           userSelect: 'none',
-          cursor: 'pointer',
+          cursor: 'default',
         }}
       />
     </>
