@@ -27,12 +27,25 @@
  * 🔒 EMPTY BLOCK INVARIANT (Critical)
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * RULE: doc.lastChild must ALWAYS be an empty paragraph with a valid blockId.
+ * RULE: doc.lastChild must be an empty paragraph at SEMANTIC BOUNDARIES.
+ *
+ * Semantic Boundaries (when invariant MUST hold):
+ *   - After hydration (content loaded)
+ *   - At save time (before persistence)
+ *   - After delete-all operations
+ *   - When focus leaves editor
+ *   - When user clicks below content
+ *
+ * NOT Enforced During:
+ *   - Typing in last paragraph (intermediate state)
+ *   - IME composition events
+ *   - DOM reconciliation
+ *   - Cursor movement normalization
+ *   - Mid-transaction states
  *
  * Why This Matters:
  *   - Cursor needs a "runway" to land below content
  *   - Placeholder logic requires an empty host
- *   - Drag selection needs a terminus
  *   - Click-below-content needs a target
  *
  * Enforcement Points:
@@ -40,10 +53,11 @@
  *   2. Focus: focusEditorEnd() appends when last block is non-empty
  *   3. Delete-All: BlockDeletion.ts recreates after deleting everything
  *
- * Dev Assertion:
- *   - onTransaction validates in development mode
+ * Dev Assertion (Save Boundary Only):
+ *   - onUpdate validates at save time
  *   - Violations logged with full context
  *   - NO auto-fixing (prevents masked bugs)
+ *   - NOT checked during intermediate transactions
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -422,6 +436,35 @@ const EditorCoreInner = forwardRef<
             return; // Prevent save in dev if validation fails
           }
 
+          // 🔍 DEV-ONLY: Enforce empty block invariant at SAVE boundary
+          // RULE: doc.lastChild must be an empty paragraph with a valid blockId
+          // Checked only at semantic boundaries (save time), NOT during intermediate edits
+          if (process.env.NODE_ENV === 'development') {
+            const last = editor.state.doc.lastChild;
+
+            const violated =
+              !last ||
+              last.type.name !== 'paragraph' ||
+              last.textContent.trim() !== '' ||
+              !last.attrs?.blockId;
+
+            if (violated) {
+              console.error(
+                '❌ EMPTY BLOCK INVARIANT VIOLATED (at save boundary)',
+                {
+                  hasLastChild: !!last,
+                  lastNodeType: last?.type.name,
+                  lastNodeEmpty: last ? last.textContent.trim() === '' : false,
+                  hasBlockId: !!last?.attrs?.blockId,
+                  docStructure: editor.state.doc.toJSON(),
+                },
+                '\n\nRULE: Document must end with exactly one empty paragraph at save time.',
+                '\nThis provides cursor runway, placeholder host, and drag selection terminus.',
+                '\nViolation will cause selection bugs, placeholder issues, and drag problems.'
+              );
+            }
+          }
+
           prevDocRef.current = editor.state.doc;
           onChange(content);
         },
@@ -439,38 +482,6 @@ const EditorCoreInner = forwardRef<
                 docAfter: transaction.doc.textContent.substring(0, 50),
               }
             );
-          }
-
-          // 🔍 DEV-ONLY: Enforce empty block invariant
-          // RULE: doc.lastChild must be an empty paragraph with a valid blockId
-          // This catches violations early with exact stack trace
-          if (
-            process.env.NODE_ENV === 'development' &&
-            transaction.docChanged
-          ) {
-            const last = transaction.doc.lastChild;
-
-            const violated =
-              !last ||
-              last.type.name !== 'paragraph' ||
-              last.textContent.trim() !== '' ||
-              !last.attrs?.blockId;
-
-            if (violated) {
-              console.error(
-                '❌ EMPTY BLOCK INVARIANT VIOLATED',
-                {
-                  hasLastChild: !!last,
-                  lastNodeType: last?.type.name,
-                  lastNodeEmpty: last ? last.textContent.trim() === '' : false,
-                  hasBlockId: !!last?.attrs?.blockId,
-                  docStructure: transaction.doc.toJSON(),
-                },
-                '\n\nRULE: Document must ALWAYS end with exactly one empty paragraph block.',
-                '\nThis provides cursor runway, placeholder host, and drag selection terminus.',
-                '\nViolation will cause selection bugs, placeholder issues, and drag problems.'
-              );
-            }
           }
         },
         onSelectionUpdate: () => {
