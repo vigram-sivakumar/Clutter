@@ -635,6 +635,12 @@ const EditorCoreInner = forwardRef<
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
 
+        // 🚫 CRITICAL GUARD: Do nothing if user is clearing a block selection
+        // Calling focus() after NodeSelection resurrects the selection
+        if (editor.state.selection instanceof NodeSelection) {
+          return;
+        }
+
         // Find the last block in the document
         const lastBlock = document.querySelector(
           '[data-node-view-wrapper]:last-of-type'
@@ -652,15 +658,21 @@ const EditorCoreInner = forwardRef<
         const { doc } = editor.state;
         const lastNode = doc.lastChild;
 
-        // 🔒 GUARD: If last block is already empty paragraph → just focus
+        // 🔒 GUARD: If last block is already empty paragraph → set text selection
         const isLastEmptyParagraph =
           lastNode &&
           lastNode.type.name === 'paragraph' &&
           lastNode.textContent.trim() === '';
 
         if (isLastEmptyParagraph) {
-          // ✅ Just focus — DO NOT create another
-          editor.commands.focus('end');
+          // ✅ Explicitly set text selection, NOT just focus
+          // Rule: Never call focus() after NodeSelection without setting new selection
+          const pos = doc.content.size;
+          const tr = editor.state.tr.setSelection(
+            TextSelection.create(doc, pos)
+          );
+          editor.view.dispatch(tr);
+          editor.view.focus();
           return;
         }
 
@@ -676,7 +688,8 @@ const EditorCoreInner = forwardRef<
               tags: [],
             },
           })
-          .focus('end')
+          .setTextSelection(doc.content.size + 1)
+          .focus()
           .run();
       },
       [editor]
@@ -710,7 +723,7 @@ const EditorCoreInner = forwardRef<
           ...cssVariables,
           ...style,
         }}
-        onMouseDown={handleRunwayClick}
+        onClick={handleRunwayClick}
       >
         {/* Editor content wrapper - isolated text semantic boundary */}
         <div
