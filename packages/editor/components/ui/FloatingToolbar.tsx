@@ -8,7 +8,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useEditor } from '@tiptap/react';
-import { NodeSelection } from '@tiptap/pm/state';
+import { NodeSelection, AllSelection } from '@tiptap/pm/state';
 import {
   useTheme,
   spacing,
@@ -28,7 +28,6 @@ import {
   X,
   ChevronDown,
 } from '@clutter/ui';
-import { isMultiBlockSelection } from '../../utils/multiSelection';
 
 interface FloatingToolbarProps {
   editor: ReturnType<typeof useEditor>;
@@ -81,8 +80,12 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
       const { selection } = state;
       const { from, to } = selection;
 
-      // Hide toolbar if block is selected (NodeSelection)
-      if (selection instanceof NodeSelection) {
+      // Hide toolbar for block-level selections (structural intent)
+      // NodeSelection = single block, AllSelection = all blocks (Ctrl+A)
+      if (
+        selection instanceof NodeSelection ||
+        selection instanceof AllSelection
+      ) {
         setIsVisible(false);
         setShowLinkInput(false);
         setShowColorPicker(false);
@@ -97,15 +100,9 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
         return;
       }
 
-      // Hide toolbar if selection spans multiple blocks
-      // (handles Shift+Click range selection, Cmd+A, dragging across blocks, etc.)
-      if (isMultiBlockSelection(editor)) {
-        setIsVisible(false);
-        setShowLinkInput(false);
-        setShowColorPicker(false);
-        return;
-      }
-
+      // ✅ Show toolbar for ANY TextSelection with content (single or multi-block)
+      // Text drag = text intent → formatting toolbar should appear
+      // No block coverage checks needed
       const selectedText = state.doc.textBetween(from, to);
       if (selectedText.trim().length === 0) {
         setIsVisible(false);
