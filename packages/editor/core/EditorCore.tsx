@@ -683,26 +683,16 @@ const EditorCoreInner = forwardRef<
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
 
-        // 🚫 Ignore double-clicks (let ProseMirror handle word selection)
-        // Double-click = text intent, runway = background intent
-        if (e.detail === 2) {
+        // 🚫 CRITICAL: If click originated inside editor content, do NOTHING
+        // This prevents runway logic from stealing clicks inside blocks
+        const target = e.target as HTMLElement;
+        if (target.closest('[contenteditable="true"]')) {
           return;
         }
 
-        // 🔒 CRITICAL: Actively replace block-level selections with TextSelection
-        // NodeSelection and AllSelection are "sticky" — they do NOT clear themselves
-        // Must explicitly replace them, or they resurrect on focus
-        if (
-          editor.state.selection instanceof NodeSelection ||
-          editor.state.selection instanceof AllSelection
-        ) {
-          const { doc } = editor.state;
-          const pos = Math.max(1, doc.content.size - 1);
-          const tr = editor.state.tr.setSelection(
-            TextSelection.create(doc, pos)
-          );
-          editor.view.dispatch(tr);
-          editor.view.focus();
+        // 🚫 Ignore double-clicks (let ProseMirror handle word selection)
+        // Double-click = text intent, runway = background intent
+        if (e.detail > 1) {
           return;
         }
 
@@ -717,6 +707,22 @@ const EditorCoreInner = forwardRef<
 
         // Only react to clicks BELOW content (+4px tolerance)
         if (e.clientY <= lastRect.bottom + 4) {
+          return;
+        }
+
+        // ✅ At this point, we know it's a real runway click (below content)
+        // Now clear block-level selections if they exist
+        if (
+          editor.state.selection instanceof NodeSelection ||
+          editor.state.selection instanceof AllSelection
+        ) {
+          const { doc } = editor.state;
+          const pos = Math.max(1, doc.content.size - 1);
+          const tr = editor.state.tr.setSelection(
+            TextSelection.create(doc, pos)
+          );
+          editor.view.dispatch(tr);
+          editor.view.focus();
           return;
         }
 
