@@ -24,38 +24,39 @@
  *   - Block selection ONLY via handlers (⋮⋮ icon)
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * 🔒 EMPTY BLOCK INVARIANT (Critical)
+ * 🎯 RUNWAY PATTERN (Notion Lazy-Creation Model)
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * RULE: Before document leaves editor control, it must end with an empty paragraph.
+ * RULE: Empty space below content is not a permanent block — it's intent.
  *
- * "Leaves editor control" means:
- *   - blur (focus leaves editor) ← AUTO-FIX APPLIED HERE
- *   - After delete-all operations
- *   - When user clicks below content
+ * The Pattern:
+ *   - Document can legitimately end with non-empty content
+ *   - No permanent trailing empty paragraph
+ *   - Editor container has vertical runway (paddingBottom: 30vh)
+ *   - Clicks in runway create new paragraph lazily
  *
- * NOT Enforced During Active Editing:
- *   - Typing in last paragraph (user is actively editing)
- *   - IME composition events
- *   - DOM reconciliation
- *   - onTransaction, onUpdate callbacks
- *   - Any intermediate transaction state
+ * Runway Click Behavior:
+ *   1. User clicks in empty space below content
+ *   2. Hit-test: Did click land on a block?
+ *   3. If YES → do nothing (ProseMirror handles it)
+ *   4. If NO → runway click detected:
+ *      - Insert new paragraph at document end
+ *      - Focus the new paragraph
+ *      - That paragraph now becomes real content
  *
- * Why This Matters:
- *   - Cursor needs a "runway" to land below content
- *   - Placeholder logic requires an empty host
- *   - Click-below-content needs a target
+ * Why This Is Correct:
+ *   - Blocks exist only if user created them (honest DOM)
+ *   - No phantom paragraphs or placeholder hosts
+ *   - Click intent is explicit ("I want to continue writing")
+ *   - Not selection restoration, not focus tricks
  *
- * Enforcement Strategy:
- *   1. Creation: createEmptyParagraph() guarantees initial state
- *   2. Focus: focusEditorEnd() appends when last block is non-empty
- *   3. Delete-All: BlockDeletion.ts recreates after deleting everything
- *   4. Blur: Auto-appends empty paragraph if last block has content
+ * Edge Cases Handled:
+ *   - Blur: Auto-appends empty paragraph (stabilization boundary)
+ *   - Delete-all: BlockDeletion.ts recreates one paragraph
+ *   - Creation: createEmptyParagraph() for initial state
  *
- * Philosophy:
- *   - Allow temporary violations during editing (natural state)
- *   - Enforce at stabilization boundaries (blur, focus-shift)
- *   - Matches Notion/Apple Notes behavior exactly
+ * Mental Model:
+ *   Whitespace is not content. Whitespace is intent. Intent creates content.
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -533,47 +534,33 @@ const EditorCoreInner = forwardRef<
       }
     }, [editor, onTagClick]);
 
-    // Helper: Focus editor end, creating new paragraph if needed
-    const focusEditorEnd = useCallback(() => {
+    // Runway click handler: Insert new paragraph at end when user clicks in empty space
+    // Notion pattern: Lazy creation, not permanent empty block
+    const insertParagraphAtEndAndFocus = useCallback(() => {
       if (!editor) return;
 
       const { doc } = editor.state;
-      const lastNode = doc.lastChild;
 
-      // 🔒 TRAILING EMPTY PARAGRAPH INVARIANT
-      // The landing pad must be an empty PARAGRAPH specifically
-      // Not heading, list, callout, or any other block type
-      const isLastEmptyParagraph =
-        lastNode &&
-        lastNode.type.name === 'paragraph' &&
-        lastNode.textContent.trim() === '';
-
-      if (isLastEmptyParagraph) {
-        // ✅ Focus existing empty paragraph (valid runway)
-        editor.commands.focus('end');
-        return;
-      }
-
-      // ❌ Last block is not a valid runway (wrong type or has content)
-      // Create exactly ONE empty paragraph
-      editor.commands.insertContentAt(doc.content.size, {
-        type: 'paragraph',
-        attrs: {
-          blockId: crypto.randomUUID(), // 🔒 BLOCK IDENTITY LAW: Always assign blockId
-          indent: 0,
-          collapsed: false,
-          tags: [],
-        },
-      });
-
-      editor.commands.focus('end');
+      editor
+        .chain()
+        .insertContentAt(doc.content.size, {
+          type: 'paragraph',
+          attrs: {
+            blockId: crypto.randomUUID(), // 🔒 BLOCK IDENTITY LAW: Always assign blockId
+            indent: 0,
+            collapsed: false,
+            tags: [],
+          },
+        })
+        .focus('end')
+        .run();
     }, [editor]);
 
     // Expose methods to parent via ref
     useImperativeHandle(
       ref,
       () => ({
-        focus: focusEditorEnd,
+        focus: () => editor?.commands.focus('end'),
         scrollToBlock: (blockId: string, highlight: boolean = true) => {
           if (!editor) return;
 
@@ -699,10 +686,24 @@ const EditorCoreInner = forwardRef<
       }
     }, [editable, editor]);
 
-    // ❌ REMOVED: Wrapper click detection is no longer needed
-    // After CSS runway fix, the trailing empty paragraph has physical height,
-    // so clicks naturally land inside it. ProseMirror handles focus natively.
-    // No wrapper click detection, no coordinate math, no DOM heuristics.
+    // Runway click handler: Detect clicks in empty space below content
+    // Notion pattern: Clicks outside blocks create new paragraph lazily
+    const handleRunwayClick = useCallback(
+      (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!editor) return;
+
+        const target = e.target as HTMLElement;
+
+        // If click hit a block, do nothing (let ProseMirror handle it)
+        if (target.closest('[data-node-view-wrapper]')) {
+          return;
+        }
+
+        // Otherwise → runway click: Insert paragraph at end and focus
+        insertParagraphAtEndAndFocus();
+      },
+      [editor, insertParagraphAtEndAndFocus]
+    );
 
     if (!editor) {
       return null;
@@ -728,10 +729,11 @@ const EditorCoreInner = forwardRef<
           position: 'relative', // Allow absolute positioning of chrome layer
           minHeight: '100%',
           flex: 1,
-          // paddingBottom: '15vh',  // Inner clickable space (outer 30vh is on container)
+          paddingBottom: '30vh', // 🎯 RUNWAY: Clickable space below content (Notion pattern)
           ...cssVariables,
           ...style,
         }}
+        onMouseDown={handleRunwayClick}
       >
         {/* Editor content wrapper - isolated text semantic boundary */}
         <div
