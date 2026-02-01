@@ -397,16 +397,25 @@ const EditorCoreInner = forwardRef<
                     selection instanceof NodeSelection ||
                     selection instanceof AllSelection
                   ) {
-                    // Convert to TextSelection at clicked position
-                    const textPos = pos.pos;
-                    const tr = view.state.tr.setSelection(
-                      TextSelection.create(view.state.doc, textPos)
-                    );
-                    view.dispatch(tr);
+                    // Find nearest valid position inside a block for TextSelection
+                    // Clicking outside blocks should place cursor in last block
+                    const { doc } = view.state;
+                    const lastBlock = doc.lastChild;
+                    if (lastBlock) {
+                      // Place cursor at end of last block
+                      const lastBlockPos =
+                        doc.content.size - lastBlock.nodeSize;
+                      const textPos = lastBlockPos + lastBlock.content.size;
 
-                    // Prevent default to stop browser from re-selecting
-                    event.preventDefault();
-                    return true; // Handled
+                      const tr = view.state.tr.setSelection(
+                        TextSelection.create(view.state.doc, textPos)
+                      );
+                      view.dispatch(tr);
+
+                      // Prevent default to stop browser from re-selecting
+                      event.preventDefault();
+                      return true; // Handled
+                    }
                   }
                 }
               }
