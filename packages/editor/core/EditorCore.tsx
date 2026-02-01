@@ -686,20 +686,29 @@ const EditorCoreInner = forwardRef<
       }
     }, [editable, editor]);
 
-    // Runway click handler: Detect clicks in empty space below content
-    // Notion pattern: Clicks outside blocks create new paragraph lazily
+    // Runway click handler: Detect clicks BELOW content (Y-position based)
+    // Notion pattern: Only clicks below last block create new paragraph
     const handleRunwayClick = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
 
-        const target = e.target as HTMLElement;
+        // Find the last block in the document
+        const lastBlock = document.querySelector(
+          '[data-node-view-wrapper]:last-of-type'
+        ) as HTMLElement | null;
 
-        // If click hit a block, do nothing (let ProseMirror handle it)
-        if (target.closest('[data-node-view-wrapper]')) {
-          return;
+        if (!lastBlock) return;
+
+        const lastBlockRect = lastBlock.getBoundingClientRect();
+        const clickY = e.clientY;
+
+        // 🚨 CRITICAL GUARD: Only create block if click is BELOW content
+        // +4px tolerance buffer (matches Notion)
+        if (clickY <= lastBlockRect.bottom + 4) {
+          return; // Click is inside or near content → do nothing
         }
 
-        // Otherwise → runway click: Insert paragraph at end and focus
+        // ✅ Click is in runway below content → create paragraph
         insertParagraphAtEndAndFocus();
       },
       [editor, insertParagraphAtEndAndFocus]
