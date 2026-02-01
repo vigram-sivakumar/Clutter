@@ -384,6 +384,22 @@ const EditorCoreInner = forwardRef<
                       view.dispatch(tr);
                     }
                   }
+                } else {
+                  // Clicked outside blocks - clear anchor and any block selection
+                  anchorBlockPosRef.current = null;
+
+                  const { selection } = view.state;
+                  if (
+                    selection instanceof NodeSelection ||
+                    selection instanceof AllSelection
+                  ) {
+                    // Convert to TextSelection at clicked position
+                    const textPos = pos.pos;
+                    const tr = view.state.tr.setSelection(
+                      TextSelection.create(view.state.doc, textPos)
+                    );
+                    view.dispatch(tr);
+                  }
                 }
               }
 
