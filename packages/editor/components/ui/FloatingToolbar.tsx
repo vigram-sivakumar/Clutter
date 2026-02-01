@@ -133,8 +133,15 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
       setIsVisible(true);
     };
 
+    const hideToolbar = () => {
+      setIsVisible(false);
+      setShowLinkInput(false);
+      setShowColorPicker(false);
+    };
+
     editor.on('selectionUpdate', updateToolbar);
     editor.on('focus', updateToolbar);
+    editor.on('blur', hideToolbar);
 
     // Update position on window resize
     window.addEventListener('resize', updateToolbar);
@@ -142,6 +149,7 @@ export const FloatingToolbar = ({ editor }: FloatingToolbarProps) => {
     return () => {
       editor.off('selectionUpdate', updateToolbar);
       editor.off('focus', updateToolbar);
+      editor.off('blur', hideToolbar);
       window.removeEventListener('resize', updateToolbar);
     };
   }, [editor]);

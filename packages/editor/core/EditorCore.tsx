@@ -683,6 +683,12 @@ const EditorCoreInner = forwardRef<
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
 
+        // 🚫 Ignore double-clicks (let ProseMirror handle word selection)
+        // Double-click = text intent, runway = background intent
+        if (e.detail === 2) {
+          return;
+        }
+
         // 🔒 CRITICAL: Actively replace block-level selections with TextSelection
         // NodeSelection and AllSelection are "sticky" — they do NOT clear themselves
         // Must explicitly replace them, or they resurrect on focus
