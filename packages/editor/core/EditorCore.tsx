@@ -4,23 +4,46 @@
  * Core editor with all extensions, plugins, and behavior.
  *
  * ═══════════════════════════════════════════════════════════════════════════
- * 🔒 SELECTION PATTERN
+ * 🔒 SELECTION PATTERN (Notion-Style)
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Text Editing:
  *   - TextSelection for all normal editing operations
- *   - Users select text, apply formatting, type, delete, etc.
+ *   - Drag-to-select = text selection (matches Notion)
+ *   - Shows formatting toolbar
  *
- * Block Highlighting (Intentional NodeSelection):
- *   - NodeSelection used ONLY for visual block highlighting (task navigation)
- *   - Triggered when user clicks task in sidebar → scrollToBlock(blockId, highlight=true)
- *   - Creates blue halo around entire block
- *   - Selection persists until user clicks elsewhere
+ * Block Selection (Handler-Based Only):
+ *   - NodeSelection for single block (Ctrl+A, handler click)
+ *   - AllSelection for all blocks (Ctrl+A second press)
+ *   - TextSelection range for Shift+Click handlers
+ *   - Creates blue halo around selected blocks
  *
- * Why This Works:
- *   - NodeSelection is opt-in, controlled, and intentional
- *   - Only used for navigation/highlighting, never for editing operations
- *   - Standard keyboard/delete operations remain TextSelection-based
+ * Drag Behavior (Matches Notion):
+ *   - Drag within block → text selection
+ *   - Drag across blocks → text selection (NOT block selection)
+ *   - Block selection ONLY via handlers (⋮⋮ icon)
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🔒 EMPTY BLOCK INVARIANT (Critical)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * RULE: doc.lastChild must ALWAYS be an empty paragraph with a valid blockId.
+ *
+ * Why This Matters:
+ *   - Cursor needs a "runway" to land below content
+ *   - Placeholder logic requires an empty host
+ *   - Drag selection needs a terminus
+ *   - Click-below-content needs a target
+ *
+ * Enforcement Points:
+ *   1. Creation: createEmptyParagraph() guarantees initial state
+ *   2. Focus: focusEditorEnd() appends when last block is non-empty
+ *   3. Delete-All: BlockDeletion.ts recreates after deleting everything
+ *
+ * Dev Assertion:
+ *   - onTransaction validates in development mode
+ *   - Violations logged with full context
+ *   - NO auto-fixing (prevents masked bugs)
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -34,7 +57,7 @@ import React, {
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
-import { NodeSelection, TextSelection, AllSelection } from '@tiptap/pm/state';
+import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 
 export interface EditorCoreHandle {
   focus: () => void;
@@ -105,9 +128,6 @@ import {
   useEditorTheme,
 } from '../theme/EditorThemeContext';
 import type { EditorTheme } from '../types/EditorTheme';
-
-// Editor Context
-import { useEditorContext } from '../context/EditorContext';
 
 /**
  * Create an empty paragraph with full block identity
@@ -365,57 +385,6 @@ const EditorCoreInner = forwardRef<
 
                     event.preventDefault();
                     return true; // Handled
-                  } else {
-                    // Regular click (no Shift) - clear anchor and any block selection
-                    anchorBlockPosRef.current = null;
-
-                    // If current selection is NodeSelection or AllSelection,
-                    // convert to TextSelection at clicked position to clear halos
-                    const { selection } = view.state;
-                    if (
-                      selection instanceof NodeSelection ||
-                      selection instanceof AllSelection
-                    ) {
-                      // Convert to TextSelection at clicked position
-                      const textPos = pos.pos;
-                      const tr = view.state.tr.setSelection(
-                        TextSelection.create(view.state.doc, textPos)
-                      );
-                      view.dispatch(tr);
-
-                      // Prevent default to stop browser from re-selecting
-                      event.preventDefault();
-                      return true; // Handled
-                    }
-                  }
-                } else {
-                  // Clicked outside blocks - clear anchor and any block selection
-                  anchorBlockPosRef.current = null;
-
-                  const { selection } = view.state;
-                  if (
-                    selection instanceof NodeSelection ||
-                    selection instanceof AllSelection
-                  ) {
-                    // Find nearest valid position inside a block for TextSelection
-                    // Clicking outside blocks should place cursor in last block
-                    const { doc } = view.state;
-                    const lastBlock = doc.lastChild;
-                    if (lastBlock) {
-                      // Place cursor at end of last block
-                      const lastBlockPos =
-                        doc.content.size - lastBlock.nodeSize;
-                      const textPos = lastBlockPos + lastBlock.content.size;
-
-                      const tr = view.state.tr.setSelection(
-                        TextSelection.create(view.state.doc, textPos)
-                      );
-                      view.dispatch(tr);
-
-                      // Prevent default to stop browser from re-selecting
-                      event.preventDefault();
-                      return true; // Handled
-                    }
                   }
                 }
               }
@@ -470,6 +439,38 @@ const EditorCoreInner = forwardRef<
                 docAfter: transaction.doc.textContent.substring(0, 50),
               }
             );
+          }
+
+          // 🔍 DEV-ONLY: Enforce empty block invariant
+          // RULE: doc.lastChild must be an empty paragraph with a valid blockId
+          // This catches violations early with exact stack trace
+          if (
+            process.env.NODE_ENV === 'development' &&
+            transaction.docChanged
+          ) {
+            const last = transaction.doc.lastChild;
+
+            const violated =
+              !last ||
+              last.type.name !== 'paragraph' ||
+              last.textContent.trim() !== '' ||
+              !last.attrs?.blockId;
+
+            if (violated) {
+              console.error(
+                '❌ EMPTY BLOCK INVARIANT VIOLATED',
+                {
+                  hasLastChild: !!last,
+                  lastNodeType: last?.type.name,
+                  lastNodeEmpty: last ? last.textContent.trim() === '' : false,
+                  hasBlockId: !!last?.attrs?.blockId,
+                  docStructure: transaction.doc.toJSON(),
+                },
+                '\n\nRULE: Document must ALWAYS end with exactly one empty paragraph block.',
+                '\nThis provides cursor runway, placeholder host, and drag selection terminus.',
+                '\nViolation will cause selection bugs, placeholder issues, and drag problems.'
+              );
+            }
           }
         },
         onSelectionUpdate: () => {
