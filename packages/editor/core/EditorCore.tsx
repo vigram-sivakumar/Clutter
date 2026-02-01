@@ -27,37 +27,35 @@
  * 🔒 EMPTY BLOCK INVARIANT (Critical)
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * RULE: doc.lastChild must be an empty paragraph at SEMANTIC BOUNDARIES.
+ * RULE: Before document leaves editor control, it must end with an empty paragraph.
  *
- * Semantic Boundaries (when invariant MUST hold):
- *   - After hydration (content loaded)
- *   - At save time (before persistence)
+ * "Leaves editor control" means:
+ *   - blur (focus leaves editor) ← AUTO-FIX APPLIED HERE
  *   - After delete-all operations
- *   - When focus leaves editor
  *   - When user clicks below content
  *
- * NOT Enforced During:
- *   - Typing in last paragraph (intermediate state)
+ * NOT Enforced During Active Editing:
+ *   - Typing in last paragraph (user is actively editing)
  *   - IME composition events
  *   - DOM reconciliation
- *   - Cursor movement normalization
- *   - Mid-transaction states
+ *   - onTransaction, onUpdate callbacks
+ *   - Any intermediate transaction state
  *
  * Why This Matters:
  *   - Cursor needs a "runway" to land below content
  *   - Placeholder logic requires an empty host
  *   - Click-below-content needs a target
  *
- * Enforcement Points:
+ * Enforcement Strategy:
  *   1. Creation: createEmptyParagraph() guarantees initial state
  *   2. Focus: focusEditorEnd() appends when last block is non-empty
  *   3. Delete-All: BlockDeletion.ts recreates after deleting everything
+ *   4. Blur: Auto-appends empty paragraph if last block has content
  *
- * Dev Assertion (Save Boundary Only):
- *   - onUpdate validates at save time
- *   - Violations logged with full context
- *   - NO auto-fixing (prevents masked bugs)
- *   - NOT checked during intermediate transactions
+ * Philosophy:
+ *   - Allow temporary violations during editing (natural state)
+ *   - Enforce at stabilization boundaries (blur, focus-shift)
+ *   - Matches Notion/Apple Notes behavior exactly
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -409,7 +407,34 @@ const EditorCoreInner = forwardRef<
               onFocus?.();
               return false; // Allow default focus behavior
             },
-            blur: () => {
+            blur: (view) => {
+              // EMPTY BLOCK INVARIANT: Enforce at stabilization boundary (blur)
+              // When focus leaves, ensure document ends with empty paragraph
+              const doc = view.state.doc;
+              const last = doc.lastChild;
+
+              if (last && last.textContent.trim() !== '') {
+                // Auto-fix: Append empty paragraph
+                const paragraphType = view.state.schema.nodes.paragraph;
+                if (paragraphType) {
+                  const tr = view.state.tr;
+                  const emptyParagraph = paragraphType.create({
+                    blockId: crypto.randomUUID(),
+                    indent: 0,
+                    collapsed: false,
+                    tags: [],
+                  });
+                  tr.insert(doc.content.size, emptyParagraph);
+                  view.dispatch(tr);
+
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(
+                      '✅ EMPTY BLOCK INVARIANT: Auto-appended trailing paragraph on blur'
+                    );
+                  }
+                }
+              }
+
               onBlur?.();
               return false; // Allow default blur behavior
             },
@@ -434,35 +459,6 @@ const EditorCoreInner = forwardRef<
               content
             );
             return; // Prevent save in dev if validation fails
-          }
-
-          // 🔍 DEV-ONLY: Enforce empty block invariant at SAVE boundary
-          // RULE: doc.lastChild must be an empty paragraph with a valid blockId
-          // Checked only at semantic boundaries (save time), NOT during intermediate edits
-          if (process.env.NODE_ENV === 'development') {
-            const last = editor.state.doc.lastChild;
-
-            const violated =
-              !last ||
-              last.type.name !== 'paragraph' ||
-              last.textContent.trim() !== '' ||
-              !last.attrs?.blockId;
-
-            if (violated) {
-              console.error(
-                '❌ EMPTY BLOCK INVARIANT VIOLATED (at save boundary)',
-                {
-                  hasLastChild: !!last,
-                  lastNodeType: last?.type.name,
-                  lastNodeEmpty: last ? last.textContent.trim() === '' : false,
-                  hasBlockId: !!last?.attrs?.blockId,
-                  docStructure: editor.state.doc.toJSON(),
-                },
-                '\n\nRULE: Document must end with exactly one empty paragraph at save time.',
-                '\nThis provides cursor runway, placeholder host, and drag selection terminus.',
-                '\nViolation will cause selection bugs, placeholder issues, and drag problems.'
-              );
-            }
           }
 
           prevDocRef.current = editor.state.doc;
