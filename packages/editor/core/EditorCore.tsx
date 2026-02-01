@@ -635,9 +635,17 @@ const EditorCoreInner = forwardRef<
       (e: React.MouseEvent<HTMLDivElement>) => {
         if (!editor) return;
 
-        // 🚫 CRITICAL GUARD: Do nothing if user is clearing a block selection
-        // Calling focus() after NodeSelection resurrects the selection
+        // 🔒 CRITICAL: Actively replace NodeSelection with TextSelection
+        // NodeSelection is "sticky" — it does NOT clear itself
+        // Must explicitly replace it, or it resurrects on focus
         if (editor.state.selection instanceof NodeSelection) {
+          const { doc } = editor.state;
+          const pos = Math.max(1, doc.content.size - 1);
+          const tr = editor.state.tr.setSelection(
+            TextSelection.create(doc, pos)
+          );
+          editor.view.dispatch(tr);
+          editor.view.focus();
           return;
         }
 
