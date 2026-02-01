@@ -120,6 +120,13 @@
   background-color: transparent !important;
 }
 
+/* Override ProseMirror's default selectednode outline
+ * We use React-based BlockSelectionHalo instead for consistent styling
+ */
+.ProseMirror .ProseMirror-selectednode {
+  outline: none !important;
+}
+
 /* Horizontal Rule selection */
 .ProseMirror hr.ProseMirror-selectednode,
 .ProseMirror [data-type="horizontalRule"].ProseMirror-selectednode {
