@@ -21,7 +21,8 @@ export const SelectAllPluginKey = new PluginKey('selectAll');
  */
 function isNodeSelected(state: any): boolean {
   const { selection } = state;
-  return selection.constructor.name === '_NodeSelection';
+  // ✅ Use instanceof for safe type check (not constructor.name)
+  return selection instanceof NodeSelection;
 }
 
 /**
@@ -37,8 +38,10 @@ function selectCurrentBlockAsNode(state: any, dispatch: any): boolean {
   // Get the position of the current block
   const blockPos = $from.before(blockDepth);
 
-  // Create NodeSelection
-  const tr = state.tr.setSelection(NodeSelection.create(doc, blockPos));
+  // Create NodeSelection with metadata to track provenance
+  const tr = state.tr
+    .setSelection(NodeSelection.create(doc, blockPos))
+    .setMeta(SelectAllPluginKey, { source: 'keyboard' });
   dispatch(tr);
   return true;
 }
@@ -52,7 +55,9 @@ function selectAllBlocks(state: any, dispatch: any): boolean {
   // Use AllSelection for selecting the entire document
   // This is the correct way to select all content - it properly handles
   // document-level selection without creating invalid TextSelection endpoints
-  const tr = state.tr.setSelection(new AllSelection(doc));
+  const tr = state.tr
+    .setSelection(new AllSelection(doc))
+    .setMeta(SelectAllPluginKey, { source: 'keyboard' });
   dispatch(tr);
 
   return true;
@@ -64,6 +69,11 @@ export const SelectAll = Extension.create({
   addKeyboardShortcuts() {
     return {
       'Mod-a': ({ editor }) => {
+        // 🔒 CRITICAL: This handler only fires on real Cmd+A keyboard events
+        // TipTap's addKeyboardShortcuts guarantees this is user-initiated
+        // Unlike ProseMirror plugins that see all state changes, this only
+        // fires when the user actually presses the key combination
+
         const { state, view } = editor;
         const { dispatch } = view;
 
