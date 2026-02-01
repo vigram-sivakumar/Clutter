@@ -539,25 +539,34 @@ const EditorCoreInner = forwardRef<
 
       const { doc } = editor.state;
       const lastNode = doc.lastChild;
-      const isLastBlockEmpty = lastNode && lastNode.textContent.trim() === '';
 
-      if (isLastBlockEmpty) {
-        // Just focus the existing empty block
+      // 🔒 TRAILING EMPTY PARAGRAPH INVARIANT
+      // The landing pad must be an empty PARAGRAPH specifically
+      // Not heading, list, callout, or any other block type
+      const isLastEmptyParagraph =
+        lastNode &&
+        lastNode.type.name === 'paragraph' &&
+        lastNode.textContent.trim() === '';
+
+      if (isLastEmptyParagraph) {
+        // ✅ Focus existing empty paragraph (valid runway)
         editor.commands.focus('end');
-      } else {
-        // Create a new paragraph and focus it
-        editor.commands.focus('end');
-        editor.commands.insertContentAt(doc.content.size, {
-          type: 'paragraph',
-          attrs: {
-            blockId: crypto.randomUUID(), // 🔒 BLOCK IDENTITY LAW: Always assign blockId
-            indent: 0,
-            collapsed: false,
-            tags: [],
-          },
-        });
-        editor.commands.focus('end');
+        return;
       }
+
+      // ❌ Last block is not a valid runway (wrong type or has content)
+      // Create exactly ONE empty paragraph
+      editor.commands.insertContentAt(doc.content.size, {
+        type: 'paragraph',
+        attrs: {
+          blockId: crypto.randomUUID(), // 🔒 BLOCK IDENTITY LAW: Always assign blockId
+          indent: 0,
+          collapsed: false,
+          tags: [],
+        },
+      });
+
+      editor.commands.focus('end');
     }, [editor]);
 
     // Expose methods to parent via ref
