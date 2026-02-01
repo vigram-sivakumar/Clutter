@@ -382,6 +382,10 @@ const EditorCoreInner = forwardRef<
                         TextSelection.create(view.state.doc, textPos)
                       );
                       view.dispatch(tr);
+
+                      // Prevent default to stop browser from re-selecting
+                      event.preventDefault();
+                      return true; // Handled
                     }
                   }
                 } else {
@@ -399,6 +403,10 @@ const EditorCoreInner = forwardRef<
                       TextSelection.create(view.state.doc, textPos)
                     );
                     view.dispatch(tr);
+
+                    // Prevent default to stop browser from re-selecting
+                    event.preventDefault();
+                    return true; // Handled
                   }
                 }
               }
