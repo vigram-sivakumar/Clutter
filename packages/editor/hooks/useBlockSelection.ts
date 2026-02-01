@@ -5,7 +5,15 @@
  *
  * 1. NodeSelection: Block is selected as a structural unit
  * 2. AllSelection: Document-wide selection (Ctrl+A final state)
- * 3. Multi-block TextSelection: Block is fully covered by range selection
+ * 3. TextSelection: NEVER shows halo (even if spanning multiple blocks)
+ *
+ * CRITICAL RULE:
+ * TextSelection = text intent → Floating toolbar for formatting
+ * NodeSelection = structural intent → Block menu for move/delete/duplicate
+ * These must NEVER overlap.
+ *
+ * Text drag across blocks is still text editing, not block navigation.
+ * Halo should only appear for explicit block-level operations.
  *
  * Selection ownership:
  * - ProseMirror owns selection state (source of truth)
@@ -55,25 +63,12 @@ export function useBlockSelection({
         return;
       }
 
-      // Case 3: TextSelection covering multiple blocks
-      // Show halo if this block is fully covered by the selection
-      const { from, to } = selection;
-
-      // Only show halos for non-collapsed selections
-      if (from === to) {
-        setIsSelected(false);
-        return;
-      }
-
-      const blockStart = pos;
-      const blockEnd = pos + nodeSize;
-      const contentStart = blockStart + 1; // Skip opening token
-      const contentEnd = blockEnd - 1; // Skip closing token
-
-      // Block is selected if selection fully covers its content
-      const isFullyCovered = from <= contentStart && to >= contentEnd;
-
-      setIsSelected(isFullyCovered);
+      // Case 3: TextSelection (ANY TextSelection)
+      // ❌ NEVER show block halo for text selection, even if multi-block
+      // Text drag = text intent (shows floating toolbar for formatting)
+      // Block halo = structural intent (shows block menu for move/delete)
+      // These must never overlap
+      setIsSelected(false);
     };
 
     // Listen to selection changes
