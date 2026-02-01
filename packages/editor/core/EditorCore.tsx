@@ -667,7 +667,8 @@ const EditorCoreInner = forwardRef<
         if (isLastEmptyParagraph) {
           // ✅ Explicitly set text selection, NOT just focus
           // Rule: Never call focus() after NodeSelection without setting new selection
-          const pos = doc.content.size;
+          // Position inside last paragraph (doc.content.size points AFTER, -1 = inside)
+          const pos = Math.max(1, doc.content.size - 1);
           const tr = editor.state.tr.setSelection(
             TextSelection.create(doc, pos)
           );
@@ -688,8 +689,7 @@ const EditorCoreInner = forwardRef<
               tags: [],
             },
           })
-          .setTextSelection(doc.content.size + 1)
-          .focus()
+          .focus('end') // Let TipTap calculate correct position after insertion
           .run();
       },
       [editor]
