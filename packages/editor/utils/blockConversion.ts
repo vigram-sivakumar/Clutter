@@ -34,7 +34,7 @@ export type BlockConversionSpec =
  * This function:
  * 1. Finds the block by its blockId attribute
  * 2. Creates a replacement node with the target type
- * 3. Preserves content and structural attributes (indent)
+ * 3. Preserves content and all metadata (indent, description, timestamps, collapsed state)
  * 4. Dispatches the replacement transaction
  *
  * @param editor - TipTap editor instance
@@ -83,10 +83,12 @@ export function convertBlock(
     return;
   }
 
-  // Preserve block identity and timestamps during conversion
+  // Preserve block identity, timestamps, and metadata during conversion
   const preservedAttrs = {
     blockId: blockNode.attrs.blockId, // Preserve block identity
     createdAt: blockNode.attrs.createdAt, // Preserve creation timestamp
+    updatedAt: blockNode.attrs.updatedAt, // Preserve last updated timestamp
+    description: blockNode.attrs.description, // Preserve description
     indent: blockNode.attrs.indent ?? 0, // Preserve indent
     collapsed: blockNode.attrs.collapsed ?? false, // Preserve collapsed state
     ...typeAttrs, // Add type-specific attributes
@@ -96,13 +98,17 @@ export function convertBlock(
   const newNode = targetType.create(preservedAttrs, blockNode.content);
 
   // Replace the block in one transaction
-  const tr = state.tr.replaceWith(blockPos, blockPos + blockNode.nodeSize, newNode);
-  
+  const tr = state.tr.replaceWith(
+    blockPos,
+    blockPos + blockNode.nodeSize,
+    newNode
+  );
+
   // CRITICAL: Set selection after document change (ProseMirror invariant)
   // Place cursor at the end of the block's content
   const endPos = blockPos + newNode.nodeSize - 1;
   tr.setSelection(TextSelection.near(tr.doc.resolve(endPos)));
-  
+
   view.dispatch(tr);
 }
 

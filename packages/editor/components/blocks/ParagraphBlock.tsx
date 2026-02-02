@@ -65,6 +65,8 @@ export function ParagraphBlock({ node, editor, getPos }: NodeViewProps) {
 
       {/* Block selection visual */}
       <BlockSelectionHalo isSelected={isSelected} indent={indent} />
+
+      {/* Note: blockDescription is now rendered automatically as child content via NodeViewContent */}
     </NodeViewWrapper>
   );
 }

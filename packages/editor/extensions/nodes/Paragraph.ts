@@ -115,6 +115,18 @@ export const Paragraph = Node.create({
           return {};
         },
       },
+      // Block UI: description (rendered as chrome, not content)
+      description: {
+        default: null,
+        parseHTML: (element) =>
+          element.getAttribute('data-description') || null,
+        renderHTML: (attributes) => {
+          if (attributes.description) {
+            return { 'data-description': attributes.description };
+          }
+          return {};
+        },
+      },
     };
   },
 

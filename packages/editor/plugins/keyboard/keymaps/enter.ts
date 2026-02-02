@@ -254,6 +254,40 @@ function handleEnterImpl(editor: Editor): boolean {
 
   if (!node || !node.attrs) return false;
 
+  // 3️⃣ DESCRIPTION AWARENESS (Sibling Pattern)
+  // If current block has following description, insert AFTER the description (not at cursor)
+  // This treats [block + description] as a semantic unit (Workflowy UX)
+  const STRUCTURAL_BLOCKS = [
+    'paragraph',
+    'heading',
+    'listBlock',
+    'callout',
+    'blockquote',
+  ];
+
+  if (STRUCTURAL_BLOCKS.includes(node.type.name)) {
+    const pos = $from.before();
+    const afterPos = pos + node.nodeSize;
+    const nextNode = state.doc.nodeAt(afterPos);
+
+    if (nextNode?.type.name === 'blockDescription') {
+      // Insert AFTER description, not at cursor
+      const insertPos = afterPos + nextNode.nodeSize;
+
+      const tr = state.tr.insert(
+        insertPos,
+        state.schema.nodes.paragraph?.createAndFill() ||
+          state.schema.nodes.paragraph?.create()
+      );
+      tr.setSelection(
+        state.selection.constructor.near(tr.doc.resolve(insertPos + 1))
+      );
+
+      view.dispatch(tr);
+      return true;
+    }
+  }
+
   const indent = node.attrs.indent ?? 0;
   const isEmpty = node.content.size === 0;
   const atStart = $from.parentOffset === 0;

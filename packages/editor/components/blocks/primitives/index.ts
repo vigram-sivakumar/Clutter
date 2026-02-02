@@ -26,6 +26,7 @@ export type { UseBlockOptions, UseBlockReturn } from './useBlock';
 // Components
 export { BlockHoverZones } from './BlockHoverZones';
 export { BlockContent } from './BlockContent';
+export { BlockContentColumn } from './BlockContentColumn';
 export { MarkerContainer } from './MarkerContainer';
 export { BlockSelectionHalo } from './BlockSelectionHalo';
 

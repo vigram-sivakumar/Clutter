@@ -74,20 +74,15 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
   const type = (node.attrs.type as CalloutType) || 'info';
   const styles = getCalloutStyles(type, colors);
 
-  // Use block primitives with marginLeft indentation (not paddingLeft)
+  // Use block primitives - wrapper is now a plain container
   const { wrapperProps, isSelected, indent } = useBlock({
     node,
     editor,
     getPos,
     indentMode: 'margin', // Critical: Callout uses marginLeft, not paddingLeft
     styleOverrides: {
-      display: 'flex', // Callout-specific: flex layout
-      alignItems: 'flex-start',
-      gap: 8,
-      padding: 16,
-      backgroundColor: styles.backgroundColor,
-      border: `1px solid ${styles.borderColor}`,
-      borderRadius: 4,
+      display: 'flex', // Flex column for callout surface + description
+      flexDirection: 'column',
     },
   });
 
@@ -101,30 +96,45 @@ export function Callout({ node, editor, getPos }: NodeViewProps) {
       {/* Hover detection zones */}
       <BlockHoverZones />
 
-      {/* Icon container - rounded with background */}
+      {/* Styled callout surface - isolated visual box */}
       <div
+        data-styled-surface
         style={{
-          width: '24px',
-          height: '24px',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          backgroundColor: styles.iconBackground,
+          alignItems: 'flex-start',
+          gap: 8,
+          padding: 16,
+          backgroundColor: styles.backgroundColor,
+          border: `1px solid ${styles.borderColor}`,
           borderRadius: 4,
-          marginTop: '1px',
         }}
       >
-        {getIcon(type, styles.iconColor, 14)}
-      </div>
-
-      {/* Content area */}
-      <div style={{ flex: 1, minWidth: 0, paddingTop: '2px' }}>
-        <NodeViewContent
+        {/* Icon container - rounded with background */}
+        <div
           style={{
-            color: colors.text.default,
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            backgroundColor: styles.iconBackground,
+            borderRadius: 4,
+            marginTop: '1px',
           }}
-        />
+        >
+          {getIcon(type, styles.iconColor, 14)}
+        </div>
+
+        {/* Content area */}
+        {/* Note: NodeViewContent renders ALL children including blockDescription */}
+        <div style={{ flex: 1, minWidth: 0, paddingTop: '2px' }}>
+          <NodeViewContent
+            style={{
+              color: colors.text.default,
+            }}
+          />
+        </div>
       </div>
 
       {/* Block selection visual */}

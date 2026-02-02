@@ -209,12 +209,7 @@ function countHiddenChildren(
   return count;
 }
 
-export function ListBlock({
-  node,
-  editor,
-  getPos,
-  updateAttributes,
-}: ListBlockProps) {
+export function ListBlock({ node, editor, getPos }: ListBlockProps) {
   if (!node.attrs.blockId) {
     throw new Error('Invariant violation: ListBlock rendered without blockId');
   }
@@ -257,14 +252,35 @@ export function ListBlock({
 
   // Handle checkbox toggle
   const handleCheckboxChange = useCallback(() => {
-    const newChecked = !checked;
-    updateAttributes({ checked: newChecked });
-  }, [checked, updateAttributes]);
+    const pos = getPos();
+    if (pos === undefined) return;
+
+    const tr = editor.state.tr
+      .setNodeMarkup(pos, undefined, {
+        ...node.attrs,
+        checked: !checked,
+      })
+      .setMeta('origin', 'list-checkbox')
+      .setMeta('addToHistory', false);
+
+    editor.view.dispatch(tr);
+  }, [checked, editor, getPos, node.attrs]);
 
   // Handle collapse toggle
   const handleToggleCollapse = useCallback(() => {
-    updateAttributes({ collapsed: !collapsed });
-  }, [collapsed, updateAttributes]);
+    const pos = getPos();
+    if (pos === undefined) return;
+
+    const tr = editor.state.tr
+      .setNodeMarkup(pos, undefined, {
+        ...node.attrs,
+        collapsed: !collapsed,
+      })
+      .setMeta('origin', 'list-collapse')
+      .setMeta('addToHistory', false);
+
+    editor.view.dispatch(tr);
+  }, [collapsed, editor, getPos, node.attrs]);
 
   // Keyboard handler for checkbox (Space/Enter)
   const handleCheckboxKeyDown = useCallback(
@@ -492,7 +508,7 @@ export function ListBlock({
         {listType === 'task' && childrenInfo.hasChildren && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: colors.text.tertiary,
               userSelect: 'none',
               pointerEvents: 'none',
@@ -505,7 +521,7 @@ export function ListBlock({
         {listType === 'toggle' && collapsed && hiddenCount > 0 && (
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               color: colors.text.tertiary,
               userSelect: 'none',
               pointerEvents: 'none',
@@ -583,6 +599,7 @@ export function ListBlock({
         </div>
 
         {/* Content */}
+        {/* Note: NodeViewContent renders ALL children including blockDescription */}
         <div style={contentStyle}>
           <NodeViewContent as="div" />
         </div>

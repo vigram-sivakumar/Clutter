@@ -111,6 +111,18 @@ export const CodeBlock = Node.create({
           return {};
         },
       },
+      // Block metadata: description
+      description: {
+        default: null,
+        parseHTML: (element) =>
+          element.getAttribute('data-description') || null,
+        renderHTML: (attributes) => {
+          if (attributes.description) {
+            return { 'data-description': attributes.description };
+          }
+          return {};
+        },
+      },
     };
   },
 

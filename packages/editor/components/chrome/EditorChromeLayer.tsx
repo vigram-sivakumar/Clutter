@@ -20,10 +20,39 @@
  * - When hovered, trigger block hover detection → chrome appears
  * - Hover zones provide continuous coverage from block → gutter → chrome
  * - No gaps, no bridge padding needed - seamless hover experience
+ *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 🔒 INTERACTIVE CHROME RULE (Critical for scaling)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * IMPORTANT:
+ * All interactive chrome (inputs, buttons, dropdowns, editable UI) MUST live
+ * in overlay layers like this one. NEVER render interactive UI inside
+ * ProseMirror NodeViews.
+ *
+ * Why:
+ * - Interactive elements inside PM's DOM cause event bubbling to PM handlers
+ * - Causes `INVALID TRANSACTION: docChanged without selectionSet` errors
+ * - contentEditable={false} prevents editing but NOT event propagation
+ *
+ * Examples of interactive chrome (MUST be in overlay):
+ * - Block descriptions (inputs)
+ * - Inline comments (reply inputs, buttons)
+ * - AI suggestions (accept/reject buttons)
+ * - Block settings (dropdowns, toggles)
+ * - Embeds (play/pause controls)
+ *
+ * Examples of allowed chrome (CAN be in NodeViews):
+ * - Visual indicators (halos, highlights) with pointerEvents: 'none'
+ * - Hover detection zones (no focusable elements)
+ *
+ * See: packages/editor/components/chrome/BlockDescriptionsLayer.tsx for reference
+ * ═══════════════════════════════════════════════════════════════════════════
  */
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { Editor } from '@tiptap/core';
+import { useDescriptionEdit } from '../../context/DescriptionEditContext';
 import {
   Plus,
   MoreHorizontal,
@@ -188,6 +217,7 @@ export function EditorChromeLayer({
   deletedAt: _deletedAt,
 }: EditorChromeLayerProps) {
   const { colors } = useEditorTheme();
+  const { setEditingDescription } = useDescriptionEdit();
 
   // ─────────────────────────────────────────────────────────────────────────
   // State
@@ -535,7 +565,7 @@ export function EditorChromeLayer({
       if (!menuButtonRef.current) return;
 
       const buttonRect = menuButtonRef.current.getBoundingClientRect();
-      const menuWidth = 240; // Standard dropdown width
+      const menuWidth = 220; // Standard dropdown width
       const gap = 8; // Gap between button and menu
 
       // Position menu to the LEFT of the button
@@ -607,10 +637,40 @@ export function EditorChromeLayer({
   );
 
   const handleAddDescription = useCallback(() => {
-    console.log('Add description for block:', chrome.blockId);
+    if (!chrome.blockId) return;
+
+    const result = getBlockResult();
+    if (!result) return;
+
+    const { node, pos } = result;
+    const insertPos = pos + node.nodeSize;
+
+    // Check if description already exists (sibling pattern)
+    const nextNode = editor.state.doc.nodeAt(insertPos);
+    const hasExistingDescription = nextNode?.type.name === 'blockDescription';
+
+    // Close menu first
     setIsMenuOpen(false);
-    // TODO: Implement add description
-  }, [chrome.blockId]);
+
+    if (hasExistingDescription) {
+      // Edit: Focus existing description
+      requestAnimationFrame(() => {
+        editor.commands.setTextSelection(insertPos + 1);
+        editor.commands.focus();
+      });
+    } else {
+      // Add: Insert new description node (sibling pattern)
+      requestAnimationFrame(() => {
+        editor
+          .chain()
+          .insertContentAt(insertPos, {
+            type: 'blockDescription',
+          })
+          .setTextSelection(insertPos + 1)
+          .run();
+      });
+    }
+  }, [chrome.blockId, getBlockResult, editor]);
 
   const handleDuplicate = useCallback(() => {
     const { state, view } = editor;
@@ -787,6 +847,19 @@ export function EditorChromeLayer({
   }, [getBlockResult]);
 
   const blockTimestamps = getBlockTimestamps();
+
+  // Get current block's description status (for menu label)
+  const hasDescription = useCallback(() => {
+    const result = getBlockResult();
+    if (!result) return false;
+
+    // Check if next node is a blockDescription (sibling pattern)
+    const insertPos = result.pos + result.node.nodeSize;
+    const nextNode = editor.state.doc.nodeAt(insertPos);
+    return nextNode?.type.name === 'blockDescription';
+  }, [getBlockResult, editor.state.doc]);
+
+  const blockHasDescription = hasDescription();
 
   // ─────────────────────────────────────────────────────────────────────────
   // Keyboard Navigation Modes
@@ -1108,7 +1181,11 @@ export function EditorChromeLayer({
                 />
                 <DropdownItem
                   icon={<FileText size={16} />}
-                  label="Add a description"
+                  label={
+                    blockHasDescription
+                      ? 'Edit description'
+                      : 'Add a description'
+                  }
                   onClick={handleAddDescription}
                   isSelected={selectedMenuIndex === 1}
                   onMouseEnter={() => setSelectedMenuIndex(1)}

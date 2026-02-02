@@ -8,7 +8,12 @@
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
 import { typography } from '../../tokens';
-import { useBlock, BlockHoverZones, BlockSelectionHalo } from './primitives';
+import {
+  useBlock,
+  BlockHoverZones,
+  BlockSelectionHalo,
+  BlockContentColumn,
+} from './primitives';
 
 const headingStyles = {
   1: {
@@ -57,18 +62,20 @@ export function Heading({ node, editor, getPos }: NodeViewProps) {
       {/* Hover detection zones */}
       <BlockHoverZones />
 
-      {/* Semantic heading with typography */}
-      <NodeViewContent
-        as={`h${headingLevel}` as any}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          fontSize: styles.fontSize,
-          fontWeight: styles.fontWeight,
-          lineHeight: styles.lineHeight,
-          margin: 0,
-        }}
-      />
+      {/* Content column - enforces vertical stacking for content + metadata */}
+      <BlockContentColumn>
+        {/* Semantic heading with typography */}
+        {/* Note: NodeViewContent now renders ALL children including blockDescription */}
+        <NodeViewContent
+          as={`h${headingLevel}` as any}
+          style={{
+            fontSize: styles.fontSize,
+            fontWeight: styles.fontWeight,
+            lineHeight: styles.lineHeight,
+            margin: 0,
+          }}
+        />
+      </BlockContentColumn>
 
       {/* Block selection visual */}
       <BlockSelectionHalo isSelected={isSelected} indent={indent} />

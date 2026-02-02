@@ -84,6 +84,7 @@ import React, {
   forwardRef,
   useImperativeHandle,
   useRef,
+  useState,
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
@@ -105,6 +106,7 @@ import { CodeBlock } from '../extensions/nodes/CodeBlock';
 import { HorizontalRule } from '../extensions/nodes/HorizontalRule';
 import { Link } from '../extensions/marks/Link';
 import { Callout } from '../extensions/nodes/Callout';
+import { BlockDescription } from '../extensions/nodes/BlockDescription';
 import { Bold } from '../extensions/marks/Bold';
 import { Italic } from '../extensions/marks/Italic';
 import { Underline } from '../extensions/marks/Underline';
@@ -145,6 +147,13 @@ import { AtMentionMenu } from '../components/menus/AtMentionMenu';
 import { HashtagMenu } from '../components/menus/HashtagMenu';
 import { FloatingToolbar } from '../components/ui/FloatingToolbar';
 import { EditorChromeLayer } from '../components/chrome/EditorChromeLayer';
+import { BlockDescriptionsLayer } from '../components/chrome/BlockDescriptionsLayer';
+
+// Context
+import {
+  DescriptionEditContext,
+  type EditingDescription,
+} from '../context/DescriptionEditContext';
 
 // Tokens
 import { placeholders } from '../tokens';
@@ -199,8 +208,16 @@ function validateBlockIds(doc: any): boolean {
 
   let isValid = true;
 
+  // Nodes that are content but not blocks (don't require blockId)
+  const NON_BLOCK_CONTENT = ['blockDescription'];
+
   if (doc.content && Array.isArray(doc.content)) {
     for (const node of doc.content) {
+      // Skip non-block content nodes (descriptions, etc.)
+      if (NON_BLOCK_CONTENT.includes(node.type)) {
+        continue;
+      }
+
       if (node.type !== 'doc' && node.attrs?.blockId === undefined) {
         // Node has blockId attribute in schema but it's not set
         console.error(
@@ -282,13 +299,19 @@ const EditorCoreInner = forwardRef<
     const prevDocRef = useRef<any>(null);
     // Hard lock to prevent ALL mutations during content loading
     const isHydratingRef = useRef<boolean>(false);
-    // Ref to editor container for chrome positioning
-    const editorContainerRef = useRef<HTMLDivElement>(null);
+    // Ref to layout container for chrome positioning (NOT the PM container)
+    const layoutContainerRef = useRef<HTMLDivElement>(null);
+    // Ref to ProseMirror container (isolated island for PM only)
+    const pmContainerRef = useRef<HTMLDivElement>(null);
     // Anchor block info for Shift+Click range selection
     const anchorBlockPosRef = useRef<{
       pos: number; // Block position
       size: number; // Block nodeSize
     } | null>(null);
+
+    // Description editing state (shared between chrome layer and blocks)
+    const [editingDescription, setEditingDescription] =
+      useState<EditingDescription | null>(null);
 
     // Create editor instance
     const editor = useEditor(
@@ -317,6 +340,7 @@ const EditorCoreInner = forwardRef<
           CodeBlock,
           HorizontalRule,
           Callout,
+          BlockDescription, // Real PM node for block descriptions
           DateMentionNode,
           NoteLink.configure({
             onNavigate,
@@ -459,12 +483,25 @@ const EditorCoreInner = forwardRef<
           // Skip validation during hydration - expected behavior when loading content
           if (isHydratingRef.current) return;
 
-          // 🔍 DIAGNOSTIC: Catch invalid transactions (should never fire after fixes)
-          if (transaction.docChanged && !transaction.selectionSet) {
+          // 🔍 DIAGNOSTIC: Catch invalid transactions
+          // Note: Metadata-only transactions (attributes, marks) don't need selectionSet
+          // ProseMirror automatically preserves selection for these edits
+          const CHROME_METADATA_ORIGINS = [
+            'description', // Block description edits
+            'list-collapse', // List block expand/collapse
+            'list-checkbox', // Task checkbox toggle
+          ]; // Chrome features with metadata-only edits
+
+          if (
+            transaction.docChanged &&
+            !transaction.selectionSet &&
+            !CHROME_METADATA_ORIGINS.includes(transaction.getMeta('origin'))
+          ) {
             console.error(
               '❌ INVALID TRANSACTION: docChanged without selectionSet',
               {
                 steps: transaction.steps.length,
+                origin: transaction.getMeta('origin'),
                 docBefore: transaction.before.textContent.substring(0, 50),
                 docAfter: transaction.doc.textContent.substring(0, 50),
               }
@@ -653,10 +690,10 @@ const EditorCoreInner = forwardRef<
       if (!editor) return;
 
       const onDocumentMouseDown = (e: MouseEvent) => {
-        const container = editorContainerRef.current;
+        const container = layoutContainerRef.current;
         if (!container) return;
 
-        // Check if click is outside editor container
+        // Check if click is outside editor layout container
         if (!container.contains(e.target as Node)) {
           const sel = editor.state.selection;
 
@@ -676,6 +713,61 @@ const EditorCoreInner = forwardRef<
       return () =>
         document.removeEventListener('mousedown', onDocumentMouseDown);
     }, [editor]);
+
+    // 🔒 MODAL EDITOR STATE: Disable PM when editing descriptions
+    // This prevents PM capture-phase listeners from firing INVALID TRANSACTION errors
+    useEffect(() => {
+      if (!editor) return;
+
+      if (editingDescription) {
+        // Entering edit mode → disable ProseMirror
+        editor.setEditable(false);
+      } else {
+        // Exiting edit mode → re-enable and refocus ProseMirror
+        editor.setEditable(true);
+        // Use requestAnimationFrame to ensure PM is ready
+        requestAnimationFrame(() => {
+          editor.commands.focus();
+        });
+      }
+    }, [editingDescription, editor]);
+
+    // Description editing callbacks (need editor instance)
+    const saveDescription = useCallback(() => {
+      if (!editingDescription || !editor) return;
+
+      const { pos, value } = editingDescription;
+      const node = editor.state.doc.nodeAt(pos);
+      if (!node) return;
+
+      // Normalize value (trim and convert empty to null)
+      const nextValue = value.trim() || null;
+
+      // 🔒 NO-OP GUARD: Only dispatch if value actually changed
+      // Prevents invalid "docChanged without selectionSet" transactions
+      if (node.attrs.description === nextValue) {
+        setEditingDescription(null); // Just exit, no transaction needed
+        return;
+      }
+
+      // 🔒 TRANSACTION VALIDITY: For metadata-only changes (like description),
+      // we don't need to explicitly set selection - PM preserves it automatically.
+      // Setting selection would require remapping it to the new doc, which is unnecessary here.
+      const tr = editor.state.tr
+        .setNodeMarkup(pos, undefined, {
+          ...node.attrs,
+          description: nextValue,
+        })
+        .setMeta('origin', 'description')
+        .setMeta('addToHistory', false); // Description edits don't need undo history
+
+      editor.view.dispatch(tr);
+      setEditingDescription(null); // This triggers re-enable in useEffect
+    }, [editingDescription, editor]);
+
+    const cancelDescription = useCallback(() => {
+      setEditingDescription(null); // This triggers re-enable in useEffect
+    }, []);
 
     // Runway click handler: Detect clicks BELOW content (Y-position based)
     // Notion pattern: Focus existing empty paragraph OR create new one
@@ -783,44 +875,67 @@ const EditorCoreInner = forwardRef<
     } as React.CSSProperties;
 
     return (
-      <div
-        ref={editorContainerRef}
-        className={className}
-        style={{
-          position: 'relative', // Allow absolute positioning of chrome layer
-          minHeight: '100%',
-          flex: 1,
-          paddingBottom: '30vh', // 🎯 RUNWAY: Clickable space below content (Notion pattern)
-          ...cssVariables,
-          ...style,
+      <DescriptionEditContext.Provider
+        value={{
+          editingDescription,
+          setEditingDescription,
+          saveDescription,
+          cancelDescription,
         }}
-        onClick={handleRunwayClick}
       >
-        {/* Editor content wrapper - isolated text semantic boundary */}
+        {/* Layout container - wraps everything for positioning */}
         <div
+          ref={layoutContainerRef}
+          className={className}
           style={{
-            cursor: 'text',
+            position: 'relative', // Allow absolute positioning of chrome layers
+            minHeight: '100%',
+            flex: 1,
+            ...cssVariables,
+            ...style,
           }}
         >
-          <EditorContent editor={editor} />
+          {/* ProseMirror island - isolated container for PM only */}
+          <div
+            ref={pmContainerRef}
+            style={{
+              paddingBottom: '30vh', // 🎯 RUNWAY: Clickable space below content (Notion pattern)
+            }}
+            onClick={handleRunwayClick}
+          >
+            {/* Editor content wrapper - isolated text semantic boundary */}
+            <div
+              style={{
+                cursor: 'text',
+              }}
+            >
+              <EditorContent editor={editor} />
+            </div>
+          </div>
+
+          {/* Block Descriptions Layer - OUTSIDE ProseMirror container */}
+          <BlockDescriptionsLayer
+            editor={editor}
+            containerRef={layoutContainerRef}
+          />
+
+          {/* Chrome overlay layer - OUTSIDE ProseMirror container */}
+          <EditorChromeLayer
+            editor={editor}
+            containerRef={layoutContainerRef}
+            anchorBlockPosRef={anchorBlockPosRef}
+            createdAt={createdAt}
+            updatedAt={updatedAt}
+            deletedAt={deletedAt}
+          />
+
+          {/* UI Components */}
+          <SlashCommandMenu editor={editor as any} />
+          <AtMentionMenu editor={editor as any} />
+          <HashtagMenu editor={editor as any} />
+          <FloatingToolbar editor={editor} />
         </div>
-
-        {/* Chrome overlay layer - OUTSIDE text context */}
-        <EditorChromeLayer
-          editor={editor}
-          containerRef={editorContainerRef}
-          anchorBlockPosRef={anchorBlockPosRef}
-          createdAt={createdAt}
-          updatedAt={updatedAt}
-          deletedAt={deletedAt}
-        />
-
-        {/* UI Components */}
-        <SlashCommandMenu editor={editor as any} />
-        <AtMentionMenu editor={editor as any} />
-        <HashtagMenu editor={editor as any} />
-        <FloatingToolbar editor={editor} />
-      </div>
+      </DescriptionEditContext.Provider>
     );
   }
 );

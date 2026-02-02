@@ -16,6 +16,7 @@ import {
   BlockHoverZones,
   MarkerContainer,
   BlockSelectionHalo,
+  BlockContentColumn,
 } from './primitives';
 
 export function Blockquote({ node, editor, getPos }: NodeViewProps) {
@@ -68,15 +69,16 @@ export function Blockquote({ node, editor, getPos }: NodeViewProps) {
         />
       </MarkerContainer>
 
-      {/* Content area */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* Content column - vertical stacking for text + description */}
+      <BlockContentColumn>
+        {/* Note: NodeViewContent renders ALL children including blockDescription */}
         <NodeViewContent
           as="div"
           style={{
             color: colors.text.secondary,
           }}
         />
-      </div>
+      </BlockContentColumn>
 
       {/* Craft-style connector: bridge gap to next blockquote */}
       {hasNextBlockquote && (
