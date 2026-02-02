@@ -21,8 +21,8 @@ import {
   EditorThemeProvider,
 } from '@clutter/editor';
 
-// Theme
-import { useTheme } from '../../../../hooks/useTheme';
+// UI imports
+import { useTheme } from '@clutter/ui';
 
 interface EditorWrapperProps {
   noteId?: string;
