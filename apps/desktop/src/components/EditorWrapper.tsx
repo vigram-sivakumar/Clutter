@@ -17,11 +17,12 @@ import {
   deserializeBlocksFromJSON,
   isBlocksDocument,
   isLegacyPMDocument,
+  EditorTheme,
   EditorThemeProvider,
 } from '@clutter/editor';
 
-// UI imports
-import { useTheme } from '@clutter/ui';
+// Theme
+import { useTheme } from '../../../../hooks/useTheme';
 
 interface EditorWrapperProps {
   noteId?: string;
@@ -35,11 +36,11 @@ export interface EditorWrapperHandle {
   focus: () => void;
 }
 
-function EditorErrorFallback({ error }: { error: Error | unknown }) {
+function EditorErrorFallback({ error }: { error: Error }) {
   return (
     <div style={{ padding: '20px', color: 'red' }}>
       <h3>Editor Error</h3>
-      <pre>{error instanceof Error ? error.message : String(error)}</pre>
+      <pre>{error.message}</pre>
     </div>
   );
 }
@@ -60,7 +61,7 @@ export const EditorWrapper = React.forwardRef<
   ) => {
     // Get theme
     const { colors, mode } = useTheme();
-    const editorTheme = {
+    const editorTheme: EditorTheme = {
       colors,
       mode,
     };
@@ -74,7 +75,6 @@ export const EditorWrapper = React.forwardRef<
 
     // 🔒 LOAD PHASE: Hydrate block store on noteId change
     const loadedNoteIdRef = React.useRef<string | undefined>(undefined);
-    const isLoadedRef = React.useRef(false);
 
     React.useEffect(() => {
       // Only reload when noteId actually changes
@@ -83,7 +83,6 @@ export const EditorWrapper = React.forwardRef<
       // 🚨 CRITICAL: Wait for value before clearing anything
       if (value === undefined) {
         console.log('[Load] Waiting for value...');
-        isLoadedRef.current = false;
         return;
       }
 
@@ -100,12 +99,11 @@ export const EditorWrapper = React.forwardRef<
       store.clear();
       loadedNoteIdRef.current = noteId;
 
-      // Empty document (new note) - LexicalDocumentEditor will create initial block
+      // Empty document (new note) - ensure at least one block exists
       if (value === '') {
-        console.log(
-          '[Load] Empty document - LexicalDocumentEditor will create initial block'
-        );
-        isLoadedRef.current = true;
+        console.log('[Load] Empty document - creating initial block');
+        // 🚨 CRITICAL: Must create one block to satisfy Lexical invariant
+        store.insertBlock(null, 'paragraph');
         return;
       }
 
@@ -140,8 +138,6 @@ export const EditorWrapper = React.forwardRef<
       } catch (error) {
         console.error('[Load] ❌ Failed to parse document:', error);
       }
-
-      isLoadedRef.current = true;
     }, [noteId, value]);
 
     // Persist block changes
@@ -149,12 +145,6 @@ export const EditorWrapper = React.forwardRef<
       // 🚨 CRITICAL GUARD: Never persist without a valid noteId
       if (!onChange || !noteId) {
         console.log('[Persist] Skipping subscription - no noteId:', noteId);
-        return;
-      }
-
-      // 🚨 CRITICAL: Don't persist until initial load completes
-      if (!isLoadedRef.current) {
-        console.log('[Persist] Waiting for initial load to complete...');
         return;
       }
 
@@ -173,7 +163,7 @@ export const EditorWrapper = React.forwardRef<
       });
 
       return unsubscribe;
-    }, [onChange, noteId, value]); // ✅ Re-run when value changes (load completes)
+    }, [onChange, noteId]); // ✅ Re-subscribe if noteId changes
 
     return (
       <EditorThemeProvider theme={editorTheme}>

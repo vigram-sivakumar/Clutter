@@ -170,10 +170,9 @@ describe('splitBlock', () => {
 
     const result = operations.splitBlock(blocks, 'a', 5);
 
-    // ✅ New behavior: splitBlock doesn't split Lexical JSON
-    // Original block content stays unchanged (Lexical's split command handles it)
+    // ✅ New behavior: splitBlock creates empty new block
+    // Content splitting is handled by Lexical's Enter handler
     expect(result.blocks.get('a')?.content).toBe('Hello World');
-    // New block starts empty (Lexical will initialize it)
     const newBlock = result.blocks.get(result.newBlockId);
     expect(newBlock?.content).toBe('');
   });

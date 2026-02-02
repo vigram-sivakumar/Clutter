@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
-import { ThemeProvider, NoteEditor } from '@clutter/ui';
+import { ThemeProvider, NotesContainer } from '@clutter/ui';
 import { useNotesStore } from '@clutter/state';
 import { BlockEngineDemo } from '@clutter/editor';
 import { EditorWrapper } from './components/EditorWrapper';
@@ -8,14 +8,11 @@ import { EditorWrapper } from './components/EditorWrapper';
 function App() {
   const hasHydrated = useNotesStore((state) => state.hasHydrated);
   const notes = useNotesStore((state) => state.notes);
-  const currentNoteId = useNotesStore((state) => state.currentNoteId);
-  const currentNote = useNotesStore((state) => state.currentNote);
   const findDailyNoteByDate = useNotesStore(
     (state) => state.findDailyNoteByDate
   );
   const createDailyNote = useNotesStore((state) => state.createDailyNote);
   const setCurrentNoteId = useNotesStore((state) => state.setCurrentNoteId);
-  const updateNoteContent = useNotesStore((state) => state.updateNoteContent);
 
   // Open or create today's daily note AFTER rehydration completes
   useEffect(() => {
@@ -55,21 +52,10 @@ function App() {
         <Route
           path="/"
           element={
-            <NoteEditor isInitialized={true}>
-              {/* EditorWrapper passed as children to satisfy package boundaries */}
-              {currentNoteId && (
-                <EditorWrapper
-                  noteId={currentNoteId}
-                  value={currentNote?.content}
-                  onChange={(value) => {
-                    if (currentNoteId) {
-                      updateNoteContent(currentNoteId, value);
-                    }
-                  }}
-                  placeholder="Start writing..."
-                />
-              )}
-            </NoteEditor>
+            <NotesContainer
+              isInitialized={true}
+              renderEditor={(props) => <EditorWrapper {...props} />}
+            />
           }
         />
         <Route

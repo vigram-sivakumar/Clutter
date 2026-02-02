@@ -426,9 +426,11 @@ export const useNotesStore = create<NotesStore>()(
           state?.notes.length ?? 0
         );
 
-        // ✅ SAFE: Direct mutation in onRehydrateStorage is explicitly allowed by Zustand
-        state && (state.hasHydrated = true);
-        console.log('[Persist] Set hasHydrated flag');
+        // ✅ Mutate state directly - safe and triggers React updates
+        if (state) {
+          state.hasHydrated = true;
+          console.log('[Persist] Set hasHydrated flag');
+        }
       },
     }
   )

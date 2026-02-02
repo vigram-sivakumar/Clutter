@@ -12,7 +12,10 @@ import { AppShell } from '../../layout/AppLayout';
 import { PageTitleSection } from '../../shared/content-header';
 import { PageContent } from '../../shared/page-content';
 import { TitleInputHandle } from '../../shared/content-header/title';
-import { EditorWrapper, EditorWrapperHandle } from './EditorWrapper';
+// EditorWrapper now lives in apps/desktop layer for proper package composition
+export interface EditorWrapperHandle {
+  focus: () => void;
+}
 import { EmojiTray } from '../../shared/emoji';
 import { MarkdownShortcuts } from '../../../ui-modals';
 import {
@@ -87,11 +90,19 @@ const useDebounce = <T extends (..._args: any[]) => void>(
 interface NotesContainerProps {
   children?: ReactNode;
   isInitialized?: boolean;
+  renderEditor?: (props: {
+    noteId: string;
+    value: string | undefined;
+    onChange: (value: string) => void;
+    autoFocus: boolean;
+    placeholder: string;
+  }) => React.ReactElement | null;
 }
 
 export const NoteEditor = ({
   children,
   isInitialized = true, // Deprecated - using hasHydrated from store instead
+  renderEditor,
 }: NotesContainerProps) => {
   // Removed: session refs no longer needed without async block loading
 
@@ -373,7 +384,7 @@ export const NoteEditor = ({
   // Editor context removed - Lexical editor doesn't need PM-specific context
   const noteBackgroundColor = colors.background.default; // Change this one line to update everywhere
   const keyboardButtonRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<any>(null); // EditorWrapperHandle reference
+  const editorRef = useRef<EditorWrapperHandle>(null);
   const titleInputRef = useRef<TitleInputHandle>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const addEmojiButtonRef = useRef<HTMLButtonElement>(null);
@@ -1723,34 +1734,20 @@ export const NoteEditor = ({
                   filter: isSwitchingNote ? 'blur(0.2px)' : 'none',
                 }}
               >
-                {currentNoteId && children && <>{children}</>}
-                {currentNoteId && !children && (
-                  <div
-                    style={{
-                      padding: '20px',
-                      textAlign: 'center',
-                      color: '#999',
-                    }}
-                  >
-                    Editor component should be passed as children from app layer
-                  </div>
-                )}
-                {/* EditorWrapper moved to app layer - pass as children prop
-                {currentNoteId && (
-                  <EditorWrapper
-                    noteId={currentNoteId}
-                    ref={editorRef}
-                    value={currentNote?.content}
-                    autoFocus={false}
-                    onChange={(value) => {
+                {currentNoteId &&
+                  renderEditor &&
+                  renderEditor({
+                    noteId: currentNoteId,
+                    value: currentNote?.content,
+                    autoFocus: false,
+                    onChange: (value) => {
                       // Save content directly to state (synchronous, local-only)
                       if (currentNoteId) {
                         updateNoteContent(currentNoteId, value);
                       }
-                    }}
-                    placeholder="Start writing..."
-                  />
-                ) */}
+                    },
+                    placeholder: 'Start writing...',
+                  })}
               </div>
             </PageContent>
           </>
