@@ -83,6 +83,18 @@ input::placeholder {
   color: var(--color-text-placeholder);
 }
 
+/* Placeholder for contenteditable elements (TitleInput, etc.) */
+[contenteditable][data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-placeholder);
+  cursor: text;
+  pointer-events: none;
+}
+
+[contenteditable][data-placeholder]:empty:focus::before {
+  color: var(--color-text-tertiary);
+}
+
 /* Global minimalistic scrollbar styles */
 * {
   scrollbar-width: thin;
