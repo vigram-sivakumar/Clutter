@@ -12,8 +12,7 @@ import { AppShell } from '../../layout/AppLayout';
 import { PageTitleSection } from '../../shared/content-header';
 import { PageContent } from '../../shared/page-content';
 import { TitleInputHandle } from '../../shared/content-header/title';
-import { TipTapWrapper, TipTapWrapperHandle } from './TipTapWrapper';
-import { useEditorContext } from './useEditorContext';
+import { EditorWrapper, EditorWrapperHandle } from './EditorWrapper';
 import { EmojiTray } from '../../shared/emoji';
 import { MarkdownShortcuts } from '../../../ui-modals';
 import {
@@ -92,9 +91,12 @@ interface NotesContainerProps {
 
 export const NoteEditor = ({
   children,
-  isInitialized = true,
+  isInitialized = true, // Deprecated - using hasHydrated from store instead
 }: NotesContainerProps) => {
   // Removed: session refs no longer needed without async block loading
+
+  // ✅ Use actual Zustand hydration flag instead of external prop
+  const hasHydrated = useNotesStore((state) => state.hasHydrated);
 
   // Notes store
   const {
@@ -214,7 +216,7 @@ export const NoteEditor = ({
   // Restore last viewed note or open today's daily note on first load (only in editor mode)
   useEffect(() => {
     // Wait for database to be initialized before opening notes
-    if (!isInitialized) return;
+    if (!hasHydrated) return;
 
     // Only auto-open notes when in editor view, not when viewing folders/tags
     if (mainView.type !== 'editor') return;
@@ -368,10 +370,10 @@ export const NoteEditor = ({
   const isSidebarCollapsed = preferences.sidebarCollapsed;
 
   const { colors, toggleMode } = useTheme();
-  const editorContext = useEditorContext();
+  // Editor context removed - Lexical editor doesn't need PM-specific context
   const noteBackgroundColor = colors.background.default; // Change this one line to update everywhere
   const keyboardButtonRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<TipTapWrapperHandle>(null);
+  const editorRef = useRef<any>(null); // EditorWrapperHandle reference
   const titleInputRef = useRef<TitleInputHandle>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const addEmojiButtonRef = useRef<HTMLButtonElement>(null);
@@ -1675,10 +1677,7 @@ export const NoteEditor = ({
               onEmojiClick={() => openEmojiTray(emojiButtonRef)}
               onRemoveEmoji={handleRemoveEmoji}
               emojiButtonRef={emojiButtonRef}
-              hasContent={
-                currentNote?.content &&
-                currentNote.content !== '{"type":"doc","content":[]}'
-              }
+              hasContent={Boolean(currentNote?.content?.trim())}
               isFavorite={isFavorite}
               contextMenuItems={noteContextMenuItems}
               description={description}
@@ -1724,59 +1723,34 @@ export const NoteEditor = ({
                   filter: isSwitchingNote ? 'blur(0.2px)' : 'none',
                 }}
               >
-                <TipTapWrapper
-                  key={currentNoteId} // Force full remount on note change
-                  noteId={currentNoteId}
-                  ref={editorRef}
-                  value={currentNote?.content}
-                  autoFocus={false}
-                  onChange={(value) => {
-                    // Save content directly to state (synchronous, local-only)
-                    updateNoteContent(currentNoteId, value);
-                  }}
-                  onTagClick={handleShowTagFilter}
-                  onNavigate={handleNavigate}
-                  onTagsChange={(extractedTags) => {
-                    // Merge extracted tags from editor with existing metadata tags
-                    setTags((prevTags) => {
-                      // Create a map of extracted tags (from editor) - case insensitive
-                      const extractedLowerMap = new Map(
-                        extractedTags.map((tag) => [tag.toLowerCase(), tag])
-                      );
-
-                      // Find tags that were added via "+ Add tag" button (not in editor)
-                      const metadataOnlyTags = prevTags.filter(
-                        (tag) => !extractedLowerMap.has(tag.toLowerCase())
-                      );
-
-                      // Merge: extracted tags from editor + metadata-only tags
-                      const mergedTags = [
-                        ...extractedTags,
-                        ...metadataOnlyTags,
-                      ];
-
-                      // Deduplicate (case-insensitive) - keep first occurrence
-                      const deduped: string[] = [];
-                      const seenLower = new Set<string>();
-                      for (const tag of mergedTags) {
-                        const lowerTag = tag.toLowerCase();
-                        if (!seenLower.has(lowerTag)) {
-                          seenLower.add(lowerTag);
-                          deduped.push(tag);
-                        }
-                      }
-
-                      // Update store immediately so sidebar updates instantly
+                {currentNoteId && children && <>{children}</>}
+                {currentNoteId && !children && (
+                  <div
+                    style={{
+                      padding: '20px',
+                      textAlign: 'center',
+                      color: '#999',
+                    }}
+                  >
+                    Editor component should be passed as children from app layer
+                  </div>
+                )}
+                {/* EditorWrapper moved to app layer - pass as children prop
+                {currentNoteId && (
+                  <EditorWrapper
+                    noteId={currentNoteId}
+                    ref={editorRef}
+                    value={currentNote?.content}
+                    autoFocus={false}
+                    onChange={(value) => {
+                      // Save content directly to state (synchronous, local-only)
                       if (currentNoteId) {
-                        updateNoteMeta(currentNoteId, { tags: deduped });
+                        updateNoteContent(currentNoteId, value);
                       }
-
-                      return deduped;
-                    });
-                  }}
-                  isFrozen={isSwitchingNote}
-                  editorContext={editorContext}
-                />
+                    }}
+                    placeholder="Start writing..."
+                  />
+                ) */}
               </div>
             </PageContent>
           </>

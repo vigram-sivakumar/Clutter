@@ -2,7 +2,7 @@
   "name": "@clutter/editor",
   "version": "0.0.0",
   "private": true,
-  "description": "Behavioral editing engine for Clutter - TipTap-based editor with plugins and behaviors",
+  "description": "Block-first editing engine for Clutter - Lexical-based editor with custom block architecture",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -15,6 +15,10 @@
     "./types": {
       "types": "./types/index.ts",
       "import": "./types/index.ts"
+    },
+    "./engine": {
+      "types": "./engine/index.ts",
+      "import": "./engine/index.ts"
     }
   },
   "scripts": {
@@ -22,6 +26,9 @@
     "dev": "tsup --watch",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
@@ -37,17 +44,19 @@
   },
   "dependencies": {
     "@clutter/ui": "*",
-    "@tiptap/core": "^2.1.13",
-    "@tiptap/extension-bullet-list": "^2.27.1",
-    "@tiptap/extension-gapcursor": "^2.1.13",
-    "@tiptap/extension-hard-break": "^2.1.13",
-    "@tiptap/extension-highlight": "^2.1.13",
-    "@tiptap/extension-history": "^2.1.13",
-    "@tiptap/extension-link": "^2.1.13",
-    "@tiptap/pm": "^2.1.13",
-    "@tiptap/react": "^2.1.13",
-    "@tiptap/suggestion": "^2.1.13",
-    "tippy.js": "^6.3.7"
+    "@lexical/code": "^0.39.0",
+    "@lexical/history": "^0.39.0",
+    "@lexical/link": "^0.39.0",
+    "@lexical/list": "^0.39.0",
+    "@lexical/markdown": "^0.39.0",
+    "@lexical/plain-text": "^0.39.0",
+    "@lexical/react": "^0.39.0",
+    "@lexical/rich-text": "^0.39.0",
+    "@lexical/selection": "^0.39.0",
+    "immer": "^10.2.0",
+    "lexical": "^0.39.0",
+    "nanoid": "^3.3.11",
+    "zustand": "^4.5.7"
   },
   "peerDependencies": {
     "react": "^18.2.0"

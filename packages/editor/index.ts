@@ -1,90 +1,23 @@
 /**
- * @clutter/editor - Behavioral Editing Engine
+ * @clutter/editor - Block-First Editing Engine
  *
- * This package owns all editor behavior, structure, and transforms.
- * It is independent of app state and domain logic.
+ * Custom block-first editor with Lexical for rich text editing.
+ * Tree-based architecture with explicit parent/children relationships.
  *
- * The app provides data through adapters (see apps/desktop/adapters/).
- * The editor emits intent, never mutates app state directly.
+ * Architecture:
+ * - Block engine: Custom tree structure (ID-based, not position-based)
+ * - Text editing: Lexical (per-block rich text)
+ * - State: Zustand + Immer
+ * - Storage: Native blocks format (v2)
+ * - Migration: PM JSON → Blocks (one-way)
  */
 
-// Editor-specific types and projections
-export * from './types';
+// Re-export everything from engine
+export * from './engine';
 
-// Editor-specific tokens (semantic)
-export * from './tokens';
-
-// Context and Provider (Dependency Injection)
-export { EditorProvider } from './context/EditorProvider';
-export { useEditorContext } from './context/EditorContext';
-export type {
-  EditorContextValue,
-  EditorTagMetadata,
-} from './context/EditorContext';
-
-// Core editor component
-export { EditorCore } from './core/EditorCore';
-export type { EditorCoreHandle } from './core/EditorCore';
-
-// Extensions: Nodes
-export { Document } from './extensions/nodes/Document';
-export { Text } from './extensions/nodes/Text';
-export { Paragraph } from './extensions/nodes/Paragraph';
-export { Heading } from './extensions/nodes/Heading';
-export { ListBlock } from './extensions/nodes/ListBlock';
-export { Blockquote } from './extensions/nodes/Blockquote';
-export { CodeBlock } from './extensions/nodes/CodeBlock';
-export { HorizontalRule } from './extensions/nodes/HorizontalRule';
-export { Callout } from './extensions/nodes/Callout';
-
-// Extensions: Marks
-export { Bold } from './extensions/marks/Bold';
-export { Italic } from './extensions/marks/Italic';
-export { Underline } from './extensions/marks/Underline';
-export { Strike } from './extensions/marks/Strike';
-export { Code } from './extensions/marks/Code';
-export { WavyUnderline } from './extensions/marks/WavyUnderline';
-export { Link } from './extensions/marks/Link';
-export { CustomHighlight } from './extensions/marks/Highlight';
-export { TextColor } from './extensions/marks/TextColor';
-
-// Plugins
-export { MarkdownShortcuts } from './plugins/MarkdownShortcuts';
+// Theme (generic, editor-agnostic)
+export type { EditorTheme } from './theme/EditorThemeContext';
 export {
-  SlashCommands,
-  SLASH_COMMANDS,
-  SLASH_PLUGIN_KEY,
-  filterSlashCommands,
-} from './plugins/SlashCommands';
-export type { SlashCommand } from './plugins/SlashCommands';
-export { EscapeMarks } from './plugins/EscapeMarks';
-export { DoubleSpaceEscape } from './plugins/DoubleSpaceEscape';
-
-// Primitives: Typography (foundational)
-export { InlineToken, TokenPill } from './primitives';
-
-// Components: Block renderers
-export { SlashCommandMenu } from './components/menus/SlashCommandMenu';
-export { HashtagMenu } from './components/menus/HashtagMenu';
-export { HashtagMenuUI } from './components/menus/HashtagMenuUI';
-export {
-  MarkerContainer,
-  getBlockContainerStyle,
-  getMarkerStyle,
-  getContentStyle,
-  blockStyleObjects,
-  useBlock,
-  BlockHoverZones,
-  BlockContent,
-  BlockSelectionHalo,
-} from './components/blocks/primitives';
-export { Heading as HeadingComponent } from './components/blocks/Heading';
-export { ListBlock as ListBlockComponent } from './components/blocks/ListBlock';
-export { Blockquote as BlockquoteComponent } from './components/blocks/Blockquote';
-export { CodeBlock as CodeBlockComponent } from './components/blocks/CodeBlock';
-export { HorizontalRule as HorizontalRuleComponent } from './components/blocks/HorizontalRule';
-export { Callout as CalloutComponent } from './components/blocks/Callout';
-export { EditorErrorFallback } from './components/shared/EditorErrorFallback';
-
-// Utils
-export { isMultiBlockSelection } from './utils/multiSelection';
+  EditorThemeProvider,
+  useEditorTheme,
+} from './theme/EditorThemeContext';
