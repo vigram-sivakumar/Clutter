@@ -1,6 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
-import { ThemeProvider, NotesContainer } from '@clutter/ui';
+import { ThemeProvider, NoteEditor } from '@clutter/ui';
 import { useNotesStore } from '@clutter/state';
 import { BlockEngineDemo } from '@clutter/editor';
 import { EditorWrapper } from './components/EditorWrapper';
@@ -55,7 +55,7 @@ function App() {
         <Route
           path="/"
           element={
-            <NotesContainer isInitialized={true}>
+            <NoteEditor isInitialized={true}>
               {/* EditorWrapper passed as children to satisfy package boundaries */}
               {currentNoteId && (
                 <EditorWrapper
@@ -69,7 +69,7 @@ function App() {
                   placeholder="Start writing..."
                 />
               )}
-            </NotesContainer>
+            </NoteEditor>
           }
         />
         <Route

@@ -17,7 +17,6 @@ import {
   deserializeBlocksFromJSON,
   isBlocksDocument,
   isLegacyPMDocument,
-  EditorTheme,
   EditorThemeProvider,
 } from '@clutter/editor';
 
@@ -36,11 +35,11 @@ export interface EditorWrapperHandle {
   focus: () => void;
 }
 
-function EditorErrorFallback({ error }: { error: Error }) {
+function EditorErrorFallback({ error }: { error: Error | unknown }) {
   return (
     <div style={{ padding: '20px', color: 'red' }}>
       <h3>Editor Error</h3>
-      <pre>{error.message}</pre>
+      <pre>{error instanceof Error ? error.message : String(error)}</pre>
     </div>
   );
 }
@@ -61,7 +60,7 @@ export const EditorWrapper = React.forwardRef<
   ) => {
     // Get theme
     const { colors, mode } = useTheme();
-    const editorTheme: EditorTheme = {
+    const editorTheme = {
       colors,
       mode,
     };
@@ -75,6 +74,7 @@ export const EditorWrapper = React.forwardRef<
 
     // 🔒 LOAD PHASE: Hydrate block store on noteId change
     const loadedNoteIdRef = React.useRef<string | undefined>(undefined);
+    const isLoadedRef = React.useRef(false);
 
     React.useEffect(() => {
       // Only reload when noteId actually changes
@@ -83,6 +83,7 @@ export const EditorWrapper = React.forwardRef<
       // 🚨 CRITICAL: Wait for value before clearing anything
       if (value === undefined) {
         console.log('[Load] Waiting for value...');
+        isLoadedRef.current = false;
         return;
       }
 
@@ -104,6 +105,7 @@ export const EditorWrapper = React.forwardRef<
         console.log(
           '[Load] Empty document - LexicalDocumentEditor will create initial block'
         );
+        isLoadedRef.current = true;
         return;
       }
 
@@ -138,6 +140,8 @@ export const EditorWrapper = React.forwardRef<
       } catch (error) {
         console.error('[Load] ❌ Failed to parse document:', error);
       }
+
+      isLoadedRef.current = true;
     }, [noteId, value]);
 
     // Persist block changes
@@ -145,6 +149,12 @@ export const EditorWrapper = React.forwardRef<
       // 🚨 CRITICAL GUARD: Never persist without a valid noteId
       if (!onChange || !noteId) {
         console.log('[Persist] Skipping subscription - no noteId:', noteId);
+        return;
+      }
+
+      // 🚨 CRITICAL: Don't persist until initial load completes
+      if (!isLoadedRef.current) {
+        console.log('[Persist] Waiting for initial load to complete...');
         return;
       }
 
@@ -163,7 +173,7 @@ export const EditorWrapper = React.forwardRef<
       });
 
       return unsubscribe;
-    }, [onChange, noteId]); // ✅ Re-subscribe if noteId changes
+    }, [onChange, noteId, value]); // ✅ Re-run when value changes (load completes)
 
     return (
       <EditorThemeProvider theme={editorTheme}>
