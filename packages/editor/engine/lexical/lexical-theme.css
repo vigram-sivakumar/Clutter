@@ -45,29 +45,21 @@
   line-height: 1.5;
 }
 
-/* Quote - Orange 4px border with secondary text color (matches old) */
+/* Quote - Structure handled by BlockChromeWrapper, only typography here */
 .editor-quote {
   margin: 0;
   padding: 0;
-  border-left: 4px solid #f97316; /* orange-500 - exact match to old */
-  padding-left: 12px; /* Adjusted for 4px border */
-  color: #5c5b52; /* text.secondary from old implementation */
 }
 
-/* Code block - Full styled surface matching old implementation */
+/* Code block - Structure handled by BlockChromeWrapper, only typography here */
 .editor-code {
   margin: 0;
-  padding: 16px;
+  padding: 0;
   font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
     monospace;
   font-size: 14px;
   line-height: 1.5;
-  color: #5c5b52; /* text.secondary */
-  background-color: #f5f5f0; /* background.secondary - stone[100] */
-  border: 1px solid #deddd5; /* border.default - stone[300] */
-  border-radius: 4px;
   white-space: pre;
-  overflow: auto;
 }
 
 /* Lists */

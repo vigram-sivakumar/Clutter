@@ -111,25 +111,21 @@ export function useBlockStyle(
       break;
 
     case 'quote':
+      // Chrome wrapper adds structure, placeholder just needs typography
       contentStyle = {
         ...baseStyle,
-        borderLeft: '3px solid rgba(55, 53, 47, 0.16)',
-        paddingLeft: '14px',
-        marginTop: '4px',
-        marginBottom: '4px',
       };
       placeholderText = 'Quote';
       break;
 
     case 'code':
+      // Chrome wrapper adds structure, placeholder needs monospace font
       contentStyle = {
         ...baseStyle,
         fontFamily:
-          '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace',
+          'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
         fontSize: '14px',
-        backgroundColor: 'rgba(135, 131, 120, 0.15)',
         lineHeight: 1.5,
-        paddingLeft: '8px',
       };
       placeholderText = '// Code';
       break;

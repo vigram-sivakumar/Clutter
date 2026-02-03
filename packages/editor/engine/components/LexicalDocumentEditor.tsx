@@ -17,6 +17,7 @@ import React from 'react';
 import { useBlockStore } from '../store/blockStore';
 import { LexicalBlockEditor } from '../lexical/LexicalBlockEditor';
 import { useFocusManager } from '../focus/useFocusManager';
+import { BlockChromeWrapper } from '../chrome/BlockChromeWrapper';
 
 interface LexicalDocumentEditorProps {
   /** Optional: Auto-focus first block on mount */
@@ -79,14 +80,22 @@ export const LexicalDocumentEditor: React.FC<LexicalDocumentEditorProps> = ({
   }
 
   return (
-    <div className={`lexical-document-editor ${className}`}>
+    <div
+      className={`lexical-document-editor ${className}`}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px', // Match old ProseMirror gap between blocks
+      }}
+    >
       {rootBlocks.map((block, index) => (
-        <LexicalBlockEditor
-          key={block.id}
-          blockId={block.id}
-          focusManager={focusManager}
-          autoFocus={autoFocus && index === 0}
-        />
+        <BlockChromeWrapper key={block.id} blockId={block.id}>
+          <LexicalBlockEditor
+            blockId={block.id}
+            focusManager={focusManager}
+            autoFocus={autoFocus && index === 0}
+          />
+        </BlockChromeWrapper>
       ))}
     </div>
   );
