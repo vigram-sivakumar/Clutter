@@ -318,6 +318,21 @@ const commands: SlashCommand[] = [
       context.closeMenu();
     },
   },
+
+  // === ADVANCED ===
+  {
+    id: 'field',
+    label: 'Field',
+    icon: <List />,
+    category: 'advanced',
+    blockType: 'field',
+    keywords: ['field', 'property', 'key', 'value', 'data', 'structured'],
+    execute: (context) => {
+      context.blockStore.updateType(context.blockId, 'field');
+      context.blockStore.updateProperties(context.blockId, { label: 'Label' });
+      context.closeMenu();
+    },
+  },
 ];
 
 /**

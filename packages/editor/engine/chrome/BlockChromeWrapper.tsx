@@ -419,6 +419,73 @@ export function BlockChromeWrapper({
     );
   }
 
+  // Field blocks: Icon + Label (fixed 120px) + Value (flex)
+  if (blockType === 'field') {
+    const icon = block.properties?.icon as string | undefined;
+    const label = (block.properties?.label as string) || '';
+
+    const handleLabelInput = (e: React.FormEvent<HTMLSpanElement>) => {
+      const newLabel = e.currentTarget.textContent || '';
+      useBlockStore.getState().updateProperties(blockId, {
+        label: newLabel,
+      });
+    };
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+        }}
+      >
+        {/* Optional icon */}
+        {icon && (
+          <div
+            style={{
+              width: '16px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              fontSize: '16px',
+            }}
+          >
+            {icon}
+          </div>
+        )}
+
+        {/* Label - fixed 120px width, plain text */}
+        <span
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleLabelInput}
+          style={{
+            width: '120px',
+            flexShrink: 0,
+            padding: '4px',
+            minHeight: '24px',
+            lineHeight: 1.5,
+            color: colors.text.secondary,
+            fontWeight: 500,
+            outline: 'none',
+            cursor: 'text',
+          }}
+          onMouseDown={(e) => {
+            // Allow editing but prevent block-level interactions
+            e.stopPropagation();
+          }}
+        >
+          {label || 'Label'}
+        </span>
+
+        {/* Value - flex 1, rich text */}
+        <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+      </div>
+    );
+  }
+
   // Default: Plain wrapper for paragraphs, headings, lists
   return <>{children}</>;
 }

@@ -28,7 +28,8 @@ export type BlockType =
   | 'divider'
   | 'checklist'
   | 'callout'
-  | 'toggle';
+  | 'toggle'
+  | 'field';
 
 /**
  * Block - The core entity

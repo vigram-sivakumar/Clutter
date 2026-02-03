@@ -16,7 +16,8 @@ export type CommandCategory =
   | 'lists'
   | 'callouts'
   | 'decoratives'
-  | 'dividers';
+  | 'dividers'
+  | 'advanced';
 
 /**
  * A single slash command

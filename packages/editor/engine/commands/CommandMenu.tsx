@@ -90,6 +90,7 @@ export function CommandMenu({
     callouts: 'CALLOUTS',
     decoratives: 'DECORATIVES',
     dividers: 'DIVIDERS',
+    advanced: 'ADVANCED',
   };
 
   // Build grouped structure
