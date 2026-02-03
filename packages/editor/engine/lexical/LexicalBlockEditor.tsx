@@ -299,6 +299,7 @@ function EditorContent({
         blockId={blockId}
         text={placeholderText}
         style={contentStyle}
+        alwaysShow={block?.type === 'field'}
       />
       <HistoryPlugin />
       <LexicalLinkPlugin />

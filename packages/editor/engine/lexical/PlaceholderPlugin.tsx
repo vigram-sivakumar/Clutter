@@ -30,6 +30,9 @@ export interface PlaceholderPluginProps {
 
   /** Optional custom styles to match block styling */
   style?: React.CSSProperties;
+
+  /** Always show placeholder when empty (ignore focus requirement) */
+  alwaysShow?: boolean;
 }
 
 /**
@@ -44,6 +47,7 @@ export function PlaceholderPlugin({
   blockId,
   text = 'Type here...',
   style,
+  alwaysShow = false,
 }: PlaceholderPluginProps) {
   const [editor] = useLexicalComposerContext();
   const [isFocused, setIsFocused] = useState(false);
@@ -96,7 +100,8 @@ export function PlaceholderPlugin({
   // Show placeholder if:
   // 1. Block is empty AND focused (normal case)
   // 2. Block is empty AND is the first block (special case - no focus needed)
-  const showPlaceholder = isEmpty && (isFocused || isFirstBlock);
+  // 3. alwaysShow is true (for field blocks - always show when empty)
+  const showPlaceholder = isEmpty && (isFocused || isFirstBlock || alwaysShow);
 
   return (
     <BlockPlaceholder visible={showPlaceholder} text={text} style={style} />

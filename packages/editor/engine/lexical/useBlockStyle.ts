@@ -141,7 +141,7 @@ export function useBlockStyle(
       contentStyle = {
         ...baseStyle,
       };
-      placeholderText = 'Value';
+      placeholderText = 'Empty';
       break;
 
     case 'paragraph':

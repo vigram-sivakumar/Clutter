@@ -458,7 +458,7 @@ export function BlockChromeWrapper({
           </div>
         )}
 
-        {/* Label - fixed 120px width, plain text with placeholder */}
+        {/* Label - fixed 120px width, plain text with always-visible placeholder */}
         <div style={{ position: 'relative', width: '120px', flexShrink: 0 }}>
           <span
             contentEditable
@@ -482,7 +482,7 @@ export function BlockChromeWrapper({
           >
             {label || '\u200B'}
           </span>
-          {/* Label placeholder */}
+          {/* Label placeholder - always visible when empty */}
           {isEmpty && (
             <div
               style={{
