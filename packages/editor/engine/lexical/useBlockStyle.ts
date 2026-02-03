@@ -77,10 +77,9 @@ export function useBlockStyle(
       if (headingLevel === 'h1') {
         contentStyle = {
           ...baseStyle,
-          fontSize: '30px',
+          fontSize: '32px',
           fontWeight: 700,
-          lineHeight: 1.3,
-          letterSpacing: '-0.02em',
+          lineHeight: 1.2,
         };
         placeholderText = 'Heading 1';
       } else if (headingLevel === 'h2') {
@@ -88,8 +87,7 @@ export function useBlockStyle(
           ...baseStyle,
           fontSize: '24px',
           fontWeight: 600,
-          lineHeight: 1.4,
-          letterSpacing: '-0.01em',
+          lineHeight: 1.3,
         };
         placeholderText = 'Heading 2';
       } else if (headingLevel === 'h3') {
@@ -104,10 +102,9 @@ export function useBlockStyle(
         // Default to h1 if no level detected yet
         contentStyle = {
           ...baseStyle,
-          fontSize: '30px',
+          fontSize: '32px',
           fontWeight: 700,
-          lineHeight: 1.3,
-          letterSpacing: '-0.02em',
+          lineHeight: 1.2,
         };
         placeholderText = 'Heading';
       }
