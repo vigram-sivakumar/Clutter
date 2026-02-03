@@ -25,7 +25,7 @@ export interface FieldBlockProperties {
  * Default properties when creating a new Field block
  */
 export const FIELD_BLOCK_DEFAULTS: FieldBlockProperties = {
-  label: 'Label',
+  label: '', // Empty - shows "Label" as placeholder
   // icon: undefined → shows default Sticker icon in chrome
   // value: undefined → empty Lexical editor
 };

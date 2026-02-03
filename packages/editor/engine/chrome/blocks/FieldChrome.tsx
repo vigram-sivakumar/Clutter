@@ -16,7 +16,7 @@
  * - Contain business logic (delegates to behavior)
  */
 
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { Sticker } from '@clutter/ui';
 import { useBlockStore } from '../../store/blockStore';
 import { useEditorTheme } from '../../../theme/EditorThemeContext';
@@ -41,6 +41,16 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
   const icon = block.properties?.icon as string | undefined;
   const label = (block.properties?.label as string) || '';
   const isEmpty = label.trim() === '';
+
+  // Auto-focus label when Field block is first created (label is empty)
+  useEffect(() => {
+    if (isEmpty && labelRef.current) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        labelRef.current?.focus();
+      }, 0);
+    }
+  }, []); // Run once on mount
 
   // Focus value editor (TODO: implement in v1.1)
   const focusValue = useCallback(() => {
