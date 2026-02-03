@@ -136,9 +136,11 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
         // Extract query after "/"
         const queryText = textBeforeCursor.slice(lastSlashIndex + 1);
 
-        // Get anchor rect for menu placement (once on open)
-        const domSelection = window.getSelection();
-        if (domSelection && domSelection.rangeCount > 0) {
+        // Calculate position ONCE on open, never while open
+        if (!showMenu) {
+          const domSelection = window.getSelection();
+          if (!domSelection || domSelection.rangeCount === 0) return;
+
           const range = domSelection.getRangeAt(0);
           const rect = range.getBoundingClientRect();
 
@@ -148,11 +150,12 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
             bottom: rect.bottom,
             left: rect.left,
           });
+
+          setShowMenu(true);
         }
 
+        // Update query (typing drives filtering, not layout)
         setQuery(queryText);
-        setSelectedIndex(0);
-        setShowMenu(true);
       });
     });
   }, [editor, showMenu, closeMenu]);
