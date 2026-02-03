@@ -32,7 +32,7 @@ import {
 } from '@clutter/ui';
 
 /**
- * Helper to replace current block with new node
+ * Helper to replace current block with new node while preserving content
  */
 function replaceBlockContent(context: CommandContext, createNode: () => any) {
   context.editor.update(() => {
@@ -44,6 +44,11 @@ function replaceBlockContent(context: CommandContext, createNode: () => any) {
 
     if (firstChild && !$isRootNode(firstChild)) {
       const newNode = createNode();
+
+      // Transfer all children (text content) from old node to new node
+      const children = firstChild.getChildren();
+      children.forEach((child) => newNode.append(child));
+
       firstChild.replace(newNode);
       newNode.select();
     }
@@ -125,6 +130,11 @@ const commands: SlashCommand[] = [
         if (firstChild && !$isRootNode(firstChild)) {
           const listNode = $createListNode('bullet');
           const listItemNode = $createListItemNode();
+
+          // Transfer children (text content) to list item
+          const children = firstChild.getChildren();
+          children.forEach((child) => listItemNode.append(child));
+
           listNode.append(listItemNode);
           firstChild.replace(listNode);
           listItemNode.select();
@@ -153,6 +163,11 @@ const commands: SlashCommand[] = [
         if (firstChild && !$isRootNode(firstChild)) {
           const listNode = $createListNode('number');
           const listItemNode = $createListItemNode();
+
+          // Transfer children (text content) to list item
+          const children = firstChild.getChildren();
+          children.forEach((child) => listItemNode.append(child));
+
           listNode.append(listItemNode);
           firstChild.replace(listNode);
           listItemNode.select();
