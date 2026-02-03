@@ -20,7 +20,7 @@ import {
 import { createPortal } from 'react-dom';
 
 import { CommandMenu } from './CommandMenu';
-import { defaultCommandRegistry } from './registry';
+import { defaultCommandRegistry } from './registry.tsx';
 import type { SlashCommand, CommandContext } from './types';
 
 export interface SlashCommandPluginProps {
