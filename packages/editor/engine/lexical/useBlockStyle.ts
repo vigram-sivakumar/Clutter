@@ -80,6 +80,7 @@ export function useBlockStyle(
           fontSize: '30px',
           fontWeight: 700,
           lineHeight: 1.3,
+          letterSpacing: '-0.02em',
         };
         placeholderText = 'Heading 1';
       } else if (headingLevel === 'h2') {
@@ -88,6 +89,7 @@ export function useBlockStyle(
           fontSize: '24px',
           fontWeight: 600,
           lineHeight: 1.4,
+          letterSpacing: '-0.01em',
         };
         placeholderText = 'Heading 2';
       } else if (headingLevel === 'h3') {
@@ -105,6 +107,7 @@ export function useBlockStyle(
           fontSize: '30px',
           fontWeight: 700,
           lineHeight: 1.3,
+          letterSpacing: '-0.02em',
         };
         placeholderText = 'Heading';
       }
