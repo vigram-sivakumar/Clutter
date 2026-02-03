@@ -185,8 +185,8 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
         />
         {/* Note: Content is managed via textContent, not children, to preserve caret */}
 
-        {/* Label placeholder - always visible when empty */}
-        {isEmpty && (
+        {/* Label placeholder - visible when empty AND not focused */}
+        {isEmpty && !isLabelFocused && (
           <div
             style={{
               position: 'absolute',
