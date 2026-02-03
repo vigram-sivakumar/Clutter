@@ -46,15 +46,15 @@ export function BlockPlaceholder({
       style={{
         position: 'absolute',
         inset: 0,
-        paddingTop: '3px',
-        paddingRight: '2px',
-        paddingBottom: '3px',
-        paddingLeft: '2px',
+        paddingTop: '4px',
+        paddingRight: '4px',
+        paddingBottom: '4px',
+        paddingLeft: '4px',
         lineHeight: 1.5, // Must match ContentEditable base line-height
         color: '#999',
         pointerEvents: 'none',
         userSelect: 'none',
-        whiteSpace: 'break-spaces',
+        whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
         // Apply block-specific styles (fontSize, lineHeight, fontWeight, etc.)
         ...style,

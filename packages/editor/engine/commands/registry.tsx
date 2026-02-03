@@ -250,8 +250,8 @@ const commands: SlashCommand[] = [
     category: 'dividers',
     keywords: ['hr', 'line', 'separator', 'horizontal'],
     execute: (context) => {
-      // TODO: Implement divider node
-      console.log('Divider not yet implemented');
+      context.blockStore.updateType(context.blockId, 'divider');
+      context.blockStore.updateProperties(context.blockId, { style: 'plain' });
       context.closeMenu();
     },
   },
@@ -262,8 +262,8 @@ const commands: SlashCommand[] = [
     category: 'dividers',
     keywords: ['hr', 'line', 'separator', 'horizontal', 'wave', 'wavy'],
     execute: (context) => {
-      // TODO: Implement wavy divider node
-      console.log('Wavy divider not yet implemented');
+      context.blockStore.updateType(context.blockId, 'divider');
+      context.blockStore.updateProperties(context.blockId, { style: 'wavy' });
       context.closeMenu();
     },
   },

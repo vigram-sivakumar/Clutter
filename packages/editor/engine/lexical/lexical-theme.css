@@ -13,31 +13,28 @@
   padding: 0;
 }
 
-/* Heading 1 - Large heading (Notion spacing) */
+/* Heading 1 - Large heading with extra top spacing */
 .editor-heading-h1 {
   font-size: 32px;
   font-weight: 700;
   line-height: 1.2;
-  margin-top: 2em;
-  margin-bottom: 4px;
+  margin-top: 24px;
 }
 
-/* Heading 2 - Medium heading (Notion spacing) */
+/* Heading 2 - Medium heading with moderate top spacing */
 .editor-heading-h2 {
   font-size: 24px;
   font-weight: 600;
   line-height: 1.3;
-  margin-top: 1.4em;
-  margin-bottom: 1px;
+  margin-top: 20px;
 }
 
-/* Heading 3 - Small heading (Notion spacing) */
+/* Heading 3 - Small heading with minimal top spacing */
 .editor-heading-h3 {
   font-size: 20px;
   font-weight: 600;
   line-height: 1.4;
-  margin-top: 1em;
-  margin-bottom: 1px;
+  margin-top: 16px;
 }
 
 /* Paragraph */

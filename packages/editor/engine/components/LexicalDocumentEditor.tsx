@@ -85,26 +85,25 @@ export const LexicalDocumentEditor: React.FC<LexicalDocumentEditorProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        // No gap - blocks use individual margins like Notion
+        gap: '0px', // No gap between blocks
       }}
     >
-      {rootBlocks.map((block, index) => (
-        <div
-          key={block.id}
-          style={{
-            marginTop: index === 0 ? '0px' : '1px', // 1px margin between blocks
-            marginBottom: '1px',
-          }}
-        >
-          <BlockChromeWrapper blockId={block.id}>
-            <LexicalBlockEditor
-              blockId={block.id}
-              focusManager={focusManager}
-              autoFocus={autoFocus && index === 0}
-            />
+      {rootBlocks.map((block, index) => {
+        // Non-editable blocks (dividers) don't need Lexical editor
+        const isNonEditable = block.type === 'divider';
+
+        return (
+          <BlockChromeWrapper key={block.id} blockId={block.id}>
+            {!isNonEditable && (
+              <LexicalBlockEditor
+                blockId={block.id}
+                focusManager={focusManager}
+                autoFocus={autoFocus && index === 0}
+              />
+            )}
           </BlockChromeWrapper>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

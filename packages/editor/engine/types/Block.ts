@@ -19,7 +19,13 @@
 /**
  * Block types (POC subset - will expand)
  */
-export type BlockType = 'paragraph' | 'heading' | 'list' | 'code' | 'quote';
+export type BlockType =
+  | 'paragraph'
+  | 'heading'
+  | 'list'
+  | 'code'
+  | 'quote'
+  | 'divider';
 
 /**
  * Block - The core entity

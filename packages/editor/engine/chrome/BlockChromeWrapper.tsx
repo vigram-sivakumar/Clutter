@@ -36,20 +36,44 @@ export function BlockChromeWrapper({
 
   const blockType = block.type;
 
-  // Quote blocks: Notion-style structure with border and padding
+  // Quote blocks: Two-column layout with orange marker bar
   if (blockType === 'quote') {
     return (
       <div
         style={{
-          marginTop: '4px',
-          marginBottom: '4px',
+          display: 'flex',
+          alignItems: 'stretch',
+          gap: '8px', // spacing.inline
         }}
       >
+        {/* Marker container - 24px wide */}
         <div
           style={{
-            borderInlineStart: '3px solid currentcolor', // 3px border like Notion
-            paddingInline: '14px', // 14px left/right padding
-            width: '100%',
+            width: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          {/* Orange bar - 4px wide */}
+          <div
+            className="blockquote-line"
+            style={{
+              width: '4px',
+              alignSelf: 'stretch', // Fill height
+              backgroundColor: colors.semantic.orange,
+              borderRadius: '2px',
+            }}
+          />
+        </div>
+
+        {/* Content column */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            color: colors.text.secondary, // Secondary text color for quotes
           }}
         >
           {children}
@@ -101,6 +125,65 @@ export function BlockChromeWrapper({
         >
           {children}
         </div>
+      </div>
+    );
+  }
+
+  // Divider blocks: Horizontal lines (plain or wavy)
+  if (blockType === 'divider') {
+    const style = block.properties?.style || 'plain';
+    const dividerColor = colors.border.divider;
+
+    return (
+      <div
+        style={{
+          height: '24px', // Clickable hit area
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+        }}
+      >
+        {style === 'wavy' ? (
+          // Wavy divider using SVG pattern
+          <svg
+            width="128px"
+            height="6"
+            preserveAspectRatio="none"
+            style={{ display: 'block' }}
+          >
+            <defs>
+              <pattern
+                id={`wavePattern-${blockId}`}
+                patternUnits="userSpaceOnUse"
+                width="16"
+                height="6"
+              >
+                <path
+                  d="M0 3 C4 3, 4 1, 8 1 S12 3, 16 3"
+                  stroke={dividerColor}
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </pattern>
+            </defs>
+            <rect
+              width="100%"
+              height="6"
+              fill={`url(#wavePattern-${blockId})`}
+            />
+          </svg>
+        ) : (
+          // Plain divider (simple line)
+          <div
+            style={{
+              width: '100%',
+              height: '1px',
+              backgroundColor: dividerColor,
+            }}
+          />
+        )}
       </div>
     );
   }
