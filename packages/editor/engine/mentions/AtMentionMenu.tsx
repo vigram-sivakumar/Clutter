@@ -25,13 +25,14 @@ import type { EntitySuggestion } from '../utils/entitySearch';
 export interface AtMentionMenuProps {
   query: string;
   selectedIndex: number;
-  position: { top: number; left: number };
+  position: { top: number; bottom: number; left: number };
   onClose: () => void;
   dateSuggestions: DateSuggestion[];
   entityMatches: EntitySuggestion[];
   showCreateNote: boolean;
   showCreateFolder: boolean;
   onSelect: (item: MenuItem) => void;
+  onHoverItem?: (index: number) => void;
 }
 
 export type MenuItem =
@@ -51,6 +52,7 @@ export function AtMentionMenu({
   showCreateNote,
   showCreateFolder,
   onSelect,
+  onHoverItem,
 }: AtMentionMenuProps) {
   // Build complete menu items list
   const menuItems: MenuItem[] = [];
@@ -146,6 +148,7 @@ export function AtMentionMenu({
       }
 
       // Render item
+      const currentIndex = itemIndex; // Capture for closure
       switch (item.type) {
         case 'date':
           items.push(
@@ -156,6 +159,7 @@ export function AtMentionMenu({
               description={item.suggestion.description}
               isSelected={selectedIndex === itemIndex}
               onClick={() => onSelect(item)}
+              onMouseEnter={() => onHoverItem?.(currentIndex)}
             />
           );
           break;
@@ -168,6 +172,7 @@ export function AtMentionMenu({
               label={`Create "${item.date.label}"`}
               isSelected={selectedIndex === itemIndex}
               onClick={() => onSelect(item)}
+              onMouseEnter={() => onHoverItem?.(currentIndex)}
             />
           );
           break;
@@ -193,6 +198,7 @@ export function AtMentionMenu({
               label={displayLabel}
               isSelected={selectedIndex === itemIndex}
               onClick={() => onSelect(item)}
+              onMouseEnter={() => onHoverItem?.(currentIndex)}
             />
           );
           break;
@@ -206,6 +212,7 @@ export function AtMentionMenu({
               label={`Create "${item.query}"`}
               isSelected={selectedIndex === itemIndex}
               onClick={() => onSelect(item)}
+              onMouseEnter={() => onHoverItem?.(currentIndex)}
             />
           );
           break;
@@ -218,6 +225,7 @@ export function AtMentionMenu({
               label={`Create "${item.query}"`}
               isSelected={selectedIndex === itemIndex}
               onClick={() => onSelect(item)}
+              onMouseEnter={() => onHoverItem?.(currentIndex)}
             />
           );
           break;

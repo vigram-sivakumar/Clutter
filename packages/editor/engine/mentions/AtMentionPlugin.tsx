@@ -65,7 +65,12 @@ export function AtMentionPlugin({
   const [showMenu, setShowMenu] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [keyboardMode, setKeyboardMode] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({
+    top: 0,
+    bottom: 0,
+    left: 0,
+  });
   const [triggerPos, setTriggerPos] = useState<number | null>(null);
 
   // Close menu
@@ -122,7 +127,7 @@ export function AtMentionPlugin({
         // Extract query after "@"
         const queryText = textBeforeCursor.slice(lastAtIndex + 1);
 
-        // Calculate position
+        // Calculate anchor position (once on open)
         const domSelection = window.getSelection();
         if (!domSelection || domSelection.rangeCount === 0) {
           if (showMenu) closeMenu();
@@ -132,7 +137,12 @@ export function AtMentionPlugin({
         const range = domSelection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
 
-        setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+        // Pass anchor bounds only - FloatingMenu decides placement
+        setMenuPosition({
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+        });
         setQuery(queryText);
         setTriggerPos(lastAtIndex);
         setShowMenu(true);
@@ -153,6 +163,7 @@ export function AtMentionPlugin({
     const handleArrowDown = editor.registerCommand(
       KEY_ARROW_DOWN_COMMAND,
       () => {
+        setKeyboardMode(true); // Enter keyboard mode
         setSelectedIndex((prev) => Math.min(prev + 1, 5)); // TODO: Use actual item count
         return true;
       },
@@ -162,6 +173,7 @@ export function AtMentionPlugin({
     const handleArrowUp = editor.registerCommand(
       KEY_ARROW_UP_COMMAND,
       () => {
+        setKeyboardMode(true); // Enter keyboard mode
         setSelectedIndex((prev) => Math.max(0, prev - 1));
         return true;
       },
@@ -200,21 +212,28 @@ export function AtMentionPlugin({
   }
 
   return createPortal(
-    <AtMentionMenu
-      query={query}
-      selectedIndex={selectedIndex}
-      position={menuPosition}
-      onClose={closeMenu}
-      dateSuggestions={dateSuggestions}
-      entityMatches={entityResults.matches}
-      showCreateNote={entityResults.showCreateNote}
-      showCreateFolder={entityResults.showCreateFolder}
-      onSelect={(item) => {
-        // TODO: Insert mention based on item type
-        console.log('[AtMention] Selected:', item);
-        closeMenu();
-      }}
-    />,
+    <div onMouseMove={() => setKeyboardMode(false)}>
+      <AtMentionMenu
+        query={query}
+        selectedIndex={selectedIndex}
+        position={menuPosition}
+        onClose={closeMenu}
+        dateSuggestions={dateSuggestions}
+        entityMatches={entityResults.matches}
+        showCreateNote={entityResults.showCreateNote}
+        showCreateFolder={entityResults.showCreateFolder}
+        onSelect={(item) => {
+          // TODO: Insert mention based on item type
+          console.log('[AtMention] Selected:', item);
+          closeMenu();
+        }}
+        onHoverItem={(index) => {
+          if (!keyboardMode) {
+            setSelectedIndex(index);
+          }
+        }}
+      />
+    </div>,
     document.body
   );
 }

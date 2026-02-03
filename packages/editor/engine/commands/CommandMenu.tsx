@@ -25,13 +25,16 @@ export interface CommandMenuProps {
   onSelect: (command: SlashCommand) => void;
 
   /** Position of the menu */
-  position: { top: number; left: number };
+  position: { top: number; bottom: number; left: number };
 
   /** Search query */
   query: string;
 
   /** Callback to close menu */
   onClose: () => void;
+
+  /** Callback when hovering over an item (for hover/keyboard priority) */
+  onHoverItem?: (index: number) => void;
 }
 
 /**
@@ -50,6 +53,7 @@ export function CommandMenu({
   position,
   query,
   onClose,
+  onHoverItem,
 }: CommandMenuProps) {
   const { colors } = useTheme();
 
@@ -121,6 +125,7 @@ export function CommandMenu({
       // Add commands in this category
       group.commands.forEach((command) => {
         const isSelected = globalIndex === selectedIndex;
+        const itemIndex = globalIndex; // Capture for closure
         items.push(
           <DropdownItem
             key={command.id}
@@ -129,6 +134,7 @@ export function CommandMenu({
             icon={command.icon}
             isSelected={isSelected}
             onClick={() => onSelect(command)}
+            onMouseEnter={() => onHoverItem?.(itemIndex)}
           />
         );
         globalIndex++;

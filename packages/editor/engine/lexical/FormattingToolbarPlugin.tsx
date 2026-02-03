@@ -243,6 +243,7 @@ export function FormattingToolbarPlugin({
         top: position.top,
         bottom: position.bottom,
         left: position.left,
+        transform: 'translateX(-50%)', // Center horizontally on anchor
       }}
       lockScroll={true}
       dismissOnEscape={false}

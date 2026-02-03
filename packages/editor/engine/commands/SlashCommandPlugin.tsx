@@ -36,7 +36,12 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [keyboardMode, setKeyboardMode] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({
+    top: 0,
+    bottom: 0,
+    left: 0,
+  });
 
   // Get filtered commands
   const commands = defaultCommandRegistry.search(query);
@@ -131,14 +136,16 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
         // Extract query after "/"
         const queryText = textBeforeCursor.slice(lastSlashIndex + 1);
 
-        // Get cursor position for menu placement
+        // Get anchor rect for menu placement (once on open)
         const domSelection = window.getSelection();
         if (domSelection && domSelection.rangeCount > 0) {
           const range = domSelection.getRangeAt(0);
           const rect = range.getBoundingClientRect();
 
+          // Pass anchor bounds only - FloatingMenu decides placement
           setMenuPosition({
-            top: rect.bottom + 4,
+            top: rect.top,
+            bottom: rect.bottom,
             left: rect.left,
           });
         }
@@ -158,6 +165,7 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
       KEY_ARROW_DOWN_COMMAND,
       (event) => {
         event.preventDefault();
+        setKeyboardMode(true); // Enter keyboard mode
         setSelectedIndex((prev) => (prev < commands.length - 1 ? prev + 1 : 0));
         return true;
       },
@@ -168,6 +176,7 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
       KEY_ARROW_UP_COMMAND,
       (event) => {
         event.preventDefault();
+        setKeyboardMode(true); // Enter keyboard mode
         setSelectedIndex((prev) => (prev > 0 ? prev - 1 : commands.length - 1));
         return true;
       },
@@ -224,14 +233,21 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
   }
 
   return createPortal(
-    <CommandMenu
-      commands={commands}
-      selectedIndex={selectedIndex}
-      onSelect={executeCommand}
-      position={menuPosition}
-      query={query}
-      onClose={closeMenu}
-    />,
+    <div onMouseMove={() => setKeyboardMode(false)}>
+      <CommandMenu
+        commands={commands}
+        selectedIndex={selectedIndex}
+        onSelect={executeCommand}
+        position={menuPosition}
+        query={query}
+        onClose={closeMenu}
+        onHoverItem={(index) => {
+          if (!keyboardMode) {
+            setSelectedIndex(index);
+          }
+        }}
+      />
+    </div>,
     document.body
   );
 }
