@@ -2,11 +2,17 @@
  * Command Menu Component
  *
  * Displays slash commands using shared dropdown primitives.
- * Exact visual match to old ProseMirror SlashCommandMenu.
+ * Exact visual match to old ProseMirror SlashCommandMenu with category grouping.
  */
 
-import { AutocompleteDropdown, DropdownItem, useTheme } from '@clutter/ui';
-import type { SlashCommand } from './types';
+import {
+  AutocompleteDropdown,
+  DropdownItem,
+  DropdownHeader,
+  DropdownSeparator,
+  useTheme,
+} from '@clutter/ui';
+import type { SlashCommand, CommandCategory } from './types';
 
 export interface CommandMenuProps {
   /** Filtered commands to display */
@@ -69,6 +75,70 @@ export function CommandMenu({
     );
   }
 
+  // Group commands by category
+  const groupedCommands: {
+    category: CommandCategory;
+    commands: SlashCommand[];
+  }[] = [];
+  const categoryLabels: Record<CommandCategory, string> = {
+    basic: 'BASIC BLOCKS',
+    text: 'TEXT',
+    media: 'MEDIA',
+    embed: 'EMBED',
+    advanced: 'ADVANCED',
+  };
+
+  // Build grouped structure
+  commands.forEach((command) => {
+    const existingGroup = groupedCommands.find(
+      (g) => g.category === command.category
+    );
+    if (existingGroup) {
+      existingGroup.commands.push(command);
+    } else {
+      groupedCommands.push({ category: command.category, commands: [command] });
+    }
+  });
+
+  // Render with grouping
+  const renderItems = () => {
+    const items: JSX.Element[] = [];
+    let globalIndex = 0;
+
+    groupedCommands.forEach((group, groupIndex) => {
+      // Add separator before new category (except first)
+      if (groupIndex > 0) {
+        items.push(<DropdownSeparator key={`separator-${group.category}`} />);
+      }
+
+      // Add category header
+      items.push(
+        <DropdownHeader
+          key={`header-${group.category}`}
+          label={categoryLabels[group.category]}
+        />
+      );
+
+      // Add commands in this category
+      group.commands.forEach((command) => {
+        const isSelected = globalIndex === selectedIndex;
+        items.push(
+          <DropdownItem
+            key={command.id}
+            label={command.label}
+            description={command.description}
+            icon={command.icon}
+            isSelected={isSelected}
+            onClick={() => onSelect(command)}
+          />
+        );
+        globalIndex++;
+      });
+    });
+
+    return items;
+  };
+
   return (
     <AutocompleteDropdown
       isOpen={true}
@@ -76,16 +146,7 @@ export function CommandMenu({
       onClose={onClose}
       selectedIndex={selectedIndex}
     >
-      {commands.map((command, index) => (
-        <DropdownItem
-          key={command.id}
-          label={command.label}
-          description={command.description}
-          icon={command.icon}
-          isSelected={index === selectedIndex}
-          onClick={() => onSelect(command)}
-        />
-      ))}
+      {renderItems()}
     </AutocompleteDropdown>
   );
 }
