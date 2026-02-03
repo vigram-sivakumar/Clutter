@@ -13,6 +13,8 @@ export { PlaceholderPlugin } from './PlaceholderPlugin';
 export type { PlaceholderPluginProps } from './PlaceholderPlugin';
 export { BlockPlaceholder } from './BlockPlaceholder';
 export type { BlockPlaceholderProps } from './BlockPlaceholder';
+export { useBlockStyle } from './useBlockStyle';
+export type { BlockStyle, BlockStyleConfig } from './useBlockStyle';
 export { createBlockEditorConfig } from './config';
 export { getEditorNodes } from './nodes';
 export {

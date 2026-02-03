@@ -32,6 +32,7 @@ import { FormattingToolbarPlugin } from './FormattingToolbarPlugin';
 import { MarkdownPlugin } from './MarkdownShortcutsPlugin';
 import { PlaceholderPlugin } from './PlaceholderPlugin';
 import { SlashCommandPlugin } from '../commands/SlashCommandPlugin';
+import { useBlockStyle } from './useBlockStyle';
 import {
   serializeEditorState,
   deserializeEditorState,
@@ -60,6 +61,9 @@ function EditorContent({
   const splitBlock = useBlockStore((s) => s.splitBlock);
   const mergeBlocks = useBlockStore((s) => s.mergeBlocks);
   const getBlock = useBlockStore((s) => s.getBlock);
+
+  // Get block-specific styling
+  const { contentStyle, placeholderText } = useBlockStyle(block?.type);
 
   // Register editor with focus manager
   useEffect(() => {
@@ -269,10 +273,11 @@ function EditorContent({
               outline: 'none',
               padding: '4px 8px',
               minHeight: '24px',
-              lineHeight: '1.5',
               cursor: 'text',
               pointerEvents: 'auto',
               userSelect: 'text',
+              // Apply block-type specific styles
+              ...contentStyle,
             }}
             onClick={() => {
               editor.focus();
@@ -283,7 +288,7 @@ function EditorContent({
         placeholder={<div />}
         ErrorBoundary={() => <div>Error</div>}
       />
-      <PlaceholderPlugin text="Type here..." />
+      <PlaceholderPlugin text={placeholderText} />
       <HistoryPlugin />
       <LexicalLinkPlugin />
       <LexicalListPlugin />
