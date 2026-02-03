@@ -9,6 +9,8 @@
  * Plain text only for POC.
  */
 
+import './lexical-theme.css';
+
 import React, { useEffect, useCallback } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
@@ -279,8 +281,7 @@ function EditorContent({
               cursor: 'text',
               pointerEvents: 'auto',
               userSelect: 'text',
-              // Apply block-type specific styles
-              ...contentStyle,
+              // Block-type styles now handled by CSS theme classes
             }}
             onClick={() => {
               editor.focus();
