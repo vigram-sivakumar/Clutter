@@ -28,6 +28,7 @@ import {
 import { createBlockEditorConfig } from './config';
 import { BlockKeyboardPlugin } from './BlockKeyboardPlugin';
 import { FormattingPlugin } from './FormattingPlugin';
+import { FormattingToolbarPlugin } from './FormattingToolbarPlugin';
 import { MarkdownPlugin } from './MarkdownShortcutsPlugin';
 import { SlashCommandPlugin } from '../commands/SlashCommandPlugin';
 import {
@@ -299,6 +300,7 @@ function EditorContent({
       <LexicalListPlugin />
       <OnChangePlugin onChange={handleChange} />
       <FormattingPlugin />
+      <FormattingToolbarPlugin blockId={blockId} />
       <MarkdownPlugin />
       <SlashCommandPlugin blockId={blockId} />
       <BlockKeyboardPlugin

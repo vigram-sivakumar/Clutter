@@ -7,6 +7,7 @@ export type { LexicalBlockEditorProps } from './LexicalBlockEditor';
 export { BlockKeyboardPlugin } from './BlockKeyboardPlugin';
 export type { BlockKeyboardPluginProps } from './BlockKeyboardPlugin';
 export { FormattingPlugin } from './FormattingPlugin';
+export { FormattingToolbarPlugin } from './FormattingToolbarPlugin';
 export { MarkdownPlugin } from './MarkdownShortcutsPlugin';
 export { createBlockEditorConfig } from './config';
 export { getEditorNodes } from './nodes';
