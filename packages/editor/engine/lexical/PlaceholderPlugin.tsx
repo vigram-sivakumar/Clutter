@@ -4,6 +4,7 @@
  * Manages placeholder visibility based on:
  * - Editor empty state
  * - Focus state
+ * - First block rule (shows without focus)
  * - IME composition state (safe)
  */
 
@@ -18,8 +19,12 @@ import {
 } from 'lexical';
 
 import { BlockPlaceholder } from './BlockPlaceholder';
+import { useBlockStore } from '../store';
 
 export interface PlaceholderPluginProps {
+  /** Block ID to check if this is the first block */
+  blockId: string;
+
   /** Placeholder text to display */
   text?: string;
 
@@ -29,17 +34,27 @@ export interface PlaceholderPluginProps {
 
 /**
  * Plugin that renders a baseline-aligned placeholder when:
- * - Block is empty
- * - Block is focused
+ * - Block is empty AND (focused OR first block)
  * - Not composing (IME-safe)
+ *
+ * First Block Rule: The first block in the document shows its placeholder
+ * even without focus, providing a visual hint to start typing.
  */
 export function PlaceholderPlugin({
+  blockId,
   text = 'Type here...',
   style,
 }: PlaceholderPluginProps) {
   const [editor] = useLexicalComposerContext();
   const [isFocused, setIsFocused] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
+
+  // Check if this is the first block in the document
+  const isFirstBlock = useBlockStore((s) => {
+    const allBlocks = s.getAllBlocks();
+    const rootBlocks = allBlocks.filter((b) => b.parent === null);
+    return rootBlocks.length > 0 && rootBlocks[0].id === blockId;
+  });
 
   // Track focus state
   useEffect(() => {
@@ -78,7 +93,10 @@ export function PlaceholderPlugin({
     });
   }, [editor]);
 
-  const showPlaceholder = isFocused && isEmpty;
+  // Show placeholder if:
+  // 1. Block is empty AND focused (normal case)
+  // 2. Block is empty AND is the first block (special case - no focus needed)
+  const showPlaceholder = isEmpty && (isFocused || isFirstBlock);
 
   return (
     <BlockPlaceholder visible={showPlaceholder} text={text} style={style} />
