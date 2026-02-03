@@ -47,9 +47,9 @@ export function BlockPlaceholder({
         position: 'absolute',
         inset: 0,
         paddingTop: '4px',
-        paddingRight: '8px',
+        paddingRight: '4px',
         paddingBottom: '4px',
-        paddingLeft: '8px',
+        paddingLeft: '4px',
         lineHeight: 1.5, // Must match ContentEditable base line-height
         color: '#999',
         pointerEvents: 'none',

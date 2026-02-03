@@ -85,7 +85,7 @@ export const LexicalDocumentEditor: React.FC<LexicalDocumentEditorProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px', // Match old ProseMirror gap between blocks
+        gap: '0px', // No gap between blocks
       }}
     >
       {rootBlocks.map((block, index) => (

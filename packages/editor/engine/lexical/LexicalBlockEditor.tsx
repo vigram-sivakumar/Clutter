@@ -274,9 +274,9 @@ function EditorContent({
             style={{
               outline: 'none',
               paddingTop: '4px',
-              paddingRight: '8px',
+              paddingRight: '4px',
               paddingBottom: '4px',
-              paddingLeft: '8px',
+              paddingLeft: '4px',
               minHeight: '24px',
               lineHeight: 1.5, // Base line height (16px × 1.5 = 24px)
               cursor: 'text',
