@@ -30,6 +30,7 @@ import { BlockKeyboardPlugin } from './BlockKeyboardPlugin';
 import { FormattingPlugin } from './FormattingPlugin';
 import { FormattingToolbarPlugin } from './FormattingToolbarPlugin';
 import { MarkdownPlugin } from './MarkdownShortcutsPlugin';
+import { PlaceholderPlugin } from './PlaceholderPlugin';
 import { SlashCommandPlugin } from '../commands/SlashCommandPlugin';
 import {
   serializeEditorState,
@@ -279,22 +280,10 @@ function EditorContent({
             }}
           />
         }
-        placeholder={
-          <div
-            style={{
-              position: 'absolute',
-              top: 4,
-              left: 8,
-              color: '#999',
-              pointerEvents: 'none',
-              userSelect: 'none',
-            }}
-          >
-            Type here...
-          </div>
-        }
+        placeholder={<div />}
         ErrorBoundary={() => <div>Error</div>}
       />
+      <PlaceholderPlugin text="Type here..." />
       <HistoryPlugin />
       <LexicalLinkPlugin />
       <LexicalListPlugin />

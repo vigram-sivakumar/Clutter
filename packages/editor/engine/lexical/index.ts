@@ -9,6 +9,10 @@ export type { BlockKeyboardPluginProps } from './BlockKeyboardPlugin';
 export { FormattingPlugin } from './FormattingPlugin';
 export { FormattingToolbarPlugin } from './FormattingToolbarPlugin';
 export { MarkdownPlugin } from './MarkdownShortcutsPlugin';
+export { PlaceholderPlugin } from './PlaceholderPlugin';
+export type { PlaceholderPluginProps } from './PlaceholderPlugin';
+export { BlockPlaceholder } from './BlockPlaceholder';
+export type { BlockPlaceholderProps } from './BlockPlaceholder';
 export { createBlockEditorConfig } from './config';
 export { getEditorNodes } from './nodes';
 export {
