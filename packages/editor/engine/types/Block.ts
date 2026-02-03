@@ -25,7 +25,8 @@ export type BlockType =
   | 'list'
   | 'code'
   | 'quote'
-  | 'divider';
+  | 'divider'
+  | 'checklist';
 
 /**
  * Block - The core entity

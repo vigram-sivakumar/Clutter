@@ -185,8 +185,8 @@ const commands: SlashCommand[] = [
     category: 'lists',
     keywords: ['todo', 'checkbox', 'check', 'task'],
     execute: (context) => {
-      // TODO: Implement checklist node
-      console.log('Checklist not yet implemented');
+      context.blockStore.updateType(context.blockId, 'checklist');
+      context.blockStore.updateProperties(context.blockId, { checked: false });
       context.closeMenu();
     },
   },

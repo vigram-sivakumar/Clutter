@@ -188,6 +188,66 @@ export function BlockChromeWrapper({
     );
   }
 
+  // Checklist blocks: Checkbox + content with conditional styling
+  if (blockType === 'checklist') {
+    const checked = block.properties?.checked === true;
+
+    const handleCheckboxChange = () => {
+      // Toggle checked state in block store
+      useBlockStore.getState().updateProperties(blockId, {
+        checked: !checked,
+      });
+    };
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '8px',
+        }}
+      >
+        {/* Marker container - 24px wide */}
+        <div
+          style={{
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          {/* Checkbox - 16px */}
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={handleCheckboxChange}
+            onMouseDown={(e) => e.preventDefault()} // Prevent focus steal
+            style={{
+              width: '16px',
+              height: '16px',
+              cursor: 'pointer',
+              margin: 0,
+            }}
+          />
+        </div>
+
+        {/* Content with conditional styling */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            textDecoration: checked ? 'line-through' : 'none',
+            color: checked ? colors.text.tertiary : 'inherit',
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
+
   // Default: Plain wrapper for paragraphs, headings, lists
   return <>{children}</>;
 }
