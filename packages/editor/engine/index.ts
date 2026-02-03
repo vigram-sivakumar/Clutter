@@ -76,6 +76,8 @@ export type { FocusManager } from './focus';
 
 // Slash commands
 export { SlashCommandPlugin, CommandMenu } from './commands';
+export { AtMentionPlugin, AtMentionMenu } from './mentions';
+export type { EditorNote, EditorFolder } from './utils/entitySearch';
 export { createCommandRegistry, defaultCommandRegistry } from './commands';
 export type {
   SlashCommand,
