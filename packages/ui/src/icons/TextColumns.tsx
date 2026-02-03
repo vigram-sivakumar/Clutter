@@ -1,14 +1,9 @@
-import { TextColumns as PhosphorTextColumns } from '@phosphor-icons/react';
-import type { IconProps } from './types';
+import {
+  TextColumns as PhosphorTextColumns,
+  type IconProps,
+} from '@phosphor-icons/react';
+import { ICON_WEIGHT } from '../tokens/icons';
 
-export function TextColumns({ size = 24, color, style, ...props }: IconProps) {
-  return (
-    <PhosphorTextColumns
-      size={size}
-      color={color}
-      style={style}
-      weight="regular"
-      {...props}
-    />
-  );
-}
+export const TextColumns = (props: IconProps) => {
+  return <PhosphorTextColumns weight={ICON_WEIGHT} {...props} />;
+};

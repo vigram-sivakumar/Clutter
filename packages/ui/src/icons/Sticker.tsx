@@ -1,14 +1,8 @@
-import { Sticker as PhosphorSticker } from '@phosphor-icons/react';
-import type { IconProps } from './types';
+import {
+  Sticker as PhosphorSticker,
+  type IconProps,
+} from '@phosphor-icons/react';
 
-export function Sticker({ size = 24, color, style, ...props }: IconProps) {
-  return (
-    <PhosphorSticker
-      size={size}
-      color={color}
-      style={style}
-      weight="duotone"
-      {...props}
-    />
-  );
-}
+export const Sticker = (props: IconProps) => {
+  return <PhosphorSticker weight="duotone" {...props} />;
+};
