@@ -450,7 +450,7 @@ export function BlockChromeWrapper({
             minHeight: '24px',
             lineHeight: 1.5, // Match label line-height
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center', // Vertically centered
             justifyContent: 'center',
             flexShrink: 0,
             fontSize: '16px',
