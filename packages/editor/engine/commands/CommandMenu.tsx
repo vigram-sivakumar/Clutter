@@ -80,11 +80,11 @@ export function CommandMenu({
     category: CommandCategory;
     commands: SlashCommand[];
   }[] = [];
-  const categoryLabels: Record<CommandCategory, string> = {
-    basic: 'BASIC BLOCKS',
-    text: 'TEXT',
+  const categoryLabels: Record<CommandCategory, string | null> = {
+    basic: null, // No header for basic blocks
+    lists: 'LISTS',
+    decoratives: 'DECORATIVES',
     media: 'MEDIA',
-    embed: 'EMBED',
     advanced: 'ADVANCED',
   };
 
@@ -111,13 +111,16 @@ export function CommandMenu({
         items.push(<DropdownSeparator key={`separator-${group.category}`} />);
       }
 
-      // Add category header
-      items.push(
-        <DropdownHeader
-          key={`header-${group.category}`}
-          label={categoryLabels[group.category]}
-        />
-      );
+      // Add category header (skip if label is null, like for "basic")
+      const categoryLabel = categoryLabels[group.category];
+      if (categoryLabel) {
+        items.push(
+          <DropdownHeader
+            key={`header-${group.category}`}
+            label={categoryLabel}
+          />
+        );
+      }
 
       // Add commands in this category
       group.commands.forEach((command) => {

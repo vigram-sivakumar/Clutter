@@ -21,11 +21,11 @@ import {
   Heading3,
   List,
   ListOrdered,
-  Code,
-  Quote,
-  Minus,
-  Info,
   CheckSquare,
+  ChevronDown,
+  Quote,
+  Info,
+  Code,
   FileText,
 } from '@clutter/ui';
 
@@ -54,11 +54,10 @@ function replaceBlockContent(context: CommandContext, createNode: () => any) {
  * All available slash commands
  */
 const commands: SlashCommand[] = [
-  // === BASIC TEXT BLOCKS ===
+  // === BASIC (no header) ===
   {
     id: 'paragraph',
     label: 'Paragraph',
-    description: 'Plain text block',
     icon: <Pilcrow />,
     category: 'basic',
     blockType: 'paragraph',
@@ -67,14 +66,11 @@ const commands: SlashCommand[] = [
       replaceBlockContent(context, () => $createParagraphNode());
     },
   },
-
-  // === HEADINGS ===
   {
     id: 'heading1',
     label: 'Heading 1',
-    description: 'Large section heading',
     icon: <Heading1 />,
-    category: 'text',
+    category: 'basic',
     blockType: 'heading',
     keywords: ['h1', 'title', 'heading'],
     execute: (context) => {
@@ -84,9 +80,8 @@ const commands: SlashCommand[] = [
   {
     id: 'heading2',
     label: 'Heading 2',
-    description: 'Medium section heading',
     icon: <Heading2 />,
-    category: 'text',
+    category: 'basic',
     blockType: 'heading',
     keywords: ['h2', 'subtitle', 'heading'],
     execute: (context) => {
@@ -96,9 +91,8 @@ const commands: SlashCommand[] = [
   {
     id: 'heading3',
     label: 'Heading 3',
-    description: 'Small section heading',
     icon: <Heading3 />,
-    category: 'text',
+    category: 'basic',
     blockType: 'heading',
     keywords: ['h3', 'subheading', 'heading'],
     execute: (context) => {
@@ -110,9 +104,8 @@ const commands: SlashCommand[] = [
   {
     id: 'bulletlist',
     label: 'Bullet List',
-    description: 'Unordered list',
     icon: <List />,
-    category: 'text',
+    category: 'lists',
     blockType: 'bulletList',
     keywords: ['ul', 'unordered', 'bullet', 'list'],
     execute: (context) => {
@@ -138,9 +131,8 @@ const commands: SlashCommand[] = [
   {
     id: 'numberedlist',
     label: 'Numbered List',
-    description: 'Ordered list',
     icon: <ListOrdered />,
-    category: 'text',
+    category: 'lists',
     blockType: 'numberedList',
     keywords: ['ol', 'ordered', 'numbered', 'list'],
     execute: (context) => {
@@ -163,53 +155,48 @@ const commands: SlashCommand[] = [
       });
     },
   },
-
-  // === CODE & QUOTE ===
   {
-    id: 'code',
-    label: 'Code Block',
-    description: 'Code with syntax highlighting',
-    icon: <Code />,
-    category: 'text',
-    blockType: 'code',
-    keywords: ['code', 'snippet', 'programming'],
+    id: 'checklist',
+    label: 'Checklist',
+    icon: <CheckSquare />,
+    category: 'lists',
+    keywords: ['todo', 'checkbox', 'check', 'task'],
     execute: (context) => {
-      replaceBlockContent(context, () => $createCodeNode());
+      // TODO: Implement checklist node
+      console.log('Checklist not yet implemented');
+      context.closeMenu();
     },
   },
   {
+    id: 'toggle',
+    label: 'Toggle',
+    icon: <ChevronDown />,
+    category: 'lists',
+    keywords: ['collapse', 'expand', 'accordion'],
+    execute: (context) => {
+      // TODO: Implement toggle node
+      console.log('Toggle not yet implemented');
+      context.closeMenu();
+    },
+  },
+
+  // === DECORATIVES ===
+  {
     id: 'quote',
     label: 'Quote',
-    description: 'Block quote',
     icon: <Quote />,
-    category: 'text',
+    category: 'decoratives',
     blockType: 'quote',
     keywords: ['quote', 'blockquote', 'citation'],
     execute: (context) => {
       replaceBlockContent(context, () => $createQuoteNode());
     },
   },
-
-  // === ADVANCED (Placeholders for future) ===
-  {
-    id: 'divider',
-    label: 'Divider',
-    description: 'Horizontal line',
-    icon: <Minus />,
-    category: 'basic',
-    keywords: ['hr', 'line', 'separator'],
-    execute: (context) => {
-      // TODO: Implement divider node
-      console.log('Divider not yet implemented');
-      context.closeMenu();
-    },
-  },
   {
     id: 'callout',
     label: 'Callout',
-    description: 'Highlighted note',
     icon: <Info />,
-    category: 'basic',
+    category: 'decoratives',
     blockType: 'callout',
     keywords: ['note', 'info', 'warning'],
     execute: (context) => {
@@ -219,28 +206,41 @@ const commands: SlashCommand[] = [
     },
   },
   {
-    id: 'table',
-    label: 'Table',
-    description: 'Insert table',
-    icon: <CheckSquare />,
-    category: 'advanced',
-    keywords: ['table', 'grid', 'spreadsheet'],
+    id: 'code',
+    label: 'Code Block',
+    icon: <Code />,
+    category: 'decoratives',
+    blockType: 'code',
+    keywords: ['code', 'snippet', 'programming'],
     execute: (context) => {
-      // TODO: Implement table node
-      console.log('Table not yet implemented');
-      context.closeMenu();
+      replaceBlockContent(context, () => $createCodeNode());
     },
   },
+
+  // === MEDIA ===
   {
     id: 'image',
     label: 'Image',
-    description: 'Upload or embed image',
     icon: <FileText />,
     category: 'media',
     keywords: ['image', 'picture', 'photo'],
     execute: (context) => {
       // TODO: Implement image upload
       console.log('Image not yet implemented');
+      context.closeMenu();
+    },
+  },
+
+  // === ADVANCED ===
+  {
+    id: 'table',
+    label: 'Table',
+    icon: <CheckSquare />,
+    category: 'advanced',
+    keywords: ['table', 'grid', 'spreadsheet'],
+    execute: (context) => {
+      // TODO: Implement table node
+      console.log('Table not yet implemented');
       context.closeMenu();
     },
   },
