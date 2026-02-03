@@ -119,14 +119,14 @@ const commands: SlashCommand[] = [
         const selection = $getSelection();
         if (!$isRangeSelection(selection)) return;
 
-        const node = selection.anchor.getNode();
-        const parent = node.getParent();
+        const root = $getRoot();
+        const firstChild = root.getFirstChild();
 
-        if (parent) {
+        if (firstChild && !$isRootNode(firstChild)) {
           const listNode = $createListNode('bullet');
           const listItemNode = $createListItemNode();
           listNode.append(listItemNode);
-          parent.replace(listNode);
+          firstChild.replace(listNode);
           listItemNode.select();
         }
 
@@ -147,14 +147,14 @@ const commands: SlashCommand[] = [
         const selection = $getSelection();
         if (!$isRangeSelection(selection)) return;
 
-        const node = selection.anchor.getNode();
-        const parent = node.getParent();
+        const root = $getRoot();
+        const firstChild = root.getFirstChild();
 
-        if (parent) {
+        if (firstChild && !$isRootNode(firstChild)) {
           const listNode = $createListNode('number');
           const listItemNode = $createListItemNode();
           listNode.append(listItemNode);
-          parent.replace(listNode);
+          firstChild.replace(listNode);
           listItemNode.select();
         }
 
