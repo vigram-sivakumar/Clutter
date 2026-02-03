@@ -171,6 +171,7 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
             minHeight: '24px',
             lineHeight: 1.5,
             color: isEmpty ? 'transparent' : colors.text.secondary,
+            caretColor: colors.text.primary,
             fontWeight: 500,
             outline: 'none',
             cursor: 'text',
