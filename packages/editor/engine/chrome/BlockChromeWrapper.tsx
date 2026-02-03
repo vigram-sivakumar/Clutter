@@ -19,9 +19,9 @@ import {
   XCircle,
   CheckCircle,
   ChevronDown,
-  Sticker,
 } from '@clutter/ui';
 import type { BlockType } from '../types/Block';
+import { FieldChrome } from './blocks';
 
 interface BlockChromeWrapperProps {
   blockId: string;
@@ -422,90 +422,7 @@ export function BlockChromeWrapper({
 
   // Field blocks: Icon + Label (fixed 120px) + Value (flex)
   if (blockType === 'field') {
-    const icon = block.properties?.icon as string | undefined;
-    const label = (block.properties?.label as string) || '';
-
-    const handleLabelInput = (e: React.FormEvent<HTMLSpanElement>) => {
-      const newLabel = e.currentTarget.textContent || '';
-      useBlockStore.getState().updateProperties(blockId, {
-        label: newLabel,
-      });
-    };
-
-    const isEmpty = label.trim() === '';
-
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '8px',
-        }}
-      >
-        {/* Icon - shows Sticker as default */}
-        <div
-          style={{
-            width: '16px',
-            padding: '4px 0', // Match label padding
-            minHeight: '32px',
-            lineHeight: 1.5, // Match label line-height
-            display: 'flex',
-            alignItems: 'center', // Vertically centered
-            justifyContent: 'center',
-            flexShrink: 0,
-            fontSize: '16px',
-            color: colors.text.tertiary,
-          }}
-        >
-          {icon ? icon : <Sticker size={24} />}
-        </div>
-
-        {/* Label - fixed 120px width, plain text with always-visible placeholder */}
-        <div style={{ position: 'relative', width: '120px', flexShrink: 0 }}>
-          <span
-            contentEditable
-            suppressContentEditableWarning
-            onInput={handleLabelInput}
-            data-empty={isEmpty}
-            style={{
-              display: 'block',
-              padding: '4px',
-              minHeight: '24px',
-              lineHeight: 1.5,
-              color: isEmpty ? 'transparent' : colors.text.secondary,
-              fontWeight: 500,
-              outline: 'none',
-              cursor: 'text',
-            }}
-            onMouseDown={(e) => {
-              // Allow editing but prevent block-level interactions
-              e.stopPropagation();
-            }}
-          >
-            {label || '\u200B'}
-          </span>
-          {/* Label placeholder - always visible when empty */}
-          {isEmpty && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                padding: '4px',
-                lineHeight: 1.5,
-                color: '#999',
-                pointerEvents: 'none',
-                userSelect: 'none',
-              }}
-            >
-              Label
-            </div>
-          )}
-        </div>
-
-        {/* Value - flex 1, rich text (has its own PlaceholderPlugin) */}
-        <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
-      </div>
-    );
+    return <FieldChrome blockId={blockId}>{children}</FieldChrome>;
   }
 
   // Default: Plain wrapper for paragraphs, headings, lists

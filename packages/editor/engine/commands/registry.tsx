@@ -35,6 +35,7 @@ import {
   Sticker,
   TextColumns,
 } from '@clutter/ui';
+import { FIELD_BLOCK_DEFAULTS } from '../blocks/schemas/field';
 
 /**
  * Helper to replace current block with new node while preserving content
@@ -331,7 +332,10 @@ const commands: SlashCommand[] = [
     keywords: ['field', 'property', 'key', 'value', 'data', 'structured'],
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'field');
-      context.blockStore.updateProperties(context.blockId, { label: 'Label' });
+      context.blockStore.updateProperties(
+        context.blockId,
+        FIELD_BLOCK_DEFAULTS
+      );
       context.closeMenu();
     },
   },
