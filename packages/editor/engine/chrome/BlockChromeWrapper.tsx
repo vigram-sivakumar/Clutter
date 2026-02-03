@@ -36,44 +36,20 @@ export function BlockChromeWrapper({
 
   const blockType = block.type;
 
-  // Quote blocks: Two-column layout with orange marker bar
+  // Quote blocks: Notion-style structure with border and padding
   if (blockType === 'quote') {
     return (
       <div
         style={{
-          display: 'flex',
-          alignItems: 'stretch',
-          gap: '8px', // spacing.inline
+          marginTop: '4px',
+          marginBottom: '4px',
         }}
       >
-        {/* Marker container - 24px wide */}
         <div
           style={{
-            width: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {/* Orange bar - 4px wide */}
-          <div
-            className="blockquote-line"
-            style={{
-              width: '4px',
-              alignSelf: 'stretch', // Fill height
-              backgroundColor: colors.semantic.orange,
-              borderRadius: '2px',
-            }}
-          />
-        </div>
-
-        {/* Content column */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            color: colors.text.secondary, // Secondary text color for quotes
+            borderInlineStart: '3px solid currentcolor', // 3px border like Notion
+            paddingInline: '14px', // 14px left/right padding
+            width: '100%',
           }}
         >
           {children}
