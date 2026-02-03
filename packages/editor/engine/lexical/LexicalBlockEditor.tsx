@@ -271,7 +271,10 @@ function EditorContent({
             className="lexical-content-editable"
             style={{
               outline: 'none',
-              padding: '4px 8px',
+              paddingTop: '4px',
+              paddingRight: '8px',
+              paddingBottom: '4px',
+              paddingLeft: '8px',
               minHeight: '24px',
               cursor: 'text',
               pointerEvents: 'auto',

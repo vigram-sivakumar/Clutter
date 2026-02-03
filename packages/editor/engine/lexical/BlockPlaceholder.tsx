@@ -46,7 +46,10 @@ export function BlockPlaceholder({
       style={{
         position: 'absolute',
         inset: 0,
-        padding: '4px 8px', // Must match ContentEditable padding
+        paddingTop: '4px',
+        paddingRight: '8px',
+        paddingBottom: '4px',
+        paddingLeft: '8px',
         color: '#999',
         pointerEvents: 'none',
         userSelect: 'none',
