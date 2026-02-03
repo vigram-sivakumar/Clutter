@@ -1,10 +1,11 @@
 /**
  * Command Menu Component
  *
- * Displays slash commands with search/filtering and keyboard navigation.
+ * Displays slash commands using shared dropdown primitives.
+ * Exact visual match to old ProseMirror SlashCommandMenu.
  */
 
-import { useEffect, useRef } from 'react';
+import { AutocompleteDropdown, DropdownItem, useTheme } from '@clutter/ui';
 import type { SlashCommand } from './types';
 
 export interface CommandMenuProps {
@@ -22,10 +23,19 @@ export interface CommandMenuProps {
 
   /** Search query */
   query: string;
+
+  /** Callback to close menu */
+  onClose: () => void;
 }
 
 /**
- * Command menu UI
+ * Command menu UI using shared dropdown primitives
+ *
+ * Dimensions from DropdownContainer defaults:
+ * - width: 220px
+ * - minWidth: 180px
+ * - maxHeight: 70vh
+ * - item height: 28px (from DropdownItem)
  */
 export function CommandMenu({
   commands,
@@ -33,138 +43,51 @@ export function CommandMenu({
   onSelect,
   position,
   query,
+  onClose,
 }: CommandMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const selectedRef = useRef<HTMLDivElement>(null);
+  const { colors } = useTheme();
 
-  // Scroll selected item into view
-  useEffect(() => {
-    if (selectedRef.current && menuRef.current) {
-      const menu = menuRef.current;
-      const selected = selectedRef.current;
-
-      const menuRect = menu.getBoundingClientRect();
-      const selectedRect = selected.getBoundingClientRect();
-
-      if (selectedRect.bottom > menuRect.bottom) {
-        selected.scrollIntoView({ block: 'nearest' });
-      } else if (selectedRect.top < menuRect.top) {
-        selected.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [selectedIndex]);
-
+  // No results state
   if (commands.length === 0) {
     return (
-      <div
-        style={{
-          position: 'fixed',
-          top: position.top,
-          left: position.left,
-          backgroundColor: 'white',
-          border: '1px solid #e0e0e0',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-          padding: '12px',
-          zIndex: 1000,
-          minWidth: '280px',
-          maxWidth: '320px',
-        }}
+      <AutocompleteDropdown
+        isOpen={true}
+        position={position}
+        onClose={onClose}
+        selectedIndex={-1}
       >
-        <div style={{ color: '#999', fontSize: '14px' }}>
+        <div
+          style={{
+            padding: '12px',
+            color: colors.text.secondary,
+            fontSize: '14px',
+          }}
+        >
           No commands found for "{query}"
         </div>
-      </div>
+      </AutocompleteDropdown>
     );
   }
 
   return (
-    <div
-      ref={menuRef}
-      style={{
-        position: 'fixed',
-        top: position.top,
-        left: position.left,
-        backgroundColor: 'white',
-        border: '1px solid #e0e0e0',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-        padding: '6px',
-        zIndex: 1000,
-        minWidth: '280px',
-        maxWidth: '320px',
-        maxHeight: '360px',
-        overflowY: 'auto',
-      }}
+    <AutocompleteDropdown
+      isOpen={true}
+      position={position}
+      onClose={onClose}
+      selectedIndex={selectedIndex}
     >
-      {commands.map((command, index) => {
-        const isSelected = index === selectedIndex;
-
-        return (
-          <div
-            key={command.id}
-            ref={isSelected ? selectedRef : null}
-            onClick={() => onSelect(command)}
-            style={{
-              padding: '10px 12px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              backgroundColor: isSelected ? '#f5f5f5' : 'transparent',
-              transition: 'background-color 0.1s',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f5f5f5';
-            }}
-            onMouseLeave={(e) => {
-              if (!isSelected) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
-            }}
-          >
-            {/* Icon */}
-            <div
-              style={{
-                fontSize: '20px',
-                lineHeight: '24px',
-                flexShrink: 0,
-                width: '24px',
-                textAlign: 'center',
-              }}
-            >
-              {command.icon || '📄'}
-            </div>
-
-            {/* Text content */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#1a1a1a',
-                  marginBottom: command.description ? '2px' : 0,
-                }}
-              >
-                {command.label}
-              </div>
-
-              {command.description && (
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: '#666',
-                    lineHeight: '1.4',
-                  }}
-                >
-                  {command.description}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+      {commands.map((command, index) => (
+        <DropdownItem
+          key={command.id}
+          label={command.label}
+          description={command.description}
+          icon={
+            <span style={{ fontSize: '18px' }}>{command.icon || '📄'}</span>
+          }
+          isSelected={index === selectedIndex}
+          onClick={() => onSelect(command)}
+        />
+      ))}
+    </AutocompleteDropdown>
   );
 }

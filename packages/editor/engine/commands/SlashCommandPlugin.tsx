@@ -230,6 +230,7 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
       onSelect={executeCommand}
       position={menuPosition}
       query={query}
+      onClose={closeMenu}
     />,
     document.body
   );
