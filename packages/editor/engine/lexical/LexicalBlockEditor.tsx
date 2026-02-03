@@ -278,9 +278,12 @@ function EditorContent({
               paddingBottom: '4px',
               paddingLeft: '8px',
               minHeight: '24px',
+              lineHeight: 1.5, // Base line height (16px × 1.5 = 24px)
               cursor: 'text',
               pointerEvents: 'auto',
               userSelect: 'text',
+              whiteSpace: 'pre-wrap', // Preserve whitespace like old editor
+              wordBreak: 'break-word', // Break long words
               // Block-type styles now handled by CSS theme classes
             }}
             onClick={() => {

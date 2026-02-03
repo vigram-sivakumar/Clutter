@@ -50,6 +50,7 @@ export function BlockPlaceholder({
         paddingRight: '8px',
         paddingBottom: '4px',
         paddingLeft: '8px',
+        lineHeight: 1.5, // Must match ContentEditable base line-height
         color: '#999',
         pointerEvents: 'none',
         userSelect: 'none',
