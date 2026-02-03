@@ -19,6 +19,7 @@ import {
   XCircle,
   CheckCircle,
   ChevronDown,
+  Sticker,
 } from '@clutter/ui';
 import type { BlockType } from '../types/Block';
 
@@ -441,22 +442,21 @@ export function BlockChromeWrapper({
           gap: '8px',
         }}
       >
-        {/* Optional icon */}
-        {icon && (
-          <div
-            style={{
-              width: '16px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              fontSize: '16px',
-            }}
-          >
-            {icon}
-          </div>
-        )}
+        {/* Icon - shows Sticker as default */}
+        <div
+          style={{
+            width: '16px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            fontSize: '16px',
+            color: colors.text.tertiary,
+          }}
+        >
+          {icon ? icon : <Sticker size={16} />}
+        </div>
 
         {/* Label - fixed 120px width, plain text with always-visible placeholder */}
         <div style={{ position: 'relative', width: '120px', flexShrink: 0 }}>

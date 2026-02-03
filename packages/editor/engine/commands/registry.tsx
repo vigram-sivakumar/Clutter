@@ -32,6 +32,7 @@ import {
   Code,
   Minus,
   WaveLine,
+  Sticker,
 } from '@clutter/ui';
 
 /**
@@ -323,7 +324,7 @@ const commands: SlashCommand[] = [
   {
     id: 'field',
     label: 'Field',
-    icon: <List />,
+    icon: <Sticker />,
     category: 'advanced',
     blockType: 'field',
     keywords: ['field', 'property', 'key', 'value', 'data', 'structured'],
