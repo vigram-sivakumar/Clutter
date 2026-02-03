@@ -7,7 +7,7 @@ export function Sticker({ size = 24, color, style, ...props }: IconProps) {
       size={size}
       color={color}
       style={style}
-      weight="regular"
+      weight="duotone"
       {...props}
     />
   );
