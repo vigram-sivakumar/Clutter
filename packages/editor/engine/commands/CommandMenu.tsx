@@ -81,9 +81,7 @@ export function CommandMenu({
           key={command.id}
           label={command.label}
           description={command.description}
-          icon={
-            <span style={{ fontSize: '18px' }}>{command.icon || '📄'}</span>
-          }
+          icon={command.icon}
           isSelected={index === selectedIndex}
           onClick={() => onSelect(command)}
         />

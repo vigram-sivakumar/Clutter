@@ -28,8 +28,8 @@ export interface SlashCommand {
   /** Search keywords (in addition to label) */
   keywords?: string[];
 
-  /** Icon identifier (can be emoji or icon name) */
-  icon?: string;
+  /** Icon component from @clutter/ui */
+  icon?: React.ReactNode;
 
   /** Command category */
   category: CommandCategory;
