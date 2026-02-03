@@ -23,7 +23,7 @@ import { createTestDocument } from './createTestDocument';
  */
 export function loadTestDocument() {
   // Get current note ID from localStorage
-  const storeKey = 'clutter-notes-store';
+  const storeKey = 'clutter-notes-storage';
   const storeRaw = localStorage.getItem(storeKey);
 
   if (!storeRaw) {
