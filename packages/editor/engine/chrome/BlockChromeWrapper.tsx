@@ -388,8 +388,8 @@ export function BlockChromeWrapper({
           <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
         </div>
 
-        {/* Status message row (below content) */}
-        {childCount === 0 && (
+        {/* Status message row (below content) - only when collapsed */}
+        {collapsed && childCount === 0 && (
           <div
             style={{
               marginLeft: '32px', // Align with content (24px marker + 8px gap)
@@ -401,7 +401,7 @@ export function BlockChromeWrapper({
             Empty toggle
           </div>
         )}
-        {childCount > 0 && collapsed && (
+        {collapsed && childCount > 0 && (
           <div
             onClick={handleToggleCollapse}
             style={{
