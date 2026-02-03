@@ -445,8 +445,10 @@ export function BlockChromeWrapper({
         {/* Icon - shows Sticker as default */}
         <div
           style={{
-            width: '24px',
-            paddingTop: '4px', // Align with label padding
+            width: '16px',
+            padding: '4px 0', // Match label padding
+            minHeight: '24px',
+            lineHeight: 1.5, // Match label line-height
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'center',
