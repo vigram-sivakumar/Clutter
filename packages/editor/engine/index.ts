@@ -99,3 +99,7 @@ export * from './serialization';
 
 // Demo component (for testing)
 export { BlockEngineDemo } from './demo/BlockEngineDemo';
+
+// Test utilities (for visual parity testing)
+export { createTestDocument } from './demo/createTestDocument';
+export { loadTestDocument } from './demo/loadTestDocument';
