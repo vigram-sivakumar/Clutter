@@ -18,6 +18,9 @@ export interface BlockPlaceholderProps {
 
   /** Placeholder text */
   text: string;
+
+  /** Optional custom styles to match block styling */
+  style?: React.CSSProperties;
 }
 
 /**
@@ -26,10 +29,14 @@ export interface BlockPlaceholderProps {
  * CSS Strategy:
  * - position: absolute with inset: 0
  * - Inherits padding from parent
- * - line-height matches editor (1.5)
+ * - Applies custom styles to match block type
  * - Color is muted, pointer-events: none
  */
-export function BlockPlaceholder({ visible, text }: BlockPlaceholderProps) {
+export function BlockPlaceholder({
+  visible,
+  text,
+  style,
+}: BlockPlaceholderProps) {
   if (!visible) return null;
 
   return (
@@ -40,12 +47,13 @@ export function BlockPlaceholder({ visible, text }: BlockPlaceholderProps) {
         position: 'absolute',
         inset: 0,
         padding: '4px 8px', // Must match ContentEditable padding
-        lineHeight: '1.5', // Must match ContentEditable line-height
         color: '#999',
         pointerEvents: 'none',
         userSelect: 'none',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
+        // Apply block-specific styles (fontSize, lineHeight, fontWeight, etc.)
+        ...style,
       }}
     >
       {text}

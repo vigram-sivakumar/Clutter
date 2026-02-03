@@ -288,7 +288,7 @@ function EditorContent({
         placeholder={<div />}
         ErrorBoundary={() => <div>Error</div>}
       />
-      <PlaceholderPlugin text={placeholderText} />
+      <PlaceholderPlugin text={placeholderText} style={contentStyle} />
       <HistoryPlugin />
       <LexicalLinkPlugin />
       <LexicalListPlugin />

@@ -22,6 +22,9 @@ import { BlockPlaceholder } from './BlockPlaceholder';
 export interface PlaceholderPluginProps {
   /** Placeholder text to display */
   text?: string;
+
+  /** Optional custom styles to match block styling */
+  style?: React.CSSProperties;
 }
 
 /**
@@ -32,6 +35,7 @@ export interface PlaceholderPluginProps {
  */
 export function PlaceholderPlugin({
   text = 'Type here...',
+  style,
 }: PlaceholderPluginProps) {
   const [editor] = useLexicalComposerContext();
   const [isFocused, setIsFocused] = useState(false);
@@ -76,5 +80,7 @@ export function PlaceholderPlugin({
 
   const showPlaceholder = isFocused && isEmpty;
 
-  return <BlockPlaceholder visible={showPlaceholder} text={text} />;
+  return (
+    <BlockPlaceholder visible={showPlaceholder} text={text} style={style} />
+  );
 }

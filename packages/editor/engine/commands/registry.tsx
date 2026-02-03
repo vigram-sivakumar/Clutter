@@ -10,6 +10,7 @@ import {
   $getRoot,
   $getSelection,
   $isRangeSelection,
+  $isRootNode,
 } from 'lexical';
 import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { $createCodeNode } from '@lexical/code';
@@ -38,12 +39,12 @@ function replaceBlockContent(context: CommandContext, createNode: () => any) {
     const selection = $getSelection();
     if (!$isRangeSelection(selection)) return;
 
-    const node = selection.anchor.getNode();
-    const parent = node.getParent();
+    const root = $getRoot();
+    const firstChild = root.getFirstChild();
 
-    if (parent) {
+    if (firstChild && !$isRootNode(firstChild)) {
       const newNode = createNode();
-      parent.replace(newNode);
+      firstChild.replace(newNode);
       newNode.select();
     }
 
