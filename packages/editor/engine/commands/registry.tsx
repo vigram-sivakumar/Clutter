@@ -26,7 +26,6 @@ import {
   Quote,
   Info,
   Code,
-  FileText,
 } from '@clutter/ui';
 
 /**
@@ -214,34 +213,6 @@ const commands: SlashCommand[] = [
     keywords: ['code', 'snippet', 'programming'],
     execute: (context) => {
       replaceBlockContent(context, () => $createCodeNode());
-    },
-  },
-
-  // === MEDIA ===
-  {
-    id: 'image',
-    label: 'Image',
-    icon: <FileText />,
-    category: 'media',
-    keywords: ['image', 'picture', 'photo'],
-    execute: (context) => {
-      // TODO: Implement image upload
-      console.log('Image not yet implemented');
-      context.closeMenu();
-    },
-  },
-
-  // === ADVANCED ===
-  {
-    id: 'table',
-    label: 'Table',
-    icon: <CheckSquare />,
-    category: 'advanced',
-    keywords: ['table', 'grid', 'spreadsheet'],
-    execute: (context) => {
-      // TODO: Implement table node
-      console.log('Table not yet implemented');
-      context.closeMenu();
     },
   },
 ];

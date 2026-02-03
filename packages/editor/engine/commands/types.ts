@@ -10,12 +10,7 @@ import type { LexicalEditor } from 'lexical';
 /**
  * Category for grouping commands
  */
-export type CommandCategory =
-  | 'basic'
-  | 'lists'
-  | 'decoratives'
-  | 'media'
-  | 'advanced';
+export type CommandCategory = 'basic' | 'lists' | 'decoratives';
 
 /**
  * A single slash command
