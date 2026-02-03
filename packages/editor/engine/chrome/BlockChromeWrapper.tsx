@@ -19,7 +19,7 @@ import {
   XCircle,
   CheckCircle,
   ChevronDown,
-  Tag,
+  Sticker,
 } from '@clutter/ui';
 import type { BlockType } from '../types/Block';
 
@@ -442,7 +442,7 @@ export function BlockChromeWrapper({
           gap: '8px',
         }}
       >
-        {/* Icon - shows Tag as default */}
+        {/* Icon - shows Sticker as default */}
         <div
           style={{
             width: '16px',
@@ -455,7 +455,7 @@ export function BlockChromeWrapper({
             color: colors.text.tertiary,
           }}
         >
-          {icon ? icon : <Tag size={16} />}
+          {icon ? icon : <Sticker size={16} />}
         </div>
 
         {/* Label - fixed 120px width, plain text with always-visible placeholder */}
