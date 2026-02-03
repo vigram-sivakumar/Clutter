@@ -447,7 +447,7 @@ export function BlockChromeWrapper({
           style={{
             width: '16px',
             padding: '4px 0', // Match label padding
-            minHeight: '24px',
+            minHeight: '32px',
             lineHeight: 1.5, // Match label line-height
             display: 'flex',
             alignItems: 'center', // Vertically centered
@@ -457,7 +457,7 @@ export function BlockChromeWrapper({
             color: colors.text.tertiary,
           }}
         >
-          {icon ? icon : <Sticker size={16} />}
+          {icon ? icon : <Sticker size={24} />}
         </div>
 
         {/* Label - fixed 120px width, plain text with always-visible placeholder */}

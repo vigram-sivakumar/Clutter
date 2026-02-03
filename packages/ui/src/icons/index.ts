@@ -74,6 +74,7 @@ export { Eye } from './Eye';
 export { EyeOff } from './EyeOff';
 export { Tag } from './Tag';
 export { Sticker } from './Sticker';
+export { TextColumns } from './TextColumns';
 export { Hash } from './Hash';
 export { HashStraight } from './HashStraight';
 export { Menu } from './Menu';
