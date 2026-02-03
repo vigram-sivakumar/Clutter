@@ -84,6 +84,7 @@ export function CommandMenu({
     basic: 'BASIC BLOCKS',
     lists: 'LISTS',
     decoratives: 'DECORATIVES',
+    dividers: 'DIVIDERS',
   };
 
   // Build grouped structure

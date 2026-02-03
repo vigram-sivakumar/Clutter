@@ -26,6 +26,8 @@ import {
   Quote,
   Info,
   Code,
+  Minus,
+  WaveLine,
 } from '@clutter/ui';
 
 /**
@@ -213,6 +215,32 @@ const commands: SlashCommand[] = [
     keywords: ['code', 'snippet', 'programming'],
     execute: (context) => {
       replaceBlockContent(context, () => $createCodeNode());
+    },
+  },
+
+  // === DIVIDERS ===
+  {
+    id: 'divider',
+    label: 'Divider',
+    icon: <Minus />,
+    category: 'dividers',
+    keywords: ['hr', 'line', 'separator', 'horizontal'],
+    execute: (context) => {
+      // TODO: Implement divider node
+      console.log('Divider not yet implemented');
+      context.closeMenu();
+    },
+  },
+  {
+    id: 'wavy-divider',
+    label: 'Wavy Divider',
+    icon: <WaveLine />,
+    category: 'dividers',
+    keywords: ['hr', 'line', 'separator', 'horizontal', 'wave', 'wavy'],
+    execute: (context) => {
+      // TODO: Implement wavy divider node
+      console.log('Wavy divider not yet implemented');
+      context.closeMenu();
     },
   },
 ];
