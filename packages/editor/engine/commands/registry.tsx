@@ -26,6 +26,9 @@ import {
   ChevronDown,
   Quote,
   Info,
+  AlertTriangle,
+  XCircle,
+  CheckCircle,
   Code,
   Minus,
   WaveLine,
@@ -216,16 +219,62 @@ const commands: SlashCommand[] = [
       context.blockStore.updateType(context.blockId, 'quote');
     },
   },
+  // === CALLOUTS ===
   {
-    id: 'callout',
-    label: 'Callout',
+    id: 'callout-info',
+    label: 'Info Callout',
     icon: <Info />,
-    category: 'decoratives',
+    category: 'callouts',
     blockType: 'callout',
-    keywords: ['note', 'info', 'warning'],
+    keywords: ['callout', 'info', 'note', 'information'],
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'callout');
       context.blockStore.updateProperties(context.blockId, { variant: 'info' });
+      context.closeMenu();
+    },
+  },
+  {
+    id: 'callout-warning',
+    label: 'Warning Callout',
+    icon: <AlertTriangle />,
+    category: 'callouts',
+    blockType: 'callout',
+    keywords: ['callout', 'warning', 'caution', 'alert'],
+    execute: (context) => {
+      context.blockStore.updateType(context.blockId, 'callout');
+      context.blockStore.updateProperties(context.blockId, {
+        variant: 'warning',
+      });
+      context.closeMenu();
+    },
+  },
+  {
+    id: 'callout-error',
+    label: 'Error Callout',
+    icon: <XCircle />,
+    category: 'callouts',
+    blockType: 'callout',
+    keywords: ['callout', 'error', 'danger', 'fail'],
+    execute: (context) => {
+      context.blockStore.updateType(context.blockId, 'callout');
+      context.blockStore.updateProperties(context.blockId, {
+        variant: 'error',
+      });
+      context.closeMenu();
+    },
+  },
+  {
+    id: 'callout-success',
+    label: 'Success Callout',
+    icon: <CheckCircle />,
+    category: 'callouts',
+    blockType: 'callout',
+    keywords: ['callout', 'success', 'done', 'complete'],
+    execute: (context) => {
+      context.blockStore.updateType(context.blockId, 'callout');
+      context.blockStore.updateProperties(context.blockId, {
+        variant: 'success',
+      });
       context.closeMenu();
     },
   },

@@ -11,7 +11,12 @@ import type { useBlockStore } from '../store';
 /**
  * Category for grouping commands
  */
-export type CommandCategory = 'basic' | 'lists' | 'decoratives' | 'dividers';
+export type CommandCategory =
+  | 'basic'
+  | 'lists'
+  | 'callouts'
+  | 'decoratives'
+  | 'dividers';
 
 /**
  * A single slash command

@@ -87,6 +87,7 @@ export function CommandMenu({
   const categoryLabels: Record<CommandCategory, string> = {
     basic: 'BASIC BLOCKS',
     lists: 'LISTS',
+    callouts: 'CALLOUTS',
     decoratives: 'DECORATIVES',
     dividers: 'DIVIDERS',
   };
