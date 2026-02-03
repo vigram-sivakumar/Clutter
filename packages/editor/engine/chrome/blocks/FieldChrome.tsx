@@ -16,7 +16,7 @@
  * - Contain business logic (delegates to behavior)
  */
 
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { Sticker } from '@clutter/ui';
 import { useBlockStore } from '../../store/blockStore';
 import { useEditorTheme } from '../../../theme/EditorThemeContext';
@@ -33,6 +33,8 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
 
   const labelRef = useRef<HTMLSpanElement>(null);
   const valueRef = useRef<HTMLDivElement>(null);
+  const [isLabelFocused, setIsLabelFocused] = useState(false);
+  const isNewlyCreatedRef = useRef(true);
 
   if (!block) {
     return <>{children}</>;
@@ -44,13 +46,57 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
 
   // Auto-focus label when Field block is first created (label is empty)
   useEffect(() => {
-    if (isEmpty && labelRef.current) {
-      // Small delay to ensure DOM is ready
-      setTimeout(() => {
+    if (isNewlyCreatedRef.current && isEmpty && labelRef.current) {
+      isNewlyCreatedRef.current = false;
+      // Delay to ensure DOM is ready and avoid race conditions
+      requestAnimationFrame(() => {
         labelRef.current?.focus();
-      }, 0);
+        // Place caret at end
+        const range = document.createRange();
+        const sel = window.getSelection();
+        if (labelRef.current && sel) {
+          range.selectNodeContents(labelRef.current);
+          range.collapse(false); // Collapse to end
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      });
     }
   }, []); // Run once on mount
+
+  // Sync label content from store ONLY when not focused
+  useEffect(() => {
+    if (!isLabelFocused && labelRef.current) {
+      const currentText = labelRef.current.textContent || '';
+      if (currentText !== label) {
+        // Save caret position
+        const sel = window.getSelection();
+        const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
+        const offset = range?.startOffset || 0;
+
+        // Update content
+        labelRef.current.textContent = label || '\u200B';
+
+        // Restore caret position (if element has focus from elsewhere)
+        if (
+          document.activeElement === labelRef.current &&
+          sel &&
+          labelRef.current.firstChild
+        ) {
+          const newRange = document.createRange();
+          const textNode = labelRef.current.firstChild;
+          const safeOffset = Math.min(
+            offset,
+            textNode.textContent?.length || 0
+          );
+          newRange.setStart(textNode, safeOffset);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+      }
+    }
+  }, [label, isLabelFocused]);
 
   // Focus value editor (TODO: implement in v1.1)
   const focusValue = useCallback(() => {
@@ -59,12 +105,26 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
     valueRef.current?.querySelector('[contenteditable]')?.focus();
   }, []);
 
+  // Track focus state
+  const handleFocus = () => {
+    setIsLabelFocused(true);
+  };
+
+  const handleBlur = () => {
+    setIsLabelFocused(false);
+    // Update store on blur to persist final value
+    if (labelRef.current) {
+      const finalLabel = labelRef.current.textContent || '';
+      updateLabel(blockId, finalLabel);
+    }
+  };
+
   // Wire keyboard handling to behavior
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
     handleLabelKeyDown(e, blockId, focusValue);
   };
 
-  // Wire input handling to behavior
+  // Wire input handling to behavior (update store on every keystroke)
   const handleInput = (e: React.FormEvent<HTMLSpanElement>) => {
     const newLabel = e.currentTarget.textContent || '';
     updateLabel(blockId, newLabel);
@@ -100,6 +160,8 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
           ref={labelRef}
           contentEditable
           suppressContentEditableWarning
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           data-empty={isEmpty}
@@ -117,9 +179,8 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
             // Allow editing but prevent block-level interactions
             e.stopPropagation();
           }}
-        >
-          {label || '\u200B'}
-        </span>
+        />
+        {/* Note: Content is managed via textContent, not children, to preserve caret */}
 
         {/* Label placeholder - always visible when empty */}
         {isEmpty && (
