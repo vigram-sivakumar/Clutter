@@ -65,6 +65,7 @@ const commands: SlashCommand[] = [
     keywords: ['text', 'p'],
     execute: (context) => {
       replaceBlockContent(context, () => $createParagraphNode());
+      context.blockStore.updateType(context.blockId, 'paragraph');
     },
   },
   {
@@ -76,6 +77,7 @@ const commands: SlashCommand[] = [
     keywords: ['h1', 'title', 'heading'],
     execute: (context) => {
       replaceBlockContent(context, () => $createHeadingNode('h1'));
+      context.blockStore.updateType(context.blockId, 'heading');
     },
   },
   {
@@ -87,6 +89,7 @@ const commands: SlashCommand[] = [
     keywords: ['h2', 'subtitle', 'heading'],
     execute: (context) => {
       replaceBlockContent(context, () => $createHeadingNode('h2'));
+      context.blockStore.updateType(context.blockId, 'heading');
     },
   },
   {
@@ -98,6 +101,7 @@ const commands: SlashCommand[] = [
     keywords: ['h3', 'subheading', 'heading'],
     execute: (context) => {
       replaceBlockContent(context, () => $createHeadingNode('h3'));
+      context.blockStore.updateType(context.blockId, 'heading');
     },
   },
 
@@ -127,6 +131,7 @@ const commands: SlashCommand[] = [
 
         context.closeMenu();
       });
+      context.blockStore.updateType(context.blockId, 'list');
     },
   },
   {
@@ -154,6 +159,7 @@ const commands: SlashCommand[] = [
 
         context.closeMenu();
       });
+      context.blockStore.updateType(context.blockId, 'list');
     },
   },
   {
@@ -191,6 +197,7 @@ const commands: SlashCommand[] = [
     keywords: ['quote', 'blockquote', 'citation'],
     execute: (context) => {
       replaceBlockContent(context, () => $createQuoteNode());
+      context.blockStore.updateType(context.blockId, 'quote');
     },
   },
   {
@@ -215,6 +222,7 @@ const commands: SlashCommand[] = [
     keywords: ['code', 'snippet', 'programming'],
     execute: (context) => {
       replaceBlockContent(context, () => $createCodeNode());
+      context.blockStore.updateType(context.blockId, 'code');
     },
   },
 

@@ -22,6 +22,7 @@ import { createPortal } from 'react-dom';
 import { CommandMenu } from './CommandMenu';
 import { defaultCommandRegistry } from './registry.tsx';
 import type { SlashCommand, CommandContext } from './types';
+import { useBlockStore } from '../store';
 
 export interface SlashCommandPluginProps {
   /** Block ID for command context */
@@ -56,11 +57,14 @@ export function SlashCommandPlugin({ blockId }: SlashCommandPluginProps) {
   // Execute command
   const executeCommand = useCallback(
     (command: SlashCommand) => {
+      const blockStore = useBlockStore.getState();
+
       const context: CommandContext = {
         editor,
         blockId,
         query,
         closeMenu,
+        blockStore,
       };
 
       // Remove the "/" and query text

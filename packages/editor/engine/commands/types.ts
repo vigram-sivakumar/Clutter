@@ -6,6 +6,7 @@
 
 import type { BlockType } from '../types/Block';
 import type { LexicalEditor } from 'lexical';
+import type { useBlockStore } from '../store';
 
 /**
  * Category for grouping commands
@@ -56,6 +57,9 @@ export interface CommandContext {
 
   /** Close the command menu */
   closeMenu: () => void;
+
+  /** Block store for updating block metadata */
+  blockStore: ReturnType<typeof useBlockStore.getState>;
 }
 
 /**
