@@ -224,8 +224,8 @@ const commands: SlashCommand[] = [
     blockType: 'callout',
     keywords: ['note', 'info', 'warning'],
     execute: (context) => {
-      // TODO: Implement callout node
-      console.log('Callout not yet implemented');
+      context.blockStore.updateType(context.blockId, 'callout');
+      context.blockStore.updateProperties(context.blockId, { variant: 'info' });
       context.closeMenu();
     },
   },
