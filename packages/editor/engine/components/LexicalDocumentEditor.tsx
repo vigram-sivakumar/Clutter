@@ -39,9 +39,38 @@ export const LexicalDocumentEditor: React.FC<LexicalDocumentEditorProps> = ({
   placeholder = 'Start writing...',
 }) => {
   const rootBlocks = useBlockStore((state) => state.getRootBlocks());
+  const allBlocks = useBlockStore((state) => state.getAllBlocks());
+  const getBlock = useBlockStore((state) => state.getBlock);
   const insertBlock = useBlockStore((state) => state.insertBlock); // ✅ Subscribed action
   const focusManager = useFocusManager();
   const initializedRef = React.useRef(false);
+
+  // Check if a block should be visible (not hidden by collapsed toggle parent)
+  const isBlockVisible = React.useCallback(
+    (blockId: string): boolean => {
+      let currentBlock = getBlock(blockId);
+      if (!currentBlock) return false;
+
+      // Walk up parent chain
+      while (currentBlock.parent !== null) {
+        const parentBlock = getBlock(currentBlock.parent);
+        if (!parentBlock) break;
+
+        // If parent is a collapsed toggle, hide this block
+        if (
+          parentBlock.type === 'toggle' &&
+          parentBlock.properties?.collapsed === true
+        ) {
+          return false;
+        }
+
+        currentBlock = parentBlock;
+      }
+
+      return true;
+    },
+    [getBlock, allBlocks]
+  );
 
   // ✅ Create initial block ONCE on mount if empty
   React.useEffect(() => {
@@ -79,6 +108,11 @@ export const LexicalDocumentEditor: React.FC<LexicalDocumentEditorProps> = ({
     );
   }
 
+  // Filter visible blocks (respects collapsed toggles)
+  const visibleRootBlocks = React.useMemo(() => {
+    return rootBlocks.filter((block) => isBlockVisible(block.id));
+  }, [rootBlocks, isBlockVisible]);
+
   return (
     <div
       className={`lexical-document-editor ${className}`}
@@ -88,7 +122,7 @@ export const LexicalDocumentEditor: React.FC<LexicalDocumentEditorProps> = ({
         gap: '0px', // No gap between blocks
       }}
     >
-      {rootBlocks.map((block, index) => {
+      {visibleRootBlocks.map((block, index) => {
         // Non-editable blocks (dividers) don't need Lexical editor
         const isNonEditable = block.type === 'divider';
 

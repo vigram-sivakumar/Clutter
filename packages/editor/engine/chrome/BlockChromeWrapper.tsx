@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   XCircle,
   CheckCircle,
+  ChevronDown,
 } from '@clutter/ui';
 import type { BlockType } from '../types/Block';
 
@@ -330,6 +331,90 @@ export function BlockChromeWrapper({
         <div style={{ flex: 1, minWidth: 0, paddingTop: '2px' }}>
           {children}
         </div>
+      </div>
+    );
+  }
+
+  // Toggle blocks: Chevron + content + collapse logic
+  if (blockType === 'toggle') {
+    const collapsed = block.properties?.collapsed === true;
+
+    const handleToggleCollapse = () => {
+      useBlockStore.getState().updateProperties(blockId, {
+        collapsed: !collapsed,
+      });
+    };
+
+    // Count children for status message
+    const allBlocks = useBlockStore.getState().getAllBlocks();
+    const childCount = allBlocks.filter((b) => b.parent === blockId).length;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Main row: chevron + content */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8px',
+          }}
+        >
+          {/* Marker container - 24px wide */}
+          <div
+            style={{
+              width: '24px',
+              height: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              cursor: 'pointer',
+              color: colors.text.tertiary,
+            }}
+            onClick={handleToggleCollapse}
+            onMouseDown={(e) => e.preventDefault()} // Prevent focus steal
+          >
+            {/* Chevron icon - rotates when collapsed */}
+            <ChevronDown
+              size={16}
+              style={{
+                transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                transition: 'transform 0.15s ease',
+              }}
+            />
+          </div>
+
+          {/* Content */}
+          <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+        </div>
+
+        {/* Status message row (below content) */}
+        {childCount === 0 && (
+          <div
+            style={{
+              marginLeft: '32px', // Align with content (24px marker + 8px gap)
+              fontSize: '11px',
+              color: colors.text.tertiary,
+              userSelect: 'none',
+            }}
+          >
+            Empty toggle
+          </div>
+        )}
+        {childCount > 0 && collapsed && (
+          <div
+            onClick={handleToggleCollapse}
+            style={{
+              marginLeft: '32px',
+              fontSize: '12px',
+              color: colors.text.tertiary,
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            {childCount} hidden {childCount === 1 ? 'item' : 'items'}
+          </div>
+        )}
       </div>
     );
   }

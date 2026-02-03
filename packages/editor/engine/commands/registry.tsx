@@ -200,8 +200,10 @@ const commands: SlashCommand[] = [
     category: 'lists',
     keywords: ['collapse', 'expand', 'accordion'],
     execute: (context) => {
-      // TODO: Implement toggle node
-      console.log('Toggle not yet implemented');
+      context.blockStore.updateType(context.blockId, 'toggle');
+      context.blockStore.updateProperties(context.blockId, {
+        collapsed: false,
+      });
       context.closeMenu();
     },
   },
