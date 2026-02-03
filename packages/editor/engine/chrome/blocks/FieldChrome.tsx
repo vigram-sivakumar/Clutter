@@ -68,14 +68,16 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
   useEffect(() => {
     if (!isLabelFocused && labelRef.current) {
       const currentText = labelRef.current.textContent || '';
-      if (currentText !== label) {
+      // Always ensure zero-width space when empty (caret anchor)
+      const targetContent = label || '\u200B';
+      if (currentText !== targetContent) {
         // Save caret position
         const sel = window.getSelection();
         const range = sel?.rangeCount ? sel.getRangeAt(0) : null;
         const offset = range?.startOffset || 0;
 
         // Update content
-        labelRef.current.textContent = label || '\u200B';
+        labelRef.current.textContent = targetContent;
 
         // Restore caret position (if element has focus from elsewhere)
         if (
