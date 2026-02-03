@@ -431,6 +431,8 @@ export function BlockChromeWrapper({
       });
     };
 
+    const isEmpty = label.trim() === '';
+
     return (
       <div
         style={{
@@ -456,31 +458,49 @@ export function BlockChromeWrapper({
           </div>
         )}
 
-        {/* Label - fixed 120px width, plain text */}
-        <span
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleLabelInput}
-          style={{
-            width: '120px',
-            flexShrink: 0,
-            padding: '4px',
-            minHeight: '24px',
-            lineHeight: 1.5,
-            color: colors.text.secondary,
-            fontWeight: 500,
-            outline: 'none',
-            cursor: 'text',
-          }}
-          onMouseDown={(e) => {
-            // Allow editing but prevent block-level interactions
-            e.stopPropagation();
-          }}
-        >
-          {label || 'Label'}
-        </span>
+        {/* Label - fixed 120px width, plain text with placeholder */}
+        <div style={{ position: 'relative', width: '120px', flexShrink: 0 }}>
+          <span
+            contentEditable
+            suppressContentEditableWarning
+            onInput={handleLabelInput}
+            data-empty={isEmpty}
+            style={{
+              display: 'block',
+              padding: '4px',
+              minHeight: '24px',
+              lineHeight: 1.5,
+              color: isEmpty ? 'transparent' : colors.text.secondary,
+              fontWeight: 500,
+              outline: 'none',
+              cursor: 'text',
+            }}
+            onMouseDown={(e) => {
+              // Allow editing but prevent block-level interactions
+              e.stopPropagation();
+            }}
+          >
+            {label || '\u200B'}
+          </span>
+          {/* Label placeholder */}
+          {isEmpty && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                padding: '4px',
+                lineHeight: 1.5,
+                color: '#999',
+                pointerEvents: 'none',
+                userSelect: 'none',
+              }}
+            >
+              Label
+            </div>
+          )}
+        </div>
 
-        {/* Value - flex 1, rich text */}
+        {/* Value - flex 1, rich text (has its own PlaceholderPlugin) */}
         <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
       </div>
     );

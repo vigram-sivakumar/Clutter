@@ -137,6 +137,13 @@ export function useBlockStyle(
       placeholderText = 'List item';
       break;
 
+    case 'field':
+      contentStyle = {
+        ...baseStyle,
+      };
+      placeholderText = 'Value';
+      break;
+
     case 'paragraph':
     default:
       contentStyle = {
