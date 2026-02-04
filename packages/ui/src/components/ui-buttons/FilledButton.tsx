@@ -10,7 +10,7 @@ interface FilledButtonProps {
   onClick?: (_e: MouseEvent<HTMLButtonElement>) => void;
   onMouseDown?: (_e: MouseEvent<HTMLButtonElement>) => void;
   danger?: boolean;
-  size?: 'xs' | 'small' | 'medium';
+  size?: 'xs' | 'small' | 'medium' | 'large';
   onBackground?: 'default' | 'secondary' | 'tertiary';
   fullWidth?: boolean;
   disabled?: boolean;

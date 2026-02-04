@@ -21,7 +21,12 @@ import {
   ChevronDown,
 } from '@clutter/ui';
 import type { BlockType } from '../types/Block';
-import { FieldChrome } from './blocks';
+import {
+  FieldChrome,
+  ChecklistChrome,
+  CalloutChrome,
+  ToggleChrome,
+} from './blocks';
 
 interface BlockChromeWrapperProps {
   blockId: string;
@@ -198,226 +203,17 @@ export function BlockChromeWrapper({
 
   // Checklist blocks: Checkbox + content with conditional styling
   if (blockType === 'checklist') {
-    const checked = block.properties?.checked === true;
-
-    const handleCheckboxChange = () => {
-      // Toggle checked state in block store
-      useBlockStore.getState().updateProperties(blockId, {
-        checked: !checked,
-      });
-    };
-
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '8px',
-        }}
-      >
-        {/* Marker container - 24px wide */}
-        <div
-          style={{
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          {/* Checkbox - 16px */}
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={handleCheckboxChange}
-            onMouseDown={(e) => e.preventDefault()} // Prevent focus steal
-            style={{
-              width: '16px',
-              height: '16px',
-              cursor: 'pointer',
-              margin: 0,
-            }}
-          />
-        </div>
-
-        {/* Content with conditional styling */}
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            textDecoration: checked ? 'line-through' : 'none',
-            color: checked ? colors.text.tertiary : 'inherit',
-          }}
-        >
-          {children}
-        </div>
-      </div>
-    );
+    return <ChecklistChrome blockId={blockId}>{children}</ChecklistChrome>;
   }
 
   // Callout blocks: Bordered surface with icon and variant colors
   if (blockType === 'callout') {
-    const variant =
-      (block.properties?.variant as 'info' | 'warning' | 'error' | 'success') ||
-      'info';
-
-    // Variant-specific styling
-    const variantConfig = {
-      info: {
-        borderColor: colors.semantic.info + '75',
-        backgroundColor: colors.semantic.info + '08',
-        iconColor: colors.semantic.info,
-        iconBackground: colors.semantic.info + '15',
-        Icon: Info,
-      },
-      warning: {
-        borderColor: colors.semantic.warning + '75',
-        backgroundColor: colors.semantic.warning + '08',
-        iconColor: colors.semantic.warning,
-        iconBackground: colors.semantic.warning + '15',
-        Icon: AlertTriangle,
-      },
-      error: {
-        borderColor: colors.semantic.error + '75',
-        backgroundColor: colors.semantic.error + '08',
-        iconColor: colors.semantic.error,
-        iconBackground: colors.semantic.error + '15',
-        Icon: XCircle,
-      },
-      success: {
-        borderColor: colors.semantic.success + '75',
-        backgroundColor: colors.semantic.success + '08',
-        iconColor: colors.semantic.success,
-        iconBackground: colors.semantic.success + '15',
-        Icon: CheckCircle,
-      },
-    };
-
-    const config = variantConfig[variant];
-    const IconComponent = config.Icon;
-
-    return (
-      <div
-        data-styled-surface
-        data-callout-variant={variant}
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '8px',
-          padding: '16px',
-          backgroundColor: config.backgroundColor,
-          border: `1px solid ${config.borderColor}`,
-          borderRadius: '4px',
-        }}
-      >
-        {/* Icon container - rounded with variant background */}
-        <div
-          style={{
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            backgroundColor: config.iconBackground,
-            borderRadius: '4px',
-            marginTop: '1px',
-          }}
-        >
-          <IconComponent size={14} color={config.iconColor} />
-        </div>
-
-        {/* Content area */}
-        <div style={{ flex: 1, minWidth: 0, paddingTop: '2px' }}>
-          {children}
-        </div>
-      </div>
-    );
+    return <CalloutChrome blockId={blockId}>{children}</CalloutChrome>;
   }
 
   // Toggle blocks: Chevron + content + collapse logic
   if (blockType === 'toggle') {
-    const collapsed = block.properties?.collapsed === true;
-
-    const handleToggleCollapse = () => {
-      useBlockStore.getState().updateProperties(blockId, {
-        collapsed: !collapsed,
-      });
-    };
-
-    // Count children for status message
-    const allBlocks = useBlockStore.getState().getAllBlocks();
-    const childCount = allBlocks.filter((b) => b.parent === blockId).length;
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {/* Main row: chevron + content */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '8px',
-          }}
-        >
-          {/* Marker container - 24px wide */}
-          <div
-            style={{
-              width: '24px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              cursor: 'pointer',
-              color: colors.text.tertiary,
-            }}
-            onClick={handleToggleCollapse}
-            onMouseDown={(e) => e.preventDefault()} // Prevent focus steal
-          >
-            {/* Chevron icon - rotates when collapsed */}
-            <ChevronDown
-              size={16}
-              style={{
-                transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-                transition: 'transform 0.15s ease',
-              }}
-            />
-          </div>
-
-          {/* Content */}
-          <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
-        </div>
-
-        {/* Status message row (below content) - only when collapsed */}
-        {collapsed && childCount === 0 && (
-          <div
-            style={{
-              marginLeft: '32px', // Align with content (24px marker + 8px gap)
-              fontSize: '11px',
-              color: colors.text.tertiary,
-              userSelect: 'none',
-            }}
-          >
-            Empty toggle
-          </div>
-        )}
-        {collapsed && childCount > 0 && (
-          <div
-            onClick={handleToggleCollapse}
-            style={{
-              marginLeft: '32px',
-              fontSize: '12px',
-              color: colors.text.tertiary,
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            {childCount} hidden {childCount === 1 ? 'item' : 'items'}
-          </div>
-        )}
-      </div>
-    );
+    return <ToggleChrome blockId={blockId}>{children}</ToggleChrome>;
   }
 
   // Field blocks: Icon + Label (fixed 120px) + Value (flex)

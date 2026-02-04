@@ -21,6 +21,7 @@ export interface EditorThemeColors {
     secondary: string;
     tertiary: string;
     hover: string;
+    placeholder: string;
   };
   background: {
     default: string;

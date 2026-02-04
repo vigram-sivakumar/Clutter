@@ -10,7 +10,7 @@ interface TertiaryButtonProps {
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   onMouseDown?: (e: MouseEvent<HTMLButtonElement>) => void;
   subtle?: boolean;
-  size?: 'xs' | 'small' | 'medium';
+  size?: 'xs' | 'small' | 'medium' | 'large';
   active?: boolean;
   fullWidth?: boolean;
   disabled?: boolean;
@@ -61,4 +61,3 @@ export const TertiaryButton = ({
     </Button>
   );
 };
-

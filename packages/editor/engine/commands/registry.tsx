@@ -36,6 +36,9 @@ import {
   TextColumns,
 } from '@clutter/ui';
 import { FIELD_BLOCK_DEFAULTS } from '../blocks/schemas/field';
+import { CHECKLIST_BLOCK_DEFAULTS } from '../blocks/schemas/checklist';
+import { CALLOUT_BLOCK_DEFAULTS } from '../blocks/schemas/callout';
+import { TOGGLE_BLOCK_DEFAULTS } from '../blocks/schemas/toggle';
 
 /**
  * Helper to replace current block with new node while preserving content
@@ -189,10 +192,14 @@ const commands: SlashCommand[] = [
     label: 'Checklist',
     icon: <CheckSquare />,
     category: 'lists',
+    blockType: 'checklist',
     keywords: ['todo', 'checkbox', 'check', 'task'],
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'checklist');
-      context.blockStore.updateProperties(context.blockId, { checked: false });
+      context.blockStore.updateProperties(
+        context.blockId,
+        CHECKLIST_BLOCK_DEFAULTS
+      );
       context.closeMenu();
     },
   },
@@ -201,12 +208,14 @@ const commands: SlashCommand[] = [
     label: 'Toggle',
     icon: <ChevronDown />,
     category: 'lists',
+    blockType: 'toggle',
     keywords: ['collapse', 'expand', 'accordion'],
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'toggle');
-      context.blockStore.updateProperties(context.blockId, {
-        collapsed: false,
-      });
+      context.blockStore.updateProperties(
+        context.blockId,
+        TOGGLE_BLOCK_DEFAULTS
+      );
       context.closeMenu();
     },
   },
@@ -234,7 +243,10 @@ const commands: SlashCommand[] = [
     keywords: ['callout', 'info', 'note', 'information'],
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'callout');
-      context.blockStore.updateProperties(context.blockId, { variant: 'info' });
+      context.blockStore.updateProperties(context.blockId, {
+        ...CALLOUT_BLOCK_DEFAULTS,
+        variant: 'info',
+      });
       context.closeMenu();
     },
   },
@@ -248,6 +260,7 @@ const commands: SlashCommand[] = [
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'callout');
       context.blockStore.updateProperties(context.blockId, {
+        ...CALLOUT_BLOCK_DEFAULTS,
         variant: 'warning',
       });
       context.closeMenu();
@@ -263,6 +276,7 @@ const commands: SlashCommand[] = [
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'callout');
       context.blockStore.updateProperties(context.blockId, {
+        ...CALLOUT_BLOCK_DEFAULTS,
         variant: 'error',
       });
       context.closeMenu();
@@ -278,6 +292,7 @@ const commands: SlashCommand[] = [
     execute: (context) => {
       context.blockStore.updateType(context.blockId, 'callout');
       context.blockStore.updateProperties(context.blockId, {
+        ...CALLOUT_BLOCK_DEFAULTS,
         variant: 'success',
       });
       context.closeMenu();

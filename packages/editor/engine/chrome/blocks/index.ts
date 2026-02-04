@@ -7,3 +7,6 @@
  */
 
 export { FieldChrome } from './FieldChrome';
+export { ChecklistChrome } from './ChecklistChrome';
+export { CalloutChrome } from './CalloutChrome';
+export { ToggleChrome } from './ToggleChrome';

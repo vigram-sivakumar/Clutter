@@ -17,7 +17,7 @@
  */
 
 import React, { useRef, useCallback, useEffect, useState } from 'react';
-import { Sticker } from '@clutter/ui';
+import { EmojiIconButton, Sticker } from '@clutter/ui';
 import { useBlockStore } from '../../store/blockStore';
 import { useEditorTheme } from '../../../theme/EditorThemeContext';
 import { updateLabel, handleLabelKeyDown } from '../../blocks/behaviors/field';
@@ -48,6 +48,12 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
   useEffect(() => {
     if (isNewlyCreatedRef.current && isEmpty && labelRef.current) {
       isNewlyCreatedRef.current = false;
+
+      // CRITICAL: Ensure zero-width space exists BEFORE focusing
+      if (!labelRef.current.textContent) {
+        labelRef.current.textContent = '\u200B';
+      }
+
       // Delay to ensure DOM is ready and avoid race conditions
       requestAnimationFrame(() => {
         labelRef.current?.focus();
@@ -104,19 +110,52 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
   const focusValue = useCallback(() => {
     // Phase 1: Deferred - user manually clicks value
     // Phase 2: Use FocusManager or pass focus callback via context
-    valueRef.current?.querySelector('[contenteditable]')?.focus();
+    const element = valueRef.current?.querySelector(
+      '[contenteditable]'
+    ) as HTMLElement | null;
+    element?.focus();
+  }, []);
+
+  // Handle icon click (TODO: wire EmojiTray in Phase 2)
+  const handleIconClick = useCallback((buttonRef: HTMLButtonElement) => {
+    console.log(
+      '[Field] Icon picker clicked - EmojiTray not yet wired',
+      buttonRef
+    );
   }, []);
 
   // Track focus state
   const handleFocus = () => {
     setIsLabelFocused(true);
+
+    // CRITICAL: Set selection on every focus to ensure caret is visible
+    requestAnimationFrame(() => {
+      if (!labelRef.current) return;
+
+      // Ensure caret anchor exists
+      if (!labelRef.current.textContent) {
+        labelRef.current.textContent = '\u200B';
+      }
+
+      const range = document.createRange();
+      const sel = window.getSelection();
+      if (!sel) return;
+
+      range.selectNodeContents(labelRef.current);
+      range.collapse(false); // Place at end
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
   };
 
   const handleBlur = () => {
     setIsLabelFocused(false);
     // Update store on blur to persist final value
     if (labelRef.current) {
-      const finalLabel = labelRef.current.textContent || '';
+      const finalLabel = (labelRef.current.textContent || '').replace(
+        /\u200B/g,
+        ''
+      ); // Strip zero-width space before saving
       updateLabel(blockId, finalLabel);
     }
   };
@@ -128,7 +167,7 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
 
   // Wire input handling to behavior (update store on every keystroke)
   const handleInput = (e: React.FormEvent<HTMLSpanElement>) => {
-    const newLabel = e.currentTarget.textContent || '';
+    const newLabel = (e.currentTarget.textContent || '').replace(/\u200B/g, ''); // Strip zero-width space before saving
     updateLabel(blockId, newLabel);
   };
 
@@ -140,20 +179,23 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
         gap: '8px',
       }}
     >
-      {/* Icon - shows Sticker as default */}
+      {/* Icon - EmojiIconButton (24px small size) with Sticker default */}
       <div
         style={{
-          padding: '4px 0',
-          minHeight: '32px',
-          lineHeight: 1.5,
+          flexShrink: 0,
+          height: '32px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexShrink: 0,
-          color: colors.text.tertiary,
         }}
       >
-        {icon ? icon : <Sticker size={20} />}
+        <EmojiIconButton
+          emoji={icon}
+          onClick={handleIconClick}
+          size="small"
+          iconSize={16}
+          defaultIcon={<Sticker size={16} />}
+        />
       </div>
 
       {/* Label - fixed 120px width, single-line editable text */}
@@ -168,12 +210,13 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
           onKeyDown={handleKeyDown}
           data-empty={isEmpty}
           style={{
+            position: 'relative',
+            zIndex: 1,
             display: 'block',
             padding: '4px',
             minHeight: '24px',
             lineHeight: 1.5,
-            color: isEmpty ? 'transparent' : colors.text.secondary,
-            caretColor: colors.text.primary,
+            color: colors.text.secondary,
             fontWeight: 500,
             outline: 'none',
             cursor: 'text',
@@ -185,15 +228,16 @@ export function FieldChrome({ blockId, children }: FieldChromeProps) {
         />
         {/* Note: Content is managed via textContent, not children, to preserve caret */}
 
-        {/* Label placeholder - visible when empty AND not focused */}
-        {isEmpty && !isLabelFocused && (
+        {/* Label placeholder - always visible when empty (caret renders on top) */}
+        {isEmpty && (
           <div
             style={{
               position: 'absolute',
               inset: 0,
+              zIndex: 0,
               padding: '4px',
               lineHeight: 1.5,
-              color: '#999',
+              color: colors.text.tertiary,
               pointerEvents: 'none',
               userSelect: 'none',
             }}

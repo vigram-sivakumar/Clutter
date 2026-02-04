@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { useEditorTheme } from '../../theme/EditorThemeContext';
 
 export interface BlockPlaceholderProps {
   /** Whether to show the placeholder */
@@ -37,6 +38,8 @@ export function BlockPlaceholder({
   text,
   style,
 }: BlockPlaceholderProps) {
+  const { colors } = useEditorTheme();
+
   if (!visible) return null;
 
   return (
@@ -51,7 +54,7 @@ export function BlockPlaceholder({
         paddingBottom: '4px',
         paddingLeft: '4px',
         lineHeight: 1.5, // Must match ContentEditable base line-height
-        color: '#999',
+        color: colors.text.tertiary,
         pointerEvents: 'none',
         userSelect: 'none',
         whiteSpace: 'pre-wrap',

@@ -10,7 +10,7 @@ interface SecondaryButtonProps {
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   onMouseDown?: (e: MouseEvent<HTMLButtonElement>) => void;
   danger?: boolean;
-  size?: 'xs' | 'small' | 'medium';
+  size?: 'xs' | 'small' | 'medium' | 'large';
   fullWidth?: boolean;
   withBackground?: boolean;
   onBackground?: 'default' | 'secondary' | 'tertiary';
