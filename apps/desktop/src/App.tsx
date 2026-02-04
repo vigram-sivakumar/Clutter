@@ -18,27 +18,27 @@ function App() {
   useEffect(() => {
     // 🚨 HARD STOP: Do nothing until persist rehydration completes
     if (!hasHydrated) {
-      console.log('[App] Waiting for rehydration...');
+      // console.log('[App] Waiting for rehydration...');
       return;
     }
 
     const today = new Date();
     const existingDailyNote = findDailyNoteByDate(today);
 
-    console.log('[App] ✅ Hydrated! Notes in store:', notes.length);
-    console.log(
-      '[App] Looking for daily note, found:',
-      existingDailyNote?.id || 'none'
-    );
+    // console.log('[App] ✅ Hydrated! Notes in store:', notes.length);
+    // console.log(
+    //   '[App] Looking for daily note, found:',
+    //   existingDailyNote?.id || 'none'
+    // );
 
     if (existingDailyNote) {
-      console.log(
-        '[App] Opening existing note with content length:',
-        existingDailyNote.content?.length || 0
-      );
+      // console.log(
+      //   '[App] Opening existing note with content length:',
+      //   existingDailyNote.content?.length || 0
+      // );
       setCurrentNoteId(existingDailyNote.id);
     } else {
-      console.log('[App] Creating new daily note');
+      // console.log('[App] Creating new daily note');
       createDailyNote(today).then((note) => {
         setCurrentNoteId(note.id);
       });

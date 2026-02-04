@@ -19,6 +19,8 @@ import {
   isLegacyPMDocument,
   EditorTheme,
   EditorThemeProvider,
+  initOwnershipGate,
+  assertStructureIsolation,
 } from '@clutter/editor';
 
 // UI imports
@@ -82,18 +84,18 @@ export const EditorWrapper = React.forwardRef<
 
       // 🚨 CRITICAL: Wait for value before clearing anything
       if (value === undefined) {
-        console.log('[Load] Waiting for value...');
+        // console.log('[Load] Waiting for value...');
         return;
       }
 
       const store = useBlockStore.getState();
 
-      console.log(
-        '[Load] Loading note:',
-        noteId,
-        'value length:',
-        value.length
-      );
+      // console.log(
+      //   '[Load] Loading note:',
+      //   noteId,
+      //   'value length:',
+      //   value.length
+      // );
 
       // ✅ Clear store AFTER confirming value is ready
       store.clear();
@@ -101,7 +103,7 @@ export const EditorWrapper = React.forwardRef<
 
       // Empty document (new note) - ensure at least one block exists
       if (value === '') {
-        console.log('[Load] Empty document - creating initial block');
+        // console.log('[Load] Empty document - creating initial block');
         // 🚨 CRITICAL: Must create one block to satisfy Lexical invariant
         store.insertBlock(null, 'paragraph');
         return;
@@ -115,7 +117,7 @@ export const EditorWrapper = React.forwardRef<
           const blocks = deserializeBlocksFromJSON(value);
           if (blocks) {
             store.loadBlocks(blocks);
-            console.log('[Blocks] ✅ Loaded native format:', blocks.length);
+            // console.log('[Blocks] ✅ Loaded native format:', blocks.length);
           }
         } else if (isLegacyPMDocument(parsed)) {
           const migrationResult = migrateDocument(parsed, {
@@ -125,7 +127,7 @@ export const EditorWrapper = React.forwardRef<
 
           if (migrationResult.success) {
             store.loadBlocks(migrationResult.blocks);
-            console.log('[Migration] ✅ Migrated PM → blocks');
+            // console.log('[Migration] ✅ Migrated PM → blocks');
           } else {
             console.error(
               '[Migration] ❌ Migration failed:',
@@ -140,30 +142,83 @@ export const EditorWrapper = React.forwardRef<
       }
     }, [noteId, value]);
 
-    // Persist block changes
+    // Persist block changes (with throttling to prevent infinite loops)
     React.useEffect(() => {
       // 🚨 CRITICAL GUARD: Never persist without a valid noteId
       if (!onChange || !noteId) {
-        console.log('[Persist] Skipping subscription - no noteId:', noteId);
+        // console.log('[Persist] Skipping subscription - no noteId:', noteId);
         return;
       }
 
-      console.log('[Persist] Starting subscription for note:', noteId);
+      // console.log('[Persist] Starting subscription for note:', noteId);
+
+      // Throttle persist to max once per 100ms to prevent infinite loops
+      let lastPersistTime = 0;
+      let lastSerialized = '';
+      const PERSIST_THROTTLE_MS = 100;
+      let pendingTimeout: NodeJS.Timeout | null = null;
 
       const unsubscribe = useBlockStore.subscribe((state) => {
-        const blocks = state.getAllBlocks();
-        const serialized = serializeBlocksToJSON(blocks);
-        console.log(
-          '[Block Store] Persisting to note:',
-          noteId,
-          '- blocks:',
-          blocks.length
-        );
-        onChange(serialized);
+        const now = Date.now();
+        const timeSinceLastPersist = now - lastPersistTime;
+
+        const doPersist = () => {
+          const blocks = state.getAllBlocks();
+          const serialized = serializeBlocksToJSON(blocks);
+
+          // 🚫 Skip if content hasn't changed (prevents redundant persists)
+          if (serialized === lastSerialized) {
+            return;
+          }
+
+          // console.log(
+          //   '[Block Store] Persisting to note:',
+          //   noteId,
+          //   '- blocks:',
+          //   blocks.length
+          // );
+          onChange(serialized);
+          lastSerialized = serialized;
+          lastPersistTime = Date.now();
+        };
+
+        // If enough time has passed, persist immediately
+        if (timeSinceLastPersist >= PERSIST_THROTTLE_MS) {
+          // Clear any pending timeout
+          if (pendingTimeout) {
+            clearTimeout(pendingTimeout);
+            pendingTimeout = null;
+          }
+          doPersist();
+        } else {
+          // Schedule persist for later (trailing edge)
+          if (pendingTimeout) {
+            clearTimeout(pendingTimeout);
+          }
+          pendingTimeout = setTimeout(() => {
+            doPersist();
+            pendingTimeout = null;
+          }, PERSIST_THROTTLE_MS - timeSinceLastPersist);
+        }
       });
 
-      return unsubscribe;
+      return () => {
+        unsubscribe();
+        if (pendingTimeout) {
+          clearTimeout(pendingTimeout);
+        }
+      };
     }, [onChange, noteId]); // ✅ Re-subscribe if noteId changes
+
+    // Initialize ownership gate (blocks Lexical from STRUCTURE zones)
+    React.useEffect(() => {
+      const cleanup = initOwnershipGate();
+
+      // Dev-only: Assert ownership isolation (throws on violations)
+      assertStructureIsolation();
+
+      return cleanup;
+    }, []);
 
     return (
       <EditorThemeProvider theme={editorTheme}>

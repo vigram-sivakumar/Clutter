@@ -1,105 +1,18 @@
 /**
- * Block Engine - Custom block-first editor foundation
+ * Clutter Engine — Node-Based Outliner
  *
- * This is the POC/foundation for the new block-first architecture.
+ * Clean restart: No blocks, no Lexical, no document editor assumptions.
  *
  * Architecture:
- * - Tree structure with explicit parent/children relationships
- * - ID-based (not position-based)
- * - Pure operation functions (testable, replayable)
- * - Zustand + Immer for state management
- * - Graph features layered on top (links, embeds - later)
+ * - NodeKernel: Pure data structure (nodes + tree)
+ * - NodeStore: In-memory state management
+ * - NodePolicy: Structural keyboard behavior
+ * - NodeView: Dumb recursive renderer
  *
- * This runs alongside the existing ProseMirror editor (no conflicts).
- * Once validated, we'll migrate to Lexical integration and full replacement.
- *
- * @see README for architecture details
- * @see __tests__ for usage examples
- * @see demo/BlockEngineDemo.tsx for visual testing
+ * Inspired by Tana / Workflowy — nodes first, formatting later.
  */
 
-// Types
-export type { Block, BlockType } from './types';
-export type {
-  BlockOperation,
-  InsertBlockOperation,
-  DeleteBlockOperation,
-  MoveBlockOperation,
-  SplitBlockOperation,
-  MergeBlocksOperation,
-  UpdateContentOperation,
-  UpdateDescriptionOperation,
-  UpdateTypeOperation,
-  UpdatePropertiesOperation,
-  OperationResult,
-} from './types';
-export { isBlock, createEmptyBlock } from './types';
-
-// Store
-export { useBlockStore } from './store';
-
-// Operations (for advanced usage/testing)
-export {
-  insertBlock,
-  deleteBlock,
-  moveBlock,
-  splitBlock,
-  mergeBlocks,
-  updateContent,
-  updateDescription,
-  updateType,
-  updateProperties,
-} from './operations';
-export type { SplitResult, MergeResult } from './operations';
-
-// Utilities
-export {
-  validateTree,
-  getRootBlocks,
-  getDescendantIds,
-  getBlockPath,
-  getNextSiblingId,
-  getPreviousSiblingId,
-} from './utils';
-
-// Lexical integration
-export { LexicalBlockEditor } from './lexical';
-export type { LexicalBlockEditorProps } from './lexical';
-export { createBlockEditorConfig } from './lexical';
-
-// Document editor (Step 7B)
-export { LexicalDocumentEditor } from './components/LexicalDocumentEditor';
-
-// Focus management
-export { useFocusManager } from './focus';
-export type { FocusManager } from './focus';
-
-// Slash commands
-export { SlashCommandPlugin, CommandMenu } from './commands';
-export { AtMentionPlugin, AtMentionMenu } from './mentions';
-export type { EditorNote, EditorFolder } from './utils/entitySearch';
-export { createCommandRegistry, defaultCommandRegistry } from './commands';
-export type {
-  SlashCommand,
-  CommandCategory,
-  CommandContext,
-  CommandRegistry,
-} from './commands';
-
-// Migration tools
-export * from './migration';
-export {
-  testMigration,
-  testBlockMigration,
-  createSamplePMDocument,
-} from './migration/testUtils';
-
-// Serialization (native blocks format)
-export * from './serialization';
-
-// Demo component (for testing)
-export { BlockEngineDemo } from './demo/BlockEngineDemo';
-
-// Test utilities (for visual parity testing)
-export { createTestDocument } from './demo/createTestDocument';
-export { loadTestDocument } from './demo/loadTestDocument';
+export { Node, NodeID, createNode } from './NodeKernel';
+export { NodeStore } from './NodeStore';
+export { NodePolicy } from './NodePolicy';
+export { NodeView, RootView } from './NodeView';

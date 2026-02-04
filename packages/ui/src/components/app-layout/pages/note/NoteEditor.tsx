@@ -992,6 +992,17 @@ export const NoteEditor = ({
     ]
   );
 
+  // ✅ Stable onChange callback for editor content updates
+  const handleContentChange = useCallback(
+    (value: string) => {
+      // Save content directly to state (synchronous, local-only)
+      if (currentNoteId) {
+        updateNoteContent(currentNoteId, value);
+      }
+    },
+    [currentNoteId, updateNoteContent]
+  );
+
   // Check if current note is a daily note
   const isDailyNote = useMemo(() => {
     return (
@@ -1740,12 +1751,7 @@ export const NoteEditor = ({
                     noteId: currentNoteId,
                     value: currentNote?.content,
                     autoFocus: false,
-                    onChange: (value) => {
-                      // Save content directly to state (synchronous, local-only)
-                      if (currentNoteId) {
-                        updateNoteContent(currentNoteId, value);
-                      }
-                    },
+                    onChange: handleContentChange,
                     placeholder: 'Start writing...',
                   })}
               </div>

@@ -421,15 +421,15 @@ export const useNotesStore = create<NotesStore>()(
           return;
         }
 
-        console.log(
-          '[Persist] ✅ Notes fully rehydrated, count:',
-          state?.notes.length ?? 0
-        );
+        // console.log(
+        //   '[Persist] ✅ Notes fully rehydrated, count:',
+        //   state?.notes.length ?? 0
+        // );
 
         // ✅ Mutate state directly - safe and triggers React updates
         if (state) {
           state.hasHydrated = true;
-          console.log('[Persist] Set hasHydrated flag');
+          // console.log('[Persist] Set hasHydrated flag');
         }
       },
     }
