@@ -129,20 +129,40 @@ type Template = {
 };
 
 /**
- * Persisted state shape (from Phase 18, versioned in Phase 21, Phase 23: documentId)
+ * UI PHASE 2 — Document metadata (registry entry)
  */
-export type PersistedState = {
-  version: number; // Phase 21: Schema version
-  documentId: string; // Phase 23: Document identity (prevents false merges)
+export type DocumentMetadata = {
+  documentId: string;
+  name: string;
+  lastModified: number;
+};
+
+/**
+ * UI PHASE 2 — Document data (content snapshot)
+ */
+export type DocumentData = {
   nodes: UINode[];
   views: View[];
   templates: Template[];
 };
 
 /**
- * PHASE 21 + PHASE 23 — Current schema version constant
+ * Persisted state shape (from Phase 18, versioned in Phase 21, Phase 23: documentId)
+ * UI Phase 2: Extended to support multiple documents in workspace.
  */
-export const LATEST_VERSION = 3;
+export type PersistedState = {
+  version: number; // Schema version
+  workspaceId: string; // UI Phase 2: Workspace identity
+  workspaceName: string; // UI Phase 2: Workspace label
+  activeDocumentId: string; // UI Phase 2: Currently active document
+  documents: Record<string, DocumentMetadata>; // UI Phase 2: Document registry
+  documentData: Record<string, DocumentData>; // UI Phase 2: Document content
+};
+
+/**
+ * PHASE 21 + PHASE 23 + UI PHASE 2 — Current schema version constant
+ */
+export const LATEST_VERSION = 4;
 
 /**
  * Internal node type with original ID tracking
@@ -646,38 +666,16 @@ function stripTemporaryFields(nodes: NormalizedNode[]): UINode[] {
 }
 
 /**
- * MAIN ENTRY POINT
+ * UI PHASE 2 — Normalize single document data
  *
- * Phase 19: Normalization & Integrity
- * Phase 20: Recovery & Transparency
- *
- * Turn unknown JSON into guaranteed-valid PersistedState.
- * Never throws. Never loses data. Always deterministic.
- *
- * Phase 20: Also returns recovery events for observability.
+ * Internal helper that normalizes one document's content.
  */
-export function normalizePersistedState(input: unknown): NormalizationResult {
-  // Reset ID counter for determinism within this call
-  idCounter = 0;
-
-  // PHASE 20: Recovery event accumulator
-  const recovery: RecoveryEvent[] = [];
-
-  // PHASE 21: Extract version (should be set by migration, default to LATEST_VERSION)
-  const version =
-    typeof (input as any)?.version === 'number'
-      ? (input as any).version
-      : LATEST_VERSION;
-
-  // PHASE 23: Extract documentId (should be set by migration, generate if missing)
-  const documentId =
-    typeof (input as any)?.documentId === 'string'
-      ? (input as any).documentId
-      : crypto.randomUUID();
-
-  // STEP 1: Shape normalization
-  const { rawNodes, rawViews, rawTemplates } = normalizeShape(input);
-
+function normalizeSingleDocument(
+  rawNodes: any[],
+  rawViews: any[],
+  rawTemplates: any[],
+  recovery: RecoveryEvent[]
+): DocumentData {
   // STEP 2: Node identity pass
   let nodes = normalizeNodeIdentities(rawNodes, recovery);
 
@@ -709,14 +707,123 @@ export function normalizePersistedState(input: unknown): NormalizationResult {
   // STEP 11: Strip temporary fields
   const cleanNodes = stripTemporaryFields(nodes);
 
-  // Final assembly (Phase 20: return both state and recovery, Phase 21: include version, Phase 23: include documentId)
+  return {
+    nodes: cleanNodes,
+    views,
+    templates,
+  };
+}
+
+/**
+ * MAIN ENTRY POINT
+ *
+ * Phase 19: Normalization & Integrity
+ * Phase 20: Recovery & Transparency
+ * UI Phase 2: Extended to handle multi-document workspace structure
+ *
+ * Turn unknown JSON into guaranteed-valid PersistedState.
+ * Never throws. Never loses data. Always deterministic.
+ *
+ * Phase 20: Also returns recovery events for observability.
+ */
+export function normalizePersistedState(input: unknown): NormalizationResult {
+  // Reset ID counter for determinism within this call
+  idCounter = 0;
+
+  // PHASE 20: Recovery event accumulator
+  const recovery: RecoveryEvent[] = [];
+
+  // PHASE 21: Extract version (should be set by migration)
+  const version =
+    typeof (input as any)?.version === 'number'
+      ? (input as any).version
+      : LATEST_VERSION;
+
+  // UI PHASE 2: Extract workspace-level fields
+  const workspaceId =
+    typeof (input as any)?.workspaceId === 'string'
+      ? (input as any).workspaceId
+      : crypto.randomUUID();
+
+  const workspaceName =
+    typeof (input as any)?.workspaceName === 'string'
+      ? (input as any).workspaceName
+      : 'Default Workspace';
+
+  const activeDocumentId =
+    typeof (input as any)?.activeDocumentId === 'string'
+      ? (input as any).activeDocumentId
+      : '';
+
+  // UI PHASE 2: Normalize documents registry
+  const rawDocuments = (input as any)?.documents ?? {};
+  const documents: Record<string, DocumentMetadata> = {};
+
+  for (const [docId, doc] of Object.entries(rawDocuments)) {
+    if (doc && typeof doc === 'object') {
+      documents[docId] = {
+        documentId: docId,
+        name:
+          typeof (doc as any).name === 'string'
+            ? (doc as any).name
+            : 'Untitled',
+        lastModified:
+          typeof (doc as any).lastModified === 'number'
+            ? (doc as any).lastModified
+            : Date.now(),
+      };
+    }
+  }
+
+  // UI PHASE 2: Normalize each document's content
+  const rawDocumentData = (input as any)?.documentData ?? {};
+  const documentData: Record<string, DocumentData> = {};
+
+  for (const [docId, data] of Object.entries(rawDocumentData)) {
+    if (data && typeof data === 'object') {
+      const { rawNodes, rawViews, rawTemplates } = normalizeShape(data);
+      documentData[docId] = normalizeSingleDocument(
+        rawNodes,
+        rawViews,
+        rawTemplates,
+        recovery
+      );
+    }
+  }
+
+  // Ensure activeDocumentId exists in documents
+  let finalActiveDocumentId = activeDocumentId;
+  if (!finalActiveDocumentId || !documents[finalActiveDocumentId]) {
+    // Fallback to first available document or create empty one
+    const firstDocId = Object.keys(documents)[0];
+    if (firstDocId) {
+      finalActiveDocumentId = firstDocId;
+    } else {
+      // Create a default empty document
+      const newDocId = crypto.randomUUID();
+      finalActiveDocumentId = newDocId;
+      documents[newDocId] = {
+        documentId: newDocId,
+        name: 'Untitled',
+        lastModified: Date.now(),
+      };
+      documentData[newDocId] = {
+        nodes: [],
+        views: [],
+        templates: [],
+      };
+    }
+  }
+
+  // Final assembly
   return {
     state: {
-      version, // Phase 21: Preserve migrated version
-      documentId, // Phase 23: Preserve document identity
-      nodes: cleanNodes,
-      views,
-      templates,
+      version,
+      workspaceId,
+      workspaceName,
+      activeDocumentId: finalActiveDocumentId,
+      documents,
+      documentData,
     },
     recovery,
   };

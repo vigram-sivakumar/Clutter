@@ -54,6 +54,50 @@ function migrateV2toV3(state: any): any {
 }
 
 /**
+ * UI PHASE 2 — Migration V3 → V4
+ *
+ * Problem: V3 files stored single document at root level.
+ * Solution: Wrap in workspace structure with document registry.
+ *
+ * Changes:
+ * - Add workspaceId, workspaceName
+ * - Move nodes/views/templates into documentData[documentId]
+ * - Create documents registry entry
+ * - Set activeDocumentId
+ */
+function migrateV3toV4(state: any): any {
+  const documentId = state.documentId ?? crypto.randomUUID();
+  const workspaceId = crypto.randomUUID();
+
+  // Create document name from first node text or fallback
+  const firstNodeText = state.nodes?.[0]?.text;
+  const documentName = firstNodeText
+    ? firstNodeText.split('\n')[0]?.trim().slice(0, 50) || 'Untitled'
+    : 'Untitled';
+
+  return {
+    version: 4,
+    workspaceId,
+    workspaceName: 'Default Workspace',
+    activeDocumentId: documentId,
+    documents: {
+      [documentId]: {
+        documentId,
+        name: documentName,
+        lastModified: Date.now(),
+      },
+    },
+    documentData: {
+      [documentId]: {
+        nodes: state.nodes ?? [],
+        views: state.views ?? [],
+        templates: state.templates ?? [],
+      },
+    },
+  };
+}
+
+/**
  * Migration registry
  *
  * Maps from-version to migration function.
@@ -62,8 +106,7 @@ function migrateV2toV3(state: any): any {
 const migrations: Record<number, Migration> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
-  // Future migrations go here:
-  // 3: migrateV3toV4,
+  3: migrateV3toV4,
 };
 
 /**
