@@ -16,23 +16,139 @@ import { createNode, insertNodeAfter } from './engine/NodeKernel';
 import type { EditorState } from './engine/EditorState';
 import { applyIntent } from './engine/EditorState';
 import { NodeView } from './NodeView';
+import {
+  normalizePersistedState,
+  type RecoveryEvent,
+  type RecoveryAction,
+  type PersistedState,
+  LATEST_VERSION,
+} from './normalize';
+import { migrateToLatest } from './migrations';
 
 /**
  * STEP 8.1 — UI-extended Node
  * Collapse state is UI-only, not in kernel
+ *
+ * STEP 13.2 — Lifecycle flags (UI-only)
+ * isDeleted: soft delete, node still exists but hidden
  */
 type UINode = Node & {
   isCollapsed?: boolean;
+  isDeleted?: boolean;
 };
+
+/**
+ * STEP 14.1 — History and Snapshot Types (UI-only)
+ *
+ * Full state snapshots for undo/redo.
+ * No diffs, no patches, no replay.
+ */
+type SelectionState = {
+  anchor: { nodeId: NodeID; offset: number } | null;
+  focus: { nodeId: NodeID; offset: number } | null;
+};
+
+type EditorSnapshot = {
+  nodes: UINode[];
+  activeNodeId: NodeID;
+  offset: number;
+  focusRootId: NodeID | null;
+  selection: SelectionState;
+};
+
+type History = {
+  past: EditorSnapshot[];
+  future: EditorSnapshot[];
+};
+
+/**
+ * STEP 15.1 — Query Type (UI-only)
+ *
+ * Read-only filter over the graph.
+ * Does not mutate nodes, only affects visibility.
+ */
+type Query =
+  | { type: 'text'; value: string }
+  | { type: 'property'; key: string; value?: string }
+  | { type: 'ref'; nodeId: NodeID }
+  | null;
+
+/**
+ * STEP 16.1 — View Type (UI-only)
+ *
+ * Named bookmark of perspective (query + focus).
+ * Not data, not persisted (yet), just projection state.
+ */
+type View = {
+  id: string;
+  name: string;
+  query: Query;
+  focusRootId: NodeID | null;
+};
+
+/**
+ * STEP 17.1 — Template Type (UI-only)
+ *
+ * Reusable property shape. No behavior, just structure.
+ * undefined values mean "prompt user" or "leave empty".
+ */
+type Template = {
+  id: string;
+  name: string;
+  props: Record<string, string | undefined>;
+};
+
+/**
+ * STEP 12.1 — Canonical Node Identity Helper
+ *
+ * Single source of truth for how nodes are labeled everywhere:
+ * - References
+ * - Backlinks
+ * - Breadcrumbs
+ * - Picker
+ * - Any other display context
+ *
+ * Rules:
+ * - Deleted nodes → "(deleted)"
+ * - Empty nodes → "(empty)"
+ * - Non-empty → first line, truncated to 50 chars
+ * - Consistent everywhere
+ */
+export function getNodeLabel(node: Node | UINode): string {
+  // STEP 13.2 — Deleted nodes
+  if ('isDeleted' in node && node.isDeleted) return '(deleted)';
+
+  if (!node.text || node.text.trim() === '') return '(empty)';
+
+  // Get first line
+  const firstLine = node.text.split('\n')[0]?.trim();
+
+  if (firstLine) {
+    // Truncate if too long
+    const maxLength = 50;
+    return firstLine.length > maxLength
+      ? firstLine.substring(0, maxLength) + '...'
+      : firstLine;
+  }
+
+  return '(empty)';
+}
 
 export function NodeEditor() {
   // Initialize editor state
   const [editorState, setEditorState] = useState<EditorState>(() => {
-    const nodes: Node[] = [
-      createNode('paragraph', 'First node - try typing here'),
-      createNode('paragraph', 'Second node'),
-      createNode('heading', 'This is a heading'),
-    ];
+    const node1 = createNode('paragraph', 'First node - try typing here');
+    const node2 = createNode('paragraph', 'Second node');
+    const node3 = createNode('heading', 'This is a heading');
+    const node4 = createNode('paragraph', 'Node with properties and refs');
+
+    // Add properties to node4
+    node4.props = { status: 'active', priority: 'high' };
+
+    // Add references to node4 (refs to node1 and node3)
+    node4.refs = [node1.id, node3.id];
+
+    const nodes: Node[] = [node1, node2, node3, node4];
 
     return {
       nodes,
@@ -52,6 +168,61 @@ export function NodeEditor() {
   // nodeId = zoomed into that node
   const [focusRootId, setFocusRootId] = useState<NodeID | null>(null);
 
+  // STEP 11.2.1 — Reference picker state (UI-only)
+  const [refPickerState, setRefPickerState] = useState<{
+    isOpen: boolean;
+    sourceNodeId: NodeID | null;
+    selectedIndex: number;
+  }>({ isOpen: false, sourceNodeId: null, selectedIndex: 0 });
+
+  // STEP 14.1 — History state (UI-only)
+  const [history, setHistory] = useState<History>({
+    past: [],
+    future: [],
+  });
+
+  // STEP 15.1 — Query state (UI-only)
+  const [query, setQuery] = useState<Query>(null);
+  const [queryInput, setQueryInput] = useState<string>('');
+  const [showQueryBar, setShowQueryBar] = useState<boolean>(false);
+
+  // STEP 16.1 — Saved views state (UI-only)
+  const [views, setViews] = useState<View[]>([]);
+  const [showSaveViewDialog, setShowSaveViewDialog] = useState<boolean>(false);
+  const [saveViewName, setSaveViewName] = useState<string>('');
+
+  // STEP 17.1 — Templates state (UI-only)
+  const [templates, _setTemplates] = useState<Template[]>([
+    // Some default templates for demo
+    {
+      id: crypto.randomUUID(),
+      name: 'Task',
+      props: { status: 'todo', priority: 'medium' },
+    },
+    {
+      id: crypto.randomUUID(),
+      name: 'Meeting',
+      props: { date: '', attendees: '' },
+    },
+    { id: crypto.randomUUID(), name: 'Note', props: { topic: '', source: '' } },
+  ]);
+  const [showTemplatePicker, setShowTemplatePicker] = useState<boolean>(false);
+  const [templatePickerIndex, setTemplatePickerIndex] = useState<number>(0);
+
+  // PHASE 20 — Recovery events state (UI-only, session-scoped)
+  const [recoveryEvents, setRecoveryEvents] = useState<RecoveryEvent[]>([]);
+  const [showRecoveryPanel, setShowRecoveryPanel] = useState<boolean>(false);
+
+  // PHASE 23 — Document identity (generated once, persisted forever)
+  const [documentId, setDocumentId] = useState<string>(() =>
+    crypto.randomUUID()
+  );
+
+  // PHASE 23 — Sync conflicts state (UI-only, session-scoped)
+  const [_syncConflicts, _setSyncConflicts] = useState<
+    import('./sync').Conflict[] | null
+  >(null);
+
   // Keep focus
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -60,10 +231,215 @@ export function NodeEditor() {
   }, []);
 
   /**
+   * STEP 14.2 — Commit State Changes (with history)
+   *
+   * All state mutations go through this function.
+   * Pushes current state to history before applying new state.
+   */
+  function commit(changes: {
+    nodes?: UINode[];
+    activeNodeId?: NodeID;
+    offset?: number;
+    focusRootId?: NodeID | null;
+    selection?: SelectionState;
+  }) {
+    // STEP 14.2.1 — Create snapshot of current state
+    const snapshot: EditorSnapshot = {
+      nodes: editorState.nodes as UINode[],
+      activeNodeId: editorState.activeNodeId,
+      offset: editorState.offset,
+      focusRootId,
+      selection,
+    };
+
+    // STEP 14.2.2 — Push to past, clear future, limit history
+    const MAX_HISTORY = 100;
+    const newPast = [...history.past, snapshot];
+    if (newPast.length > MAX_HISTORY) {
+      newPast.shift(); // Remove oldest
+    }
+
+    setHistory({
+      past: newPast,
+      future: [], // Clear future on new commit
+    });
+
+    // STEP 14.2.3 — Apply new state
+    if (
+      changes.nodes !== undefined ||
+      changes.activeNodeId !== undefined ||
+      changes.offset !== undefined
+    ) {
+      setEditorState({
+        nodes: changes.nodes ?? editorState.nodes,
+        activeNodeId: changes.activeNodeId ?? editorState.activeNodeId,
+        offset: changes.offset ?? editorState.offset,
+      });
+    }
+
+    if (changes.focusRootId !== undefined) {
+      setFocusRootId(changes.focusRootId);
+    }
+
+    if (changes.selection !== undefined) {
+      setSelection(changes.selection);
+    }
+  }
+
+  /**
+   * STEP 14.3 — Undo Function
+   */
+  function undo() {
+    if (history.past.length === 0) return;
+
+    const previous = history.past[history.past.length - 1];
+    if (!previous) return;
+
+    const newPast = history.past.slice(0, -1);
+
+    // Create snapshot of current state for future
+    const currentSnapshot: EditorSnapshot = {
+      nodes: editorState.nodes as UINode[],
+      activeNodeId: editorState.activeNodeId,
+      offset: editorState.offset,
+      focusRootId,
+      selection,
+    };
+
+    setHistory({
+      past: newPast,
+      future: [currentSnapshot, ...history.future],
+    });
+
+    // Restore previous state
+    setEditorState({
+      nodes: previous.nodes,
+      activeNodeId: previous.activeNodeId,
+      offset: previous.offset,
+    });
+    setFocusRootId(previous.focusRootId);
+    setSelection(previous.selection);
+  }
+
+  /**
+   * STEP 14.3 — Redo Function
+   */
+  function redo() {
+    if (history.future.length === 0) return;
+
+    const next = history.future[0];
+    if (!next) return;
+
+    const newFuture = history.future.slice(1);
+
+    // Create snapshot of current state for past
+    const currentSnapshot: EditorSnapshot = {
+      nodes: editorState.nodes as UINode[],
+      activeNodeId: editorState.activeNodeId,
+      offset: editorState.offset,
+      focusRootId,
+      selection,
+    };
+
+    setHistory({
+      past: [...history.past, currentSnapshot],
+      future: newFuture,
+    });
+
+    // Restore next state
+    setEditorState({
+      nodes: next.nodes,
+      activeNodeId: next.activeNodeId,
+      offset: next.offset,
+    });
+    setFocusRootId(next.focusRootId);
+    setSelection(next.selection);
+  }
+
+  /**
+   * STEP 15.3 — Parse Query String
+   *
+   * Syntax:
+   * - /text <value>       → text search
+   * - /prop <key>         → has property key
+   * - /prop <key> <value> → property key=value
+   * - /ref @<node label>  → references node (by label match)
+   */
+  function parseQuery(input: string): Query {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+
+    // /text <value>
+    if (trimmed.startsWith('/text ')) {
+      const value = trimmed.substring(6).trim();
+      return value ? { type: 'text', value } : null;
+    }
+
+    // /prop <key> [value]
+    if (trimmed.startsWith('/prop ')) {
+      const rest = trimmed.substring(6).trim();
+      const parts = rest.split(/\s+/);
+      const key = parts[0];
+      const value = parts.slice(1).join(' ') || undefined;
+      return key ? { type: 'property', key, value } : null;
+    }
+
+    // /ref @<label> - find node by label
+    if (trimmed.startsWith('/ref ')) {
+      const labelPart = trimmed.substring(5).trim();
+      if (labelPart.startsWith('@')) {
+        const targetLabel = labelPart.substring(1).toLowerCase();
+        // Find node by label match
+        const targetNode = editorState.nodes.find((n) =>
+          getNodeLabel(n).toLowerCase().includes(targetLabel)
+        );
+        return targetNode ? { type: 'ref', nodeId: targetNode.id } : null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * STEP 15.2 — Match Query (read-only filter)
+   *
+   * Determines if a node matches the current query.
+   * No mutation, pure boolean check.
+   */
+  function matchesQuery(node: UINode, q: Query): boolean {
+    if (!q) return true; // No query = show all
+
+    switch (q.type) {
+      case 'text':
+        // Substring match (case-insensitive)
+        return node.text.toLowerCase().includes(q.value.toLowerCase());
+
+      case 'property':
+        // Check if property key exists
+        if (!node.props) return false;
+        if (!(q.key in node.props)) return false;
+        // If value specified, match it
+        if (q.value !== undefined) {
+          return node.props[q.key]?.toLowerCase() === q.value.toLowerCase();
+        }
+        return true;
+
+      case 'ref':
+        // Check if node references target
+        return node.refs?.includes(q.nodeId) ?? false;
+
+      default:
+        return true;
+    }
+  }
+
+  /**
    * STEP 9.2 — Get Visible Nodes (respects collapse + focus)
    * Returns nodes that should be visible
    * - Respects collapse state
    * - Respects focus/zoom (if focusRootId is set)
+   * - STEP 13.2 — Filters out deleted nodes
+   * - STEP 15.2 — Filters by query
    */
   function getVisibleNodes(nodes: UINode[]): UINode[] {
     const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -81,6 +457,12 @@ export function NodeEditor() {
     }
 
     function isVisible(node: UINode): boolean {
+      // STEP 13.2 — Deleted nodes are not visible
+      if (node.isDeleted) return false;
+
+      // STEP 15.2 — Query filter
+      if (!matchesQuery(node, query)) return false;
+
       // STEP 9.2 — If focused on a subtree, only show focusRoot and its descendants
       if (focusRootId) {
         const isFocusRoot = node.id === focusRootId;
@@ -234,24 +616,444 @@ export function NodeEditor() {
   }
 
   /**
-   * STEP 10.3 — Property editing state
+   * STEP 10.3/10.5.5 — Property editing state
+   * isNewProperty: true = creating new, false = editing existing (key locked)
    */
   const [editingProperty, setEditingProperty] = useState<{
     nodeId: NodeID;
     key: string;
     value: string;
+    isNewProperty: boolean;
   } | null>(null);
 
   /**
-   * STEP 10.3 — Add/update property on a node
+   * STEP 10.5.2 — Add/update property on a node (hardened)
+   * Enforces invariants: normalization, uniqueness, immutability
    */
-  function setNodeProperty(nodeId: NodeID, key: string, value: string) {
+  function setNodeProperty(nodeId: NodeID, rawKey: string, value: string) {
+    // 10.5.1 — Normalize key
+    const key = rawKey.trim().toLowerCase();
+    if (!key) return; // No empty keys allowed
+
+    const updatedNodes = editorState.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+
+      // 10.5.1 — Overwrite semantics (keys are unique)
+      const props = { ...(n.props ?? {}) };
+      props[key] = value; // Insertion order preserved by JS spec (ES2015+)
+
+      return { ...n, props };
+    });
+
+    // STEP 14.2 — Commit property change
+    commit({
+      nodes: updatedNodes as UINode[],
+    });
+  }
+
+  /**
+   * STEP 10.5.3 — Explicit property deletion
+   * Only way to remove a property
+   */
+  function deleteNodeProperty(nodeId: NodeID, key: string) {
+    const updatedNodes = editorState.nodes.map((n) => {
+      if (n.id !== nodeId || !n.props || !(key in n.props)) return n;
+
+      const props = { ...n.props };
+      delete props[key];
+
+      // Remove props object if empty
+      return Object.keys(props).length === 0
+        ? { ...n, props: undefined }
+        : { ...n, props };
+    });
+
+    // STEP 14.2 — Commit property deletion
+    commit({
+      nodes: updatedNodes as UINode[],
+    });
+  }
+
+  /**
+   * STEP 10.5.5 — Edit existing property (click handler)
+   */
+  function editProperty(nodeId: NodeID, key: string, value: string) {
+    setEditingProperty({ nodeId, key, value, isNewProperty: false });
+  }
+
+  /**
+   * STEP 11.1.4 — Handle clicking a reference (zoom to target)
+   */
+  function handleRefClick(targetId: NodeID) {
+    // Zoom to the referenced node
+    setFocusRootId(targetId);
     setEditorState({
       ...editorState,
-      nodes: editorState.nodes.map((n) =>
-        n.id === nodeId ? { ...n, props: { ...n.props, [key]: value } } : n
-      ),
+      activeNodeId: targetId,
+      offset: 0,
     });
+    setSelection({ anchor: null, focus: null });
+  }
+
+  /**
+   * STEP 11.2.2 — Add reference to a node
+   * Enforces: no self-reference, no duplicates
+   */
+  function addNodeRef(nodeId: NodeID, targetId: NodeID) {
+    // 11.1.2 — No self-reference
+    if (nodeId === targetId) return;
+
+    const updatedNodes = editorState.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+      const refs = n.refs ?? [];
+      // 11.1.2 — No duplicates
+      if (refs.includes(targetId)) return n;
+      return { ...n, refs: [...refs, targetId] };
+    });
+
+    // STEP 14.2 — Commit reference addition
+    commit({
+      nodes: updatedNodes as UINode[],
+    });
+  }
+
+  /**
+   * STEP 11.2.2 — Remove reference from a node (reserved for future use)
+   */
+  // function _removeNodeRef(nodeId: NodeID, targetId: NodeID) {
+  //   setEditorState((prevEditorState) => ({
+  //     ...prevEditorState,
+  //     nodes: prevEditorState.nodes.map((n) => {
+  //       if (n.id !== nodeId || !n.refs) return n;
+  //       const refs = n.refs.filter((id) => id !== targetId);
+  //       return refs.length === 0 ? { ...n, refs: undefined } : { ...n, refs };
+  //     }),
+  //   }));
+  // }
+
+  /**
+   * STEP 11.3.1 — Get backlinks for a node (derived, read-only)
+   * Returns all nodes that reference the given node
+   */
+  function getBacklinks(nodeId: NodeID): Node[] {
+    return editorState.nodes.filter((n) => n.refs?.includes(nodeId));
+  }
+
+  /**
+   * STEP 13.1 — Delete Node (Soft Delete)
+   *
+   * Deletion Rules:
+   * 1. Mark node as deleted (isDeleted = true)
+   * 2. Children: outdent them (move to deleted node's parent)
+   * 3. Focus: if deleted node is active or zoomed, zoom out / move focus
+   * 4. References: NOT touched (dangling refs are allowed)
+   *
+   * Recovery Invariant (Phase 13.3):
+   * - Node still exists in state (soft delete)
+   * - References to deleted nodes show as "(deleted)"
+   * - Backlinks still work
+   */
+  function deleteNode(nodeId: NodeID) {
+    const nodeToDelete = editorState.nodes.find(
+      (n) => n.id === nodeId
+    ) as UINode;
+    if (!nodeToDelete) return;
+
+    // STEP 13.1.1 — Find next non-deleted sibling or parent for focus target
+    const visibleNodes = getVisibleNodes(editorState.nodes);
+    const currentIndex = visibleNodes.findIndex((n) => n.id === nodeId);
+    let nextFocusId: NodeID | null = null;
+
+    // Try next sibling, then previous sibling, then parent
+    if (currentIndex < visibleNodes.length - 1) {
+      nextFocusId = visibleNodes[currentIndex + 1]?.id ?? null;
+    } else if (currentIndex > 0) {
+      nextFocusId = visibleNodes[currentIndex - 1]?.id ?? null;
+    } else if (nodeToDelete.parentId) {
+      nextFocusId = nodeToDelete.parentId;
+    }
+
+    // STEP 13.1.2 — Update state
+    const updatedNodes = editorState.nodes.map((n) => {
+      // Mark target node as deleted
+      if (n.id === nodeId) {
+        return { ...n, isDeleted: true } as UINode;
+      }
+
+      // STEP 13.1.3 — Outdent children (move to deleted node's parent)
+      if (n.parentId === nodeId) {
+        return { ...n, parentId: nodeToDelete.parentId };
+      }
+
+      return n;
+    });
+
+    // STEP 13.1.4 — Handle focus/zoom
+    let newActiveNodeId = editorState.activeNodeId;
+    let newFocusRootId = focusRootId;
+
+    // If deleted node was active, move focus
+    if (editorState.activeNodeId === nodeId) {
+      newActiveNodeId =
+        nextFocusId ?? editorState.nodes[0]?.id ?? editorState.activeNodeId;
+    }
+
+    // If we're zoomed into the deleted node, zoom out
+    if (focusRootId === nodeId) {
+      newFocusRootId = nodeToDelete.parentId;
+    }
+
+    // STEP 14.2 — Commit deletion
+    commit({
+      nodes: updatedNodes,
+      activeNodeId: newActiveNodeId,
+      offset: 0,
+      focusRootId: newFocusRootId,
+      selection: { anchor: null, focus: null },
+    });
+  }
+
+  /**
+   * STEP 16.2 — Save Current View
+   *
+   * Captures current query + focusRootId as a named view.
+   * Does not capture cursor, selection, or collapse state.
+   */
+  function saveView(name: string) {
+    if (!name.trim()) return;
+
+    const newView: View = {
+      id: crypto.randomUUID(),
+      name: name.trim(),
+      query,
+      focusRootId,
+    };
+
+    setViews((prevViews) => [...prevViews, newView]);
+  }
+
+  /**
+   * STEP 16.3 — Switch to View
+   *
+   * Applies view's query + focusRootId.
+   * Does not create undo entry (navigation, not mutation).
+   */
+  function switchToView(view: View) {
+    setQuery(view.query);
+    setFocusRootId(view.focusRootId);
+  }
+
+  /**
+   * STEP 16.3 — Delete View
+   */
+  function deleteView(viewId: string) {
+    setViews((prevViews) => prevViews.filter((v) => v.id !== viewId));
+  }
+
+  /**
+   * STEP 17.2 — Apply Template to Node
+   *
+   * Adds template properties to node.
+   * Rules:
+   * - Only adds missing properties (does not overwrite)
+   * - Does not affect text
+   * - Undoable via commit
+   */
+  function applyTemplate(nodeId: NodeID, template: Template) {
+    const node = editorState.nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+
+    const updatedNodes = editorState.nodes.map((n) => {
+      if (n.id !== nodeId) return n;
+
+      const existingProps = n.props ?? {};
+      const newProps = { ...existingProps };
+
+      // Add template props that don't already exist
+      for (const [key, value] of Object.entries(template.props)) {
+        if (!(key in existingProps)) {
+          newProps[key] = value ?? '';
+        }
+      }
+
+      return { ...n, props: newProps };
+    });
+
+    // STEP 14.2 — Commit template application
+    commit({
+      nodes: updatedNodes as UINode[],
+    });
+  }
+
+  /**
+   * PHASE 22 — Recovery Action Runner
+   *
+   * Maps recovery actions to existing editor mutations.
+   * All actions are undoable (use commit()).
+   * Never auto-run - explicit user intent only.
+   */
+  function runRecoveryAction(action: RecoveryAction) {
+    switch (action.type) {
+      case 'focus-node': {
+        // Reuse existing navigation logic
+        const node = editorState.nodes.find((n) => n.id === action.nodeId);
+        if (!node) return;
+
+        setEditorState({
+          ...editorState,
+          activeNodeId: action.nodeId,
+          offset: 0,
+        });
+        setFocusRootId(null); // Reset zoom to see the node
+        setSelection({ anchor: null, focus: null });
+        break;
+      }
+
+      case 'remove-ref': {
+        // Reuse existing ref removal logic (from Phase 11)
+        const updatedNodes = editorState.nodes.map((n) => {
+          if (n.id !== action.fromNodeId) return n;
+          if (!n.refs) return n;
+
+          const refs = n.refs.filter((refId) => refId !== action.toNodeId);
+          if (refs.length === 0) {
+            const { refs: _, ...rest } = n;
+            return rest as UINode;
+          }
+
+          return { ...n, refs };
+        });
+
+        // PHASE 22: Commit ref removal (undoable)
+        commit({ nodes: updatedNodes as UINode[] });
+        break;
+      }
+
+      case 'delete-node': {
+        // Reuse Phase 13 soft delete logic
+        deleteNode(action.nodeId);
+        break;
+      }
+    }
+  }
+
+  /**
+   * STEP 18.2 + PHASE 21 + PHASE 23 — Export State to JSON
+   *
+   * Serializes nodes, views, templates to JSON file.
+   * Does NOT serialize: history, selection, cursor, focus, query.
+   * Phase 21: Always writes LATEST_VERSION.
+   * Phase 23: Includes documentId for sync identity.
+   */
+  function exportState() {
+    const persistedState: PersistedState = {
+      version: LATEST_VERSION, // Phase 21: Write current schema version
+      documentId, // Phase 23: Document identity (prevents false merges)
+      nodes: editorState.nodes as UINode[],
+      views,
+      templates,
+    };
+
+    const json = JSON.stringify(persistedState, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `clutter-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * STEP 18.2 + PHASE 19 + PHASE 20 + PHASE 21 + PHASE 23 — Import State from JSON
+   *
+   * Import pipeline (ordered):
+   * 1. JSON.parse
+   * 2. migrateToLatest (Phase 21 - shape evolution)
+   * 3. normalizePersistedState (Phase 19 - integrity)
+   * 4. RecoveryEvents (Phase 20 - explain)
+   *
+   * Phase 23: Replaces timeline (import = replace, not sync).
+   * Creates new undo root (clears history).
+   */
+  function importState(json: string) {
+    try {
+      // STEP 1: Parse JSON
+      const parsed = JSON.parse(json);
+
+      // PHASE 21: Migrate to latest schema version
+      const migrated = migrateToLatest(parsed);
+
+      // PHASE 19/20: Normalize through trust boundary
+      const { state, recovery } = normalizePersistedState(migrated);
+
+      // Find first visible node for initial cursor
+      const firstVisibleNode =
+        state.nodes.find((n) => !n.isDeleted) ?? state.nodes[0];
+
+      // Import normalized state
+      setEditorState({
+        nodes: state.nodes,
+        activeNodeId: firstVisibleNode?.id ?? '',
+        offset: 0,
+      });
+
+      setViews(state.views);
+      _setTemplates(state.templates);
+
+      // PHASE 23: Preserve document identity
+      setDocumentId(state.documentId);
+
+      // PHASE 20: Store recovery events and show panel if there were issues
+      setRecoveryEvents(recovery);
+      if (recovery.length > 0) {
+        setShowRecoveryPanel(true);
+      }
+
+      // STEP 18.2 — Clear history (new undo root)
+      setHistory({ past: [], future: [] });
+
+      // Clear ephemeral UI state
+      setSelection({ anchor: null, focus: null });
+      setFocusRootId(null);
+      setQuery(null);
+      setQueryInput('');
+      setShowQueryBar(false);
+    } catch (error) {
+      alert(
+        `Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
+   * STEP 18.2 — Trigger File Import
+   */
+  function triggerImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const json = event.target?.result as string;
+        if (json) {
+          // Confirm before replacing state
+          if (
+            confirm(`Import "${file.name}"? This will replace current state.`)
+          ) {
+            importState(json);
+          }
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   }
 
   /**
@@ -405,6 +1207,68 @@ export function NodeEditor() {
 
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // STEP 14.3 — Undo (Cmd/Ctrl + Z)
+    if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+      return;
+    }
+
+    // STEP 14.3 — Redo (Cmd/Ctrl + Shift + Z)
+    if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      e.preventDefault();
+      redo();
+      return;
+    }
+
+    // STEP 16.2 — Save View (Cmd/Ctrl + Shift + S)
+    if (e.key === 's' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      e.preventDefault();
+      setShowSaveViewDialog(true);
+      setSaveViewName('');
+      return;
+    }
+
+    // STEP 17.3 — Open Template Picker (Cmd/Ctrl + Shift + T)
+    if (e.key === 't' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      e.preventDefault();
+      setShowTemplatePicker(true);
+      setTemplatePickerIndex(0);
+      return;
+    }
+
+    // STEP 18.2 — Export State (Cmd/Ctrl + Shift + E)
+    if (e.key === 'e' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      e.preventDefault();
+      exportState();
+      return;
+    }
+
+    // STEP 18.2 — Import State (Cmd/Ctrl + Shift + I)
+    if (e.key === 'i' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      e.preventDefault();
+      triggerImport();
+      return;
+    }
+
+    // STEP 13.1 — Explicit Delete (Cmd/Ctrl + D)
+    if (e.key === 'd' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+      e.preventDefault();
+      deleteNode(editorState.activeNodeId);
+      return;
+    }
+
+    // STEP 11.2.1 — Open Reference Picker (Cmd/Ctrl + Shift + R)
+    if (e.key === 'r' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+      e.preventDefault();
+      setRefPickerState({
+        isOpen: true,
+        sourceNodeId: editorState.activeNodeId,
+        selectedIndex: 0,
+      });
+      return;
+    }
+
     // STEP 9.3 — Zoom In (Cmd/Ctrl + Enter)
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -412,10 +1276,24 @@ export function NodeEditor() {
       return;
     }
 
-    // STEP 9.4 — Zoom Out (Escape)
+    // STEP 15.3 — Open Query Bar (/)
+    if (e.key === '/' && !showQueryBar) {
+      e.preventDefault();
+      setShowQueryBar(true);
+      setQueryInput('');
+      return;
+    }
+
+    // STEP 9.4 — Zoom Out (Escape) / Close Query Bar
     if (e.key === 'Escape') {
       e.preventDefault();
-      zoomOut();
+      if (showQueryBar) {
+        setShowQueryBar(false);
+        setQuery(null);
+        setQueryInput('');
+      } else {
+        zoomOut();
+      }
       return;
     }
 
@@ -426,13 +1304,23 @@ export function NodeEditor() {
       if (e.shiftKey) {
         // Outdent
         const newState = outdentNode(editorState);
-        setEditorState(newState);
-        setSelection({ anchor: null, focus: null }); // STEP 6.5 — Clear selection
+        // STEP 14.2 — Commit outdent
+        commit({
+          nodes: newState.nodes as UINode[],
+          activeNodeId: newState.activeNodeId,
+          offset: newState.offset,
+          selection: { anchor: null, focus: null },
+        });
       } else {
         // Indent
         const newState = indentNode(editorState);
-        setEditorState(newState);
-        setSelection({ anchor: null, focus: null }); // STEP 6.5 — Clear selection
+        // STEP 14.2 — Commit indent
+        commit({
+          nodes: newState.nodes as UINode[],
+          activeNodeId: newState.activeNodeId,
+          offset: newState.offset,
+          selection: { anchor: null, focus: null },
+        });
       }
       return;
     }
@@ -452,8 +1340,13 @@ export function NodeEditor() {
           !activeNode.isCollapsed
         ) {
           const newState = collapseNode(editorState);
-          setEditorState(newState);
-          setSelection({ anchor: null, focus: null });
+          // STEP 14.2 — Commit collapse
+          commit({
+            nodes: newState.nodes as UINode[],
+            activeNodeId: newState.activeNodeId,
+            offset: newState.offset,
+            selection: { anchor: null, focus: null },
+          });
           return;
         }
       }
@@ -543,8 +1436,13 @@ export function NodeEditor() {
       if (editorState.offset === 0 && !e.shiftKey) {
         if (activeNode.isCollapsed) {
           const newState = expandNode(editorState);
-          setEditorState(newState);
-          setSelection({ anchor: null, focus: null });
+          // STEP 14.2 — Commit expand
+          commit({
+            nodes: newState.nodes as UINode[],
+            activeNodeId: newState.activeNodeId,
+            offset: newState.offset,
+            selection: { anchor: null, focus: null },
+          });
           return;
         }
       }
@@ -683,12 +1581,17 @@ export function NodeEditor() {
         );
         if (normalized) {
           let nextState = deleteSelection(editorState, normalized);
-          setSelection({ anchor: null, focus: null });
           nextState = applyIntent(nextState, {
             type: 'insertText',
             text: e.key,
           });
-          setEditorState(nextState);
+          // STEP 14.2 — Commit text edit after selection delete
+          commit({
+            nodes: nextState.nodes as UINode[],
+            activeNodeId: nextState.activeNodeId,
+            offset: nextState.offset,
+            selection: { anchor: null, focus: null },
+          });
           return;
         }
       }
@@ -699,7 +1602,12 @@ export function NodeEditor() {
           (n) => n.id === editorState.activeNodeId
         );
         if (activeNode && activeNode.text === '') {
-          setEditingProperty({ nodeId: activeNode.id, key: '', value: '' });
+          setEditingProperty({
+            nodeId: activeNode.id,
+            key: '',
+            value: '',
+            isNewProperty: true,
+          });
           return;
         }
       }
@@ -709,7 +1617,12 @@ export function NodeEditor() {
         type: 'insertText',
         text: e.key,
       });
-      setEditorState(newState);
+      // STEP 14.2 — Commit text insert
+      commit({
+        nodes: newState.nodes as UINode[],
+        activeNodeId: newState.activeNodeId,
+        offset: newState.offset,
+      });
       return;
     }
 
@@ -746,7 +1659,13 @@ export function NodeEditor() {
         // Case C: Has parent - outdent
         if (activeNode.parentId) {
           const newState = outdentNode(editorState);
-          setEditorState(newState);
+          // STEP 14.2 — Commit outdent
+          commit({
+            nodes: newState.nodes as UINode[],
+            activeNodeId: newState.activeNodeId,
+            offset: newState.offset,
+            selection: { anchor: null, focus: null },
+          });
           return;
         }
 
@@ -755,7 +1674,12 @@ export function NodeEditor() {
 
       // No selection, not at start OR Case D - normal backspace (delete char or merge)
       const newState = applyIntent(editorState, { type: 'backspace' });
-      setEditorState(newState);
+      // STEP 14.2 — Commit backspace
+      commit({
+        nodes: newState.nodes as UINode[],
+        activeNodeId: newState.activeNodeId,
+        offset: newState.offset,
+      });
       return;
     }
 
@@ -771,9 +1695,14 @@ export function NodeEditor() {
         );
         if (normalized) {
           let nextState = deleteSelection(editorState, normalized);
-          setSelection({ anchor: null, focus: null });
           nextState = applyIntent(nextState, { type: 'enter' });
-          setEditorState(nextState);
+          // STEP 14.2 — Commit enter after selection delete
+          commit({
+            nodes: nextState.nodes as UINode[],
+            activeNodeId: nextState.activeNodeId,
+            offset: nextState.offset,
+            selection: { anchor: null, focus: null },
+          });
           return;
         }
       }
@@ -781,13 +1710,23 @@ export function NodeEditor() {
       // STEP 7.2 — Enter at start = create child
       if (editorState.offset === 0) {
         const newState = createChild(editorState);
-        setEditorState(newState);
+        // STEP 14.2 — Commit create child
+        commit({
+          nodes: newState.nodes as UINode[],
+          activeNodeId: newState.activeNodeId,
+          offset: newState.offset,
+        });
         return;
       }
 
       // No selection, not at start - normal enter (split/sibling)
       const newState = applyIntent(editorState, { type: 'enter' });
-      setEditorState(newState);
+      // STEP 14.2 — Commit enter
+      commit({
+        nodes: newState.nodes as UINode[],
+        activeNodeId: newState.activeNodeId,
+        offset: newState.offset,
+      });
       return;
     }
   };
@@ -858,10 +1797,295 @@ export function NodeEditor() {
                     index === getBreadcrumbs().length - 1 ? 'bold' : 'normal',
                 }}
               >
-                {node.text || '(empty)'}
+                {/* STEP 12.3 — Use canonical label helper */}
+                {getNodeLabel(node)}
               </button>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* STEP 15.3 — Query Bar */}
+      {showQueryBar && (
+        <div
+          style={{
+            marginBottom: '16px',
+            padding: '12px',
+            backgroundColor: '#252526',
+            borderRadius: '4px',
+            border: '1px solid #4fc3f7',
+          }}
+        >
+          <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
+            Query: /text &lt;value&gt; | /prop &lt;key&gt; [value] | /ref
+            @&lt;label&gt;
+          </div>
+          <input
+            type="text"
+            value={queryInput}
+            onChange={(e) => setQueryInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const parsed = parseQuery(queryInput);
+                setQuery(parsed);
+                setShowQueryBar(false);
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setShowQueryBar(false);
+                setQuery(null);
+                setQueryInput('');
+              }
+            }}
+            autoFocus
+            placeholder="e.g., /text hello, /prop status done, /ref @node"
+            style={{
+              width: '100%',
+              padding: '8px',
+              backgroundColor: '#1e1e1e',
+              border: '1px solid #3e3e3e',
+              borderRadius: '2px',
+              color: '#d4d4d4',
+              fontFamily: 'monospace',
+              fontSize: '13px',
+            }}
+          />
+          {query && (
+            <div
+              style={{ marginTop: '8px', fontSize: '11px', color: '#4fc3f7' }}
+            >
+              Active: {JSON.stringify(query)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Query Status (when active but bar closed) */}
+      {query && !showQueryBar && (
+        <div
+          style={{
+            marginBottom: '16px',
+            padding: '8px 12px',
+            backgroundColor: '#2d2d30',
+            borderRadius: '4px',
+            fontSize: '11px',
+            color: '#4fc3f7',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>
+            Query active: {query.type === 'text' && `text:"${query.value}"`}
+            {query.type === 'property' &&
+              `prop:${query.key}${query.value ? `="${query.value}"` : ''}`}
+            {query.type === 'ref' &&
+              `ref:@${getNodeLabel(editorState.nodes.find((n) => n.id === query.nodeId)!)}`}
+          </span>
+          <button
+            onClick={() => {
+              setQuery(null);
+              setQueryInput('');
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#888',
+              cursor: 'pointer',
+              padding: '0 4px',
+              fontSize: '14px',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#f44336')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#888')}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* STEP 16.3 — Saved Views Panel */}
+      {views.length > 0 && (
+        <div
+          style={{
+            marginBottom: '16px',
+            padding: '12px',
+            backgroundColor: '#252526',
+            borderRadius: '4px',
+            border: '1px solid #3e3e3e',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '12px',
+              color: '#888',
+              marginBottom: '8px',
+              fontWeight: 'bold',
+            }}
+          >
+            Saved Views
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {views.map((view) => (
+              <div
+                key={view.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 8px',
+                  backgroundColor: '#1e1e1e',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                }}
+                onClick={() => switchToView(view)}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = '#2d2d30')
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = '#1e1e1e')
+                }
+              >
+                <span style={{ fontSize: '12px', color: '#d4d4d4' }}>
+                  {view.name}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteView(view.id);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#666',
+                    cursor: 'pointer',
+                    padding: '0 4px',
+                    fontSize: '12px',
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = '#f44336')
+                  }
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* STEP 16.2 — Save View Dialog */}
+      {showSaveViewDialog && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowSaveViewDialog(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#1e1e1e',
+              border: '1px solid #3e3e3e',
+              borderRadius: '4px',
+              padding: '20px',
+              width: '400px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                fontSize: '14px',
+                color: '#d4d4d4',
+                marginBottom: '12px',
+                fontWeight: 'bold',
+              }}
+            >
+              Save View
+            </div>
+            <div
+              style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}
+            >
+              Current state: Query={query ? 'active' : 'none'}, Zoom=
+              {focusRootId ? 'active' : 'none'}
+            </div>
+            <input
+              type="text"
+              value={saveViewName}
+              onChange={(e) => setSaveViewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  saveView(saveViewName);
+                  setShowSaveViewDialog(false);
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setShowSaveViewDialog(false);
+                }
+              }}
+              autoFocus
+              placeholder="Enter view name..."
+              style={{
+                width: '100%',
+                padding: '8px',
+                backgroundColor: '#252526',
+                border: '1px solid #3e3e3e',
+                borderRadius: '2px',
+                color: '#d4d4d4',
+                fontFamily: 'monospace',
+                fontSize: '13px',
+                marginBottom: '12px',
+              }}
+            />
+            <div
+              style={{
+                display: 'flex',
+                gap: '8px',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <button
+                onClick={() => setShowSaveViewDialog(false)}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#252526',
+                  border: '1px solid #3e3e3e',
+                  borderRadius: '2px',
+                  color: '#888',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  saveView(saveViewName);
+                  setShowSaveViewDialog(false);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#4fc3f7',
+                  border: 'none',
+                  borderRadius: '2px',
+                  color: '#1e1e1e',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -883,15 +2107,26 @@ export function NodeEditor() {
             key={node.id}
             node={node}
             nodes={editorState.nodes}
+            backlinks={getBacklinks(node.id)}
             isActive={node.id === editorState.activeNodeId}
             cursorOffset={
               node.id === editorState.activeNodeId ? editorState.offset : null
             }
             selection={selection}
+            onPropertyClick={(key, value) => editProperty(node.id, key, value)}
+            onPropertyDelete={(key) => deleteNodeProperty(node.id, key)}
+            onRefClick={handleRefClick}
+            onAddRefClick={(nodeId) =>
+              setRefPickerState({
+                isOpen: true,
+                sourceNodeId: nodeId,
+                selectedIndex: 0,
+              })
+            }
           />
         ))}
 
-        {/* STEP 10.3/10.4 — Property Editor */}
+        {/* STEP 10.3/10.5.5 — Property Editor (create/edit/delete) */}
         {editingProperty && (
           <div
             style={{
@@ -910,7 +2145,7 @@ export function NodeEditor() {
             <div
               style={{ marginBottom: '12px', color: '#888', fontSize: '12px' }}
             >
-              Add Property
+              {editingProperty.isNewProperty ? 'Add Property' : 'Edit Property'}
             </div>
             <div style={{ marginBottom: '8px' }}>
               <input
@@ -926,7 +2161,7 @@ export function NodeEditor() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (editingProperty.key && editingProperty.value) {
+                    if (editingProperty.key) {
                       setNodeProperty(
                         editingProperty.nodeId,
                         editingProperty.key,
@@ -939,16 +2174,22 @@ export function NodeEditor() {
                     setEditingProperty(null);
                   }
                 }}
-                autoFocus
+                autoFocus={editingProperty.isNewProperty}
+                disabled={!editingProperty.isNewProperty}
                 style={{
                   width: '100%',
                   padding: '8px',
-                  backgroundColor: '#252526',
+                  backgroundColor: editingProperty.isNewProperty
+                    ? '#252526'
+                    : '#1a1a1a',
                   border: '1px solid #3e3e3e',
                   borderRadius: '2px',
-                  color: '#d4d4d4',
+                  color: editingProperty.isNewProperty ? '#d4d4d4' : '#666',
                   fontFamily: 'monospace',
                   fontSize: '14px',
+                  cursor: editingProperty.isNewProperty
+                    ? 'text'
+                    : 'not-allowed',
                 }}
               />
             </div>
@@ -966,7 +2207,7 @@ export function NodeEditor() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (editingProperty.key && editingProperty.value) {
+                    if (editingProperty.key) {
                       setNodeProperty(
                         editingProperty.nodeId,
                         editingProperty.key,
@@ -977,8 +2218,21 @@ export function NodeEditor() {
                   } else if (e.key === 'Escape') {
                     e.preventDefault();
                     setEditingProperty(null);
+                  } else if (
+                    e.key === 'Backspace' &&
+                    !editingProperty.isNewProperty &&
+                    editingProperty.value === ''
+                  ) {
+                    // STEP 10.5.3 — Delete property on backspace with empty value
+                    e.preventDefault();
+                    deleteNodeProperty(
+                      editingProperty.nodeId,
+                      editingProperty.key
+                    );
+                    setEditingProperty(null);
                   }
                 }}
+                autoFocus={!editingProperty.isNewProperty}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -992,7 +2246,9 @@ export function NodeEditor() {
               />
             </div>
             <div style={{ fontSize: '11px', color: '#666' }}>
-              Enter to save • Esc to cancel
+              {editingProperty.isNewProperty
+                ? 'Enter to save • Esc to cancel'
+                : 'Enter to save • Backspace on empty to delete • Esc to cancel'}
             </div>
           </div>
         )}
@@ -1045,9 +2301,481 @@ export function NodeEditor() {
           • Cmd/Ctrl+Enter — zoom in (focus on node)
           <br />
           • Esc — zoom out (return to parent view)
-          <br />• : at start of empty node — add property (key:value)
+          <br />
+          • Cmd/Ctrl+D — delete node (soft delete)
+          <br />
+          • : at start of empty node — add property
+          <br />
+          • Click property — edit value (key locked)
+          <br />• Click × — delete property
+          <br />
+          • Cmd/Ctrl+Shift+R — add reference
+          <br />
+          • Cmd/Ctrl+Z — undo
+          <br />
+          • Cmd/Ctrl+Shift+Z — redo
+          <br />
+          • / — open query (filter view)
+          <br />
+          • Cmd/Ctrl+Shift+S — save view
+          <br />
+          • Cmd/Ctrl+Shift+T — apply template
+          <br />
+          • Cmd/Ctrl+Shift+E — export to JSON
+          <br />• Cmd/Ctrl+Shift+I — import from JSON
         </div>
       </div>
+
+      {/* PHASE 20 — Recovery Panel (Read-Only Integrity Report) */}
+      {recoveryEvents.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            backgroundColor: '#2d2d30',
+            border: '1px solid #3e3e42',
+            borderRadius: '6px',
+            padding: '12px',
+            maxWidth: '400px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            zIndex: 999,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: showRecoveryPanel ? '8px' : '0',
+              cursor: 'pointer',
+            }}
+            onClick={() => setShowRecoveryPanel(!showRecoveryPanel)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>🛠</span>
+              <span style={{ fontSize: '13px', color: '#cccccc' }}>
+                File normalized on import ({recoveryEvents.length}{' '}
+                {recoveryEvents.length === 1 ? 'issue' : 'issues'})
+              </span>
+            </div>
+            <button
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#888',
+                cursor: 'pointer',
+                fontSize: '18px',
+                padding: '0 4px',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setRecoveryEvents([]);
+                setShowRecoveryPanel(false);
+              }}
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+
+          {showRecoveryPanel && (
+            <div
+              style={{
+                maxHeight: '300px',
+                overflow: 'auto',
+                fontSize: '12px',
+                color: '#d4d4d4',
+              }}
+            >
+              {recoveryEvents.map((event, idx) => {
+                let message = '';
+
+                switch (event.type) {
+                  case 'duplicate-id':
+                    message = `Duplicate ID resolved: "${event.originalId}" → "${event.resolvedId}"`;
+                    break;
+                  case 'orphan-hoisted':
+                    message = `Orphan node hoisted to root: ${event.nodeId} (invalid parent: ${event.invalidParentId})`;
+                    break;
+                  case 'cycle-broken':
+                    message = `Cycle broken, node hoisted to root: ${event.nodeId}`;
+                    break;
+                  case 'dangling-ref':
+                    message = `Dangling reference preserved: ${event.fromNodeId} → ${event.toNodeId} (missing)`;
+                    break;
+                  case 'self-ref-removed':
+                    message = `Self-reference removed: ${event.nodeId}`;
+                    break;
+                  case 'invalid-prop':
+                    message = `Invalid property: ${event.nodeId}.${event.key} (${event.reason})`;
+                    break;
+                  case 'invalid-ui-flag':
+                    message = `Invalid UI flag removed: ${event.nodeId}.${event.flag}`;
+                    break;
+                  case 'missing-id':
+                    message = `Missing ID generated: ${event.generatedId}`;
+                    break;
+                  case 'view-missing-field':
+                    message = `View missing field: ${event.viewId}.${event.field}`;
+                    break;
+                  case 'template-missing-field':
+                    message = `Template missing field: ${event.templateId}.${event.field}`;
+                    break;
+                }
+
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '8px',
+                      backgroundColor: '#252526',
+                      borderRadius: '3px',
+                      marginBottom:
+                        idx < recoveryEvents.length - 1 ? '4px' : '0',
+                    }}
+                  >
+                    <div
+                      style={{
+                        marginBottom:
+                          event.actions && event.actions.length > 0
+                            ? '6px'
+                            : '0',
+                      }}
+                    >
+                      • {message}
+                    </div>
+
+                    {/* PHASE 22: Action buttons (optional, explicit) */}
+                    {event.actions && event.actions.length > 0 && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: '6px',
+                          marginLeft: '12px',
+                        }}
+                      >
+                        {event.actions.map((action, actionIdx) => {
+                          let buttonLabel = '';
+                          let buttonColor = '#0e639c';
+
+                          switch (action.type) {
+                            case 'focus-node':
+                              buttonLabel = 'Focus';
+                              buttonColor = '#0e639c';
+                              break;
+                            case 'remove-ref':
+                              buttonLabel = 'Remove Ref';
+                              buttonColor = '#a1260d';
+                              break;
+                            case 'delete-node':
+                              buttonLabel = 'Delete Node';
+                              buttonColor = '#8b0000';
+                              break;
+                          }
+
+                          return (
+                            <button
+                              key={actionIdx}
+                              style={{
+                                padding: '3px 8px',
+                                fontSize: '11px',
+                                backgroundColor: buttonColor,
+                                border: 'none',
+                                borderRadius: '3px',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() => runRecoveryAction(action)}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = '0.8';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                              }}
+                            >
+                              {buttonLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STEP 11.2.1 — Reference Picker Modal */}
+      {refPickerState.isOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() =>
+            setRefPickerState({
+              isOpen: false,
+              sourceNodeId: null,
+              selectedIndex: 0,
+            })
+          }
+        >
+          <div
+            style={{
+              backgroundColor: '#1e1e1e',
+              border: '1px solid #3e3e3e',
+              borderRadius: '4px',
+              width: '500px',
+              maxHeight: '400px',
+              overflow: 'auto',
+              padding: '12px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setRefPickerState({
+                  isOpen: false,
+                  sourceNodeId: null,
+                  selectedIndex: 0,
+                });
+                return;
+              }
+
+              const allNodes = editorState.nodes;
+              const maxIndex = allNodes.length - 1;
+
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setRefPickerState((prev) => ({
+                  ...prev,
+                  selectedIndex: Math.min(prev.selectedIndex + 1, maxIndex),
+                }));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setRefPickerState((prev) => ({
+                  ...prev,
+                  selectedIndex: Math.max(prev.selectedIndex - 1, 0),
+                }));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const targetNode = allNodes[refPickerState.selectedIndex];
+                if (targetNode && refPickerState.sourceNodeId) {
+                  addNodeRef(refPickerState.sourceNodeId, targetNode.id);
+                  setRefPickerState({
+                    isOpen: false,
+                    sourceNodeId: null,
+                    selectedIndex: 0,
+                  });
+                }
+              }
+            }}
+            tabIndex={0}
+            ref={(el) => el?.focus()}
+          >
+            <div
+              style={{
+                fontSize: '14px',
+                color: '#d4d4d4',
+                marginBottom: '12px',
+                fontWeight: 'bold',
+              }}
+            >
+              Add Reference
+            </div>
+            <div
+              style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}
+            >
+              ↑↓ to navigate • Enter to select • Esc to cancel
+            </div>
+            {editorState.nodes.map((node, index) => {
+              const depth = (() => {
+                const nodesById = new Map(
+                  editorState.nodes.map((n) => [n.id, n])
+                );
+                let d = 0;
+                let current = node;
+                while (current.parentId) {
+                  const parent = nodesById.get(current.parentId);
+                  if (!parent) break;
+                  d++;
+                  current = parent;
+                }
+                return d;
+              })();
+
+              const isSelected = index === refPickerState.selectedIndex;
+              const isSource = node.id === refPickerState.sourceNodeId;
+
+              return (
+                <div
+                  key={node.id}
+                  style={{
+                    padding: '6px 8px',
+                    marginBottom: '2px',
+                    paddingLeft: `${8 + depth * 20}px`,
+                    backgroundColor: isSelected ? '#37373d' : 'transparent',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    color: isSource ? '#666' : '#d4d4d4',
+                    fontStyle: isSource ? 'italic' : 'normal',
+                  }}
+                  onClick={() => {
+                    if (refPickerState.sourceNodeId && !isSource) {
+                      addNodeRef(refPickerState.sourceNodeId, node.id);
+                      setRefPickerState({
+                        isOpen: false,
+                        sourceNodeId: null,
+                        selectedIndex: 0,
+                      });
+                    }
+                  }}
+                  onMouseEnter={() =>
+                    setRefPickerState((prev) => ({
+                      ...prev,
+                      selectedIndex: index,
+                    }))
+                  }
+                >
+                  {/* STEP 12.4 — Use canonical label helper */}
+                  {getNodeLabel(node)}
+                  {isSource && ' (current)'}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* STEP 17.3 — Template Picker Modal */}
+      {showTemplatePicker && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowTemplatePicker(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#1e1e1e',
+              border: '1px solid #3e3e3e',
+              borderRadius: '4px',
+              width: '500px',
+              maxHeight: '400px',
+              overflow: 'auto',
+              padding: '12px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setShowTemplatePicker(false);
+                return;
+              }
+
+              const maxIndex = templates.length - 1;
+
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setTemplatePickerIndex((prev) => Math.min(prev + 1, maxIndex));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setTemplatePickerIndex((prev) => Math.max(prev - 1, 0));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const template = templates[templatePickerIndex];
+                if (template) {
+                  applyTemplate(editorState.activeNodeId, template);
+                  setShowTemplatePicker(false);
+                }
+              }
+            }}
+            tabIndex={0}
+            ref={(el) => el?.focus()}
+          >
+            <div
+              style={{
+                fontSize: '14px',
+                color: '#d4d4d4',
+                marginBottom: '12px',
+                fontWeight: 'bold',
+              }}
+            >
+              Apply Template
+            </div>
+            <div
+              style={{ fontSize: '11px', color: '#888', marginBottom: '12px' }}
+            >
+              ↑↓ to navigate • Enter to apply • Esc to cancel
+            </div>
+            {templates.map((template, index) => {
+              const isSelected = index === templatePickerIndex;
+
+              return (
+                <div
+                  key={template.id}
+                  style={{
+                    padding: '8px',
+                    marginBottom: '4px',
+                    backgroundColor: isSelected ? '#37373d' : 'transparent',
+                    borderRadius: '2px',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    applyTemplate(editorState.activeNodeId, template);
+                    setShowTemplatePicker(false);
+                  }}
+                  onMouseEnter={() => setTemplatePickerIndex(index)}
+                >
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: '#d4d4d4',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    {template.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '10px',
+                      color: '#666',
+                      marginLeft: '8px',
+                    }}
+                  >
+                    {Object.entries(template.props)
+                      .map(
+                        ([key, value]) => `#${key}${value ? `: ${value}` : ''}`
+                      )
+                      .join(' • ')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

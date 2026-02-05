@@ -30,8 +30,11 @@ export interface Node {
   /** Parent node ID (null = root) — hierarchy */
   parentId: NodeID | null;
 
-  /** Properties (key-value metadata) — NEW: Phase 10 */
+  /** Properties (key-value metadata) — Phase 10 */
   props?: Record<string, string>;
+
+  /** References to other nodes — Phase 11 (graph edges) */
+  refs?: NodeID[];
 }
 
 /**

@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {
+      "id": "legacy-1",
+      "text": "This is a V1 file (no version field)",
+      "type": "paragraph",
+      "parentId": null
+    },
+    {
+      "id": "legacy-2",
+      "text": "V1 files don't have views or templates",
+      "type": "paragraph",
+      "parentId": "legacy-1"
+    },
+    {
+      "id": "legacy-3",
+      "text": "Migration should add empty arrays for views/templates",
+      "type": "paragraph",
+      "parentId": "legacy-1"
+    }
+  ]
+}

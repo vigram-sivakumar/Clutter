@@ -3,22 +3,33 @@
  */
 
 import type { Node, NodeID } from './engine/NodeKernel';
+import { getNodeLabel } from './NodeEditor';
 
 export function NodeView({
   node,
   nodes,
+  backlinks,
   isActive,
   cursorOffset,
   selection,
+  onPropertyClick,
+  onPropertyDelete,
+  onRefClick,
+  onAddRefClick,
 }: {
   node: Node;
   nodes: Node[];
+  backlinks: Node[];
   isActive: boolean;
   cursorOffset: number | null;
   selection: {
     anchor: { nodeId: NodeID; offset: number } | null;
     focus: { nodeId: NodeID; offset: number } | null;
   };
+  onPropertyClick?: (key: string, value: string) => void;
+  onPropertyDelete?: (key: string) => void;
+  onRefClick?: (targetId: NodeID) => void;
+  onAddRefClick?: (nodeId: NodeID) => void;
 }) {
   const fontSize = node.type === 'heading' ? '20px' : '14px';
   const fontWeight = node.type === 'heading' ? 'bold' : 'normal';
@@ -171,7 +182,7 @@ export function NodeView({
       <div style={{ display: 'inline-block', flex: 1 }}>
         {renderText()}
 
-        {/* STEP 10.2 — Render properties */}
+        {/* STEP 10.2/10.5.5 — Render properties (clickable) */}
         {node.props && Object.keys(node.props).length > 0 && (
           <div
             style={{
@@ -182,12 +193,190 @@ export function NodeView({
             }}
           >
             {Object.entries(node.props).map(([key, value]) => (
-              <div key={key} style={{ marginLeft: '16px' }}>
-                <span style={{ color: '#4fc3f7' }}>#{key}</span>
-                <span style={{ color: '#888' }}>: </span>
-                <span style={{ color: '#b5cea8' }}>{value}</span>
+              <div
+                key={key}
+                style={{
+                  marginLeft: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                <span
+                  onClick={() => onPropertyClick?.(key, value)}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '2px',
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = '#2d2d30')
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'transparent')
+                  }
+                >
+                  <span style={{ color: '#4fc3f7' }}>#{key}</span>
+                  <span style={{ color: '#888' }}>: </span>
+                  <span style={{ color: '#b5cea8' }}>{value}</span>
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPropertyDelete?.(key);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#666',
+                    cursor: 'pointer',
+                    padding: '0',
+                    fontSize: '10px',
+                    lineHeight: '1',
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.color = '#f44336')
+                  }
+                  onMouseLeave={(e) => (e.currentTarget.style.color = '#666')}
+                >
+                  ×
+                </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* STEP 11.2.1 — Add reference button (only when active) */}
+        {isActive && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddRefClick?.(node.id);
+            }}
+            style={{
+              marginTop: '4px',
+              marginLeft: '16px',
+              background: 'none',
+              border: '1px solid #3e3e3e',
+              borderRadius: '2px',
+              color: '#888',
+              cursor: 'pointer',
+              padding: '2px 6px',
+              fontSize: '10px',
+              fontFamily: 'monospace',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#d4d4d4';
+              e.currentTarget.style.borderColor = '#666';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#888';
+              e.currentTarget.style.borderColor = '#3e3e3e';
+            }}
+          >
+            +ref
+          </button>
+        )}
+
+        {/* STEP 11.1.4 — Render references */}
+        {node.refs && node.refs.length > 0 && (
+          <div
+            style={{
+              marginTop: '4px',
+              fontSize: '11px',
+              color: '#888',
+            }}
+          >
+            {node.refs.map((refId) => {
+              const refNode = nodes.find((n) => n.id === refId);
+              // STEP 12.2 — Use canonical label helper
+              const refTitle = refNode ? getNodeLabel(refNode) : '(missing)';
+              // PHASE 20: Add tooltip for missing refs
+              const refTooltip = refNode
+                ? undefined
+                : 'Target node not found at import time';
+
+              return (
+                <div
+                  key={refId}
+                  style={{
+                    marginLeft: '16px',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '2px',
+                    display: 'inline-block',
+                  }}
+                  title={refTooltip}
+                  onClick={() => onRefClick?.(refId)}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = '#2d2d30')
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'transparent')
+                  }
+                >
+                  <span style={{ color: '#666' }}>↳ </span>
+                  <span style={{ color: '#9cdcfe' }}>@{refTitle}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* STEP 11.3.4 — Render backlinks (derived, read-only) */}
+        {backlinks.length > 0 && (
+          <div
+            style={{
+              marginTop: '8px',
+              fontSize: '11px',
+              color: '#888',
+            }}
+          >
+            <div
+              style={{
+                marginLeft: '16px',
+                marginBottom: '4px',
+                color: '#666',
+                fontStyle: 'italic',
+              }}
+            >
+              Referenced by:
+            </div>
+            {backlinks.map((backlinkNode) => {
+              // PHASE 20: Add tooltip for deleted nodes
+              const isDeleted =
+                'isDeleted' in backlinkNode && backlinkNode.isDeleted;
+              const backlinkTooltip = isDeleted
+                ? 'Node was deleted but preserved for integrity'
+                : undefined;
+
+              return (
+                <div
+                  key={backlinkNode.id}
+                  style={{
+                    marginLeft: '16px',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '2px',
+                    display: 'inline-block',
+                  }}
+                  title={backlinkTooltip}
+                  onClick={() => onRefClick?.(backlinkNode.id)}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = '#2d2d30')
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'transparent')
+                  }
+                >
+                  <span style={{ color: '#666' }}>← </span>
+                  {/* STEP 12.2 — Use canonical label helper */}
+                  <span style={{ color: '#ce9178' }}>
+                    {getNodeLabel(backlinkNode)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
