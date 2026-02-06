@@ -12,7 +12,11 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Node, NodeID } from './engine/NodeKernel';
-import { createNode, insertNodeAfter } from './engine/NodeKernel';
+import {
+  createNode,
+  insertNodeAfter,
+  insertNodeBefore,
+} from './engine/NodeKernel';
 import type { EditorState } from './engine/EditorState';
 import { applyIntent } from './engine/EditorState';
 import { NodeView } from './NodeView';
@@ -1059,6 +1063,24 @@ export function NodeEditor() {
     return {
       nodes: withChild,
       activeNodeId: child.id,
+      offset: 0,
+    };
+  }
+
+  /**
+   * Create Sibling Above (Enter at START of non-empty node)
+   * Creates a new sibling node immediately before the current node
+   */
+  function createSiblingAbove(state: EditorState): EditorState {
+    const node = state.nodes.find((n) => n.id === state.activeNodeId);
+    if (!node) return state;
+
+    const sibling = createNode(node.type, '', node.parentId);
+    const withSibling = insertNodeBefore(state.nodes, node.id, sibling);
+
+    return {
+      nodes: withSibling,
+      activeNodeId: sibling.id,
       offset: 0,
     };
   }
@@ -2301,10 +2323,15 @@ export function NodeEditor() {
         }
       }
 
-      // STEP 7.2 — Enter at start = create child
-      if (editorState.offset === 0) {
-        const newState = createChild(editorState);
-        // STEP 14.2 — Commit create child
+      const activeNode = editorState.nodes.find(
+        (n) => n.id === editorState.activeNodeId
+      );
+      if (!activeNode) return;
+
+      // Cursor at START of non-empty node → create sibling ABOVE
+      if (editorState.offset === 0 && activeNode.text.length > 0) {
+        const newState = createSiblingAbove(editorState);
+        // STEP 14.2 — Commit create sibling above
         commit({
           nodes: newState.nodes as UINode[],
           activeNodeId: newState.activeNodeId,
@@ -2313,7 +2340,7 @@ export function NodeEditor() {
         return;
       }
 
-      // No selection, not at start - normal enter (split/sibling)
+      // All other cases (empty, middle, end) → delegate to applyIntent
       const newState = applyIntent(editorState, { type: 'enter' });
       // STEP 14.2 — Commit enter
       commit({

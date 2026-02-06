@@ -76,6 +76,20 @@ export function insertNodeAfter(
 }
 
 /**
+ * Insert a node before another node in the list
+ */
+export function insertNodeBefore(
+  nodes: Node[],
+  beforeId: NodeID,
+  newNode: Node
+): Node[] {
+  const index = nodes.findIndex((n) => n.id === beforeId);
+  if (index === -1) return [newNode, ...nodes]; // Not found, prepend
+
+  return [...nodes.slice(0, index), newNode, ...nodes.slice(index)];
+}
+
+/**
  * Delete a node by ID
  */
 export function deleteNode(nodes: Node[], nodeId: NodeID): Node[] {
