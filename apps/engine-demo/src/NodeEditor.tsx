@@ -49,6 +49,10 @@ import { intentToCommand } from './input/grammarToCommand';
 import { executeCommand } from './commands/executor';
 import type { EditorContext } from './commands/executor';
 import { syncPropertiesFromText } from './input/hashtagSync';
+import {
+  getNodePositionFromSelection,
+  getSelectionRangeFromDOM,
+} from './selection/domMapping';
 
 /**
  * STEP 8.1 — UI-extended Node
@@ -343,6 +347,54 @@ export function NodeEditor() {
   useEffect(() => {
     containerRef.current?.focus();
   }, []);
+
+  /**
+   * Phase 5.1.4 — Document-level Selection Observer
+   * Syncs browser selection changes to editor state
+   */
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const browserSelection = window.getSelection();
+      if (!browserSelection) return;
+
+      // Check if selection is inside our editor
+      const containerEl = containerRef.current;
+      if (!containerEl) return;
+
+      const anchorInEditor = containerEl.contains(browserSelection.anchorNode);
+      const focusInEditor = containerEl.contains(browserSelection.focusNode);
+
+      if (!anchorInEditor || !focusInEditor) return;
+
+      // Translate to editor state
+      if (browserSelection.isCollapsed) {
+        const position = getNodePositionFromSelection(browserSelection);
+        if (position) {
+          setEditorState({
+            ...editorState,
+            activeNodeId: position.nodeId,
+            offset: position.offset,
+          });
+          setSelection({ anchor: null, focus: null });
+        }
+      } else {
+        const range = getSelectionRangeFromDOM(browserSelection);
+        if (range) {
+          setEditorState({
+            ...editorState,
+            activeNodeId: range.focus.nodeId,
+            offset: range.focus.offset,
+          });
+          setSelection(range);
+        }
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [editorState, grammarSession]);
 
   /**
    * STEP 14.2 + PHASE 3C — Commit State Changes (with history)
@@ -1736,6 +1788,88 @@ export function NodeEditor() {
     };
   }
 
+  /**
+   * Phase 5.1.3 — Mouse Down Handler
+   * Clear grammar session on mouse interaction
+   */
+  const handleMouseDown = (nodeId: NodeID) => {
+    // Cancel any active grammar session
+    if (isSessionActive(grammarSession)) {
+      setGrammarSession(EMPTY_GRAMMAR_SESSION);
+    }
+  };
+
+  /**
+   * Phase 5.1.3 — Mouse Up Handler
+   * Translate browser selection to editor state
+   */
+  const handleMouseUp = (nodeId: NodeID) => {
+    const browserSelection = window.getSelection();
+    if (!browserSelection) return;
+
+    // Check if collapsed (caret) or range (selection)
+    if (browserSelection.isCollapsed) {
+      // Single caret position
+      const position = getNodePositionFromSelection(browserSelection);
+      if (position) {
+        setEditorState({
+          ...editorState,
+          activeNodeId: position.nodeId,
+          offset: position.offset,
+        });
+        setSelection({ anchor: null, focus: null });
+      }
+    } else {
+      // Selection range
+      const range = getSelectionRangeFromDOM(browserSelection);
+      if (range) {
+        setEditorState({
+          ...editorState,
+          activeNodeId: range.focus.nodeId,
+          offset: range.focus.offset,
+        });
+        setSelection(range);
+      }
+    }
+  };
+
+  /**
+   * Phase 5.1.5 — Editor → Browser Caret Sync
+   * Set browser selection to match editor state
+   */
+  useEffect(() => {
+    const activeNode = editorState.nodes.find(
+      (n) => n.id === editorState.activeNodeId
+    );
+    if (!activeNode) return;
+
+    // Find the node__content element
+    const nodeElement = document.querySelector(
+      `[data-node-id="${editorState.activeNodeId}"] .node__content`
+    );
+    if (!nodeElement) return;
+
+    const textNode = nodeElement.firstChild;
+    if (!textNode) return;
+
+    const range = document.createRange();
+    const sel = window.getSelection();
+    if (!sel) return;
+
+    try {
+      const clampedOffset = Math.max(
+        0,
+        Math.min(editorState.offset, activeNode.text.length)
+      );
+      range.setStart(textNode, clampedOffset);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (err) {
+      // Ignore - cursor position may be invalid during rapid updates
+    }
+  }, [editorState.activeNodeId, editorState.offset]);
+
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // PHASE C — Grammar mode keyboard handling (highest priority)
@@ -2841,6 +2975,8 @@ export function NodeEditor() {
                 node.id === editorState.activeNodeId ? editorState.offset : null
               }
               selection={selection}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
             />
           ))}
 

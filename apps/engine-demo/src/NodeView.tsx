@@ -21,6 +21,8 @@ export function NodeView({
   isActive,
   cursorOffset,
   selection,
+  onMouseDown,
+  onMouseUp,
 }: {
   node: Node;
   nodes: Node[];
@@ -30,6 +32,8 @@ export function NodeView({
     anchor: { nodeId: NodeID; offset: number } | null;
     focus: { nodeId: NodeID; offset: number } | null;
   };
+  onMouseDown?: (nodeId: NodeID) => void;
+  onMouseUp?: (nodeId: NodeID) => void;
 }) {
   // File 04 — Get variant from props (canonical source)
   const variant = getNodeVariant(node);
@@ -181,6 +185,7 @@ export function NodeView({
   return (
     <div
       className={`node node--${variant}`}
+      data-node-id={node.id}
       style={{
         backgroundColor: isActive ? '#2d2d30' : 'transparent',
         borderRadius: '2px',
@@ -209,6 +214,14 @@ export function NodeView({
           style={{
             fontSize: variant.startsWith('heading') ? '18px' : '14px',
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onMouseDown?.(node.id);
+          }}
+          onMouseUp={(e) => {
+            e.preventDefault();
+            onMouseUp?.(node.id);
           }}
         >
           {renderText()}
