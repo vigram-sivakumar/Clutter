@@ -247,6 +247,12 @@ export function NodeEditor() {
     EMPTY_GRAMMAR_SESSION
   );
 
+  // Ref for grammar session (used in event listeners to avoid stale closures)
+  const grammarRef = useRef<GrammarSession>(grammarSession);
+  useEffect(() => {
+    grammarRef.current = grammarSession;
+  }, [grammarSession]);
+
   // PHASE 23 — Sync conflicts state (UI-only, session-scoped)
   const [_syncConflicts, _setSyncConflicts] = useState<
     import('./sync').Conflict[] | null
@@ -351,6 +357,9 @@ export function NodeEditor() {
   /**
    * Phase 5.1.4 — Document-level Selection Observer
    * Syncs browser selection changes to editor state
+   *
+   * CRITICAL FIX: Registered ONCE to avoid stale closure bugs
+   * Uses functional state updates to avoid spreading stale editorState
    */
   useEffect(() => {
     const handleSelectionChange = () => {
@@ -366,25 +375,28 @@ export function NodeEditor() {
 
       if (!anchorInEditor || !focusInEditor) return;
 
+      // Skip if grammar session is active (use ref to avoid stale closure)
+      if (isSessionActive(grammarRef.current)) return;
+
       // Translate to editor state
       if (browserSelection.isCollapsed) {
         const position = getNodePositionFromSelection(browserSelection);
         if (position) {
-          setEditorState({
-            ...editorState,
+          setEditorState((prev) => ({
+            ...prev,
             activeNodeId: position.nodeId,
             offset: position.offset,
-          });
+          }));
           setSelection({ anchor: null, focus: null });
         }
       } else {
         const range = getSelectionRangeFromDOM(browserSelection);
         if (range) {
-          setEditorState({
-            ...editorState,
+          setEditorState((prev) => ({
+            ...prev,
             activeNodeId: range.focus.nodeId,
             offset: range.focus.offset,
-          });
+          }));
           setSelection(range);
         }
       }
@@ -394,7 +406,7 @@ export function NodeEditor() {
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
-  }, [editorState, grammarSession]);
+  }, []); // Register ONCE only - no dependencies
 
   /**
    * STEP 14.2 + PHASE 3C — Commit State Changes (with history)
