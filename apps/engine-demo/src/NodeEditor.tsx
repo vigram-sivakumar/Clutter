@@ -1789,86 +1789,88 @@ export function NodeEditor() {
   }
 
   /**
-   * Phase 5.1.3 — Mouse Down Handler
-   * Clear grammar session on mouse interaction
+   * Phase 5.1.3 — Mouse Handlers
+   * DISABLED per Phase 5.1 directive:
+   * - Mouse events must NOT mutate editor state directly
+   * - Selection is handled ONLY via document.addEventListener('selectionchange')
+   * - These are redundant with the selectionchange observer
    */
-  const handleMouseDown = (nodeId: NodeID) => {
-    // Cancel any active grammar session
-    if (isSessionActive(grammarSession)) {
-      setGrammarSession(EMPTY_GRAMMAR_SESSION);
-    }
-  };
-
-  /**
-   * Phase 5.1.3 — Mouse Up Handler
-   * Translate browser selection to editor state
-   */
-  const handleMouseUp = (nodeId: NodeID) => {
-    const browserSelection = window.getSelection();
-    if (!browserSelection) return;
-
-    // Check if collapsed (caret) or range (selection)
-    if (browserSelection.isCollapsed) {
-      // Single caret position
-      const position = getNodePositionFromSelection(browserSelection);
-      if (position) {
-        setEditorState({
-          ...editorState,
-          activeNodeId: position.nodeId,
-          offset: position.offset,
-        });
-        setSelection({ anchor: null, focus: null });
-      }
-    } else {
-      // Selection range
-      const range = getSelectionRangeFromDOM(browserSelection);
-      if (range) {
-        setEditorState({
-          ...editorState,
-          activeNodeId: range.focus.nodeId,
-          offset: range.focus.offset,
-        });
-        setSelection(range);
-      }
-    }
-  };
+  // const handleMouseDown = (nodeId: NodeID) => {
+  //   // Cancel any active grammar session
+  //   if (isSessionActive(grammarSession)) {
+  //     setGrammarSession(EMPTY_GRAMMAR_SESSION);
+  //   }
+  // };
+  //
+  // const handleMouseUp = (nodeId: NodeID) => {
+  //   const browserSelection = window.getSelection();
+  //   if (!browserSelection) return;
+  //
+  //   // Check if collapsed (caret) or range (selection)
+  //   if (browserSelection.isCollapsed) {
+  //     // Single caret position
+  //     const position = getNodePositionFromSelection(browserSelection);
+  //     if (position) {
+  //       setEditorState({
+  //         ...editorState,
+  //         activeNodeId: position.nodeId,
+  //         offset: position.offset,
+  //       });
+  //       setSelection({ anchor: null, focus: null });
+  //     }
+  //   } else {
+  //     // Selection range
+  //     const range = getSelectionRangeFromDOM(browserSelection);
+  //     if (range) {
+  //       setEditorState({
+  //         ...editorState,
+  //         activeNodeId: range.focus.nodeId,
+  //         offset: range.focus.offset,
+  //       });
+  //       setSelection(range);
+  //     }
+  //   }
+  // };
 
   /**
    * Phase 5.1.5 — Editor → Browser Caret Sync
-   * Set browser selection to match editor state
+   * DISABLED per Phase 5.1 directive:
+   * - Browser owns caret
+   * - Forcing selection causes flicker and breaks drag selection
+   * - This will be reintroduced LATER in controlled cases
    */
-  useEffect(() => {
-    const activeNode = editorState.nodes.find(
-      (n) => n.id === editorState.activeNodeId
-    );
-    if (!activeNode) return;
-
-    // Find the node__content element
-    const nodeElement = document.querySelector(
-      `[data-node-id="${editorState.activeNodeId}"] .node__content`
-    );
-    if (!nodeElement) return;
-
-    const textNode = nodeElement.firstChild;
-    if (!textNode) return;
-
-    const range = document.createRange();
-    const sel = window.getSelection();
-    if (!sel) return;
-
-    try {
-      const clampedOffset = Math.max(
-        0,
-        Math.min(editorState.offset, activeNode.text.length)
-      );
-      range.setStart(textNode, clampedOffset);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } catch (err) {
-      // Ignore - cursor position may be invalid during rapid updates
-    }
-  }, [editorState.activeNodeId, editorState.offset]);
+  // useEffect(() => {
+  //   const activeNode = editorState.nodes.find(
+  //     (n) => n.id === editorState.activeNodeId
+  //   );
+  //   if (!activeNode) return;
+  //
+  //   // Find the node__content element
+  //   const nodeElement = document.querySelector(
+  //     `[data-node-id="${editorState.activeNodeId}"] .node__content`
+  //   );
+  //   if (!nodeElement) return;
+  //
+  //   const textNode = nodeElement.firstChild;
+  //   if (!textNode) return;
+  //
+  //   const range = document.createRange();
+  //   const sel = window.getSelection();
+  //   if (!sel) return;
+  //
+  //   try {
+  //     const clampedOffset = Math.max(
+  //       0,
+  //       Math.min(editorState.offset, activeNode.text.length)
+  //     );
+  //     range.setStart(textNode, clampedOffset);
+  //     range.collapse(true);
+  //     sel.removeAllRanges();
+  //     sel.addRange(range);
+  //   } catch (err) {
+  //     // Ignore - cursor position may be invalid during rapid updates
+  //   }
+  // }, [editorState.activeNodeId, editorState.offset]);
 
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -2971,8 +2973,6 @@ export function NodeEditor() {
               node={node}
               nodes={editorState.nodes}
               isActive={node.id === editorState.activeNodeId}
-              onMouseDown={handleMouseDown}
-              onMouseUp={handleMouseUp}
             />
           ))}
 

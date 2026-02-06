@@ -37,10 +37,8 @@ export function getNodePositionFromDOM(
 
   const contentEl = node;
 
-  const container = contentEl.closest('.node');
-  if (!(container instanceof HTMLElement)) return null;
-
-  const nodeId = container.getAttribute('data-node-id');
+  // data-node-id is directly on node__content (per directive)
+  const nodeId = contentEl.getAttribute('data-node-id');
   if (!nodeId) return null;
 
   // --- Correct offset calculation using Range API ---
