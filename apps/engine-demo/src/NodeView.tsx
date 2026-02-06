@@ -19,10 +19,12 @@ export function NodeView({
   node,
   nodes,
   isActive,
+  onInput,
 }: {
   node: Node;
   nodes: Node[];
   isActive: boolean;
+  onInput?: (nodeId: NodeID, newText: string) => void;
 }) {
   // File 04 — Get variant from props (canonical source)
   const variant = getNodeVariant(node);
@@ -113,6 +115,10 @@ export function NodeView({
           style={{
             fontSize: variant.startsWith('heading') ? '18px' : '14px',
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
+          }}
+          onInput={(e) => {
+            const newText = e.currentTarget.textContent || '';
+            onInput?.(node.id, newText);
           }}
         >
           {node.text || '\u00A0'}
