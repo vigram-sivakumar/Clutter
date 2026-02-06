@@ -375,21 +375,21 @@ export function NodeEditor() {
       if (browserSelection.isCollapsed) {
         const position = getNodePositionFromSelection(browserSelection);
         if (position) {
-          setEditorState((prev) => ({
-            ...prev,
+          setEditorState({
+            ...editorState,
             activeNodeId: position.nodeId,
             offset: position.offset,
-          }));
+          });
           setSelection({ anchor: null, focus: null });
         }
       } else {
         const range = getSelectionRangeFromDOM(browserSelection);
         if (range) {
-          setEditorState((prev) => ({
-            ...prev,
+          setEditorState({
+            ...editorState,
             activeNodeId: range.focus.nodeId,
             offset: range.focus.offset,
-          }));
+          });
           setSelection(range);
         }
       }
@@ -399,7 +399,7 @@ export function NodeEditor() {
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
-  }, [grammarSession]);
+  }, [editorState, grammarSession]);
 
   /**
    * STEP 14.2 + PHASE 3C — Commit State Changes (with history)
@@ -1897,31 +1897,6 @@ export function NodeEditor() {
     setShouldSyncCaret(false);
   }, [shouldSyncCaret, editorState.activeNodeId, editorState.offset]);
 
-  /**
-   * Phase 5.1 — Input Handler (Uncontrolled ContentEditable)
-   * Browser handles typing natively, we just sync state from DOM
-   */
-  const handleInput = (nodeId: NodeID, newText: string) => {
-    setEditorState((prev) => ({
-      ...prev,
-      nodes: prev.nodes.map((n) =>
-        n.id === nodeId ? { ...n, text: newText } : n
-      ) as UINode[],
-    }));
-
-    // PHASE C — Detect grammar after text changes
-    if (nodeId === editorState.activeNodeId) {
-      // Get current cursor position from browser selection
-      const browserSelection = window.getSelection();
-      if (browserSelection && browserSelection.isCollapsed) {
-        const position = getNodePositionFromSelection(browserSelection);
-        if (position && position.nodeId === nodeId) {
-          updateGrammarDetection(newText, position.offset);
-        }
-      }
-    }
-  };
-
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // PHASE C — Grammar mode keyboard handling (highest priority)
@@ -2361,66 +2336,113 @@ export function NodeEditor() {
       return;
     }
 
-    // PHASE 5.2.1 — Markdown Shortcut: Task Variant ([]␣)
-    // Authority: File 07 (LOCKED)
-    if (
-      e.key === ' ' &&
-      editorState.offset === 2 &&
-      !isSessionActive(grammarSession) &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey
-    ) {
-      const activeNode = editorState.nodes.find(
-        (n) => n.id === editorState.activeNodeId
+    // Check if selection exists
+    const selectionExists =
+      selection.anchor &&
+      selection.focus &&
+      !(
+        selection.anchor.nodeId === selection.focus.nodeId &&
+        selection.anchor.offset === selection.focus.offset
       );
-      if (activeNode && activeNode.text === '[]') {
-        e.preventDefault();
 
-        const updatedNodes = editorState.nodes.map((n) =>
-          n.id === activeNode.id
-            ? {
-                ...n,
-                text: '',
-                props: { ...n.props, variant: 'task' },
-              }
-            : n
+    // STEP 4.3 / 10.3 — Typing With Selection / Property Trigger
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+
+      if (selectionExists) {
+        const normalized = normalizeSelection(
+          selection.anchor,
+          selection.focus,
+          editorState.nodes
         );
-
-        commit({
-          nodes: updatedNodes as UINode[],
-          activeNodeId: activeNode.id,
-          offset: 0,
-          selection: { anchor: null, focus: null },
-        });
-
-        setShouldSyncCaret(true); // Phase 5.1.5 — Sync after markdown conversion
-
-        return;
+        if (normalized) {
+          let nextState = deleteSelection(editorState, normalized);
+          nextState = applyIntent(nextState, {
+            type: 'insertText',
+            text: e.key,
+          });
+          // STEP 14.2 — Commit text edit after selection delete
+          commit({
+            nodes: nextState.nodes as UINode[],
+            activeNodeId: nextState.activeNodeId,
+            offset: nextState.offset,
+            selection: { anchor: null, focus: null },
+          });
+          return;
+        }
       }
-    }
 
-    // STEP 10.3 — Property trigger: `:` at start of empty node
-    if (
-      e.key === ':' &&
-      editorState.offset === 0 &&
-      !e.ctrlKey &&
-      !e.metaKey &&
-      !e.altKey
-    ) {
-      const activeNode = editorState.nodes.find(
-        (n) => n.id === editorState.activeNodeId
+      // PHASE 5.2.1 — Markdown Shortcut: Task Variant ([]␣)
+      // Authority: File 07 (LOCKED)
+      if (
+        e.key === ' ' &&
+        editorState.offset === 2 &&
+        !isSessionActive(grammarSession)
+      ) {
+        const activeNode = editorState.nodes.find(
+          (n) => n.id === editorState.activeNodeId
+        );
+        if (activeNode && activeNode.text === '[]') {
+          const updatedNodes = editorState.nodes.map((n) =>
+            n.id === activeNode.id
+              ? {
+                  ...n,
+                  text: '',
+                  props: { ...n.props, variant: 'task' },
+                }
+              : n
+          );
+
+          commit({
+            nodes: updatedNodes as UINode[],
+            activeNodeId: activeNode.id,
+            offset: 0,
+            selection: { anchor: null, focus: null },
+          });
+
+          setShouldSyncCaret(true); // Phase 5.1.5 — Sync after markdown conversion
+
+          return;
+        }
+      }
+
+      // STEP 10.3 — Property trigger: `:` at start of empty node
+      if (e.key === ':' && editorState.offset === 0) {
+        const activeNode = editorState.nodes.find(
+          (n) => n.id === editorState.activeNodeId
+        );
+        if (activeNode && activeNode.text === '') {
+          setEditingProperty({
+            nodeId: activeNode.id,
+            key: '',
+            value: '',
+            isNewProperty: true,
+          });
+          return;
+        }
+      }
+
+      // No selection - normal insert
+      const newState = applyIntent(editorState, {
+        type: 'insertText',
+        text: e.key,
+      });
+      // STEP 14.2 — Commit text insert
+      commit({
+        nodes: newState.nodes as UINode[],
+        activeNodeId: newState.activeNodeId,
+        offset: newState.offset,
+      });
+
+      // PHASE C — Detect grammar after text insertion
+      const activeNode = newState.nodes.find(
+        (n) => n.id === newState.activeNodeId
       );
-      if (activeNode && activeNode.text === '') {
-        e.preventDefault();
-        setEditingProperty({
-          nodeId: activeNode.id,
-          key: '',
-          value: '',
-          isNewProperty: true,
-        });
-        return;
+      if (activeNode) {
+        updateGrammarDetection(activeNode.text, newState.offset);
       }
+
+      return;
     }
 
     // STEP 4.4 / 7.4 — Backspace With Selection / Hierarchy-aware Backspace
@@ -3017,7 +3039,6 @@ export function NodeEditor() {
               node={node}
               nodes={editorState.nodes}
               isActive={node.id === editorState.activeNodeId}
-              onInput={handleInput}
             />
           ))}
 

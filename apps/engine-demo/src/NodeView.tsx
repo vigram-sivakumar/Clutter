@@ -12,6 +12,7 @@
  * </div>
  */
 
+import { useRef, useEffect } from 'react';
 import type { Node, NodeID } from './engine/NodeKernel';
 import { getNodeVariant } from './engine/NodeKernel';
 
@@ -19,15 +20,24 @@ export function NodeView({
   node,
   nodes,
   isActive,
-  onInput,
 }: {
   node: Node;
   nodes: Node[];
   isActive: boolean;
-  onInput?: (nodeId: NodeID, newText: string) => void;
 }) {
   // File 04 — Get variant from props (canonical source)
   const variant = getNodeVariant(node);
+
+  // DOM-owned contentEditable ref
+  // Critical: Browser owns text during typing, React updates only on external changes
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Sync text ONLY when it changes externally (not during typing)
+  useEffect(() => {
+    if (contentRef.current && contentRef.current.textContent !== node.text) {
+      contentRef.current.textContent = node.text || '\u00A0';
+    }
+  }, [node.text, node.id]); // Re-sync on node switch or external update
 
   // Calculate depth for indentation
   function getDepth(node: Node, nodes: Node[]): number {
@@ -107,6 +117,7 @@ export function NodeView({
 
         {/* File 05 — node__content (single editable surface) */}
         <div
+          ref={contentRef}
           className="node__content"
           contentEditable
           suppressContentEditableWarning
@@ -116,13 +127,7 @@ export function NodeView({
             fontSize: variant.startsWith('heading') ? '18px' : '14px',
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
           }}
-          onInput={(e) => {
-            const newText = e.currentTarget.textContent || '';
-            onInput?.(node.id, newText);
-          }}
-        >
-          {node.text || '\u00A0'}
-        </div>
+        />
       </div>
     </div>
   );
