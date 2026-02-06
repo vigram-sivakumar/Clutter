@@ -10,9 +10,22 @@
 export type NodeID = string;
 
 /**
- * Node types — rendering hints, not behavior
+ * Node types — DEPRECATED, use props.variant instead
+ * Kept for backward compatibility during migration
  */
 export type NodeType = 'paragraph' | 'heading';
+
+/**
+ * Node variants (File 04) — Canonical set
+ */
+export type NodeVariant =
+  | 'paragraph'
+  | 'bullet'
+  | 'task'
+  | 'numbered'
+  | 'heading-1'
+  | 'heading-2'
+  | 'callout';
 
 /**
  * Node — The fundamental unit
@@ -21,7 +34,7 @@ export interface Node {
   /** Unique identifier */
   id: NodeID;
 
-  /** Node type (affects rendering, not structure) */
+  /** Node type (DEPRECATED — use props.variant) */
   type: NodeType;
 
   /** Text content */
@@ -30,7 +43,7 @@ export interface Node {
   /** Parent node ID (null = root) — hierarchy */
   parentId: NodeID | null;
 
-  /** Properties (key-value metadata) — Phase 10 */
+  /** Properties (key-value metadata) — Phase 10, File 04 */
   props?: Record<string, string>;
 
   /** References to other nodes — Phase 11 (graph edges) */
@@ -58,6 +71,31 @@ export function createNode(
     type,
     text,
     parentId,
+    props: {
+      variant: 'paragraph', // File 04 — Default variant
+    },
+  };
+}
+
+/**
+ * Get node variant (File 04)
+ * Returns variant from props, falling back to 'paragraph' if not set
+ */
+export function getNodeVariant(node: Node): NodeVariant {
+  return (node.props?.variant as NodeVariant) || 'paragraph';
+}
+
+/**
+ * Set node variant (File 04)
+ * Returns new node with updated variant in props
+ */
+export function setNodeVariant(node: Node, variant: NodeVariant): Node {
+  return {
+    ...node,
+    props: {
+      ...node.props,
+      variant,
+    },
   };
 }
 
@@ -110,6 +148,7 @@ export function updateNodeText(
 /**
  * Split a node at a position
  * Returns [beforeNode, afterNode]
+ * File 04 — Variant is sticky (preserved on split)
  */
 export function splitNode(node: Node, offset: number): [Node, Node] {
   const beforeText = node.text.substring(0, offset);
@@ -118,8 +157,9 @@ export function splitNode(node: Node, offset: number): [Node, Node] {
   // Original node keeps the before text
   const beforeNode: Node = { ...node, text: beforeText };
 
-  // New node gets after text, inherits type and parent
+  // New node gets after text, inherits type, parent, and variant
   const afterNode: Node = createNode(node.type, afterText, node.parentId);
+  afterNode.props = { ...node.props }; // Preserve variant and other props
 
   return [beforeNode, afterNode];
 }

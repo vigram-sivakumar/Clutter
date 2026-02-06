@@ -16,6 +16,8 @@ import {
   createNode,
   insertNodeAfter,
   insertNodeBefore,
+  getNodeVariant,
+  setNodeVariant,
 } from './engine/NodeKernel';
 import type { EditorState } from './engine/EditorState';
 import { applyIntent } from './engine/EditorState';
@@ -1070,12 +1072,16 @@ export function NodeEditor() {
   /**
    * Create Sibling Above (Enter at START of non-empty node)
    * Creates a new sibling node immediately before the current node
+   * File 04 — Variant is sticky (preserved on Enter)
    */
   function createSiblingAbove(state: EditorState): EditorState {
     const node = state.nodes.find((n) => n.id === state.activeNodeId);
     if (!node) return state;
 
     const sibling = createNode(node.type, '', node.parentId);
+    // File 04 — Preserve variant from current node
+    sibling.props = { ...node.props };
+
     const withSibling = insertNodeBefore(state.nodes, node.id, sibling);
 
     return {
@@ -2858,24 +2864,11 @@ export function NodeEditor() {
               key={node.id}
               node={node}
               nodes={editorState.nodes}
-              backlinks={getBacklinks(node.id)}
               isActive={node.id === editorState.activeNodeId}
               cursorOffset={
                 node.id === editorState.activeNodeId ? editorState.offset : null
               }
               selection={selection}
-              onPropertyClick={(key, value) =>
-                editProperty(node.id, key, value)
-              }
-              onPropertyDelete={(key) => deleteNodeProperty(node.id, key)}
-              onRefClick={handleRefClick}
-              onAddRefClick={(nodeId) =>
-                setRefPickerState({
-                  isOpen: true,
-                  sourceNodeId: nodeId,
-                  selectedIndex: 0,
-                })
-              }
             />
           ))}
 

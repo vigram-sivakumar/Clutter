@@ -71,7 +71,9 @@ export function applyIntent(
       }
 
       // Case 2 & 3: End of text or empty - create new empty node
+      // File 04 — Variant is sticky (preserved on Enter)
       const newNode = createNode(node.type, '', node.parentId);
+      newNode.props = { ...node.props }; // Preserve variant
       const withNew = insertNodeAfter(nodes, node.id, newNode);
 
       return {
