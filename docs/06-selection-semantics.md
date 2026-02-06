@@ -1,8 +1,9 @@
 # File 06 — Selection & Caret Semantics
 
-**Status**: DRAFT → CANONICAL  
+**Status**: 🔒 LOCKED  
 **Scope**: Selection behavior, not implementation  
-**Version**: 1.0
+**Version**: 1.0  
+**Locked Date**: 2026-02-05
 
 ---
 
@@ -118,6 +119,10 @@ Selection {
 | `anchor === null && focus === null` | No selection (collapsed caret)      |
 | `anchor !== null && focus !== null` | Range selection                     |
 | `anchor === focus`                  | Invalid state (should be null/null) |
+
+**Normalization:**
+
+If the browser selection has `anchor === focus` (collapsed selection), the editor normalizes this to `{ anchor: null, focus: null }` in its state representation. This prevents ambiguity and simplifies command logic.
 
 **Direction:**
 
@@ -466,16 +471,24 @@ After locking:
 ## Status
 
 - ✅ Draft complete
-- ⏳ Awaiting validation
-- ⏳ Awaiting lock confirmation
+- ✅ Validated manually against browser behavior
+- ✅ **LOCKED** (2026-02-05)
+
+**This specification is now immutable.**
+
+Any changes require:
+
+- Explicit design review
+- New spec file (File 06.1, etc.)
+- Validation against all locked files (03, 04, 05)
 
 ---
 
 ## Next Steps
 
-**After File 06 is locked:**
+**Now that File 06 is locked:**
 
-1. Phase 5.2 — Markdown Shortcuts (now safe)
+1. ✅ Phase 5.2 — Markdown Shortcuts (safe to implement)
 2. Phase 6 — Design System (visual layer)
 3. Future: Copy/paste, drag-drop, multi-cursor
 
