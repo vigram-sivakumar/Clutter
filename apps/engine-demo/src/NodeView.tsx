@@ -145,18 +145,30 @@ export function NodeView({
     );
   };
 
+  // Calculate auto-index for numbered nodes (File 04)
+  const getNumberedIndex = (): number => {
+    const parentId = node.parentId;
+    const siblings = nodes.filter(
+      (n) => n.parentId === parentId && getNodeVariant(n) === 'numbered'
+    );
+    const currentIndex = siblings.findIndex((n) => n.id === node.id);
+    return currentIndex + 1;
+  };
+
   // Render marker based on variant (File 04)
   const renderMarker = () => {
     switch (variant) {
       case 'bullet':
         return '•';
       case 'task':
+        // TODO: Task completion state will use node.props.completed
         return '☐';
       case 'numbered':
-        return '1.'; // Placeholder - should use CSS counter
+        return `${getNumberedIndex()}.`;
       case 'heading-1':
+        return 'H1';
       case 'heading-2':
-        return '#';
+        return 'H2';
       case 'callout':
         return '▎';
       case 'paragraph':
@@ -170,43 +182,22 @@ export function NodeView({
     <div
       className={`node node--${variant}`}
       style={{
-        display: 'flex',
-        marginBottom: '2px',
         backgroundColor: isActive ? '#2d2d30' : 'transparent',
         borderRadius: '2px',
-        minHeight: '24px',
         color: '#d4d4d4',
       }}
     >
       {/* File 05 — node__indent (depth visualization) */}
-      <div
-        className="node__indent"
-        style={{
-          width: `${depth * 20}px`,
-          flexShrink: 0,
-        }}
-      />
+      <div className="node__indent" style={{ width: `${depth * 20}px` }} />
 
       {/* File 05 — node__row (horizontal container) */}
-      <div
-        className="node__row"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          flex: 1,
-          padding: '4px 8px',
-        }}
-      >
+      <div className="node__row">
         {/* File 05 — node__marker (visual affordance only) */}
         <div
           className="node__marker"
           style={{
-            marginRight: '8px',
-            width: '16px',
-            flexShrink: 0,
             color: '#888',
             fontSize: '14px',
-            userSelect: 'none',
           }}
         >
           {renderMarker()}
@@ -216,7 +207,6 @@ export function NodeView({
         <div
           className="node__content"
           style={{
-            flex: 1,
             fontSize: variant.startsWith('heading') ? '18px' : '14px',
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
           }}

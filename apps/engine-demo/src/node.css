@@ -1,0 +1,72 @@
+/**
+ * Node Anatomy CSS (File 05)
+ * Minimal structural styling only - no design decisions
+ */
+
+/* File 05 — Canonical node structure */
+.node {
+  display: flex;
+  margin-bottom: 2px;
+  min-height: 24px;
+}
+
+.node__indent {
+  flex-shrink: 0;
+}
+
+.node__row {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 4px 8px;
+}
+
+.node__marker {
+  margin-right: 8px;
+  width: 16px;
+  flex-shrink: 0;
+  user-select: none;
+  text-align: center;
+}
+
+.node__content {
+  flex: 1;
+  outline: none;
+}
+
+/* Variant classes (File 04) - structural only */
+.node--paragraph {
+  /* Default - no special styling */
+}
+
+.node--bullet {
+  /* Marker handled by renderMarker() */
+}
+
+.node--task {
+  /* Marker handled by renderMarker() */
+}
+
+.node--numbered {
+  /* Index handled by renderMarker() */
+}
+
+.node--heading-1,
+.node--heading-2 {
+  /* Typography handled inline for now */
+}
+
+.node--callout {
+  /* Marker handled by renderMarker() */
+}
+
+/* Cursor blink animation */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
