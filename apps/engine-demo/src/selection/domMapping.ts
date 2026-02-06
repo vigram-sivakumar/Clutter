@@ -5,46 +5,63 @@
 
 import type { NodeID } from '../engine/NodeKernel';
 
+type DOMNode = globalThis.Node;
+
 /**
- * Get node position from DOM selection
+ * Given a DOM node and offset, find the corresponding editor node and text offset.
+ * Walks up from the target node to find the nearest .node__content element.
  *
- * Walks up DOM tree to find node__content, extracts data-node-id
- * Returns null if outside editor
+ * CRITICAL: Uses Range API to calculate correct offset within full node__content,
+ * not just local text node offset. This is essential for rich DOM trees.
  */
 export function getNodePositionFromDOM(
-  target: Node,
+  target: DOMNode,
   offset: number
 ): { nodeId: NodeID; offset: number } | null {
-  let element = target as HTMLElement;
+  let node: DOMNode | null = target;
 
-  // If target is text node, get parent element
-  if (element.nodeType === Node.TEXT_NODE) {
-    element = element.parentElement!;
+  // If text node, start from parent element
+  if (node.nodeType === Node.TEXT_NODE) {
+    node = node.parentNode;
   }
 
-  // Walk up until we find node__content
-  while (element && !element.classList?.contains('node__content')) {
-    element = element.parentElement!;
-    if (!element) return null;
+  // Walk up until node__content
+  while (
+    node &&
+    !(node instanceof HTMLElement && node.classList.contains('node__content'))
+  ) {
+    node = node.parentNode;
   }
 
-  if (!element) return null;
+  if (!(node instanceof HTMLElement)) return null;
 
-  // Get node ID from parent .node element
-  const nodeElement = element.closest('.node');
-  if (!nodeElement) return null;
+  const contentEl = node;
 
-  const nodeId = nodeElement.getAttribute('data-node-id');
+  const container = contentEl.closest('.node');
+  if (!(container instanceof HTMLElement)) return null;
+
+  const nodeId = container.getAttribute('data-node-id');
   if (!nodeId) return null;
 
-  // Clamp offset to text length
-  const textContent = element.textContent || '';
-  const clampedOffset = Math.max(0, Math.min(offset, textContent.length));
+  // --- Correct offset calculation using Range API ---
+  // This measures offset within the FULL node__content, not just local text node
+  const range = document.createRange();
+  range.selectNodeContents(contentEl);
 
-  return {
-    nodeId,
-    offset: clampedOffset,
-  };
+  try {
+    range.setEnd(target, offset);
+  } catch {
+    // Defensive: browser edge cases
+    return { nodeId, offset: contentEl.textContent?.length ?? 0 };
+  }
+
+  const text = range.toString();
+  const clampedOffset = Math.max(
+    0,
+    Math.min(text.length, contentEl.textContent?.length ?? 0)
+  );
+
+  return { nodeId, offset: clampedOffset };
 }
 
 /**
