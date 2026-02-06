@@ -116,6 +116,8 @@ Empty nodes are never deleted by Enter.
 
 **Rule: Backspace deletes structure only at START**
 
+**CRITICAL: Backspace never outdents. Outdent is Shift+Tab only.**
+
 ---
 
 ### BACKSPACE — Detailed Behavior
@@ -260,13 +262,13 @@ These will be defined later without violating this spec.
 ## Status
 
 ✅ Enter behavior locked and validated (Workflowy/Tana parity)  
-✅ Backspace locked  
+✅ Backspace locked and validated (delete/merge only, never outdents)  
 ✅ Tab / Shift+Tab locked  
 ✅ Delete locked  
 🔒 **File 03 is now canonical and immutable**
 
 **Validation Date**: 2026-02-05  
-**All 7 test cases passed**
+**All test cases passed**
 
 ---
 
@@ -274,10 +276,21 @@ These will be defined later without violating this spec.
 
 Code changes to achieve spec compliance:
 
+**Enter Key:**
+
 - Added `insertNodeBefore()` to `NodeKernel.ts` (mirror of `insertNodeAfter`)
 - Added `createSiblingAbove()` to `NodeEditor.tsx`
 - Removed child-creation logic from Enter handler at START position
 - Enter now creates siblings only; children created exclusively via Tab
+
+**Backspace Key:**
+
+- Removed outdent-on-backspace logic from `NodeEditor.tsx`
+- Updated `applyIntent('backspace')` in `EditorState.ts` to explicitly handle empty nodes
+- Backspace at START + empty → deletes node
+- Backspace at START + non-empty → merges with previous
+- Backspace never changes hierarchy (Workflowy/Tana parity)
+- Outdent is exclusively Shift+Tab
 
 This behavior is now frozen. Any future changes require explicit design review.
 

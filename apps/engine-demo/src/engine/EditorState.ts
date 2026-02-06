@@ -100,10 +100,21 @@ export function applyIntent(
         };
       }
 
-      // CASE 2: Merge with previous (cursor at start with previous node)
+      // CASE 2: Cursor at START
       const prev = getPreviousNode(nodes, activeNodeId);
-      if (!prev) return state; // CASE 3: No-op (at start with no previous)
+      if (!prev) return state; // No previous = no-op
 
+      // CASE 2A: Empty node → delete (File 03)
+      if (node.text.length === 0) {
+        const withoutCurrent = deleteNode(nodes, node.id);
+        return {
+          nodes: withoutCurrent,
+          activeNodeId: prev.id,
+          offset: prev.text.length,
+        };
+      }
+
+      // CASE 2B: Non-empty node → merge with previous (File 03)
       const merged = mergeNodes(prev, node);
       const mergePoint = prev.text.length;
 

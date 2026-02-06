@@ -2266,35 +2266,7 @@ export function NodeEditor() {
         }
       }
 
-      // STEP 7.4 — Hierarchy-aware Backspace at start of node
-      if (editorState.offset === 0) {
-        const activeNode = editorState.nodes.find(
-          (n) => n.id === editorState.activeNodeId
-        );
-        if (!activeNode) return;
-
-        // Case B: Has children - no-op (can't delete parent by accident)
-        if (hasChildren(activeNode, editorState.nodes)) {
-          return; // Do nothing
-        }
-
-        // Case C: Has parent - outdent
-        if (activeNode.parentId) {
-          const newState = outdentNode(editorState);
-          // STEP 14.2 — Commit outdent
-          commit({
-            nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
-            selection: { anchor: null, focus: null },
-          });
-          return;
-        }
-
-        // Case D: No parent, no children - fall through to merge with previous
-      }
-
-      // No selection, not at start OR Case D - normal backspace (delete char or merge)
+      // File 03 — Backspace behavior (delete/merge only, never outdent)
       const newState = applyIntent(editorState, { type: 'backspace' });
       // STEP 14.2 — Commit backspace
       commit({
