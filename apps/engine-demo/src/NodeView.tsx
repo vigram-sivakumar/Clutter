@@ -126,8 +126,24 @@ export function NodeView({
         </div>
 
         {/* File 05 — node__content (single editable surface) */}
+        {/* CRITICAL: Uncontrolled contentEditable - React must NOT own text */}
         <div
-          ref={contentRef}
+          ref={(el) => {
+            // Store ref for DOM identity tracking
+            contentRef.current = el;
+
+            if (!el) return;
+
+            // Only sync text when node is NOT active (prevents destroying caret)
+            if (!isActive && el.innerText !== node.text) {
+              el.innerText = node.text || '\u00A0';
+            }
+
+            // Initial render: set text once
+            if (el.innerText === '' && node.text) {
+              el.innerText = node.text;
+            }
+          }}
           className="node__content"
           contentEditable
           suppressContentEditableWarning
@@ -137,9 +153,7 @@ export function NodeView({
             fontSize: variant.startsWith('heading') ? '18px' : '14px',
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
           }}
-        >
-          {node.text || '\u00A0'}
-        </div>
+        />
       </div>
     </div>
   );
