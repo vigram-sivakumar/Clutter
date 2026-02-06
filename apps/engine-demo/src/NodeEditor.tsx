@@ -2345,6 +2345,38 @@ export function NodeEditor() {
         }
       }
 
+      // PHASE 5.2.1 — Markdown Shortcut: Task Variant ([]␣)
+      // Authority: File 07 (LOCKED)
+      if (
+        e.key === ' ' &&
+        editorState.offset === 2 &&
+        !isSessionActive(grammarSession)
+      ) {
+        const activeNode = editorState.nodes.find(
+          (n) => n.id === editorState.activeNodeId
+        );
+        if (activeNode && activeNode.text === '[]') {
+          const updatedNodes = editorState.nodes.map((n) =>
+            n.id === activeNode.id
+              ? {
+                  ...n,
+                  text: '',
+                  props: { ...n.props, variant: 'task' },
+                }
+              : n
+          );
+
+          commit({
+            nodes: updatedNodes as UINode[],
+            activeNodeId: activeNode.id,
+            offset: 0,
+            selection: { anchor: null, focus: null },
+          });
+
+          return;
+        }
+      }
+
       // STEP 10.3 — Property trigger: `:` at start of empty node
       if (e.key === ':' && editorState.offset === 0) {
         const activeNode = editorState.nodes.find(
