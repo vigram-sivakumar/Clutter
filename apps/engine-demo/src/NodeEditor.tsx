@@ -253,6 +253,14 @@ export function NodeEditor() {
     grammarRef.current = grammarSession;
   }, [grammarSession]);
 
+  // Refs for editor position (used to prevent unnecessary selectionchange updates)
+  const activeNodeIdRef = useRef<NodeID>(editorState.activeNodeId);
+  const offsetRef = useRef<number>(editorState.offset);
+  useEffect(() => {
+    activeNodeIdRef.current = editorState.activeNodeId;
+    offsetRef.current = editorState.offset;
+  }, [editorState.activeNodeId, editorState.offset]);
+
   // PHASE 23 — Sync conflicts state (UI-only, session-scoped)
   const [_syncConflicts, _setSyncConflicts] = useState<
     import('./sync').Conflict[] | null
@@ -382,6 +390,15 @@ export function NodeEditor() {
       if (browserSelection.isCollapsed) {
         const position = getNodePositionFromSelection(browserSelection);
         if (position) {
+          // 🚨 CRITICAL GUARD: Only update if position actually changed
+          if (
+            position.nodeId === activeNodeIdRef.current &&
+            position.offset === offsetRef.current
+          ) {
+            // Browser selection did NOT logically change - do nothing
+            return;
+          }
+
           setEditorState((prev) => ({
             ...prev,
             activeNodeId: position.nodeId,
@@ -392,6 +409,16 @@ export function NodeEditor() {
       } else {
         const range = getSelectionRangeFromDOM(browserSelection);
         if (range) {
+          // 🚨 CRITICAL GUARD: Only update if focus position actually changed
+          if (
+            range.focus.nodeId === activeNodeIdRef.current &&
+            range.focus.offset === offsetRef.current
+          ) {
+            // Focus position did NOT change - only update selection range
+            setSelection(range);
+            return;
+          }
+
           setEditorState((prev) => ({
             ...prev,
             activeNodeId: range.focus.nodeId,
