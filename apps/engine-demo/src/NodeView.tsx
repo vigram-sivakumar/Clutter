@@ -19,19 +19,12 @@ export function NodeView({
   node,
   nodes,
   isActive,
-  cursorOffset,
-  selection,
   onMouseDown,
   onMouseUp,
 }: {
   node: Node;
   nodes: Node[];
   isActive: boolean;
-  cursorOffset: number | null;
-  selection: {
-    anchor: { nodeId: NodeID; offset: number } | null;
-    focus: { nodeId: NodeID; offset: number } | null;
-  };
   onMouseDown?: (nodeId: NodeID) => void;
   onMouseUp?: (nodeId: NodeID) => void;
 }) {
@@ -55,99 +48,6 @@ export function NodeView({
   }
 
   const depth = getDepth(node, nodes);
-
-  // Calculate selection range for this node
-  const getSelectionRange = (): { start: number; end: number } | null => {
-    if (!selection.anchor || !selection.focus) return null;
-
-    // Find node indices
-    const nodeIndex = nodes.findIndex((n) => n.id === node.id);
-    const anchorIndex = nodes.findIndex(
-      (n) => n.id === selection.anchor!.nodeId
-    );
-    const focusIndex = nodes.findIndex((n) => n.id === selection.focus!.nodeId);
-
-    // Normalize selection direction (start <= end)
-    const isForward =
-      anchorIndex < focusIndex ||
-      (anchorIndex === focusIndex &&
-        selection.anchor!.offset <= selection.focus!.offset);
-
-    const startNodeIndex = isForward ? anchorIndex : focusIndex;
-    const endNodeIndex = isForward ? focusIndex : anchorIndex;
-    const startOffset = isForward
-      ? selection.anchor!.offset
-      : selection.focus!.offset;
-    const endOffset = isForward
-      ? selection.focus!.offset
-      : selection.anchor!.offset;
-
-    // Check if this node is in selection range
-    if (nodeIndex < startNodeIndex || nodeIndex > endNodeIndex) return null;
-
-    // Calculate character range
-    if (nodeIndex === startNodeIndex && nodeIndex === endNodeIndex) {
-      // Selection within same node
-      if (startOffset === endOffset) return null; // Collapsed selection
-      return { start: startOffset, end: endOffset };
-    } else if (nodeIndex === startNodeIndex) {
-      // First node in selection
-      return { start: startOffset, end: node.text.length };
-    } else if (nodeIndex === endNodeIndex) {
-      // Last node in selection
-      return { start: 0, end: endOffset };
-    } else {
-      // Middle node - fully selected
-      return { start: 0, end: node.text.length };
-    }
-  };
-
-  // Render text with caret and/or selection
-  const renderText = () => {
-    const text = node.text || '';
-    const selRange = getSelectionRange();
-
-    // No selection, show caret if active
-    if (!selRange) {
-      if (!isActive || cursorOffset === null) {
-        return <span>{text || '\u00A0'}</span>;
-      }
-
-      const before = text.substring(0, cursorOffset);
-      const after = text.substring(cursorOffset);
-
-      return (
-        <span>
-          {before}
-          <span
-            style={{
-              display: 'inline-block',
-              width: '2px',
-              height: '1em',
-              backgroundColor: '#d4d4d4',
-              animation: 'blink 1s step-end infinite',
-            }}
-          />
-          {after || '\u00A0'}
-        </span>
-      );
-    }
-
-    // Render with selection highlight
-    const beforeSel = text.substring(0, selRange.start);
-    const selected = text.substring(selRange.start, selRange.end);
-    const afterSel = text.substring(selRange.end);
-
-    return (
-      <span>
-        {beforeSel}
-        <span style={{ backgroundColor: '#264f78' }}>
-          {selected || '\u00A0'}
-        </span>
-        {afterSel}
-      </span>
-    );
-  };
 
   // Calculate auto-index for numbered nodes (File 04)
   const getNumberedIndex = (): number => {
@@ -211,20 +111,21 @@ export function NodeView({
         {/* File 05 — node__content (single editable surface) */}
         <div
           className="node__content"
+          contentEditable
+          suppressContentEditableWarning
+          spellCheck={false}
           style={{
             fontSize: variant.startsWith('heading') ? '18px' : '14px',
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
           }}
-          onMouseDown={(e) => {
-            e.preventDefault();
+          onMouseDown={() => {
             onMouseDown?.(node.id);
           }}
-          onMouseUp={(e) => {
-            e.preventDefault();
+          onMouseUp={() => {
             onMouseUp?.(node.id);
           }}
         >
-          {renderText()}
+          {node.text || '\u00A0'}
         </div>
       </div>
     </div>

@@ -32,6 +32,18 @@
 .node__content {
   flex: 1;
   outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Native browser caret */
+.node__content:focus {
+  outline: none;
+}
+
+/* Native browser selection */
+.node__content::selection {
+  background-color: #264f78;
 }
 
 /* Variant classes (File 04) - structural only */

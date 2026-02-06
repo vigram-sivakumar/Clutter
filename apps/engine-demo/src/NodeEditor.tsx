@@ -2971,10 +2971,6 @@ export function NodeEditor() {
               node={node}
               nodes={editorState.nodes}
               isActive={node.id === editorState.activeNodeId}
-              cursorOffset={
-                node.id === editorState.activeNodeId ? editorState.offset : null
-              }
-              selection={selection}
               onMouseDown={handleMouseDown}
               onMouseUp={handleMouseUp}
             />
