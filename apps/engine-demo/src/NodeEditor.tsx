@@ -6,7 +6,7 @@
  * Rules:
  * - No mutation
  * - No logic duplication
- * - No contenteditable
+ * - contenteditable allowed, but DOM is never authoritative
  * - Kernel is single source of truth
  */
 
@@ -338,12 +338,15 @@ export function NodeEditor() {
 
   function withStructuralCommit(fn: () => void) {
     structuralLockRef.current = true;
-    fn();
 
-    // Release ONLY after browser finishes dispatching input + selection events
-    requestAnimationFrame(() => {
-      structuralLockRef.current = false;
-    });
+    try {
+      fn();
+    } finally {
+      // Release ONLY after browser finishes dispatching input + selection events
+      requestAnimationFrame(() => {
+        structuralLockRef.current = false;
+      });
+    }
   }
 
   // Selection state (UI-only, not in kernel)
@@ -514,6 +517,9 @@ export function NodeEditor() {
    */
   useEffect(() => {
     const handleSelectionChange = () => {
+      // D1 CRITICAL GUARD — Block selection sync during structural operations
+      if (structuralLockRef.current) return;
+
       const browserSelection = window.getSelection();
       if (!browserSelection) return;
 
@@ -534,6 +540,28 @@ export function NodeEditor() {
         console.log('[SELECTION]', position);
 
         if (position) {
+          // D1 SELECTION DRIFT GUARD — Ignore caret drift during DOM sync
+          // When text lengths don't match, DOM is temporarily inconsistent
+          // Kernel offset is source of truth, caret will be placed explicitly
+          const activeNode = editorState.nodes.find(
+            (n) => n.id === position.nodeId
+          );
+
+          if (activeNode) {
+            const contentEl = containerEl.querySelector(
+              `.node__content[data-node-id="${position.nodeId}"]`
+            );
+
+            if (contentEl) {
+              const domText = extractPureText(contentEl as HTMLElement);
+
+              // 🚨 CRITICAL: ignore DOM-driven caret drift during structural changes
+              if (domText.length !== activeNode.text.length) {
+                return;
+              }
+            }
+          }
+
           setEditorState({
             ...editorState,
             activeNodeId: position.nodeId,
@@ -570,21 +598,21 @@ export function NodeEditor() {
     if (!containerEl) return;
 
     const handleInput = (e: Event) => {
+      // D1.4 — CRITICAL GUARD (MUST BE FIRST)
+      if (structuralLockRef.current) {
+        return; // Structural op in progress — NEVER read DOM
+      }
+
       const target = e.target as HTMLElement;
 
       // FORENSICS LOG 5 — Verify structural guard is working
       console.log('[INPUT]', {
-        isStructural: structuralLockRef.current,
+        locked: structuralLockRef.current,
         targetNodeId: target.getAttribute('data-node-id'),
       });
 
       // Only handle input from node__content elements
       if (!target.classList.contains('node__content')) return;
-
-      // Phase 09 Final — HARD RULE: never sync DOM → model during structural commits
-      if (structuralLockRef.current) {
-        return; // Structural commit in progress, ignore all input events
-      }
 
       const nodeId = target.getAttribute('data-node-id');
       if (!nodeId) return;
