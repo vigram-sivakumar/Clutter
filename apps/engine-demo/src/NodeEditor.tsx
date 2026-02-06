@@ -261,6 +261,9 @@ export function NodeEditor() {
     offsetRef.current = editorState.offset;
   }, [editorState.activeNodeId, editorState.offset]);
 
+  // Command guard: Ignore selectionchange while editor is mutating state
+  const isApplyingCommandRef = useRef<boolean>(false);
+
   // PHASE 23 — Sync conflicts state (UI-only, session-scoped)
   const [_syncConflicts, _setSyncConflicts] = useState<
     import('./sync').Conflict[] | null
@@ -371,8 +374,23 @@ export function NodeEditor() {
    */
   useEffect(() => {
     const handleSelectionChange = () => {
+      // 🚨 CRITICAL GUARD: Ignore selectionchange while editor is mutating state
+      if (isApplyingCommandRef.current) {
+        console.log('[GUARD] selectionchange BLOCKED during command');
+        return;
+      }
+
       const browserSelection = window.getSelection();
       if (!browserSelection) return;
+
+      // 🔍 DIAGNOSTIC: Browser selection state
+      console.log(
+        '[BROWSER]',
+        'anchorNode=',
+        browserSelection.anchorNode,
+        'offset=',
+        browserSelection.anchorOffset
+      );
 
       // Check if selection is inside our editor
       const containerEl = containerRef.current;
@@ -449,6 +467,9 @@ export function NodeEditor() {
     focusRootId?: NodeID | null;
     selection?: SelectionState;
   }) {
+    // 🚨 CRITICAL GUARD: Prevent selectionchange from overwriting during mutation
+    isApplyingCommandRef.current = true;
+
     // PHASE 3C: Sync hashtags from text to properties (before committing)
     let finalNodes = changes.nodes;
     if (finalNodes) {
@@ -488,11 +509,23 @@ export function NodeEditor() {
       changes.activeNodeId !== undefined ||
       changes.offset !== undefined
     ) {
+      const nextActiveNodeId = changes.activeNodeId ?? editorState.activeNodeId;
+      const nextOffset = changes.offset ?? editorState.offset;
+
       setEditorState({
         nodes: finalNodes ?? editorState.nodes,
-        activeNodeId: changes.activeNodeId ?? editorState.activeNodeId,
-        offset: changes.offset ?? editorState.offset,
+        activeNodeId: nextActiveNodeId,
+        offset: nextOffset,
       });
+
+      // 🔍 DIAGNOSTIC: Post-commit state
+      console.log(
+        '[COMMIT]',
+        'activeNodeId=',
+        nextActiveNodeId,
+        'offset=',
+        nextOffset
+      );
     }
 
     if (changes.focusRootId !== undefined) {
@@ -502,6 +535,11 @@ export function NodeEditor() {
     if (changes.selection !== undefined) {
       setSelection(changes.selection);
     }
+
+    // Reset command guard after DOM + selection settle
+    requestAnimationFrame(() => {
+      isApplyingCommandRef.current = false;
+    });
   }
 
   /**

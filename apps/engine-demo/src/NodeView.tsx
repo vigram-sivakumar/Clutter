@@ -12,6 +12,7 @@
  * </div>
  */
 
+import { useRef, useEffect } from 'react';
 import type { Node, NodeID } from './engine/NodeKernel';
 import { getNodeVariant } from './engine/NodeKernel';
 
@@ -24,6 +25,27 @@ export function NodeView({
   nodes: Node[];
   isActive: boolean;
 }) {
+  // 🔍 DIAGNOSTIC: Track DOM node identity
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    // Assign unique runtime ID to DOM node
+    if (!(contentRef.current as any).__dom_id) {
+      (contentRef.current as any).__dom_id = Math.random()
+        .toString(36)
+        .slice(2);
+    }
+
+    console.log(
+      '[DOM]',
+      'nodeId=',
+      node.id,
+      'domId=',
+      (contentRef.current as any).__dom_id
+    );
+  });
   // File 04 — Get variant from props (canonical source)
   const variant = getNodeVariant(node);
 
@@ -105,6 +127,7 @@ export function NodeView({
 
         {/* File 05 — node__content (single editable surface) */}
         <div
+          ref={contentRef}
           className="node__content"
           contentEditable
           suppressContentEditableWarning
