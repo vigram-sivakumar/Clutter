@@ -375,21 +375,21 @@ export function NodeEditor() {
       if (browserSelection.isCollapsed) {
         const position = getNodePositionFromSelection(browserSelection);
         if (position) {
-          setEditorState({
-            ...editorState,
+          setEditorState((prev) => ({
+            ...prev,
             activeNodeId: position.nodeId,
             offset: position.offset,
-          });
+          }));
           setSelection({ anchor: null, focus: null });
         }
       } else {
         const range = getSelectionRangeFromDOM(browserSelection);
         if (range) {
-          setEditorState({
-            ...editorState,
+          setEditorState((prev) => ({
+            ...prev,
             activeNodeId: range.focus.nodeId,
             offset: range.focus.offset,
-          });
+          }));
           setSelection(range);
         }
       }
@@ -399,7 +399,7 @@ export function NodeEditor() {
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
-  }, [editorState, grammarSession]);
+  }, [grammarSession]);
 
   /**
    * STEP 14.2 + PHASE 3C — Commit State Changes (with history)
