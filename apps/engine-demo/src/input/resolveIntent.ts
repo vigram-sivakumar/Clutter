@@ -20,6 +20,7 @@ import type {
   SlashGrammar,
   MentionGrammar,
   HashtagGrammar,
+  ReferenceGrammar,
 } from './grammarTypes';
 import { getSlashCommandMeta } from './parseSlash';
 import { getMentionSuggestions } from './parseMention';
@@ -44,6 +45,9 @@ export function resolveIntent(
 
     case 'hashtag':
       return resolveHashtagIntent(grammar, context);
+
+    case 'reference':
+      return resolveReferenceIntent(grammar, context);
 
     case 'text':
       return resolveTextIntent(grammar, context);
@@ -515,6 +519,93 @@ function resolveTextIntent(
   });
 
   return { grammar, candidates };
+}
+
+/**
+ * Resolve reference intent (Phase 09, Step 4)
+ * Search nodes and generate reference candidates
+ */
+function resolveReferenceIntent(
+  grammar: ReferenceGrammar,
+  context: GrammarContext
+): IntentResolution {
+  const { query } = grammar;
+  const candidates: IntentCandidate[] = [];
+
+  // If no nodes available, return empty candidates
+  if (!context.availableNodes || context.availableNodes.length === 0) {
+    return { grammar, candidates };
+  }
+
+  const queryLower = query.toLowerCase().trim();
+
+  // Search available nodes by label
+  for (const node of context.availableNodes) {
+    const labelLower = node.label.toLowerCase();
+
+    // Skip empty labels
+    if (!labelLower) continue;
+
+    // Calculate match confidence
+    let confidence: 'high' | 'medium' | 'low';
+    let reason: string;
+
+    if (query === '') {
+      // Empty query - show all nodes with low confidence
+      confidence = 'low';
+      reason = `Reference: ${node.label}`;
+    } else if (labelLower === queryLower) {
+      // Exact match
+      confidence = 'high';
+      reason = `Reference: ${node.label} (exact match)`;
+    } else if (labelLower.startsWith(queryLower)) {
+      // Prefix match
+      confidence = 'high';
+      reason = `Reference: ${node.label}`;
+    } else if (labelLower.includes(queryLower)) {
+      // Contains match
+      confidence = 'medium';
+      reason = `Reference: ${node.label}`;
+    } else {
+      // No match - skip
+      continue;
+    }
+
+    candidates.push({
+      commandType: 'reference.insert',
+      confidence,
+      reason,
+      params: {
+        sourceNodeId: context.nodeId,
+        targetWorkspaceId: context.workspaceId,
+        targetDocumentId: context.documentId,
+        targetNodeId: node.id,
+        targetLabel: node.label,
+        grammarRange: grammar.range,
+      },
+    });
+  }
+
+  // Sort by confidence (high > medium > low), then alphabetically
+  const confidenceOrder = { high: 3, medium: 2, low: 1 };
+  candidates.sort((a, b) => {
+    const confDiff =
+      confidenceOrder[b.confidence] - confidenceOrder[a.confidence];
+    if (confDiff !== 0) return confDiff;
+
+    // If same confidence, sort alphabetically by label
+    const labelA = (a.params.targetLabel as string) || '';
+    const labelB = (b.params.targetLabel as string) || '';
+    return labelA.localeCompare(labelB);
+  });
+
+  // Limit to top 10 results for performance
+  const limitedCandidates = candidates.slice(0, 10);
+
+  return {
+    grammar,
+    candidates: limitedCandidates,
+  };
 }
 
 /**

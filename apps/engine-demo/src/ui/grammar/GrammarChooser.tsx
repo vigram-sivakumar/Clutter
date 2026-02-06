@@ -251,6 +251,8 @@ function getGrammarTypeLabel(type: string): string {
       return 'Mention';
     case 'hashtag':
       return 'Property';
+    case 'reference':
+      return 'Reference';
     case 'text':
       return 'Text';
     default:
@@ -273,6 +275,7 @@ function getCommandLabel(commandType: string): string {
     'node.move': 'Move node',
     'ref.add': 'Add reference',
     'ref.remove': 'Remove reference',
+    'reference.insert': 'Insert reference',
     'prop.set': 'Set property',
     'prop.remove': 'Remove property',
     'template.apply': 'Apply template',

@@ -11,8 +11,9 @@ type DOMNode = globalThis.Node;
  * Given a DOM node and offset, find the corresponding editor node and text offset.
  * Walks up from the target node to find the nearest .node__content element.
  *
- * CRITICAL: Uses Range API to calculate correct offset within full node__content,
- * not just local text node offset. This is essential for rich DOM trees.
+ * Phase 09 Fix — Uses TreeWalker to count ONLY TEXT_NODE characters.
+ * Reference spans (contenteditable=false) are skipped, counting as zero width.
+ * This ensures logical offset maps cleanly to node.text (pure string).
  */
 export function getNodePositionFromDOM(
   target: DOMNode,
@@ -41,25 +42,44 @@ export function getNodePositionFromDOM(
   const nodeId = contentEl.getAttribute('data-node-id');
   if (!nodeId) return null;
 
-  // --- Correct offset calculation using Range API ---
-  // This measures offset within the FULL node__content, not just local text node
-  const range = document.createRange();
-  range.selectNodeContents(contentEl);
+  // --- Phase 09 — TreeWalker-based offset (TEXT_NODE only) ---
+  // This skips reference spans and counts only text characters
+  let logicalOffset = 0;
 
-  try {
-    range.setEnd(target, offset);
-  } catch {
-    // Defensive: browser edge cases
-    return { nodeId, offset: contentEl.textContent?.length ?? 0 };
+  // If target is a TEXT_NODE, count characters up to and including offset
+  if (target.nodeType === Node.TEXT_NODE) {
+    const walker = document.createTreeWalker(
+      contentEl,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    let current: DOMNode | null = walker.nextNode();
+
+    while (current) {
+      if (current === target) {
+        logicalOffset += offset;
+        break;
+      }
+
+      logicalOffset += current.textContent?.length ?? 0;
+      current = walker.nextNode();
+    }
+  } else {
+    // If target is an ELEMENT (e.g., contentEl itself), offset is child index
+    // Count text characters in all TEXT_NODE children before the offset position
+    for (let i = 0; i < offset && i < contentEl.childNodes.length; i++) {
+      const child = contentEl.childNodes[i];
+      if (!child) continue;
+
+      if (child.nodeType === Node.TEXT_NODE) {
+        logicalOffset += child.textContent?.length ?? 0;
+      }
+      // Skip ELEMENT_NODEs (references) - they contribute 0 to offset
+    }
   }
 
-  const text = range.toString();
-  const clampedOffset = Math.max(
-    0,
-    Math.min(text.length, contentEl.textContent?.length ?? 0)
-  );
-
-  return { nodeId, offset: clampedOffset };
+  return { nodeId, offset: logicalOffset };
 }
 
 /**

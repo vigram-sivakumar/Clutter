@@ -72,6 +72,22 @@
   /* Marker handled by renderMarker() */
 }
 
+/* Phase 09 Step 6 — Reference rendering (File 09) */
+.node__reference {
+  display: inline;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(100, 100, 255, 0.15);
+  color: #9cdcfe;
+  white-space: nowrap;
+  user-select: text;
+  cursor: text;
+}
+
+.node__reference:hover {
+  background: rgba(100, 100, 255, 0.25);
+}
+
 /* Cursor blink animation */
 @keyframes blink {
   0%,

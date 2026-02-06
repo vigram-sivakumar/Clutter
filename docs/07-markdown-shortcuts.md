@@ -1,9 +1,26 @@
 # File 07 — Markdown Shortcut Semantics
 
-**Status**: 🔒 LOCKED  
+**Status**: 🔒 LOCKED (CONSTITUTIONAL)  
 **Scope**: Markdown → Node Variant conversion  
 **Version**: 1.0  
-**Locked Date**: 2026-02-06
+**Locked Date**: 2026-02-06  
+**Related Files**: File 07.1 (Trigger Semantics), File 07.2 (Consumption & Undo)
+
+---
+
+## Authority Hierarchy
+
+```
+File 07 (this document)
+ ├─ File 07.1 — Markdown Trigger Semantics
+ └─ File 07.2 — Markdown Consumption & Undo Semantics
+```
+
+- **File 07** defines **what** markdown shortcuts exist
+- **File 07.1** defines **when** markdown may trigger
+- **File 07.2** defines **how** markdown mutates state and undo behavior
+
+No implementation may contradict any of these three documents.
 
 ---
 
@@ -21,6 +38,9 @@ It answers definitively:
 - What is explicitly forbidden
 
 **If behavior deviates from File 07, it is incorrect by definition.**
+
+**See File 07.1 for trigger timing enforcement.**  
+**See File 07.2 for consumption and undo guarantees.**
 
 ---
 
@@ -250,12 +270,23 @@ A markdown shortcut converts a node's variant **only** when the user types a spa
 - ✅ Written
 - ✅ Reviewed
 - ✅ **LOCKED** (2026-02-06)
+- ✅ **CONSTITUTIONAL** — Part of immutable spec framework
+
+**Related Documents:**
+
+- File 07.1 — Markdown Trigger Semantics (LOCKED)
+- File 07.2 — Markdown Consumption & Undo Semantics (LOCKED)
+- ENFORCEMENT_CHECKLIST.md (Section C: Markdown Enforcement)
 
 **Any future changes require:**
 
-- New file (File 07.1)
-- Explicit approval
-- Validation against Files 03, 04, 06
+- New file (File 07.3 or higher)
+- Explicit review against Files 07, 07.1, 07.2
+- Validation against entire spec framework (Files 03-06.1)
+- Pass enforcement checklist
+
+**Enforcement Active:** All markdown implementations must comply with Files 07, 07.1, and 07.2.  
+Violations are invalid regardless of user-visible behavior.
 
 ---
 

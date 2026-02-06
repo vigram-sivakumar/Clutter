@@ -28,6 +28,16 @@ export type NodeVariant =
   | 'callout';
 
 /**
+ * Reference — Semantic node relationship (File 09)
+ * Stored in node.props.references, not as text or markdown
+ */
+export interface Reference {
+  targetWorkspaceId: string;
+  targetDocumentId: string;
+  targetNodeId: NodeID;
+}
+
+/**
  * Node — The fundamental unit
  */
 export interface Node {
@@ -159,7 +169,11 @@ export function splitNode(node: Node, offset: number): [Node, Node] {
 
   // New node gets after text, inherits type, parent, and variant
   const afterNode: Node = createNode(node.type, afterText, node.parentId);
-  afterNode.props = { ...node.props }; // Preserve variant and other props
+
+  // Phase 09 Fix — Only copy variant, NOT references or other semantic props
+  // File 09: References stay with original node, never duplicated on split
+  const variant = node.props?.variant;
+  afterNode.props = variant ? { variant } : {};
 
   return [beforeNode, afterNode];
 }
@@ -198,4 +212,80 @@ export function getNextNode(nodes: Node[], nodeId: NodeID): Node | null {
   const index = findNodeIndex(nodes, nodeId);
   if (index === -1 || index >= nodes.length - 1) return null;
   return nodes[index + 1] ?? null;
+}
+
+/**
+ * Phase 09 — Reference Helpers (File 09)
+ * Pure functions for managing node.props.references
+ */
+
+/**
+ * Get references from a node
+ * Returns empty array if no references exist
+ */
+export function getReferences(node: Node): Reference[] {
+  if (!node.props || !node.props.references) return [];
+
+  try {
+    const refs = node.props.references;
+    // Handle both string (JSON) and object storage
+    if (typeof refs === 'string') {
+      return JSON.parse(refs) as Reference[];
+    }
+    return refs as unknown as Reference[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Add a reference to a node
+ * Returns new node (immutable)
+ */
+export function addReference(node: Node, reference: Reference): Node {
+  const existingRefs = getReferences(node);
+  const newRefs = [...existingRefs, reference];
+
+  return {
+    ...node,
+    props: {
+      ...node.props,
+      references: JSON.stringify(newRefs),
+    },
+  };
+}
+
+/**
+ * Remove reference at specific index
+ * Returns new node (immutable)
+ */
+export function removeReferenceAt(node: Node, index: number): Node {
+  const existingRefs = getReferences(node);
+  if (index < 0 || index >= existingRefs.length) return node;
+
+  const newRefs = existingRefs.filter((_, i) => i !== index);
+
+  // If no references left, remove the key entirely
+  if (newRefs.length === 0) {
+    const { references, ...restProps } = node.props || {};
+    return {
+      ...node,
+      props: restProps,
+    };
+  }
+
+  return {
+    ...node,
+    props: {
+      ...node.props,
+      references: JSON.stringify(newRefs),
+    },
+  };
+}
+
+/**
+ * Check if node has any references
+ */
+export function hasReferences(node: Node): boolean {
+  return getReferences(node).length > 0;
 }

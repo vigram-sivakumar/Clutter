@@ -25,6 +25,7 @@ import type {
 import { parseSlash } from './parseSlash';
 import { parseMention, isEmailPattern } from './parseMention';
 import { parseHashtag } from './parseHashtag';
+import { parseReference } from './parseReference';
 
 /**
  * Detect active grammar at cursor position
@@ -93,7 +94,15 @@ export function detectGrammar(
     }
   }
 
-  // PRIORITY 5: Plain text (no active grammar)
+  // PRIORITY 5: References (Phase 09, File 09)
+  if (word.startsWith('[[')) {
+    const grammar = parseReference(word, wordRange);
+    if (grammar) {
+      return { active: true, grammar };
+    }
+  }
+
+  // PRIORITY 6: Plain text (no active grammar)
   return {
     active: false,
     reason: 'No grammar trigger character',

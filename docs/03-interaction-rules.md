@@ -1,9 +1,33 @@
-# Interaction Rules (Keyboard Contract)
+# File 03 — Interaction Rules (Keyboard Contract)
+
+**Status**: 🔒 LOCKED (CONSTITUTIONAL)  
+**Scope**: Keyboard behavior for structural operations  
+**Version**: 1.0  
+**Locked Date**: 2026-02-05  
+**Related Files**: File 03.1 (Keyboard Enforcement Boundaries)
+
+---
+
+## Authority Hierarchy
+
+```
+File 03 (this document)
+ └─ File 03.1 — Keyboard Enforcement Boundaries
+```
+
+- **File 03** defines **what** keyboard actions do
+- **File 03.1** defines **which** keys the editor may intercept
+
+No implementation may contradict either document.
+
+---
 
 ## Scope
 
 This document defines the exact behavior of every keyboard interaction
 across all node states. Once written, these rules are immutable.
+
+**See File 03.1 for keyboard ownership and interception rules.**
 
 ---
 
@@ -265,10 +289,28 @@ These will be defined later without violating this spec.
 ✅ Backspace locked and validated (delete/merge only, never outdents)  
 ✅ Tab / Shift+Tab locked  
 ✅ Delete locked  
+✅ Arrow Up/Down locked  
 🔒 **File 03 is now canonical and immutable**
 
 **Validation Date**: 2026-02-05  
+**Updated**: 2026-02-06 (Keyboard enforcement locked)  
 **All test cases passed**
+
+**Related Documents:**
+
+- File 03.1 — Keyboard Enforcement Boundaries (LOCKED)
+- File 06 — Selection Semantics (LOCKED)
+- File 06.1 — Caret Intervention Boundaries (LOCKED)
+- ENFORCEMENT_CHECKLIST.md (Section D: Keyboard Rules)
+
+**Any future changes require:**
+
+- New file (File 03.2 or higher)
+- Explicit review against Files 03, 03.1, 06, 06.1
+- Pass enforcement checklist
+
+**Enforcement Active:** All keyboard implementations must comply with Files 03 and 03.1.  
+Violations are invalid regardless of user-visible behavior.
 
 ---
 

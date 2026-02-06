@@ -102,7 +102,23 @@ export type HashtagGrammar = {
 };
 
 /**
- * GRAMMAR 4: PLAIN TEXT
+ * GRAMMAR 4: REFERENCES (Phase 09, File 09)
+ *
+ * Node-to-node references via [[ trigger
+ *
+ * Examples:
+ * - [[Project → reference picker
+ * - [[Meeting Notes → reference to node
+ */
+export type ReferenceGrammar = {
+  type: 'reference';
+  query: string; // Search query after [[
+  range: TextRange;
+  raw: string;
+};
+
+/**
+ * GRAMMAR 5: PLAIN TEXT
  *
  * Fallback. Just insert text.
  */
@@ -119,6 +135,7 @@ export type Grammar =
   | SlashGrammar
   | MentionGrammar
   | HashtagGrammar
+  | ReferenceGrammar
   | PlainTextGrammar;
 
 /**

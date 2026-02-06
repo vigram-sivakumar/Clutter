@@ -11,13 +11,16 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import type { Node, NodeID } from './engine/NodeKernel';
+import type { Node, NodeID, Reference } from './engine/NodeKernel';
 import {
   createNode,
   insertNodeAfter,
   insertNodeBefore,
   getNodeVariant,
   setNodeVariant,
+  addReference,
+  removeReferenceAt,
+  getReferences,
 } from './engine/NodeKernel';
 import type { EditorState } from './engine/EditorState';
 import { applyIntent } from './engine/EditorState';
@@ -163,6 +166,124 @@ export function getNodeLabel(node: Node | UINode): string {
   return '(empty)';
 }
 
+/**
+ * Phase 09 Final Fix — Extract pure text (ignore reference spans)
+ * Critical: Prevents reference DOM text from being serialized into node.text
+ *
+ * Uses TreeWalker to find ALL text nodes (including nested ones after splits/IME/paste)
+ * Skips ELEMENT_NODEs (references) automatically via SHOW_TEXT filter
+ */
+function extractPureText(contentEl: HTMLElement): string {
+  let text = '';
+
+  const walker = document.createTreeWalker(
+    contentEl,
+    NodeFilter.SHOW_TEXT,
+    null
+  );
+
+  let domNode: globalThis.Node | null = walker.nextNode();
+
+  while (domNode) {
+    text += domNode.textContent ?? '';
+    domNode = walker.nextNode();
+  }
+
+  return text;
+}
+
+/**
+ * Phase 09 Step 7 — DOM Helper: Find .node__content ancestor
+ */
+function findNodeContent(node: globalThis.Node | null): HTMLElement | null {
+  let current = node;
+  while (current && current !== document.body) {
+    if (
+      current instanceof HTMLElement &&
+      current.classList.contains('node__content')
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Phase 09 Step 7 — DOM Helper: Get reference span before caret
+ */
+function getReferenceBeforeCaret(
+  container: HTMLElement | null,
+  range: Range
+): HTMLElement | null {
+  if (!container) return null;
+
+  const { startContainer, startOffset } = range;
+
+  // If caret is at start of text node, check previous sibling
+  if (startContainer.nodeType === Node.TEXT_NODE && startOffset === 0) {
+    const prevSibling = startContainer.previousSibling;
+    if (
+      prevSibling instanceof HTMLElement &&
+      prevSibling.classList.contains('node__reference')
+    ) {
+      return prevSibling;
+    }
+  }
+
+  // If caret is directly in container, check previous child
+  if (startContainer === container && startOffset > 0) {
+    const prevChild = container.childNodes[startOffset - 1];
+    if (
+      prevChild instanceof HTMLElement &&
+      prevChild.classList.contains('node__reference')
+    ) {
+      return prevChild;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Phase 09 Step 7 — DOM Helper: Get reference span after caret
+ */
+function getReferenceAfterCaret(
+  container: HTMLElement | null,
+  range: Range
+): HTMLElement | null {
+  if (!container) return null;
+
+  const { startContainer, startOffset } = range;
+
+  // If caret is at end of text node, check next sibling
+  if (
+    startContainer.nodeType === Node.TEXT_NODE &&
+    startOffset === (startContainer.textContent || '').length
+  ) {
+    const nextSibling = startContainer.nextSibling;
+    if (
+      nextSibling instanceof HTMLElement &&
+      nextSibling.classList.contains('node__reference')
+    ) {
+      return nextSibling;
+    }
+  }
+
+  // If caret is directly in container, check next child
+  if (startContainer === container) {
+    const nextChild = container.childNodes[startOffset];
+    if (
+      nextChild instanceof HTMLElement &&
+      nextChild.classList.contains('node__reference')
+    ) {
+      return nextChild;
+    }
+  }
+
+  return null;
+}
+
 export function NodeEditor() {
   // Initialize editor state
   const [editorState, setEditorState] = useState<EditorState>(() => {
@@ -187,9 +308,27 @@ export function NodeEditor() {
   });
 
   // Phase 5.1.5 — Controlled caret positioning flag
-  // When true, the useEffect will set browser caret to match editor state
-  // Only set after destructive operations (Enter, Backspace, Tab, etc.)
-  const [shouldSyncCaret, setShouldSyncCaret] = useState(false);
+  // Ref to request caret placement after structural operations only
+  // Per File 06 §1.3: Browser owns caret during typing, editor places after structure changes
+  const needsCaretPlacementRef = useRef(false);
+
+  function requestCaretPlacement() {
+    needsCaretPlacementRef.current = true;
+  }
+
+  // Phase 09 Final — Structural lock (prevents DOM → state sync during commits)
+  // CRITICAL: Uses rAF to release AFTER all browser events (keydown/input/selectionchange)
+  const structuralLockRef = useRef(false);
+
+  function withStructuralCommit(fn: () => void) {
+    structuralLockRef.current = true;
+    fn();
+
+    // Release ONLY after browser finishes dispatching input + selection events
+    requestAnimationFrame(() => {
+      structuralLockRef.current = false;
+    });
+  }
 
   // Selection state (UI-only, not in kernel)
   const [selection, setSelection] = useState<{
@@ -374,6 +513,10 @@ export function NodeEditor() {
       // Translate to editor state
       if (browserSelection.isCollapsed) {
         const position = getNodePositionFromSelection(browserSelection);
+
+        // FORENSICS LOG 2 — Verify offset mapping correctness
+        console.log('[SELECTION]', position);
+
         if (position) {
           setEditorState({
             ...editorState,
@@ -413,13 +556,25 @@ export function NodeEditor() {
     const handleInput = (e: Event) => {
       const target = e.target as HTMLElement;
 
+      // FORENSICS LOG 5 — Verify structural guard is working
+      console.log('[INPUT]', {
+        isStructural: structuralLockRef.current,
+        targetNodeId: target.getAttribute('data-node-id'),
+      });
+
       // Only handle input from node__content elements
       if (!target.classList.contains('node__content')) return;
+
+      // Phase 09 Final — HARD RULE: never sync DOM → model during structural commits
+      if (structuralLockRef.current) {
+        return; // Structural commit in progress, ignore all input events
+      }
 
       const nodeId = target.getAttribute('data-node-id');
       if (!nodeId) return;
 
-      const newText = target.textContent || '';
+      // Phase 09 Final Fix 2 — Extract pure text, ignore reference spans
+      const newText = extractPureText(target);
 
       // Update node text in editor state
       const updatedNodes = editorState.nodes.map((n) =>
@@ -554,6 +709,7 @@ export function NodeEditor() {
     });
     setFocusRootId(previous.focusRootId);
     setSelection(previous.selection);
+    requestCaretPlacement(); // Structural navigation
   }
 
   /**
@@ -589,6 +745,7 @@ export function NodeEditor() {
     });
     setFocusRootId(next.focusRootId);
     setSelection(next.selection);
+    requestCaretPlacement(); // Structural navigation
   }
 
   /**
@@ -608,21 +765,79 @@ export function NodeEditor() {
       return;
     }
 
-    // PHASE 3A/3B: Remove grammar text from node
+    // PHASE 3A/3B/09: Remove grammar text from node
     // For slash: "/todo" → removed
     // For mention: "@NodeName" → removed (reference is semantic)
+    // For reference: "[[query" → removed (reference is semantic, File 09)
     // For hashtag: "#status done" → kept (properties stay inline)
     const shouldRemoveText =
       grammarSession.grammar &&
       grammarSession.range &&
       (grammarSession.grammar.type === 'slash' ||
-        grammarSession.grammar.type === 'mention');
+        grammarSession.grammar.type === 'mention' ||
+        grammarSession.grammar.type === 'reference');
+
+    // Phase 09 Step 5: Handle reference.insert specially (atomic commit)
+    if (candidate.commandType === 'reference.insert') {
+      const activeNode = editorState.nodes.find(
+        (n) => n.id === editorState.activeNodeId
+      );
+
+      if (!activeNode || !grammarSession.range) {
+        console.error('Cannot insert reference: missing node or range');
+        setGrammarSession(EMPTY_GRAMMAR_SESSION);
+        return;
+      }
+
+      const { from, to } = grammarSession.range;
+
+      // 1. Remove [[query text
+      const newText =
+        activeNode.text.slice(0, from) + activeNode.text.slice(to);
+
+      // 2. Create Reference object (File 09 semantic model)
+      const reference: Reference = {
+        targetWorkspaceId: candidate.params.targetWorkspaceId as string,
+        targetDocumentId: candidate.params.targetDocumentId as string,
+        targetNodeId: candidate.params.targetNodeId as string,
+      };
+
+      // 3. Add reference to node.props.references
+      const updatedNode = addReference(
+        { ...activeNode, text: newText },
+        reference
+      );
+
+      // 4. Update all nodes (atomic)
+      const updatedNodes = editorState.nodes.map((n) =>
+        n.id === activeNode.id ? updatedNode : n
+      );
+
+      // 5. Single atomic commit (File 09)
+      // Reference is zero-width in logical model - offset stays at insertion point
+      withStructuralCommit(() => {
+        commit({
+          nodes: updatedNodes as UINode[],
+          activeNodeId: editorState.activeNodeId,
+          offset: from, // TreeWalker handles DOM mapping, ref is zero-width
+        });
+
+        // 6. Request caret placement (File 06.1)
+        requestCaretPlacement();
+      });
+
+      // 7. Clear grammar session
+      setGrammarSession(EMPTY_GRAMMAR_SESSION);
+
+      // Early return - reference.insert handled, skip executeCommand
+      return;
+    }
 
     if (shouldRemoveText) {
       const activeNode = editorState.nodes.find(
         (n) => n.id === editorState.activeNodeId
       );
-      if (activeNode) {
+      if (activeNode && grammarSession.range) {
         const { from, to } = grammarSession.range;
         const newText =
           activeNode.text.slice(0, from) + activeNode.text.slice(to);
@@ -1187,8 +1402,11 @@ export function NodeEditor() {
     if (!node) return state;
 
     const sibling = createNode(node.type, '', node.parentId);
-    // File 04 — Preserve variant from current node
-    sibling.props = { ...node.props };
+
+    // Phase 09 Fix — Only copy variant, NOT references or other semantic props
+    // File 09: References never duplicate on node creation
+    const variant = node.props?.variant;
+    sibling.props = variant ? { variant } : {};
 
     const withSibling = insertNodeBefore(state.nodes, node.id, sibling);
 
@@ -1890,22 +2108,24 @@ export function NodeEditor() {
 
   /**
    * Phase 5.1.5 — Editor → Browser Caret Sync (CONTROLLED)
-   * Per File 06: Only runs after destructive operations
+   * Per File 06 §1.3: Only runs after structural operations
+   * - ArrowUp / ArrowDown (vertical navigation)
    * - Enter (create new node)
    * - Backspace (merge/delete)
    * - Tab/Shift+Tab (indent/outdent)
    * - Markdown conversion
+   * - Undo / Redo
    *
-   * Normal typing uses browser-native caret (no sync needed)
+   * Normal typing and horizontal arrows use browser-native caret (no sync)
    */
   useEffect(() => {
-    if (!shouldSyncCaret) return;
+    if (!needsCaretPlacementRef.current) return;
 
     const activeNode = editorState.nodes.find(
       (n) => n.id === editorState.activeNodeId
     );
     if (!activeNode) {
-      setShouldSyncCaret(false);
+      needsCaretPlacementRef.current = false;
       return;
     }
 
@@ -1914,42 +2134,67 @@ export function NodeEditor() {
       `[data-node-id="${editorState.activeNodeId}"]`
     );
     if (!nodeElement) {
-      setShouldSyncCaret(false);
+      needsCaretPlacementRef.current = false;
       return;
     }
 
-    const textNode = nodeElement.firstChild;
-    if (!textNode) {
-      setShouldSyncCaret(false);
-      return;
+    // Ensure element is focused
+    if (document.activeElement !== nodeElement) {
+      (nodeElement as HTMLElement).focus();
     }
 
     const range = document.createRange();
     const sel = window.getSelection();
     if (!sel) {
-      setShouldSyncCaret(false);
+      needsCaretPlacementRef.current = false;
       return;
     }
 
     try {
+      // Phase 09 Final — Find existing text node via TreeWalker (NEVER create/append)
+      // CRITICAL: Caret placement must NEVER mutate DOM
+      const walker = document.createTreeWalker(
+        nodeElement,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      const domTextNode: globalThis.Node | null = walker.nextNode();
+
+      if (!domTextNode) {
+        // No text node exists → rendering hasn't completed yet
+        // Do NOT create nodes here - let NodeView handle it
+        needsCaretPlacementRef.current = false;
+        return;
+      }
+
       const clampedOffset = Math.max(
         0,
-        Math.min(editorState.offset, activeNode.text.length)
+        Math.min(editorState.offset, domTextNode.textContent?.length ?? 0)
       );
-      range.setStart(textNode, clampedOffset);
+
+      range.setStart(domTextNode, clampedOffset);
       range.collapse(true);
       sel.removeAllRanges();
       sel.addRange(range);
     } catch (err) {
       // Ignore - cursor position may be invalid during rapid updates
+      console.warn('Caret sync failed:', err);
     }
 
     // Reset flag after syncing
-    setShouldSyncCaret(false);
-  }, [shouldSyncCaret, editorState.activeNodeId, editorState.offset]);
+    needsCaretPlacementRef.current = false;
+  }, [editorState.activeNodeId, editorState.offset]);
 
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // FORENSICS LOG 1 — Verify key events reach handler
+    console.log('[KEYDOWN]', e.key, {
+      activeNodeId: editorState.activeNodeId,
+      offset: editorState.offset,
+      selection,
+    });
+
     // PHASE C — Grammar mode keyboard handling (highest priority)
     if (isSessionActive(grammarSession)) {
       // Escape cancels grammar
@@ -1980,8 +2225,12 @@ export function NodeEditor() {
         return;
       }
 
-      // Space - commit grammar (for some grammar types)
-      if (e.key === ' ' && grammarSession.grammar?.type === 'slash') {
+      // Space - commit grammar (for slash and reference, Phase 09)
+      if (
+        e.key === ' ' &&
+        (grammarSession.grammar?.type === 'slash' ||
+          grammarSession.grammar?.type === 'reference')
+      ) {
         e.preventDefault();
         commitGrammar();
         return;
@@ -2035,14 +2284,18 @@ export function NodeEditor() {
     // STEP 14.3 — Undo (Cmd/Ctrl + Z)
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       e.preventDefault();
-      undo();
+      withStructuralCommit(() => {
+        undo();
+      });
       return;
     }
 
     // STEP 14.3 — Redo (Cmd/Ctrl + Shift + Z)
     if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
       e.preventDefault();
-      redo();
+      withStructuralCommit(() => {
+        redo();
+      });
       return;
     }
 
@@ -2129,34 +2382,35 @@ export function NodeEditor() {
       if (e.shiftKey) {
         // Outdent
         const newState = outdentNode(editorState);
-        // STEP 14.2 — Commit outdent
-        commit({
-          nodes: newState.nodes as UINode[],
-          activeNodeId: newState.activeNodeId,
-          offset: newState.offset,
-          selection: { anchor: null, focus: null },
+        withStructuralCommit(() => {
+          commit({
+            nodes: newState.nodes as UINode[],
+            activeNodeId: newState.activeNodeId,
+            offset: newState.offset,
+            selection: { anchor: null, focus: null },
+          });
+          requestCaretPlacement(); // Structural change
         });
-        setShouldSyncCaret(true); // Phase 5.1.5 — Sync after structural change
       } else {
         // Indent
         const newState = indentNode(editorState);
-        // STEP 14.2 — Commit indent
-        commit({
-          nodes: newState.nodes as UINode[],
-          activeNodeId: newState.activeNodeId,
-          offset: newState.offset,
-          selection: { anchor: null, focus: null },
+        withStructuralCommit(() => {
+          commit({
+            nodes: newState.nodes as UINode[],
+            activeNodeId: newState.activeNodeId,
+            offset: newState.offset,
+            selection: { anchor: null, focus: null },
+          });
+          requestCaretPlacement(); // Structural change
         });
-        setShouldSyncCaret(true); // Phase 5.1.5 — Sync after structural change
       }
       return;
     }
 
-    // Handle ArrowLeft (UI-only, no intent)
+    // ArrowLeft — Boundary-only interception (File 06 §1.3)
+    // Browser owns horizontal movement; editor only handles collapse at boundary
     if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-
-      // STEP 8.3 — Collapse at offset 0 (if has children and not selecting)
+      // ONLY intercept at offset 0 for collapse (structural boundary)
       if (editorState.offset === 0 && !e.shiftKey) {
         const activeNode = editorState.nodes.find(
           (n) => n.id === editorState.activeNodeId
@@ -2166,183 +2420,44 @@ export function NodeEditor() {
           hasChildren(activeNode, editorState.nodes) &&
           !activeNode.isCollapsed
         ) {
+          e.preventDefault();
           const newState = collapseNode(editorState);
-          // STEP 14.2 — Commit collapse
           commit({
             nodes: newState.nodes as UINode[],
             activeNodeId: newState.activeNodeId,
             offset: newState.offset,
             selection: { anchor: null, focus: null },
           });
+          requestCaretPlacement();
           return;
         }
       }
-
-      // If shift is pressed, we're selecting
-      if (e.shiftKey) {
-        // Initialize anchor if no selection exists
-        if (!selection.anchor) {
-          setSelection({
-            anchor: {
-              nodeId: editorState.activeNodeId,
-              offset: editorState.offset,
-            },
-            focus: {
-              nodeId: editorState.activeNodeId,
-              offset: editorState.offset,
-            },
-          });
-        }
-
-        // Move focus left
-        if (editorState.offset > 0) {
-          const newState = { ...editorState, offset: editorState.offset - 1 };
-          setEditorState(newState);
-          setSelection((sel) => ({
-            ...sel,
-            focus: { nodeId: newState.activeNodeId, offset: newState.offset },
-          }));
-        } else {
-          const index = editorState.nodes.findIndex(
-            (n) => n.id === editorState.activeNodeId
-          );
-          if (index > 0) {
-            const prevNode = editorState.nodes[index - 1];
-            if (prevNode) {
-              const newState = {
-                ...editorState,
-                activeNodeId: prevNode.id,
-                offset: prevNode.text.length,
-              };
-              setEditorState(newState);
-              setSelection((sel) => ({
-                ...sel,
-                focus: {
-                  nodeId: newState.activeNodeId,
-                  offset: newState.offset,
-                },
-              }));
-            }
-          }
-        }
-      } else {
-        // Clear selection and move cursor
-        setSelection({ anchor: null, focus: null });
-
-        if (editorState.offset > 0) {
-          setEditorState({ ...editorState, offset: editorState.offset - 1 });
-        } else {
-          const index = editorState.nodes.findIndex(
-            (n) => n.id === editorState.activeNodeId
-          );
-          if (index > 0) {
-            const prevNode = editorState.nodes[index - 1];
-            if (prevNode) {
-              setEditorState({
-                ...editorState,
-                activeNodeId: prevNode.id,
-                offset: prevNode.text.length,
-              });
-            }
-          }
-        }
-      }
+      // Browser handles all other ArrowLeft (including selection)
       return;
     }
 
-    // Handle ArrowRight (UI-only, no intent)
+    // ArrowRight — Boundary-only interception (File 06 §1.3)
+    // Browser owns horizontal movement; editor only handles expand at boundary
     if (e.key === 'ArrowRight') {
-      e.preventDefault();
-
-      const activeNode = editorState.nodes.find(
-        (n) => n.id === editorState.activeNodeId
-      ) as UINode;
-      if (!activeNode) return;
-
-      // STEP 8.3 — Expand at offset 0 (if collapsed and not selecting)
+      // ONLY intercept at offset 0 for expand (structural boundary)
       if (editorState.offset === 0 && !e.shiftKey) {
-        if (activeNode.isCollapsed) {
+        const activeNode = editorState.nodes.find(
+          (n) => n.id === editorState.activeNodeId
+        ) as UINode;
+        if (activeNode && activeNode.isCollapsed) {
+          e.preventDefault();
           const newState = expandNode(editorState);
-          // STEP 14.2 — Commit expand
           commit({
             nodes: newState.nodes as UINode[],
             activeNodeId: newState.activeNodeId,
             offset: newState.offset,
             selection: { anchor: null, focus: null },
           });
+          requestCaretPlacement();
           return;
         }
       }
-
-      // If shift is pressed, we're selecting
-      if (e.shiftKey) {
-        // Initialize anchor if no selection exists
-        if (!selection.anchor) {
-          setSelection({
-            anchor: {
-              nodeId: editorState.activeNodeId,
-              offset: editorState.offset,
-            },
-            focus: {
-              nodeId: editorState.activeNodeId,
-              offset: editorState.offset,
-            },
-          });
-        }
-
-        // Move focus right
-        if (editorState.offset < activeNode.text.length) {
-          const newState = { ...editorState, offset: editorState.offset + 1 };
-          setEditorState(newState);
-          setSelection((sel) => ({
-            ...sel,
-            focus: { nodeId: newState.activeNodeId, offset: newState.offset },
-          }));
-        } else {
-          const index = editorState.nodes.findIndex(
-            (n) => n.id === editorState.activeNodeId
-          );
-          if (index < editorState.nodes.length - 1) {
-            const nextNode = editorState.nodes[index + 1];
-            if (nextNode) {
-              const newState = {
-                ...editorState,
-                activeNodeId: nextNode.id,
-                offset: 0,
-              };
-              setEditorState(newState);
-              setSelection((sel) => ({
-                ...sel,
-                focus: {
-                  nodeId: newState.activeNodeId,
-                  offset: newState.offset,
-                },
-              }));
-            }
-          }
-        }
-      } else {
-        // Clear selection and move cursor
-        setSelection({ anchor: null, focus: null });
-
-        if (editorState.offset < activeNode.text.length) {
-          setEditorState({ ...editorState, offset: editorState.offset + 1 });
-        } else {
-          const index = editorState.nodes.findIndex(
-            (n) => n.id === editorState.activeNodeId
-          );
-          if (index < editorState.nodes.length - 1) {
-            const nextNode = editorState.nodes[index + 1];
-            if (nextNode) {
-              setEditorState({
-                ...editorState,
-                activeNodeId: nextNode.id,
-                offset: 0,
-              });
-            }
-          }
-        }
-      }
+      // Browser handles all other ArrowRight (including selection)
       return;
     }
 
@@ -2375,6 +2490,7 @@ export function NodeEditor() {
           ...sel,
           focus: { nodeId: newState.activeNodeId, offset: newState.offset },
         }));
+        requestCaretPlacement(); // Vertical navigation is editor-controlled
       } else {
         // Clear selection and move cursor through visible nodes only
         setSelection({ anchor: null, focus: null });
@@ -2383,6 +2499,7 @@ export function NodeEditor() {
             ? navigateVisibleUp(editorState)
             : navigateVisibleDown(editorState);
         setEditorState(newState);
+        requestCaretPlacement(); // Vertical navigation is editor-controlled
       }
       return;
     }
@@ -2417,24 +2534,47 @@ export function NodeEditor() {
             offset: nextState.offset,
             selection: { anchor: null, focus: null },
           });
-          setShouldSyncCaret(true);
-          // Let browser insert the character natively after selection deleted
+          // No caret placement - let browser insert character natively
         }
         return;
       }
 
       // CASE 2: Markdown shortcuts (File 07)
-      // PHASE 5.2.1 — Task Variant ([]␣)
-      if (
-        e.key === ' ' &&
-        editorState.offset === 2 &&
-        !isSessionActive(grammarSession)
-      ) {
+      // CRITICAL: Must intercept BEFORE browser inserts space
+      // Read DOM directly at keydown, not React state
+
+      if (e.key === ' ' && !isSessionActive(grammarSession)) {
+        const sel = window.getSelection();
+        if (!sel || !sel.anchorNode) return;
+
+        const browserCaret = getNodePositionFromSelection(sel);
+        if (!browserCaret) return;
+
+        // Find the node in state (for variant update)
         const activeNode = editorState.nodes.find(
-          (n) => n.id === editorState.activeNodeId
+          (n) => n.id === browserCaret.nodeId
         );
-        if (activeNode && activeNode.text === '[]') {
-          e.preventDefault();
+        if (!activeNode) return;
+
+        // Phase 09 Fix — Use node.text from state, NOT DOM
+        // During structural operations, NEVER read DOM
+        // Input observer has already synced DOM → state
+        const textBeforeCaret = activeNode.text.slice(0, browserCaret.offset);
+
+        // Get DOM element only for clearing after detection
+        const contentEl = containerRef.current?.querySelector(
+          `.node__content[data-node-id="${browserCaret.nodeId}"]`
+        ) as HTMLElement | null;
+        if (!contentEl) return;
+
+        // PHASE 5.2.1 — Task Variant ([]␣)
+        if (textBeforeCaret === '[]') {
+          e.preventDefault(); // CRITICAL: Stop browser from inserting space
+
+          // Clear DOM text synchronously
+          contentEl.textContent = '';
+
+          // Update React state
           const updatedNodes = editorState.nodes.map((n) =>
             n.id === activeNode.id
               ? {
@@ -2445,14 +2585,71 @@ export function NodeEditor() {
               : n
           );
 
-          commit({
-            nodes: updatedNodes as UINode[],
-            activeNodeId: activeNode.id,
-            offset: 0,
-            selection: { anchor: null, focus: null },
+          withStructuralCommit(() => {
+            commit({
+              nodes: updatedNodes as UINode[],
+              activeNodeId: activeNode.id,
+              offset: 0,
+              selection: { anchor: null, focus: null },
+            });
+            requestCaretPlacement(); // Markdown conversion
           });
+          return;
+        }
 
-          setShouldSyncCaret(true);
+        // PHASE 5.2.2 — Bullet Variant (-␣)
+        if (textBeforeCaret === '-') {
+          e.preventDefault();
+
+          contentEl.textContent = '';
+
+          const updatedNodes = editorState.nodes.map((n) =>
+            n.id === activeNode.id
+              ? {
+                  ...n,
+                  text: '',
+                  props: { ...n.props, variant: 'bullet' },
+                }
+              : n
+          );
+
+          withStructuralCommit(() => {
+            commit({
+              nodes: updatedNodes as UINode[],
+              activeNodeId: activeNode.id,
+              offset: 0,
+              selection: { anchor: null, focus: null },
+            });
+            requestCaretPlacement(); // Markdown conversion
+          });
+          return;
+        }
+
+        // PHASE 5.2.3 — Heading Variant (#␣)
+        if (textBeforeCaret === '#') {
+          e.preventDefault();
+
+          contentEl.textContent = '';
+
+          const updatedNodes = editorState.nodes.map((n) =>
+            n.id === activeNode.id
+              ? {
+                  ...n,
+                  text: '',
+                  props: { ...n.props, variant: 'heading-1' },
+                }
+              : n
+          );
+
+          withStructuralCommit(() => {
+            commit({
+              nodes: updatedNodes as UINode[],
+              activeNodeId: activeNode.id,
+              offset: 0,
+              selection: { anchor: null, focus: null },
+            });
+            requestCaretPlacement(); // Markdown conversion
+          });
           return;
         }
       }
@@ -2482,6 +2679,43 @@ export function NodeEditor() {
 
     // STEP 4.4 / 7.4 — Backspace With Selection / Hierarchy-aware Backspace
     if (e.key === 'Backspace') {
+      // Phase 09 Step 7 — Check for reference deletion FIRST (File 09)
+      if (!selectionExists) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const container = findNodeContent(range.startContainer);
+          const refBefore = getReferenceBeforeCaret(container, range);
+
+          if (refBefore) {
+            e.preventDefault();
+
+            const refIndex = Number(refBefore.dataset.refIndex);
+            const activeNode = editorState.nodes.find(
+              (n) => n.id === editorState.activeNodeId
+            );
+
+            if (activeNode) {
+              const updatedNode = removeReferenceAt(activeNode, refIndex);
+              const updatedNodes = editorState.nodes.map((n) =>
+                n.id === activeNode.id ? updatedNode : n
+              );
+
+              // Phase 09 Fix — Reference is zero-width, offset stays at logical position
+              withStructuralCommit(() => {
+                commit({
+                  nodes: updatedNodes as UINode[],
+                  activeNodeId: activeNode.id,
+                  offset: editorState.offset, // TreeWalker handles DOM mapping
+                });
+                requestCaretPlacement();
+              });
+              return;
+            }
+          }
+        }
+      }
+
       e.preventDefault();
 
       if (selectionExists) {
@@ -2492,22 +2726,69 @@ export function NodeEditor() {
         );
         if (normalized) {
           const nextState = deleteSelection(editorState, normalized);
-          setSelection({ anchor: null, focus: null });
-          setEditorState(nextState);
-          setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
+          withStructuralCommit(() => {
+            setSelection({ anchor: null, focus: null });
+            setEditorState(nextState);
+            requestCaretPlacement(); // Destructive operation
+          });
           return;
         }
       }
 
       // File 03 — Backspace behavior (delete/merge only, never outdent)
       const newState = applyIntent(editorState, { type: 'backspace' });
-      // STEP 14.2 — Commit backspace
-      commit({
-        nodes: newState.nodes as UINode[],
-        activeNodeId: newState.activeNodeId,
-        offset: newState.offset,
+      withStructuralCommit(() => {
+        commit({
+          nodes: newState.nodes as UINode[],
+          activeNodeId: newState.activeNodeId,
+          offset: newState.offset,
+        });
+        requestCaretPlacement(); // Destructive operation
       });
-      setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
+      return;
+    }
+
+    // Phase 09 Step 7 — Delete key (atomic reference deletion, File 09)
+    if (e.key === 'Delete') {
+      // Check for reference deletion FIRST
+      if (!selectionExists) {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const container = findNodeContent(range.startContainer);
+          const refAfter = getReferenceAfterCaret(container, range);
+
+          if (refAfter) {
+            e.preventDefault();
+
+            const refIndex = Number(refAfter.dataset.refIndex);
+            const activeNode = editorState.nodes.find(
+              (n) => n.id === editorState.activeNodeId
+            );
+
+            if (activeNode) {
+              const updatedNode = removeReferenceAt(activeNode, refIndex);
+              const updatedNodes = editorState.nodes.map((n) =>
+                n.id === activeNode.id ? updatedNode : n
+              );
+
+              // Phase 09 Fix — Reference is zero-width, offset stays at logical position
+              withStructuralCommit(() => {
+                commit({
+                  nodes: updatedNodes as UINode[],
+                  activeNodeId: activeNode.id,
+                  offset: editorState.offset, // TreeWalker handles DOM mapping
+                });
+                requestCaretPlacement();
+              });
+              return;
+            }
+          }
+        }
+      }
+
+      // No reference detected - allow browser default Delete behavior
+      // (This is intentional: no structural Delete logic implemented yet)
       return;
     }
 
@@ -2524,14 +2805,24 @@ export function NodeEditor() {
         if (normalized) {
           let nextState = deleteSelection(editorState, normalized);
           nextState = applyIntent(nextState, { type: 'enter' });
-          // STEP 14.2 — Commit enter after selection delete
-          commit({
-            nodes: nextState.nodes as UINode[],
+
+          // FORENSICS LOG 4b — Verify kernel split with selection
+          console.log('[APPLY_INTENT w/ selection]', {
+            before: editorState.nodes.map((n) => n.text),
+            after: nextState.nodes.map((n) => n.text),
             activeNodeId: nextState.activeNodeId,
             offset: nextState.offset,
-            selection: { anchor: null, focus: null },
           });
-          setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
+
+          withStructuralCommit(() => {
+            commit({
+              nodes: nextState.nodes as UINode[],
+              activeNodeId: nextState.activeNodeId,
+              offset: nextState.offset,
+              selection: { anchor: null, focus: null },
+            });
+            requestCaretPlacement(); // Structural operation
+          });
           return;
         }
       }
@@ -2541,28 +2832,46 @@ export function NodeEditor() {
       );
       if (!activeNode) return;
 
+      // FORENSICS LOG 3 — Verify Enter path selection
+      console.log('[ENTER]', {
+        offset: editorState.offset,
+        textLength: activeNode.text.length,
+        text: activeNode.text,
+      });
+
       // Cursor at START of non-empty node → create sibling ABOVE
       if (editorState.offset === 0 && activeNode.text.length > 0) {
         const newState = createSiblingAbove(editorState);
-        // STEP 14.2 — Commit create sibling above
-        commit({
-          nodes: newState.nodes as UINode[],
-          activeNodeId: newState.activeNodeId,
-          offset: newState.offset,
+        withStructuralCommit(() => {
+          commit({
+            nodes: newState.nodes as UINode[],
+            activeNodeId: newState.activeNodeId,
+            offset: newState.offset,
+          });
+          requestCaretPlacement(); // Structural operation
         });
-        setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
         return;
       }
 
       // All other cases (empty, middle, end) → delegate to applyIntent
       const newState = applyIntent(editorState, { type: 'enter' });
-      // STEP 14.2 — Commit enter
-      commit({
-        nodes: newState.nodes as UINode[],
+
+      // FORENSICS LOG 4 — Verify kernel split correctness
+      console.log('[APPLY_INTENT]', {
+        before: editorState.nodes.map((n) => n.text),
+        after: newState.nodes.map((n) => n.text),
         activeNodeId: newState.activeNodeId,
         offset: newState.offset,
       });
-      setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
+
+      withStructuralCommit(() => {
+        commit({
+          nodes: newState.nodes as UINode[],
+          activeNodeId: newState.activeNodeId,
+          offset: newState.offset,
+        });
+        requestCaretPlacement(); // Structural operation
+      });
       return;
     }
   };
