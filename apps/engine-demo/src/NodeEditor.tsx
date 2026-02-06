@@ -316,6 +316,22 @@ export function NodeEditor() {
     needsCaretPlacementRef.current = true;
   }
 
+  /**
+   * Phase 09 — Place caret immediately after a DOM node
+   * Used after imperative reference insertion to ensure cursor lands after the reference
+   */
+  function placeCaretAfterDOMNode(node: globalThis.Node) {
+    const range = document.createRange();
+    const sel = window.getSelection();
+    if (!sel) return;
+
+    range.setStartAfter(node);
+    range.collapse(true);
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
   // Phase 09 Final — Structural lock (prevents DOM → state sync during commits)
   // CRITICAL: Uses rAF to release AFTER all browser events (keydown/input/selectionchange)
   const structuralLockRef = useRef(false);
@@ -822,8 +838,20 @@ export function NodeEditor() {
           offset: from, // TreeWalker handles DOM mapping, ref is zero-width
         });
 
-        // 6. Request caret placement (File 06.1)
-        requestCaretPlacement();
+        // 6. Place caret after reference (DOM-direct)
+        // Must wait for NodeView to render the reference span
+        requestAnimationFrame(() => {
+          const contentEl = containerRef.current?.querySelector(
+            `.node__content[data-node-id="${editorState.activeNodeId}"]`
+          );
+          if (contentEl) {
+            const refSpans = contentEl.querySelectorAll('.node__reference');
+            const lastRefSpan = refSpans[refSpans.length - 1]; // Just inserted
+            if (lastRefSpan) {
+              placeCaretAfterDOMNode(lastRefSpan);
+            }
+          }
+        });
       });
 
       // 7. Clear grammar session
