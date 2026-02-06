@@ -402,6 +402,57 @@ export function NodeEditor() {
   }, [editorState, grammarSession]);
 
   /**
+   * Phase 5.1.6 — Browser Input Observer
+   * Observes browser-native text changes (typing, paste, IME)
+   * Syncs DOM text back to editor state
+   */
+  useEffect(() => {
+    const containerEl = containerRef.current;
+    if (!containerEl) return;
+
+    const handleInput = (e: Event) => {
+      const target = e.target as HTMLElement;
+
+      // Only handle input from node__content elements
+      if (!target.classList.contains('node__content')) return;
+
+      const nodeId = target.getAttribute('data-node-id');
+      if (!nodeId) return;
+
+      const newText = target.textContent || '';
+
+      // Update node text in editor state
+      const updatedNodes = editorState.nodes.map((n) =>
+        n.id === nodeId ? { ...n, text: newText } : n
+      );
+
+      // Don't commit - just update state silently
+      // Commit happens on Enter, not on typing
+      setEditorState({
+        ...editorState,
+        nodes: updatedNodes,
+      });
+
+      // Detect grammar after text change
+      const browserSelection = window.getSelection();
+      if (browserSelection && browserSelection.isCollapsed) {
+        const position = getNodePositionFromSelection(browserSelection);
+        if (position) {
+          const activeNode = updatedNodes.find((n) => n.id === position.nodeId);
+          if (activeNode) {
+            updateGrammarDetection(activeNode.text, position.offset);
+          }
+        }
+      }
+    };
+
+    containerEl.addEventListener('input', handleInput);
+    return () => {
+      containerEl.removeEventListener('input', handleInput);
+    };
+  }, [editorState, grammarSession]);
+
+  /**
    * STEP 14.2 + PHASE 3C — Commit State Changes (with history)
    *
    * All state mutations go through this function.
@@ -2345,35 +2396,35 @@ export function NodeEditor() {
         selection.anchor.offset === selection.focus.offset
       );
 
-    // STEP 4.3 / 10.3 — Typing With Selection / Property Trigger
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
+    // SPECIAL CHARACTER HANDLING (File 06 compliant)
+    // Only intercept for: selection replacement, markdown shortcuts, special triggers
+    // Normal typing MUST be browser-native (no preventDefault, no commit)
 
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // CASE 1: Selection exists → delete selection, let browser insert character
       if (selectionExists) {
+        e.preventDefault();
         const normalized = normalizeSelection(
           selection.anchor,
           selection.focus,
           editorState.nodes
         );
         if (normalized) {
-          let nextState = deleteSelection(editorState, normalized);
-          nextState = applyIntent(nextState, {
-            type: 'insertText',
-            text: e.key,
-          });
-          // STEP 14.2 — Commit text edit after selection delete
+          const nextState = deleteSelection(editorState, normalized);
           commit({
             nodes: nextState.nodes as UINode[],
             activeNodeId: nextState.activeNodeId,
             offset: nextState.offset,
             selection: { anchor: null, focus: null },
           });
-          return;
+          setShouldSyncCaret(true);
+          // Let browser insert the character natively after selection deleted
         }
+        return;
       }
 
-      // PHASE 5.2.1 — Markdown Shortcut: Task Variant ([]␣)
-      // Authority: File 07 (LOCKED)
+      // CASE 2: Markdown shortcuts (File 07)
+      // PHASE 5.2.1 — Task Variant ([]␣)
       if (
         e.key === ' ' &&
         editorState.offset === 2 &&
@@ -2383,6 +2434,7 @@ export function NodeEditor() {
           (n) => n.id === editorState.activeNodeId
         );
         if (activeNode && activeNode.text === '[]') {
+          e.preventDefault();
           const updatedNodes = editorState.nodes.map((n) =>
             n.id === activeNode.id
               ? {
@@ -2400,18 +2452,18 @@ export function NodeEditor() {
             selection: { anchor: null, focus: null },
           });
 
-          setShouldSyncCaret(true); // Phase 5.1.5 — Sync after markdown conversion
-
+          setShouldSyncCaret(true);
           return;
         }
       }
 
-      // STEP 10.3 — Property trigger: `:` at start of empty node
+      // CASE 3: Property trigger (: at start of empty node)
       if (e.key === ':' && editorState.offset === 0) {
         const activeNode = editorState.nodes.find(
           (n) => n.id === editorState.activeNodeId
         );
         if (activeNode && activeNode.text === '') {
+          e.preventDefault();
           setEditingProperty({
             nodeId: activeNode.id,
             key: '',
@@ -2422,26 +2474,9 @@ export function NodeEditor() {
         }
       }
 
-      // No selection - normal insert
-      const newState = applyIntent(editorState, {
-        type: 'insertText',
-        text: e.key,
-      });
-      // STEP 14.2 — Commit text insert
-      commit({
-        nodes: newState.nodes as UINode[],
-        activeNodeId: newState.activeNodeId,
-        offset: newState.offset,
-      });
-
-      // PHASE C — Detect grammar after text insertion
-      const activeNode = newState.nodes.find(
-        (n) => n.id === newState.activeNodeId
-      );
-      if (activeNode) {
-        updateGrammarDetection(activeNode.text, newState.offset);
-      }
-
+      // CASE 4: Normal typing → Browser handles natively
+      // NO preventDefault, NO commit, NO manual insertion
+      // Browser inserts character, moves caret naturally
       return;
     }
 
