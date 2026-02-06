@@ -8,56 +8,11 @@ import type { NodeID } from '../engine/NodeKernel';
 type DOMNode = globalThis.Node;
 
 /**
- * Normalize anchor node from element to text node
- *
- * When selection.anchorNode is an element (e.g., .node__content),
- * anchorOffset represents CHILD INDEX, not character offset.
- *
- * This function converts element anchor + child index into
- * text node + character offset for correct Range calculation.
- */
-function normalizeAnchor(
-  contentEl: HTMLElement,
-  anchorNode: DOMNode,
-  anchorOffset: number
-): { node: DOMNode; offset: number } {
-  // Case 1: Already a text node → use as-is
-  if (anchorNode.nodeType === Node.TEXT_NODE) {
-    return { node: anchorNode, offset: anchorOffset };
-  }
-
-  // Case 2: Element node → convert child index to text node + offset
-  const walker = document.createTreeWalker(
-    contentEl,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
-
-  let currentTextNode: DOMNode | null = null;
-  let remaining = anchorOffset;
-
-  while ((currentTextNode = walker.nextNode())) {
-    const len = currentTextNode.textContent?.length ?? 0;
-    if (remaining <= len) {
-      return { node: currentTextNode, offset: remaining };
-    }
-    remaining -= len;
-  }
-
-  // Fallback: end of content
-  const last = contentEl.lastChild;
-  return {
-    node: last ?? contentEl,
-    offset: last?.textContent?.length ?? 0,
-  };
-}
-
-/**
  * Given a DOM node and offset, find the corresponding editor node and text offset.
  * Walks up from the target node to find the nearest .node__content element.
  *
- * CRITICAL: Normalizes element anchors to text nodes before Range calculation.
- * This handles the case where selection.anchorNode is .node__content itself.
+ * CRITICAL: Uses Range API to calculate correct offset within full node__content,
+ * not just local text node offset. This is essential for rich DOM trees.
  */
 export function getNodePositionFromDOM(
   target: DOMNode,
@@ -86,20 +41,13 @@ export function getNodePositionFromDOM(
   const nodeId = contentEl.getAttribute('data-node-id');
   if (!nodeId) return null;
 
-  // Normalize anchor: element → text node (CRITICAL FIX)
-  const { node: normalizedNode, offset: normalizedOffset } = normalizeAnchor(
-    contentEl,
-    target,
-    offset
-  );
-
   // --- Correct offset calculation using Range API ---
-  // Now uses normalized text node for accurate measurement
+  // This measures offset within the FULL node__content, not just local text node
   const range = document.createRange();
   range.selectNodeContents(contentEl);
 
   try {
-    range.setEnd(normalizedNode, normalizedOffset);
+    range.setEnd(target, offset);
   } catch {
     // Defensive: browser edge cases
     return { nodeId, offset: contentEl.textContent?.length ?? 0 };

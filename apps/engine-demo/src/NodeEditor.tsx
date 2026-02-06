@@ -186,6 +186,11 @@ export function NodeEditor() {
     };
   });
 
+  // Phase 5.1.5 — Controlled caret positioning flag
+  // When true, the useEffect will set browser caret to match editor state
+  // Only set after destructive operations (Enter, Backspace, Tab, etc.)
+  const [shouldSyncCaret, setShouldSyncCaret] = useState(false);
+
   // Selection state (UI-only, not in kernel)
   const [selection, setSelection] = useState<{
     anchor: { nodeId: NodeID; offset: number } | null;
@@ -246,23 +251,6 @@ export function NodeEditor() {
   const [grammarSession, setGrammarSession] = useState<GrammarSession>(
     EMPTY_GRAMMAR_SESSION
   );
-
-  // Ref for grammar session (used in event listeners to avoid stale closures)
-  const grammarRef = useRef<GrammarSession>(grammarSession);
-  useEffect(() => {
-    grammarRef.current = grammarSession;
-  }, [grammarSession]);
-
-  // Refs for editor position (used to prevent unnecessary selectionchange updates)
-  const activeNodeIdRef = useRef<NodeID>(editorState.activeNodeId);
-  const offsetRef = useRef<number>(editorState.offset);
-  useEffect(() => {
-    activeNodeIdRef.current = editorState.activeNodeId;
-    offsetRef.current = editorState.offset;
-  }, [editorState.activeNodeId, editorState.offset]);
-
-  // Command guard: Ignore selectionchange while editor is mutating state
-  const isApplyingCommandRef = useRef<boolean>(false);
 
   // PHASE 23 — Sync conflicts state (UI-only, session-scoped)
   const [_syncConflicts, _setSyncConflicts] = useState<
@@ -368,29 +356,11 @@ export function NodeEditor() {
   /**
    * Phase 5.1.4 — Document-level Selection Observer
    * Syncs browser selection changes to editor state
-   *
-   * CRITICAL FIX: Registered ONCE to avoid stale closure bugs
-   * Uses functional state updates to avoid spreading stale editorState
    */
   useEffect(() => {
     const handleSelectionChange = () => {
-      // 🚨 CRITICAL GUARD: Ignore selectionchange while editor is mutating state
-      if (isApplyingCommandRef.current) {
-        console.log('[GUARD] selectionchange BLOCKED during command');
-        return;
-      }
-
       const browserSelection = window.getSelection();
       if (!browserSelection) return;
-
-      // 🔍 DIAGNOSTIC: Browser selection state
-      console.log(
-        '[BROWSER]',
-        'anchorNode=',
-        browserSelection.anchorNode,
-        'offset=',
-        browserSelection.anchorOffset
-      );
 
       // Check if selection is inside our editor
       const containerEl = containerRef.current;
@@ -401,47 +371,25 @@ export function NodeEditor() {
 
       if (!anchorInEditor || !focusInEditor) return;
 
-      // Skip if grammar session is active (use ref to avoid stale closure)
-      if (isSessionActive(grammarRef.current)) return;
-
       // Translate to editor state
       if (browserSelection.isCollapsed) {
         const position = getNodePositionFromSelection(browserSelection);
         if (position) {
-          // 🚨 CRITICAL GUARD: Only update if position actually changed
-          if (
-            position.nodeId === activeNodeIdRef.current &&
-            position.offset === offsetRef.current
-          ) {
-            // Browser selection did NOT logically change - do nothing
-            return;
-          }
-
-          setEditorState((prev) => ({
-            ...prev,
+          setEditorState({
+            ...editorState,
             activeNodeId: position.nodeId,
             offset: position.offset,
-          }));
+          });
           setSelection({ anchor: null, focus: null });
         }
       } else {
         const range = getSelectionRangeFromDOM(browserSelection);
         if (range) {
-          // 🚨 CRITICAL GUARD: Only update if focus position actually changed
-          if (
-            range.focus.nodeId === activeNodeIdRef.current &&
-            range.focus.offset === offsetRef.current
-          ) {
-            // Focus position did NOT change - only update selection range
-            setSelection(range);
-            return;
-          }
-
-          setEditorState((prev) => ({
-            ...prev,
+          setEditorState({
+            ...editorState,
             activeNodeId: range.focus.nodeId,
             offset: range.focus.offset,
-          }));
+          });
           setSelection(range);
         }
       }
@@ -451,7 +399,7 @@ export function NodeEditor() {
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
-  }, []); // Register ONCE only - no dependencies
+  }, [editorState, grammarSession]);
 
   /**
    * STEP 14.2 + PHASE 3C — Commit State Changes (with history)
@@ -467,9 +415,6 @@ export function NodeEditor() {
     focusRootId?: NodeID | null;
     selection?: SelectionState;
   }) {
-    // 🚨 CRITICAL GUARD: Prevent selectionchange from overwriting during mutation
-    isApplyingCommandRef.current = true;
-
     // PHASE 3C: Sync hashtags from text to properties (before committing)
     let finalNodes = changes.nodes;
     if (finalNodes) {
@@ -509,23 +454,11 @@ export function NodeEditor() {
       changes.activeNodeId !== undefined ||
       changes.offset !== undefined
     ) {
-      const nextActiveNodeId = changes.activeNodeId ?? editorState.activeNodeId;
-      const nextOffset = changes.offset ?? editorState.offset;
-
       setEditorState({
         nodes: finalNodes ?? editorState.nodes,
-        activeNodeId: nextActiveNodeId,
-        offset: nextOffset,
+        activeNodeId: changes.activeNodeId ?? editorState.activeNodeId,
+        offset: changes.offset ?? editorState.offset,
       });
-
-      // 🔍 DIAGNOSTIC: Post-commit state
-      console.log(
-        '[COMMIT]',
-        'activeNodeId=',
-        nextActiveNodeId,
-        'offset=',
-        nextOffset
-      );
     }
 
     if (changes.focusRootId !== undefined) {
@@ -535,11 +468,6 @@ export function NodeEditor() {
     if (changes.selection !== undefined) {
       setSelection(changes.selection);
     }
-
-    // Reset command guard after DOM + selection settle
-    requestAnimationFrame(() => {
-      isApplyingCommandRef.current = false;
-    });
   }
 
   /**
@@ -1910,44 +1838,64 @@ export function NodeEditor() {
   // };
 
   /**
-   * Phase 5.1.5 — Editor → Browser Caret Sync
-   * DISABLED per Phase 5.1 directive:
-   * - Browser owns caret
-   * - Forcing selection causes flicker and breaks drag selection
-   * - This will be reintroduced LATER in controlled cases
+   * Phase 5.1.5 — Editor → Browser Caret Sync (CONTROLLED)
+   * Per File 06: Only runs after destructive operations
+   * - Enter (create new node)
+   * - Backspace (merge/delete)
+   * - Tab/Shift+Tab (indent/outdent)
+   * - Markdown conversion
+   *
+   * Normal typing uses browser-native caret (no sync needed)
    */
-  // useEffect(() => {
-  //   const activeNode = editorState.nodes.find(
-  //     (n) => n.id === editorState.activeNodeId
-  //   );
-  //   if (!activeNode) return;
-  //
-  //   // Find the node__content element
-  //   const nodeElement = document.querySelector(
-  //     `[data-node-id="${editorState.activeNodeId}"] .node__content`
-  //   );
-  //   if (!nodeElement) return;
-  //
-  //   const textNode = nodeElement.firstChild;
-  //   if (!textNode) return;
-  //
-  //   const range = document.createRange();
-  //   const sel = window.getSelection();
-  //   if (!sel) return;
-  //
-  //   try {
-  //     const clampedOffset = Math.max(
-  //       0,
-  //       Math.min(editorState.offset, activeNode.text.length)
-  //     );
-  //     range.setStart(textNode, clampedOffset);
-  //     range.collapse(true);
-  //     sel.removeAllRanges();
-  //     sel.addRange(range);
-  //   } catch (err) {
-  //     // Ignore - cursor position may be invalid during rapid updates
-  //   }
-  // }, [editorState.activeNodeId, editorState.offset]);
+  useEffect(() => {
+    if (!shouldSyncCaret) return;
+
+    const activeNode = editorState.nodes.find(
+      (n) => n.id === editorState.activeNodeId
+    );
+    if (!activeNode) {
+      setShouldSyncCaret(false);
+      return;
+    }
+
+    // Find the node__content element
+    const nodeElement = document.querySelector(
+      `[data-node-id="${editorState.activeNodeId}"]`
+    );
+    if (!nodeElement) {
+      setShouldSyncCaret(false);
+      return;
+    }
+
+    const textNode = nodeElement.firstChild;
+    if (!textNode) {
+      setShouldSyncCaret(false);
+      return;
+    }
+
+    const range = document.createRange();
+    const sel = window.getSelection();
+    if (!sel) {
+      setShouldSyncCaret(false);
+      return;
+    }
+
+    try {
+      const clampedOffset = Math.max(
+        0,
+        Math.min(editorState.offset, activeNode.text.length)
+      );
+      range.setStart(textNode, clampedOffset);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (err) {
+      // Ignore - cursor position may be invalid during rapid updates
+    }
+
+    // Reset flag after syncing
+    setShouldSyncCaret(false);
+  }, [shouldSyncCaret, editorState.activeNodeId, editorState.offset]);
 
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -2137,6 +2085,7 @@ export function NodeEditor() {
           offset: newState.offset,
           selection: { anchor: null, focus: null },
         });
+        setShouldSyncCaret(true); // Phase 5.1.5 — Sync after structural change
       } else {
         // Indent
         const newState = indentNode(editorState);
@@ -2147,6 +2096,7 @@ export function NodeEditor() {
           offset: newState.offset,
           selection: { anchor: null, focus: null },
         });
+        setShouldSyncCaret(true); // Phase 5.1.5 — Sync after structural change
       }
       return;
     }
@@ -2450,6 +2400,8 @@ export function NodeEditor() {
             selection: { anchor: null, focus: null },
           });
 
+          setShouldSyncCaret(true); // Phase 5.1.5 — Sync after markdown conversion
+
           return;
         }
       }
@@ -2507,6 +2459,7 @@ export function NodeEditor() {
           const nextState = deleteSelection(editorState, normalized);
           setSelection({ anchor: null, focus: null });
           setEditorState(nextState);
+          setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
           return;
         }
       }
@@ -2519,6 +2472,7 @@ export function NodeEditor() {
         activeNodeId: newState.activeNodeId,
         offset: newState.offset,
       });
+      setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
       return;
     }
 
@@ -2542,6 +2496,7 @@ export function NodeEditor() {
             offset: nextState.offset,
             selection: { anchor: null, focus: null },
           });
+          setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
           return;
         }
       }
@@ -2560,6 +2515,7 @@ export function NodeEditor() {
           activeNodeId: newState.activeNodeId,
           offset: newState.offset,
         });
+        setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
         return;
       }
 
@@ -2571,6 +2527,7 @@ export function NodeEditor() {
         activeNodeId: newState.activeNodeId,
         offset: newState.offset,
       });
+      setShouldSyncCaret(true); // Phase 5.1.5 — Sync after destructive op
       return;
     }
   };
