@@ -18,6 +18,7 @@
 import type { Command, CommandResult, NodeRef } from './types';
 import type { Node, NodeID } from '../engine/NodeKernel';
 import type { EditorState } from '../engine/EditorState';
+import { getPlainText, findSegmentAtPlainTextOffset } from '../engine/SegmentUtils';
 
 /**
  * Editor Context
@@ -26,11 +27,14 @@ import type { EditorState } from '../engine/EditorState';
  * This is provided by the UI layer (NodeEditor).
  */
 export type EditorContext = {
-  // Current state (read-only for executor)
+  // Current state (read-only for executor) - SEGMENTED ARCHITECTURE
   getState: () => {
     nodes: Node[];
-    activeNodeId: NodeID;
-    offset: number;
+    cursor: {
+      nodeId: NodeID;
+      segmentIndex: number;
+      offset: number;
+    };
   };
 
   // Mutation primitives (from NodeEditor)
@@ -98,11 +102,23 @@ export function executeCommand(
           return { status: 'error', message: `Node ${nodeId} not found` };
         }
 
-        const newText =
-          node.text.slice(0, offset) + text + node.text.slice(offset);
+        // SEGMENTED ARCHITECTURE: Convert plain text offset to segment cursor
+        const plainText = getPlainText(node.segments);
+        const cursor = findSegmentAtPlainTextOffset(node.segments, offset);
+        
+        // Insert text at segment cursor
+        const newSegments = [...node.segments];
+        const segment = newSegments[cursor.segmentIndex];
+        
+        if (segment && segment.type === 'text') {
+          newSegments[cursor.segmentIndex] = {
+            type: 'text',
+            text: segment.text.slice(0, cursor.offset) + text + segment.text.slice(cursor.offset)
+          };
+        }
 
         const updatedNodes = state.nodes.map((n) =>
-          n.id === nodeId ? { ...n, text: newText } : n
+          n.id === nodeId ? { ...n, segments: newSegments } : n
         );
 
         context.mutations.updateNodes(updatedNodes);
@@ -124,10 +140,15 @@ export function executeCommand(
           return { status: 'noop', reason: 'Empty range' };
         }
 
-        const newText = node.text.slice(0, from) + node.text.slice(to);
+        // SEGMENTED ARCHITECTURE: Delete range in plain text
+        const plainText = getPlainText(node.segments);
+        const newPlainText = plainText.slice(0, from) + plainText.slice(to);
+        
+        // Rebuild segments with updated text (simplified - loses inline elements)
+        const newSegments = newPlainText ? [{ type: 'text' as const, text: newPlainText }] : [];
 
         const updatedNodes = state.nodes.map((n) =>
-          n.id === nodeId ? { ...n, text: newText } : n
+          n.id === nodeId ? { ...n, segments: newSegments } : n
         );
 
         context.mutations.updateNodes(updatedNodes);
@@ -145,10 +166,15 @@ export function executeCommand(
           return { status: 'error', message: `Node ${nodeId} not found` };
         }
 
-        const newText = node.text.slice(0, from) + text + node.text.slice(to);
+        // SEGMENTED ARCHITECTURE: Replace range in plain text
+        const plainText = getPlainText(node.segments);
+        const newPlainText = plainText.slice(0, from) + text + plainText.slice(to);
+        
+        // Rebuild segments with updated text (simplified - loses inline elements)
+        const newSegments = newPlainText ? [{ type: 'text' as const, text: newPlainText }] : [];
 
         const updatedNodes = state.nodes.map((n) =>
-          n.id === nodeId ? { ...n, text: newText } : n
+          n.id === nodeId ? { ...n, segments: newSegments } : n
         );
 
         context.mutations.updateNodes(updatedNodes);

@@ -1,166 +1,38 @@
 import {
   Node,
   NodeID,
-  updateNodeText,
-  getPreviousNode,
-  getNextNode,
-  splitNode,
-  insertNodeAfter,
-  createNode,
-  mergeNodes,
-  deleteNode,
 } from './NodeKernel';
 
-export interface EditorState {
-  nodes: Node[];
-  activeNodeId: NodeID;
-  offset: number; // cursor position inside active node
+/**
+ * SEGMENTED ARCHITECTURE — Cursor Position
+ * 
+ * NO BIAS. NO GLOBAL OFFSETS.
+ * 
+ * Cursor identifies:
+ * - Which node
+ * - Which segment (by index in segments array)
+ * - Local offset inside that segment
+ * 
+ * Caret anchors make "before/after inline" explicit in DOM.
+ * No calculation needed.
+ */
+export interface CursorPosition {
+  nodeId: NodeID;
+  segmentIndex: number;  // Which segment in node.segments[]
+  offset: number;        // LOCAL offset inside that segment (0 for caret-anchor)
 }
 
-export type EditorIntent =
-  | { type: 'insertText'; text: string }
-  | { type: 'enter' }
-  | { type: 'backspace' }
-  | { type: 'moveUp' }
-  | { type: 'moveDown' };
-
-export function applyIntent(
-  state: EditorState,
-  intent: EditorIntent
-): EditorState {
-  switch (intent.type) {
-    case 'insertText': {
-      const { nodes, activeNodeId, offset } = state;
-      const node = nodes.find((n) => n.id === activeNodeId);
-      if (!node) return state;
-
-      const before = node.text.slice(0, offset);
-      const after = node.text.slice(offset);
-
-      const updatedText = before + intent.text + after;
-
-      return {
-        nodes: updateNodeText(nodes, activeNodeId, updatedText),
-        activeNodeId,
-        offset: offset + intent.text.length,
-      };
-    }
-
-    case 'enter': {
-      const { nodes, activeNodeId, offset } = state;
-      const node = nodes.find((n) => n.id === activeNodeId);
-      if (!node) return state;
-
-      const textLength = node.text.length;
-
-      // Case 1: Cursor in middle - split node
-      if (offset > 0 && offset < textLength) {
-        const [beforeNode, afterNode] = splitNode(node, offset);
-
-        // Update current node with before text
-        const updated = updateNodeText(nodes, node.id, beforeNode.text);
-
-        // Insert new node with after text
-        const withNew = insertNodeAfter(updated, node.id, afterNode);
-
-        return {
-          nodes: withNew,
-          activeNodeId: afterNode.id,
-          offset: 0,
-        };
-      }
-
-      // Case 2 & 3: End of text or empty - create new empty node
-      // File 04 — Variant is sticky (preserved on Enter)
-      const newNode = createNode('paragraph', '', node.parentId);
-
-      // Phase 09 Fix — Only copy variant, NOT references or other semantic props
-      // File 09: References never duplicate on node creation
-      const variant = node.props?.variant;
-      newNode.props = variant ? { variant } : {};
-
-      const withNew = insertNodeAfter(nodes, node.id, newNode);
-
-      return {
-        nodes: withNew,
-        activeNodeId: newNode.id,
-        offset: 0,
-      };
-    }
-
-    case 'backspace': {
-      const { nodes, activeNodeId, offset } = state;
-      const node = nodes.find((n) => n.id === activeNodeId);
-      if (!node) return state;
-
-      // CASE 1: Delete character (cursor inside text)
-      if (offset > 0) {
-        const newText =
-          node.text.slice(0, offset - 1) + node.text.slice(offset);
-
-        return {
-          nodes: updateNodeText(nodes, node.id, newText),
-          activeNodeId,
-          offset: offset - 1,
-        };
-      }
-
-      // CASE 2: Cursor at START
-      const prev = getPreviousNode(nodes, activeNodeId);
-      if (!prev) return state; // No previous = no-op
-
-      // CASE 2A: Empty node → delete (File 03)
-      if (node.text.length === 0) {
-        const withoutCurrent = deleteNode(nodes, node.id);
-        return {
-          nodes: withoutCurrent,
-          activeNodeId: prev.id,
-          offset: prev.text.length,
-        };
-      }
-
-      // CASE 2B: Non-empty node → merge with previous (File 03)
-      const merged = mergeNodes(prev, node);
-      const mergePoint = prev.text.length;
-
-      // Delete current node
-      const withoutCurrent = deleteNode(nodes, node.id);
-
-      // Update previous node with merged text
-      const updated = updateNodeText(withoutCurrent, prev.id, merged.text);
-
-      return {
-        nodes: updated,
-        activeNodeId: prev.id,
-        offset: mergePoint,
-      };
-    }
-
-    case 'moveUp': {
-      const { nodes, activeNodeId, offset } = state;
-      const prev = getPreviousNode(nodes, activeNodeId);
-      if (!prev) return state;
-
-      return {
-        nodes,
-        activeNodeId: prev.id,
-        offset: Math.min(offset, prev.text.length),
-      };
-    }
-
-    case 'moveDown': {
-      const { nodes, activeNodeId, offset } = state;
-      const next = getNextNode(nodes, activeNodeId);
-      if (!next) return state;
-
-      return {
-        nodes,
-        activeNodeId: next.id,
-        offset: Math.min(offset, next.text.length),
-      };
-    }
-
-    default:
-      return state;
-  }
+/**
+ * Editor State - SEGMENTED ARCHITECTURE
+ * 
+ * Pure data structure. No behavior.
+ * Cursor is observed from browser, not "intended".
+ */
+export interface EditorState {
+  nodes: Node[];
+  cursor: CursorPosition;
+  selection?: {
+    anchor: CursorPosition;
+    focus: CursorPosition;
+  };
 }

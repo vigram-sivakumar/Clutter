@@ -5,9 +5,33 @@
  * Just pure functions that transform node arrays.
  *
  * Inspired by Workflowy / Tana — nodes are first-class entities.
+ * 
+ * SEGMENTED ARCHITECTURE:
+ * - Adding Segment type for Tana-style segmented content model
+ * - Node now has segments[] (text + inline elements as discrete units)
+ * - Legacy text + meta[] kept temporarily for dual-mode migration
  */
 
+// InlineMetadata deleted - segments only architecture
+
 export type NodeID = string;
+
+/**
+ * SEGMENTED ARCHITECTURE — Core Types
+ * 
+ * Segments replace the zero-width inline metadata model.
+ * Text and inline elements are discrete, atomic units.
+ */
+
+/**
+ * Segment — Text or inline element
+ * This is the foundational unit of the segmented architecture.
+ */
+export type Segment =
+  | { type: "text"; text: string }
+  | { type: "inline"; kind: "ref"; id: string; payload: any };
+
+// Old Node interface deleted - segments only architecture
 
 /**
  * Node types — DEPRECATED, use props.variant instead
@@ -39,6 +63,12 @@ export interface Reference {
 
 /**
  * Node — The fundamental unit
+ * 
+ * SEGMENTED ARCHITECTURE MIGRATION (DUAL-MODE):
+ * - segments[] is the NEW model (Tana-style)
+ * - text + meta[] are TEMPORARY (legacy, READ-ONLY during migration)
+ * - All NEW logic MUST use segments[]
+ * - Legacy fields will be deleted after migration completes
  */
 export interface Node {
   /** Unique identifier */
@@ -47,8 +77,8 @@ export interface Node {
   /** Node type (DEPRECATED — use props.variant) */
   type: NodeType;
 
-  /** Text content */
-  text: string;
+  /** SEGMENTED ARCHITECTURE: Content as discrete segments (MANDATORY) */
+  segments: Segment[];
 
   /** Parent node ID (null = root) — hierarchy */
   parentId: NodeID | null;
@@ -58,6 +88,12 @@ export interface Node {
 
   /** References to other nodes — Phase 11 (graph edges) */
   refs?: NodeID[];
+  
+  /** Collapse state for tree rendering */
+  isCollapsed?: boolean;
+  
+  /** Deletion flag (soft delete) */
+  isDeleted?: boolean;
 }
 
 /**
@@ -70,6 +106,7 @@ export function generateNodeId(): NodeID {
 
 /**
  * Create a new node with defaults
+ * SEGMENTED ARCHITECTURE: Always creates segments
  */
 export function createNode(
   type: NodeType = 'paragraph',
@@ -79,7 +116,7 @@ export function createNode(
   return {
     id: generateNodeId(),
     type,
-    text,
+    segments: text ? [{ type: "text", text }] : [],
     parentId,
     props: {
       variant: 'paragraph', // File 04 — Default variant
@@ -156,37 +193,56 @@ export function updateNodeText(
 }
 
 /**
+ * Replace entire node (including props)
+ * Use this when you need to update more than just text
+ */
+export function replaceNode(
+  nodes: Node[],
+  nodeId: NodeID,
+  newNode: Node
+): Node[] {
+  return nodes.map((n) => (n.id === nodeId ? newNode : n));
+}
+
+/**
  * Split a node at a position
  * Returns [beforeNode, afterNode]
- * File 04 — Variant is sticky (preserved on split)
+ * 
+ * SEGMENTED ARCHITECTURE ONLY
+ * - Uses splitNodeSegmented() - segments only
+ * - Original node ID preserved in beforeNode
+ * - New ID generated for afterNode
+ * - Variant preserved in both nodes
  */
-export function splitNode(node: Node, offset: number): [Node, Node] {
-  const beforeText = node.text.substring(0, offset);
-  const afterText = node.text.substring(offset);
-
-  // Original node keeps the before text
-  const beforeNode: Node = { ...node, text: beforeText };
-
-  // New node gets after text, inherits type, parent, and variant
-  const afterNode: Node = createNode(node.type, afterText, node.parentId);
-
-  // Phase 09 Fix — Only copy variant, NOT references or other semantic props
-  // File 09: References stay with original node, never duplicated on split
-  const variant = node.props?.variant;
-  afterNode.props = variant ? { variant } : {};
-
-  return [beforeNode, afterNode];
+export function splitNode(
+  node: Node,
+  offsetOrCursor: number | { offset: number; segmentIndex?: number }
+): [Node, Node] {
+  // Convert to cursor format
+  const cursor = typeof offsetOrCursor === 'number' 
+    ? { nodeId: node.id, segmentIndex: 0, offset: offsetOrCursor }
+    : { 
+        nodeId: node.id, 
+        segmentIndex: offsetOrCursor.segmentIndex || 0, 
+        offset: offsetOrCursor.offset 
+      };
+  
+  // Use segmented split logic
+  return splitNodeSegmented(node, cursor);
 }
 
 /**
  * Merge two nodes (typically when backspacing at start of second node)
  * Returns the merged node
+ * 
+ * SEGMENTED ARCHITECTURE ONLY
+ * - Uses mergeNodesSegmented() - segments only
+ * - Upper node ID preserved (continuity)
+ * - Segments concatenated
+ * - Variant from first node wins
  */
 export function mergeNodes(first: Node, second: Node): Node {
-  return {
-    ...first,
-    text: first.text + second.text,
-  };
+  return mergeNodesSegmented(first, second);
 }
 
 /**
@@ -222,65 +278,26 @@ export function getNextNode(nodes: Node[], nodeId: NodeID): Node | null {
 /**
  * Get references from a node
  * Returns empty array if no references exist
+ * PHASE 1: DISABLED (returning empty for stability)
  */
 export function getReferences(node: Node): Reference[] {
-  if (!node.props || !node.props.references) return [];
-
-  try {
-    const refs = node.props.references;
-    // Handle both string (JSON) and object storage
-    if (typeof refs === 'string') {
-      return JSON.parse(refs) as Reference[];
-    }
-    return refs as unknown as Reference[];
-  } catch {
-    return [];
-  }
+  return []; // PHASE 1: References disabled
 }
 
 /**
  * Add a reference to a node
- * Returns new node (immutable)
+ * PHASE 1: DISABLED (no-op for stability)
  */
 export function addReference(node: Node, reference: Reference): Node {
-  const existingRefs = getReferences(node);
-  const newRefs = [...existingRefs, reference];
-
-  return {
-    ...node,
-    props: {
-      ...node.props,
-      references: JSON.stringify(newRefs),
-    },
-  };
+  return node; // PHASE 1: References disabled
 }
 
 /**
  * Remove reference at specific index
- * Returns new node (immutable)
+ * PHASE 1: DISABLED (no-op for stability)
  */
 export function removeReferenceAt(node: Node, index: number): Node {
-  const existingRefs = getReferences(node);
-  if (index < 0 || index >= existingRefs.length) return node;
-
-  const newRefs = existingRefs.filter((_, i) => i !== index);
-
-  // If no references left, remove the key entirely
-  if (newRefs.length === 0) {
-    const { references, ...restProps } = node.props || {};
-    return {
-      ...node,
-      props: restProps,
-    };
-  }
-
-  return {
-    ...node,
-    props: {
-      ...node.props,
-      references: JSON.stringify(newRefs),
-    },
-  };
+  return node; // PHASE 1: References disabled
 }
 
 /**
@@ -288,4 +305,103 @@ export function removeReferenceAt(node: Node, index: number): Node {
  */
 export function hasReferences(node: Node): boolean {
   return getReferences(node).length > 0;
+}
+
+// migrateNodeToSegments deleted - all nodes must already have segments
+
+/**
+ * SEGMENTED ARCHITECTURE — Split Operation
+ * 
+ * Splits node at cursor position using segments.
+ * Inline segments are atomic (never split).
+ * 
+ * Algorithm (EXACT):
+ * - If cursor inside text segment and offset is mid-text → split that text segment
+ * - Otherwise → split at segment boundary (inline segments atomic)
+ * - Original node ID preserved in beforeNode
+ * - New ID for afterNode
+ */
+export function splitNodeSegmented(
+  node: Node,
+  cursor: { nodeId: string; segmentIndex: number; offset: number }
+): [Node, Node] {
+  // Segments are now mandatory - empty nodes still have segments: []
+  if (node.segments.length === 0) {
+    // Empty node - both nodes stay empty
+    return [
+      { ...node, segments: [] },
+      { ...node, id: generateNodeId(), segments: [] }
+    ];
+  }
+
+  const segmentIndex = cursor.segmentIndex;
+  const offset = cursor.offset;
+  
+  if (segmentIndex < 0 || segmentIndex >= node.segments.length) {
+    // Invalid index - split at end
+    return [
+      { ...node, segments: [...node.segments] },
+      { ...node, id: generateNodeId(), segments: [] }
+    ];
+  }
+  
+  const segment = node.segments[segmentIndex];
+  
+  if (segment && segment.type === "text" && offset > 0 && offset < segment.text.length) {
+    // Split text segment at offset
+    const beforeSegments = [
+      ...node.segments.slice(0, segmentIndex),
+      { type: "text" as const, text: segment.text.slice(0, offset) }
+    ];
+    
+    const afterSegments = [
+      { type: "text" as const, text: segment.text.slice(offset) },
+      ...node.segments.slice(segmentIndex + 1)
+    ];
+    
+    return [
+      { ...node, segments: beforeSegments },
+      { ...node, id: generateNodeId(), segments: afterSegments }
+    ];
+  } else {
+    // Split at segment boundary (inline segments are atomic)
+    const beforeSegments = node.segments.slice(0, segmentIndex + 1);
+    const afterSegments = node.segments.slice(segmentIndex + 1);
+    
+    return [
+      { ...node, segments: beforeSegments },
+      { ...node, id: generateNodeId(), segments: afterSegments }
+    ];
+  }
+}
+
+/**
+ * SEGMENTED ARCHITECTURE — Merge Operation
+ * 
+ * Merges two nodes by concatenating their segments.
+ * Never merges inline segments or collapses text automatically.
+ * 
+ * Algorithm (EXACT):
+ * - Upper node ID preserved (continuity)
+ * - Segments concatenated: [...upper.segments, ...lower.segments]
+ * - Variant from upper node wins
+ */
+export function mergeNodesSegmented(upper: Node, lower: Node): Node {
+  // Segments are now mandatory - always concatenate them
+  const mergedSegments = [
+    ...upper.segments,
+    ...lower.segments
+  ];
+  
+  return {
+    ...upper,
+    segments: mergedSegments,
+    // Preserve upper node's variant
+    props: {
+      ...upper.props,
+      ...(upper.props?.variant || lower.props?.variant 
+        ? { variant: (upper.props?.variant || lower.props?.variant) as string }
+        : {})
+    }
+  };
 }

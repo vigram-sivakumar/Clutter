@@ -11,15 +11,15 @@ module.exports = {
   rules: {
     // 🔒 UI BOUNDARY: Presentational components
     // ✅ CAN import: domain, state, shared
-    // ❌ CANNOT import: editor, apps
+    // ❌ CANNOT import: apps (editor lives in apps/engine-demo)
     'no-restricted-imports': [
       'error',
       {
         patterns: [
           {
-            group: ['@clutter/editor', '@clutter/editor/*'],
+            group: ['../../../apps/*', '../../apps/*'],
             message:
-              '❌ ui cannot import from editor. Apps compose editor + ui separately. (Phase 2-4 Complete)',
+              '❌ ui cannot import from apps. Editor is composed at app layer only.',
           },
         ],
       },

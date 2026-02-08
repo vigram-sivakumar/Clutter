@@ -1,6 +1,24 @@
 # Node Anatomy & Layout Grid
 
-**Status**: LOCKED  
+> **⚠️ HISTORICAL REFERENCE — LAYOUT PRINCIPLES VALID**
+> 
+> **Architecture Status:** UI structure principles preserved  
+> **Layout Concepts:** ✅ Still Valid  
+> **Implementation Details:** ❌ May reference old patterns
+> 
+> **Current Architecture:** See [`architecture/MANIFEST.md`](./architecture/MANIFEST.md)
+>
+> This document describes node layout structure (still valid), but may reference **deprecated data fields**.
+>
+> **Translate any references to:**
+> - `node.text` → `getPlainText(node.segments)`
+> - Direct DOM manipulation → Use rendering layer
+>
+> **Layout principles and component structure remain valid.**
+
+---
+
+**Original Status**: LOCKED  
 **Depends on**: File 03 (Keyboard), File 04 (Variants)  
 **Scope**: UI structure only (no behavior, no styling choices)
 

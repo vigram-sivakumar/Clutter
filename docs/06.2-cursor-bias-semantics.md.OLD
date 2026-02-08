@@ -1,0 +1,441 @@
+# File 06.2 — Cursor Bias Semantics
+
+**Status**: 🔒 LOCKED  
+**Depends on**: File 06 (Selection Semantics)  
+**Scope**: Cursor position at inline element boundaries  
+**Version**: 1.0  
+**Locked Date**: 2026-02-07
+
+---
+
+## Purpose of This Document
+
+File 06.2 extends File 06 to handle cursor positioning around **inline metadata** (references, mentions, tags).
+
+It answers once and forever:
+
+- What does "offset N" mean when inline-meta exists at offset N?
+- How does the editor distinguish "before ref" vs "after ref"?
+- How does bias affect split, merge, and caret placement?
+
+**If something violates File 06.2, it is incorrect by definition.**
+
+---
+
+## 1. The Problem (Context)
+
+### Without Bias (Ambiguous)
+
+```
+Node: "hello" with reference at offset 0
+Visual: |@ref hello  (cursor before ref)
+        @ref| hello  (cursor after ref)
+
+State: { offset: 0 }  ← BOTH look the same!
+```
+
+**Problem:** Single offset cannot distinguish these two positions.
+
+**Result:**
+- Enter behavior is ambiguous
+- Backspace behavior is ambiguous
+- Caret placement guesses wrong
+
+---
+
+## 2. Cursor Position Model (LOCKED)
+
+### 2.1 Canonical State Shape
+
+```typescript
+interface CursorPosition {
+  nodeId: NodeID;
+  offset: number;          // Character position in node.text
+  bias: "before" | "after"; // Side of inline-meta at this offset
+}
+```
+
+**Replaces:**
+```typescript
+// OLD (File 06)
+{ activeNodeId: NodeID, offset: number }
+
+// NEW (File 06.2)
+{ cursor: CursorPosition }
+```
+
+---
+
+### 2.2 Semantics (LOCKED)
+
+#### When Bias Matters
+
+**Bias is ONLY relevant when:**
+```typescript
+cursor.offset === meta.offset
+```
+
+**Otherwise, bias is ignored** (defaults to "after" but has no effect).
+
+#### Bias Values
+
+| Bias | Meaning | Visual |
+|------|---------|--------|
+| `"before"` | Cursor is logically before the inline-meta | `\|@ref` |
+| `"after"` | Cursor is logically after the inline-meta | `@ref\|` |
+
+**Default:** When bias is unknown or not at a boundary → `"after"`
+
+---
+
+### 2.3 Invariants (Non-Negotiable)
+
+1. **Inline-meta is atomic**
+   - Cursor can be before or after, never inside
+   - Bias distinguishes the two sides
+
+2. **Offset is still text position**
+   - `offset: 5` means "position 5 in node.text"
+   - References don't create additional positions
+   - Bias adds precision, doesn't change offset meaning
+
+3. **DOM is projection**
+   - Bias is stored in state, not inferred continuously
+   - DOM selection is read once to detect bias
+   - Bias is preserved across operations
+
+---
+
+## 3. Bias Detection (Algorithm)
+
+### 3.1 From DOM Selection
+
+```typescript
+function detectCursorBias(
+  anchorNode: Node,
+  anchorOffset: number,
+  contentEl: HTMLElement
+): "before" | "after" {
+  // If selection is in a text node, check adjacent siblings
+  if (anchorNode.nodeType === Node.TEXT_NODE) {
+    const parent = anchorNode.parentNode;
+    
+    // Check if previous sibling is inline-meta
+    const prevSibling = anchorNode.previousSibling;
+    if (prevSibling instanceof HTMLElement && 
+        prevSibling.classList.contains('inline-meta') &&
+        anchorOffset === 0) {
+      return "after"; // Cursor right after inline-meta
+    }
+    
+    // Check if next sibling is inline-meta
+    const nextSibling = anchorNode.nextSibling;
+    if (nextSibling instanceof HTMLElement && 
+        nextSibling.classList.contains('inline-meta') &&
+        anchorOffset === (anchorNode.textContent?.length ?? 0)) {
+      return "before"; // Cursor right before inline-meta
+    }
+  }
+  
+  // If selection is positioned at element level
+  if (anchorNode instanceof HTMLElement) {
+    const child = anchorNode.childNodes[anchorOffset];
+    if (child instanceof HTMLElement && 
+        child.classList.contains('inline-meta')) {
+      return "before"; // Position before inline-meta element
+    }
+    
+    const prevChild = anchorNode.childNodes[anchorOffset - 1];
+    if (prevChild instanceof HTMLElement && 
+        prevChild.classList.contains('inline-meta')) {
+      return "after"; // Position after inline-meta element
+    }
+  }
+  
+  // Default: not at inline-meta boundary
+  return "after";
+}
+```
+
+**This algorithm is canonical.**
+
+---
+
+### 3.2 When to Detect
+
+**Detect bias:**
+- ✅ On `selectionchange` (translating DOM → state)
+- ✅ On mouse click (initial positioning)
+
+**Do NOT detect bias:**
+- ❌ During typing (browser handles)
+- ❌ During caret placement (use stored bias)
+- ❌ Continuously (detect once, store, reuse)
+
+---
+
+## 4. Bias Preservation (Rules)
+
+### 4.1 Typing Preserves Bias
+
+When user types at offset where inline-meta exists:
+- Bias determines which side the character appears on
+- Character appears, bias shifts naturally
+
+**Example:**
+```
+Before: "hello|@ref world" (offset: 5, bias: "before")
+Type 'x': "hellox|@ref world" (offset: 6, bias: "after")
+```
+
+**Implementation:** `adjustMetaOffsets()` handles this automatically.
+
+---
+
+### 4.2 Operations Reset Bias
+
+After structural operations:
+- Enter → new node, bias = "after" (default)
+- Backspace merge → cursor at merge point, bias = "after"
+- Caret placement → respect stored bias, then reset to "after"
+
+**Rule:** Bias persists only within a single editing session at a position.
+
+---
+
+## 5. Interaction with Existing Specs
+
+### 5.1 File 06 (Selection Semantics)
+
+**File 06.2 extends but does not contradict File 06:**
+- Browser still owns caret rendering ✅
+- Editor still observes passively ✅
+- Selection is still read-only ✅
+
+**Addition:** Bias is part of the translation (DOM → state).
+
+---
+
+### 5.2 File 03 (Interaction Rules)
+
+**File 06.2 provides precision for File 03:**
+- START with bias = "before ref" → File 03.2 defines behavior
+- MIDDLE → no change
+- END → no change
+
+**See File 03.2 for behavioral rules.**
+
+---
+
+### 5.3 ARCHITECTURE.md
+
+**File 06.2 respects module ownership:**
+- `InlineMetadata.ts` owns bias logic for split/merge ✅
+- `domMapping.ts` detects bias (thin detection function) ✅
+- `EditorState` stores bias (data structure only) ✅
+
+**No violations.**
+
+---
+
+## 6. EditorState Schema Change (LOCKED)
+
+### Before (File 06)
+```typescript
+interface EditorState {
+  nodes: Node[];
+  activeNodeId: NodeID;
+  offset: number;
+}
+```
+
+### After (File 06.2)
+```typescript
+interface CursorPosition {
+  nodeId: NodeID;
+  offset: number;
+  bias: "before" | "after";
+}
+
+interface EditorState {
+  nodes: Node[];
+  cursor: CursorPosition;
+}
+
+// Backward compat helpers
+const activeNodeId = editorState.cursor.nodeId;
+const offset = editorState.cursor.offset;
+const bias = editorState.cursor.bias;
+```
+
+**Migration:** All references to `editorState.activeNodeId` and `editorState.offset` must migrate to `editorState.cursor.*`.
+
+---
+
+## 7. Validation Criteria (LOCKED)
+
+File 06.2 is validated when ALL of these pass:
+
+### Cursor Positioning:
+- ✅ Click before ref → bias = "before"
+- ✅ Click after ref → bias = "after"
+- ✅ Arrow keys preserve bias correctly
+- ✅ No cursor inside inline-meta spans
+
+### Split Behavior:
+- ✅ Enter before ref → ref goes to after node
+- ✅ Enter after ref → ref stays in before node
+- ✅ Matches user expectation from File 03.2
+
+### Backspace Behavior:
+- ✅ Backspace before ref → structural merge
+- ✅ Backspace after ref → delete character (or ref if no text)
+- ✅ No ambiguous deletion
+
+### Performance:
+- ✅ No cursor jumping
+- ✅ No selection fighting
+- ✅ Bias detection is O(1)
+
+---
+
+## 8. Implementation Notes
+
+### 8.1 Module Changes
+
+**InlineMetadata.ts:**
+```typescript
+export function splitWithMeta<T>(
+  node: T,
+  offset: number,
+  bias: "before" | "after",
+  newId: string
+): [T, T] {
+  // ... existing text split logic ...
+  
+  // NEW: Handle bias for meta at split point
+  for (const m of node.meta) {
+    if (m.offset < offset) {
+      beforeMeta.push(m);
+    } else if (m.offset > offset) {
+      afterMeta.push({ ...m, offset: m.offset - offset });
+    } else if (m.offset === offset) {
+      // KEY LOGIC: Use bias
+      if (bias === "before") {
+        afterMeta.push({ ...m, offset: 0 });
+      } else {
+        beforeMeta.push(m);
+      }
+    }
+  }
+  
+  return [beforeNode, afterNode];
+}
+```
+
+**domMapping.ts:**
+```typescript
+export function getNodePositionFromSelection(
+  selection: Selection
+): CursorPosition | null {
+  // ... existing offset calculation ...
+  
+  const bias = detectCursorBias(
+    selection.anchorNode,
+    selection.anchorOffset,
+    contentEl
+  );
+  
+  return { nodeId, offset, bias };
+}
+```
+
+**NodeKernel.ts:**
+```typescript
+export function splitNode(node: Node, cursor: CursorPosition): [Node, Node] {
+  const newId = generateNodeId();
+  const [before, after] = splitWithMeta(
+    node,
+    cursor.offset,
+    cursor.bias,
+    newId
+  );
+  
+  // ... preserve variant ...
+  return [before, after];
+}
+```
+
+---
+
+### 8.2 Migration Strategy
+
+**Phase 1:** Add bias with default "after" everywhere (non-breaking)
+**Phase 2:** Update detection to calculate real bias
+**Phase 3:** Update split/merge to use bias
+**Phase 4:** Update caret placement to respect bias
+
+---
+
+## 9. Explicit Non-Goals
+
+File 06.2 does NOT define:
+
+- ❌ Visual affordances (underline, hover, etc.)
+- ❌ Click handling on inline-meta spans
+- ❌ Keyboard shortcuts for inline-meta
+- ❌ Multi-cursor with inline-meta
+- ❌ Selection across inline-meta
+
+These may come in future specs.
+
+---
+
+## 10. Locking Criteria
+
+File 06.2 becomes **LOCKED** when:
+
+1. ✅ All validation criteria pass
+2. ✅ File 03.2 is written and locked
+3. ✅ Implementation matches spec exactly
+4. ✅ User confirms Notion/Lexical parity
+
+After locking:
+
+- No changing bias semantics
+- No removing bias tracking
+- No "simplifying" to offset-only
+- This document becomes constitutional
+
+---
+
+## Status
+
+- ✅ Draft complete
+- ⏳ Pending: File 03.2 (Inline Boundary Rules)
+- ⏳ Pending: Implementation
+- ⏳ Pending: Validation
+- ⏳ Pending: User approval → **LOCKED**
+
+**This specification is ready for implementation.**
+
+---
+
+## Canonical Statement (Lock)
+
+Any implementation that does not distinguish cursor position
+around inline metadata with bias is considered **incomplete**.
+
+Bias is not optional. It is architectural.
+
+---
+
+**Related Files:**
+- File 03.2 — Inline Boundary Rules (defines Enter/Backspace with bias)
+- File 06 — Selection Semantics (parent spec)
+- ARCHITECTURE.md — Module ownership
+- InlineMetadata.ts — Implementation
+
+---
+
+**END OF FILE 06.2**

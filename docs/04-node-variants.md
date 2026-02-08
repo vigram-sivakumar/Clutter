@@ -1,6 +1,25 @@
 # Node Variants & Design System Contract
 
-**Status**: LOCKED  
+> **⚠️ HISTORICAL REFERENCE — DATA MODEL UPDATED**
+> 
+> **Architecture Status:** Node types still valid, data structure changed  
+> **Node Variants:** ✅ Still Valid (paragraph, heading, task, etc.)  
+> **Data Structure:** ❌ Outdated (now uses segments)
+> 
+> **Current Architecture:** See [`architecture/MANIFEST.md`](./architecture/MANIFEST.md)
+>
+> This document describes node types and variants (still valid), but references **old data structure**.
+>
+> **Deprecated patterns in this file:**
+> - `node.text` field → Use `getPlainText(node.segments)`
+> - `node.meta` field → Inline elements are segments
+> - Direct text manipulation → Use SegmentedEditor API
+>
+> **Node types (paragraph, task, heading, etc.) remain valid and unchanged.**
+
+---
+
+**Original Status**: LOCKED  
 **Depends on**: File 03 — Keyboard Interaction Truth Table  
 **Scope**: UI + semantic model only (engine unchanged)
 

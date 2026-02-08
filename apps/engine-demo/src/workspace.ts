@@ -147,10 +147,15 @@ export function duplicateExternalNode(
   const newId = generateId();
 
   // Create new node with copied content
+  // Handle both legacy (text/meta) and new (segments) node formats
+  const externalNodeAny = externalNode as any;
+  const segments = externalNode.segments || 
+    (externalNodeAny.text ? [{ type: "text" as const, text: externalNodeAny.text }] : []);
+  
   const node: Node = {
     id: newId,
     type: externalNode.type,
-    text: externalNode.text,
+    segments,
     parentId: null, // Always starts at root in target document
     props: externalNode.props ? { ...externalNode.props } : undefined,
     // refs NOT copied (intentional - prevents transitive explosion)

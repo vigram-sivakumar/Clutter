@@ -72,20 +72,40 @@
   /* Marker handled by renderMarker() */
 }
 
-/* Phase 09 Step 6 — Reference rendering (File 09) */
-.node__reference {
+/* PHASE 2 — Inline metadata rendering (references, mentions, etc.) */
+.inline-meta {
   display: inline;
   padding: 0 4px;
   border-radius: 3px;
-  background: rgba(100, 100, 255, 0.15);
-  color: #9cdcfe;
   white-space: nowrap;
-  user-select: text;
-  cursor: text;
+  user-select: none; /* Atomic element - delete as unit */
+  cursor: pointer;
+  font-size: 0.9em;
 }
 
-.node__reference:hover {
+/* Reference type (node links) */
+.inline-meta--reference {
+  background: rgba(100, 100, 255, 0.15);
+  color: #9cdcfe;
+}
+
+.inline-meta--reference:hover {
   background: rgba(100, 100, 255, 0.25);
+}
+
+/* Mention type (user mentions) */
+.inline-meta--mention {
+  background: rgba(100, 255, 100, 0.15);
+  color: #9cfea0;
+}
+
+.inline-meta--mention:hover {
+  background: rgba(100, 255, 100, 0.25);
+}
+
+/* Legacy class for backward compatibility */
+.node__reference {
+  composes: inline-meta inline-meta--reference;
 }
 
 /* Cursor blink animation */
@@ -97,4 +117,63 @@
   50% {
     opacity: 0;
   }
+}
+
+/* SEGMENTED ARCHITECTURE — Caret Anchors (MANDATORY) */
+/* Caret anchors are disposable, empty spans that provide cursor landing spots */
+.caret-anchor {
+  display: inline;
+  width: 0;
+  height: 0;
+  user-select: none;
+}
+
+/* SEGMENTED ARCHITECTURE — Inline Elements (MANDATORY) */
+/* Generic inline element styling */
+.inline-element {
+  display: inline;
+  contenteditable: false;
+  user-select: none;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+
+/* Specific inline element types */
+.inline-ref {
+  background: rgba(100, 100, 255, 0.15);
+  color: #9cdcfe;
+}
+
+.inline-ref:hover {
+  background: rgba(100, 100, 255, 0.25);
+}
+
+.inline-mention {
+  background: rgba(100, 255, 100, 0.15);
+  color: #9cfea0;
+}
+
+.inline-mention:hover {
+  background: rgba(100, 255, 100, 0.25);
+}
+
+.inline-date {
+  background: rgba(255, 200, 100, 0.15);
+  color: #fecf9c;
+}
+
+.inline-date:hover {
+  background: rgba(255, 200, 100, 0.25);
+}
+
+.inline-tag {
+  background: rgba(255, 100, 255, 0.15);
+  color: #fe9cfe;
+}
+
+.inline-tag:hover {
+  background: rgba(255, 100, 255, 0.25);
 }

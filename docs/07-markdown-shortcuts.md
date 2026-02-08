@@ -1,6 +1,25 @@
 # File 07 — Markdown Shortcut Semantics
 
-**Status**: 🔒 LOCKED (CONSTITUTIONAL)  
+> **⚠️ HISTORICAL REFERENCE — BEHAVIOR VALID, IMPLEMENTATION UPDATED**
+> 
+> **Architecture Status:** Markdown triggers still work, implementation changed  
+> **Trigger Behavior:** ✅ Still Valid ([] → task, # → heading, etc.)  
+> **Implementation Details:** ❌ Outdated (uses segments now)
+> 
+> **Current Architecture:** See [`architecture/MANIFEST.md`](./architecture/MANIFEST.md)
+>
+> This document describes **markdown trigger behavior** (correct), but references **old text manipulation**.
+>
+> **Deprecated patterns in this file:**
+> - Direct text mutation → Use SegmentedEditor API
+> - `node.text` manipulation → Segment-based operations
+> - Old state structure → See current EditorState
+>
+> **Markdown triggers (syntax shortcuts) remain unchanged and fully supported.**
+
+---
+
+**Original Status**: 🔒 LOCKED (CONSTITUTIONAL)  
 **Scope**: Markdown → Node Variant conversion  
 **Version**: 1.0  
 **Locked Date**: 2026-02-06  

@@ -1,6 +1,24 @@
 # File 08 — Undo & History Semantics
 
-**Status**: 🔒 LOCKED  
+> **⚠️ HISTORICAL REFERENCE — UNDO RULES VALID**
+> 
+> **Architecture Status:** Undo behavior principles preserved  
+> **Undo Rules:** ✅ Still Valid (what creates history entries)  
+> **State Structure:** ❌ Updated (different data model)
+> 
+> **Current Architecture:** See [`architecture/MANIFEST.md`](./architecture/MANIFEST.md)
+>
+> This document defines **undo/redo behavior** (rules correct), but references **old state structure**.
+>
+> **Deprecated patterns in this file:**
+> - State structure references → See current EditorState
+> - Text field references → Segments-based now
+>
+> **Undo principles remain valid:** Structural operations create entries, typing does not.
+
+---
+
+**Original Status**: 🔒 LOCKED  
 **Scope**: Undo / Redo behavior and guarantees  
 **Version**: 1.0  
 **Locked Date**: 2026-02-06

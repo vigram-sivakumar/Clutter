@@ -7,7 +7,7 @@ export default defineConfig({
   splitting: true,
   sourcemap: true,
   clean: true,
-  external: ['lucide-react', '@clutter/shared', '@clutter/editor', 'react', 'react-dom', '@emoji-mart/react', '@emoji-mart/data'],
+  external: ['lucide-react', '@clutter/shared', 'react', 'react-dom', '@emoji-mart/react', '@emoji-mart/data'],
   tsconfig: './tsconfig.json',
 });
 

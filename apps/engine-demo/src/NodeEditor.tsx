@@ -3105,15 +3105,28 @@ export function NodeEditor() {
         return; // browser deletes selection
       }
 
-      // 🔒 FLUSH BOUNDARY: Stop typing flag FIRST
-      stopTyping();
-
       // 🔒 PHASE C: Structural operation - flush model → React
       withStructuralCommit(() => {
-        // First: Sync any pending segments to model
+        // 🔧 CRITICAL FIX: Sync DOM → segments BEFORE flushing
+        // This ensures deletions are captured before merge
+        const liveCursor = getLiveCursor() || getModelCursor() || editorState.cursor;
+        const activeNodeElement = document.querySelector(`[data-node-id="${liveCursor.nodeId}"]`);
+        
+        if (activeNodeElement) {
+          // Force sync current DOM state
+          const activeNode = editorState.nodes.find(n => n.id === liveCursor.nodeId);
+          if (activeNode) {
+            const syncResult = handleSegmentedInput(activeNode, liveCursor, activeNodeElement as HTMLElement);
+            // Update buffer with current DOM state (including deletions)
+            setPendingSegments(liveCursor.nodeId, syncResult.node.segments);
+          }
+        }
+        
+        // Stop typing AFTER sync but BEFORE flush/commit
+        stopTyping();
+        
+        // Now: Flush (with freshly synced segments)
         const flushedNodes = flushPendingSegments('backspace-merge');
-        const liveCursor =
-          getLiveCursor() || getModelCursor() || editorState.cursor;
         updateModel(flushedNodes, liveCursor);
         clearLiveCursor();
 

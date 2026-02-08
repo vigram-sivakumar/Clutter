@@ -1,6 +1,26 @@
 # File 03 — Interaction Rules (Keyboard Contract)
 
-**Status**: 🔒 LOCKED (CONSTITUTIONAL)  
+> **⚠️ HISTORICAL REFERENCE — IMPLEMENTATION PATTERNS DEPRECATED**
+> 
+> **Architecture Status:** Pre-Segmented (Obsolete Implementation)  
+> **Behavioral Intent:** ✅ Still Valid  
+> **Implementation Details:** ❌ Outdated
+> 
+> **Current Architecture:** See [`architecture/MANIFEST.md`](./architecture/MANIFEST.md)  
+> **Translation Guide:** See [`DEPRECATION-NOTICE.md`](./DEPRECATION-NOTICE.md)
+>
+> This document describes correct **keyboard behavior** (WHAT), but references **deprecated implementation patterns** (HOW).
+>
+> **Deprecated patterns in this file:**
+> - References to `node.text` / `text.length` → Use `getPlainText(node.segments)`
+> - Direct text manipulation → Use SegmentedEditor API
+> - Implementation examples → Use current architecture patterns
+>
+> **Behavioral principles remain valid and are enforced in the current system.**
+
+---
+
+**Original Status**: 🔒 LOCKED (CONSTITUTIONAL)  
 **Scope**: Keyboard behavior for structural operations  
 **Version**: 1.0  
 **Locked Date**: 2026-02-05  

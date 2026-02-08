@@ -1,6 +1,25 @@
 # File 06 — Selection & Caret Semantics
 
-**Status**: 🔒 LOCKED  
+> **⚠️ HISTORICAL REFERENCE — STATE STRUCTURE CHANGED**
+> 
+> **Architecture Status:** Principles preserved, state structure updated  
+> **Selection Principles:** ✅ Still Valid (browser owns selection)  
+> **State Structure:** ❌ Outdated (cursor model changed)
+> 
+> **Current Architecture:** See [`architecture/MANIFEST.md`](./architecture/MANIFEST.md)
+>
+> This document describes selection ownership (still correct), but uses **old cursor state structure**.
+>
+> **Deprecated patterns in this file:**
+> - `activeNodeId` + `offset` → `cursor.nodeId` + `cursor.segmentIndex` + `cursor.offset`
+> - Direct state structure references → See current EditorState
+> - Extended to File 06.2 which is now DEPRECATED
+>
+> **Core principle remains valid:** Browser owns selection, editor observes passively.
+
+---
+
+**Original Status**: 🔒 LOCKED  
 **Scope**: Selection behavior, not implementation  
 **Version**: 1.0  
 **Locked Date**: 2026-02-05

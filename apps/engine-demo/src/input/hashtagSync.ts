@@ -1,9 +1,9 @@
 /**
  * PHASE 3C — HASHTAG SYNC ENGINE
  *
- * Bidirectional sync between node text and properties.
+ * Bidirectional sync between node segments and properties.
  *
- * Invariant: node.text ⇄ node.props
+ * Invariant: node.segments ⇄ node.props
  *
  * Rules:
  * - Add #key value → props[key] = value
@@ -16,6 +16,7 @@
 
 import type { Node } from '../engine/NodeKernel';
 import { parseAllHashtags, normalizePropertyKey } from './parseHashtag';
+import { getPlainText } from '../engine/SegmentUtils';
 
 /**
  * Sync result
@@ -51,7 +52,8 @@ export function extractPropertiesFromText(
  * Does NOT mutate input.
  */
 export function syncPropertiesFromText(node: Node): HashtagSyncResult {
-  const extractedProps = extractPropertiesFromText(node.text);
+  const plainText = getPlainText(node.segments);
+  const extractedProps = extractPropertiesFromText(plainText);
 
   // Merge with existing properties
   // Rules:
@@ -107,14 +109,15 @@ export function isPropertyInText(text: string, key: string): boolean {
 /**
  * Validate sync invariant
  *
- * Checks that node.props matches hashtags in node.text.
+ * Checks that node.props matches hashtags in node.segments.
  * Used for testing and debugging.
  */
 export function validateHashtagSync(node: Node): {
   valid: boolean;
   errors: string[];
 } {
-  const extractedProps = extractPropertiesFromText(node.text);
+  const plainText = getPlainText(node.segments);
+  const extractedProps = extractPropertiesFromText(plainText);
   const errors: string[] = [];
 
   // Check that hashtag props match node props
