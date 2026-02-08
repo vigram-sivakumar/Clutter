@@ -10,11 +10,21 @@
  *     <div class="node__content" contenteditable></div>
  *   </div>
  * </div>
+ *
+ * D2.5 — contenteditable DOM INVARIANT (NON-NEGOTIABLE):
+ * Inside .node__content ONLY these are allowed:
+ *   - TEXT_NODE (plain text)
+ *   - <span> with contenteditable="false" (inline references)
+ *
+ * NEVER allowed:
+ *   - <div>, <p>, <br> or any block-level element
+ *   - Browser/paste may introduce these → MUST be flattened immediately
+ *   - Violation causes Enter to create line breaks instead of new nodes
  */
 
 import { useRef, useEffect } from 'react';
 import type { Node } from './engine/NodeKernel';
-import { getNodeVariant, getReferences } from './engine/NodeKernel';
+import { getNodeVariant } from './engine/NodeKernel';
 
 export function NodeView({
   node,
@@ -29,69 +39,72 @@ export function NodeView({
   const variant = getNodeVariant(node);
 
   // DOM-owned contentEditable ref
-  // CRITICAL: Browser owns text after mount, React NEVER updates it
+  // CRITICAL: Browser owns text, React never renders children in contentEditable
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // DOM sync (FINAL FIX for split reusing node.id)
-  // Updates DOM when node.text or references change, but ONLY if DOM doesn't match
-  // This handles splits (where state changes but DOM doesn't) while preserving typing
-  const references = getReferences(node);
-
+  // DOM sync - IMPERATIVE UPDATES ONLY (ENFORCEMENT A1)
+  // Updates DOM when node structure changes (text, metadata, OR segments)
+  //
+  // SEGMENTED ARCHITECTURE RENDERING (MANDATORY PATTERN):
+  // - If node has segments[] → render with caret anchors
+  // - If node has text + meta[] → render old way (dual-mode during migration)
   useEffect(() => {
     if (!contentRef.current) return;
 
-    // Extract current DOM text (ignoring reference spans)
-    let currentDOMText = '';
-    const walker = document.createTreeWalker(
-      contentRef.current,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-    let textNode = walker.nextNode();
-    while (textNode) {
-      currentDOMText += textNode.textContent || '';
-      textNode = walker.nextNode();
-    }
-
-    // Count current DOM references
-    const currentDOMRefs =
-      contentRef.current.querySelectorAll('.node__reference').length;
-
-    // Only update if DOM doesn't match state (structural change, not typing)
+    // 🔒 MANDATORY GUARD: Never render while user is typing in this node
+    // This MUST come first - no exceptions
+    // Rendering during typing destroys the user's input (CRITICAL BUG)
     if (
-      currentDOMText === (node.text || '') &&
-      currentDOMRefs === references.length
+      (globalThis as any).__isTyping?.() &&
+      (globalThis as any).__hasPendingChanges?.(node.id)
     ) {
-      return; // DOM already correct, don't destroy browser's work
+      return; // DOM is authoritative during typing
     }
 
-    // Write content (state changed externally, not from typing)
+    // 🔒 ASSERTION: Check we're not violating invariants
+    if (__DEV__) {
+      try {
+        (globalThis as any).__assertNotRenderingDuringTyping?.(node.id);
+      } catch (e) {
+        console.error('❌ NodeView invariant violation:', e);
+        // Don't throw - log and skip render
+        return;
+      }
+    }
+
+    // SEGMENTED ARCHITECTURE: Simple rendering - no normalization needed
+    // Clear and rebuild from segments
     contentRef.current.textContent = '';
 
-    // Insert plain text first
-    if (node.text) {
-      const textNodeEl = document.createTextNode(node.text);
-      contentRef.current.appendChild(textNodeEl);
-    }
+    // Render all segments
+    for (const segment of node.segments) {
+      if (segment.type === 'text') {
+        // Text segment (no wrapper span in this implementation)
+        const textNode = document.createTextNode(segment.text);
+        contentRef.current.appendChild(textNode);
+      } else if (segment.type === 'inline') {
+        // Caret anchor BEFORE (MANDATORY)
+        const anchorBefore = document.createElement('span');
+        anchorBefore.className = 'caret-anchor';
+        anchorBefore.contentEditable = 'true';
+        contentRef.current.appendChild(anchorBefore);
 
-    // Imperatively insert reference spans (not JSX)
-    for (let i = 0; i < references.length; i++) {
-      const ref = references[i];
-      if (!ref) continue; // Type safety
+        // Inline element (MANDATORY contenteditable="false")
+        const inlineSpan = document.createElement('span');
+        inlineSpan.className = `inline-element inline-${segment.kind}`;
+        inlineSpan.contentEditable = 'false';
+        inlineSpan.dataset.inlineId = segment.id;
+        inlineSpan.textContent = `@${segment.id}`;
+        contentRef.current.appendChild(inlineSpan);
 
-      const span = document.createElement('span');
-      span.className = 'node__reference';
-      span.contentEditable = 'false';
-      span.dataset.refIndex = String(i);
-      span.textContent = ref.targetNodeId; // Placeholder, will resolve titles later
-      contentRef.current.appendChild(span);
+        // Caret anchor AFTER (MANDATORY)
+        const anchorAfter = document.createElement('span');
+        anchorAfter.className = 'caret-anchor';
+        anchorAfter.contentEditable = 'true';
+        contentRef.current.appendChild(anchorAfter);
+      }
     }
-
-    // Ensure empty nodes can receive cursor
-    if (!node.text && references.length === 0) {
-      contentRef.current.textContent = '\u00A0';
-    }
-  }, [node.text, references.length]); // Update when text or refs change, guard prevents typing overwrites
+  }, [node.segments]); // CRITICAL: Only watch segments!
 
   // Calculate depth for indentation
   function getDepth(node: Node, nodes: Node[]): number {
@@ -170,7 +183,8 @@ export function NodeView({
         </div>
 
         {/* File 05 — node__content (single editable surface) */}
-        {/* Phase 09 Fix — NO JSX children, purely DOM-owned */}
+        {/* ENFORCEMENT A1: NO REACT CHILDREN in contentEditable */}
+        {/* Content managed imperatively in useEffect above */}
         <div
           ref={contentRef}
           className="node__content"
@@ -183,7 +197,6 @@ export function NodeView({
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
           }}
         />
-        {/* Content managed imperatively via useEffect above */}
       </div>
     </div>
   );

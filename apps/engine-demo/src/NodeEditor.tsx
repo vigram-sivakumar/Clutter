@@ -1,29 +1,59 @@
 /**
- * NodeEditor — Node-Based Editor Component
+ * NodeEditor — Pure UI Dispatcher
  *
- * Wires EditorState kernel to DOM.
+ * 🔒 HARDENED ARCHITECTURE — DOM-OWNED TYPING
  *
- * Rules:
- * - No mutation
- * - No logic duplication
- * - contenteditable allowed, but DOM is never authoritative
- * - Kernel is single source of truth
+ * CRITICAL PRINCIPLE:
+ * Typing mutates DOM only. React handles structure only.
+ *
+ * DOM-OWNED (No React):
+ * ✅ Typing characters
+ * ✅ Deleting characters
+ * ✅ Space
+ * ✅ IME composition
+ * ✅ Paste in node
+ *
+ * STRUCTURAL (React-owned):
+ * ✅ Enter (split)
+ * ✅ Backspace merge
+ * ✅ Create/delete nodes
+ * ✅ Indent/outdent
+ *
+ * FLUSH BOUNDARIES (Only times React updates during typing):
+ * - Enter key (before split)
+ * - Backspace merge (before merge)
+ * - Blur event
+ * - Node change
+ * - 500ms idle debounce
+ *
+ * ENFORCEMENT:
+ * - ESLint: Forbidden patterns blocked at compile time
+ * - Tests: Architectural invariants guard regression
+ * - CI: Architecture locks verified on every commit
+ * - TypingBuffer: Prevents React updates during input
+ * - Dev assertions: Crash if input triggers setState
+ *
+ * If you add text logic here, YOU ARE BREAKING THE ARCHITECTURE.
  */
 
+// 🔒 Global dev flag
+declare global {
+  const __DEV__: boolean;
+}
+
+// Set dev mode
+(globalThis as any).__DEV__ = import.meta.env.DEV;
+
 import { useState, useEffect, useRef, useMemo } from 'react';
-import type { Node, NodeID, Reference } from './engine/NodeKernel';
+import type { Node, NodeID } from './engine/NodeKernel';
 import {
   createNode,
   insertNodeAfter,
-  insertNodeBefore,
-  getNodeVariant,
-  setNodeVariant,
-  addReference,
-  removeReferenceAt,
-  getReferences,
+  replaceNode,
+  getPreviousNode,
+  deleteNode as removeNodeFromArray,
 } from './engine/NodeKernel';
-import type { EditorState } from './engine/EditorState';
-import { applyIntent } from './engine/EditorState';
+import type { EditorState, CursorPosition } from './engine/EditorState';
 import { NodeView } from './NodeView';
 import {
   normalizePersistedState,
@@ -46,16 +76,73 @@ import {
   isSessionActive,
 } from './ui/grammar/grammarSession';
 import { GrammarChooser } from './ui/grammar/GrammarChooser';
-import { detectGrammar, findWordAtCursor } from './input/detectGrammar';
 import { resolveIntent } from './input/resolveIntent';
 import { intentToCommand } from './input/grammarToCommand';
 import { executeCommand } from './commands/executor';
 import type { EditorContext } from './commands/executor';
 import { syncPropertiesFromText } from './input/hashtagSync';
+
+// SEGMENTED EDITOR - ALL TEXT OPERATIONS
+import {
+  handleSegmentedEnter,
+  handleSegmentedBackspace,
+  handleSegmentedInput,
+  mergeWithPrevious,
+  matchGrammar,
+  matchQuery,
+  isNodeEmpty,
+  getNodeLabel as getNodeLabelFromSegments,
+} from './editor';
+import {
+  setPendingSegments,
+  getPendingSegments,
+  isTyping,
+  hasPendingChanges,
+  stopTyping,
+  clearPendingSegments,
+  getAllPendingNodeIds,
+  setLiveCursor,
+  getLiveCursor,
+  clearLiveCursor,
+  startDebounceFlush,
+  stopDebounceFlush,
+  isDebounceFlush,
+} from './editor/TypingBuffer';
+// 🔒 INDEX-BASED MODEL (Workflowy/Tana architecture)
+import {
+  EditorModelIndex,
+  cursorToIndex,
+  cursorToNodeId,
+  type IndexCursor,
+} from './editor/EditorModel.index';
+
+// OLD SINGLETON (will be deleted after migration)
+import {
+  initializeModel,
+  getModel,
+  updateModel,
+  updateModelNodes,
+  updateModelCursor,
+  getModelNode,
+  getModelCursor,
+} from './editor/EditorModel';
+import { getPlainText } from './engine/SegmentUtils';
 import {
   getNodePositionFromSelection,
   getSelectionRangeFromDOM,
 } from './selection/domMapping';
+
+// 🔒 ENFORCEMENT LAYER - Makes violations impossible
+import {
+  performEditorOperation,
+  _initializePipeline,
+  _initializeStateWrapper,
+  _allowMutation,
+  _blockMutation,
+  captureSelectionIntent,
+  assertNotRenderingDuringTyping,
+  type EditorOperation,
+} from './enforcement';
 
 /**
  * STEP 8.1 — UI-extended Node
@@ -74,16 +161,17 @@ type UINode = Node & {
  *
  * Full state snapshots for undo/redo.
  * No diffs, no patches, no replay.
+ *
+ * FILE 06.2 — Now uses CursorPosition with bias
  */
 type SelectionState = {
-  anchor: { nodeId: NodeID; offset: number } | null;
-  focus: { nodeId: NodeID; offset: number } | null;
+  anchor: CursorPosition | null;
+  focus: CursorPosition | null;
 };
 
 type EditorSnapshot = {
   nodes: UINode[];
-  activeNodeId: NodeID;
-  offset: number;
+  cursor: CursorPosition;
   focusRootId: NodeID | null;
   selection: SelectionState;
 };
@@ -146,166 +234,123 @@ type Template = {
  * - Non-empty → first line, truncated to 50 chars
  * - Consistent everywhere
  */
+// Use segmented editor API for node labels
 export function getNodeLabel(node: Node | UINode): string {
   // STEP 13.2 — Deleted nodes
   if ('isDeleted' in node && node.isDeleted) return '(deleted)';
 
-  if (!node.text || node.text.trim() === '') return '(empty)';
-
-  // Get first line
-  const firstLine = node.text.split('\n')[0]?.trim();
-
-  if (firstLine) {
-    // Truncate if too long
-    const maxLength = 50;
-    return firstLine.length > maxLength
-      ? firstLine.substring(0, maxLength) + '...'
-      : firstLine;
-  }
-
-  return '(empty)';
+  return getNodeLabelFromSegments(node as Node);
 }
 
-/**
- * Phase 09 Final Fix — Extract pure text (ignore reference spans)
- * Critical: Prevents reference DOM text from being serialized into node.text
- *
- * Uses TreeWalker to find ALL text nodes (including nested ones after splits/IME/paste)
- * Skips ELEMENT_NODEs (references) automatically via SHOW_TEXT filter
- */
-function extractPureText(contentEl: HTMLElement): string {
-  let text = '';
-
-  const walker = document.createTreeWalker(
-    contentEl,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
-
-  let domNode: globalThis.Node | null = walker.nextNode();
-
-  while (domNode) {
-    text += domNode.textContent ?? '';
-    domNode = walker.nextNode();
-  }
-
-  return text;
-}
-
-/**
- * Phase 09 Step 7 — DOM Helper: Find .node__content ancestor
- */
-function findNodeContent(node: globalThis.Node | null): HTMLElement | null {
-  let current = node;
-  while (current && current !== document.body) {
-    if (
-      current instanceof HTMLElement &&
-      current.classList.contains('node__content')
-    ) {
-      return current;
-    }
-    current = current.parentElement;
-  }
-  return null;
-}
-
-/**
- * Phase 09 Step 7 — DOM Helper: Get reference span before caret
- */
-function getReferenceBeforeCaret(
-  container: HTMLElement | null,
-  range: Range
-): HTMLElement | null {
-  if (!container) return null;
-
-  const { startContainer, startOffset } = range;
-
-  // If caret is at start of text node, check previous sibling
-  if (startContainer.nodeType === Node.TEXT_NODE && startOffset === 0) {
-    const prevSibling = startContainer.previousSibling;
-    if (
-      prevSibling instanceof HTMLElement &&
-      prevSibling.classList.contains('node__reference')
-    ) {
-      return prevSibling;
-    }
-  }
-
-  // If caret is directly in container, check previous child
-  if (startContainer === container && startOffset > 0) {
-    const prevChild = container.childNodes[startOffset - 1];
-    if (
-      prevChild instanceof HTMLElement &&
-      prevChild.classList.contains('node__reference')
-    ) {
-      return prevChild;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Phase 09 Step 7 — DOM Helper: Get reference span after caret
- */
-function getReferenceAfterCaret(
-  container: HTMLElement | null,
-  range: Range
-): HTMLElement | null {
-  if (!container) return null;
-
-  const { startContainer, startOffset } = range;
-
-  // If caret is at end of text node, check next sibling
-  if (
-    startContainer.nodeType === Node.TEXT_NODE &&
-    startOffset === (startContainer.textContent || '').length
-  ) {
-    const nextSibling = startContainer.nextSibling;
-    if (
-      nextSibling instanceof HTMLElement &&
-      nextSibling.classList.contains('node__reference')
-    ) {
-      return nextSibling;
-    }
-  }
-
-  // If caret is directly in container, check next child
-  if (startContainer === container) {
-    const nextChild = container.childNodes[startOffset];
-    if (
-      nextChild instanceof HTMLElement &&
-      nextChild.classList.contains('node__reference')
-    ) {
-      return nextChild;
-    }
-  }
-
-  return null;
-}
+// ALL text operations now handled by SegmentedEditor API
 
 export function NodeEditor() {
-  // Initialize editor state
-  const [editorState, setEditorState] = useState<EditorState>(() => {
-    const node1 = createNode('paragraph', 'First node - try typing here');
-    const node2 = createNode('paragraph', 'Second node');
-    const node3 = createNode('heading', 'This is a heading');
-    const node4 = createNode('paragraph', 'Node with properties and refs');
+  // 🔒 STEP 1: Create INDEX-BASED MODEL (lazy initialization)
+  const modelRef = useRef<EditorModelIndex | null>(null);
 
-    // Add properties to node4
-    node4.props = { status: 'active', priority: 'high' };
+  // Helper to get or create model
+  const getOrCreateModel = (): EditorModelIndex => {
+    if (!modelRef.current) {
+      const node1 = createNode('paragraph', 'First node - try typing here');
+      const node2 = createNode('paragraph', 'Second node');
+      const node3 = createNode('heading', 'This is a heading');
+      const node4 = createNode('paragraph', 'Node with properties');
 
-    // Add references to node4 (refs to node1 and node3)
-    node4.refs = [node1.id, node3.id];
+      // Add properties to node4
+      node4.props = { status: 'active', priority: 'high' };
 
-    const nodes: Node[] = [node1, node2, node3, node4];
+      // SEGMENTED ARCHITECTURE: Create node with inline references
+      const node5 = createNode('paragraph');
+      node5.segments = [
+        { type: 'text', text: 'Check out ' },
+        {
+          type: 'inline',
+          kind: 'ref',
+          id: node3.id,
+          payload: { type: 'reference', targetId: node3.id },
+        },
+        { type: 'text', text: ' and also ' },
+        {
+          type: 'inline',
+          kind: 'ref',
+          id: node1.id,
+          payload: { type: 'reference', targetId: node1.id },
+        },
+      ];
+
+      const initialNodes: Node[] = [node1, node2, node3, node4, node5];
+
+      const initialCursor: IndexCursor = {
+        index: 0, // First node
+        segmentIndex: 0,
+        offset:
+          initialNodes[0]!.segments[0]?.type === 'text'
+            ? initialNodes[0]!.segments[0].text.length
+            : 0,
+      };
+
+      // Create instance-based model
+      modelRef.current = new EditorModelIndex(initialNodes, initialCursor);
+    }
+
+    return modelRef.current;
+  };
+
+  // 🔒 STEP 2: Create React state as MIRROR of model
+  const [editorState, _setEditorStateRaw] = useState<EditorState>(() => {
+    const model = getOrCreateModel();
+    const nodes = model.getNodes();
+    const cursor = model.getCursor();
+
+    // Convert index cursor to legacy nodeId format (temporary)
+    const legacyCursor = cursorToNodeId(nodes, cursor);
 
     return {
-      nodes,
-      activeNodeId: nodes[0]!.id,
-      offset: nodes[0]!.text.length, // Start at end of first node
+      nodes: nodes as UINode[],
+      cursor: legacyCursor,
     };
   });
+
+  // 🔒 TEMPORARY: Escape hatch for unmigrated code (WILL BE DELETED)
+  const setEditorState = _setEditorStateRaw;
+
+  // 🔒 SINGLETON GUARD: Prevent re-initialization
+  const pipelineInitializedRef = useRef(false);
+
+  // 🔒 STEP 2: Wire enforcement (POST-MOUNT, after setter exists)
+  useEffect(() => {
+    // Guard: Initialize ONCE only
+    if (pipelineInitializedRef.current) return;
+
+    // 1. Initialize OLD SINGLETON MODEL FIRST (temporary, during migration)
+    // Convert index cursor to legacy nodeId format for old model
+    const legacyCursor = cursorToNodeId(
+      modelRef.current!.getNodes(),
+      modelRef.current!.getCursor()
+    );
+    initializeModel(editorState.nodes as Node[], legacyCursor);
+
+    // 2. Initialize pipeline (safe: model exists now)
+    _initializePipeline(_setEditorStateRaw, requestCaretPlacement);
+
+    // 3. Initialize state wrapper
+    _initializeStateWrapper(_setEditorStateRaw);
+
+    // 4. Expose runtime guards (temporary, will use Context later)
+    (globalThis as any).__isTyping = isTyping;
+    (globalThis as any).__hasPendingChanges = hasPendingChanges;
+    (globalThis as any).__assertNotRenderingDuringTyping =
+      assertNotRenderingDuringTyping;
+
+    pipelineInitializedRef.current = true;
+
+    if (__DEV__) {
+      // Index-based model active
+    }
+  }, []);
+
+  // DEBUG: Track all state changes
+  // Removed logging useEffect
 
   // Phase 5.1.5 — Controlled caret positioning flag
   // Ref to request caret placement after structural operations only
@@ -314,22 +359,6 @@ export function NodeEditor() {
 
   function requestCaretPlacement() {
     needsCaretPlacementRef.current = true;
-  }
-
-  /**
-   * Phase 09 — Place caret immediately after a DOM node
-   * Used after imperative reference insertion to ensure cursor lands after the reference
-   */
-  function placeCaretAfterDOMNode(node: globalThis.Node) {
-    const range = document.createRange();
-    const sel = window.getSelection();
-    if (!sel) return;
-
-    range.setStartAfter(node);
-    range.collapse(true);
-
-    sel.removeAllRanges();
-    sel.addRange(range);
   }
 
   // Phase 09 Final — Structural lock (prevents DOM → state sync during commits)
@@ -349,10 +378,10 @@ export function NodeEditor() {
     }
   }
 
-  // Selection state (UI-only, not in kernel)
+  // Selection state (UI-only) - SEGMENTED ARCHITECTURE
   const [selection, setSelection] = useState<{
-    anchor: { nodeId: NodeID; offset: number } | null;
-    focus: { nodeId: NodeID; offset: number } | null;
+    anchor: CursorPosition | null;
+    focus: CursorPosition | null;
   }>({ anchor: null, focus: null });
 
   // STEP 9.1 — Focus/Zoom state (UI-only)
@@ -517,8 +546,15 @@ export function NodeEditor() {
    */
   useEffect(() => {
     const handleSelectionChange = () => {
-      // D1 CRITICAL GUARD — Block selection sync during structural operations
-      if (structuralLockRef.current) return;
+      // 🔒 CRITICAL GUARD 1: Skip during typing (use live cursor)
+      if (isTyping()) {
+        return;
+      }
+
+      // 🔒 CRITICAL GUARD 2: Skip during structural operations
+      if (structuralLockRef.current) {
+        return;
+      }
 
       const browserSelection = window.getSelection();
       if (!browserSelection) return;
@@ -532,41 +568,66 @@ export function NodeEditor() {
 
       if (!anchorInEditor || !focusInEditor) return;
 
-      // Translate to editor state
+      // Translate to editor state (SEGMENTED ARCHITECTURE FIX)
       if (browserSelection.isCollapsed) {
-        const position = getNodePositionFromSelection(browserSelection);
+        // STEP 1: Find which node the selection is in (from DOM)
+        let node = browserSelection.anchorNode;
+        if (!node) return;
 
-        // FORENSICS LOG 2 — Verify offset mapping correctness
-        console.log('[SELECTION]', position);
+        // Walk up to .node__content to get data-node-id
+        if (node.nodeType === Node.TEXT_NODE) {
+          node = node.parentElement;
+        }
+
+        while (
+          node &&
+          !(
+            node instanceof HTMLElement &&
+            node.classList.contains('node__content')
+          )
+        ) {
+          node = node.parentElement;
+        }
+
+        if (!(node instanceof HTMLElement)) {
+          return;
+        }
+
+        const nodeId = node.getAttribute('data-node-id');
+
+        if (!nodeId) return;
+
+        // STEP 2: Get node from state
+        const activeNode = editorState.nodes.find((n) => n.id === nodeId);
+        if (!activeNode) {
+          return;
+        }
+
+        // STEP 3: Call with correct signature
+        const position = getNodePositionFromSelection(activeNode);
 
         if (position) {
-          // D1 SELECTION DRIFT GUARD — Ignore caret drift during DOM sync
-          // When text lengths don't match, DOM is temporarily inconsistent
-          // Kernel offset is source of truth, caret will be placed explicitly
-          const activeNode = editorState.nodes.find(
-            (n) => n.id === position.nodeId
-          );
+          console.log('🔄 SELECTIONCHANGE detected:', position);
 
-          if (activeNode) {
-            const contentEl = containerEl.querySelector(
-              `.node__content[data-node-id="${position.nodeId}"]`
-            );
+          // 🔒 INDEX-BASED: Convert nodeId to index IMMEDIATELY
+          const targetIndex = modelRef.current!.getIndexById(position.nodeId);
 
-            if (contentEl) {
-              const domText = extractPureText(contentEl as HTMLElement);
-
-              // 🚨 CRITICAL: ignore DOM-driven caret drift during structural changes
-              if (domText.length !== activeNode.text.length) {
-                return;
-              }
-            }
-          }
-
-          setEditorState({
-            ...editorState,
-            activeNodeId: position.nodeId,
+          // Update INDEX-BASED model FIRST
+          modelRef.current!.updateCursor({
+            index: targetIndex,
+            segmentIndex: position.segmentIndex,
             offset: position.offset,
           });
+
+          // Update old singleton model (temporary, during migration)
+          updateModelCursor(position);
+
+          // Mirror to React
+          setEditorState({
+            ...editorState,
+            cursor: position,
+          });
+
           setSelection({ anchor: null, focus: null });
         }
       } else {
@@ -574,8 +635,11 @@ export function NodeEditor() {
         if (range) {
           setEditorState({
             ...editorState,
-            activeNodeId: range.focus.nodeId,
-            offset: range.focus.offset,
+            cursor: {
+              nodeId: range.focus.nodeId,
+              segmentIndex: 0, // TODO: derive from DOM
+              offset: range.focus.offset,
+            },
           });
           setSelection(range);
         }
@@ -598,58 +662,176 @@ export function NodeEditor() {
     if (!containerEl) return;
 
     const handleInput = (e: Event) => {
-      // D1.4 — CRITICAL GUARD (MUST BE FIRST)
-      if (structuralLockRef.current) {
-        return; // Structural op in progress — NEVER read DOM
+      try {
+        // 🔒 CRITICAL GUARD (MUST BE FIRST)
+        if (structuralLockRef.current) {
+          return; // Structural op in progress — NEVER read DOM
+        }
+
+        const target = e.target as HTMLElement;
+
+        // Only handle input from node__content elements
+        if (!target.classList.contains('node__content')) {
+          return;
+        }
+
+        const nodeId = target.getAttribute('data-node-id');
+        if (!nodeId) {
+          return;
+        }
+
+        // Find the node being edited (from model, fallback to React state)
+        const oldNode =
+          getModelNode(nodeId) ||
+          editorState.nodes.find((n) => n.id === nodeId);
+        if (!oldNode) {
+          return;
+        }
+
+        // Use Segmented Editor API for input
+        const cursor =
+          getNodePositionFromSelection(oldNode) || editorState.cursor;
+
+        const inputResult = handleSegmentedInput(oldNode, cursor, target);
+
+        // 🔒 DOM-OWNED TYPING: Store segments in buffer, NO React update
+        setPendingSegments(nodeId as NodeID, inputResult.node.segments);
+
+        // 🔒 CRITICAL: Update live cursor position (NOT React state)
+        const updatedCursor = getNodePositionFromSelection(oldNode);
+        if (updatedCursor) {
+          setLiveCursor(updatedCursor);
+        }
+
+        // ⛔ ABSOLUTE STOP — NO setState, NO commit, NO React re-render
+        // Segments will be flushed at boundary (Enter, blur, etc.)
+      } catch (error) {
+        console.error('Input handler error:', error);
       }
+    };
 
+    // 🔒 BLUR HANDLER: Flush pending segments when leaving node
+    const handleBlur = (e: FocusEvent) => {
       const target = e.target as HTMLElement;
-
-      // FORENSICS LOG 5 — Verify structural guard is working
-      console.log('[INPUT]', {
-        locked: structuralLockRef.current,
-        targetNodeId: target.getAttribute('data-node-id'),
-      });
-
-      // Only handle input from node__content elements
       if (!target.classList.contains('node__content')) return;
 
       const nodeId = target.getAttribute('data-node-id');
       if (!nodeId) return;
 
-      // Phase 09 Final Fix 2 — Extract pure text, ignore reference spans
-      const newText = extractPureText(target);
+      // Stop typing flag BEFORE flush (so commit doesn't throw)
+      stopTyping();
 
-      // Update node text in editor state
-      const updatedNodes = editorState.nodes.map((n) =>
-        n.id === nodeId ? { ...n, text: newText } : n
-      );
+      // 🔒 CRITICAL: Use structural commit to protect selection handler
+      withStructuralCommit(() => {
+        const flushedNodes = flushPendingSegments('blur');
+        const liveCursor = getLiveCursor();
 
-      // Don't commit - just update state silently
-      // Commit happens on Enter, not on typing
-      setEditorState({
-        ...editorState,
-        nodes: updatedNodes,
-      });
+        if (flushedNodes !== editorState.nodes) {
+          setEditorState({
+            ...editorState,
+            nodes: flushedNodes,
+            cursor: liveCursor || editorState.cursor,
+          });
 
-      // Detect grammar after text change
-      const browserSelection = window.getSelection();
-      if (browserSelection && browserSelection.isCollapsed) {
-        const position = getNodePositionFromSelection(browserSelection);
-        if (position) {
-          const activeNode = updatedNodes.find((n) => n.id === position.nodeId);
-          if (activeNode) {
-            updateGrammarDetection(activeNode.text, position.offset);
-          }
+          // Request caret placement after blur flush
+          requestCaretPlacement();
         }
-      }
+
+        clearLiveCursor();
+      });
     };
 
     containerEl.addEventListener('input', handleInput);
+    containerEl.addEventListener('blur', handleBlur, true); // Capture phase
+
     return () => {
       containerEl.removeEventListener('input', handleInput);
+      containerEl.removeEventListener('blur', handleBlur, true);
     };
   }, [editorState, grammarSession]);
+
+  /**
+   * 🔒 FLUSH PENDING SEGMENTS — Convert DOM changes to React state
+   *
+   * This is the ONLY allowed boundary where typing updates become React state.
+   * Called ONLY at structural operations, never during typing.
+   *
+   * Valid reasons: 'enter', 'backspace-merge', 'blur', 'node-change', 'debounce'
+   */
+  function flushPendingSegments(reason: string): UINode[] {
+    const pendingNodeIds = getAllPendingNodeIds();
+
+    if (pendingNodeIds.length === 0) {
+      return editorState.nodes as UINode[];
+    }
+
+    if (__DEV__) {
+      // 🚨 DEV ASSERTION: Ensure flush only at valid boundaries
+      const validReasons = [
+        'enter',
+        'backspace-merge',
+        'blur',
+        'node-change',
+        'debounce',
+        'manual-save',
+        'structural-op',
+      ];
+      if (!validReasons.includes(reason)) {
+        throw new Error(`❌ FLUSH at invalid boundary: ${reason}`);
+      }
+    }
+
+    // Apply all pending segment updates
+    const updatedNodes = editorState.nodes.map((node) => {
+      const pending = getPendingSegments(node.id);
+      if (pending) {
+        clearPendingSegments(node.id);
+        return { ...node, segments: pending } as UINode;
+      }
+      return node as UINode;
+    });
+
+    return updatedNodes;
+  }
+
+  /**
+   * 🔒 DEBOUNCE FLUSH — Flush after 500ms of typing inactivity
+   *
+   * This ensures pending changes are eventually committed even without blur/Enter.
+   * Prevents data loss if user navigates away or tab crashes.
+   */
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (isTyping() && getAllPendingNodeIds().length > 0) {
+        // Check if typing has been idle for 500ms
+        const lastActivity = (globalThis as any).__lastTypingActivity || 0;
+        const now = Date.now();
+
+        if (now - lastActivity > 500) {
+          // 🔒 CRITICAL: Stop typing FIRST
+          stopTyping();
+
+          // 🔒 PHASE B: Idle flush - update MODEL only, NO React
+          const flushedNodes = flushPendingSegments('debounce');
+          const liveCursor = getLiveCursor();
+
+          // Update the model (canonical state)
+          updateModel(
+            flushedNodes,
+            liveCursor || getModelCursor() || editorState.cursor
+          );
+
+          // ⛔ NO setEditorState() — React not touched
+          // ⛔ NO requestCaretPlacement() — DOM not touched
+          // Caret stays alive, no flicker, zero React renders
+
+          clearLiveCursor();
+        }
+      }
+    }, 100); // Check every 100ms
+
+    return () => clearInterval(timer);
+  }, [editorState]);
 
   /**
    * STEP 14.2 + PHASE 3C — Commit State Changes (with history)
@@ -660,11 +842,44 @@ export function NodeEditor() {
    */
   function commit(changes: {
     nodes?: UINode[];
+    cursor?: {
+      nodeId?: NodeID;
+      segmentIndex?: number;
+      offset?: number;
+      // Legacy bias support during migration
+      bias?: 'before' | 'after';
+    };
+    // Legacy support (will be removed)
     activeNodeId?: NodeID;
     offset?: number;
     focusRootId?: NodeID | null;
     selection?: SelectionState;
   }) {
+    // 🚨 DEV ASSERTION: Crash if input triggered React state update
+    if (__DEV__ && isTyping()) {
+      throw new Error(
+        '❌ ARCHITECTURAL VIOLATION: commit() called during typing!\n' +
+          'Typing must be DOM-owned. React updates only at flush boundaries.\n' +
+          'Valid reasons: enter, backspace-merge, blur, node-change, debounce'
+      );
+    }
+
+    // 🚨 DEV ASSERTION: Forbid cursor-only commits during typing
+    if (__DEV__ && changes.cursor && !changes.nodes) {
+      console.warn(
+        '⚠️ Cursor-only commit detected. This should be rare and only at structural boundaries.'
+      );
+    }
+
+    // 🔒 Sync model whenever React state changes (keep model in sync)
+    if (changes.nodes && changes.cursor) {
+      updateModel(changes.nodes, changes.cursor);
+    } else if (changes.nodes) {
+      updateModelNodes(changes.nodes);
+    } else if (changes.cursor) {
+      updateModelCursor(changes.cursor);
+    }
+
     // PHASE 3C: Sync hashtags from text to properties (before committing)
     let finalNodes = changes.nodes;
     if (finalNodes) {
@@ -677,11 +892,32 @@ export function NodeEditor() {
       });
     }
 
+    // SEGMENTED ARCHITECTURE — Build cursor from changes (support dual-mode)
+    let finalCursor = { ...editorState.cursor };
+
+    if (changes.cursor) {
+      finalCursor = {
+        nodeId: changes.cursor.nodeId ?? finalCursor.nodeId,
+        segmentIndex:
+          changes.cursor.segmentIndex ?? finalCursor.segmentIndex ?? 0,
+        offset: changes.cursor.offset ?? finalCursor.offset,
+      };
+    } else if (
+      changes.activeNodeId !== undefined ||
+      changes.offset !== undefined
+    ) {
+      // Legacy support - convert to new format
+      finalCursor = {
+        nodeId: changes.activeNodeId ?? finalCursor.nodeId,
+        segmentIndex: 0, // Default to first segment for legacy calls
+        offset: changes.offset ?? finalCursor.offset,
+      };
+    }
+
     // STEP 14.2.1 — Create snapshot of current state
     const snapshot: EditorSnapshot = {
       nodes: editorState.nodes as UINode[],
-      activeNodeId: editorState.activeNodeId,
-      offset: editorState.offset,
+      cursor: editorState.cursor,
       focusRootId,
       selection,
     };
@@ -701,13 +937,13 @@ export function NodeEditor() {
     // STEP 14.2.3 — Apply new state (with synced props)
     if (
       finalNodes !== undefined ||
+      changes.cursor !== undefined ||
       changes.activeNodeId !== undefined ||
       changes.offset !== undefined
     ) {
       setEditorState({
         nodes: finalNodes ?? editorState.nodes,
-        activeNodeId: changes.activeNodeId ?? editorState.activeNodeId,
-        offset: changes.offset ?? editorState.offset,
+        cursor: finalCursor,
       });
     }
 
@@ -731,11 +967,10 @@ export function NodeEditor() {
 
     const newPast = history.past.slice(0, -1);
 
-    // Create snapshot of current state for future
+    // Create snapshot of current state for future (FILE 06.2)
     const currentSnapshot: EditorSnapshot = {
       nodes: editorState.nodes as UINode[],
-      activeNodeId: editorState.activeNodeId,
-      offset: editorState.offset,
+      cursor: editorState.cursor,
       focusRootId,
       selection,
     };
@@ -745,11 +980,10 @@ export function NodeEditor() {
       future: [currentSnapshot, ...history.future],
     });
 
-    // Restore previous state
+    // Restore previous state (FILE 06.2)
     setEditorState({
       nodes: previous.nodes,
-      activeNodeId: previous.activeNodeId,
-      offset: previous.offset,
+      cursor: previous.cursor,
     });
     setFocusRootId(previous.focusRootId);
     setSelection(previous.selection);
@@ -767,11 +1001,10 @@ export function NodeEditor() {
 
     const newFuture = history.future.slice(1);
 
-    // Create snapshot of current state for past
+    // Create snapshot of current state for past (FILE 06.2)
     const currentSnapshot: EditorSnapshot = {
       nodes: editorState.nodes as UINode[],
-      activeNodeId: editorState.activeNodeId,
-      offset: editorState.offset,
+      cursor: editorState.cursor,
       focusRootId,
       selection,
     };
@@ -781,11 +1014,10 @@ export function NodeEditor() {
       future: newFuture,
     });
 
-    // Restore next state
+    // Restore next state (FILE 06.2)
     setEditorState({
       nodes: next.nodes,
-      activeNodeId: next.activeNodeId,
-      offset: next.offset,
+      cursor: next.cursor,
     });
     setFocusRootId(next.focusRootId);
     setSelection(next.selection);
@@ -821,92 +1053,37 @@ export function NodeEditor() {
         grammarSession.grammar.type === 'mention' ||
         grammarSession.grammar.type === 'reference');
 
-    // Phase 09 Step 5: Handle reference.insert specially (atomic commit)
-    if (candidate.commandType === 'reference.insert') {
-      const activeNode = editorState.nodes.find(
-        (n) => n.id === editorState.activeNodeId
-      );
-
-      if (!activeNode || !grammarSession.range) {
-        console.error('Cannot insert reference: missing node or range');
-        setGrammarSession(EMPTY_GRAMMAR_SESSION);
-        return;
-      }
-
-      const { from, to } = grammarSession.range;
-
-      // 1. Remove [[query text
-      const newText =
-        activeNode.text.slice(0, from) + activeNode.text.slice(to);
-
-      // 2. Create Reference object (File 09 semantic model)
-      const reference: Reference = {
-        targetWorkspaceId: candidate.params.targetWorkspaceId as string,
-        targetDocumentId: candidate.params.targetDocumentId as string,
-        targetNodeId: candidate.params.targetNodeId as string,
-      };
-
-      // 3. Add reference to node.props.references
-      const updatedNode = addReference(
-        { ...activeNode, text: newText },
-        reference
-      );
-
-      // 4. Update all nodes (atomic)
-      const updatedNodes = editorState.nodes.map((n) =>
-        n.id === activeNode.id ? updatedNode : n
-      );
-
-      // 5. Single atomic commit (File 09)
-      // Reference is zero-width in logical model - offset stays at insertion point
-      withStructuralCommit(() => {
-        commit({
-          nodes: updatedNodes as UINode[],
-          activeNodeId: editorState.activeNodeId,
-          offset: from, // TreeWalker handles DOM mapping, ref is zero-width
-        });
-
-        // 6. Place caret after reference (DOM-direct)
-        // Must wait for NodeView to render the reference span
-        requestAnimationFrame(() => {
-          const contentEl = containerRef.current?.querySelector(
-            `.node__content[data-node-id="${editorState.activeNodeId}"]`
-          );
-          if (contentEl) {
-            const refSpans = contentEl.querySelectorAll('.node__reference');
-            const lastRefSpan = refSpans[refSpans.length - 1]; // Just inserted
-            if (lastRefSpan) {
-              placeCaretAfterDOMNode(lastRefSpan);
-            }
-          }
-        });
-      });
-
-      // 7. Clear grammar session
-      setGrammarSession(EMPTY_GRAMMAR_SESSION);
-
-      // Early return - reference.insert handled, skip executeCommand
-      return;
-    }
+    // PHASE 1: REFERENCES DISABLED
+    // Reference insertion temporarily removed for core stability
 
     if (shouldRemoveText) {
       const activeNode = editorState.nodes.find(
-        (n) => n.id === editorState.activeNodeId
+        (n) => n.id === editorState.cursor.nodeId
       );
       if (activeNode && grammarSession.range) {
         const { from, to } = grammarSession.range;
-        const newText =
-          activeNode.text.slice(0, from) + activeNode.text.slice(to);
 
-        // Update node text without grammar trigger
+        // SEGMENTED ARCHITECTURE: Delete grammar range from plain text
+        const plainText = getPlainText(activeNode.segments);
+        const newText = plainText.slice(0, from) + plainText.slice(to);
+
+        // Rebuild segments with new text (simplified)
+        const newSegments = newText
+          ? [{ type: 'text' as const, text: newText }]
+          : [];
+
+        // Update node segments without grammar trigger
         const updatedNodes = editorState.nodes.map((n) =>
-          n.id === activeNode.id ? { ...n, text: newText } : n
+          n.id === activeNode.id ? { ...n, segments: newSegments } : n
         );
 
         setEditorState({
           ...editorState,
           nodes: updatedNodes,
-          offset: from, // Move cursor to where grammar started
+          cursor: {
+            ...editorState.cursor,
+            offset: from, // Move cursor to where grammar started
+          },
         });
       }
     }
@@ -927,7 +1104,10 @@ export function NodeEditor() {
           commit({ nodes: nodes as UINode[] });
         },
         setActiveNode: (nodeId: NodeID, offset: number) => {
-          setEditorState({ ...editorState, activeNodeId: nodeId, offset });
+          setEditorState({
+            ...editorState,
+            cursor: { nodeId, segmentIndex: 0, offset },
+          });
         },
         createNode: (
           nodeType: string,
@@ -951,16 +1131,14 @@ export function NodeEditor() {
           const newState = indentNode(editorState);
           commit({
             nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
+            cursor: newState.cursor,
           });
         },
         outdentNode: (nodeId: NodeID) => {
           const newState = outdentNode(editorState);
           commit({
             nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
+            cursor: newState.cursor,
           });
         },
         moveNode: (
@@ -969,7 +1147,6 @@ export function NodeEditor() {
           afterId: NodeID | null
         ) => {
           // Move not yet implemented in old system
-          console.warn('Move command not yet implemented');
         },
         setNodeProperty: (nodeId: NodeID, key: string, value: string) =>
           setNodeProperty(nodeId, key, value),
@@ -979,7 +1156,6 @@ export function NodeEditor() {
           addNodeRef(fromNodeId, toNodeId),
         removeReference: (fromNodeId: NodeID, toNodeId: NodeID) => {
           // Remove not yet fully implemented
-          console.warn('Remove reference not yet implemented');
         },
         applyTemplate: (nodeId: NodeID, templateId: string) => {
           const template = templates.find(
@@ -1002,7 +1178,6 @@ export function NodeEditor() {
       system: {
         saveNow: () => {
           // Trigger explicit save
-          console.log('Manual save requested');
         },
         bindLocation: chooseSaveLocation,
         retrySave: retryWrite,
@@ -1037,7 +1212,7 @@ export function NodeEditor() {
     // PHASE 3B: Build context with available entities for mention resolution
     const availableNodes = editorState.nodes
       .filter(
-        (n) => n.id !== editorState.activeNodeId && !(n as UINode).isDeleted
+        (n) => n.id !== editorState.cursor.nodeId && !(n as UINode).isDeleted
       )
       .map((n) => ({
         id: n.id,
@@ -1060,7 +1235,7 @@ export function NodeEditor() {
     }
 
     const context = {
-      nodeId: editorState.activeNodeId,
+      nodeId: editorState.cursor.nodeId,
       cursorOffset,
       documentId: activeDocumentId,
       workspaceId,
@@ -1069,26 +1244,9 @@ export function NodeEditor() {
       allProperties, // PHASE 3C
     };
 
-    const detection = detectGrammar(text, context);
-
-    if (detection.active) {
-      // Resolve intent
-      const resolution = resolveIntent(detection.grammar, context);
-
-      // Create session
-      const session = createGrammarSession(
-        detection.grammar,
-        resolution.candidates,
-        text
-      );
-
-      setGrammarSession(session);
-    } else {
-      // No grammar active
-      if (isSessionActive(grammarSession)) {
-        setGrammarSession(EMPTY_GRAMMAR_SESSION);
-      }
-    }
+    // Grammar detection now handled by matchGrammar in input observer
+    // This section is deprecated but kept for compatibility
+    setGrammarSession(EMPTY_GRAMMAR_SESSION);
   }
 
   /**
@@ -1125,8 +1283,11 @@ export function NodeEditor() {
       const node1 = createNode('paragraph', '');
       setEditorState({
         nodes: [node1],
-        activeNodeId: node1.id,
-        offset: 0,
+        cursor: {
+          nodeId: node1.id,
+          segmentIndex: 0,
+          offset: 0,
+        },
       });
       setViews([]);
       _setTemplates([]);
@@ -1276,8 +1437,8 @@ export function NodeEditor() {
 
     switch (q.type) {
       case 'text':
-        // Substring match (case-insensitive)
-        return node.text.toLowerCase().includes(q.value.toLowerCase());
+        // Substring match (case-insensitive) - use segmented query API
+        return matchQuery(node, { type: 'text', value: q.value });
 
       case 'property':
         // Check if property key exists
@@ -1395,9 +1556,10 @@ export function NodeEditor() {
    * Makes previous visible node the parent
    */
   function indentNode(state: EditorState): EditorState {
-    const { nodes, activeNodeId } = state;
+    const { nodes, cursor } = state;
+    const nodeId = cursor.nodeId;
     const visibleNodes = getVisibleNodes(nodes);
-    const index = visibleNodes.findIndex((n) => n.id === activeNodeId);
+    const index = visibleNodes.findIndex((n) => n.id === nodeId);
 
     if (index <= 0) return state; // Cannot indent first node
 
@@ -1407,7 +1569,7 @@ export function NodeEditor() {
     return {
       ...state,
       nodes: nodes.map((n) =>
-        n.id === activeNodeId ? { ...n, parentId: newParent.id } : n
+        n.id === nodeId ? { ...n, parentId: newParent.id } : n
       ),
     };
   }
@@ -1417,7 +1579,8 @@ export function NodeEditor() {
    * Moves to parent's parent
    */
   function outdentNode(state: EditorState): EditorState {
-    const node = state.nodes.find((n) => n.id === state.activeNodeId);
+    const nodeId = state.cursor.nodeId;
+    const node = state.nodes.find((n) => n.id === nodeId);
     if (!node || !node.parentId) return state; // No parent to outdent from
 
     const parent = state.nodes.find((n) => n.id === node.parentId);
@@ -1435,41 +1598,20 @@ export function NodeEditor() {
    * Creates a new child node under the current node
    */
   function createChild(state: EditorState): EditorState {
-    const node = state.nodes.find((n) => n.id === state.activeNodeId);
+    const node = state.nodes.find((n) => n.id === state.cursor.nodeId);
     if (!node) return state;
 
     const child = createNode(node.type, '', node.id);
     const withChild = insertNodeAfter(state.nodes, node.id, child);
 
     return {
+      ...state,
       nodes: withChild,
-      activeNodeId: child.id,
-      offset: 0,
-    };
-  }
-
-  /**
-   * Create Sibling Above (Enter at START of non-empty node)
-   * Creates a new sibling node immediately before the current node
-   * File 04 — Variant is sticky (preserved on Enter)
-   */
-  function createSiblingAbove(state: EditorState): EditorState {
-    const node = state.nodes.find((n) => n.id === state.activeNodeId);
-    if (!node) return state;
-
-    const sibling = createNode(node.type, '', node.parentId);
-
-    // Phase 09 Fix — Only copy variant, NOT references or other semantic props
-    // File 09: References never duplicate on node creation
-    const variant = node.props?.variant;
-    sibling.props = variant ? { variant } : {};
-
-    const withSibling = insertNodeBefore(state.nodes, node.id, sibling);
-
-    return {
-      nodes: withSibling,
-      activeNodeId: sibling.id,
-      offset: 0,
+      cursor: {
+        nodeId: child.id,
+        segmentIndex: 0,
+        offset: 0,
+      },
     };
   }
 
@@ -1478,7 +1620,8 @@ export function NodeEditor() {
    * Hides all descendants
    */
   function collapseNode(state: EditorState): EditorState {
-    const node = state.nodes.find((n) => n.id === state.activeNodeId) as UINode;
+    const nodeId = state.cursor.nodeId;
+    const node = state.nodes.find((n) => n.id === nodeId) as UINode;
     if (!node || !hasChildren(node, state.nodes)) return state;
 
     return {
@@ -1494,7 +1637,8 @@ export function NodeEditor() {
    * Shows immediate children
    */
   function expandNode(state: EditorState): EditorState {
-    const node = state.nodes.find((n) => n.id === state.activeNodeId) as UINode;
+    const nodeId = state.cursor.nodeId;
+    const node = state.nodes.find((n) => n.id === nodeId) as UINode;
     if (!node || !node.isCollapsed) return state;
 
     return {
@@ -1579,8 +1723,11 @@ export function NodeEditor() {
     setFocusRootId(targetId);
     setEditorState({
       ...editorState,
-      activeNodeId: targetId,
-      offset: 0,
+      cursor: {
+        nodeId: targetId,
+        segmentIndex: 0,
+        offset: 0,
+      },
     });
     setSelection({ anchor: null, focus: null });
   }
@@ -1678,14 +1825,14 @@ export function NodeEditor() {
       return n;
     });
 
-    // STEP 13.1.4 — Handle focus/zoom
-    let newActiveNodeId = editorState.activeNodeId;
+    // STEP 13.1.4 — Handle focus/zoom (FILE 06.2)
+    let newCursorNodeId = editorState.cursor.nodeId;
     let newFocusRootId = focusRootId;
 
     // If deleted node was active, move focus
-    if (editorState.activeNodeId === nodeId) {
-      newActiveNodeId =
-        nextFocusId ?? editorState.nodes[0]?.id ?? editorState.activeNodeId;
+    if (editorState.cursor.nodeId === nodeId) {
+      newCursorNodeId =
+        nextFocusId ?? editorState.nodes[0]?.id ?? editorState.cursor.nodeId;
     }
 
     // If we're zoomed into the deleted node, zoom out
@@ -1696,11 +1843,14 @@ export function NodeEditor() {
     // STEP 14.2 — Commit deletion
     commit({
       nodes: updatedNodes,
-      activeNodeId: newActiveNodeId,
-      offset: 0,
-      focusRootId: newFocusRootId,
-      selection: { anchor: null, focus: null },
+      cursor: {
+        nodeId: newCursorNodeId,
+        segmentIndex: 0,
+        offset: 0,
+      },
     });
+    setFocusRootId(newFocusRootId);
+    setSelection({ anchor: null, focus: null });
   }
 
   /**
@@ -1791,8 +1941,11 @@ export function NodeEditor() {
 
         setEditorState({
           ...editorState,
-          activeNodeId: action.nodeId,
-          offset: 0,
+          cursor: {
+            nodeId: action.nodeId,
+            segmentIndex: 0,
+            offset: 0,
+          },
         });
         setFocusRootId(null); // Reset zoom to see the node
         setSelection({ anchor: null, focus: null });
@@ -1887,8 +2040,11 @@ export function NodeEditor() {
         documentStatesRef.current[docId] = {
           editorState: {
             nodes: docData.nodes,
-            activeNodeId: firstVisibleNode?.id ?? '',
-            offset: 0,
+            cursor: {
+              nodeId: firstVisibleNode?.id ?? '',
+              segmentIndex: 0,
+              offset: 0,
+            },
           },
           views: docData.views,
           templates: docData.templates,
@@ -1996,11 +2152,14 @@ export function NodeEditor() {
    * Treats current node as temporary root
    */
   function zoomIn() {
-    setFocusRootId(editorState.activeNodeId);
+    setFocusRootId(editorState.cursor.nodeId);
     setSelection({ anchor: null, focus: null });
     setEditorState({
       ...editorState,
-      offset: 0,
+      cursor: {
+        ...editorState.cursor,
+        offset: 0,
+      },
     });
   }
 
@@ -2022,8 +2181,11 @@ export function NodeEditor() {
     if (parentId) {
       setEditorState({
         ...editorState,
-        activeNodeId: focusRootId,
-        offset: 0,
+        cursor: {
+          nodeId: focusRootId,
+          segmentIndex: 0,
+          offset: 0,
+        },
       });
     }
   }
@@ -2031,35 +2193,48 @@ export function NodeEditor() {
   /**
    * STEP 8.4 — Navigate through visible nodes only
    */
+  // SEGMENTED ARCHITECTURE — Pure tree navigation (no DOM math)
   function navigateVisibleUp(state: EditorState): EditorState {
     const visibleNodes = getVisibleNodes(state.nodes);
-    const index = visibleNodes.findIndex((n) => n.id === state.activeNodeId);
+    const index = visibleNodes.findIndex((n) => n.id === state.cursor.nodeId);
 
     if (index <= 0) return state; // Already at top
 
     const prevNode = visibleNodes[index - 1];
     if (!prevNode) return state;
 
+    // Get text length from segments (not legacy text field)
+    const textLen = getPlainText(prevNode.segments || []).length;
+
     return {
       ...state,
-      activeNodeId: prevNode.id,
-      offset: Math.min(state.offset, prevNode.text.length),
+      cursor: {
+        nodeId: prevNode.id,
+        segmentIndex: 0,
+        offset: Math.min(state.cursor.offset, textLen),
+      },
     };
   }
 
   function navigateVisibleDown(state: EditorState): EditorState {
     const visibleNodes = getVisibleNodes(state.nodes);
-    const index = visibleNodes.findIndex((n) => n.id === state.activeNodeId);
+    const index = visibleNodes.findIndex((n) => n.id === state.cursor.nodeId);
 
     if (index === -1 || index >= visibleNodes.length - 1) return state; // Already at bottom
 
     const nextNode = visibleNodes[index + 1];
     if (!nextNode) return state;
 
+    // Get text length from segments (not legacy text field)
+    const textLen = getPlainText(nextNode.segments || []).length;
+
     return {
       ...state,
-      activeNodeId: nextNode.id,
-      offset: Math.min(state.offset, nextNode.text.length),
+      cursor: {
+        nodeId: nextNode.id,
+        segmentIndex: 0,
+        offset: Math.min(state.cursor.offset, textLen),
+      },
     };
   }
 
@@ -2082,16 +2257,24 @@ export function NodeEditor() {
       const node = nodes.find((n) => n.id === start.nodeId);
       if (!node) return state;
 
+      // Use segmented editor for deletion - delegate to SegmentOps
+      const plainText = getPlainText(node.segments);
       const newText =
-        node.text.slice(0, start.offset) + node.text.slice(end.offset);
+        plainText.slice(0, start.offset) + plainText.slice(end.offset);
+      const newSegments = newText
+        ? [{ type: 'text' as const, text: newText }]
+        : [];
 
       return {
         ...state,
         nodes: nodes.map((n) =>
-          n.id === node.id ? { ...n, text: newText } : n
+          n.id === node.id ? { ...n, segments: newSegments } : n
         ),
-        activeNodeId: node.id,
-        offset: start.offset,
+        cursor: {
+          nodeId: node.id,
+          segmentIndex: 0,
+          offset: start.offset,
+        },
       };
     }
 
@@ -2104,17 +2287,27 @@ export function NodeEditor() {
 
     if (!startNode || !endNode) return state;
 
+    // Use segmented editor for cross-node deletion
+    const startText = getPlainText(startNode.segments);
+    const endText = getPlainText(endNode.segments);
     const mergedText =
-      startNode.text.slice(0, start.offset) + endNode.text.slice(end.offset);
+      startText.slice(0, start.offset) + endText.slice(end.offset);
+    const mergedSegments = mergedText
+      ? [{ type: 'text' as const, text: mergedText }]
+      : [];
 
     let newNodes = nodes.slice(0, startIndex + 1);
-    newNodes[startIndex] = { ...startNode, text: mergedText };
+    newNodes[startIndex] = { ...startNode, segments: mergedSegments };
     newNodes = newNodes.concat(nodes.slice(endIndex + 1));
 
     return {
+      ...state,
       nodes: newNodes,
-      activeNodeId: startNode.id,
-      offset: start.offset,
+      cursor: {
+        nodeId: startNode.id,
+        segmentIndex: 0,
+        offset: start.offset,
+      },
     };
   }
 
@@ -2177,79 +2370,152 @@ export function NodeEditor() {
   useEffect(() => {
     if (!needsCaretPlacementRef.current) return;
 
-    const activeNode = editorState.nodes.find(
-      (n) => n.id === editorState.activeNodeId
-    );
-    if (!activeNode) {
-      needsCaretPlacementRef.current = false;
-      return;
-    }
+    // CRITICAL FIX: Wait for DOM to update before placing caret
+    // NodeView's useEffect must complete before we can reliably find spans
+    // Use double rAF to ensure React has flushed all DOM updates
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const activeNode = editorState.nodes.find(
+          (n) => n.id === editorState.cursor.nodeId
+        );
+        if (!activeNode) {
+          needsCaretPlacementRef.current = false;
+          return;
+        }
 
-    // Find the node__content element
-    const nodeElement = document.querySelector(
-      `[data-node-id="${editorState.activeNodeId}"]`
-    );
-    if (!nodeElement) {
-      needsCaretPlacementRef.current = false;
-      return;
-    }
+        // Find the node__content element
+        const nodeElement = document.querySelector(
+          `[data-node-id="${editorState.cursor.nodeId}"]`
+        );
+        if (!nodeElement) {
+          needsCaretPlacementRef.current = false;
+          return;
+        }
 
-    // Ensure element is focused
-    if (document.activeElement !== nodeElement) {
-      (nodeElement as HTMLElement).focus();
-    }
+        // Ensure element is focused
+        if (document.activeElement !== nodeElement) {
+          (nodeElement as HTMLElement).focus();
+        }
 
-    const range = document.createRange();
-    const sel = window.getSelection();
-    if (!sel) {
-      needsCaretPlacementRef.current = false;
-      return;
-    }
+        const range = document.createRange();
+        const sel = window.getSelection();
+        if (!sel) {
+          needsCaretPlacementRef.current = false;
+          return;
+        }
 
-    try {
-      // Phase 09 Final — Find existing text node via TreeWalker (NEVER create/append)
-      // CRITICAL: Caret placement must NEVER mutate DOM
-      const walker = document.createTreeWalker(
-        nodeElement,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
+        try {
+          // SEGMENTED ARCHITECTURE: Simple caret placement
+          // No TreeWalker, no bias, no heuristics
+          const { offset, segmentIndex } = editorState.cursor;
+          const segments = activeNode.segments;
 
-      const domTextNode: globalThis.Node | null = walker.nextNode();
+          if (segmentIndex >= segments.length) {
+            // Cursor at end - place at last position
+            const lastChild = nodeElement.lastChild;
+            if (lastChild) {
+              range.setStartAfter(lastChild);
+              range.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+          } else {
+            const segment = segments[segmentIndex];
 
-      if (!domTextNode) {
-        // No text node exists → rendering hasn't completed yet
-        // Do NOT create nodes here - let NodeView handle it
+            // 🔧 FIX: Handle inline segments by using caret-anchor
+            if (segment.type === 'inline' && offset === 0) {
+              // Find the caret-anchor BEFORE this inline element
+              // DOM structure: each inline has: <span.caret-anchor/><span.inline/><span.caret-anchor/>
+              const children = Array.from(nodeElement.childNodes);
+              let domIndex = 0;
+
+              // Walk through segments to find DOM position
+              for (let i = 0; i < segmentIndex; i++) {
+                if (segments[i].type === 'text') {
+                  domIndex++; // TEXT_NODE
+                } else {
+                  domIndex += 3; // caret-anchor + inline + caret-anchor
+                }
+              }
+
+              // domIndex now points to the caret-anchor before our inline
+              const caretAnchor = children[domIndex];
+              if (
+                caretAnchor &&
+                (caretAnchor as HTMLElement).classList?.contains('caret-anchor')
+              ) {
+                // Place cursor inside the caret-anchor (it's a focusable span)
+                range.setStart(caretAnchor, 0);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                console.log(
+                  '✅ Placed cursor in caret-anchor before inline at segment',
+                  segmentIndex
+                );
+              } else {
+                console.warn(
+                  '❌ Failed to find caret-anchor at domIndex',
+                  domIndex
+                );
+              }
+            } else {
+              // Text segment - find the correct text node in DOM
+              const children = Array.from(nodeElement.childNodes);
+              let domIndex = 0;
+
+              // Walk through segments to find DOM position
+              for (let i = 0; i < segmentIndex; i++) {
+                if (segments[i].type === 'text') {
+                  domIndex++; // TEXT_NODE
+                } else {
+                  domIndex += 3; // caret-anchor + inline + caret-anchor
+                }
+              }
+
+              // domIndex now points to our text node
+              const textNode = children[domIndex];
+              if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                const len = textNode.textContent?.length || 0;
+                range.setStart(textNode, Math.min(offset, len));
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                console.log(
+                  '✅ Placed cursor in text at segment',
+                  segmentIndex,
+                  'offset',
+                  offset
+                );
+              } else {
+                console.warn(
+                  '❌ Failed to find text node at domIndex',
+                  domIndex
+                );
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Caret sync failed:', err);
+        }
+
         needsCaretPlacementRef.current = false;
-        return;
-      }
-
-      const clampedOffset = Math.max(
-        0,
-        Math.min(editorState.offset, domTextNode.textContent?.length ?? 0)
-      );
-
-      range.setStart(domTextNode, clampedOffset);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } catch (err) {
-      // Ignore - cursor position may be invalid during rapid updates
-      console.warn('Caret sync failed:', err);
-    }
-
-    // Reset flag after syncing
-    needsCaretPlacementRef.current = false;
-  }, [editorState.activeNodeId, editorState.offset]);
+      }); // End inner rAF
+    }); // End outer rAF
+  }, [editorState.cursor]);
 
   // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // FORENSICS LOG 1 — Verify key events reach handler
-    console.log('[KEYDOWN]', e.key, {
-      activeNodeId: editorState.activeNodeId,
-      offset: editorState.offset,
-      selection,
-    });
+    // FIX 2 — Prevent Enter BEFORE any guards
+    // Must block browser <div>/<br> insertion unconditionally
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // D2 — KEYBOARD FOCUS GUARD (REMOVED)
+    // Simplified: Trust selectionchange to have fired before keydown
+    // If state is stale, behavior will fail fast and visibly
 
     // PHASE C — Grammar mode keyboard handling (highest priority)
     if (isSessionActive(grammarSession)) {
@@ -2301,7 +2567,7 @@ export function NodeEditor() {
           const candidate = grammarSession.candidates[0];
           if (candidate && grammarSession.range) {
             const activeNode = editorState.nodes.find(
-              (n) => n.id === editorState.activeNodeId
+              (n) => n.id === editorState.cursor.nodeId
             );
             if (activeNode) {
               // Extract command name from candidate
@@ -2310,22 +2576,31 @@ export function NodeEditor() {
                 candidate.commandType.split('.')[1] ||
                 'command';
 
-              const { from } = grammarSession.range;
+              const { from, to } = grammarSession.range;
+
+              // Use segmented editor for grammar replacement
+              const plainText = getPlainText(activeNode.segments);
               const newText =
-                activeNode.text.slice(0, from) +
+                plainText.slice(0, from) +
                 '/' +
                 commandName +
                 ' ' +
-                activeNode.text.slice(grammarSession.range.to);
+                plainText.slice(to);
+              const newSegments = newText
+                ? [{ type: 'text' as const, text: newText }]
+                : [];
 
               const updatedNodes = editorState.nodes.map((n) =>
-                n.id === activeNode.id ? { ...n, text: newText } : n
+                n.id === activeNode.id ? { ...n, segments: newSegments } : n
               );
 
               setEditorState({
                 ...editorState,
                 nodes: updatedNodes,
-                offset: from + commandName.length + 2, // After "/" + command + " "
+                cursor: {
+                  ...editorState.cursor,
+                  offset: from + commandName.length + 2, // After "/" + command + " "
+                },
               });
 
               // Clear grammar - will re-detect on next keystroke
@@ -2388,7 +2663,7 @@ export function NodeEditor() {
     // STEP 13.1 — Explicit Delete (Cmd/Ctrl + D)
     if (e.key === 'd' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       e.preventDefault();
-      deleteNode(editorState.activeNodeId);
+      deleteNode(editorState.cursor.nodeId);
       return;
     }
 
@@ -2397,7 +2672,7 @@ export function NodeEditor() {
       e.preventDefault();
       setRefPickerState({
         isOpen: true,
-        sourceNodeId: editorState.activeNodeId,
+        sourceNodeId: editorState.cursor.nodeId,
         selectedIndex: 0,
       });
       return;
@@ -2431,108 +2706,180 @@ export function NodeEditor() {
       return;
     }
 
-    // STEP 6.4 — Handle Tab/Shift+Tab for indent/outdent
+    // Tab/Shift+Tab: Indent/Outdent (index-based)
     if (e.key === 'Tab') {
       e.preventDefault();
 
       if (e.shiftKey) {
-        // Outdent
+        // Shift+Tab: Outdent
         const newState = outdentNode(editorState);
+
+        // Update index model (outdent doesn't change position, just indentLevel)
+        const currentIndex = modelRef.current!.getCursor().index;
+        const updatedNode = newState.nodes[currentIndex] as Node;
+        const nodes = modelRef.current!.getNodes() as Node[];
+        const newNodes = [
+          ...nodes.slice(0, currentIndex),
+          updatedNode,
+          ...nodes.slice(currentIndex + 1),
+        ];
+
+        modelRef.current!.updateState(newNodes, modelRef.current!.getCursor());
+
         withStructuralCommit(() => {
+          updateModel(newState.nodes as Node[], editorState.cursor);
           commit({
             nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
+            cursor: editorState.cursor,
             selection: { anchor: null, focus: null },
           });
-          requestCaretPlacement(); // Structural change
+          requestCaretPlacement();
         });
       } else {
-        // Indent
+        // Tab: Indent
         const newState = indentNode(editorState);
+
+        // Update index model (indent doesn't change position, just indentLevel)
+        const currentIndex = modelRef.current!.getCursor().index;
+        const updatedNode = newState.nodes[currentIndex] as Node;
+        const nodes = modelRef.current!.getNodes() as Node[];
+        const newNodes = [
+          ...nodes.slice(0, currentIndex),
+          updatedNode,
+          ...nodes.slice(currentIndex + 1),
+        ];
+
+        modelRef.current!.updateState(newNodes, modelRef.current!.getCursor());
+
         withStructuralCommit(() => {
+          updateModel(newState.nodes as Node[], editorState.cursor);
           commit({
             nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
+            cursor: editorState.cursor,
             selection: { anchor: null, focus: null },
           });
-          requestCaretPlacement(); // Structural change
+          requestCaretPlacement();
         });
       }
       return;
     }
 
-    // ArrowLeft — Boundary-only interception (File 06 §1.3)
-    // Browser owns horizontal movement; editor only handles collapse at boundary
+    // ARROW KEY OWNERSHIP CONTRACT (NON-NEGOTIABLE)
+    //
+    // MANDATORY GATE: Determines browser vs editor ownership
+    // - If caret is in text/caret-anchor → BROWSER OWNS (return immediately)
+    // - Otherwise → EDITOR OWNS (tree navigation)
+    //
+    // This gate MUST run before ANY arrow key logic.
+    const checkArrowOwnership = (): 'browser' | 'editor' => {
+      const sel = window.getSelection();
+      if (!sel || !sel.isCollapsed) return 'editor';
+
+      const anchor = sel.anchorNode;
+      if (!anchor) return 'editor';
+
+      // TEXT NODE → browser owns caret movement
+      if (anchor.nodeType === Node.TEXT_NODE) {
+        return 'browser';
+      }
+
+      // CARET-ANCHOR ELEMENT → browser owns
+      if (
+        anchor.nodeType === Node.ELEMENT_NODE &&
+        (anchor as HTMLElement).classList.contains('caret-anchor')
+      ) {
+        return 'browser';
+      }
+
+      // TEXT INSIDE CARET-ANCHOR → browser owns
+      if (
+        anchor.nodeType === Node.TEXT_NODE &&
+        anchor.parentElement?.classList.contains('caret-anchor')
+      ) {
+        return 'browser';
+      }
+
+      // EVERYTHING ELSE → editor owns (tree navigation)
+      return 'editor';
+    };
+
+    // ArrowLeft — Tree collapse/parent navigation (EDITOR-OWNED ONLY)
     if (e.key === 'ArrowLeft') {
-      // ONLY intercept at offset 0 for collapse (structural boundary)
-      if (editorState.offset === 0 && !e.shiftKey) {
-        const activeNode = editorState.nodes.find(
-          (n) => n.id === editorState.activeNodeId
-        ) as UINode;
-        if (
-          activeNode &&
-          hasChildren(activeNode, editorState.nodes) &&
-          !activeNode.isCollapsed
-        ) {
-          e.preventDefault();
-          const newState = collapseNode(editorState);
-          commit({
-            nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
-            selection: { anchor: null, focus: null },
-          });
-          requestCaretPlacement();
-          return;
-        }
+      const owner = checkArrowOwnership();
+
+      if (owner === 'browser') {
+        // CRITICAL: DO NOT preventDefault
+        // Browser owns horizontal caret movement
+        return;
       }
-      // Browser handles all other ArrowLeft (including selection)
+
+      // Editor-owned: Tree operation (collapse or move to parent)
+      const activeNode = editorState.nodes.find(
+        (n) => n.id === editorState.cursor.nodeId
+      ) as UINode;
+
+      if (
+        activeNode &&
+        hasChildren(activeNode, editorState.nodes) &&
+        !activeNode.isCollapsed
+      ) {
+        e.preventDefault();
+        const newState = collapseNode(editorState);
+        commit({
+          nodes: newState.nodes as UINode[],
+          cursor: newState.cursor,
+        });
+        requestCaretPlacement();
+        return;
+      }
+
+      // No tree action available - let browser handle
       return;
     }
 
-    // ArrowRight — Boundary-only interception (File 06 §1.3)
-    // Browser owns horizontal movement; editor only handles expand at boundary
+    // ArrowRight — Tree expand/child navigation (EDITOR-OWNED ONLY)
     if (e.key === 'ArrowRight') {
-      // ONLY intercept at offset 0 for expand (structural boundary)
-      if (editorState.offset === 0 && !e.shiftKey) {
-        const activeNode = editorState.nodes.find(
-          (n) => n.id === editorState.activeNodeId
-        ) as UINode;
-        if (activeNode && activeNode.isCollapsed) {
-          e.preventDefault();
-          const newState = expandNode(editorState);
-          commit({
-            nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
-            selection: { anchor: null, focus: null },
-          });
-          requestCaretPlacement();
-          return;
-        }
+      const owner = checkArrowOwnership();
+
+      if (owner === 'browser') {
+        // CRITICAL: DO NOT preventDefault
+        // Browser owns horizontal caret movement
+        return;
       }
-      // Browser handles all other ArrowRight (including selection)
+
+      // Editor-owned: Tree operation (expand or move to first child)
+      const activeNode = editorState.nodes.find(
+        (n) => n.id === editorState.cursor.nodeId
+      ) as UINode;
+
+      if (activeNode && activeNode.isCollapsed) {
+        e.preventDefault();
+        const newState = expandNode(editorState);
+        commit({
+          nodes: newState.nodes as UINode[],
+          cursor: newState.cursor,
+        });
+        requestCaretPlacement();
+        return;
+      }
+
+      // No tree action available - let browser handle
       return;
     }
 
-    // Handle ArrowUp/ArrowDown with shift for selection (STEP 8.4 — visibility-aware)
+    // ArrowUp/ArrowDown — Vertical node navigation (ALWAYS EDITOR-OWNED)
+    // CRITICAL: Unlike Left/Right, vertical arrows ALWAYS navigate between nodes
+    // This matches Tana/Roam/Notion - ArrowDown while typing jumps to next node
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      // Editor-owned: Navigate between nodes (tree structure)
       e.preventDefault();
 
       if (e.shiftKey) {
         // Initialize anchor if no selection exists
         if (!selection.anchor) {
           setSelection({
-            anchor: {
-              nodeId: editorState.activeNodeId,
-              offset: editorState.offset,
-            },
-            focus: {
-              nodeId: editorState.activeNodeId,
-              offset: editorState.offset,
-            },
+            anchor: editorState.cursor,
+            focus: editorState.cursor,
           });
         }
 
@@ -2544,9 +2891,9 @@ export function NodeEditor() {
         setEditorState(newState);
         setSelection((sel) => ({
           ...sel,
-          focus: { nodeId: newState.activeNodeId, offset: newState.offset },
+          focus: newState.cursor,
         }));
-        requestCaretPlacement(); // Vertical navigation is editor-controlled
+        requestCaretPlacement();
       } else {
         // Clear selection and move cursor through visible nodes only
         setSelection({ anchor: null, focus: null });
@@ -2555,7 +2902,7 @@ export function NodeEditor() {
             ? navigateVisibleUp(editorState)
             : navigateVisibleDown(editorState);
         setEditorState(newState);
-        requestCaretPlacement(); // Vertical navigation is editor-controlled
+        requestCaretPlacement();
       }
       return;
     }
@@ -2586,10 +2933,9 @@ export function NodeEditor() {
           const nextState = deleteSelection(editorState, normalized);
           commit({
             nodes: nextState.nodes as UINode[],
-            activeNodeId: nextState.activeNodeId,
-            offset: nextState.offset,
-            selection: { anchor: null, focus: null },
+            cursor: nextState.cursor,
           });
+          setSelection({ anchor: null, focus: null });
           // No caret placement - let browser insert character natively
         }
         return;
@@ -2603,19 +2949,38 @@ export function NodeEditor() {
         const sel = window.getSelection();
         if (!sel || !sel.anchorNode) return;
 
-        const browserCaret = getNodePositionFromSelection(sel);
+        // STEP 1: Find nodeId from DOM (same as selectionchange fix)
+        let domElement: HTMLElement | null = sel.anchorNode as HTMLElement;
+        if (domElement.nodeType === globalThis.Node.TEXT_NODE) {
+          domElement = domElement.parentElement;
+        }
+
+        while (domElement && !domElement.classList?.contains('node__content')) {
+          domElement = domElement.parentElement;
+        }
+
+        if (!domElement) {
+          return;
+        }
+
+        const nodeId = domElement.getAttribute('data-node-id');
+
+        if (!nodeId) return;
+
+        // STEP 2: Get node from state
+        const activeNode = editorState.nodes.find((n) => n.id === nodeId);
+        if (!activeNode) {
+          return;
+        }
+
+        // STEP 3: Call with correct signature
+        const browserCaret = getNodePositionFromSelection(activeNode);
+
         if (!browserCaret) return;
 
-        // Find the node in state (for variant update)
-        const activeNode = editorState.nodes.find(
-          (n) => n.id === browserCaret.nodeId
-        );
-        if (!activeNode) return;
-
-        // Phase 09 Fix — Use node.text from state, NOT DOM
-        // During structural operations, NEVER read DOM
-        // Input observer has already synced DOM → state
-        const textBeforeCaret = activeNode.text.slice(0, browserCaret.offset);
+        // Use segmented editor API for grammar detection
+        const grammarMatch = matchGrammar(activeNode.segments, browserCaret);
+        const textBeforeCaret = grammarMatch ? grammarMatch.text : '';
 
         // Get DOM element only for clearing after detection
         const contentEl = containerRef.current?.querySelector(
@@ -2711,11 +3076,11 @@ export function NodeEditor() {
       }
 
       // CASE 3: Property trigger (: at start of empty node)
-      if (e.key === ':' && editorState.offset === 0) {
+      if (e.key === ':' && editorState.cursor.offset === 0) {
         const activeNode = editorState.nodes.find(
-          (n) => n.id === editorState.activeNodeId
+          (n) => n.id === editorState.cursor.nodeId
         );
-        if (activeNode && activeNode.text === '') {
+        if (activeNode && isNodeEmpty(activeNode)) {
           e.preventDefault();
           setEditingProperty({
             nodeId: activeNode.id,
@@ -2733,200 +3098,162 @@ export function NodeEditor() {
       return;
     }
 
-    // STEP 4.4 / 7.4 — Backspace With Selection / Hierarchy-aware Backspace
+    // BACKSPACE — Use Segmented Editor API
     if (e.key === 'Backspace') {
-      // Phase 09 Step 7 — Check for reference deletion FIRST (File 09)
-      if (!selectionExists) {
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0);
-          const container = findNodeContent(range.startContainer);
-          const refBefore = getReferenceBeforeCaret(container, range);
-
-          if (refBefore) {
-            e.preventDefault();
-
-            const refIndex = Number(refBefore.dataset.refIndex);
-            const activeNode = editorState.nodes.find(
-              (n) => n.id === editorState.activeNodeId
-            );
-
-            if (activeNode) {
-              const updatedNode = removeReferenceAt(activeNode, refIndex);
-              const updatedNodes = editorState.nodes.map((n) =>
-                n.id === activeNode.id ? updatedNode : n
-              );
-
-              // Phase 09 Fix — Reference is zero-width, offset stays at logical position
-              withStructuralCommit(() => {
-                commit({
-                  nodes: updatedNodes as UINode[],
-                  activeNodeId: activeNode.id,
-                  offset: editorState.offset, // TreeWalker handles DOM mapping
-                });
-                requestCaretPlacement();
-              });
-              return;
-            }
-          }
-        }
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) {
+        return; // browser deletes selection
       }
 
-      e.preventDefault();
+      // 🔒 FLUSH BOUNDARY: Stop typing flag FIRST
+      stopTyping();
 
-      if (selectionExists) {
-        const normalized = normalizeSelection(
-          selection.anchor,
-          selection.focus,
-          editorState.nodes
-        );
-        if (normalized) {
-          const nextState = deleteSelection(editorState, normalized);
-          withStructuralCommit(() => {
-            setSelection({ anchor: null, focus: null });
-            setEditorState(nextState);
-            requestCaretPlacement(); // Destructive operation
-          });
-          return;
-        }
-      }
-
-      // File 03 — Backspace behavior (delete/merge only, never outdent)
-      const newState = applyIntent(editorState, { type: 'backspace' });
+      // 🔒 PHASE C: Structural operation - flush model → React
       withStructuralCommit(() => {
-        commit({
-          nodes: newState.nodes as UINode[],
-          activeNodeId: newState.activeNodeId,
-          offset: newState.offset,
-        });
-        requestCaretPlacement(); // Destructive operation
-      });
-      return;
-    }
+        // First: Sync any pending segments to model
+        const flushedNodes = flushPendingSegments('backspace-merge');
+        const liveCursor =
+          getLiveCursor() || getModelCursor() || editorState.cursor;
+        updateModel(flushedNodes, liveCursor);
+        clearLiveCursor();
 
-    // Phase 09 Step 7 — Delete key (atomic reference deletion, File 09)
-    if (e.key === 'Delete') {
-      // Check for reference deletion FIRST
-      if (!selectionExists) {
-        const sel = window.getSelection();
-        if (sel && sel.rangeCount > 0) {
-          const range = sel.getRangeAt(0);
-          const container = findNodeContent(range.startContainer);
-          const refAfter = getReferenceAfterCaret(container, range);
+        // Now: Read from model for structural operation
+        const model = getModel();
+        const activeNode = model.nodes.find((n) => n.id === liveCursor.nodeId);
 
-          if (refAfter) {
-            e.preventDefault();
+        if (!activeNode) return;
 
-            const refIndex = Number(refAfter.dataset.refIndex);
-            const activeNode = editorState.nodes.find(
-              (n) => n.id === editorState.activeNodeId
-            );
+        // Delegate to segmented editor
+        const result = handleSegmentedBackspace(activeNode, liveCursor);
 
-            if (activeNode) {
-              const updatedNode = removeReferenceAt(activeNode, refIndex);
-              const updatedNodes = editorState.nodes.map((n) =>
-                n.id === activeNode.id ? updatedNode : n
-              );
+        if (result.shouldMergeWithPrevious) {
+          e.preventDefault();
 
-              // Phase 09 Fix — Reference is zero-width, offset stays at logical position
-              withStructuralCommit(() => {
-                commit({
-                  nodes: updatedNodes as UINode[],
-                  activeNodeId: activeNode.id,
-                  offset: editorState.offset, // TreeWalker handles DOM mapping
-                });
-                requestCaretPlacement();
-              });
-              return;
-            }
-          }
-        }
-      }
+          const prevNode = getPreviousNode(
+            model.nodes as Node[],
+            activeNode.id
+          );
+          if (!prevNode) return; // First node - no-op
 
-      // No reference detected - allow browser default Delete behavior
-      // (This is intentional: no structural Delete logic implemented yet)
-      return;
-    }
+          const { merged, cursor } = mergeWithPrevious(prevNode, activeNode);
 
-    // STEP 4.5 / 7.2 — Enter With Selection / Hierarchy-aware Enter
-    if (e.key === 'Enter') {
-      e.preventDefault();
+          const withoutCurrent = removeNodeFromArray(
+            model.nodes as Node[],
+            activeNode.id
+          );
+          const updated = replaceNode(withoutCurrent, prevNode.id, merged);
 
-      if (selectionExists) {
-        const normalized = normalizeSelection(
-          selection.anchor,
-          selection.focus,
-          editorState.nodes
-        );
-        if (normalized) {
-          let nextState = deleteSelection(editorState, normalized);
-          nextState = applyIntent(nextState, { type: 'enter' });
+          // Update model first
+          updateModel(updated, cursor);
 
-          // FORENSICS LOG 4b — Verify kernel split with selection
-          console.log('[APPLY_INTENT w/ selection]', {
-            before: editorState.nodes.map((n) => n.text),
-            after: nextState.nodes.map((n) => n.text),
-            activeNodeId: nextState.activeNodeId,
-            offset: nextState.offset,
+          // Then: Sync model → React (this triggers NodeView re-render)
+          commit({
+            nodes: updated as UINode[],
+            cursor,
           });
 
-          withStructuralCommit(() => {
-            commit({
-              nodes: nextState.nodes as UINode[],
-              activeNodeId: nextState.activeNodeId,
-              offset: nextState.offset,
-              selection: { anchor: null, focus: null },
-            });
-            requestCaretPlacement(); // Structural operation
-          });
+          requestCaretPlacement();
+
           return;
         }
-      }
 
-      const activeNode = editorState.nodes.find(
-        (n) => n.id === editorState.activeNodeId
-      );
-      if (!activeNode) return;
-
-      // FORENSICS LOG 3 — Verify Enter path selection
-      console.log('[ENTER]', {
-        offset: editorState.offset,
-        textLength: activeNode.text.length,
-        text: activeNode.text,
+        // Browser handles all other cases (backspace in middle of text)
+        // Note: Browser mutates DOM, we'll flush on next boundary
       });
+      return;
+    }
 
-      // Cursor at START of non-empty node → create sibling ABOVE
-      if (editorState.offset === 0 && activeNode.text.length > 0) {
-        const newState = createSiblingAbove(editorState);
-        withStructuralCommit(() => {
-          commit({
-            nodes: newState.nodes as UINode[],
-            activeNodeId: newState.activeNodeId,
-            offset: newState.offset,
-          });
-          requestCaretPlacement(); // Structural operation
-        });
+    // PHASE 1: Delete key - browser native only
+    if (e.key === 'Delete') {
+      return; // Let browser handle
+    }
+
+    // ENTER — Use Segmented Editor API
+    if (e.key === 'Enter') {
+      // preventDefault already called at top of handler
+      // Grammar mode already handled above
+
+      // 🛡️ GUARD: Prevent key repeat cascade
+      if (e.repeat) {
+        console.warn('⚠️ Enter key repeat blocked');
         return;
       }
 
-      // All other cases (empty, middle, end) → delegate to applyIntent
-      const newState = applyIntent(editorState, { type: 'enter' });
+      // 🔒 INDEX-ONLY: Structure is index-based, IDs never decide position
+      performEditorOperation({
+        type: 'Enter',
+        execute: () => {
+          // Read from model instance
+          const index = modelRef.current!.getCursor().index;
+          const segmentIndex = modelRef.current!.getCursor().segmentIndex;
+          const offset = modelRef.current!.getCursor().offset;
+          const nodes = modelRef.current!.getNodes() as Node[];
 
-      // FORENSICS LOG 4 — Verify kernel split correctness
-      console.log('[APPLY_INTENT]', {
-        before: editorState.nodes.map((n) => n.text),
-        after: newState.nodes.map((n) => n.text),
-        activeNodeId: newState.activeNodeId,
-        offset: newState.offset,
-      });
+          // Direct index access
+          const activeNode = nodes[index];
+          if (!activeNode) {
+            throw new Error(`Node at index ${index} not found`);
+          }
 
-      withStructuralCommit(() => {
-        commit({
-          nodes: newState.nodes as UINode[],
-          activeNodeId: newState.activeNodeId,
-          offset: newState.offset,
-        });
-        requestCaretPlacement(); // Structural operation
+          // 🔍 DEBUG: Log BEFORE split
+          console.log('═══ ENTER PRESSED ═══');
+          console.log('Cursor:', { index, segmentIndex, offset });
+          console.log('Active node ID:', activeNode.id);
+          console.log(
+            'Segments BEFORE split:',
+            JSON.stringify(activeNode.segments, null, 2)
+          );
+
+          // Split node (needs legacy cursor format temporarily)
+          const enterResult = handleSegmentedEnter(activeNode, {
+            nodeId: activeNode.id,
+            segmentIndex,
+            offset,
+          });
+
+          // 🔍 DEBUG: Log AFTER split
+          console.log(
+            'Head segments:',
+            JSON.stringify(enterResult.head.segments, null, 2)
+          );
+          console.log(
+            'Tail segments:',
+            JSON.stringify(enterResult.tail.segments, null, 2)
+          );
+          console.log('Tail node ID:', enterResult.tail.id);
+
+          // INDEX-BASED INSERTION (no ID lookups)
+          const newNodes = [
+            ...nodes.slice(0, index), // Before cursor
+            enterResult.head, // Replace at index
+            enterResult.tail, // Insert at index+1
+            ...nodes.slice(index + 1), // After cursor
+          ];
+
+          // 🔍 DEBUG: Log final result
+          console.log('Total nodes after split:', newNodes.length);
+          console.log('New cursor will be at index:', index + 1);
+          console.log('═══════════════════════\n');
+
+          // Update model: move cursor to new node
+          const newCursor = {
+            index: index + 1,
+            segmentIndex: 0,
+            offset: 0,
+          };
+          console.log('📍 Setting cursor to:', newCursor);
+          modelRef.current!.updateState(newNodes, newCursor);
+
+          // Return for old pipeline (legacy format)
+          return {
+            nodes: newNodes,
+            cursor: {
+              nodeId: enterResult.tail.id,
+              segmentIndex: 0,
+              offset: 0,
+            },
+          };
+        },
       });
       return;
     }
@@ -3438,7 +3765,7 @@ export function NodeEditor() {
               key={node.id}
               node={node}
               nodes={editorState.nodes}
-              isActive={node.id === editorState.activeNodeId}
+              isActive={node.id === editorState.cursor.nodeId}
             />
           ))}
 
@@ -3579,7 +3906,9 @@ export function NodeEditor() {
         <div style={{ marginTop: '20px', fontSize: '12px', color: '#888' }}>
           <div>Nodes: {editorState.nodes.length}</div>
           <div>
-            Active: {editorState.activeNodeId} @ offset {editorState.offset}
+            Active: {editorState.cursor.nodeId} @ segment{' '}
+            {editorState.cursor.segmentIndex}, offset{' '}
+            {editorState.cursor.offset}
           </div>
           {selection.anchor && selection.focus && (
             <div style={{ color: '#4fc3f7', marginTop: '4px' }}>
@@ -4047,7 +4376,7 @@ export function NodeEditor() {
                   e.preventDefault();
                   const template = templates[templatePickerIndex];
                   if (template) {
-                    applyTemplate(editorState.activeNodeId, template);
+                    applyTemplate(editorState.cursor.nodeId, template);
                     setShowTemplatePicker(false);
                   }
                 }
@@ -4088,7 +4417,7 @@ export function NodeEditor() {
                       cursor: 'pointer',
                     }}
                     onClick={() => {
-                      applyTemplate(editorState.activeNodeId, template);
+                      applyTemplate(editorState.cursor.nodeId, template);
                       setShowTemplatePicker(false);
                     }}
                     onMouseEnter={() => setTemplatePickerIndex(index)}

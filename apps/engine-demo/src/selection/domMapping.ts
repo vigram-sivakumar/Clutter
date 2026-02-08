@@ -1,116 +1,192 @@
 /**
- * Phase 5.1 — DOM → Node Mapping
- * Pure utilities for translating browser selection to editor state
+ * SEGMENTED ARCHITECTURE — DOM → State Mapping
+ *
+ * STRICT CONTRACT (NON-NEGOTIABLE):
+ * - Cursor NEVER invents position
+ * - Cursor ONLY reads from DOM structure
+ * - NO TreeWalker
+ * - NO heuristics
+ * - NO bias detection
+ * - Caret-anchors identified by CLASS ONLY
+ *
+ * DOM sibling order + caret-anchor class = ground truth.
  */
 
-import type { NodeID } from '../engine/NodeKernel';
+import type { Node, NodeID } from '../engine/NodeKernel';
+import type { CursorPosition } from '../engine/EditorState';
 
 type DOMNode = globalThis.Node;
 
 /**
- * Given a DOM node and offset, find the corresponding editor node and text offset.
- * Walks up from the target node to find the nearest .node__content element.
+ * SEGMENTED ARCHITECTURE — Selection Reading (EXACT ALGORITHM)
  *
- * Phase 09 Fix — Uses TreeWalker to count ONLY TEXT_NODE characters.
- * Reference spans (contenteditable=false) are skipped, counting as zero width.
- * This ensures logical offset maps cleanly to node.text (pure string).
- */
-export function getNodePositionFromDOM(
-  target: DOMNode,
-  offset: number
-): { nodeId: NodeID; offset: number } | null {
-  let node: DOMNode | null = target;
-
-  // If text node, start from parent element
-  if (node.nodeType === Node.TEXT_NODE) {
-    node = node.parentNode;
-  }
-
-  // Walk up until node__content
-  while (
-    node &&
-    !(node instanceof HTMLElement && node.classList.contains('node__content'))
-  ) {
-    node = node.parentNode;
-  }
-
-  if (!(node instanceof HTMLElement)) return null;
-
-  const contentEl = node;
-
-  // data-node-id is directly on node__content (per directive)
-  const nodeId = contentEl.getAttribute('data-node-id');
-  if (!nodeId) return null;
-
-  // --- Phase 09 — TreeWalker-based offset (TEXT_NODE only) ---
-  // This skips reference spans and counts only text characters
-  let logicalOffset = 0;
-
-  // If target is a TEXT_NODE, count characters up to and including offset
-  if (target.nodeType === Node.TEXT_NODE) {
-    const walker = document.createTreeWalker(
-      contentEl,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-
-    let current: DOMNode | null = walker.nextNode();
-
-    while (current) {
-      if (current === target) {
-        logicalOffset += offset;
-        break;
-      }
-
-      logicalOffset += current.textContent?.length ?? 0;
-      current = walker.nextNode();
-    }
-  } else {
-    // If target is an ELEMENT (e.g., contentEl itself), offset is child index
-    // Count text characters in all TEXT_NODE children before the offset position
-    for (let i = 0; i < offset && i < contentEl.childNodes.length; i++) {
-      const child = contentEl.childNodes[i];
-      if (!child) continue;
-
-      if (child.nodeType === Node.TEXT_NODE) {
-        logicalOffset += child.textContent?.length ?? 0;
-      }
-      // Skip ELEMENT_NODEs (references) - they contribute 0 to offset
-    }
-  }
-
-  return { nodeId, offset: logicalOffset };
-}
-
-/**
- * Get node position from browser Selection object
+ * Maps browser selection to CursorPosition {nodeId, segmentIndex, offset}.
+ *
+ * FORBIDDEN:
+ * - TreeWalker
+ * - Offset accumulation
+ * - Skipping nodes
+ * - Filtering inline text
+ * - DOM traversal heuristics
+ * - Inferring intent
+ *
+ * CARET-ANCHOR IDENTIFICATION (NON-NEGOTIABLE):
+ * Identify ONLY by: element.classList.contains("caret-anchor")
+ *
+ * FOUR CASES (ONLY ALLOWED):
+ * A. anchorNode IS a caret-anchor
+ * B. anchorNode is INSIDE a caret-anchor
+ * C. anchorNode is TEXT_NODE (normal typing)
+ * D. anchorNode is EMPTY contenteditable container (all text deleted)
  */
 export function getNodePositionFromSelection(
-  selection: Selection
-): { nodeId: NodeID; offset: number } | null {
-  if (!selection.anchorNode) return null;
-  return getNodePositionFromDOM(selection.anchorNode, selection.anchorOffset);
+  currentNode: Node
+): CursorPosition | null {
+  const sel = window.getSelection();
+
+  if (!sel || !sel.isCollapsed) {
+    return null;
+  }
+
+  const anchor = sel.anchorNode;
+
+  if (!anchor) {
+    return null;
+  }
+
+  // CASE A: anchorNode IS a caret anchor
+  if (
+    anchor.nodeType === Node.ELEMENT_NODE &&
+    (anchor as HTMLElement).classList.contains('caret-anchor')
+  ) {
+    // Cursor is at segment boundary
+    // segmentIndex derived from DOM sibling order
+    // offset is ALWAYS 0
+    const segmentIndex = getSegmentIndexFromCaretAnchor(anchor as HTMLElement);
+    return { nodeId: currentNode.id, segmentIndex, offset: 0 };
+  }
+
+  // CASE B: anchorNode is INSIDE a caret anchor
+  if (
+    anchor.nodeType === Node.TEXT_NODE &&
+    anchor.parentElement?.classList.contains('caret-anchor')
+  ) {
+    // Treat EXACTLY same as Case A
+    const segmentIndex = getSegmentIndexFromCaretAnchor(anchor.parentElement);
+    return { nodeId: currentNode.id, segmentIndex, offset: 0 };
+  }
+
+  // CASE C: anchorNode is TEXT NODE (normal typing)
+  if (anchor.nodeType === Node.TEXT_NODE) {
+    const segmentIndex = getSegmentIndexFromTextNode(anchor);
+
+    if (segmentIndex === -1) {
+      return null;
+    }
+
+    return {
+      nodeId: currentNode.id,
+      segmentIndex,
+      offset: sel.anchorOffset,
+    };
+  }
+
+  // CASE D: Empty node (caret on contenteditable container)
+  // This happens when:
+  // - Node text is fully deleted
+  // - Browser places caret on the contenteditable DIV itself
+  // - There is no text node
+  // This is NORMAL browser behavior, NOT an error.
+  if (
+    anchor.nodeType === Node.ELEMENT_NODE &&
+    (anchor as HTMLElement).classList?.contains('node__content')
+  ) {
+    return {
+      nodeId: currentNode.id,
+      segmentIndex: 0,
+      offset: 0,
+    };
+  }
+
+  // If none match → return null (silence > corruption)
+  return null;
 }
 
 /**
- * Get selection range from browser Selection object
+ * Helper: Find segment index from caret-anchor DOM position
+ *
+ * Caret anchors appear before AND after inline elements.
+ * Count preceding children to determine which segment this anchor represents.
+ */
+function getSegmentIndexFromCaretAnchor(anchorEl: HTMLElement): number {
+  const contentEl = anchorEl.parentElement;
+  if (!contentEl) return 0;
+
+  let segmentIndex = 0;
+  let child = contentEl.firstChild;
+
+  while (child && child !== anchorEl) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      segmentIndex++;
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const elem = child as HTMLElement;
+      if (elem.classList.contains('inline-element')) {
+        segmentIndex++;
+      }
+      // Skip other caret-anchors (don't count as segments)
+    }
+    child = child.nextSibling;
+  }
+
+  return segmentIndex;
+}
+
+/**
+ * Helper: Find segment index from text node position
+ *
+ * Walk DOM backwards from text node, counting segments.
+ */
+function getSegmentIndexFromTextNode(textNode: DOMNode): number {
+  const contentEl = textNode.parentElement;
+  if (!contentEl) return -1;
+
+  let segmentIndex = 0;
+  let child = contentEl.firstChild;
+
+  while (child) {
+    if (child === textNode) {
+      return segmentIndex;
+    }
+
+    if (child.nodeType === Node.TEXT_NODE) {
+      segmentIndex++;
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const elem = child as HTMLElement;
+      if (elem.classList.contains('inline-element')) {
+        segmentIndex++;
+      }
+      // Skip caret-anchors (don't count as segments)
+    }
+
+    child = child.nextSibling;
+  }
+
+  return -1;
+}
+
+/**
+ * LEGACY: Get selection range (for multi-node selection)
+ *
+ * NOT YET MIGRATED TO SEGMENTED ARCHITECTURE.
+ * This function will be updated in a future phase to support segment-based selection.
+ *
+ * For now, returns null to indicate segmented selection not yet implemented.
  */
 export function getSelectionRangeFromDOM(selection: Selection): {
-  anchor: { nodeId: NodeID; offset: number };
-  focus: { nodeId: NodeID; offset: number };
+  anchor: CursorPosition;
+  focus: CursorPosition;
 } | null {
-  if (!selection.anchorNode || !selection.focusNode) return null;
-
-  const anchor = getNodePositionFromDOM(
-    selection.anchorNode,
-    selection.anchorOffset
-  );
-  const focus = getNodePositionFromDOM(
-    selection.focusNode,
-    selection.focusOffset
-  );
-
-  if (!anchor || !focus) return null;
-
-  return { anchor, focus };
+  // TODO: Implement segmented selection range
+  // For now, multi-node selection not supported in segmented mode
+  return null;
 }
