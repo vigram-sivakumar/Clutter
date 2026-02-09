@@ -2531,7 +2531,8 @@ export function NodeEditor() {
     };
 
     // Start AFTER React commit (single RAF, effect owns all timing)
-    requestAnimationFrame(tryPlace);
+    // ✅ CRITICAL: Wrap in arrow function - RAF passes timestamp as first arg
+    requestAnimationFrame(() => tryPlace());
 
     return () => {
       cancelled = true;
