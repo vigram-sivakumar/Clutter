@@ -102,6 +102,9 @@ import {
   type IndexCursor,
 } from './editor/EditorModel.index';
 
+// 🔒 TYPE-SAFE RAF UTILITIES (Priority 1: Eliminate timestamp bugs)
+import { scheduleRAF, type CancelToken } from './editor/caret/CaretUtilities';
+
 // 🔒 PHASE 1: DOMObserver (parallel to TypingBuffer)
 import {
   DOMObserver,
@@ -356,7 +359,8 @@ export function NodeEditor() {
   // Observers run in parallel with TypingBuffer (comparison mode)
   useEffect(() => {
     // Wait for initial render to complete
-    requestAnimationFrame(() => {
+    // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
+    scheduleRAF(() => {
       editorState.nodes.forEach((node) => {
         // Check if observer already exists
         if (domObservers.current.has(node.id)) {
@@ -433,7 +437,8 @@ export function NodeEditor() {
       fn();
     } finally {
       // Release ONLY after browser finishes dispatching input + selection events
-      requestAnimationFrame(() => {
+      // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
+      scheduleRAF(() => {
         structuralLockRef.current = false;
       });
     }
@@ -2419,7 +2424,8 @@ export function NodeEditor() {
             editorState.cursor.nodeId
           );
         }
-        requestAnimationFrame(() => tryPlace(retries + 1));
+        // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
+        scheduleRAF(() => tryPlace(retries + 1));
         return;
       }
 
@@ -2531,8 +2537,8 @@ export function NodeEditor() {
     };
 
     // Start AFTER React commit (single RAF, effect owns all timing)
-    // ✅ CRITICAL: Wrap in arrow function - RAF passes timestamp as first arg
-    requestAnimationFrame(() => tryPlace());
+    // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
+    scheduleRAF(() => tryPlace());
 
     return () => {
       cancelled = true;
