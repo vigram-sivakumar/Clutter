@@ -2351,7 +2351,18 @@ export function NodeEditor() {
    * Normal typing and horizontal arrows use browser-native caret (no sync)
    */
   useEffect(() => {
+    if (__DEV__) {
+      console.log(
+        '[Caret Effect] Triggered, intent flag:',
+        needsCaretPlacementRef.current
+      );
+    }
+
     if (!needsCaretPlacementRef.current) return;
+
+    if (__DEV__) {
+      console.log('[Caret Effect] Starting placement attempt');
+    }
 
     let cancelled = false;
 
