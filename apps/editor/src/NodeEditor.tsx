@@ -161,10 +161,10 @@ import {
 } from './editor/core/EditorStateReducer';
 import { createEditorCoordinator } from './editor/core/EditorCoordinator';
 import {
-  handleEnter,
-  handleBackspace,
   handleArrow,
   handleTab,
+  handleEnter,
+  handleBackspace,
   computeArrowTargetCursor,
 } from './editor/handlers/KeyboardHandlers';
 import {
@@ -3337,23 +3337,20 @@ export function NodeEditor() {
       return;
     }
 
-    // BACKSPACE — Use Segmented Editor API
+    // 🔒 NEW ARCHITECTURE: Backspace (using pure handler + old execution path)
     if (e.key === 'Backspace') {
+      // Call pure handler to validate and get action intent
+      const backspaceResult = handleBackspace(newEditorState, e, isComposing);
+
+      if (!backspaceResult.action) {
+        return; // Handler rejected (composition, repeat, selection exists)
+      }
+
+      // Execute using old Backspace logic (temporary during migration)
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // COMMIT BOUNDARY: Backspace (Merge Nodes)
-      // Contract: EDITOR-LIFECYCLE-CONTRACT.md
-      // Responsibility: Stop observers, extract, merge, destroy deleted, exit
-      // NOTE: Uses withStructuralCommit (node count changes - see Principle 5)
+      // NOTE: This logic will be moved to coordinator during architecture cleanup
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-      // Step 1: Guard composition + repeat
-      if (isComposing) return;
-      if (e.repeat) return; // Block key repeat flood (align with Enter)
-
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed) {
-        return; // Browser handles selection deletion
-      }
 
       // 🔒 Structural lock (node count may change)
       withStructuralCommit(() => {
@@ -3494,20 +3491,28 @@ export function NodeEditor() {
       return; // Let browser handle
     }
 
-    // ENTER — Use Segmented Editor API
+    // 🔒 NEW ARCHITECTURE: Enter (using pure handler + old execution path)
     if (e.key === 'Enter') {
+      // Call pure handler to validate and get action intent
+      const enterResult = handleEnter(newEditorState, e, isComposing);
+
+      if (!enterResult.action) {
+        return; // Handler rejected (composition, repeat, etc.)
+      }
+
+      // Apply handler's event handling
+      if (enterResult.preventDefault) {
+        e.preventDefault();
+      }
+      if (enterResult.stopPropagation) {
+        e.stopPropagation();
+      }
+
+      // Execute using old Enter logic (temporary during migration)
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // COMMIT BOUNDARY: Enter (Split Node)
-      // Contract: EDITOR-LIFECYCLE-CONTRACT.md
-      // Responsibility: Stop observer, extract, split, update state, exit
+      // NOTE: This logic will be moved to coordinator during architecture cleanup
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-      // Step 1: Guard composition + repeat
-      if (isComposing) return;
-      if (e.repeat) return;
-
-      // 🔒 Structural lock (node count changes)
-      e.preventDefault();
 
       withStructuralCommit(() => {
         // Read from model instance (index-based) - UNIFIED MODEL ACCESS
@@ -3523,21 +3528,34 @@ export function NodeEditor() {
 
         const activeNodeId = activeNode.id;
 
-        // Step 2: Stop observer
-        const observer = domObservers.current.get(activeNodeId as NodeID);
-        if (!observer) {
-          // No observer - node might be unmounting, bail safely
-          return;
-        }
-        observer.stop();
-
-        // Step 3: Extract segments from DOM
+        // Step 2: Get DOM element and observer
         const activeNodeElement = document.querySelector(
           `[data-node-id="${activeNodeId}"]`
         ) as HTMLElement;
         if (!activeNodeElement) {
           // Element gone - bail safely
           return;
+        }
+
+        const observer = domObservers.current.get(activeNodeId as NodeID);
+        if (!observer) {
+          // No observer - node might be unmounting, bail safely
+          return;
+        }
+
+        // 🔒 UNBREAKABLE FIX (Bug #4): Force synchronous DOM state
+        // Stop observer IMMEDIATELY to prevent race conditions
+        // This ensures DOM is stable before we extract segments
+        observer.stop();
+
+        // 🔍 DEBUG: Log DOM state AFTER stopping observer (Bug #3/#4 investigation)
+        if (__DEV__) {
+          console.log('[ENTER-DEBUG] DOM state (observer stopped):', {
+            nodeId: activeNodeId,
+            innerHTML: activeNodeElement.innerHTML,
+            textContent: activeNodeElement.textContent,
+            childNodeCount: activeNodeElement.childNodes.length
+          });
         }
 
         // Step 3.5: Delete selection if exists (Fix #6)
@@ -3553,6 +3571,22 @@ export function NodeEditor() {
         // Re-extract after deletion
         const segments = extractSegmentsFromDOM(activeNodeElement);
 
+        // 🔍 DEBUG: Investigate Bug #3 (text disappearing after inline elements)
+        if (__DEV__) {
+          console.log('[ENTER-DEBUG] Extraction results:', {
+            nodeId: activeNodeId,
+            domHTML: activeNodeElement.innerHTML,
+            domChildNodes: Array.from(activeNodeElement.childNodes).map(n => ({
+              type: n.nodeType === Node.TEXT_NODE ? 'TEXT' : 'ELEMENT',
+              content: n.textContent,
+              classList: (n as HTMLElement).classList?.value
+            })),
+            extractedSegments: segments,
+            segmentCount: segments.length,
+            plainText: segments.map(s => s.type === 'text' ? s.text : `@${s.id}`).join('')
+          });
+        }
+
         // Step 4: Read cursor from selection
         const cursor = getNodePositionFromSelection({
           id: activeNodeId,
@@ -3560,6 +3594,30 @@ export function NodeEditor() {
         } as Node);
 
         if (!cursor) return;
+
+        // 🔒 UNBREAKABLE VALIDATION (Bug #4): Validate cursor is within bounds
+        // Race conditions might cause cursor to be out of bounds
+        // Use safe fallback instead of corrupting state
+        if (cursor.segmentIndex < 0 || cursor.segmentIndex > segments.length) {
+          console.warn('[ENTER] Cursor out of bounds, using safe fallback:', {
+            cursor,
+            segmentCount: segments.length
+          });
+          cursor.segmentIndex = segments.length > 0 ? segments.length - 1 : 0;
+          cursor.offset = 0;
+        }
+        
+        // Validate offset within segment
+        const cursorSegment = segments[cursor.segmentIndex];
+        if (cursorSegment && cursorSegment.type === 'text') {
+          if (cursor.offset < 0 || cursor.offset > cursorSegment.text.length) {
+            console.warn('[ENTER] Offset out of bounds, using safe fallback:', {
+              cursor,
+              segmentLength: cursorSegment.text.length
+            });
+            cursor.offset = cursorSegment.text.length;
+          }
+        }
 
         // Step 5: Update node with fresh segments before split
         const activeNodeWithFreshSegments = { ...activeNode, segments };
@@ -3569,6 +3627,19 @@ export function NodeEditor() {
           activeNodeWithFreshSegments,
           cursor
         );
+
+        // 🔍 DEBUG: Log split results (Bug #3 investigation)
+        if (__DEV__) {
+          console.log('[ENTER-DEBUG] Split results:', {
+            cursor,
+            headSegments: enterResult.head.segments,
+            headPlainText: enterResult.head.segments.map(s => s.type === 'text' ? s.text : `@${s.id}`).join(''),
+            tailSegments: enterResult.tail.segments,
+            tailPlainText: enterResult.tail.segments.map(s => s.type === 'text' ? s.text : `@${s.id}`).join(''),
+            totalSegmentsBeforeSplit: activeNodeWithFreshSegments.segments.length,
+            totalSegmentsAfterSplit: enterResult.head.segments.length + enterResult.tail.segments.length
+          });
+        }
 
         // INDEX-BASED INSERTION
         const newNodes = [
