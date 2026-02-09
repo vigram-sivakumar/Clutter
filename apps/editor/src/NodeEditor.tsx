@@ -673,7 +673,7 @@ export function NodeEditor() {
   }, []);
 
   /**
-   * Phase 5.1.4 — Document-level Selection Observer
+   * Phase 5.1.4 — Document-level Selection Observer (NEW ARCHITECTURE)
    * Syncs browser selection changes to editor state
    */
   useEffect(() => {
@@ -683,22 +683,26 @@ export function NodeEditor() {
       // Selection changes are natural and don't need special handling
       // Commit boundaries extract from DOM when needed
 
-      // 🔒 CRITICAL GUARD: Skip during structural operations
-      if (structuralLockRef.current) {
-        return;
-      }
-
-      const browserSelection = window.getSelection();
-      if (!browserSelection) return;
-
       // Check if selection is inside our editor
       const containerEl = containerRef.current;
       if (!containerEl) return;
-
-      const anchorInEditor = containerEl.contains(browserSelection.anchorNode);
-      const focusInEditor = containerEl.contains(browserSelection.focusNode);
-
-      if (!anchorInEditor || !focusInEditor) return;
+      
+      // Call pure handler for validation
+      const selectionResult = handleSelectionChangeNew(
+        newEditorState,
+        containerEl,
+        structuralLockRef.current
+      );
+      
+      if (!selectionResult.action) {
+        return; // Handler rejected (e.g., structural lock, out of editor, etc.)
+      }
+      
+      // Execute using old selection logic (temporary during migration)
+      // NOTE: This logic will be moved to coordinator during architecture cleanup
+      
+      const browserSelection = window.getSelection();
+      if (!browserSelection) return;
 
       // Translate to editor state (SEGMENTED ARCHITECTURE FIX)
       if (browserSelection.isCollapsed) {
