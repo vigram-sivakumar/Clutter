@@ -2833,11 +2833,21 @@ export function NodeEditor() {
       return;
     }
 
-    // Tab/Shift+Tab: Indent/Outdent (index-based)
+    // 🔒 NEW ARCHITECTURE: Tab (using pure handler + old execution path)
     if (e.key === 'Tab') {
       e.preventDefault();
 
-      if (e.shiftKey) {
+      // Call pure handler to validate and get action intent
+      const tabResult = handleTab(newEditorState, e);
+      
+      if (!tabResult.action || tabResult.action.type !== 'TAB_PRESSED') {
+        return; // Handler rejected the action
+      }
+
+      // Execute using old state functions (temporary during migration)
+      const { shiftKey } = tabResult.action.payload;
+
+      if (shiftKey) {
         // Shift+Tab: Outdent
         const newState = outdentNode(editorState);
 
