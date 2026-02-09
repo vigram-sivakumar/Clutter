@@ -343,17 +343,57 @@ export function NodeEditor() {
   // 🔒 TEMPORARY: Escape hatch for unmigrated code (WILL BE DELETED)
   const setEditorState = _setEditorStateRaw;
 
-  // 🔒 NEW ARCHITECTURE: Reducer state (PARALLEL - not yet primary)
-  const [newEditorState, dispatch] = useEditorStateReducer({
-    nodes: editorState.nodes as Node[],
-    cursor: editorState.cursor,
-    selection: null,
-    focusRootId: null,
-    grammarSession: null,
-    structuralLock: false,
-    composing: false,
-    zoom: 100,
-  });
+  // 🔒 NEW ARCHITECTURE: Prepare state shape for new handlers
+  // During migration: old useState is still primary, new handlers adapt to it
+  const newEditorState: EditorStateComplete = useMemo(
+    () => ({
+      nodes: editorState.nodes as Node[],
+      cursor: editorState.cursor,
+      selection: selection,
+      focusRootId: null,
+      grammarSession: null,
+      structuralLock: structuralLockRef.current,
+      composing: isComposing,
+      zoom: 100,
+    }),
+    [editorState.nodes, editorState.cursor, selection, isComposing]
+  );
+
+  // 🔒 NEW ARCHITECTURE: Bridge dispatch (updates OLD state during migration)
+  // Takes EditorAction and updates old useState accordingly
+  // Once all handlers migrated, we'll replace with real reducer
+  const dispatch = useCallback(
+    (action: EditorAction) => {
+      if (__DEV__) {
+        console.log('[MIGRATION] Bridge dispatch:', action.type);
+      }
+
+      switch (action.type) {
+        case 'TAB_PRESSED': {
+          // Tab handler will be implemented via old state functions
+          // Coordinator will handle the actual indentation
+          break;
+        }
+        case 'ARROW_PRESSED': {
+          // Arrow handler will be implemented via old state functions  
+          // Coordinator will handle the actual navigation
+          break;
+        }
+        case 'ENTER_PRESSED': {
+          // Not yet migrated
+          break;
+        }
+        case 'BACKSPACE_PRESSED': {
+          // Not yet migrated
+          break;
+        }
+        default:
+          // Other actions not yet handled
+          break;
+      }
+    },
+    []
+  );
 
   // 🔒 FIX #4: Composition (IME) state tracking
   // CRITICAL: All commit boundaries MUST check this before proceeding
