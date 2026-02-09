@@ -2367,16 +2367,30 @@ export function NodeEditor() {
             'Target node never appeared in DOM.\n' +
             'Cursor:',
           editorState.cursor,
+          '\nAvailable nodes:',
+          editorState.nodes.map((n) => n.id),
           '\nThis may indicate a React render issue.'
         );
         needsCaretPlacementRef.current = false;
         return;
       }
 
+      if (__DEV__ && retries === 0) {
+        console.log('[Caret] Attempting placement:', {
+          targetNodeId: editorState.cursor.nodeId,
+          cursor: editorState.cursor,
+          availableNodes: editorState.nodes.map((n) => n.id),
+        });
+      }
+
       const activeNode = editorState.nodes.find(
         (n) => n.id === editorState.cursor.nodeId
       );
       if (!activeNode) {
+        console.error('[Caret] Target node not in state!', {
+          targetNodeId: editorState.cursor.nodeId,
+          availableNodes: editorState.nodes.map((n) => n.id),
+        });
         needsCaretPlacementRef.current = false;
         return;
       }
@@ -3435,6 +3449,19 @@ export function NodeEditor() {
 
         // Step 9: Declare caret intent (synchronous)
         requestCaretPlacement();
+
+        // DEBUG: Log what we're committing
+        if (__DEV__) {
+          console.log('[Enter] Committing split result:', {
+            tailNodeId: enterResult.tail.id,
+            headNodeId: enterResult.head.id,
+            cursorTarget: {
+              nodeId: enterResult.tail.id,
+              segmentIndex: 0,
+              offset: 0,
+            },
+          });
+        }
 
         // Step 10: Commit to React (triggers effect with intent already set)
         commit({
