@@ -2707,10 +2707,19 @@ export function NodeEditor() {
   }, [editorState.cursor]);
   */
 
-  // 🔒 FIX #4: Composition handlers (IME input)
+  // 🔒 NEW ARCHITECTURE: Composition handlers (using pure handler + old execution path)
   // CRITICAL: These prevent commit boundaries from running during IME composition
   // See COMMIT-BOUNDARY-CONTRACT.md Step 1
   const handleCompositionStart = (nodeId: NodeID) => {
+    // Call pure handler for validation
+    const compositionStartResult = handleCompositionStartNew(newEditorState, nodeId);
+    
+    if (!compositionStartResult.action) {
+      return; // Handler rejected
+    }
+    
+    // Execute using old composition logic (temporary during migration)
+    // NOTE: This logic will be moved to coordinator during architecture cleanup
     if (__DEV__) {
       console.log('[Composition] Started', { nodeId });
     }
@@ -2718,6 +2727,15 @@ export function NodeEditor() {
   };
 
   const handleCompositionEnd = (nodeId: NodeID) => {
+    // Call pure handler for validation
+    const compositionEndResult = handleCompositionEndNew(newEditorState, nodeId);
+    
+    if (!compositionEndResult.action) {
+      return; // Handler rejected
+    }
+    
+    // Execute using old composition logic (temporary during migration)
+    // NOTE: This logic will be moved to coordinator during architecture cleanup
     if (__DEV__) {
       console.log('[Composition] Ended', { nodeId });
     }
@@ -3554,7 +3572,9 @@ export function NodeEditor() {
             nodeId: activeNodeId,
             innerHTML: activeNodeElement.innerHTML,
             textContent: activeNodeElement.textContent,
-            childNodeCount: activeNodeElement.childNodes.length
+            textLength: activeNodeElement.textContent?.length,
+            childNodeCount: activeNodeElement.childNodes.length,
+            modelCursor: modelRef.current!.getCursor()
           });
         }
 
@@ -3594,6 +3614,15 @@ export function NodeEditor() {
         } as Node);
 
         if (!cursor) return;
+        
+        // 🔍 DEBUG: Log cursor position from selection
+        if (__DEV__) {
+          console.log('[ENTER-DEBUG] Cursor from selection:', {
+            cursor,
+            segment: segments[cursor.segmentIndex],
+            segmentText: segments[cursor.segmentIndex]?.type === 'text' ? segments[cursor.segmentIndex].text : 'inline'
+          });
+        }
 
         // 🔒 UNBREAKABLE VALIDATION (Bug #4): Validate cursor is within bounds
         // Race conditions might cause cursor to be out of bounds

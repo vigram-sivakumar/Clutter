@@ -226,7 +226,7 @@ export function mergeWithPrevious(
   
   // If junction is within bounds, place cursor there
   if (junctionIndex < merged.segments.length) {
-    return {
+    const result = {
       merged,
       cursor: {
         nodeId: merged.id,
@@ -234,6 +234,20 @@ export function mergeWithPrevious(
         offset: 0,
       },
     };
+    
+    // 🔍 DEBUG: Log merge cursor calculation
+    if (__DEV__) {
+      console.log('[MERGE DEBUG]', {
+        previousSegments: previous.segments,
+        currentSegments: current.segments,
+        mergedSegments: merged.segments,
+        junctionIndex,
+        resultCursor: result.cursor,
+        junctionSegment: merged.segments[junctionIndex]
+      });
+    }
+    
+    return result;
   }
   
   // Junction is at the end (current node was empty)

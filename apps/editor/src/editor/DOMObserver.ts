@@ -342,13 +342,11 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
     if (child.nodeType === Node.TEXT_NODE) {
       const text = child.textContent || '';
       if (text) {
-        // Merge with previous text segment if exists (optimization)
-        const lastSegment = segments[segments.length - 1];
-        if (lastSegment && lastSegment.type === 'text') {
-          lastSegment.text += text;
-        } else {
-          segments.push({ type: 'text', text });
-        }
+        // 🔒 UNBREAKABLE: Do NOT merge consecutive text segments
+        // Previous "optimization" broke cursor positions after merge operations
+        // Each DOM text node must map to exactly one segment (1:1 mapping)
+        // This preserves cursor segmentIndex across extraction cycles
+        segments.push({ type: 'text', text });
       }
       continue;
     }
@@ -389,13 +387,9 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
         // We must capture this text before skipping the anchor itself
         const text = el.textContent || '';
         if (text) {
-          // Merge with previous text segment if exists
-          const lastSegment = segments[segments.length - 1];
-          if (lastSegment && lastSegment.type === 'text') {
-            lastSegment.text += text;
-          } else {
-            segments.push({ type: 'text', text });
-          }
+          // 🔒 CONSISTENCY: Match text node behavior - each text source = separate segment
+          // Do NOT merge to preserve cursor positions
+          segments.push({ type: 'text', text });
         }
         // Skip the caret-anchor element itself (it's a rendering artifact)
         continue;
