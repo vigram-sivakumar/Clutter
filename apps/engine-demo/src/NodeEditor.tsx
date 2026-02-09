@@ -105,13 +105,12 @@ import {
 // 🔒 TYPE-SAFE RAF UTILITIES (Priority 1: Eliminate timestamp bugs)
 import { scheduleRAF, type CancelToken } from './editor/caret/CaretUtilities';
 
+// 🔒 CARET PLACEMENT (Priority 3: Eliminate race conditions)
+import { useCaretPlacement } from './editor/caret/CaretPlacement';
+
 // 🔒 OBSERVER LIFECYCLE (Priority 2: Eliminate lifecycle violations)
 import { useObserverLifecycle } from './editor/observers/ObserverLifecycle';
-import {
-  performCommitBoundary,
-  getNodePositionFromSelection,
-  assertObserverStopped,
-} from './editor/observers/ObserverCommit';
+import { assertObserverStopped } from './editor/observers/ObserverCommit';
 
 // 🔒 PHASE 1: DOMObserver (parallel to TypingBuffer)
 import {
@@ -2305,17 +2304,23 @@ export function NodeEditor() {
   // };
 
   /**
-   * Phase 5.1.5 — Editor → Browser Caret Sync (CONTROLLED)
-   * Per File 06 §1.3: Only runs after structural operations
-   * - ArrowUp / ArrowDown (vertical navigation)
-   * - Enter (create new node)
-   * - Backspace (merge/delete)
-   * - Tab/Shift+Tab (indent/outdent)
-   * - Markdown conversion
-   * - Undo / Redo
-   *
-   * Normal typing and horizontal arrows use browser-native caret (no sync)
+   * ✅ PRIORITY 3: Caret placement hook (eliminates race conditions)
+   * 
+   * Extracted from inline useEffect into dedicated hook.
+   * Manages all caret placement after structural operations.
+   * 
+   * See: apps/engine-demo/src/editor/caret/CaretPlacement.tsx
    */
+  useCaretPlacement({
+    cursor: editorState.cursor,
+    nodes: editorState.nodes,
+    needsPlacementRef: needsCaretPlacementRef,
+    debug: __DEV__,
+    maxRetries: 10,
+  });
+
+  // ✅ OLD IMPLEMENTATION REMOVED (190 lines extracted to CaretPlacement.tsx)
+  /*
   useEffect(() => {
     if (__DEV__) {
       console.log(
@@ -2505,6 +2510,7 @@ export function NodeEditor() {
       cancelled = true;
     };
   }, [editorState.cursor]);
+  */
 
   // 🔒 FIX #4: Composition handlers (IME input)
   // CRITICAL: These prevent commit boundaries from running during IME composition
