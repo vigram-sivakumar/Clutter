@@ -1,10 +1,10 @@
 /**
  * 🔒 SINGLE WRITE PIPELINE — THE ONLY WAY TO MUTATE STATE
- * 
+ *
  * ABSOLUTE RULE:
  * ALL state mutations go through setStateAndModel().
  * Direct calls to setEditorState, updateModel, etc. are FORBIDDEN.
- * 
+ *
  * This enforces:
  * - Model updated FIRST
  * - React updated SECOND
@@ -16,7 +16,7 @@
 
 import type { Node, CursorPosition } from '../engine/NodeKernel';
 import { updateModel, getModel } from '../editor/EditorModel';
-import { isTyping } from '../editor/TypingBuffer';
+// ✂️ PHASE 2.5: TypingBuffer import DELETED
 import { assertEditorInvariants } from './invariants';
 
 /**
@@ -35,7 +35,7 @@ export function _initializeSingleWritePipeline(
 ): void {
   _setEditorStateRaw = setEditorState;
   _requestCaretPlacementRaw = requestCaretPlacement;
-  
+
   if (__DEV__) {
     console.log('🔒 Single Write Pipeline initialized');
     console.log('⚠️ Direct state mutations are now FORBIDDEN');
@@ -44,7 +44,7 @@ export function _initializeSingleWritePipeline(
 
 /**
  * THE ONLY WAY TO MUTATE STATE
- * 
+ *
  * MANDATORY ORDER (no exceptions):
  * 1. Assert NOT typing
  * 2. Assert NOT locked
@@ -64,21 +64,16 @@ export function setStateAndModel(params: {
 
   const { nodes, cursor, reason } = params;
 
-  // GUARD 1: Cannot mutate while typing
-  if (isTyping()) {
-    throw new Error(
-      `FORBIDDEN: State mutation during typing\n` +
-      `Reason: ${reason}\n` +
-      `Typing must be stopped before structural changes.`
-    );
-  }
+  // ✂️ PHASE 2.5: isTyping() guard DELETED
+  // With MutationObserver, observers are stopped before commits
+  // This is enforced structurally by commit boundary contract, not by flag
 
   // GUARD 2: Cannot mutate while locked
   if (_isLocked) {
     throw new Error(
       `FORBIDDEN: Concurrent state mutation\n` +
-      `Reason: ${reason}\n` +
-      `Another operation is in progress.`
+        `Reason: ${reason}\n` +
+        `Another operation is in progress.`
     );
   }
 
@@ -126,7 +121,6 @@ export function setStateAndModel(params: {
         cursor: model.cursor,
       });
     }
-
   } finally {
     _isLocked = false;
   }
@@ -157,30 +151,30 @@ export function isPipelineLocked(): boolean {
 
 /**
  * FORBIDDEN FUNCTIONS (for migration tracking)
- * 
+ *
  * These throw to catch any remaining direct calls.
  */
 export function _forbiddenSetEditorState(): never {
   throw new Error(
     '❌ ARCHITECTURAL VIOLATION: Direct setEditorState call\n' +
-    'You MUST use setStateAndModel() instead.\n' +
-    'Direct state mutations bypass enforcement.'
+      'You MUST use setStateAndModel() instead.\n' +
+      'Direct state mutations bypass enforcement.'
   );
 }
 
 export function _forbiddenUpdateModel(): never {
   throw new Error(
     '❌ ARCHITECTURAL VIOLATION: Direct updateModel call\n' +
-    'You MUST use setStateAndModel() instead.\n' +
-    'Direct model mutations bypass React sync.'
+      'You MUST use setStateAndModel() instead.\n' +
+      'Direct model mutations bypass React sync.'
   );
 }
 
 export function _forbiddenRequestCaretPlacement(): never {
   throw new Error(
     '❌ ARCHITECTURAL VIOLATION: Direct requestCaretPlacement call\n' +
-    'Caret placement is automatic in setStateAndModel().\n' +
-    'Manual calls indicate missing pipeline usage.'
+      'Caret placement is automatic in setStateAndModel().\n' +
+      'Manual calls indicate missing pipeline usage.'
   );
 }
 

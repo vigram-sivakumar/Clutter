@@ -18,12 +18,7 @@
  */
 
 import type { Node, CursorPosition } from '../engine/NodeKernel';
-import {
-  stopTyping,
-  getAllPendingNodeIds,
-  getPendingSegments,
-  clearAllPendingSegments,
-} from '../editor/TypingBuffer';
+// ✂️ PHASE 2.5: TypingBuffer imports DELETED
 import { updateModel, getModel } from '../editor/EditorModel';
 import { assertEditorInvariants, deepFreeze } from './invariants';
 import { _allowMutation, _blockMutation } from './StateWrapper';
@@ -76,28 +71,14 @@ function unlock(): void {
 }
 
 /**
- * Flush pending typing changes
+ * ✂️ PHASE 2.5: flushTypingChanges() DELETED
+ * With MutationObserver, DOM is extracted at commit boundaries
+ * No pending buffer to flush - extractSegmentsFromDOM() is called directly
  */
 function flushTypingChanges(currentNodes: Node[]): Node[] {
-  const pendingNodeIds = getAllPendingNodeIds();
-
-  if (pendingNodeIds.length === 0) {
-    return currentNodes;
-  }
-
-  // Apply pending segments
-  const flushedNodes = currentNodes.map((node) => {
-    const pending = getPendingSegments(node.id);
-    if (pending) {
-      return { ...node, segments: pending };
-    }
-    return node;
-  });
-
-  // Clear buffer
-  clearAllPendingSegments();
-
-  return flushedNodes;
+  // No-op - kept for compatibility
+  // Will be fully removed in future cleanup
+  return currentNodes;
 }
 
 /**
@@ -158,10 +139,10 @@ export function performEditorOperation(operation: EditorOperation): void {
   lock(operation.type);
 
   try {
-    // STEP 2: Stop typing
-    stopTyping();
+    // ✂️ PHASE 2.5: stopTyping() DELETED
+    // Observers are stopped at commit boundaries via stop() calls
 
-    // STEP 3: Flush typing
+    // ✂️ PHASE 2.5: flushTypingChanges() is now no-op
     const flushedNodes = flushTypingChanges(model.nodes as Node[]);
     updateModel(flushedNodes, model.cursor);
 

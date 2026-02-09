@@ -1,6 +1,6 @@
 /**
  * 🔒 COMMIT PIPELINE — Instance-Based (NO SINGLETONS)
- * 
+ *
  * CRITICAL ARCHITECTURAL CHANGE:
  * - Bound to specific EditorModel instance
  * - Bound to specific TypingBuffer instance
@@ -10,7 +10,7 @@
 
 import type { Node, CursorPosition } from '../engine/NodeKernel';
 import type { EditorModel } from '../editor/EditorModel.v2';
-import type { TypingBuffer } from '../editor/TypingBuffer.v2';
+// ✂️ PHASE 2.5: TypingBuffer type import DELETED
 import { assertEditorInvariants, deepFreeze } from './invariants';
 import { _allowMutation, _blockMutation } from './StateWrapper';
 
@@ -19,22 +19,23 @@ import { _allowMutation, _blockMutation } from './StateWrapper';
  */
 export class CommitPipeline {
   private readonly model: EditorModel;
-  private readonly typingBuffer: TypingBuffer;
+  // ✂️ PHASE 2.5: typingBuffer DELETED (experimental v2 file, not in use)
+  // private readonly typingBuffer: any; // TypingBuffer;
   private setEditorState: ((state: any) => void) | null = null;
   private requestCaretPlacement: (() => void) | null = null;
   private isLocked: boolean = false;
   private caretPlacementPending: boolean = false;
   private readonly instanceId: string;
 
-  constructor(model: EditorModel, typingBuffer: TypingBuffer) {
+  constructor(model: EditorModel /*, typingBuffer: any*/) {
     this.model = model;
-    this.typingBuffer = typingBuffer;
+    // this.typingBuffer = typingBuffer;
     this.instanceId = `pipeline-${Math.random().toString(36).slice(2, 11)}`;
 
     if (__DEV__) {
       console.log(`🔒 CommitPipeline created: ${this.instanceId}`);
       console.log(`   Bound to model: ${model.getInstanceId()}`);
-      console.log(`   Bound to typing: ${typingBuffer.getInstanceId()}`);
+      // console.log(`   Bound to typing: ${typingBuffer.getInstanceId()}`);
     }
   }
 
@@ -65,7 +66,7 @@ export class CommitPipeline {
     if (this.isLocked) {
       throw new Error(
         `PIPELINE VIOLATION: Reentrant operation "${operation.type}"\n` +
-        `Pipeline is already locked.`
+          `Pipeline is already locked.`
       );
     }
 
@@ -79,8 +80,9 @@ export class CommitPipeline {
     this.lock(operation.type);
 
     try {
+      // ✂️ PHASE 2.5: typingBuffer DELETED
       // STEP 1: Stop typing
-      this.typingBuffer.stopTyping();
+      // this.typingBuffer.stopTyping();
 
       // STEP 2: Flush typing buffer
       const flushedNodes = this.flushTypingChanges();
@@ -120,7 +122,6 @@ export class CommitPipeline {
       // STEP 8: Request caret placement
       this.caretPlacementPending = true;
       this.requestCaretPlacement();
-
     } catch (error) {
       console.error(`❌ Operation "${operation.type}" failed:`, error);
       _blockMutation();
@@ -191,31 +192,12 @@ export class CommitPipeline {
   }
 
   private flushTypingChanges(): Node[] | null {
-    const pendingNodeIds = this.typingBuffer.getAllPendingNodeIds();
+    // ✂️ PHASE 2.5: Entire method DELETED - no typing buffer to flush
+    // With MutationObserver, DOM is extracted at commit boundaries
+    // const pendingNodeIds = this.typingBuffer.getAllPendingNodeIds();
 
-    if (pendingNodeIds.length === 0) {
-      return null;
-    }
-
-    if (__DEV__) {
-      console.log(`🚿 Flushing ${pendingNodeIds.length} pending nodes`);
-    }
-
-    const currentNodes = this.model.getNodes() as Node[];
-
-    // Apply pending segments
-    const flushedNodes = currentNodes.map(node => {
-      const pending = this.typingBuffer.getPendingSegments(node.id);
-      if (pending) {
-        return { ...node, segments: pending };
-      }
-      return node;
-    });
-
-    // Clear buffer
-    this.typingBuffer.clearAllPendingSegments();
-
-    return flushedNodes;
+    // No-op - return null (no changes to flush)
+    return null;
   }
 }
 

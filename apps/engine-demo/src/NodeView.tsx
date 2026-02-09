@@ -30,10 +30,14 @@ export function NodeView({
   node,
   nodes,
   isActive,
+  onCompositionStart,
+  onCompositionEnd,
 }: {
   node: Node;
   nodes: Node[];
   isActive: boolean;
+  onCompositionStart?: (nodeId: string) => void;
+  onCompositionEnd?: (nodeId: string) => void;
 }) {
   // File 04 — Get variant from props (canonical source)
   const variant = getNodeVariant(node);
@@ -51,15 +55,10 @@ export function NodeView({
   useEffect(() => {
     if (!contentRef.current) return;
 
-    // 🔒 MANDATORY GUARD: Never render while user is typing in this node
-    // This MUST come first - no exceptions
-    // Rendering during typing destroys the user's input (CRITICAL BUG)
-    if (
-      (globalThis as any).__isTyping?.() &&
-      (globalThis as any).__hasPendingChanges?.(node.id)
-    ) {
-      return; // DOM is authoritative during typing
-    }
+    // ✂️ PHASE 2.5: Typing guards DELETED
+    // With MutationObserver, React renders only at commit boundaries
+    // Observers are stopped before commits, so no concurrent mutations possible
+    // This is structurally enforced by commit boundary contract, not by runtime checks
 
     // 🔒 ASSERTION: Check we're not violating invariants
     if (__DEV__) {
@@ -196,6 +195,8 @@ export function NodeView({
             fontSize: variant.startsWith('heading') ? '18px' : '14px',
             fontWeight: variant.startsWith('heading') ? 'bold' : 'normal',
           }}
+          onCompositionStart={() => onCompositionStart?.(node.id)}
+          onCompositionEnd={() => onCompositionEnd?.(node.id)}
         />
       </div>
     </div>

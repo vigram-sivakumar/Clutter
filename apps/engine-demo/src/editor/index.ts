@@ -1,6 +1,6 @@
 /**
  * SEGMENTED EDITOR - PUBLIC API
- * 
+ *
  * This is the ONLY interface NodeEditor.tsx should use.
  * NO direct access to node.segments allowed in UI code.
  */
@@ -15,7 +15,7 @@ export {
   mergeWithNext,
   type EnterResult,
   type BackspaceResult,
-  type InputResult
+  type InputResult,
 } from './SegmentedEditor';
 
 // Query operations (read-only)
@@ -28,28 +28,11 @@ export {
   isNodeEmpty,
   getNodeLabel,
   type GrammarMatch,
-  type QueryMatch
+  type QueryMatch,
 } from './SegmentQuery';
 
-// 🔒 TYPING BUFFER — DOM-owned typing architecture
-export {
-  setPendingSegments,
-  getPendingSegments,
-  hasPendingChanges,
-  getAllPendingNodeIds,
-  clearPendingSegments,
-  clearAllPendingSegments,
-  isTyping,
-  stopTyping,
-  startTyping,
-  getPendingCount,
-  setLiveCursor,
-  getLiveCursor,
-  clearLiveCursor,
-  startDebounceFlush,
-  stopDebounceFlush,
-  isDebounceFlush,
-} from './TypingBuffer';
+// ✂️ PHASE 2.5: TYPING BUFFER EXPORTS DELETED
+// Replaced with DOMObserver (see DOMObserver.ts)
 
 // 🔒 EDITOR MODEL — Canonical document state (non-React)
 export {

@@ -1,12 +1,12 @@
 /**
  * 🔒 SELECTION INTENT — Read-Only Selection Handling
- * 
+ *
  * ABSOLUTE PRINCIPLE:
  * selectionchange is HOSTILE. It lies. It fires at wrong times.
  * This module makes it read-only - captures intent, never mutates.
- * 
+ *
  * All cursor updates go through CommitPipeline, never direct.
- * 
+ *
  * ENFORCEMENT:
  * - selectionchange captures intent → queues operation → pipeline executes
  * - Cannot mutate state directly
@@ -16,7 +16,7 @@
 
 import type { Node, CursorPosition } from '../engine/NodeKernel';
 import { performEditorOperation } from './CommitPipeline';
-import { isTyping } from '../editor/TypingBuffer';
+// ✂️ PHASE 2.5: TypingBuffer import DELETED
 import { isPipelineLocked } from './CommitPipeline';
 
 /**
@@ -42,7 +42,7 @@ let lastAppliedTimestamp = 0;
 
 /**
  * Capture selection intent (does NOT mutate)
- * 
+ *
  * Called by selectionchange handler.
  * Queues intent for processing by pipeline.
  */
@@ -51,13 +51,9 @@ export function captureSelectionIntent(
   segmentIndex: number,
   offset: number
 ): void {
-  // Guard: Skip if typing (DOM is authoritative)
-  if (isTyping()) {
-    if (__DEV__) {
-      console.log('⛔ Selection intent ignored (typing in progress)');
-    }
-    return;
-  }
+  // ✂️ PHASE 2.5: isTyping() guard DELETED
+  // With MutationObserver, selection changes during typing are natural
+  // DOM is authoritative, no special handling needed
 
   // Guard: Skip if pipeline locked (structural op in progress)
   if (isPipelineLocked()) {
@@ -102,7 +98,7 @@ function scheduleIntentProcessing(): void {
 
 /**
  * Process pending intent (through pipeline)
- * 
+ *
  * This is the ONLY place where selection intent becomes a state change.
  * Goes through CommitPipeline, not direct mutation.
  */
@@ -120,10 +116,11 @@ function processIntent(): void {
     return;
   }
 
+  // ✂️ PHASE 2.5: isTyping() guard DELETED
   // Guard: Re-check conditions (may have changed)
-  if (isTyping() || isPipelineLocked()) {
+  if (isPipelineLocked()) {
     if (__DEV__) {
-      console.log('⛔ Intent processing blocked (state changed)');
+      console.log('⛔ Intent processing blocked (pipeline locked)');
     }
     return;
   }
@@ -133,7 +130,7 @@ function processIntent(): void {
     type: 'CursorMove',
     execute: (nodes, currentCursor) => {
       // Validate node exists
-      const targetNode = nodes.find(n => n.id === intent.nodeId);
+      const targetNode = nodes.find((n) => n.id === intent.nodeId);
       if (!targetNode) {
         if (__DEV__) {
           console.warn(`⚠️ Intent target node not found: ${intent.nodeId}`);
