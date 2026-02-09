@@ -794,7 +794,7 @@ export function NodeEditor() {
     // MutationObserver tracks typing passively - no active input handler needed
     // DOM is source of truth, extracted only at commit boundaries
 
-    // 🔒 BLUR HANDLER: Flush pending segments when leaving node
+    // 🔒 NEW ARCHITECTURE: Blur handler (using pure handler + old execution path)
     const handleBlur = (e: FocusEvent) => {
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       // COMMIT BOUNDARY: Blur (Flush Operation)
@@ -810,6 +810,19 @@ export function NodeEditor() {
 
       const nodeId = target.getAttribute('data-node-id');
       if (!nodeId) return;
+      
+      // Extract segments first for handler validation
+      const segments = extractSegmentsFromDOM(target);
+      
+      // Call pure handler for validation
+      const blurResult = handleBlurNew(newEditorState, nodeId as NodeID, segments);
+      
+      if (!blurResult.action) {
+        return; // Handler rejected
+      }
+      
+      // Execute using old blur logic (temporary during migration)
+      // NOTE: This logic will be moved to coordinator during architecture cleanup
 
       // Step 2: Stop observer (graceful - may not exist if node unmounted)
       const observer = domObservers.current.get(nodeId as NodeID);
@@ -818,9 +831,6 @@ export function NodeEditor() {
         return;
       }
       observer.stop();
-
-      // Step 3: Extract segments from DOM
-      const segments = extractSegmentsFromDOM(target);
 
       // Step 4: Read cursor from selection API
       // Check rangeCount to avoid reading cleared selection
