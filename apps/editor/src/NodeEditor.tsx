@@ -44,7 +44,7 @@ declare global {
 // Set dev mode
 (globalThis as any).__DEV__ = import.meta.env.DEV;
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { Node, NodeID } from './engine/NodeKernel';
 import {
   createNode,
