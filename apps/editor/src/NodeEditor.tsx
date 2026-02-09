@@ -343,6 +343,15 @@ export function NodeEditor() {
   // 🔒 TEMPORARY: Escape hatch for unmigrated code (WILL BE DELETED)
   const setEditorState = _setEditorStateRaw;
 
+  // Selection state (needed early for newEditorState)
+  const [selection, setSelection] = useState<{
+    anchor: CursorPosition | null;
+    focus: CursorPosition | null;
+  }>({ anchor: null, focus: null });
+
+  // 🔒 FIX #4: Composition (IME) state tracking
+  const [isComposing, setIsComposing] = useState(false);
+
   // 🔒 NEW ARCHITECTURE: Prepare state shape for new handlers
   // During migration: old useState is still primary, new handlers adapt to it
   const newEditorState: EditorStateComplete = useMemo(
@@ -395,10 +404,7 @@ export function NodeEditor() {
     []
   );
 
-  // 🔒 FIX #4: Composition (IME) state tracking
-  // CRITICAL: All commit boundaries MUST check this before proceeding
-  // See COMMIT-BOUNDARY-CONTRACT.md Step 1
-  const [isComposing, setIsComposing] = useState(false);
+  // 🔒 FIX #4: Composition state moved earlier (line ~348) for newEditorState dependency
 
   // 🔒 PRIORITY 2: Observer lifecycle hook (eliminates lifecycle violations)
   // Manages DOMObserver creation/destruction based on node list
@@ -506,11 +512,7 @@ export function NodeEditor() {
     }
   }
 
-  // Selection state (UI-only) - SEGMENTED ARCHITECTURE
-  const [selection, setSelection] = useState<{
-    anchor: CursorPosition | null;
-    focus: CursorPosition | null;
-  }>({ anchor: null, focus: null });
+  // Selection state moved earlier (line ~345) for newEditorState dependency
 
   // STEP 9.1 — Focus/Zoom state (UI-only)
   // null = normal mode (top-level view)
