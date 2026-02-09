@@ -352,6 +352,9 @@ export function NodeEditor() {
   // 🔒 FIX #4: Composition (IME) state tracking
   const [isComposing, setIsComposing] = useState(false);
 
+  // Structural lock ref (needed early for newEditorState)
+  const structuralLockRef = useRef(false);
+
   // 🔒 NEW ARCHITECTURE: Prepare state shape for new handlers
   // During migration: old useState is still primary, new handlers adapt to it
   const newEditorState: EditorStateComplete = useMemo(
@@ -490,9 +493,7 @@ export function NodeEditor() {
     needsCaretPlacementRef.current = true;
   }
 
-  // Phase 09 Final — Structural lock (prevents DOM → state sync during commits)
-  // CRITICAL: Uses rAF to release AFTER all browser events (keydown/input/selectionchange)
-  const structuralLockRef = useRef(false);
+  // Phase 09 Final — Structural lock moved earlier (line ~354) for newEditorState dependency
 
   // 🔒 NEW ARCHITECTURE: Coordinator refs (PASSIVE - not yet used)
   const coordinatorContextRef = useRef<CoordinatorContext | null>(null);
