@@ -343,6 +343,18 @@ export function NodeEditor() {
   // 🔒 TEMPORARY: Escape hatch for unmigrated code (WILL BE DELETED)
   const setEditorState = _setEditorStateRaw;
 
+  // 🔒 NEW ARCHITECTURE: Reducer state (PARALLEL - not yet primary)
+  const [newEditorState, dispatch] = useEditorStateReducer({
+    nodes: editorState.nodes as Node[],
+    cursor: editorState.cursor,
+    selection: null,
+    focusRootId: null,
+    grammarSession: null,
+    structuralLock: false,
+    composing: false,
+    zoom: 100,
+  });
+
   // 🔒 FIX #4: Composition (IME) state tracking
   // CRITICAL: All commit boundaries MUST check this before proceeding
   // See COMMIT-BOUNDARY-CONTRACT.md Step 1
@@ -405,14 +417,9 @@ export function NodeEditor() {
       structuralLockRef,
     };
 
-    // Create coordinator instance with placeholder dispatch
+    // Create coordinator instance with real reducer dispatch
     coordinatorRef.current = createEditorCoordinator(
-      (action: EditorAction) => {
-        // Placeholder dispatch - will wire to reducer in Phase 2
-        if (__DEV__) {
-          console.log('[COORDINATOR] Action dispatched (not yet wired):', action.type);
-        }
-      },
+      dispatch, // ✅ Now wired to reducer
       coordinatorContextRef.current
     );
 
@@ -420,7 +427,7 @@ export function NodeEditor() {
       // Cleanup coordinator on unmount
       coordinatorRef.current = null;
     };
-  }, [domObservers]);
+  }, [domObservers, dispatch]);
 
   // ✅ PRIORITY 2: Observer lifecycle now managed by useObserverLifecycle hook
   // Manual observer creation/destruction removed - React owns lifecycle
