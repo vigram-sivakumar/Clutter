@@ -165,6 +165,7 @@ import {
   handleBackspace,
   handleArrow,
   handleTab,
+  computeArrowTargetCursor,
 } from './editor/handlers/KeyboardHandlers';
 import {
   handleSelectionChange as handleSelectionChangeNew,
@@ -1605,8 +1606,44 @@ export function NodeEditor() {
   }
 
   /**
+   * Get node level (depth in tree hierarchy)
+   * 
+   * Level 0 = root node (no parent)
+   * Level 1 = direct child of root
+   * Level 2 = grandchild, etc.
+   * 
+   * NOTE: Pure tree math - no React/DOM dependencies.
+   * TEMPORARY LOCATION: Will be moved to /editor/utils/tree.ts during architecture cleanup.
+   */
+  function getNodeLevel(node: Node, nodes: Node[]): number {
+    const nodesById = new Map(nodes.map((n) => [n.id, n]));
+    let level = 0;
+    let current = node;
+
+    while (current.parentId) {
+      const parent = nodesById.get(current.parentId);
+      if (!parent) break;
+      level++;
+      current = parent;
+    }
+
+    return level;
+  }
+
+  /**
    * STEP 6.4 — Indent Node (Tab)
-   * Makes previous visible node the parent
+   * 
+   * INVARIANT: Always indent by exactly +1 level
+   * 
+   * Logic:
+   * - Find nearest previous node at same level → make it parent
+   * - Find nearest previous node at (level - 1) → make it parent
+   * - This guarantees currentLevel + 1 in all cases
+   * 
+   * This is structurally unbreakable across all tree configurations.
+   * 
+   * NOTE: Structural tree logic - not UI logic.
+   * TEMPORARY LOCATION: Will be moved to /editor/core/NodeOperations.ts during architecture integration.
    */
   function indentNode(state: EditorState): EditorState {
     const { nodes, cursor } = state;
@@ -1616,33 +1653,86 @@ export function NodeEditor() {
 
     if (index <= 0) return state; // Cannot indent first node
 
-    const newParent = visibleNodes[index - 1];
-    if (!newParent) return state;
+    const current = visibleNodes[index];
+    const currentLevel = getNodeLevel(current, nodes);
+    let newParentId: string | null = null;
+
+    // Walk backwards to find appropriate parent
+    for (let i = index - 1; i >= 0; i--) {
+      const candidate = visibleNodes[i];
+      const candidateLevel = getNodeLevel(candidate, nodes);
+
+      // CASE 1: Previous node at same level → become its child
+      if (candidateLevel === currentLevel) {
+        newParentId = candidate.id;
+        break;
+      }
+
+      // CASE 2: Previous node at (level - 1) → become its child
+      if (candidateLevel === currentLevel - 1) {
+        newParentId = candidate.id;
+        break;
+      }
+
+      // candidateLevel > currentLevel → skip (deeper node, keep looking)
+    }
+
+    if (newParentId === null) return state;
 
     return {
       ...state,
       nodes: nodes.map((n) =>
-        n.id === nodeId ? { ...n, parentId: newParent.id } : n
+        n.id === nodeId ? { ...n, parentId: newParentId } : n
       ),
     };
   }
 
   /**
    * STEP 6.4 — Outdent Node (Shift+Tab)
-   * Moves to parent's parent
+   * 
+   * INVARIANT: Always outdent by exactly -1 level AND adopt following siblings
+   * 
+   * Logic:
+   * 1. Promote node to parent's level (parentId = grandparent)
+   * 2. Find all siblings that come AFTER in visible order
+   * 3. Make those siblings children of the outdented node
+   * 
+   * This preserves visual continuity and "block owns everything after it" semantics.
+   * Matches behavior of Notion, Roam Research, WorkFlowy.
+   * 
+   * NOTE: Structural tree logic - not UI logic.
+   * TEMPORARY LOCATION: Will be moved to /editor/core/NodeOperations.ts during architecture integration.
    */
   function outdentNode(state: EditorState): EditorState {
-    const nodeId = state.cursor.nodeId;
-    const node = state.nodes.find((n) => n.id === nodeId);
+    const { nodes, cursor } = state;
+    const node = nodes.find((n) => n.id === cursor.nodeId);
     if (!node || !node.parentId) return state; // No parent to outdent from
 
-    const parent = state.nodes.find((n) => n.id === node.parentId);
+    const parent = nodes.find((n) => n.id === node.parentId);
+    const visibleNodes = getVisibleNodes(nodes);
+    const currentIndex = visibleNodes.findIndex((n) => n.id === node.id);
+
+    // Find siblings that come AFTER this node in visible order
+    // Use slice for O(n) performance instead of filter with findIndex
+    const followingSiblings = visibleNodes
+      .slice(currentIndex + 1)
+      .filter((n) => n.parentId === node.parentId);
 
     return {
       ...state,
-      nodes: state.nodes.map((n) =>
-        n.id === node.id ? { ...n, parentId: parent?.parentId ?? null } : n
-      ),
+      nodes: nodes.map((n) => {
+        // 1. Promote current node to parent's level
+        if (n.id === node.id) {
+          return { ...n, parentId: parent?.parentId ?? null };
+        }
+
+        // 2. Adopt following siblings as children
+        if (followingSiblings.some((s) => s.id === n.id)) {
+          return { ...n, parentId: node.id };
+        }
+
+        return n;
+      }),
     };
   }
 
@@ -3014,22 +3104,32 @@ export function NodeEditor() {
             setSelection({ anchor: null, focus: null });
           }
 
-          // Commit state
+          // 🔒 OFFSET PRESERVATION (using helper from KeyboardHandlers)
+          // NOTE: Target node determination happens here during migration.
+          // FUTURE: When migration completes, this will move into handleArrow().
+          const currentNode = updatedNodes.find((n) => n.id === currentNodeId);
+          const targetCursor = computeArrowTargetCursor(
+            currentNode!.segments,
+            targetNode.segments,
+            targetNode.id,
+            {
+              segmentIndex: editorState.cursor.segmentIndex,
+              offset: editorState.cursor.offset,
+            }
+          );
+
+          // Commit state with CORRECT segment coordinates
           setEditorState((prev) => ({
             ...prev,
             nodes: updatedNodes as UINode[],
-            cursor: {
-              nodeId: targetNode!.id,
-              segmentIndex: 0,
-              offset: 0,
-            },
+            cursor: targetCursor,
           }));
 
           // Update selection if Shift key
           if (e.shiftKey) {
             setSelection((sel) => ({
               ...sel,
-              focus: { nodeId: targetNode!.id, segmentIndex: 0, offset: 0 },
+              focus: targetCursor,
             }));
           }
 
