@@ -105,6 +105,14 @@ import {
 // 🔒 TYPE-SAFE RAF UTILITIES (Priority 1: Eliminate timestamp bugs)
 import { scheduleRAF, type CancelToken } from './editor/caret/CaretUtilities';
 
+// 🔒 OBSERVER LIFECYCLE (Priority 2: Eliminate lifecycle violations)
+import { useObserverLifecycle } from './editor/observers/ObserverLifecycle';
+import {
+  performCommitBoundary,
+  getNodePositionFromSelection,
+  assertObserverStopped,
+} from './editor/observers/ObserverCommit';
+
 // 🔒 PHASE 1: DOMObserver (parallel to TypingBuffer)
 import {
   DOMObserver,
@@ -317,11 +325,21 @@ export function NodeEditor() {
   // See COMMIT-BOUNDARY-CONTRACT.md Step 1
   const [isComposing, setIsComposing] = useState(false);
 
-  // 🔒 PHASE 1: DOMObserver management (parallel to TypingBuffer)
-  // Map of nodeId → DOMObserver
-  // Each contentEditable element gets its own observer
-  // Observers are created on mount, destroyed on unmount (Fix #5)
-  const domObservers = useRef<Map<NodeID, any>>(new Map());
+  // 🔒 PRIORITY 2: Observer lifecycle hook (eliminates lifecycle violations)
+  // Manages DOMObserver creation/destruction based on node list
+  // Handlers NEVER touch observers - React owns lifecycle
+  const { observers: domObservers } = useObserverLifecycle({
+    nodeIds: editorState.nodes.map((n) => n.id),
+    onMutationsBatched: __DEV__
+      ? (nodeId, mutations) => {
+          console.log('[DOMObserver] Mutations batched', {
+            nodeId,
+            count: mutations.length,
+          });
+        }
+      : undefined,
+    debug: __DEV__,
+  });
 
   // 🔒 SINGLETON GUARD: Prevent re-initialization
   const pipelineInitializedRef = useRef(false);
@@ -354,65 +372,8 @@ export function NodeEditor() {
     }
   }, []);
 
-  // 🔒 PHASE 1: Initialize DOMObservers for all nodes
-  // Create one observer per contentEditable element
-  // Observers run in parallel with TypingBuffer (comparison mode)
-  useEffect(() => {
-    // Wait for initial render to complete
-    // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
-    scheduleRAF(() => {
-      editorState.nodes.forEach((node) => {
-        // Check if observer already exists
-        if (domObservers.current.has(node.id)) {
-          return; // Already observing
-        }
-
-        // Find the contentEditable element
-        const element = document.querySelector(
-          `[data-node-id="${node.id}"]`
-        ) as HTMLElement;
-
-        if (!element) {
-          console.warn('[DOMObserver] Element not found for node', node.id);
-          return;
-        }
-
-        // Create observer
-        const observer = new DOMObserver({
-          element,
-          onMutationsBatched: (mutations) => {
-            if (__DEV__) {
-              console.log('[DOMObserver] Mutations batched', {
-                nodeId: node.id,
-                count: mutations.length,
-              });
-            }
-          },
-        });
-
-        // Store in map
-        domObservers.current.set(node.id, observer);
-
-        // Start observing
-        observer.start();
-
-        if (__DEV__) {
-          console.log('[DOMObserver] Created and started for node', node.id);
-        }
-      });
-    });
-
-    // Cleanup: Destroy all observers on unmount (Fix #5)
-    return () => {
-      domObservers.current.forEach((observer, nodeId) => {
-        observer.destroy();
-        if (__DEV__) {
-          console.log('[DOMObserver] Destroyed on unmount', nodeId);
-        }
-      });
-      domObservers.current.clear();
-    };
-  }, [editorState.nodes.length]); // Re-run when nodes added/removed
+  // ✅ PRIORITY 2: Observer lifecycle now managed by useObserverLifecycle hook
+  // Manual observer creation/destruction removed - React owns lifecycle
 
   // DEBUG: Track all state changes
   // Removed logging useEffect
