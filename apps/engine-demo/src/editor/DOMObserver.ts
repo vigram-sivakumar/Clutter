@@ -306,19 +306,28 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
   const nestedEditable = element.querySelector('[contenteditable="true"]');
 
   if (nestedEditable && nestedEditable !== element) {
-    console.error(
-      '🚨 SECURITY VIOLATION: Nested contenteditable detected!\n' +
-        'Refusing extraction to prevent data corruption.\n' +
-        'Element:',
-      element,
-      '\nNested:',
-      nestedEditable
-    );
+    // ✅ EXCEPTION: Ignore caret-anchor spans (they're part of our architecture)
+    // Caret-anchors are zero-width spans for cursor placement around inline elements
+    // They have contenteditable="true" but are NOT malicious nested editables
+    const isSafeCaretAnchor = (
+      nestedEditable as HTMLElement
+    ).classList?.contains('caret-anchor');
 
-    // Return empty segments (node will appear empty, which is safer than corruption)
-    // Alternative: Return cached segments if we stored them before
-    // For now: Empty is safest (forces user to re-enter content)
-    return [];
+    if (!isSafeCaretAnchor) {
+      console.error(
+        '🚨 SECURITY VIOLATION: Nested contenteditable detected!\n' +
+          'Refusing extraction to prevent data corruption.\n' +
+          'Element:',
+        element,
+        '\nNested:',
+        nestedEditable
+      );
+
+      // Return empty segments (node will appear empty, which is safer than corruption)
+      // Alternative: Return cached segments if we stored them before
+      // For now: Empty is safest (forces user to re-enter content)
+      return [];
+    }
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
