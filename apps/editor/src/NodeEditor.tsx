@@ -2793,44 +2793,261 @@ export function NodeEditor() {
       return;
     }
 
-    // 🔒 NEW ARCHITECTURE: Tab handler (indent/outdent)
+    // Tab/Shift+Tab: Indent/Outdent (index-based)
     if (e.key === 'Tab') {
-      if (!coordinatorRef.current) {
-        console.error('[MIGRATION] Coordinator not initialized');
-        return;
-      }
+      e.preventDefault();
 
-      const result = handleTab(newEditorState, e);
+      if (e.shiftKey) {
+        // Shift+Tab: Outdent
+        const newState = outdentNode(editorState);
 
-      if (result.preventDefault) {
-        e.preventDefault();
-      }
+        // Update index model (outdent doesn't change position, just indentLevel)
+        const currentIndex = modelRef.current!.getCursor().index;
+        const updatedNode = newState.nodes[currentIndex] as Node;
+        const nodes = modelRef.current!.getNodes() as Node[];
+        const newNodes = [
+          ...nodes.slice(0, currentIndex),
+          updatedNode,
+          ...nodes.slice(currentIndex + 1),
+        ];
 
-      if (result.action) {
-        coordinatorRef.current.execute(result);
+        modelRef.current!.updateState(newNodes, modelRef.current!.getCursor());
+
+        withStructuralCommit(() => {
+          // commit() will sync to modelRef.current via its internal logic
+          commit({
+            nodes: newState.nodes as UINode[],
+            cursor: editorState.cursor,
+            selection: { anchor: null, focus: null },
+          });
+          requestCaretPlacement();
+        });
+      } else {
+        // Tab: Indent
+        const newState = indentNode(editorState);
+
+        // Update index model (indent doesn't change position, just indentLevel)
+        const currentIndex = modelRef.current!.getCursor().index;
+        const updatedNode = newState.nodes[currentIndex] as Node;
+        const nodes = modelRef.current!.getNodes() as Node[];
+        const newNodes = [
+          ...nodes.slice(0, currentIndex),
+          updatedNode,
+          ...nodes.slice(currentIndex + 1),
+        ];
+
+        modelRef.current!.updateState(newNodes, modelRef.current!.getCursor());
+
+        withStructuralCommit(() => {
+          // commit() will sync to modelRef.current via its internal logic
+          commit({
+            nodes: newState.nodes as UINode[],
+            cursor: editorState.cursor,
+            selection: { anchor: null, focus: null },
+          });
+          requestCaretPlacement();
+        });
       }
       return;
     }
 
-    // 🔒 NEW ARCHITECTURE: Arrow handlers (all arrow keys)
-    if (e.key.startsWith('Arrow')) {
-      if (!coordinatorRef.current) {
-        console.error('[MIGRATION] Coordinator not initialized');
+    // ARROW KEY OWNERSHIP CONTRACT (NON-NEGOTIABLE)
+    //
+    // MANDATORY GATE: Determines browser vs editor ownership
+    // - If caret is in text/caret-anchor → BROWSER OWNS (return immediately)
+    // - Otherwise → EDITOR OWNS (tree navigation)
+    //
+    // This gate MUST run before ANY arrow key logic.
+    const checkArrowOwnership = (): 'browser' | 'editor' => {
+      const sel = window.getSelection();
+      if (!sel || !sel.isCollapsed) return 'editor';
+
+      const anchor = sel.anchorNode;
+      if (!anchor) return 'editor';
+
+      // TEXT NODE → browser owns caret movement
+      if (anchor.nodeType === Node.TEXT_NODE) {
+        return 'browser';
+      }
+
+      // CARET-ANCHOR ELEMENT → browser owns
+      if (
+        anchor.nodeType === Node.ELEMENT_NODE &&
+        (anchor as HTMLElement).classList.contains('caret-anchor')
+      ) {
+        return 'browser';
+      }
+
+      // TEXT INSIDE CARET-ANCHOR → browser owns
+      if (
+        anchor.nodeType === Node.TEXT_NODE &&
+        anchor.parentElement?.classList.contains('caret-anchor')
+      ) {
+        return 'browser';
+      }
+
+      // EVERYTHING ELSE → editor owns (tree navigation)
+      return 'editor';
+    };
+
+    // ArrowLeft — Tree collapse/parent navigation (EDITOR-OWNED ONLY)
+    if (e.key === 'ArrowLeft') {
+      const owner = checkArrowOwnership();
+
+      if (owner === 'browser') {
+        // CRITICAL: DO NOT preventDefault
+        // Browser owns horizontal caret movement
         return;
       }
 
-      const result = handleArrow(newEditorState, e);
+      // Editor-owned: Tree operation (collapse or move to parent)
+      const activeNode = editorState.nodes.find(
+        (n) => n.id === editorState.cursor.nodeId
+      ) as UINode;
 
-      // If no action, let browser handle (e.g., text navigation)
-      if (!result.action) {
-        return;
-      }
-
-      if (result.preventDefault) {
+      if (
+        activeNode &&
+        hasChildren(activeNode, editorState.nodes) &&
+        !activeNode.isCollapsed
+      ) {
         e.preventDefault();
+        const newState = collapseNode(editorState);
+        commit({
+          nodes: newState.nodes as UINode[],
+          cursor: newState.cursor,
+        });
+        requestCaretPlacement();
+        return;
       }
 
-      coordinatorRef.current.execute(result);
+      // No tree action available - let browser handle
+      return;
+    }
+
+    // ArrowRight — Tree expand/child navigation (EDITOR-OWNED ONLY)
+    if (e.key === 'ArrowRight') {
+      const owner = checkArrowOwnership();
+
+      if (owner === 'browser') {
+        // CRITICAL: DO NOT preventDefault
+        // Browser owns horizontal caret movement
+        return;
+      }
+
+      // Editor-owned: Tree operation (expand or move to first child)
+      const activeNode = editorState.nodes.find(
+        (n) => n.id === editorState.cursor.nodeId
+      ) as UINode;
+
+      if (activeNode && activeNode.isCollapsed) {
+        e.preventDefault();
+        const newState = expandNode(editorState);
+        commit({
+          nodes: newState.nodes as UINode[],
+          cursor: newState.cursor,
+        });
+        requestCaretPlacement();
+        return;
+      }
+
+      // No tree action available - let browser handle
+      return;
+    }
+
+    // ArrowUp/ArrowDown — Vertical node navigation (ALWAYS EDITOR-OWNED)
+    // CRITICAL: Unlike Left/Right, vertical arrows ALWAYS navigate between nodes
+    // This matches Tana/Roam/Notion - ArrowDown while typing jumps to next node
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      // COMMIT BOUNDARY: Arrow Navigation
+      // Contract: EDITOR-LIFECYCLE-CONTRACT.md
+      // Responsibility: Extract current, navigate, update state, place caret
+      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+      e.preventDefault();
+
+      // Step 1: Guard composition
+      if (isComposing) return;
+
+      const currentNodeId = editorState.cursor.nodeId;
+      const currentElement = document.querySelector(
+        `[data-node-id="${currentNodeId}"]`
+      ) as HTMLElement;
+      if (!currentElement) return;
+
+      // Step 2: Stop current observer
+      const currentObserver = domObservers.current.get(currentNodeId as NodeID);
+      if (currentObserver) {
+        currentObserver.stop();
+      }
+
+      // Step 3: Extract from current node
+      const segments = extractSegmentsFromDOM(currentElement);
+
+      // Step 4: Update current node with fresh segments
+      const updatedNodes = editorState.nodes.map((n) =>
+        n.id === currentNodeId ? { ...n, segments } : n
+      );
+
+      // Step 5: Determine target node (structural navigation)
+      const visibleNodes = getVisibleNodes(updatedNodes);
+      const currentIndex = visibleNodes.findIndex(
+        (n) => n.id === currentNodeId
+      );
+
+      let targetNode: UINode | undefined;
+
+      if (e.key === 'ArrowUp') {
+        if (currentIndex <= 0) return; // Already at first node - do nothing
+        targetNode = visibleNodes[currentIndex - 1];
+      } else {
+        if (currentIndex === -1 || currentIndex >= visibleNodes.length - 1)
+          return; // At last
+        targetNode = visibleNodes[currentIndex + 1];
+      }
+
+      if (!targetNode) return;
+
+      // Step 6: Handle selection (if Shift key)
+      if (e.shiftKey) {
+        if (!selection.anchor) {
+          setSelection({
+            anchor: editorState.cursor,
+            focus: editorState.cursor,
+          });
+        }
+      } else {
+        setSelection({ anchor: null, focus: null });
+      }
+
+      // Step 7: Commit state (functional update)
+      setEditorState((prev) => ({
+        ...prev,
+        nodes: updatedNodes as UINode[],
+        cursor: {
+          nodeId: targetNode!.id,
+          segmentIndex: 0,
+          offset: 0, // Placeholder - will be corrected from DOM
+        },
+      }));
+
+      // Update selection if Shift key
+      if (e.shiftKey) {
+        setSelection((sel) => ({
+          ...sel,
+          focus: { nodeId: targetNode!.id, segmentIndex: 0, offset: 0 },
+        }));
+      }
+
+      // Step 8: Clear current observer diagnostics
+      if (currentObserver) {
+        currentObserver.clearPendingMutations();
+      }
+
+      // Step 9: Declare caret intent (synchronous)
+      // Effect will handle timing and DOM readiness
+      requestCaretPlacement();
+
       return;
     }
 
