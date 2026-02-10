@@ -215,6 +215,14 @@ export function mergeWithPrevious(
   previous: Node,
   current: Node
 ): { merged: Node; cursor: CursorPosition } {
+  // 🔍 UNCONDITIONAL DEBUG: Verify function is called
+  console.log('🔀 [MERGE] mergeWithPrevious called', {
+    previousId: previous.id,
+    currentId: current.id,
+    previousSegments: previous.segments.length,
+    currentSegments: current.segments.length
+  });
+  
   const merged = mergeNodes(previous, current);
 
   // 🔒 UNBREAKABLE: Cursor at junction = where current node's content starts
@@ -224,8 +232,13 @@ export function mergeWithPrevious(
   
   const junctionIndex = previous.segments.length;
   
-  // If junction is within bounds, place cursor there
+  // 🔒 CRITICAL FIX: When current is empty, junction = end of previous
+  // Case 1: Current has segments -> cursor at junction (start of current's content)
+  // Case 2: Current is empty -> cursor at junction (after previous's content)
+  //         Even if junction = segments.length (after last segment)
+  
   if (junctionIndex < merged.segments.length) {
+    // Case 1: Junction points to a segment (current had content)
     const result = {
       merged,
       cursor: {
@@ -235,23 +248,64 @@ export function mergeWithPrevious(
       },
     };
     
-    // 🔍 DEBUG: Log merge cursor calculation
-    if (__DEV__) {
-      console.log('[MERGE DEBUG]', {
-        previousSegments: previous.segments,
-        currentSegments: current.segments,
-        mergedSegments: merged.segments,
-        junctionIndex,
-        resultCursor: result.cursor,
-        junctionSegment: merged.segments[junctionIndex]
-      });
-    }
+    console.log('🔀 [MERGE] Case 1: Junction at segment', {
+      junctionIndex,
+      junctionSegment: merged.segments[junctionIndex],
+      cursor: result.cursor
+    });
     
     return result;
   }
   
-  // Junction is at the end (current node was empty)
-  // Find last text segment and place cursor at its end
+  // Case 2: Junction is at/after the end (current was empty or at boundary)
+  // Need to place cursor "after" the last segment
+  const lastSegment = merged.segments[merged.segments.length - 1];
+  
+  if (!lastSegment) {
+    // No segments at all - cursor at start
+    console.log('🔀 [MERGE] Case 2a: No segments, cursor at start');
+    return {
+      merged,
+      cursor: { nodeId: merged.id, segmentIndex: 0, offset: 0 }
+    };
+  }
+  
+  if (lastSegment.type === 'text') {
+    // Last segment is text - cursor at end of text
+    const result = {
+      merged,
+      cursor: {
+        nodeId: merged.id,
+        segmentIndex: merged.segments.length - 1,
+        offset: lastSegment.text.length
+      }
+    };
+    console.log('🔀 [MERGE] Case 2b: Last segment is text, cursor at end', {
+      lastSegmentIndex: merged.segments.length - 1,
+      textLength: lastSegment.text.length,
+      cursor: result.cursor
+    });
+    return result;
+  }
+  
+  // Last segment is inline - cursor "after" it (segmentIndex beyond array)
+  const result = {
+    merged,
+    cursor: {
+      nodeId: merged.id,
+      segmentIndex: merged.segments.length, // One past the end = "after last segment"
+      offset: 0
+    }
+  };
+  console.log('🔀 [MERGE] Case 2c: Last segment is inline, cursor after it', JSON.stringify({
+    lastSegmentIndex: merged.segments.length - 1,
+    inlineRef: lastSegment.ref,
+    cursorSegmentIndex: merged.segments.length,
+    cursor: result.cursor
+  }, null, 2));
+  return result;
+  
+  // OLD FALLBACK (should never reach here)
   for (let i = merged.segments.length - 1; i >= 0; i--) {
     if (merged.segments[i]?.type === 'text') {
       return {

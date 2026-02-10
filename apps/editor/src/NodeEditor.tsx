@@ -736,6 +736,10 @@ export function NodeEditor() {
         // STEP 2: Get node from state
         const activeNode = editorState.nodes.find((n) => n.id === nodeId);
         if (!activeNode) {
+          console.log('⚠️ [SELECTIONCHANGE] Node not found in editorState', {
+            nodeId,
+            availableNodes: editorState.nodes.map(n => n.id)
+          });
           return;
         }
 
@@ -743,7 +747,10 @@ export function NodeEditor() {
         const position = getNodePositionFromSelection(activeNode);
 
         if (position) {
-          console.log('🔄 SELECTIONCHANGE detected:', position);
+          console.log('🔄 SELECTIONCHANGE detected:', position, {
+            nodeSegments: activeNode.segments?.length ?? 0,
+            isEmpty: !activeNode.segments || activeNode.segments.length === 0
+          });
 
           // 🔒 INDEX-BASED: Convert nodeId to index IMMEDIATELY
           const targetIndex = modelRef.current!.getIndexById(position.nodeId);
@@ -756,6 +763,8 @@ export function NodeEditor() {
           });
 
           // Mirror to React
+          console.log(`🔄 [SELECTIONCHANGE] oldCursor: ${editorState.cursor.nodeId}, newCursor: ${position.nodeId}, seg: ${position.segmentIndex}, off: ${position.offset}`);
+          
           setEditorState({
             ...editorState,
             cursor: position,
@@ -1009,6 +1018,10 @@ export function NodeEditor() {
       changes.activeNodeId !== undefined ||
       changes.offset !== undefined
     ) {
+      const newNodes = finalNodes ?? editorState.nodes;
+      console.log(`💾 [COMMIT] oldCursor: ${editorState.cursor.nodeId}, newCursor: ${finalCursor.nodeId}, nodes: ${newNodes.length}`);
+      console.log(`💾 [COMMIT] All nodeIds: [${newNodes.map(n => n.id).join(', ')}]`);
+      
       setEditorState({
         nodes: finalNodes ?? editorState.nodes,
         cursor: finalCursor,
@@ -1662,8 +1675,20 @@ export function NodeEditor() {
   function indentNode(state: EditorState): EditorState {
     const { nodes, cursor } = state;
     const nodeId = cursor.nodeId;
+    
+    console.log('🔍 [indentNode] Called', {
+      cursorNodeId: nodeId,
+      cursor,
+      allNodeIds: nodes.map(n => n.id)
+    });
+    
     const visibleNodes = getVisibleNodes(nodes);
     const index = visibleNodes.findIndex((n) => n.id === nodeId);
+    
+    console.log('🔍 [indentNode] Found index', {
+      index,
+      visibleNodeIds: visibleNodes.map(n => n.id)
+    });
 
     if (index <= 0) return state; // Cannot indent first node
 
@@ -2999,7 +3024,17 @@ export function NodeEditor() {
         });
       } else {
         // Tab: Indent
+        console.log('⭐ [TAB] Indent requested', {
+          editorStateCursor: editorState.cursor,
+          modelCursor: modelRef.current!.getCursor(),
+          modelNodes: modelRef.current!.getNodes().map((n: any) => ({ id: n.id, segments: n.segments.length }))
+        });
+        
         const newState = indentNode(editorState);
+        
+        console.log('⭐ [TAB] indentNode returned', {
+          updatedNodes: newState.nodes.map((n: any) => ({ id: n.id, indent: n.indentLevel }))
+        });
 
         // Update index model (indent doesn't change position, just indentLevel)
         const currentIndex = modelRef.current!.getCursor().index;
@@ -3432,9 +3467,17 @@ export function NodeEditor() {
           currentNodeWithFreshSegments as Node,
           cursor
         );
+        
+        console.log('🔙 [BACKSPACE] Handler result:', {
+          shouldMerge: result.shouldMergeWithPrevious,
+          shouldDelete: result.shouldDeleteCurrentChar,
+          cursorPos: cursor
+        });
 
         if (result.shouldMergeWithPrevious) {
           e.preventDefault();
+          
+          console.log('🔀 [BACKSPACE] Starting merge operation...');
 
           // Get previous node by index (index-based navigation)
           if (index === 0) {
@@ -3461,11 +3504,24 @@ export function NodeEditor() {
             ? extractSegmentsFromDOM(prevElement)
             : prevNode.segments;
 
+          console.log('🔀 [BACKSPACE] About to call mergeWithPrevious', {
+            prevNodeId: prevNode.id,
+            prevSegments: prevSegments.length,
+            currentNodeId: currentNodeId,
+            currentSegments: currentSegments.length
+          });
+
           // Step 5: Merge nodes
           const merged = mergeWithPrevious(
             { ...prevNode, segments: prevSegments },
             currentNodeWithFreshSegments as Node
           );
+          
+          console.log('🔀 [BACKSPACE] mergeWithPrevious returned', {
+            mergedNodeId: merged.merged.id,
+            mergedSegments: merged.merged.segments.length,
+            cursor: merged.cursor
+          });
 
           // Build updated nodes array (UNIFIED MODEL - no dual-model bug)
           const withoutCurrent = removeNodeFromArray(nodes, currentNode.id);

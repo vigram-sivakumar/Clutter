@@ -53,6 +53,16 @@ export function getNodePositionFromSelection(
   if (!anchor) {
     return null;
   }
+  
+  // 🔍 DEBUG: Log what we're analyzing
+  console.log('📍 [getNodePositionFromSelection] Analyzing', {
+    nodeId: currentNode.id,
+    anchorNodeType: anchor.nodeType,
+    anchorNodeName: anchor.nodeName,
+    anchorOffset: sel.anchorOffset,
+    isCaretAnchor: (anchor as any).className?.includes('caret-anchor'),
+    isContainer: (anchor as any).className?.includes('node__content')
+  });
 
   // CASE A: anchorNode IS a caret anchor
   if (
@@ -63,7 +73,9 @@ export function getNodePositionFromSelection(
     // segmentIndex derived from DOM sibling order
     // offset is ALWAYS 0
     const segmentIndex = getSegmentIndexFromCaretAnchor(anchor as HTMLElement);
-    return { nodeId: currentNode.id, segmentIndex, offset: 0 };
+    const result = { nodeId: currentNode.id, segmentIndex, offset: 0 };
+    console.log('📍 [CASE A] Caret anchor', result);
+    return result;
   }
 
   // CASE B: anchorNode is INSIDE a caret anchor
@@ -75,11 +87,13 @@ export function getNodePositionFromSelection(
     // When browser puts text inside caret-anchor, we extract that text as a segment
     // Cursor position must reflect the actual offset within that text
     const segmentIndex = getSegmentIndexFromCaretAnchor(anchor.parentElement);
-    return { 
+    const result = { 
       nodeId: currentNode.id, 
       segmentIndex, 
       offset: sel.anchorOffset  // Use ACTUAL offset, not 0
     };
+    console.log('📍 [CASE B] Inside caret anchor', result);
+    return result;
   }
 
   // CASE C: anchorNode is TEXT NODE (normal typing)
@@ -87,29 +101,84 @@ export function getNodePositionFromSelection(
     const segmentIndex = getSegmentIndexFromTextNode(anchor);
 
     if (segmentIndex === -1) {
+      console.log('📍 [CASE C] Text node, but segmentIndex=-1, returning null');
       return null;
     }
 
-    return {
+    const result = {
       nodeId: currentNode.id,
       segmentIndex,
       offset: sel.anchorOffset,
     };
+    console.log('📍 [CASE C] Text node', result);
+    return result;
   }
 
-  // CASE D: Empty node (caret on contenteditable container)
+  // CASE D: Cursor on contenteditable container itself
   // This happens when:
-  // - Node text is fully deleted
-  // - Browser places caret on the contenteditable DIV itself
-  // - There is no text node
-  // This is NORMAL browser behavior, NOT an error.
+  // - Node is empty (no segments, has placeholder text node)
+  // - Cursor is placed after all children (after last inline element)
+  // - User clicks in empty node area
+  // This is NORMAL browser behavior for contenteditable elements
   if (
     anchor.nodeType === Node.ELEMENT_NODE &&
     (anchor as HTMLElement).classList?.contains('node__content')
   ) {
+    const containerEl = anchor as HTMLElement;
+    const childIndex = sel.anchorOffset; // Which child the cursor is positioned at/after
+    const children = Array.from(containerEl.childNodes);
+    
+    // Empty node handling (has placeholder empty text node)
+    if (children.length === 1 && children[0]?.nodeType === Node.TEXT_NODE && children[0]?.textContent === '') {
+      console.log('📍 [CASE D] Empty node (placeholder text node)', {
+        nodeId: currentNode.id
+      });
+      return {
+        nodeId: currentNode.id,
+        segmentIndex: 0,
+        offset: 0,
+      };
+    }
+    
+    // Truly empty node (no children at all)
+    if (children.length === 0) {
+      console.log('📍 [CASE D] Empty node (no children)', {
+        nodeId: currentNode.id
+      });
+      return {
+        nodeId: currentNode.id,
+        segmentIndex: 0,
+        offset: 0,
+      };
+    }
+    
+    // Count segments up to the cursor position
+    let segmentIndex = 0;
+    for (let i = 0; i < childIndex && i < children.length; i++) {
+      const child = children[i];
+      if (child.nodeType === Node.TEXT_NODE) {
+        segmentIndex++;
+      } else if ((child as HTMLElement).classList?.contains('inline-element')) {
+        segmentIndex++;
+      }
+      // Skip caret-anchors - they don't correspond to segments
+    }
+    
+    // If childIndex >= children.length, cursor is after all children
+    if (childIndex >= children.length) {
+      segmentIndex = currentNode.segments.length; // After all segments
+    }
+    
+    console.log('📍 [CASE D] Cursor on container', {
+      childIndex,
+      totalChildren: children.length,
+      segmentIndex,
+      totalSegments: currentNode.segments.length
+    });
+    
     return {
       nodeId: currentNode.id,
-      segmentIndex: 0,
+      segmentIndex,
       offset: 0,
     };
   }

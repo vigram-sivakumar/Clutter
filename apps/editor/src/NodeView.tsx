@@ -163,6 +163,11 @@ export function NodeView({
     }
   };
 
+  // 🔍 DEBUG: Log render with active state
+  if (node.segments.length === 0) {
+    console.log(`🎨 [NodeView] Empty node: ${node.id}, isActive: ${isActive}`);
+  }
+
   // File 05 — Canonical node anatomy
   return (
     <div
@@ -192,6 +197,7 @@ export function NodeView({
         {/* File 05 — node__content (single editable surface) */}
         {/* ENFORCEMENT A1: NO REACT CHILDREN in contentEditable */}
         {/* Content managed imperatively in useEffect above */}
+        {/* 🔒 TANA-GRADE: Empty nodes have no children, rely on CSS min-height */}
         <div
           ref={contentRef}
           className="node__content"
