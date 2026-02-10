@@ -165,6 +165,8 @@ import {
   handleTab,
   handleEnter,
   handleBackspace,
+  handleSpace,
+  handleColon,
   computeArrowTargetCursor,
 } from './editor/handlers/KeyboardHandlers';
 import {
@@ -358,20 +360,6 @@ export function NodeEditor() {
 
   // 🔒 NEW ARCHITECTURE: Prepare state shape for new handlers
   // During migration: old useState is still primary, new handlers adapt to it
-  const newEditorState: EditorStateComplete = useMemo(
-    () => ({
-      nodes: editorState.nodes as Node[],
-      cursor: editorState.cursor,
-      selection: selection,
-      focusRootId: null,
-      grammarSession: null,
-      structuralLock: structuralLockRef.current,
-      composing: isComposing,
-      zoom: 100,
-    }),
-    [editorState.nodes, editorState.cursor, selection, isComposing]
-  );
-
   // 🔒 NEW ARCHITECTURE: Bridge dispatch (updates OLD state during migration)
   // Takes EditorAction and updates old useState accordingly
   // Once all handlers migrated, we'll replace with real reducer
@@ -569,6 +557,29 @@ export function NodeEditor() {
   // PHASE C — Grammar session state (transient, not persisted)
   const [grammarSession, setGrammarSession] = useState<GrammarSession>(
     EMPTY_GRAMMAR_SESSION
+  );
+
+  // 🔒 NEW ARCHITECTURE: Complete editor state (for pure handlers)
+  // Must be declared AFTER grammarSession to avoid "reference before initialization"
+  const newEditorState: EditorStateComplete = useMemo(
+    () => ({
+      nodes: editorState.nodes as Node[],
+      cursor: editorState.cursor,
+      selection: selection,
+      focusRootId: null,
+      grammarSession: {
+        isActive: grammarSession.grammar !== null,
+        grammar: grammarSession.grammar ? {
+          type: grammarSession.grammar.type as 'slash' | 'reference' | 'hashtag',
+          trigger: grammarSession.grammar.trigger,
+        } : undefined,
+        candidates: grammarSession.candidates,
+        selectedIndex: grammarSession.selectedIndex,
+        range: grammarSession.range || undefined,
+      },
+      isComposing,
+    }),
+    [editorState.nodes, editorState.cursor, selection, isComposing, grammarSession]
   );
 
   // PHASE 23 — Sync conflicts state (UI-only, session-scoped)
@@ -3249,153 +3260,107 @@ export function NodeEditor() {
 
       // CASE 2: Markdown shortcuts (File 07)
       // CRITICAL: Must intercept BEFORE browser inserts space
-      // Read DOM directly at keydown, not React state
-
-      if (e.key === ' ' && !isSessionActive(grammarSession)) {
-        const sel = window.getSelection();
-        if (!sel || !sel.anchorNode) return;
-
-        // STEP 1: Find nodeId from DOM (same as selectionchange fix)
-        let domElement: HTMLElement | null = sel.anchorNode as HTMLElement;
-        if (domElement.nodeType === globalThis.Node.TEXT_NODE) {
-          domElement = domElement.parentElement;
-        }
-
-        while (domElement && !domElement.classList?.contains('node__content')) {
-          domElement = domElement.parentElement;
-        }
-
-        if (!domElement) {
-          return;
-        }
-
-        const nodeId = domElement.getAttribute('data-node-id');
-
-        if (!nodeId) return;
-
-        // STEP 2: Get node from state
-        const activeNode = editorState.nodes.find((n) => n.id === nodeId);
-        if (!activeNode) {
-          return;
-        }
-
-        // STEP 3: Call with correct signature
-        const browserCaret = getNodePositionFromSelection(activeNode);
-
-        if (!browserCaret) return;
-
-        // Use segmented editor API for grammar detection
-        const grammarMatch = matchGrammar(activeNode.segments, browserCaret);
-        const textBeforeCaret = grammarMatch ? grammarMatch.text : '';
-
-        // Get DOM element only for clearing after detection
-        const contentEl = containerRef.current?.querySelector(
-          `.node__content[data-node-id="${browserCaret.nodeId}"]`
+      // 🔒 BATCH 4 — Space Handler (Markdown Triggers)
+      // DOM-FIRST PATTERN: Extract → Detect → Return Action → Commit
+      if (e.key === ' ') {
+        // Get active node's observer and DOM element
+        const activeNodeId = editorState.cursor.nodeId;
+        const observer = domObservers.current.get(activeNodeId);
+        const nodeElement = document.querySelector(
+          `[data-node-id="${activeNodeId}"]`
         ) as HTMLElement | null;
-        if (!contentEl) return;
 
-        // PHASE 5.2.1 — Task Variant ([]␣)
-        if (textBeforeCaret === '[]') {
-          e.preventDefault(); // CRITICAL: Stop browser from inserting space
-
-          // Clear DOM text synchronously
-          contentEl.textContent = '';
-
-          // Update React state
-          const updatedNodes = editorState.nodes.map((n) =>
-            n.id === activeNode.id
-              ? {
-                  ...n,
-                  text: '',
-                  props: { ...n.props, variant: 'task' },
-                }
-              : n
-          );
-
-          withStructuralCommit(() => {
-            commit({
-              nodes: updatedNodes as UINode[],
-              activeNodeId: activeNode.id,
-              offset: 0,
-              selection: { anchor: null, focus: null },
-            });
-            requestCaretPlacement(); // Markdown conversion
-          });
-          return;
+        if (!observer || !nodeElement) {
+          return; // Let browser handle
         }
 
-        // PHASE 5.2.2 — Bullet Variant (-␣)
-        if (textBeforeCaret === '-') {
-          e.preventDefault();
+        // Extract segments from DOM (observer still running)
+        observer.stop();
+        const segments = extractSegmentsFromDOM(nodeElement);
+        observer.start();
 
-          contentEl.textContent = '';
+        // Call pure handler
+        const spaceResult = handleSpace(newEditorState, e, segments, isComposing);
 
-          const updatedNodes = editorState.nodes.map((n) =>
-            n.id === activeNode.id
-              ? {
-                  ...n,
-                  text: '',
-                  props: { ...n.props, variant: 'bullet' },
-                }
-              : n
-          );
-
-          withStructuralCommit(() => {
-            commit({
-              nodes: updatedNodes as UINode[],
-              activeNodeId: activeNode.id,
-              offset: 0,
-              selection: { anchor: null, focus: null },
-            });
-            requestCaretPlacement(); // Markdown conversion
-          });
-          return;
+        if (!spaceResult.action) {
+          return; // No markdown trigger - let browser handle space
         }
 
-        // PHASE 5.2.3 — Heading Variant (#␣)
-        if (textBeforeCaret === '#') {
-          e.preventDefault();
+        // Execute action
+        if (spaceResult.preventDefault) e.preventDefault();
+        if (spaceResult.stopPropagation) e.stopPropagation();
 
-          contentEl.textContent = '';
-
-          const updatedNodes = editorState.nodes.map((n) =>
-            n.id === activeNode.id
-              ? {
-                  ...n,
-                  text: '',
-                  props: { ...n.props, variant: 'heading-1' },
-                }
-              : n
-          );
+        if (spaceResult.action.type === 'MARKDOWN_TRIGGER') {
+          const { nodeId, newVariant, clearedSegments } = spaceResult.action.payload;
 
           withStructuralCommit(() => {
+            const updatedNodes = editorState.nodes.map((n) =>
+              n.id === nodeId
+                ? {
+                    ...n,
+                    segments: clearedSegments,
+                    props: { ...n.props, variant: newVariant },
+                  }
+                : n
+            );
+
             commit({
               nodes: updatedNodes as UINode[],
-              activeNodeId: activeNode.id,
-              offset: 0,
-              selection: { anchor: null, focus: null },
+              cursor: {
+                nodeId,
+                segmentIndex: 0,
+                offset: 0,
+              },
             });
-            requestCaretPlacement(); // Markdown conversion
+
+            requestCaretPlacement();
           });
-          return;
         }
+
+        return;
       }
 
-      // CASE 3: Property trigger (: at start of empty node)
-      if (e.key === ':' && editorState.cursor.offset === 0) {
-        const activeNode = editorState.nodes.find(
-          (n) => n.id === editorState.cursor.nodeId
-        );
-        if (activeNode && isNodeEmpty(activeNode)) {
-          e.preventDefault();
+      // 🔒 BATCH 4 — Colon Handler (Property Editor Trigger)
+      // DOM-FIRST PATTERN: Extract → Detect → Return Action → Execute
+      if (e.key === ':') {
+        // Get active node's observer and DOM element
+        const activeNodeId = editorState.cursor.nodeId;
+        const observer = domObservers.current.get(activeNodeId);
+        const nodeElement = document.querySelector(
+          `[data-node-id="${activeNodeId}"]`
+        ) as HTMLElement | null;
+
+        if (!observer || !nodeElement) {
+          return; // Let browser handle
+        }
+
+        // Extract segments from DOM (observer still running)
+        observer.stop();
+        const segments = extractSegmentsFromDOM(nodeElement);
+        observer.start();
+
+        // Call pure handler
+        const colonResult = handleColon(newEditorState, e, segments, isComposing);
+
+        if (!colonResult.action) {
+          return; // No property trigger - let browser handle colon
+        }
+
+        // Execute action
+        if (colonResult.preventDefault) e.preventDefault();
+        if (colonResult.stopPropagation) e.stopPropagation();
+
+        if (colonResult.action.type === 'PROPERTY_EDITOR_OPEN') {
+          const { nodeId } = colonResult.action.payload;
           setEditingProperty({
-            nodeId: activeNode.id,
+            nodeId,
             key: '',
             value: '',
             isNewProperty: true,
           });
-          return;
         }
+
+        return;
       }
 
       // CASE 4: Normal typing → Browser handles natively

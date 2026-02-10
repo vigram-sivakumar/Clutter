@@ -207,6 +207,23 @@ export type EditorAction =
   | {
       type: 'GRAMMAR_SESSION_CANCEL';
       payload: {};
+    }
+
+  // Markdown trigger actions (Batch 4)
+  | {
+      type: 'MARKDOWN_TRIGGER';
+      payload: {
+        trigger: '[]' | '-' | '#';
+        newVariant: string;
+        nodeId: NodeID;
+        clearedSegments: Segment[]; // Segments after removing trigger text
+      };
+    }
+  | {
+      type: 'PROPERTY_EDITOR_OPEN';
+      payload: {
+        nodeId: NodeID;
+      };
     };
 
 /**

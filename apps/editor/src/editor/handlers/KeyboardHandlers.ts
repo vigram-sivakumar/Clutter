@@ -255,3 +255,143 @@ export function handleKeyboardEvent(
       return { action: null };
   }
 }
+
+/**
+ * Handle Space key press
+ * 
+ * Detects markdown triggers ([], -, #) and converts node variant.
+ * 
+ * CRITICAL: Must extract segments BEFORE calling this handler.
+ * This handler is DOM-first - it reads extracted segments, not live DOM.
+ * 
+ * @param state - Current editor state
+ * @param event - Keyboard event
+ * @param segments - Segments extracted from DOM (REQUIRED)
+ * @param isComposing - Whether IME composition is active
+ * @returns Handler result with MARKDOWN_TRIGGER action or null
+ */
+export function handleSpace(
+  state: EditorStateComplete,
+  event: React.KeyboardEvent,
+  segments: Segment[],
+  isComposing: boolean
+): HandlerResult {
+  // Guard: composition
+  if (isComposing) return { action: null };
+
+  // Guard: grammar session active (Space has special meaning in grammar mode)
+  if (state.grammarSession.isActive) return { action: null };
+
+  // Get plain text from segments
+  const plainText = segments.map(s => s.type === 'text' ? s.text : '').join('');
+  const offset = getCursorOffsetInPlainText(segments, state.cursor);
+  const textBefore = plainText.slice(0, offset);
+
+  // Detect markdown triggers at cursor position
+  // Pattern: trigger text must be exactly what's before cursor (no extra text)
+  
+  // Task variant: []␣
+  if (textBefore === '[]') {
+    return {
+      action: {
+        type: 'MARKDOWN_TRIGGER',
+        payload: {
+          trigger: '[]',
+          newVariant: 'task',
+          nodeId: state.cursor.nodeId,
+          clearedSegments: [], // Empty node after removing trigger
+        },
+      },
+      preventDefault: true,
+      stopPropagation: false,
+      isStructural: true,
+      requestCaret: true,
+    };
+  }
+
+  // Bullet variant: -␣
+  if (textBefore === '-') {
+    return {
+      action: {
+        type: 'MARKDOWN_TRIGGER',
+        payload: {
+          trigger: '-',
+          newVariant: 'bullet',
+          nodeId: state.cursor.nodeId,
+          clearedSegments: [], // Empty node after removing trigger
+        },
+      },
+      preventDefault: true,
+      stopPropagation: false,
+      isStructural: true,
+      requestCaret: true,
+    };
+  }
+
+  // Heading variant: #␣
+  if (textBefore === '#') {
+    return {
+      action: {
+        type: 'MARKDOWN_TRIGGER',
+        payload: {
+          trigger: '#',
+          newVariant: 'heading-1',
+          nodeId: state.cursor.nodeId,
+          clearedSegments: [], // Empty node after removing trigger
+        },
+      },
+      preventDefault: true,
+      stopPropagation: false,
+      isStructural: true,
+      requestCaret: true,
+    };
+  }
+
+  // No markdown trigger detected - let browser handle space normally
+  return { action: null };
+}
+
+/**
+ * Handle Colon key press
+ * 
+ * Opens property editor when typed at start of empty node.
+ * 
+ * CRITICAL: Must extract segments BEFORE calling this handler.
+ * 
+ * @param state - Current editor state
+ * @param event - Keyboard event
+ * @param segments - Segments extracted from DOM (REQUIRED)
+ * @param isComposing - Whether IME composition is active
+ * @returns Handler result with PROPERTY_EDITOR_OPEN action or null
+ */
+export function handleColon(
+  state: EditorStateComplete,
+  event: React.KeyboardEvent,
+  segments: Segment[],
+  isComposing: boolean
+): HandlerResult {
+  // Guard: composition
+  if (isComposing) return { action: null };
+
+  // Guard: cursor not at start
+  if (state.cursor.offset !== 0) return { action: null };
+
+  // Guard: node not empty
+  const plainText = segments.map(s => s.type === 'text' ? s.text : '').join('');
+  const isEmpty = plainText.trim() === '';
+  if (!isEmpty) return { action: null };
+
+  // Trigger property editor
+  return {
+    action: {
+      type: 'PROPERTY_EDITOR_OPEN',
+      payload: {
+        nodeId: state.cursor.nodeId,
+      },
+    },
+    preventDefault: true,
+    stopPropagation: false,
+    isStructural: false, // UI action, not structural mutation
+    requestCaret: false,
+  };
+}
