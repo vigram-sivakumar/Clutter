@@ -110,6 +110,13 @@ export class DOMObserver {
       // Store for diagnostics (Fix #2: explicitly non-authoritative)
       this.pendingMutations.push(...mutations);
 
+      // 🔬 FORENSIC LOG 5b: Observer Fires
+      if (__DEV__) {
+        const nodeId = this.element.getAttribute('data-node-id');
+        const isEmpty = this.element.textContent?.length === 0;
+
+      }
+
       // Optional callback for logging/debugging
       if (this.onMutationsBatched) {
         this.onMutationsBatched(mutations);
@@ -130,7 +137,6 @@ export class DOMObserver {
    */
   start() {
     if (this.isObserving) {
-      console.warn('[DOMObserver] Already observing, ignoring start()');
       return;
     }
 
@@ -146,10 +152,12 @@ export class DOMObserver {
 
     this.isObserving = true;
 
+    // 🔬 FORENSIC LOG 5: Observer Lifecycle
     if (__DEV__) {
-      console.log('[DOMObserver] Started observing', {
-        element: this.element.getAttribute('data-node-id'),
-      });
+      const nodeId = this.element.getAttribute('data-node-id');
+      const segments = this.element.textContent?.length || 0;
+      const isEmpty = segments === 0;
+
     }
   }
 
@@ -167,21 +175,11 @@ export class DOMObserver {
   stop() {
     if (!this.isObserving) {
       // Not an error - may be called defensively
-      if (__DEV__) {
-        console.log('[DOMObserver] Not observing, ignoring stop()');
-      }
       return;
     }
 
     this.observer.disconnect();
     this.isObserving = false;
-
-    if (__DEV__) {
-      console.log('[DOMObserver] Stopped observing', {
-        element: this.element.getAttribute('data-node-id'),
-        pendingMutations: this.pendingMutations.length,
-      });
-    }
   }
 
   /**
@@ -222,13 +220,6 @@ export class DOMObserver {
    * - Produce confusing diagnostic logs
    */
   clearPendingMutations() {
-    if (__DEV__ && this.pendingMutations.length > 0) {
-      console.log(
-        '[DOMObserver] Clearing',
-        this.pendingMutations.length,
-        'mutations'
-      );
-    }
     this.pendingMutations = [];
   }
 
@@ -249,12 +240,6 @@ export class DOMObserver {
   destroy() {
     this.stop();
     this.pendingMutations = [];
-
-    if (__DEV__) {
-      console.log('[DOMObserver] Destroyed', {
-        element: this.element.getAttribute('data-node-id'),
-      });
-    }
 
     // Clear references for garbage collection
     // @ts-expect-error - Intentionally clearing for GC
@@ -314,14 +299,6 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
     ).classList?.contains('caret-anchor');
 
     if (!isSafeCaretAnchor) {
-      console.error(
-        '🚨 SECURITY VIOLATION: Nested contenteditable detected!\n' +
-          'Refusing extraction to prevent data corruption.\n' +
-          'Element:',
-        element,
-        '\nNested:',
-        nestedEditable
-      );
 
       // Return empty segments (node will appear empty, which is safer than corruption)
       // Alternative: Return cached segments if we stored them before
@@ -359,10 +336,6 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
       if (el.classList.contains('inline-element')) {
         const inlineId = el.getAttribute('data-inline-id');
         if (!inlineId) {
-          console.warn(
-            '[extractSegmentsFromDOM] Inline element missing data-inline-id',
-            el
-          );
           continue;
         }
 
@@ -398,21 +371,9 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
       // Unknown elements - extract text content as fallback
       const text = el.textContent || '';
       if (text) {
-        console.warn(
-          '[extractSegmentsFromDOM] Unknown element, extracting text',
-          el
-        );
         segments.push({ type: 'text', text });
       }
     }
-  }
-
-  if (__DEV__) {
-    console.log('[extractSegmentsFromDOM]', {
-      nodeId: element.getAttribute('data-node-id'),
-      segmentCount: segments.length,
-      segments,
-    });
   }
 
   return segments;
@@ -440,11 +401,6 @@ export function assertObserverStarted(
   observer: DOMObserver | undefined,
   phase: string
 ) {
-  if (__DEV__ && observer && !observer.isRunning()) {
-    console.warn(
-      `⚠️ Observer not running during ${phase}. This may be intentional (e.g., during blur) or a bug.`
-    );
-  }
 }
 
 /**

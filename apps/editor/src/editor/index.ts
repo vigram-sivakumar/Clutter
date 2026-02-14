@@ -16,7 +16,7 @@ export {
   type EnterResult,
   type BackspaceResult,
   type InputResult,
-} from './SegmentedEditor';
+} from '../engine/SegmentedEditor';
 
 // Query operations (read-only)
 export {
@@ -29,7 +29,7 @@ export {
   getNodeLabel,
   type GrammarMatch,
   type QueryMatch,
-} from './SegmentQuery';
+} from '../engine/SegmentQuery';
 
 // ✂️ PHASE 2.5: TYPING BUFFER EXPORTS DELETED
 // Replaced with DOMObserver (see DOMObserver.ts)

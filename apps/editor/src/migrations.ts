@@ -134,9 +134,7 @@ export function migrateToLatest(input: any): any {
 
     // If migration doesn't exist, stop (forward-compatible)
     if (!migrate) {
-      console.warn(
-        `Migration from version ${version} not found. Stopping at version ${version}.`
-      );
+
       break;
     }
 

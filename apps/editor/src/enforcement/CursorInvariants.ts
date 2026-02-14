@@ -157,7 +157,7 @@ export function assertCursorInvariants(
 
     assertModelReactSync(nodes, cursor);
   } catch (error) {
-    console.error(`❌ Cursor invariant violation [${label}]:`, error);
+
     throw error;
   }
 }

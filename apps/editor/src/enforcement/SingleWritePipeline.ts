@@ -38,8 +38,7 @@ export function _initializeSingleWritePipeline(
   _requestCaretPlacementRaw = requestCaretPlacement;
 
   if (__DEV__) {
-    console.log('🔒 Single Write Pipeline initialized');
-    console.log('⚠️ Direct state mutations are now FORBIDDEN');
+
   }
 }
 
@@ -119,10 +118,7 @@ export function setStateAndModel(params: {
     }
 
     if (__DEV__) {
-      console.log(`✅ State updated [${reason}]:`, {
-        nodeCount: model.nodes.length,
-        cursor: model.cursor,
-      });
+
     }
   } finally {
     _isLocked = false;

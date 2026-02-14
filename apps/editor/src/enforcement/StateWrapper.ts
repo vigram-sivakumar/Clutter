@@ -94,11 +94,7 @@ export function setEditorState(changes: {
   _setReactState(changes);
 
   if (__DEV__) {
-    console.log(`✅ State updated [${_currentOperation}]:`, {
-      hasNodes: !!changes.nodes,
-      hasCursor: !!changes.cursor,
-      locked: isPipelineLocked(),
-    });
+
   }
 }
 

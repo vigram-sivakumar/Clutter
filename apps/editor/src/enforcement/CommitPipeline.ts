@@ -174,7 +174,7 @@ export function performEditorOperation(operation: EditorOperation): void {
     caretPlacementPending = true;
     _requestCaretPlacementInternal();
   } catch (error) {
-    console.error(`❌ Operation "${operation.type}" failed:`, error);
+
     _blockMutation(); // Ensure mutation blocked even on error
     throw error; // Re-throw to surface the error
   } finally {

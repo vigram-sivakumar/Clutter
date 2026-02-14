@@ -44,7 +44,7 @@ export async function readFromTempStorage(): Promise<string | null> {
   try {
     return localStorage.getItem(APP_STORAGE_KEY);
   } catch (e) {
-    console.error('Temp storage read failed:', e);
+
     return null;
   }
 }

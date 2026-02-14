@@ -99,7 +99,7 @@ export function useObserverLifecycle(
 
         if (!element) {
           if (debug) {
-            console.warn('[ObserverLifecycle] Element not found for node', nodeId);
+
           }
           return;
         }
@@ -117,7 +117,7 @@ export function useObserverLifecycle(
         observer.start();
 
         if (debug) {
-          console.log('[ObserverLifecycle] Created and started for node', nodeId);
+
         }
       });
     });
@@ -129,7 +129,7 @@ export function useObserverLifecycle(
       observers.current.forEach((observer, nodeId) => {
         observer.destroy();
         if (debug) {
-          console.log('[ObserverLifecycle] Destroyed on unmount', nodeId);
+
         }
       });
       observers.current.clear();

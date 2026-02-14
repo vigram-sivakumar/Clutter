@@ -34,8 +34,7 @@ export class CommitPipeline {
     this.instanceId = `pipeline-${Math.random().toString(36).slice(2, 11)}`;
 
     if (__DEV__) {
-      console.log(`🔒 CommitPipeline created: ${this.instanceId}`);
-      console.log(`   Bound to model: ${model.getInstanceId()}`);
+
       // console.log(`   Bound to typing: ${typingBuffer.getInstanceId()}`);
     }
   }
@@ -51,7 +50,7 @@ export class CommitPipeline {
     this.requestCaretPlacement = requestCaretPlacement;
 
     if (__DEV__) {
-      console.log(`🔒 CommitPipeline [${this.instanceId}]: Initialized`);
+
     }
   }
 
@@ -124,7 +123,7 @@ export class CommitPipeline {
       this.caretPlacementPending = true;
       this.requestCaretPlacement();
     } catch (error) {
-      console.error(`❌ Operation "${operation.type}" failed:`, error);
+
       _blockMutation();
       throw error;
     } finally {
@@ -169,7 +168,7 @@ export class CommitPipeline {
     this.requestCaretPlacement = null;
 
     if (__DEV__) {
-      console.log(`🔒 CommitPipeline destroyed: ${this.instanceId}`);
+
     }
   }
 
@@ -180,7 +179,7 @@ export class CommitPipeline {
     this.caretPlacementPending = false;
 
     if (__DEV__) {
-      console.log(`🔒 Pipeline [${this.instanceId}] LOCKED for: ${operation}`);
+
     }
   }
 
@@ -188,7 +187,7 @@ export class CommitPipeline {
     this.isLocked = false;
 
     if (__DEV__) {
-      console.log(`🔓 Pipeline [${this.instanceId}] UNLOCKED`);
+
     }
   }
 

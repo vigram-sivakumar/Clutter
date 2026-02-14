@@ -1,4 +1,4 @@
-import { NodeEditor } from './NodeEditor';
+import { NodeEditor } from './editor/view/NodeEditor';
 
 export function App() {
   return <NodeEditor />;

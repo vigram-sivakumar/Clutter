@@ -116,16 +116,6 @@ export function getNodePositionFromSelection(node: Node): CursorPosition | null 
   if (!element.contains(selection.focusNode)) return null;
 
   // 🔍 DEBUG: Log browser selection state
-  console.log('📍 [getNodePositionFromSelection]', {
-    nodeId: node.id,
-    focusNodeType: selection.focusNode.nodeType,
-    focusNodeName: selection.focusNode.nodeName,
-    focusNodeClass: (selection.focusNode as any).className,
-    focusOffset: selection.focusOffset,
-    focusNodeContent: selection.focusNode.textContent?.slice(0, 50),
-    isElement: selection.focusNode === element,
-    elementChildCount: element.childNodes.length
-  });
 
   // Initialize cursor position variables
   let segmentIndex = 0;
@@ -189,13 +179,7 @@ export function getNodePositionFromSelection(node: Node): CursorPosition | null 
       // Cursor is placed relative to the element's children
       const childIndex = selection.focusOffset;
       const children = Array.from(element.childNodes);
-      
-      console.log('📍 [getNodePositionFromSelection] Focus on element itself', {
-        focusOffset: childIndex,
-        totalChildren: children.length,
-        childAtOffset: children[childIndex]?.nodeName
-      });
-      
+
       // Count segments up to this child index
       let currentSegmentIndex = 0;
       for (let i = 0; i < childIndex; i++) {
@@ -213,10 +197,7 @@ export function getNodePositionFromSelection(node: Node): CursorPosition | null 
       if (childIndex >= children.length) {
         segmentIndex = node.segments.length; // After all segments
         offset = 0;
-        console.log('📍 [getNodePositionFromSelection] Cursor AFTER all children', {
-          segmentIndex,
-          totalSegments: node.segments.length
-        });
+
       } else {
         segmentIndex = currentSegmentIndex;
         offset = 0;
@@ -229,9 +210,7 @@ export function getNodePositionFromSelection(node: Node): CursorPosition | null 
     segmentIndex,
     offset,
   };
-  
-  console.log('📍 [getNodePositionFromSelection] Returning', result);
-  
+
   return result;
 }
 
@@ -248,12 +227,7 @@ export function assertObserverStopped(
 ): boolean {
   const observer = observers.get(nodeId);
   if (observer && observer.isRunning()) {
-    console.warn(
-      '⚠️ OBSERVER STILL RUNNING during commit! This may indicate missing observer.stop() at boundary.\n' +
-        'Node ID:',
-      nodeId,
-      '\nSee COMMIT-BOUNDARY-CONTRACT.md Step 2.'
-    );
+
     return false;
   }
   return true;

@@ -1,264 +1,227 @@
 /**
  * EditorCoordinator.ts
  * 
- * Central operation orchestrator.
+ * Central orchestration layer for ALL state mutations.
  * 
- * CRITICAL PRINCIPLES:
- * - Single entry point for all editor operations
- * - Consistent sequencing (stop → extract → dispatch → caret)
- * - No manual orchestration in handlers
- * - Timing and side effects isolated here
+ * CRITICAL: This is the ONLY place where state transitions are executed.
  * 
- * OPERATION FLOW:
- * 1. Stop observers
- * 2. Extract fresh segments from DOM
- * 3. Dispatch action to reducer
- * 4. Request caret placement (if needed)
- * 5. Release structural lock
+ * Responsibilities:
+ * - Stop/restart observers
+ * - Call reducer to compute next state
+ * - Validate invariants
+ * - Apply state via commit
+ * - Request caret placement
+ * - Log/instrument transitions
+ * 
+ * The coordinator controls the lifecycle.
+ * The reducer computes the state.
+ * They are separated for testability and clarity.
+ * 
+ * This is the single choke point that enforces correctness.
  */
 
-import type { Node, NodeID } from '../../engine/NodeKernel';
-import type {
-  EditorAction,
-  CoordinatorContext,
-  EditorCoordinator,
-} from './EditorTypes';
-import { scheduleRAF } from '../caret/CaretUtilities';
-import { extractSegmentsFromDOM } from '../DOMObserver';
+import type { EditorStateComplete, EditorAction, CoordinatorContext } from './EditorTypes';
+import type { CursorPosition } from '../../engine/EditorState';
+import type { Node } from '../../engine/NodeKernel';
+import { editorReducer, validateEditorState } from './EditorReducer';
 
 /**
- * Create editor coordinator
- * 
- * Factory function that creates the coordinator with access to
- * dispatch and refs.
- * 
- * @param dispatch - Reducer dispatch function
- * @param context - Coordinator context (refs, observers, etc.)
- * @returns EditorCoordinator instance
+ * Dependencies needed by coordinator to execute actions
  */
-export function createEditorCoordinator(
-  dispatch: React.Dispatch<EditorAction>,
-  context: CoordinatorContext
-): EditorCoordinator {
-  const {
-    domObservers,
-    modelRef,
-    needsCaretPlacementRef,
-    structuralLockRef,
-  } = context;
+export interface CoordinatorDependencies {
+  /**
+   * Context with observer refs and structural lock
+   */
+  context: CoordinatorContext;
 
   /**
-   * Execute an action with full orchestration
-   * 
-   * This is the ONLY entry point for editor operations.
-   * 
-   * @param action - Action to execute
+   * Function to apply state changes
+   * This is the bridge to React's setState
    */
-  function execute(action: EditorAction): void {
-    // Determine if structural
-    const isStructural = isStructuralAction(action);
+  commit: (changes: {
+    nodes?: Node[];
+    cursor?: CursorPosition;
+  }) => void;
 
-    if (isStructural) {
-      executeStructural(action);
-    } else {
-      executeNonStructural(action);
-    }
+  /**
+   * Function to request caret placement
+   * Sets flag that triggers CaretPlacement effect
+   */
+  requestCaretPlacement: () => void;
+}
+
+/**
+ * Execute an editor action
+ * 
+ * SINGLE ENTRY POINT for all state mutations.
+ * 
+ * Lifecycle:
+ * 1. Determine if action is structural
+ * 2. Stop observers (if structural)
+ * 3. Call reducer to compute next state
+ * 4. Validate invariants
+ * 5. Update index-based model (modelRef)
+ * 6. Clear pending mutations
+ * 7. Apply state via commit (React state)
+ * 8. Request caret placement (if needed)
+ * 
+ * Note: Observers restart automatically via useObserverLifecycle when nodes change
+ * 
+ * @param currentState - Current editor state
+ * @param action - Action to execute
+ * @param deps - Dependencies (observers, commit, caret)
+ * @returns Committed cursor position (for caret intent generation)
+ */
+export function executeAction(
+  currentState: EditorStateComplete,
+  action: EditorAction,
+  deps: CoordinatorDependencies
+): CursorPosition {
+  const { context, commit, requestCaretPlacement } = deps;
+
+  // 1. Determine if action is structural
+  const isStructural = isStructuralAction(action);
+
+  // 2. Stop observers if structural operation
+  if (isStructural) {
+    stopAllObservers(context);
   }
 
-  /**
-   * Execute structural operation (node count changes)
-   * 
-   * FLOW:
-   * 1. Lock
-   * 2. Stop observers
-   * 3. Extract from DOM
-   * 4. Dispatch (reducer computes new state)
-   * 5. Request caret placement
-   * 6. Release lock (after RAF)
-   * 
-   * @param action - Structural action
-   */
-  function executeStructural(action: EditorAction): void {
-    // Step 1: Lock
-    structuralLockRef.current = true;
+  try {
+    // 3. Compute next state (pure)
+    const nextState = editorReducer(currentState, action);
 
-    try {
-      // Step 2: Stop observers
-      stopRelevantObservers(action);
+    // 4. Validate invariants
+    validateEditorState(nextState);
 
-      // Step 3: Extract from DOM (enrich action with fresh segments)
-      const enrichedAction = extractFromDOM(action);
-
-      // Step 4: Dispatch to reducer
-      dispatch(enrichedAction);
-
-      // Step 5: Request caret placement
-      if (shouldRequestCaret(action)) {
-        needsCaretPlacementRef.current = true;
-      }
-    } finally {
-      // Step 6: Release lock (after RAF, to allow DOM to settle)
-      scheduleRAF(() => {
-        structuralLockRef.current = false;
-      });
-    }
-  }
-
-  /**
-   * Execute non-structural operation
-   * 
-   * FLOW:
-   * 1. Dispatch directly
-   * 
-   * @param action - Non-structural action
-   */
-  function executeNonStructural(action: EditorAction): void {
-    dispatch(action);
-  }
-
-  /**
-   * Stop relevant observers based on action
-   * 
-   * @param action - Action being executed
-   */
-  function stopRelevantObservers(action: EditorAction): void {
-    switch (action.type) {
-      case 'ENTER_PRESSED': {
-        const observer = domObservers.current.get(action.payload.cursor.nodeId);
-        if (observer) {
-          observer.stop();
-        }
-        break;
-      }
-
-      case 'BACKSPACE_PRESSED': {
-        const observer = domObservers.current.get(action.payload.cursor.nodeId);
-        if (observer) {
-          observer.stop();
-        }
-        break;
-      }
-
-      case 'TAB_PRESSED': {
-        const observer = domObservers.current.get(action.payload.cursor.nodeId);
-        if (observer) {
-          observer.stop();
-        }
-        break;
-      }
-
-      default:
-        // No observers to stop
-        break;
-    }
-  }
-
-  /**
-   * Extract fresh segments from DOM
-   * 
-   * Enriches action with current DOM state before dispatch.
-   * 
-   * @param action - Action to enrich
-   * @returns Enriched action with DOM data
-   */
-  function extractFromDOM(action: EditorAction): EditorAction {
-    switch (action.type) {
-      case 'ENTER_PRESSED': {
-        // Extract segments from active node
-        const nodeId = action.payload.cursor.nodeId;
-        const element = getNodeElement(nodeId);
-        if (!element) return action;
-
-        const segments = extractSegmentsFromDOM(element);
-
-        return {
-          ...action,
-          payload: {
-            ...action.payload,
-            segments,
-          },
-        };
-      }
-
-      case 'BACKSPACE_PRESSED': {
-        // Extract segments from current node (and maybe previous)
-        const nodeId = action.payload.cursor.nodeId;
-        const currentElement = getNodeElement(nodeId);
-        if (!currentElement) return action;
-
-        const currentSegments = extractSegmentsFromDOM(currentElement);
-
-        // Check if might merge with previous
-        const nodes = action.payload.nodes;
-        const currentIndex = nodes.findIndex((n) => n.id === nodeId);
-        
-        let prevSegments: Node['segments'] | undefined;
-        if (currentIndex > 0) {
-          const prevNode = nodes[currentIndex - 1];
-          if (prevNode) {
-            const prevElement = getNodeElement(prevNode.id);
-            if (prevElement) {
-              prevSegments = extractSegmentsFromDOM(prevElement);
-            }
+    // 5. Update index-based model (side effect)
+    // PHASE 2A: modelRef is legacy index-based model, kept in sync during migration
+    if (context.modelRef.current) {
+      const nodeIndex = nextState.nodes.findIndex(
+        (n) => n.id === nextState.cursor.nodeId
+      );
+      
+      if (nodeIndex !== -1) {
+        context.modelRef.current.updateState(
+          nextState.nodes,
+          {
+            index: nodeIndex,
+            segmentIndex: nextState.cursor.segmentIndex,
+            offset: nextState.cursor.offset,
           }
-        }
-
-        return {
-          ...action,
-          payload: {
-            ...action.payload,
-            currentSegments,
-            prevSegments,
-          },
-        };
+        );
       }
-
-      default:
-        return action;
     }
-  }
 
-  /**
-   * Get DOM element for node
-   * 
-   * @param nodeId - Node ID
-   * @returns Node element or null
-   */
-  function getNodeElement(nodeId: NodeID): HTMLElement | null {
-    return document.querySelector(
-      `[data-node-id="${nodeId}"] .node__content`
-    );
-  }
+    // 6. Clear pending mutations (prevents stale observer events)
+    if (isStructural) {
+      const cursorNodeObserver = context.domObservers.current.get(currentState.cursor.nodeId);
+      if (cursorNodeObserver) {
+        cursorNodeObserver.clearPendingMutations();
+      }
+    }
 
-  /**
-   * Check if action is structural (changes node count)
-   * 
-   * @param action - Action to check
-   * @returns True if structural
-   */
-  function isStructuralAction(action: EditorAction): boolean {
-    return [
-      'ENTER_PRESSED',
-      'BACKSPACE_PRESSED',
-      'TAB_PRESSED',
-    ].includes(action.type);
-  }
+    // 7. Apply state via commit (React state update)
+    // PHASE 2A: commit() expects nodes and cursor separately
+    // In future, we could make commit() accept full EditorStateComplete
+    commit({
+      nodes: nextState.nodes,
+      cursor: nextState.cursor,
+    });
 
-  /**
-   * Check if action should request caret placement
-   * 
-   * @param action - Action to check
-   * @returns True if should request caret
-   */
-  function shouldRequestCaret(action: EditorAction): boolean {
-    return [
-      'ENTER_PRESSED',
-      'BACKSPACE_PRESSED',
-      'ARROW_PRESSED',
-    ].includes(action.type);
-  }
+    // 8. Request caret placement if action requests it
+    // 🚧 PHASE 2 STEP 3: RAF system DISABLED (NodeView layout effect now owns placement)
+    // if (shouldRequestCaret(action)) {
+    //   requestCaretPlacement();
+    // }
 
-  return {
-    execute,
-  };
+    // Return committed cursor for caret intent generation
+    return nextState.cursor;
+    
+  } catch (error) {
+    // Invariant violation or reducer error
+    // CRITICAL: Do not apply invalid state
+    // Rethrow to prevent partial state corruption
+    throw error;
+  } finally {
+    // 9. Observers restart automatically via React lifecycle
+    // useObserverLifecycle hook creates new observers when nodes change
+    // No manual restart needed
+  }
+}
+
+/**
+ * Determine if action requires observer stop/start
+ * 
+ * Structural actions modify the DOM structure:
+ * - Node creation/deletion
+ * - Node splitting/merging
+ * - Node reordering
+ * 
+ * Non-structural actions only update metadata:
+ * - Cursor movement
+ * - Selection changes
+ * 
+ * @param action - Action to check
+ * @returns true if action is structural
+ */
+function isStructuralAction(action: EditorAction): boolean {
+  switch (action.type) {
+    case 'ENTER_PRESSED':
+    case 'BACKSPACE_PRESSED':
+    case 'TAB_PRESSED':
+    case 'MARKDOWN_TRIGGER':
+      return true;
+
+    case 'ARROW_PRESSED':
+    case 'SELECTION_CHANGED':
+    case 'COMPOSITION_START':
+    case 'COMPOSITION_END':
+    case 'PROPERTY_EDITOR_OPEN':
+      return false;
+
+    default:
+      // Conservative: treat unknown actions as structural
+      return true;
+  }
+}
+
+/**
+ * Determine if action should trigger caret placement
+ * 
+ * @param action - Action to check
+ * @returns true if caret placement needed
+ */
+export function shouldRequestCaret(action: EditorAction): boolean {
+  switch (action.type) {
+    case 'ENTER_PRESSED':
+    case 'BACKSPACE_PRESSED':
+    case 'TAB_PRESSED':
+    case 'ARROW_PRESSED':
+    case 'MARKDOWN_TRIGGER':
+      return true;
+
+    case 'SELECTION_CHANGED':
+    case 'COMPOSITION_START':
+    case 'COMPOSITION_END':
+      return false;
+
+    default:
+      // Conservative: request caret for unknown actions
+      return true;
+  }
+}
+
+/**
+ * Stop all DOM observers
+ * 
+ * Called before structural mutations to prevent race conditions.
+ * Observers restart automatically via useObserverLifecycle when nodes change.
+ * 
+ * @param context - Coordinator context with observer map
+ */
+function stopAllObservers(context: CoordinatorContext): void {
+  for (const [_nodeId, observer] of context.domObservers.current.entries()) {
+    observer.stop();
+  }
 }

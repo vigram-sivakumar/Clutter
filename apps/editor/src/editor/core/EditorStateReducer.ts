@@ -23,7 +23,7 @@ import {
   handleSegmentedEnter,
   handleSegmentedBackspace,
   mergeWithPrevious,
-} from '../SegmentedEditor';
+} from '../../engine/SegmentedEditor';
 import { cursorToIndex } from '../EditorModel.index';
 
 /**

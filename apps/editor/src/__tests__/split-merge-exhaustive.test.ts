@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Node, Segment, NodeID } from '../engine/NodeKernel';
 import { createNode, generateNodeId } from '../engine/NodeKernel';
-import { handleSegmentedEnter, mergeWithPrevious } from '../editor/SegmentedEditor';
+import { handleSegmentedEnter, mergeWithPrevious } from '../engine/SegmentedEditor';
 import { getPlainText } from '../engine/SegmentUtils';
 import {
   assertValidNode,

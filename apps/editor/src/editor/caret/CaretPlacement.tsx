@@ -86,15 +86,7 @@ export function useCaretPlacement(options: UseCaretPlacementOptions): void {
   } = options;
 
   useEffect(() => {
-    if (debug) {
-      console.log('[Caret Effect] Triggered, intent flag:', needsPlacementRef.current);
-    }
-
     if (!needsPlacementRef.current) return;
-
-    if (debug) {
-      console.log('[Caret Effect] Starting placement attempt');
-    }
 
     let cancelled = false;
 
@@ -103,34 +95,15 @@ export function useCaretPlacement(options: UseCaretPlacementOptions): void {
 
       // Safety: Abandon after max retries (prevent infinite RAF loop)
       if (retries > maxRetries) {
-        console.error(
-          `⚠️ CARET PLACEMENT FAILED: Abandoned after ${maxRetries} retries\n` +
-            'Target node never appeared in DOM.\n' +
-            'Cursor:',
-          cursor,
-          '\nAvailable nodes:',
-          nodes.map((n) => n.id),
-          '\nThis may indicate a React render issue.'
-        );
+
         needsPlacementRef.current = false;
         return;
-      }
-
-      if (debug && retries === 0) {
-        console.log('[Caret] Attempting placement:', {
-          targetNodeId: cursor.nodeId,
-          cursor,
-          availableNodes: nodes.map((n) => n.id),
-        });
       }
 
       // Find active node in state
       const activeNode = nodes.find((n) => n.id === cursor.nodeId);
       if (!activeNode) {
-        console.error('[Caret] Target node not in state!', {
-          targetNodeId: cursor.nodeId,
-          availableNodes: nodes.map((n) => n.id),
-        });
+
         needsPlacementRef.current = false;
         return;
       }
@@ -142,12 +115,6 @@ export function useCaretPlacement(options: UseCaretPlacementOptions): void {
 
       if (!nodeElement) {
         // DOM not ready yet - retry next frame (bounded by retry limit)
-        if (debug) {
-          console.log(
-            `[Caret] Node not in DOM yet, retry ${retries + 1}/${maxRetries}`,
-            cursor.nodeId
-          );
-        }
         scheduleRAF(() => tryPlace(retries + 1));
         return;
       }
@@ -167,7 +134,7 @@ export function useCaretPlacement(options: UseCaretPlacementOptions): void {
       try {
         placeCaretInNode(nodeElement as HTMLElement, activeNode, cursor, debug);
       } catch (err) {
-        console.warn('Caret sync failed:', err);
+        // Silent fail
       }
 
       needsPlacementRef.current = false;
@@ -209,6 +176,12 @@ function placeCaretInNode(
   // Case 1: Cursor at end (past all segments) OR empty node
   if (segmentIndex >= segments.length) {
     const lastChild = nodeElement.lastChild;
+    
+    // 🔬 FORENSIC LOG 4: CaretPlacement Edge Case
+    if (__DEV__) {
+
+    }
+    
     if (lastChild) {
       // 🔒 FIX: If lastChild is an empty text node (placeholder for empty nodes),
       // place cursor INSIDE it for stable selection
@@ -217,39 +190,22 @@ function placeCaretInNode(
         range.collapse(true);
         sel.removeAllRanges();
         sel.addRange(range);
-        if (debug) {
-          console.log('✅ Placed cursor IN empty text node', {
-            nodeId: node.id,
-            segmentIndex,
-            segmentsLength: segments.length
-          });
-        }
       } else {
         // Normal case: place cursor after last child
         range.setStartAfter(lastChild);
         range.collapse(true);
         sel.removeAllRanges();
         sel.addRange(range);
-        if (debug) {
-          console.log('✅ Placed cursor AFTER all segments', {
-            segmentIndex,
-            segmentsLength: segments.length,
-            lastChild: lastChild.nodeName
-          });
-        }
       }
     } else {
-      console.warn('❌ Case 1: No lastChild to place cursor after', {
-        segmentIndex,
-        segmentsLength: segments.length
-      });
+
     }
     return;
   }
 
   const segment = segments[segmentIndex];
   if (!segment) {
-    console.warn('[Caret] Segment not found at index', segmentIndex);
+
     return;
   }
 
@@ -307,14 +263,8 @@ function placeCaretBeforeInline(
     range.collapse(true);
     sel.removeAllRanges();
     sel.addRange(range);
-    if (debug) {
-      console.log(
-        '✅ Placed cursor in caret-anchor before inline at segment',
-        segmentIndex
-      );
-    }
   } else {
-    console.warn('❌ Failed to find caret-anchor at domIndex', domIndex);
+
   }
 }
 
@@ -359,15 +309,7 @@ function placeCaretInText(
     range.collapse(true);
     sel.removeAllRanges();
     sel.addRange(range);
-    if (debug) {
-      console.log(
-        '✅ Placed cursor in text at segment',
-        segmentIndex,
-        'offset',
-        offset
-      );
-    }
   } else {
-    console.warn('❌ Failed to find text node at domIndex', domIndex);
+
   }
 }

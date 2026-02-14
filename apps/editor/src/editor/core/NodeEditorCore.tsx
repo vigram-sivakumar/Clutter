@@ -20,8 +20,8 @@ import type { CursorPosition } from '../../engine/EditorState';
 import type { EditorStateComplete } from './EditorTypes';
 import { useEditorStateReducer } from './EditorStateReducer';
 import { createEditorCoordinator } from './EditorCoordinator';
-import { handleKeyboardEvent } from '../handlers/KeyboardHandlers';
-import { handleSelectionChange, handleCompositionStart, handleCompositionEnd } from '../handlers/SelectionHandlers';
+import { handleKeyboardEvent } from '../input/KeyboardHandlers';
+import { handleSelectionChange, handleCompositionStart, handleCompositionEnd } from '../input/SelectionHandlers';
 import { useObserverLifecycle } from '../observers/ObserverLifecycle';
 import { useCaretPlacement } from '../caret/CaretPlacement';
 import { EditorModelIndex } from '../EditorModel.index';
@@ -89,7 +89,7 @@ export function NodeEditorCore() {
   useObserverLifecycle({
     nodeIds: editorState.nodes.map((n) => n.id),
     onMutationsBatched: (nodeId, mutations) => {
-      console.log('[DOMObserver] Mutations batched', { nodeId, count: mutations.length });
+
     },
     debug: true,
   });

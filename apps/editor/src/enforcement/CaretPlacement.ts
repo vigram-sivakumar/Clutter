@@ -40,7 +40,7 @@ export function schedulePlacement(
   placementQueue.push({ cursor, nodeDOM, node });
 
   if (__DEV__) {
-    console.log('📍 Caret placement scheduled:', cursor);
+
   }
 
   // Process queue in layout phase (synchronous with React)
@@ -177,12 +177,12 @@ function placeCaret(
     sel.addRange(range);
 
     if (__DEV__) {
-      console.log('✅ Caret placed:', cursor);
+
     }
 
   } catch (error) {
     // 🔒 CRITICAL: Placement failure is FATAL
-    console.error('❌ CARET PLACEMENT CRASHED:', error);
+
     throw error; // Re-throw - this is a critical failure
   }
 }

@@ -149,8 +149,6 @@ export function performGuaranteedSplit(
   // Determine case
   const splitCase = determineSplitCase(segments, cursor);
 
-  console.log('🔪 SPLIT CASE:', splitCase);
-
   // Execute split
   const { head, tail } = executeSplit(segments, cursor, splitCase);
 

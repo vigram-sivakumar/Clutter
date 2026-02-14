@@ -122,10 +122,7 @@ function assertSegmentsImmutable(segments: readonly Segment[]): void {
 
       // If we get here, segments are NOT frozen
       // This is a warning, not a hard error (for now)
-      console.warn(
-        '⚠️ Segments array is not frozen. ' +
-          'Mutations are possible. Consider Object.freeze() in production.'
-      );
+
     } catch (e) {
       // Good - segments are frozen
     }
@@ -161,14 +158,12 @@ export function assertEditorInvariants(
       if (seg.type === 'text') {
         // Check text is not empty string with segments present
         if (seg.text === '' && node.segments.length > 1) {
-          console.warn(
-            `⚠️ Empty text segment in node with multiple segments: ${node.id}`
-          );
+
         }
       }
     });
   } catch (error) {
-    console.error(`❌ INVARIANT VIOLATION at [${label}]:`, error);
+
     throw error; // Re-throw to crash
   }
 }
@@ -191,12 +186,7 @@ export function assertDOMSegmentSync(
     .join('');
 
   if (domText !== segmentText) {
-    console.warn(
-      `⚠️ DOM/Segment mismatch in node ${nodeId}\n` +
-        `DOM: "${domText}"\n` +
-        `Segments: "${segmentText}"\n` +
-        `This may indicate NodeView failed to render.`
-    );
+
   }
 }
 

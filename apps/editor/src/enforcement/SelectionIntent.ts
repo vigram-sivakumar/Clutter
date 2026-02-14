@@ -58,7 +58,7 @@ export function captureSelectionIntent(
   // Guard: Skip if pipeline locked (structural op in progress)
   if (isPipelineLocked()) {
     if (__DEV__) {
-      console.log('⛔ Selection intent ignored (pipeline locked)');
+
     }
     return;
   }
@@ -73,7 +73,7 @@ export function captureSelectionIntent(
   };
 
   if (__DEV__) {
-    console.log('📝 Selection intent captured:', pendingIntent);
+
   }
 
   // Schedule processing (async, after current event loop)
@@ -111,7 +111,7 @@ function processIntent(): void {
   // Skip if already applied (prevent duplicate)
   if (intent.timestamp <= lastAppliedTimestamp) {
     if (__DEV__) {
-      console.log('⏭️ Skipping duplicate intent');
+
     }
     return;
   }
@@ -120,7 +120,7 @@ function processIntent(): void {
   // Guard: Re-check conditions (may have changed)
   if (isPipelineLocked()) {
     if (__DEV__) {
-      console.log('⛔ Intent processing blocked (pipeline locked)');
+
     }
     return;
   }
@@ -133,7 +133,7 @@ function processIntent(): void {
       const targetNode = nodes.find((n) => n.id === intent.nodeId);
       if (!targetNode) {
         if (__DEV__) {
-          console.warn(`⚠️ Intent target node not found: ${intent.nodeId}`);
+
         }
         // Return unchanged
         return { nodes, cursor: currentCursor };
@@ -147,7 +147,7 @@ function processIntent(): void {
       };
 
       if (__DEV__) {
-        console.log('✅ Cursor moved via pipeline:', newCursor);
+
       }
 
       lastAppliedTimestamp = intent.timestamp;

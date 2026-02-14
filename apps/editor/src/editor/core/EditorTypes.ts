@@ -21,6 +21,16 @@ import type { EditorModelIndex, IndexCursor } from '../EditorModel.index';
 import type { DOMObserver } from '../DOMObserver';
 
 /**
+ * Ephemeral caret placement intent
+ * Lives in NodeEditor component state, NOT in reducer state
+ * Auto-clears after one render cycle
+ */
+export interface CaretIntent {
+  nodeId: NodeID;
+  token: string; // Unique token prevents stale placements
+}
+
+/**
  * Selection range (for multi-node selections)
  */
 export interface SelectionRange {
@@ -111,8 +121,7 @@ export type EditorAction =
       type: 'BACKSPACE_PRESSED';
       payload: {
         cursor: CursorPosition;
-        currentSegments: Segment[]; // Current node segments from DOM
-        prevSegments?: Segment[]; // Previous node segments (if merging)
+        segments: Segment[]; // Current node segments from DOM
         nodes: Node[]; // Current nodes for merge computation
       };
     }
@@ -127,9 +136,23 @@ export type EditorAction =
   | {
       type: 'TAB_PRESSED';
       payload: {
+        nodeId: NodeID;
         shiftKey: boolean;
-        cursor: CursorPosition;
-        nodes: Node[];
+      };
+    }
+  | {
+      type: 'MARKDOWN_TRIGGER';
+      payload: {
+        trigger: string;
+        newVariant: string;
+        nodeId: NodeID;
+        clearedSegments: Segment[];
+      };
+    }
+  | {
+      type: 'PROPERTY_EDITOR_OPEN';
+      payload: {
+        nodeId: NodeID;
       };
     }
 
@@ -224,6 +247,36 @@ export type EditorAction =
       payload: {
         nodeId: NodeID;
       };
+    }
+
+  // Global command actions (Batch 5)
+  | {
+      type: 'UNDO';
+      payload: {};
+    }
+  | {
+      type: 'REDO';
+      payload: {};
+    }
+  | {
+      type: 'QUERY_BAR_TOGGLE';
+      payload: {
+        isOpen: boolean;
+      };
+    }
+  | {
+      type: 'REFERENCE_PICKER_OPEN';
+      payload: {
+        sourceNodeId: NodeID;
+      };
+    }
+  | {
+      type: 'SAVE_VIEW_DIALOG_OPEN';
+      payload: {};
+    }
+  | {
+      type: 'TEMPLATE_PICKER_OPEN';
+      payload: {};
     };
 
 /**
@@ -279,6 +332,11 @@ export interface CoordinatorContext {
    * Flag for requesting caret placement
    */
   needsCaretPlacementRef: React.MutableRefObject<boolean>;
+
+  /**
+   * Flag for structural commit lock
+   */
+  structuralLockRef: React.MutableRefObject<boolean>;
 
   /**
    * Structural lock (prevents selection changes during commits)
