@@ -11,7 +11,7 @@
  * - Local-wins default
  */
 
-import type { NodeID } from './engine/NodeKernel';
+import type { NodeID } from './editor/engine';
 import type { PersistedState } from './normalize';
 import { migrateToLatest } from './migrations';
 import { normalizePersistedState } from './normalize';
