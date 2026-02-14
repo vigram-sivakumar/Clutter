@@ -221,15 +221,7 @@ export function NodeView({
     // Observers are stopped before commits, so no concurrent mutations possible
     // This is structurally enforced by commit boundary contract, not by runtime checks
 
-    // 🔒 ASSERTION: Check we're not violating invariants
-    if (__DEV__) {
-      try {
-        (globalThis as any).__assertNotRenderingDuringTyping?.(node.id);
-      } catch (e) {
-        // Don't throw - skip render
-        return;
-      }
-    }
+    // Enforcement layer removed - no runtime assertions
 
     // SEGMENTED ARCHITECTURE: Simple rendering - no normalization needed
     // Clear and rebuild from segments

@@ -130,16 +130,7 @@ import {
 
 // 🔒 ENFORCEMENT LAYER - Makes violations impossible
 // REMOVED: performEditorOperation (incompatible with unified model, replaced with withStructuralCommit)
-import {
-  // performEditorOperation,  // ❌ Uses old singleton model
-  _initializePipeline,
-  _initializeStateWrapper,
-  _allowMutation,
-  _blockMutation,
-  // captureSelectionIntent,  // Unused
-  assertNotRenderingDuringTyping,
-  // type EditorOperation,  // Unused
-} from '../../enforcement';
+// Enforcement layer removed - direct dispatch via executeAction() only
 
 // 🔒 NEW ARCHITECTURE — Priorities 4-6 (NOT YET ACTIVE)
 import {
@@ -444,36 +435,7 @@ export function NodeEditor() {
     };
   }, [editorState.nodes.length]); // Re-run when node count changes
 
-  // 🔒 SINGLETON GUARD: Prevent re-initialization
-  const pipelineInitializedRef = useRef(false);
-
-  // 🔒 STEP 2: Wire enforcement (POST-MOUNT, after setter exists)
-  useEffect(() => {
-    // Guard: Initialize ONCE only
-    if (pipelineInitializedRef.current) return;
-
-    // 1. OLD SINGLETON MODEL INITIALIZATION REMOVED
-    // UNIFIED MODEL: Only modelRef.current (EditorModelIndex) is used now
-    // Legacy singleton removed to fix dual-model zombie node bug
-
-    // 2. Initialize pipeline (safe: model exists now)
-    _initializePipeline(_setEditorStateRaw, requestCaretPlacement);
-
-    // 3. Initialize state wrapper
-    _initializeStateWrapper(_setEditorStateRaw);
-
-    // ✂️ PHASE 2.5: TypingBuffer runtime guards DELETED
-    // MutationObserver lifecycle replaces isTyping() flag
-    // Observer.isRunning() is the new authoritative state
-    (globalThis as any).__assertNotRenderingDuringTyping =
-      assertNotRenderingDuringTyping;
-
-    pipelineInitializedRef.current = true;
-
-    if (__DEV__) {
-      // Index-based model active
-    }
-  }, []);
+  // Enforcement initialization removed - state updates go through executeAction() only
 
   // 🎯 PHASE 2A: Coordinator is now called directly via executeAction()
   // No need for coordinator instance - it's stateless

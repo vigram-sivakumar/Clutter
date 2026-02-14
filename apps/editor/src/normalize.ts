@@ -14,7 +14,7 @@
  * - Phase 20: Emit recovery events for transparency (read-only)
  */
 
-import type { Node, NodeID } from './engine/NodeKernel';
+import type { Node, NodeID } from './editor/engine';
 
 /**
  * PHASE 22 — Recovery Action Types
