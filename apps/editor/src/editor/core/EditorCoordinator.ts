@@ -93,24 +93,7 @@ export function executeAction(
     // 4. Validate invariants
     validateEditorState(nextState);
 
-    // 5. Update index-based model (side effect)
-    // PHASE 2A: modelRef is legacy index-based model, kept in sync during migration
-    if (context.modelRef.current) {
-      const nodeIndex = nextState.nodes.findIndex(
-        (n) => n.id === nextState.cursor.nodeId
-      );
-      
-      if (nodeIndex !== -1) {
-        context.modelRef.current.updateState(
-          nextState.nodes,
-          {
-            index: nodeIndex,
-            segmentIndex: nextState.cursor.segmentIndex,
-            offset: nextState.cursor.offset,
-          }
-        );
-      }
-    }
+    // React state is single source of truth - no model sync needed
 
     // 6. Clear pending mutations (prevents stale observer events)
     if (isStructural) {

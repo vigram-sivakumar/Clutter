@@ -93,13 +93,7 @@ import {
   getNodeLabel as getNodeLabelFromSegments,
 } from '../index';
 // TypingBuffer imports DELETED - Phase 2.5 complete
-// 🔒 INDEX-BASED MODEL (Workflowy/Tana architecture)
-import {
-  EditorModelIndex,
-  cursorToIndex,
-  cursorToNodeId,
-  type IndexCursor,
-} from '../EditorModel.index';
+// EditorModel.index removed - React state is single source of truth
 
 // 🔒 CARET PLACEMENT (Priority 3: Eliminate race conditions)
 import { useCaretPlacement, scheduleRAF, type CancelToken } from '../caret';
@@ -268,69 +262,44 @@ export function getNodeLabel(node: Node | UINode): string {
 // ALL text operations now handled by SegmentedEditor API
 
 export function NodeEditor() {
-  // 🔒 STEP 1: Create INDEX-BASED MODEL (lazy initialization)
-  const modelRef = useRef<EditorModelIndex | null>(null);
-
-  // Helper to get or create model
-  const getOrCreateModel = (): EditorModelIndex => {
-    if (!modelRef.current) {
-      const node1 = createNode('paragraph', 'First node - try typing here');
-      const node2 = createNode('paragraph', 'Second node');
-      const node3 = createNode('heading', 'This is a heading');
-      const node4 = createNode('paragraph', 'Node with properties');
-
-      // Add properties to node4
-      node4.props = { status: 'active', priority: 'high' };
-
-      // SEGMENTED ARCHITECTURE: Create node with inline references
-      const node5 = createNode('paragraph');
-      node5.segments = [
-        { type: 'text', text: 'Check out ' },
-        {
-          type: 'inline',
-          kind: 'ref',
-          id: node3.id,
-          payload: { type: 'reference', targetId: node3.id },
-        },
-        { type: 'text', text: ' and also ' },
-        {
-          type: 'inline',
-          kind: 'ref',
-          id: node1.id,
-          payload: { type: 'reference', targetId: node1.id },
-        },
-      ];
-
-      const initialNodes: Node[] = [node1, node2, node3, node4, node5];
-
-      const initialCursor: IndexCursor = {
-        index: 0, // First node
-        segmentIndex: 0,
-        offset:
-          initialNodes[0]!.segments[0]?.type === 'text'
-            ? initialNodes[0]!.segments[0].text.length
-            : 0,
-      };
-
-      // Create instance-based model
-      modelRef.current = new EditorModelIndex(initialNodes, initialCursor);
-    }
-
-    return modelRef.current;
-  };
-
-  // 🔒 STEP 2: Create React state as MIRROR of model
+  // 🔒 React state is the single source of truth
   const [editorState, _setEditorStateRaw] = useState<EditorState>(() => {
-    const model = getOrCreateModel();
-    const nodes = model.getNodes();
-    const cursor = model.getCursor();
+    const node1 = createNode('paragraph', 'First node - try typing here');
+    const node2 = createNode('paragraph', 'Second node');
+    const node3 = createNode('heading', 'This is a heading');
+    const node4 = createNode('paragraph', 'Node with properties');
 
-    // Convert index cursor to legacy nodeId format (temporary)
-    const legacyCursor = cursorToNodeId(nodes, cursor);
+    // Add properties to node4
+    node4.props = { status: 'active', priority: 'high' };
+
+    // SEGMENTED ARCHITECTURE: Create node with inline references
+    const node5 = createNode('paragraph');
+    node5.segments = [
+      { type: 'text', text: 'Check out ' },
+      {
+        type: 'inline',
+        kind: 'ref',
+        id: node3.id,
+        payload: { type: 'reference', targetId: node3.id },
+      },
+      { type: 'text', text: ' and also ' },
+      {
+        type: 'inline',
+        kind: 'ref',
+        id: node1.id,
+        payload: { type: 'reference', targetId: node1.id },
+      },
+    ];
+
+    const initialNodes: Node[] = [node1, node2, node3, node4, node5];
 
     return {
-      nodes: nodes as UINode[],
-      cursor: legacyCursor,
+      nodes: initialNodes as UINode[],
+      cursor: {
+        nodeId: node1.id,
+        segmentIndex: 0,
+        offset: node1.segments[0]?.type === 'text' ? node1.segments[0].text.length : 0,
+      },
     };
   });
 
@@ -442,8 +411,7 @@ export function NodeEditor() {
 
   /**
    * Request selection for a node (called from NodeView pointerdown)
-   * - Updates modelRef cursor
-   * - Mirrors to React state
+   * - Updates React state cursor
    * - Focuses the node DOM and places caret in a stable location
    */
   function handleNodeRequestSelect(nodeId: string) {
@@ -452,17 +420,7 @@ export function NodeEditor() {
 
     const position = { nodeId: nodeId, segmentIndex: 0, offset: 0 } as any;
 
-    // Update index-based model first
-    try {
-      const idx = modelRef.current?.getIndexById(nodeId);
-      if (typeof idx === 'number' && modelRef.current) {
-        modelRef.current.updateCursor({ index: idx, segmentIndex: 0, offset: 0 });
-      }
-    } catch (err) {
-      // Silent fail
-    }
-
-    // Mirror to React state
+    // Update React state
     setEditorState({ ...editorState, cursor: position });
     setSelection({ anchor: null, focus: null });
 
@@ -797,15 +755,7 @@ export function NodeEditor() {
         const position = getNodePositionFromSelection(activeNode);
 
         if (position) {
-          // 🔒 INDEX-BASED: Convert nodeId to index IMMEDIATELY
-          const targetIndex = modelRef.current!.getIndexById(position.nodeId);
-
-          // Update INDEX-BASED model FIRST (UNIFIED MODEL)
-          modelRef.current!.updateCursor({
-            index: targetIndex,
-            segmentIndex: position.segmentIndex,
-            offset: position.offset,
-          });
+          // Position handling - React state is single source of truth
 
           // Mirror to React
           setEditorState({
@@ -963,30 +913,7 @@ export function NodeEditor() {
       // Silent check
     }
 
-    // 🔒 Sync modelRef whenever React state changes (UNIFIED MODEL)
-    if (changes.nodes && changes.cursor) {
-      const indexCursor = cursorToIndex(
-        changes.nodes,
-        changes.cursor.nodeId,
-        changes.cursor.segmentIndex,
-        changes.cursor.offset
-      );
-      modelRef.current!.updateState(changes.nodes as Node[], indexCursor);
-    } else if (changes.nodes) {
-      // Nodes changed but cursor unchanged - keep existing cursor
-      const currentCursor = modelRef.current!.getCursor();
-      modelRef.current!.updateState(changes.nodes as Node[], currentCursor);
-    } else if (changes.cursor) {
-      // Cursor-only update
-      const currentNodes = modelRef.current!.getNodes() as Node[];
-      const indexCursor = cursorToIndex(
-        currentNodes,
-        changes.cursor.nodeId,
-        changes.cursor.segmentIndex,
-        changes.cursor.offset
-      );
-      modelRef.current!.updateState(currentNodes, indexCursor);
-    }
+    // React state is single source of truth - no sync needed
 
     // PHASE 3C: Sync hashtags from text to properties (before committing)
     let finalNodes = changes.nodes;
@@ -3113,7 +3040,6 @@ export function NodeEditor() {
         const deps: CoordinatorDependencies = {
           context: {
             domObservers: domObservers,
-            modelRef: modelRef,
             needsCaretPlacementRef: needsCaretPlacementRef,
             structuralLockRef: structuralLockRef,
           },
@@ -3368,13 +3294,12 @@ export function NodeEditor() {
               grammarSession: grammarSession,
             };
 
-            const deps: CoordinatorDependencies = {
-              context: {
-                domObservers: domObservers,
-                modelRef: modelRef,
-                needsCaretPlacementRef: needsCaretPlacementRef,
-                structuralLockRef: structuralLockRef,
-              },
+        const deps: CoordinatorDependencies = {
+          context: {
+            domObservers: domObservers,
+            needsCaretPlacementRef: needsCaretPlacementRef,
+            structuralLockRef: structuralLockRef,
+          },
               commit: commit,
               requestCaretPlacement: requestCaretPlacement,
             };
@@ -3501,7 +3426,6 @@ export function NodeEditor() {
         const deps: CoordinatorDependencies = {
           context: {
             domObservers: domObservers,
-            modelRef: modelRef,
             needsCaretPlacementRef: needsCaretPlacementRef,
             structuralLockRef: structuralLockRef,
           },
@@ -3626,7 +3550,6 @@ export function NodeEditor() {
         const deps: CoordinatorDependencies = {
           context: {
             domObservers: domObservers,
-            modelRef: modelRef,
             needsCaretPlacementRef: needsCaretPlacementRef,
             structuralLockRef: structuralLockRef,
           },

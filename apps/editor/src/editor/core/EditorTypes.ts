@@ -16,7 +16,6 @@
  */
 
 import type { Node, NodeID, Segment, CursorPosition } from '../engine';
-import type { EditorModelIndex, IndexCursor } from '../EditorModel.index';
 import type { DOMObserver } from '../observer';
 
 /**
@@ -323,19 +322,9 @@ export interface CoordinatorContext {
   domObservers: React.MutableRefObject<Map<NodeID, DOMObserver>>;
 
   /**
-   * Index-based model instance
-   */
-  modelRef: React.MutableRefObject<EditorModelIndex | null>;
-
-  /**
    * Flag for requesting caret placement
    */
   needsCaretPlacementRef: React.MutableRefObject<boolean>;
-
-  /**
-   * Flag for structural commit lock
-   */
-  structuralLockRef: React.MutableRefObject<boolean>;
 
   /**
    * Structural lock (prevents selection changes during commits)
