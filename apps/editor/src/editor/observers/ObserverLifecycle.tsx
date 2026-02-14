@@ -15,7 +15,7 @@
 
 import { useEffect, useRef } from 'react';
 import { DOMObserver } from '../DOMObserver';
-import { scheduleRAF } from '../caret/CaretUtilities';
+import { scheduleRAF } from '../caret';
 import type { NodeID } from '../engine';
 
 /**

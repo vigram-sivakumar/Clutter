@@ -101,11 +101,8 @@ import {
   type IndexCursor,
 } from '../EditorModel.index';
 
-// 🔒 TYPE-SAFE RAF UTILITIES (Priority 1: Eliminate timestamp bugs)
-import { scheduleRAF, type CancelToken } from '../caret/CaretUtilities';
-
 // 🔒 CARET PLACEMENT (Priority 3: Eliminate race conditions)
-import { useCaretPlacement } from '../caret/CaretPlacement';
+import { useCaretPlacement, scheduleRAF, type CancelToken } from '../caret';
 
 // 🔒 OBSERVER LIFECYCLE (Priority 2: Eliminate lifecycle violations)
 import { useObserverLifecycle } from '../observers/ObserverLifecycle';

@@ -1,7 +1,7 @@
 /**
- * CaretPlacement.tsx
+ * caret.ts
  * 
- * React hook for managing caret placement after structural operations.
+ * Caret placement and RAF utilities for editor.
  * 
  * CRITICAL INVARIANTS:
  * - Handlers declare intent synchronously (before commit)
@@ -13,8 +13,69 @@
  */
 
 import { useEffect } from 'react';
-import { scheduleRAF } from './CaretUtilities';
-import type { Node, Segment, CursorPosition } from '../engine';
+import type { Node, Segment, CursorPosition } from './engine';
+
+// ============================
+// RAF Utilities
+// ============================
+
+/**
+ * RAF callback signature - NEVER accepts timestamp parameter
+ * This prevents the bug where RAF's timestamp gets interpreted as a function parameter
+ */
+export type RAFCallback = () => void;
+
+/**
+ * Token for cancelling a scheduled RAF callback
+ */
+export interface CancelToken {
+  cancel: () => void;
+}
+
+/**
+ * Type-safe wrapper for requestAnimationFrame
+ *
+ * GUARANTEES:
+ * - Callback is never passed the timestamp parameter
+ * - Callback can be cancelled via returned token
+ * - Cancelled callbacks will never execute
+ *
+ * @param callback - Function to execute on next frame (receives no arguments)
+ * @returns CancelToken for cancelling the callback
+ *
+ * @example
+ * ```typescript
+ * const token = scheduleRAF(() => {
+ *   console.log('Next frame!');
+ * });
+ *
+ * // Later, if needed:
+ * token.cancel();
+ * ```
+ */
+export function scheduleRAF(callback: RAFCallback): CancelToken {
+  let cancelled = false;
+
+  // Wrapper ensures callback receives no arguments
+  const wrappedCallback = (_timestamp: DOMHighResTimeStamp) => {
+    if (!cancelled) {
+      callback(); // ✅ No args passed to user callback
+    }
+  };
+
+  const rafId = requestAnimationFrame(wrappedCallback);
+
+  return {
+    cancel: () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+    },
+  };
+}
+
+// ============================
+// Caret Placement
+// ============================
 
 /**
  * Hook options
