@@ -14,7 +14,7 @@
  * - Cannot update cursor synchronously
  */
 
-import type { Node, CursorPosition } from './editor/engine';
+import type { Node, CursorPosition } from '../editor/engine';
 import { performEditorOperation } from './CommitPipeline';
 // ✂️ PHASE 2.5: TypingBuffer import DELETED
 import { isPipelineLocked } from './CommitPipeline';

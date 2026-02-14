@@ -13,7 +13,7 @@
  * If DOM is not ready, we WAIT structurally, not with timers.
  */
 
-import type { Node, CursorPosition } from './editor/engine';
+import type { Node, CursorPosition } from '../editor/engine';
 
 /**
  * Placement queue (FIFO)

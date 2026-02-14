@@ -104,15 +104,12 @@ import {
 // 🔒 CARET PLACEMENT (Priority 3: Eliminate race conditions)
 import { useCaretPlacement, scheduleRAF, type CancelToken } from '../caret';
 
-// 🔒 OBSERVER LIFECYCLE (Priority 2: Eliminate lifecycle violations)
-import { useObserverLifecycle } from '../observers/ObserverLifecycle';
-import { assertObserverStopped } from '../observers/ObserverCommit';
-
 // 🔒 PHASE 1: DOMObserver (parallel to TypingBuffer)
 import {
   DOMObserver,
   extractSegmentsFromDOM,
-} from '../DOMObserver';
+  assertObserverStopped,
+} from '../observer';
 
 // OLD SINGLETON — QUARANTINED (dual-model bug fixed, no longer used)
 // REMOVED: All handlers now use modelRef.current (EditorModelIndex) exclusively
@@ -398,14 +395,54 @@ export function NodeEditor() {
 
   // 🔒 FIX #4: Composition state moved earlier (line ~348) for newEditorState dependency
 
-  // 🔒 PRIORITY 2: Observer lifecycle hook (eliminates lifecycle violations)
+  // 🔒 PRIORITY 2: Observer lifecycle (inlined - eliminates lifecycle violations)
   // Manages DOMObserver creation/destruction based on node list
   // Handlers NEVER touch observers - React owns lifecycle
-  const { observers: domObservers } = useObserverLifecycle({
-    nodeIds: editorState.nodes.map((n) => n.id),
-    onMutationsBatched: undefined,
-    debug: __DEV__,
-  });
+  const domObservers = useRef<Map<NodeID, DOMObserver>>(new Map());
+
+  // Create/sync observers after render
+  useEffect(() => {
+    const nodeIds = editorState.nodes.map((n) => n.id);
+    
+    // Wait for DOM to be ready
+    const token = scheduleRAF(() => {
+      nodeIds.forEach((nodeId) => {
+        // Skip if observer already exists
+        if (domObservers.current.has(nodeId)) {
+          return;
+        }
+
+        // Find the contenteditable element
+        const element = document.querySelector(
+          `[data-node-id="${nodeId}"]`
+        ) as HTMLElement;
+
+        if (!element) {
+          return;
+        }
+
+        // Create observer
+        const observer = new DOMObserver({
+          element,
+          onMutationsBatched: undefined,
+        });
+
+        // Store and start
+        domObservers.current.set(nodeId, observer);
+        observer.start();
+      });
+    });
+
+    // Cleanup on unmount or when nodeIds change
+    return () => {
+      token.cancel();
+
+      domObservers.current.forEach((observer) => {
+        observer.destroy();
+      });
+      domObservers.current.clear();
+    };
+  }, [editorState.nodes.length]); // Re-run when node count changes
 
   // 🔒 SINGLETON GUARD: Prevent re-initialization
   const pipelineInitializedRef = useRef(false);
@@ -503,8 +540,8 @@ export function NodeEditor() {
     });
   }
 
-  // ✅ PRIORITY 2: Observer lifecycle now managed by useObserverLifecycle hook
-  // Manual observer creation/destruction removed - React owns lifecycle
+  // ✅ PRIORITY 2: Observer lifecycle inlined above
+  // React owns lifecycle - direct useEffect, no hook wrapper
 
   // DEBUG: Track all state changes
   // Removed logging useEffect

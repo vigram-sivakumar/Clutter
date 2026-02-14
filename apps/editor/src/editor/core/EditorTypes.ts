@@ -17,7 +17,7 @@
 
 import type { Node, NodeID, Segment, CursorPosition } from '../engine';
 import type { EditorModelIndex, IndexCursor } from '../EditorModel.index';
-import type { DOMObserver } from '../DOMObserver';
+import type { DOMObserver } from '../observer';
 
 /**
  * Ephemeral caret placement intent

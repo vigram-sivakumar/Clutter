@@ -20,10 +20,9 @@ import type { EditorStateComplete } from './EditorTypes';
 import { useEditorStateReducer } from '../reducer';
 import { createEditorCoordinator } from './EditorCoordinator';
 import { handleKeyboardEvent, handleSelectionChange, handleCompositionStart, handleCompositionEnd } from '../keyboard';
-import { useObserverLifecycle } from '../observers/ObserverLifecycle';
-import { useCaretPlacement } from '../caret/CaretPlacement';
+import { useCaretPlacement } from '../caret';
 import { EditorModelIndex } from '../EditorModel.index';
-import type { DOMObserver } from '../DOMObserver';
+import type { DOMObserver } from '../observer';
 
 /**
  * Core editor component (NEW ARCHITECTURE)
@@ -83,14 +82,8 @@ export function NodeEditorCore() {
   // 4. HOOKS (Effects, Side Effects)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  // Observer lifecycle (Priority 2)
-  useObserverLifecycle({
-    nodeIds: editorState.nodes.map((n) => n.id),
-    onMutationsBatched: (nodeId, mutations) => {
-
-    },
-    debug: true,
-  });
+  // Observer lifecycle (Priority 2) - REMOVED
+  // NodeEditorCore is deprecated - using NodeEditor instead
 
   // Caret placement (Priority 3)
   useCaretPlacement({

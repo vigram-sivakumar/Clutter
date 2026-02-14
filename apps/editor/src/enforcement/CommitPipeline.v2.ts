@@ -8,7 +8,7 @@
  * - Multi-document isolation GUARANTEED
  */
 
-import type { Node, CursorPosition } from './editor/engine';
+import type { Node, CursorPosition } from '../editor/engine';
 // NOTE: EditorModel.v2 file removed - use EditorModelIndex types
 // import type { EditorModel } from '../editor/EditorModel.v2';
 // ✂️ PHASE 2.5: TypingBuffer type import DELETED

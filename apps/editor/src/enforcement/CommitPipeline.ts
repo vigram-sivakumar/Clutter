@@ -17,7 +17,7 @@
  * If you bypass this pipeline, the system WILL break.
  */
 
-import type { Node, CursorPosition } from './editor/engine';
+import type { Node, CursorPosition } from '../editor/engine';
 // ✂️ PHASE 2.5: TypingBuffer imports DELETED
 // NOTE: EditorModel singleton removed - pipeline now works with explicit state
 import { assertEditorInvariants, deepFreeze } from './invariants';

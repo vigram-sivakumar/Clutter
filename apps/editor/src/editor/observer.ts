@@ -1,35 +1,24 @@
 /**
- * DOMObserver - MutationObserver-based DOM change tracking
- *
+ * observer.ts
+ * 
+ * MutationObserver-based DOM change tracking for editor.
+ * 
  * CRITICAL ARCHITECTURAL INVARIANTS:
- *
- * 1. MutationObserver tracks CONTENT mutations only (Fix #1)
- *    - Text changes
- *    - Element insertions/removals
- *    - Attribute changes
- *
- * 2. MutationObserver does NOT track (Fix #1):
- *    - Selection/cursor changes
- *    - Caret movement
- *    - Some IME composition states (Safari)
- *
- * 3. Cursor position MUST be read synchronously from window.getSelection()
- *    at commit boundaries. NEVER infer cursor from mutations. (Fix #1)
- *
- * 4. Pending mutations are for diagnostics ONLY (Fix #2)
- *    They MUST NOT be used to infer editor state.
- *    All authoritative state is extracted from DOM at commit boundaries.
- *
- * 5. This observer is PASSIVE, not REACTIVE
- *    - It logs mutations
- *    - It does NOT automatically update state
- *    - State updates happen explicitly at commit boundaries
- *
+ * 1. MutationObserver tracks CONTENT mutations only (text, elements)
+ * 2. MutationObserver does NOT track selection/cursor changes
+ * 3. Cursor MUST be read synchronously from window.getSelection() at commit boundaries
+ * 4. Pending mutations are for diagnostics ONLY
+ * 5. Observer is PASSIVE, not REACTIVE
+ * 
  * Architecture: Inspired by Tana's approach (see TANA-COMPLETE-LEARNINGS.md)
  * Contract: All usage must follow COMMIT-BOUNDARY-CONTRACT.md
  */
 
 import type { Segment } from './engine';
+
+// ============================
+// DOMObserver Class
+// ============================
 
 export interface DOMObserverConfig {
   /**
@@ -70,7 +59,7 @@ export interface DOMObserverConfig {
  * observer.clearPendingMutations(); // CRITICAL: Clear diagnostics
  * requestAnimationFrame(() => observer.start()); // Restart after React render
  *
- * // On unmount or node deletion (Fix #5)
+ * // On unmount or node deletion
  * observer.destroy(); // CRITICAL: Prevent memory leak
  * ```
  */
@@ -80,7 +69,7 @@ export class DOMObserver {
   private isObserving = false;
 
   /**
-   * Pending mutations - FOR DIAGNOSTICS ONLY (Fix #2)
+   * Pending mutations - FOR DIAGNOSTICS ONLY
    *
    * CRITICAL: These MUST NOT be used to infer editor state.
    *
@@ -107,10 +96,10 @@ export class DOMObserver {
     this.onMutationsBatched = config.onMutationsBatched;
 
     this.observer = new MutationObserver((mutations) => {
-      // Store for diagnostics (Fix #2: explicitly non-authoritative)
+      // Store for diagnostics (explicitly non-authoritative)
       this.pendingMutations.push(...mutations);
 
-      // 🔬 FORENSIC LOG 5b: Observer Fires
+      // 🔬 FORENSIC LOG: Observer Fires
       if (__DEV__) {
         const nodeId = this.element.getAttribute('data-node-id');
         const isEmpty = this.element.textContent?.length === 0;
@@ -152,7 +141,7 @@ export class DOMObserver {
 
     this.isObserving = true;
 
-    // 🔬 FORENSIC LOG 5: Observer Lifecycle
+    // 🔬 FORENSIC LOG: Observer Lifecycle
     if (__DEV__) {
       const nodeId = this.element.getAttribute('data-node-id');
       const segments = this.element.textContent?.length || 0;
@@ -196,7 +185,7 @@ export class DOMObserver {
   /**
    * Get pending mutations for diagnostics
    *
-   * WARNING: Do not use these for state computation. (Fix #2)
+   * WARNING: Do not use these for state computation.
    * This is for logging/debugging only.
    *
    * Return value is a shallow copy to prevent external mutation.
@@ -209,7 +198,6 @@ export class DOMObserver {
    * Clear pending mutations
    *
    * MUST be called after every commit boundary to prevent stale diagnostic data.
-   * (Fix #2)
    *
    * Call this:
    * - After `commit()` in all commit boundaries
@@ -224,7 +212,7 @@ export class DOMObserver {
   }
 
   /**
-   * Destroy observer (Fix #5: Lifecycle management)
+   * Destroy observer (lifecycle management)
    *
    * MUST be called when:
    * - Node is deleted (Backspace merge, general deletion)
@@ -234,8 +222,6 @@ export class DOMObserver {
    * Failure to call this will:
    * - Cause memory leaks (observer still attached to deleted node)
    * - Cause phantom mutations (observer fires on garbage-collected nodes)
-   *
-   * This is CRITICAL for Fix #5.
    */
   destroy() {
     this.stop();
@@ -250,6 +236,10 @@ export class DOMObserver {
   }
 }
 
+// ============================
+// Segment Extraction
+// ============================
+
 /**
  * Extract segments from a contentEditable DOM element
  *
@@ -257,7 +247,7 @@ export class DOMObserver {
  * It replaces `handleSegmentedInput()` from the old architecture.
  *
  * USAGE:
- * Call this ONLY at commit boundaries (Fix #1):
+ * Call this ONLY at commit boundaries:
  * - Enter key
  * - Backspace merge
  * - Blur
@@ -269,7 +259,7 @@ export class DOMObserver {
  * - On input events
  * - While observer is running (stop it first)
  *
- * CURSOR POSITION (Fix #1):
+ * CURSOR POSITION:
  * This function does NOT return cursor position.
  * You MUST read cursor separately using window.getSelection().
  *
@@ -378,6 +368,10 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
 
   return segments;
 }
+
+// ============================
+// Helpers
+// ============================
 
 /**
  * Development-only assertions for observer state
