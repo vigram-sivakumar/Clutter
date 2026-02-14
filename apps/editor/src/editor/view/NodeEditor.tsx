@@ -177,13 +177,11 @@ import {
   handleReferencePickerOpen,
   handleSaveViewDialogOpen,
   handleTemplatePickerOpen,
-} from '../input/KeyboardHandlers';
-import {
   handleSelectionChange as handleSelectionChangeNew,
   handleBlur as handleBlurNew,
   handleCompositionStart as handleCompositionStartNew,
   handleCompositionEnd as handleCompositionEndNew,
-} from '../input/SelectionHandlers';
+} from '../keyboard';
 
 /**
  * STEP 8.1 — UI-extended Node

@@ -12,7 +12,7 @@ import {
   handleBlur,
   handleCompositionStart,
   handleCompositionEnd,
-} from '../SelectionHandlers';
+} from '../../keyboard';
 import type { EditorStateComplete } from '../../core/EditorTypes';
 import type { Node, NodeID } from '../../../engine/NodeKernel';
 

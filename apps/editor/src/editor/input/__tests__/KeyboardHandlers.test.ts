@@ -19,7 +19,7 @@ import {
   handleArrow,
   handleTab,
   handleKeyboardEvent,
-} from '../KeyboardHandlers';
+} from '../../keyboard';
 import type { EditorStateComplete } from '../../core/EditorTypes';
 import type { Node, NodeID } from '../../../engine/NodeKernel';
 
