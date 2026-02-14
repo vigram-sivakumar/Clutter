@@ -14,7 +14,7 @@
  * - No concurrent operations
  */
 
-import type { Node, CursorPosition } from '../engine/NodeKernel';
+import type { Node, CursorPosition } from './editor/engine';
 // NOTE: EditorModel singleton removed - pipeline now works with explicit state
 // import { updateModel, getModel } from '../editor/EditorModel';
 // ✂️ PHASE 2.5: TypingBuffer import DELETED

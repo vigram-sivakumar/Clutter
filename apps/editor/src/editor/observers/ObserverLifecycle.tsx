@@ -16,7 +16,7 @@
 import { useEffect, useRef } from 'react';
 import { DOMObserver } from '../DOMObserver';
 import { scheduleRAF } from '../caret/CaretUtilities';
-import type { NodeID } from '../../engine/NodeKernel';
+import type { NodeID } from '../engine';
 
 /**
  * Observer map type

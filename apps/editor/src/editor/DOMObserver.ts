@@ -29,7 +29,7 @@
  * Contract: All usage must follow COMMIT-BOUNDARY-CONTRACT.md
  */
 
-import type { Segment } from '../engine/NodeKernel';
+import type { Segment } from './engine';
 
 export interface DOMObserverConfig {
   /**

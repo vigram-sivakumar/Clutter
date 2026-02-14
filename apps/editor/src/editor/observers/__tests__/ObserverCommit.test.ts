@@ -11,7 +11,7 @@ import {
   getNodePositionFromSelection,
   assertObserverStopped,
 } from '../ObserverCommit';
-import type { Node, Segment } from '../../../engine/NodeKernel';
+import type { Node, Segment } from '../../engine';
 
 // Mock extractSegmentsFromDOM
 vi.mock('../../DOMObserver', () => ({

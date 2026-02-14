@@ -19,7 +19,7 @@
  */
 
 import { useReducer } from 'react';
-import type { Node, NodeID, Segment } from '../engine/NodeKernel';
+import type { Node, NodeID, Segment, NodeVariant } from './engine';
 import type {
   EditorStateComplete,
   EditorAction,
@@ -29,7 +29,7 @@ import {
   handleSegmentedEnter,
   handleSegmentedBackspace,
   mergeWithPrevious,
-} from '../engine/SegmentedEditor';
+} from './engine';
 
 /**
  * Ensure a node has at least one segment for cursor placement

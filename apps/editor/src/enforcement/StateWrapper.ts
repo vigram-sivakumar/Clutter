@@ -13,7 +13,7 @@
  * - Cannot mutate outside pipeline
  */
 
-import type { Node, CursorPosition } from '../engine/NodeKernel';
+import type { Node, CursorPosition } from './editor/engine';
 // NOTE: EditorModel singleton removed - wrapper now works without model sync
 import { assertEditorInvariants } from './invariants';
 import { isPipelineLocked } from './CommitPipeline';

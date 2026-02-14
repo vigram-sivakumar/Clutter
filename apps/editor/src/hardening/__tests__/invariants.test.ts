@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Node, Segment } from '../../engine/NodeKernel';
+import type { Node, Segment } from '../editor/engine';
 import { performGuaranteedSplit } from '../split-state-machine';
 import { assertValidNode, assertValidCursor, assertSplitPreservesContent } from '../invariants';
 

@@ -21,7 +21,7 @@ import {
   handleKeyboardEvent,
 } from '../../keyboard';
 import type { EditorStateComplete } from '../../core/EditorTypes';
-import type { Node, NodeID } from '../../../engine/NodeKernel';
+import type { Node, NodeID } from '../../engine';
 
 // Helper to create minimal test state
 function createTestState(nodeId: NodeID = '1' as NodeID): EditorStateComplete {

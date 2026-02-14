@@ -11,7 +11,7 @@
  * - Duplication is explicit copy with clear semantics
  */
 
-import type { NodeID, Node } from './engine/NodeKernel';
+import type { NodeID, Node } from './editor/engine';
 import type { PersistedState } from './normalize';
 
 /**

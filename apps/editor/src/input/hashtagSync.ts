@@ -14,9 +14,9 @@
  * - No background magic
  */
 
-import type { Node } from '../engine/NodeKernel';
+import type { Node } from './editor/engine';
 import { parseAllHashtags, normalizePropertyKey } from './parseHashtag';
-import { getPlainText } from '../engine/SegmentUtils';
+import { getPlainText } from './editor/engine';
 
 /**
  * Sync result

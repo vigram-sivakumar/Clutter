@@ -45,15 +45,14 @@ declare global {
 (globalThis as any).__DEV__ = import.meta.env.DEV;
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import type { Node, NodeID, Segment } from '../../engine/NodeKernel';
+import type { Node, NodeID, Segment, EditorState, CursorPosition } from '../engine';
 import {
   createNode,
   insertNodeAfter,
   replaceNode,
   getPreviousNode,
   deleteNode as removeNodeFromArray,
-} from '../../engine/NodeKernel';
-import type { EditorState, CursorPosition } from '../../engine/EditorState';
+} from '../engine';
 import { NodeView } from './NodeView';
 import {
   normalizePersistedState,
@@ -129,7 +128,7 @@ import {
 //   getModelNode,
 //   getModelCursor,
 // } from './editor/EditorModel';
-import { getPlainText, getCursorOffsetInPlainText } from '../../engine/SegmentUtils';
+import { getPlainText, getCursorOffsetInPlainText } from '../engine';
 import {
   getNodePositionFromSelection,
   getSelectionRangeFromDOM,
@@ -1264,7 +1263,7 @@ export function NodeEditor() {
           afterId?: NodeID | null
         ) => {
           // Validate and cast nodeType
-          const validType: import('./engine/NodeKernel').NodeType =
+          const validType: import('../engine').NodeType =
             nodeType === 'heading' ? 'heading' : 'paragraph';
 
           const newNode = createNode(validType, text, parentId || null);

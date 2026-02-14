@@ -21,8 +21,7 @@
  */
 
 import type { EditorStateComplete, EditorAction, CoordinatorContext } from './EditorTypes';
-import type { CursorPosition } from '../../engine/EditorState';
-import type { Node } from '../../engine/NodeKernel';
+import type { CursorPosition, Node } from '../engine';
 import { editorReducer, validateEditorState } from '../reducer';
 
 /**

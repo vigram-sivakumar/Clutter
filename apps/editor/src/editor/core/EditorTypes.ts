@@ -15,8 +15,7 @@
  * Coordinator orchestrates side effects.
  */
 
-import type { Node, NodeID, Segment } from '../../engine/NodeKernel';
-import type { CursorPosition } from '../../engine/EditorState';
+import type { Node, NodeID, Segment, CursorPosition } from '../engine';
 import type { EditorModelIndex, IndexCursor } from '../EditorModel.index';
 import type { DOMObserver } from '../DOMObserver';
 

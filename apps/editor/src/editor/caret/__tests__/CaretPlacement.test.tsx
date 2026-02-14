@@ -8,8 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useCaretPlacement } from '../CaretPlacement';
-import type { Node } from '../../../engine/NodeKernel';
-import type { CursorPosition } from '../../../engine/EditorState';
+import type { Node, CursorPosition } from '../../engine';
 
 describe('useCaretPlacement', () => {
   beforeEach(() => {

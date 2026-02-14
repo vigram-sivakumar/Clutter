@@ -7,8 +7,8 @@
  * FAILURE MODE: Crash early, never corrupt.
  */
 
-import type { Node, Segment, NodeID } from '../engine/NodeKernel';
-import type { CursorPosition } from '../engine/EditorState';
+import type { Node, Segment, NodeID } from './editor/engine';
+import type { CursorPosition } from './editor/engine';
 
 /**
  * Assert node structure is valid

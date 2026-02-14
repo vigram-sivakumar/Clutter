@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { editorReducer } from '../../reducer';
 import type { EditorStateComplete, EditorAction } from '../EditorTypes';
-import type { Node, NodeID } from '../../../engine/NodeKernel';
+import type { Node, NodeID } from '../../engine';
 
 // Helper to create minimal test state
 function createTestState(nodes: Node[]): EditorStateComplete {

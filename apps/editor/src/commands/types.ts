@@ -19,7 +19,7 @@
  * - Sync operations
  */
 
-import type { NodeID } from '../engine/NodeKernel';
+import type { NodeID } from '../editor/engine';
 
 /**
  * CATEGORY 1 — NODE CONTENT COMMANDS

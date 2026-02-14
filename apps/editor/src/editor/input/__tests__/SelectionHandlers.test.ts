@@ -14,7 +14,7 @@ import {
   handleCompositionEnd,
 } from '../../keyboard';
 import type { EditorStateComplete } from '../../core/EditorTypes';
-import type { Node, NodeID } from '../../../engine/NodeKernel';
+import type { Node, NodeID } from '../../engine';
 
 // Mock domMapping
 vi.mock('../../../selection/domMapping', () => ({

@@ -23,10 +23,9 @@
  */
 
 import { useRef, useEffect, useLayoutEffect } from 'react';
-import type { Node, Segment } from '../../engine/NodeKernel';
-import { getNodeVariant } from '../../engine/NodeKernel';
+import type { Node, Segment, CursorPosition } from '../engine';
+import { getNodeVariant } from '../engine';
 import type { CaretIntent } from '../core/EditorTypes';
-import type { CursorPosition } from '../../engine/EditorState';
 
 /**
  * Pure caret placement function

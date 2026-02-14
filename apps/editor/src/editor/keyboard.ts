@@ -17,11 +17,11 @@
  */
 
 import type { EditorStateComplete, HandlerResult } from './core/EditorTypes';
-import type { Node, NodeID, Segment } from '../engine/NodeKernel';
+import type { Node, NodeID, Segment } from './engine';
 import {
   getCursorOffsetInPlainText,
   findSegmentAtPlainTextOffset,
-} from '../engine/SegmentUtils';
+} from './engine';
 import { getNodePositionFromSelection } from './input/domMapping';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

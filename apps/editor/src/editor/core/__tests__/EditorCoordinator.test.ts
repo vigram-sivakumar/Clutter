@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { createEditorCoordinator } from '../EditorCoordinator';
 import type { EditorAction, CoordinatorContext } from '../EditorTypes';
-import type { NodeID } from '../../../engine/NodeKernel';
+import type { NodeID } from '../../engine';
 
 // Mock DOMObserver
 vi.mock('../../DOMObserver', () => ({

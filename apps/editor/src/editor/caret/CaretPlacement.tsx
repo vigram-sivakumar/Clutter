@@ -14,8 +14,7 @@
 
 import { useEffect } from 'react';
 import { scheduleRAF } from './CaretUtilities';
-import type { Node, Segment } from '../../engine/NodeKernel';
-import type { CursorPosition } from '../../engine/EditorState';
+import type { Node, Segment, CursorPosition } from '../engine';
 
 /**
  * Hook options

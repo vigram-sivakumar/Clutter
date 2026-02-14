@@ -13,7 +13,7 @@
  * Never rely on comments or documentation.
  */
 
-import type { Node, CursorPosition, Segment } from '../engine/NodeKernel';
+import type { Node, CursorPosition, Segment } from './editor/engine';
 // ✂️ PHASE 2.5: TypingBuffer imports DELETED
 // NOTE: EditorModel singleton removed - invariants now take explicit state parameters
 

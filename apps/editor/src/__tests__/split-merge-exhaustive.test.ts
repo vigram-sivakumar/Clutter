@@ -8,10 +8,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { Node, Segment, NodeID } from '../engine/NodeKernel';
-import { createNode, generateNodeId } from '../engine/NodeKernel';
-import { handleSegmentedEnter, mergeWithPrevious } from '../engine/SegmentedEditor';
-import { getPlainText } from '../engine/SegmentUtils';
+import type { Node, Segment, NodeID } from '../editor/engine';
+import { createNode, generateNodeId } from '../editor/engine';
+import { handleSegmentedEnter, mergeWithPrevious } from '../editor/engine';
+import { getPlainText } from '../editor/engine';
 import {
   assertValidNode,
   assertValidCursor,
@@ -20,7 +20,7 @@ import {
   assertNodeIntegrity,
 } from '../hardening/invariants';
 import { performGuaranteedSplit } from '../hardening/split-state-machine';
-import type { CursorPosition } from '../engine/EditorState';
+import type { CursorPosition } from '../editor/engine';
 
 describe('🔒 Exhaustive Split Tests', () => {
   

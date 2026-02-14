@@ -16,9 +16,8 @@
  */
 
 import type { Command, CommandResult, NodeRef } from './types';
-import type { Node, NodeID } from '../engine/NodeKernel';
-import type { EditorState } from '../engine/EditorState';
-import { getPlainText, findSegmentAtPlainTextOffset } from '../engine/SegmentUtils';
+import type { Node, NodeID, EditorState } from '../editor/engine';
+import { getPlainText, findSegmentAtPlainTextOffset } from '../editor/engine';
 
 /**
  * Editor Context

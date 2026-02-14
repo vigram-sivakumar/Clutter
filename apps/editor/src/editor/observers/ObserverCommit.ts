@@ -14,8 +14,7 @@
  * See: EDITOR-LIFECYCLE-CONTRACT.md
  */
 
-import type { Segment, Node, NodeID } from '../../engine/NodeKernel';
-import type { CursorPosition } from '../../engine/EditorState';
+import type { Segment, Node, NodeID, CursorPosition } from '../engine';
 import { extractSegmentsFromDOM } from '../DOMObserver';
 import type { ObserverMap } from './ObserverLifecycle';
 

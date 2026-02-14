@@ -8,7 +8,7 @@
  * - Model === React (when not typing)
  */
 
-import type { Node, CursorPosition } from '../engine/NodeKernel';
+import type { Node, CursorPosition } from './editor/engine';
 // NOTE: EditorModel singleton removed - invariants now take explicit state
 // import { getModel } from '../editor/EditorModel';
 // ✂️ PHASE 2.5: TypingBuffer import DELETED

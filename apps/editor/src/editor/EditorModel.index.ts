@@ -11,7 +11,7 @@
  * This eliminates insertion bugs FOREVER.
  */
 
-import type { Node, Segment } from '../engine/NodeKernel';
+import type { Node, Segment } from './engine';
 
 /**
  * Index-based cursor (single source of truth)

@@ -7,8 +7,8 @@
  * If a new segment type is added, this MUST be updated (compiler will error).
  */
 
-import type { Segment } from '../engine/NodeKernel';
-import type { CursorPosition } from '../engine/EditorState';
+import type { Segment } from './editor/engine';
+import type { CursorPosition } from './editor/engine';
 
 /**
  * Split cases (EXHAUSTIVE)

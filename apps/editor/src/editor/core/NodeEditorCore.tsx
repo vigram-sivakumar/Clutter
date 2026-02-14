@@ -15,8 +15,7 @@
  */
 
 import { useRef, useMemo, useEffect } from 'react';
-import type { Node, NodeID } from '../../engine/NodeKernel';
-import type { CursorPosition } from '../../engine/EditorState';
+import type { Node, NodeID, CursorPosition } from '../engine';
 import type { EditorStateComplete } from './EditorTypes';
 import { useEditorStateReducer } from '../reducer';
 import { createEditorCoordinator } from './EditorCoordinator';
