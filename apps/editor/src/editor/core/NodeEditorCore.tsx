@@ -18,7 +18,7 @@ import { useRef, useMemo, useEffect } from 'react';
 import type { Node, NodeID } from '../../engine/NodeKernel';
 import type { CursorPosition } from '../../engine/EditorState';
 import type { EditorStateComplete } from './EditorTypes';
-import { useEditorStateReducer } from './EditorStateReducer';
+import { useEditorStateReducer } from '../reducer';
 import { createEditorCoordinator } from './EditorCoordinator';
 import { handleKeyboardEvent, handleSelectionChange, handleCompositionStart, handleCompositionEnd } from '../keyboard';
 import { useObserverLifecycle } from '../observers/ObserverLifecycle';

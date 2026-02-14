@@ -160,7 +160,7 @@ import { nanoid } from 'nanoid';
 import {
   editorReducer,
   useEditorStateReducer,
-} from '../core/EditorStateReducer';
+} from '../reducer';
 import { executeAction, shouldRequestCaret, type CoordinatorDependencies } from '../core/EditorCoordinator';
 import {
   handleArrow,

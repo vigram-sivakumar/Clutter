@@ -23,7 +23,7 @@
 import type { EditorStateComplete, EditorAction, CoordinatorContext } from './EditorTypes';
 import type { CursorPosition } from '../../engine/EditorState';
 import type { Node } from '../../engine/NodeKernel';
-import { editorReducer, validateEditorState } from './EditorReducer';
+import { editorReducer, validateEditorState } from '../reducer';
 
 /**
  * Dependencies needed by coordinator to execute actions
