@@ -25,7 +25,7 @@
 import { useRef, useEffect, useLayoutEffect } from 'react';
 import type { Node, Segment, CursorPosition } from '../engine';
 import { getNodeVariant } from '../engine';
-import type { CaretIntent } from '../core/EditorTypes';
+import type { CaretIntent } from '../EditorTypes';
 
 /**
  * Pure caret placement function

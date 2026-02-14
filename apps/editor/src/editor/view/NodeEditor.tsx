@@ -64,7 +64,8 @@ import {
   LATEST_VERSION,
 } from '../../normalize';
 import { migrateToLatest } from '../../migrations';
-import { usePersistence, PersistenceStatus } from '../../ui/persistence';
+import { usePersistence } from '../../ui/persistence/usePersistence';
+import { PersistenceStatus } from '../../ui/persistence/PersistenceStatus';
 import type { GrammarSession } from '../../ui/grammar/grammarSession';
 import {
   EMPTY_GRAMMAR_SESSION,
@@ -91,7 +92,7 @@ import {
   matchQuery,
   isNodeEmpty,
   getNodeLabel as getNodeLabelFromSegments,
-} from '../index';
+} from '../engine';
 // TypingBuffer imports DELETED - Phase 2.5 complete
 // EditorModel.index removed - React state is single source of truth
 
@@ -120,7 +121,7 @@ import { getPlainText, getCursorOffsetInPlainText } from '../engine';
 import {
   getNodePositionFromSelection,
   getSelectionRangeFromDOM,
-} from '../input/domMapping';
+} from '../domMapping';
 
 // 🔒 ENFORCEMENT LAYER - Makes violations impossible
 // REMOVED: performEditorOperation (incompatible with unified model, replaced with withStructuralCommit)
@@ -133,13 +134,13 @@ import {
   type HandlerResult,
   type CoordinatorContext,
   type CaretIntent,
-} from '../core/EditorTypes';
+} from '../EditorTypes';
 import { nanoid } from 'nanoid';
 import {
   editorReducer,
   useEditorStateReducer,
 } from '../reducer';
-import { executeAction, shouldRequestCaret, type CoordinatorDependencies } from '../core/EditorCoordinator';
+import { executeAction, shouldRequestCaret, type CoordinatorDependencies } from '../EditorCoordinator';
 import {
   handleArrow,
   handleTab,
@@ -578,9 +579,8 @@ export function NodeEditor() {
   );
 
   // PHASE 23 — Sync conflicts state (UI-only, session-scoped)
-  const [_syncConflicts, _setSyncConflicts] = useState<
-    import('./sync').Conflict[] | null
-  >(null);
+  // sync.ts removed - conflicts feature not yet implemented
+  const [_syncConflicts, _setSyncConflicts] = useState<any[] | null>(null);
 
   // UI PHASE 2 — Workspace state (single workspace for now)
   const [workspaceId] = useState<string>(() => crypto.randomUUID());

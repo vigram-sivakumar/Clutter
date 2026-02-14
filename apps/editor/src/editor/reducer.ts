@@ -24,7 +24,7 @@ import type {
   EditorStateComplete,
   EditorAction,
   SelectionRange,
-} from './core/EditorTypes';
+} from './EditorTypes';
 import {
   handleSegmentedEnter,
   handleSegmentedBackspace,

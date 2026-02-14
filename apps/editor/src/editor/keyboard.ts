@@ -16,13 +16,13 @@
  * - Coordinator handles orchestration
  */
 
-import type { EditorStateComplete, HandlerResult } from './core/EditorTypes';
+import type { EditorStateComplete, HandlerResult } from './EditorTypes';
 import type { Node, NodeID, Segment } from './engine';
 import {
   getCursorOffsetInPlainText,
   findSegmentAtPlainTextOffset,
 } from './engine';
-import { getNodePositionFromSelection } from './input/domMapping';
+import { getNodePositionFromSelection } from './domMapping';
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Keyboard Handling

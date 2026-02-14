@@ -12,7 +12,8 @@
  * DOM sibling order + caret-anchor class = ground truth.
  */
 
-import type { Node, NodeID, CursorPosition } from '../engine';
+import type { CursorPosition, NodeID } from './engine';
+import { Node } from './engine';
 
 type DOMNode = globalThis.Node;
 

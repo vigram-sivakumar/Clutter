@@ -15,8 +15,8 @@
  * Coordinator orchestrates side effects.
  */
 
-import type { Node, NodeID, Segment, CursorPosition } from '../engine';
-import type { DOMObserver } from '../observer';
+import type { Node, NodeID, Segment, CursorPosition } from './engine';
+import type { DOMObserver } from './observer';
 
 /**
  * Ephemeral caret placement intent
