@@ -15,6 +15,7 @@
  */
 
 import type { Node, NodeID } from './editor/engine';
+import { generateNodeId } from './editor/engine';
 
 /**
  * PHASE 22 — Recovery Action Types
@@ -172,16 +173,9 @@ type NormalizedNode = UINode & {
 };
 
 /**
- * ID generation counter (deterministic per normalization call)
+ * ID generation is now centralized in engine.ts
+ * All IDs are generated via generateNodeId() for consistency
  */
-let idCounter = 0;
-
-/**
- * Generate a new deterministic ID
- */
-function generateId(): string {
-  return `node-${Date.now()}-${idCounter++}`;
-}
 
 /**
  * STEP 1 — Shape Normalization
@@ -211,6 +205,7 @@ function normalizeShape(input: unknown): {
  *
  * IDs first, always. Coerce or generate.
  * PHASE 20: Emit events for missing/invalid IDs.
+ * MIGRATION: Convert legacy text field to segments.
  */
 function normalizeNodeIdentities(
   rawNodes: any[],
@@ -224,16 +219,29 @@ function normalizeNodeIdentities(
     } else if (raw.id != null) {
       id = String(raw.id);
     } else {
-      id = generateId();
+      id = generateNodeId();
       // PHASE 20: Record missing ID
       recovery.push({ type: 'missing-id', generatedId: id });
+    }
+
+    // MIGRATION: Ensure segments exist, migrate from legacy text field if needed
+    let segments: any[];
+    if (Array.isArray(raw.segments) && raw.segments.length > 0) {
+      // Segments already exist - keep them
+      segments = raw.segments;
+    } else if (typeof raw.text === 'string' && raw.text.trim() !== '') {
+      // Legacy text field exists - convert to segments
+      segments = [{ type: 'text', text: raw.text }];
+    } else {
+      // No content - empty segments
+      segments = [];
     }
 
     return {
       ...raw,
       id,
       __originalId: raw.id ?? id,
-      text: typeof raw.text === 'string' ? raw.text : '',
+      segments,
       type: raw.type === 'heading' ? 'heading' : 'paragraph',
       parentId: raw.parentId ?? null,
     } as NormalizedNode;
@@ -261,7 +269,7 @@ function deduplicateIds(
     if (seen.has(node.id)) {
       // Duplicate detected
       const oldId = node.id;
-      const newId = generateId();
+      const newId = generateNodeId();
       remap.set(oldId, newId);
       seen.add(newId);
 
@@ -550,7 +558,7 @@ function normalizeViews(
     .map((raw) => {
       if (!raw || typeof raw !== 'object') return null;
 
-      const id = typeof raw.id === 'string' && raw.id ? raw.id : generateId();
+      const id = typeof raw.id === 'string' && raw.id ? raw.id : generateNodeId();
       const name =
         typeof raw.name === 'string' && raw.name ? raw.name : 'Untitled View';
 
@@ -604,7 +612,7 @@ function normalizeTemplates(
     .map((raw) => {
       if (!raw || typeof raw !== 'object') return null;
 
-      const id = typeof raw.id === 'string' && raw.id ? raw.id : generateId();
+      const id = typeof raw.id === 'string' && raw.id ? raw.id : generateNodeId();
       const name =
         typeof raw.name === 'string' && raw.name
           ? raw.name
@@ -727,9 +735,6 @@ function normalizeSingleDocument(
  * Phase 20: Also returns recovery events for observability.
  */
 export function normalizePersistedState(input: unknown): NormalizationResult {
-  // Reset ID counter for determinism within this call
-  idCounter = 0;
-
   // PHASE 20: Recovery event accumulator
   const recovery: RecoveryEvent[] = [];
 

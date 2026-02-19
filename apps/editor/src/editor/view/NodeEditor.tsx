@@ -44,7 +44,7 @@ declare global {
 // Set dev mode
 (globalThis as any).__DEV__ = import.meta.env.DEV;
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import type { Node, NodeID, Segment, EditorState, CursorPosition } from '../engine';
 import {
   createNode,
@@ -96,8 +96,7 @@ import {
 // TypingBuffer imports DELETED - Phase 2.5 complete
 // EditorModel.index removed - React state is single source of truth
 
-// 🔒 CARET PLACEMENT (Priority 3: Eliminate race conditions)
-import { useCaretPlacement, scheduleRAF, type CancelToken } from '../caret';
+// 🔒 CARET PLACEMENT - RAF system removed, layout-effect only
 
 // 🔒 PHASE 1: DOMObserver (parallel to TypingBuffer)
 import {
@@ -316,7 +315,11 @@ export function NodeEditor() {
   // 🔒 FIX #4: Composition (IME) state tracking
   const [isComposing, setIsComposing] = useState(false);
 
-  // Structural lock ref (needed early for newEditorState)
+  // 🔒 CURSOR AUTHORITY: Track reducer-committed cursor
+  // Prevents selectionchange from overwriting intentional cursor moves
+  const lastCommittedCursorRef = useRef<CursorPosition | null>(null);
+
+  // Structural lock prevents keyboard input during state transition
   const structuralLockRef = useRef(false);
 
   // 🔒 NEW ARCHITECTURE: Prepare state shape for new handlers
@@ -362,48 +365,60 @@ export function NodeEditor() {
   const domObservers = useRef<Map<NodeID, DOMObserver>>(new Map());
 
   // Create/sync observers after render
-  useEffect(() => {
+  // Use useLayoutEffect to ensure DOM is ready before attaching observers
+  useLayoutEffect(() => {
     const nodeIds = editorState.nodes.map((n) => n.id);
     
-    // Wait for DOM to be ready
-    const token = scheduleRAF(() => {
-      nodeIds.forEach((nodeId) => {
-        // Skip if observer already exists
-        if (domObservers.current.has(nodeId)) {
-          return;
-        }
+    // Create observers for new nodes
+    nodeIds.forEach((nodeId) => {
+      // Skip if observer already exists
+      if (domObservers.current.has(nodeId)) {
+        return;
+      }
 
-        // Find the contenteditable element
-        const element = document.querySelector(
-          `[data-node-id="${nodeId}"]`
-        ) as HTMLElement;
+      // Find the contenteditable element
+      const element = document.querySelector(
+        `[data-node-id="${nodeId}"]`
+      ) as HTMLElement;
 
-        if (!element) {
-          return;
-        }
+      if (!element) {
+        return;
+      }
 
-        // Create observer
-        const observer = new DOMObserver({
-          element,
-          onMutationsBatched: undefined,
-        });
-
-        // Store and start
-        domObservers.current.set(nodeId, observer);
-        observer.start();
+      // Create observer
+      const observer = new DOMObserver({
+        element,
+        onMutationsBatched: undefined,
       });
+
+      // Store and start
+      domObservers.current.set(nodeId, observer);
+      observer.start();
     });
 
-    // Cleanup on unmount or when nodeIds change
-    return () => {
-      token.cancel();
-
-      domObservers.current.forEach((observer) => {
+    // Remove observers for deleted nodes
+    const nodeIdSet = new Set(nodeIds);
+    const toDelete: string[] = [];
+    domObservers.current.forEach((observer, nodeId) => {
+      if (!nodeIdSet.has(nodeId as string)) {
         observer.destroy();
-      });
-      domObservers.current.clear();
+        toDelete.push(nodeId as string);
+      }
+    });
+    toDelete.forEach(id => domObservers.current.delete(id as NodeID));
+
+    // 🔄 Restart any stopped observers after structural operations
+    domObservers.current.forEach((observer, nodeId) => {
+      if (nodeIdSet.has(nodeId as string) && !observer.isRunning()) {
+        observer.start();
+      }
+    });
+
+    // Only cleanup on unmount (not on dependency changes)
+    return () => {
+      // This only runs when component unmounts
     };
-  }, [editorState.nodes.length]); // Re-run when node count changes
+  }, [editorState.nodes]); // Re-run on any node change to restart observers
 
   // Enforcement initialization removed - state updates go through executeAction() only
 
@@ -419,45 +434,24 @@ export function NodeEditor() {
     const activeNode = editorState.nodes.find((n) => n.id === nodeId);
     if (!activeNode) return;
 
-    const position = { nodeId: nodeId, segmentIndex: 0, offset: 0 } as any;
+    // 🔒 EMPTY NODE ONLY: This handler is only called for empty nodes
+    // For non-empty nodes, browser's native click + selectionchange handles it
+    const position: CursorPosition = { 
+      nodeId: nodeId as NodeID, 
+      segmentIndex: 0, 
+      offset: 0 
+    };
 
-    // Update React state
-    setEditorState({ ...editorState, cursor: position });
+    // Update React state - use functional updates to avoid stale closure
+    setEditorState(prev => ({ ...prev, cursor: position }));
     setSelection({ anchor: null, focus: null });
 
-    // Focus DOM and place caret in a stable location
-    // Use RAF to allow DOM to settle
-    window.requestAnimationFrame(() => {
-      const el = document.querySelector(
-        `[data-node-id="${nodeId}"] .node__content`
-      ) as HTMLElement | null;
-      if (!el) return;
-
-      el.focus();
-
-      try {
-        const sel = window.getSelection();
-        if (!sel) return;
-
-        const firstChild = el.firstChild;
-        const range = document.createRange();
-
-        if (firstChild && firstChild.nodeType === Node.TEXT_NODE) {
-          // Place inside placeholder text node
-          range.setStart(firstChild, 0);
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        } else if (el.lastChild) {
-          // Place after last child
-          range.setStartAfter(el.lastChild);
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      } catch (err) {
-        // Silent fail
-      }
+    // 🔒 CORRECT: Generate caretIntent to trigger NodeView's useLayoutEffect
+    // This ensures caret placement happens AFTER React commits the state update
+    // NodeView will place the caret deterministically in its layout effect
+    setCaretIntent({
+      nodeId: nodeId as NodeID,
+      token: nanoid(),
     });
   }
 
@@ -467,32 +461,26 @@ export function NodeEditor() {
   // DEBUG: Track all state changes
   // Removed logging useEffect
 
-  // Phase 5.1.5 — Controlled caret positioning flag
-  // Ref to request caret placement after structural operations only
-  // Per File 06 §1.3: Browser owns caret during typing, editor places after structure changes
-  const needsCaretPlacementRef = useRef(false);
-
-  function requestCaretPlacement() {
-    needsCaretPlacementRef.current = true;
-  }
+  // Phase 5.1.5 — REMOVED: RAF-based caret system
+  // Caret placement now handled by useLayoutEffect in NodeView.tsx
+  // No refs, no RAF, no retry loops
 
   // Phase 09 Final — Structural lock moved earlier (line ~354) for newEditorState dependency
 
   // 🎯 PHASE 2A: No coordinator refs needed - executeAction is stateless
 
   function withStructuralCommit(fn: () => void) {
+    // Set lock to prevent keyboard input until React re-renders
     structuralLockRef.current = true;
-
-    try {
-      fn();
-    } finally {
-      // Release ONLY after browser finishes dispatching input + selection events
-      // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
-      scheduleRAF(() => {
-        structuralLockRef.current = false;
-      });
-    }
+    fn();
   }
+  
+  // Release structural lock after React commits the state update
+  useLayoutEffect(() => {
+    if (structuralLockRef.current) {
+      structuralLockRef.current = false;
+    }
+  });
 
   // Selection state moved earlier (line ~345) for newEditorState dependency
 
@@ -551,8 +539,8 @@ export function NodeEditor() {
     EMPTY_GRAMMAR_SESSION
   );
 
-  // 🆕 PHASE 1: Ephemeral caret placement intent (not part of document state)
-  // Parallel system alongside RAF (RAF still active in Phase 1)
+  // Ephemeral caret placement intent (not part of document state)
+  // Triggers NodeView's useLayoutEffect for deterministic caret placement
   const [caretIntent, setCaretIntent] = useState<CaretIntent | null>(null);
 
   // 🔒 NEW ARCHITECTURE: Complete editor state (for pure handlers)
@@ -673,6 +661,12 @@ export function NodeEditor() {
 
   // Keep focus
   const containerRef = useRef<HTMLDivElement>(null);
+  const editorStateRef = useRef(editorState);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    editorStateRef.current = editorState;
+  }, [editorState]);
 
   useEffect(() => {
     containerRef.current?.focus();
@@ -684,100 +678,128 @@ export function NodeEditor() {
    */
   useEffect(() => {
     const handleSelectionChange = () => {
-      // ✂️ PHASE 2.5: isTyping() guard DELETED
-      // With MutationObserver, DOM is source of truth during typing
-      // Selection changes are natural and don't need special handling
-      // Commit boundaries extract from DOM when needed
-
-      // Check if selection is inside our editor
+      // Guard: container must exist
       const containerEl = containerRef.current;
       if (!containerEl) return;
-      
-      // Call pure handler for validation
-      const selectionResult = handleSelectionChangeNew(
-        newEditorState,
-        containerEl,
-        structuralLockRef.current
-      );
-      
-      if (!selectionResult.action) {
-        return; // Handler rejected (e.g., structural lock, out of editor, etc.)
-      }
-      
-      // Execute using old selection logic (temporary during migration)
-      // NOTE: This logic will be moved to coordinator during architecture cleanup
-      
+
       const browserSelection = window.getSelection();
-      if (!browserSelection) return;
+      if (!browserSelection || !browserSelection.isCollapsed) return;
 
-      // Translate to editor state (SEGMENTED ARCHITECTURE FIX)
-      if (browserSelection.isCollapsed) {
-        // STEP 1: Find which node the selection is in (from DOM)
-        let node = browserSelection.anchorNode;
-        if (!node) return;
+      const anchorNode = browserSelection.anchorNode;
+      if (!anchorNode) return;
 
-        // Walk up to .node__content to get data-node-id
-        if (node.nodeType === Node.TEXT_NODE) {
-          node = node.parentElement;
-        }
+      // Guard: selection must be inside editor
+      if (!containerEl.contains(anchorNode)) return;
 
-        while (
-          node &&
-          !(
-            node instanceof HTMLElement &&
-            node.classList.contains('node__content')
-          )
-        ) {
-          node = node.parentElement;
-        }
+      // Find active node element
+      let nodeElement = anchorNode.parentElement;
+      while (nodeElement && !nodeElement.hasAttribute('data-node-id')) {
+        nodeElement = nodeElement.parentElement;
+      }
 
-        if (!(node instanceof HTMLElement)) {
-          return;
-        }
+      if (!nodeElement) return;
 
-        const nodeId = node.getAttribute('data-node-id');
+      const nodeId = nodeElement.getAttribute('data-node-id');
+      if (!nodeId) return;
 
-        if (!nodeId) return;
+      const activeNode = editorState.nodes.find(n => n.id === nodeId);
+      if (!activeNode) return;
 
-        // STEP 2: Get node from state
-        const activeNode = editorState.nodes.find((n) => n.id === nodeId);
-        if (!activeNode) {
-          return;
-        }
+      // ───────────────────────────────────────────────────────────────
+      // 🔀 TWO-PATH SELECTION HANDLING
+      // ───────────────────────────────────────────────────────────────
+      
+      // Check if observer is running for this node
+      const observer = domObservers.current.get(nodeId as NodeID);
+      const isTyping = observer?.isRunning() ?? false;
 
-        // 🔬 FORENSIC LOG 3: Selection Ground Truth
-        if (__DEV__) {
-          const sel = window.getSelection();
-
-        }
-
-        // STEP 3: Call with correct signature
+      if (isTyping) {
+        // ───────────────────────────────────────────────────────────────
+        // PATH A: LIVE TYPING MODE (Observer Running)
+        // Browser owns DOM, just sync cursor position
+        // DO NOT extract segments, DO NOT rebuild DOM
+        // ───────────────────────────────────────────────────────────────
+        
+        // Compute cursor using CURRENT state segments (not DOM)
         const position = getNodePositionFromSelection(activeNode);
+        if (!position) return;
 
-        if (position) {
-          // Position handling - React state is single source of truth
-
-          // Mirror to React
-          setEditorState({
-            ...editorState,
-            cursor: position,
-          });
-
-          setSelection({ anchor: null, focus: null });
+        // 🔒 CURSOR AUTHORITY: Ignore if matches committed cursor
+        if (
+          lastCommittedCursorRef.current &&
+          position.nodeId === lastCommittedCursorRef.current.nodeId &&
+          position.segmentIndex === lastCommittedCursorRef.current.segmentIndex &&
+          position.offset === lastCommittedCursorRef.current.offset
+        ) {
+          return;
         }
+
+        // Prevent feedback overwrite (idempotent cursor)
+        if (
+          position.nodeId === editorState.cursor.nodeId &&
+          position.segmentIndex === editorState.cursor.segmentIndex &&
+          position.offset === editorState.cursor.offset
+        ) {
+          return;
+        }
+
+        // Update cursor ONLY (segments stay stale during typing)
+        setEditorState(prev => ({
+          ...prev,
+          cursor: position,
+        }));
+
+        setSelection({ anchor: null, focus: null });
+        
       } else {
-        const range = getSelectionRangeFromDOM(browserSelection);
-        if (range) {
-          setEditorState({
-            ...editorState,
-            cursor: {
-              nodeId: range.focus.nodeId,
-              segmentIndex: 0, // TODO: derive from DOM
-              offset: range.focus.offset,
-            },
-          });
-          setSelection(range);
+        // ───────────────────────────────────────────────────────────────
+        // PATH B: STRUCTURAL MODE (Observer Stopped)
+        // Extract fresh segments and sync atomically
+        // ───────────────────────────────────────────────────────────────
+        
+        const freshSegments = extractSegmentsFromDOM(nodeElement);
+
+        // Compute cursor using fresh segments
+        const position = getNodePositionFromSelection({
+          ...activeNode,
+          segments: freshSegments,
+        } as Node);
+
+        if (!position) return;
+
+        // 🔒 CURSOR AUTHORITY: Ignore if matches committed cursor
+        if (
+          lastCommittedCursorRef.current &&
+          position.nodeId === lastCommittedCursorRef.current.nodeId &&
+          position.segmentIndex === lastCommittedCursorRef.current.segmentIndex &&
+          position.offset === lastCommittedCursorRef.current.offset
+        ) {
+          return;
         }
+
+        // Prevent feedback overwrite (idempotent cursor)
+        if (
+          position.nodeId === editorState.cursor.nodeId &&
+          position.segmentIndex === editorState.cursor.segmentIndex &&
+          position.offset === editorState.cursor.offset
+        ) {
+          return;
+        }
+
+        // Update segments + cursor atomically
+        const updatedNodes = editorState.nodes.map(n =>
+          n.id === nodeId
+            ? { ...n, segments: freshSegments }
+            : n
+        );
+
+        setEditorState(prev => ({
+          ...prev,
+          nodes: updatedNodes,
+          cursor: position,
+        }));
+
+        setSelection({ anchor: null, focus: null });
       }
     };
 
@@ -2574,174 +2596,9 @@ export function NodeEditor() {
   //   }
   // };
 
-  /**
-   * ✅ PRIORITY 3: Caret placement hook (eliminates race conditions)
-   * 
-   * Extracted from inline useEffect into dedicated hook.
-   * Manages all caret placement after structural operations.
-   * 
-   * See: apps/editor/src/editor/caret/CaretPlacement.tsx
-   */
-  useCaretPlacement({
-    cursor: editorState.cursor,
-    nodes: editorState.nodes,
-    needsPlacementRef: needsCaretPlacementRef,
-    debug: __DEV__,
-    maxRetries: 10,
-  });
-
-  // ✅ OLD IMPLEMENTATION REMOVED (190 lines extracted to CaretPlacement.tsx)
-  /*
-  useEffect(() => {
-    if (!needsCaretPlacementRef.current) return;
-
-    if (__DEV__) {
-
-    }
-
-    let cancelled = false;
-
-    const tryPlace = (retries = 0) => {
-      if (cancelled) return;
-
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // 🚨 SAFETY: Abandon after 10 retries (prevent infinite RAF loop)
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      if (retries > 10) {
-
-        needsCaretPlacementRef.current = false;
-        return;
-      }
-
-      const activeNode = editorState.nodes.find(
-        (n) => n.id === editorState.cursor.nodeId
-      );
-      if (!activeNode) {
-
-        needsCaretPlacementRef.current = false;
-        return;
-      }
-
-      // Find the node__content element
-      const nodeElement = document.querySelector(
-        `[data-node-id="${editorState.cursor.nodeId}"]`
-      );
-
-      if (!nodeElement) {
-        // DOM not ready yet - retry next frame (bounded by retry limit)
-        if (__DEV__) {
-
-        }
-        // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
-        scheduleRAF(() => tryPlace(retries + 1));
-        return;
-      }
-
-      // Ensure element is focused
-      if (document.activeElement !== nodeElement) {
-        (nodeElement as HTMLElement).focus();
-      }
-
-      const range = document.createRange();
-      const sel = window.getSelection();
-      if (!sel) {
-        needsCaretPlacementRef.current = false;
-        return;
-      }
-
-      try {
-        // SEGMENTED ARCHITECTURE: Simple caret placement
-        // No TreeWalker, no bias, no heuristics
-        const { offset, segmentIndex } = editorState.cursor;
-        const segments = activeNode.segments;
-
-        if (segmentIndex >= segments.length) {
-          // Cursor at end - place at last position
-          const lastChild = nodeElement.lastChild;
-          if (lastChild) {
-            range.setStartAfter(lastChild);
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        } else {
-          const segment = segments[segmentIndex];
-
-          // 🔧 FIX: Handle inline segments by using caret-anchor
-          if (segment.type === 'inline' && offset === 0) {
-            // Find the caret-anchor BEFORE this inline element
-            // DOM structure: each inline has: <span.caret-anchor/><span.inline/><span.caret-anchor/>
-            const children = Array.from(nodeElement.childNodes);
-            let domIndex = 0;
-
-            // Walk through segments to find DOM position
-            for (let i = 0; i < segmentIndex; i++) {
-              if (segments[i].type === 'text') {
-                domIndex++; // TEXT_NODE
-              } else {
-                domIndex += 3; // caret-anchor + inline + caret-anchor
-              }
-            }
-
-            // domIndex now points to the caret-anchor before our inline
-            const caretAnchor = children[domIndex];
-            if (
-              caretAnchor &&
-              (caretAnchor as HTMLElement).classList?.contains('caret-anchor')
-            ) {
-              // Place cursor inside the caret-anchor (it's a focusable span)
-              range.setStart(caretAnchor, 0);
-              range.collapse(true);
-              sel.removeAllRanges();
-              sel.addRange(range);
-
-            } else {
-
-            }
-          } else {
-            // Text segment - find the correct text node in DOM
-            const children = Array.from(nodeElement.childNodes);
-            let domIndex = 0;
-
-            // Walk through segments to find DOM position
-            for (let i = 0; i < segmentIndex; i++) {
-              if (segments[i].type === 'text') {
-                domIndex++; // TEXT_NODE
-              } else {
-                domIndex += 3; // caret-anchor + inline + caret-anchor
-              }
-            }
-
-            // domIndex now points to our text node
-            const textNode = children[domIndex];
-            if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-              const len = textNode.textContent?.length || 0;
-              range.setStart(textNode, Math.min(offset, len));
-              range.collapse(true);
-              sel.removeAllRanges();
-              sel.addRange(range);
-
-            } else {
-
-            }
-          }
-        }
-      } catch (err) {
-
-      }
-
-      needsCaretPlacementRef.current = false;
-    };
-
-    // Start AFTER React commit (single RAF, effect owns all timing)
-    // ✅ PRIORITY 1: Type-safe RAF wrapper (prevents timestamp bugs)
-    scheduleRAF(() => tryPlace());
-
-    return () => {
-      cancelled = true;
-    };
-  }, [editorState.cursor]);
-  */
+  // ✅ RAF-based caret system removed
+  // Caret placement now happens in NodeView.tsx useLayoutEffect
+  // Deterministic, synchronous, no retry loops, no timing assumptions
 
   // 🔒 NEW ARCHITECTURE: Composition handlers (using pure handler + old execution path)
   // CRITICAL: These prevent commit boundaries from running during IME composition
@@ -2779,12 +2636,131 @@ export function NodeEditor() {
   };
 
   // Handle keyboard input
+  /**
+   * Creates a fresh snapshot of editor state by reading directly from the DOM
+   * 
+   * This is the single source of truth for structural operations (Enter, Backspace).
+   * It ensures we always have synchronized DOM, cursor, and segments at the moment
+   * of the structural edit, eliminating race conditions.
+   * 
+   * @returns Fresh editor state with current DOM segments and cursor, or null if unable to read
+   */
+  const getFreshSnapshot = (baseState: EditorState): EditorState | null => {
+    const activeNodeId = baseState.cursor.nodeId;
+    const el = document.querySelector(
+      `[data-node-id="${activeNodeId}"]`
+    ) as HTMLElement;
+
+    if (!el) return null;
+
+    // Extract current segments from DOM
+    const segments = extractSegmentsFromDOM(el);
+
+    // Get current cursor position using fresh segments
+    const cursor = getNodePositionFromSelection({
+      id: activeNodeId,
+      segments,
+    } as Node);
+
+    if (!cursor) return null;
+
+    // Update active node with fresh segments
+    const nodes = baseState.nodes.map(n =>
+      n.id === activeNodeId
+        ? { ...n, segments }
+        : n
+    );
+
+    return {
+      ...baseState,
+      nodes,
+      cursor,
+    };
+  };
+
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // FIX 2 — Prevent Enter BEFORE any guards
-    // Must block browser <div>/<br> insertion unconditionally
+    // 🔒 GUARD: Block input during structural operations
+    // Prevents stale state access while React is committing changes
+    if (structuralLockRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    // 🔒 Enter key - structural operation with fresh DOM snapshot
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
+      
+      // Guard: composition
+      if (isComposing) return;
+      
+      // Guard: repeat
+      if (e.repeat) return;
+      
+      // CRITICAL: Defer to next frame to ensure browser has committed any pending character insertions
+      // This is necessary because keydown fires BEFORE the input event that actually inserts characters
+      requestAnimationFrame(() => {
+        withStructuralCommit(() => {
+          // Take fresh snapshot from DOM (single source of truth)
+          const snapshot = getFreshSnapshot(editorStateRef.current);
+          if (!snapshot) return;
+          
+          // Handle selection deletion if exists
+          const selection = window.getSelection();
+          if (selection && !selection.isCollapsed) {
+            document.execCommand('delete');
+          }
+          
+          // Build action from snapshot
+          const action = {
+            type: 'ENTER_PRESSED' as const,
+            payload: {
+              cursor: snapshot.cursor,
+              segments: snapshot.nodes.find(
+                n => n.id === snapshot.cursor.nodeId
+              )!.segments,
+              nodes: snapshot.nodes,
+            },
+          };
+          
+          // Build coordinator dependencies
+          const deps: CoordinatorDependencies = {
+            context: {
+              domObservers: domObservers,
+              structuralLockRef: structuralLockRef,
+            },
+            commit: commit,
+          };
+          
+          // Build complete state for coordinator
+          const completeState: EditorStateComplete = {
+            ...snapshot,
+            focusRootId: focusRootId,
+            selection: {
+              anchor: selection?.anchorNode ? { nodeId: snapshot.cursor.nodeId, offset: selection.anchorOffset } : null,
+              focus: selection?.focusNode ? { nodeId: snapshot.cursor.nodeId, offset: selection.focusOffset } : null,
+            },
+            isComposing: isComposing,
+            grammarSession: grammarSession,
+          };
+          
+          // Execute via coordinator
+          const committedCursor = executeAction(completeState, action, deps);
+          
+          lastCommittedCursorRef.current = committedCursor;
+          
+          if (shouldRequestCaret(action)) {
+            setCaretIntent({
+              nodeId: committedCursor.nodeId,
+              token: nanoid(),
+            });
+          }
+        });
+      });
+      
+      return;
     }
 
     // D2 — KEYBOARD FOCUS GUARD (REMOVED)
@@ -3026,8 +3002,8 @@ export function NodeEditor() {
       withStructuralCommit(() => {
         // Build state + action + deps
         const currentState: EditorStateComplete = {
-          nodes: editorState.nodes,
-          cursor: editorState.cursor,
+          nodes: newEditorState.nodes,
+          cursor: newEditorState.cursor,
           focusRootId: focusRootId,
           selection: {
             anchor: selection.anchor ? { nodeId: selection.anchor.nodeId, offset: selection.anchor.offset } : null,
@@ -3040,17 +3016,18 @@ export function NodeEditor() {
         const deps: CoordinatorDependencies = {
           context: {
             domObservers: domObservers,
-            needsCaretPlacementRef: needsCaretPlacementRef,
             structuralLockRef: structuralLockRef,
           },
           commit: commit,
-          requestCaretPlacement: requestCaretPlacement,
         };
 
         // Execute via coordinator
         const committedCursor = executeAction(currentState, tabResult.action, deps);
         
-        // 🆕 PHASE 1: Generate caret intent atomically (parallel to RAF)
+        // Store committed cursor as authority
+        lastCommittedCursorRef.current = committedCursor;
+        
+        // Generate caret intent (triggers NodeView useLayoutEffect)
         if (shouldRequestCaret(tabResult.action)) {
           setCaretIntent({
             nodeId: committedCursor.nodeId,
@@ -3098,7 +3075,7 @@ export function NodeEditor() {
               nodes: newState.nodes as UINode[],
               cursor: newState.cursor,
             });
-            requestCaretPlacement();
+            // Caret placement now automatic via layout effect
           }
           return;
         }
@@ -3113,7 +3090,7 @@ export function NodeEditor() {
               nodes: newState.nodes as UINode[],
               cursor: newState.cursor,
             });
-            requestCaretPlacement();
+            // Caret placement now automatic via layout effect
           }
           return;
         }
@@ -3205,8 +3182,7 @@ export function NodeEditor() {
             currentObserver.clearPendingMutations();
           }
 
-          // Request caret placement
-          requestCaretPlacement();
+          // Caret placement now automatic via layout effect
           return;
         }
       }
@@ -3283,8 +3259,8 @@ export function NodeEditor() {
           // 🎯 PHASE 2D: Markdown triggers via coordinator
           withStructuralCommit(() => {
             const currentState: EditorStateComplete = {
-              nodes: editorState.nodes,
-              cursor: editorState.cursor,
+              nodes: newEditorState.nodes,
+              cursor: newEditorState.cursor,
               focusRootId: focusRootId,
               selection: {
                 anchor: selection.anchor ? { nodeId: selection.anchor.nodeId, offset: selection.anchor.offset } : null,
@@ -3297,17 +3273,18 @@ export function NodeEditor() {
         const deps: CoordinatorDependencies = {
           context: {
             domObservers: domObservers,
-            needsCaretPlacementRef: needsCaretPlacementRef,
             structuralLockRef: structuralLockRef,
           },
-              commit: commit,
-              requestCaretPlacement: requestCaretPlacement,
-            };
+          commit: commit,
+        };
 
             // Execute via coordinator
             const committedCursor = executeAction(currentState, spaceResult.action, deps);
             
-            // 🆕 PHASE 1: Generate caret intent atomically (parallel to RAF)
+            // Store committed cursor as authority
+            lastCommittedCursorRef.current = committedCursor;
+            
+            // Generate caret intent (triggers NodeView useLayoutEffect)
             if (shouldRequestCaret(spaceResult.action)) {
               setCaretIntent({
                 nodeId: committedCursor.nodeId,
@@ -3342,10 +3319,14 @@ export function NodeEditor() {
       return;
     }
 
-    // 🎯 PHASE 2B: Backspace (coordinator-based execution)
+    // 🔒 Backspace key - structural operation with fresh DOM snapshot
     if (e.key === 'Backspace') {
-      // Call pure handler to validate and get action intent
-      const backspaceResult = handleBackspace(newEditorState, e, isComposing);
+      // Take fresh snapshot from DOM (single source of truth)
+      const snapshot = getFreshSnapshot(editorStateRef.current);
+      if (!snapshot) return;
+      
+      // Call pure handler with fresh snapshot
+      const backspaceResult = handleBackspace(snapshot, e, isComposing);
 
       if (!backspaceResult.action) {
         return; // Handler rejected (composition, repeat, selection exists)
@@ -3356,53 +3337,31 @@ export function NodeEditor() {
         e.preventDefault();
       }
 
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // 🎯 PHASE 2B: COORDINATOR-BASED EXECUTION
-      // Single entry point for state mutations
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
       withStructuralCommit(() => {
-        // 🎯 PHASE 2B: DOM extraction (coordinator handles state mutation)
-        
-        // Step 1: Get active node from cursor
-        const activeNodeId = editorState.cursor.nodeId;
-        const activeNode = editorState.nodes.find((n) => n.id === activeNodeId);
-        if (!activeNode) {
+        // Build action from snapshot
+        const action = {
+          type: 'BACKSPACE_PRESSED' as const,
+          payload: {
+            cursor: snapshot.cursor,
+            segments: snapshot.nodes.find(
+              n => n.id === snapshot.cursor.nodeId
+            )!.segments,
+            nodes: snapshot.nodes,
+          },
+        };
 
-          return;
-        }
+        // Build coordinator dependencies
+        const deps: CoordinatorDependencies = {
+          context: {
+            domObservers: domObservers,
+            structuralLockRef: structuralLockRef,
+          },
+          commit: commit,
+        };
 
-        // Step 2: Get DOM element and observer
-        const activeNodeElement = document.querySelector(
-          `[data-node-id="${activeNodeId}"]`
-        ) as HTMLElement;
-        if (!activeNodeElement) {
-          return;
-        }
-
-        const observer = domObservers.current.get(activeNodeId as NodeID);
-        if (!observer) {
-          return;
-        }
-
-        // Step 3: Stop observer to stabilize DOM
-        observer.stop();
-
-        // Step 4: Extract segments from DOM (fresh)
-        const segments = extractSegmentsFromDOM(activeNodeElement);
-
-        // Step 5: Get cursor position from selection
-        const cursor = getNodePositionFromSelection({
-          id: activeNodeId,
-          segments,
-        } as Node);
-
-        if (!cursor) return;
-
-        // Step 6: Build EditorStateComplete for coordinator
+        // Build complete state for coordinator
         const currentState: EditorStateComplete = {
-          nodes: editorState.nodes,
-          cursor: editorState.cursor,
+          ...snapshot,
           focusRootId: focusRootId,
           selection: {
             anchor: selection.anchor ? { nodeId: selection.anchor.nodeId, offset: selection.anchor.offset } : null,
@@ -3412,31 +3371,11 @@ export function NodeEditor() {
           grammarSession: grammarSession,
         };
 
-        // Step 7: Create action
-        const action = {
-          type: 'BACKSPACE_PRESSED' as const,
-          payload: {
-            cursor,
-            segments,
-            nodes: editorState.nodes,
-          },
-        };
-
-        // Step 8: Build coordinator dependencies
-        const deps: CoordinatorDependencies = {
-          context: {
-            domObservers: domObservers,
-            needsCaretPlacementRef: needsCaretPlacementRef,
-            structuralLockRef: structuralLockRef,
-          },
-          commit: commit,
-          requestCaretPlacement: requestCaretPlacement,
-        };
-
-        // 🎯 Step 9: Execute via coordinator (single entry point)
+        // Execute via coordinator
         const committedCursor = executeAction(currentState, action, deps);
         
-        // 🆕 PHASE 1: Generate caret intent atomically (parallel to RAF)
+        lastCommittedCursorRef.current = committedCursor;
+        
         if (shouldRequestCaret(action)) {
           setCaretIntent({
             nodeId: committedCursor.nodeId,
@@ -3452,124 +3391,11 @@ export function NodeEditor() {
       return; // Let browser handle
     }
 
-    // 🔒 NEW ARCHITECTURE: Enter (using pure handler + old execution path)
+    // 🔒 NEW ARCHITECTURE: Enter (deferred execution - handled earlier in this function)
+    // See lines 2779-2794 for Enter key preventDefault + setTimeout deferral
+    // See processEnterKey function for the actual Enter processing logic
     if (e.key === 'Enter') {
-      // Call pure handler to validate and get action intent
-      const enterResult = handleEnter(newEditorState, e, isComposing);
-
-      if (!enterResult.action) {
-        return; // Handler rejected (composition, repeat, etc.)
-      }
-
-      // Apply handler's event handling
-      if (enterResult.preventDefault) {
-        e.preventDefault();
-      }
-      if (enterResult.stopPropagation) {
-        e.stopPropagation();
-      }
-
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // 🎯 PHASE 2A: COORDINATOR-BASED EXECUTION
-      // Single entry point for state mutations
-      // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-      withStructuralCommit(() => {
-        // 🎯 PHASE 2A: DOM extraction (coordinator handles state mutation)
-        
-        // Step 1: Get active node from cursor
-        const activeNodeId = editorState.cursor.nodeId;
-        const activeNode = editorState.nodes.find((n) => n.id === activeNodeId);
-        if (!activeNode) {
-
-          return;
-        }
-
-        // Step 2: Get DOM element and observer
-        const activeNodeElement = document.querySelector(
-          `[data-node-id="${activeNodeId}"]`
-        ) as HTMLElement;
-        if (!activeNodeElement) {
-          // Element gone - bail safely
-          return;
-        }
-
-        const observer = domObservers.current.get(activeNodeId as NodeID);
-        if (!observer) {
-          // No observer - node might be unmounting, bail safely
-          return;
-        }
-
-        // Step 3: Stop observer to stabilize DOM
-        observer.stop();
-
-        // Step 4: Handle selection deletion (if exists)
-        const selection = window.getSelection();
-        if (!selection) {
-          return;
-        }
-        if (!selection.isCollapsed) {
-          document.execCommand('delete');
-        }
-
-        // Step 5: Extract segments from DOM (fresh)
-        const segments = extractSegmentsFromDOM(activeNodeElement);
-
-        // Step 6: Get cursor position from selection
-        const cursor = getNodePositionFromSelection({
-          id: activeNodeId,
-          segments,
-        } as Node);
-
-        if (!cursor) return;
-
-        // Step 7: Build EditorStateComplete for coordinator
-        const currentState: EditorStateComplete = {
-          nodes: editorState.nodes,
-          cursor: editorState.cursor,
-          focusRootId: focusRootId,
-          selection: {
-            anchor: selection.anchor ? { nodeId: selection.anchor.nodeId, offset: selection.anchor.offset } : null,
-            focus: selection.focus ? { nodeId: selection.focus.nodeId, offset: selection.focus.offset } : null,
-          },
-          isComposing: isComposing,
-          grammarSession: grammarSession,
-        };
-
-        // Step 8: Create action
-        const action = {
-          type: 'ENTER_PRESSED' as const,
-          payload: {
-            cursor,
-            segments,
-            nodes: editorState.nodes,
-          },
-        };
-
-        // Step 9: Build coordinator dependencies
-        const deps: CoordinatorDependencies = {
-          context: {
-            domObservers: domObservers,
-            needsCaretPlacementRef: needsCaretPlacementRef,
-            structuralLockRef: structuralLockRef,
-          },
-          commit: commit,
-          requestCaretPlacement: requestCaretPlacement,
-        };
-
-        // 🎯 Step 10: Execute via coordinator (single entry point)
-        const committedCursor = executeAction(currentState, action, deps);
-        
-        // 🆕 PHASE 1: Generate caret intent atomically (parallel to RAF)
-        if (shouldRequestCaret(action)) {
-          setCaretIntent({
-            nodeId: committedCursor.nodeId,
-            token: nanoid(),
-          });
-        }
-      });
-
-      return;
+      return; // Already handled via setTimeout deferral
     }
   };
 

@@ -41,12 +41,6 @@ export interface CoordinatorDependencies {
     nodes?: Node[];
     cursor?: CursorPosition;
   }) => void;
-
-  /**
-   * Function to request caret placement
-   * Sets flag that triggers CaretPlacement effect
-   */
-  requestCaretPlacement: () => void;
 }
 
 /**
@@ -76,7 +70,7 @@ export function executeAction(
   action: EditorAction,
   deps: CoordinatorDependencies
 ): CursorPosition {
-  const { context, commit, requestCaretPlacement } = deps;
+  const { context, commit } = deps;
 
   // 1. Determine if action is structural
   const isStructural = isStructuralAction(action);

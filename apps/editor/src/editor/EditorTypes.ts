@@ -322,11 +322,6 @@ export interface CoordinatorContext {
   domObservers: React.MutableRefObject<Map<NodeID, DOMObserver>>;
 
   /**
-   * Flag for requesting caret placement
-   */
-  needsCaretPlacementRef: React.MutableRefObject<boolean>;
-
-  /**
    * Structural lock (prevents selection changes during commits)
    */
   structuralLockRef: React.MutableRefObject<boolean>;

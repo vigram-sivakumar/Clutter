@@ -17,7 +17,7 @@
  */
 
 import type { EditorStateComplete, HandlerResult } from './EditorTypes';
-import type { Node, NodeID, Segment } from './engine';
+import type { Node, NodeID, Segment, CursorPosition } from './engine';
 import {
   getCursorOffsetInPlainText,
   findSegmentAtPlainTextOffset,
@@ -103,6 +103,8 @@ export function handleBackspace(
         nodes: state.nodes,
       },
     },
+    preventDefault: true,
+    stopPropagation: true,
     isStructural: true,
     requestCaret: true,
   };
@@ -604,10 +606,10 @@ export function handleTemplatePickerOpen(
 export function handleSelectionChange(
   state: EditorStateComplete,
   containerEl: HTMLElement,
-  structuralLock: boolean
+  structuralLock: boolean,
+  lastCommittedCursor?: CursorPosition | null
 ): HandlerResult {
-  // Guard: structural lock (ignore during commits)
-  if (structuralLock) return { action: null };
+  // Structural lock removed - cursor authority is the guard now
 
   const browserSelection = window.getSelection();
   if (!browserSelection) return { action: null };
@@ -645,6 +647,35 @@ export function handleSelectionChange(
   // Extract position using domMapping
   const position = getNodePositionFromSelection(node);
   if (!position) return { action: null };
+
+  // Minimal logging
+  console.log('SEL:', {
+    node: nodeId,
+    dom: `${position.segmentIndex}:${position.offset}`,
+    state: `${state.cursor.segmentIndex}:${state.cursor.offset}`,
+  });
+
+  // 🔒 CURSOR AUTHORITY: Ignore if matches reducer-committed cursor
+  // This prevents selectionchange from overwriting intentional structural moves
+  if (
+    lastCommittedCursor &&
+    position.nodeId === lastCommittedCursor.nodeId &&
+    position.segmentIndex === lastCommittedCursor.segmentIndex &&
+    position.offset === lastCommittedCursor.offset
+  ) {
+    console.log('SEL: matches committed (blocked)');
+    return { action: null };
+  }
+
+  // Prevent feedback overwrite (idempotent cursor)
+  if (
+    position.nodeId === state.cursor.nodeId &&
+    position.segmentIndex === state.cursor.segmentIndex &&
+    position.offset === state.cursor.offset
+  ) {
+    console.log('SEL: idempotent (blocked)');
+    return { action: null };
+  }
 
   // Return action for coordinator
   return {

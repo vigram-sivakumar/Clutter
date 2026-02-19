@@ -23,7 +23,7 @@
  */
 
 import { useRef, useEffect, useLayoutEffect } from 'react';
-import type { Node, Segment, CursorPosition } from '../engine';
+import type { Node as EditorNode, Segment, CursorPosition } from '../engine';
 import { getNodeVariant } from '../engine';
 import type { CaretIntent } from '../EditorTypes';
 
@@ -37,7 +37,7 @@ import type { CaretIntent } from '../EditorTypes';
  */
 function placeCaretInNodeView(
   nodeElement: HTMLElement,
-  node: Node,
+  node: EditorNode,
   cursor: CursorPosition
 ): void {
   const sel = window.getSelection();
@@ -188,8 +188,8 @@ export function NodeView({
   onCompositionEnd,
   onRequestSelect,
 }: {
-  node: Node;
-  nodes: Node[];
+  node: EditorNode;
+  nodes: EditorNode[];
   isActive: boolean;
   cursor: CursorPosition;
   caretIntent: CaretIntent | null;
@@ -213,7 +213,9 @@ export function NodeView({
   // SEGMENTED ARCHITECTURE RENDERING (MANDATORY PATTERN):
   // - If node has segments[] → render with caret anchors
   // - If node has text + meta[] → render old way (dual-mode during migration)
-  useEffect(() => {
+  //
+  // 🔒 CRITICAL: useLayoutEffect (not useEffect) ensures DOM is ready before caret placement
+  useLayoutEffect(() => {
     if (!contentRef.current) return;
 
     // ✂️ PHASE 2.5: Typing guards DELETED
@@ -227,13 +229,8 @@ export function NodeView({
     // Clear and rebuild from segments
     contentRef.current.textContent = '';
 
-    // 🔒 CRITICAL: Empty nodes need a placeholder for browser cursor placement
-    // Without this, contenteditable divs with no children cannot be focused
-    if (node.segments.length === 0) {
-      // Create empty text node so browser can place cursor
-      const placeholder = document.createTextNode('');
-      contentRef.current.appendChild(placeholder);
-    }
+    // Every node has at least one segment (enforced by engine)
+    // No placeholder logic needed
 
     // Render all segments
     for (const segment of node.segments) {
@@ -265,7 +262,7 @@ export function NodeView({
     }
   }, [node.segments]); // CRITICAL: Only watch segments!
 
-  // 🆕 PHASE 2 STEP 2: Caret placement execution (parallel to RAF)
+  // Caret placement execution
   // Owns DOM cursor placement after structural operations
   useLayoutEffect(() => {
     if (!caretIntent) return;
@@ -277,7 +274,7 @@ export function NodeView({
     if (lastTokenRef.current === caretIntent.token) return;
     lastTokenRef.current = caretIntent.token;
 
-    // Execute placement (RAF system still active in parallel)
+    // Execute placement
     placeCaretInNodeView(contentRef.current, node, cursor);
 
   }, [caretIntent?.token]); // ← ONLY token changes, nothing else
@@ -373,7 +370,12 @@ export function NodeView({
             if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
 
             // Only handle truly empty nodes — avoid interfering with normal selection
-            if (node.segments.length !== 0) return;
+            // Canonical empty shape: 1 text segment with empty string
+            const isEmpty = node.segments.length === 1 
+              && node.segments[0].type === 'text' 
+              && node.segments[0].text === '';
+            
+            if (!isEmpty) return;
 
             // Prevent browser default focus/selection so we can reliably update editor state first
             e.preventDefault();

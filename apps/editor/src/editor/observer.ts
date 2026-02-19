@@ -57,7 +57,7 @@ export interface DOMObserverConfig {
  * const cursor = window.getSelection(); // NEVER infer from mutations
  * // ... perform model update ...
  * observer.clearPendingMutations(); // CRITICAL: Clear diagnostics
- * requestAnimationFrame(() => observer.start()); // Restart after React render
+ * // Observer will restart automatically in next render cycle
  *
  * // On unmount or node deletion
  * observer.destroy(); // CRITICAL: Prevent memory leak
@@ -117,8 +117,8 @@ export class DOMObserver {
    * Start observing DOM mutations
    *
    * Call this:
-   * - After component mount
-   * - After React render (inside requestAnimationFrame)
+   * - After component mount (in useLayoutEffect)
+   * - After React render completes
    *
    * Do NOT call this:
    * - During structural operations
@@ -308,13 +308,12 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
     // Text nodes
     if (child.nodeType === Node.TEXT_NODE) {
       const text = child.textContent || '';
-      if (text) {
-        // 🔒 UNBREAKABLE: Do NOT merge consecutive text segments
-        // Previous "optimization" broke cursor positions after merge operations
-        // Each DOM text node must map to exactly one segment (1:1 mapping)
-        // This preserves cursor segmentIndex across extraction cycles
-        segments.push({ type: 'text', text });
-      }
+      // 🔒 UNBREAKABLE: Do NOT merge consecutive text segments
+      // Previous "optimization" broke cursor positions after merge operations
+      // Each DOM text node must map to exactly one segment (1:1 mapping)
+      // This preserves cursor segmentIndex across extraction cycles
+      // 🔒 CANONICAL SHAPE: Include empty text nodes (for empty blocks)
+      segments.push({ type: 'text', text });
       continue;
     }
 
@@ -364,6 +363,12 @@ export function extractSegmentsFromDOM(element: HTMLElement): Segment[] {
         segments.push({ type: 'text', text });
       }
     }
+  }
+
+  // 🔒 CANONICAL EMPTY SHAPE: Enforce invariant
+  // Every node must have at least one segment
+  if (segments.length === 0) {
+    return [{ type: 'text', text: '' }];
   }
 
   return segments;

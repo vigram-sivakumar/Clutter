@@ -12,10 +12,7 @@
  * DOM sibling order + caret-anchor class = ground truth.
  */
 
-import type { CursorPosition, NodeID } from './engine';
-import { Node } from './engine';
-
-type DOMNode = globalThis.Node;
+import type { CursorPosition, NodeID, Node as EditorNode } from './engine';
 
 /**
  * SEGMENTED ARCHITECTURE — Selection Reading (EXACT ALGORITHM)
@@ -40,7 +37,7 @@ type DOMNode = globalThis.Node;
  * D. anchorNode is EMPTY contenteditable container (all text deleted)
  */
 export function getNodePositionFromSelection(
-  currentNode: Node
+  currentNode: EditorNode
 ): CursorPosition | null {
   const sel = window.getSelection();
 

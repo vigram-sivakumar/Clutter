@@ -32,26 +32,6 @@ import {
 } from './engine';
 
 /**
- * Ensure a node has at least one segment for cursor placement
- * 
- * Empty nodes (0 segments) break CaretPlacement because it can't find
- * a text node to place the cursor in. This function normalizes nodes
- * by adding an empty text segment if needed.
- * 
- * @param node - Node to normalize
- * @returns Node with at least one segment
- */
-function normalizeEmptyNode(node: Node): Node {
-  if (node.segments.length === 0) {
-    return {
-      ...node,
-      segments: [{ type: 'text', text: '' }] as Segment[],
-    };
-  }
-  return node;
-}
-
-/**
  * Main reducer: computes next state from current state + action
  * 
  * Merged from EditorReducer + EditorStateReducer.
@@ -85,9 +65,9 @@ export function editorReducer(
       // Compute split using battle-tested SegmentedEditor logic
       const splitResult = handleSegmentedEnter(nodeWithFreshSegments, cursor);
 
-      // Normalize empty nodes (required for CaretPlacement)
-      const normalizedHead = normalizeEmptyNode(splitResult.head);
-      const normalizedTail = normalizeEmptyNode(splitResult.tail);
+      // Engine guarantees at least one segment (even if empty)
+      const normalizedHead = splitResult.head;
+      const normalizedTail = splitResult.tail;
 
       // Insert tail node after current node
       const updatedNodes = [
@@ -126,7 +106,7 @@ export function editorReducer(
 
       if (backspaceResult.mergeResult) {
         // Node merge
-        const normalizedMerged = normalizeEmptyNode(backspaceResult.mergeResult.merged);
+        const normalizedMerged = backspaceResult.mergeResult.merged;
         
         const updatedNodes = [
           ...nodes.slice(0, currentIndex - 1),
@@ -140,7 +120,7 @@ export function editorReducer(
         };
       } else if (backspaceResult.updated) {
         // Character deletion
-        const normalizedNode = normalizeEmptyNode(backspaceResult.updated);
+        const normalizedNode = backspaceResult.updated;
         
         const updatedNodes = nodes.map((n) =>
           n.id === cursor.nodeId ? normalizedNode : n

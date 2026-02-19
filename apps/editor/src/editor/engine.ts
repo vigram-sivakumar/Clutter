@@ -97,11 +97,11 @@ export interface Reference {
 /**
  * Node — The fundamental unit
  * 
- * SEGMENTED ARCHITECTURE MIGRATION (DUAL-MODE):
- * - segments[] is the NEW model (Tana-style)
- * - text + meta[] are TEMPORARY (legacy, READ-ONLY during migration)
- * - All NEW logic MUST use segments[]
- * - Legacy fields will be deleted after migration completes
+ * SEGMENTED ARCHITECTURE (CANONICAL):
+ * - segments[] is the ONLY content model (Tana-style)
+ * - Legacy text field is converted to segments during normalization
+ * - segments[] is MANDATORY - every node must have it (can be empty array)
+ * - All logic MUST use segments[] exclusively
  */
 export interface Node {
   /** Unique identifier */
@@ -136,6 +136,69 @@ export interface Node {
 // Node Operations
 // ============================
 
+// ============================
+// Runtime Guards (Dev-Only)
+// ============================
+
+/**
+ * Assert node structural invariants (dev-only)
+ * 1. Node must have id
+ * 2. Node must have segments array
+ * 3. Segments array must have at least 1 element (or be empty for valid cases)
+ */
+export function assertNodeStructure(node: Node, context?: string): void {
+  if (process.env.NODE_ENV === 'production') return;
+
+  const prefix = context ? `[${context}] ` : '';
+
+  if (!node.id) {
+    throw new Error(`${prefix}Node missing id`);
+  }
+
+  if (!Array.isArray(node.segments)) {
+    throw new Error(`${prefix}Node ${node.id} missing segments array`);
+  }
+
+  // Note: Empty segments array is valid (e.g., new node)
+}
+
+/**
+ * Assert no duplicate node IDs in array (dev-only)
+ */
+export function assertNoDuplicateIds(nodes: Node[], context?: string): void {
+  if (process.env.NODE_ENV === 'production') return;
+
+  const prefix = context ? `[${context}] ` : '';
+  const seen = new Set<NodeID>();
+  const duplicates: NodeID[] = [];
+
+  for (const node of nodes) {
+    if (seen.has(node.id)) {
+      duplicates.push(node.id);
+    }
+    seen.add(node.id);
+  }
+
+  if (duplicates.length > 0) {
+    throw new Error(
+      `${prefix}Duplicate node IDs found: ${duplicates.join(', ')}`
+    );
+  }
+}
+
+/**
+ * Assert all nodes in array have valid structure (dev-only)
+ */
+export function assertNodesValid(nodes: Node[], context?: string): void {
+  if (process.env.NODE_ENV === 'production') return;
+
+  nodes.forEach((node, idx) => {
+    assertNodeStructure(node, context ? `${context}[${idx}]` : `node[${idx}]`);
+  });
+
+  assertNoDuplicateIds(nodes, context);
+}
+
 /**
  * Generate unique node ID
  */
@@ -153,15 +216,20 @@ export function createNode(
   text: string = '',
   parentId: NodeID | null = null
 ): Node {
-  return {
+  const node: Node = {
     id: generateNodeId(),
     type,
-    segments: text ? [{ type: "text", text }] : [],
+    segments: text
+      ? [{ type: "text" as const, text }]
+      : [{ type: "text" as const, text: "" }],
     parentId,
     props: {
       variant: 'paragraph', // File 04 — Default variant
     },
   };
+  
+  assertNodeStructure(node, 'createNode');
+  return node;
 }
 
 /**
@@ -218,19 +286,16 @@ export function insertNodeBefore(
  * Delete a node by ID
  */
 export function deleteNode(nodes: Node[], nodeId: NodeID): Node[] {
-  return nodes.filter((n) => n.id !== nodeId);
+  assertNodesValid(nodes, 'deleteNode:input');
+  const result = nodes.filter((n) => n.id !== nodeId);
+  assertNodesValid(result, 'deleteNode:output');
+  return result;
 }
 
 /**
- * Update node text
+ * Update node text (REMOVED - use replaceNode with segments instead)
+ * To update text content: replaceNode(nodes, nodeId, { ...node, segments: [{ type: 'text', text: newText }] })
  */
-export function updateNodeText(
-  nodes: Node[],
-  nodeId: NodeID,
-  text: string
-): Node[] {
-  return nodes.map((n) => (n.id === nodeId ? { ...n, text } : n));
-}
 
 /**
  * Replace entire node (including props)
@@ -241,7 +306,11 @@ export function replaceNode(
   nodeId: NodeID,
   newNode: Node
 ): Node[] {
-  return nodes.map((n) => (n.id === nodeId ? newNode : n));
+  assertNodesValid(nodes, 'replaceNode:input');
+  assertNodeStructure(newNode, 'replaceNode:newNode');
+  const result = nodes.map((n) => (n.id === nodeId ? newNode : n));
+  assertNodesValid(result, 'replaceNode:output');
+  return result;
 }
 
 /**
@@ -587,6 +656,8 @@ export function splitNodeAtCursor(
   segmentIndex: number,
   offset: number
 ): SplitResult {
+  assertNodeStructure(node, 'splitNodeAtCursor:input');
+  
   // Use guaranteed split logic
   const cursor: CursorPosition = {
     nodeId: node.id,
@@ -599,10 +670,34 @@ export function splitNodeAtCursor(
     cursor
   );
   
-  return {
-    head: { ...node, segments: headSegments },
-    tail: { ...node, id: generateNodeId(), segments: tailSegments }
+  // Enforce canonical empty node shape
+  const normalizedHead = headSegments.length === 0
+    ? [{ type: 'text' as const, text: '' }]
+    : headSegments;
+  const normalizedTail = tailSegments.length === 0
+    ? [{ type: 'text' as const, text: '' }]
+    : tailSegments;
+  
+  const result = {
+    head: { ...node, segments: normalizedHead },
+    tail: { ...node, id: generateNodeId(), segments: normalizedTail }
   };
+  
+  // Assert split preserved content (dev-only)
+  if (process.env.NODE_ENV !== 'production') {
+    const originalText = getPlainText(node.segments);
+    const resultText = getPlainText(result.head.segments) + getPlainText(result.tail.segments);
+    if (originalText !== resultText) {
+      throw new Error(
+        `Split violated content preservation: "${originalText}" -> "${resultText}"`
+      );
+    }
+  }
+  
+  assertNodeStructure(result.head, 'splitNodeAtCursor:head');
+  assertNodeStructure(result.tail, 'splitNodeAtCursor:tail');
+  
+  return result;
 }
 
 /**
@@ -612,7 +707,10 @@ export function splitNodeAtCursor(
  * NO segment collapsing or text merging.
  */
 export function mergeNodes(upper: Node, lower: Node): Node {
-  return {
+  assertNodeStructure(upper, 'mergeNodes:upper');
+  assertNodeStructure(lower, 'mergeNodes:lower');
+  
+  const merged = {
     ...upper,
     segments: [...upper.segments, ...lower.segments],
     props: {
@@ -622,6 +720,9 @@ export function mergeNodes(upper: Node, lower: Node): Node {
         : {})
     }
   };
+  
+  assertNodeStructure(merged, 'mergeNodes:result');
+  return merged;
 }
 
 /**
@@ -1154,20 +1255,64 @@ export function mergeWithPrevious(
 ): { merged: Node; cursor: CursorPosition } {
   const merged = mergeNodes(previous, current);
 
-  // 🔒 UNBREAKABLE: Cursor at junction = where current node's content starts
-  // Junction is at index previous.segments.length
-  // Place cursor EXACTLY at junction, even if it's an inline element
-  // (Caret will be in the caret-anchor before the inline)
-  
+  // 🔒 CRITICAL: Check if current node is truly empty (only empty text segments)
+  const currentIsEmpty = current.segments.every(s => 
+    s.type === 'text' && s.text === ''
+  );
+
+  if (currentIsEmpty) {
+    // Remove empty segments after merging
+    const cleanedMerged = {
+      ...merged,
+      segments: merged.segments.filter(s => 
+        s.type !== 'text' || s.text !== ''
+      )
+    };
+    
+    // Ensure at least one segment (canonical empty shape)
+    if (cleanedMerged.segments.length === 0) {
+      cleanedMerged.segments = [{ type: 'text' as const, text: '' }];
+    }
+    
+    // Current node is empty - place cursor at END of previous node's content
+    const lastPrevSegment = previous.segments[previous.segments.length - 1];
+    
+    if (!lastPrevSegment) {
+      // Previous is also empty - cursor at start
+      return {
+        merged: cleanedMerged,
+        cursor: { nodeId: cleanedMerged.id, segmentIndex: 0, offset: 0 }
+      };
+    }
+    
+    if (lastPrevSegment.type === 'text') {
+      // Last segment of previous is text - cursor at end of that text
+      return {
+        merged: cleanedMerged,
+        cursor: {
+          nodeId: cleanedMerged.id,
+          segmentIndex: previous.segments.length - 1,
+          offset: lastPrevSegment.text.length
+        }
+      };
+    }
+    
+    // Last segment of previous is inline - cursor after it (at junction)
+    return {
+      merged: cleanedMerged,
+      cursor: {
+        nodeId: cleanedMerged.id,
+        segmentIndex: previous.segments.length,
+        offset: 0
+      }
+    };
+  }
+
+  // Current node has content - place cursor at junction (start of current's content)
   const junctionIndex = previous.segments.length;
   
-  // 🔒 CRITICAL FIX: When current is empty, junction = end of previous
-  // Case 1: Current has segments -> cursor at junction (start of current's content)
-  // Case 2: Current is empty -> cursor at junction (after previous's content)
-  //         Even if junction = segments.length (after last segment)
-  
   if (junctionIndex < merged.segments.length) {
-    // Case 1: Junction points to a segment (current had content)
+    // Junction points to a segment (current had content)
     return {
       merged,
       cursor: {
@@ -1178,12 +1323,10 @@ export function mergeWithPrevious(
     };
   }
   
-  // Case 2: Junction is at/after the end (current was empty or at boundary)
-  // Need to place cursor "after" the last segment
+  // Fallback: Junction is at/after the end
   const lastSegment = merged.segments[merged.segments.length - 1];
   
   if (!lastSegment) {
-    // No segments at all - cursor at start
     return {
       merged,
       cursor: { nodeId: merged.id, segmentIndex: 0, offset: 0 }
@@ -1191,7 +1334,6 @@ export function mergeWithPrevious(
   }
   
   if (lastSegment.type === 'text') {
-    // Last segment is text - cursor at end of text
     return {
       merged,
       cursor: {
@@ -1202,12 +1344,11 @@ export function mergeWithPrevious(
     };
   }
   
-  // Last segment is inline - cursor "after" it (segmentIndex beyond array)
   return {
     merged,
     cursor: {
       nodeId: merged.id,
-      segmentIndex: merged.segments.length, // One past the end = "after last segment"
+      segmentIndex: merged.segments.length,
       offset: 0
     }
   };
