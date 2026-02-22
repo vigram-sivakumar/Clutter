@@ -10,6 +10,7 @@ import {
   getNextNode,
   getDepth,
   getSubtreeRange,
+  isNodeHidden,
 } from './utils';
 
 export type Action =
@@ -196,22 +197,44 @@ function reduce(state: EditorState, action: Action): EditorState {
     }
 
     case 'BACKSPACE': {
-      const nodeId = action.atNodeId ?? state.cursor.nodeId;
-      const idx = findNodeIndex(state.nodes, nodeId);
-      if (idx <= 0) return state;
-      const prev = getPreviousNode(state.nodes, idx);
-      const curr = state.nodes[idx];
-      if (!prev || !curr) return state;
-      const mergedText = prev.text + curr.text;
-      const boundaryOffset = prev.text.length;
-      const nodes = state.nodes.filter((n) => n.id !== curr.id);
-      const updatedNodes = nodes.map((n) =>
-        n.id === prev.id ? { ...n, text: mergedText } : n
+      const { atNodeId } = action;
+
+      const current = state.nodes.find(n => n.id === atNodeId);
+      if (!current) return state;
+
+      // Build visible projection INSIDE reducer
+      const visible = state.nodes.filter(
+        n => !isNodeHidden(state.nodes, n.id, state.collapsed)
       );
+
+      const visibleIndex = visible.findIndex(n => n.id === atNodeId);
+
+      if (visibleIndex <= 0) {
+        return state; // nothing to merge with
+      }
+
+      const prevVisible = visible[visibleIndex - 1];
+      if (!prevVisible) return state;
+
+      const prevNode = state.nodes.find(n => n.id === prevVisible.id);
+      if (!prevNode) return state;
+
+      const mergedText = prevNode.text + current.text;
+
       return {
         ...state,
-        nodes: updatedNodes,
-        cursor: { nodeId: prev.id, offset: boundaryOffset },
+        nodes: state.nodes
+          .map(n =>
+            n.id === prevNode.id
+              ? { ...n, text: mergedText }
+              : n
+          )
+          .filter(n => n.id !== current.id),
+
+        cursor: {
+          nodeId: prevNode.id,
+          offset: prevNode.text.length
+        }
       };
     }
 
