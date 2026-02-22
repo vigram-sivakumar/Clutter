@@ -1,341 +1,359 @@
-// reducer.ts
-// Owns all state transitions (single source of truth)
-
 /**
- * Pure state computation layer.
- * 
- * CRITICAL RULES:
- * - Reducer MUST be pure: (state, action) → nextState
- * - NO side effects
- * - NO DOM access
- * - NO observer manipulation
- * - NO React hooks
- * - NO timing/async logic
- * 
- * The reducer computes the NEXT state.
- * The coordinator applies it.
- * 
- * This is the single source of truth for state transitions.
+ * Editor V2 — Pure state transitions. No DOM. No selection reading.
  */
 
-import { useReducer } from 'react';
-import type { Node, NodeID, Segment, NodeVariant } from './engine';
-import type {
-  EditorStateComplete,
-  EditorAction,
-  SelectionRange,
-} from './EditorTypes';
+import type { EditorState, Node, NodeID } from './model';
+import { generateId } from './model';
 import {
-  handleSegmentedEnter,
-  handleSegmentedBackspace,
-  mergeWithPrevious,
-} from './engine';
+  findNodeIndex,
+  getPreviousNode,
+  getNextNode,
+  getDepth,
+  getSubtreeRange,
+} from './utils';
 
-/**
- * Main reducer: computes next state from current state + action
- * 
- * Merged from EditorReducer + EditorStateReducer.
- * All action types unified into single switch.
- * 
- * @param state - Current editor state
- * @param action - Action to apply
- * @returns Next editor state
- */
-export function editorReducer(
-  state: EditorStateComplete,
-  action: EditorAction
-): EditorStateComplete {
+export type Action =
+  | { type: 'SET_CURSOR'; nodeId: NodeID; offset: number }
+  | { type: 'UPDATE_TEXT'; nodeId: NodeID; text: string }
+  | { type: 'ENTER'; atNodeId?: NodeID; atOffset?: number }
+  | { type: 'BACKSPACE'; atNodeId?: NodeID }
+  | { type: 'MOVE_UP'; currentNodeId?: NodeID; currentOffset?: number }
+  | { type: 'MOVE_DOWN'; currentNodeId?: NodeID; currentOffset?: number }
+  | { type: 'INDENT'; atNodeId?: NodeID }
+  | { type: 'OUTDENT'; atNodeId?: NodeID }
+  | { type: 'TOGGLE_COLLAPSE'; nodeId: NodeID };
+
+function clampOffset(offset: number, text: string): number {
+  return Math.max(0, Math.min(offset, text.length));
+}
+
+const __DEV__ =
+  typeof import.meta !== 'undefined' &&
+  (import.meta as { env?: { DEV?: boolean } }).env?.DEV === true;
+
+function enforceEditorInvariants(nodes: Node[]): Node[] {
+  let next = [...nodes];
+
+  // 1️⃣ Ensure at least one root node exists
+  const hasRoot = next.some((n) => n.parentId === null);
+  if (!hasRoot) {
+    next.push({
+      id: generateId(),
+      text: '',
+      parentId: null,
+    });
+    return next;
+  }
+
+  // 2️⃣ Ensure last root node is empty (systemic empty)
+  const rootNodes = next.filter((n) => n.parentId === null);
+  const lastRoot = rootNodes[rootNodes.length - 1];
+  if (!lastRoot) return next;
+
+  if (lastRoot.text.trim() !== '') {
+    next.push({
+      id: generateId(),
+      text: '',
+      parentId: null,
+    });
+  }
+
+  return next;
+}
+
+function reduce(state: EditorState, action: Action): EditorState {
   switch (action.type) {
-    case 'ENTER_PRESSED': {
-      const { cursor, segments, nodes } = action.payload;
-
-      // Find current node
-      const nodeIndex = nodes.findIndex((n) => n.id === cursor.nodeId);
-      if (nodeIndex === -1) return state;
-
-      const currentNode = nodes[nodeIndex];
-      if (!currentNode) return state;
-
-      // Update node with fresh segments (from DOM extraction)
-      const nodeWithFreshSegments: Node = {
-        ...currentNode,
-        segments,
-      };
-
-      // Compute split using battle-tested SegmentedEditor logic
-      const splitResult = handleSegmentedEnter(nodeWithFreshSegments, cursor);
-
-      // Engine guarantees at least one segment (even if empty)
-      const normalizedHead = splitResult.head;
-      const normalizedTail = splitResult.tail;
-
-      // Insert tail node after current node
-      const updatedNodes = [
-        ...nodes.slice(0, nodeIndex),
-        normalizedHead,
-        normalizedTail,
-        ...nodes.slice(nodeIndex + 1),
-      ];
-
-      // Return new state with cursor at start of tail node
+    case 'SET_CURSOR': {
+      const idx = findNodeIndex(state.nodes, action.nodeId);
+      if (idx < 0) return state;
+      const node = state.nodes[idx];
+      if (!node) return state;
+      const offset = clampOffset(action.offset, node.text);
       return {
         ...state,
-        nodes: updatedNodes,
-        cursor: splitResult.cursor,
+        cursor: { nodeId: action.nodeId, offset },
       };
     }
 
-    case 'BACKSPACE_PRESSED': {
-      const { cursor, segments, nodes } = action.payload;
+    case 'UPDATE_TEXT': {
+      const idx = findNodeIndex(state.nodes, action.nodeId);
+      if (idx < 0) return state;
+      const nodes = state.nodes.map((n) =>
+        n.id === action.nodeId ? { ...n, text: action.text } : n
+      );
+      return { ...state, nodes };
+    }
 
-      // Find current node
-      const currentIndex = nodes.findIndex((n) => n.id === cursor.nodeId);
-      if (currentIndex === -1) return state;
+    case 'ENTER': {
+      const nodeId = action.atNodeId ?? state.cursor.nodeId;
+      const idx = findNodeIndex(state.nodes, nodeId);
+      if (idx < 0) return state;
 
-      const currentNode = nodes[currentIndex];
-      if (!currentNode) return state;
+      const node = state.nodes[idx];
+      if (!node) return state;
 
-      // Update node with fresh segments
-      const nodeWithFreshSegments: Node = {
-        ...currentNode,
-        segments,
-      };
+      const offset =
+        action.atOffset !== undefined
+          ? clampOffset(action.atOffset, node.text)
+          : clampOffset(state.cursor.offset, node.text);
 
-      // Compute deletion using battle-tested SegmentedEditor logic
-      const backspaceResult = handleSegmentedBackspace(nodeWithFreshSegments, cursor, nodes);
+      const isEmpty = node.text.length === 0;
+      const isAtStart = offset === 0;
+      const isAtEnd = offset === node.text.length;
 
-      if (backspaceResult.mergeResult) {
-        // Node merge
-        const normalizedMerged = backspaceResult.mergeResult.merged;
-        
-        const updatedNodes = [
-          ...nodes.slice(0, currentIndex - 1),
-          normalizedMerged,
-          ...nodes.slice(currentIndex + 1),
-        ];
-        return {
-          ...state,
-          nodes: updatedNodes,
-          cursor: backspaceResult.mergeResult.cursor,
+      const newId = generateId();
+
+      // EMPTY NODE → BELOW (after subtree)
+      if (isEmpty) {
+        const newNode: Node = {
+          id: newId,
+          text: '',
+          parentId: node.parentId,
         };
-      } else if (backspaceResult.updated) {
-        // Character deletion
-        const normalizedNode = backspaceResult.updated;
-        
-        const updatedNodes = nodes.map((n) =>
-          n.id === cursor.nodeId ? normalizedNode : n
-        );
-        
+
+        const { end } = getSubtreeRange(state.nodes, idx);
+        const nodes = [
+          ...state.nodes.slice(0, end + 1),
+          newNode,
+          ...state.nodes.slice(end + 1),
+        ];
+
         return {
           ...state,
-          nodes: updatedNodes,
-          cursor: backspaceResult.cursor,
+          nodes,
+          cursor: { nodeId: newId, offset: 0 },
         };
       }
 
-      return state;
-    }
-
-    case 'TAB_PRESSED': {
-      const { nodeId, shiftKey } = action.payload;
-
-      const updatedNodes = state.nodes.map((node) => {
-        if (node.id !== nodeId) return node;
-
-        const currentIndent = (node as any).indent || 0;
-        const newIndent = shiftKey
-          ? Math.max(0, currentIndent - 1)
-          : Math.min(10, currentIndent + 1);
-
-        return { ...node, indent: newIndent } as any;
-      });
-
-      return {
-        ...state,
-        nodes: updatedNodes,
-      };
-    }
-
-    case 'ARROW_PRESSED': {
-      const { cursor } = action.payload;
-
-      return {
-        ...state,
-        cursor,
-      };
-    }
-
-    case 'MARKDOWN_TRIGGER': {
-      const { nodeId, newVariant, clearedSegments } = action.payload;
-
-      const updatedNodes = state.nodes.map((node) => {
-        if (node.id !== nodeId) return node;
-        return { 
-          ...node, 
-          segments: clearedSegments,
-          props: { ...node.props, variant: newVariant }
+      // CURSOR AT END → BELOW (after subtree)
+      if (isAtEnd) {
+        const newNode: Node = {
+          id: newId,
+          text: '',
+          parentId: node.parentId,
         };
-      });
 
+        const { end } = getSubtreeRange(state.nodes, idx);
+        const nodes = [
+          ...state.nodes.slice(0, end + 1),
+          newNode,
+          ...state.nodes.slice(end + 1),
+        ];
+
+        return {
+          ...state,
+          nodes,
+          cursor: { nodeId: newId, offset: 0 },
+        };
+      }
+
+      // CURSOR AT START WITH CONTENT → ABOVE
+      if (isAtStart) {
+        const newNode: Node = {
+          id: newId,
+          text: '',
+          parentId: node.parentId,
+        };
+
+        const nodes = [
+          ...state.nodes.slice(0, idx),
+          newNode,
+          ...state.nodes.slice(idx),
+        ];
+
+        return {
+          ...state,
+          nodes,
+          cursor: { nodeId: newId, offset: 0 },
+        };
+      }
+
+      // SPLIT (created node after subtree)
+      const head = node.text.slice(0, offset);
+      const tail = node.text.slice(offset);
+
+      const updated: Node = { ...node, text: head };
+      const created: Node = {
+        id: newId,
+        text: tail,
+        parentId: node.parentId,
+      };
+
+      const { start, end } = getSubtreeRange(state.nodes, idx);
+      const nodes = [
+        ...state.nodes.slice(0, start),
+        updated,
+        ...state.nodes.slice(start + 1, end + 1),
+        created,
+        ...state.nodes.slice(end + 1),
+      ];
+
+      return {
+        ...state,
+        nodes,
+        cursor: { nodeId: newId, offset: 0 },
+      };
+    }
+
+    case 'BACKSPACE': {
+      const nodeId = action.atNodeId ?? state.cursor.nodeId;
+      const idx = findNodeIndex(state.nodes, nodeId);
+      if (idx <= 0) return state;
+      const prev = getPreviousNode(state.nodes, idx);
+      const curr = state.nodes[idx];
+      if (!prev || !curr) return state;
+      const mergedText = prev.text + curr.text;
+      const boundaryOffset = prev.text.length;
+      const nodes = state.nodes.filter((n) => n.id !== curr.id);
+      const updatedNodes = nodes.map((n) =>
+        n.id === prev.id ? { ...n, text: mergedText } : n
+      );
       return {
         ...state,
         nodes: updatedNodes,
-        cursor: {
-          nodeId,
-          segmentIndex: 0,
-          offset: 0,
-        },
+        cursor: { nodeId: prev.id, offset: boundaryOffset },
       };
     }
 
-    case 'PROPERTY_EDITOR_OPEN': {
-      // Property editor is UI-only, no state change
-      return state;
-    }
-
-    case 'SELECTION_CHANGED': {
+    case 'MOVE_UP': {
+      const nodeId = action.currentNodeId ?? state.cursor.nodeId;
+      const idx = findNodeIndex(state.nodes, nodeId);
+      if (idx <= 0) return state;
+      const prev = getPreviousNode(state.nodes, idx);
+      if (!prev) return state;
+      const offset =
+        action.currentOffset !== undefined
+          ? clampOffset(action.currentOffset, prev.text)
+          : clampOffset(state.cursor.offset, prev.text);
       return {
         ...state,
-        cursor: action.payload.cursor,
-        selection: { anchor: null, focus: null }, // Clear selection range
+        cursor: { nodeId: prev.id, offset },
       };
     }
 
-    case 'SELECTION_RANGE_CHANGED': {
+    case 'MOVE_DOWN': {
+      const nodeId = action.currentNodeId ?? state.cursor.nodeId;
+      const idx = findNodeIndex(state.nodes, nodeId);
+      const next = getNextNode(state.nodes, idx);
+      if (!next) return state;
+      const offset =
+        action.currentOffset !== undefined
+          ? clampOffset(action.currentOffset, next.text)
+          : clampOffset(state.cursor.offset, next.text);
       return {
         ...state,
-        cursor: action.payload.cursor,
-        selection: action.payload.selection,
+        cursor: { nodeId: next.id, offset },
       };
     }
 
-    case 'BLUR_COMMIT': {
-      const { nodeId, segments, cursor } = action.payload;
+    case 'INDENT': {
+      const nodeId = action.atNodeId ?? state.cursor.nodeId;
+      const idx = findNodeIndex(state.nodes, nodeId);
+      if (idx <= 0) return state;
 
-      // Update node with fresh segments
-      const newNodes = state.nodes.map((n) =>
-        n.id === nodeId ? { ...n, segments } : n
+      const currentDepth = getDepth(state.nodes, nodeId);
+
+      // Find nearest previous node at SAME depth
+      let targetParent: Node | null = null;
+
+      for (let i = idx - 1; i >= 0; i--) {
+        const candidate = state.nodes[i];
+        if (!candidate) continue;
+
+        const candidateDepth = getDepth(state.nodes, candidate.id);
+
+        if (candidateDepth === currentDepth) {
+          targetParent = candidate;
+          break;
+        }
+      }
+
+      if (!targetParent) return state;
+
+      const parentId = targetParent.id;
+
+      // Get entire subtree block
+      const { start, end } = getSubtreeRange(state.nodes, idx);
+      const block = state.nodes.slice(start, end + 1);
+
+      // Update ONLY root of block parentId
+      const updatedBlock = block.map((n, i) =>
+        i === 0 ? { ...n, parentId } : n
       );
 
-      return {
-        ...state,
-        nodes: newNodes,
-        cursor: cursor || state.cursor,
-      };
+      // Rebuild nodes WITHOUT reordering
+      const newNodes = [
+        ...state.nodes.slice(0, start),
+        ...updatedBlock,
+        ...state.nodes.slice(end + 1),
+      ];
+
+      // When moving into a parent, expand it so the moved node is visible
+      const newCollapsed = new Set(state.collapsed ?? []);
+      if (parentId) newCollapsed.delete(parentId);
+      return { ...state, nodes: newNodes, collapsed: newCollapsed };
     }
 
-    case 'SEGMENTS_UPDATED': {
-      const { nodeId, segments } = action.payload;
+    case 'OUTDENT': {
+      const nodeId = action.atNodeId ?? state.cursor.nodeId;
+      const idx = findNodeIndex(state.nodes, nodeId);
+      if (idx < 0) return state;
 
-      // Update node with fresh segments
-      const newNodes = state.nodes.map((n) =>
-        n.id === nodeId ? { ...n, segments } : n
-      );
+      const node = state.nodes[idx];
+      if (!node?.parentId) return state;
 
-      return {
-        ...state,
-        nodes: newNodes,
-      };
+      const currentDepth = getDepth(state.nodes, nodeId);
+
+      const parent = state.nodes.find((n) => n.id === node.parentId);
+      if (!parent) return state;
+
+      const newParentId = parent.parentId ?? null;
+
+      const nodes = [...state.nodes];
+
+      // Step 1: Move current node up one level
+      nodes[idx] = { ...node, parentId: newParentId };
+
+      // Step 2: Capture following siblings at same depth (use original depths)
+      for (let i = idx + 1; i < nodes.length; i++) {
+        const candidate = nodes[i];
+        if (!candidate) break;
+
+        const candidateDepth = getDepth(state.nodes, candidate.id);
+
+        if (candidateDepth < currentDepth) break;
+
+        if (candidateDepth === currentDepth) {
+          nodes[i] = { ...candidate, parentId: nodeId };
+        }
+      }
+
+      // When moving into a parent (grandparent), expand it so the moved node is visible
+      const newCollapsed = new Set(state.collapsed ?? []);
+      if (newParentId) newCollapsed.delete(newParentId);
+      return { ...state, nodes, collapsed: newCollapsed };
     }
 
-    case 'COMPOSITION_START':
-    case 'COMPOSITION_END': {
-      return {
-        ...state,
-        isComposing: action.type === 'COMPOSITION_START',
-      };
-    }
-
-    case 'ZOOM_IN': {
-      return {
-        ...state,
-        focusRootId: action.payload.nodeId,
-      };
-    }
-
-    case 'ZOOM_OUT': {
-      return {
-        ...state,
-        focusRootId: null,
-      };
-    }
-
-    case 'GRAMMAR_SESSION_START': {
-      return {
-        ...state,
-        grammarSession: action.payload.session,
-      };
-    }
-
-    case 'GRAMMAR_SESSION_UPDATE': {
-      return {
-        ...state,
-        grammarSession: action.payload.session,
-      };
-    }
-
-    case 'GRAMMAR_SESSION_CANCEL': {
-      return {
-        ...state,
-        grammarSession: {
-          isActive: false,
-          candidates: [],
-          selectedIndex: 0,
-        },
-      };
+    case 'TOGGLE_COLLAPSE': {
+      const next = new Set(state.collapsed ?? []);
+      if (next.has(action.nodeId)) next.delete(action.nodeId);
+      else next.add(action.nodeId);
+      return { ...state, collapsed: next };
     }
 
     default:
-      // Unknown action - return state unchanged
       return state;
   }
 }
 
-/**
- * Hook for editor state management
- * 
- * Wraps useReducer with the editor reducer.
- * 
- * @param initialState - Initial editor state
- * @returns [state, dispatch] tuple
- */
-export function useEditorStateReducer(initialState: EditorStateComplete) {
-  return useReducer(editorReducer, initialState);
-}
-
-/**
- * Validate state invariants
- * 
- * Guards against invalid state that could break the editor.
- * Called by coordinator after reducer computes next state.
- * 
- * @param state - State to validate
- * @throws Error if state violates invariants
- */
-export function validateEditorState(state: EditorStateComplete): void {
-  // Invariant 1: Cursor must point to existing node
-  const cursorNodeExists = state.nodes.some((n) => n.id === state.cursor.nodeId);
-  if (!cursorNodeExists) {
-    throw new Error(
-      `[Reducer Invariant] Cursor points to non-existent node: ${state.cursor.nodeId}`
-    );
-  }
-
-  // Invariant 2: Cursor offset must be valid
-  const cursorNode = state.nodes.find((n) => n.id === state.cursor.nodeId);
-  if (cursorNode) {
-    const segmentCount = cursorNode.segments.length;
-    if (state.cursor.segmentIndex > segmentCount) {
-      throw new Error(
-        `[Reducer Invariant] Cursor segmentIndex ${state.cursor.segmentIndex} exceeds segment count ${segmentCount}`
-      );
+export function reducer(state: EditorState, action: Action): EditorState {
+  const nextState = reduce(state, action);
+  const nodesWithInvariant = enforceEditorInvariants(nextState.nodes);
+  if (__DEV__) {
+    const ids = nodesWithInvariant.map((n) => n.id);
+    if (new Set(ids).size !== ids.length) {
+      throw new Error('Duplicate node IDs detected');
     }
   }
-
-  // Invariant 3: All nodes must have unique IDs
-  const nodeIds = state.nodes.map((n) => n.id);
-  const uniqueIds = new Set(nodeIds);
-  if (nodeIds.length !== uniqueIds.size) {
-    throw new Error('[Reducer Invariant] Duplicate node IDs detected');
-  }
+  return { ...nextState, nodes: nodesWithInvariant };
 }

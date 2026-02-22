@@ -5,7 +5,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import './node.css'; // File 05 — Canonical node anatomy styles
+import './design-system/tokens.css';
+import './design-system/theme.css';
+import './styles/base.css';
+import './styles/layout.css';
+import './styles/editor.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');

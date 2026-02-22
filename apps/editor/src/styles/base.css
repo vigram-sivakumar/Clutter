@@ -1,0 +1,40 @@
+/**
+ * Base — body, root, global resets, font, typography, selection.
+ * Assumes design-system (tokens + theme) loaded first.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--lh-body);
+  font-weight: var(--fw-regular);
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+}
+
+#root {
+  height: 100%;
+}
+
+[data-node-id] {
+  font-size: var(--text-base);
+  line-height: var(--lh-body);
+  font-weight: var(--fw-regular);
+}
+
+::selection {
+  background: var(--color-selection);
+}

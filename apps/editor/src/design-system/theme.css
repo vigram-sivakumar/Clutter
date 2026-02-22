@@ -1,0 +1,48 @@
+:root {
+  /* ===========================
+     Semantic Mapping
+     Components use only these — never raw neutral tokens.
+  ============================ */
+  --color-bg-primary: var(--neutral-950);
+  --color-bg-secondary: var(--neutral-900);
+  --color-bg-teritary: var(--neutral-800);
+
+  --color-text-primary: var(--neutral-200);
+  --color-text-secondary: var(--neutral-300);
+  --color-text-teritary: var(--neutral-500);
+  --color-text-disabled: var(--neutral-600);
+
+  --color-border-primary: var(--neutral-600);
+  --color-border-secondary: var(--neutral-700);
+
+  --overlay-hover: rgba(255, 255, 255, 0.04);
+  --overlay-active: rgba(255, 255, 255, 0.06);
+
+  /* ===========================
+     Focus (accessibility)
+  ============================ */
+  --focus-ring: 0 0 0 2px rgba(99, 102, 241, 0.6);
+
+  /* ===========================
+     Accent
+  ============================ */
+  --color-accent: var(--primary-500);
+  --color-accent-hover: var(--primary-400);
+
+  /* ===========================
+     Selection & Inline meta (semantic refs only)
+  ============================ */
+  --color-selection: rgba(99, 102, 241, 0.25);
+  --color-inline-reference-bg: rgba(99, 102, 241, 0.15);
+  --color-inline-reference-bg-hover: rgba(99, 102, 241, 0.25);
+  --color-inline-reference-text: var(--color-text-primary);
+  --color-inline-mention-bg: rgba(34, 197, 94, 0.15);
+  --color-inline-mention-bg-hover: rgba(34, 197, 94, 0.25);
+  --color-inline-mention-text: var(--success-500);
+  --color-inline-date-bg: rgba(245, 158, 11, 0.15);
+  --color-inline-date-bg-hover: rgba(245, 158, 11, 0.25);
+  --color-inline-date-text: var(--warning-500);
+  --color-inline-tag-bg: rgba(239, 68, 68, 0.15);
+  --color-inline-tag-bg-hover: rgba(239, 68, 68, 0.25);
+  --color-inline-tag-text: var(--danger-500);
+}

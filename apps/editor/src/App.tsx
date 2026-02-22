@@ -1,5 +1,10 @@
-import { NodeEditor } from './editor/view/NodeEditor';
+import { AppShell } from "./components/AppShell";
+import { Editor } from "./editor/Editor";
 
 export function App() {
-  return <NodeEditor />;
+  return (
+    <AppShell>
+      <Editor />
+    </AppShell>
+  );
 }
