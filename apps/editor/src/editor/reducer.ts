@@ -325,36 +325,51 @@ function reduce(state: EditorState, action: Action): EditorState {
       const node = state.nodes[idx];
       if (!node?.parentId) return state;
 
-      const currentDepth = getDepth(state.nodes, nodeId);
+      const parentIdx = findNodeIndex(state.nodes, node.parentId);
+      if (parentIdx < 0) return state;
 
-      const parent = state.nodes.find((n) => n.id === node.parentId);
+      const parent = state.nodes[parentIdx];
       if (!parent) return state;
 
       const newParentId = parent.parentId ?? null;
 
       const nodes = [...state.nodes];
 
-      // Step 1: Move current node up one level
-      nodes[idx] = { ...node, parentId: newParentId };
+      // 1️⃣ Get subtree block of current node
+      const { start, end } = getSubtreeRange(nodes, idx);
+      const block = nodes.slice(start, end + 1);
 
-      // Step 2: Capture following siblings at same depth (use original depths)
-      for (let i = idx + 1; i < nodes.length; i++) {
-        const candidate = nodes[i];
-        if (!candidate) break;
+      // 2️⃣ Remove block from original position
+      const withoutBlock = [
+        ...nodes.slice(0, start),
+        ...nodes.slice(end + 1),
+      ];
 
-        const candidateDepth = getDepth(state.nodes, candidate.id);
+      // 3️⃣ Update root of block with new parent
+      const updatedBlock = block.map((n, i) =>
+        i === 0 ? { ...n, parentId: newParentId } : n
+      );
 
-        if (candidateDepth < currentDepth) break;
+      // 4️⃣ Find subtree range of original parent (in updated list)
+      const newParentIndex = findNodeIndex(withoutBlock, parent.id);
+      const parentRange = getSubtreeRange(withoutBlock, newParentIndex);
 
-        if (candidateDepth === currentDepth) {
-          nodes[i] = { ...candidate, parentId: nodeId };
-        }
-      }
+      // 5️⃣ Insert block after parent subtree
+      const newNodes = [
+        ...withoutBlock.slice(0, parentRange.end + 1),
+        ...updatedBlock,
+        ...withoutBlock.slice(parentRange.end + 1),
+      ];
 
-      // When moving into a parent (grandparent), expand it so the moved node is visible
+      // 6️⃣ Expand grandparent so node is visible
       const newCollapsed = new Set(state.collapsed ?? []);
       if (newParentId) newCollapsed.delete(newParentId);
-      return { ...state, nodes, collapsed: newCollapsed };
+
+      return {
+        ...state,
+        nodes: newNodes,
+        collapsed: newCollapsed,
+      };
     }
 
     case 'TOGGLE_COLLAPSE': {
