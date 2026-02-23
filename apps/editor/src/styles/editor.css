@@ -105,24 +105,28 @@
   height: 6px;
 }
 
-/* Hide dot for normal empty nodes */
-.clutter-node--empty:not(.clutter-node--systemic) .clutter-node__dot {
+/* Hide dot and ring for normal empty nodes */
+.clutter-node--empty:not(.clutter-node--systemic) .clutter-node__dot,
+.clutter-node--empty:not(.clutter-node--systemic) .clutter-node__ring {
   visibility: hidden;
 }
 
-/* Show dot when hovering empty node */
-.clutter-node--empty:not(.clutter-node--systemic):hover .clutter-node__dot {
+/* Show dot and ring when hovering empty node */
+.clutter-node--empty:not(.clutter-node--systemic):hover .clutter-node__dot,
+.clutter-node--empty:not(.clutter-node--systemic):hover .clutter-node__ring {
   visibility: visible;
 }
 
-/* Show dot when active */
-.clutter-node--empty:not(.clutter-node--systemic)[data-active="true"] .clutter-node__dot {
+/* Show dot and ring when active */
+.clutter-node--empty:not(.clutter-node--systemic)[data-active="true"] .clutter-node__dot,
+.clutter-node--empty:not(.clutter-node--systemic)[data-active="true"] .clutter-node__ring {
   visibility: visible;
 }
 
 .clutter-node__content {
   flex: 1;
   outline: none;
+  min-height: 1em;
   white-space: pre-wrap;
 }
 
@@ -137,7 +141,6 @@
 
 /* Children wrapper — mount only when expanded; layout only */
 .clutter-node__children {
-  margin-left: var(--indent);
   position: relative;
 }
 
@@ -152,4 +155,3 @@
   background: var(--color-text-secondary);
   opacity: 0.2;
 }
-
