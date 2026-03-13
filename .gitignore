@@ -45,3 +45,6 @@ coverage/
 .cache/
 .temp/
 .tmp/
+
+# Generated editor snapshot
+apps/editor/editor-review.ts
