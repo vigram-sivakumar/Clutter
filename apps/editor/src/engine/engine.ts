@@ -3,6 +3,8 @@
  * All mutations via applyOp. Normalization only via NormalizeInline op.
  */
 
+import type { Selection } from '../editor/selection';
+
 export type BlockType =
   | 'root'
   | 'paragraph'
@@ -40,6 +42,7 @@ export type Node = {
 export type EditorState = {
   nodes: Record<string, Node>;
   rootId: string;
+  selection: Selection | null;
 };
 
 export type PrimitiveOp =
@@ -202,11 +205,27 @@ export function applyOp(state: EditorState, op: PrimitiveOp): EditorState {
     case 'DeleteNode': {
       const parent = getNode(state, op.parentId);
       if (!parent) return state;
+
       const idx = parent.children.indexOf(op.id);
       if (idx < 0) return state;
+
       const newChildren = parent.children.filter((_, i) => i !== idx);
-      const stateWithoutChild = setNode(state, op.parentId, { ...parent, children: newChildren });
-      return deleteNodeKey(stateWithoutChild, op.id);
+      let s = setNode(state, op.parentId, { ...parent, children: newChildren });
+
+      function deleteSubtree(currentState: EditorState, id: string): EditorState {
+        const node = currentState.nodes[id];
+        if (!node) return currentState;
+
+        let next = currentState;
+
+        for (const childId of node.children) {
+          next = deleteSubtree(next, childId);
+        }
+
+        return deleteNodeKey(next, id);
+      }
+
+      return deleteSubtree(s, op.id);
     }
 
     case 'MoveNode': {
@@ -316,5 +335,227 @@ export function applyOp(state: EditorState, op: PrimitiveOp): EditorState {
 
     default:
       return state;
+  }
+}
+
+/**
+ * Ordered visible node IDs (respects collapsed).
+ */
+export function getVisibleNodeIds(state: EditorState): string[] {
+  const result: string[] = [];
+
+  function walk(nodeId: string) {
+    const node = state.nodes[nodeId];
+    if (!node) return;
+
+    if (node.blockType !== 'root') {
+      result.push(nodeId);
+    }
+
+    if (!node.collapsed) {
+      for (const childId of node.children) {
+        walk(childId);
+      }
+    }
+  }
+
+  walk(state.rootId);
+  return result;
+}
+
+/**
+ * Map visible index to (parentId, index) for InsertNode.
+ * Inserts before the node at visibleIndex.
+ */
+export function getInsertionPointForVisibleIndex(
+  state: EditorState,
+  visibleIndex: number
+): { parentId: string; index: number } | null {
+  const visible = getVisibleNodeIds(state);
+  const targetId = visible[visibleIndex];
+  if (!targetId) {
+    const root = state.nodes[state.rootId];
+    if (!root) return null;
+    return { parentId: state.rootId, index: root.children.length };
+  }
+  const node = state.nodes[targetId];
+  if (!node || !node.parentId) return null;
+  const parent = state.nodes[node.parentId];
+  if (!parent) return null;
+  const index = parent.children.indexOf(targetId);
+  if (index < 0) return null;
+  return { parentId: node.parentId, index };
+}
+
+function getSystemicNodeId(state: EditorState): string | null {
+  const root = state.nodes[state.rootId];
+  if (!root || root.children.length === 0) return null;
+  const lastId = root.children[root.children.length - 1] ?? null;
+  return lastId;
+}
+
+/**
+ * Collect all node IDs that will be removed by these ops (including cascade).
+ */
+function getDeletedIdsFromOps(stateBefore: EditorState, ops: PrimitiveOp[]): Set<string> {
+  const deleted = new Set<string>();
+
+  function collectSubtree(id: string) {
+    deleted.add(id);
+    const node = stateBefore.nodes[id];
+    if (!node) return;
+    for (const childId of node.children) {
+      collectSubtree(childId);
+    }
+  }
+
+  for (const op of ops) {
+    if (op.type === 'DeleteNode') {
+      collectSubtree(op.id);
+    }
+  }
+
+  return deleted;
+}
+
+function selectionReferencesDeleted(
+  sel: Selection | null,
+  deletedIds: Set<string>
+): boolean {
+  if (!sel) return false;
+  if (sel.type === 'collapsed') return deletedIds.has(sel.nodeId);
+  if (sel.type === 'range') {
+    return deletedIds.has(sel.anchor.nodeId) || deletedIds.has(sel.focus.nodeId);
+  }
+  if (sel.type === 'block-range') {
+    return deletedIds.has(sel.startNodeId) || deletedIds.has(sel.endNodeId);
+  }
+  return false;
+}
+
+/**
+ * Repair selection after structural delete. Returns repaired selection when
+ * beforeSelection references deleted nodes; otherwise null.
+ */
+export function repairSelectionAfterDelete(
+  stateAfter: EditorState,
+  stateBefore: EditorState,
+  ops: PrimitiveOp[],
+  beforeSelection: Selection | null
+): Selection | null {
+  if (!beforeSelection) return null;
+
+  const deletedIds = getDeletedIdsFromOps(stateBefore, ops);
+  if (deletedIds.size === 0) return null;
+  if (!selectionReferencesDeleted(beforeSelection, deletedIds)) return null;
+
+  const visibleIds = getVisibleNodeIds(stateAfter);
+  const systemicId = getSystemicNodeId(stateAfter);
+
+  let targetIndex = 0;
+  if (beforeSelection.type === 'block-range') {
+    const visibleBefore = getVisibleNodeIds(stateBefore);
+    const startIdx = visibleBefore.indexOf(beforeSelection.startNodeId);
+    const endIdx = visibleBefore.indexOf(beforeSelection.endNodeId);
+    if (startIdx >= 0 && endIdx >= 0) {
+      targetIndex = Math.min(startIdx, endIdx);
+    }
+  } else {
+    const rootDeleteOps = ops.filter(
+      (o): o is Extract<PrimitiveOp, { type: 'DeleteNode' }> =>
+        o.type === 'DeleteNode' && o.parentId === stateAfter.rootId
+    );
+    if (rootDeleteOps.length > 0) {
+      targetIndex = Math.min(...rootDeleteOps.map((o) => o.index));
+    }
+  }
+
+  if (targetIndex >= visibleIds.length) {
+    targetIndex = Math.max(0, visibleIds.length - 1);
+  }
+
+  const targetId =
+    visibleIds[targetIndex] ?? visibleIds[targetIndex - 1] ?? systemicId;
+
+  if (!targetId) return null;
+
+  const node = stateAfter.nodes[targetId];
+  if (!node || node.inlines.length === 0) return null;
+
+  return {
+    type: 'collapsed',
+    nodeId: targetId,
+    inlineIndex: 0,
+    offset: 0,
+  };
+}
+
+/**
+ * Structural validation (dev only). Throws on corruption.
+ */
+export function validateStructure(state: EditorState): void {
+  const { nodes, rootId } = state;
+
+  if (!nodes[rootId]) {
+    throw new Error('Root missing');
+  }
+
+  const visited = new Set<string>();
+
+  function walk(id: string) {
+    if (visited.has(id)) {
+      throw new Error('Cycle detected at ' + id);
+    }
+
+    visited.add(id);
+
+    const node = nodes[id];
+    if (!node) {
+      throw new Error('Missing node: ' + id);
+    }
+
+    if (node.blockType !== 'root' && (!node.inlines || node.inlines.length === 0)) {
+      throw new Error('Node without inlines: ' + id);
+    }
+
+    for (const childId of node.children) {
+      const child = nodes[childId];
+      if (!child) {
+        throw new Error('Missing child ' + childId);
+      }
+
+      if (child.parentId !== id) {
+        throw new Error('Parent mismatch for ' + childId);
+      }
+
+      walk(childId);
+    }
+  }
+
+  walk(rootId);
+
+  // ensure no orphan nodes
+  for (const id in nodes) {
+    if (!visited.has(id)) {
+      throw new Error('Orphan node: ' + id);
+    }
+  }
+
+  // selection integrity
+  if (state.selection) {
+    const sel = state.selection;
+    if (sel.type === 'collapsed') {
+      if (!nodes[sel.nodeId]) {
+        throw new Error('Selection points to missing node');
+      }
+    } else if (sel.type === 'range') {
+      if (!nodes[sel.anchor.nodeId] || !nodes[sel.focus.nodeId]) {
+        throw new Error('Selection points to missing node');
+      }
+    } else if (sel.type === 'block-range') {
+      if (!nodes[sel.startNodeId] || !nodes[sel.endNodeId]) {
+        throw new Error('Selection points to missing node');
+      }
+    }
   }
 }

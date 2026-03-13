@@ -5,10 +5,13 @@
 
 import type { EditorState, PrimitiveOp } from './engine';
 import { applyOp } from './engine';
+import type { Selection } from '../editor/selection';
 
 export type HistoryEntry = {
   label: string;
   ops: PrimitiveOp[];
+  beforeSelection: Selection | null;
+  afterSelection: Selection | null;
 };
 
 export type HistoryState = {

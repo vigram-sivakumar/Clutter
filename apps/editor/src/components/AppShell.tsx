@@ -7,9 +7,9 @@ type AppShellProps = {
 export function AppShell({ children }: AppShellProps) {
   return (
     <div className="clutter-app">
-      <aside className="clutter-sidebar">
+      {/* <aside className="clutter-sidebar">
 
-      </aside>
+      </aside> */}
 
       <div className="clutter-main">
         <header className="clutter-topbar">

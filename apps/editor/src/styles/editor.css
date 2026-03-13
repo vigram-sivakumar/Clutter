@@ -68,23 +68,9 @@
   gap: 4px;
 }
 
-.clutter-node__ring {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--color-text-secondary);
-  opacity: 0;
-}
-
-.clutter-node.clutter-node--collapsed-parent > .clutter-node__inner .clutter-node__ring {
-  opacity: 0.2;
-}
-
-/* Default dot */
-.clutter-node__dot {
+/* Base bullet */
+.clutter-node__bullet {
+  position: relative;
   display: block;
   width: 6px;
   height: 6px;
@@ -92,36 +78,48 @@
   background: var(--color-text-secondary);
 }
 
-.clutter-node--systemic .clutter-node__dot {
-  width: 6px;
-  height: 6px;
-  opacity: 0.2;
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-
-.clutter-node--systemic[data-active="true"] .clutter-node__dot {
-  opacity: 1;
-  width: 6px;
-  height: 6px;
-}
-
-/* Hide dot and ring for normal empty nodes */
-.clutter-node--empty:not(.clutter-node--systemic) .clutter-node__dot,
-.clutter-node--empty:not(.clutter-node--systemic) .clutter-node__ring {
+/* Dot visibility */
+.clutter-node--dot-hidden .clutter-node__bullet {
   visibility: hidden;
 }
 
-/* Show dot and ring when hovering empty node */
-.clutter-node--empty:not(.clutter-node--systemic):hover .clutter-node__dot,
-.clutter-node--empty:not(.clutter-node--systemic):hover .clutter-node__ring {
+/* Focus override — purely visual */
+.clutter-node--dot-hidden.clutter-node--active .clutter-node__bullet {
   visibility: visible;
 }
 
-/* Show dot and ring when active */
-.clutter-node--empty:not(.clutter-node--systemic)[data-active="true"] .clutter-node__dot,
-.clutter-node--empty:not(.clutter-node--systemic)[data-active="true"] .clutter-node__ring {
+/* Hover fallback (purely visual) */
+.clutter-node--dot-hidden:hover .clutter-node__bullet {
   visibility: visible;
 }
+/* Allow hover only when editor is NOT focused */
+/* .clutter-editor:not(:focus-within)
+  .clutter-node--dot-hidden:hover
+  .clutter-node__bullet {
+  visibility: visible;
+} */
+
+/* Ring overlay (in addition to dot) */
+.clutter-node--ring .clutter-node__bullet::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  opacity: 0.2;
+}
+
+.clutter-node--systemic.clutter-node--dot .clutter-node__bullet {
+  opacity: 0.2;
+}
+
+.mark-bold { font-weight: bold; }
+.mark-italic { font-style: italic; }
+.mark-underline { text-decoration: underline; }
 
 .clutter-node__content {
   flex: 1;
@@ -139,16 +137,21 @@
   position: relative;
 }
 
+.clutter-node--block-selected {
+  background: rgba(100, 150, 255, 0.15);
+}
+
 /* Children wrapper — mount only when expanded; layout only */
 .clutter-node__children {
   position: relative;
+  margin-left: 24px;
 }
 
 /* Vertical connector */
 .clutter-node__children::before {
   content: "";
   position: absolute;
-  left: -22px;
+  left: -14.5px;
   top: 0;
   bottom: 0;
   width: 1px;

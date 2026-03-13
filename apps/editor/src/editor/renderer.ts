@@ -3,9 +3,10 @@
  */
 
 import type { EditorState, Inline, PrimitiveOp } from '../engine/engine';
+import type { Selection } from './selection';
 
 export type RenderController = {
-  dispatch(label: string, ops: PrimitiveOp[]): void;
+  dispatch(ops: PrimitiveOp[], nextSelection?: Selection): void;
 };
 
 export function renderEditor(
@@ -13,153 +14,383 @@ export function renderEditor(
   rootEl: HTMLElement,
   controller: RenderController
 ) {
-  rootEl.innerHTML = '';
-
   const root = state.nodes[state.rootId];
   if (!root) return;
 
-  for (const childId of root.children) {
-    renderNode(state, childId, rootEl, controller);
+  const activeSel = state.selection;
+
+  const existing = new Map<string, HTMLElement>();
+
+  for (const child of Array.from(rootEl.children)) {
+    const id = child.getAttribute('data-node-id');
+    if (id) existing.set(id, child as HTMLElement);
   }
+
+  const newChildren: HTMLElement[] = [];
+
+  const lastRootChildId: string | null =
+    root.children.length > 0
+      ? root.children[root.children.length - 1] ?? null
+      : null;
+
+  for (const childId of root.children) {
+    let nodeEl = existing.get(childId);
+
+    if (!nodeEl) {
+      nodeEl = document.createElement('div');
+    }
+
+    renderNode(
+      state,
+      childId,
+      nodeEl,
+      controller,
+      activeSel,
+      lastRootChildId
+    );
+
+    newChildren.push(nodeEl);
+  }
+
+  rootEl.replaceChildren(...newChildren);
+}
+
+function subtreeHasContent(state: EditorState, nodeId: string): boolean {
+  const node = state.nodes[nodeId];
+  if (!node) return false;
+
+  const selfHasContent = node.inlines.some(
+    (inv) => inv.type === 'text' && inv.text.trim() !== ''
+  );
+
+  if (selfHasContent) return true;
+
+  for (const childId of node.children) {
+    if (subtreeHasContent(state, childId)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isDescendant(
+  state: EditorState,
+  targetId: string,
+  ancestorId: string
+): boolean {
+  let current = state.nodes[targetId];
+
+  while (current) {
+    if (current.parentId === ancestorId) return true;
+    if (!current.parentId) return false;
+    current = state.nodes[current.parentId];
+  }
+
+  return false;
+}
+
+function updateNodeClasses(
+  wrapper: HTMLElement,
+  state: EditorState,
+  node: EditorState['nodes'][string],
+  _nodeId: string,
+  activeSel: Selection | null,
+  _lastRootChildId: string | null
+): void {
+  const isRootChild = node.parentId === state.rootId;
+  const isEmpty =
+    node.inlines.length === 1 &&
+    node.inlines[0]?.type === 'text' &&
+    node.inlines[0].text.trim() === '';
+  const isLeaf = node.children.length === 0;
+  const hasChildren = node.children.length > 0;
+  const hasSubtreeContent =
+    hasChildren &&
+    node.children.some((childId) =>
+      subtreeHasContent(state, childId)
+    );
+  const isSystemic =
+    isRootChild &&
+    node.id === _lastRootChildId &&
+    isEmpty &&
+    isLeaf;
+
+  const activeNodeId =
+    activeSel?.type === 'collapsed'
+      ? activeSel.nodeId
+      : activeSel?.type === 'range'
+        ? activeSel.anchor.nodeId
+        : activeSel?.type === 'block-range'
+          ? activeSel.startNodeId
+          : undefined;
+
+  wrapper.classList.toggle('clutter-node--systemic', isSystemic);
+  wrapper.classList.toggle('clutter-node--empty', isEmpty);
+  wrapper.classList.toggle('clutter-node--active', activeNodeId === node.id);
+  wrapper.classList.toggle('clutter-node--has-children', hasChildren);
+  wrapper.classList.toggle('clutter-node--collapsed-parent', hasChildren && node.collapsed);
+
+  if (activeSel?.type === 'block-range') {
+    const root = state.nodes[state.rootId];
+    const inBlockRange =
+      root &&
+      (() => {
+        const ids = root.children;
+        const startIndex = ids.indexOf(activeSel.startNodeId);
+        const endIndex = ids.indexOf(activeSel.endNodeId);
+        const myIndex = ids.indexOf(node.id);
+        return (
+          startIndex >= 0 &&
+          endIndex >= 0 &&
+          myIndex >= Math.min(startIndex, endIndex) &&
+          myIndex <= Math.max(startIndex, endIndex)
+        );
+      })();
+    wrapper.classList.toggle('clutter-node--block-selected', !!inBlockRange);
+  } else {
+    wrapper.classList.remove('clutter-node--block-selected');
+  }
+
+  let showDot =
+    isSystemic ||
+    activeNodeId === node.id ||
+    hasChildren ||
+    !isEmpty;
+  const showRing =
+    !isSystemic && hasChildren && node.collapsed && hasSubtreeContent;
+
+  wrapper.classList.remove('clutter-node--dot', 'clutter-node--dot-hidden', 'clutter-node--ring');
+  wrapper.classList.add(showDot ? 'clutter-node--dot' : 'clutter-node--dot-hidden');
+  if (showRing) wrapper.classList.add('clutter-node--ring');
+}
+
+function syncChildren(
+  state: EditorState,
+  node: EditorState['nodes'][string],
+  wrapper: HTMLElement,
+  controller: RenderController,
+  activeSel: Selection | null
+): void {
+  let childrenWrapper = wrapper.querySelector(':scope > .clutter-node__children') as HTMLElement | null;
+
+  if (!childrenWrapper) {
+    childrenWrapper = document.createElement('div');
+    childrenWrapper.className = 'clutter-node__children';
+    wrapper.appendChild(childrenWrapper);
+  }
+
+  const existingChildren = new Map<string, HTMLElement>();
+
+  for (const child of Array.from(childrenWrapper.children)) {
+    const id = child.getAttribute('data-node-id');
+    if (id) existingChildren.set(id, child as HTMLElement);
+  }
+
+  const newChildren: HTMLElement[] = [];
+
+  for (const childId of node.children) {
+    let childEl = existingChildren.get(childId);
+    if (!childEl) {
+      childEl = document.createElement('div');
+    }
+
+    renderNode(state, childId, childEl, controller, activeSel, null);
+    newChildren.push(childEl);
+  }
+
+  childrenWrapper.replaceChildren(...newChildren);
 }
 
 function renderNode(
   state: EditorState,
   nodeId: string,
-  container: HTMLElement,
-  controller: RenderController
+  wrapper: HTMLElement,
+  controller: RenderController,
+  activeSel: Selection | null,
+  _lastRootChildId: string | null
 ) {
   const node = state.nodes[nodeId];
   if (!node) return;
 
-  const wrapper = document.createElement('div');
   wrapper.className = 'clutter-node';
-  wrapper.dataset.nodeId = node.id;
+  wrapper.dataset.nodeId = nodeId;
 
-  if (node.collapsed && node.children.length > 0) {
-    wrapper.classList.add('clutter-node--collapsed-parent');
+  const isNodeInRangeSelection =
+    activeSel?.type === 'range' &&
+    (nodeId === activeSel.anchor.nodeId || nodeId === activeSel.focus.nodeId);
+
+  if (isNodeInRangeSelection) {
+    updateNodeClasses(wrapper, state, node, nodeId, activeSel, _lastRootChildId);
+    const content = wrapper.querySelector<HTMLElement>('.clutter-node__content');
+    if (content) {
+      renderInlines(node.inlines, content);
+    }
+    if (!node.collapsed && node.children.length > 0) {
+      syncChildren(state, node, wrapper, controller, activeSel);
+    } else {
+      const childrenWrapper = wrapper.querySelector('.clutter-node__children');
+      if (childrenWrapper) childrenWrapper.remove();
+    }
+    return;
   }
 
-  const isEmpty =
-    node.inlines.length === 1 &&
-    node.inlines[0].type === 'text' &&
-    node.inlines[0].text === '';
+  updateNodeClasses(wrapper, state, node, nodeId, activeSel, _lastRootChildId);
 
-  if (isEmpty) {
-    wrapper.classList.add('clutter-node--empty');
+  let inner = wrapper.querySelector(':scope > .clutter-node__inner') as HTMLElement | null;
+
+  if (!inner) {
+    inner = document.createElement('div');
+    inner.className = 'clutter-node__inner';
+    wrapper.appendChild(inner);
   }
 
-  const inner = document.createElement('div');
-  inner.className = 'clutter-node__inner';
+  let bulletSlot = inner.querySelector<HTMLElement>('.clutter-node__bullet-slot');
+  if (!bulletSlot) {
+    bulletSlot = document.createElement('div');
+    bulletSlot.className = 'clutter-node__bullet-slot';
 
-  const bulletSlot = document.createElement('div');
-  bulletSlot.className = 'clutter-node__bullet-slot';
+    const bulletHit = document.createElement('div');
+    bulletHit.className = 'clutter-node__bullet-hit';
 
-  const bulletHit = document.createElement('div');
-  bulletHit.className = 'clutter-node__bullet-hit';
+    const bullet = document.createElement('span');
+    bullet.className = 'clutter-node__bullet';
+    bulletHit.appendChild(bullet);
+    bulletSlot.appendChild(bulletHit);
 
-  const ring = document.createElement('span');
-  ring.className = 'clutter-node__ring';
-
-  const dot = document.createElement('span');
-  dot.className = 'clutter-node__dot';
-
-  bulletHit.appendChild(ring);
-  bulletHit.appendChild(dot);
-  bulletSlot.appendChild(bulletHit);
+    inner.insertBefore(bulletSlot, inner.firstChild);
+  }
 
   if (node.children.length > 0) {
-    const chevronWrapper = document.createElement('div');
-    chevronWrapper.className = 'clutter-node__chevron-wrapper';
+    let chevronWrapper = bulletSlot.querySelector<HTMLElement>('.clutter-node__chevron-wrapper');
+    if (!chevronWrapper) {
+      chevronWrapper = document.createElement('div');
+      chevronWrapper.className = 'clutter-node__chevron-wrapper';
 
-    const chevron = document.createElementNS(
-      'http://www.w3.org/2000/svg',
-      'svg'
-    );
+      const chevron = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'svg'
+      );
 
-    chevron.setAttribute('data-chevron', 'svg');
-    chevron.setAttribute('viewBox', '0 0 256 256');
-    chevron.setAttribute('width', '14');
-    chevron.setAttribute('height', '14');
-    chevron.setAttribute('fill', 'none');
-    chevron.setAttribute('stroke', 'currentColor');
-    chevron.setAttribute('stroke-width', '16');
-    chevron.setAttribute('stroke-linecap', 'round');
-    chevron.setAttribute('stroke-linejoin', 'round');
+      chevron.setAttribute('data-chevron', 'svg');
+      chevron.setAttribute('viewBox', '0 0 256 256');
+      chevron.setAttribute('width', '14');
+      chevron.setAttribute('height', '14');
+      chevron.setAttribute('fill', 'none');
+      chevron.setAttribute('stroke', 'currentColor');
+      chevron.setAttribute('stroke-width', '16');
+      chevron.setAttribute('stroke-linecap', 'round');
+      chevron.setAttribute('stroke-linejoin', 'round');
 
-    chevron.classList.add('clutter-node__chevron');
+      chevron.classList.add('clutter-node__chevron');
 
-    if (node.collapsed) {
-      chevron.classList.add('is-collapsed');
-    } else {
-      chevron.classList.add('is-expanded');
+      const path = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'path'
+      );
+
+      path.setAttribute('d', 'M96 48l64 80-64 80');
+
+      chevron.appendChild(path);
+
+      chevronWrapper.appendChild(chevron);
+      chevronWrapper.onclick = () => {
+        const willCollapse = !node.collapsed;
+
+        const ops: PrimitiveOp[] = [
+          {
+            type: 'ToggleCollapse',
+            nodeId: node.id,
+            from: node.collapsed,
+            to: willCollapse,
+          },
+        ];
+
+        let nextSelection: Selection | undefined = undefined;
+
+        if (willCollapse && activeSel) {
+          const activeNodeId =
+            activeSel.type === 'collapsed'
+              ? activeSel.nodeId
+              : activeSel.type === 'range'
+                ? activeSel.anchor.nodeId
+                : activeSel.type === 'block-range'
+                  ? activeSel.startNodeId
+                  : undefined;
+
+          if (activeNodeId && isDescendant(state, activeNodeId, node.id)) {
+            nextSelection = {
+              type: 'collapsed',
+              nodeId: node.id,
+              inlineIndex: 0,
+              offset: 0,
+            };
+          }
+        }
+
+        controller.dispatch(ops, nextSelection);
+      };
+
+      bulletSlot.appendChild(chevronWrapper);
     }
-
-    const path = document.createElementNS(
-      'http://www.w3.org/2000/svg',
-      'path'
-    );
-
-    path.setAttribute('d', 'M96 48l64 80-64 80');
-
-    chevron.appendChild(path);
-
-    chevronWrapper.appendChild(chevron);
-    chevronWrapper.addEventListener('click', () => {
-      const ops: PrimitiveOp[] = [
-        {
-          type: 'ToggleCollapse',
-          nodeId: node.id,
-          from: node.collapsed,
-          to: !node.collapsed,
-        },
-      ];
-      controller.dispatch('toggleCollapse', ops);
-    });
-
-    bulletSlot.appendChild(chevronWrapper);
+    const chevron = chevronWrapper.querySelector('.clutter-node__chevron');
+    if (chevron) {
+      chevron.classList.toggle('is-collapsed', node.collapsed);
+      chevron.classList.toggle('is-expanded', !node.collapsed);
+    }
+  } else {
+    const chevronWrapper = bulletSlot.querySelector('.clutter-node__chevron-wrapper');
+    if (chevronWrapper) chevronWrapper.remove();
   }
 
-  inner.appendChild(bulletSlot);
+  let content = inner.querySelector(':scope > .clutter-node__content') as HTMLElement | null;
 
-  const content = document.createElement('div');
-  content.className = 'clutter-node__content';
-  content.contentEditable = 'true';
+  if (!content) {
+    content = document.createElement('div');
+    content.className = 'clutter-node__content';
+    content.contentEditable = 'true';
+    inner.appendChild(content);
+  }
 
   renderInlines(node.inlines, content);
 
-  inner.appendChild(content);
-  wrapper.appendChild(inner);
-  container.appendChild(wrapper);
+  if (!wrapper.contains(inner)) {
+    wrapper.appendChild(inner);
+  }
 
-  if (!node.collapsed) {
-    if (node.children.length > 0) {
-      const childrenWrapper = document.createElement('div');
-      childrenWrapper.className = 'clutter-node__children';
-      childrenWrapper.style.marginLeft = '24px';
-
-      for (const childId of node.children) {
-        renderNode(state, childId, childrenWrapper, controller);
-      }
-
-      wrapper.appendChild(childrenWrapper);
-    }
+  if (!node.collapsed && node.children.length > 0) {
+    syncChildren(state, node, wrapper, controller, activeSel);
+  } else {
+    const childrenWrapper = wrapper.querySelector('.clutter-node__children');
+    if (childrenWrapper) childrenWrapper.remove();
   }
 }
 
 function renderInlines(inlines: Inline[], container: HTMLElement) {
-  for (const inline of inlines) {
-    if (inline.type === 'text') {
-      const span = document.createElement('span');
-      span.textContent = inline.text;
+  const inline = inlines[0]; // normalized model: single text segment
 
-      for (const mark of inline.marks) {
-        if (mark.type === 'bold') span.style.fontWeight = 'bold';
-        if (mark.type === 'italic') span.style.fontStyle = 'italic';
-        if (mark.type === 'underline') span.style.textDecoration = 'underline';
-      }
+  let span = container.querySelector(':scope > span') as HTMLSpanElement | null;
 
-      container.appendChild(span);
+  if (!span) {
+    span = document.createElement('span');
+    container.appendChild(span);
+  }
+
+  const newText =
+    inline && inline.type === 'text'
+      ? inline.text
+      : '';
+
+  if (span.textContent !== newText) {
+    span.textContent = newText;
+  }
+
+  // Remove extra spans if they somehow exist
+  const allSpans = container.querySelectorAll(':scope > span');
+  if (allSpans.length > 1) {
+    for (let i = 1; i < allSpans.length; i++) {
+      const el = allSpans[i];
+      if (el) el.remove();
     }
   }
 }
