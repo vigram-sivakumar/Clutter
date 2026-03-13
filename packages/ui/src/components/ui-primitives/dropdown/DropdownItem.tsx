@@ -1,12 +1,12 @@
 /**
  * DropdownItem - Comprehensive clickable item for dropdowns
- * 
+ *
  * Supports multiple layouts and variants:
  * - icon + label
  * - label + icon
  * - icon + label + trailing (icon/element)
  * - icon + label + shortcut
- * 
+ *
  * Variants: primary, secondary, tertiary (default)
  */
 
@@ -40,6 +40,8 @@ interface DropdownItemProps {
   disabled?: boolean;
   /** Click handler */
   onClick?: () => void;
+  /** Mouse enter handler */
+  onMouseEnter?: () => void;
   /** Custom content to replace label/description section (allows any component) */
   children?: ReactNode;
   /** Treat children as compact content (4px padding like icons) instead of text (8px) */
@@ -58,6 +60,7 @@ export const DropdownItem = ({
   isSelected = false,
   disabled = false,
   onClick,
+  onMouseEnter,
   children,
   compact = false,
 }: DropdownItemProps) => {
@@ -76,17 +79,17 @@ export const DropdownItem = ({
   // Icons and badges (trailing elements) get 4px, text/content gets 8px
   const getPadding = () => {
     if (hasLeadingIcon && hasTrailingElement) {
-      return '0 4px 0 4px'; // Icon left, badge/element right (both compact)
+      return '0 8px 0 8px'; // Icon left, badge/element right (both compact)
     }
     if (hasLeadingIcon) {
-      return '0 8px 0 4px'; // Icon left, text right
+      return '0 8px 0 8px'; // Icon left, text right
     }
     if (hasTrailingIcon || hasTrailingElement) {
       // If compact mode and using children, treat content as compact (4px)
       if (compact && children) {
-        return '0 4px 0 4px'; // Compact content left, badge right (both compact)
+        return '0 8px 0 8px'; // Compact content left, badge right (both compact)
       }
-      return '0 4px 0 8px'; // Text left, icon/badge right
+      return '0 8px 0 16px'; // Text left, icon/badge right
     }
     return `0 ${spacing['6']}`; // Text only
   };
@@ -97,19 +100,23 @@ export const DropdownItem = ({
       case 'primary':
         return {
           color: colors.text.inverse,
-          backgroundColor: isSelected ? colors.background.active : colors.background.tertiary,
+          backgroundColor: isSelected
+            ? colors.background.active
+            : colors.background.tertiary,
           hoverBg: colors.background.active,
         };
       case 'secondary':
         return {
-          color: colors.text.secondary,
-          backgroundColor: isSelected ? colors.background.hover : colors.background.secondary,
+          color: colors.text.default,
+          backgroundColor: isSelected
+            ? colors.background.hover
+            : colors.background.secondary,
           hoverBg: colors.background.hover,
         };
       case 'tertiary':
       default:
         return {
-          color: isSelected ? colors.text.default : colors.text.secondary,
+          color: colors.text.default,
           backgroundColor: isSelected ? colors.background.hover : 'transparent',
           hoverBg: colors.background.hover,
         };
@@ -139,15 +146,19 @@ export const DropdownItem = ({
         backgroundColor: variantStyles.backgroundColor,
         transition: 'background-color 150ms ease',
         textAlign: 'left',
+        scrollMargin: spacing['4'], // Add padding when scrolling into view
       }}
       onMouseEnter={(e) => {
         if (!isSelected && !disabled) {
-          (e.currentTarget as HTMLElement).style.backgroundColor = variantStyles.hoverBg;
+          (e.currentTarget as HTMLElement).style.backgroundColor =
+            variantStyles.hoverBg;
         }
+        onMouseEnter?.();
       }}
       onMouseLeave={(e) => {
         if (!disabled) {
-          (e.currentTarget as HTMLElement).style.backgroundColor = variantStyles.backgroundColor;
+          (e.currentTarget as HTMLElement).style.backgroundColor =
+            variantStyles.backgroundColor;
         }
       }}
       onMouseDown={(e) => {
@@ -173,7 +184,9 @@ export const DropdownItem = ({
       )}
 
       {/* Label and description container (or custom children) */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+      <div
+        style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}
+      >
         {children ? (
           // Custom content provided
           children
@@ -184,7 +197,9 @@ export const DropdownItem = ({
               style={{
                 fontSize: typography.fontSize['14'],
                 fontWeight: typography.fontWeight.medium,
-                lineHeight: hasDescription ? typography.lineHeight.tight : 'normal',
+                lineHeight: hasDescription
+                  ? typography.lineHeight.tight
+                  : 'normal',
                 color: variantStyles.color,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
@@ -197,7 +212,10 @@ export const DropdownItem = ({
               <div
                 style={{
                   fontSize: typography.fontSize['12'],
-                  color: variant === 'primary' ? colors.text.inverse : colors.text.secondary,
+                  color:
+                    variant === 'primary'
+                      ? colors.text.inverse
+                      : colors.text.secondary,
                   opacity: variant === 'primary' ? 0.8 : 1,
                   marginTop: '2px',
                   lineHeight: typography.lineHeight.tight,
@@ -247,27 +265,27 @@ export const DropdownItem = ({
       {/* Count badge (sidebar-style) */}
       {count !== undefined && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: '20px',
-            minWidth: '20px',
-            fontSize: '12px',
-            color: colors.text.tertiary,
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            flexShrink: 0,
-          } as any}
+          style={
+            {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '20px',
+              minWidth: '20px',
+              fontSize: '12px',
+              color: colors.text.tertiary,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              flexShrink: 0,
+            } as any
+          }
         >
           {count}
         </div>
       )}
 
       {/* Keyboard shortcut (styled) */}
-      {shortcut && (
-        <KeyboardShortcut keys={shortcut} />
-      )}
+      {shortcut && <KeyboardShortcut keys={shortcut} />}
     </button>
   );
 };

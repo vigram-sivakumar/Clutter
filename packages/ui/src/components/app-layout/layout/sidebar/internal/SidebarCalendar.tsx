@@ -47,10 +47,7 @@ export const SidebarCalendar = ({
           newToday.getDate()
         );
 
-        console.log(
-          '📅 Day changed! Updating calendar to',
-          normalizedToday.toLocaleDateString()
-        );
+        
 
         // Update today
         setToday(normalizedToday);

@@ -1,18 +1,18 @@
 export { ContextMenu } from './ContextMenu';
 export { Input } from './Input';
-export { FloatingToolbar } from './FloatingToolbar';
 export { FloatingActionBar } from './FloatingActionBar';
 export { ThemeProvider } from './ThemeProvider';
 export { KeyboardShortcut } from './KeyboardShortcut';
 export { SegmentedControl } from './SegmentedControl';
 export { CountBadge } from './CountBadge';
 export { AutocompleteDropdown } from './AutocompleteDropdown';
-export {
-  RightClickContextMenuProvider,
-  useRightClickMenu,
-  createRightClickHandler,
-} from './RightClickContextMenu';
-export type { RightClickMenuItem } from './RightClickContextMenu';
+export { FloatingContainer } from './FloatingContainer';
+export type {
+  FloatingPosition,
+  FloatingContainerProps,
+} from './FloatingContainer';
+export { FloatingMenu } from './FloatingMenu';
+export type { FloatingMenuProps } from './FloatingMenu';
 
 // Dropdown Primitives
 export {

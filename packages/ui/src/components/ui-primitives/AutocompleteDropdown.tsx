@@ -1,9 +1,9 @@
 /**
  * AutocompleteDropdown - Dropdown for autocomplete/suggestions (typing-triggered)
- * 
+ *
  * Used for editor suggestions like @ mentions, / commands, # tags
  * Uses shared dropdown primitives for consistent styling
- * 
+ *
  * Features:
  * - Automatic scroll-into-view for selected items (keyboard navigation)
  * - Scroll blocking (handled by DropdownContainer)
@@ -20,6 +20,8 @@ interface AutocompleteDropdownProps {
   children?: ReactNode;
   /** Index of currently selected item (for keyboard navigation) */
   selectedIndex?: number;
+  /** Estimated height for predictive flip calculation (avoids flicker) */
+  estimatedHeight?: number;
 }
 
 export const AutocompleteDropdown = ({
@@ -29,12 +31,18 @@ export const AutocompleteDropdown = ({
   header,
   children,
   selectedIndex,
+  estimatedHeight,
 }: AutocompleteDropdownProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll selected item into view (for keyboard navigation)
   useEffect(() => {
-    if (!isOpen || selectedIndex === undefined || selectedIndex < 0 || !containerRef.current) {
+    if (
+      !isOpen ||
+      selectedIndex === undefined ||
+      selectedIndex < 0 ||
+      !containerRef.current
+    ) {
       return;
     }
 
@@ -51,25 +59,24 @@ export const AutocompleteDropdown = ({
   }, [isOpen, selectedIndex]);
 
   if (!position) return null;
-  
+
   return (
     <DropdownContainer
       isOpen={isOpen}
       position={position}
       onClose={onClose}
-      minWidth="220px"
-      maxWidth="220px"
-      maxHeight="300px"
+      dismissOnEscape={true}
+      estimatedHeight={estimatedHeight}
     >
       <div ref={containerRef}>
         {/* Optional header */}
         {header && <DropdownHeader label={header} />}
-        
+
         {/* Children (DropdownItems) or skeleton */}
         {children || (
           <DropdownItem
             label="Dropdown Skeleton - Ready to build!"
-            onClick={() => console.log('Skeleton clicked')}
+            onClick={() => {}}
           />
         )}
       </div>

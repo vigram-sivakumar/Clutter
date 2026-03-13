@@ -10,7 +10,7 @@ interface PrimaryButtonProps {
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   onMouseDown?: (e: MouseEvent<HTMLButtonElement>) => void;
   danger?: boolean;
-  size?: 'xs' | 'small' | 'medium';
+  size?: 'xs' | 'small' | 'medium' | 'large';
   fullWidth?: boolean;
   disabled?: boolean;
 }
@@ -46,4 +46,3 @@ export const PrimaryButton = ({
     </Button>
   );
 };
-

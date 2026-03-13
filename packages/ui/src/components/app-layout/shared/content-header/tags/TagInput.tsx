@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, KeyboardEvent, useCallback } from 'react';
 import { useTagSuggestions, useAllTags } from '@clutter/state';
 import { useTheme } from '../../../../../hooks/useTheme';
 import { radius } from '../../../../../tokens/radius';
-import { TagAutosuggestion } from './TagAutosuggestion';
+// import { HashtagMenuUI } from '@clutter/editor'; // Removed with PM deletion
 
 interface TagInputProps {
   onAddTag: (tag: string) => void;
@@ -12,12 +12,22 @@ interface TagInputProps {
   initialValue?: string;
 }
 
-export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', onCancel, initialValue = '' }: TagInputProps) => {
+export const TagInput = ({
+  onAddTag,
+  existingTags,
+  placeholder = 'Add tag...',
+  onCancel,
+  initialValue = '',
+}: TagInputProps) => {
   const [value, setValue] = useState(initialValue);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [inputWidth, setInputWidth] = useState<number | null>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -26,18 +36,21 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
   const { colors } = useTheme();
 
   const isEditing = !!initialValue;
-  
+
   // Get all tags from all notes (for capitalization matching)
   const allTags = useAllTags();
-  
+
   // Get tag suggestions derived from notes (but not when editing)
   const suggestions = isEditing ? [] : useTagSuggestions(value, existingTags);
-  
-  // Calculate actual display count (matches TagAutosuggestion logic)
+
+  // Calculate actual display count (matches HashtagMenuUI logic)
   // When empty query, show all tags; when filtered, show suggestions; when no matches, show create option (1)
-  const displayCount = value.trim() === '' 
-    ? allTags.length 
-    : (suggestions.length > 0 ? suggestions.length : 1); // 1 for "Create" option
+  const displayCount =
+    value.trim() === ''
+      ? allTags.length
+      : suggestions.length > 0
+        ? suggestions.length
+        : 1; // 1 for "Create" option
 
   // Measure text width and update input width dynamically
   useEffect(() => {
@@ -77,71 +90,98 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
     }
   }, [isFocused]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const trimmedValue = value.trim();
-      
-      // Get the actual displayed items (matches TagAutosuggestion logic)
-      let displayedItems: string[];
-      if (trimmedValue === '') {
-        displayedItems = allTags;
-      } else if (suggestions.length > 0) {
-        displayedItems = suggestions;
-      } else {
-        // No matches - "Create" option shows the trimmed value
-        displayedItems = [trimmedValue];
-      }
-      
-      if (selectedIndex >= 0 && selectedIndex < displayedItems.length) {
-        // Select from displayed items
-        const selectedTag = displayedItems[selectedIndex];
-        if (selectedTag && !existingTags.includes(selectedTag)) {
-          submittedRef.current = true;
-          onAddTag(selectedTag);
-          setValue('');
-        }
-      } else if (trimmedValue) {
-        // Add/update tag (fallback when no selection)
-        // Check if this matches an existing tag from ALL notes (case-insensitive)
-        const existingMatch = allTags.find(t => t.toLowerCase() === trimmedValue.toLowerCase());
-        const tagToUse = existingMatch || trimmedValue; // Use existing capitalization if found
-        
-        if (!existingTags.some(t => t.toLowerCase() === tagToUse.toLowerCase())) {
-          submittedRef.current = true;
-          onAddTag(tagToUse);
-          setValue('');
-        }
-      }
-    } else if (e.key === 'Escape') {
-      submittedRef.current = true;
-      setValue('');
-      onCancel?.();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (displayCount > 0) {
-        setSelectedIndex((prev) => (prev === -1 ? 0 : Math.min(prev + 1, displayCount - 1)));
-      }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (displayCount > 0) {
-        setSelectedIndex((prev) => (prev === -1 ? displayCount - 1 : Math.max(prev - 1, 0)));
-      }
-    }
-  }, [selectedIndex, displayCount, value, existingTags, allTags, suggestions, onAddTag, onCancel]);
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const trimmedValue = value.trim();
 
-  const handleSelectSuggestion = useCallback((tag: string) => {
-    clickingSuggestionRef.current = true;
-    submittedRef.current = true;
-    if (!existingTags.includes(tag)) {
-      onAddTag(tag);
-      setValue('');
-    }
-    // Reset flag after a short delay
-    setTimeout(() => {
-      clickingSuggestionRef.current = false;
-    }, 100);
-  }, [existingTags, onAddTag]);
+        // Get the actual displayed items (matches HashtagMenuUI logic)
+        let displayedItems: string[];
+        if (trimmedValue === '') {
+          displayedItems = allTags;
+        } else if (suggestions.length > 0) {
+          displayedItems = suggestions;
+        } else {
+          // No matches - "Create" option shows the trimmed value
+          displayedItems = [trimmedValue];
+        }
+
+        if (selectedIndex >= 0 && selectedIndex < displayedItems.length) {
+          // Select from displayed items
+          const selectedTag = displayedItems[selectedIndex];
+          if (selectedTag && !existingTags.includes(selectedTag)) {
+            submittedRef.current = true;
+            onAddTag(selectedTag);
+            setValue('');
+          }
+        } else if (trimmedValue) {
+          // Add/update tag (fallback when no selection)
+          // Check if this matches an existing tag from ALL notes (case-insensitive)
+          const existingMatch = allTags.find(
+            (t) => t.toLowerCase() === trimmedValue.toLowerCase()
+          );
+          const tagToUse = existingMatch || trimmedValue; // Use existing capitalization if found
+
+          if (
+            !existingTags.some(
+              (t) => t.toLowerCase() === tagToUse.toLowerCase()
+            )
+          ) {
+            submittedRef.current = true;
+            onAddTag(tagToUse);
+            setValue('');
+          }
+        }
+      } else if (e.key === 'Escape') {
+        submittedRef.current = true;
+        setValue('');
+        onCancel?.();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (displayCount > 0) {
+          setSelectedIndex((prev) =>
+            prev === -1 ? 0 : (prev + 1) % displayCount
+          ); // Wrap to start
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (displayCount > 0) {
+          setSelectedIndex((prev) =>
+            prev === -1
+              ? displayCount - 1
+              : (prev - 1 + displayCount) % displayCount
+          ); // Wrap to end
+        }
+      }
+    },
+    [
+      selectedIndex,
+      displayCount,
+      value,
+      existingTags,
+      allTags,
+      suggestions,
+      onAddTag,
+      onCancel,
+    ]
+  );
+
+  const handleSelectSuggestion = useCallback(
+    (tag: string) => {
+      clickingSuggestionRef.current = true;
+      submittedRef.current = true;
+      if (!existingTags.includes(tag)) {
+        onAddTag(tag);
+        setValue('');
+      }
+      // Reset flag after a short delay
+      setTimeout(() => {
+        clickingSuggestionRef.current = false;
+      }, 100);
+    },
+    [existingTags, onAddTag]
+  );
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
@@ -149,27 +189,31 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
 
   const handleBlur = useCallback(() => {
     setIsFocused(false);
-    
+
     // Skip blur handler if already submitted via Enter/Escape or clicking suggestion
     if (clickingSuggestionRef.current || submittedRef.current) {
       return;
     }
-    
+
     // Delay to allow click on suggestion
     setTimeout(() => {
       // Double-check flags in case they were set during the timeout
       if (clickingSuggestionRef.current || submittedRef.current) {
         return;
       }
-      
+
       if (value.trim()) {
         const trimmedTag = value.trim();
-        
+
         // Check if this matches an existing tag from ALL notes (case-insensitive)
-        const existingMatch = allTags.find(t => t.toLowerCase() === trimmedTag.toLowerCase());
+        const existingMatch = allTags.find(
+          (t) => t.toLowerCase() === trimmedTag.toLowerCase()
+        );
         const tagToUse = existingMatch || trimmedTag; // Use existing capitalization if found
-        
-        if (!existingTags.some(t => t.toLowerCase() === tagToUse.toLowerCase())) {
+
+        if (
+          !existingTags.some((t) => t.toLowerCase() === tagToUse.toLowerCase())
+        ) {
           onAddTag(tagToUse);
         }
       }
@@ -185,7 +229,10 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
 
   return (
     <>
-      <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+      <div
+        ref={containerRef}
+        style={{ position: 'relative', display: 'inline-block' }}
+      >
         {/* Hidden span to measure text width */}
         <span
           ref={measureRef}
@@ -231,8 +278,9 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
         />
       </div>
 
-      {/* Tag Autosuggestion Dropdown */}
-      <TagAutosuggestion
+      {/* Tag Autosuggestion Dropdown - Temporarily disabled (PM component removed) */}
+      {/* TODO: Rebuild tag suggestions UI without PM dependencies */}
+      {/* <HashtagMenuUI
         isOpen={isFocused && !isEditing}
         position={dropdownPosition}
         onClose={handleCloseDropdown}
@@ -241,8 +289,7 @@ export const TagInput = ({ onAddTag, existingTags, placeholder = 'Add tag...', o
         onSelectTag={handleSelectSuggestion}
         query={value}
         existingTags={existingTags}
-      />
+      /> */}
     </>
   );
 };
-

@@ -37,9 +37,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Tauri
-apps/desktop/src-tauri/target/
-
 # Testing
 coverage/
 .nyc_output/
@@ -48,26 +45,3 @@ coverage/
 .cache/
 .temp/
 .tmp/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

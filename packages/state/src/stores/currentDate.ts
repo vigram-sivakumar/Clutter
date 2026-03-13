@@ -65,7 +65,6 @@ let visibilityCleanup: (() => void) | null = null;
 export function initializeMidnightUpdater() {
   // Prevent multiple initializations
   if (midnightTimerId !== null) {
-    console.warn('Midnight updater already initialized');
     return;
   }
 
@@ -75,12 +74,6 @@ export function initializeMidnightUpdater() {
   const actualTodayString = `${actualToday.getFullYear()}-${String(actualToday.getMonth() + 1).padStart(2, '0')}-${String(actualToday.getDate()).padStart(2, '0')}`;
 
   if (currentStoreDate !== actualTodayString) {
-    console.log(
-      '📅 Date is stale on initialization. Updating from',
-      currentStoreDate,
-      'to',
-      actualTodayString
-    );
     useCurrentDateStore.getState()._updateCurrentDate();
   }
 
@@ -92,12 +85,10 @@ export function initializeMidnightUpdater() {
     tomorrow.setHours(0, 0, 0, 0);
     const msUntilMidnight = tomorrow.getTime() - now.getTime();
 
-    // console.log(
-    //   `⏰ Next date update scheduled in ${Math.round(msUntilMidnight / 1000 / 60)} minutes (at midnight)`
-    // );
+    // 
 
     midnightTimerId = setTimeout(() => {
-      // console.log('🌅 Midnight reached! Updating current date...');
+      // 
 
       // Update the store
       useCurrentDateStore.getState()._updateCurrentDate();
@@ -119,12 +110,6 @@ export function initializeMidnightUpdater() {
 
       // If date has changed, update immediately
       if (currentStoreDate !== actualTodayString) {
-        console.log(
-          '📅 Date changed while app was inactive. Updating from',
-          currentStoreDate,
-          'to',
-          actualTodayString
-        );
         useCurrentDateStore.getState()._updateCurrentDate();
 
         // Reschedule the midnight timer
@@ -154,11 +139,9 @@ export function cleanupMidnightUpdater() {
   if (midnightTimerId !== null) {
     clearTimeout(midnightTimerId);
     midnightTimerId = null;
-    console.log('🛑 Midnight updater stopped');
   }
   if (visibilityCleanup !== null) {
     visibilityCleanup();
     visibilityCleanup = null;
-    console.log('🛑 Visibility listener removed');
   }
 }

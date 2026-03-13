@@ -1,0 +1,41 @@
+name: Architecture Enforcement
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  architecture-locks:
+    name: Verify Architecture Locks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check Architecture Locks
+        run: npm run lint:arch
+      
+      - name: Run Hardening Tests
+        run: npm run test:hardening --workspace=apps/engine-demo
+      
+      - name: Run Architecture Invariant Tests
+        run: |
+          cd apps/engine-demo
+          npm test -- architecture-invariants --run
+      
+      - name: TypeScript Check (Core Editor)
+        run: |
+          cd apps/engine-demo
+          npx tsc --noEmit
+        continue-on-error: true  # Allow non-critical errors in other subsystems

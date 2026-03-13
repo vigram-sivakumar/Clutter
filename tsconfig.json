@@ -14,6 +14,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "exclude": ["node_modules", "**/dist", "**/build", ".next", ".turbo", "apps/desktop/src-tauri/target", "apps/mobile"]
+  "exclude": ["node_modules", "**/dist", "**/build", ".next", ".turbo"]
 }
 

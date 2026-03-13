@@ -1,27 +1,40 @@
 /**
- * DropdownContainer - Shared visual primitive for all dropdown types
- * 
- * Handles:
- * - Consistent styling (colors, padding, shadows, radius)
- * - Portal rendering
- * - Click-outside behavior
- * - Scrollbar styling
+ * DropdownContainer - Shared visual wrapper for dropdown menus
+ *
+ * Now a thin wrapper around FloatingMenu that provides:
+ * - Consistent dropdown styling (colors, padding, shadows, radius)
+ * - Custom scrollbar styling
+ * - Size constraints (minWidth, maxWidth, maxHeight)
+ *
+ * Delegates to FloatingMenu for:
+ * - Portal rendering (via FloatingContainer)
+ * - Scroll locking (reference-counted)
+ * - Click-outside detection (capture phase)
+ * - ESC key dismissal
+ * - Z-index management
  */
 
-import { useRef, useEffect, ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { ReactNode } from 'react';
 import { useTheme } from '../../../hooks/useTheme';
-import { sizing } from '../../../tokens/sizing';
-import { spacing } from '../../../tokens/spacing';
+import {
+  getDropdownContainerStyles,
+  getDropdownScrollbarCSS,
+  getDropdownTransitionStyles,
+} from '../../../styles/dropdownStyles';
+import { FloatingMenu } from '../FloatingMenu';
 
 interface DropdownContainerProps {
   isOpen: boolean;
   position: { top?: number; bottom?: number; left: number };
   onClose: () => void;
   children: ReactNode;
+  width?: string;
   minWidth?: string;
   maxWidth?: string;
   maxHeight?: string;
+  dismissOnEscape?: boolean;
+  /** Estimated height for predictive flip calculation (avoids flicker) */
+  estimatedHeight?: number;
 }
 
 export const DropdownContainer = ({
@@ -29,138 +42,46 @@ export const DropdownContainer = ({
   position,
   onClose,
   children,
-  minWidth = '220px',
-  maxWidth = '220px',
-  maxHeight = '300px',
+  width = '220px',
+  minWidth = '180px',
+  maxWidth = 'calc(100vw - 24px)',
+  maxHeight = '70vh',
+  dismissOnEscape = true,
+  estimatedHeight,
 }: DropdownContainerProps) => {
   const { colors } = useTheme();
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    // Delay to prevent immediate close
-    const timeoutId = setTimeout(() => {
-      document.addEventListener('mousedown', handleClickOutside);
-    }, 0);
-
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onClose]);
-
-  // Block page scrolling when dropdown is open (global behavior for all dropdowns)
-  useEffect(() => {
-    if (!isOpen) return;
-
-    // Find the actual scrolling container (.scroll-wrapper in AppLayout)
-    const scrollContainer = document.querySelector('.scroll-wrapper') as HTMLElement;
-    
-    if (scrollContainer) {
-      // Save scroll position and original overflow
-      const scrollY = scrollContainer.scrollTop;
-      const originalOverflow = scrollContainer.style.overflow;
-      
-      // Block scrolling on the container
-      scrollContainer.style.overflow = 'hidden';
-      
-      return () => {
-        // Restore scrolling
-        scrollContainer.style.overflow = originalOverflow;
-        // Restore scroll position
-        scrollContainer.scrollTop = scrollY;
-      };
-    } else {
-      // Fallback: Block body scrolling (for non-desktop apps or other contexts)
-      const scrollY = window.scrollY;
-      const originalOverflow = document.body.style.overflow;
-      const originalPosition = document.body.style.position;
-      const originalTop = document.body.style.top;
-      const originalWidth = document.body.style.width;
-
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-      document.body.style.width = '100%';
-
-      return () => {
-        document.body.style.overflow = originalOverflow;
-        document.body.style.position = originalPosition;
-        document.body.style.top = originalTop;
-        document.body.style.width = originalWidth;
-        window.scrollTo(0, scrollY);
-      };
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  const content = (
+  return (
     <>
       {/* Custom scrollbar styles */}
-      <style>{`
-        .dropdown-container {
-          scrollbar-width: thin;
-          scrollbar-color: ${colors.border.default} transparent;
-        }
-        .dropdown-container::-webkit-scrollbar {
-          width: 6px;
-        }
-        .dropdown-container::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .dropdown-container::-webkit-scrollbar-thumb {
-          background-color: ${colors.border.default};
-          border-radius: 3px;
-        }
-        .dropdown-container::-webkit-scrollbar-thumb:hover {
-          background-color: ${colors.border.focus};
-        }
-      `}</style>
+      <style>{getDropdownScrollbarCSS(colors)}</style>
 
-      <div
-        ref={containerRef}
+      <FloatingMenu
+        isOpen={isOpen}
+        position={position}
+        lockScroll={true}
+        dismissOnEscape={dismissOnEscape}
+        onInteractOutside={onClose}
         className="dropdown-container"
-        style={{
-          position: 'fixed',
-          ...(position.top !== undefined ? { top: position.top } : { bottom: position.bottom }),
-          left: position.left,
-          backgroundColor: colors.background.default,
-          border: `1px solid ${colors.border.default}`,
-          borderRadius: sizing.radius.lg,
-          boxShadow: `0 ${spacing['6']} ${spacing['16']} ${colors.shadow.md}`,
-          zIndex: sizing.zIndex.dropdown,
-          padding: spacing['4'],
-          minWidth,
-          maxWidth,
-          maxHeight,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          scrollBehavior: 'smooth',
-          // Smooth transitions for position and size changes
-          transition: position.top !== undefined 
-            ? 'top 200ms cubic-bezier(0.4, 0, 0.2, 1), max-height 200ms cubic-bezier(0.4, 0, 0.2, 1)'
-            : 'bottom 200ms cubic-bezier(0.4, 0, 0.2, 1), max-height 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-          willChange: position.top !== undefined ? 'top, max-height' : 'bottom, max-height',
-        }}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
+        estimatedHeight={estimatedHeight}
       >
-        {children}
-      </div>
+        <div
+          style={{
+            ...getDropdownContainerStyles(colors),
+            width,
+            minWidth,
+            maxWidth,
+            maxHeight,
+            ...getDropdownTransitionStyles(position),
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          {children}
+        </div>
+      </FloatingMenu>
     </>
   );
-
-  return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
 };
-

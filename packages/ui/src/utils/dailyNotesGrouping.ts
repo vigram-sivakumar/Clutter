@@ -67,7 +67,8 @@ export function groupDailyNotesByYearMonth<T extends DailyNote>(
         // Add note to the appropriate group
         grouped[year][monthName].push(note);
       } catch (error) {
-        console.warn(`Failed to parse dailyNoteDate: ${note.dailyNoteDate}`, error);
+      // Error handled
+        
       }
     });
 

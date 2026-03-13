@@ -14,8 +14,6 @@ interface TagsProps {
   tagsVisible: boolean;
   onAddTag?: (tag: string) => void;
   onRemoveTag?: (tag: string) => void;
-  onEditTag?: (oldTag: string, newTag: string) => void;
-  onColorChange?: (tag: string, color: string) => void;
   onShowTagInput?: (e: React.MouseEvent) => void;
   onCancelTagInput?: () => void;
   onToggleVisibility?: () => void;
@@ -29,14 +27,12 @@ export const Tags = ({
   tagsVisible,
   onAddTag,
   onRemoveTag,
-  onEditTag,
-  onColorChange,
   onShowTagInput,
   onCancelTagInput,
   onToggleVisibility,
   onTagClick,
   backgroundColor,
-}: NoteTagsProps) => {
+}: TagsProps) => {
   const { colors } = useTheme();
   const [isHovered, setIsHovered] = useState(false);
 
@@ -52,7 +48,7 @@ export const Tags = ({
   if ((!tags || tags.length === 0) && !showTagInput) {
     return null;
   }
-  
+
   if (!tagsVisible) {
     return null;
   }
@@ -72,11 +68,9 @@ export const Tags = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       {tags.length > 0 && (
-        <TagsList 
-          tags={tags} 
-          onRemoveTag={onRemoveTag} 
-          onEditTag={onEditTag}
-          onColorChange={onColorChange}
+        <TagsList
+          tags={tags}
+          onRemoveTag={onRemoveTag}
           onTagClick={onTagClick}
         />
       )}
@@ -96,20 +90,22 @@ export const Tags = ({
         />
       )}
       {tags.length > 0 && isHovered && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          display: 'flex',
-          alignItems: 'center',
-          paddingLeft: getFadeGradient(backgroundColor || colors.background.default).padding,
-          background: getFadeGradient(backgroundColor || colors.background.default).background,
-        }}>
-          <TertiaryButton
-            onClick={onToggleVisibility}
-            size="xs"
-            subtle
-          >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            display: 'flex',
+            alignItems: 'center',
+            paddingLeft: getFadeGradient(
+              backgroundColor || colors.background.default
+            ).padding,
+            background: getFadeGradient(
+              backgroundColor || colors.background.default
+            ).background,
+          }}
+        >
+          <TertiaryButton onClick={onToggleVisibility} size="xs" subtle>
             Hide
           </TertiaryButton>
         </div>
@@ -117,4 +113,3 @@ export const Tags = ({
     </div>
   );
 };
-

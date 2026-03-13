@@ -5,25 +5,10 @@
 
 import { useMemo } from 'react';
 import { create } from 'zustand';
-import { useNotesStore, getStorageHandlers } from './notes';
-import {
-  useFoldersStore,
-  saveFolderHandler as getFolderHandler,
-} from './folders';
+import { persist } from 'zustand/middleware';
+import { useNotesStore } from './notes';
+import { useFoldersStore } from './folders';
 import type { Tag } from '@clutter/domain';
-import { shouldAllowSave } from './hydration';
-
-// Platform-specific storage handlers (set by app initialization)
-let saveTagHandler: ((_tag: Tag) => Promise<void>) | null = null;
-let deleteTagHandler: ((_tagName: string) => Promise<void>) | null = null;
-
-export const setSaveTagHandler = (handler: typeof saveTagHandler) => {
-  saveTagHandler = handler;
-};
-
-export const setDeleteTagHandler = (handler: typeof deleteTagHandler) => {
-  deleteTagHandler = handler;
-};
 
 interface TagsState {
   // Map of tag name (lowercase) to tag metadata
@@ -73,447 +58,324 @@ interface TagsState {
   setTagMetadata: (_tags: Tag[]) => void;
 }
 
-export const useTagsStore = create<TagsState>()((set, get) => ({
-  tagMetadata: {},
-  allTagsCache: [],
+export const useTagsStore = create<TagsState>()(
+  persist(
+    (set, get) => ({
+      tagMetadata: {},
+      allTagsCache: [],
 
-  getTagMetadata: (tagName: string) => {
-    const key = tagName.toLowerCase();
-    return get().tagMetadata[key];
-  },
-
-  getDeletedTags: () => {
-    const allTags = Object.values(get().tagMetadata);
-    const deleted = allTags.filter((tag) => tag.deletedAt !== null);
-    return deleted;
-  },
-
-  updateTagMetadata: (tagName: string, updates) => {
-    const key = tagName.toLowerCase();
-    const existing = get().tagMetadata[key];
-
-    if (existing) {
-      const updatedTag = {
-        ...existing,
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      };
-
-      set((state) => ({
-        tagMetadata: {
-          ...state.tagMetadata,
-          [key]: updatedTag,
-        },
-      }));
-
-      // Save metadata to database
-      if (saveTagHandler) {
-        // 🛡️ Guard: Don't save during hydration
-        if (!shouldAllowSave('updateTagMetadata')) return;
-
-        saveTagHandler(updatedTag).catch((err) => {
-          console.error('❌ Failed to save tag metadata:', err);
-        });
-      }
-    }
-  },
-
-  upsertTagMetadata: (
-    tagName: string,
-    description = '',
-    descriptionVisible = true,
-    isFavorite?: boolean,
-    color?: string
-  ) => {
-    const key = tagName.toLowerCase();
-    const existing = get().tagMetadata[key];
-    const now = new Date().toISOString();
-
-    const tag: Tag = {
-      name: tagName, // Preserve original capitalization
-      description: description,
-      descriptionVisible: descriptionVisible,
-      isFavorite:
-        isFavorite !== undefined ? isFavorite : existing?.isFavorite || false, // Use provided value or preserve existing
-      color: color !== undefined ? color : existing?.color, // Use provided value or preserve existing
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
-      deletedAt: null, // Always null when upserting (creating/updating)
-    };
-
-    set((state) => ({
-      tagMetadata: {
-        ...state.tagMetadata,
-        [key]: tag,
+      getTagMetadata: (tagName: string) => {
+        const key = tagName.toLowerCase();
+        return get().tagMetadata[key];
       },
-    }));
 
-    // Save metadata to database
-    if (saveTagHandler) {
-      // 🛡️ Guard: Don't save during hydration
-      if (!shouldAllowSave('upsertTagMetadata')) return;
+      getDeletedTags: () => {
+        const allTags = Object.values(get().tagMetadata);
+        const deleted = allTags.filter((tag) => tag.deletedAt !== null);
+        return deleted;
+      },
 
-      saveTagHandler(tag).catch((err) => {
-        console.error('❌ Failed to save tag metadata:', err);
-      });
-    }
-  },
+      updateTagMetadata: (tagName: string, updates) => {
+        const key = tagName.toLowerCase();
+        const existing = get().tagMetadata[key];
 
-  renameTag: (oldTag: string, newTag: string) => {
-    const oldKey = oldTag.toLowerCase();
-    const newKey = newTag.toLowerCase();
-
-    // Don't do anything if the tags are the same (case-insensitive)
-    if (oldKey === newKey) return;
-
-    // 1. Update all notes that have this tag (batch update)
-    const { notes, setNotes } = useNotesStore.getState();
-
-    const now = new Date().toISOString();
-    let notesUpdated = 0;
-    const updatedNotes = notes.map((note) => {
-      if (note.tags.some((t) => t.toLowerCase() === oldKey)) {
-        const updatedTags = note.tags.map((t) =>
-          t.toLowerCase() === oldKey ? newTag : t
-        );
-        notesUpdated++;
-        return { ...note, tags: updatedTags, updatedAt: now };
-      }
-      return note;
-    });
-
-    // Apply the batch update using the store's setNotes action
-    if (notesUpdated > 0) {
-      setNotes(updatedNotes);
-
-      // 🆕 SAVE all updated notes to database
-      const noteStorageHandlers = getStorageHandlers();
-
-      if (noteStorageHandlers?.save && shouldAllowSave('renameTag-notes')) {
-        const notesToSave = updatedNotes.filter(
-          (note) =>
-            note.tags.some((t) => t.toLowerCase() === newKey) &&
-            note.updatedAt === now
-        );
-
-        Promise.all(
-          notesToSave.map((note) =>
-            noteStorageHandlers.save(note).catch((err) => {
-              console.error(`❌ Failed to save note ${note.id}:`, err);
-            })
-          )
-        );
-      }
-    }
-
-    // 1b. Update all folders that have this tag (batch update)
-    const foldersStore = useFoldersStore.getState();
-
-    let foldersUpdated = 0;
-    const updatedFolders = foldersStore.folders.map((folder) => {
-      if (folder.tags?.some((t) => t.toLowerCase() === oldKey)) {
-        const updatedTags = folder.tags.map((t) =>
-          t.toLowerCase() === oldKey ? newTag : t
-        );
-        foldersUpdated++;
-        return { ...folder, tags: updatedTags, updatedAt: now };
-      }
-      return folder;
-    });
-
-    // Apply the batch update
-    if (foldersUpdated > 0) {
-      useFoldersStore.setState({ folders: updatedFolders });
-
-      // 🆕 SAVE all updated folders to database
-      const saveFolderHandler = getFolderHandler;
-
-      if (saveFolderHandler && shouldAllowSave('renameTag-folders')) {
-        const foldersToSave = updatedFolders.filter(
-          (folder) =>
-            folder.tags?.some((t) => t.toLowerCase() === newKey) &&
-            folder.updatedAt === now
-        );
-
-        Promise.all(
-          foldersToSave.map((folder) =>
-            saveFolderHandler(folder).catch((err) => {
-              console.error(`❌ Failed to save folder ${folder.id}:`, err);
-            })
-          )
-        );
-      }
-    }
-
-    // 2. Update tag metadata (move from old key to new key)
-    const existing = get().tagMetadata[oldKey];
-
-    if (existing) {
-      const updatedMetadata = {
-        ...existing,
-        name: newTag,
-        updatedAt: new Date().toISOString(),
-      };
-
-      set((state) => {
-        const newTagMetadata = { ...state.tagMetadata };
-        delete newTagMetadata[oldKey];
-        newTagMetadata[newKey] = updatedMetadata;
-        return { tagMetadata: newTagMetadata };
-      });
-
-      // Save the renamed metadata to database
-      if (saveTagHandler && shouldAllowSave('renameTag-metadata')) {
-        saveTagHandler(updatedMetadata).catch((err) => {
-          console.error('❌ Failed to save renamed tag metadata:', err);
-        });
-      }
-
-      // Delete the old metadata from database
-      if (deleteTagHandler && shouldAllowSave('renameTag-delete-old')) {
-        deleteTagHandler(oldTag).catch((err) => {
-          console.error('❌ Failed to delete old tag metadata:', err);
-        });
-      }
-    }
-
-    // 3. Update the cache
-    get().updateTagsCache();
-  },
-
-  deleteTag: (tagName: string) => {
-    const key = tagName.toLowerCase();
-    const now = new Date().toISOString();
-    const existing = get().tagMetadata[key];
-
-    if (!existing) {
-      console.warn(
-        `⚠️ Tag "${tagName}" not found in metadata - creating it for soft delete`
-      );
-      // Create metadata entry if it doesn't exist
-      get().upsertTagMetadata(tagName, '', true, false, undefined);
-    }
-
-    // 1. Remove tag from all notes
-    const { notes, setNotes } = useNotesStore.getState();
-    const notesWithTag = notes.filter((note) =>
-      note.tags.some((t) => t.toLowerCase() === key)
-    );
-
-    if (notesWithTag.length > 0) {
-      const updatedNotes = notes.map((note) => {
-        if (note.tags.some((t) => t.toLowerCase() === key)) {
-          return {
-            ...note,
-            tags: note.tags.filter((t) => t.toLowerCase() !== key),
-            updatedAt: now,
+        if (existing) {
+          const updatedTag = {
+            ...existing,
+            ...updates,
+            updatedAt: new Date().toISOString(),
           };
+
+          set((state) => ({
+            tagMetadata: {
+              ...state.tagMetadata,
+              [key]: updatedTag,
+            },
+          }));
         }
-        return note;
-      });
+      },
 
-      setNotes(updatedNotes);
+      upsertTagMetadata: (
+        tagName: string,
+        description = '',
+        descriptionVisible = true,
+        isFavorite?: boolean,
+        color?: string
+      ) => {
+        const key = tagName.toLowerCase();
+        const existing = get().tagMetadata[key];
+        const now = new Date().toISOString();
 
-      // Save all updated notes to database
-      const noteStorageHandlers = getStorageHandlers();
+        const tag: Tag = {
+          name: tagName, // Preserve original capitalization
+          description: description,
+          descriptionVisible: descriptionVisible,
+          isFavorite:
+            isFavorite !== undefined
+              ? isFavorite
+              : existing?.isFavorite || false, // Use provided value or preserve existing
+          color: color !== undefined ? color : existing?.color, // Use provided value or preserve existing
+          createdAt: existing?.createdAt || now,
+          updatedAt: now,
+          deletedAt: null, // Always null when upserting (creating/updating)
+        };
 
-      if (noteStorageHandlers?.save && shouldAllowSave('deleteTag-notes')) {
-        const notesToSave = updatedNotes.filter((note) =>
-          notesWithTag.some((n) => n.id === note.id)
-        );
+        set((state) => ({
+          tagMetadata: {
+            ...state.tagMetadata,
+            [key]: tag,
+          },
+        }));
+      },
 
-        Promise.all(
-          notesToSave.map((note) =>
-            noteStorageHandlers.save(note).catch((err) => {
-              console.error(`❌ Failed to save note ${note.id}:`, err);
-            })
-          )
-        );
-      }
-    }
+      renameTag: (oldTag: string, newTag: string) => {
+        const oldKey = oldTag.toLowerCase();
+        const newKey = newTag.toLowerCase();
 
-    // 2. Remove tag from all folders
-    const foldersStore = useFoldersStore.getState();
-    const foldersWithTag = foldersStore.folders.filter((folder) =>
-      folder.tags?.some((t) => t.toLowerCase() === key)
-    );
+        // Don't do anything if the tags are the same (case-insensitive)
+        if (oldKey === newKey) return;
 
-    if (foldersWithTag.length > 0) {
-      const updatedFolders = foldersStore.folders.map((folder) => {
-        if (folder.tags?.some((t) => t.toLowerCase() === key)) {
-          return {
-            ...folder,
-            tags: folder.tags.filter((t) => t.toLowerCase() !== key),
-            updatedAt: now,
+        // 1. Update all notes that have this tag (batch update)
+        const { notes, setNotes } = useNotesStore.getState();
+
+        const now = new Date().toISOString();
+        let notesUpdated = 0;
+        const updatedNotes = notes.map((note) => {
+          if (note.tags.some((t) => t.toLowerCase() === oldKey)) {
+            const updatedTags = note.tags.map((t) =>
+              t.toLowerCase() === oldKey ? newTag : t
+            );
+            notesUpdated++;
+            return { ...note, tags: updatedTags, updatedAt: now };
+          }
+          return note;
+        });
+
+        // Apply the batch update using the store's setNotes action
+        if (notesUpdated > 0) {
+          setNotes(updatedNotes);
+        }
+
+        // 1b. Update all folders that have this tag (batch update)
+        const foldersStore = useFoldersStore.getState();
+
+        let foldersUpdated = 0;
+        const updatedFolders = foldersStore.folders.map((folder) => {
+          if (folder.tags?.some((t) => t.toLowerCase() === oldKey)) {
+            const updatedTags = folder.tags.map((t) =>
+              t.toLowerCase() === oldKey ? newTag : t
+            );
+            foldersUpdated++;
+            return { ...folder, tags: updatedTags, updatedAt: now };
+          }
+          return folder;
+        });
+
+        // Apply the batch update
+        if (foldersUpdated > 0) {
+          useFoldersStore.setState({ folders: updatedFolders });
+        }
+
+        // 2. Update tag metadata (move from old key to new key)
+        const existing = get().tagMetadata[oldKey];
+
+        if (existing) {
+          const updatedMetadata = {
+            ...existing,
+            name: newTag,
+            updatedAt: new Date().toISOString(),
           };
+
+          set((state) => {
+            const newTagMetadata = { ...state.tagMetadata };
+            delete newTagMetadata[oldKey];
+            newTagMetadata[newKey] = updatedMetadata;
+            return { tagMetadata: newTagMetadata };
+          });
         }
-        return folder;
-      });
 
-      useFoldersStore.setState({ folders: updatedFolders });
+        // 3. Update the cache
+        get().updateTagsCache();
+      },
 
-      // Save all updated folders to database
-      const saveFolderHandler = getFolderHandler;
+      deleteTag: (tagName: string) => {
+        const key = tagName.toLowerCase();
+        const now = new Date().toISOString();
+        const existing = get().tagMetadata[key];
 
-      if (saveFolderHandler && shouldAllowSave('deleteTag-folders')) {
-        const foldersToSave = updatedFolders.filter((folder) =>
-          foldersWithTag.some((f) => f.id === folder.id)
+        if (!existing) {
+          // Create metadata entry if it doesn't exist
+          get().upsertTagMetadata(tagName, '', true, false, undefined);
+        }
+
+        // 1. Remove tag from all notes
+        const { notes, setNotes } = useNotesStore.getState();
+        const notesWithTag = notes.filter((note) =>
+          note.tags.some((t) => t.toLowerCase() === key)
         );
 
-        Promise.all(
-          foldersToSave.map((folder) =>
-            saveFolderHandler(folder).catch((err) => {
-              console.error(`❌ Failed to save folder ${folder.id}:`, err);
-            })
-          )
+        if (notesWithTag.length > 0) {
+          const updatedNotes = notes.map((note) => {
+            if (note.tags.some((t) => t.toLowerCase() === key)) {
+              return {
+                ...note,
+                tags: note.tags.filter((t) => t.toLowerCase() !== key),
+                updatedAt: now,
+              };
+            }
+            return note;
+          });
+
+          setNotes(updatedNotes);
+        }
+
+        // 2. Remove tag from all folders
+        const foldersStore = useFoldersStore.getState();
+        const foldersWithTag = foldersStore.folders.filter((folder) =>
+          folder.tags?.some((t) => t.toLowerCase() === key)
         );
-      }
-    }
 
-    // 3. Soft delete tag metadata (set deletedAt)
-    const updatedTag: Tag = {
-      ...(get().tagMetadata[key] || {
-        name: tagName,
-        description: '',
-        descriptionVisible: true,
-        isFavorite: false,
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null,
-      }),
-      deletedAt: now,
-      updatedAt: now,
-    };
+        if (foldersWithTag.length > 0) {
+          const updatedFolders = foldersStore.folders.map((folder) => {
+            if (folder.tags?.some((t) => t.toLowerCase() === key)) {
+              return {
+                ...folder,
+                tags: folder.tags.filter((t) => t.toLowerCase() !== key),
+                updatedAt: now,
+              };
+            }
+            return folder;
+          });
 
-    set((state) => ({
-      tagMetadata: {
-        ...state.tagMetadata,
-        [key]: updatedTag,
+          useFoldersStore.setState({ folders: updatedFolders });
+        }
+
+        // 3. Soft delete tag metadata (set deletedAt)
+        const updatedTag: Tag = {
+          ...(get().tagMetadata[key] || {
+            name: tagName,
+            description: '',
+            descriptionVisible: true,
+            isFavorite: false,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+          }),
+          deletedAt: now,
+          updatedAt: now,
+        };
+
+        set((state) => ({
+          tagMetadata: {
+            ...state.tagMetadata,
+            [key]: updatedTag,
+          },
+        }));
+
+        // 5. Update cache to exclude deleted tag
+        get().updateTagsCache();
       },
-    }));
 
-    // 4. Save tag metadata to database
-    if (saveTagHandler && shouldAllowSave('deleteTag-metadata')) {
-      saveTagHandler(updatedTag).catch((err) => {
-        console.error('❌ Failed to save deleted tag metadata:', err);
-      });
-    }
+      restoreTag: (tagName: string) => {
+        const key = tagName.toLowerCase();
+        const now = new Date().toISOString();
+        const existing = get().tagMetadata[key];
 
-    // 5. Update cache to exclude deleted tag
-    get().updateTagsCache();
-  },
+        if (!existing) {
+          return;
+        }
 
-  restoreTag: (tagName: string) => {
-    const key = tagName.toLowerCase();
-    const now = new Date().toISOString();
-    const existing = get().tagMetadata[key];
+        if (!existing.deletedAt) {
+          return;
+        }
 
-    if (!existing) {
-      console.warn(`⚠️ Tag "${tagName}" not found in metadata`);
-      return;
-    }
+        // Restore: Clear deletedAt timestamp
+        const restoredTag: Tag = {
+          ...existing,
+          deletedAt: null,
+          updatedAt: now,
+        };
 
-    if (!existing.deletedAt) {
-      console.warn(`⚠️ Tag "${tagName}" is not deleted`);
-      return;
-    }
+        set((state) => ({
+          tagMetadata: {
+            ...state.tagMetadata,
+            [key]: restoredTag,
+          },
+        }));
 
-    // Restore: Clear deletedAt timestamp
-    const restoredTag: Tag = {
-      ...existing,
-      deletedAt: null,
-      updatedAt: now,
-    };
-
-    set((state) => ({
-      tagMetadata: {
-        ...state.tagMetadata,
-        [key]: restoredTag,
+        // Update cache to include restored tag
+        get().updateTagsCache();
       },
-    }));
 
-    // Save updated metadata to database
-    if (saveTagHandler && shouldAllowSave('restoreTag-metadata')) {
-      saveTagHandler(restoredTag).catch((err) => {
-        console.error('❌ Failed to save restored tag metadata:', err);
-      });
-    }
+      permanentlyDeleteTag: (tagName: string) => {
+        const key = tagName.toLowerCase();
 
-    // Update cache to include restored tag
-    get().updateTagsCache();
-  },
+        // 1. Delete tag metadata from store
+        set((state) => {
+          const newTagMetadata = { ...state.tagMetadata };
+          delete newTagMetadata[key];
+          return { tagMetadata: newTagMetadata };
+        });
 
-  permanentlyDeleteTag: (tagName: string) => {
-    const key = tagName.toLowerCase();
+        // 3. Update cache
+        get().updateTagsCache();
+      },
 
-    // 1. Delete tag metadata from store
-    set((state) => {
-      const newTagMetadata = { ...state.tagMetadata };
-      delete newTagMetadata[key];
-      return { tagMetadata: newTagMetadata };
-    });
+      updateTagsCache: () => {
+        const notes = useNotesStore.getState().notes;
+        const folders = useFoldersStore.getState().folders;
+        const metadata = get().tagMetadata;
+        const tagsMap = new Map<string, string>();
 
-    // 2. Delete tag metadata from database
-    if (deleteTagHandler && shouldAllowSave('permanentlyDeleteTag-metadata')) {
-      deleteTagHandler(tagName).catch((err) => {
-        console.error('❌ Failed to permanently delete tag metadata:', err);
-      });
-    }
-
-    // 3. Update cache
-    get().updateTagsCache();
-  },
-
-  updateTagsCache: () => {
-    const notes = useNotesStore.getState().notes;
-    const folders = useFoldersStore.getState().folders;
-    const metadata = get().tagMetadata;
-    const tagsMap = new Map<string, string>();
-
-    // 1. Derive unique tags from all non-deleted notes
-    notes.forEach((note) => {
-      if (!note.deletedAt) {
-        note.tags.forEach((tag) => {
-          const lowerTag = tag.toLowerCase();
-          if (!tagsMap.has(lowerTag)) {
-            tagsMap.set(lowerTag, tag); // Store original capitalization
+        // 1. Derive unique tags from all non-deleted notes
+        notes.forEach((note) => {
+          if (!note.deletedAt) {
+            note.tags.forEach((tag) => {
+              const lowerTag = tag.toLowerCase();
+              if (!tagsMap.has(lowerTag)) {
+                tagsMap.set(lowerTag, tag); // Store original capitalization
+              }
+            });
           }
         });
-      }
-    });
 
-    // 2. Add tags from folders
-    folders.forEach((folder) => {
-      if (!folder.deletedAt && folder.tags) {
-        folder.tags.forEach((tag) => {
-          const lowerTag = tag.toLowerCase();
-          if (!tagsMap.has(lowerTag)) {
-            tagsMap.set(lowerTag, tag); // Store original capitalization
+        // 2. Add tags from folders
+        folders.forEach((folder) => {
+          if (!folder.deletedAt && folder.tags) {
+            folder.tags.forEach((tag) => {
+              const lowerTag = tag.toLowerCase();
+              if (!tagsMap.has(lowerTag)) {
+                tagsMap.set(lowerTag, tag); // Store original capitalization
+              }
+            });
           }
         });
-      }
-    });
 
-    // 3. Add standalone tags from metadata
-    Object.values(metadata).forEach((tag) => {
-      if (tag.deletedAt) return; // Skip deleted tags
-      const lowerTag = tag.name.toLowerCase();
-      if (!tagsMap.has(lowerTag)) {
-        tagsMap.set(lowerTag, tag.name); // Store original capitalization
-      }
-    });
+        // 3. Add standalone tags from metadata
+        Object.values(metadata).forEach((tag) => {
+          if (tag.deletedAt) return; // Skip deleted tags
+          const lowerTag = tag.name.toLowerCase();
+          if (!tagsMap.has(lowerTag)) {
+            tagsMap.set(lowerTag, tag.name); // Store original capitalization
+          }
+        });
 
-    set({ allTagsCache: Array.from(tagsMap.values()) });
-  },
+        set({ allTagsCache: Array.from(tagsMap.values()) });
+      },
 
-  setTagMetadata: (tags: Tag[]) => {
-    const metadata: Record<string, Tag> = {};
-    tags.forEach((tag) => {
-      metadata[tag.name.toLowerCase()] = tag;
-    });
-    set({ tagMetadata: metadata });
-  },
-}));
+      setTagMetadata: (tags: Tag[]) => {
+        const metadata: Record<string, Tag> = {};
+        tags.forEach((tag) => {
+          metadata[tag.name.toLowerCase()] = tag;
+        });
+        set({ tagMetadata: metadata });
+      },
+    }),
+    {
+      name: 'clutter-tags-storage',
+    }
+  )
+);
 
 /**
  * Hook that derives all unique tags from notes, folders, and standalone tag metadata

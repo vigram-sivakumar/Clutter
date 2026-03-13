@@ -1,0 +1,157 @@
+/**
+ * Editor — clean document style.
+ * No hover, no active background.
+ */
+
+.clutter-node {
+  position: relative;
+  line-height: var(--lh-body);
+}
+
+.clutter-node__inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.clutter-node__bullet-slot {
+  position: relative;
+  width: 20px;
+  height: 1lh;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+/* Chevron: show only when node has children AND (hovered OR collapsed); opacity only, no display:none */
+.clutter-node__chevron-wrapper {
+  position: absolute;
+  left: -20px;
+  width: 20px;
+  height: 1lh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.clutter-node__inner:hover .clutter-node__chevron-wrapper {
+  opacity: 1;
+}
+
+
+.clutter-node__chevron {
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+
+.clutter-node__chevron.is-expanded {
+  transform: rotate(90deg);
+}
+
+.clutter-node__chevron.is-collapsed {
+  transform: rotate(0deg);
+}
+
+.clutter-node__bullet-hit {
+  position: relative;
+  height: 1lh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.clutter-node__ring {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--color-text-secondary);
+  opacity: 0;
+}
+
+.clutter-node.clutter-node--collapsed-parent > .clutter-node__inner .clutter-node__ring {
+  opacity: 0.2;
+}
+
+/* Default dot */
+.clutter-node__dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+}
+
+.clutter-node--systemic .clutter-node__dot {
+  width: 6px;
+  height: 6px;
+  opacity: 0.2;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.clutter-node--systemic[data-active="true"] .clutter-node__dot {
+  opacity: 1;
+  width: 6px;
+  height: 6px;
+}
+
+/* Hide dot and ring for normal empty nodes */
+.clutter-node--empty:not(.clutter-node--systemic) .clutter-node__dot,
+.clutter-node--empty:not(.clutter-node--systemic) .clutter-node__ring {
+  visibility: hidden;
+}
+
+/* Show dot and ring when hovering empty node */
+.clutter-node--empty:not(.clutter-node--systemic):hover .clutter-node__dot,
+.clutter-node--empty:not(.clutter-node--systemic):hover .clutter-node__ring {
+  visibility: visible;
+}
+
+/* Show dot and ring when active */
+.clutter-node--empty:not(.clutter-node--systemic)[data-active="true"] .clutter-node__dot,
+.clutter-node--empty:not(.clutter-node--systemic)[data-active="true"] .clutter-node__ring {
+  visibility: visible;
+}
+
+.clutter-node__content {
+  flex: 1;
+  outline: none;
+  min-height: 1em;
+  white-space: pre-wrap;
+}
+
+.clutter-node__content:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.clutter-node {
+  position: relative;
+}
+
+/* Children wrapper — mount only when expanded; layout only */
+.clutter-node__children {
+  position: relative;
+}
+
+/* Vertical connector */
+.clutter-node__children::before {
+  content: "";
+  position: absolute;
+  left: -22px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-text-secondary);
+  opacity: 0.2;
+}

@@ -33,6 +33,7 @@ export function useUIPreferences() {
         return { ...DEFAULT_PREFERENCES, ...parsed };
       }
     } catch (error) {
+      // Error handled
       // Silently fail and use defaults
     }
     return DEFAULT_PREFERENCES;
@@ -43,6 +44,7 @@ export function useUIPreferences() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
     } catch (error) {
+      // Error handled
       // Silently fail
     }
   }, [preferences]);

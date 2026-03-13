@@ -61,8 +61,8 @@ const DESIGN = {
   },
 } as const;
 
-// Check if running in Tauri (native app)
-const _isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+// Check if running in Tauri (native app) - Reserved for future use
+// const _isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
 // Helper component for emoji picker button with hover state
 const EmojiPickerButton = ({
@@ -227,11 +227,6 @@ export const AppSidebar = ({
       const timeoutId = setTimeout(() => {
         const newToday = new Date();
         newToday.setHours(0, 0, 0, 0); // Normalize to start of day
-
-        console.log(
-          '📅 Day changed! Updating calendar to',
-          newToday.toLocaleDateString()
-        );
 
         // Update selected date to today
         setSelectedDate(newToday);
@@ -625,7 +620,7 @@ export const AppSidebar = ({
       folders.forEach((folder) => {
         if (folder.isOpen) {
           flatNotes.push(...folder.notes);
-          addFolderNotes(folder.subfolders);
+          addFolderNotes(folder.subfolders || []);
         }
       });
     };
@@ -654,6 +649,8 @@ export const AppSidebar = ({
     items: visibleNotes,
     getItemId: (note) => note.id,
     onSingleSelect: (noteId) => {
+      // 🔍 DIAGNOSTIC: Track sidebar note selection
+
       setCurrentNoteId(noteId);
       onNoteClickFromSidebar?.();
     },
@@ -667,7 +664,11 @@ export const AppSidebar = ({
       folders.forEach((folder) => {
         flatFolders.push(folder);
         // If folder is open, recursively add subfolders
-        if (folder.isOpen && folder.subfolders.length > 0) {
+        if (
+          folder.isOpen &&
+          folder.subfolders &&
+          folder.subfolders.length > 0
+        ) {
           addFolders(folder.subfolders);
         }
       });
@@ -940,14 +941,14 @@ export const AppSidebar = ({
   ]);
 
   // Handlers
-  const handleCreateNote = useCallback(() => {
+  const handleCreateNote = useCallback(async () => {
     // Simply create a new note - no auto-deletion (matches Notion/Craft/Tana)
-    const newNote = createNote();
-    setCurrentNoteId(newNote.id);
+    await createNote(); // ✅ AWAIT block creation
+    // Note: setCurrentNoteId is called internally by createNote after block exists
 
     // Notify parent to switch to full-page editor view
     onNoteClickFromSidebar?.();
-  }, [createNote, setCurrentNoteId, onNoteClickFromSidebar]);
+  }, [createNote, onNoteClickFromSidebar]);
 
   const handleCreateFolder = useCallback(
     (parentId?: string) => {
@@ -1030,9 +1031,9 @@ export const AppSidebar = ({
   }, [onFolderClick]);
 
   const handleCreateNoteInFolder = useCallback(
-    (folderId: string) => {
+    async (folderId: string) => {
       // Simply create a new note in the folder - no auto-deletion
-      const newNote = createNote({ folderId });
+      const newNote = await createNote({ folderId });
       setCurrentNoteId(newNote.id);
 
       // Notify parent to switch to full-page editor view
@@ -1125,9 +1126,9 @@ export const AppSidebar = ({
         const newFolderId =
           targetType === 'cluttered'
             ? null
-            : targetType === 'dailyNotes'
-              ? DAILY_NOTES_FOLDER_ID
-              : targetId;
+            : targetType === 'folder'
+              ? targetId
+              : null;
 
         // Move all dragged notes to new folder
         draggedIds.forEach((noteId) => {
@@ -1136,7 +1137,9 @@ export const AppSidebar = ({
 
         // If moving to a folder, open the folder to show the notes
         if (newFolderId) {
-          setOpenFolderIds((prev) => new Set([...prev, newFolderId]));
+          setOpenFolderIds(
+            (prev: Set<string>) => new Set([...prev, newFolderId])
+          );
         }
       } else if (dragType === 'folder') {
         // Move all selected folders into another folder or to root
@@ -1307,7 +1310,9 @@ export const AppSidebar = ({
 
         // If moving to a folder, ensure it's open
         if (newFolderId) {
-          setOpenFolderIds((prev) => new Set([...prev, newFolderId]));
+          setOpenFolderIds(
+            (prev: Set<string>) => new Set([...prev, newFolderId])
+          );
         }
       }
 
@@ -1343,7 +1348,9 @@ export const AppSidebar = ({
 
         // If moving into a folder, ensure it's open
         if (newParentId) {
-          setOpenFolderIds((prev) => new Set([...prev, newParentId]));
+          setOpenFolderIds(
+            (prev: Set<string>) => new Set([...prev, newParentId])
+          );
         }
       }
 
@@ -1779,7 +1786,7 @@ export const AppSidebar = ({
           oldTag,
           newTag.trim(),
           renameTag,
-          getTagMetadata,
+          (tagName: string) => getTagMetadata(tagName) ?? null,
           updateTagMetadata
         );
       }
@@ -1794,8 +1801,6 @@ export const AppSidebar = ({
 
   const handleDeleteTag = useCallback(
     (tag: string) => {
-      console.log('🗑️ [DEBUG] handleDeleteTag called from sidebar:', tag);
-
       // Soft delete the tag using the store's deleteTag function
       const { deleteTag } = useTagsStore.getState();
       deleteTag(tag);
@@ -2188,9 +2193,7 @@ export const AppSidebar = ({
                 handleDragStart('note', id, context)
               }
               onDragEnd={handleDragEnd}
-              onDailyNotesDragOver={() => handleDragOver('dailyNotes', null)}
               onDragLeave={handleDragLeave}
-              onDailyNotesDrop={() => handleDrop('dailyNotes', null)}
               draggedItemId={draggedItem?.ids || null}
               dropTargetId={dropTarget?.id || null}
               dropTargetType={dropTarget?.type || null}
@@ -2309,7 +2312,6 @@ export const AppSidebar = ({
               selectedTaskIds={selectedTaskIds}
               onTaskMultiSelect={handleTaskMultiSelect}
               onTodayHeaderClick={handleTodayHeaderClick}
-              onOverdueHeaderClick={handleOverdueHeaderClick}
               onUpcomingHeaderClick={handleUpcomingHeaderClick}
               onUnplannedHeaderClick={handleUnplannedHeaderClick}
               onCompletedHeaderClick={handleCompletedHeaderClick}

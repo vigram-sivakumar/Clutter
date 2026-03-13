@@ -196,8 +196,6 @@ export const Breadcrumbs = ({ items, separator }: BreadcrumbsProps) => {
                   isOpen={showDropdown}
                   position={dropdownPosition}
                   onClose={() => setShowDropdown(false)}
-                  minWidth="200px"
-                  maxWidth="300px"
                 >
                   {item.collapsedItems?.map((hiddenItem, hiddenIndex) => (
                     <DropdownItem

@@ -14,7 +14,7 @@ import { KeyboardShortcut } from '../ui-primitives/KeyboardShortcut';
 
 interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'tertiary' | 'filled';
-  size?: 'xs' | 'small' | 'medium';
+  size?: 'xs' | 'small' | 'medium' | 'large';
   icon?: ReactNode;
   iconSize?: number;
   iconPosition?: 'left' | 'right';
@@ -66,6 +66,7 @@ export const Button = ({
     xs: '20px',
     small: '24px',
     medium: '28px',
+    large: '40px',
   };
 
   const buttonHeight = sizeMap[size];

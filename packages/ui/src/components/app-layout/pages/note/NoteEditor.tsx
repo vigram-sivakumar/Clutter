@@ -12,8 +12,10 @@ import { AppShell } from '../../layout/AppLayout';
 import { PageTitleSection } from '../../shared/content-header';
 import { PageContent } from '../../shared/page-content';
 import { TitleInputHandle } from '../../shared/content-header/title';
-import { TipTapWrapper, TipTapWrapperHandle } from './TipTapWrapper';
-import { useEditorContext } from './useEditorContext';
+// EditorWrapper now lives in apps/desktop layer for proper package composition
+export interface EditorWrapperHandle {
+  focus: () => void;
+}
 import { EmojiTray } from '../../shared/emoji';
 import { MarkdownShortcuts } from '../../../ui-modals';
 import {
@@ -65,31 +67,7 @@ type MainView =
   | { type: 'dailyNotesYearView'; year: string } // View showing daily notes for a year
   | { type: 'dailyNotesMonthView'; year: string; month: string }; // View showing daily notes for a month
 
-// Helper to check if TipTap JSON content is empty
-const isContentEmpty = (content: string): boolean => {
-  try {
-    if (!content || content.trim() === '') return true;
-
-    const json = JSON.parse(content);
-    // Empty TipTap document: {"type":"doc","content":[{"type":"paragraph"}]} or similar
-    if (!json.content || json.content.length === 0) return true;
-
-    // Check if all nodes are empty paragraphs
-    return json.content.every((node: any) => {
-      if (
-        node.type === 'paragraph' &&
-        (!node.content || node.content.length === 0)
-      ) {
-        return true;
-      }
-      return false;
-    });
-  } catch {
-    return true; // If parsing fails, consider it empty
-  }
-};
-
-// Debounce helper with cancel function
+// Debounce helper
 const useDebounce = <T extends (..._args: any[]) => void>(
   fn: T,
   delay: number
@@ -106,27 +84,31 @@ const useDebounce = <T extends (..._args: any[]) => void>(
     [fn, delay]
   );
 
-  const cancel = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, []);
-
-  return [debouncedFn, cancel] as const;
+  return debouncedFn;
 };
 
 interface NotesContainerProps {
   children?: ReactNode;
   isInitialized?: boolean;
-  onHydrationChange?: (_isHydrated: boolean) => void;
+  renderEditor?: (props: {
+    noteId: string;
+    value: string | undefined;
+    onChange: (value: string) => void;
+    autoFocus: boolean;
+    placeholder: string;
+  }) => React.ReactElement | null;
 }
 
 export const NoteEditor = ({
   children,
-  isInitialized = true,
-  onHydrationChange,
+  isInitialized = true, // Deprecated - using hasHydrated from store instead
+  renderEditor,
 }: NotesContainerProps) => {
+  // Removed: session refs no longer needed without async block loading
+
+  // ✅ Use actual Zustand hydration flag instead of external prop
+  const hasHydrated = useNotesStore((state) => state.hasHydrated);
+
   // Notes store
   const {
     notes,
@@ -171,6 +153,11 @@ export const NoteEditor = ({
     return note;
   }, [notes, currentNoteId]);
 
+  // Track note switches for UI transitions
+  useEffect(() => {
+    previousNoteIdRef.current = currentNoteId;
+  }, [currentNoteId]);
+
   // Local state for UI (derived from currentNote)
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(
     currentNote?.emoji || null
@@ -191,22 +178,32 @@ export const NoteEditor = ({
   const [tagsVisible, setTagsVisible] = useState(
     currentNote?.tagsVisible ?? true
   );
+
+  // 🔥 CRITICAL: Sync local state when currentNote changes (prevents stale title/emoji/metadata)
+  // This fixes the bug where switching notes kept old title/emoji because useState only initializes once
+  useEffect(() => {
+    if (!currentNote) {
+      // Clear all local state when no note is selected
+      setSelectedEmoji(null);
+      setTitle('');
+      setDescription('');
+      setTags([]);
+      setIsFavorite(false);
+      setDescriptionVisible(true);
+      setTagsVisible(true);
+      return;
+    }
+
+    // Update local state from currentNote
+    setSelectedEmoji(currentNote.emoji || null);
+    setTitle(currentNote.title || '');
+    setDescription(currentNote.description || '');
+    setTags(currentNote.tags || []);
+    setIsFavorite(currentNote.isFavorite || false);
+    setDescriptionVisible(currentNote.descriptionVisible ?? true);
+    setTagsVisible(currentNote.tagsVisible ?? true);
+  }, [currentNote]);
   const [showMarkdownShortcuts, setShowMarkdownShortcuts] = useState(false);
-
-  // 🛡️ HYDRATION GATE: Explicit load state (no ambiguity between "loading" and "empty")
-  type EditorLoadState =
-    | { status: 'loading' }
-    | { status: 'ready'; document: string }; // JSON string document
-
-  // Canonical empty document (empty ≠ undefined ≠ not loaded)
-  const EMPTY_DOC = JSON.stringify({
-    type: 'doc',
-    content: [{ type: 'paragraph' }],
-  });
-
-  const [editorState, setEditorState] = useState<EditorLoadState>({
-    status: 'loading',
-  });
 
   const [isEmojiTrayOpen, setIsEmojiTrayOpen] = useState(false);
   const [emojiTrayPosition, setEmojiTrayPosition] = useState<{
@@ -216,17 +213,6 @@ export const NoteEditor = ({
 
   // Content width toggle state
   const [isFullWidth, setIsFullWidth] = useState(false);
-
-  // 🛡️ Hydration lifecycle (production-grade fix for empty content bug)
-  const [isHydrated, setIsHydrated] = useState(false);
-  const lastHydratedNoteIdRef = useRef<string | null>(null); // Track which note was last hydrated
-
-  // Report hydration state to parent (for auto-save gating)
-  useEffect(() => {
-    if (onHydrationChange) {
-      onHydrationChange(isHydrated);
-    }
-  }, [isHydrated, onHydrationChange]);
 
   // Main view state
   const [mainView, setMainView] = useState<MainView>({ type: 'editor' });
@@ -241,7 +227,7 @@ export const NoteEditor = ({
   // Restore last viewed note or open today's daily note on first load (only in editor mode)
   useEffect(() => {
     // Wait for database to be initialized before opening notes
-    if (!isInitialized) return;
+    if (!hasHydrated) return;
 
     // Only auto-open notes when in editor view, not when viewing folders/tags
     if (mainView.type !== 'editor') return;
@@ -395,97 +381,29 @@ export const NoteEditor = ({
   const isSidebarCollapsed = preferences.sidebarCollapsed;
 
   const { colors, toggleMode } = useTheme();
-  const editorContext = useEditorContext();
+  // Editor context removed - Lexical editor doesn't need PM-specific context
   const noteBackgroundColor = colors.background.default; // Change this one line to update everywhere
   const keyboardButtonRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<TipTapWrapperHandle>(null);
+  const editorRef = useRef<EditorWrapperHandle>(null);
   const titleInputRef = useRef<TitleInputHandle>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const addEmojiButtonRef = useRef<HTMLButtonElement>(null);
   const previousNoteIdRef = useRef<string | null>(null); // Track note switches for transition
-  const editorHadFocusRef = useRef(false); // Track if editor had focus (for smart focus restoration)
 
-  // 🎨 UX: Detect note switching for Apple Notes-style micro transition
+  // Detect note switching for micro transition
   const isSwitchingNote =
     currentNoteId !== previousNoteIdRef.current &&
     previousNoteIdRef.current !== null;
 
   // Auto-save with debounce (defined early so it can be used in effects)
-  const [debouncedSave, cancelDebouncedSave] = useDebounce(
-    (updates: Partial<Note>) => {
-      if (currentNoteId) {
-        // ✅ Use updateNoteMeta - debouncedSave is only for metadata, never content
-        updateNoteMeta(currentNoteId, updates);
-      }
-    },
-    500
-  );
-
-  // 🛡️ Hydrate editor content when note changes (CRITICAL FIX)
-  // This effect runs on initial mount AND when switching notes
-  useEffect(() => {
-    if (!currentNote) {
-      return;
+  const debouncedSave = useDebounce((updates: Partial<Note>) => {
+    if (currentNoteId) {
+      // Update note metadata only (content is updated synchronously)
+      updateNoteMeta(currentNoteId, updates);
     }
-
-    // Skip hydration only if both note ID and editor state match
-    if (
-      lastHydratedNoteIdRef.current === currentNote.id &&
-      editorState.status === 'ready'
-    ) {
-      return;
-    }
-
-    // Track which note we're hydrating
-    lastHydratedNoteIdRef.current = currentNote.id;
-
-    setIsHydrated(false);
-
-    // 🛡️ CRITICAL: Cancel any pending debounced saves from previous note
-    cancelDebouncedSave();
-
-    // ⬇️ DB → Editor: Load content into React state
-    const document =
-      currentNote.content && currentNote.content.trim() !== ''
-        ? currentNote.content
-        : EMPTY_DOC;
-
-    // Update editor state (TipTapWrapper will handle loading via content prop)
-    setEditorState({
-      status: 'ready',
-      document,
-    });
-
-    // Wait for React + ProseMirror to fully settle before mounting editor
-    requestAnimationFrame(() => {
-      // Sync UI state
-      setSelectedEmoji(currentNote.emoji);
-      setTitle(currentNote.title);
-      setDescription(currentNote.description);
-      setDescriptionVisible(currentNote.descriptionVisible ?? true);
-      setTags(currentNote.tags);
-      setTagsVisible(currentNote.tagsVisible ?? true);
-      setIsFavorite(currentNote.isFavorite);
-      setShowDescriptionInput(!!currentNote.description);
-
-      // 🔓 Second rAF: Let ProseMirror internal state flush
-      requestAnimationFrame(() => {
-        setIsHydrated(true);
-
-        // 🎯 Focus restoration: Only restore focus if editor had it before note switch
-        // This prevents cursor jumps and unexpected caret flashes
-        if (editorHadFocusRef.current) {
-          editorRef.current?.focus();
-        }
-
-        // 🎨 Update previous note ID for transition tracking
-        previousNoteIdRef.current = currentNote.id;
-      });
-    });
-  }, [currentNote, currentNoteId, cancelDebouncedSave, editorState.status]); // ✅ Runs on mount + note changes
+  }, 500);
 
   // 🔄 Sync tags when they change externally (e.g., from tag rename)
-  // This runs independently of the hydration effect above
   useEffect(() => {
     if (currentNote && currentNote.id === currentNoteId) {
       // Only update if tags actually changed (avoid unnecessary re-renders)
@@ -496,35 +414,6 @@ export const NoteEditor = ({
       }
     }
   }, [currentNote, currentNoteId, tags]); // Watch for currentNote changes
-
-  // 🔄 Sync editor content when it changes externally (e.g., task toggle from sidebar)
-  // This handles updates to the current note's content from outside the editor
-  useEffect(() => {
-    if (!currentNote || !currentNoteId || !isHydrated) {
-      return;
-    }
-
-    // Only apply if this is the current note in the editor
-    if (currentNote.id !== currentNoteId) {
-      return;
-    }
-
-    // Get current content from store and editor state
-    const storeContent =
-      currentNote.content && currentNote.content.trim() !== ''
-        ? currentNote.content
-        : EMPTY_DOC;
-    const editorContent =
-      editorState.status === 'ready' ? editorState.document : EMPTY_DOC;
-
-    // If content differs, it's an external change - update editor state
-    if (storeContent !== editorContent) {
-      setEditorState({
-        status: 'ready',
-        document: storeContent,
-      });
-    }
-  }, [currentNote?.content, currentNoteId, isHydrated, editorState]); // Watch for content changes
 
   // Update view context when current note is deleted
   useEffect(() => {
@@ -562,7 +451,7 @@ export const NoteEditor = ({
     if (
       targetBlockId &&
       currentNoteId &&
-      editorState.status === 'ready' &&
+      currentNote &&
       mainView.type === 'editor'
     ) {
       // Small delay to ensure the editor content is fully rendered
@@ -574,7 +463,7 @@ export const NoteEditor = ({
 
       return () => clearTimeout(timer);
     }
-  }, [targetBlockId, currentNoteId, editorState.status, mainView.type]);
+  }, [targetBlockId, currentNoteId, currentNote, mainView.type]);
 
   const handleToggleFavorite = useCallback(() => {
     setIsFavorite((prev) => {
@@ -600,98 +489,6 @@ export const NoteEditor = ({
       });
     },
     [debouncedSave]
-  );
-
-  const handleEditTag = useCallback(
-    (oldTag: string, newTag: string) => {
-      const trimmedOldTag = oldTag.trim();
-      const trimmedNewTag = newTag.trim();
-
-      if (!trimmedNewTag) return;
-
-      // If tag name didn't change (case-insensitive), do nothing
-      if (trimmedNewTag.toLowerCase() === trimmedOldTag.toLowerCase()) return;
-
-      // Before renaming, ensure the tag has a color saved to metadata
-      // This preserves the visual appearance through the rename
-      const metadata = getTagMetadata(trimmedOldTag);
-      if (!metadata?.color) {
-        // Save the current hash-based color so it's preserved after rename
-        const currentVisualColor = getTagColor(trimmedOldTag);
-        if (metadata) {
-          updateTagMetadata(trimmedOldTag, { color: currentVisualColor });
-        } else {
-          upsertTagMetadata(trimmedOldTag, '', true, false, currentVisualColor);
-        }
-      }
-
-      // Use global rename to update all notes with this tag
-      renameTag(trimmedOldTag, trimmedNewTag);
-
-      // Update local state for immediate UI update
-      setTags((prevTags) => {
-        // Find old tag case-insensitively
-        const oldIndex = prevTags.findIndex(
-          (t) => t.toLowerCase() === trimmedOldTag.toLowerCase()
-        );
-        let newTags: string[];
-
-        if (oldIndex === -1) {
-          // Old tag not found, just add new one if it doesn't exist
-          const exists = prevTags.some(
-            (t) => t.toLowerCase() === trimmedNewTag.toLowerCase()
-          );
-          if (!exists) {
-            newTags = [...prevTags, trimmedNewTag]; // Store with original case
-          } else {
-            return prevTags;
-          }
-        } else {
-          // Remove old tag
-          const withoutOld = prevTags.filter((_, i) => i !== oldIndex);
-
-          // Check if new tag already exists elsewhere (case-insensitive)
-          const exists = withoutOld.some(
-            (t) => t.toLowerCase() === trimmedNewTag.toLowerCase()
-          );
-          if (exists) {
-            newTags = withoutOld;
-          } else {
-            // Insert new tag at the same position as old tag with original case
-            newTags = [
-              ...withoutOld.slice(0, oldIndex),
-              trimmedNewTag,
-              ...withoutOld.slice(oldIndex),
-            ];
-          }
-        }
-
-        debouncedSave({ tags: newTags });
-        return newTags;
-      });
-    },
-    [
-      debouncedSave,
-      renameTag,
-      getTagMetadata,
-      getTagColor,
-      updateTagMetadata,
-      upsertTagMetadata,
-    ]
-  );
-
-  const handleColorChange = useCallback(
-    (tag: string, color: string) => {
-      // Update tag metadata with the new color (upsert to handle tags without existing metadata)
-      const existing = getTagMetadata(tag);
-      if (existing) {
-        updateTagMetadata(tag, { color });
-      } else {
-        // Create metadata with the color for tags that don't have metadata yet
-        upsertTagMetadata(tag, '', true, false, color);
-      }
-    },
-    [getTagMetadata, updateTagMetadata, upsertTagMetadata]
   );
 
   const handleDescriptionChange = useCallback(
@@ -1195,6 +992,17 @@ export const NoteEditor = ({
     ]
   );
 
+  // ✅ Stable onChange callback for editor content updates
+  const handleContentChange = useCallback(
+    (value: string) => {
+      // Save content directly to state (synchronous, local-only)
+      if (currentNoteId) {
+        updateNoteContent(currentNoteId, value);
+      }
+    },
+    [currentNoteId, updateNoteContent]
+  );
+
   // Check if current note is a daily note
   const isDailyNote = useMemo(() => {
     return (
@@ -1205,7 +1013,7 @@ export const NoteEditor = ({
 
   // Handler for calendar date selection (for daily notes)
   const handleDateSelect = useCallback(
-    (date: Date) => {
+    async (date: Date) => {
       // Try to find existing daily note for this date
       const existingNote = findDailyNoteByDate(date);
 
@@ -1215,21 +1023,21 @@ export const NoteEditor = ({
         setMainView({ type: 'editor' });
       } else {
         // Create new daily note
-        const newDailyNote = createDailyNote(date);
-        setCurrentNoteId(newDailyNote.id);
+        await createDailyNote(date); // ✅ AWAIT block creation
+        // Note: setCurrentNoteId is called internally after block exists
         setMainView({ type: 'editor' });
       }
     },
-    [findDailyNoteByDate, createDailyNote, setCurrentNoteId]
+    [findDailyNoteByDate, createDailyNote, setMainView]
   );
 
   const handleCreateNoteWithTag = useCallback(
-    (tag: string) => {
-      const newNote = createNote({ tags: [tag] });
-      setCurrentNoteId(newNote.id);
+    async (tag: string) => {
+      await createNote({ tags: [tag] }); // ✅ AWAIT block creation
+      // Note: setCurrentNoteId is called internally after block exists
       setMainView({ type: 'editor' }); // Switch to full-page editor
     },
-    [createNote, setCurrentNoteId, setMainView]
+    [createNote, setMainView]
   );
 
   const handleCreateFolderWithTag = useCallback(
@@ -1878,21 +1686,20 @@ export const NoteEditor = ({
               title={title}
               onTitleChange={(value) => {
                 if (isDailyNote) return; // Prevent title changes for daily notes
+
+                // Update title
                 setTitle(value);
                 debouncedSave({ title: value });
               }}
               onTitleEnter={() => editorRef.current?.focus()}
               dailyNoteDate={currentNote?.dailyNoteDate}
-              readOnlyTitle={isDailyNote}
+              readOnlyTitle={isDailyNote} // ✅ Only daily notes have read-only titles
               selectedEmoji={selectedEmoji}
               isEmojiTrayOpen={isEmojiTrayOpen}
               onEmojiClick={() => openEmojiTray(emojiButtonRef)}
               onRemoveEmoji={handleRemoveEmoji}
               emojiButtonRef={emojiButtonRef}
-              hasContent={
-                editorState.status === 'ready' &&
-                !isContentEmpty(editorState.document)
-              }
+              hasContent={Boolean(currentNote?.content?.trim())}
               isFavorite={isFavorite}
               contextMenuItems={noteContextMenuItems}
               description={description}
@@ -1907,8 +1714,6 @@ export const NoteEditor = ({
               tagsVisible={tagsVisible}
               onAddTag={handleAddTag}
               onRemoveTag={handleRemoveTag}
-              onEditTag={handleEditTag}
-              onColorChange={handleColorChange}
               onShowTagInput={handleShowTagInput}
               onCancelTagInput={handleCancelTagInput}
               onToggleTagsVisibility={handleToggleTagsVisibility}
@@ -1925,7 +1730,7 @@ export const NoteEditor = ({
 
             {/* Editor */}
             <PageContent>
-              {/* 🎯 Apple Notes UX: Editor never disappears, only content changes */}
+              {/* Editor shell - persists across note switches */}
               <div
                 className="editor-shell"
                 style={{
@@ -1940,72 +1745,15 @@ export const NoteEditor = ({
                   filter: isSwitchingNote ? 'blur(0.2px)' : 'none',
                 }}
               >
-                <TipTapWrapper
-                  ref={editorRef}
-                  value={
-                    editorState.status === 'ready'
-                      ? editorState.document
-                      : undefined
-                  }
-                  autoFocus={false}
-                  onChange={(value) => {
-                    // Update editor state
-                    setEditorState({
-                      status: 'ready',
-                      document: value,
-                    });
-                    // Persist to database
-                    updateNoteContent(currentNoteId, value);
-                  }}
-                  onTagClick={handleShowTagFilter}
-                  onNavigate={handleNavigate}
-                  onFocus={() => {
-                    editorHadFocusRef.current = true;
-                  }}
-                  onBlur={() => {
-                    editorHadFocusRef.current = false;
-                  }}
-                  onTagsChange={(extractedTags) => {
-                    // Merge extracted tags from editor with existing metadata tags
-                    setTags((prevTags) => {
-                      // Create a map of extracted tags (from editor) - case insensitive
-                      const extractedLowerMap = new Map(
-                        extractedTags.map((tag) => [tag.toLowerCase(), tag])
-                      );
-
-                      // Find tags that were added via "+ Add tag" button (not in editor)
-                      const metadataOnlyTags = prevTags.filter(
-                        (tag) => !extractedLowerMap.has(tag.toLowerCase())
-                      );
-
-                      // Merge: extracted tags from editor + metadata-only tags
-                      const mergedTags = [
-                        ...extractedTags,
-                        ...metadataOnlyTags,
-                      ];
-
-                      // Deduplicate (case-insensitive) - keep first occurrence
-                      const deduped: string[] = [];
-                      const seenLower = new Set<string>();
-                      for (const tag of mergedTags) {
-                        const lowerTag = tag.toLowerCase();
-                        if (!seenLower.has(lowerTag)) {
-                          seenLower.add(lowerTag);
-                          deduped.push(tag);
-                        }
-                      }
-
-                      // Update store immediately so sidebar updates instantly
-                      if (currentNoteId) {
-                        updateNoteMeta(currentNoteId, { tags: deduped });
-                      }
-
-                      return deduped;
-                    });
-                  }}
-                  isFrozen={isSwitchingNote}
-                  editorContext={editorContext}
-                />
+                {currentNoteId &&
+                  renderEditor &&
+                  renderEditor({
+                    noteId: currentNoteId,
+                    value: currentNote?.content,
+                    autoFocus: false,
+                    onChange: handleContentChange,
+                    placeholder: 'Start writing...',
+                  })}
               </div>
             </PageContent>
           </>

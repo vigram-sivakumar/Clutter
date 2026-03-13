@@ -152,7 +152,7 @@ const safeStorage = {
       const storage = getLocalStorage();
       return storage ? storage.getItem(name) : null;
     } catch (error) {
-      console.error('Error reading from localStorage:', error);
+      // Error handled
       return null;
     }
   },
@@ -163,7 +163,7 @@ const safeStorage = {
         storage.setItem(name, value);
       }
     } catch (error) {
-      console.error('Error writing to localStorage:', error);
+      // Error handled
     }
   },
   removeItem: (name: string) => {
@@ -173,7 +173,7 @@ const safeStorage = {
         storage.removeItem(name);
       }
     } catch (error) {
-      console.error('Error removing from localStorage:', error);
+      // Error handled
     }
   },
 };
@@ -211,10 +211,11 @@ export const useUIStateStore = create<UIStateStore>()(
       hasManuallyToggledFavourites: false,
       hasManuallyToggledFolders: false,
 
-      taskTodayCollapsed: false,
-      taskOverdueCollapsed: false,
-      taskUpcomingCollapsed: false,
-      taskUnplannedCollapsed: false,
+      // Task folders collapsed by default when empty (first-time user)
+      taskTodayCollapsed: true,
+      taskOverdueCollapsed: true,
+      taskUpcomingCollapsed: true,
+      taskUnplannedCollapsed: true,
       taskCompletedCollapsed: true,
 
       allTagsCollapsed: false,

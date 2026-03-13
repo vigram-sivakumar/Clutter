@@ -7,6 +7,32 @@ import { DragRegion } from '../../DragRegion';
 // Check if running in Tauri (native app)
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
+// MacButton Component for native window controls
+interface MacButtonProps {
+  color: string;
+  onClick: () => void;
+}
+
+const MacButton = ({ color, onClick }: MacButtonProps) => (
+  <button
+    onClick={onClick}
+    style={
+      {
+        width: 12,
+        height: 12,
+        borderRadius: '50%',
+        backgroundColor: color,
+        border: 'none',
+        cursor: 'pointer',
+        WebkitAppRegion: 'no-drag',
+        padding: 0,
+        flexShrink: 0,
+      } as any
+    }
+    aria-label={`Window control: ${color}`}
+  />
+);
+
 interface WindowControlsProps {
   /**
    * Show the sidebar toggle button on the right side
@@ -15,21 +41,21 @@ interface WindowControlsProps {
   showToggleButton?: boolean;
   onToggleSidebar?: () => void;
   isCollapsed?: boolean;
-  
+
   /**
    * Style variant
    * - 'sidebar': Used in sidebar header (with padding, margin, toggle button)
    * - 'topbar': Used in top bar (minimal styling, no toggle)
    */
   variant?: 'sidebar' | 'topbar';
-  
+
   /**
    * Force show component even on web (for testing)
    */
   forceShow?: boolean;
 }
 
-export const WindowControls = ({ 
+export const WindowControls = ({
   showToggleButton = false,
   onToggleSidebar,
   isCollapsed = false,
@@ -40,40 +66,31 @@ export const WindowControls = ({
   // In Tauri: always render
   if (!isTauri && !showToggleButton && !forceShow) return null;
 
-  const buttonStyle = {
-    width: variant === 'sidebar' ? '16px' : '12px',
-    height: variant === 'sidebar' ? '16px' : '12px',
-    borderRadius: '50%',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'opacity 0.15s ease',
-    userSelect: 'none',
-    WebkitUserSelect: 'none',
-  } as any;
-
-  const containerStyle = variant === 'sidebar' 
-    ? {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: spacing['8'],
-        padding: '12px 18px 12px 16px', // ✅ 12px top and bottom, 18px right, 16px left
-        height: '48px', // ✅ Increased from 36px to account for bottom padding
-        flexShrink: 0,
-      }
-    : {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing['8'],
-        padding: '4px 0', // 4px vertical padding to match NoteTopBar top padding
-        flexShrink: 0,
-        userSelect: 'none',
-      };
+  const containerStyle =
+    variant === 'sidebar'
+      ? {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: spacing['8'],
+          padding: '12px 18px 12px 16px', // ✅ 12px top and bottom, 18px right, 16px left
+          height: '48px', // ✅ Increased from 36px to account for bottom padding
+          flexShrink: 0,
+        }
+      : {
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing['8'],
+          padding: '4px 0', // 4px vertical padding to match NoteTopBar top padding
+          flexShrink: 0,
+          userSelect: 'none',
+        };
 
   // Sidebar variant uses different padding
-  const padding = variant === 'sidebar' 
-    ? { left: 16, right: 18, top: 12, bottom: 12 } // ✅ Added bottom: 12 to extend drag area
-    : { top: 4 };
+  const padding =
+    variant === 'sidebar'
+      ? { left: 16, right: 18, top: 12, bottom: 12 } // ✅ Added bottom: 12 to extend drag area
+      : { top: 4 };
 
   return (
     <DragRegion
@@ -87,58 +104,57 @@ export const WindowControls = ({
         height: '100%',
       }}
     >
-      {/* macOS Window Controls - only show in Tauri */}
-      {isTauri && (
+      {/* macOS Window Controls - enabled for Tauri */}
+      {isTauri && variant === 'sidebar' && (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: spacing['8'],
-            WebkitAppRegion: 'no-drag', // ✅ Buttons not draggable
-          } as any}
+          style={
+            {
+              display: 'flex',
+              gap: 8,
+              WebkitAppRegion: 'no-drag',
+            } as any
+          }
         >
-          <button
+          <MacButton
+            color="#FF5F57"
             onClick={async () => {
-              if (isTauri) {
-                const { appWindow } = await import('@tauri-apps/api/window');
-                appWindow.close();
-              }
+              const { appWindow } = await import('@tauri-apps/api/window');
+              appWindow.close();
             }}
-            style={{
-              ...buttonStyle,
-              backgroundColor: '#FF5F57',
-            } as any}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           />
-          <button
+          <MacButton
+            color="#FEBC2E"
             onClick={async () => {
-              if (isTauri) {
-                const { appWindow } = await import('@tauri-apps/api/window');
-                appWindow.minimize();
-              }
+              const { appWindow } = await import('@tauri-apps/api/window');
+              appWindow.minimize();
             }}
-            style={{
-              ...buttonStyle,
-              backgroundColor: '#FFBD2E',
-            } as any}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           />
-          <button
+          <MacButton
+            color="#28C840"
             onClick={async () => {
-              if (isTauri) {
-                const { appWindow } = await import('@tauri-apps/api/window');
-                appWindow.toggleMaximize();
-              }
+              const { appWindow } = await import('@tauri-apps/api/window');
+              appWindow.toggleMaximize();
             }}
-            style={{
-              ...buttonStyle,
-              backgroundColor: '#28C840',
-            } as any}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
           />
+          {/* Dev-only: Hard Reset button */}
+          {import.meta.env.DEV && (
+            <MacButton
+              color="#9C27B0"
+              onClick={async () => {
+                // Clear all browser storage
+                localStorage.clear();
+                sessionStorage.clear();
+
+                const dbs = await indexedDB.databases();
+                dbs.forEach((db) => {
+                  if (db.name) indexedDB.deleteDatabase(db.name);
+                });
+
+                // Reload the webview (Tauri v1 compatible)
+                window.location.reload();
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -146,30 +162,29 @@ export const WindowControls = ({
       {variant === 'sidebar' && showToggleButton && (
         <>
           {/* Spacer to push collapse button to the right - draggable */}
-          <div 
+          <div
             data-tauri-drag-region
-            style={{ 
+            style={{
               flex: isCollapsed ? 0 : 1,
               transition: 'flex 0.3s ease-out',
               minWidth: 0,
-            }} />
+            }}
+          />
 
           {/* Collapse button at far right - fades out when collapsing */}
           {onToggleSidebar && (
-            <div 
-              style={{ 
-                opacity: isCollapsed ? 0 : 1,
-                transition: 'opacity 0.2s ease-out',
-                pointerEvents: isCollapsed ? 'none' : 'auto',
-                WebkitAppRegion: 'no-drag', // ✅ Button not draggable
-              } as any}
+            <div
+              style={
+                {
+                  opacity: isCollapsed ? 0 : 1,
+                  transition: 'opacity 0.2s ease-out',
+                  pointerEvents: isCollapsed ? 'none' : 'auto',
+                  WebkitAppRegion: 'no-drag', // ✅ Button not draggable
+                } as any
+              }
             >
               <TertiaryButton
-                icon={
-                  <PanelRight 
-                    size={sizing.icon.sm}
-                  />
-                }
+                icon={<PanelRight size={sizing.icon.sm} />}
                 onClick={onToggleSidebar}
                 size="small"
               />
@@ -180,4 +195,3 @@ export const WindowControls = ({
     </DragRegion>
   );
 };
-

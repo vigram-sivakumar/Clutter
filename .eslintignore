@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+build
+.turbo
+
+# Tauri
+.tauri
+**/src-tauri/target
+**/src-tauri/target/**
+
+# Test coverage
+coverage
+
+# Config files
+*.config.js
+*.config.ts
+
+# Next.js
+.next
+
+# Generated files
+**/*.d.ts

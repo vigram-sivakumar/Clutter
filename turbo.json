@@ -10,13 +10,9 @@
       "cache": false,
       "persistent": true
     },
-    "tauri:dev": {
-      "cache": false,
-      "persistent": true
-    },
-    "tauri:build": {
+    "test": {
       "dependsOn": ["^build"],
-      "outputs": ["src-tauri/target/release/**", "src-tauri/target/release/bundle/**"]
+      "outputs": []
     },
     "lint": {
       "dependsOn": ["^lint"]
@@ -30,4 +26,3 @@
     }
   }
 }
-

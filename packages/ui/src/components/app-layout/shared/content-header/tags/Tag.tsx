@@ -84,48 +84,54 @@ export const TagPill = ({ label, onRemove, onClick, onEdit, onScheduleClose, max
 
   return (
     <span
-      style={{        
-        position: 'relative',
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '0px 4px',
-        minHeight: '20px',
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'baseline',
         maxWidth: maxWidth,
-        borderRadius: radius['3'],
-        fontSize: '14px',
-        lineHeight: '20px',
-        fontWeight: 400,
-        backgroundColor: tagColor.bg,
-        color: tagColor.text,
-        cursor: (onClick || onEdit) ? 'pointer' : 'default',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-      } as any}
+      }}
       onClick={useDirectClick ? handleClick : undefined}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       <span
-        style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          flex: '1',
-          minWidth: 0,
-      }}
-    >
-      {label}
+        style={{        
+          position: 'relative',
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '0px 4px',
+          borderRadius: radius['3'],
+          fontSize: '16px',
+          lineHeight: '24px',
+          fontWeight: 400,
+          backgroundColor: tagColor.bg,
+          color: tagColor.text,
+          cursor: (onClick || onEdit) ? 'pointer' : 'default',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+        } as any}
+      >
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flex: '1',
+            minWidth: 0,
+        }}
+      >
+        {label}
+        </span>
+        {onRemove && isHovered && (
+          <DismissButton
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            size={16}
+            iconSize={12}
+          />
+        )}
       </span>
-      {onRemove && isHovered && (
-        <DismissButton
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          size={16}
-          iconSize={12}
-        />
-      )}
     </span>
   );
 };
