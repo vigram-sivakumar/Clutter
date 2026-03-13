@@ -53,7 +53,6 @@ module.exports = {
       files: [
         'packages/ui/**/*.{ts,tsx}',
         'packages/editor/**/*.{ts,tsx}',
-        'apps/desktop/**/*.{ts,tsx}',
         'apps/web/**/*.{ts,tsx}',
       ],
       env: {
