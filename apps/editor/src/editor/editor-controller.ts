@@ -3,7 +3,12 @@
  */
 
 import type { EditorState, PrimitiveOp } from '../engine/engine';
-import { applyOp, getVisibleNodeIds, repairSelectionAfterDelete, validateStructure } from '../engine/engine';
+import {
+  applyOp,
+  getVisibleNodeIds,
+  repairSelectionAfterDelete,
+  validateStructure,
+} from '../engine/engine';
 import { pushEntry, undo, redo } from '../engine/history';
 import type { HistoryState } from '../engine/history';
 import { genId } from './keymap';
@@ -109,35 +114,37 @@ export class EditorController {
         const isSame =
           JSON.stringify(current) === JSON.stringify(nextSelection);
 
-        // Prevent redundant selection-only dispatch
         if (isSame) {
           console.groupEnd();
           return;
         }
 
         const valid = validateSelection(this.state, nextSelection);
-        if (!valid) return;
+        if (!valid) {
+          console.groupEnd();
+          return;
+        }
+
+        const prevIsBlock = current?.type === 'block-range';
+        const nextIsBlock = valid.type === 'block-range';
 
         this.state = {
           ...this.state,
           selection: valid,
         };
 
-        renderEditor(this.state, this.rootEl, this);
+        syncDomSelectionToState(this.rootEl, valid);
 
-        this.isRestoring = true;
-        requestAnimationFrame(() => {
-          const nextSel = this.state.selection;
-          if (nextSel?.type === 'collapsed') {
-            syncDomSelectionToState(this.rootEl, nextSel);
-          }
-          this.isRestoring = false;
-        });
+        if (prevIsBlock || nextIsBlock) {
+          renderEditor(this.state, this.rootEl, this);
+        }
       }
+
       console.log('STATE SNAPSHOT', {
         selection: this.state.selection,
         visible: getVisibleNodeIds(this.state),
       });
+
       console.groupEnd();
       return;
     }
@@ -180,7 +187,7 @@ export class EditorController {
 
     this.history = pushEntry(this.history, {
       label: 'edit',
-      ops: allOps,
+      ops, // invariant ops are structural maintenance — not part of undo/redo history
       beforeSelection,
       afterSelection,
     });

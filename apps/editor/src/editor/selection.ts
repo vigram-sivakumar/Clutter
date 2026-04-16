@@ -22,10 +22,7 @@ export function validateSelection(
     const inline = node.inlines[sel.inlineIndex];
     if (!inline || inline.type !== 'text') return null;
 
-    const clampedOffset = Math.max(
-      0,
-      Math.min(sel.offset, inline.text.length)
-    );
+    const clampedOffset = Math.max(0, Math.min(sel.offset, inline.text.length));
 
     return {
       ...sel,
@@ -115,10 +112,8 @@ export function getSelection(rootEl: HTMLElement): Selection | null {
   if (!sel || sel.rangeCount === 0) return null;
 
   const readPoint = (node: Node, offset: number) => {
-    let el: HTMLElement | null =
-      node instanceof Text
-        ? node.parentElement
-        : (node as HTMLElement);
+    const el: HTMLElement | null =
+      node instanceof Text ? node.parentElement : (node as HTMLElement);
 
     if (!el) return null;
 
@@ -188,31 +183,52 @@ function normalizeRange(sel: RangeSelection): RangeSelection {
   };
 }
 
-/**
- * Sync DOM selection to match state.
- * Only restore for collapsed. Inline range = browser controlled. Block-range = custom highlight.
- */
-export function syncDomSelectionToState(rootEl: HTMLElement, sel: Selection | null): void {
+export function syncDomSelectionToState(
+  rootEl: HTMLElement,
+  sel: Selection | null
+): void {
   if (!sel) return;
   if (isHandlingInput) return;
 
-  // DO NOT restore for inline range selections
+  const nativeSel = window.getSelection();
+  if (!nativeSel) return;
+
   if (sel.type === 'range') return;
 
-  // DO NOT restore for block-range (we render custom highlight)
   if (sel.type === 'block-range') {
-    const nativeSel = window.getSelection();
-    if (nativeSel) nativeSel.removeAllRanges();
+    nativeSel.removeAllRanges();
     rootEl.focus({ preventScroll: true });
     return;
   }
 
-  // Only restore for collapsed selection
   if (sel.type !== 'collapsed') return;
 
-  const point = sel;
-  console.log('RESTORE CARET', { nodeId: point.nodeId, offset: point.offset });
-  setSelection(rootEl, sel);
+  const wrapper = rootEl.querySelector(`[data-node-id="${sel.nodeId}"]`);
+
+  if (!wrapper) return;
+
+  const span = wrapper.querySelector('.clutter-node__content span');
+  if (!span) return;
+
+  const textNode = span.firstChild ?? span;
+
+  if (
+    nativeSel.anchorNode === textNode &&
+    nativeSel.anchorOffset === sel.offset &&
+    nativeSel.isCollapsed
+  ) {
+    return;
+  }
+
+  const range = document.createRange();
+  const len = textNode.textContent?.length ?? 0;
+  const clamped = Math.min(sel.offset, len);
+
+  range.setStart(textNode, clamped);
+  range.collapse(true);
+
+  nativeSel.removeAllRanges();
+  nativeSel.addRange(range);
 }
 
 /**
@@ -235,9 +251,7 @@ export function setSelection(rootEl: HTMLElement, sel: Selection): void {
     inlineIndex: number;
     offset: number;
   }) => {
-    const wrapper = rootEl.querySelector(
-      `[data-node-id="${point.nodeId}"]`
-    );
+    const wrapper = rootEl.querySelector(`[data-node-id="${point.nodeId}"]`);
     if (!wrapper) return null;
 
     const content = wrapper.querySelector('.clutter-node__content');

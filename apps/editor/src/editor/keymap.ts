@@ -6,7 +6,11 @@ import type { EditorState } from '../engine/engine';
 import { getVisibleNodeIds } from '../engine/engine';
 import type { EditorController } from './editor-controller';
 import { isHandlingInput } from './input-lock';
-import { indentCommand, mergeNodeCommand, outdentCommand } from '../engine/commands';
+import {
+  indentCommand,
+  mergeNodeCommand,
+  outdentCommand,
+} from '../engine/commands';
 
 let _nextId = 0;
 
@@ -47,7 +51,6 @@ export function setupKeymap(
       return;
     }
 
-
     if (ev.key === 'Tab') {
       ev.preventDefault();
 
@@ -85,7 +88,8 @@ export function setupKeymap(
           node &&
           inline &&
           sel.anchor.offset === 0 &&
-          sel.focus.offset === (inline.type === 'text' ? inline.text.length : 0);
+          sel.focus.offset ===
+            (inline.type === 'text' ? inline.text.length : 0);
         if (isFullNode) {
           selectAllNodes(controller);
         } else {
@@ -317,9 +321,7 @@ function handleBackspace(controller: EditorController) {
     const lastInlineIndex = prevNode.inlines.length - 1;
     const lastInline = prevNode.inlines[lastInlineIndex];
     const offset =
-      lastInline && lastInline.type === 'text'
-        ? lastInline.text.length
-        : 0;
+      lastInline && lastInline.type === 'text' ? lastInline.text.length : 0;
 
     controller.dispatch(ops, {
       type: 'collapsed',
@@ -382,21 +384,18 @@ function handleArrowNavigation(
   const sel = controller.getState().selection;
   if (!sel || sel.type !== 'collapsed') return;
 
+  // State owns cursor — always prevent default for all arrow keys so the
+  // browser never moves the caret independently of our state.
+  ev.preventDefault();
+
   const node = state.nodes[sel.nodeId];
   if (!node) return;
 
   const inline = node.inlines[sel.inlineIndex];
-  const textLength =
-    inline && inline.type === 'text'
-      ? inline.text.length
-      : 0;
-
-  let shouldPrevent = false;
+  const textLength = inline && inline.type === 'text' ? inline.text.length : 0;
 
   // LEFT
   if (ev.key === 'ArrowLeft') {
-    ev.preventDefault();
-
     // Move inside text
     if (sel.offset > 0 && !isHandlingInput) {
       controller.dispatch([], {
@@ -414,9 +413,7 @@ function handleArrowNavigation(
 
       const prevInline = node.inlines[prevInlineIndex];
       const prevLength =
-        prevInline && prevInline.type === 'text'
-          ? prevInline.text.length
-          : 0;
+        prevInline && prevInline.type === 'text' ? prevInline.text.length : 0;
 
       controller.dispatch([], {
         type: 'collapsed',
@@ -437,8 +434,6 @@ function handleArrowNavigation(
 
   // RIGHT
   if (ev.key === 'ArrowRight') {
-    ev.preventDefault();
-
     // Move inside text
     if (sel.offset < textLength && !isHandlingInput) {
       controller.dispatch([], {
@@ -475,22 +470,15 @@ function handleArrowNavigation(
   if (ev.key === 'ArrowUp') {
     const prev = getPreviousVisibleNode(state, sel.nodeId);
     if (!prev) return;
-
-    shouldPrevent = true;
     moveCaretToNodeStart(prev, controller);
+    return;
   }
 
   // DOWN
   if (ev.key === 'ArrowDown') {
     const next = getNextVisibleNode(state, sel.nodeId);
     if (!next) return;
-
-    shouldPrevent = true;
     moveCaretToNodeStart(next, controller);
-  }
-
-  if (shouldPrevent) {
-    ev.preventDefault();
   }
 }
 
@@ -504,20 +492,14 @@ function getPreviousVisibleNode(
   return ids[index - 1] ?? null;
 }
 
-function getNextVisibleNode(
-  state: EditorState,
-  nodeId: string
-): string | null {
+function getNextVisibleNode(state: EditorState, nodeId: string): string | null {
   const ids = getVisibleNodeIds(state);
   const index = ids.indexOf(nodeId);
   if (index < 0 || index >= ids.length - 1) return null;
   return ids[index + 1] ?? null;
 }
 
-function moveCaretToNodeStart(
-  nodeId: string,
-  controller: EditorController
-) {
+function moveCaretToNodeStart(nodeId: string, controller: EditorController) {
   if (!isHandlingInput) {
     controller.dispatch([], {
       type: 'collapsed',
@@ -528,10 +510,7 @@ function moveCaretToNodeStart(
   }
 }
 
-function moveCaretToNodeEnd(
-  nodeId: string,
-  controller: EditorController
-) {
+function moveCaretToNodeEnd(nodeId: string, controller: EditorController) {
   const state = controller.getState();
   const node = state.nodes[nodeId];
   if (!node) return;

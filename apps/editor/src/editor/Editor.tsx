@@ -4,11 +4,9 @@
  */
 
 import { useEffect, useRef } from 'react';
-import type { EditorState } from '../engine/engine';
-import {
-  insertTextCommand,
-  splitNodeCommand,
-} from '../engine/commands';
+import { applyOp } from '../engine/engine';
+import type { EditorState, PrimitiveOp } from '../engine/engine';
+import { insertTextCommand, splitNodeCommand } from '../engine/commands';
 import { EditorController } from './editor-controller';
 import { setupKeymap, initIdGenerator, genId } from './keymap';
 import { isHandlingInput, setInputLock } from './input-lock';
@@ -81,19 +79,55 @@ export function Editor() {
         if (!seg || seg.type !== 'text') return;
         const deletedText = seg.text.slice(startOffset, endOffset);
         const newId = genId();
-        const deleteOps = [
-          { type: 'DeleteText' as const, nodeId, inlineIndex, offset: startOffset, length, deletedText },
-          { type: 'NormalizeInline' as const, nodeId },
+        const deleteOps: PrimitiveOp[] = [
+          {
+            type: 'DeleteText',
+            nodeId,
+            inlineIndex,
+            offset: startOffset,
+            length,
+            deletedText,
+          },
+          { type: 'NormalizeInline', nodeId },
         ];
-        const splitOps = splitNodeCommand(state, nodeId, inlineIndex, startOffset, newId);
-        controller.dispatch([...deleteOps, ...splitOps], { type: 'collapsed', nodeId: newId, inlineIndex: 0, offset: 0 });
+        // Apply deleteOps to a temporary state before computing the split.
+        // splitNodeCommand must see the post-delete content so it doesn't generate
+        // a second DeleteText for the same range — which would double-insert on undo.
+        let postDeleteState = state;
+        for (const op of deleteOps) {
+          postDeleteState = applyOp(postDeleteState, op);
+        }
+        const splitOps = splitNodeCommand(
+          postDeleteState,
+          nodeId,
+          inlineIndex,
+          startOffset,
+          newId
+        );
+        controller.dispatch([...deleteOps, ...splitOps], {
+          type: 'collapsed',
+          nodeId: newId,
+          inlineIndex: 0,
+          offset: 0,
+        });
         return;
       }
 
       if (sel.type === 'collapsed') {
         const newId = genId();
-        const ops = splitNodeCommand(state, sel.nodeId, sel.inlineIndex, sel.offset, newId);
-        controller.dispatch(ops, { type: 'collapsed', nodeId: newId, inlineIndex: 0, offset: 0 });
+        const ops = splitNodeCommand(
+          state,
+          sel.nodeId,
+          sel.inlineIndex,
+          sel.offset,
+          newId
+        );
+        controller.dispatch(ops, {
+          type: 'collapsed',
+          nodeId: newId,
+          inlineIndex: 0,
+          offset: 0,
+        });
       }
     };
 
@@ -111,7 +145,11 @@ export function Editor() {
         }
 
         const state = controller.getState();
-        console.log('BEFOREINPUT', ev.inputType, controller.getState().selection);
+        console.log(
+          'BEFOREINPUT',
+          ev.inputType,
+          controller.getState().selection
+        );
         const sel = state.selection;
         if (!sel) return;
 
@@ -120,19 +158,67 @@ export function Editor() {
           return;
         }
 
-        if (sel.type !== 'collapsed') return;
-
         if (ev.inputType === 'insertText' && ev.data) {
           ev.preventDefault();
-          const ops = insertTextCommand(state, sel.nodeId, sel.inlineIndex, sel.offset, ev.data);
-          controller.dispatch(ops, {
-            type: 'collapsed',
-            nodeId: sel.nodeId,
-            inlineIndex: sel.inlineIndex,
-            offset: sel.offset + ev.data.length,
-          });
-          return;
+          if (sel.type === 'collapsed') {
+            const ops = insertTextCommand(
+              state,
+              sel.nodeId,
+              sel.inlineIndex,
+              sel.offset,
+              ev.data
+            );
+            controller.dispatch(ops, {
+              type: 'collapsed',
+              nodeId: sel.nodeId,
+              inlineIndex: sel.inlineIndex,
+              offset: sel.offset + ev.data.length,
+            });
+            return;
+          }
+          if (sel.type === 'range' && sel.anchor.nodeId === sel.focus.nodeId) {
+            const nodeId = sel.anchor.nodeId;
+            const inlineIndex = sel.anchor.inlineIndex;
+            const startOffset = Math.min(sel.anchor.offset, sel.focus.offset);
+            const endOffset = Math.max(sel.anchor.offset, sel.focus.offset);
+            const length = endOffset - startOffset;
+            const node = state.nodes[nodeId];
+            const seg = node?.inlines[inlineIndex];
+            if (!seg || seg.type !== 'text') return;
+            const deletedText = seg.text.slice(startOffset, endOffset);
+            const deleteOps: PrimitiveOp[] = [
+              {
+                type: 'DeleteText',
+                nodeId,
+                inlineIndex,
+                offset: startOffset,
+                length,
+                deletedText,
+              },
+              { type: 'NormalizeInline', nodeId },
+            ];
+            let postDeleteState = state;
+            for (const op of deleteOps)
+              postDeleteState = applyOp(postDeleteState, op);
+            const insertOps = insertTextCommand(
+              postDeleteState,
+              nodeId,
+              inlineIndex,
+              startOffset,
+              ev.data
+            );
+            controller.dispatch([...deleteOps, ...insertOps], {
+              type: 'collapsed',
+              nodeId,
+              inlineIndex,
+              offset: startOffset + ev.data.length,
+            });
+            return;
+          }
+          return; // cross-node range or block-range: not yet handled
         }
+
+        if (sel.type !== 'collapsed') return;
       } finally {
         queueMicrotask(() => {
           setInputLock(false);
@@ -154,11 +240,8 @@ export function Editor() {
 
     const handleMouseDown = (e: MouseEvent) => {
       didMouseMove = false;
-      const content = (e.target as HTMLElement).closest('.clutter-node__content');
-      dragStartedInContentRef.current = !!content;
 
       const targetNode = e.target as Node;
-
       const element =
         targetNode instanceof HTMLElement
           ? targetNode
@@ -166,14 +249,20 @@ export function Editor() {
 
       if (!element) return;
 
-      if (!element.closest('.clutter-node__content')) return;
+      // Don't intercept chevron clicks — those go to the collapse handler in renderer
+      if (element.closest('.clutter-node__chevron-wrapper')) return;
+
+      const wrapper = element.closest('[data-node-id]');
+      if (!wrapper || !el.contains(wrapper)) return;
+
+      const content = element.closest('.clutter-node__content');
+      dragStartedInContentRef.current = !!content;
 
       const controller = controllerRef.current;
       if (controller) {
         const currentSel = controller.getState().selection;
         if (currentSel?.type === 'block-range') {
-          const wrapper = element.closest('[data-node-id]');
-          const nodeId = wrapper?.getAttribute('data-node-id');
+          const nodeId = wrapper.getAttribute('data-node-id');
           if (nodeId && !isHandlingInput) {
             controller.dispatch([], {
               type: 'collapsed',
@@ -189,9 +278,6 @@ export function Editor() {
         selectionModeRef.current = 'caret';
       }
 
-      const wrapper = element.closest('[data-node-id]');
-      if (!wrapper) return;
-
       el.focus({ preventScroll: true });
 
       isMouseSelecting = true;
@@ -205,14 +291,8 @@ export function Editor() {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (dragStartedInContentRef.current) {
-        return;
-      }
-
-      const moveTarget = e.target as HTMLElement;
-      if (moveTarget.closest('.clutter-node__content')) {
-        return;
-      }
+      // Only intercept block drag (bullet/gutter area). Content area uses native selection.
+      if (dragStartedInContentRef.current) return;
 
       if (isMouseSelecting) didMouseMove = true;
 
@@ -222,13 +302,10 @@ export function Editor() {
       const dy = Math.abs(e.clientY - dragStartPosRef.current.y);
 
       if (!hasMovedEnoughRef.current) {
-        if (dx + dy < 4) {
-          return;
-        }
+        if (dx + dy < 4) return;
         hasMovedEnoughRef.current = true;
       }
 
-      if (!hasMovedEnoughRef.current) return;
       if (!dragStartNodeId) return;
 
       const controller = controllerRef.current;
@@ -335,7 +412,10 @@ export function Editor() {
       if (dragStartNodeId && didMouseMove && hadMovedEnough) {
         const endNodeId = lastDragEndNodeIdRef.current ?? dragStartNodeId;
         const currentSel = controller.getState().selection;
-        if ((!currentSel || currentSel.type !== 'block-range') && !isHandlingInput) {
+        if (
+          (!currentSel || currentSel.type !== 'block-range') &&
+          !isHandlingInput
+        ) {
           controller.dispatch([], {
             type: 'block-range',
             startNodeId: dragStartNodeId,
@@ -357,8 +437,7 @@ export function Editor() {
         const prevSelection = controller.getState().selection;
         if (JSON.stringify(prevSelection) === JSON.stringify(valid)) return;
 
-        selectionModeRef.current =
-          sel.type === 'range' ? 'inline' : 'caret';
+        selectionModeRef.current = sel.type === 'range' ? 'inline' : 'caret';
         controller.dispatch([], valid);
       }
 

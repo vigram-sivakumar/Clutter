@@ -30,7 +30,7 @@ export function renderEditor(
 
   const lastRootChildId: string | null =
     root.children.length > 0
-      ? root.children[root.children.length - 1] ?? null
+      ? (root.children[root.children.length - 1] ?? null)
       : null;
 
   for (const childId of root.children) {
@@ -40,19 +40,30 @@ export function renderEditor(
       nodeEl = document.createElement('div');
     }
 
-    renderNode(
-      state,
-      childId,
-      nodeEl,
-      controller,
-      activeSel,
-      lastRootChildId
-    );
+    renderNode(state, childId, nodeEl, controller, activeSel, lastRootChildId);
 
     newChildren.push(nodeEl);
   }
 
-  rootEl.replaceChildren(...newChildren);
+  const existingChildren = Array.from(rootEl.children) as HTMLElement[];
+
+  // Remove nodes that are no longer present
+  for (const child of existingChildren) {
+    const id = child.getAttribute('data-node-id');
+    if (!id || !state.nodes[id]) {
+      rootEl.removeChild(child);
+    }
+  }
+
+  // Insert or move nodes into correct order
+  for (let i = 0; i < newChildren.length; i++) {
+    const child = newChildren[i];
+    const current = rootEl.children[i];
+
+    if (current !== child) {
+      rootEl.insertBefore(child, current ?? null);
+    }
+  }
 }
 
 function subtreeHasContent(state: EditorState, nodeId: string): boolean {
@@ -107,14 +118,9 @@ function updateNodeClasses(
   const hasChildren = node.children.length > 0;
   const hasSubtreeContent =
     hasChildren &&
-    node.children.some((childId) =>
-      subtreeHasContent(state, childId)
-    );
+    node.children.some((childId) => subtreeHasContent(state, childId));
   const isSystemic =
-    isRootChild &&
-    node.id === _lastRootChildId &&
-    isEmpty &&
-    isLeaf;
+    isRootChild && node.id === _lastRootChildId && isEmpty && isLeaf;
 
   const activeNodeId =
     activeSel?.type === 'collapsed'
@@ -129,7 +135,10 @@ function updateNodeClasses(
   wrapper.classList.toggle('clutter-node--empty', isEmpty);
   wrapper.classList.toggle('clutter-node--active', activeNodeId === node.id);
   wrapper.classList.toggle('clutter-node--has-children', hasChildren);
-  wrapper.classList.toggle('clutter-node--collapsed-parent', hasChildren && node.collapsed);
+  wrapper.classList.toggle(
+    'clutter-node--collapsed-parent',
+    hasChildren && node.collapsed
+  );
 
   if (activeSel?.type === 'block-range') {
     const root = state.nodes[state.rootId];
@@ -152,16 +161,19 @@ function updateNodeClasses(
     wrapper.classList.remove('clutter-node--block-selected');
   }
 
-  let showDot =
-    isSystemic ||
-    activeNodeId === node.id ||
-    hasChildren ||
-    !isEmpty;
+  const showDot =
+    isSystemic || activeNodeId === node.id || hasChildren || !isEmpty;
   const showRing =
     !isSystemic && hasChildren && node.collapsed && hasSubtreeContent;
 
-  wrapper.classList.remove('clutter-node--dot', 'clutter-node--dot-hidden', 'clutter-node--ring');
-  wrapper.classList.add(showDot ? 'clutter-node--dot' : 'clutter-node--dot-hidden');
+  wrapper.classList.remove(
+    'clutter-node--dot',
+    'clutter-node--dot-hidden',
+    'clutter-node--ring'
+  );
+  wrapper.classList.add(
+    showDot ? 'clutter-node--dot' : 'clutter-node--dot-hidden'
+  );
   if (showRing) wrapper.classList.add('clutter-node--ring');
 }
 
@@ -172,7 +184,9 @@ function syncChildren(
   controller: RenderController,
   activeSel: Selection | null
 ): void {
-  let childrenWrapper = wrapper.querySelector(':scope > .clutter-node__children') as HTMLElement | null;
+  let childrenWrapper = wrapper.querySelector(
+    ':scope > .clutter-node__children'
+  ) as HTMLElement | null;
 
   if (!childrenWrapper) {
     childrenWrapper = document.createElement('div');
@@ -199,7 +213,25 @@ function syncChildren(
     newChildren.push(childEl);
   }
 
-  childrenWrapper.replaceChildren(...newChildren);
+  // Remove nodes that are no longer children of this node.
+  const desiredIds = new Set(node.children);
+  for (const child of Array.from(childrenWrapper.children)) {
+    const id = child.getAttribute('data-node-id');
+    if (!id || !desiredIds.has(id)) {
+      childrenWrapper.removeChild(child);
+    }
+  }
+
+  // Insert or move nodes into correct order without detaching already-correct elements.
+  // replaceChildren() always detaches+reattaches every child, which invalidates browser
+  // selection even when the same elements are being reused. insertBefore preserves identity.
+  for (let i = 0; i < newChildren.length; i++) {
+    const child = newChildren[i]!;
+    const current = childrenWrapper.children[i];
+    if (current !== child) {
+      childrenWrapper.insertBefore(child, current ?? null);
+    }
+  }
 }
 
 function renderNode(
@@ -216,28 +248,11 @@ function renderNode(
   wrapper.className = 'clutter-node';
   wrapper.dataset.nodeId = nodeId;
 
-  const isNodeInRangeSelection =
-    activeSel?.type === 'range' &&
-    (nodeId === activeSel.anchor.nodeId || nodeId === activeSel.focus.nodeId);
-
-  if (isNodeInRangeSelection) {
-    updateNodeClasses(wrapper, state, node, nodeId, activeSel, _lastRootChildId);
-    const content = wrapper.querySelector<HTMLElement>('.clutter-node__content');
-    if (content) {
-      renderInlines(node.inlines, content);
-    }
-    if (!node.collapsed && node.children.length > 0) {
-      syncChildren(state, node, wrapper, controller, activeSel);
-    } else {
-      const childrenWrapper = wrapper.querySelector('.clutter-node__children');
-      if (childrenWrapper) childrenWrapper.remove();
-    }
-    return;
-  }
-
   updateNodeClasses(wrapper, state, node, nodeId, activeSel, _lastRootChildId);
 
-  let inner = wrapper.querySelector(':scope > .clutter-node__inner') as HTMLElement | null;
+  let inner = wrapper.querySelector(
+    ':scope > .clutter-node__inner'
+  ) as HTMLElement | null;
 
   if (!inner) {
     inner = document.createElement('div');
@@ -245,7 +260,9 @@ function renderNode(
     wrapper.appendChild(inner);
   }
 
-  let bulletSlot = inner.querySelector<HTMLElement>('.clutter-node__bullet-slot');
+  let bulletSlot = inner.querySelector<HTMLElement>(
+    '.clutter-node__bullet-slot'
+  );
   if (!bulletSlot) {
     bulletSlot = document.createElement('div');
     bulletSlot.className = 'clutter-node__bullet-slot';
@@ -262,7 +279,9 @@ function renderNode(
   }
 
   if (node.children.length > 0) {
-    let chevronWrapper = bulletSlot.querySelector<HTMLElement>('.clutter-node__chevron-wrapper');
+    let chevronWrapper = bulletSlot.querySelector<HTMLElement>(
+      '.clutter-node__chevron-wrapper'
+    );
     if (!chevronWrapper) {
       chevronWrapper = document.createElement('div');
       chevronWrapper.className = 'clutter-node__chevron-wrapper';
@@ -339,11 +358,15 @@ function renderNode(
       chevron.classList.toggle('is-expanded', !node.collapsed);
     }
   } else {
-    const chevronWrapper = bulletSlot.querySelector('.clutter-node__chevron-wrapper');
+    const chevronWrapper = bulletSlot.querySelector(
+      '.clutter-node__chevron-wrapper'
+    );
     if (chevronWrapper) chevronWrapper.remove();
   }
 
-  let content = inner.querySelector(':scope > .clutter-node__content') as HTMLElement | null;
+  let content = inner.querySelector(
+    ':scope > .clutter-node__content'
+  ) as HTMLElement | null;
 
   if (!content) {
     content = document.createElement('div');
@@ -376,16 +399,27 @@ function renderInlines(inlines: Inline[], container: HTMLElement) {
     container.appendChild(span);
   }
 
-  const newText =
-    inline && inline.type === 'text'
-      ? inline.text
-      : '';
+  const newText = inline && inline.type === 'text' ? inline.text : '';
 
-  if (span.textContent !== newText) {
+  // Mutate the existing text node's value rather than reassigning span.textContent.
+  // span.textContent = x removes and recreates the text node, which invalidates any
+  // browser Selection that was anchored to the old text node — causing caret loss
+  // on every keystroke. Mutating nodeValue keeps the same text node alive.
+  const existingTextNode = span.firstChild;
+  if (existingTextNode && existingTextNode.nodeType === Node.TEXT_NODE) {
+    if (existingTextNode.nodeValue !== newText) {
+      existingTextNode.nodeValue = newText;
+    }
+    // Remove any unexpected extra children after the text node.
+    while (span.childNodes.length > 1) {
+      span.removeChild(span.lastChild!);
+    }
+  } else {
+    // First render: no text node yet — textContent assignment is safe here.
     span.textContent = newText;
   }
 
-  // Remove extra spans if they somehow exist
+  // Remove extra spans if they somehow exist.
   const allSpans = container.querySelectorAll(':scope > span');
   if (allSpans.length > 1) {
     for (let i = 1; i < allSpans.length; i++) {
