@@ -137,7 +137,9 @@ function marksEqual(a: Mark[], b: Mark[]): boolean {
   return true;
 }
 
-function isTextInline(inline: Inline): inline is { type: 'text'; text: string; marks: Mark[] } {
+function isTextInline(
+  inline: Inline
+): inline is { type: 'text'; text: string; marks: Mark[] } {
   return inline.type === 'text';
 }
 
@@ -153,7 +155,9 @@ function normalizeInlines(inlines: Inline[]): Inline[] {
       if (inv.text.length === 0) continue;
       const prev = out[out.length - 1];
       if (prev && isTextInline(prev) && marksEqual(prev.marks, inv.marks)) {
-        (out[out.length - 1] as { type: 'text'; text: string; marks: Mark[] }).text += inv.text;
+        (
+          out[out.length - 1] as { type: 'text'; text: string; marks: Mark[] }
+        ).text += inv.text;
       } else {
         out.push({ type: 'text', text: inv.text, marks: [...inv.marks] });
       }
@@ -182,7 +186,11 @@ function deleteNodeKey(state: EditorState, nodeId: string): EditorState {
   return { ...state, nodes };
 }
 
-function updateNode(state: EditorState, nodeId: string, updater: (n: Node) => Node): EditorState {
+function updateNode(
+  state: EditorState,
+  nodeId: string,
+  updater: (n: Node) => Node
+): EditorState {
   const node = state.nodes[nodeId];
   if (!node) return state;
   return setNode(state, nodeId, updater(node));
@@ -198,7 +206,10 @@ export function applyOp(state: EditorState, op: PrimitiveOp): EditorState {
       }
       const newChildren = [...parent.children];
       newChildren.splice(op.index, 0, op.id);
-      const stateWithParent = setNode(state, op.parentId, { ...parent, children: newChildren });
+      const stateWithParent = setNode(state, op.parentId, {
+        ...parent,
+        children: newChildren,
+      });
       return setNode(stateWithParent, op.id, { ...op.node });
     }
 
@@ -210,22 +221,13 @@ export function applyOp(state: EditorState, op: PrimitiveOp): EditorState {
       if (idx < 0) return state;
 
       const newChildren = parent.children.filter((_, i) => i !== idx);
-      let s = setNode(state, op.parentId, { ...parent, children: newChildren });
-
-      function deleteSubtree(currentState: EditorState, id: string): EditorState {
-        const node = currentState.nodes[id];
-        if (!node) return currentState;
-
-        let next = currentState;
-
-        for (const childId of node.children) {
-          next = deleteSubtree(next, childId);
-        }
-
-        return deleteNodeKey(next, id);
-      }
-
-      return deleteSubtree(s, op.id);
+      const s = setNode(state, op.parentId, {
+        ...parent,
+        children: newChildren,
+      });
+      // No cascade — callers (block-range backspace) generate explicit leaf-first
+      // child ops so undo can reconstruct the full subtree correctly.
+      return deleteNodeKey(s, op.id);
     }
 
     case 'MoveNode': {
@@ -242,7 +244,10 @@ export function applyOp(state: EditorState, op: PrimitiveOp): EditorState {
       if (!node) return state;
       let s = state;
       const fromChildren = fromParent.children.filter((_, i) => i !== fromIdx);
-      s = setNode(s, op.fromParentId, { ...fromParent, children: fromChildren });
+      s = setNode(s, op.fromParentId, {
+        ...fromParent,
+        children: fromChildren,
+      });
       const toChildren = [...toParent.children];
       toChildren.splice(targetIndex, 0, op.id);
       s = setNode(s, op.toParentId, { ...toParent, children: toChildren });
@@ -316,7 +321,8 @@ export function applyOp(state: EditorState, op: PrimitiveOp): EditorState {
         if (!seg || seg.type !== 'text') return n;
         const markMatch = (m: Mark) => {
           if (m.type !== op.mark.type) return false;
-          if ('value' in m && 'value' in op.mark) return m.value === (op.mark as { value: string }).value;
+          if ('value' in m && 'value' in op.mark)
+            return m.value === (op.mark as { value: string }).value;
           return true;
         };
         const i = seg.marks.findIndex(markMatch);
@@ -395,26 +401,17 @@ function getSystemicNodeId(state: EditorState): string | null {
 }
 
 /**
- * Collect all node IDs that will be removed by these ops (including cascade).
+ * Collect all node IDs that will be removed by these ops.
+ * DeleteNode no longer cascades — every deleted node has an explicit op.
  */
-function getDeletedIdsFromOps(stateBefore: EditorState, ops: PrimitiveOp[]): Set<string> {
+function getDeletedIdsFromOps(
+  _stateBefore: EditorState,
+  ops: PrimitiveOp[]
+): Set<string> {
   const deleted = new Set<string>();
-
-  function collectSubtree(id: string) {
-    deleted.add(id);
-    const node = stateBefore.nodes[id];
-    if (!node) return;
-    for (const childId of node.children) {
-      collectSubtree(childId);
-    }
-  }
-
   for (const op of ops) {
-    if (op.type === 'DeleteNode') {
-      collectSubtree(op.id);
-    }
+    if (op.type === 'DeleteNode') deleted.add(op.id);
   }
-
   return deleted;
 }
 
@@ -425,7 +422,9 @@ function selectionReferencesDeleted(
   if (!sel) return false;
   if (sel.type === 'collapsed') return deletedIds.has(sel.nodeId);
   if (sel.type === 'range') {
-    return deletedIds.has(sel.anchor.nodeId) || deletedIds.has(sel.focus.nodeId);
+    return (
+      deletedIds.has(sel.anchor.nodeId) || deletedIds.has(sel.focus.nodeId)
+    );
   }
   if (sel.type === 'block-range') {
     return deletedIds.has(sel.startNodeId) || deletedIds.has(sel.endNodeId);
@@ -514,7 +513,10 @@ export function validateStructure(state: EditorState): void {
       throw new Error('Missing node: ' + id);
     }
 
-    if (node.blockType !== 'root' && (!node.inlines || node.inlines.length === 0)) {
+    if (
+      node.blockType !== 'root' &&
+      (!node.inlines || node.inlines.length === 0)
+    ) {
       throw new Error('Node without inlines: ' + id);
     }
 

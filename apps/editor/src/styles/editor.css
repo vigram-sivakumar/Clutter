@@ -3,6 +3,10 @@
  * No hover, no active background.
  */
 
+.clutter-editor {
+  outline: none;
+}
+
 .clutter-node {
   position: relative;
   line-height: var(--lh-body);
@@ -26,7 +30,7 @@
   user-select: none;
 }
 
-/* Chevron: show only when node has children AND (hovered OR collapsed); opacity only, no display:none */
+/* Chevron — hidden by default, revealed on hover */
 .clutter-node__chevron-wrapper {
   position: absolute;
   left: -20px;
@@ -68,7 +72,7 @@
   gap: 4px;
 }
 
-/* Base bullet */
+/* Bullet — hidden by default */
 .clutter-node__bullet {
   position: relative;
   display: block;
@@ -76,31 +80,26 @@
   height: 6px;
   border-radius: 50%;
   background: var(--color-text-secondary);
-}
-
-/* Dot visibility */
-.clutter-node--dot-hidden .clutter-node__bullet {
   visibility: hidden;
 }
 
-/* Focus override — purely visual */
-.clutter-node--dot-hidden.clutter-node--active .clutter-node__bullet {
+/* Show dot when the node has something worth marking */
+.clutter-node--dot-visible .clutter-node__bullet {
   visibility: visible;
 }
 
-/* Hover fallback (purely visual) */
-.clutter-node--dot-hidden:hover .clutter-node__bullet {
+/* Always show dot on hover, even if the node is otherwise empty */
+.clutter-node:hover .clutter-node__bullet {
   visibility: visible;
 }
-/* Allow hover only when editor is NOT focused */
-/* .clutter-editor:not(:focus-within)
-  .clutter-node--dot-hidden:hover
-  .clutter-node__bullet {
-  visibility: visible;
-} */
 
-/* Ring overlay (in addition to dot) */
-.clutter-node--ring .clutter-node__bullet::before {
+/* Systemic node (trailing empty paragraph) — dot is visible but dimmed */
+.clutter-node--systemic .clutter-node__bullet {
+  opacity: 0.2;
+}
+
+/* Ring — shown when a node is collapsed and hiding children */
+.clutter-node--collapsed-parent .clutter-node__bullet::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -110,10 +109,6 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: var(--color-text-secondary);
-  opacity: 0.2;
-}
-
-.clutter-node--systemic.clutter-node--dot .clutter-node__bullet {
   opacity: 0.2;
 }
 
@@ -139,6 +134,20 @@
 
 .clutter-node--block-selected {
   background: rgba(100, 150, 255, 0.15);
+}
+
+/* Prevent opacity accumulation: nested block-selected nodes inside another
+   block-selected wrapper don't paint their own background — the outermost
+   node's background covers the full area uniformly (Tana/Workflowy style). */
+.clutter-node--block-selected .clutter-node--block-selected {
+  background: transparent;
+}
+
+/* Hide text cursor inside block-selected nodes — the highlight is the selection indicator.
+   caret-color: transparent keeps the contenteditable focused (so beforeinput fires)
+   without showing a blinking cursor. */
+.clutter-node--block-selected .clutter-node__content {
+  caret-color: transparent;
 }
 
 /* Children wrapper — mount only when expanded; layout only */

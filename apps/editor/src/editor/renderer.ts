@@ -2,6 +2,7 @@
  * Full re-render from EditorState. clutter-node structure. No diffing. No mutation observers.
  */
 
+import { getVisibleNodeIds } from '../engine/engine';
 import type { EditorState, Inline, PrimitiveOp } from '../engine/engine';
 import type { Selection } from './selection';
 
@@ -47,42 +48,26 @@ export function renderEditor(
 
   const existingChildren = Array.from(rootEl.children) as HTMLElement[];
 
-  // Remove nodes that are no longer present
+  // Remove elements that are no longer direct root children.
+  // Checking state.nodes[id] is wrong — a moved node still exists in state.nodes
+  // but is no longer a root child, leaving a stale duplicate in the DOM.
+  const rootChildSet = new Set(root.children);
   for (const child of existingChildren) {
     const id = child.getAttribute('data-node-id');
-    if (!id || !state.nodes[id]) {
+    if (!id || !rootChildSet.has(id)) {
       rootEl.removeChild(child);
     }
   }
 
   // Insert or move nodes into correct order
   for (let i = 0; i < newChildren.length; i++) {
-    const child = newChildren[i];
+    const child = newChildren[i]!;
     const current = rootEl.children[i];
 
     if (current !== child) {
       rootEl.insertBefore(child, current ?? null);
     }
   }
-}
-
-function subtreeHasContent(state: EditorState, nodeId: string): boolean {
-  const node = state.nodes[nodeId];
-  if (!node) return false;
-
-  const selfHasContent = node.inlines.some(
-    (inv) => inv.type === 'text' && inv.text.trim() !== ''
-  );
-
-  if (selfHasContent) return true;
-
-  for (const childId of node.children) {
-    if (subtreeHasContent(state, childId)) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 function isDescendant(
@@ -114,13 +99,10 @@ function updateNodeClasses(
     node.inlines.length === 1 &&
     node.inlines[0]?.type === 'text' &&
     node.inlines[0].text.trim() === '';
-  const isLeaf = node.children.length === 0;
   const hasChildren = node.children.length > 0;
-  const hasSubtreeContent =
-    hasChildren &&
-    node.children.some((childId) => subtreeHasContent(state, childId));
+  // Systemic = the trailing empty paragraph the root invariant always maintains
   const isSystemic =
-    isRootChild && node.id === _lastRootChildId && isEmpty && isLeaf;
+    isRootChild && node.id === _lastRootChildId && isEmpty && !hasChildren;
 
   const activeNodeId =
     activeSel?.type === 'collapsed'
@@ -131,6 +113,11 @@ function updateNodeClasses(
           ? activeSel.startNodeId
           : undefined;
 
+  // Dot is visible when the node has something worth marking:
+  // has content, has children, is focused, or is the systemic trailing node
+  const isDotVisible =
+    isSystemic || activeNodeId === node.id || hasChildren || !isEmpty;
+
   wrapper.classList.toggle('clutter-node--systemic', isSystemic);
   wrapper.classList.toggle('clutter-node--empty', isEmpty);
   wrapper.classList.toggle('clutter-node--active', activeNodeId === node.id);
@@ -139,42 +126,45 @@ function updateNodeClasses(
     'clutter-node--collapsed-parent',
     hasChildren && node.collapsed
   );
+  wrapper.classList.toggle('clutter-node--dot-visible', isDotVisible);
 
   if (activeSel?.type === 'block-range') {
-    const root = state.nodes[state.rootId];
-    const inBlockRange =
-      root &&
-      (() => {
-        const ids = root.children;
-        const startIndex = ids.indexOf(activeSel.startNodeId);
-        const endIndex = ids.indexOf(activeSel.endNodeId);
-        const myIndex = ids.indexOf(node.id);
-        return (
-          startIndex >= 0 &&
-          endIndex >= 0 &&
-          myIndex >= Math.min(startIndex, endIndex) &&
-          myIndex <= Math.max(startIndex, endIndex)
-        );
-      })();
-    wrapper.classList.toggle('clutter-node--block-selected', !!inBlockRange);
+    const visible = getVisibleNodeIds(state);
+    const startIdx = visible.indexOf(activeSel.startNodeId);
+    const endIdx = visible.indexOf(activeSel.endNodeId);
+
+    let inBlockRange = false;
+
+    if (startIdx >= 0 && endIdx >= 0) {
+      const minIdx = Math.min(startIdx, endIdx);
+      const maxIdx = Math.max(startIdx, endIdx);
+
+      // Direct hit: this node's visible index is within the selection range.
+      const myIdx = visible.indexOf(_nodeId);
+      if (myIdx >= minIdx && myIdx <= maxIdx) {
+        inBlockRange = true;
+      }
+
+      // Ancestor capture: if any ancestor is in range, highlight this node too.
+      // This makes expanded children of a selected parent highlight automatically
+      // (e.g. drag D→B selects range [B,C,D]; E highlights because its parent B is in range).
+      if (!inBlockRange) {
+        let curr = node.parentId ? state.nodes[node.parentId] : undefined;
+        while (curr && curr.blockType !== 'root') {
+          const ancestorIdx = visible.indexOf(curr.id);
+          if (ancestorIdx >= minIdx && ancestorIdx <= maxIdx) {
+            inBlockRange = true;
+            break;
+          }
+          curr = curr.parentId ? state.nodes[curr.parentId] : undefined;
+        }
+      }
+    }
+
+    wrapper.classList.toggle('clutter-node--block-selected', inBlockRange);
   } else {
     wrapper.classList.remove('clutter-node--block-selected');
   }
-
-  const showDot =
-    isSystemic || activeNodeId === node.id || hasChildren || !isEmpty;
-  const showRing =
-    !isSystemic && hasChildren && node.collapsed && hasSubtreeContent;
-
-  wrapper.classList.remove(
-    'clutter-node--dot',
-    'clutter-node--dot-hidden',
-    'clutter-node--ring'
-  );
-  wrapper.classList.add(
-    showDot ? 'clutter-node--dot' : 'clutter-node--dot-hidden'
-  );
-  if (showRing) wrapper.classList.add('clutter-node--ring');
 }
 
 function syncChildren(
@@ -313,45 +303,49 @@ function renderNode(
       chevron.appendChild(path);
 
       chevronWrapper.appendChild(chevron);
-      chevronWrapper.onclick = () => {
-        const willCollapse = !node.collapsed;
-
-        const ops: PrimitiveOp[] = [
-          {
-            type: 'ToggleCollapse',
-            nodeId: node.id,
-            from: node.collapsed,
-            to: willCollapse,
-          },
-        ];
-
-        let nextSelection: Selection | undefined = undefined;
-
-        if (willCollapse && activeSel) {
-          const activeNodeId =
-            activeSel.type === 'collapsed'
-              ? activeSel.nodeId
-              : activeSel.type === 'range'
-                ? activeSel.anchor.nodeId
-                : activeSel.type === 'block-range'
-                  ? activeSel.startNodeId
-                  : undefined;
-
-          if (activeNodeId && isDescendant(state, activeNodeId, node.id)) {
-            nextSelection = {
-              type: 'collapsed',
-              nodeId: node.id,
-              inlineIndex: 0,
-              offset: 0,
-            };
-          }
-        }
-
-        controller.dispatch(ops, nextSelection);
-      };
-
       bulletSlot.appendChild(chevronWrapper);
     }
+
+    // Always reassign onclick so it captures the current `node` and `activeSel`.
+    // Assigning only at creation leaves a stale closure where node.collapsed is
+    // always the initial value — toggle would then always collapse, never expand.
+    chevronWrapper.onclick = () => {
+      const willCollapse = !node.collapsed;
+
+      const ops: PrimitiveOp[] = [
+        {
+          type: 'ToggleCollapse',
+          nodeId: node.id,
+          from: node.collapsed,
+          to: willCollapse,
+        },
+      ];
+
+      let nextSelection: Selection | undefined = undefined;
+
+      if (willCollapse && activeSel) {
+        const activeNodeId =
+          activeSel.type === 'collapsed'
+            ? activeSel.nodeId
+            : activeSel.type === 'range'
+              ? activeSel.anchor.nodeId
+              : activeSel.type === 'block-range'
+                ? activeSel.startNodeId
+                : undefined;
+
+        if (activeNodeId && isDescendant(state, activeNodeId, node.id)) {
+          nextSelection = {
+            type: 'collapsed',
+            nodeId: node.id,
+            inlineIndex: 0,
+            offset: 0,
+          };
+        }
+      }
+
+      controller.dispatch(ops, nextSelection);
+    };
+
     const chevron = chevronWrapper.querySelector('.clutter-node__chevron');
     if (chevron) {
       chevron.classList.toggle('is-collapsed', node.collapsed);

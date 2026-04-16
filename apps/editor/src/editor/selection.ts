@@ -193,11 +193,45 @@ export function syncDomSelectionToState(
   const nativeSel = window.getSelection();
   if (!nativeSel) return;
 
-  if (sel.type === 'range') return;
+  if (sel.type === 'range') {
+    // Highlight the selected text in the DOM.
+    const makePoint = (point: {
+      nodeId: string;
+      inlineIndex: number;
+      offset: number;
+    }) => {
+      const wrapper = rootEl.querySelector(`[data-node-id="${point.nodeId}"]`);
+      if (!wrapper) return null;
+      const span = wrapper.querySelector('.clutter-node__content span');
+      if (!span) return null;
+      const textNode = span.firstChild ?? span;
+      const len = textNode.textContent?.length ?? 0;
+      return { node: textNode, offset: Math.min(point.offset, len) };
+    };
+
+    const anchor = makePoint(sel.anchor);
+    const focus = makePoint(sel.focus);
+    if (!anchor || !focus) return;
+
+    const range = document.createRange();
+    range.setStart(anchor.node, anchor.offset);
+    range.setEnd(focus.node, focus.offset);
+
+    nativeSel.removeAllRanges();
+    nativeSel.addRange(range);
+    return;
+  }
 
   if (sel.type === 'block-range') {
-    nativeSel.removeAllRanges();
-    rootEl.focus({ preventScroll: true });
+    // Focus a contenteditable child so that beforeinput events fire when the user
+    // types or presses Enter. The block-range visual is CSS-driven; we just need
+    // an editable target so the browser generates input events.
+    const content = rootEl.querySelector(
+      `[data-node-id="${sel.startNodeId}"] .clutter-node__content`
+    ) as HTMLElement | null;
+    (content ?? rootEl).focus({ preventScroll: true });
+    // Do NOT call removeAllRanges here — the contenteditable needs a cursor
+    // position for beforeinput to fire. caret-color: transparent hides it visually.
     return;
   }
 

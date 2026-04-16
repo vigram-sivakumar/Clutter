@@ -114,7 +114,11 @@ export function setupKeymap(
 
     if (ev.key === 'Delete') {
       ev.preventDefault();
-      // Implement symmetric forward deletion later
+      const sel = controller.getState().selection;
+      if (sel?.type === 'block-range') {
+        handleBackspace(controller);
+      }
+      // collapsed/range forward-delete: stub, not yet implemented
       return;
     }
 
@@ -222,6 +226,36 @@ export function setupKeymap(
   };
 }
 
+/**
+ * Recursively generate leaf-first DeleteNode ops for a node and its entire subtree.
+ * Children are processed at DESCENDING indices so removing from the end keeps lower
+ * indices stable for subsequent ops at the same level.
+ * Each node is stored with children:[] so InsertNode on undo doesn't reference
+ * children that haven't been re-inserted yet at that undo step.
+ */
+function generateSubtreeDeleteOps(
+  state: EditorState,
+  id: string,
+  parentId: string,
+  simulatedIndex: number,
+  ops: import('../engine/engine').PrimitiveOp[]
+): void {
+  const node = state.nodes[id];
+  if (!node) return;
+
+  for (let i = node.children.length - 1; i >= 0; i--) {
+    generateSubtreeDeleteOps(state, node.children[i]!, id, i, ops);
+  }
+
+  ops.push({
+    type: 'DeleteNode',
+    id,
+    parentId,
+    index: simulatedIndex,
+    node: { ...node, children: [] },
+  });
+}
+
 function isSystemicNode(state: EditorState, id: string): boolean {
   const root = state.nodes[state.rootId];
   if (!root) return false;
@@ -269,21 +303,34 @@ function handleBackspace(controller: EditorController) {
 
     const ops: import('../engine/engine').PrimitiveOp[] = [];
 
+    // Track simulated post-deletion child arrays so each DeleteNode op records
+    // the index of the node *after* prior siblings have been removed.
+    // Without this, all ops record original indices and undo (reverse-order
+    // InsertNode) inserts each node at a stale position, reconstructing the
+    // wrong order.
+    const simulatedChildren = new Map<string, string[]>();
+    const getSimulated = (parentId: string) => {
+      if (!simulatedChildren.has(parentId)) {
+        const p = state.nodes[parentId];
+        simulatedChildren.set(parentId, p ? [...p.children] : []);
+      }
+      return simulatedChildren.get(parentId)!;
+    };
+
     for (const id of topLevelIds) {
       const node = state.nodes[id];
       if (!node) continue;
       if (isSystemicNode(state, id)) continue;
       const parent = state.nodes[node.parentId!];
       if (!parent) continue;
-      const index = parent.children.indexOf(id);
+      const sim = getSimulated(node.parentId!);
+      const index = sim.indexOf(id);
       if (index < 0) continue;
-      ops.push({
-        type: 'DeleteNode',
-        id,
-        parentId: node.parentId!,
-        index,
-        node,
-      });
+      generateSubtreeDeleteOps(state, id, node.parentId!, index, ops);
+      simulatedChildren.set(
+        node.parentId!,
+        sim.filter((c) => c !== id)
+      );
     }
 
     controller.dispatch(ops);
@@ -382,6 +429,30 @@ function handleArrowNavigation(
   state: EditorState
 ) {
   const sel = controller.getState().selection;
+
+  // Block-range: collapse to edge based on direction.
+  // Left/Up → first visible node in range; Right/Down → last visible node.
+  if (sel?.type === 'block-range') {
+    ev.preventDefault();
+    const visible = getVisibleNodeIds(state);
+    const startIdx = visible.indexOf(sel.startNodeId);
+    const endIdx = visible.indexOf(sel.endNodeId);
+    if (startIdx === -1 || endIdx === -1) return;
+    const collapseToEnd = ev.key === 'ArrowRight' || ev.key === 'ArrowDown';
+    const targetId =
+      visible[
+        collapseToEnd ? Math.max(startIdx, endIdx) : Math.min(startIdx, endIdx)
+      ];
+    if (!targetId || isHandlingInput) return;
+    controller.dispatch([], {
+      type: 'collapsed',
+      nodeId: targetId,
+      inlineIndex: 0,
+      offset: 0,
+    });
+    return;
+  }
+
   if (!sel || sel.type !== 'collapsed') return;
 
   // State owns cursor — always prevent default for all arrow keys so the

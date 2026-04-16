@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { applyOp } from '../engine/engine';
+import { applyOp, getVisibleNodeIds } from '../engine/engine';
 import type { EditorState, PrimitiveOp } from '../engine/engine';
 import { insertTextCommand, splitNodeCommand } from '../engine/commands';
 import { EditorController } from './editor-controller';
@@ -105,6 +105,38 @@ export function Editor() {
           newId
         );
         controller.dispatch([...deleteOps, ...splitOps], {
+          type: 'collapsed',
+          nodeId: newId,
+          inlineIndex: 0,
+          offset: 0,
+        });
+        return;
+      }
+
+      if (sel.type === 'block-range') {
+        // Collapse to the first visible node in the range and split at end of
+        // its text, creating a new empty node immediately after it.
+        const visible = getVisibleNodeIds(state);
+        const startIdx = visible.indexOf(sel.startNodeId);
+        const endIdx = visible.indexOf(sel.endNodeId);
+        if (startIdx === -1 || endIdx === -1) return;
+        const landingNodeId = visible[Math.min(startIdx, endIdx)];
+        if (!landingNodeId) return;
+        const landingNode = state.nodes[landingNodeId];
+        const landingInline = landingNode?.inlines[0];
+        const splitOffset =
+          landingInline && landingInline.type === 'text'
+            ? landingInline.text.length
+            : 0;
+        const newId = genId();
+        const ops = splitNodeCommand(
+          state,
+          landingNodeId,
+          0,
+          splitOffset,
+          newId
+        );
+        controller.dispatch(ops, {
           type: 'collapsed',
           nodeId: newId,
           inlineIndex: 0,
@@ -215,7 +247,37 @@ export function Editor() {
             });
             return;
           }
-          return; // cross-node range or block-range: not yet handled
+          if (sel.type === 'block-range') {
+            // Don't delete selected nodes — collapse to the first visible node in
+            // the range and insert the typed character at the end of its text.
+            const visible = getVisibleNodeIds(state);
+            const startIdx = visible.indexOf(sel.startNodeId);
+            const endIdx = visible.indexOf(sel.endNodeId);
+            if (startIdx === -1 || endIdx === -1) return;
+            const landingNodeId = visible[Math.min(startIdx, endIdx)];
+            if (!landingNodeId) return;
+            const landingNode = state.nodes[landingNodeId];
+            const landingInline = landingNode?.inlines[0];
+            const insertOffset =
+              landingInline && landingInline.type === 'text'
+                ? landingInline.text.length
+                : 0;
+            const insertOps = insertTextCommand(
+              state,
+              landingNodeId,
+              0,
+              insertOffset,
+              ev.data
+            );
+            controller.dispatch(insertOps, {
+              type: 'collapsed',
+              nodeId: landingNodeId,
+              inlineIndex: 0,
+              offset: insertOffset + ev.data.length,
+            });
+            return;
+          }
+          return; // cross-node range: not yet handled
         }
 
         if (sel.type !== 'collapsed') return;
@@ -236,11 +298,8 @@ export function Editor() {
     let isMouseSelecting = false;
     let dragStartNodeId: string | null = null;
     let isBlockDragging = false;
-    let didMouseMove = false;
 
     const handleMouseDown = (e: MouseEvent) => {
-      didMouseMove = false;
-
       const targetNode = e.target as Node;
       const element =
         targetNode instanceof HTMLElement
@@ -253,7 +312,24 @@ export function Editor() {
       if (element.closest('.clutter-node__chevron-wrapper')) return;
 
       const wrapper = element.closest('[data-node-id]');
-      if (!wrapper || !el.contains(wrapper)) return;
+
+      // Click outside the editor — clear block-range selection if one is active.
+      if (!wrapper || !el.contains(wrapper)) {
+        const controller = controllerRef.current;
+        if (controller && !isHandlingInput) {
+          const currentSel = controller.getState().selection;
+          if (currentSel?.type === 'block-range') {
+            // Collapse to the start node so the halo disappears cleanly.
+            controller.dispatch([], {
+              type: 'collapsed',
+              nodeId: currentSel.startNodeId,
+              inlineIndex: 0,
+              offset: 0,
+            });
+          }
+        }
+        return;
+      }
 
       const content = element.closest('.clutter-node__content');
       dragStartedInContentRef.current = !!content;
@@ -274,9 +350,11 @@ export function Editor() {
         }
       }
 
-      if (content) {
-        selectionModeRef.current = 'caret';
-      }
+      // Always reset to 'caret' on mousedown regardless of where the click landed.
+      // Not resetting here would leave selectionModeRef in 'block' from a previous
+      // drag, causing the next click to misroute through the block-drag finalization
+      // path in handleMouseUp instead of reading the native caret position.
+      selectionModeRef.current = 'caret';
 
       el.focus({ preventScroll: true });
 
@@ -291,11 +369,6 @@ export function Editor() {
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      // Only intercept block drag (bullet/gutter area). Content area uses native selection.
-      if (dragStartedInContentRef.current) return;
-
-      if (isMouseSelecting) didMouseMove = true;
-
       if (!isMouseSelecting || !dragStartPosRef.current) return;
 
       const dx = Math.abs(e.clientX - dragStartPosRef.current.x);
@@ -312,11 +385,66 @@ export function Editor() {
       if (!controller) return;
 
       const target = e.target as HTMLElement;
-      const wrapper = target.closest('[data-node-id]');
-      const currentNodeId = wrapper?.getAttribute('data-node-id');
+      const wrapper = target.closest ? target.closest('[data-node-id]') : null;
+      let currentNodeId = wrapper?.getAttribute('data-node-id') ?? null;
+
+      // If no node is directly under the cursor (outside editor or in whitespace),
+      // find the visible node whose bounding rect is closest to the cursor's Y.
+      // Using all visible nodes (not just root children) lets the user drag-select
+      // child nodes and handles all four drag directions uniformly.
+      let resolvedFromOutside = false;
+      if (!currentNodeId && isMouseSelecting) {
+        const st = controllerRef.current?.getState();
+        if (st) {
+          const visibleIds = getVisibleNodeIds(st);
+          let closestId: string | null = null;
+          let closestDist = Infinity;
+          for (const nodeId of visibleIds) {
+            const nodeEl = el.querySelector(`[data-node-id="${nodeId}"]`);
+            if (!nodeEl) continue;
+            const r = nodeEl.getBoundingClientRect();
+            if (e.clientY >= r.top && e.clientY <= r.bottom) {
+              closestId = nodeId;
+              break; // exact Y hit
+            }
+            const dist = Math.min(
+              Math.abs(e.clientY - r.top),
+              Math.abs(e.clientY - r.bottom)
+            );
+            if (dist < closestDist) {
+              closestDist = dist;
+              closestId = nodeId;
+            }
+          }
+          if (closestId) {
+            currentNodeId = closestId;
+            resolvedFromOutside = true;
+          }
+        }
+      }
 
       if (!currentNodeId) return;
-      if (currentNodeId === dragStartNodeId) return;
+
+      if (currentNodeId === dragStartNodeId) {
+        if (resolvedFromOutside) {
+          // Y-coordinate resolution landed on the start node (e.g. only one content node,
+          // or cursor is at the same vertical level as where the drag started).
+          // Don't collapse — keep the current selection unchanged.
+          return;
+        }
+        // User physically moved the cursor back over the start node element.
+        // If block drag is already active, shrink the halo to just this one node.
+        // If block drag hasn't started yet, native text selection is running — skip.
+        if (isBlockDragging && !isHandlingInput) {
+          lastDragEndNodeIdRef.current = dragStartNodeId;
+          controller.dispatch([], {
+            type: 'block-range',
+            startNodeId: dragStartNodeId,
+            endNodeId: dragStartNodeId,
+          });
+        }
+        return;
+      }
 
       const currentSel = controller.getState().selection;
       if (
@@ -327,25 +455,30 @@ export function Editor() {
         return;
       }
 
-      // Selection state only finalizes on mouseup. Track end node during drag.
       lastDragEndNodeIdRef.current = currentNodeId;
 
-      {
-        // First time crossing boundary
-        if (!isBlockDragging) {
-          isBlockDragging = true;
+      // First time crossing a node boundary — kill native selection so the
+      // browser doesn't fight with our block-range highlight.
+      if (!isBlockDragging) {
+        isBlockDragging = true;
+        const nativeSel = window.getSelection();
+        if (nativeSel) nativeSel.removeAllRanges();
+      }
 
-          // Kill native selection engine immediately
-          const nativeSel = window.getSelection();
-          if (nativeSel) {
-            nativeSel.removeAllRanges();
-          }
-        }
+      e.preventDefault();
+      selectionModeRef.current = 'block';
+      el.focus({ preventScroll: true });
 
-        e.preventDefault();
-
-        selectionModeRef.current = 'block';
-        el.focus({ preventScroll: true });
+      // Dispatch immediately so the halo updates in real time as the user drags.
+      // renderEditor only runs when the end node actually changes (the isSame
+      // check in dispatch short-circuits if start+end are identical), so this
+      // fires at node-boundary frequency, not pixel frequency.
+      if (!isHandlingInput) {
+        controller.dispatch([], {
+          type: 'block-range',
+          startNodeId: dragStartNodeId,
+          endNodeId: currentNodeId,
+        });
       }
     };
 
@@ -375,7 +508,6 @@ export function Editor() {
       isMouseSelecting = false;
       dragStartedInContentRef.current = false;
 
-      const hadMovedEnough = hasMovedEnoughRef.current;
       dragStartPosRef.current = null;
       hasMovedEnoughRef.current = false;
 
@@ -391,7 +523,9 @@ export function Editor() {
               endNodeId,
             });
           }
-          el.focus({ preventScroll: true });
+          // Do NOT call el.focus() here — syncDomSelectionToState inside dispatch
+          // already focused a contenteditable child so beforeinput fires for typing.
+          // Calling el.focus() again would override that and break keyboard input.
         }
         dragStartNodeId = null;
         lastDragEndNodeIdRef.current = null;
@@ -409,8 +543,11 @@ export function Editor() {
 
       if (controller.isRestoringSelection()) return;
 
-      if (dragStartNodeId && didMouseMove && hadMovedEnough) {
-        const endNodeId = lastDragEndNodeIdRef.current ?? dragStartNodeId;
+      // Only activate block-range if the drag actually crossed a node boundary.
+      // Without this guard, an in-content drag that moved > 4px but stayed in the
+      // same node would produce a spurious single-node block-range.
+      if (dragStartNodeId && lastDragEndNodeIdRef.current) {
+        const endNodeId = lastDragEndNodeIdRef.current;
         const currentSel = controller.getState().selection;
         if (
           (!currentSel || currentSel.type !== 'block-range') &&
@@ -465,15 +602,7 @@ export function Editor() {
       // }
     };
 
-    const handleMouseLeave = () => {
-      isMouseSelecting = false;
-      dragStartNodeId = null;
-      isBlockDragging = false;
-      lastDragEndNodeIdRef.current = null;
-    };
-
     el.addEventListener('click', handleClick);
-    el.addEventListener('mouseleave', handleMouseLeave);
 
     const handleFocusOut = (e: FocusEvent) => {
       const next = e.relatedTarget as Node | null;
@@ -496,7 +625,7 @@ export function Editor() {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
-      el.removeEventListener('mouseleave', handleMouseLeave);
+
       el.removeEventListener('click', handleClick);
       el.removeEventListener('focusout', handleFocusOut);
       controllerRef.current = null;

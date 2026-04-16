@@ -254,7 +254,18 @@ export class EditorController {
     }
 
     // Restore selection FIRST
-    const restored = lastEntry?.beforeSelection ?? null;
+    let restored = lastEntry?.beforeSelection ?? null;
+
+    // Tana-style: if we're undoing a delete that had a block-range before-selection,
+    // collapse to the start node rather than restoring the multi-node highlight.
+    if (restored?.type === 'block-range') {
+      restored = {
+        type: 'collapsed',
+        nodeId: restored.startNodeId,
+        inlineIndex: 0,
+        offset: 0,
+      };
+    }
 
     const validSelection = restored
       ? validateSelection(this.state, restored)
