@@ -2,7 +2,7 @@
  * Keyboard → commands. Enter, Backspace, Tab, Shift+Tab, Ctrl+Z, Ctrl+Shift+Z. Stub rest.
  */
 
-import type { EditorState } from '../engine/engine';
+import type { EditorState, PrimitiveOp } from '../engine/engine';
 import { getVisibleNodeIds } from '../engine/engine';
 import type { EditorController } from './editor-controller';
 import { isHandlingInput } from './input-lock';
@@ -57,9 +57,34 @@ export function setupKeymap(
       const sel = controller.getState().selection;
       if (!sel || sel.type !== 'collapsed') return;
 
-      const ops = ev.shiftKey
-        ? outdentCommand(state, sel.nodeId)
-        : indentCommand(state, sel.nodeId);
+      let ops: PrimitiveOp[];
+
+      if (ev.shiftKey) {
+        ops = outdentCommand(state, sel.nodeId);
+      } else {
+        ops = indentCommand(state, sel.nodeId);
+        if (ops.length > 0) {
+          // Auto-expand the new parent if it is currently collapsed
+          const node = state.nodes[sel.nodeId];
+          const parent = node?.parentId ? state.nodes[node.parentId] : undefined;
+          if (parent) {
+            const myIndex = parent.children.indexOf(sel.nodeId);
+            const prevSiblingId = myIndex > 0 ? parent.children[myIndex - 1] : undefined;
+            const prevSibling = prevSiblingId ? state.nodes[prevSiblingId] : undefined;
+            if (prevSiblingId && prevSibling?.collapsed) {
+              ops = [
+                ...ops,
+                {
+                  type: 'ToggleCollapse',
+                  nodeId: prevSiblingId,
+                  from: true,
+                  to: false,
+                },
+              ];
+            }
+          }
+        }
+      }
 
       if (ops.length > 0) {
         controller.dispatch(ops, {
@@ -450,6 +475,26 @@ function handleArrowNavigation(
       inlineIndex: 0,
       offset: 0,
     });
+    return;
+  }
+
+  // Inline range: collapse to start (Left/Up) or end (Right/Down), then let
+  // normal caret navigation proceed from there. Without this, the browser
+  // collapses the DOM caret but the internal state stays 'range', causing the
+  // next keystroke's beforeinput handler to delete the stale selection.
+  if (sel?.type === 'range') {
+    ev.preventDefault();
+    const collapseToEnd = ev.key === 'ArrowRight' || ev.key === 'ArrowDown';
+    // After normalizeRange, anchor is always the start (min offset).
+    const target = collapseToEnd ? sel.focus : sel.anchor;
+    if (!isHandlingInput) {
+      controller.dispatch([], {
+        type: 'collapsed',
+        nodeId: target.nodeId,
+        inlineIndex: target.inlineIndex,
+        offset: target.offset,
+      });
+    }
     return;
   }
 

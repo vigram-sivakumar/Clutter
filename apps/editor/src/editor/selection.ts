@@ -171,16 +171,8 @@ export function getSelection(rootEl: HTMLElement): Selection | null {
 }
 
 function normalizeRange(sel: RangeSelection): RangeSelection {
-  const anchorKey = `${sel.anchor.nodeId}-${sel.anchor.inlineIndex}-${sel.anchor.offset}`;
-  const focusKey = `${sel.focus.nodeId}-${sel.focus.inlineIndex}-${sel.focus.offset}`;
-
-  if (anchorKey <= focusKey) return sel;
-
-  return {
-    type: 'range',
-    anchor: sel.focus,
-    focus: sel.anchor,
-  };
+  if (sel.anchor.offset <= sel.focus.offset) return sel;
+  return { type: 'range', anchor: sel.focus, focus: sel.anchor };
 }
 
 export function syncDomSelectionToState(
@@ -223,15 +215,21 @@ export function syncDomSelectionToState(
   }
 
   if (sel.type === 'block-range') {
-    // Focus a contenteditable child so that beforeinput events fire when the user
-    // types or presses Enter. The block-range visual is CSS-driven; we just need
-    // an editable target so the browser generates input events.
     const content = rootEl.querySelector(
       `[data-node-id="${sel.startNodeId}"] .clutter-node__content`
     ) as HTMLElement | null;
     (content ?? rootEl).focus({ preventScroll: true });
-    // Do NOT call removeAllRanges here — the contenteditable needs a cursor
-    // position for beforeinput to fire. caret-color: transparent hides it visually.
+    // Collapse to a zero-width caret: clears any prior text highlight while
+    // keeping a valid cursor so beforeinput fires. Caret hidden via CSS.
+    const span = content?.querySelector('span');
+    const textNode = span?.firstChild ?? span;
+    if (textNode) {
+      const range = document.createRange();
+      range.setStart(textNode, 0);
+      range.collapse(true);
+      nativeSel.removeAllRanges();
+      nativeSel.addRange(range);
+    }
     return;
   }
 

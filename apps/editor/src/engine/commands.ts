@@ -96,6 +96,17 @@ export function splitNodeCommand(
   return ops;
 }
 
+function marksEqual(a: Mark[], b: Mark[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ma = a[i]!;
+    const mb = b[i]!;
+    if (ma.type !== mb.type) return false;
+    if ('value' in ma && 'value' in mb && ma.value !== mb.value) return false;
+  }
+  return true;
+}
+
 /**
  * Merge current node into previous sibling. Current node is deleted; its inlines appended to prev.
  */
@@ -121,11 +132,38 @@ export function mergeNodeCommand(state: EditorState, nodeId: string): PrimitiveO
       toIndex: prev.children.length + i,
     });
   }
+
+  const prevLastInlineIndex = prev.inlines.length - 1;
+  const prevLastInline = prev.inlines[prevLastInlineIndex];
+  const firstNodeInline = node.inlines[0];
+
+  let nodeInlineStart = 0;
+
+  if (
+    prevLastInline &&
+    prevLastInline.type === 'text' &&
+    firstNodeInline &&
+    firstNodeInline.type === 'text' &&
+    marksEqual(prevLastInline.marks, firstNodeInline.marks)
+  ) {
+    nodeInlineStart = 1;
+    if (firstNodeInline.text.length > 0) {
+      ops.push({
+        type: 'InsertText',
+        nodeId: prevId,
+        inlineIndex: prevLastInlineIndex,
+        offset: prevLastInline.text.length,
+        text: firstNodeInline.text,
+      });
+    }
+  }
+
   let insertIndex = prev.inlines.length;
-  for (const inv of node.inlines) {
-    ops.push({ type: 'InsertInline', nodeId: prevId, inlineIndex: insertIndex, inline: inv });
+  for (let i = nodeInlineStart; i < node.inlines.length; i++) {
+    ops.push({ type: 'InsertInline', nodeId: prevId, inlineIndex: insertIndex, inline: node.inlines[i]! });
     insertIndex += 1;
   }
+
   const parentId = parent.id;
   ops.push({
     type: 'DeleteNode',
@@ -137,7 +175,6 @@ export function mergeNodeCommand(state: EditorState, nodeId: string): PrimitiveO
     // array, and the MoveNode inverses would then duplicate them.
     node: { ...node, children: [] },
   });
-  ops.push({ type: 'NormalizeInline', nodeId: prevId });
   return ops;
 }
 

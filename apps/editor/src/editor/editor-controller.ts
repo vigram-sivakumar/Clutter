@@ -110,41 +110,21 @@ export class EditorController {
     if (ops.length === 0) {
       if (nextSelection) {
         const current = this.state.selection;
-
-        const isSame =
-          JSON.stringify(current) === JSON.stringify(nextSelection);
-
+        const isSame = JSON.stringify(current) === JSON.stringify(nextSelection);
         if (isSame) {
           console.groupEnd();
           return;
         }
-
         const valid = validateSelection(this.state, nextSelection);
         if (!valid) {
           console.groupEnd();
           return;
         }
-
-        const prevIsBlock = current?.type === 'block-range';
-        const nextIsBlock = valid.type === 'block-range';
-
-        this.state = {
-          ...this.state,
-          selection: valid,
-        };
-
+        this.state = { ...this.state, selection: valid };
+        renderEditor(this.state, this.rootEl, this);
         syncDomSelectionToState(this.rootEl, valid);
-
-        if (prevIsBlock || nextIsBlock) {
-          renderEditor(this.state, this.rootEl, this);
-        }
       }
-
-      console.log('STATE SNAPSHOT', {
-        selection: this.state.selection,
-        visible: getVisibleNodeIds(this.state),
-      });
-
+      console.log('STATE SNAPSHOT', { selection: this.state.selection, visible: getVisibleNodeIds(this.state) });
       console.groupEnd();
       return;
     }
@@ -256,14 +236,20 @@ export class EditorController {
     // Restore selection FIRST
     let restored = lastEntry?.beforeSelection ?? null;
 
-    // Tana-style: if we're undoing a delete that had a block-range before-selection,
-    // collapse to the start node rather than restoring the multi-node highlight.
+    // Tana-style: never restore a selection highlight on undo — always collapse to a caret.
     if (restored?.type === 'block-range') {
       restored = {
         type: 'collapsed',
         nodeId: restored.startNodeId,
         inlineIndex: 0,
         offset: 0,
+      };
+    } else if (restored?.type === 'range') {
+      restored = {
+        type: 'collapsed',
+        nodeId: restored.anchor.nodeId,
+        inlineIndex: restored.anchor.inlineIndex,
+        offset: restored.anchor.offset,
       };
     }
 
