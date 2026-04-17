@@ -248,7 +248,12 @@ export function applyOp(state: EditorState, op: PrimitiveOp): EditorState {
         ...fromParent,
         children: fromChildren,
       });
-      const toChildren = [...toParent.children];
+      // When moving within the same parent, fromChildren already has the node
+      // removed — use that as the base so the node doesn't appear twice.
+      const toChildren =
+        op.fromParentId === op.toParentId
+          ? [...fromChildren]
+          : [...toParent.children];
       toChildren.splice(targetIndex, 0, op.id);
       s = setNode(s, op.toParentId, { ...toParent, children: toChildren });
       return setNode(s, op.id, { ...node, parentId: op.toParentId });

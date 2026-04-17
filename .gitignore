@@ -40,11 +40,12 @@ pnpm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
 
 # Misc
 .cache/
 .temp/
 .tmp/
-
-# Generated editor snapshot
-apps/editor/editor-review.ts

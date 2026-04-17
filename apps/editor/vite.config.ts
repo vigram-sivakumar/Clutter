@@ -6,4 +6,7 @@ export default defineConfig({
   server: {
     port: 5174, // Different port from desktop app
   },
+  test: {
+    environment: 'node',
+  },
 });

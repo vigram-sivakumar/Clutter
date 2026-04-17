@@ -3,59 +3,24 @@
   "version": "2.0.0",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "build:packages": "turbo run build --filter=@clutter/domain --filter=@clutter/state --filter=@clutter/shared --filter=@clutter/ui",
     "dev": "cd apps/editor && npm run dev",
-    "dev:packages": "turbo run build --filter=@clutter/domain --filter=@clutter/state --filter=@clutter/shared --filter=@clutter/ui --watch",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:hardening": "cd apps/editor && npm test -- hardening --run",
-    "test:arch": "cd apps/editor && npm test -- architecture --run",
-    "test:all": "npm run lint:arch && cd apps/editor && npm test -- --run",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
-    "test:e2e:report": "playwright show-report",
-    "lint": "turbo run lint",
-    "lint:arch": "./scripts/check-architecture-locks.sh",
-    "verify:hardening": "./scripts/verify-hardening.sh",
+    "test": "cd apps/editor && npm test",
+    "test:run": "cd apps/editor && npm test -- --run",
+    "test:e2e": "cd apps/editor && npm run test:e2e",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "type-check": "turbo run type-check",
-    "clean": "turbo run clean && rm -rf node_modules",
-    "prepare": "husky install"
+    "clean": "rm -rf node_modules apps/editor/node_modules"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.1",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@turbo/gen": "^1.11.2",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "eslint": "^8.57.0",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-boundaries": "^5.3.1",
-    "eslint-plugin-import": "^2.32.0",
-    "happy-dom": "^20.5.3",
-    "husky": "^8.0.3",
-    "lint-staged": "^15.2.0",
     "prettier": "^3.2.5",
-    "turbo": "^1.11.2",
     "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
   },
-  "packageManager": "npm@9.9.0",
-  "dependencies": {
-    "react-error-boundary": "^6.1.0"
-  }
+  "packageManager": "npm@9.9.0"
 }

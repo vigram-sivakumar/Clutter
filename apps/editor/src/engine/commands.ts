@@ -132,7 +132,10 @@ export function mergeNodeCommand(state: EditorState, nodeId: string): PrimitiveO
     id: nodeId,
     parentId,
     index: myIndex,
-    node,
+    // Store with empty children — children have already been moved out via MoveNode ops.
+    // If we stored node.children here, InsertNode on undo would pre-populate the children
+    // array, and the MoveNode inverses would then duplicate them.
+    node: { ...node, children: [] },
   });
   ops.push({ type: 'NormalizeInline', nodeId: prevId });
   return ops;

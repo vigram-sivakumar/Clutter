@@ -1,1 +1,0 @@
-export { WavyDivider } from './WavyDivider';
