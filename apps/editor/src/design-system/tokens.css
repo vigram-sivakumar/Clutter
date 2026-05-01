@@ -81,17 +81,6 @@
   --gap-buttons-medium: 4px;
   --gap-buttons-large: 8px;
 
-  /* ─── Layout / chrome dimensions ───────────────────────────────────────────── */
-
-  --topbar-height:           44px;
-  --sidebar-width:           240px;
-  --sidebar-width-collapsed: 44px;
-  --sidebar-item-height:     28px;
-  --sidebar-item-radius:     8px;
-  --document-max-width:      720px;
-  --document-padding-x:      32px;
-  --document-padding-y:      48px;
-
   /* ─── Typography ────────────────────────────────────────────────────────────── */
 
   --font-family: Inter, system-ui, -apple-system, sans-serif;

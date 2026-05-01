@@ -1,0 +1,140 @@
+/* ─── Layout tokens ──────────────────────────────────────────────────────── */
+
+:root {
+  --topbar-height:           44px;
+  --sidebar-width:           240px;
+  --sidebar-width-collapsed: 44px;
+  --sidebar-item-height:     28px;
+  --sidebar-item-radius:     8px;
+  --document-max-width:      720px;
+  --document-padding-x:      32px;
+  --document-padding-y:      48px;
+  --document-section-gap:    24px;
+}
+
+/* ─── App root ───────────────────────────────────────────────────────────── */
+
+.clutter-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--surface-root);
+}
+
+/* ─── Workspace ──────────────────────────────────────────────────────────── */
+
+.clutter-workspace {
+  flex: 1 0 0;
+  display: flex;
+  align-items: stretch;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ─── Sidepanel ──────────────────────────────────────────────────────────── */
+
+.clutter-sidepanel {
+  width: var(--sidebar-width);
+  min-width: 220px;
+  max-width: 480px;
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--surface-secondary);
+  overflow: hidden;
+}
+
+.clutter-sidepanel--collapsed {
+  width: var(--sidebar-width-collapsed);
+  min-width: var(--sidebar-width-collapsed);
+  max-width: var(--sidebar-width-collapsed);
+}
+
+.clutter-sidepanel--hidden {
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+}
+
+/* ─── Canvas ─────────────────────────────────────────────────────────────── */
+
+.clutter-canvas {
+  flex: 1 0 0;
+  min-width: 0;
+  height: 100%;
+  background: var(--surface-secondary);
+  padding: 0 var(--gap-elements-small) var(--gap-elements-small) 0;
+  overflow: hidden;
+}
+
+.clutter-workspace[data-sidepanel="hidden"] .clutter-canvas {
+  padding-left: var(--gap-elements-small);
+}
+
+/* ─── Editor group ───────────────────────────────────────────────────────── */
+
+.clutter-editor-group {
+  display: flex;
+  gap: var(--gap-elements-small);
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ─── Editor pane ────────────────────────────────────────────────────────── */
+
+.clutter-editor-pane {
+  flex: 1 0 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-medium);
+  overflow: hidden;
+}
+
+.clutter-editor-topbar {
+  height: var(--topbar-height);
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* ─── Editor scroll + document ───────────────────────────────────────────── */
+
+.clutter-editor-scroll {
+  flex: 1 0 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 var(--document-padding-x);
+}
+
+.clutter-editor-document {
+  width: 100%;
+  max-width: var(--document-max-width);
+  min-height: 100%;
+  padding: var(--document-padding-y) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--document-section-gap);
+}
+
+.clutter-document-header {
+  height: 70px;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.clutter-document-body {
+  flex: 1 0 0;
+  min-height: 0;
+  width: 100%;
+}
+
+.clutter-document-footer {
+  height: 16px;
+  flex-shrink: 0;
+  width: 100%;
+}
