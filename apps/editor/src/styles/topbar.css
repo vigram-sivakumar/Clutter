@@ -1,6 +1,6 @@
 /* ─── Global Topbar ─────────────────────────────────────────────────────── */
 
-.clutter-topbar {
+.clutter-global-topbar {
   display: flex;
   flex-direction: row;
   align-items: stretch;

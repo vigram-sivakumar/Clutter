@@ -3,7 +3,7 @@
  * No hover, no active background.
  */
 
-.clutter-editor {
+.clutter-document-body {
   outline: none;
 }
 

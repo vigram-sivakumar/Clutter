@@ -604,5 +604,5 @@ export function Editor() {
     };
   }, []);
 
-  return <div ref={rootRef} className="clutter-editor" tabIndex={0} />;
+  return <div ref={rootRef} className="clutter-document-body" tabIndex={0} />;
 }

@@ -6,7 +6,7 @@
  * Does NOT assert on DOM structure — only on state returned by getState().
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { EditorController } from './editor-controller';
 import type { EditorState, Node, PrimitiveOp } from '../engine/engine';
 import { splitNodeCommand, mergeNodeCommand, indentCommand } from '../engine/commands';
