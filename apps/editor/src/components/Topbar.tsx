@@ -1,4 +1,3 @@
-import React from "react";
 import { Icons } from "../design-system/icons";
 
 export function Topbar() {

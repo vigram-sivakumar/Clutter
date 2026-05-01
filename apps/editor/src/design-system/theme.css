@@ -211,9 +211,9 @@ html.theme-transitioning *::after {
   --node-bullet:        rgba(0, 0, 0, 0.55);
   --node-collapse-ring: rgba(0, 0, 0, 0.12);
   --node-hover:         rgba(0, 0, 0, 0.18);
-  --node-halo-subtle:   rgba(0, 172, 255, 0.08);
-  --node-halo-strong:   rgba(0, 172, 255, 0.12);
-  --node-halo-border:   rgba(0, 172, 255, 0.04);
+  --node-halo-subtle:   rgba(0, 172, 255, 0.08); /*Background color for the halo when node is selected*/
+  --node-halo-strong:   rgba(0, 172, 255, 0.12); /*Background color of first node halo in selection*/
+  --node-halo-border:   rgba(0, 172, 255, 0.04); /*Border color of halo*/
 
   /* Calendar */
   --calendar-accent:      #d93800;

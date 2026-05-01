@@ -1,8 +1,11 @@
+/*
+ * Raw design tokens — primitives and scales; names mirror Figma variables where noted (slash → dash).
+ * theme.css maps these to semantic tokens. Components should use theme.css only, not raw values here.
+ */
+
 :root {
-  /* ===========================
-     Neutral Scale
-     Pure achromatic. Raw values only — never use directly in components.
-  ============================ */
+  /* ─── Neutral scale ────────────────────────────────────────────────────────── */
+
   --neutral-0:   #ffffff;
   --neutral-50:  #fafafa;
   --neutral-100: #f5f5f5;
@@ -23,66 +26,63 @@
   --neutral-950: #111111;
   --neutral-1000: #000000;
 
-  /* ===========================
-     Accent (Figma: Accent/Light, Accent/Dark)
-  ============================ */
+  /* ─── Accent (Figma: Accent/Light, Accent/Dark) ────────────────────────────── */
+
   --accent-light: #00acff;
   --accent-dark:  #007aff;
 
-  /* ===========================
-     Opacity (Figma: Global/Opacity/*)
-  ============================ */
+  /* ─── Opacity (Figma: Global/Opacity) ──────────────────────────────────────── */
+
   --opacity-subtle:   0.30;
   --opacity-medium:   0.40;
   --opacity-strong:   0.70;
   --opacity-disabled: var(--opacity-subtle);
 
-  /* ===========================
-     Radius (Figma: Global/Radius/*)
-  ============================ */
-  --radius-xs: 4px;   /* Smaller */
-  --radius-sm: 6px;   /* Small   */
-  --radius-md: 8px;   /* Medium  */
-  --radius-lg: 12px;  /* Large   */
+  /* ─── Radius (Figma: Global/Radius) ───────────────────────────────────────── */
 
-  /* ===========================
-     Element heights (Figma: Global/Element Height/*)
-  ============================ */
+  --radius-smaller: 4px;
+  --radius-small: 6px;
+  --radius-medium: 8px;
+  --radius-large: 12px;
+
+  /* ─── Element height (Figma: Global/Element Height) ─────────────────────────── */
+
   --element-height-smaller: 16px;
   --element-height-small:   20px;
   --element-height-medium:  24px;
   --element-height-large:   28px;
+  --element-height-larger:  32px;
 
-  /* ===========================
-     Icon sizes (Figma: Global/Icon size/*)
-  ============================ */
-  --icon-size-smaller: 8px;
-  --icon-size-small:   12px;
-  --icon-size-medium:  16px;
-  --icon-size-large:   24px;
-  --icon-size-larger:  32px;
+  /* ─── Icon size (Figma: Global/Icon size) ───────────────────────────────────── */
 
-  /* ===========================
-     Spacing (value matches name in px)
-  ============================ */
-  --space-0:  0px;
-  --space-1:  1px;
-  --space-2:  2px;
-  --space-3:  3px;
-  --space-4:  4px;
-  --space-6:  6px;
-  --space-8:  8px;
-  --space-10: 10px;
-  --space-12: 12px;
-  --space-16: 16px;
-  --space-24: 24px;
-  --space-32: 32px;
-  --space-40: 40px;
-  --space-48: 48px;
+  --icon-smaller: 8px;
+  --icon-small:   12px;
+  --icon-medium:  16px;
+  --icon-large:   24px;
+  --icon-larger:  32px;
 
-  /* ===========================
-     Component dimensions
-  ============================ */
+  /* ─── Gap between elements (Figma: Global/Gap between/Elements) ─────────────── */
+
+  --gap-elements-smaller: 2px;
+  --gap-elements-small:   4px; /* Also used for gap between shortcut keys*/
+  --gap-elements-medium:  8px;
+  --gap-elements-large:   12px;
+  --gap-elements-larger:  16px;
+
+  /* ─── Gap between icon & label (Figma: Global/Gap between/Icon & label) ────── */
+
+  --gap-icon-label-smaller: 2px;
+  --gap-icon-label-small:   4px;
+  --gap-icon-label-medium:  8px;
+
+  /* ─── Gap between buttons (Figma: Global/Gap between/Buttons) ───────────────── */
+
+  --gap-buttons-small:  2px;
+  --gap-buttons-medium: 4px;
+  --gap-buttons-large: 8px;
+
+  /* ─── Layout / chrome dimensions ───────────────────────────────────────────── */
+
   --topbar-height:           44px;
   --sidebar-width:           240px;
   --sidebar-width-collapsed: 44px;
@@ -92,24 +92,30 @@
   --document-padding-x:      32px;
   --document-padding-y:      48px;
 
-  /* ===========================
-     Typography
-  ============================ */
+  /* ─── Typography ────────────────────────────────────────────────────────────── */
+
   --font-family: Inter, system-ui, -apple-system, sans-serif;
   --font-sans: var(--font-family);
+
   /* Font size */
-  --text-2xs:  10px;
-  --text-xs:   12px;
-  --text-sm:   14px;
-  --text-base: 16px;
-  --text-h3:   20px;
-  --text-h2:   24px;
-  --text-h1:   32px;
+  --text-heading-1: 32px;
+  --text-heading-2: 24px;
+  --text-heading-3: 20px;
+  --text-body-large: 16px;
+  --text-body-medium: 14px; /* Default */
+  --text-label-small: 12px;
+  --text-label-smaller: 10px;
+
   /* Line height */
-  --lh-xs:      16px;
-  --lh-sm:      20px;
-  --lh-base:    24px;
-  --lh-heading: 1.2;
+  --lh-heading-1: 40px;
+  --lh-heading-2: 32px;
+  --lh-heading-3: 28px;
+  --lh-body-large: 24px;
+  --lh-body-medium: 20px;
+  --lh-label-small: 18px;
+  --lh-label-smaller: 16px;
+  --lh-100: 100%;
+
   /* Font weight */
   --fw-regular:  400;
   --fw-medium:   500;
