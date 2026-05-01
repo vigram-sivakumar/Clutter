@@ -3,6 +3,7 @@
      Neutral Scale
      Pure achromatic. Raw values only — never use directly in components.
   ============================ */
+  --neutral-0:   #ffffff;
   --neutral-50:  #fafafa;
   --neutral-100: #f5f5f5;
   --neutral-125: #f1f1f1;
@@ -20,27 +21,13 @@
   --neutral-875: #1b1b1b;
   --neutral-900: #171717;
   --neutral-950: #111111;
+  --neutral-1000: #000000;
 
   /* ===========================
      Accent (Figma: Accent/Light, Accent/Dark)
   ============================ */
   --accent-light: #00acff;
   --accent-dark:  #007aff;
-
-  /* ===========================
-     Purple (brand — selection highlight)
-  ============================ */
-  --purple-50:  #eef2ff;
-  --purple-100: #e0e7ff;
-  --purple-200: #c7d2fe;
-  --purple-300: #a5b4fc;
-  --purple-400: #7C82FF;
-  --purple-500: #6366F1;
-  --purple-600: #5457E5;
-  --purple-700: #4338ca;
-  --purple-800: #3730a3;
-  --purple-900: #1e1b4b;
-  --purple-950: #13111f;
 
   /* ===========================
      Opacity (Figma: Global/Opacity/*)

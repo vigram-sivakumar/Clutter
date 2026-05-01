@@ -46,6 +46,7 @@ html.theme-transitioning *::after {
   --icon-tertiary:    rgba(255, 255, 255, 0.35);
   --icon-placeholder: rgba(255, 255, 255, 0.20);
   --icon-inverse:     rgba(0, 0, 0, 0.82);
+  --icon-disabled:    rgba(255, 255, 255, 0.26);
 
   /* Border */
   --border-subtle:  rgba(255, 255, 255, 0.04);
@@ -166,6 +167,7 @@ html.theme-transitioning *::after {
   --icon-tertiary:    rgba(0, 0, 0, 0.45);
   --icon-placeholder: rgba(0, 0, 0, 0.30);
   --icon-inverse:     rgba(255, 255, 255, 0.82);
+  --icon-disabled:    rgba(0, 0, 0, 0.26);
 
   /* Border */
   --border-subtle:  rgba(0, 0, 0, 0.04);
@@ -206,7 +208,7 @@ html.theme-transitioning *::after {
   --button-checkbox-filled: var(--accent-dark);
 
   /* Node */
-  --node-bullet:        rgba(0, 0, 0, 0.50);
+  --node-bullet:        rgba(0, 0, 0, 0.55);
   --node-collapse-ring: rgba(0, 0, 0, 0.12);
   --node-hover:         rgba(0, 0, 0, 0.18);
   --node-halo-subtle:   rgba(0, 172, 255, 0.08);
@@ -218,7 +220,7 @@ html.theme-transitioning *::after {
   --calendar-active-bg:   #d93800;
   --calendar-active-text: rgba(255, 255, 255, 0.82);
   --calendar-hover:       var(--interactive-hover);
-  --calendar-had-content: rgba(0, 0, 0, 0.50);
+  --calendar-had-content: rgba(0, 0, 0, 0.55);
 
   /* Tag / Dark grey */
   --tag-dark-grey-bg:   rgba(0, 0, 0, 0.12);

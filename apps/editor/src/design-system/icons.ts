@@ -1,19 +1,46 @@
 import {
-  CaretRight,
-  CaretCircleRight,
-  CaretDown,
-  DotsThree,
-  Plus,
+  ArrowLeftIcon as ArrowLeft,
+  ArrowRightIcon as ArrowRight,
+  ArrowSquareOutIcon as ArrowSquareOut,
+  CalendarBlankIcon as CalendarBlank,
+  CaretLeftIcon as CaretLeft,
+  CaretRightIcon as CaretRight,
+  CaretCircleRightIcon as CaretCircleRight,
+  CaretDownIcon as CaretDown,
+  ClockIcon as Clock,
+  ColumnsIcon as Columns,
+  DotsThreeIcon as DotsThree,
+  GearIcon as Gear,
+  MagnifyingGlassIcon as MagnifyingGlass,
+  NoteIcon as Note,
+  NotePencilIcon as NotePencil,
+  PlusIcon as Plus,
+  QuestionIcon as Question,
+  StarIcon as Star,
+  TagIcon as Tag,
+  TrashIcon as Trash,
 } from '@phosphor-icons/react';
 
-/**
- * Centralized icon registry for Clutter.
- * Never import directly from phosphor in feature code.
- */
+// Centralized icon registry — never import directly from phosphor in feature code.
 export const Icons = {
+  ArrowLeft,
+  ArrowRight,
+  ArrowSquareOut,
+  CalendarBlank,
+  CaretLeft,
   CaretRight,
   CaretCircleRight,
   CaretDown,
+  Clock,
+  Columns,
   DotsThree,
+  Gear,
+  MagnifyingGlass,
+  Note,
+  NotePencil,
   Plus,
+  Question,
+  Star,
+  Tag,
+  Trash,
 };

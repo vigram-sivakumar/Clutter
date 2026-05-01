@@ -1,4 +1,5 @@
 import React from "react";
+import { Topbar } from "./Topbar";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -7,7 +8,7 @@ type AppShellProps = {
 export function AppShell({ children }: AppShellProps) {
   return (
     <div className="clutter-app">
-      <header className="clutter-topbar" />
+      <Topbar />
 
       <div className="clutter-workspace">
         {/* <aside className="clutter-sidebar" /> */}
