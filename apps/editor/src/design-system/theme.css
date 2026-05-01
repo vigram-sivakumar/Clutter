@@ -116,9 +116,6 @@ html.theme-transitioning *::after {
   --dropdown-bg: var(--surface-secondary);
   --dropdown-border: var(--border-inverse);
 
-  /* Shortcut key */
-  --shortcut-bg: var(--surface-tertiary);
-  --shortcut-text: var(--text-secondary);
 
   /* Editor — selection (not in Figma, needed for rendering) */
   --selection-bg: rgba(99, 102, 241, 0.22);
@@ -232,9 +229,6 @@ html.theme-transitioning *::after {
   --dropdown-bg: var(--surface-secondary);
   --dropdown-border: var(--border-inverse);
 
-  /* Shortcut key */
-  --shortcut-bg: var(--surface-tertiary);
-  --shortcut-text: var(--text-secondary);
 
   /* Editor — selection (not in Figma, needed for rendering) */
   --selection-bg: rgba(99, 102, 241, 0.18);
