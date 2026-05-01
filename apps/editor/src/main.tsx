@@ -9,7 +9,6 @@ import './design-system/tokens.css';
 import './design-system/theme.css';
 import './styles/base.css';
 import './styles/app-layout.css';
-import './styles/ui.css';
 import './styles/topbar.css';
 import './styles/editor.css';
 
