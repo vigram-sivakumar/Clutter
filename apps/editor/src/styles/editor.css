@@ -9,7 +9,7 @@
 
 .clutter-node {
   position: relative;
-  line-height: var(--lh-body);
+  line-height: var(--lh-sm);
 }
 
 .clutter-node__inner {
@@ -47,9 +47,8 @@
   opacity: 1;
 }
 
-
 .clutter-node__chevron {
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   flex-shrink: 0;
   transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: center;
@@ -63,7 +62,7 @@
   transform: rotate(0deg);
 }
 
-.clutter-node__bullet-hit {
+.clutter-node__bullet-target {
   position: relative;
   height: 1lh;
   display: flex;
@@ -79,28 +78,30 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-text-secondary);
+  background: var(--node-bullet);
   visibility: hidden;
+  transition: transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Show dot when the node has something worth marking */
-.clutter-node--dot-visible .clutter-node__bullet {
+.clutter-node--has-bullet .clutter-node__bullet {
   visibility: visible;
 }
 
 /* Always show dot on hover, even if the node is otherwise empty */
 .clutter-node:hover .clutter-node__bullet {
   visibility: visible;
+  transform: scale(1.4);
 }
 
 /* Systemic node (trailing empty paragraph) — dot is visible but dimmed */
-.clutter-node--systemic .clutter-node__bullet {
-  opacity: 0.2;
+.clutter-node--trailing .clutter-node__bullet {
+  opacity: var(--opacity-disabled);
 }
 
 /* Ring — shown when a node is collapsed and hiding children */
-.clutter-node--collapsed-parent .clutter-node__bullet::before {
-  content: "";
+.clutter-node--collapsed .clutter-node__bullet::before {
+  content: '';
   position: absolute;
   top: 50%;
   left: 50%;
@@ -108,13 +109,12 @@
   height: 16px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: var(--color-text-secondary);
-  opacity: 0.2;
+  background: var(--node-collapse-ring);
 }
 
-.mark-bold { font-weight: bold; }
-.mark-italic { font-style: italic; }
-.mark-underline { text-decoration: underline; }
+.clutter-mark--bold      { font-weight: bold; }
+.clutter-mark--italic    { font-style: italic; }
+.clutter-mark--underline { text-decoration: underline; }
 
 .clutter-node__content {
   flex: 1;
@@ -133,7 +133,7 @@
 }
 
 .clutter-node--block-selected {
-  background: rgba(100, 150, 255, 0.15);
+  background: var(--selection-block-bg);
 }
 
 /* Prevent opacity accumulation: nested block-selected nodes inside another
@@ -158,12 +158,11 @@
 
 /* Vertical connector */
 .clutter-node__children::before {
-  content: "";
+  content: '';
   position: absolute;
   left: -14.5px;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--color-text-secondary);
-  opacity: 0.2;
+  background: var(--border-default);
 }

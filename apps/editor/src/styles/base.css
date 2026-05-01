@@ -18,11 +18,11 @@ body {
 body {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: var(--lh-body);
+  font-size: var(--text-sm);
+  line-height: var(--lh-sm);
   font-weight: var(--fw-regular);
-  color: var(--color-text-primary);
-  background: var(--color-bg-primary);
+  color: var(--text-primary);
+  background: var(--surface-root);
 }
 
 #root {
@@ -30,11 +30,11 @@ body {
 }
 
 [data-node-id] {
-  font-size: var(--text-base);
-  line-height: var(--lh-body);
+  font-size: var(--text-sm);
+  line-height: var(--lh-sm);
   font-weight: var(--fw-regular);
 }
 
 ::selection {
-  background: var(--color-selection);
+  background: var(--selection-bg);
 }

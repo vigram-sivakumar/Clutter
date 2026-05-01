@@ -7,20 +7,20 @@ type AppShellProps = {
 export function AppShell({ children }: AppShellProps) {
   return (
     <div className="clutter-app">
-      {/* <aside className="clutter-sidebar">
+      <header className="clutter-topbar" />
 
-      </aside> */}
+      <div className="clutter-workspace">
+        {/* <aside className="clutter-sidebar" /> */}
 
-      <div className="clutter-main">
-        <header className="clutter-topbar">
-
-        </header>
-
-        <div className="clutter-container">
-          <div className="clutter-note">
-            {children}
+        <main className="clutter-canvas">
+          <div className="clutter-editor-pane">
+            <div className="clutter-document-scroll">
+              <div className="clutter-document">
+                {children}
+              </div>
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

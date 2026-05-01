@@ -482,26 +482,6 @@ export function Editor() {
       }
     };
 
-    // TEMP: Disabled for isolation
-    // function selectionWithinSingleNode(nativeSel: globalThis.Selection): boolean {
-    //   if (!nativeSel || nativeSel.rangeCount === 0) return false;
-    //   const range = nativeSel.getRangeAt(0);
-    //   if (range.collapsed) return false;
-    //   const anchorEl =
-    //     nativeSel.anchorNode instanceof Element
-    //       ? nativeSel.anchorNode
-    //       : nativeSel.anchorNode?.parentElement;
-    //   const focusEl =
-    //     nativeSel.focusNode instanceof Element
-    //       ? nativeSel.focusNode
-    //       : nativeSel.focusNode?.parentElement;
-    //   const anchorWrapper = anchorEl?.closest?.('[data-node-id]');
-    //   const focusWrapper = focusEl?.closest?.('[data-node-id]');
-    //   if (!anchorWrapper || !focusWrapper) return false;
-    //   if (!el?.contains(anchorWrapper) || !el?.contains(focusWrapper)) return false;
-    //   return anchorWrapper === focusWrapper;
-    // }
-
     const handleMouseUp = () => {
       if (!isMouseSelecting) return;
 
@@ -592,14 +572,6 @@ export function Editor() {
       if (!controller) return;
       if (controller.isRestoringSelection()) return;
 
-      // TEMP: Disabled - no DOM selection read
-      // const sel = getSelection(el);
-      // if (!sel) return;
-      // const valid = validateSelection(controller.getState(), sel);
-      // if (valid) {
-      //   selectionModeRef.current = 'caret';
-      //   controller.dispatch([], valid);
-      // }
     };
 
     el.addEventListener('click', handleClick);

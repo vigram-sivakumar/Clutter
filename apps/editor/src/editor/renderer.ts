@@ -118,15 +118,15 @@ function updateNodeClasses(
   const isDotVisible =
     isSystemic || activeNodeId === node.id || hasChildren || !isEmpty;
 
-  wrapper.classList.toggle('clutter-node--systemic', isSystemic);
+  wrapper.classList.toggle('clutter-node--trailing', isSystemic);
   wrapper.classList.toggle('clutter-node--empty', isEmpty);
   wrapper.classList.toggle('clutter-node--active', activeNodeId === node.id);
   wrapper.classList.toggle('clutter-node--has-children', hasChildren);
   wrapper.classList.toggle(
-    'clutter-node--collapsed-parent',
+    'clutter-node--collapsed',
     hasChildren && node.collapsed
   );
-  wrapper.classList.toggle('clutter-node--dot-visible', isDotVisible);
+  wrapper.classList.toggle('clutter-node--has-bullet', isDotVisible);
 
   if (activeSel?.type === 'block-range') {
     const visible = getVisibleNodeIds(state);
@@ -258,7 +258,7 @@ function renderNode(
     bulletSlot.className = 'clutter-node__bullet-slot';
 
     const bulletHit = document.createElement('div');
-    bulletHit.className = 'clutter-node__bullet-hit';
+    bulletHit.className = 'clutter-node__bullet-target';
 
     const bullet = document.createElement('span');
     bullet.className = 'clutter-node__bullet';
