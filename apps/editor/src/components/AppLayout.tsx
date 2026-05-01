@@ -24,8 +24,10 @@ export function AppLayout({ children }: AppLayoutProps) {
               <div className="clutter-editor-scroll">
                 <div className="clutter-editor-document">
                   <div className="clutter-document-header" />
-                  {children}
-                  <div className="clutter-document-footer" />
+                  <div className="clutter-document-content">
+                    {children}
+                    <div className="clutter-document-footer" />
+                  </div>
                 </div>
               </div>
             </div>

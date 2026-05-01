@@ -1,15 +1,17 @@
 /* ─── Layout tokens ──────────────────────────────────────────────────────── */
 
 :root {
-  --topbar-height:           44px;
-  --sidebar-width:           240px;
+  --topbar-height: 44px;
+  --sidebar-width: 240px;
   --sidebar-width-collapsed: 44px;
-  --sidebar-item-height:     28px;
-  --sidebar-item-radius:     8px;
-  --document-max-width:      720px;
-  --document-padding-x:      32px;
-  --document-padding-y:      48px;
-  --document-section-gap:    24px;
+  --sidebar-item-height: 28px;
+  --sidebar-item-radius: 8px;
+  --document-max-width: 720px;
+  --document-padding-x: 32px;
+  --document-padding-top: 48px;
+  --document-padding-bottom: 96px;
+  --document-header-content-gap: 24px;
+  --document-body-footer-gap: 128px;
 }
 
 /* ─── App root ───────────────────────────────────────────────────────────── */
@@ -66,7 +68,7 @@
   overflow: hidden;
 }
 
-.clutter-workspace[data-sidepanel="hidden"] .clutter-canvas {
+.clutter-workspace[data-sidepanel='hidden'] .clutter-canvas {
   padding-left: var(--gap-elements-small);
 }
 
@@ -109,16 +111,19 @@
   flex-direction: column;
   align-items: center;
   padding: 0 var(--document-padding-x);
+  scroll-padding-top: var(--document-padding-top);
+  scroll-padding-bottom: var(--document-padding-bottom);
 }
 
 .clutter-editor-document {
+  flex-shrink: 0;
   width: 100%;
   max-width: var(--document-max-width);
   min-height: 100%;
-  padding: var(--document-padding-y) 0;
+  padding: var(--document-padding-top) 0 var(--document-padding-bottom);
   display: flex;
   flex-direction: column;
-  gap: var(--document-section-gap);
+  gap: var(--document-header-content-gap);
 }
 
 .clutter-document-header {
@@ -127,9 +132,16 @@
   width: 100%;
 }
 
+.clutter-document-content {
+  flex: 1 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--document-body-footer-gap);
+}
+
 .clutter-document-body {
-  flex: 1 0 0;
-  min-height: 0;
+  flex: 1 0 auto;
   width: 100%;
 }
 

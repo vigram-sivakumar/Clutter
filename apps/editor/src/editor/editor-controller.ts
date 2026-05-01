@@ -16,6 +16,16 @@ import { renderEditor } from './renderer';
 import { syncDomSelectionToState, validateSelection } from './selection';
 import type { Selection } from './selection';
 
+function scrollSelectionIntoView(rootEl: HTMLElement, selection: Selection | null) {
+  if (!selection) return;
+  const nodeId =
+    selection.type === 'block-range' ? selection.endNodeId :
+    selection.type === 'range'       ? selection.focus.nodeId :
+                                       selection.nodeId;
+  rootEl.querySelector(`[data-node-id="${nodeId}"]`)
+    ?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+}
+
 export class EditorController {
   private state: EditorState;
   private history: HistoryState = { past: [], future: [] };
@@ -123,6 +133,7 @@ export class EditorController {
         this.state = { ...this.state, selection: valid };
         renderEditor(this.state, this.rootEl, this);
         syncDomSelectionToState(this.rootEl, valid);
+        scrollSelectionIntoView(this.rootEl, valid);
       }
       console.log('STATE SNAPSHOT', { selection: this.state.selection, visible: getVisibleNodeIds(this.state) });
       console.groupEnd();
@@ -202,6 +213,7 @@ export class EditorController {
       this.isRestoring = true;
       requestAnimationFrame(() => {
         syncDomSelectionToState(this.rootEl, selToRestore);
+        scrollSelectionIntoView(this.rootEl, selToRestore);
         this.isRestoring = false;
       });
     }
@@ -274,6 +286,7 @@ export class EditorController {
 
     if (this.state.selection) {
       syncDomSelectionToState(this.rootEl, this.state.selection);
+      scrollSelectionIntoView(this.rootEl, this.state.selection);
     }
   }
 
@@ -316,6 +329,7 @@ export class EditorController {
 
     if (this.state.selection) {
       syncDomSelectionToState(this.rootEl, this.state.selection);
+      scrollSelectionIntoView(this.rootEl, this.state.selection);
     }
   }
 
