@@ -154,7 +154,7 @@
 /* Children wrapper — mount only when expanded; layout only */
 .clutter-node__children {
   position: relative;
-  margin-left: 24px;
+  margin-inline-start: var(--margin-24px);
 }
 
 /* Vertical connector */

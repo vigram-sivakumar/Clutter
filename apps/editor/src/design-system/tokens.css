@@ -70,6 +70,16 @@
   --padding-12px: 12px;
   --padding-16px: 16px;
 
+  /* ─── Margin (same px scale as padding) ───────────────────────────────────── */
+
+  --margin-2px: 2px;
+  --margin-4px: 4px;
+  --margin-6px: 6px;
+  --margin-8px: 8px;
+  --margin-12px: 12px;
+  --margin-16px: 16px;
+  --margin-24px: 24px; /* Editor nested outline indent */
+
   /* Shared horizontal inset (4px) — sidebar rows, badges, dropdown items */
   --padding-x: var(--padding-4px);
 
