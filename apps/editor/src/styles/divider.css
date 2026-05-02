@@ -1,0 +1,17 @@
+.clutter-divider {
+  display: block;
+  flex-shrink: 0;
+  height: 1px;
+  width: 100%;
+  background: var(--border-default);
+}
+
+.clutter-divider--vertical {
+  height: auto;
+  width: 1px;
+  align-self: stretch;
+}
+
+.clutter-divider--spacing-sm { margin: var(--gap-elements-small); }
+.clutter-divider--spacing-md { margin: var(--gap-elements-medium); }
+.clutter-divider--spacing-lg { margin: var(--gap-elements-large); }
