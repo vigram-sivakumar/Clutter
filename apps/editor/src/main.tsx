@@ -13,6 +13,7 @@ import './styles/button.css';
 import './styles/shortcut-key.css';
 import './styles/divider.css';
 import './styles/avatar.css';
+import './styles/tag.css';
 import './styles/topbar.css';
 import './styles/editor.css';
 
