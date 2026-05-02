@@ -1,13 +1,13 @@
 /* ─── Shortcut key tokens ────────────────────────────────────────────────── */
 
 [data-theme='dark'] {
-  --shortcut-bg: var(--surface-tertiary);
-  --shortcut-text: var(--text-secondary);
+  --shortcut-bg: var(--tag-dark-grey-bg);
+  --shortcut-text: var(--tag-dark-grey-text);
 }
 
 [data-theme='light'] {
-  --shortcut-bg: var(--surface-tertiary);
-  --shortcut-text: var(--text-secondary);
+  --shortcut-bg: var(--tag-dark-grey-bg);
+  --shortcut-text: var(--tag-dark-grey-text);
 }
 
 /* ─── Styles ─────────────────────────────────────────────────────────────── */
@@ -31,5 +31,5 @@
 }
 
 .clutter-shortcut-key--bordered {
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-subtle);
 }

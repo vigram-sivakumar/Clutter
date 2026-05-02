@@ -73,10 +73,6 @@ html.theme-transitioning *::after {
   --calendar-hover: var(--interactive-hover);
   --calendar-had-content: rgba(255, 255, 255, 0.5);
 
-  /* Tag / Dark grey */
-  --tag-dark-grey-bg: rgba(255, 255, 255, 0.05);
-  --tag-dark-grey-text: rgba(255, 255, 255, 0.35);
-
   /* Tag / Colors */
   --tag-blue-bg: rgba(59, 130, 246, 0.22);
   --tag-blue-text: rgba(255, 255, 255, 0.82);
@@ -94,6 +90,8 @@ html.theme-transitioning *::after {
   --tag-indigo-text: rgba(255, 255, 255, 0.82);
   --tag-grey-bg: rgba(255, 255, 255, 0.22);
   --tag-grey-text: rgba(255, 255, 255, 0.82);
+  --tag-dark-grey-bg: rgba(255, 255, 255, 0.05);
+  --tag-dark-grey-text: var(--text-secondary);
 
   /* Feedback */
   --feedback-info-bg: rgba(59, 130, 246, 0.22);

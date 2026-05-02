@@ -19,6 +19,7 @@ import './styles/divider.css';
 import './styles/avatar.css';
 import './styles/tag.css';
 import './styles/badge.css';
+import './styles/section-group-header.css';
 import './styles/dropdown-item.css';
 import './styles/topbar.css';
 import './styles/editor.css';

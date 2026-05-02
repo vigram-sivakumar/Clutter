@@ -1,0 +1,15 @@
+/**
+ * SectionGroupHeader — sidebar / dropdown section title row (Figma: SectionGroupHeader).
+ */
+
+.clutter-section-group-header {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--element-height-small);
+  flex-shrink: 0;
+  padding: 0 var(--gap-elements-small);
+  border-radius: var(--sidebar-item-radius);
+}
