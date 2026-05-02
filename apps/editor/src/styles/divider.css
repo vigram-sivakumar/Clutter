@@ -12,6 +12,6 @@
   align-self: stretch;
 }
 
-.clutter-divider--spacing-sm { margin: var(--gap-elements-small); }
-.clutter-divider--spacing-md { margin: var(--gap-elements-medium); }
-.clutter-divider--spacing-lg { margin: var(--gap-elements-large); }
+.clutter-divider--spacing-sm { margin: var(--padding-4px); }
+.clutter-divider--spacing-md { margin: var(--padding-8px); }
+.clutter-divider--spacing-lg { margin: var(--padding-12px); }

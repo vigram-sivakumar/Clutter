@@ -5,7 +5,6 @@ const ICON_SIZE = ICON_MEDIUM;
 
 interface DropdownItemProps {
   label?: string;
-  description?: string;
   icon?: PhosphorIcon;
   indent?: boolean;
   iconRight?: PhosphorIcon;
@@ -18,7 +17,6 @@ interface DropdownItemProps {
 
 export function DropdownItem({
   label,
-  description,
   icon,
   indent = false,
   iconRight,
@@ -66,9 +64,6 @@ export function DropdownItem({
             <span className="clutter-dropdown-item__shortcut">{shortcutSlot}</span>
           )}
         </span>
-        {description && (
-          <span className="clutter-dropdown-item__description">{description}</span>
-        )}
       </span>
     </button>
   );

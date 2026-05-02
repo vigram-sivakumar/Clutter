@@ -4,7 +4,7 @@
   gap: var(--gap-elements-medium);
   height: var(--topbar-height);
   flex-shrink: 0;
-  padding: 0 var(--gap-elements-medium);
+  padding: 0 var(--padding-8px);
   background: var(--surface-secondary);
 }
 

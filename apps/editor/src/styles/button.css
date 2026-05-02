@@ -75,20 +75,20 @@
   flex-shrink: 0;
   /* Default size */
   height: var(--element-height-large);
-  padding: 0 8px;
+  padding: 0 var(--padding-8px);
   border-radius: var(--radius-medium);
   transition: background-color 80ms ease, color 80ms ease;
 }
 
 .clutter-btn--small {
   height: var(--element-height-medium);
-  padding: 0 6px;
+  padding: 0 var(--padding-6px);
   border-radius: var(--radius-small);
 }
 
 .clutter-btn--xsmall {
   height: var(--element-height-small);
-  padding: 0 6px;
+  padding: 0 var(--padding-6px);
   border-radius: var(--radius-small);
   font-size: var(--text-label-medium);
 }

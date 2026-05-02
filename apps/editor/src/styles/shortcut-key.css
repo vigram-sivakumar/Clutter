@@ -18,7 +18,7 @@
   justify-content: center;
   height: var(--element-height-smaller);
   min-width: var(--element-height-smaller);
-  padding: 0 3px;
+  padding: 0;
   border-radius: var(--radius-smaller);
   background: var(--shortcut-bg);
   font-family: var(--font-sans);

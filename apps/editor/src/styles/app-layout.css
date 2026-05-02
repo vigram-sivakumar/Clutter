@@ -64,12 +64,12 @@
   min-width: 0;
   height: 100%;
   background: var(--surface-secondary);
-  padding: 0 var(--gap-elements-small) var(--gap-elements-small) 0;
+  padding: 0 var(--padding-4px) var(--padding-4px) 0;
   overflow: hidden;
 }
 
 .clutter-workspace[data-sidepanel='hidden'] .clutter-canvas {
-  padding-left: var(--gap-elements-small);
+  padding-left: var(--padding-4px);
 }
 
 /* ─── Editor group ───────────────────────────────────────────────────────── */

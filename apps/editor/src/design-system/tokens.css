@@ -36,7 +36,7 @@
   --opacity-strong: 0.3;
   --opacity-medium: 0.4;
   --opacity-subtle: 0.7;
-  --opacity-disabled: var(--opacity-subtle);
+  --opacity-disabled: var(--opacity-strong);
 
   /* ─── Radius (Figma: Global/Radius) ───────────────────────────────────────── */
 
@@ -60,6 +60,15 @@
   --gap-elements-medium: 8px;
   --gap-elements-large: 12px;
   --gap-elements-larger: 16px;
+
+  /* ─── Padding (inset; same scale as gap-elements — keep gap-* for flex/grid gap only) ─ */
+
+  --padding-2px: 2px;
+  --padding-4px: 4px;
+  --padding-6px: 6px;
+  --padding-8px: 8px;
+  --padding-12px: 12px;
+  --padding-16px: 16px;
 
   /* ─── Gap between icon & label (Figma: Global/Gap between/Icon & label) ────── */
 
@@ -97,7 +106,7 @@
   --lh-label-medium: 20px;
   --lh-label-small: 16px;
   --lh-label-smaller: 14px;
-  --lh-100: 100%;
+  --lh-100: 1;
 
   /* Font weight */
   --fw-regular: 400;

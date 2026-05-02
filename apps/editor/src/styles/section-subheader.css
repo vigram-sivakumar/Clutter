@@ -10,6 +10,6 @@
   width: 100%;
   height: var(--element-height-small);
   flex-shrink: 0;
-  padding: 0 var(--gap-elements-small);
+  padding: 0 var(--padding-4px);
   border-radius: var(--sidebar-item-radius);
 }

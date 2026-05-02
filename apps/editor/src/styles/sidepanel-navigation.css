@@ -9,7 +9,7 @@
   box-sizing: border-box;
   width: 100%;
   min-height: var(--element-height-large);
-  padding: 0 var(--gap-elements-small);
+  padding: 0 var(--padding-4px);
   border: none;
   border-radius: var(--sidebar-item-radius);
   background: transparent;
