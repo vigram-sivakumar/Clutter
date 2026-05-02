@@ -8,8 +8,9 @@
   gap: 0;
   box-sizing: border-box;
   width: 100%;
-  height: var(--element-height-small);
+  height: var(--element-height-20px);
   flex-shrink: 0;
-  padding: 0 var(--padding-4px);
+  padding-block: 0;
+  padding-inline: var(--padding-x);
   border-radius: var(--sidebar-item-radius);
 }

@@ -1,10 +1,11 @@
 .clutter-global-topbar {
   display: flex;
   align-items: center;
-  gap: var(--gap-elements-medium);
+  gap: var(--gap-elements-8px);
   height: var(--topbar-height);
   flex-shrink: 0;
-  padding: 0 var(--padding-8px);
+  padding-block: 0;
+  padding-inline: var(--padding-8px);
   background: var(--surface-secondary);
 }
 
@@ -12,7 +13,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--gap-elements-small);
+  gap: var(--gap-elements-4px);
   flex: 1;
   min-width: 0;
   max-width: min(720px, 70vw);

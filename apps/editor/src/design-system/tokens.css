@@ -40,28 +40,28 @@
 
   /* ─── Radius (Figma: Global/Radius) ───────────────────────────────────────── */
 
-  --radius-smaller: 4px;
-  --radius-small: 6px;
-  --radius-medium: 8px;
-  --radius-large: 12px;
+  --radius-4px: 4px;
+  --radius-6px: 6px;
+  --radius-8px: 8px;
+  --radius-12px: 12px;
 
   /* ─── Element height (Figma: Global/Element Height) ─────────────────────────── */
 
-  --element-height-smaller: 16px;
-  --element-height-small: 20px;
-  --element-height-medium: 24px;
-  --element-height-large: 28px;
-  --element-height-larger: 32px;
+  --element-height-16px: 16px;
+  --element-height-20px: 20px;
+  --element-height-24px: 24px;
+  --element-height-28px: 28px;
+  --element-height-32px: 32px;
 
   /* ─── Gap between elements (Figma: Global/Gap between/Elements) ─────────────── */
 
-  --gap-elements-smaller: 2px;
-  --gap-elements-small: 4px; /* Also used for gap between shortcut keys*/
-  --gap-elements-medium: 8px;
-  --gap-elements-large: 12px;
-  --gap-elements-larger: 16px;
+  --gap-elements-2px: 2px;
+  --gap-elements-4px: 4px; /* Also used for gap between shortcut keys */
+  --gap-elements-8px: 8px;
+  --gap-elements-12px: 12px;
+  --gap-elements-16px: 16px;
 
-  /* ─── Padding (inset; same scale as gap-elements — keep gap-* for flex/grid gap only) ─ */
+  /* ─── Padding (inset; align with gap-elements-*px scale — use gap-* for flex/grid gap only) ─ */
 
   --padding-2px: 2px;
   --padding-4px: 4px;
@@ -70,17 +70,20 @@
   --padding-12px: 12px;
   --padding-16px: 16px;
 
+  /* Shared horizontal inset (4px) — sidebar rows, badges, dropdown items */
+  --padding-x: var(--padding-4px);
+
   /* ─── Gap between icon & label (Figma: Global/Gap between/Icon & label) ────── */
 
-  --gap-icon-label-smaller: 2px;
-  --gap-icon-label-small: 4px;
-  --gap-icon-label-medium: 8px;
+  --gap-icon-label-4px: 4px;
+  --gap-icon-label-6px: 6px;
+  --gap-icon-label-8px: 8px;
 
   /* ─── Gap between buttons (Figma: Global/Gap between/Buttons) ───────────────── */
 
-  --gap-buttons-small: 2px;
-  --gap-buttons-medium: 4px;
-  --gap-buttons-large: 8px;
+  --gap-buttons-4px: 4px;
+  --gap-buttons-6px: 6px;
+  --gap-buttons-8px: 8px;
 
   /* ─── Typography ────────────────────────────────────────────────────────────── */
 

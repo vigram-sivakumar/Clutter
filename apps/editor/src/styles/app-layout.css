@@ -76,7 +76,7 @@
 
 .clutter-editor-group {
   display: flex;
-  gap: var(--gap-elements-small);
+  gap: var(--gap-elements-4px);
   height: 100%;
   overflow: hidden;
 }
@@ -91,7 +91,7 @@
   flex-direction: column;
   background: var(--surface-primary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-medium);
+  border-radius: var(--radius-8px);
   overflow: hidden;
 }
 

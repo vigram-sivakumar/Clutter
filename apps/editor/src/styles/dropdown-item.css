@@ -1,13 +1,14 @@
 .clutter-dropdown-item {
   display: flex;
   align-items: center;
-  gap: var(--gap-elements-medium);
-  min-height: var(--element-height-large);
-  min-width: var(--element-height-large);
+  gap: var(--gap-elements-8px);
+  min-height: var(--element-height-28px);
+  min-width: var(--element-height-28px);
   width: 100%;
-  padding: 0 var(--padding-4px);
+  padding-block: 0;
+  padding-inline: var(--padding-x);
   border: none;
-  border-radius: var(--radius-smaller);
+  border-radius: var(--radius-4px);
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -29,8 +30,9 @@
 .clutter-dropdown-item--icon-only {
   justify-content: center;
   gap: 0;
-  padding: 0;
-  width: var(--element-height-large);
+  padding-block: 0;
+  padding-inline: 0;
+  width: var(--element-height-28px);
 }
 
 /* ─── Slots ──────────────────────────────────────────────────────────────── */
@@ -52,7 +54,7 @@
 .clutter-dropdown-item__row {
   display: flex;
   align-items: center;
-  gap: var(--gap-elements-medium);
+  gap: var(--gap-elements-8px);
   width: 100%;
 }
 
@@ -78,6 +80,6 @@
 .clutter-dropdown-item__shortcut {
   display: flex;
   align-items: center;
-  gap: var(--gap-elements-small);
+  gap: var(--gap-elements-4px);
   flex-shrink: 0;
 }

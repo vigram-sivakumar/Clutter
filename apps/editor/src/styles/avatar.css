@@ -30,26 +30,26 @@
   flex-shrink: 0;
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-smaller);
-  width: var(--element-height-medium);
-  height: var(--element-height-medium);
+  border-radius: var(--radius-4px);
+  width: var(--element-height-24px);
+  height: var(--element-height-24px);
 }
 
 .clutter-avatar--small {
-  width: var(--element-height-small);
-  height: var(--element-height-small);
+  width: var(--element-height-20px);
+  height: var(--element-height-20px);
 }
 
 .clutter-avatar--medium {
-  width: var(--element-height-medium);
-  height: var(--element-height-medium);
-  border-radius: var(--radius-small);
+  width: var(--element-height-24px);
+  height: var(--element-height-24px);
+  border-radius: var(--radius-6px);
 }
 
 .clutter-avatar--large {
-  width: var(--element-height-large);
-  height: var(--element-height-large);
-  border-radius: var(--radius-small);
+  width: var(--element-height-28px);
+  height: var(--element-height-28px);
+  border-radius: var(--radius-6px);
 }
 
 .clutter-avatar__initials {
