@@ -69,6 +69,8 @@ import {
 // It is injected as --icon-medium CSS variable in main.tsx so both CSS and components stay in sync.
 // To change the global icon size, update ICON_MEDIUM here only.
 export const ICON_MEDIUM = 16;
+export const ICON_SMALL = 12;
+
 export const Icons = {
   ArrowCircleDown: ArrowCircleDownIcon,
   ArrowCircleRight: ArrowCircleRightIcon,

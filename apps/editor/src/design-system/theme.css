@@ -36,7 +36,6 @@ html.theme-transitioning *::after {
   --text-primary: rgba(255, 255, 255, 0.82);
   --text-secondary: rgba(255, 255, 255, 0.5);
   --text-tertiary: rgba(255, 255, 255, 0.35);
-  --text-placeholder: rgba(255, 255, 255, 0.2);
   --text-inverse: rgba(0, 0, 0, 0.82);
 
   /* Icon */
@@ -115,7 +114,6 @@ html.theme-transitioning *::after {
   /* Dropdown */
   --dropdown-bg: var(--surface-secondary);
   --dropdown-border: var(--border-inverse);
-
 
   /* Editor — selection (not in Figma, needed for rendering) */
   --selection-bg: rgba(99, 102, 241, 0.22);
@@ -228,7 +226,6 @@ html.theme-transitioning *::after {
   /* Dropdown */
   --dropdown-bg: var(--surface-secondary);
   --dropdown-border: var(--border-inverse);
-
 
   /* Editor — selection (not in Figma, needed for rendering) */
   --selection-bg: rgba(99, 102, 241, 0.18);

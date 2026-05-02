@@ -1,0 +1,82 @@
+/**
+ * Badge — compact meta chip.
+ * Uses semantic tokens from theme.css only.
+ */
+
+.clutter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--element-height-smaller);
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  user-select: none;
+  box-sizing: border-box;
+}
+
+/* ─── Shells ───────────────────────────────────────────────────────────────── */
+
+.clutter-badge--filled {
+  gap: var(--gap-elements-small);
+  padding: 0 var(--gap-elements-small);
+  border-radius: var(--radius-smaller);
+  background: var(--tag-dark-grey-bg);
+}
+
+.clutter-badge--plain {
+  gap: var(--gap-elements-small);
+}
+
+.clutter-badge--number {
+  min-width: var(--element-height-smaller);
+}
+
+.clutter-badge--dot-only {
+  min-width: var(--element-height-smaller);
+}
+
+/* ─── Slots ───────────────────────────────────────────────────────────────── */
+
+.clutter-badge__caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--icon-small);
+  height: var(--icon-small);
+  overflow: hidden;
+  color: var(--icon-tertiary);
+}
+
+.clutter-badge__dot-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.clutter-badge__dot {
+  flex-shrink: 0;
+  color: var(--calendar-accent);
+}
+
+.clutter-badge__text {
+  flex-shrink: 0;
+  margin: 0;
+  font-weight: var(--fw-medium);
+  color: var(--tag-dark-grey-text);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.clutter-badge__text--label {
+  font-size: var(--text-label-medium);
+  line-height: var(--lh-100);
+}
+
+.clutter-badge__text--number {
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-label-smaller);
+}
