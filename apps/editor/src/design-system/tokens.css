@@ -53,14 +53,6 @@
   --element-height-large: 28px;
   --element-height-larger: 32px;
 
-  /* ─── Icon size (Figma: Global/Icon size) ───────────────────────────────────── */
-
-  --icon-smaller: 8px;
-  --icon-small: 12px;
-  --icon-medium: 16px;
-  --icon-large: 24px;
-  --icon-larger: 32px;
-
   /* ─── Gap between elements (Figma: Global/Gap between/Elements) ─────────────── */
 
   --gap-elements-smaller: 2px;
@@ -97,14 +89,14 @@
   --text-label-smaller: 8px;
 
   /* Line height */
-  --lh-heading-1: 40px;
-  --lh-heading-2: 32px;
-  --lh-heading-3: 28px;
-  --lh-body-large: 24px;
-  --lh-body-medium: 20px;
-  --lh-label-medium: 16px;
-  --lh-label-small: 14px;
-  --lh-label-smaller: 12px;
+  --lh-heading-1: 48px;
+  --lh-heading-2: 40px;
+  --lh-heading-3: 32px;
+  --lh-body-large: 28px;
+  --lh-body-medium: 24px;
+  --lh-label-medium: 20px;
+  --lh-label-small: 16px;
+  --lh-label-smaller: 14px;
   --lh-100: 100%;
 
   /* Font weight */

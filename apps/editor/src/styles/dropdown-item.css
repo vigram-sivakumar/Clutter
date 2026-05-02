@@ -1,0 +1,97 @@
+.clutter-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-elements-medium);
+  min-height: var(--element-height-large);
+  min-width: var(--element-height-large);
+  width: 100%;
+  padding: 6px 4px;
+  border: none;
+  border-radius: var(--radius-smaller);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+}
+
+.clutter-dropdown-item:hover {
+  background: var(--interactive-hover);
+}
+
+.clutter-dropdown-item:active {
+  background: var(--interactive-pressed);
+}
+
+.clutter-dropdown-item--active {
+  background: var(--interactive-active);
+}
+
+.clutter-dropdown-item--icon-only {
+  justify-content: center;
+  gap: 0;
+  padding: 6px;
+  width: var(--element-height-large);
+}
+
+/* ─── Slots ──────────────────────────────────────────────────────────────── */
+
+.clutter-dropdown-item__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--icon-medium);
+  color: var(--icon-primary);
+}
+
+.clutter-dropdown-item__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-elements-smaller);
+  flex: 1;
+  min-width: 0;
+}
+
+.clutter-dropdown-item__row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-elements-medium);
+  width: 100%;
+}
+
+.clutter-dropdown-item__label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body-medium);
+  font-weight: var(--fw-regular);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clutter-dropdown-item__icon-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--icon-primary);
+}
+
+.clutter-dropdown-item__shortcut {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-elements-small);
+  flex-shrink: 0;
+}
+
+.clutter-dropdown-item__description {
+  font-family: var(--font-sans);
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-regular);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}

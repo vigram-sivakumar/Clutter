@@ -64,7 +64,11 @@ import {
 // Centralized icon registry — never import directly from phosphor in feature code.
 // Maps Figma “Icons” component variants (except Emojie) to Phosphor; filled/small variants
 // share the same glyph — use `weight` / `size` on the component where needed.
-// Default size: match tokens.css — `--icon-medium: 16px` (pass `size={16}` unless a design calls for another step).
+//
+// ICON_MEDIUM is the single source of truth for the default icon size.
+// It is injected as --icon-medium CSS variable in main.tsx so both CSS and components stay in sync.
+// To change the global icon size, update ICON_MEDIUM here only.
+export const ICON_MEDIUM = 16;
 export const Icons = {
   ArrowCircleDown: ArrowCircleDownIcon,
   ArrowCircleRight: ArrowCircleRightIcon,

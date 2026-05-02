@@ -1,5 +1,5 @@
 import React from 'react';
-import { Icons } from '../design-system/icons';
+import { Icons, ICON_MEDIUM } from '../design-system/icons';
 
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 
@@ -17,7 +17,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   caret?: boolean;
 }
 
-const ICON_SIZE = 16;
+const ICON_SIZE = ICON_MEDIUM;
 
 export function Button({
   variant = 'secondary',
