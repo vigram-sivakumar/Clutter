@@ -1,0 +1,21 @@
+/**
+ * Count — tertiary meta chip (Figma: SidepanelNavigation count slot).
+ */
+
+.clutter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: var(--element-height-small);
+  height: var(--element-height-small);
+  padding: 0 var(--gap-elements-smaller);
+  border-radius: var(--radius-small);
+  opacity: var(--opacity-subtle);
+  font-size: var(--text-label-small);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-label-small);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}

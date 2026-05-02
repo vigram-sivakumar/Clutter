@@ -33,9 +33,9 @@
 
   /* ─── Opacity (Figma: Global/Opacity) ──────────────────────────────────────── */
 
-  --opacity-subtle: 0.3;
+  --opacity-strong: 0.3;
   --opacity-medium: 0.4;
-  --opacity-strong: 0.7;
+  --opacity-subtle: 0.7;
   --opacity-disabled: var(--opacity-subtle);
 
   /* ─── Radius (Figma: Global/Radius) ───────────────────────────────────────── */

@@ -1,8 +1,8 @@
 /**
- * SectionGroupHeader — sidebar / dropdown section title row (Figma: SectionGroupHeader).
+ * Subheader — sidebar / dropdown meta row (Figma: SectionGroupHeader).
  */
 
-.clutter-section-group-header {
+.clutter-subheader {
   display: flex;
   align-items: center;
   gap: 0;

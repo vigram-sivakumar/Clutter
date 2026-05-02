@@ -2,15 +2,14 @@ import type { HTMLAttributes } from 'react';
 
 import { Badge } from '../Badge';
 
-export type GroupHeaderLabelAppearance = 'badge' | 'text';
+export type SubheaderLabelAppearance = 'badge' | 'text';
 
-export interface GroupHeaderProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
+export interface SubheaderProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   /**
    * Figma `SectionGroupHeader` type "Badge" vs "Text":
    * pill label vs plain muted label.
    */
-  labelAppearance?: GroupHeaderLabelAppearance;
+  labelAppearance?: SubheaderLabelAppearance;
   /** Passed to inner `Badge`. */
   text?: string;
   dot?: boolean;
@@ -19,7 +18,7 @@ export interface GroupHeaderProps
   showText?: boolean;
 }
 
-export function GroupHeader({
+export function Subheader({
   labelAppearance = 'badge',
   text,
   dot,
@@ -28,8 +27,8 @@ export function GroupHeader({
   showText,
   className,
   ...divProps
-}: GroupHeaderProps) {
-  const cls = ['clutter-section-group-header', className].filter(Boolean).join(' ');
+}: SubheaderProps) {
+  const cls = ['clutter-subheader', className].filter(Boolean).join(' ');
 
   return (
     <div className={cls} {...divProps}>
