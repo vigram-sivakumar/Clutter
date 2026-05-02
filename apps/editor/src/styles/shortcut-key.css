@@ -22,7 +22,7 @@
   border-radius: var(--radius-smaller);
   background: var(--shortcut-bg);
   font-family: var(--font-sans);
-  font-size: var(--text-label-smaller);
+  font-size: var(--text-label-small);
   font-weight: var(--fw-medium);
   line-height: 14px;
   color: var(--shortcut-text);

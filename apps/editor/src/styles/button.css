@@ -90,7 +90,7 @@
   height: var(--element-height-small);
   padding: 0 6px;
   border-radius: var(--radius-small);
-  font-size: var(--text-label-small);
+  font-size: var(--text-label-medium);
 }
 
 /* Icon-only: square, no padding */
