@@ -7,7 +7,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--element-height-16px);
+  height: var(--height-sm);
   flex-shrink: 0;
   font-family: var(--font-sans);
   user-select: none;
@@ -17,23 +17,23 @@
 /* ─── Shells ───────────────────────────────────────────────────────────────── */
 
 .clutter-badge--filled {
-  gap: var(--gap-elements-4px);
+  gap: var(--space-4);
   padding-block: 0;
-  padding-inline: var(--padding-x);
-  border-radius: var(--radius-4px);
+  padding-inline: var(--padding-x-sm);
+  border-radius: var(--radius-sm);
   background: var(--tag-dark-grey-bg);
 }
 
 .clutter-badge--plain {
-  gap: var(--gap-elements-4px);
+  gap: var(--space-4);
 }
 
 .clutter-badge--number {
-  min-width: var(--element-height-16px);
+  min-width: var(--height-sm);
 }
 
 .clutter-badge--dot-only {
-  min-width: var(--element-height-16px);
+  min-width: var(--height-sm);
 }
 
 /* ─── Slots ───────────────────────────────────────────────────────────────── */

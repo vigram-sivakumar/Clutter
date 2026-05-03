@@ -30,26 +30,26 @@
   flex-shrink: 0;
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-4px);
-  width: var(--element-height-24px);
-  height: var(--element-height-24px);
+  border-radius: var(--radius-sm);
+  width: var(--height-lg);
+  height: var(--height-lg);
 }
 
 .clutter-avatar--small {
-  width: var(--element-height-20px);
-  height: var(--element-height-20px);
+  width: var(--height-md);
+  height: var(--height-md);
 }
 
 .clutter-avatar--medium {
-  width: var(--element-height-24px);
-  height: var(--element-height-24px);
-  border-radius: var(--radius-6px);
+  width: var(--height-lg);
+  height: var(--height-lg);
+  border-radius: var(--radius-md);
 }
 
 .clutter-avatar--large {
-  width: var(--element-height-28px);
-  height: var(--element-height-28px);
-  border-radius: var(--radius-6px);
+  width: var(--height-xl);
+  height: var(--height-xl);
+  border-radius: var(--radius-md);
 }
 
 .clutter-avatar__initials {

@@ -16,11 +16,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--element-height-16px);
-  min-width: var(--element-height-16px);
+  height: var(--height-sm);
+  min-width: var(--height-sm);
   padding-block: 0;
   padding-inline: 0;
-  border-radius: var(--radius-4px);
+  border-radius: var(--radius-sm);
   background: var(--shortcut-bg);
   font-family: var(--font-sans);
   font-size: var(--text-label-small);

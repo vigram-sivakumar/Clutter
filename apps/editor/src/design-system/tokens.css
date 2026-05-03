@@ -1,10 +1,13 @@
 /*
- * Raw design tokens — primitives and scales; names mirror Figma variables where noted (slash → dash).
- * theme.css maps these to semantic tokens. Components should use theme.css only, not raw values here.
+ * Raw design tokens — primitives and scales only.
+ * No product/UI meaning here.
+ *
+ * theme.css maps these to semantic tokens (control, layout, etc).
+ * Components MUST NOT use these directly.
  */
 
 :root {
-  /* ─── Neutral scale ────────────────────────────────────────────────────────── */
+  /* ─── Neutral scale ─────────────────────────────────────────────────── */
 
   --neutral-0: #ffffff;
   --neutral-50: #fafafa;
@@ -26,51 +29,49 @@
   --neutral-950: #111111;
   --neutral-1000: #000000;
 
-  /* ─── Accent (Figma: Accent/Light, Accent/Dark) ────────────────────────────── */
+  /* ─── Accent ────────────────────────────────────────────────────────── */
 
   --accent-light: #00acff;
   --accent-dark: #007aff;
 
-  /* ─── Opacity (Figma: Global/Opacity) ──────────────────────────────────────── */
+  /* ─── Opacity ───────────────────────────────────────────────────────── */
 
   --opacity-strong: 0.3;
   --opacity-medium: 0.4;
   --opacity-subtle: 0.7;
   --opacity-disabled: var(--opacity-strong);
 
-  /* ─── Radius (Figma: Global/Radius) ───────────────────────────────────────── */
+  /* ─── Radius scale ───────────────────────────────────────────────────── */
 
-  --radius-4px: 4px;
-  --radius-6px: 6px;
-  --radius-8px: 8px;
-  --radius-12px: 12px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px; /* Default */
+  --radius-xl: 12px;
 
-  /* ─── Element height (Figma: Global/Element Height) ─────────────────────────── */
+  /* ─── Spacing scale (single source of truth) ─────────────────────────── */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+  --space-96: 96px;
+  --space-128: 128px;
 
-  --element-height-16px: 16px;
-  --element-height-20px: 20px;
-  --element-height-24px: 24px;
-  --element-height-28px: 28px;
-  --element-height-32px: 32px;
+  /* ─── Height scale ───────────────────────────────────────────────────── */
 
-  /* ─── Gap between elements (Figma: Global/Gap between/Elements) ─────────────── */
+  --height-xs: 12px;
+  --height-sm: 16px;
+  --height-md: 20px;
+  --height-lg: 24px; /* Default */
+  --height-xl: 28px;
 
-  --gap-elements-2px: 2px;
-  --gap-elements-4px: 4px; /* Also used for gap between shortcut keys */
-  --gap-elements-8px: 8px;
-  --gap-elements-12px: 12px;
-  --gap-elements-16px: 16px;
-
-  /* ─── Padding (inset; align with gap-elements-*px scale — use gap-* for flex/grid gap only) ─ */
-
-  --padding-2px: 2px;
-  --padding-4px: 4px;
-  --padding-6px: 6px;
-  --padding-8px: 8px;
-  --padding-12px: 12px;
-  --padding-16px: 16px;
-
-  /* ─── Margin (same px scale as padding) ───────────────────────────────────── */
+  /* ─── Margin (same px scale as padding) ────────────────────────────── */
 
   --margin-2px: 2px;
   --margin-4px: 4px;
@@ -78,24 +79,25 @@
   --margin-8px: 8px;
   --margin-12px: 12px;
   --margin-16px: 16px;
-  --margin-24px: 24px; /* Editor nested outline indent */
+  --margin-24px: var(--space-24); /* Editor nested outline indent */
 
-  /* Shared horizontal inset (4px) — sidebar rows, badges, dropdown items */
-  --padding-x: var(--padding-4px);
+  /* Horizontal inset — xs tight chips; sm rows; md/lg controls */
+  --padding-x-xs: var(--space-2);
+  --padding-x-sm: var(--space-4);
+  --padding-x-md: var(--space-6);
+  --padding-x-lg: var(--space-8);
 
-  /* ─── Gap between icon & label (Figma: Global/Gap between/Icon & label) ────── */
+  /* ─── Gap between icon & label ─────────────────────────────────────── */
 
-  --gap-icon-label-4px: 4px;
-  --gap-icon-label-6px: 6px;
-  --gap-icon-label-8px: 8px;
+  --gap-icon-label: var(--space-8);
+  --gap-icon-label-tight: var(--space-4);
 
-  /* ─── Gap between buttons (Figma: Global/Gap between/Buttons) ───────────────── */
+  /* ─── Gap between buttons ──────────────────────────────────────────── */
 
-  --gap-buttons-4px: 4px;
-  --gap-buttons-6px: 6px;
-  --gap-buttons-8px: 8px;
+  --btn-gap: var(--space-8);
+  --btn-gap-tight: var(--space-4);
 
-  /* ─── Typography ────────────────────────────────────────────────────────────── */
+  /* ─── Typography ───────────────────────────────────────────────────── */
 
   --font-family: Inter, system-ui, -apple-system, sans-serif;
   --font-sans: var(--font-family);

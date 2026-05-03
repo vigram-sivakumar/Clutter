@@ -5,12 +5,12 @@
 .clutter-sidepanel-nav {
   display: flex;
   align-items: center;
-  gap: var(--gap-icon-label-8px);
+  gap: var(--gap-icon-label);
   box-sizing: border-box;
   width: 100%;
-  min-height: var(--element-height-28px);
+  min-height: var(--height-xl);
   padding-block: 0;
-  padding-inline: var(--padding-x);
+  padding-inline: var(--padding-x-sm);
   border: none;
   border-radius: var(--sidebar-item-radius);
   background: transparent;

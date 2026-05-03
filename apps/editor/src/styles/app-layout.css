@@ -4,14 +4,14 @@
   --topbar-height: 44px;
   --sidebar-width: 240px;
   --sidebar-width-collapsed: 44px;
-  --sidebar-item-height: 28px;
-  --sidebar-item-radius: 8px;
+  --sidebar-item-height: var(--height-xl);
+  --sidebar-item-radius: var(--radius-lg);
   --document-max-width: 720px;
-  --document-padding-x: 32px;
-  --document-padding-top: 48px;
-  --document-padding-bottom: 96px;
-  --document-header-content-gap: 24px;
-  --document-body-footer-gap: 128px;
+  --document-padding-x: var(--space-32);
+  --document-padding-top: var(--space-48);
+  --document-padding-bottom: var(--space-96);
+  --document-header-content-gap: var(--space-24);
+  --document-body-footer-gap: var(--space-128);
 }
 
 /* ─── App root ───────────────────────────────────────────────────────────── */
@@ -64,19 +64,19 @@
   min-width: 0;
   height: 100%;
   background: var(--surface-secondary);
-  padding: 0 var(--padding-4px) var(--padding-4px) 0;
+  padding: 0 var(--padding-x-sm) var(--padding-x-sm) 0;
   overflow: hidden;
 }
 
 .clutter-workspace[data-sidepanel='hidden'] .clutter-canvas {
-  padding-left: var(--padding-4px);
+  padding-inline-start: var(--padding-x-sm);
 }
 
 /* ─── Editor group ───────────────────────────────────────────────────────── */
 
 .clutter-editor-group {
   display: flex;
-  gap: var(--gap-elements-4px);
+  gap: var(--space-4);
   height: 100%;
   overflow: hidden;
 }
@@ -91,7 +91,7 @@
   flex-direction: column;
   background: var(--surface-primary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-8px);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 

@@ -38,6 +38,10 @@ html.theme-transitioning *::after {
   --text-tertiary: rgba(255, 255, 255, 0.35);
   --text-inverse: rgba(0, 0, 0, 0.82);
 
+  /* Body typography aliases (base.css / editor shell) */
+  --text-sm: var(--text-body-medium);
+  --lh-sm: var(--lh-body-medium);
+
   /* Icon */
   --icon-primary: rgba(255, 255, 255, 0.82);
   --icon-secondary: rgba(255, 255, 255, 0.5);
@@ -137,6 +141,10 @@ html.theme-transitioning *::after {
   --text-tertiary: rgba(0, 0, 0, 0.45);
   --text-placeholder: rgba(0, 0, 0, 0.3);
   --text-inverse: rgba(255, 255, 255, 0.82);
+
+  /* Body typography aliases (base.css / editor shell) */
+  --text-sm: var(--text-body-medium);
+  --lh-sm: var(--lh-body-medium);
 
   /* Icon */
   --icon-primary: rgba(0, 0, 0, 0.85);

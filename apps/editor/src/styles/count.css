@@ -8,11 +8,11 @@
   justify-content: center;
   flex-shrink: 0;
   box-sizing: border-box;
-  min-width: var(--element-height-20px);
-  height: var(--element-height-20px);
+  min-width: var(--height-md);
+  height: var(--height-md);
   padding-block: 0;
-  padding-inline: var(--padding-2px);
-  border-radius: var(--radius-6px);
+  padding-inline: var(--padding-x-sm);
+  border-radius: var(--radius-md);
   opacity: var(--opacity-subtle);
   font-size: var(--text-label-small);
   font-weight: var(--fw-regular);

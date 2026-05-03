@@ -1,13 +1,13 @@
 .clutter-tag {
   display: inline-flex;
   align-items: center;
-  border-radius: var(--radius-4px);
+  border-radius: var(--radius-sm);
   font-family: var(--font-sans);
   font-size: var(--text-body-medium);
   font-weight: var(--fw-regular);
   line-height: var(--lh-body-medium);
   padding-block: 0;
-  padding-inline: var(--padding-6px);
+  padding-inline: var(--padding-x-md);
   white-space: nowrap;
   user-select: none;
   flex-shrink: 0;
@@ -17,7 +17,7 @@
   font-size: var(--text-label-medium);
   line-height: var(--lh-label-medium);
   padding-block: 0;
-  padding-inline: var(--padding-4px);
+  padding-inline: var(--padding-x-sm);
 }
 
 /* ─── Color variants ─────────────────────────────────────────────────────── */
