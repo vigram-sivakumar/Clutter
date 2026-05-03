@@ -62,6 +62,7 @@ html.theme-transitioning *::after {
   --interactive-active: rgba(255, 255, 255, 0.08);
   --interactive-active-inverse: var(--surface-secondary);
   --interactive-opacity-disabled: var(--opacity-strong);
+  --interactive-disabled: var(--opacity-strong);
 
   /* Node */
   --node-bullet: rgba(255, 255, 255, 0.5);

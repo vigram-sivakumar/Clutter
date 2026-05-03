@@ -78,7 +78,12 @@
   padding-block: 0;
   padding-inline: var(--padding-x-lg);
   border-radius: var(--radius-lg);
-  transition: background-color 80ms ease, color 80ms ease;
+  transition:
+    background-color var(--duration-interaction) var(--easing-interaction),
+    color var(--duration-interaction) var(--easing-interaction),
+    opacity var(--duration-interaction) var(--easing-interaction),
+    border-color var(--duration-interaction) var(--easing-interaction),
+    box-shadow var(--duration-interaction) var(--easing-interaction);
 }
 
 .clutter-btn--small {

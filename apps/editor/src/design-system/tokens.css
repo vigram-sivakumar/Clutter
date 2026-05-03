@@ -40,6 +40,11 @@
   --opacity-medium: 0.4;
   --opacity-subtle: 0.7;
 
+  /* ─── Motion (hover / press feedback on controls) ─────────────────────── */
+
+  --duration-interaction: 120ms;
+  --easing-interaction: ease;
+
   /* ─── Spacing scale (single source of truth) ─────────────────────────── */
   --space-2: 2px;
   --space-4: 4px;
@@ -68,7 +73,7 @@
   --height-sm: 20px;
   --height-md: 24px; /* Default */
   --height-lg: 28px;
-  --height-xl: 40px;
+  --height-xl: 44px;
   --height-xxl: 48px;
 
   /* ─── Margin (same px scale as padding) ────────────────────────────── */

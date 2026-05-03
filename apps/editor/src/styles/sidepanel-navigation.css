@@ -20,6 +20,7 @@
   text-align: left;
   outline: none;
   flex-shrink: 0;
+  transition: background-color var(--duration-interaction) var(--easing-interaction);
 }
 
 .clutter-sidepanel-nav:hover:not(:disabled) {

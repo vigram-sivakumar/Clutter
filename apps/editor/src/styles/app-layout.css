@@ -1,7 +1,6 @@
 /* ─── Layout tokens ──────────────────────────────────────────────────────── */
 
 :root {
-  --topbar-height: var(--height-xl);
   --sidebar-width: 240px;
   --sidebar-width-collapsed: 44px;
   --sidebar-item-height: var(--height-lg);
@@ -96,7 +95,7 @@
 }
 
 .clutter-editor-topbar {
-  height: var(--topbar-height);
+  height: var(--height-xl);
   flex-shrink: 0;
   width: 100%;
 }

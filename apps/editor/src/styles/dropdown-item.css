@@ -13,6 +13,7 @@
   cursor: pointer;
   text-align: left;
   outline: none;
+  transition: background-color var(--duration-interaction) var(--easing-interaction);
 }
 
 .clutter-dropdown-item:hover {

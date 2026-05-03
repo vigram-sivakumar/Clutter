@@ -1,25 +1,86 @@
+/**
+ * Global top bar — Figma GlobalTopbar (node 326:24835).
+ */
+
 .clutter-global-topbar {
   display: flex;
   align-items: center;
-  gap: var(--gap-btn-btn-lg);
-  height: var(--topbar-height);
+  justify-content: flex-start;
+  gap: 0;
+  height: var(--height-xl);
   flex-shrink: 0;
-  padding-block: 0;
-  padding-inline: var(--padding-x-lg);
+  padding: 0;
   background: var(--surface-secondary);
+  overflow: hidden;
 }
 
-.clutter-global-topbar__nav-preview {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--gap-btn-btn-sm);
-  flex: 1;
-  min-width: 0;
-  max-width: min(720px, 70vw);
-}
-
-.clutter-global-topbar__nav-preview > .clutter-sidepanel-nav {
+/* Flexible rail: navigation (start) + actions (end). */
+.clutter-global-topbar__main {
   flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
   min-width: 0;
+  padding-inline-start: var(--padding-x-lg);
+  padding-inline-end: var(--padding-x-xl);
+}
+
+.clutter-global-topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+/* Figma gap-between/buttons/small — 2px between back / forward */
+.clutter-global-topbar__history {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-btn-btn-xs);
+}
+
+.clutter-global-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-btn-btn-xs);
+  flex-shrink: 0;
+}
+
+.clutter-global-topbar__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--height-lg);
+  height: var(--height-lg);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  color: var(--icon-secondary);
+  transition:
+    background-color var(--duration-interaction) var(--easing-interaction),
+    color var(--duration-interaction) var(--easing-interaction),
+    opacity var(--duration-interaction) var(--easing-interaction);
+}
+
+.clutter-global-topbar__icon-btn:hover:not(:disabled) {
+  background: var(--interactive-hover);
+  color: var(--icon-primary);
+}
+
+.clutter-global-topbar__icon-btn:active:not(:disabled) {
+  background: var(--interactive-pressed);
+}
+
+.clutter-global-topbar__icon-btn:disabled {
+  opacity: var(--interactive-opacity-disabled);
+  cursor: default;
+}
+
+.clutter-global-topbar__icon-btn:focus-visible {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
 }

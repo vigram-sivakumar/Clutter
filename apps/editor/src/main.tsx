@@ -26,6 +26,7 @@ import './styles/section-subheader.css';
 import './styles/sidepanel-navigation.css';
 import './styles/dropdown-item.css';
 import './styles/topbar.css';
+import './styles/workspace-search.css';
 import './styles/editor.css';
 
 const root = document.getElementById('root');
