@@ -1,45 +1,44 @@
 import type { HTMLAttributes } from 'react';
 
-import { Badge } from '../Badge';
+import { Pill } from '../Pill';
 
-export type SubheaderLabelAppearance = 'badge' | 'text';
+/**
+ * Figma `SectionSubheader` (node 248:6893): row contains a `Pill` only —
+ * `dark-grey` + `small` for the filled pill vs `text` + `small` for the
+ * inline pill, optional `dot`. Not a calendar date chip.
+ */
+export type SubheaderLabelAppearance = 'pill' | 'text';
 
 export interface SubheaderProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
-  /**
-   * Figma `SectionGroupHeader` type "Badge" vs "Text":
-   * pill label vs plain muted label.
-   */
   labelAppearance?: SubheaderLabelAppearance;
-  /** Passed to inner `Badge`. */
   text?: string;
   dot?: boolean;
-  caretLeft?: boolean;
-  caretRight?: boolean;
+  /** When false, hides the label; dot-only is still allowed. */
   showText?: boolean;
 }
 
 export function Subheader({
-  labelAppearance = 'badge',
+  labelAppearance = 'pill',
   text,
   dot,
-  caretLeft,
-  caretRight,
   showText,
   className,
   ...divProps
 }: SubheaderProps) {
   const cls = ['clutter-subheader', className].filter(Boolean).join(' ');
 
+  const showLabel = showText !== false;
+  const labelContent = showLabel ? text : undefined;
+
   return (
     <div className={cls} {...divProps}>
-      <Badge
-        appearance={labelAppearance === 'text' ? 'plain' : 'filled'}
-        text={text}
-        dot={dot}
-        caretLeft={caretLeft}
-        caretRight={caretRight}
-        showText={showText}
-      />
+      <Pill
+        color={labelAppearance === 'text' ? 'text' : 'dark-grey'}
+        size="small"
+        dot={Boolean(dot)}
+      >
+        {labelContent}
+      </Pill>
     </div>
   );
 }

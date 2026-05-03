@@ -72,6 +72,9 @@ export const ICON_SMALL = 12;
 export const ICON_MEDIUM = 16;
 export const ICON_EXTRA_LARGE = 48;
 
+/** Calendar / pill status dot (Phosphor `Circle` fill). Injected as `--dot-md` in main.tsx. */
+export const DOT_MD = 8;
+
 export const Icons = {
   ArrowCircleDown: ArrowCircleDownIcon,
   ArrowCircleRight: ArrowCircleRightIcon,

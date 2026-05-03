@@ -5,10 +5,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { ICON_MEDIUM, ICON_SMALL } from './design-system/icons';
+import { DOT_MD, ICON_MEDIUM, ICON_SMALL } from './design-system/icons';
 
 document.documentElement.style.setProperty('--icon-medium', `${ICON_MEDIUM}px`);
 document.documentElement.style.setProperty('--icon-small', `${ICON_SMALL}px`);
+document.documentElement.style.setProperty('--dot-md', `${DOT_MD}px`);
 import './design-system/tokens.css';
 import './design-system/theme.css';
 import './styles/base.css';
@@ -18,7 +19,8 @@ import './styles/shortcut-key.css';
 import './styles/divider.css';
 import './styles/avatar.css';
 import './styles/tag.css';
-import './styles/badge.css';
+import './styles/pill.css';
+import './styles/date-pill.css';
 import './styles/count.css';
 import './styles/section-subheader.css';
 import './styles/sidepanel-navigation.css';

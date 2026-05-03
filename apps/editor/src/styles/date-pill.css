@@ -1,0 +1,67 @@
+/**
+ * Date pill — compact meta chip (Figma: number | dot).
+ * Uses semantic tokens from theme.css only.
+ */
+
+.clutter-date-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-sm);
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  user-select: none;
+  box-sizing: border-box;
+}
+
+/* ─── Shell ───────────────────────────────────────────────────────────────── */
+
+.clutter-date-pill--filled {
+  gap: var(--space-4);
+  padding-block: 0;
+  padding-inline: var(--padding-x-sm);
+  border-radius: var(--radius-sm);
+  background: var(--tag-dark-grey-bg);
+}
+
+.clutter-date-pill--number {
+  min-width: var(--height-sm);
+}
+
+.clutter-date-pill--dot-only {
+  min-width: var(--height-sm);
+}
+
+/* ─── Dot (dimensions: `--dot-md`, set from `DOT_MD` in main.tsx) ──────── */
+
+.clutter-date-pill__dot-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+  width: var(--dot-md);
+  height: var(--dot-md);
+}
+
+.clutter-date-pill__dot {
+  flex-shrink: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--calendar-accent);
+}
+
+.clutter-date-pill__text {
+  flex-shrink: 0;
+  margin: 0;
+  color: var(--tag-dark-grey-text);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.clutter-date-pill__text--number {
+  font-size: var(--text-label-medium);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-label-small);
+}

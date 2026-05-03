@@ -1,0 +1,118 @@
+/**
+ * Pill — tag chip (Figma Pill).
+ * Uses semantic tokens from theme.css only.
+ */
+
+.clutter-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap-icon-label-sm);
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  user-select: none;
+  white-space: nowrap;
+  padding-block: 0;
+  padding-inline: var(--padding-x-md);
+}
+
+.clutter-pill--small {
+  padding-inline: var(--padding-x-sm);
+}
+
+/* Figma `color: Text` — no chip fill */
+.clutter-pill--inline {
+  padding-inline: 0;
+  background: transparent;
+  color: var(--tag-dark-grey-text);
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────── */
+
+.clutter-pill__label {
+  margin: 0;
+  text-align: center;
+}
+
+/* Default size — Body Small / Regular (filled hues + muted large) */
+.clutter-pill:not(.clutter-pill--small) .clutter-pill__label {
+  font-size: var(--text-body-medium);
+  line-height: var(--lh-body-medium);
+  font-weight: var(--fw-regular);
+}
+
+/* Small — Label Medium / Medium */
+.clutter-pill--small .clutter-pill__label {
+  font-size: var(--text-label-medium);
+  line-height: var(--lh-label-small);
+  font-weight: var(--fw-medium);
+}
+
+/* ─── Dot (dimensions: `--dot-md`, set from `DOT_MD` in main.tsx) ──────── */
+
+.clutter-pill__dot-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+  width: var(--dot-md);
+  height: var(--dot-md);
+}
+
+.clutter-pill__dot {
+  flex-shrink: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--calendar-accent);
+}
+
+/* ─── Color fills (inherit label color from root) ───────────────────────── */
+
+.clutter-pill--blue {
+  background: var(--tag-blue-bg);
+  color: var(--tag-blue-text);
+}
+
+.clutter-pill--green {
+  background: var(--tag-green-bg);
+  color: var(--tag-green-text);
+}
+
+.clutter-pill--grey {
+  background: var(--tag-grey-bg);
+  color: var(--tag-grey-text);
+}
+
+.clutter-pill--indigo {
+  background: var(--tag-indigo-bg);
+  color: var(--tag-indigo-text);
+}
+
+.clutter-pill--orange {
+  background: var(--tag-orange-bg);
+  color: var(--tag-orange-text);
+}
+
+.clutter-pill--purple {
+  background: var(--tag-purple-bg);
+  color: var(--tag-purple-text);
+}
+
+.clutter-pill--red {
+  background: var(--tag-red-bg);
+  color: var(--tag-red-text);
+}
+
+.clutter-pill--yellow {
+  background: var(--tag-yellow-bg);
+  color: var(--tag-yellow-text);
+}
+
+.clutter-pill--dark-grey {
+  background: var(--tag-dark-grey-bg);
+  color: var(--tag-dark-grey-text);
+}

@@ -8,7 +8,7 @@ export interface SidepanelNavigationProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   label: string;
   icon?: PhosphorIcon;
-  /** Optional count / badge value (e.g. note count). Hidden when omitted or empty. */
+  /** Optional count / date pill value (e.g. note count). Hidden when omitted or empty. */
   count?: ReactNode;
 }
 

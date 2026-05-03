@@ -96,7 +96,7 @@ html.theme-transitioning *::after {
   --tag-grey-bg: rgba(255, 255, 255, 0.22);
   --tag-grey-text: rgba(255, 255, 255, 0.82);
   --tag-dark-grey-bg: rgba(255, 255, 255, 0.05);
-  --tag-dark-grey-text: var(--text-secondary);
+  --tag-dark-grey-text: var(--text-tertiary);
 
   /* Feedback */
   --feedback-info-bg: rgba(59, 130, 246, 0.22);
@@ -195,7 +195,7 @@ html.theme-transitioning *::after {
 
   /* Tag / Dark grey */
   --tag-dark-grey-bg: rgba(0, 0, 0, 0.12);
-  --tag-dark-grey-text: rgba(0, 0, 0, 0.55);
+  --tag-dark-grey-text: var(--text-tertiary);
 
   /* Tag / Colors */
   --tag-blue-bg: rgb(192, 222, 241);
