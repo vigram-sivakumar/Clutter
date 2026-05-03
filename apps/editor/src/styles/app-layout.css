@@ -1,10 +1,10 @@
 /* ─── Layout tokens ──────────────────────────────────────────────────────── */
 
 :root {
-  --topbar-height: 44px;
+  --topbar-height: var(--height-xl);
   --sidebar-width: 240px;
   --sidebar-width-collapsed: 44px;
-  --sidebar-item-height: var(--height-xl);
+  --sidebar-item-height: var(--height-lg);
   --sidebar-item-radius: var(--radius-lg);
   --document-max-width: 720px;
   --document-padding-x: var(--space-32);

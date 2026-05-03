@@ -74,7 +74,7 @@
   user-select: none;
   flex-shrink: 0;
   /* Default size */
-  height: var(--height-xl);
+  height: var(--height-lg);
   padding-block: 0;
   padding-inline: var(--padding-x-lg);
   border-radius: var(--radius-lg);
@@ -82,14 +82,14 @@
 }
 
 .clutter-btn--small {
-  height: var(--height-lg);
+  height: var(--height-md);
   padding-block: 0;
   padding-inline: var(--padding-x-md);
   border-radius: var(--radius-md);
 }
 
 .clutter-btn--xsmall {
-  height: var(--height-md);
+  height: var(--height-sm);
   padding-block: 0;
   padding-inline: var(--padding-x-md);
   border-radius: var(--radius-md);
@@ -156,6 +156,6 @@
 /* ─── Disabled ───────────────────────────────────────────────────────────── */
 
 .clutter-btn:disabled {
-  opacity: var(--opacity-disabled);
+  opacity: var(--interactive-disabled);
   cursor: not-allowed;
 }

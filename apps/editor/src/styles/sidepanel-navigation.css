@@ -5,10 +5,10 @@
 .clutter-sidepanel-nav {
   display: flex;
   align-items: center;
-  gap: var(--gap-icon-label);
+  gap: var(--gap-icon-label-lg);
   box-sizing: border-box;
   width: 100%;
-  min-height: var(--height-xl);
+  min-height: var(--height-lg);
   padding-block: 0;
   padding-inline: var(--padding-x-sm);
   border: none;
@@ -45,7 +45,7 @@
 }
 
 .clutter-sidepanel-nav:disabled .clutter-sidepanel-nav__icon {
-  opacity: var(--opacity-disabled);
+  opacity: var(--interactive-disabled);
 }
 
 .clutter-sidepanel-nav__label {

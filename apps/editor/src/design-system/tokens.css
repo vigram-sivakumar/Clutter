@@ -39,14 +39,6 @@
   --opacity-strong: 0.3;
   --opacity-medium: 0.4;
   --opacity-subtle: 0.7;
-  --opacity-disabled: var(--opacity-strong);
-
-  /* ─── Radius scale ───────────────────────────────────────────────────── */
-
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px; /* Default */
-  --radius-xl: 12px;
 
   /* ─── Spacing scale (single source of truth) ─────────────────────────── */
   --space-2: 2px;
@@ -62,23 +54,31 @@
   --space-64: 64px;
   --space-96: 96px;
   --space-128: 128px;
+  
+  /* ─── Radius scale ───────────────────────────────────────────────────── */
+  --radius-xs: var(--space-2);
+  --radius-sm: var(--space-4);
+  --radius-md: var(--space-6);
+  --radius-lg: var(--space-8); /* Default */
+  --radius-xl: var(--space-12);
 
   /* ─── Height scale ───────────────────────────────────────────────────── */
 
-  --height-xs: 12px;
-  --height-sm: 16px;
-  --height-md: 20px;
-  --height-lg: 24px; /* Default */
-  --height-xl: 28px;
+  --height-xs: 16px;
+  --height-sm: 20px;
+  --height-md: 24px; /* Default */
+  --height-lg: 28px;
+  --height-xl: 40px;
+  --height-xxl: 48px;
 
   /* ─── Margin (same px scale as padding) ────────────────────────────── */
 
-  --margin-2px: 2px;
-  --margin-4px: 4px;
-  --margin-6px: 6px;
-  --margin-8px: 8px;
-  --margin-12px: 12px;
-  --margin-16px: 16px;
+  --margin-2px: var(--space-2);
+  --margin-4px: var(--space-4);
+  --margin-6px: var(--space-6);
+  --margin-8px: var(--space-8);
+  --margin-12px: var(--space-12);
+  --margin-16px: var(--space-16);
   --margin-24px: var(--space-24); /* Editor nested outline indent */
 
   /* Horizontal inset — xs tight chips; sm rows; md/lg controls */
@@ -86,16 +86,28 @@
   --padding-x-sm: var(--space-4);
   --padding-x-md: var(--space-6);
   --padding-x-lg: var(--space-8);
+  --padding-x-xl: var(--space-12);
 
-  /* ─── Gap between icon & label ─────────────────────────────────────── */
+  /* ─── Gap / icon & label ─────────────────────────────────────── */
 
-  --gap-icon-label: var(--space-8);
-  --gap-icon-label-tight: var(--space-4);
+  --gap-icon-label-sm: var(--space-4);
+  --gap-icon-label-lg: var(--space-8);
 
-  /* ─── Gap between buttons ──────────────────────────────────────────── */
+  /* Gap / btn-btn */
+  --gap-btn-btn-xs: var(--space-2);
+  --gap-btn-btn-sm: var(--space-4);
+  --gap-btn-btn-md: var(--space-6);
+  --gap-btn-btn-lg: var(--space-8);
 
-  --btn-gap: var(--space-8);
-  --btn-gap-tight: var(--space-4);
+  /* Gap / section */
+  --gap-section-xs: var(--space-2);
+  --gap-section-sm: var(--space-4);
+  --gap-section-md: var(--space-6);
+  --gap-section-lg: var(--space-8);
+  --gap-section-xl: var(--space-12);
+
+  /* Gap / list items */
+  --gap-list-item-xs: var(--space-2);
 
   /* ─── Typography ───────────────────────────────────────────────────── */
 

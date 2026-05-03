@@ -105,7 +105,7 @@
 
 /* Systemic node (trailing empty paragraph) — dot is visible but dimmed */
 .clutter-node--trailing .clutter-node__bullet {
-  opacity: var(--opacity-disabled);
+  opacity: var(--interactive-disabled);
 }
 
 /* Ring — shown when a node is collapsed and hiding children */

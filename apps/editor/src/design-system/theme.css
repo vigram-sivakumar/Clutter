@@ -61,6 +61,7 @@ html.theme-transitioning *::after {
   --interactive-pressed: rgba(255, 255, 255, 0.1);
   --interactive-active: rgba(255, 255, 255, 0.08);
   --interactive-active-inverse: var(--surface-secondary);
+  --interactive-opacity-disabled: var(--opacity-strong);
 
   /* Node */
   --node-bullet: rgba(255, 255, 255, 0.5);
@@ -165,6 +166,7 @@ html.theme-transitioning *::after {
   --interactive-pressed: rgba(0, 0, 0, 0.1);
   --interactive-active: rgba(0, 0, 0, 0.08);
   --interactive-active-inverse: var(--surface-secondary);
+  --interactive-disabled: var(--opacity-strong);
 
   /* Node */
   --node-bullet: rgba(0, 0, 0, 0.55);

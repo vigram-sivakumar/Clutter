@@ -16,8 +16,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--height-sm);
-  min-width: var(--height-sm);
+  height: var(--height-xs);
+  min-width: var(--height-xs);
   padding-block: 0;
   padding-inline: 0;
   border-radius: var(--radius-sm);

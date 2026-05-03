@@ -7,7 +7,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--height-sm);
+  height: var(--height-xs);
   flex-shrink: 0;
   font-family: var(--font-sans);
   user-select: none;
@@ -29,11 +29,11 @@
 }
 
 .clutter-badge--number {
-  min-width: var(--height-sm);
+  min-width: var(--height-xs);
 }
 
 .clutter-badge--dot-only {
-  min-width: var(--height-sm);
+  min-width: var(--height-xs);
 }
 
 /* ─── Slots ───────────────────────────────────────────────────────────────── */
