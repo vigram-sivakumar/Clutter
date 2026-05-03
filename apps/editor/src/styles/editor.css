@@ -5,6 +5,9 @@
 
 .clutter-document-body {
   outline: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .clutter-node {
@@ -89,10 +92,15 @@
   visibility: visible;
 }
 
+
 /* Always show dot on hover, even if the node is otherwise empty */
 .clutter-node:hover .clutter-node__bullet {
   visibility: visible;
-  transform: scale(1.4);
+}
+
+/* Always show dot on hover, even if the node is otherwise empty */
+.clutter-node__bullet-slot:hover .clutter-node__bullet {
+  transform: scale(1.2);
 }
 
 /* Systemic node (trailing empty paragraph) — dot is visible but dimmed */
@@ -131,9 +139,12 @@
 
 .clutter-node {
   position: relative;
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
 }
 
 .clutter-node--block-selected {
+  border: 1px solid var(--node-halo-border);
   background: var(--selection-block-bg);
 }
 
@@ -142,6 +153,8 @@
    node's background covers the full area uniformly (Tana/Workflowy style). */
 .clutter-node--block-selected .clutter-node--block-selected {
   background: transparent;
+  border: 1px solid transparent;
+
 }
 
 /* Hide text cursor inside block-selected nodes — the highlight is the selection indicator.
@@ -155,6 +168,9 @@
 .clutter-node__children {
   position: relative;
   margin-inline-start: var(--margin-24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 /* Vertical connector */
@@ -165,5 +181,5 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--border-default);
+  background: var(--border-strong);
 }

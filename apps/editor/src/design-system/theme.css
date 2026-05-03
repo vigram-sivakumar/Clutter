@@ -118,8 +118,8 @@ html.theme-transitioning *::after {
   --dropdown-border: var(--border-inverse);
 
   /* Editor — selection (not in Figma, needed for rendering) */
-  --selection-bg: rgba(99, 102, 241, 0.22);
-  --selection-block-bg: rgba(99, 102, 241, 0.15);
+  --selection-bg: var(--node-halo-subtle);
+  --selection-block-bg: var(--node-halo-subtle);
 }
 
 /* ─── Light mode ───────────────────────────────────────────────────────── */
