@@ -13,7 +13,7 @@
 .clutter-tabs--horizontal {
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: var(--height-xl);
   max-width: var(--sidebar-width);
   padding-inline: var(--padding-x-xl);
 }
@@ -31,6 +31,7 @@
 .clutter-tabs__track {
   position: relative;
   display: flex;
+  height: var(--height-lg);
   background: var(--tab-bg);
   padding: var(--padding-x-xs);
   border-radius: var(--radius-lg);
@@ -59,6 +60,7 @@
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
+
 }
 
 .clutter-tabs--vertical .clutter-tabs__track {
@@ -75,7 +77,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--height-md);
+  height: 100%;
   margin: 0;
   padding: 0;
   border: none;

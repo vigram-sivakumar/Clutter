@@ -34,7 +34,7 @@ html.theme-transitioning *::after {
 
   /* Text */
   --text-primary: rgba(255, 255, 255, 0.82);
-  --text-secondary: rgba(255, 255, 255, 0.5);
+  --text-secondary: rgba(255, 255, 255, 0.55);
   --text-tertiary: rgba(255, 255, 255, 0.35);
   --text-inverse: rgba(0, 0, 0, 0.82);
 
@@ -44,7 +44,7 @@ html.theme-transitioning *::after {
 
   /* Icon */
   --icon-primary: rgba(255, 255, 255, 0.82);
-  --icon-secondary: rgba(255, 255, 255, 0.5);
+  --icon-secondary: rgba(255, 255, 255, 0.55);
   --icon-tertiary: rgba(255, 255, 255, 0.35);
   --icon-placeholder: rgba(255, 255, 255, 0.2);
   --icon-inverse: rgba(0, 0, 0, 0.82);
