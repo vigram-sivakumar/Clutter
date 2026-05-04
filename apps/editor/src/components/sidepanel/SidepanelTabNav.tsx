@@ -5,10 +5,11 @@ import type { TabId } from '../Tabs';
 import { SidepanelNavigation } from './Navigation';
 
 /**
- * List destinations are not wired yet; keep rows visible but inert so we do not
- * offer empty navigation targets.
+ * List destinations are not wired yet; rows are inert (aria-disabled) and use
+ * empty styling — not native disabled, so icons stay tertiary rather than the
+ * disabled opacity treatment.
  */
-const NAV_DISABLED = true;
+const NAV_INERT = true;
 
 type NavRow = {
   label: string;
@@ -70,7 +71,9 @@ export function SidepanelTabNav({ activeTab }: SidepanelTabNavProps) {
             iconSize={row.iconSize}
             iconWeight={row.iconWeight}
             type="button"
-            disabled={NAV_DISABLED}
+            empty={NAV_INERT}
+            aria-disabled={NAV_INERT}
+            tabIndex={NAV_INERT ? -1 : undefined}
           />
         ))}
       </div>

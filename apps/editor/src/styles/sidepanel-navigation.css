@@ -23,16 +23,18 @@
   transition: background-color var(--duration-interaction) var(--easing-interaction);
 }
 
-.clutter-sidepanel-nav:hover:not(:disabled) {
+.clutter-sidepanel-nav:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--interactive-hover);
 }
 
-.clutter-sidepanel-nav:active:not(:disabled) {
+.clutter-sidepanel-nav:active:not(:disabled):not([aria-disabled='true']) {
   background: var(--interactive-pressed);
 }
 
-.clutter-sidepanel-nav:disabled {
+.clutter-sidepanel-nav:disabled,
+.clutter-sidepanel-nav[aria-disabled='true'] {
   cursor: not-allowed;
+  pointer-events: none;
 }
 
 .clutter-sidepanel-nav__icon {
@@ -45,16 +47,17 @@
   color: var(--icon-secondary);
 }
 
-.clutter-sidepanel-nav:disabled .clutter-sidepanel-nav__icon {
-  opacity: var(--interactive-disabled);
+/** Empty row — tertiary icon (Figma); not the same as native `disabled` opacity. */
+.clutter-sidepanel-nav--empty .clutter-sidepanel-nav__icon {
+  color: var(--icon-tertiary);
 }
 
 .clutter-sidepanel-nav__label {
   flex: 1 1 auto;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: var(--text-label-medium);
-  font-weight: var(--fw-medium);
+  font-size: var(--text-body-medium);
+  font-weight: var(--fw-regular);
   line-height: 16px;
   color: var(--text-secondary);
   white-space: nowrap;

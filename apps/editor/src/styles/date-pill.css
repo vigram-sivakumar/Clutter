@@ -62,6 +62,6 @@
 
 .clutter-date-pill__text--number {
   font-size: var(--text-label-medium);
-  font-weight: var(--fw-regular);
+  font-weight: var(--fw-medium);
   line-height: var(--lh-label-small);
 }

@@ -1,0 +1,111 @@
+/**
+ * EmptyState — sidepanel scroll empty pattern (Figma: Empty state, node 303:28705).
+ */
+
+/**
+ * Wraps sidepanel scroll content. Top-aligned + full width — matches Figma sidepanel
+ * content slot (node 527:16717); do not center the section stack (that was for the old
+ * standalone page EmptyState demo).
+ */
+.clutter-empty-state-host {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: min-content;
+  padding: 0;
+}
+
+.clutter-empty-state {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 200px;
+}
+
+.clutter-empty-state--page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.clutter-empty-state__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.clutter-empty-state__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.clutter-empty-state__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: var(--icon-medium);
+  height: var(--icon-medium);
+  align-items: center;
+  justify-content: center;
+  color: var(--icon-primary);
+}
+
+.clutter-empty-state__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body-medium);
+  font-weight: var(--fw-medium);
+  line-height: 20px;
+  color: var(--text-primary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clutter-empty-state__description {
+  margin: 0;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--text-label-medium);
+  font-weight: var(--fw-medium);
+  line-height: 16px;
+  color: var(--text-placeholder);
+  text-align: center;
+}
+
+.clutter-empty-state__description--inline {
+  text-align: start;
+}
+
+.clutter-empty-state--inline {
+  max-width: none;
+  min-height: var(--height-lg);
+  padding-inline: var(--padding-x-sm);
+}
+
+.clutter-empty-state--inline .clutter-empty-state__description--inline {
+  width: 100%;
+}
+
+.clutter-empty-state__actions {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.clutter-empty-state__action {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 260px;
+}

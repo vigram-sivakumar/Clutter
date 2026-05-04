@@ -13,6 +13,11 @@ export interface SidepanelNavigationProps
   iconWeight?: IconProps['weight'];
   /** Optional count / date pill value (e.g. note count). Hidden when omitted or empty. */
   count?: ReactNode;
+  /**
+   * Empty row: icon uses tertiary color. Prefer this over `disabled` — disabled applies a separate
+   * muted treatment; empty vs not-empty is the only nav distinction in Figma.
+   */
+  empty?: boolean;
 }
 
 /**
@@ -26,11 +31,19 @@ export function SidepanelNavigation({
   count,
   className,
   disabled,
+  empty = false,
   type = 'button',
+  tabIndex,
   ...props
 }: SidepanelNavigationProps) {
   const Icon = icon;
-  const cls = ['clutter-sidepanel-nav', className].filter(Boolean).join(' ');
+  const cls = [
+    'clutter-sidepanel-nav',
+    empty && 'clutter-sidepanel-nav--empty',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
   const showCount = count != null && count !== '';
   const size = iconSize ?? ICON_MEDIUM;
   const iconBoxStyle =
@@ -44,7 +57,13 @@ export function SidepanelNavigation({
       : undefined;
 
   return (
-    <button type={type} className={cls} disabled={disabled} {...props}>
+    <button
+      type={type}
+      className={cls}
+      disabled={disabled}
+      {...props}
+      tabIndex={tabIndex}
+    >
       {Icon && (
         <span className="clutter-sidepanel-nav__icon" style={iconBoxStyle} aria-hidden>
           <Icon size={size} weight={iconWeight} />

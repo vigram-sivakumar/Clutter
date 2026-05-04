@@ -1,0 +1,71 @@
+/**
+ * Section header — sidepanel list section title (Figma: SectionHeader, node 303:28618).
+ * Row is not a single button: expand/collapse is the secondary xsmall `Button` (chevron) only.
+ */
+
+.clutter-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-icon-label-lg);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--height-lg);
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--padding-x-sm);
+  border-radius: var(--sidebar-item-radius);
+  background: transparent;
+  cursor: default;
+  text-align: left;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: background-color var(--duration-interaction) var(--easing-interaction);
+}
+
+.clutter-section-header:hover {
+  background: var(--interactive-hover);
+}
+
+.clutter-section-header__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: var(--icon-medium);
+  height: var(--icon-medium);
+  align-items: center;
+  justify-content: center;
+  color: var(--icon-secondary);
+}
+
+.clutter-section-header__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-label-medium);
+  font-weight: var(--fw-medium);
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chevron: xsmall `Button`; visible only while the header row is hovered */
+.clutter-section-header__chevron-slot {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-interaction) var(--easing-interaction);
+}
+
+.clutter-section-header:hover .clutter-section-header__chevron-slot {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.clutter-section-header__chevron-btn svg {
+  transition: transform var(--duration-interaction) var(--easing-interaction);
+}
+
+.clutter-section-header[data-expanded='true'] .clutter-section-header__chevron-btn svg {
+  transform: rotate(90deg);
+}

@@ -63,7 +63,7 @@
   min-width: 0;
   height: 100%;
   background: var(--surface-secondary);
-  padding: 0 var(--padding-x-sm) var(--padding-x-sm) 0;
+  padding: 0 var(--padding-x-sm) 0 0;
   overflow: hidden;
 }
 

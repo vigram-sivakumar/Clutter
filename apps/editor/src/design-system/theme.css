@@ -34,8 +34,9 @@ html.theme-transitioning *::after {
 
   /* Text */
   --text-primary: rgba(255, 255, 255, 0.82);
-  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-secondary: rgba(255, 255, 255, 0.60);
   --text-tertiary: rgba(255, 255, 255, 0.35);
+  --text-placeholder: rgba(255, 255, 255, 0.20);
   --text-inverse: rgba(0, 0, 0, 0.82);
 
   /* Body typography aliases (base.css / editor shell) */
@@ -141,7 +142,7 @@ html.theme-transitioning *::after {
   --text-primary: rgba(0, 0, 0, 0.85);
   --text-secondary: rgba(0, 0, 0, 0.55);
   --text-tertiary: rgba(0, 0, 0, 0.45);
-  --text-placeholder: rgba(0, 0, 0, 0.3);
+  --text-placeholder: rgba(0, 0, 0, 0.30);
   --text-inverse: rgba(255, 255, 255, 0.82);
 
   /* Body typography aliases (base.css / editor shell) */
@@ -194,10 +195,6 @@ html.theme-transitioning *::after {
   --calendar-hover: var(--interactive-hover);
   --calendar-had-content: rgba(0, 0, 0, 0.55);
 
-  /* Tag / Dark grey */
-  --tag-dark-grey-bg: rgba(0, 0, 0, 0.12);
-  --tag-dark-grey-text: var(--text-tertiary);
-
   /* Tag / Colors */
   --tag-blue-bg: rgb(192, 222, 241);
   --tag-blue-text: rgb(36, 63, 92);
@@ -215,6 +212,8 @@ html.theme-transitioning *::after {
   --tag-indigo-text: rgb(47, 58, 143);
   --tag-grey-bg: rgb(233, 233, 233);
   --tag-grey-text: rgb(82, 82, 82);
+  --tag-dark-grey-bg: rgba(0, 0, 0, 0.12);
+  --tag-dark-grey-text: var(--text-tertiary);
 
   /* Feedback */
   --feedback-info-bg: rgb(192, 222, 241);
