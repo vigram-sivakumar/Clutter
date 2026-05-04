@@ -15,6 +15,7 @@ import './design-system/theme.css';
 import './styles/base.css';
 import './styles/app-layout.css';
 import './styles/button.css';
+import './styles/tabs.css';
 import './styles/shortcut-key.css';
 import './styles/divider.css';
 import './styles/avatar.css';
@@ -25,8 +26,8 @@ import './styles/count.css';
 import './styles/section-subheader.css';
 import './styles/sidepanel-navigation.css';
 import './styles/dropdown-item.css';
-import './styles/topbar.css';
-import './styles/workspace-search.css';
+import './styles/global-topbar.css';
+import './styles/workspace-selector.css';
 import './styles/editor.css';
 
 const root = document.getElementById('root');

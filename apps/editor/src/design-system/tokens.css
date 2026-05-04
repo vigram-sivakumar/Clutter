@@ -45,6 +45,10 @@
   --duration-interaction: 120ms;
   --easing-interaction: ease;
 
+  /* Sliding / layout highlights — slower, ease-out–biased (tab thumb, etc.) */
+  --duration-tab-slide: 360ms;
+  --easing-tab-slide: cubic-bezier(0.32, 0.72, 0, 1);
+
   /* ─── Spacing scale (single source of truth) ─────────────────────────── */
   --space-2: 2px;
   --space-4: 4px;

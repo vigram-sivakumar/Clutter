@@ -1,12 +1,12 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from 'react';
 
-import { Avatar } from './Avatar';
-import { ICON_MEDIUM, Icons } from '../design-system/icons';
+import { Avatar } from '../Avatar';
+import { ICON_MEDIUM, Icons } from '../../design-system/icons';
 
 /** Caret glyph frame — matches Figma (8px). */
 const CARET_PX = 8;
 
-export interface WorkspaceSearchProps extends Omit<
+export interface WorkspaceProps extends Omit<
   HTMLAttributes<HTMLDivElement>,
   'children'
 > {
@@ -23,7 +23,7 @@ export interface WorkspaceSearchProps extends Omit<
   searchLabel?: string;
 }
 
-export function WorkspaceSearch({
+export function Workspace({
   name,
   avatarSrc,
   avatarOnly = false,
@@ -33,7 +33,7 @@ export function WorkspaceSearch({
   searchLabel = 'Search',
   className,
   ...divProps
-}: WorkspaceSearchProps) {
+}: WorkspaceProps) {
   const rootCls = [
     'clutter-workspace-search',
     className,

@@ -1,10 +1,10 @@
-import { WorkspaceSearch } from './WorkspaceSearch';
-import { ICON_MEDIUM, Icons } from '../design-system/icons';
+import { Workspace } from './workspace';
+import { ICON_MEDIUM, Icons } from '../../design-system/icons';
 
-export function Topbar() {
+export function GlobalTopbar() {
   return (
     <header className="clutter-global-topbar">
-      <WorkspaceSearch name="My space" />
+      <Workspace name="My space" />
       <div className="clutter-global-topbar__main">
         <nav className="clutter-global-topbar__nav" aria-label="Editor navigation">
           <button

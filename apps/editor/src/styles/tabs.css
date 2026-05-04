@@ -1,0 +1,122 @@
+/**
+ * Icon tab strip (sidebar). Uses --tab-* from button.css.
+ */
+
+.clutter-tabs {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: var(--radius-lg);
+}
+
+/* Horizontal: full sidebar width, ~12px inline padding, ~44px row */
+.clutter-tabs--horizontal {
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  max-width: var(--sidebar-width);
+  padding-inline: var(--padding-x-xl);
+}
+
+/* Vertical rail (e.g. collapsed strip) */
+.clutter-tabs--vertical {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: auto;
+  min-height: 0;
+  padding-inline: 0;
+}
+
+.clutter-tabs__track {
+  position: relative;
+  display: flex;
+  background: var(--tab-bg);
+  padding: var(--padding-x-xs);
+  border-radius: var(--radius-lg);
+  box-sizing: border-box;
+  transition:
+    background-color var(--duration-interaction) var(--easing-interaction);
+}
+
+.clutter-tabs__thumb {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: var(--radius-md);
+  background: var(--tab-active);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    transform var(--duration-tab-slide) var(--easing-tab-slide),
+    width var(--duration-tab-slide) var(--easing-tab-slide),
+    height var(--duration-tab-slide) var(--easing-tab-slide);
+}
+
+.clutter-tabs--horizontal .clutter-tabs__track {
+  flex: 1 1 0;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.clutter-tabs--vertical .clutter-tabs__track {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-8);
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.clutter-tabs__tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-md);
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  color: var(--tab-icon);
+  font: inherit;
+  flex: 1 1 0;
+  min-width: 0;
+  transition:
+    background-color var(--duration-interaction) var(--easing-interaction),
+    color var(--duration-interaction) var(--easing-interaction);
+}
+
+.clutter-tabs--vertical .clutter-tabs__tab {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
+.clutter-tabs__tab:hover {
+  color: var(--tab-icon-active);
+}
+
+.clutter-tabs__tab[aria-selected='true'] {
+  color: var(--tab-icon-active);
+}
+
+.clutter-tabs__tab:active {
+  color: var(--icon-tertiary);
+}
+
+.clutter-tabs__tab:focus-visible {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
+}
+
+.clutter-tabs__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  pointer-events: none;
+}

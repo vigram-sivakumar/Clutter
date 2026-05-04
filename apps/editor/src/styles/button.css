@@ -16,13 +16,13 @@
   --button-secondary-text:    var(--text-secondary);
   --button-secondary-border:  var(--border-strong);
 
-  /* Sidebar tab */
-  --button-sidebar-tab-bg:          rgba(255, 255, 255, 0.02);
-  --button-sidebar-tab-hover:       var(--interactive-hover);
-  --button-sidebar-tab-pressed:     var(--interactive-pressed);
-  --button-sidebar-tab-active:      rgba(255, 255, 255, 0.10);
-  --button-sidebar-tab-icon:        var(--icon-secondary);
-  --button-sidebar-tab-icon-active: var(--icon-primary);
+  /* Tab strip (e.g. sidebar) */
+  --tab-bg:          var(--surface-tertiary);
+  --tab-hover:       var(--interactive-hover);
+  --tab-pressed:     var(--interactive-pressed);
+  --tab-active:      var(--interactive-active);
+  --tab-icon:        var(--icon-secondary);
+  --tab-icon-active: var(--icon-primary);
 
   /* Checkbox */
   --button-checkbox-filled: var(--accent-light);
@@ -44,13 +44,13 @@
   --button-secondary-text:    var(--text-secondary);
   --button-secondary-border:  var(--border-strong);
 
-  /* Sidebar tab */
-  --button-sidebar-tab-bg:          rgba(0, 0, 0, 0.03);
-  --button-sidebar-tab-hover:       var(--interactive-hover);
-  --button-sidebar-tab-pressed:     var(--interactive-pressed);
-  --button-sidebar-tab-active:      rgba(0, 0, 0, 0.10);
-  --button-sidebar-tab-icon:        var(--icon-secondary);
-  --button-sidebar-tab-icon-active: var(--icon-primary);
+  /* Tab strip (e.g. sidebar) */
+  --tab-bg:          rgba(0, 0, 0, 0.03);
+  --tab-hover:       var(--interactive-hover);
+  --tab-pressed:     var(--interactive-pressed);
+  --tab-active:      rgba(0, 0, 0, 0.10);
+  --tab-icon:        var(--icon-secondary);
+  --tab-icon-active: var(--icon-primary);
 
   /* Checkbox */
   --button-checkbox-filled: var(--accent-dark);

@@ -1,5 +1,6 @@
 import React from "react";
-import { Topbar } from "./Topbar";
+import { GlobalTopbar } from "./global-topbar/GlobalTopbar";
+import { Tabs } from "./Tabs";
 
 type SidepanelState = "expanded" | "collapsed" | "hidden";
 
@@ -12,11 +13,13 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="clutter-app">
-      <Topbar />
+      <GlobalTopbar />
       <div className="clutter-workspace" data-sidepanel={sidepanel}>
         <aside
           className={`clutter-sidepanel${sidepanel !== "expanded" ? ` clutter-sidepanel--${sidepanel}` : ""}`}
-        />
+        >
+          <Tabs direction={sidepanel === "collapsed" ? "vertical" : "horizontal"} />
+        </aside>
         <main className="clutter-canvas">
           <div className="clutter-editor-group">
             <div className="clutter-editor-pane">

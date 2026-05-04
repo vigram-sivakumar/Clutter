@@ -1,5 +1,5 @@
 /**
- * Workspace search — Figma GlobalTopbarWorkspaceSearch (node 247:4666).
+ * Global topbar workspace selector — Figma GlobalTopbarWorkspaceSearch (node 247:4666).
  * Uses semantic tokens from theme.css only.
  */
 
@@ -12,7 +12,7 @@
   flex-shrink: 0;
   width: var(--sidebar-width);
   padding-block: 0;
-  padding-inline: var(--padding-x-lg) var(--padding-x-xl);
+  padding-inline: var(--padding-x-xl);
   border-radius: var(--sidebar-item-radius);
 }
 
@@ -50,16 +50,16 @@
 }
 
 .clutter-workspace-search__trigger:hover {
-  background: var(--topbar-workspace-dropdown-hover);
+  background: var(--workspace-dropdown-hover);
 }
 
 .clutter-workspace-search__trigger[aria-expanded='true'],
 .clutter-workspace-search__trigger[aria-expanded='true']:hover {
-  background: var(--topbar-workspace-dropdown-active);
+  background: var(--workspace-dropdown-active);
 }
 
 .clutter-workspace-search__trigger:active {
-  background: var(--topbar-workspace-dropdown-pressed);
+  background: var(--workspace-dropdown-pressed);
 }
 
 .clutter-workspace-search__trigger:focus-visible {
