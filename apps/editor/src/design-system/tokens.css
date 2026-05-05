@@ -122,6 +122,8 @@
 
   /* Gap / list items */
   --gap-list-item-xs: var(--space-2);
+  --gap-list-item-sm: var(--space-4);
+
 
   /* ─── Typography ───────────────────────────────────────────────────── */
 

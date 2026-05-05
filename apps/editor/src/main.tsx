@@ -36,6 +36,7 @@ import './styles/sidepanel-nav-list.css';
 import './styles/dropdown-item.css';
 import './styles/global-topbar.css';
 import './styles/workspace-selector.css';
+import './styles/doc-icon.css';
 import './styles/editor.css';
 
 const root = document.getElementById('root');

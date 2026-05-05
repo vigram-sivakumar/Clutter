@@ -18,7 +18,7 @@
   align-items: flex-start;
   box-sizing: border-box;
   width: 100%;
-  gap: var(--space-2);
+  gap: var(--gap-list-item-sm);
   padding-inline: var(--sidepanel-padding-x-sm);
   overflow: clip;
 }

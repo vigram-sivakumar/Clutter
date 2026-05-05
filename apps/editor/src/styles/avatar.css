@@ -59,7 +59,7 @@
 
 .clutter-avatar__initials {
   font-family: var(--font-sans);
-  font-size: 8px;
+  font-size: var(--text-label-smaller);
   font-weight: var(--fw-medium);
   line-height: 1;
   background-image: var(--avatar-initials-gradient);

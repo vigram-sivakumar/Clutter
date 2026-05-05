@@ -10,6 +10,7 @@ import { Header } from "./sidepanel-section/Header";
 import { SectionGroupLayout } from "./sidepanel-section/SectionGroupLayout";
 import { SectionLayout } from "./sidepanel-section/SectionLayout";
 import { Subheader } from "./sidepanel-section/Subheader";
+import { DocIcon } from "./document/DocIcon";
 
 /** Calendar tab — collapsible `Header` + empty line. Notes / Tasks use multi-section layouts; Tags has no section header. */
 const CALENDAR_SIDEPANEL_SECTION = {
@@ -248,7 +249,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               <div className="clutter-editor-topbar" />
               <div className="clutter-editor-scroll">
                 <div className="clutter-editor-document">
-                  <div className="clutter-document-header" />
+                  <div className="clutter-document-header">
+                    <DocIcon type="emoji" />
+                  </div>
                   <div className="clutter-document-content">
                     {children}
                     <div className="clutter-document-footer" />
