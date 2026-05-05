@@ -117,11 +117,6 @@ export function AppLayout({ children }: AppLayoutProps) {
                               description="No tasks for today or All done for today"
                             />
                           </SectionGroupLayout>
-                          <SectionGroupLayout
-                            subheader={<Subheader text="Tomorrow" labelAppearance="pill" />}
-                          >
-                            <EmptyState type="inline" description="No tasks for tomorrow" />
-                          </SectionGroupLayout>
                         </>
                       ) : null}
                     </SectionLayout>

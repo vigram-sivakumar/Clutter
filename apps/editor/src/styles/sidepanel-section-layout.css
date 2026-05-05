@@ -1,16 +1,7 @@
 /**
- * SectionLayout & SectionGroupLayout — sidepanel list scaffolding
- * (Figma: Sidepanel/Section 303:28699, Sidepanel/Section group 307:10642).
+ * SectionLayout — sidepanel list scaffolding
+ * (Figma: Sidepanel/Section 303:28699).
  */
-
-:root {
-  --section-layout-gap: var(--space-2);
-  --section-layout-padding-x: var(--sidepanel-padding-x-sm);
-  --section-layout-groups-gap: 0px;
-  --section-layout-bottom-padding: var(--padding-x-lg);
-  --section-group-gap: var(--space-2);
-  --section-group-items-gap: 0px;
-}
 
 /** Stacked `SectionLayout`s in the sidepanel scroll region (e.g. Notes: Favorites + Folders). */
 .clutter-sidepanel-scroll-sections {
@@ -27,8 +18,8 @@
   align-items: flex-start;
   box-sizing: border-box;
   width: 100%;
-  gap: var(--section-layout-gap);
-  padding-inline: var(--section-layout-padding-x);
+  gap: var(--space-2);
+  padding-inline: var(--sidepanel-padding-x-sm);
   overflow: clip;
 }
 
@@ -41,7 +32,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--section-layout-groups-gap);
+  gap: var(--space-12);
   box-sizing: border-box;
   width: 100%;
   flex-shrink: 0;
@@ -49,33 +40,7 @@
 }
 
 .clutter-section-layout__groups--bottom-padding {
-  padding-bottom: var(--section-layout-bottom-padding);
-}
-
-.clutter-section-group-layout {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  box-sizing: border-box;
-  width: 100%;
-  gap: var(--section-group-gap);
-  overflow: clip;
-}
-
-.clutter-section-group-layout__subheader {
-  flex-shrink: 0;
-  width: 100%;
-}
-
-.clutter-section-group-layout__items {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--section-group-items-gap);
-  box-sizing: border-box;
-  width: 100%;
-  flex-shrink: 0;
-  overflow: clip;
+  padding-bottom: var(--padding-x-lg);
 }
 
 /** Plain section title row — Figma `Section/Header` (text only, no chevron). */
