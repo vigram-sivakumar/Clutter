@@ -2,9 +2,9 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import type { Icon as PhosphorIcon, IconProps } from '@phosphor-icons/react';
 
 import { Count } from '../Count';
-import { ICON_MEDIUM } from '../../design-system/icons';
+import { ICON_MEDIUM, ICON_WRAPPER_SIZE } from '../../design-system/icons';
 
-export interface SidepanelNavigationProps
+export interface NavItemProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   label: string;
   icon?: PhosphorIcon;
@@ -23,7 +23,7 @@ export interface SidepanelNavigationProps
 /**
  * Sidepanel list row (Figma: SidepanelNavigation — node 247:5412).
  */
-export function SidepanelNavigation({
+export function NavItem({
   label,
   icon,
   iconSize,
@@ -35,7 +35,7 @@ export function SidepanelNavigation({
   type = 'button',
   tabIndex,
   ...props
-}: SidepanelNavigationProps) {
+}: NavItemProps) {
   const Icon = icon;
   const cls = [
     'clutter-sidepanel-nav',
@@ -45,14 +45,18 @@ export function SidepanelNavigation({
     .filter(Boolean)
     .join(' ');
   const showCount = count != null && count !== '';
-  const size = iconSize ?? ICON_MEDIUM;
-  const iconBoxStyle =
+  const glyphSize = iconSize ?? ICON_MEDIUM;
+  const wrapperPx =
     iconSize !== undefined
+      ? Math.max(glyphSize, ICON_WRAPPER_SIZE)
+      : undefined;
+  const iconWrapStyle =
+    wrapperPx !== undefined
       ? {
-          width: size,
-          height: size,
-          minWidth: size,
-          minHeight: size,
+          width: wrapperPx,
+          height: wrapperPx,
+          minWidth: wrapperPx,
+          minHeight: wrapperPx,
         }
       : undefined;
 
@@ -65,8 +69,12 @@ export function SidepanelNavigation({
       tabIndex={tabIndex}
     >
       {Icon && (
-        <span className="clutter-sidepanel-nav__icon" style={iconBoxStyle} aria-hidden>
-          <Icon size={size} weight={iconWeight} />
+        <span
+          className="clutter-sidepanel-nav__icon-wrap"
+          style={iconWrapStyle}
+          aria-hidden
+        >
+          <Icon size={glyphSize} weight={iconWeight} />
         </span>
       )}
       <span className="clutter-sidepanel-nav__label">{label}</span>

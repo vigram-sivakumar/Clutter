@@ -71,6 +71,8 @@ import {
 // To change the global icon size, update ICON_MEDIUM here only.
 export const ICON_SMALL = 12;
 export const ICON_MEDIUM = 16;
+/** Sidepanel nav icon frame; keep in sync with `tokens.css` `--height-sm`. */
+export const ICON_WRAPPER_SIZE = 20;
 export const ICON_EXTRA_LARGE = 48;
 
 /** Calendar / pill status dot (Phosphor `Circle` fill). Injected as `--dot-md` in main.tsx. */

@@ -1,23 +1,7 @@
 /**
  * EmptyState — sidepanel scroll empty pattern (Figma: Empty state, node 303:28705).
+ * Scroll column chrome lives in sidepanel-layout.css (`__content`).
  */
-
-/**
- * Wraps sidepanel scroll content. Top-aligned + full width — matches Figma sidepanel
- * content slot (node 527:16717); do not center the section stack (that was for the old
- * standalone page EmptyState demo).
- */
-.clutter-empty-state-host {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  align-items: stretch;
-  justify-content: flex-start;
-  width: 100%;
-  min-height: min-content;
-  padding: 0;
-}
 
 .clutter-empty-state {
   box-sizing: border-box;
@@ -89,7 +73,7 @@
 .clutter-empty-state--inline {
   max-width: none;
   min-height: var(--height-lg);
-  padding-inline: var(--padding-x-sm);
+  padding-inline: var(--control-padding-x);
 }
 
 .clutter-empty-state--inline .clutter-empty-state__description--inline {

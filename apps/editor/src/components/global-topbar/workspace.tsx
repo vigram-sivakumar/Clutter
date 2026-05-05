@@ -54,7 +54,7 @@ export function Workspace({
         aria-haspopup="menu"
         onClick={onTriggerClick}
       >
-        <Avatar name={name} src={avatarSrc} size="medium" />
+        <Avatar name={name} src={avatarSrc} size="small" />
         {!avatarOnly && (
           <span className="clutter-workspace-search__label-row">
             <span className="clutter-workspace-search__label">{name}</span>

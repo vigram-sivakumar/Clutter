@@ -97,10 +97,15 @@
   --padding-x-lg: var(--space-8);
   --padding-x-xl: var(--space-12);
 
+  /* Padding for list items and sidepanel content */
+  --control-padding-x: var(--space-6);
+  --sidepanel-padding-x: var(--space-12);
+
+
   /* ─── Gap / icon & label ─────────────────────────────────────── */
 
   --gap-icon-label-sm: var(--space-4);
-  --gap-icon-label-lg: var(--space-8);
+  --gap-icon-label-lg: var(--space-6);
 
   /* Gap / btn-btn */
   --gap-btn-btn-xs: var(--space-2);

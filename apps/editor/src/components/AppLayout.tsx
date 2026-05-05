@@ -2,7 +2,7 @@ import React from "react";
 import { GlobalTopbar } from "./global-topbar/GlobalTopbar";
 import { SidepanelLayout } from "./sidepanel/SidepanelLayout";
 import { SidepanelFooter } from "./sidepanel/SidepanelFooter";
-import { SidepanelTabNav } from "./sidepanel/SidepanelTabNav";
+import { SidepanelNavList } from "./sidepanel/SidepanelNavList";
 import { SidepanelTitle, type SidepanelTitleVariant } from "./sidepanel/SidepanelTitle";
 import { Tabs, type TabId } from "./Tabs";
 import { EmptyState } from "./EmptyState";
@@ -84,11 +84,10 @@ export function AppLayout({ children }: AppLayoutProps) {
             titleRow={
               <SidepanelTitle variant={sidepanelTitleVariantForTab(activeTab)} />
             }
-            navigation={<SidepanelTabNav activeTab={activeTab} />}
+            navigation={<SidepanelNavList activeTab={activeTab} />}
             footer={<SidepanelFooter />}
             children={
-              <div className="clutter-empty-state-host">
-                {activeTab === "tasks" ? (
+              activeTab === "tasks" ? (
                   <div className="clutter-sidepanel-scroll-sections">
                     <SectionLayout
                       bottomPadding={tasksTodayOpen}
@@ -103,20 +102,27 @@ export function AppLayout({ children }: AppLayoutProps) {
                       }
                     >
                       {tasksTodayOpen ? (
-                        <SectionGroupLayout
-                          subheader={
-                            <Subheader
-                              text={formatTasksTodayDate()}
-                              dot
-                              labelAppearance="pill"
+                        <>
+                          <SectionGroupLayout
+                            subheader={
+                              <Subheader
+                                text={formatTasksTodayDate()}
+                                dot
+                                labelAppearance="pill"
+                              />
+                            }
+                          >
+                            <EmptyState
+                              type="inline"
+                              description="No tasks for today or All done for today"
                             />
-                          }
-                        >
-                          <EmptyState
-                            type="inline"
-                            description="No tasks for today or All done for today"
-                          />
-                        </SectionGroupLayout>
+                          </SectionGroupLayout>
+                          <SectionGroupLayout
+                            subheader={<Subheader text="Tomorrow" labelAppearance="pill" />}
+                          >
+                            <EmptyState type="inline" description="No tasks for tomorrow" />
+                          </SectionGroupLayout>
+                        </>
                       ) : null}
                     </SectionLayout>
                     <SectionLayout
@@ -237,8 +243,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                       </SectionGroupLayout>
                     ) : null}
                   </SectionLayout>
-                )}
-              </div>
+                )
             }
           />
         </aside>

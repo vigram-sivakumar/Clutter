@@ -9,6 +9,7 @@
   height: 100%;
   min-height: 0;
   gap: var(--space-8);
+  padding-inline: var(--sidepanel-padding-x);
 }
 
 .clutter-sidepanel-layout__tabs {
@@ -42,13 +43,13 @@
 
 .clutter-sidepanel-layout__navigation {
   flex-shrink: 0;
-  padding-inline: var(--space-8);
+  padding-inline: var(--sidepanel-padding-x-sm);
 }
 
 .clutter-sidepanel-layout__divider-wrap {
   flex-shrink: 0;
   padding-block: var(--space-12);
-  padding-inline: var(--space-12);
+  padding-inline: var(--sidepanel-padding-x-md);
   box-sizing: border-box;
 }
 

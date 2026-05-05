@@ -16,10 +16,14 @@
   white-space: nowrap;
   padding-block: 0;
   padding-inline: var(--padding-x-md);
+  height: var(--height-sm);
+  min-width: var(--height-sm);
 }
 
 .clutter-pill--small {
   padding-inline: var(--padding-x-sm);
+  height: var(--height-xs);
+
 }
 
 /* Figma `color: Text` — no chip fill */

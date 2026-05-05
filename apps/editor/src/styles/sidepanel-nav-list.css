@@ -1,0 +1,15 @@
+/**
+ * SidepanelNavList — tab-scoped sidepanel nav rows (see SidepanelNavList.tsx).
+ * Row chrome lives in sidepanel-nav-item.css (NavItem).
+ */
+
+.clutter-sidepanel-nav-list {
+  width: 100%;
+}
+
+.clutter-sidepanel-nav-list__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-list-item-xs);
+  width: 100%;
+}

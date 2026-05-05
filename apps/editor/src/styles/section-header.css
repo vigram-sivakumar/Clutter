@@ -12,13 +12,13 @@
   min-height: var(--height-lg);
   margin: 0;
   padding-block: 0;
-  padding-inline: var(--padding-x-sm);
+  padding-inline: var(--control-padding-x);
   border-radius: var(--sidebar-item-radius);
   background: transparent;
   cursor: default;
   text-align: left;
   flex-shrink: 0;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   transition: background-color var(--duration-interaction) var(--easing-interaction);
 }
 

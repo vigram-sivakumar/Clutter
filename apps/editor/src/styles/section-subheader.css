@@ -11,6 +11,6 @@
   height: var(--height-sm);
   flex-shrink: 0;
   padding-block: 0;
-  padding-inline: var(--padding-x-sm);
+  padding-inline: var(--control-padding-x);
   border-radius: var(--sidebar-item-radius);
 }

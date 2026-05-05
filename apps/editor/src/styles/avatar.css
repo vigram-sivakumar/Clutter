@@ -1,3 +1,4 @@
+
 /* ─── Tokens ─────────────────────────────────────────────────────────────── */
 
 [data-theme='dark'] {
@@ -35,6 +36,10 @@
   height: var(--height-md);
 }
 
+.clutter-avatar--xs .clutter-avatar__initials {
+  font-size: var(--text-label-smaller);
+}
+
 .clutter-avatar--small {
   width: var(--height-sm);
   height: var(--height-sm);
@@ -54,7 +59,7 @@
 
 .clutter-avatar__initials {
   font-family: var(--font-sans);
-  font-size: var(--text-label-small);
+  font-size: 8px;
   font-weight: var(--fw-medium);
   line-height: 1;
   background-image: var(--avatar-initials-gradient);

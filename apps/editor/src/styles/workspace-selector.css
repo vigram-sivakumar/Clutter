@@ -12,7 +12,7 @@
   flex-shrink: 0;
   width: var(--sidebar-width);
   padding-block: 0;
-  padding-inline: var(--padding-x-xl);
+  padding-inline: var(--sidepanel-padding-x);
   border-radius: var(--sidebar-item-radius);
 }
 
@@ -31,7 +31,7 @@
   gap: var(--gap-icon-label-lg);
   min-height: var(--height-lg);
   padding-block: 0;
-  padding-inline: var(--padding-x-xs);
+  padding-inline: var(--control-padding-x);
   margin: 0;
   border: none;
   border-radius: var(--radius-lg);

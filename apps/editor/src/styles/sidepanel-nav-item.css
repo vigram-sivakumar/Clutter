@@ -1,5 +1,5 @@
 /**
- * SidepanelNavigation — sidepanel list row (Figma: SidepanelNavigation).
+ * NavigationItem — sidepanel list row (Figma: SidepanelNavigation).
  */
 
 .clutter-sidepanel-nav {
@@ -10,7 +10,7 @@
   width: 100%;
   min-height: var(--height-lg);
   padding-block: 0;
-  padding-inline: var(--padding-x-sm);
+  padding-inline: var(--control-padding-x);
   border: none;
   border-radius: var(--sidebar-item-radius);
   background: transparent;
@@ -37,18 +37,21 @@
   pointer-events: none;
 }
 
-.clutter-sidepanel-nav__icon {
+.clutter-sidepanel-nav__icon-wrap {
   display: inline-flex;
   flex-shrink: 0;
-  width: var(--icon-medium);
-  height: var(--icon-medium);
+  box-sizing: border-box;
+  width: var(--height-sm);
+  height: var(--height-sm);
+  min-width: var(--height-sm);
+  min-height: var(--height-sm);
   align-items: center;
   justify-content: center;
   color: var(--icon-secondary);
 }
 
 /** Empty row — tertiary icon (Figma); not the same as native `disabled` opacity. */
-.clutter-sidepanel-nav--empty .clutter-sidepanel-nav__icon {
+.clutter-sidepanel-nav--empty .clutter-sidepanel-nav__icon-wrap {
   color: var(--icon-tertiary);
 }
 

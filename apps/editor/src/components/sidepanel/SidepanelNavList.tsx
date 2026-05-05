@@ -2,14 +2,13 @@ import type { Icon as PhosphorIcon, IconProps } from '@phosphor-icons/react';
 
 import { Icons } from '../../design-system/icons';
 import type { TabId } from '../Tabs';
-import { SidepanelNavigation } from './Navigation';
+import { NavItem } from './NavItem';
 
 /**
- * List destinations are not wired yet; rows are inert (aria-disabled) and use
- * empty styling — not native disabled, so icons stay tertiary rather than the
- * disabled opacity treatment.
+ * Set `true` to make nav rows inert (aria-disabled, `empty` icon) until routes exist.
+ * Default: interactive — not disabled.
  */
-const NAV_INERT = true;
+const NAV_INERT = false;
 
 type NavRow = {
   label: string;
@@ -35,7 +34,7 @@ const NOTES_NAV: NavRow[] = [
 
 const TASKS_NAV: NavRow[] = [
   { label: 'All Tasks', icon: Icons.CheckCircle },
-  { label: 'Inbox', icon: Icons.Tray },
+  { label: 'Someday', icon: Icons.Tray },
 ];
 
 const TAGS_NAV: NavRow[] = [
@@ -50,30 +49,34 @@ const NAV_BY_TAB: Record<TabId, NavRow[]> = {
   tags: TAGS_NAV,
 };
 
-export type SidepanelTabNavProps = {
+export type SidepanelNavListProps = {
   activeTab: TabId;
 };
 
 /**
- * {@link SidepanelNavigation} rows for the active tab (row count varies by tab per Figma).
+ * {@link NavigationItem} rows for the active tab (row count varies by tab per Figma).
  */
-export function SidepanelTabNav({ activeTab }: SidepanelTabNavProps) {
+export function SidepanelNavList({ activeTab }: SidepanelNavListProps) {
   const rows = NAV_BY_TAB[activeTab];
 
   return (
-    <div className="clutter-sidepanel-tab-nav">
-      <div className="clutter-sidepanel-tab-nav__list">
+    <div className="clutter-sidepanel-nav-list">
+      <div className="clutter-sidepanel-nav-list__list">
         {rows.map((row) => (
-          <SidepanelNavigation
+          <NavItem
             key={row.label}
             label={row.label}
             icon={row.icon}
             iconSize={row.iconSize}
             iconWeight={row.iconWeight}
             type="button"
-            empty={NAV_INERT}
-            aria-disabled={NAV_INERT}
-            tabIndex={NAV_INERT ? -1 : undefined}
+            {...(NAV_INERT
+              ? {
+                  empty: true,
+                  "aria-disabled": true as const,
+                  tabIndex: -1 as const,
+                }
+              : {})}
           />
         ))}
       </div>

@@ -9,13 +9,12 @@
   border-radius: var(--radius-lg);
 }
 
-/* Horizontal: full sidebar width, ~12px inline padding, ~44px row */
+/* Horizontal: fills padded sidepanel layout; ~44px row */
 .clutter-tabs--horizontal {
   align-items: center;
   justify-content: center;
   min-height: var(--height-xl);
   max-width: var(--sidebar-width);
-  padding-inline: var(--padding-x-xl);
 }
 
 /* Vertical rail (e.g. collapsed strip) */

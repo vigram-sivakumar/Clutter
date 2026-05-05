@@ -10,8 +10,8 @@
   box-sizing: border-box;
   width: 100%;
   min-height: var(--height-lg);
-  padding-inline: var(--padding-x-xl);
   flex-shrink: 0;
+  padding-left: var(--control-padding-x);
 }
 
 .clutter-sidepanel-title__label-wrap {
