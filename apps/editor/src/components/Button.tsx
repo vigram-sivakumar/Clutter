@@ -1,7 +1,7 @@
 import React from 'react';
 import { Icons, ICON_MEDIUM } from '../design-system/icons';
 
-import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
+import type { Icon as PhosphorIcon, IconProps } from '@phosphor-icons/react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 type ButtonSize = 'default' | 'small' | 'xsmall';
@@ -14,6 +14,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   iconOnly?: PhosphorIcon;
   iconLeft?: PhosphorIcon;
   iconRight?: PhosphorIcon;
+  /** Phosphor `weight` for icons this component renders. */
+  iconWeight?: IconProps['weight'];
   caret?: boolean;
 }
 
@@ -27,12 +29,16 @@ export function Button({
   iconOnly,
   iconLeft,
   iconRight,
+  iconWeight,
   caret = false,
   children,
   className,
   ...props
 }: ButtonProps) {
-  const iconSize = ICON_SIZE;
+  const iconProps: { size: number; weight?: IconProps['weight'] } = { size: ICON_SIZE };
+  if (iconWeight !== undefined) {
+    iconProps.weight = iconWeight;
+  }
 
   const cls = [
     'clutter-btn',
@@ -50,7 +56,9 @@ export function Button({
     const Icon = iconOnly;
     return (
       <button type="button" className={cls} {...props}>
-        <Icon size={iconSize} />
+        <span className="clutter-btn__content">
+          <Icon {...iconProps} />
+        </span>
       </button>
     );
   }
@@ -61,10 +69,12 @@ export function Button({
 
   return (
     <button type="button" className={cls} {...props}>
-      {IconLeft && <IconLeft size={iconSize} />}
-      {children}
-      {IconRight && <IconRight size={iconSize} />}
-      {Caret && <Caret size={iconSize} />}
+      <span className="clutter-btn__content">
+        {IconLeft && <IconLeft {...iconProps} />}
+        {children}
+        {IconRight && <IconRight {...iconProps} />}
+        {Caret && <Caret {...iconProps} />}
+      </span>
     </button>
   );
 }

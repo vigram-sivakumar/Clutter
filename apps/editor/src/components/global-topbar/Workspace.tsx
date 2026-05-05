@@ -1,7 +1,8 @@
 import type { ButtonHTMLAttributes, HTMLAttributes } from 'react';
 
 import { Avatar } from '../Avatar';
-import { ICON_MEDIUM, Icons } from '../../design-system/icons';
+import { Button } from '../Button';
+import { Icons } from '../../design-system/icons';
 
 /** Caret glyph frame — matches Figma (8px). */
 const CARET_PX = 8;
@@ -47,8 +48,9 @@ export function Workspace({
       data-avatar-only={avatarOnly ? 'true' : undefined}
       {...divProps}
     >
-      <button
+      <Button
         type="button"
+        variant="ghost"
         className="clutter-workspace-search__trigger"
         aria-expanded={open}
         aria-haspopup="menu"
@@ -67,17 +69,17 @@ export function Workspace({
             </span>
           </span>
         )}
-      </button>
+      </Button>
       {!avatarOnly && (
         <div className="clutter-workspace-search__actions">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            iconOnly={Icons.MagnifyingGlass}
             className="clutter-workspace-search__search-btn"
             aria-label={searchLabel}
             onClick={onSearchClick}
-          >
-            <Icons.MagnifyingGlass size={ICON_MEDIUM} weight="regular" />
-          </button>
+          />
         </div>
       )}
     </div>

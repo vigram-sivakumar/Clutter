@@ -62,16 +62,26 @@
     color var(--duration-interaction) var(--easing-interaction);
 }
 
-.clutter-sidepanel-title__action:hover {
+.clutter-sidepanel-title__action:hover:not(:disabled) {
   background: var(--interactive-hover);
   color: var(--icon-primary);
 }
 
-.clutter-sidepanel-title__action:active {
+.clutter-sidepanel-title__action:active:not(:disabled) {
   background: var(--interactive-pressed);
 }
 
 .clutter-sidepanel-title__action:focus-visible {
   outline: 2px solid var(--accent-dark);
   outline-offset: 2px;
+}
+
+/* `Button` ghost + small icon-only */
+.clutter-sidepanel-title__action.clutter-btn {
+  width: var(--height-md);
+  height: var(--height-md);
+  padding: 0;
+  margin: 0;
+  border-radius: var(--radius-md);
+  font-weight: var(--fw-regular);
 }

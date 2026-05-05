@@ -39,7 +39,9 @@
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition: background-color var(--duration-interaction) var(--easing-interaction);
+  transition:
+    background-color var(--duration-interaction) var(--easing-interaction),
+    color var(--duration-interaction) var(--easing-interaction);
 }
 
 .clutter-workspace-search[data-avatar-only='true'] .clutter-workspace-search__trigger {
@@ -49,16 +51,16 @@
   padding: 0;
 }
 
-.clutter-workspace-search__trigger:hover {
+.clutter-workspace-search__trigger:hover:not(:disabled) {
   background: var(--workspace-dropdown-hover);
 }
 
 .clutter-workspace-search__trigger[aria-expanded='true'],
-.clutter-workspace-search__trigger[aria-expanded='true']:hover {
+.clutter-workspace-search__trigger[aria-expanded='true']:hover:not(:disabled) {
   background: var(--workspace-dropdown-active);
 }
 
-.clutter-workspace-search__trigger:active {
+.clutter-workspace-search__trigger:active:not(:disabled) {
   background: var(--workspace-dropdown-pressed);
 }
 
@@ -76,7 +78,7 @@
 }
 
 .clutter-workspace-search__label {
-  font-size: var(--text-body-medium);
+  font-size: var(--text-body-small);
   font-weight: var(--fw-medium);
   line-height: var(--lh-body-medium);
   color: var(--text-primary);
@@ -122,16 +124,44 @@
     color var(--duration-interaction) var(--easing-interaction);
 }
 
-.clutter-workspace-search__search-btn:hover {
+.clutter-workspace-search__search-btn:hover:not(:disabled) {
   background: var(--interactive-hover);
   color: var(--icon-primary);
 }
 
-.clutter-workspace-search__search-btn:active {
+.clutter-workspace-search__search-btn:active:not(:disabled) {
   background: var(--interactive-pressed);
 }
 
 .clutter-workspace-search__search-btn:focus-visible {
   outline: 2px solid var(--accent-dark);
   outline-offset: 2px;
+}
+
+/* `Button` ghost: layout + workspace chrome override generic ghost hover/active */
+.clutter-workspace-search__trigger.clutter-btn {
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: var(--height-lg);
+  padding-block: 0;
+  padding-inline: var(--control-padding-x);
+  margin: 0;
+  border-radius: var(--radius-lg);
+  gap: var(--gap-icon-label-lg);
+  font: inherit;
+  font-weight: var(--fw-regular);
+  color: inherit;
+  justify-content: center;
+}
+
+.clutter-workspace-search__search-btn.clutter-btn {
+  width: var(--height-lg);
+  height: var(--height-lg);
+  padding: 0;
+  margin: 0;
+  border-radius: var(--radius-md);
+  font-weight: var(--fw-regular);
 }

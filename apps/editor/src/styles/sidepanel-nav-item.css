@@ -59,7 +59,7 @@
   flex: 1 1 auto;
   min-width: 0;
   font-family: var(--font-sans);
-  font-size: var(--text-body-medium);
+  font-size: var(--text-body-small);
   font-weight: var(--fw-regular);
   line-height: 16px;
   color: var(--text-secondary);

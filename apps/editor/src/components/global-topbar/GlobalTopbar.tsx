@@ -1,5 +1,6 @@
-import { Workspace } from './workspace';
-import { ICON_MEDIUM, Icons } from '../../design-system/icons';
+import { Button } from '../Button';
+import { Icons } from '../../design-system/icons';
+import { Workspace } from './Workspace';
 
 export function GlobalTopbar() {
   return (
@@ -7,37 +8,45 @@ export function GlobalTopbar() {
       <Workspace name="My space" />
       <div className="clutter-global-topbar__main">
         <nav className="clutter-global-topbar__nav" aria-label="Editor navigation">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            iconOnly={Icons.SidebarSimple}
             className="clutter-global-topbar__icon-btn"
             aria-label="Toggle side panel"
-          >
-            <Icons.SidebarSimple size={ICON_MEDIUM} weight="regular" />
-          </button>
+          />
           <div className="clutter-global-topbar__history">
-            <button type="button" className="clutter-global-topbar__icon-btn" aria-label="Back">
-              <Icons.ArrowLeft size={ICON_MEDIUM} weight="regular" />
-            </button>
-            <button type="button" className="clutter-global-topbar__icon-btn" aria-label="Forward">
-              <Icons.ArrowRight size={ICON_MEDIUM} weight="regular" />
-            </button>
+            <Button
+              type="button"
+              variant="ghost"
+              iconOnly={Icons.ArrowLeft}
+              className="clutter-global-topbar__icon-btn"
+              aria-label="Back"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              iconOnly={Icons.ArrowRight}
+              className="clutter-global-topbar__icon-btn"
+              aria-label="Forward"
+            />
           </div>
         </nav>
         <div className="clutter-global-topbar__actions">
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            iconOnly={Icons.CaretDown}
             className="clutter-global-topbar__icon-btn"
             aria-label="Open menu"
-          >
-            <Icons.CaretDown size={ICON_MEDIUM} weight="regular" />
-          </button>
-          <button
+          />
+          <Button
             type="button"
+            variant="ghost"
+            iconOnly={Icons.Tabs}
             className="clutter-global-topbar__icon-btn"
             aria-label="Tabs"
-          >
-            <Icons.Tabs size={ICON_MEDIUM} weight="regular" />
-          </button>
+          />
         </div>
       </div>
     </header>

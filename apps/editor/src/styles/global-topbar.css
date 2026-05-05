@@ -84,3 +84,8 @@
   outline: 2px solid var(--accent-dark);
   outline-offset: 2px;
 }
+
+/* `Button` ghost + icon-only: reset label weight from default control */
+.clutter-global-topbar__icon-btn.clutter-btn {
+  font-weight: var(--fw-regular);
+}

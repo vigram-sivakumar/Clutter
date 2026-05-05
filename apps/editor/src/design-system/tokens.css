@@ -134,6 +134,8 @@
   --text-heading-3: 20px;
   --text-body-large: 16px;
   --text-body-medium: 14px; /* Default */
+  --text-body-small: 13px;
+
   --text-label-medium: 12px;
   --text-label-small: 10px;
   --text-label-smaller: 8px;

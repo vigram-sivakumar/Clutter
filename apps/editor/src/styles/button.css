@@ -58,6 +58,13 @@
 
 /* ─── Styles ─────────────────────────────────────────────────────────────── */
 
+.clutter-btn__content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+}
+
 .clutter-btn {
   display: inline-flex;
   align-items: center;
