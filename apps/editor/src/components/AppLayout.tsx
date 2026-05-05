@@ -6,10 +6,10 @@ import { SidepanelNavList } from "./sidepanel/SidepanelNavList";
 import { SidepanelTitle, type SidepanelTitleVariant } from "./sidepanel/SidepanelTitle";
 import { Tabs, type TabId } from "./Tabs";
 import { EmptyState } from "./EmptyState";
-import { Header } from "./section/Header";
-import { SectionGroupLayout } from "./section/SectionGroupLayout";
-import { SectionLayout } from "./section/SectionLayout";
-import { Subheader } from "./section/Subheader";
+import { Header } from "./sidepanel-section/Header";
+import { SectionGroupLayout } from "./sidepanel-section/SectionGroupLayout";
+import { SectionLayout } from "./sidepanel-section/SectionLayout";
+import { Subheader } from "./sidepanel-section/Subheader";
 
 /** Calendar tab — collapsible `Header` + empty line. Notes / Tasks use multi-section layouts; Tags has no section header. */
 const CALENDAR_SIDEPANEL_SECTION = {
