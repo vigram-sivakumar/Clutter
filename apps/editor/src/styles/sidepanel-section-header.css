@@ -26,6 +26,14 @@
   background: var(--interactive-hover);
 }
 
+.clutter-section-header:hover .clutter-section-header__icon {
+  color: var(--icon-secondary);
+}
+
+.clutter-section-header:hover .clutter-section-header__label {
+  color: var(--text-secondary);
+}
+
 .clutter-section-header__icon {
   display: inline-flex;
   flex-shrink: 0;

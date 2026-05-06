@@ -4,27 +4,12 @@ import { SidepanelLayout } from "./sidepanel/SidepanelLayout";
 import { SidepanelFooter } from "./sidepanel/SidepanelFooter";
 import { SidepanelNavList } from "./sidepanel/SidepanelNavList";
 import { SidepanelTitle, type SidepanelTitleVariant } from "./sidepanel/SidepanelTitle";
+import { SidepanelTabCalendar } from "./sidepanel/SidepanelTabCalendar";
+import { SidepanelTabNotes } from "./sidepanel/SidepanelTabNotes";
+import { SidepanelTabTasks } from "./sidepanel/SidepanelTabTasks";
+import { SidepanelTabTags } from "./sidepanel/SidepanelTabTags";
 import { Tabs, type TabId } from "./Tabs";
-import { EmptyState } from "./EmptyState";
-import { Header } from "./sidepanel-section/Header";
-import { SectionGroupLayout } from "./sidepanel-section/SectionGroupLayout";
-import { SectionLayout } from "./sidepanel-section/SectionLayout";
-import { Subheader } from "./sidepanel-section/Subheader";
 import { DocIcon } from "./document/DocIcon";
-
-/** Calendar tab — collapsible `Header` + empty line. Notes / Tasks use multi-section layouts; Tags has no section header. */
-const CALENDAR_SIDEPANEL_SECTION = {
-  title: "Earlier",
-  emptyDescription: "No calendar entries yet",
-} as const;
-
-/** Tasks “Today” group — subheader pill shows calendar day as `DD MMM` (e.g. `03 May`). */
-function formatTasksTodayDate(date: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-  }).format(date);
-}
 
 /** Calendar tab uses the Daily Notes title row; April/2026 lives in the calendar block. */
 function sidepanelTitleVariantForTab(tab: TabId): SidepanelTitleVariant {
@@ -51,21 +36,6 @@ type AppLayoutProps = {
 export function AppLayout({ children }: AppLayoutProps) {
   const [sidepanel] = React.useState<SidepanelState>("expanded");
   const [activeTab, setActiveTab] = React.useState<TabId>("calendar");
-  const [sidepanelSectionExpanded, setSidepanelSectionExpanded] = React.useState(true);
-  const [notesFavoritesOpen, setNotesFavoritesOpen] = React.useState(true);
-  const [notesFoldersOpen, setNotesFoldersOpen] = React.useState(true);
-  const [tasksTodayOpen, setTasksTodayOpen] = React.useState(true);
-  const [tasksOverdueOpen, setTasksOverdueOpen] = React.useState(true);
-  const [tasksUpcomingOpen, setTasksUpcomingOpen] = React.useState(true);
-
-  React.useEffect(() => {
-    setSidepanelSectionExpanded(true);
-    setNotesFavoritesOpen(true);
-    setNotesFoldersOpen(true);
-    setTasksTodayOpen(true);
-    setTasksOverdueOpen(true);
-    setTasksUpcomingOpen(true);
-  }, [activeTab]);
 
   return (
     <div className="clutter-app">
@@ -89,157 +59,14 @@ export function AppLayout({ children }: AppLayoutProps) {
             footer={<SidepanelFooter />}
             children={
               activeTab === "tasks" ? (
-                  <div className="clutter-sidepanel-scroll-sections">
-                    <SectionLayout
-                      bottomPadding={tasksTodayOpen}
-                      header={
-                        <Header
-                          label="Today"
-                          expanded={tasksTodayOpen}
-                          onToggle={() =>
-                            setTasksTodayOpen((open) => !open)
-                          }
-                        />
-                      }
-                    >
-                      {tasksTodayOpen ? (
-                        <>
-                          <SectionGroupLayout
-                            subheader={
-                              <Subheader
-                                text={formatTasksTodayDate()}
-                                dot
-                                labelAppearance="pill"
-                              />
-                            }
-                          >
-                            <EmptyState
-                              type="inline"
-                              description="No tasks for today or All done for today"
-                            />
-                          </SectionGroupLayout>
-                        </>
-                      ) : null}
-                    </SectionLayout>
-                    <SectionLayout
-                      bottomPadding={tasksOverdueOpen}
-                      header={
-                        <Header
-                          label="Overdue"
-                          expanded={tasksOverdueOpen}
-                          onToggle={() =>
-                            setTasksOverdueOpen((open) => !open)
-                          }
-                        />
-                      }
-                    >
-                      {tasksOverdueOpen ? (
-                        <SectionGroupLayout>
-                          <EmptyState
-                            type="inline"
-                            description="No overdue tasks"
-                          />
-                        </SectionGroupLayout>
-                      ) : null}
-                    </SectionLayout>
-                    <SectionLayout
-                      bottomPadding={tasksUpcomingOpen}
-                      header={
-                        <Header
-                          label="Upcoming"
-                          expanded={tasksUpcomingOpen}
-                          onToggle={() =>
-                            setTasksUpcomingOpen((open) => !open)
-                          }
-                        />
-                      }
-                    >
-                      {tasksUpcomingOpen ? (
-                        <SectionGroupLayout>
-                          <EmptyState
-                            type="inline"
-                            description="Nothing planned yet"
-                          />
-                        </SectionGroupLayout>
-                      ) : null}
-                    </SectionLayout>
-                  </div>
-                ) : activeTab === "notes" ? (
-                  <div className="clutter-sidepanel-scroll-sections">
-                    <SectionLayout
-                      bottomPadding={notesFavoritesOpen}
-                      header={
-                        <Header
-                          label="Favorites"
-                          expanded={notesFavoritesOpen}
-                          onToggle={() =>
-                            setNotesFavoritesOpen((open) => !open)
-                          }
-                        />
-                      }
-                    >
-                      {notesFavoritesOpen ? (
-                        <SectionGroupLayout>
-                          <EmptyState
-                            type="inline"
-                            description="Star notes or folders to see them here"
-                          />
-                        </SectionGroupLayout>
-                      ) : null}
-                    </SectionLayout>
-                    <SectionLayout
-                      bottomPadding={notesFoldersOpen}
-                      header={
-                        <Header
-                          label="Folders"
-                          expanded={notesFoldersOpen}
-                          onToggle={() =>
-                            setNotesFoldersOpen((open) => !open)
-                          }
-                        />
-                      }
-                    >
-                      {notesFoldersOpen ? (
-                        <SectionGroupLayout>
-                          <EmptyState
-                            type="inline"
-                            description="No Folders yet"
-                          />
-                        </SectionGroupLayout>
-                      ) : null}
-                    </SectionLayout>
-                  </div>
-                ) : activeTab === "tags" ? (
-                  <SectionLayout bottomPadding>
-                    <SectionGroupLayout>
-                      <EmptyState type="inline" description="No Tags yet" />
-                    </SectionGroupLayout>
-                  </SectionLayout>
-                ) : (
-                  <SectionLayout
-                    bottomPadding={sidepanelSectionExpanded}
-                    header={
-                      <Header
-                        label={CALENDAR_SIDEPANEL_SECTION.title}
-                        expanded={sidepanelSectionExpanded}
-                        onToggle={() =>
-                          setSidepanelSectionExpanded((open) => !open)
-                        }
-                      />
-                    }
-                  >
-                    {sidepanelSectionExpanded ? (
-                      <SectionGroupLayout>
-                        <EmptyState
-                          type="inline"
-                          description={
-                            CALENDAR_SIDEPANEL_SECTION.emptyDescription
-                          }
-                        />
-                      </SectionGroupLayout>
-                    ) : null}
-                  </SectionLayout>
-                )
+                <SidepanelTabTasks />
+              ) : activeTab === "notes" ? (
+                <SidepanelTabNotes />
+              ) : activeTab === "tags" ? (
+                <SidepanelTabTags />
+              ) : (
+                <SidepanelTabCalendar />
+              )
             }
           />
         </aside>
@@ -250,7 +77,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <div className="clutter-editor-scroll">
                 <div className="clutter-editor-document">
                   <div className="clutter-document-header">
-                    <DocIcon type="emoji" />
+                    <DocIcon type="icon" icon="CalendarBlank" />
                   </div>
                   <div className="clutter-document-content">
                     {children}

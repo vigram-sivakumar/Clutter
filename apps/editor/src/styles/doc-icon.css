@@ -4,8 +4,8 @@
 
 .clutter-doc-icon {
   display: inline-flex;
-  width: var(--height-xxl);
-  height: var(--height-xxl);
+  width: var(--height-xl);
+  height: var(--height-xl);
   align-items: center;
   justify-content: center;
   box-sizing: border-box;

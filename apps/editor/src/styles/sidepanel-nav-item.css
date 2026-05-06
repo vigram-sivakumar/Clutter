@@ -27,6 +27,14 @@
   background: var(--interactive-hover);
 }
 
+.clutter-sidepanel-nav:hover:not(:disabled):not([aria-disabled='true']) .clutter-sidepanel-nav__icon-wrap {
+  color: var(--icon-primary);
+}
+
+.clutter-sidepanel-nav:hover:not(:disabled):not([aria-disabled='true']) .clutter-sidepanel-nav__label {
+  color: var(--text-primary);
+}
+
 .clutter-sidepanel-nav:active:not(:disabled):not([aria-disabled='true']) {
   background: var(--interactive-pressed);
 }
