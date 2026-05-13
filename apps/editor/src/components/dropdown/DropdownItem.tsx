@@ -1,15 +1,16 @@
-import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
-import { ICON_MEDIUM } from '../../design-system/icons';
+import type { ReactNode } from 'react';
+
+import { ICON_MEDIUM, type ClutterIcon } from '../../design-system/icons';
 
 const ICON_SIZE = ICON_MEDIUM;
 
 interface DropdownItemProps {
   label?: string;
-  icon?: PhosphorIcon;
+  icon?: ClutterIcon;
   indent?: boolean;
-  iconRight?: PhosphorIcon;
-  shortcutSlot?: React.ReactNode;
-  iconOnly?: PhosphorIcon;
+  iconRight?: ClutterIcon;
+  shortcutSlot?: ReactNode;
+  iconOnly?: ClutterIcon;
   active?: boolean;
   onClick?: () => void;
   className?: string;

@@ -1,8 +1,7 @@
 import type { HTMLAttributes } from 'react';
-import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 
 import { Button } from './Button';
-import { Icons, ICON_MEDIUM } from '../design-system/icons';
+import { CustomIcons, ICON_MEDIUM, type ClutterIcon } from '../design-system/icons';
 
 export type EmptyStateType = 'page' | 'inline';
 
@@ -22,10 +21,10 @@ export type EmptyStateProps = Omit<HTMLAttributes<HTMLDivElement>, 'title'> & {
   onPrimaryAction?: () => void;
   onSecondaryAction?: () => void;
   /** Leading icon for the title row and primary action (Figma: circle outline). */
-  icon?: PhosphorIcon;
+  icon?: ClutterIcon;
 };
 
-const DefaultIcon = Icons.Circle;
+const DefaultIcon = CustomIcons.Square;
 
 /**
  * Empty state — sidepanel scroll region (Figma: Empty state, node 303:28705).
@@ -72,7 +71,7 @@ export function EmptyState({
       <div className="clutter-empty-state__content">
         <div className="clutter-empty-state__head">
           <span className="clutter-empty-state__icon" aria-hidden>
-            <Icon size={ICON_MEDIUM} weight="regular" />
+            <Icon size={ICON_MEDIUM} />
           </span>
           {showTitle ? (
             <p className="clutter-empty-state__title">{title}</p>

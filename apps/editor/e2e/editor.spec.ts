@@ -3,7 +3,7 @@
  * Each test navigates to a fresh page, so each starts with one empty node.
  *
  * DOM structure recap:
- *   .clutter-editor                     — root
+ *   .clutter-document-body              — editor root (direct children are top-level nodes)
  *     .clutter-node[data-node-id]       — each node wrapper
  *       .clutter-node__inner
  *         .clutter-node__content        — contenteditable
@@ -37,7 +37,7 @@ async function nodeText(page: Page, index: number): Promise<string> {
 
 /** Count of top-level (root-child) .clutter-node elements. */
 function topLevelNodes(page: Page) {
-  return page.locator('.clutter-editor > .clutter-node');
+  return page.locator('.clutter-document-body > .clutter-node');
 }
 
 // ---------------------------------------------------------------------------

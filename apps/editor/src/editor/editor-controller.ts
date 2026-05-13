@@ -22,8 +22,10 @@ function scrollSelectionIntoView(rootEl: HTMLElement, selection: Selection | nul
     selection.type === 'block-range' ? selection.endNodeId :
     selection.type === 'range'       ? selection.focus.nodeId :
                                        selection.nodeId;
-  rootEl.querySelector(`[data-node-id="${nodeId}"]`)
-    ?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+  const el = rootEl.querySelector(`[data-node-id="${nodeId}"]`);
+  if (el && typeof el.scrollIntoView === 'function') {
+    el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+  }
 }
 
 export class EditorController {

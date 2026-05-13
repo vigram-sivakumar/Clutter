@@ -92,8 +92,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: var(--space-8);
-  height: var(--space-8);
+  width: var(--icon-small);
+  height: var(--icon-small);
   color: var(--icon-primary);
 }
 

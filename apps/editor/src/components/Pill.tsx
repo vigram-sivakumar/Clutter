@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
-import { DOT_MD, Icons } from '../design-system/icons';
+import { DOT_MD } from '../design-system/icons';
 
 /** Figma `Pill` color variants (`text` = chrome-less muted label). */
 export type PillColor =
@@ -69,10 +69,15 @@ export function Pill({
     <div className={cls} {...divProps}>
       {dot && (
         <span className="clutter-pill__dot-wrap" aria-hidden>
-          <Icons.Circle
+          <span
             className="clutter-pill__dot"
-            size={DOT_MD}
-            weight="fill"
+            style={{
+              width: DOT_MD,
+              height: DOT_MD,
+              borderRadius: '50%',
+              background: 'currentColor',
+              display: 'block',
+            }}
           />
         </span>
       )}

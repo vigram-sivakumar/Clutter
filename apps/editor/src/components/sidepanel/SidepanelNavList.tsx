@@ -1,7 +1,6 @@
-import type { Icon as PhosphorIcon, IconProps } from '@phosphor-icons/react';
+import { CustomIcons, type ClutterIcon } from '../../design-system/icons';
+import { type TabId } from '../Tabs';
 
-import { Icons } from '../../design-system/icons';
-import type { TabId } from '../Tabs';
 import { NavItem } from './NavItem';
 
 /**
@@ -12,9 +11,8 @@ const NAV_INERT = false;
 
 type NavRow = {
   label: string;
-  icon: PhosphorIcon;
+  icon: ClutterIcon;
   iconSize?: number;
-  iconWeight?: IconProps['weight'];
 };
 
 /**
@@ -23,23 +21,23 @@ type NavRow = {
  */
 
 const CALENDAR_NAV: NavRow[] = [
-  { label: 'All Days', icon: Icons.Calendar },
-  { label: 'My Templates', icon: Icons.Table },
+  { label: 'All Days', icon: CustomIcons.CalendarBlank },
+  { label: 'My Templates', icon: CustomIcons.Template },
 ];
 
 const NOTES_NAV: NavRow[] = [
-  { label: 'All Notes', icon: Icons.Note },
-  { label: 'Inbox', icon: Icons.Tray },
+  { label: 'All Notes', icon: CustomIcons.Note },
+  { label: 'Inbox', icon: CustomIcons.Tray },
 ];
 
 const TASKS_NAV: NavRow[] = [
-  { label: 'All Tasks', icon: Icons.CheckCircle },
-  { label: 'Someday', icon: Icons.Tray },
+  { label: 'All Tasks', icon: CustomIcons.SquareCheckOutline },
+  { label: 'Someday', icon: CustomIcons.Tray },
 ];
 
 const TAGS_NAV: NavRow[] = [
-  { label: 'All Tags', icon: Icons.Tag },
-  { label: 'Untagged', icon: Icons.CircleDashed },
+  { label: 'All Tags', icon: CustomIcons.Tag },
+  { label: 'Untagged', icon: CustomIcons.CircleDashed },
 ];
 
 const NAV_BY_TAB: Record<TabId, NavRow[]> = {
@@ -57,7 +55,7 @@ export type SidepanelNavListProps = {
  * {@link NavigationItem} rows for the active tab (row count varies by tab per Figma).
  */
 export function SidepanelNavList({ activeTab }: SidepanelNavListProps) {
-  const rows = NAV_BY_TAB[activeTab];
+  const rows = NAV_BY_TAB[activeTab] ?? [];
 
   return (
     <div className="clutter-sidepanel-nav-list">
@@ -68,7 +66,6 @@ export function SidepanelNavList({ activeTab }: SidepanelNavListProps) {
             label={row.label}
             icon={row.icon}
             iconSize={row.iconSize}
-            iconWeight={row.iconWeight}
             type="button"
             {...(NAV_INERT
               ? {

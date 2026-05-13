@@ -4,6 +4,10 @@ import ArrowLeftSmallHeadRaw from './svg/arrow-left-small-head.svg?react';
 import ArrowRightRaw from './svg/arrow-right.svg?react';
 import ArrowRightSmallHeadRaw from './svg/arrow-right-small-head.svg?react';
 import CalendarBlankRaw from './svg/calendar-blank.svg?react';
+import CaretDownRaw from './svg/caret-down.svg?react';
+import CaretLeftRaw from './svg/caret-left.svg?react';
+import CaretRightRaw from './svg/caret-right.svg?react';
+import CaretUpRaw from './svg/caret-up.svg?react';
 import ChevronDownRaw from './svg/chevron-down.svg?react';
 import ChevronLeftRaw from './svg/chevron-left.svg?react';
 import ChevronRightRaw from './svg/chevron-right.svg?react';
@@ -23,6 +27,7 @@ import NotePencilRaw from './svg/note-pencil.svg?react';
 import NoteRaw from './svg/note.svg?react';
 import PinRaw from './svg/pin.svg?react';
 import PlusRaw from './svg/plus.svg?react';
+import QuestionRaw from './svg/question.svg?react';
 import SidebarRaw from './svg/sidebar.svg?react';
 import SettingsRaw from './svg/settings.svg?react';
 import SquareRaw from './svg/square.svg?react';
@@ -55,8 +60,7 @@ export {
   ICON_STROKE_USER,
   ICON_WRAPPER_SIZE,
 } from './constants';
-export { Icons } from './phosphor-registry';
-export { withSvgIcon, type CustomSvgIconProps } from './svg-icon';
+export { withSvgIcon, type ClutterIcon, type CustomSvgIconProps } from './svg-icon';
 
 /** Figma / custom SVGs (SVGR). Prefer `stroke="currentColor"` in source; size via props. */
 export const CustomIcons = {
@@ -74,6 +78,14 @@ export const CustomIcons = {
   CalendarBlank: withSvgIcon(CalendarBlankRaw),
   /** Figma calendar + accent dot (frame from `calendar-blank.svg`). Phosphor equivalents stay separate. */
   CalendarWithDot: CalendarWithDotIcon,
+  /** Figma compact caret down (`12×12` viewBox, `stroke-width` 1.25). Phosphor `Icons.CaretDown` stays separate from `ChevronDown`. */
+  CaretDown: withSvgIcon(CaretDownRaw),
+  /** Figma compact caret left (`12×12` viewBox, `stroke-width` 1.25). Phosphor `Icons.CaretLeft` stays separate from `ChevronLeft`. */
+  CaretLeft: withSvgIcon(CaretLeftRaw),
+  /** Figma compact caret right (`12×12` viewBox, `stroke-width` 1.25). Phosphor `Icons.CaretRight` stays separate from `ChevronRight`. */
+  CaretRight: withSvgIcon(CaretRightRaw),
+  /** Figma compact caret up (`12×12` viewBox, `stroke-width` 1.25). Phosphor `Icons.CaretUp` stays separate from `ChevronUp`. */
+  CaretUp: withSvgIcon(CaretUpRaw),
   /** Figma chevron down stroke. Phosphor `Icons.CaretDown` / `CaretCircleDown` stay separate. */
   ChevronDown: withSvgIcon(ChevronDownRaw),
   /** Figma chevron left stroke. Phosphor `Icons.CaretLeft` stays separate. */
@@ -112,6 +124,8 @@ export const CustomIcons = {
   Pin: withSvgIcon(PinRaw),
   /** Figma plus (vertical + horizontal). Phosphor `Icons.Plus` stays separate. */
   Plus: withSvgIcon(PlusRaw),
+  /** Help / “?” — text glyph until a Figma stroke asset replaces it. */
+  Question: withSvgIcon(QuestionRaw),
   /** Figma panel + rail stroke. Phosphor `Icons.SidebarSimple` stays separate. */
   Sidebar: withSvgIcon(SidebarRaw),
   /** Figma rounded panel + two slider rows. Phosphor `Icons.SlidersHorizontal` / `Icons.Gear` stay separate. */

@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 
-import { DOT_MD, Icons } from '../design-system/icons';
+import { DOT_MD } from '../design-system/icons';
 
 const DEFAULT_NUMBER_TEXT = '19';
 
@@ -44,10 +44,15 @@ export function DatePill(props: DatePillProps) {
     <div className={cls} {...divProps}>
       {isDot ? (
         <span className="clutter-date-pill__dot-wrap" aria-hidden>
-          <Icons.Circle
+          <span
             className="clutter-date-pill__dot"
-            size={DOT_MD}
-            weight="fill"
+            style={{
+              width: DOT_MD,
+              height: DOT_MD,
+              borderRadius: '50%',
+              background: 'currentColor',
+              display: 'block',
+            }}
           />
         </span>
       ) : (

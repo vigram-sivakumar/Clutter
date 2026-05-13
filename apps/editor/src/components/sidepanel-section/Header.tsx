@@ -1,13 +1,12 @@
 import type { HTMLAttributes } from 'react';
-import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 
 import { Button } from '../Button';
-import { Icons, ICON_MEDIUM } from '../../design-system/icons';
+import { CustomIcons, ICON_MEDIUM, type ClutterIcon } from '../../design-system/icons';
 
 export type HeaderProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
   label: string;
   /** Optional leading icon (Figma `iconLeft`). */
-  icon?: PhosphorIcon;
+  icon?: ClutterIcon;
   /** When true, the chevron is rotated to indicate expanded content. */
   expanded?: boolean;
   /**
@@ -17,7 +16,7 @@ export type HeaderProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
   onToggle?: () => void;
 };
 
-const Chevron = Icons.CaretRight;
+const Chevron = CustomIcons.CaretRight;
 
 /**
  * Section header row (Figma: SectionHeader, node 303:28618).
@@ -41,7 +40,7 @@ export function Header({
     >
       {Icon ? (
         <span className="clutter-section-header__icon" aria-hidden>
-          <Icon size={ICON_MEDIUM} weight="regular" />
+          <Icon size={ICON_MEDIUM} />
         </span>
       ) : null}
       <span className="clutter-section-header__label">{label}</span>

@@ -1,16 +1,14 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import type { Icon as PhosphorIcon, IconProps } from '@phosphor-icons/react';
 
 import { Count } from '../Count';
-import { ICON_MEDIUM, ICON_WRAPPER_SIZE } from '../../design-system/icons';
+import { ICON_MEDIUM, ICON_WRAPPER_SIZE, type ClutterIcon } from '../../design-system/icons';
 
 export interface NavItemProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   label: string;
-  icon?: PhosphorIcon;
-  /** Defaults to {@link ICON_MEDIUM}. Use for glyphs that read small at 16px (e.g. Phosphor Dot). */
+  icon?: ClutterIcon;
+  /** Defaults to {@link ICON_MEDIUM}. Use for glyphs that read small at 16px. */
   iconSize?: number;
-  iconWeight?: IconProps['weight'];
   /** Optional count / date pill value (e.g. note count). Hidden when omitted or empty. */
   count?: ReactNode;
   /**
@@ -27,7 +25,6 @@ export function NavItem({
   label,
   icon,
   iconSize,
-  iconWeight = 'regular',
   count,
   className,
   disabled,
@@ -74,7 +71,7 @@ export function NavItem({
           style={iconWrapStyle}
           aria-hidden
         >
-          <Icon size={glyphSize} weight={iconWeight} />
+          <Icon size={glyphSize} />
         </span>
       )}
       <span className="clutter-sidepanel-nav__label">{label}</span>

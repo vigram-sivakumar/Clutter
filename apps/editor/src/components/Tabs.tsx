@@ -1,4 +1,3 @@
-import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 import {
   useCallback,
   useEffect,
@@ -9,19 +8,19 @@ import {
   type HTMLAttributes,
 } from 'react';
 
-import { CalendarTodayIcon, ICON_MEDIUM, Icons } from '../design-system/icons';
+import { CalendarTodayIcon, CustomIcons, ICON_MEDIUM, type ClutterIcon } from '../design-system/icons';
 
 export type TabId = 'calendar' | 'notes' | 'tasks' | 'tags';
 
 type TabDef =
   | { id: 'calendar'; label: string }
-  | { id: Exclude<TabId, 'calendar'>; label: string; Icon: PhosphorIcon };
+  | { id: Exclude<TabId, 'calendar'>; label: string; Icon: ClutterIcon };
 
 const TABS: TabDef[] = [
   { id: 'calendar', label: 'Calendar' },
-  { id: 'notes', label: 'Notes', Icon: Icons.NoteBlank },
-  { id: 'tasks', label: 'Tasks', Icon: Icons.CheckCircle },
-  { id: 'tags', label: 'Tags', Icon: Icons.Tag },
+  { id: 'notes', label: 'Notes', Icon: CustomIcons.Note },
+  { id: 'tasks', label: 'Tasks', Icon: CustomIcons.SquareCheckOutline },
+  { id: 'tags', label: 'Tags', Icon: CustomIcons.Tag },
 ];
 
 type ThumbMetrics = { x: number; y: number; w: number; h: number };
@@ -147,7 +146,7 @@ export function Tabs({
                 {tab.id === 'calendar' ? (
                   <CalendarTodayIcon size={ICON_MEDIUM} />
                 ) : (
-                  <tab.Icon size={ICON_MEDIUM} weight="regular" />
+                  <tab.Icon size={ICON_MEDIUM} />
                 )}
               </span>
             </button>

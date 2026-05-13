@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from 'react';
 
 import { Button } from '../Button';
-import { Icons } from '../../design-system/icons';
+import { CustomIcons } from '../../design-system/icons';
 
 export type SidepanelTitleVariant = 'daily-notes' | 'notes' | 'tasks' | 'tags';
 
@@ -57,8 +57,7 @@ export function SidepanelTitle({
             type="button"
             variant="ghost"
             size="small"
-            iconOnly={Icons.DotsThree}
-            iconWeight="bold"
+            iconOnly={CustomIcons.MoreHorizontal}
             className="clutter-sidepanel-title__action"
             aria-label="More options"
             onClick={onDailyNotesMoreClick}
@@ -70,7 +69,7 @@ export function SidepanelTitle({
               type="button"
               variant="ghost"
               size="small"
-              iconOnly={Icons.NotePencil}
+              iconOnly={CustomIcons.NotePencil}
               className="clutter-sidepanel-title__action"
               aria-label="New note"
               onClick={onNotesNewClick}
@@ -79,7 +78,7 @@ export function SidepanelTitle({
               type="button"
               variant="ghost"
               size="small"
-              iconOnly={Icons.FolderPlus}
+              iconOnly={CustomIcons.FolderAdd}
               className="clutter-sidepanel-title__action"
               aria-label="New folder"
               onClick={onNotesNewFolderClick}
@@ -88,8 +87,7 @@ export function SidepanelTitle({
               type="button"
               variant="ghost"
               size="small"
-              iconOnly={Icons.DotsThree}
-              iconWeight="bold"
+              iconOnly={CustomIcons.MoreHorizontal}
               className="clutter-sidepanel-title__action"
               aria-label="More options"
               onClick={onNotesMoreClick}
@@ -102,7 +100,7 @@ export function SidepanelTitle({
               type="button"
               variant="ghost"
               size="small"
-              iconOnly={Icons.Plus}
+              iconOnly={CustomIcons.Plus}
               className="clutter-sidepanel-title__action"
               aria-label={variant === 'tasks' ? 'Add task' : 'Add tag'}
               onClick={variant === 'tasks' ? onTasksAddClick : onTagsAddClick}
@@ -111,8 +109,7 @@ export function SidepanelTitle({
               type="button"
               variant="ghost"
               size="small"
-              iconOnly={Icons.DotsThree}
-              iconWeight="bold"
+              iconOnly={CustomIcons.MoreHorizontal}
               className="clutter-sidepanel-title__action"
               aria-label="More options"
               onClick={variant === 'tasks' ? onTasksMoreClick : onTagsMoreClick}

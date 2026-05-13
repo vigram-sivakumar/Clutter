@@ -2,10 +2,7 @@ import type { ButtonHTMLAttributes, HTMLAttributes } from 'react';
 
 import { Avatar } from '../Avatar';
 import { Button } from '../Button';
-import { Icons } from '../../design-system/icons';
-
-/** Caret glyph frame — matches Figma (8px). */
-const CARET_PX = 8;
+import { CustomIcons, ICON_SMALL } from '../../design-system/icons';
 
 export interface WorkspaceProps extends Omit<
   HTMLAttributes<HTMLDivElement>,
@@ -62,9 +59,9 @@ export function Workspace({
             <span className="clutter-workspace-search__label">{name}</span>
             <span className="clutter-workspace-search__caret" aria-hidden>
               {open ? (
-                <Icons.CaretUp size={CARET_PX} weight="bold" />
+                <CustomIcons.CaretUp size={ICON_SMALL} />
               ) : (
-                <Icons.CaretDown size={CARET_PX} weight="bold" />
+                <CustomIcons.CaretDown size={ICON_SMALL} />
               )}
             </span>
           </span>
@@ -75,7 +72,7 @@ export function Workspace({
           <Button
             type="button"
             variant="ghost"
-            iconOnly={Icons.MagnifyingGlass}
+            iconOnly={CustomIcons.MagnifyingGlass}
             className="clutter-workspace-search__search-btn"
             aria-label={searchLabel}
             onClick={onSearchClick}

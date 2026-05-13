@@ -1,5 +1,5 @@
 import { Button } from '../Button';
-import { Icons } from '../../design-system/icons';
+import { CustomIcons } from '../../design-system/icons';
 
 /**
  * Bottom actions row — settings, help, trash (Figma: Actions, node 548:17170).
@@ -12,14 +12,14 @@ export function SidepanelFooter() {
           type="button"
           variant="ghost"
           size="default"
-          iconOnly={Icons.Gear}
+          iconOnly={CustomIcons.Settings}
           aria-label="Settings"
         />
         <Button
           type="button"
           variant="ghost"
           size="default"
-          iconOnly={Icons.Question}
+          iconOnly={CustomIcons.Keyboard}
           aria-label="Help"
         />
       </div>
@@ -28,7 +28,7 @@ export function SidepanelFooter() {
           type="button"
           variant="ghost"
           size="default"
-          iconOnly={Icons.Trash}
+          iconOnly={CustomIcons.Archive}
           aria-label="Trash"
         />
       </div>

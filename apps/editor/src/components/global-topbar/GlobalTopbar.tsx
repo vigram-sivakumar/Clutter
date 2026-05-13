@@ -1,5 +1,5 @@
 import { Button } from '../Button';
-import { Icons } from '../../design-system/icons';
+import { CustomIcons } from '../../design-system/icons';
 import { Workspace } from './Workspace';
 
 export function GlobalTopbar() {
@@ -11,7 +11,7 @@ export function GlobalTopbar() {
           <Button
             type="button"
             variant="ghost"
-            iconOnly={Icons.SidebarSimple}
+            iconOnly={CustomIcons.Sidebar}
             className="clutter-global-topbar__icon-btn"
             aria-label="Toggle side panel"
           />
@@ -19,14 +19,14 @@ export function GlobalTopbar() {
             <Button
               type="button"
               variant="ghost"
-              iconOnly={Icons.ArrowLeft}
+              iconOnly={CustomIcons.ArrowLeft}
               className="clutter-global-topbar__icon-btn"
               aria-label="Back"
             />
             <Button
               type="button"
               variant="ghost"
-              iconOnly={Icons.ArrowRight}
+              iconOnly={CustomIcons.ArrowRight}
               className="clutter-global-topbar__icon-btn"
               aria-label="Forward"
             />
@@ -36,14 +36,14 @@ export function GlobalTopbar() {
           <Button
             type="button"
             variant="ghost"
-            iconOnly={Icons.CaretDown}
+            iconOnly={CustomIcons.ChevronDown}
             className="clutter-global-topbar__icon-btn"
             aria-label="Open menu"
           />
           <Button
             type="button"
             variant="ghost"
-            iconOnly={Icons.Tabs}
+            iconOnly={CustomIcons.Tabs}
             className="clutter-global-topbar__icon-btn"
             aria-label="Tabs"
           />
