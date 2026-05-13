@@ -10,17 +10,17 @@
 
   /* Secondary */
   --button-secondary-bg:      rgba(255, 255, 255, 0.055);
-  --button-secondary-hover:   var(--interactive-hover);
-  --button-secondary-pressed: var(--interactive-pressed);
-  --button-secondary-active:  var(--interactive-active);
+  --button-secondary-hover:   var(--state-hover);
+  --button-secondary-pressed: var(--state-pressed);
+  --button-secondary-active:  var(--state-active);
   --button-secondary-text:    var(--text-secondary);
-  --button-secondary-border:  var(--border-strong);
+  --button-secondary-border:  var(--border-default);
 
   /* Tab strip (e.g. sidebar) */
-  --tab-bg:          var(--surface-tertiary);
-  --tab-hover:       var(--interactive-hover);
-  --tab-pressed:     var(--interactive-pressed);
-  --tab-active:      var(--interactive-active);
+  --tab-bg:          rgba(255, 255, 255, 0.02);
+  --tab-hover:       var(--state-hover);
+  --tab-pressed:     var(--state-pressed);
+  --tab-active:      var(--state-active);
   --tab-icon:        var(--icon-secondary);
   --tab-icon-active: var(--icon-primary);
 
@@ -38,17 +38,17 @@
 
   /* Secondary */
   --button-secondary-bg:      rgba(0, 0, 0, 0.055);
-  --button-secondary-hover:   var(--interactive-hover);
-  --button-secondary-pressed: var(--interactive-pressed);
-  --button-secondary-active:  var(--interactive-active);
+  --button-secondary-hover:   var(--state-hover);
+  --button-secondary-pressed: var(--state-pressed);
+  --button-secondary-active:  var(--state-active);
   --button-secondary-text:    var(--text-secondary);
-  --button-secondary-border:  var(--border-strong);
+  --button-secondary-border:  var(--border-default);
 
   /* Tab strip (e.g. sidebar) */
-  --tab-bg:          rgba(0, 0, 0, 0.03);
-  --tab-hover:       var(--interactive-hover);
-  --tab-pressed:     var(--interactive-pressed);
-  --tab-active:      rgba(0, 0, 0, 0.10);
+  --tab-bg:          rgba(0, 0, 0, 0.02);
+  --tab-hover:       var(--state-hover);
+  --tab-pressed:     var(--state-pressed);
+  --tab-active:      var(--state-active);
   --tab-icon:        var(--icon-secondary);
   --tab-icon-active: var(--icon-primary);
 
@@ -65,6 +65,40 @@
   gap: inherit;
 }
 
+/* Content row alignment (non–icon-only; default remains center). */
+.clutter-btn--content-start .clutter-btn__content {
+  justify-content: flex-start;
+}
+.clutter-btn--content-end .clutter-btn__content {
+  justify-content: flex-end;
+}
+.clutter-btn--content-start {
+  justify-content: flex-start;
+}
+.clutter-btn--content-end {
+  justify-content: flex-end;
+}
+
+/*
+ * Ellipsis: use with `ellipsis` on Button. Mark the truncating label with
+ * .clutter-btn__ellipsis-target (see BUTTON_ELLIPSIS_TARGET_CLASS).
+ */
+.clutter-btn--ellipsis:not(.clutter-btn--icon-only) .clutter-btn__content {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.clutter-btn__ellipsis-target {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .clutter-btn {
   display: inline-flex;
   align-items: center;
@@ -74,16 +108,16 @@
   outline: none;
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: var(--text-body-medium);
+  font-size: var(--text-body);
   font-weight: var(--fw-medium);
   line-height: var(--lh-100);
   white-space: nowrap;
   user-select: none;
   flex-shrink: 0;
-  /* Default size */
-  height: var(--height-lg);
+  /* Default size — matches tokens: interactive controls use --height-xl (28px). */
+  height: var(--height-xl);
   padding-block: 0;
-  padding-inline: var(--padding-x-lg);
+  padding-inline: var(--space-8);
   border-radius: var(--radius-lg);
   transition:
     background-color var(--duration-interaction) var(--easing-interaction),
@@ -96,16 +130,16 @@
 .clutter-btn--small {
   height: var(--height-md);
   padding-block: 0;
-  padding-inline: var(--padding-x-md);
+  padding-inline: var(--space-6);
   border-radius: var(--radius-md);
 }
 
 .clutter-btn--xsmall {
   height: var(--height-sm);
   padding-block: 0;
-  padding-inline: var(--padding-x-md);
+  padding-inline: var(--space-6);
   border-radius: var(--radius-md);
-  font-size: var(--text-label-medium);
+  font-size: var(--text-label);
 }
 
 /* Icon-only: square, no padding */
@@ -150,13 +184,13 @@
   color: var(--text-secondary);
 }
 .clutter-btn--ghost:hover:not(:disabled) {
-  background: var(--interactive-hover);
+  background: var(--state-hover);
 }
 .clutter-btn--ghost:active:not(:disabled) {
-  background: var(--interactive-pressed);
+  background: var(--state-pressed);
 }
 .clutter-btn--ghost.clutter-btn--active {
-  background: var(--interactive-active);
+  background: var(--state-active);
 }
 
 /* ─── Border ─────────────────────────────────────────────────────────────── */
@@ -168,6 +202,6 @@
 /* ─── Disabled ───────────────────────────────────────────────────────────── */
 
 .clutter-btn:disabled {
-  opacity: var(--interactive-disabled);
+  opacity: var(--state-disabled);
   cursor: not-allowed;
 }

@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { Count } from '../Count';
-import { ICON_MEDIUM, ICON_WRAPPER_SIZE, type ClutterIcon } from '../../design-system/icons';
+import { ICON_MEDIUM, ICON_MEDIUM_WRAPPER, type ClutterIcon } from '../../design-system/icons';
 
 export interface NavItemProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
@@ -45,7 +45,7 @@ export function NavItem({
   const glyphSize = iconSize ?? ICON_MEDIUM;
   const wrapperPx =
     iconSize !== undefined
-      ? Math.max(glyphSize, ICON_WRAPPER_SIZE)
+      ? Math.max(glyphSize, ICON_MEDIUM_WRAPPER)
       : undefined;
   const iconWrapStyle =
     wrapperPx !== undefined

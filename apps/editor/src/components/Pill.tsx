@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
-import { DOT_MD } from '../design-system/icons';
+import { ICON_EXTRA_SMALL } from '../design-system/icons';
 
 /** Figma `Pill` color variants (`text` = chrome-less muted label). */
 export type PillColor =
@@ -19,7 +19,7 @@ export type PillProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
   color?: PillColor;
   /** `Small`: 12px / medium · `default`: 14px / regular (filled hues). */
   size?: 'default' | 'small';
-  /** Leading status dot; size from `DOT_MD` / `--dot-md` (design-system/icons + main.tsx). */
+  /** Leading status dot; size from `ICON_EXTRA_SMALL` / `--dot-md` (design-system/icons + main.tsx). */
   dot?: boolean;
   /** Omitted or empty with `dot` only — no label line. */
   children?: ReactNode;
@@ -72,8 +72,8 @@ export function Pill({
           <span
             className="clutter-pill__dot"
             style={{
-              width: DOT_MD,
-              height: DOT_MD,
+              width: ICON_EXTRA_SMALL,
+              height: ICON_EXTRA_SMALL,
               borderRadius: '50%',
               background: 'currentColor',
               display: 'block',

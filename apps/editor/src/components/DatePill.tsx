@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 
-import { DOT_MD } from '../design-system/icons';
+import { ICON_EXTRA_SMALL } from '../design-system/icons';
 
 const DEFAULT_NUMBER_TEXT = '19';
 
@@ -47,8 +47,8 @@ export function DatePill(props: DatePillProps) {
           <span
             className="clutter-date-pill__dot"
             style={{
-              width: DOT_MD,
-              height: DOT_MD,
+              width: ICON_EXTRA_SMALL,
+              height: ICON_EXTRA_SMALL,
               borderRadius: '50%',
               background: 'currentColor',
               display: 'block',

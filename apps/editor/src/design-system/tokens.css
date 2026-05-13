@@ -1,161 +1,100 @@
-/*
- * Raw design tokens — primitives and scales only.
- * No product/UI meaning here.
- *
- * theme.css maps these to semantic tokens (control, layout, etc).
- * Components MUST NOT use these directly.
- */
-
 :root {
-  /* ─── Neutral scale ─────────────────────────────────────────────────── */
+    /* Neutral */
+    --neutral-0: #ffffff;
+    --neutral-50: #f9f8f7;
+    --neutral-100: #f6f5f4;
+    --neutral-200: #efeeec;
+    --neutral-300: #e4e3e1;
+    --neutral-400: #d9d8d6;
+    --neutral-500: #babab5;
+    --neutral-600: #9b9a94;
+    --neutral-700: #292929;
+    --neutral-800: #202020;
+    --neutral-900: #191919;
 
-  --neutral-0: #ffffff;
-  --neutral-50: #fafafa;
-  --neutral-100: #f5f5f5;
-  --neutral-125: #f1f1f1;
-  --neutral-150: #ededed;
-  --neutral-175: #e9e9e9;
-  --neutral-200: #e5e5e5;
-  --neutral-300: #d4d4d4;
-  --neutral-400: #a3a3a3;
-  --neutral-500: #737373;
-  --neutral-600: #525252;
-  --neutral-700: #404040;
-  --neutral-800: #262626;
-  --neutral-825: #232323;
-  --neutral-850: #1f1f1f;
-  --neutral-875: #1b1b1b;
-  --neutral-900: #171717;
-  --neutral-950: #111111;
-  --neutral-1000: #000000;
+    /* Accent */
+    --accent-light: #00acff;
+    --accent-dark: #007aff;
+    
+    /* Opacity */
+    --opacity-strong: 0.3;
+    --opacity-medium: 0.4;
+    --opacity-subtle: 0.7;
 
-  /* ─── Accent ────────────────────────────────────────────────────────── */
+    /* Motion */
+    --duration-interaction: 120ms;
+    --easing-interaction: ease;
 
-  --accent-light: #00acff;
-  --accent-dark: #007aff;
+    /* Sliding / layout highlights — slower, ease-out–biased (tab thumb, etc.) */
+    --duration-tab-slide: 360ms;
+    --easing-tab-slide: cubic-bezier(0.32, 0.72, 0, 1);
 
-  /* ─── Opacity ───────────────────────────────────────────────────────── */
+    /* Spacing scale (single source of truth) */
+    --space-2: 2px;
+    --space-4: 4px;
+    --space-6: 6px;
+    --space-8: 8px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --space-28: 28px;
+    --space-32: 32px;
+    --space-40: 40px;
+    --space-48: 48px;
+    --space-64: 64px;
+    --space-96: 96px;
+    --space-128: 128px;
 
-  --opacity-strong: 0.3;
-  --opacity-medium: 0.4;
-  --opacity-subtle: 0.7;
+    /* Radius */
+    --radius-sm: var(--space-4);
+    --radius-md: var(--space-6);
+    --radius-lg: var(--space-8);
+    --radius-xl: var(--space-12);
 
-  /* ─── Motion (hover / press feedback on controls) ─────────────────────── */
+    /* Height */
+    --height-xs: var(--space-12);
+    --height-sm: var(--space-16);
+    --height-md: var(--space-20);
+    --height-lg: var(--space-24);
+    --height-xl: var(--space-28); /* Default for most of the interactive elements */
 
-  --duration-interaction: 120ms;
-  --easing-interaction: ease;
+    /* icon size */
+    --icon-md: var(--space-16);
+    --icon-sm: var(--space-6);
+    --icon-stroke: 1.2px;
 
-  /* Sliding / layout highlights — slower, ease-out–biased (tab thumb, etc.) */
-  --duration-tab-slide: 360ms;
-  --easing-tab-slide: cubic-bezier(0.32, 0.72, 0, 1);
+    /* Gap between buttons */
+    --btn-gap-lg: var(--space-8); /* Use it for secondary buttons group */
+    --btn-gap-md: var(--space-6); /* Use it when one of the buttons in a group will be always selected. For example, tabs */
+    --btn-gap-sm: var(--space-4);
+    --btn-gap-xs: var(--space-2); /* Use it for icon-only ghost variant buttons */
 
-  /* ─── Spacing scale (single source of truth) ─────────────────────────── */
-  --space-2: 2px;
-  --space-4: 4px;
-  --space-6: 6px;
-  --space-8: 8px;
-  --space-12: 12px;
-  --space-16: 16px;
-  --space-24: 24px;
-  --space-32: 32px;
-  --space-40: 40px;
-  --space-48: 48px;
-  --space-64: 64px;
-  --space-96: 96px;
-  --space-128: 128px;
-  
-  /* ─── Radius scale ───────────────────────────────────────────────────── */
-  --radius-xs: var(--space-2);
-  --radius-sm: var(--space-4);
-  --radius-md: var(--space-6);
-  --radius-lg: var(--space-8); /* Default */
-  --radius-xl: var(--space-12);
+    /* Typography */
+    --font-family: Inter, system-ui, -apple-system, sans-serif;
+    --font-sans: var(--font-family);
 
-  /* ─── Height scale ───────────────────────────────────────────────────── */
+    /* Font size */
+    --text-heading-1: 32px;
+    --text-heading-2: 24px;
+    --text-heading-3: 20px;
+    --text-body: 14px; /* Default */
+    --text-label: 12px;
+    --text-caption: 10px;
+    --text-micro: 6px; /* Use it for the date in the calendar icon */
 
-  --height-xs: 16px;
-  --height-sm: 20px;
-  --height-md: 24px; /* Default */
-  --height-lg: 28px;
-  --height-xl: 44px;
-  --height-xxl: 48px;
+    /* Line height */
+    --lh-heading-1: 48px;
+    --lh-heading-2: 40px;
+    --lh-heading-3: 32px;
+    --lh-body: 20px;
+    --lh-label: 16px;
+    --lh-caption: 14px;
+    --lh-100: 1;
 
-  /* ─── Margin (same px scale as padding) ────────────────────────────── */
-
-  --margin-2px: var(--space-2);
-  --margin-4px: var(--space-4);
-  --margin-6px: var(--space-6);
-  --margin-8px: var(--space-8);
-  --margin-12px: var(--space-12);
-  --margin-16px: var(--space-16);
-  --margin-24px: var(--space-24); /* Editor nested outline indent */
-
-  /* Horizontal inset — xs tight chips; sm rows; md/lg controls */
-  --padding-x-xs: var(--space-2);
-  --padding-x-sm: var(--space-4);
-  --padding-x-md: var(--space-6);
-  --padding-x-lg: var(--space-8);
-  --padding-x-xl: var(--space-12);
-
-  /* Padding for list items and sidepanel content */
-  --control-padding-x: var(--space-6);
-  --sidepanel-padding-x: var(--space-12);
-
-
-  /* ─── Gap / icon & label ─────────────────────────────────────── */
-
-  --gap-icon-label-sm: var(--space-4);
-  --gap-icon-label-lg: var(--space-6);
-
-  /* Gap / btn-btn */
-  --gap-btn-btn-xs: var(--space-2);
-  --gap-btn-btn-sm: var(--space-4);
-  --gap-btn-btn-md: var(--space-6);
-  --gap-btn-btn-lg: var(--space-8);
-
-  /* Gap / section */
-  --gap-section-xs: var(--space-2);
-  --gap-section-sm: var(--space-4);
-  --gap-section-md: var(--space-6);
-  --gap-section-lg: var(--space-8);
-  --gap-section-xl: var(--space-12);
-
-  /* Gap / list items */
-  --gap-list-item-xs: var(--space-2);
-  --gap-list-item-sm: var(--space-4);
-
-
-  /* ─── Typography ───────────────────────────────────────────────────── */
-
-  --font-family: Inter, system-ui, -apple-system, sans-serif;
-  --font-sans: var(--font-family);
-
-  /* Font size */
-  --text-heading-1: 32px;
-  --text-heading-2: 24px;
-  --text-heading-3: 20px;
-  --text-body-large: 16px;
-  --text-body-medium: 14px; /* Default */
-  --text-body-small: 13px;
-
-  --text-label-medium: 12px;
-  --text-label-small: 10px;
-  --text-label-smaller: 8px;
-
-  /* Line height */
-  --lh-heading-1: 48px;
-  --lh-heading-2: 40px;
-  --lh-heading-3: 32px;
-  --lh-body-large: 28px;
-  --lh-body-medium: 24px;
-  --lh-label-medium: 20px;
-  --lh-label-small: 16px;
-  --lh-label-smaller: 14px;
-  --lh-100: 1;
-
-  /* Font weight */
-  --fw-regular: 400;
-  --fw-medium: 500;
-  --fw-semibold: 600;
-  --fw-bold: 700;
+    /* Font weight */
+    --fw-regular: 400;
+    --fw-medium: 500;
+    --fw-semibold: 600; /* Use it for label & caption */
+    --fw-bold: 700;
 }

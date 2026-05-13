@@ -1,18 +1,40 @@
-import { Button } from '../Button';
-import { CustomIcons } from '../../design-system/icons';
-import { Workspace } from './Workspace';
+import { Avatar } from './Avatar';
+import { Button, BUTTON_ELLIPSIS_TARGET_CLASS } from './Button';
+import { CustomIcons } from '../design-system/icons';
+
+const WORKSPACE_NAME = 'My space';
 
 export function GlobalTopbar() {
   return (
     <header className="clutter-global-topbar">
-      <Workspace name="My space" />
+      <div className="clutter-global-topbar__workspace" role="region" aria-label="Workspace">
+        <Button
+          type="button"
+          variant="ghost"
+          caret
+          contentAlign="start"
+          className="clutter-global-topbar__workspace-btn"
+          aria-haspopup="menu"
+          aria-expanded={false}
+          aria-label={`Workspace: ${WORKSPACE_NAME}`}
+        >
+          <Avatar name={WORKSPACE_NAME} size="large" aria-hidden />
+          <span className={BUTTON_ELLIPSIS_TARGET_CLASS}>{WORKSPACE_NAME}</span>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          iconOnly={CustomIcons.MagnifyingGlass}
+          className="clutter-global-topbar__search"
+          aria-label="Search"
+        />
+      </div>
       <div className="clutter-global-topbar__main">
         <nav className="clutter-global-topbar__nav" aria-label="Editor navigation">
           <Button
             type="button"
             variant="ghost"
             iconOnly={CustomIcons.Sidebar}
-            className="clutter-global-topbar__icon-btn"
             aria-label="Toggle side panel"
           />
           <div className="clutter-global-topbar__history">
@@ -20,14 +42,12 @@ export function GlobalTopbar() {
               type="button"
               variant="ghost"
               iconOnly={CustomIcons.ArrowLeft}
-              className="clutter-global-topbar__icon-btn"
               aria-label="Back"
             />
             <Button
               type="button"
               variant="ghost"
               iconOnly={CustomIcons.ArrowRight}
-              className="clutter-global-topbar__icon-btn"
               aria-label="Forward"
             />
           </div>
@@ -37,14 +57,12 @@ export function GlobalTopbar() {
             type="button"
             variant="ghost"
             iconOnly={CustomIcons.ChevronDown}
-            className="clutter-global-topbar__icon-btn"
             aria-label="Open menu"
           />
           <Button
             type="button"
             variant="ghost"
             iconOnly={CustomIcons.Tabs}
-            className="clutter-global-topbar__icon-btn"
             aria-label="Tabs"
           />
         </div>

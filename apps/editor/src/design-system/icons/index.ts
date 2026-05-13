@@ -51,14 +51,13 @@ import { withSvgIcon } from './svg-icon';
 export { CalendarTodayIcon, type CalendarTodayIconProps } from './calendar-today-icon';
 export { CalendarWithDotIcon, type CalendarWithDotIconProps };
 export {
-  DOT_MD,
   ICON_EXTRA_LARGE,
+  ICON_EXTRA_SMALL,
   ICON_MEDIUM,
   ICON_MEDIUM_WRAPPER,
   ICON_SMALL,
   ICON_SMALL_WRAPPER,
   ICON_STROKE_USER,
-  ICON_WRAPPER_SIZE,
 } from './constants';
 export { withSvgIcon, type ClutterIcon, type CustomSvgIconProps } from './svg-icon';
 

@@ -1,19 +1,4 @@
-/* ─── Layout tokens ──────────────────────────────────────────────────────── */
-
-:root {
-  --sidebar-width: 240px;
-  --sidebar-width-collapsed: 44px;
-  --sidebar-item-height: var(--height-lg);
-  --sidebar-item-radius: var(--radius-lg);
-  --document-max-width: 720px;
-  --document-padding-x: var(--space-32);
-  --document-padding-top: var(--space-48);
-  --document-padding-bottom: var(--space-96);
-  --document-header-content-gap: var(--space-24);
-  --document-body-footer-gap: var(--space-128);
-}
-
-/* ─── App root ───────────────────────────────────────────────────────────── */
+/* App root */
 
 .clutter-app {
   display: flex;
@@ -22,7 +7,23 @@
   background: var(--surface-root);
 }
 
-/* ─── Workspace ──────────────────────────────────────────────────────────── */
+/* Main workspace shell below the global top bar (sidepanel, editor, etc. — filled in incrementally). */
+.clutter-app-workspace {
+  flex: 1 0 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-secondary);
+  display: flex;
+  flex-direction: column;
+}
+
+.clutter-app-workspace > .clutter-workspace {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Workspace which contains sidepanel and editor */
 
 .clutter-workspace {
   flex: 1 0 0;
@@ -32,55 +33,64 @@
   overflow: hidden;
 }
 
-/* ─── Sidepanel ──────────────────────────────────────────────────────────── */
+/* Sidepanel */
 
 .clutter-sidepanel {
-  width: var(--sidebar-width);
-  min-width: 220px;
-  max-width: 480px;
+  width: 280px;
+  min-width: 240px;
+  max-width: 420px;
   flex-shrink: 0;
   height: 100%;
   background: var(--surface-secondary);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
 .clutter-sidepanel--collapsed {
-  width: var(--sidebar-width-collapsed);
-  min-width: var(--sidebar-width-collapsed);
-  max-width: var(--sidebar-width-collapsed);
+  width: 44px;
+  flex-shrink: 0;
+  height: 100%;
+  background: var(--surface-secondary);
 }
 
 .clutter-sidepanel--hidden {
   width: 0;
-  min-width: 0;
-  max-width: 0;
 }
 
-/* ─── Canvas ─────────────────────────────────────────────────────────────── */
+/* Canvas */
 
 .clutter-canvas {
   flex: 1 0 0;
   min-width: 0;
+  min-height: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--surface-secondary);
-  padding: 0 8px 8px 0;
+  padding: 0 var(--space-8) var(--space-8) 0;
   overflow: hidden;
+}
+
+.clutter-canvas > .clutter-editor-group {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
 }
 
 .clutter-workspace[data-sidepanel='hidden'] .clutter-canvas {
-  padding-inline-start: var(--padding-x-sm);
+  padding-inline-start: var(--space-8);
 }
 
-/* ─── Editor group ───────────────────────────────────────────────────────── */
+/* Editor group */
 
 .clutter-editor-group {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-8); /* Gap between editor-pane */
   height: 100%;
   overflow: hidden;
 }
 
-/* ─── Editor pane ────────────────────────────────────────────────────────── */
+/* Editor pane */
 
 .clutter-editor-pane {
   flex: 1 0 0;
@@ -95,12 +105,12 @@
 }
 
 .clutter-editor-topbar {
-  height: var(--height-xl);
+  height: 44px;
   flex-shrink: 0;
   width: 100%;
 }
 
-/* ─── Editor scroll + document ───────────────────────────────────────────── */
+/* Editor scroll and document */
 
 .clutter-editor-scroll {
   flex: 1 0 0;
@@ -109,20 +119,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 var(--document-padding-x);
-  scroll-padding-top: var(--document-padding-top);
-  scroll-padding-bottom: var(--document-padding-bottom);
+  padding: 0 24px 0 64px;
+  scroll-padding-top: 24px;
+  scroll-padding-bottom: 96px;
 }
 
 .clutter-editor-document {
   flex-shrink: 0;
   width: 100%;
-  max-width: var(--document-max-width);
+  max-width: 720px;
   min-height: 100%;
-  padding: var(--document-padding-top) 0 var(--document-padding-bottom);
+  padding: 24px 0 96px;
   display: flex;
   flex-direction: column;
-  gap: var(--document-header-content-gap);
+  gap: 24px; /* Gap between document-header and document-content */
 }
 
 .clutter-document-header {
@@ -136,7 +146,7 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: var(--document-body-footer-gap);
+  gap: 128px; /* Gap between document-body and document-footer */
 }
 
 .clutter-document-body {

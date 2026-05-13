@@ -1,11 +1,13 @@
+import type { HTMLAttributes } from 'react';
+
 type AvatarSize = 'small' | 'medium' | 'large';
 
-interface AvatarProps {
+export type AvatarProps = {
   name: string;
   size?: AvatarSize;
   src?: string;
   className?: string;
-}
+} & Pick<HTMLAttributes<HTMLDivElement>, 'aria-hidden'>;
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -18,7 +20,7 @@ function getInitials(name: string): string {
     : word.charAt(0).toUpperCase();
 }
 
-export function Avatar({ name, size = 'medium', src, className }: AvatarProps) {
+export function Avatar({ name, size = 'medium', src, className, 'aria-hidden': ariaHidden }: AvatarProps) {
   const cls = [
     'clutter-avatar',
     `clutter-avatar--${size}`,
@@ -26,7 +28,7 @@ export function Avatar({ name, size = 'medium', src, className }: AvatarProps) {
   ].filter(Boolean).join(' ');
 
   return (
-    <div className={cls}>
+    <div className={cls} aria-hidden={ariaHidden}>
       {src
         ? <img src={src} alt={name} className="clutter-avatar__img" />
         : <span className="clutter-avatar__initials">{getInitials(name)}</span>

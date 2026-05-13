@@ -32,7 +32,7 @@
   min-width: var(--height-sm);
 }
 
-/* ─── Dot (dimensions: `--dot-md`, set from `DOT_MD` in main.tsx) ──────── */
+/* ─── Dot (dimensions: `--dot-md`, set from `ICON_EXTRA_SMALL` in main.tsx) ──────── */
 
 .clutter-date-pill__dot-wrap {
   display: inline-flex;

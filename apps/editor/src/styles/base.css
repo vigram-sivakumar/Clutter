@@ -13,8 +13,8 @@ body {
 
 body {
   font-family: var(--font-sans);
-  font-size: var(--text-body-medium);
-  line-height: var(--lh-body-medium);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
   font-weight: var(--fw-regular);
   color: var(--text-primary);
   background: var(--surface-root);
@@ -26,8 +26,8 @@ body {
 }
 
 [data-node-id] {
-  font-size: var(--text-body-medium);
-  line-height: var(--lh-body-medium);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
   font-weight: var(--fw-regular);
 }
 
