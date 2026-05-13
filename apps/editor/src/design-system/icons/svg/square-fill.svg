@@ -1,0 +1,15 @@
+<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M14 10V6C14 3.79086 12.2091 2 10 2H6C3.79086 2 2 3.79086 2 6V10C2 12.2091 3.79086 14 6 14H10C12.2091 14 14 12.2091 14 10Z"
+    fill="currentColor"
+    fill-opacity="0.22"
+  />
+  <path
+    d="M6 2.59961H10C11.8778 2.59961 13.4004 4.12223 13.4004 6V10C13.4004 11.8778 11.8778 13.4004 10 13.4004H6C4.12223 13.4004 2.59961 11.8778 2.59961 10V6C2.59961 4.12223 4.12223 2.59961 6 2.59961Z"
+    fill="none"
+    stroke="currentColor"
+    stroke-opacity="0.06"
+    stroke-width="var(--clutter-icon-stroke-user, 1.2)"
+    stroke-linecap="round"
+  />
+</svg>

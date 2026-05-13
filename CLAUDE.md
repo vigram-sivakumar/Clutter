@@ -20,8 +20,8 @@ apps/editor/
       input-lock.ts   Global flag: prevents selection restore during browser input events
     design-system/
       tokens.css      Raw design tokens (colors, spacing, typography, radius)
-      theme.css       Semantic token mapping (--color-bg-primary etc.)
-      icons.ts        Centralized Phosphor icon registry
+      theme.css       Semantic token mapping (semantic variables)
+      icons/          Icon system: svg/ assets, Phosphor registry, CustomIcons (SVGR), index.ts barrel
       tokens.ts       Layout tokens (indent width, density)
       useTheme.ts     Theme preference hook (light/dark/system)
     styles/

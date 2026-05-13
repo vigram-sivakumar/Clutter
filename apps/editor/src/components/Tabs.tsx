@@ -1,3 +1,4 @@
+import type { Icon as PhosphorIcon } from '@phosphor-icons/react';
 import {
   useCallback,
   useEffect,
@@ -8,18 +9,16 @@ import {
   type HTMLAttributes,
 } from 'react';
 
-import { ICON_MEDIUM, Icons } from '../design-system/icons';
+import { CalendarTodayIcon, ICON_MEDIUM, Icons } from '../design-system/icons';
 
 export type TabId = 'calendar' | 'notes' | 'tasks' | 'tags';
 
-type TabDef = {
-  id: TabId;
-  label: string;
-  Icon: (typeof Icons)['CalendarBlank'];
-};
+type TabDef =
+  | { id: 'calendar'; label: string }
+  | { id: Exclude<TabId, 'calendar'>; label: string; Icon: PhosphorIcon };
 
 const TABS: TabDef[] = [
-  { id: 'calendar', label: 'Calendar', Icon: Icons.CalendarBlank },
+  { id: 'calendar', label: 'Calendar' },
   { id: 'notes', label: 'Notes', Icon: Icons.NoteBlank },
   { id: 'tasks', label: 'Tasks', Icon: Icons.CheckCircle },
   { id: 'tags', label: 'Tags', Icon: Icons.Tag },
@@ -129,7 +128,6 @@ export function Tabs({
         {TABS.map((tab, index) => {
           const selected = value === tab.id;
           const tabId = `${baseId}-tab-${tab.id}`;
-          const { Icon } = tab;
           return (
             <button
               key={tab.id}
@@ -146,7 +144,11 @@ export function Tabs({
               onClick={() => setValue(tab.id)}
             >
               <span className="clutter-tabs__icon" aria-hidden>
-                <Icon size={ICON_MEDIUM} weight="regular" />
+                {tab.id === 'calendar' ? (
+                  <CalendarTodayIcon size={ICON_MEDIUM} />
+                ) : (
+                  <tab.Icon size={ICON_MEDIUM} weight="regular" />
+                )}
               </span>
             </button>
           );

@@ -62,22 +62,9 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 
-// Centralized icon registry — never import directly from phosphor in feature code.
+// Centralized Phosphor registry — never import directly from phosphor in feature code.
 // Maps Figma “Icons” component variants (except Emojie) to Phosphor; filled/small variants
 // share the same glyph — use `weight` / `size` on the component where needed.
-//
-// ICON_MEDIUM is the single source of truth for the default icon size.
-// It is injected as --icon-medium CSS variable in main.tsx so both CSS and components stay in sync.
-// To change the global icon size, update ICON_MEDIUM here only.
-export const ICON_SMALL = 12;
-export const ICON_MEDIUM = 16;
-/** Sidepanel nav icon frame; keep in sync with `tokens.css` `--height-sm`. */
-export const ICON_WRAPPER_SIZE = 20;
-export const ICON_EXTRA_LARGE = 48;
-
-/** Calendar / pill status dot (Phosphor `Circle` fill). Injected as `--dot-md` in main.tsx. */
-export const DOT_MD = 8;
-
 export const Icons = {
   ArrowCircleDown: ArrowCircleDownIcon,
   ArrowCircleRight: ArrowCircleRightIcon,

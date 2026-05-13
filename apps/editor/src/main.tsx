@@ -5,11 +5,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { DOT_MD, ICON_MEDIUM, ICON_SMALL } from './design-system/icons';
+import { DOT_MD, ICON_MEDIUM, ICON_SMALL, ICON_STROKE_USER } from './design-system/icons';
 
 document.documentElement.style.setProperty('--icon-medium', `${ICON_MEDIUM}px`);
 document.documentElement.style.setProperty('--icon-small', `${ICON_SMALL}px`);
 document.documentElement.style.setProperty('--dot-md', `${DOT_MD}px`);
+document.documentElement.style.setProperty('--clutter-icon-stroke-user', String(ICON_STROKE_USER));
 import './design-system/tokens.css';
 import './design-system/theme.css';
 import './styles/base.css';
