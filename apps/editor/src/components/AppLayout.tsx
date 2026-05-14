@@ -1,20 +1,26 @@
-import type React from "react";
-import { GlobalTopbar } from "./GlobalTopbar";
+import type { ReactNode } from "react";
+import { useCallback, useState } from "react";
+import { Topbar } from "./Topbar";
+import { Sidebar } from "./Sidebar";
 
 type AppLayoutProps = {
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
-/**
- * Shell: global top bar + sidepanel + canvas with empty editor chrome (content added incrementally).
- */
+/** Shell: top bar + docked sidebar + canvas. Rail show/hide is instant (no peek / portal). */
 export function AppLayout({ children: _children }: AppLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((open) => !open);
+  }, []);
+
   return (
     <div className="clutter-app">
-      <GlobalTopbar />
-      <div className="clutter-app-workspace" aria-label="Workspace">
-        <div className="clutter-workspace" data-sidepanel="expanded">
-          <aside className="clutter-sidepanel" aria-label="Side panel" />
+      <Topbar sidebarOpen={sidebarOpen} onToggleSidebar={toggleSidebar} />
+      <div className="clutter-app-frame" aria-label="Editor layout">
+        <div className="clutter-frame" data-sidebar={sidebarOpen ? "expanded" : "hidden"}>
+          <Sidebar open={sidebarOpen} />
           <main className="clutter-canvas">
             <div className="clutter-editor-group">
               <div className="clutter-editor-pane" />

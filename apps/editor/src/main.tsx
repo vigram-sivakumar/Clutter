@@ -15,9 +15,9 @@ import './design-system/tokens.css';
 import './design-system/theme.css';
 import './styles/base.css';
 import './styles/app-layout.css';
+import './styles/sidebar.css';
 import './styles/button.css';
-import './styles/avatar.css';
-import './styles/global-topbar.css';
+import './styles/topbar.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');

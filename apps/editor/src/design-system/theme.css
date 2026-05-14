@@ -48,8 +48,8 @@
     --border-strong: rgba(255, 255, 255, 0.1);
 
     /* Interactive states */
-    --state-hover: rgba(255, 255, 255, 0.1);
-    --state-pressed: rgba(255, 255, 255, 0.06);
+    --state-hover: rgba(255, 255, 255, 0.09);
+    --state-pressed: rgba(255, 255, 255, 0.05);
     --state-active: rgba(255, 255, 255, 0.08);
     --state-disabled: var(--opacity-strong);
 
@@ -128,8 +128,8 @@
     --border-strong: rgba(0, 0, 0, 0.12);
 
     /* Interactive states */
-    --state-hover: rgba(0, 0, 0, 0.1);
-    --state-pressed: rgba(0, 0, 0, 0.06);
+    --state-hover: rgba(0, 0, 0, 0.09);
+    --state-pressed: rgba(0, 0, 0, 0.05);
     --state-active: rgba(0, 0, 0, 0.08);
     --state-disabled: var(--opacity-strong);
 

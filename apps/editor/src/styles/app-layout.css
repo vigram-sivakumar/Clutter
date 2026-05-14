@@ -1,14 +1,15 @@
 /* App root */
 
 .clutter-app {
+  --topbar-stack-height: calc(var(--space-8) * 2 + var(--height-xl));
   display: flex;
   flex-direction: column;
   height: 100vh;
   background: var(--surface-root);
 }
 
-/* Main workspace shell below the global top bar (sidepanel, editor, etc. — filled in incrementally). */
-.clutter-app-workspace {
+/* Main frame below the global top bar (sidebar + canvas; sidebar chrome in sidebar.css). */
+.clutter-app-frame {
   flex: 1 0 0;
   min-height: 0;
   overflow: hidden;
@@ -17,44 +18,28 @@
   flex-direction: column;
 }
 
-.clutter-app-workspace > .clutter-workspace {
+.clutter-app-frame > .clutter-frame {
   flex: 1 1 0;
   min-height: 0;
   min-width: 0;
 }
 
-/* Workspace which contains sidepanel and editor */
+/* Horizontal split: sidebar + canvas. */
 
-.clutter-workspace {
+.clutter-frame {
   flex: 1 0 0;
   display: flex;
   align-items: stretch;
   min-height: 0;
   overflow: hidden;
+  position: relative;
+  z-index: 0;
+  padding-inline-start: 0;
+  box-sizing: border-box;
 }
 
-/* Sidepanel */
-
-.clutter-sidepanel {
-  width: 280px;
-  min-width: 240px;
-  max-width: 420px;
-  flex-shrink: 0;
-  height: 100%;
-  background: var(--surface-secondary);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.clutter-sidepanel--collapsed {
-  width: 44px;
-  flex-shrink: 0;
-  height: 100%;
-  background: var(--surface-secondary);
-}
-
-.clutter-sidepanel--hidden {
-  width: 0;
+.clutter-frame[data-sidebar="hidden"] {
+  padding-inline-start: var(--space-8);
 }
 
 /* Canvas */
@@ -66,9 +51,13 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 2;
   background: var(--surface-secondary);
   padding: 0 var(--space-8) var(--space-8) 0;
-  overflow: hidden;
+  padding-inline-start: 0;
+  /* Let the editor pane’s left radius/border paint over the rail seam (no clip). */
+  overflow: visible;
 }
 
 .clutter-canvas > .clutter-editor-group {
@@ -77,17 +66,13 @@
   min-width: 0;
 }
 
-.clutter-workspace[data-sidepanel='hidden'] .clutter-canvas {
-  padding-inline-start: var(--space-8);
-}
-
 /* Editor group */
 
 .clutter-editor-group {
   display: flex;
   gap: var(--space-8); /* Gap between editor-pane */
   height: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Editor pane */

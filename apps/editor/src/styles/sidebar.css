@@ -1,0 +1,47 @@
+/* App sidebar: docked spacer + panel (Sidebar.tsx). */
+
+/* --- Layout spacer: flex width when rail is open --- */
+
+.clutter-sidebar-spacer {
+  position: relative;
+  flex-shrink: 0;
+  height: 100%;
+  width: 0;
+  max-width: 280px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.clutter-sidebar-spacer[data-expanded="true"] {
+  width: 280px;
+}
+
+/* --- Docked panel --- */
+
+.clutter-app-sidebar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 280px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 0;
+  transform: none;
+  background: var(--surface-secondary);
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+.clutter-app-sidebar__inner {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 280px;
+  height: 100%;
+}
+
+.clutter-sidebar-spacer > .clutter-app-sidebar {
+  width: 100%;
+  max-width: 280px;
+}
