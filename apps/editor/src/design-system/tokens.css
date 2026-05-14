@@ -58,6 +58,7 @@
     --height-md: var(--space-20);
     --height-lg: var(--space-24);
     --height-xl: var(--space-28); /* Default for most of the interactive elements */
+    --height-2xl: var(--space-32); /* Use it for large interactive elements */
 
     /* icon size */
     --icon-md: var(--space-16);
@@ -97,4 +98,7 @@
     --fw-medium: 500;
     --fw-semibold: 600; /* Use it for label & caption */
     --fw-bold: 700;
+
+    /* App shell — docked sidebar rail (spacer, panel, topbar column must match) */
+    --app-sidebar-width: 300px;
 }

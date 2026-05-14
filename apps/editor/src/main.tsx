@@ -16,6 +16,7 @@ import './design-system/theme.css';
 import './styles/base.css';
 import './styles/app-layout.css';
 import './styles/sidebar.css';
+import './styles/sidebar-tabs.css';
 import './styles/button.css';
 import './styles/topbar.css';
 

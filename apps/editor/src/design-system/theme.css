@@ -25,6 +25,7 @@
     --surface-primary: var(--neutral-900);
     --surface-secondary: var(--neutral-800);
     --surface-tertiary: var(--neutral-700);
+    --surface-subtle: rgba(255, 255, 255, 0.02);
     --surface-overlay: rgba(31, 31, 31, 0.7);
     --surface-inverse: var(--neutral-50);
 
@@ -46,11 +47,12 @@
     --border-subtle: rgba(255, 255, 255, 0.04);
     --border-default: rgba(255, 255, 255, 0.06);
     --border-strong: rgba(255, 255, 255, 0.1);
+    --border-focus: var(--accent-dark);
 
     /* Interactive states */
-    --state-hover: rgba(255, 255, 255, 0.09);
+    --state-hover: rgba(255, 255, 255, 0.07);
     --state-pressed: rgba(255, 255, 255, 0.05);
-    --state-active: rgba(255, 255, 255, 0.08);
+    --state-active: rgba(255, 255, 255, 0.05);
     --state-disabled: var(--opacity-strong);
 
     /* Calendar */
@@ -105,6 +107,7 @@
     --surface-primary: var(--neutral-0);
     --surface-secondary: var(--neutral-50);
     --surface-tertiary: var(--neutral-200);
+    --surface-subtle: rgba(0, 0, 0 , 0.03);
     --surface-overlay: rgba(233, 233, 233, 0.6);
     --surface-inverse: var(--neutral-900);
 
@@ -126,11 +129,12 @@
     --border-subtle: rgba(0, 0, 0, 0.04);
     --border-default: rgba(0, 0, 0, 0.06);
     --border-strong: rgba(0, 0, 0, 0.12);
+    --border-focus: var(--accent-light);
 
     /* Interactive states */
-    --state-hover: rgba(0, 0, 0, 0.09);
+    --state-hover: rgba(0, 0, 0, 0.07);
     --state-pressed: rgba(0, 0, 0, 0.05);
-    --state-active: rgba(0, 0, 0, 0.08);
+    --state-active: rgba(0, 0, 0, 0.05);
     --state-disabled: var(--opacity-strong);
 
     /* Calendar */

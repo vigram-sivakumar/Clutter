@@ -20,9 +20,9 @@
   justify-content: flex-start;
   flex-shrink: 0;
   box-sizing: border-box;
-  width: 280px; /* align with sidebar.css spacer + .clutter-app-sidebar width */
+  width: var(--app-sidebar-width);
   min-width: 44px;
-  max-width: 280px;
+  max-width: var(--app-sidebar-width);
   padding-inline: var(--space-12);
   opacity: 1;
 }

@@ -53,6 +53,8 @@ export { CalendarWithDotIcon, type CalendarWithDotIconProps };
 export {
   ICON_EXTRA_LARGE,
   ICON_EXTRA_SMALL,
+  ICON_LARGE,
+  ICON_LARGE_WRAPPER,
   ICON_MEDIUM,
   ICON_MEDIUM_WRAPPER,
   ICON_SMALL,
