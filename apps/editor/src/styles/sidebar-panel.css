@@ -1,0 +1,33 @@
+:root {
+  --item-gap: var(--space-2);
+}
+
+.clutter-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--space-8);
+  flex: 1 1 0;
+  overflow: hidden;
+}
+.clutter-sidebar-panel__divider {
+  height: 1px;
+  background: var(--border-default);
+  flex-shrink: 0;
+}
+
+.clutter-sidebar-panel__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--item-gap);
+}
+
+.clutter-sidebar-panel__content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  gap: var(--space-8);
+}

@@ -1,104 +1,108 @@
 :root {
-    /* Neutral */
-    --neutral-0: #ffffff;
-    --neutral-50: #f9f8f7;
-    --neutral-100: #f6f5f4;
-    --neutral-200: #efeeec;
-    --neutral-300: #e4e3e1;
-    --neutral-400: #d9d8d6;
-    --neutral-500: #babab5;
-    --neutral-600: #9b9a94;
-    --neutral-700: #292929;
-    --neutral-800: #202020;
-    --neutral-900: #191919;
+  /* Neutral */
+  --neutral-0: #ffffff;
+  --neutral-50: #f9f8f7;
+  --neutral-100: #f6f5f4;
+  --neutral-200: #efeeec;
+  --neutral-300: #e4e3e1;
+  --neutral-400: #d9d8d6;
+  --neutral-500: #babab5;
+  --neutral-600: #9b9a94;
+  --neutral-700: #292929;
+  --neutral-800: #202020;
+  --neutral-900: #191919;
 
-    /* Accent */
-    --accent-light: #00acff;
-    --accent-dark: #007aff;
-    
-    /* Opacity */
-    --opacity-strong: 0.3;
-    --opacity-medium: 0.4;
-    --opacity-subtle: 0.7;
+  /* Accent */
+  --accent-light: #00acff;
+  --accent-dark: #007aff;
 
-    /* Motion */
-    --duration-interaction: 120ms;
-    --easing-interaction: ease;
+  /* Opacity */
+  --opacity-strong: 0.3;
+  --opacity-medium: 0.4;
+  --opacity-subtle: 0.7;
 
-    /* Sliding / layout highlights — slower, ease-out–biased (tab thumb, etc.) */
-    --duration-tab-slide: 360ms;
-    --easing-tab-slide: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Motion */
+  --duration-interaction: 120ms;
+  --easing-interaction: ease;
 
-    /* Spacing scale (single source of truth) */
-    --space-2: 2px;
-    --space-4: 4px;
-    --space-6: 6px;
-    --space-8: 8px;
-    --space-12: 12px;
-    --space-16: 16px;
-    --space-20: 20px;
-    --space-24: 24px;
-    --space-28: 28px;
-    --space-32: 32px;
-    --space-40: 40px;
-    --space-48: 48px;
-    --space-64: 64px;
-    --space-96: 96px;
-    --space-128: 128px;
+  /* Sliding / layout highlights — slower, ease-out–biased (tab thumb, etc.) */
+  --duration-tab-slide: 360ms;
+  --easing-tab-slide: cubic-bezier(0.32, 0.72, 0, 1);
 
-    /* Radius */
-    --radius-sm: var(--space-4);
-    --radius-md: var(--space-6);
-    --radius-lg: var(--space-8);
-    --radius-xl: var(--space-12);
+  /* Spacing scale (single source of truth) */
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+  --space-96: 96px;
+  --space-128: 128px;
 
-    /* Height */
-    --height-xs: var(--space-12);
-    --height-sm: var(--space-16);
-    --height-md: var(--space-20);
-    --height-lg: var(--space-24);
-    --height-xl: var(--space-28); /* Default for most of the interactive elements */
-    --height-2xl: var(--space-32); /* Use it for large interactive elements */
+  /* Radius */
+  --radius-sm: var(--space-4);
+  --radius-md: var(--space-6);
+  --radius-lg: var(--space-8);
+  --radius-xl: var(--space-12);
 
-    /* icon size */
-    --icon-md: var(--space-16);
-    --icon-sm: var(--space-6);
-    --icon-stroke: 1.2px;
+  /* Height */
+  --height-xs: var(--space-12);
+  --height-sm: var(--space-20);
+  --height-md: var(--space-24);
+  --height-lg: var(--space-28);
+  --height-xl: var(
+    --space-32
+  ); /* Default for most of the interactive elements */
+  --height-2xl: var(--space-32); /* Use it for large interactive elements */
 
-    /* Gap between buttons */
-    --btn-gap-lg: var(--space-8); /* Use it for secondary buttons group */
-    --btn-gap-md: var(--space-6); /* Use it when one of the buttons in a group will be always selected. For example, tabs */
-    --btn-gap-sm: var(--space-4);
-    --btn-gap-xs: var(--space-2); /* Use it for icon-only ghost variant buttons */
+  /* icon size */
+  --icon-md: var(--space-16);
+  --icon-sm: var(--space-6);
+  --icon-stroke: 1.2px;
 
-    /* Typography */
-    --font-family: Inter, system-ui, -apple-system, sans-serif;
-    --font-sans: var(--font-family);
+  /* Gap between buttons */
+  --btn-gap-lg: var(--space-8); /* Use it for secondary buttons group */
+  --btn-gap-md: var(
+    --space-6
+  ); /* Use it when one of the buttons in a group will be always selected. For example, tabs */
+  --btn-gap-sm: var(--space-4);
+  --btn-gap-xs: var(--space-2); /* Use it for icon-only ghost variant buttons */
 
-    /* Font size */
-    --text-heading-1: 32px;
-    --text-heading-2: 24px;
-    --text-heading-3: 20px;
-    --text-body: 14px; /* Default */
-    --text-label: 12px;
-    --text-caption: 10px;
-    --text-micro: 6px; /* Use it for the date in the calendar icon */
+  /* Typography */
+  --font-family: Inter, system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-family);
 
-    /* Line height */
-    --lh-heading-1: 48px;
-    --lh-heading-2: 40px;
-    --lh-heading-3: 32px;
-    --lh-body: 20px;
-    --lh-label: 16px;
-    --lh-caption: 14px;
-    --lh-100: 1;
+  /* Font size */
+  --text-heading-1: 32px;
+  --text-heading-2: 24px;
+  --text-heading-3: 20px;
+  --text-body: 14px; /* Default */
+  --text-label: 12px;
+  --text-caption: 10px;
+  --text-micro: 6px; /* Use it for the date in the calendar icon */
 
-    /* Font weight */
-    --fw-regular: 400;
-    --fw-medium: 500;
-    --fw-semibold: 600; /* Use it for label & caption */
-    --fw-bold: 700;
+  /* Line height */
+  --lh-heading-1: 48px;
+  --lh-heading-2: 40px;
+  --lh-heading-3: 32px;
+  --lh-body: 20px;
+  --lh-label: 16px;
+  --lh-caption: 14px;
+  --lh-100: 1;
 
-    /* App shell — docked sidebar rail (spacer, panel, topbar column must match) */
-    --app-sidebar-width: 300px;
+  /* Font weight */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600; /* Use it for label & caption */
+  --fw-bold: 700;
+
+  /* App shell — docked sidebar rail (spacer, panel, topbar column must match) */
+  --app-sidebar-width: 300px;
 }

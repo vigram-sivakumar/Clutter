@@ -34,3 +34,17 @@ body {
 ::selection {
   background: var(--selection-bg);
 }
+
+/* Opt-in hover / pressed / focus ring for buttons (see sidebar controls). */
+button.clutter-interactive:hover {
+  background: var(--state-hover);
+}
+
+button.clutter-interactive:active {
+  background: var(--state-pressed);
+}
+
+button.clutter-interactive:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}

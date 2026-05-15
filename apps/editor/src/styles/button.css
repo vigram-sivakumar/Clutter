@@ -1,55 +1,55 @@
 /* ─── Button tokens ──────────────────────────────────────────────────────── */
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   /* Primary */
-  --button-primary-bg:      var(--surface-inverse);
-  --button-primary-hover:   rgba(255, 255, 255, 0.82);
-  --button-primary-pressed: rgba(255, 255, 255, 0.70);
-  --button-primary-active:  var(--surface-inverse);
-  --button-primary-text:    var(--text-inverse);
+  --button-primary-bg: var(--surface-inverse);
+  --button-primary-hover: rgba(255, 255, 255, 0.82);
+  --button-primary-pressed: rgba(255, 255, 255, 0.7);
+  --button-primary-active: var(--surface-inverse);
+  --button-primary-text: var(--text-inverse);
 
   /* Secondary */
-  --button-secondary-bg:      rgba(255, 255, 255, 0.055);
-  --button-secondary-hover:   var(--state-hover);
+  --button-secondary-bg: rgba(255, 255, 255, 0.055);
+  --button-secondary-hover: var(--state-hover);
   --button-secondary-pressed: var(--state-pressed);
-  --button-secondary-active:  var(--state-active);
-  --button-secondary-text:    var(--text-secondary);
-  --button-secondary-border:  var(--border-default);
+  --button-secondary-active: var(--state-active);
+  --button-secondary-text: var(--text-secondary);
+  --button-secondary-border: var(--border-default);
 
   /* Tab strip (e.g. sidebar) */
-  --tab-bg:          rgba(255, 255, 255, 0.02);
-  --tab-hover:       var(--state-hover);
-  --tab-pressed:     var(--state-pressed);
-  --tab-active:      var(--state-active);
-  --tab-icon:        var(--icon-secondary);
+  --tab-bg: rgba(255, 255, 255, 0.02);
+  --tab-hover: var(--state-hover);
+  --tab-pressed: var(--state-pressed);
+  --tab-active: var(--state-active);
+  --tab-icon: var(--icon-secondary);
   --tab-icon-active: var(--icon-primary);
 
   /* Checkbox */
   --button-checkbox-filled: var(--accent-light);
 }
 
-[data-theme="light"] {
+[data-theme='light'] {
   /* Primary */
-  --button-primary-bg:      var(--surface-inverse);
-  --button-primary-hover:   rgba(0, 0, 0, 0.82);
-  --button-primary-pressed: rgba(255, 255, 255, 0.70);
-  --button-primary-active:  var(--surface-inverse);
-  --button-primary-text:    var(--text-inverse);
+  --button-primary-bg: var(--surface-inverse);
+  --button-primary-hover: rgba(0, 0, 0, 0.82);
+  --button-primary-pressed: rgba(255, 255, 255, 0.7);
+  --button-primary-active: var(--surface-inverse);
+  --button-primary-text: var(--text-inverse);
 
   /* Secondary */
-  --button-secondary-bg:      rgba(0, 0, 0, 0.055);
-  --button-secondary-hover:   var(--state-hover);
+  --button-secondary-bg: rgba(0, 0, 0, 0.055);
+  --button-secondary-hover: var(--state-hover);
   --button-secondary-pressed: var(--state-pressed);
-  --button-secondary-active:  var(--state-active);
-  --button-secondary-text:    var(--text-secondary);
-  --button-secondary-border:  var(--border-default);
+  --button-secondary-active: var(--state-active);
+  --button-secondary-text: var(--text-secondary);
+  --button-secondary-border: var(--border-default);
 
   /* Tab strip (e.g. sidebar) */
-  --tab-bg:          rgba(0, 0, 0, 0.02);
-  --tab-hover:       var(--state-hover);
-  --tab-pressed:     var(--state-pressed);
-  --tab-active:      var(--state-active);
-  --tab-icon:        var(--icon-secondary);
+  --tab-bg: rgba(0, 0, 0, 0.02);
+  --tab-hover: var(--state-hover);
+  --tab-pressed: var(--state-pressed);
+  --tab-active: var(--state-active);
+  --tab-icon: var(--icon-secondary);
   --tab-icon-active: var(--icon-primary);
 
   /* Checkbox */
@@ -128,14 +128,14 @@
 }
 
 .clutter-btn--small {
-  height: var(--height-md);
+  height: var(--height-lg);
   padding-block: 0;
   padding-inline: var(--space-6);
   border-radius: var(--radius-md);
 }
 
 .clutter-btn--xsmall {
-  height: var(--height-sm);
+  height: var(--height-md);
   padding-block: 0;
   padding-inline: var(--space-6);
   border-radius: var(--radius-md);
