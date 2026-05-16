@@ -1,5 +1,10 @@
 import React from 'react';
-import { CustomIcons, ICON_MEDIUM, ICON_SMALL, type ClutterIcon } from '../design-system/icons';
+import {
+  CustomIcons,
+  ICON_MEDIUM,
+  ICON_SMALL,
+  type ClutterIcon,
+} from '../design-system/icons';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost';
 type ButtonSize = 'default' | 'small' | 'xsmall';
@@ -69,10 +74,11 @@ export function Button({
 
   if (iconOnly) {
     const Icon = iconOnly;
+
     return (
       <button type="button" className={cls} {...props}>
         <span className="clutter-btn__content">
-          <Icon {...iconProps} />
+          {children ?? <Icon {...iconProps} />}
         </span>
       </button>
     );

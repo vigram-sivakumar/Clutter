@@ -16,7 +16,7 @@
   flex-shrink: 0;
 }
 
-.clutter-sidebar-panel__header {
+.clutter-sidebar-panel__navigation {
   display: flex;
   flex-direction: column;
   gap: var(--item-gap);

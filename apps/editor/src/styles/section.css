@@ -1,15 +1,11 @@
-.clutter-sidebar-section {
+.clutter-section {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.clutter-sidebar-group {
+.clutter-section-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-.clutter-sidebar-section--expanded {
-  padding-bottom: var(--space-8);
 }
