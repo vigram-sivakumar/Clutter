@@ -1,0 +1,91 @@
+---
+description: Sidebar tab layout — SidebarPanel, Section, Group, InteractiveItem
+globs: apps/editor/src/components/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Sidebar tab system (Clutter editor)
+
+Use this stack for workspace sidebar tabs (`NotesTab`, future tabs). Reference: `NotesTab.tsx`.
+
+## Composition
+
+```
+SidebarPanel
+├── navigation (pinned, not scrolled) — top nav block
+└── children (scrollable) — Section[] as direct children (no extra wrapper)
+    └── Section → Group → InteractiveItem
+```
+
+- **Do not** wrap scrollable sections in a tab-specific `__content` div — it breaks `gap` on `.clutter-sidebar-panel__content`.
+- Section spacing: `apps/editor/src/styles/sidebar-panel.css` → `.clutter-sidebar-panel__content { gap: var(--space-8); }`.
+
+## SidebarPanel
+
+- `navigation`: pinned list (e.g. All Notes, Templates).
+- `children`: collapsible sections; pass multiple `<Section>` siblings directly.
+
+## Section + Group
+
+| Prop | Purpose |
+|------|---------|
+| `collapsible` + `isExpanded` + `onToggle` | Chevron expands/collapses body only |
+| `onClick` + `active` | Header navigates to a page; **not** the same as expanded |
+| `hasGroups` | `true` → render children; `false` → `emptyMessage` placeholder row |
+
+**Never** set header `active` from `isExpanded`. Expand ≠ selected.
+
+## Tab state (each `*Tab.tsx`)
+
+Own a single **`destination`** union (mutually exclusive selection):
+
+```ts
+type TabDestination =
+  | { kind: 'nav'; id: NavId }
+  | { kind: 'section'; id: SectionId }
+  | { kind: 'tree'; id: TreeItemId };
+```
+
+- Nav row: `active={destination.kind === 'nav' && destination.id === item.id}`, `onClick` sets nav destination.
+- Section header: `active` when `kind === 'section'`; row click updates destination (clears nav/tree).
+- Tree row: `active` when `kind === 'tree'`; row `onClick` opens item (clears nav/section).
+
+Separate state: `expandedSections` for collapse only — independent of `destination`.
+
+## InteractiveItem
+
+### Variants
+
+- `header` — section title; end chevron via `onExpandToggle`; subtle `active` (no nav highlight).
+- `subheader` / `placeholder` — labels only.
+- `default` — nav rows and tree rows.
+
+### Default row patterns
+
+| Row | Props |
+|-----|--------|
+| Nav (All Notes, …) | `startSlot` icon, `onClick`, `active` |
+| Note (leaf) | `hasInlineSlot` (empty column, **no caret**), `onClick`, `active` |
+| Folder | `hasInlineCaret`, `hasChildren` from data, `onClick`, `active`; `onExpandToggle` + `isExpanded` **only when** `hasChildren` |
+
+- `hasChildren` is read **only** when `hasInlineCaret` is set.
+- Empty folder: `hasChildren={false}` → dimmed caret (`--disabled` on slot), row still clickable.
+- Do **not** use row `disabled` for “no children” — that dims the whole row.
+
+### Selection vs expand
+
+- `active` — parent sets from `destination` (persistent highlight).
+- `isExpanded` + `onExpandToggle` — caret only; `stopPropagation` is internal.
+- Row interactivity: `onClick` on the row; caret does not replace it.
+
+## Styles
+
+- Semantic tokens only (`--state-hover`, `--state-pressed`, `--state-active`, `--state-disabled`).
+- Row/caret rules: `interactive-item.css`. Section/group gaps: `section.css`.
+
+## New tab checklist
+
+1. Add `{Name}Tab.tsx` — `SidebarPanel` + `destination` union + `expandedSections` if needed.
+2. Wire tab in `Sidebar.tsx` (`workspaceTab === '…'`).
+3. Map data → `hasInlineSlot` / `hasInlineCaret` / `hasChildren`; never hardcode `hasChildren` when empty.
+4. No wrapper between `SidebarPanel` and `<Section>` children.

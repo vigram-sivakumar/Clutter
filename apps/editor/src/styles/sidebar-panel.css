@@ -10,12 +10,6 @@
   flex: 1 1 0;
   overflow: hidden;
 }
-.clutter-sidebar-panel__divider {
-  height: 1px;
-  background: var(--border-default);
-  flex-shrink: 0;
-}
-
 .clutter-sidebar-panel__navigation {
   display: flex;
   flex-direction: column;

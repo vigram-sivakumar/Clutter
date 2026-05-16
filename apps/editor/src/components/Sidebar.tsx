@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 
+import { NotesTab } from './NotesTab';
 import { SidebarTabs, type SidebarTabId } from './SidebarTabs';
-import { NotesSidebar } from './NotesSidebar';
 
 export type SidebarProps = {
   open: boolean;
@@ -15,7 +15,9 @@ export function Sidebar(_: SidebarProps) {
   return (
     <div className="clutter-sidebar">
       <SidebarTabs value={workspaceTab} onValueChange={setWorkspaceTab} />
-      {workspaceTab === 'notes' && <NotesSidebar />}
+      <div className="clutter-sidebar__workspace">
+        {workspaceTab === 'notes' && <NotesTab />}
+      </div>
     </div>
   );
 }

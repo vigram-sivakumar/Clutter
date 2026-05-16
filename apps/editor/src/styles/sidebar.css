@@ -12,3 +12,11 @@
   padding-bottom: var(--space-12);
   padding-top: var(--space-8);
 }
+
+.clutter-sidebar__workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
