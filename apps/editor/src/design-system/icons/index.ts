@@ -8,6 +8,8 @@ import CaretDownRaw from './svg/caret-down.svg?react';
 import CaretLeftRaw from './svg/caret-left.svg?react';
 import CaretRightRaw from './svg/caret-right.svg?react';
 import CaretUpRaw from './svg/caret-up.svg?react';
+import CheckboxCheckedRaw from './svg/checkbox-checked.svg?react';
+import CheckboxUncheckedRaw from './svg/checkbox-unchecked.svg?react';
 import ChevronDownRaw from './svg/chevron-down.svg?react';
 import ChevronLeftRaw from './svg/chevron-left.svg?react';
 import ChevronRightRaw from './svg/chevron-right.svg?react';
@@ -101,6 +103,10 @@ export const CustomIcons = {
   ChevronUp: withSvgIcon(ChevronUpRaw),
   /** Dashed ring — use `color` / `className` for tone (e.g. `var(--icon-secondary)`). */
   CircleDashed: withSvgIcon(CircleDashedRaw),
+  /** Figma task checkbox — checked (16×16); fill/stroke use `--checkbox-*` theme tokens. */
+  CheckboxChecked: withSvgIcon(CheckboxCheckedRaw),
+  /** Figma task checkbox — unchecked (16×16); `color` → border via `currentColor`. */
+  CheckboxUnchecked: withSvgIcon(CheckboxUncheckedRaw),
   /** Figma filled star + outline. Phosphor `Icons.Star` / `StarFilled` stay separate. */
   FavouriteFilled: withSvgIcon(FavouriteFilledRaw),
   /** Figma star stroke only. Phosphor `Icons.Star` stays separate. */

@@ -20,3 +20,23 @@
   min-height: 0;
   overflow: hidden;
 }
+
+/* Opt-in: hide secondary chrome until sidebar hover (desktop). Touch: always shown. */
+.clutter-sidebar-hover-reveal {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .clutter-sidebar-hover-reveal {
+    display: none;
+  }
+
+  /* Pointer over sidebar (JS) — not :hover/:focus-within, so tab clicks don't stick. */
+  .clutter-sidebar.clutter-sidebar--pointer-over .clutter-sidebar-hover-reveal,
+  /* Keyboard: show while a focus-visible control inside the sidebar is focused. */
+  .clutter-sidebar:has(:focus-visible) .clutter-sidebar-hover-reveal {
+    display: inline-flex;
+  }
+}

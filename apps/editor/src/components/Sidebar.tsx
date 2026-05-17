@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { NotesTab } from './NotesTab';
+import { TagsTab } from './TagsTab';
+import { TasksTab } from './TasksTab';
 import { SidebarTabs, type SidebarTabId } from './SidebarTabs';
 
 export type SidebarProps = {
@@ -11,12 +13,24 @@ export type SidebarProps = {
 
 export function Sidebar(_: SidebarProps) {
   const [workspaceTab, setWorkspaceTab] = useState<SidebarTabId>('notes');
+  const [isPointerOver, setIsPointerOver] = useState(false);
 
   return (
-    <div className="clutter-sidebar">
+    <div
+      className={[
+        'clutter-sidebar',
+        isPointerOver && 'clutter-sidebar--pointer-over',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      onMouseEnter={() => setIsPointerOver(true)}
+      onMouseLeave={() => setIsPointerOver(false)}
+    >
       <SidebarTabs value={workspaceTab} onValueChange={setWorkspaceTab} />
       <div className="clutter-sidebar__workspace">
         {workspaceTab === 'notes' && <NotesTab />}
+        {workspaceTab === 'tasks' && <TasksTab />}
+        {workspaceTab === 'tags' && <TagsTab />}
       </div>
     </div>
   );

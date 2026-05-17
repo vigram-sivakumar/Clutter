@@ -41,9 +41,17 @@ type DefaultProps = BaseProps & {
   variant: 'default';
   startSlot?: React.ReactNode;
   endSlot?: React.ReactNode;
-  /** Notes / leaves: empty leading column for alignment (no caret). */
+  /**
+   * Nesting depth under an expanded `hasInlineCaret` parent (0 = top-level in a group).
+   * Each level adds `--space-16` (16px) to row padding-left via CSS.
+   */
+  indentDepth?: number;
+  /**
+   * Alignment-only leading column (no caret). Use for leaf notes.
+   * Do not combine with hasInlineCaret — caret implies the slot.
+   */
   hasInlineSlot?: boolean;
-  /** Folders: show caret; hasChildren only applies when this is set. */
+  /** Folder rows: leading slot + caret. hasChildren only applies when this is set. */
   hasInlineCaret?: boolean;
   hasChildren?: boolean;
   isExpanded?: boolean;
@@ -171,6 +179,9 @@ function getItemLayout(props: InteractiveItemProps): ItemLayout {
 }
 
 export function InteractiveItem(props: InteractiveItemProps) {
+  const indentDepth =
+    props.variant === 'default' ? (props.indentDepth ?? 0) : 0;
+
   const {
     variant,
     children,
@@ -191,8 +202,16 @@ export function InteractiveItem(props: InteractiveItemProps) {
     onDefaultExpandToggle,
   } = getItemLayout(props);
 
-  const showsEmptyInlineSlot = variant === 'default' && hasInlineSlot;
+  const itemStyle =
+    variant === 'default' && indentDepth > 0
+      ? ({
+          '--interactive-item-indent-depth': indentDepth,
+        } as React.CSSProperties)
+      : undefined;
+
   const showsInlineCaret = variant === 'default' && hasInlineCaret;
+  const showsEmptyInlineSlot =
+    variant === 'default' && hasInlineSlot && !hasInlineCaret;
   const showsInlineExpandButton =
     showsInlineCaret &&
     !inlineCaretDisabled &&
@@ -284,7 +303,11 @@ export function InteractiveItem(props: InteractiveItemProps) {
     .join(' ');
 
   return (
-    <div className={itemClassName} onClick={disabled ? undefined : onClick}>
+    <div
+      className={itemClassName}
+      style={itemStyle}
+      onClick={disabled ? undefined : onClick}
+    >
       {showsLeading && (
         <div className="interactive-item__leading">
           {showsEmptyInlineSlot && emptyInlineSlot}

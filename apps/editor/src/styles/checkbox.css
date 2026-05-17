@@ -1,0 +1,34 @@
+.clutter-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--height-sm);
+  height: var(--height-sm);
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  flex-shrink: 0;
+  cursor: pointer;
+  color: var(--checkbox-border);
+}
+
+.clutter-checkbox:hover:not(:disabled) {
+  color: var(--checkbox-border-hover);
+}
+
+.clutter-checkbox--checked:hover:not(:disabled) {
+  --checkbox-bg-checked: var(--checkbox-bg-checked-hover);
+}
+
+.clutter-checkbox:disabled,
+.clutter-checkbox--disabled {
+  opacity: var(--state-disabled);
+  cursor: default;
+}
+
+.clutter-checkbox:focus-visible {
+  outline: 2px solid var(--border-strong);
+  outline-offset: 2px;
+}

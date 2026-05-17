@@ -1,0 +1,6 @@
+.tags-tab__swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

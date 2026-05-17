@@ -1,0 +1,15 @@
+.clutter-subtask-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-md);
+  min-width: var(--height-md);
+  padding: 0 var(--space-4);
+  flex-shrink: 0;
+
+  font-size: var(--text-caption);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-placeholder);
+}

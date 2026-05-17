@@ -1,91 +1,358 @@
 ---
-description: Sidebar tab layout — SidebarPanel, Section, Group, InteractiveItem
+description: Sidebar workspace tabs, Notes IA, and panel component usage
 globs: apps/editor/src/components/**/*.{tsx,ts}
 alwaysApply: false
 ---
 
 # Sidebar tab system (Clutter editor)
 
-Use this stack for workspace sidebar tabs (`NotesTab`, future tabs). Reference: `NotesTab.tsx`.
+## Workspace tabs
 
-## Composition
+Rail tabs (see `SidebarTabs.tsx`): **Notes** | **Calendar** | **Tasks** | **Tags**.
+
+| Tab ID (code) | Label | Tab component | Status |
+|---------------|-------|---------------|--------|
+| `notes` | Notes | `NotesTab` | In progress — spec below |
+| `journals` | Calendar | TBD | Not specified yet |
+| `tasks` | Tasks | `TasksTab` | Spec below |
+| `tags` | Tags | `TagsTab` | Shell below — tag rows TBD |
+
+Each tab that uses the sidebar list pattern: `{Name}Tab.tsx` + `SidebarPanel`. Other tabs will be documented when specified.
+
+---
+
+## Notes tab — information architecture
+
+### Navigation (pinned, not scrolled)
+
+`SidebarPanel` → `navigation`:
+
+| Row | Purpose |
+|-----|---------|
+| Section header | **Notes** (static label) |
+| All notes | Top-level nav destination |
+| Templates | Top-level nav destination |
+| Inbox | Top-level nav destination |
+
+### Scrollable content
+
+`SidebarPanel` → direct `<Section>` children (no wrapper div):
+
+| Section | Contents |
+|---------|----------|
+| **Favorites** | Mix of **notes** and **folders** (user-curated shortcuts) |
+| **Folders** | **Folders only** — root of the folder tree |
+
+Both sections are collapsible; header click navigates, chevron toggles expand (see Section props).
+
+---
+
+## Notes tree — folders vs notes
+
+Recursive tree under Favorites and Folders. Map from data in the tab; `InteractiveItem` only renders affordances.
+
+### Folder row
+
+- `hasInlineCaret` — leading column + caret (do not pass `hasInlineSlot`).
+- `hasChildren` — from data (`childIds.length > 0` or equivalent).
+  - **Has children:** caret is clickable; `onExpandToggle` + `isExpanded`; reveals nested notes and subfolders.
+  - **Empty folder:** caret visible but **disabled** (dimmed slot, `pointer-events: none`); row still `onClick`-able to open the folder.
+- A folder may contain **notes** and **subfolders**; subfolders repeat the same rules recursively.
+
+### Note row (leaf)
+
+- `hasInlineSlot` **only** — alignment column, **no caret icon**.
+- Always `onClick` + `active` from `destination`; never `onExpandToggle`.
+
+### Why notes use an empty slot
+
+Folders use the caret column; notes use an empty slot of the same width so icons and labels line up across row types.
+
+### Tree indent (nested rows)
+
+Indent is defined on **`InteractiveItem`** (`variant="default"` only), not per-tab CSS.
+
+| Piece | Value |
+|-------|--------|
+| CSS token | `--interactive-item-indent-step` = `var(--space-16)` → **16px** per level |
+| Prop | `indentDepth?: number` (default `0`) |
+| Row padding | `padding-left: 6px + indentDepth × 16px` (base 6px is row padding, not repeated per level) |
+
+**Not automatic:** the tree renderer must pass `indentDepth` for each row. `InteractiveItem` does not infer depth from `hasInlineCaret` / parent expand state.
+
+**Who passes depth:** recursive row helpers in each tab — e.g. `NotesTreeRow`, `TaskSidebarRow` — with `depth = 0` at group top-level and `depth + 1` for each child rendered under an expanded `hasInlineCaret` parent.
+
+Applies to:
+
+- Notes: nested notes/folders under an expanded folder
+- Tasks: subtasks under an expanded task
+- Any future sidebar tree using the same pattern
+
+Nav rows, section headers, subheaders, and placeholders do **not** use `indentDepth`.
+
+---
+
+## Tasks tab — information architecture
+
+### Navigation (pinned, not scrolled)
+
+`SidebarPanel` → `navigation`:
+
+| Row | Icon | Opens |
+|-----|------|--------|
+| Section header | — | **Tasks** (static label, not a destination) |
+| All Tasks | `CustomIcons.SquareCheckOutline` | Page: full task list |
+| Unplanned | `CustomIcons.SquareDashed` | Page: tasks with no schedule |
+
+Nav rows only — not scroll sections. `onClick` sets `destination.kind === 'nav'`.
+
+### Scrollable content
+
+`SidebarPanel` → direct `<Section>` siblings.
+
+Each section (**Today**, **Overdue**, **Upcoming**):
+
+- `collapsible` + chevron (`onToggle`) — expand/collapse task list only.
+- Header row `onClick` — opens that section’s page (like Notes section headers).
+- `active` on header when `destination.kind === 'section'` for that id — **not** tied to `isExpanded`.
+- **Default: collapsed** (`isExpanded: false` initially). Persisted expand state comes later with app state management.
+
+| Section | Empty `emptyMessage` |
+|---------|----------------------|
+| **Today** | See Today empty logic below |
+| **Overdue** | `No overdue task` |
+| **Upcoming** | `Nothing planned yet` |
+
+When the section has visible tasks: `hasGroups` + `<Group>` of task rows.
+
+**Overdue** and **Upcoming:** multiple `<Group>` siblings per section, each with `subheader` set to the scheduled date label (e.g. `Yesterday`, `May 20`). Tasks live inside the matching group. **Today** uses a single `<Group>` with no date subheaders.
+
+#### Today — empty copy (pick one)
+
+| Condition | Message |
+|-----------|---------|
+| Nothing scheduled for today | `No tasks for today` |
+| Tasks exist for today but **all completed** | `All done for today` |
+
+Parent computes which string to pass as `emptyMessage`; `Section` shows a single placeholder row.
+
+### Task rows (and subtasks)
+
+Same recursive rules as Notes folders/notes, plus **`Checkbox`** in `startSlot`.
+
+| Row | Leading | Inline column | Expand |
+|-----|---------|---------------|--------|
+| Task **without** subtasks | Checkbox in `startSlot` | `hasInlineSlot` only (alignment, no caret) | — |
+| Task **with** subtasks | Checkbox in `startSlot` | `hasInlineCaret`, `hasChildren={true}` | `onExpandToggle` + `isExpanded`; nested subtasks in body |
+| Subtask | Same as parent task row | Same rules recursively | Same |
+
+| Slot | Content |
+|------|---------|
+| `endSlot` (parent with subtasks only) | `SidebarHoverReveal` → `SubtaskCountBadge` — `completed/total` for **direct** subtasks (e.g. `1/3`); hidden when no subtasks |
+
+- Row `onClick` — open/select task; `active` from `destination.kind === 'task'`.
+- Caret click does not navigate (internal `stopPropagation`).
+- Empty subtask list is not a row type here; leaf tasks use `hasInlineSlot` only.
+- **Do not** use `CountBadge` on task rows — tasks use `SubtaskCountBadge` for subtask progress only.
+- Progress is computed from loaded `subtasks` in the tab (`getSubtaskProgress`); counts **direct** children only, not nested descendants.
+- **FUTURE (DB):** Prefer `subtaskCompletedCount` / `subtaskTotalCount` from the API when subtasks are lazy-loaded instead of walking `subtasks`.
+
+### Tasks tab state
+
+```ts
+type TasksDestination =
+  | { kind: 'nav'; id: 'all-tasks' | 'unplanned' }
+  | { kind: 'section'; id: 'today' | 'overdue' | 'upcoming' }
+  | { kind: 'task'; id: string };
+```
+
+- One `destination` at a time (nav, section page, or selected task).
+- `expandedSections`: `today` | `overdue` | `upcoming` — separate from selection; default all `false`.
+
+---
+
+## Tags tab — information architecture
+
+### Navigation (pinned, not scrolled)
+
+`SidebarPanel` → `navigation`:
+
+| Row | Icon | Opens |
+|-----|------|--------|
+| Section header | — | **Tags** (static label) |
+| All tags | `CustomIcons.Tag` | Page: all tags |
+| Untagged | `CustomIcons.CircleDashed` | Page: untagged items |
+
+Nav rows only. `onClick` sets `destination.kind === 'nav'`.
+
+### Scrollable content
+
+`SidebarPanel` → direct `<Section>` siblings:
+
+| Section | Contents |
+|---------|----------|
+| **Favorites** | `<Group>` of favorite tag rows, or `emptyMessage`: `No favorite tags yet` |
+| **Others** | `<Group>` of non-favorite tag rows, or `emptyMessage`: `No tags yet` |
+
+Both sections: `collapsible`, header `onClick` → section page, chevron `onToggle` only, `active` independent of `isExpanded`. Default **expanded** in demo.
+
+### Tag rows
+
+Flat leaf rows — **no** `hasInlineSlot`, **no** `hasInlineCaret`, **no** `indentDepth`.
+
+| Slot | Content |
+|------|---------|
+| `startSlot` | `TagSwatch` — `CustomIcons.SquareFill` tinted per tag metadata |
+| Label | Tag name (`interactive-item__label`) |
+| `endSlot` | `CountBadge` with tag `count` (hidden when `count <= 0`) |
+
+**Tag color metadata** (`design-system/tag-colors.ts`):
+
+```ts
+type TagColors = { background: string; border: string };
+// Background: --tag-{palette}-bg. Sidebar swatch stroke: --border-strong (all palettes).
+```
+
+`SquareFill` reads `--tag-swatch-bg` and `--tag-swatch-border` set on `.tags-tab__swatch` (not `interactive-item__icon`).
+
+Nav rows use `Tag` / `CircleDashed` in `interactive-item__icon` — different from tag swatches.
+
+### Tags tab state
+
+```ts
+type TagsDestination =
+  | { kind: 'nav'; id: 'all-tags' | 'untagged' }
+  | { kind: 'section'; id: 'favorites' | 'others' }
+  | { kind: 'tag'; id: string };
+```
+
+- One `destination` at a time (nav, section page, or selected tag).
+- `expandedSections`: `favorites` | `others` — separate from selection.
+
+---
+
+## TODO — sidebar selection ↔ topbar (not implemented yet)
+
+**Current behavior:** Each `*Tab.tsx` keeps its own `destination` in local `useState`. Nav rows, section headers (logical `active`), and tree rows can look or feel like multiple things are “selected” when switching rail tabs (state resets on unmount) or when both nav and section destinations were set in one tab.
+
+**Target behavior:** One app-wide **focused view** driven by the **focused topbar tab**. The visible sidebar shows at most **one** nav/tree row with nav-style `active` highlight, derived from that focused tab when it belongs to the current rail. Section headers stay visually non-selected (header `active` override in `interactive-item.css`).
+
+**When implementing topbar tabs:**
+
+1. Introduce shared state (e.g. `focusedView` + `openTabs`) above `Sidebar` / `AppLayout`.
+2. Replace per-tab `destination` `useState` with read/write of `focusedView`.
+3. Derive sidebar `active` from `focusedView`, not independent local state.
+4. Rail switch shows that rail’s sidebar; highlight only if `focusedView.workspace` matches the rail.
+
+**Until then:** Treat local `destination` as demo-only; do not treat it as the long-term selection model.
+
+---
+
+## Shared list components
+
+### `CountBadge`
+
+Generic numeric badge (`components/CountBadge.tsx`). Used in `InteractiveItem` `endSlot` and elsewhere — not tab-specific.
+
+| Rule | Value |
+|------|--------|
+| Height | `var(--height-md)` |
+| Color | `var(--text-placeholder)` |
+| Hidden when | `count` is missing, invalid, or `<= 0` (returns `null`) |
+| Cap | `max` prop (default **99**): `count > max` → `{max}+` (e.g. `100` → `99+`) |
+
+```tsx
+endSlot={<CountBadge count={itemCount} />}
+```
+
+Wrap in `SidebarHoverReveal` when the badge should hide until sidebar hover (desktop).
+
+### `SubtaskCountBadge`
+
+Subtask progress fraction for **task parent rows** (`components/SubtaskCountBadge.tsx`). Tasks tab only — not tags or notes.
+
+| Rule | Value |
+|------|--------|
+| Format | `{completed}/{total}` (e.g. `2/3`) |
+| Shown when | Parent task has at least one **direct** subtask in loaded data |
+| Hidden when | No subtasks (`total <= 0`) |
+| Style | Same tokens as `CountBadge` (`subtask-count-badge.css`) |
+
+```tsx
+endSlot={
+  <SidebarHoverReveal>
+    <SubtaskCountBadge completed={completed} total={total} />
+  </SidebarHoverReveal>
+}
+```
+
+**FUTURE (DB):** Wire `completed` / `total` from server fields when subtasks are not fully loaded in the tree.
+
+### `SidebarHoverReveal`
+
+Opt-in wrapper (`components/SidebarHoverReveal.tsx`). Hides children until pointer is over `.clutter-sidebar` (desktop); always visible on touch. Use per control in `endSlot`, not for the whole slot.
+
+---
+
+## Implementation stack
+
+Reference: `NotesTab.tsx`. Components: `SidebarPanel`, `section.tsx` (`Section`, `Group`), `InteractiveItem.tsx`.
 
 ```
 SidebarPanel
-├── navigation (pinned, not scrolled) — top nav block
-└── children (scrollable) — Section[] as direct children (no extra wrapper)
-    └── Section → Group → InteractiveItem
+├── navigation — Notes nav (Section + Group + items)
+└── children (scrollable, gap: .clutter-sidebar-panel__content)
+    ├── Section: Favorites
+    └── Section: Folders
+        └── Group → tree rows (InteractiveItem)
 ```
 
-- **Do not** wrap scrollable sections in a tab-specific `__content` div — it breaks `gap` on `.clutter-sidebar-panel__content`.
-- Section spacing: `apps/editor/src/styles/sidebar-panel.css` → `.clutter-sidebar-panel__content { gap: var(--space-8); }`.
+- **Do not** wrap scrollable `<Section>`s in a tab-specific content div — breaks section `gap`.
+- Section spacing: `sidebar-panel.css` → `.clutter-sidebar-panel__content { gap: var(--space-8); }`.
 
-## SidebarPanel
-
-- `navigation`: pinned list (e.g. All Notes, Templates).
-- `children`: collapsible sections; pass multiple `<Section>` siblings directly.
-
-## Section + Group
+### Section + Group
 
 | Prop | Purpose |
 |------|---------|
 | `collapsible` + `isExpanded` + `onToggle` | Chevron expands/collapses body only |
-| `onClick` + `active` | Header navigates to a page; **not** the same as expanded |
-| `hasGroups` | `true` → render children; `false` → `emptyMessage` placeholder row |
+| `onClick` + `active` | Header navigates; **not** tied to `isExpanded` |
+| `hasGroups` | `true` → children; `false` → `emptyMessage` placeholder |
 
-**Never** set header `active` from `isExpanded`. Expand ≠ selected.
+### Tab state (`NotesTab`)
 
-## Tab state (each `*Tab.tsx`)
+Single **`destination`** union (mutually exclusive): `nav` | `section` | `tree`.
 
-Own a single **`destination`** union (mutually exclusive selection):
+- Nav / section header / tree row each set `destination` on click and derive `active`.
+- `expandedSections` (and per-folder expand ids) are **separate** from selection.
 
-```ts
-type TabDestination =
-  | { kind: 'nav'; id: NavId }
-  | { kind: 'section'; id: SectionId }
-  | { kind: 'tree'; id: TreeItemId };
-```
-
-- Nav row: `active={destination.kind === 'nav' && destination.id === item.id}`, `onClick` sets nav destination.
-- Section header: `active` when `kind === 'section'`; row click updates destination (clears nav/tree).
-- Tree row: `active` when `kind === 'tree'`; row `onClick` opens item (clears nav/section).
-
-Separate state: `expandedSections` for collapse only — independent of `destination`.
-
-## InteractiveItem
-
-### Variants
-
-- `header` — section title; end chevron via `onExpandToggle`; subtle `active` (no nav highlight).
-- `subheader` / `placeholder` — labels only.
-- `default` — nav rows and tree rows.
-
-### Default row patterns
+### InteractiveItem quick reference
 
 | Row | Props |
 |-----|--------|
-| Nav (All Notes, …) | `startSlot` icon, `onClick`, `active` |
-| Note (leaf) | `hasInlineSlot` (empty column, **no caret**), `onClick`, `active` |
-| Folder | `hasInlineCaret`, `hasChildren` from data, `onClick`, `active`; `onExpandToggle` + `isExpanded` **only when** `hasChildren` |
+| Nav | `startSlot`, `onClick`, `active` |
+| Note | `hasInlineSlot` only, `onClick`, `active`, `indentDepth` when nested |
+| Folder | `hasInlineCaret`, `hasChildren`, `onClick`, `active`, `indentDepth` when nested; `onExpandToggle` only if `hasChildren` |
+| Task | Same as note/folder row rules + `Checkbox` in `startSlot`; `indentDepth` on subtasks; parent with subtasks → `SubtaskCountBadge` in `endSlot` |
+| Tag | `TagSwatch` in `startSlot` only — no inline slot/caret, no indent |
 
-- `hasChildren` is read **only** when `hasInlineCaret` is set.
-- Empty folder: `hasChildren={false}` → dimmed caret (`--disabled` on slot), row still clickable.
-- Do **not** use row `disabled` for “no children” — that dims the whole row.
+- `hasInlineCaret` implies the slot column — never combine with `hasInlineSlot`.
+- `hasChildren` only when `hasInlineCaret` is set.
+- Do not use row `disabled` for empty folders.
+- **`indentDepth`:** set by the tab’s tree renderer (`0` at group root, `+1` per level under expanded caret parent). See **Tree indent** under Notes tree.
 
-### Selection vs expand
+Enforced in code: `showsEmptyInlineSlot = hasInlineSlot && !hasInlineCaret`.
 
-- `active` — parent sets from `destination` (persistent highlight).
-- `isExpanded` + `onExpandToggle` — caret only; `stopPropagation` is internal.
-- Row interactivity: `onClick` on the row; caret does not replace it.
+### Styles
 
-## Styles
+Semantic tokens only. `interactive-item.css`, `section.css`, `sidebar-panel.css`.
 
-- Semantic tokens only (`--state-hover`, `--state-pressed`, `--state-active`, `--state-disabled`).
-- Row/caret rules: `interactive-item.css`. Section/group gaps: `section.css`.
+## New sidebar tab checklist
 
-## New tab checklist
-
-1. Add `{Name}Tab.tsx` — `SidebarPanel` + `destination` union + `expandedSections` if needed.
-2. Wire tab in `Sidebar.tsx` (`workspaceTab === '…'`).
-3. Map data → `hasInlineSlot` / `hasInlineCaret` / `hasChildren`; never hardcode `hasChildren` when empty.
-4. No wrapper between `SidebarPanel` and `<Section>` children.
+1. Add `{Name}Tab.tsx` with `SidebarPanel` + `destination` (and expand state if needed).
+2. Register in `Sidebar.tsx` + `SidebarTabs` `TABS` config.
+3. Document section IA in this rule when the tab is specified.
+4. Notes tree: `hasInlineSlot` (note) vs `hasInlineCaret` + `hasChildren` (folder).
+5. Tasks: nav per Tasks IA; sections collapsed by default; Today empty message from schedule/completion logic; task rows use `Checkbox` `startSlot` + `hasInlineSlot` / `hasInlineCaret` like Notes tree; pass `indentDepth` in recursive task row renderer; parents with subtasks → `SubtaskCountBadge` (`completed/total`, direct children) in `SidebarHoverReveal`.
+6. Tags: nav per Tags IA; Favorites + Others sections; tag rows use `TagSwatch` + `CountBadge` in `endSlot`, no inline slot/caret.
+7. Notes/tasks trees: `indentDepth` on nested `InteractiveItem` rows (see **Tree indent**).
+8. No extra wrapper between `SidebarPanel` and scrollable sections.

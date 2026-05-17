@@ -15,6 +15,7 @@
   /* Accent */
   --accent-light: #00acff;
   --accent-dark: #007aff;
+  --accent-hover: #008acc;
 
   /* Opacity */
   --opacity-strong: 0.3;
