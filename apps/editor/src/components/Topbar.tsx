@@ -60,6 +60,7 @@ export function Topbar({ sidebarOpen, onToggleSidebar }: TopbarProps) {
             variant="ghost"
             iconOnly={CustomIcons.ChevronDown}
             aria-label="Open menu"
+            className="clutter-btn--hug"
           />
         </div>
       </div>

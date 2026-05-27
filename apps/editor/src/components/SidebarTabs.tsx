@@ -100,12 +100,12 @@ export function SidebarTabs({ value, onValueChange }: SidebarTabsProps) {
           );
         })}
       </div>
-      <Button
+      {/* <Button
         className="clutter-sidebar-tabs__search"
         variant="secondary"
         iconOnly={CustomIcons.MagnifyingGlass}
         aria-label="Search"
-      />
+      /> */}
     </div>
   );
 }

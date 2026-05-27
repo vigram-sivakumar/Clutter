@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import '../styles/tags-tab.css';
 
 import { type TagColors } from '../design-system/tag-colors';
-import { CustomIcons, ICON_MEDIUM } from '../design-system/icons';
+import { CustomIcons, ICON_LARGE } from '../design-system/icons';
 
 export type TagSwatchProps = {
   colors: TagColors;
@@ -17,7 +17,7 @@ export function TagSwatch({ colors }: TagSwatchProps) {
 
   return (
     <span className="tags-tab__swatch" style={style}>
-      <CustomIcons.SquareFill size={ICON_MEDIUM} aria-hidden />
+      <CustomIcons.SquareFill size={ICON_LARGE} aria-hidden />
     </span>
   );
 }

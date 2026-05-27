@@ -55,6 +55,10 @@ html.theme-transitioning [data-themeable] *::after {
   --state-active: rgba(255, 255, 255, 0.05);
   --state-disabled: var(--opacity-strong);
 
+  /* Use only for the tabs active state */
+  --tab-active: var(--state-active);
+  --tab-active-border: var(--border-default);
+
   /* Calendar */
   --calendar-accent: #e03200;
   --calendar-active-bg: #e03200;
@@ -152,6 +156,10 @@ html.theme-transitioning [data-themeable] *::after {
   --state-active: rgba(0, 0, 0, 0.05);
   --state-disabled: var(--opacity-strong);
 
+  /* Use only for the tabs active state */
+  --tab-active: var(--surface-primary);
+  --tab-active-border: var(--border-strong);
+
   /* Calendar */
   --calendar-accent: #d93800;
   --calendar-active-bg: #d93800;
@@ -161,7 +169,7 @@ html.theme-transitioning [data-themeable] *::after {
   /* Checkbox */
   --checkbox-bg-checked: #00acff;
   --checkbox-bg-checked-hover: #008acc;
-  --checkbox-border: var(--icon-secondary);
+  --checkbox-border: var(--icon-tertiary);
   --checkbox-border-hover: var(--icon-primary);
   --checkbox-check: var(--neutral-50);
 

@@ -13,14 +13,14 @@
   flex: 1;
   gap: var(--space-2);
   padding: var(--space-2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg-plus);
   height: 100%;
   width: 100%;
-  background: var(--surface-subtle);
+  background: var(--surface-tertiary);
 }
 
 .clutter-sidebar-tabs__search.clutter-btn--secondary {
-  background: var(--surface-subtle);
+  background: var(--surface-tertiary);
 }
 
 /* Tabs childrens */
@@ -29,8 +29,9 @@
   top: 2px;
   left: 0;
   height: calc(100% - 4px);
-  border-radius: var(--radius-md);
-  background: var(--state-active);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--tab-active-border);
+  background: var(--tab-active);
   overflow: hidden;
 
   transition:

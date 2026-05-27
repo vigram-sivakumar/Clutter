@@ -35,6 +35,7 @@
   --space-4: 4px;
   --space-6: 6px;
   --space-8: 8px;
+  --space-10: 10px;
   --space-12: 12px;
   --space-16: 16px;
   --space-20: 20px;
@@ -51,6 +52,7 @@
   --radius-sm: var(--space-4);
   --radius-md: var(--space-6);
   --radius-lg: var(--space-8);
+  --radius-lg-plus: var(--space-10);
   --radius-xl: var(--space-12);
 
   /* Height */
@@ -85,6 +87,7 @@
   --text-heading-2: 24px;
   --text-heading-3: 20px;
   --text-body: 14px; /* Default */
+  --text-body-small: 13px;
   --text-label: 12px;
   --text-caption: 10px;
   --text-micro: 6px; /* Use it for the date in the calendar icon */
@@ -94,6 +97,7 @@
   --lh-heading-2: 40px;
   --lh-heading-3: 32px;
   --lh-body: 20px;
+  --lh-body-small: 20px;
   --lh-label: 16px;
   --lh-caption: 14px;
   --lh-100: 1;
@@ -105,5 +109,5 @@
   --fw-bold: 700;
 
   /* App shell — docked sidebar rail (spacer, panel, topbar column must match) */
-  --app-sidebar-width: 300px;
+  --app-sidebar-width: 280px;
 }

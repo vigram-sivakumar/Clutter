@@ -16,14 +16,6 @@
   --button-secondary-text: var(--text-secondary);
   --button-secondary-border: var(--border-default);
 
-  /* Tab strip (e.g. sidebar) */
-  --tab-bg: rgba(255, 255, 255, 0.02);
-  --tab-hover: var(--state-hover);
-  --tab-pressed: var(--state-pressed);
-  --tab-active: var(--state-active);
-  --tab-icon: var(--icon-secondary);
-  --tab-icon-active: var(--icon-primary);
-
   /* Checkbox */
   --button-checkbox-filled: var(--accent-light);
 }
@@ -43,14 +35,6 @@
   --button-secondary-active: var(--state-active);
   --button-secondary-text: var(--text-secondary);
   --button-secondary-border: var(--border-default);
-
-  /* Tab strip (e.g. sidebar) */
-  --tab-bg: rgba(0, 0, 0, 0.02);
-  --tab-hover: var(--state-hover);
-  --tab-pressed: var(--state-pressed);
-  --tab-active: var(--state-active);
-  --tab-icon: var(--icon-secondary);
-  --tab-icon-active: var(--icon-primary);
 
   /* Checkbox */
   --button-checkbox-filled: var(--accent-dark);
@@ -147,6 +131,20 @@
   padding-block: 0;
   padding-inline: 0;
   aspect-ratio: 1;
+}
+
+/* Per-instance modifier: let a specific button "hug" its content (not global).
+   Use by adding `className="clutter-btn--hug"` to a `Button` instance. */
+.clutter-btn--hug {
+  width: auto;
+  padding-inline: var(--space-6);
+}
+
+.clutter-btn--hug.clutter-btn--icon-only {
+  aspect-ratio: auto;
+  width: auto;
+  padding-inline: var(--space-2);
+  min-width: 0;
 }
 
 /* ─── Variants ───────────────────────────────────────────────────────────── */
