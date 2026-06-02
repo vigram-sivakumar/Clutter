@@ -2,14 +2,11 @@ import { useState } from 'react';
 
 import { CountBadge } from './CountBadge';
 import { InteractiveItem } from './InteractiveItem';
+import { Pill } from './Pill';
 import { SidebarHoverReveal } from './SidebarHoverReveal';
-import { TagSwatch } from './TagSwatch';
 import { Section, Group } from './section';
 import { SidebarPanel } from './SidebarPanel';
-import {
-  tagColorsFromPalette,
-  type TagPaletteId,
-} from '../design-system/tag-colors';
+import type { TagPaletteId } from '../design-system/tag-colors';
 import { CustomIcons, type ClutterIcon } from '../design-system/icons';
 
 type TagsNavId = 'all-tags' | 'untagged';
@@ -36,7 +33,7 @@ type TagMock = {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'all-tags', label: 'All tags', icon: CustomIcons.Tag },
-  // { id: 'untagged', label: 'Untagged', icon: CustomIcons.CircleDashed },
+  { id: 'untagged', label: 'Untagged', icon: CustomIcons.CircleDashed },
 ];
 
 const TAG_MOCK_DATA: TagMock[] = [
@@ -128,7 +125,6 @@ function TagSidebarRow({ tag, destination, onSelectTag }: TagSidebarRowProps) {
       variant="default"
       active={destination.kind === 'tag' && destination.id === tag.id}
       onClick={() => onSelectTag(tag.id)}
-      startSlot={<TagSwatch colors={tagColorsFromPalette(tag.palette)} />}
       endSlot={
         tag.count > 0 ? (
           <SidebarHoverReveal>
@@ -137,7 +133,7 @@ function TagSidebarRow({ tag, destination, onSelectTag }: TagSidebarRowProps) {
         ) : undefined
       }
     >
-      <span className="interactive-item__label">{tag.label}</span>
+      <Pill label={tag.label} color={tag.palette} />
     </InteractiveItem>
   );
 }
@@ -163,7 +159,7 @@ function TagList({ tags, destination, onSelectTag }: TagListProps) {
   );
 }
 
-export function TagsTab() {
+export function TagsTabV2() {
   const [tags] = useState<TagMock[]>(TAG_MOCK_DATA);
   const [destination, setDestination] = useState<TagsDestination>({
     kind: 'nav',

@@ -29,6 +29,7 @@ export function Sidebar(_: SidebarProps) {
       <SidebarTabs value={workspaceTab} onValueChange={setWorkspaceTab} />
       <div className="clutter-sidebar__workspace">
         {workspaceTab === 'notes' && <NotesTab />}
+        {workspaceTab === 'journals' && null}
         {workspaceTab === 'tasks' && <TasksTab />}
         {workspaceTab === 'tags' && <TagsTab />}
       </div>

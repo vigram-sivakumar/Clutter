@@ -140,10 +140,9 @@ function NotesTreeRow({
   return (
     <Fragment>
       <InteractiveItem
-        variant="default"
+        variant='default'
         indentDepth={depth}
-        hasInlineSlot={!isFolder}
-        hasInlineCaret={isFolder}
+        leadingMode={isFolder ? 'caret' : 'slot'}
         hasChildren={hasChildren}
         isExpanded={isExpanded}
         onExpandToggle={

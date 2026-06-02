@@ -1,0 +1,95 @@
+/* Pill — Figma component set (node 286:3602) */
+
+.clutter-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.clutter-pill--default {
+  height: var(--height-sm);
+  min-width: var(--height-sm);
+  padding: 0 var(--space-6);
+  font-size: var(--text-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+}
+
+.clutter-pill--small {
+  height: var(--height-xs);
+  min-width: var(--height-xs);
+  padding: 0 var(--space-4);
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-label);
+}
+
+.clutter-pill__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clutter-pill__dot {
+  flex-shrink: 0;
+  width: var(--dot-md, 8px);
+  height: var(--dot-md, 8px);
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+/* Palette fills — reuse tag semantic tokens */
+.clutter-pill--blue {
+  background-color: var(--tag-blue-bg);
+  color: var(--tag-blue-text);
+}
+
+.clutter-pill--green {
+  background-color: var(--tag-green-bg);
+  color: var(--tag-green-text);
+}
+
+.clutter-pill--yellow {
+  background-color: var(--tag-yellow-bg);
+  color: var(--tag-yellow-text);
+}
+
+.clutter-pill--red {
+  background-color: var(--tag-red-bg);
+  color: var(--tag-red-text);
+}
+
+.clutter-pill--orange {
+  background-color: var(--tag-orange-bg);
+  color: var(--tag-orange-text);
+}
+
+.clutter-pill--purple {
+  background-color: var(--tag-purple-bg);
+  color: var(--tag-purple-text);
+}
+
+.clutter-pill--indigo {
+  background-color: var(--tag-indigo-bg);
+  color: var(--tag-indigo-text);
+}
+
+.clutter-pill--grey {
+  background-color: var(--tag-grey-bg);
+  color: var(--tag-grey-text);
+}
+
+.clutter-pill--dark-grey {
+  background-color: var(--tag-dark-grey-bg);
+  color: var(--tag-dark-grey-text);
+}
+
+.clutter-pill--outlined {
+  background-color: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}

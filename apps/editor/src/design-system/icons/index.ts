@@ -16,6 +16,7 @@ import ChevronRightRaw from './svg/chevron-right.svg?react';
 import ChevronSquareRightRaw from './svg/chevron-square-right.svg?react';
 import ChevronSquareRightLightRaw from './svg/chevron-square-right-light.svg?react';
 import ChevronUpRaw from './svg/chevron-up.svg?react';
+import ClockRaw from './svg/clock.svg?react';
 import CircleDashedRaw from './svg/circle-dashed.svg?react';
 import FavouriteFilledRaw from './svg/favourite-filled.svg?react';
 import FavouriteOutlineRaw from './svg/favourite-outline.svg?react';
@@ -47,10 +48,16 @@ import TrashRaw from './svg/trash.svg?react';
 import WidthFillRaw from './svg/width-fill.svg?react';
 import WidthHugRaw from './svg/width-hug.svg?react';
 
-import { CalendarWithDotIcon, type CalendarWithDotIconProps } from './calendar-with-dot-icon';
+import {
+  CalendarWithDotIcon,
+  type CalendarWithDotIconProps,
+} from './calendar-with-dot-icon';
 import { withSvgIcon } from './svg-icon';
 
-export { CalendarTodayIcon, type CalendarTodayIconProps } from './calendar-today-icon';
+export {
+  CalendarTodayIcon,
+  type CalendarTodayIconProps,
+} from './calendar-today-icon';
 export { CalendarWithDotIcon, type CalendarWithDotIconProps };
 export {
   ICON_EXTRA_LARGE,
@@ -63,7 +70,11 @@ export {
   ICON_SMALL_WRAPPER,
   ICON_STROKE_USER,
 } from './constants';
-export { withSvgIcon, type ClutterIcon, type CustomSvgIconProps } from './svg-icon';
+export {
+  withSvgIcon,
+  type ClutterIcon,
+  type CustomSvgIconProps,
+} from './svg-icon';
 
 /** Figma / custom SVGs (SVGR). Prefer `stroke="currentColor"` in source; size via props. */
 export const CustomIcons = {
@@ -101,6 +112,8 @@ export const CustomIcons = {
   ChevronSquareRightLight: withSvgIcon(ChevronSquareRightLightRaw),
   /** Figma chevron up stroke. Phosphor `Icons.CaretUp` stays separate. */
   ChevronUp: withSvgIcon(ChevronUpRaw),
+  /** Figma clock face + hands (`stroke-width` 1.25). Phosphor `Icons.Clock` stays separate. */
+  Clock: withSvgIcon(ClockRaw),
   /** Dashed ring — use `color` / `className` for tone (e.g. `var(--icon-secondary)`). */
   CircleDashed: withSvgIcon(CircleDashedRaw),
   /** Figma task checkbox — checked (16×16); fill/stroke use `--checkbox-*` theme tokens. */

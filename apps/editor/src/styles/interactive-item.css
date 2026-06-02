@@ -184,7 +184,7 @@
 
 .interactive-item--subheader {
   height: var(--height-sm);
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
   font-size: var(--text-label);
   font-weight: var(--fw-regular);
   line-height: var(--lh-label);

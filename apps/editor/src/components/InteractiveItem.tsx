@@ -42,17 +42,20 @@ type DefaultProps = BaseProps & {
   startSlot?: React.ReactNode;
   endSlot?: React.ReactNode;
   /**
-   * Nesting depth under an expanded `hasInlineCaret` parent (0 = top-level in a group).
+   * Nesting depth under an expanded caret parent (0 = top-level in a group).
    * Each level adds `--space-16` (16px) to row padding-left via CSS.
    */
   indentDepth?: number;
   /**
-   * Alignment-only leading column (no caret). Use for leaf notes.
-   * Do not combine with hasInlineCaret — caret implies the slot.
+   * Leading region layout: 'slot' = empty alignment slot (for leaf items),
+   * 'caret' = expand/collapse caret (for tree parents), 'none' = no leading region.
+   * Default: 'none'.
    */
-  hasInlineSlot?: boolean;
-  /** Folder rows: leading slot + caret. hasChildren only applies when this is set. */
-  hasInlineCaret?: boolean;
+  leadingMode?: 'none' | 'slot' | 'caret';
+  /**
+   * Only applies when leadingMode='caret'. When true, hides the expand button
+   * (parent has no children). Caret icon still shown but disabled. Default: false.
+   */
   hasChildren?: boolean;
   isExpanded?: boolean;
   onExpandToggle?: () => void;
@@ -151,9 +154,8 @@ function getItemLayout(props: InteractiveItemProps): ItemLayout {
         onDefaultExpandToggle: undefined,
       };
     case 'default': {
-      const hasInlineSlot = props.hasInlineSlot ?? false;
-      const hasInlineCaret = props.hasInlineCaret ?? false;
-      const hasChildren = props.hasChildren ?? false;
+      const leadingMode = props.leadingMode ?? 'none';
+      const hasChildren = props.hasChildren ?? true;
 
       return {
         variant: 'default',
@@ -168,9 +170,9 @@ function getItemLayout(props: InteractiveItemProps): ItemLayout {
         showHeaderChevron: false,
         startSlot: props.startSlot,
         endSlot: props.endSlot,
-        hasInlineSlot,
-        hasInlineCaret,
-        inlineCaretDisabled: hasInlineCaret && !hasChildren,
+        hasInlineSlot: leadingMode === 'slot',
+        hasInlineCaret: leadingMode === 'caret',
+        inlineCaretDisabled: leadingMode === 'caret' && !hasChildren,
         defaultIsExpanded: props.isExpanded ?? false,
         onDefaultExpandToggle: props.onExpandToggle,
       };
@@ -178,6 +180,65 @@ function getItemLayout(props: InteractiveItemProps): ItemLayout {
   }
 }
 
+/**
+ * Row-layout primitive for interactive sidebar items, tree nodes, and list entries.
+ *
+ * InteractiveItem owns the layout structure, interaction states (hover, active, focus,
+ * disabled), and alignment. Consumers own the content structure and styling.
+ *
+ * ──────── Layout Structure ────────────────────────────────────────────────────────
+ *
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ leading region  │ start slot │  content slot (children)  │  end slot        │
+ * │ (caret/indent)  │ (icon)     │  (label, pill, etc.)     │  (badge, menu)   │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ *
+ * ──────── Composition Model ────────────────────────────────────────────────────
+ *
+ * Variant 'default': Flexible content rows with optional leading expand caret.
+ *   - leadingMode?: 'none' | 'slot' | 'caret'
+ *     * 'none' (default) — no leading region
+ *     * 'slot' — empty leading alignment column (for leaf items in a tree)
+ *     * 'caret' — expand/collapse caret + button (for tree parents)
+ *
+ *   - startSlot?: ReactNode — leading icon, checkbox, avatar, etc. Centers in 20px slot.
+ *   - children — freeform content (you own styling). Apply published class names:
+ *     * `.interactive-item__label` — single-line label with truncation
+ *     * `.interactive-item__label--completed` — strikethrough + muted color (tasks)
+ *     * `.interactive-item__icon` — centered icon inheriting text color
+ *
+ *   - endSlot?: ReactNode — trailing badge, count, menu button, etc. Centers in 20px slot.
+ *   - hasChildren?: boolean — only applies when leadingMode='caret'. When false,
+ *     caret icon shown but disabled (no expand button). Default: true.
+ *   - isExpanded?: boolean — caret rotation state (when leadingMode='caret').
+ *   - onExpandToggle?: () => void — fired when caret button clicked.
+ *   - indentDepth?: number — nesting level. Each adds 16px left padding.
+ *
+ * Variant 'header': Section or group header with optional expand chevron.
+ *   - onExpandToggle?: () => void — shows chevron; chevron rotation controlled by isExpanded.
+ *   - isExpanded?: boolean — chevron rotation state.
+ *   - active?: boolean — highlight this header as selected (does not toggle expand).
+ *   - interactive?: boolean — show hover/active states. Default: true if onClick or onExpandToggle set.
+ *
+ * Variant 'subheader': Date group label or section divider (no interaction).
+ *
+ * Variant 'placeholder': Empty state message (no interaction).
+ *
+ * ──────── Example: Task Tree ────────────────────────────────────────────────
+ *
+ * <InteractiveItem
+ *   variant="default"
+ *   leadingMode="caret"
+ *   hasChildren={subtasks.length > 0}
+ *   isExpanded={expanded}
+ *   onExpandToggle={() => toggle()}
+ *   startSlot={<Checkbox checked={done} onChange={...} />}
+ *   onClick={() => select()}
+ *   active={isSelected}
+ * >
+ *   <span className="interactive-item__label">Task title</span>
+ * </InteractiveItem>
+ */
 export function InteractiveItem(props: InteractiveItemProps) {
   const indentDepth =
     props.variant === 'default' ? (props.indentDepth ?? 0) : 0;

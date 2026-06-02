@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import '../styles/sidebar-tabs.css';
 import { CustomIcons, type ClutterIcon } from '../design-system/icons';
 import { Button } from './Button';
-export type SidebarTabId = 'notes' | 'journals' | 'tasks' | 'tags';
+export type SidebarTabId =
+  | 'notes'
+  | 'journals'
+  | 'tasks'
+  | 'tags';
 
 // Sidebar tab configuration.
 // Keep this as the single source of truth for tabs.

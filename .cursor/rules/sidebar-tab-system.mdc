@@ -8,13 +8,14 @@ alwaysApply: false
 
 ## Workspace tabs
 
-Rail tabs (see `SidebarTabs.tsx`): **Notes** | **Calendar** | **Tasks** | **Tags**.
+Rail tabs (see `SidebarTabs.tsx`): **Notes** | **Calendar** | **Tasks** | **Tags v2** | **Tags**.
 
 | Tab ID (code) | Label | Tab component | Status |
 |---------------|-------|---------------|--------|
 | `notes` | Notes | `NotesTab` | In progress — spec below |
 | `journals` | Calendar | TBD | Not specified yet |
 | `tasks` | Tasks | `TasksTab` | Spec below |
+| `tags-v2` | Tags v2 | `TagsTabV2` | Full Tags IA (incl. Untagged nav) |
 | `tags` | Tags | `TagsTab` | Shell below — tag rows TBD |
 
 Each tab that uses the sidebar list pattern: `{Name}Tab.tsx` + `SidebarPanel`. Other tabs will be documented when specified.
@@ -102,7 +103,7 @@ Nav rows, section headers, subheaders, and placeholders do **not** use `indentDe
 |-----|------|--------|
 | Section header | — | **Tasks** (static label, not a destination) |
 | All Tasks | `CustomIcons.SquareCheckOutline` | Page: full task list |
-| Unplanned | `CustomIcons.SquareDashed` | Page: tasks with no schedule |
+| Unplanned | `CustomIcons.Clock` | Page: tasks with no schedule |
 
 Nav rows only — not scroll sections. `onClick` sets `destination.kind === 'nav'`.
 

@@ -37,7 +37,7 @@ type TaskDateGroup = {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'all-tasks', label: 'All Tasks', icon: CustomIcons.SquareCheckOutline },
-  { id: 'unplanned', label: 'Unplanned', icon: CustomIcons.SquareDashed },
+  { id: 'unplanned', label: 'Unplanned', icon: CustomIcons.Clock },
 ];
 
 const TODAY_MOCK_TASKS: TaskMock[] = [
@@ -300,10 +300,9 @@ function TaskSidebarRow({
   return (
     <Fragment>
       <InteractiveItem
-        variant="default"
+        variant='default'
         indentDepth={depth}
-        hasInlineSlot={!hasSubtasks}
-        hasInlineCaret={hasSubtasks}
+        leadingMode={hasSubtasks ? 'caret' : 'slot'}
         hasChildren={hasSubtasks}
         isExpanded={isExpanded}
         onExpandToggle={
