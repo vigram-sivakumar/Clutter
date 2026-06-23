@@ -1,5 +1,5 @@
-import { Button } from "./Button";
-import { CustomIcons } from "../design-system/icons";
+import { Button } from './Button';
+import { CustomIcons } from '../design-system/icons';
 
 export type TopbarProps = {
   /** Wide left column when the docked rail is open. */
@@ -12,11 +12,11 @@ export function Topbar({ sidebarOpen, onToggleSidebar }: TopbarProps) {
     <header className="clutter-topbar">
       <div
         className={[
-          "clutter-topbar__sidebar",
-          !sidebarOpen && "clutter-topbar__sidebar--hug",
+          'clutter-topbar__sidebar',
+          !sidebarOpen && 'clutter-topbar__sidebar--hug',
         ]
           .filter(Boolean)
-          .join(" ")}
+          .join(' ')}
         role="region"
         aria-label="Sidebar"
       >
@@ -24,7 +24,7 @@ export function Topbar({ sidebarOpen, onToggleSidebar }: TopbarProps) {
           type="button"
           variant="ghost"
           iconOnly={CustomIcons.Sidebar}
-          aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+          aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           aria-expanded={sidebarOpen}
           aria-controls="clutter-sidebar"
           onClick={onToggleSidebar}
@@ -54,7 +54,12 @@ export function Topbar({ sidebarOpen, onToggleSidebar }: TopbarProps) {
             iconOnly={CustomIcons.MagnifyingGlass}
             aria-label="Global search"
           />
-          <Button type="button" variant="ghost" iconOnly={CustomIcons.Tabs} aria-label="Tabs" />
+          <Button
+            type="button"
+            variant="ghost"
+            iconOnly={CustomIcons.Tabs}
+            aria-label="Tabs"
+          />
           <Button
             type="button"
             variant="ghost"

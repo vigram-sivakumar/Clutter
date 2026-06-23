@@ -1,7 +1,7 @@
 .clutter-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .clutter-section--expanded {
@@ -11,5 +11,5 @@
 .clutter-section-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }

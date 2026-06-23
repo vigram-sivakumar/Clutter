@@ -140,7 +140,7 @@ function NotesTreeRow({
   return (
     <Fragment>
       <InteractiveItem
-        variant='default'
+        variant="default"
         indentDepth={depth}
         leadingMode={isFolder ? 'caret' : 'slot'}
         hasChildren={hasChildren}
@@ -188,9 +188,9 @@ export function NotesTab() {
     kind: 'nav',
     id: 'all-notes',
   });
-  const [expandedTreeIds, setExpandedTreeIds] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [expandedTreeIds, setExpandedTreeIds] = useState<
+    Record<string, boolean>
+  >({});
   const [expandedSections, setExpandedSections] = useState<
     Record<ContentSectionId, boolean>
   >({
