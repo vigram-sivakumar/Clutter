@@ -1,0 +1,7 @@
+.page-cover__image {
+  height: 100%;
+  width: auto;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
