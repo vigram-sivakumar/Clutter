@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 
 import { Divider } from './Divider';
 import '../styles/sidebar-panel.css';
 import { ListItem } from './ListItem';
-import { CustomIcons, ICON_SMALL } from '../design-system/icons';
+import { CustomIcons } from '../design-system/icons';
 import { CaretSlot } from './TreeCaret';
+import { Button } from './Button';
 
 type SidebarPanelProps = {
   navigation?: ReactNode;
@@ -12,28 +14,41 @@ type SidebarPanelProps = {
 };
 
 export function SidebarPanel({ navigation, children }: SidebarPanelProps) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <div className="clutter-sidebar-panel">
       <div className="clutter-sidebar-panel__navigation">{navigation}</div>
       <ListItem
         startSlot={
           <>
-            <CaretSlot>
-              <CustomIcons.CaretRight size={ICON_SMALL} />
-            </CaretSlot>
+            <CaretSlot
+              hasCaret
+              isDisabled
+              isExpanded={expanded}
+              onClick={() => setExpanded(!expanded)}
+            ></CaretSlot>
             <CustomIcons.Note />
           </>
         }
         label="Users"
-        endSlot={<CustomIcons.Folder />}
+        endSlot={
+          <Button
+            variant="ghost"
+            size="xsmall"
+            iconOnly={CustomIcons.MoreHorizontal}
+          ></Button>
+        }
       />
       <ListItem
         label={
           <>
             Users
-            <CaretSlot side="end">
-              <CustomIcons.CaretDown size={ICON_SMALL} />
-            </CaretSlot>
+            <CaretSlot
+              side="end"
+              hasCaret
+              isExpanded={expanded}
+              onClick={() => setExpanded(!expanded)}
+            ></CaretSlot>
           </>
         }
         labelStyle="label"

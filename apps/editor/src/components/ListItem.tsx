@@ -28,9 +28,7 @@ export function ListItem({
     const target = event.target as HTMLElement;
 
     const interactiveElement = target.closest(
-      ['button', 'a', 'input', 'select', 'textarea', "[role='button']"].join(
-        ','
-      )
+      'button, a, input, select, textarea, [role="button"]'
     );
 
     if (interactiveElement) {
@@ -45,7 +43,7 @@ export function ListItem({
       className={[
         'list-item',
         `list-item--${labelStyle}`,
-        `list-item-${state}`,
+        `list-item--${state}`,
       ].join(' ')}
       onClick={handleClick}
       role={onClick ? 'button' : undefined}

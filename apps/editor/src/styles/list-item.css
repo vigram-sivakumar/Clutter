@@ -21,6 +21,10 @@
   background: var(--state-hover);
 }
 
+.list-item:active:not(:has(button:active)) {
+  background: var(--state-pressed);
+}
+
 .list-item--selected {
   background: var(--state-active);
 }
