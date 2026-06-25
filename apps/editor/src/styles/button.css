@@ -1,205 +1,70 @@
-/* ─── Button tokens ──────────────────────────────────────────────────────── */
+.button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary);
 
-[data-theme='dark'] {
-  /* Primary */
-  --button-primary-bg: var(--surface-inverse);
-  --button-primary-hover: rgba(255, 255, 255, 0.82);
-  --button-primary-pressed: rgba(255, 255, 255, 0.7);
-  --button-primary-active: var(--surface-inverse);
-  --button-primary-text: var(--text-inverse);
-
-  /* Secondary */
-  --button-secondary-bg: rgba(255, 255, 255, 0.055);
-  --button-secondary-hover: var(--state-hover);
-  --button-secondary-pressed: var(--state-pressed);
-  --button-secondary-active: var(--state-active);
-  --button-secondary-text: var(--text-secondary);
-  --button-secondary-border: var(--border-default);
-
-  /* Checkbox */
-  --button-checkbox-filled: var(--accent-light);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
 }
-
-[data-theme='light'] {
-  /* Primary */
-  --button-primary-bg: var(--surface-inverse);
-  --button-primary-hover: rgba(0, 0, 0, 0.82);
-  --button-primary-pressed: rgba(255, 255, 255, 0.7);
-  --button-primary-active: var(--surface-inverse);
-  --button-primary-text: var(--text-inverse);
-
-  /* Secondary */
-  --button-secondary-bg: rgba(0, 0, 0, 0.055);
-  --button-secondary-hover: var(--state-hover);
-  --button-secondary-pressed: var(--state-pressed);
-  --button-secondary-active: var(--state-active);
-  --button-secondary-text: var(--text-secondary);
-  --button-secondary-border: var(--border-default);
-
-  /* Checkbox */
-  --button-checkbox-filled: var(--accent-dark);
-}
-
-/* ─── Styles ─────────────────────────────────────────────────────────────── */
-
-.clutter-btn__content {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: inherit;
-}
-
-/* Content row alignment (non–icon-only; default remains center). */
-.clutter-btn--content-start .clutter-btn__content {
-  justify-content: flex-start;
-}
-.clutter-btn--content-end .clutter-btn__content {
-  justify-content: flex-end;
-}
-.clutter-btn--content-start {
-  justify-content: flex-start;
-}
-.clutter-btn--content-end {
-  justify-content: flex-end;
-}
-
-/*
- * Ellipsis: use with `ellipsis` on Button. Mark the truncating label with
- * .clutter-btn__ellipsis-target (see BUTTON_ELLIPSIS_TARGET_CLASS).
- */
-.clutter-btn--ellipsis:not(.clutter-btn--icon-only) .clutter-btn__content {
+.button__content {
   display: flex;
   align-items: center;
-  min-width: 0;
-  max-width: 100%;
-  width: 100%;
-}
-
-.clutter-btn__ellipsis-target {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.clutter-btn {
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
-  gap: var(--space-4);
-  border: none;
-  outline: none;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  font-weight: var(--fw-medium);
-  line-height: var(--lh-100);
-  white-space: nowrap;
-  user-select: none;
-  flex-shrink: 0;
-  /* Default size — matches tokens: interactive controls use --height-lg (28px). */
+  gap: var(--btn-gap-md);
+}
+
+/* Size */
+.button--large {
   height: var(--height-lg);
-  padding-block: 0;
   padding-inline: var(--space-8);
   border-radius: var(--radius-lg);
-  transition:
-    background-color var(--duration-interaction) var(--easing-interaction),
-    color var(--duration-interaction) var(--easing-interaction),
-    opacity var(--duration-interaction) var(--easing-interaction),
-    border-color var(--duration-interaction) var(--easing-interaction),
-    box-shadow var(--duration-interaction) var(--easing-interaction);
 }
-
-.clutter-btn--small {
+.button--medium {
   height: var(--height-md);
-  padding-block: 0;
-  padding-inline: var(--space-6);
-  border-radius: var(--radius-md);
+  padding-inline: var(--space-8);
+  border-radius: var(--radius-lg);
 }
-
-.clutter-btn--xsmall {
+.button--small {
   height: var(--height-sm);
-  padding-block: 0;
   padding-inline: var(--space-6);
   border-radius: var(--radius-md);
-  font-size: var(--text-label);
 }
 
-/* Icon-only: square, no padding */
-.clutter-btn--icon-only {
-  padding-block: 0;
-  padding-inline: 0;
-  aspect-ratio: 1;
-}
-
-/* Per-instance modifier: let a specific button "hug" its content (not global).
-   Use by adding `className="clutter-btn--hug"` to a `Button` instance. */
-.clutter-btn--hug {
-  width: auto;
-  padding-inline: var(--space-6);
-}
-
-.clutter-btn--hug.clutter-btn--icon-only {
-  aspect-ratio: auto;
-  width: auto;
-  padding-inline: var(--space-2);
-  min-width: 0;
-}
-
-/* ─── Variants ───────────────────────────────────────────────────────────── */
-
-.clutter-btn--primary {
-  background: var(--button-primary-bg);
-  color: var(--button-primary-text);
-}
-.clutter-btn--primary:hover:not(:disabled) {
-  background: var(--button-primary-hover);
-}
-.clutter-btn--primary:active:not(:disabled) {
-  background: var(--button-primary-pressed);
-}
-.clutter-btn--primary.clutter-btn--active {
-  background: var(--button-primary-active);
-}
-
-.clutter-btn--secondary {
+/* Variant */
+.button--filled {
   background: var(--button-secondary-bg);
-  color: var(--button-secondary-text);
 }
-.clutter-btn--secondary:hover:not(:disabled) {
-  background: var(--button-secondary-hover);
-}
-.clutter-btn--secondary:active:not(:disabled) {
-  background: var(--button-secondary-pressed);
-}
-.clutter-btn--secondary.clutter-btn--active {
-  background: var(--button-secondary-active);
-}
-
-.clutter-btn--ghost {
+.button--outlined {
   background: transparent;
-  color: var(--text-secondary);
-}
-.clutter-btn--ghost:hover:not(:disabled) {
-  background: var(--state-hover);
-}
-.clutter-btn--ghost:active:not(:disabled) {
-  background: var(--state-pressed);
-}
-.clutter-btn--ghost.clutter-btn--active {
-  background: var(--state-active);
-}
-
-/* ─── Border ─────────────────────────────────────────────────────────────── */
-
-.clutter-btn--bordered {
   border: 1px solid var(--border-default);
 }
+.button--ghost {
+  background: transparent;
+}
+.button--outline-fill {
+  background: var(--button-secondary-bg);
+  border: 1px solid var(--border-default);
+}
+.button--icon {
+  aspect-ratio: 1;
+  padding: 0;
+}
 
-/* ─── Disabled ───────────────────────────────────────────────────────────── */
-
-.clutter-btn:disabled {
+/* State */
+.button:hover:not(.button--disabled) {
+  background: var(--state-hover);
+}
+.button:active:not(.button--disabled) {
+  background: var(--state-pressed);
+}
+.button--active {
+  background: var(--state-active);
+}
+.button--disabled {
   opacity: var(--state-disabled);
-  cursor: not-allowed;
+  cursor: default;
 }

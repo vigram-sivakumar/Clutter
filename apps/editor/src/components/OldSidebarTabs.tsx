@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
-import '../styles/sidebar-tabs.css';
+import '../styles/old-old-sidebar-tabs.css';
 import { CustomIcons, type ClutterIcon } from '../design-system/icons';
-import { Button } from './Button';
+import { Button } from ',/Button';
 export type SidebarTabId = 'notes' | 'journals' | 'tasks' | 'tags' | 'search';
 
 // Sidebar tab configuration.

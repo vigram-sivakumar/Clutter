@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { NotesTab } from './NotesTab';
 import { TagsTab } from './TagsTab';
 import { TasksTab } from './TasksTab';
-import { SidebarTabs, type SidebarTabId } from './SidebarTabs';
+import { SidebarTabs, type SidebarTabId } from './OldSidebarTabs';
 
 export type SidebarProps = {
   open: boolean;
