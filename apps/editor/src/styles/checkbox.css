@@ -2,8 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--height-sm);
-  height: var(--height-sm);
+  width: var(--height-xs);
+  height: var(--height-xs);
   padding: 0;
   margin: 0;
   border: none;

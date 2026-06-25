@@ -98,8 +98,8 @@
   white-space: nowrap;
   user-select: none;
   flex-shrink: 0;
-  /* Default size — matches tokens: interactive controls use --height-xl (28px). */
-  height: var(--height-xl);
+  /* Default size — matches tokens: interactive controls use --height-lg (28px). */
+  height: var(--height-lg);
   padding-block: 0;
   padding-inline: var(--space-8);
   border-radius: var(--radius-lg);
@@ -112,14 +112,14 @@
 }
 
 .clutter-btn--small {
-  height: var(--height-lg);
+  height: var(--height-md);
   padding-block: 0;
   padding-inline: var(--space-6);
   border-radius: var(--radius-md);
 }
 
 .clutter-btn--xsmall {
-  height: var(--height-md);
+  height: var(--height-sm);
   padding-block: 0;
   padding-inline: var(--space-6);
   border-radius: var(--radius-md);

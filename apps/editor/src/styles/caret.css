@@ -8,8 +8,8 @@
   align-self: center;
   flex-shrink: 0;
 
-  width: var(--height-xs);
-  min-height: var(--height-xl);
+  width: var(--height-xxs);
+  min-height: var(--height-lg);
 }
 
 .caret-wrapper {

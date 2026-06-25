@@ -31,7 +31,7 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Text */
   --text-primary: rgba(255, 255, 255, 0.82);
-  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-secondary: rgba(255, 255, 255, 0.7);
   --text-tertiary: rgba(255, 255, 255, 0.35);
   --text-placeholder: rgba(255, 255, 255, 0.2);
   --text-inverse: rgba(0, 0, 0, 0.8);

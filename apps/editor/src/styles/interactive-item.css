@@ -2,7 +2,7 @@
 .interactive-item {
   --interactive-item-padding-left: var(--space-6);
   --interactive-item-padding-right: var(--space-6);
-  --interactive-item-height: var(--height-xl);
+  --interactive-item-height: var(--height-lg);
   --interactive-item-indent-step: var(--space-16);
 
   display: flex;
@@ -37,7 +37,7 @@
 
 .interactive-item__start-slot,
 .interactive-item__end-slot {
-  min-width: var(--height-sm);
+  min-width: var(--height-xs);
   height: 100%;
 }
 
@@ -82,8 +82,8 @@
   flex-shrink: 0;
   align-self: center;
 
-  width: var(--height-xs);
-  min-height: var(--height-xl);
+  width: var(--height-xxs);
+  min-height: var(--height-lg);
 }
 
 .interactive-item__inline-caret-slot--disabled {
@@ -124,8 +124,8 @@
   justify-content: center;
   flex-shrink: 0;
 
-  width: var(--height-xs);
-  height: var(--height-xs);
+  width: var(--height-xxs);
+  height: var(--height-xxs);
 }
 
 .interactive-item__inline-caret svg {
@@ -183,7 +183,7 @@
 }
 
 .interactive-item--subheader {
-  height: var(--height-sm);
+  height: var(--height-xs);
   color: var(--text-placeholder);
   font-size: var(--text-label);
   font-weight: var(--fw-regular);
@@ -191,7 +191,7 @@
 }
 
 .interactive-item--placeholder {
-  --interactive-item-height: var(--height-md);
+  --interactive-item-height: var(--height-sm);
   height: var(--interactive-item-height);
   color: var(--text-placeholder);
   font-size: var(--text-body);

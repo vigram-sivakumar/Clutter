@@ -2,8 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--height-md);
-  min-width: var(--height-md);
+  height: var(--height-sm);
+  min-width: var(--height-sm);
   padding: 0 var(--space-4);
   flex-shrink: 0;
 

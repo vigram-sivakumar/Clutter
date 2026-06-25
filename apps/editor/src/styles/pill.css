@@ -12,8 +12,8 @@
 }
 
 .clutter-pill--default {
-  height: var(--height-sm);
-  min-width: var(--height-sm);
+  height: var(--height-xs);
+  min-width: var(--height-xs);
   padding: 0 var(--space-6);
   font-size: var(--text-body);
   font-weight: var(--fw-regular);
@@ -21,8 +21,8 @@
 }
 
 .clutter-pill--small {
-  height: var(--height-xs);
-  min-width: var(--height-xs);
+  height: var(--height-xxs);
+  min-width: var(--height-xxs);
   padding: 0 var(--space-4);
   font-size: var(--text-label);
   font-weight: var(--fw-medium);

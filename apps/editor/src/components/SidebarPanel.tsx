@@ -5,7 +5,7 @@ import { Divider } from './Divider';
 import '../styles/sidebar-panel.css';
 import { ListItem } from './ListItem';
 import { CustomIcons } from '../design-system/icons';
-import { CaretSlot } from './TreeCaret';
+import { CaretSlot } from './Caret';
 import { Button } from './Button';
 
 type SidebarPanelProps = {

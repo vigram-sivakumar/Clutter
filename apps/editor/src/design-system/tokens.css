@@ -9,8 +9,9 @@
   --neutral-500: #babab5;
   --neutral-600: #9b9a94;
   --neutral-700: #292929;
-  --neutral-800: #202020;
-  --neutral-900: #191919;
+  --neutral-800: #1f1f1f;
+  --neutral-900: #1a1a1a;
+  --neutral-950: #141414;
 
   /* Accent */
   --accent-light: #00acff;
@@ -59,14 +60,14 @@
   --radius-xl: var(--space-12);
 
   /* Height */
-  --height-xs: var(--space-12);
-  --height-sm: var(--space-20);
-  --height-md: var(--space-24);
-  --height-lg: var(--space-28);
-  --height-xl: var(
+  --height-xxs: var(--space-12);
+  --height-xs: var(--space-20);
+
+  --height-sm: var(--space-24);
+  --height-md: var(--space-28);
+  --height-lg: var(
     --space-30
   ); /* Default for most of the interactive elements */
-  --height-2xl: var(--space-32); /* Use it for large interactive elements */
 
   /* icon size */
   --icon-md: var(--space-16);
