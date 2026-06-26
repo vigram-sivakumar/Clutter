@@ -14,6 +14,9 @@
   padding: var(--space-0);
 }
 .tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: var(--height-lg);
   min-width: var(--height-lg);
   width: 100%;

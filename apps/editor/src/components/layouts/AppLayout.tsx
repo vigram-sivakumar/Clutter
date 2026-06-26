@@ -1,16 +1,12 @@
-import type { ReactNode } from 'react';
 import '../../styles/app-layout.css';
+import { SidePanel } from './SidePanel';
+import { PageLayout } from './PageLayout';
 
-type AppLayoutProps = {
-  sidebar?: ReactNode;
-  page?: ReactNode;
-};
-
-export function AppLayout({ sidebar, page }: AppLayoutProps) {
+export function AppLayout() {
   return (
     <div className="app-layout">
-      <aside className="app-layout__sidebar">{sidebar}</aside>
-      <main className="app-layout__page">{page}</main>
+      <aside className="app-layout__sidepanel">{<SidePanel />}</aside>
+      <main className="app-layout__page">{<PageLayout />}</main>
     </div>
   );
 }

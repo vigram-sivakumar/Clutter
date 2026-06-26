@@ -2,7 +2,7 @@ import '../styles/list-item.css';
 
 export interface ListItemProps {
   startSlot?: React.ReactNode;
-  label: React.ReactNode;
+  children: React.ReactNode;
   endSlot?: React.ReactNode;
 
   labelStyle?: 'body' | 'label';
@@ -14,7 +14,7 @@ export interface ListItemProps {
 
 export function ListItem({
   startSlot,
-  label,
+  children,
   endSlot,
   labelStyle = 'body',
   state = 'default',
@@ -51,7 +51,7 @@ export function ListItem({
     >
       {startSlot && <div className="list-item__start">{startSlot}</div>}
 
-      <div className="list-item__label">{label}</div>
+      <div className="list-item__label">{children}</div>
 
       {endSlot && <div className="list-item__end">{endSlot}</div>}
     </div>

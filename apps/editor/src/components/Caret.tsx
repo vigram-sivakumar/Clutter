@@ -1,41 +1,35 @@
-import '../styles/tree-caret.css';
+import '../styles/caret.css';
 import { CustomIcons, ICON_SMALL } from '../design-system/icons';
 
-interface CaretSlotProps {
-  side?: 'start' | 'end';
-  hasCaret?: boolean;
-  isExpanded?: boolean;
-  isDisabled?: boolean;
+interface CaretProps {
+  type?: 'tree' | 'dropdown';
+  state?: 'placeholder' | 'collapsed' | 'expanded';
+  disabled?: boolean;
   onClick?: () => void;
 }
 
-export function CaretSlot({
-  side = 'start',
-  hasCaret = false,
-  isExpanded = false,
-  isDisabled = false,
+export function Caret({
+  type = 'tree',
+  state = 'collapsed',
+  disabled = false,
   onClick,
-}: CaretSlotProps) {
+}: CaretProps) {
   return (
     <span className="tree-caret">
-      {hasCaret ? (
+      {state !== 'placeholder' && (
         <button
           type="button"
-          className={`caret-wrapper caret-wrapper--${side}${isDisabled ? ' caret-wrapper--disabled' : ''}`}
+          className={`caret-wrapper caret-wrapper--${type}${disabled ? ' caret-wrapper--disabled' : ''}`}
           onClick={onClick}
-          disabled={isDisabled}
+          disabled={disabled}
         >
           <span
-            className={
-              isExpanded
-                ? 'tree-caret__icon tree-caret__icon--expanded'
-                : 'tree-caret__icon'
-            }
+            className={`tree-caret__icon tree-caret__icon--${type} tree-caret__icon--${state}`}
           >
             <CustomIcons.CaretRight size={ICON_SMALL} />
           </span>
         </button>
-      ) : null}
+      )}
     </span>
   );
 }

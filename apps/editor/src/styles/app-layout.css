@@ -6,8 +6,8 @@
   background: var(--surface-secondary);
 }
 
-.app-layout__sidebar {
-  width: 0px;
+.app-layout__sidepanel {
+  width: 320px;
   flex-shrink: 0;
 }
 
@@ -15,4 +15,5 @@
   flex: 1;
   min-width: 0;
   padding: var(--space-8);
+  padding-left: 0;
 }

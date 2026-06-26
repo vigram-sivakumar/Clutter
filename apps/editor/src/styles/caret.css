@@ -46,9 +46,21 @@
   align-items: center;
   justify-content: center;
 
-  transition: transform 120ms ease;
+  transition: transform 160ms ease;
 }
 
-.tree-caret__icon--expanded {
+.tree-caret__icon--tree.tree-caret__icon--collapsed {
+  transform: rotate(0deg);
+}
+
+.tree-caret__icon--tree.tree-caret__icon--expanded {
   transform: rotate(90deg);
+}
+
+.tree-caret__icon--dropdown.tree-caret__icon--collapsed {
+  transform: rotate(90deg);
+}
+
+.tree-caret__icon--dropdown.tree-caret__icon--expanded {
+  transform: rotate(270deg);
 }

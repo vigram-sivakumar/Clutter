@@ -10,18 +10,19 @@
 
   color: var(--text-secondary);
 
-  cursor: pointer;
-
   transition:
     background-color 120ms ease,
     color 120ms ease;
 }
+.list-item[role='button'] {
+  cursor: pointer;
+}
 
-.list-item:hover:not(.list-item--disabled) {
+.list-item[role='button']:hover:not(.list-item--disabled) {
   background: var(--state-hover);
 }
 
-.list-item:active:not(:has(button:active)) {
+.list-item[role='button']:active:not(:has(button:active)) {
   background: var(--state-pressed);
 }
 
