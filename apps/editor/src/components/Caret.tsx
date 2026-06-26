@@ -3,17 +3,17 @@ import { CustomIcons, ICON_SMALL } from '../design-system/icons';
 
 interface CaretProps {
   type?: 'tree' | 'dropdown';
-  state?: 'placeholder' | 'collapsed' | 'expanded';
-  disabled?: boolean;
+  state?: 'placeholder' | 'collapsed' | 'expanded' | 'disabled';
   onClick?: () => void;
 }
 
 export function Caret({
   type = 'tree',
   state = 'collapsed',
-  disabled = false,
   onClick,
 }: CaretProps) {
+  const disabled = state === 'disabled';
+
   return (
     <span className="tree-caret">
       {state !== 'placeholder' && (

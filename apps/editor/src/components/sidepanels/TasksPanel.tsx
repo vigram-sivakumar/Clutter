@@ -1,3 +1,3 @@
 export function TasksPanel() {
-  return <>Tasks Panel</>;
+  return <>Tags Panel</>;
 }
