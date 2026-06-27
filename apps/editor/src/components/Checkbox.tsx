@@ -1,38 +1,21 @@
-import React from 'react';
+import { Icons } from '../design-system/icons';
 import '../styles/checkbox.css';
 
-import {
-  CustomIcons,
-  ICON_MEDIUM,
-} from '../design-system/icons';
-
-export interface CheckboxProps
-  extends Omit<
-    React.ButtonHTMLAttributes<HTMLButtonElement>,
-    'children' | 'onChange' | 'role' | 'aria-checked'
-  > {
-  checked: boolean;
-  onCheckedChange?: (checked: boolean) => void;
+export interface CheckboxProps {
+  checked?: boolean;
   disabled?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
 }
 
 export function Checkbox({
-  checked,
-  onCheckedChange,
+  checked = false,
   disabled = false,
-  className,
-  onClick,
-  ...rest
+  onCheckedChange,
 }: CheckboxProps) {
-  const Icon = checked
-    ? CustomIcons.CheckboxChecked
-    : CustomIcons.CheckboxUnchecked;
-
-  const cls = [
-    'clutter-checkbox',
-    checked && 'clutter-checkbox--checked',
-    disabled && 'clutter-checkbox--disabled',
-    className,
+  const className = [
+    'checkbox',
+    checked && 'checkbox--checked',
+    disabled && 'checkbox--disabled',
   ]
     .filter(Boolean)
     .join(' ');
@@ -43,18 +26,10 @@ export function Checkbox({
       role="checkbox"
       aria-checked={checked}
       disabled={disabled}
-      className={cls}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick?.(event);
-        if (disabled || event.defaultPrevented) {
-          return;
-        }
-        onCheckedChange?.(!checked);
-      }}
-      {...rest}
+      className={className}
+      onClick={() => onCheckedChange?.(!checked)}
     >
-      <Icon size={ICON_MEDIUM} aria-hidden />
+      {checked ? <Icons.CheckboxChecked /> : <Icons.CheckboxUnchecked />}
     </button>
   );
 }

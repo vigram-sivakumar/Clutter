@@ -1,5 +1,5 @@
-import React from 'react';
-import { CustomIcons } from '../../design-system/icons';
+import { Icons } from '../../design-system/icons';
+import { IconSlot } from '../../design-system/icons/IconSlot';
 import { Button } from '../Button';
 import { Caret } from '../Caret';
 import { ListItem } from '../ListItem';
@@ -28,12 +28,19 @@ export function FolderItem({
       startSlot={
         <>
           <Caret state={caretState} type="tree" />
-          <CustomIcons.Folder />
+          <IconSlot>
+            <Icons.Folder />
+          </IconSlot>
         </>
       }
-      endSlot={
+      actions={
         <>
-          <Button size="small" variant="ghost" isIconOnly></Button>
+          <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
+            <Icons.Plus />
+          </Button>
+          <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
+            <Icons.MoreHorizontal />
+          </Button>
         </>
       }
     >

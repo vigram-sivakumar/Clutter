@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import '../../styles/sidepanel.css';
 import { Tabs, Tab } from '../tabs';
-import { CustomIcons } from '../../design-system/icons';
+import { Icons } from '../../design-system/icons';
 
 import { NotesPanel } from '../sidepanels/NotesPanel';
 import { DailyNotesPanel } from '../sidepanels/DailyNotesPanel';
@@ -12,27 +12,27 @@ import { SearchPanel } from '../sidepanels/SearchPanel';
 const tabs = [
   {
     value: 'notes',
-    icon: <CustomIcons.Note />,
+    icon: <Icons.Note />,
     panel: <NotesPanel />,
   },
   {
     value: 'daily-notes',
-    icon: <CustomIcons.CalendarBlank />,
+    icon: <Icons.CalendarBlank />,
     panel: <DailyNotesPanel />,
   },
   {
     value: 'tasks',
-    icon: <CustomIcons.SquareCheckOutline />,
+    icon: <Icons.SquareCheckOutline />,
     panel: <TasksPanel />,
   },
   {
     value: 'tags',
-    icon: <CustomIcons.Tag />,
+    icon: <Icons.Tag />,
     panel: <TagsPanel />,
   },
   {
     value: 'search',
-    icon: <CustomIcons.MagnifyingGlass />,
+    icon: <Icons.MagnifyingGlass />,
     panel: <SearchPanel />,
   },
 ];

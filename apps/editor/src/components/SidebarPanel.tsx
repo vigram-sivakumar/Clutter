@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Divider } from './Divider';
 import '../styles/sidebar-panel.css';
 import { ListItem } from './ListItem';
-import { CustomIcons } from '../design-system/icons';
+import { Icons } from '../design-system/icons';
 import { CaretSlot } from './Caret';
 import { Button } from './Button';
 
@@ -27,7 +27,7 @@ export function SidebarPanel({ navigation, children }: SidebarPanelProps) {
               isExpanded={expanded}
               onClick={() => setExpanded(!expanded)}
             ></CaretSlot>
-            <CustomIcons.Note />
+            <Icons.Note />
           </>
         }
         label="Users"
@@ -35,7 +35,7 @@ export function SidebarPanel({ navigation, children }: SidebarPanelProps) {
           <Button
             variant="ghost"
             size="xsmall"
-            iconOnly={CustomIcons.MoreHorizontal}
+            iconOnly={Icons.MoreHorizontal}
           ></Button>
         }
       />

@@ -2,7 +2,7 @@ import '../styles/interactive-item.css';
 
 import React from 'react';
 import { Button } from './Button';
-import { CustomIcons as Icons, ICON_SMALL } from '../design-system/icons';
+import { Icons as Icons, ICON_SMALL } from '../design-system/icons';
 
 type BaseProps = {
   children: React.ReactNode;
@@ -279,7 +279,8 @@ export function InteractiveItem(props: InteractiveItemProps) {
     onDefaultExpandToggle !== undefined;
   const showsInlineCaretDisabled = showsInlineCaret && inlineCaretDisabled;
   const showsIconSlot = !!startSlot;
-  const showsLeading = showsEmptyInlineSlot || showsInlineCaret || showsIconSlot;
+  const showsLeading =
+    showsEmptyInlineSlot || showsInlineCaret || showsIconSlot;
   const showsEndSlot = showsHeaderChevron || endSlot;
 
   const emptyInlineSlot = (

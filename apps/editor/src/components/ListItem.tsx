@@ -4,11 +4,11 @@ export interface ListItemProps {
   startSlot?: React.ReactNode;
   children: React.ReactNode;
   endSlot?: React.ReactNode;
-
-  labelStyle?: 'body' | 'label';
+  actions?: React.ReactNode;
+  titleSlot?: React.ReactNode;
+  className?: string;
 
   state?: 'default' | 'selected' | 'disabled';
-
   onClick?: () => void;
 }
 
@@ -16,8 +16,10 @@ export function ListItem({
   startSlot,
   children,
   endSlot,
-  labelStyle = 'body',
+  actions,
+  titleSlot,
   state = 'default',
+  className,
   onClick,
 }: ListItemProps) {
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -40,20 +42,24 @@ export function ListItem({
 
   return (
     <div
-      className={[
-        'list-item',
-        `list-item--${labelStyle}`,
-        `list-item--${state}`,
-      ].join(' ')}
+      className={['list-item', `list-item--${state}`, className].join(' ')}
       onClick={handleClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick && state !== 'disabled' ? 0 : undefined}
     >
       {startSlot && <div className="list-item__start">{startSlot}</div>}
 
-      <div className="list-item__label">{children}</div>
+      <div className="list-item__label">
+        <span className="list-item__title">{children}</span>
+        {titleSlot}
+      </div>
 
-      {endSlot && <div className="list-item__end">{endSlot}</div>}
+      {(endSlot || actions) && (
+        <div className="list-item__end">
+          {endSlot}
+          {actions && <div className="list-item__actions">{actions}</div>}
+        </div>
+      )}
     </div>
   );
 }

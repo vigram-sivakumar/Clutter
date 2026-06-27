@@ -6,6 +6,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
   variant?: 'filled' | 'outlined' | 'ghost' | 'outline-fill';
   size?: 'large' | 'medium' | 'small';
+  interaction?: 'default' | 'subtle';
 
   isActive?: boolean;
   isDisabled?: boolean;
@@ -19,6 +20,7 @@ export function Button({
   children,
   variant = 'ghost',
   size = 'large',
+  interaction = 'default',
   isActive = false,
   isDisabled = false,
   isIconOnly = false,
@@ -31,6 +33,7 @@ export function Button({
     'button',
     `button--${variant}`,
     `button--${size}`,
+    `button--${interaction}`,
 
     isActive && 'button--active',
     isDisabled && 'button--disabled',
@@ -47,8 +50,8 @@ export function Button({
       {...props}
     >
       <span className="button__content">
-        {startSlot}
-        {!isIconOnly && children}
+        {!isIconOnly && startSlot}
+        {children}
         {!isIconOnly && endSlot}
       </span>
     </button>

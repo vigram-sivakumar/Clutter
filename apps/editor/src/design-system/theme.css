@@ -71,6 +71,7 @@ html.theme-transitioning [data-themeable] *::after {
   --checkbox-border: var(--icon-tertiary);
   --checkbox-border-hover: var(--icon-secondary);
   --checkbox-check: var(--neutral-50);
+  --strikethrough-color: #595757;
 
   /* Tag / Colors */
   --tag-blue-bg: rgba(59, 130, 246, 0.22);
@@ -172,6 +173,7 @@ html.theme-transitioning [data-themeable] *::after {
   --checkbox-border: var(--icon-tertiary);
   --checkbox-border-hover: var(--icon-primary);
   --checkbox-check: var(--neutral-50);
+  --strikethrough-color: var(--neutral-600);
 
   /* Tag / Colors */
   --tag-blue-bg: rgb(192, 222, 241);

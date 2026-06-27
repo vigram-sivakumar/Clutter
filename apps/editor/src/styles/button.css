@@ -49,6 +49,12 @@
   background: var(--button-secondary-bg);
   border: 1px solid var(--border-default);
 }
+.button--subtle {
+  background: transparent;
+  color: var(--text-tertiary);
+
+  transition: color 160ms ease;
+}
 .button--icon {
   aspect-ratio: 1;
   padding: 0;
@@ -67,4 +73,8 @@
 .button--disabled {
   opacity: var(--state-disabled);
   cursor: default;
+}
+.button--ghost.button--subtle:hover {
+  background: transparent;
+  color: var(--text-primary);
 }

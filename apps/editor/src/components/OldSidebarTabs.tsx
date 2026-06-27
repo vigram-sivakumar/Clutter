@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import '../styles/old-old-sidebar-tabs.css';
-import { CustomIcons, type ClutterIcon } from '../design-system/icons';
+import { Icons, type ClutterIcon } from '../design-system/icons';
 import { Button } from ',/Button';
 export type SidebarTabId = 'notes' | 'journals' | 'tasks' | 'tags' | 'search';
 
@@ -15,27 +15,27 @@ const TABS: {
   {
     id: 'notes',
     label: 'Notes',
-    icon: CustomIcons.Note,
+    icon: Icons.Note,
   },
   {
     id: 'journals',
     label: 'Journals',
-    icon: CustomIcons.CalendarBlank,
+    icon: Icons.CalendarBlank,
   },
   {
     id: 'tasks',
     label: 'Tasks',
-    icon: CustomIcons.SquareCheckOutline,
+    icon: Icons.SquareCheckOutline,
   },
   {
     id: 'tags',
     label: 'Tags',
-    icon: CustomIcons.Tag,
+    icon: Icons.Tag,
   },
   {
     id: 'search',
     label: 'Search',
-    icon: CustomIcons.MagnifyingGlass,
+    icon: Icons.MagnifyingGlass,
   },
 ];
 

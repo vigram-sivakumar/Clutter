@@ -5,7 +5,7 @@ import { InteractiveItem } from './InteractiveItem';
 import { SidebarHoverReveal } from './SidebarHoverReveal';
 import { Section, Group } from './section';
 import { SidebarPanel } from './SidebarPanel';
-import { CustomIcons, type ClutterIcon } from '../design-system/icons';
+import { Icons, type ClutterIcon } from '../design-system/icons';
 
 type NavId = 'all-notes' | 'templates' | 'inbox';
 type ContentSectionId = 'favorites' | 'folders';
@@ -55,9 +55,9 @@ type NotesDestination =
   | { kind: 'tree'; id: string };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'all-notes', label: 'All Notes', icon: CustomIcons.Note },
-  { id: 'templates', label: 'Templates', icon: CustomIcons.Template },
-  { id: 'inbox', label: 'Inbox', icon: CustomIcons.Tray },
+  { id: 'all-notes', label: 'All Notes', icon: Icons.Note },
+  { id: 'templates', label: 'Templates', icon: Icons.Template },
+  { id: 'inbox', label: 'Inbox', icon: Icons.Tray },
 ];
 
 const FAVORITES_TREE: NotesTreeItem[] = [
@@ -65,25 +65,25 @@ const FAVORITES_TREE: NotesTreeItem[] = [
     id: 'meeting-notes',
     label: 'Meeting notes',
     kind: 'note',
-    icon: CustomIcons.Note,
+    icon: Icons.Note,
   },
   {
     id: 'projects',
     label: 'Projects',
     kind: 'folder',
-    icon: CustomIcons.Folder,
+    icon: Icons.Folder,
     children: [
       {
         id: 'projects-brief',
         label: 'Product brief',
         kind: 'note',
-        icon: CustomIcons.Note,
+        icon: Icons.Note,
       },
       {
         id: 'projects-archive',
         label: 'Archive',
         kind: 'folder',
-        icon: CustomIcons.Folder,
+        icon: Icons.Folder,
         children: [],
       },
     ],
@@ -95,20 +95,20 @@ const FOLDERS_TREE: NotesTreeItem[] = [
     id: 'folder-work',
     label: 'Work',
     kind: 'folder',
-    icon: CustomIcons.Folder,
+    icon: Icons.Folder,
     children: [],
   },
   {
     id: 'folder-personal',
     label: 'Personal',
     kind: 'folder',
-    icon: CustomIcons.Folder,
+    icon: Icons.Folder,
     children: [
       {
         id: 'folder-personal-journal',
         label: 'Journal',
         kind: 'note',
-        icon: CustomIcons.Note,
+        icon: Icons.Note,
       },
     ],
   },

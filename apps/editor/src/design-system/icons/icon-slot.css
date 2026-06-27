@@ -1,0 +1,10 @@
+.icon-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: var(--height-xs);
+  height: var(--height-xs);
+
+  flex-shrink: 0;
+}

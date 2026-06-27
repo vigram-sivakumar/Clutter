@@ -6,7 +6,7 @@ import { SidebarHoverReveal } from './SidebarHoverReveal';
 import { SubtaskCountBadge } from './SubtaskCountBadge';
 import { Section, Group } from './section';
 import { SidebarPanel } from './SidebarPanel';
-import { CustomIcons, type ClutterIcon } from '../design-system/icons';
+import { Icons, type ClutterIcon } from '../design-system/icons';
 
 type TasksNavId = 'all-tasks' | 'unplanned';
 type TasksSectionId = 'today' | 'overdue' | 'upcoming';
@@ -36,8 +36,8 @@ type TaskDateGroup = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'all-tasks', label: 'All Tasks', icon: CustomIcons.SquareCheckOutline },
-  { id: 'unplanned', label: 'Unplanned', icon: CustomIcons.Clock },
+  { id: 'all-tasks', label: 'All Tasks', icon: Icons.SquareCheckOutline },
+  { id: 'unplanned', label: 'Unplanned', icon: Icons.Clock },
 ];
 
 const TODAY_MOCK_TASKS: TaskMock[] = [
@@ -204,7 +204,7 @@ function getTodaySectionDisplay(tasks: TaskMock[]) {
 
 function getScheduledSectionDisplay(
   groups: TaskDateGroup[],
-  emptyMessage: string,
+  emptyMessage: string
 ) {
   if (flattenGroupTasks(groups).length === 0) {
     return {
@@ -222,7 +222,7 @@ function getScheduledSectionDisplay(
 function updateTaskInTree(
   tasks: TaskMock[],
   taskId: string,
-  updater: (task: TaskMock) => TaskMock,
+  updater: (task: TaskMock) => TaskMock
 ): TaskMock[] {
   return tasks.map((task) => {
     if (task.id === taskId) {
@@ -243,7 +243,7 @@ function updateTaskInTree(
 function updateTaskInGroups(
   groups: TaskDateGroup[],
   taskId: string,
-  updater: (task: TaskMock) => TaskMock,
+  updater: (task: TaskMock) => TaskMock
 ): TaskDateGroup[] {
   return groups.map((group) => ({
     ...group,
@@ -300,7 +300,7 @@ function TaskSidebarRow({
   return (
     <Fragment>
       <InteractiveItem
-        variant='default'
+        variant="default"
         indentDepth={depth}
         leadingMode={hasSubtasks ? 'caret' : 'slot'}
         hasChildren={hasSubtasks}
@@ -406,12 +406,11 @@ export function TasksTab() {
   const [todayTasks, setTodayTasks] = useState<TaskMock[]>(TODAY_MOCK_TASKS);
   const [overdueGroups, setOverdueGroups] =
     useState<TaskDateGroup[]>(OVERDUE_MOCK_GROUPS);
-  const [upcomingGroups, setUpcomingGroups] = useState<TaskDateGroup[]>(
-    UPCOMING_MOCK_GROUPS,
-  );
-  const [expandedTaskIds, setExpandedTaskIds] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [upcomingGroups, setUpcomingGroups] =
+    useState<TaskDateGroup[]>(UPCOMING_MOCK_GROUPS);
+  const [expandedTaskIds, setExpandedTaskIds] = useState<
+    Record<string, boolean>
+  >({});
   const [expandedSections, setExpandedSections] = useState<
     Record<TasksSectionId, boolean>
   >({
@@ -445,11 +444,11 @@ export function TasksTab() {
   const todaySection = getTodaySectionDisplay(todayTasks);
   const overdueSection = getScheduledSectionDisplay(
     overdueGroups,
-    'No overdue task',
+    'No overdue task'
   );
   const upcomingSection = getScheduledSectionDisplay(
     upcomingGroups,
-    'Nothing planned yet',
+    'Nothing planned yet'
   );
 
   const taskRowProps = {
@@ -471,9 +470,7 @@ export function TasksTab() {
             <InteractiveItem
               key={item.id}
               variant="default"
-              active={
-                destination.kind === 'nav' && destination.id === item.id
-              }
+              active={destination.kind === 'nav' && destination.id === item.id}
               onClick={() => setDestination({ kind: 'nav', id: item.id })}
               startSlot={
                 <div className="interactive-item__icon">
@@ -496,9 +493,7 @@ export function TasksTab() {
         collapsible
         isExpanded={expandedSections.today}
         onToggle={() => toggleSection('today')}
-        active={
-          destination.kind === 'section' && destination.id === 'today'
-        }
+        active={destination.kind === 'section' && destination.id === 'today'}
         onClick={() => setDestination({ kind: 'section', id: 'today' })}
         hasGroups={todaySection.hasGroups}
         emptyMessage={todaySection.emptyMessage}
@@ -517,9 +512,7 @@ export function TasksTab() {
         collapsible
         isExpanded={expandedSections.overdue}
         onToggle={() => toggleSection('overdue')}
-        active={
-          destination.kind === 'section' && destination.id === 'overdue'
-        }
+        active={destination.kind === 'section' && destination.id === 'overdue'}
         onClick={() => setDestination({ kind: 'section', id: 'overdue' })}
         hasGroups={overdueSection.hasGroups}
         emptyMessage={overdueSection.emptyMessage}
@@ -534,9 +527,7 @@ export function TasksTab() {
         collapsible
         isExpanded={expandedSections.upcoming}
         onToggle={() => toggleSection('upcoming')}
-        active={
-          destination.kind === 'section' && destination.id === 'upcoming'
-        }
+        active={destination.kind === 'section' && destination.id === 'upcoming'}
         onClick={() => setDestination({ kind: 'section', id: 'upcoming' })}
         hasGroups={upcomingSection.hasGroups}
         emptyMessage={upcomingSection.emptyMessage}

@@ -7,7 +7,7 @@ import { SidebarHoverReveal } from './SidebarHoverReveal';
 import { Section, Group } from './section';
 import { SidebarPanel } from './SidebarPanel';
 import type { TagPaletteId } from '../design-system/tag-colors';
-import { CustomIcons, type ClutterIcon } from '../design-system/icons';
+import { Icons, type ClutterIcon } from '../design-system/icons';
 
 type TagsNavId = 'all-tags' | 'untagged';
 type TagsSectionId = 'favorites' | 'others';
@@ -32,8 +32,8 @@ type TagMock = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'all-tags', label: 'All tags', icon: CustomIcons.Tag },
-  { id: 'untagged', label: 'Untagged', icon: CustomIcons.CircleDashed },
+  { id: 'all-tags', label: 'All tags', icon: Icons.Tag },
+  { id: 'untagged', label: 'Untagged', icon: Icons.CircleDashed },
 ];
 
 const TAG_MOCK_DATA: TagMock[] = [

@@ -1,5 +1,5 @@
 import '../styles/caret.css';
-import { CustomIcons, ICON_SMALL } from '../design-system/icons';
+import { Icons } from '../design-system/icons';
 
 interface CaretProps {
   type?: 'tree' | 'dropdown';
@@ -26,7 +26,7 @@ export function Caret({
           <span
             className={`tree-caret__icon tree-caret__icon--${type} tree-caret__icon--${state}`}
           >
-            <CustomIcons.CaretRight size={ICON_SMALL} />
+            <Icons.CaretRight width={12} height={12} />
           </span>
         </button>
       )}

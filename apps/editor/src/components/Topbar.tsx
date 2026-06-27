@@ -1,5 +1,5 @@
 import { Button } from './Button';
-import { CustomIcons } from '../design-system/icons';
+import { Icons } from '../design-system/icons';
 
 export type TopbarProps = {
   /** Wide left column when the docked rail is open. */
@@ -23,7 +23,7 @@ export function Topbar({ sidebarOpen, onToggleSidebar }: TopbarProps) {
         <Button
           type="button"
           variant="ghost"
-          iconOnly={CustomIcons.Sidebar}
+          iconOnly={Icons.Sidebar}
           aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           aria-expanded={sidebarOpen}
           aria-controls="clutter-sidebar"
@@ -36,13 +36,13 @@ export function Topbar({ sidebarOpen, onToggleSidebar }: TopbarProps) {
             <Button
               type="button"
               variant="ghost"
-              iconOnly={CustomIcons.ArrowLeft}
+              iconOnly={Icons.ArrowLeft}
               aria-label="Back"
             />
             <Button
               type="button"
               variant="ghost"
-              iconOnly={CustomIcons.ArrowRight}
+              iconOnly={Icons.ArrowRight}
               aria-label="Forward"
             />
           </div>
@@ -51,19 +51,19 @@ export function Topbar({ sidebarOpen, onToggleSidebar }: TopbarProps) {
           <Button
             type="button"
             variant="ghost"
-            iconOnly={CustomIcons.MagnifyingGlass}
+            iconOnly={Icons.MagnifyingGlass}
             aria-label="Global search"
           />
           <Button
             type="button"
             variant="ghost"
-            iconOnly={CustomIcons.Tabs}
+            iconOnly={Icons.Tabs}
             aria-label="Tabs"
           />
           <Button
             type="button"
             variant="ghost"
-            iconOnly={CustomIcons.ChevronDown}
+            iconOnly={Icons.ChevronDown}
             aria-label="Open menu"
             className="clutter-btn--hug"
           />

@@ -1,6 +1,5 @@
 import type { CSSProperties, FC } from 'react';
 
-import { ICON_MEDIUM } from './constants';
 import CalendarBlankFrame from './svg/calendar-blank.svg?react';
 
 export type CalendarWithDotIconProps = {
@@ -14,7 +13,7 @@ export type CalendarWithDotIconProps = {
  * via inline style (avoids `fill="var(...)"` on static SVG / root `fill="none"` quirks).
  */
 export const CalendarWithDotIcon: FC<CalendarWithDotIconProps> = ({
-  size = ICON_MEDIUM,
+  size = 16,
   className,
   style,
 }) => {

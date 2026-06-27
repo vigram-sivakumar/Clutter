@@ -10,6 +10,9 @@
 
   color: var(--text-secondary);
 
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+
   transition:
     background-color 120ms ease,
     color 120ms ease;
@@ -42,34 +45,58 @@
   justify-content: center;
   gap: var(--space-0);
 
-  min-width: var(--height-xs);
   height: 100%;
 
   flex-shrink: 0;
 }
 
 .list-item__end {
+  display: flex;
+  align-items: center;
   color: var(--icon-tertiary);
 }
 
-.list-item__label {
+/* actions */
+.list-item__actions {
+  width: 0;
   display: flex;
   align-items: center;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+
+  transition: opacity 150ms ease;
+}
+.list-item:hover .list-item__actions,
+.list-item:focus-visible .list-item__actions {
+  width: auto;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.list-item__label {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+
   flex: 1;
   min-width: 0;
+}
+.list-item__title {
+  position: relative;
 
-  gap: var(--space-4);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-/* Typography */
-
-.list-item--body .list-item__label {
-  font-size: var(--text-body-small);
-  line-height: var(--lh-body-small);
-}
-
-.list-item--label .list-item__label {
-  font-size: var(--text-label);
-  line-height: var(--lh-label);
-  color: var(--text-tertiary);
+/* Object type specific classes */
+.is-completed {
+  color: var(--strikethrough-color);
+  text-decoration: line-through;
+  text-decoration-thickness: 0.09em;
 }

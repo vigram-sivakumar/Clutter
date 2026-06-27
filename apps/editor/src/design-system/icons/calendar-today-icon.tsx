@@ -1,6 +1,5 @@
 import type { CSSProperties, FC } from 'react';
 
-import { ICON_MEDIUM } from './constants';
 import CalendarBlankFrame from './svg/calendar-blank.svg?react';
 
 export type CalendarTodayIconProps = {
@@ -17,7 +16,7 @@ export type CalendarTodayIconProps = {
  */
 export const CalendarTodayIcon: FC<CalendarTodayIconProps> = ({
   date = new Date(),
-  size = ICON_MEDIUM,
+  size = 16,
   className,
   style,
 }) => {
