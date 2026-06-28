@@ -10,7 +10,7 @@ export type PillSize = 'default' | 'small';
 export type PillColor = TagPaletteId | 'outlined';
 
 export interface PillProps extends HTMLAttributes<HTMLSpanElement> {
-  label: string;
+  label?: string;
   color?: PillColor;
   size?: PillSize;
   /** Leading status dot (8px), tinted to match label color. */

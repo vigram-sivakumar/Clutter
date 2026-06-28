@@ -100,3 +100,9 @@
   text-decoration: line-through;
   text-decoration-thickness: 0.09em;
 }
+.label {
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+
+  color: var(--text-tertiary);
+}
