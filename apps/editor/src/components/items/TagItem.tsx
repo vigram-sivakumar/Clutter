@@ -1,5 +1,5 @@
 import { CountBadge } from '../CountBadge';
-import { ListItem } from '../ListItem';
+import { ListItem } from './ListItem';
 import { Pill, PillColor } from '../Pill';
 import { Button } from '../Button';
 import { Icons } from '../../design-system/icons';

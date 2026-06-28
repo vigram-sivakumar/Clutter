@@ -1,4 +1,4 @@
-import { ListItem } from '../ListItem';
+import { ListItem } from './ListItem';
 import { Checkbox } from '../Checkbox';
 import { Caret } from '../Caret';
 import { Button } from '../Button';
@@ -21,18 +21,17 @@ export function TaskItem({
   onClick,
   onCheckedChange,
 }: TaskItemProps) {
-  const caretState = isEmpty
-    ? 'placeholder'
-    : isExpanded
-      ? 'expanded'
-      : 'collapsed';
   return (
     <ListItem
       className={checked ? 'is-completed' : undefined}
       onClick={onClick}
       startSlot={
         <>
-          <Caret state={caretState} type="tree" />
+          <Caret
+            isPlaceholder={isEmpty}
+            isExpanded={isExpanded}
+            variant="tree"
+          />
           <Checkbox checked={checked} onCheckedChange={onCheckedChange} />
         </>
       }

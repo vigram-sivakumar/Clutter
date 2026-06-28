@@ -2,34 +2,38 @@ import '../styles/caret.css';
 import { Icons } from '../design-system/icons';
 
 interface CaretProps {
-  type?: 'tree' | 'dropdown';
-  state?: 'placeholder' | 'collapsed' | 'expanded' | 'disabled';
+  variant?: 'tree' | 'dropdown';
+  isPlaceholder?: boolean;
+  isExpanded?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }
 
 export function Caret({
-  type = 'tree',
-  state = 'collapsed',
+  variant = 'tree',
+  isPlaceholder = false,
+  isExpanded = false,
+  disabled = false,
   onClick,
 }: CaretProps) {
-  const disabled = state === 'disabled';
+  if (isPlaceholder) {
+    return <span className="caret-slot" aria-hidden />;
+  }
 
   return (
-    <span className="tree-caret">
-      {state !== 'placeholder' && (
-        <button
-          type="button"
-          className={`caret-wrapper caret-wrapper--${type}${disabled ? ' caret-wrapper--disabled' : ''}`}
-          onClick={onClick}
-          disabled={disabled}
+    <span className="caret-slot">
+      <button
+        className={`caret-wrapper`}
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+      >
+        <span
+          className={`caret-icon caret-icon--${variant} ${isExpanded ? 'caret-icon--expanded' : 'caret-icon--collapsed'}`}
         >
-          <span
-            className={`tree-caret__icon tree-caret__icon--${type} tree-caret__icon--${state}`}
-          >
-            <Icons.CaretRight width={12} height={12} />
-          </span>
-        </button>
-      )}
+          <Icons.CaretRight width={12} height={12} />
+        </span>
+      </button>
     </span>
   );
 }

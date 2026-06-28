@@ -1,29 +1,33 @@
-import '../styles/list-item.css';
+import '../../styles/list-item.css';
 
 export interface ListItemProps {
+  selected?: boolean;
+  disabled?: boolean;
+
   startSlot?: React.ReactNode;
   children: React.ReactNode;
   endSlot?: React.ReactNode;
   actions?: React.ReactNode;
   titleSlot?: React.ReactNode;
-  className?: string;
 
-  state?: 'default' | 'selected' | 'disabled';
+  className?: string;
   onClick?: () => void;
 }
 
 export function ListItem({
+  selected = false,
+  disabled = false,
+
   startSlot,
   children,
   endSlot,
   actions,
   titleSlot,
-  state = 'default',
   className,
   onClick,
 }: ListItemProps) {
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (state === 'disabled') {
+    if (disabled) {
       return;
     }
 
@@ -42,10 +46,15 @@ export function ListItem({
 
   return (
     <div
-      className={['list-item', `list-item--${state}`, className].join(' ')}
+      className={[
+        'list-item',
+        selected && 'list-item-selected',
+        disabled && 'list-item-disabled',
+        className,
+      ].join(' ')}
       onClick={handleClick}
       role={onClick ? 'button' : undefined}
-      tabIndex={onClick && state !== 'disabled' ? 0 : undefined}
+      tabIndex={onClick && !disabled ? 0 : undefined}
     >
       {startSlot && <div className="list-item__start">{startSlot}</div>}
 

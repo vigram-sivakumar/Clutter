@@ -4,7 +4,7 @@ import { CountBadge } from './CountBadge';
 import { InteractiveItem } from './InteractiveItem';
 import { SidebarHoverReveal } from './SidebarHoverReveal';
 import { TagSwatch } from './TagSwatch';
-import { Section, Group } from './section';
+import { Section, Group } from './oldsection';
 import { SidebarPanel } from './SidebarPanel';
 import {
   tagColorsFromPalette,

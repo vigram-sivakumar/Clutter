@@ -3,8 +3,8 @@
   align-items: center;
 
   width: 100%;
-  min-height: var(--height-lg);
-  border-radius: var(--radius-lg);
+  height: var(--height-lg);
+  border-radius: var(--radius-lg-plus);
   gap: var(--btn-gap-md);
   padding-inline: var(--space-6);
 
@@ -46,7 +46,6 @@
   gap: var(--space-0);
 
   height: 100%;
-
   flex-shrink: 0;
 }
 
@@ -85,6 +84,7 @@
 
   flex: 1;
   min-width: 0;
+  height: 100%;
 }
 .list-item__title {
   position: relative;

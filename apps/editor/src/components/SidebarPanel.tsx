@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 import { Divider } from './Divider';
 import '../styles/sidebar-panel.css';
-import { ListItem } from './ListItem';
+import { ListItem } from './items/ListItem';
 import { Icons } from '../design-system/icons';
 import { CaretSlot } from './Caret';
 import { Button } from './Button';

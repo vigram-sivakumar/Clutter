@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import '.././styles/list-group.css';
-import { ListItem } from './ListItem';
+import { ListItem } from './items/ListItem';
 
 type ListGroupProps = {
   children?: ReactNode;

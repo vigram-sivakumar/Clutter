@@ -4,7 +4,7 @@ import { CountBadge } from './CountBadge';
 import { InteractiveItem } from './InteractiveItem';
 import { Pill } from './Pill';
 import { SidebarHoverReveal } from './SidebarHoverReveal';
-import { Section, Group } from './section';
+import { Section, Group } from './oldsection';
 import { SidebarPanel } from './SidebarPanel';
 import type { TagPaletteId } from '../design-system/tag-colors';
 import { Icons, type ClutterIcon } from '../design-system/icons';

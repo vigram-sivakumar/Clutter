@@ -4,7 +4,7 @@ import { Checkbox } from './Checkbox';
 import { InteractiveItem } from './InteractiveItem';
 import { SidebarHoverReveal } from './SidebarHoverReveal';
 import { SubtaskCountBadge } from './SubtaskCountBadge';
-import { Section, Group } from './section';
+import { Section, Group } from './oldsection';
 import { SidebarPanel } from './SidebarPanel';
 import { Icons, type ClutterIcon } from '../design-system/icons';
 

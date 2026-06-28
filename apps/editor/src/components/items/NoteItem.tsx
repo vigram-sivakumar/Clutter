@@ -2,7 +2,7 @@ import { Icons } from '../../design-system/icons';
 import { IconSlot } from '../../design-system/icons/IconSlot';
 import { Button } from '../Button';
 import { Caret } from '../Caret';
-import { ListItem } from '../ListItem';
+import { ListItem } from './ListItem';
 
 interface NoteItemProps {
   title?: string;
@@ -14,7 +14,7 @@ export function NoteItem({ title, onClick }: NoteItemProps) {
     <ListItem
       onClick={onClick}
       startSlot=<>
-        <Caret state="placeholder" />{' '}
+        <Caret isPlaceholder />{' '}
         <IconSlot>
           <Icons.Note />
         </IconSlot>

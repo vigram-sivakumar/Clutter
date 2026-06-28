@@ -2,12 +2,13 @@ import { Icons } from '../../design-system/icons';
 import { IconSlot } from '../../design-system/icons/IconSlot';
 import { Button } from '../Button';
 import { Caret } from '../Caret';
-import { ListItem } from '../ListItem';
+import { ListItem } from './ListItem';
 
 interface FolderItemProps {
+  title?: string;
+
   isExpanded?: boolean;
   isEmpty?: boolean;
-  title?: string;
   onClick?: () => void;
 }
 
@@ -17,17 +18,12 @@ export function FolderItem({
   title,
   onClick,
 }: FolderItemProps) {
-  const caretState = isEmpty
-    ? 'disabled'
-    : isExpanded
-      ? 'expanded'
-      : 'collapsed';
   return (
     <ListItem
       onClick={onClick}
       startSlot={
         <>
-          <Caret state={caretState} type="tree" />
+          <Caret disabled={isEmpty} isExpanded={isExpanded} variant="tree" />
           <IconSlot>
             <Icons.Folder />
           </IconSlot>
