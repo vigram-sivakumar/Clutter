@@ -1,4 +1,4 @@
-import '../styles/caret.css';
+import '../styles/Caret.css';
 import { Icons } from '../design-system/icons';
 
 interface CaretProps {
@@ -23,13 +23,13 @@ export function Caret({
   return (
     <span className="caret-slot">
       <button
-        className={`caret-wrapper`}
+        className={`caret-wrapper caret-icon--${variant}`}
         type="button"
         onClick={onClick}
         disabled={disabled}
       >
         <span
-          className={`caret-icon caret-icon--${variant} ${isExpanded ? 'caret-icon--expanded' : 'caret-icon--collapsed'}`}
+          className={`caret-icon ${isExpanded ? 'caret-icon--expanded' : 'caret-icon--collapsed'}`}
         >
           <Icons.CaretRight width={12} height={12} />
         </span>

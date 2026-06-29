@@ -1,19 +1,20 @@
 import { useState } from 'react';
-import '../../styles/sidepanel.css';
-import { Tabs, Tab } from '../tabs';
+import '../../styles/Sidebar.css';
+import { Tabs } from '../tabs';
+import { Tab } from '../tabs';
 import { Icons } from '../../design-system/icons';
 
-import { NotesPanel } from '../sidepanels/NotesPanel';
-import { DailyNotesPanel } from '../sidepanels/DailyNotesPanel';
-import { TasksPanel } from '../sidepanels/TasksPanel';
-import { TagsPanel } from '../sidepanels/TagsPanel';
-import { SearchPanel } from '../sidepanels/SearchPanel';
+import { Notes } from '../sidepanels/Sidebar.Notes';
+import { DailyNotesPanel } from '../sidepanels/Sidebar.DailyNotes';
+import { TasksPanel } from '../sidepanels/Sidebar.Tasks';
+import { TagsPanel } from '../sidepanels/Sidebar.Tags';
+import { SearchPanel } from '../sidepanels/Sidebar.Search';
 
 const tabs = [
   {
     value: 'notes',
     icon: <Icons.Note />,
-    panel: <NotesPanel />,
+    panel: <Notes />,
   },
   {
     value: 'daily-notes',
@@ -37,11 +38,11 @@ const tabs = [
   },
 ];
 
-export function SidePanel() {
+export function Sidebar() {
   const [activeTab, setActiveTab] = useState('notes');
 
   return (
-    <aside className="side-panel">
+    <aside className="sidebar">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {tabs.map((tab) => (
           <Tab key={tab.value} value={tab.value}>
@@ -49,7 +50,9 @@ export function SidePanel() {
           </Tab>
         ))}
       </Tabs>
-      {tabs.find((tab) => tab.value === activeTab)?.panel}
+      <div className="sidebar--content">
+        {tabs.find((tab) => tab.value === activeTab)?.panel}
+      </div>
     </aside>
   );
 }

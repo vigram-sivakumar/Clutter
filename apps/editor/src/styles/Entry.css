@@ -1,4 +1,4 @@
-.list-item {
+.entry {
   display: flex;
   align-items: center;
 
@@ -17,29 +17,29 @@
     background-color 120ms ease,
     color 120ms ease;
 }
-.list-item[role='button'] {
+.entry[role='button'] {
   cursor: pointer;
 }
 
-.list-item[role='button']:hover:not(.list-item--disabled) {
+.entry[role='button']:hover:not(.entry--disabled) {
   background: var(--state-hover);
 }
 
-.list-item[role='button']:active:not(:has(button:active)) {
+.entry[role='button']:active:not(:has(button:active)) {
   background: var(--state-pressed);
 }
 
-.list-item--selected {
+.entry--selected {
   background: var(--state-active);
 }
 
-.list-item--disabled {
+.entry--disabled {
   opacity: var(--state-disabled);
   cursor: not-allowed;
 }
 
-.list-item__start,
-.list-item__end {
+.entry__start,
+.entry__end {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -49,14 +49,31 @@
   flex-shrink: 0;
 }
 
-.list-item__end {
+.entry__end {
   display: flex;
   align-items: center;
   color: var(--icon-tertiary);
 }
 
+.entry__content {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* actions */
-.list-item__actions {
+.entry__actions,
+.section-header__caret {
   width: 0;
   display: flex;
   align-items: center;
@@ -67,31 +84,14 @@
 
   transition: opacity 150ms ease;
 }
-.list-item:hover .list-item__actions,
-.list-item:focus-visible .list-item__actions {
+.entry:hover .entry__actions,
+.entry:focus-visible .entry__actions,
+.entry:hover .section-header__caret,
+.entry:focus-visible .section-header__caret {
   width: auto;
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-}
-
-.list-item__label {
-  position: relative;
-
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-}
-.list-item__title {
-  position: relative;
-
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 /* Object type specific classes */
@@ -100,7 +100,7 @@
   text-decoration: line-through;
   text-decoration-thickness: 0.09em;
 }
-.label {
+.section-header {
   font-size: var(--text-label);
   line-height: var(--lh-label);
 

@@ -2,19 +2,19 @@ import { Icons } from '../design-system/icons';
 import '../styles/checkbox.css';
 
 export interface CheckboxProps {
-  checked?: boolean;
+  isChecked?: boolean;
   disabled?: boolean;
   onCheckedChange?: (checked: boolean) => void;
 }
 
 export function Checkbox({
-  checked = false,
+  isChecked = false,
   disabled = false,
   onCheckedChange,
 }: CheckboxProps) {
   const className = [
     'checkbox',
-    checked && 'checkbox--checked',
+    isChecked && 'checkbox--checked',
     disabled && 'checkbox--disabled',
   ]
     .filter(Boolean)
@@ -24,12 +24,12 @@ export function Checkbox({
     <button
       type="button"
       role="checkbox"
-      aria-checked={checked}
+      aria-checked={isChecked}
       disabled={disabled}
       className={className}
-      onClick={() => onCheckedChange?.(!checked)}
+      onClick={() => onCheckedChange?.(!isChecked)}
     >
-      {checked ? <Icons.CheckboxChecked /> : <Icons.CheckboxUnchecked />}
+      {isChecked ? <Icons.CheckboxChecked /> : <Icons.CheckboxUnchecked />}
     </button>
   );
 }

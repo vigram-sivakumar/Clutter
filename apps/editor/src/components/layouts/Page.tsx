@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
-import '../../styles/page-layout.css';
+import '../../styles/Page.css';
 
-type PageLayoutProps = {
+type PageProps = {
   children?: ReactNode;
   cover?: ReactNode;
 };
 
-export function PageLayout({ children, cover }: PageLayoutProps) {
+export function Page({ children, cover }: PageProps) {
   return (
     <div className="page">
       <main className="page__content">{children}</main>

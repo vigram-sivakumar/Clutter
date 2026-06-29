@@ -1,5 +1,5 @@
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
-import '../styles/button.css';
+import '../styles/Button.css';
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children?: ReactNode;
@@ -12,8 +12,8 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   isDisabled?: boolean;
   isIconOnly?: boolean;
 
-  startSlot?: ReactNode;
-  endSlot?: ReactNode;
+  leading?: ReactNode;
+  trailing?: ReactNode;
 };
 
 export function Button({
@@ -24,8 +24,8 @@ export function Button({
   isActive = false,
   isDisabled = false,
   isIconOnly = false,
-  startSlot,
-  endSlot,
+  leading,
+  trailing,
   ...props
 }: ButtonProps) {
   /** Button classes */
@@ -50,9 +50,9 @@ export function Button({
       {...props}
     >
       <span className="button__content">
-        {!isIconOnly && startSlot}
+        {!isIconOnly && leading}
         {children}
-        {!isIconOnly && endSlot}
+        {!isIconOnly && trailing}
       </span>
     </button>
   );

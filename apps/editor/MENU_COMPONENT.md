@@ -37,7 +37,7 @@ I’d build it like this
 Later you can also do:
 
 <Menu trigger="context">
-  <FolderItem ... />
+  <Folder ... />
 </Menu>
 
 or

@@ -48,18 +48,18 @@
   transition: transform 160ms ease;
 }
 
-.caret-icon--tree.caret-icon--collapsed {
+.caret-icon--tree .caret-icon--collapsed {
   transform: rotate(0deg);
 }
 
-.caret-icon--tree.caret-icon--expanded {
+.caret-icon--tree .caret-icon--expanded {
   transform: rotate(90deg);
 }
 
-.caret-icon--dropdown.caret-icon--collapsed {
+.caret-icon--dropdown .caret-icon--collapsed {
   transform: rotate(90deg);
 }
 
-.caret-icon--dropdown.caret-icon--expanded {
-  transform: rotate(270deg);
+.caret-icon--dropdown .caret-icon--expanded {
+  transform: rotate(-90deg);
 }

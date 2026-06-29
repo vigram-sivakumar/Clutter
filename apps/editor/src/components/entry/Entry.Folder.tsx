@@ -2,28 +2,34 @@ import { Icons } from '../../design-system/icons';
 import { IconSlot } from '../../design-system/icons/IconSlot';
 import { Button } from '../Button';
 import { Caret } from '../Caret';
-import { ListItem } from './ListItem';
+import { Entry, type EntryProps } from './Entry';
 
-interface FolderItemProps {
+interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
 
-  isExpanded?: boolean;
   isEmpty?: boolean;
-  onClick?: () => void;
+  isExpanded?: boolean;
+  onExpandToggle?: () => void;
 }
 
-export function FolderItem({
-  isExpanded = false,
-  isEmpty = false,
+export function Folder({
   title,
-  onClick,
-}: FolderItemProps) {
+  isEmpty = false,
+  isExpanded = false,
+  onExpandToggle,
+  ...entryProps
+}: FolderProps) {
   return (
-    <ListItem
-      onClick={onClick}
-      startSlot={
+    <Entry
+      {...entryProps}
+      leading={
         <>
-          <Caret disabled={isEmpty} isExpanded={isExpanded} variant="tree" />
+          <Caret
+            disabled={isEmpty}
+            isExpanded={isExpanded}
+            variant="tree"
+            onClick={onExpandToggle}
+          />
           <IconSlot>
             <Icons.Folder />
           </IconSlot>
@@ -41,6 +47,6 @@ export function FolderItem({
       }
     >
       {title}
-    </ListItem>
+    </Entry>
   );
 }

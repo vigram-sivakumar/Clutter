@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import '../styles/tabs.css';
+import '../styles/Tabs.css';
 
 type TabsProps = {
   value: string;

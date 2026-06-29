@@ -1,4 +1,4 @@
-import '../styles/date-indicator.css';
+import '../styles/DateLabel.css';
 
 interface DateIndicatorProps {
   isToday?: boolean;

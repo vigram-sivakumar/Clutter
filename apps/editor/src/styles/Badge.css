@@ -1,6 +1,6 @@
-/* Pill — Figma component set (node 286:3602) */
+/* badge — Figma component set (node 286:3602) */
 
-.clutter-pill {
+Page-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -11,7 +11,7 @@
   white-space: nowrap;
 }
 
-.clutter-pill--default {
+Page-badge--default {
   height: var(--height-xs);
   min-width: var(--height-xs);
   padding: 0 var(--space-6);
@@ -20,7 +20,7 @@
   line-height: var(--lh-body);
 }
 
-.clutter-pill--small {
+Page-badge--small {
   height: var(--height-xxs);
   min-width: var(--height-xxs);
   padding: 0 var(--space-4);
@@ -29,12 +29,12 @@
   line-height: var(--lh-label);
 }
 
-.clutter-pill__label {
+Page-badge__label {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.clutter-pill__dot {
+Page-badge__dot {
   flex-shrink: 0;
   width: var(--dot-md, 8px);
   height: var(--dot-md, 8px);
@@ -43,52 +43,52 @@
 }
 
 /* Palette fills — reuse tag semantic tokens */
-.clutter-pill--blue {
+Page-badge--blue {
   background-color: var(--tag-blue-bg);
   color: var(--tag-blue-text);
 }
 
-.clutter-pill--green {
+Page-badge--green {
   background-color: var(--tag-green-bg);
   color: var(--tag-green-text);
 }
 
-.clutter-pill--yellow {
+Page-badge--yellow {
   background-color: var(--tag-yellow-bg);
   color: var(--tag-yellow-text);
 }
 
-.clutter-pill--red {
+Page-badge--red {
   background-color: var(--tag-red-bg);
   color: var(--tag-red-text);
 }
 
-.clutter-pill--orange {
+Page-badge--orange {
   background-color: var(--tag-orange-bg);
   color: var(--tag-orange-text);
 }
 
-.clutter-pill--purple {
+Page-badge--purple {
   background-color: var(--tag-purple-bg);
   color: var(--tag-purple-text);
 }
 
-.clutter-pill--indigo {
+Page-badge--indigo {
   background-color: var(--tag-indigo-bg);
   color: var(--tag-indigo-text);
 }
 
-.clutter-pill--grey {
+Page-badge--grey {
   background-color: var(--tag-grey-bg);
   color: var(--tag-grey-text);
 }
 
-.clutter-pill--dark-grey {
+Page-badge--dark-grey {
   background-color: var(--tag-dark-grey-bg);
   color: var(--tag-dark-grey-text);
 }
 
-.clutter-pill--outlined {
+Page-badge--outlined {
   background-color: transparent;
   border-color: var(--border-strong);
   color: var(--text-secondary);

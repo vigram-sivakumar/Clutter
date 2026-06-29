@@ -1,38 +1,40 @@
-import { ListItem } from './ListItem';
+import { Entry, type EntryProps } from './Entry';
 import { Checkbox } from '../Checkbox';
 import { Caret } from '../Caret';
 import { Button } from '../Button';
 import { Icons } from '../../design-system/icons';
 
-interface TaskItemProps {
+interface TaskProps extends Omit<EntryProps, 'children'> {
   title?: string;
+
   isEmpty?: boolean;
   isExpanded?: boolean;
-  checked: boolean;
-  onClick?: () => void;
+  isChecked: boolean;
+
+  onExpandToggle?: () => void;
   onCheckedChange?: (checked: boolean) => void;
 }
 
-export function TaskItem({
+export function Task({
   title,
-  checked,
+  isChecked,
   isExpanded = false,
   isEmpty = false,
-  onClick,
+  onExpandToggle,
   onCheckedChange,
-}: TaskItemProps) {
+  ...entryProps
+}: TaskProps) {
   return (
-    <ListItem
-      className={checked ? 'is-completed' : undefined}
-      onClick={onClick}
-      startSlot={
+    <Entry
+      {...entryProps}
+      leading={
         <>
           <Caret
             isPlaceholder={isEmpty}
             isExpanded={isExpanded}
             variant="tree"
           />
-          <Checkbox checked={checked} onCheckedChange={onCheckedChange} />
+          <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
         </>
       }
       actions={
@@ -41,7 +43,7 @@ export function TaskItem({
         </Button>
       }
     >
-      {title}
-    </ListItem>
+      <span className={isChecked ? 'is-completed' : undefined}>{title}</span>
+    </Entry>
   );
 }
