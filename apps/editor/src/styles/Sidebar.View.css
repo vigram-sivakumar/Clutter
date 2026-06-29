@@ -1,0 +1,15 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+.view--navigation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.view--content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

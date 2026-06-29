@@ -1,47 +1,53 @@
 import { useState } from 'react';
-
+import { View } from './Sidebar.View';
 import { Section } from '../Section';
-import { Note } from '../entry/Entry.Note';
-import { Folder } from '../entry/Entry.Folder';
-import { Button } from '../Button';
-import { Icons } from '../../design-system/icons';
 import { Navigation } from '../entry/Entry.Navigation';
-import { Divider } from '../Divider';
+import { Icons } from '../../design-system/icons';
 
 export function Notes() {
-  const [expanded, setExpanded] = useState(true);
+  const [isNavigationExpanded, setNavigationExpanded] = useState(true);
+  const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
+  const [isFoldersExpanded, setFoldersExpanded] = useState(false);
 
   return (
-    <div className="notes-panel">
-      <section title="Notes">
-        <Navigation
-          title="All Notes"
-          leading={<Icons.Note />}
-          onClick={() => {}}
-        />
-        <Navigation title="Inbox" leading={<Icons.Tray />} onClick={() => {}} />
-        <Navigation
-          title="Templates"
-          leading={<Icons.Template />}
-          onClick={() => {}}
-        />
-      </section>
-      <Divider />
+    <View
+      navigation={
+        <Section
+          title="Notes"
+          isExpanded={isNavigationExpanded}
+          onExpandedChange={setNavigationExpanded}
+        >
+          <Navigation
+            title="New Note"
+            leading=<Icons.NotePencil />
+            onClick={() => {}}
+          />
+          <Navigation title="Inbox" leading=<Icons.Tray /> onClick={() => {}} />
+          <Navigation
+            title="All notes"
+            leading=<Icons.Note />
+            onClick={() => {}}
+          />
+          <Navigation
+            title="Templates"
+            leading=<Icons.Template />
+            onClick={() => {}}
+          />
+        </Section>
+      }
+    >
+      <Section
+        title="Favorites"
+        isExpanded={isFavoritesExpanded}
+        onExpandedChange={setFavoritesExpanded}
+        onClick={() => {}}
+      ></Section>
       <Section
         title="Folders"
-        actions={
-          <Button isIconOnly size="small" variant="ghost">
-            <Icons.Plus />
-          </Button>
-        }
-        isExpanded={expanded}
-        onExpandedChange={setExpanded}
+        isExpanded={isFoldersExpanded}
+        onExpandedChange={setFoldersExpanded}
         onClick={() => {}}
-      >
-        <Folder title="Work" onClick={() => {}} />
-        <Folder title="Projects" isEmpty onClick={() => {}} />
-        <Note title="Meeting Notes" onClick={() => {}} />
-      </Section>
-    </div>
+      ></Section>
+    </View>
   );
 }

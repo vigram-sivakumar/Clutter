@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import '../../styles/Sidebar.css';
-import { Tabs } from '../tabs';
-import { Tab } from '../tabs';
+import { Tabs, Tab } from '../Tabs';
 import { Icons } from '../../design-system/icons';
 
 import { Notes } from '../sidepanels/Sidebar.Notes';

@@ -25,7 +25,6 @@
   border: none;
   cursor: pointer;
   background: transparent;
-  color: inherit;
 }
 .caret-wrapper:disabled {
   opacity: var(--state-disabled);

@@ -103,6 +103,5 @@
 .section-header {
   font-size: var(--text-label);
   line-height: var(--lh-label);
-
   color: var(--text-tertiary);
 }

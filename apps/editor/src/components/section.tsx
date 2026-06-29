@@ -1,7 +1,7 @@
 import { Header } from './entry/Section.Header';
 import '../styles/Section.css';
 
-interface SectionProps {
+export interface SectionProps {
   title?: string;
   actions?: React.ReactNode;
   children?: React.ReactNode;
