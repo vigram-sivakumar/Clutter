@@ -53,7 +53,7 @@ html.theme-transitioning [data-themeable] *::after {
   --state-hover: rgba(255, 255, 255, 0.03);
   --state-pressed: rgba(255, 255, 255, 0.02);
   --state-active: rgba(255, 255, 255, 0.07);
-  --state-disabled: var(--opacity-strong);
+  --state-disabled: var(--opacity-medium);
   --tab-active: var(var(--state-active));
 
   /* Secondary button */

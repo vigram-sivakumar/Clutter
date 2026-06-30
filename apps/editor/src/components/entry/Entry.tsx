@@ -52,7 +52,7 @@ export function Entry({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick && !disabled ? 0 : undefined}
     >
-      {leading && <div className="entry__start">{leading}</div>}
+      {leading && <div className="entry__leading">{leading}</div>}
 
       <div className="entry__content">
         {children}
@@ -60,8 +60,8 @@ export function Entry({
       </div>
 
       {(trailing || actions) && (
-        <div className="entry__end">
-          {trailing}
+        <div className="entry__trailing">
+          {trailing && <div className="entry__meta">{trailing}</div>}
           {actions && <div className="entry__actions">{actions}</div>}
         </div>
       )}

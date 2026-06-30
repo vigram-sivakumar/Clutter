@@ -1,6 +1,6 @@
 /* badge — Figma component set (node 286:3602) */
 
-Page-badge {
+.badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -11,7 +11,7 @@ Page-badge {
   white-space: nowrap;
 }
 
-Page-badge--default {
+.badge--default {
   height: var(--height-xs);
   min-width: var(--height-xs);
   padding: 0 var(--space-6);
@@ -20,7 +20,7 @@ Page-badge--default {
   line-height: var(--lh-body);
 }
 
-Page-badge--small {
+.badge--small {
   height: var(--height-xxs);
   min-width: var(--height-xxs);
   padding: 0 var(--space-4);
@@ -29,12 +29,12 @@ Page-badge--small {
   line-height: var(--lh-label);
 }
 
-Page-badge__label {
+.badge__label {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-Page-badge__dot {
+.badge__dot {
   flex-shrink: 0;
   width: var(--dot-md, 8px);
   height: var(--dot-md, 8px);
@@ -43,52 +43,52 @@ Page-badge__dot {
 }
 
 /* Palette fills — reuse tag semantic tokens */
-Page-badge--blue {
+.badge--blue {
   background-color: var(--tag-blue-bg);
   color: var(--tag-blue-text);
 }
 
-Page-badge--green {
+.badge--green {
   background-color: var(--tag-green-bg);
   color: var(--tag-green-text);
 }
 
-Page-badge--yellow {
+.badge--yellow {
   background-color: var(--tag-yellow-bg);
   color: var(--tag-yellow-text);
 }
 
-Page-badge--red {
+.badge--red {
   background-color: var(--tag-red-bg);
   color: var(--tag-red-text);
 }
 
-Page-badge--orange {
+.badge--orange {
   background-color: var(--tag-orange-bg);
   color: var(--tag-orange-text);
 }
 
-Page-badge--purple {
+.badge--purple {
   background-color: var(--tag-purple-bg);
   color: var(--tag-purple-text);
 }
 
-Page-badge--indigo {
+.badge--indigo {
   background-color: var(--tag-indigo-bg);
   color: var(--tag-indigo-text);
 }
 
-Page-badge--grey {
+.badge--grey {
   background-color: var(--tag-grey-bg);
   color: var(--tag-grey-text);
 }
 
-Page-badge--dark-grey {
+.badge--dark-grey {
   background-color: var(--tag-dark-grey-bg);
   color: var(--tag-dark-grey-text);
 }
 
-Page-badge--outlined {
+.adge--outlined {
   background-color: transparent;
   border-color: var(--border-strong);
   color: var(--text-secondary);

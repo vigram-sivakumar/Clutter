@@ -29,8 +29,8 @@
   background: var(--state-pressed);
 }
 
-.entry__start,
-.entry__end {
+.entry__leading,
+.entry__trailing {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -40,10 +40,12 @@
   flex-shrink: 0;
 }
 
-.entry__end {
+.entry__meta {
   display: flex;
   align-items: center;
   color: var(--icon-tertiary);
+
+  transition: opacity 160ms ease;
 }
 
 .entry__content {
@@ -83,6 +85,13 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+.entry:hover .entry__meta,
+.entry:focus-visible .entry__meta {
+  width: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* interaction */
