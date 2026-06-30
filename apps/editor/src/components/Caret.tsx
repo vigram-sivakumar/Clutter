@@ -23,7 +23,7 @@ export function Caret({
   return (
     <span className="caret-slot">
       <button
-        className={`caret-wrapper caret-icon--${variant}`}
+        className={`caret-wrapper caret-wrapper--${variant}`}
         type="button"
         onClick={onClick}
         disabled={disabled}

@@ -47,18 +47,22 @@
   transition: transform 160ms ease;
 }
 
-.caret-icon--tree .caret-icon--collapsed {
+.caret-wrapper--tree .caret-icon--collapsed {
   transform: rotate(0deg);
 }
 
-.caret-icon--tree .caret-icon--expanded {
+.caret-wrapper--tree .caret-icon--expanded {
   transform: rotate(90deg);
 }
 
-.caret-icon--dropdown .caret-icon--collapsed {
+.caret-wrapper--dropdown .caret-icon--collapsed {
   transform: rotate(90deg);
 }
 
-.caret-icon--dropdown .caret-icon--expanded {
+.caret-wrapper--dropdown .caret-icon--expanded {
   transform: rotate(-90deg);
+}
+
+.caret-wrapper--dropdown .caret-icon {
+  color: var(--text-tertiary);
 }

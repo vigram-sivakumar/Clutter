@@ -1,35 +1,29 @@
-import { Header } from './entry/Section.Header';
+import { Header, type HeaderProps } from './entry/Section.Header';
 import '../styles/Section.css';
 
-export interface SectionProps {
-  title?: string;
-  actions?: React.ReactNode;
+export interface SectionProps extends HeaderProps {
   children?: React.ReactNode;
-  isExpanded: boolean;
-
-  onClick?: () => void;
+  hasHeader?: boolean;
+  isExpanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function Section({
-  title,
-  actions,
   children,
+  hasHeader,
   isExpanded = true,
-
-  onClick,
   onExpandedChange,
+  ...headerProps
 }: SectionProps) {
   return (
     <div className="section">
-      <Header
-        title={title}
-        actions={actions}
-        isCollapsible
-        isExpanded={isExpanded}
-        onClick={onClick}
-        onExpandToggle={() => onExpandedChange?.(!isExpanded)}
-      />
+      {hasHeader && (
+        <Header
+          {...headerProps}
+          isExpanded={isExpanded}
+          onExpandToggle={() => onExpandedChange?.(!isExpanded)}
+        />
+      )}
       {isExpanded && <div className="section__content">{children}</div>}
     </div>
   );

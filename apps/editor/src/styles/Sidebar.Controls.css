@@ -1,0 +1,9 @@
+.controls {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-tertiary);
+}
+.history-controls {
+  display: flex;
+  gap: var(--space-2);
+}

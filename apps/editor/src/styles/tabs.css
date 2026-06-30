@@ -1,13 +1,13 @@
 .tabs {
   display: flex;
   gap: var(--space-2);
+  height: fit-content;
 }
 .tabs--filled {
   border-radius: var(--radius-lg-plus);
   border: 0;
   background: var(--surface-tertiary);
   padding: var(--space-2);
-  overflow: hidden;
 }
 .tabs--ghost {
   background: transparent;

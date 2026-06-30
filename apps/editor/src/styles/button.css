@@ -21,12 +21,12 @@
 .button--large {
   height: var(--height-lg);
   padding-inline: var(--space-8);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg-plus);
 }
 .button--medium {
   height: var(--height-md);
   padding-inline: var(--space-8);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg-plus);
 }
 .button--small {
   height: var(--height-sm);

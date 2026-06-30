@@ -3,11 +3,12 @@ import '../../styles/Sidebar.css';
 import { Tabs, Tab } from '../Tabs';
 import { Icons } from '../../design-system/icons';
 
-import { Notes } from '../sidepanels/Sidebar.Notes';
-import { DailyNotesPanel } from '../sidepanels/Sidebar.DailyNotes';
-import { TasksPanel } from '../sidepanels/Sidebar.Tasks';
-import { TagsPanel } from '../sidepanels/Sidebar.Tags';
-import { SearchPanel } from '../sidepanels/Sidebar.Search';
+import { Notes } from '../sidebar/Sidebar.Notes';
+import { DailyNotesPanel } from '../sidebar/Sidebar.DailyNotes';
+import { TasksPanel } from '../sidebar/Sidebar.Tasks';
+import { TagsPanel } from '../sidebar/Sidebar.Tags';
+import { SearchPanel } from '../sidebar/Sidebar.Search';
+import { Controls } from '../sidebar/Sidebar.Controls';
 
 const tabs = [
   {
@@ -42,6 +43,7 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
+      <Controls />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {tabs.map((tab) => (
           <Tab key={tab.value} value={tab.value}>

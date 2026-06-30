@@ -1,7 +1,7 @@
 import { Caret } from '../Caret';
 import { Entry, EntryProps } from './Entry';
 
-interface HeaderProps extends Omit<EntryProps, 'children'> {
+export interface HeaderProps extends Omit<EntryProps, 'children'> {
   title?: string;
   actions?: React.ReactNode;
 
@@ -22,14 +22,16 @@ export function Header({
   return (
     <Entry {...entryProps} actions={actions}>
       <span className="section-header"> {title}</span>
-      <span className="section-header__caret">
-        <Caret
-          variant="dropdown"
-          isPlaceholder={!isCollapsible}
-          isExpanded={isExpanded}
-          onClick={onExpandToggle}
-        />
-      </span>
+
+      {isCollapsible && (
+        <span className="section-header__caret">
+          <Caret
+            variant="dropdown"
+            isExpanded={isExpanded}
+            onClick={onExpandToggle}
+          />
+        </span>
+      )}
     </Entry>
   );
 }
