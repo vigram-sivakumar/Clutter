@@ -1,6 +1,5 @@
 .button {
   border: 0;
-  background: transparent;
   padding: 0;
   cursor: pointer;
   color: var(--text-secondary);
@@ -36,7 +35,7 @@
 
 /* Variant */
 .button--filled {
-  background: var(--button-secondary-bg);
+  background: var(--button-secondary-surface);
 }
 .button--outlined {
   background: transparent;
@@ -46,7 +45,7 @@
   background: transparent;
 }
 .button--outline-fill {
-  background: var(--button-secondary-bg);
+  background: var(--button-secondary-surface);
   border: 1px solid var(--border-default);
 }
 .button--subtle {
@@ -77,4 +76,9 @@
 .button--ghost.button--subtle:hover {
   background: transparent;
   color: var(--text-primary);
+}
+
+.button--muted .button__content {
+  color: var(--text-placeholder);
+  justify-content: start;
 }

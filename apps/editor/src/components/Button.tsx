@@ -14,6 +14,8 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
   leading?: ReactNode;
   trailing?: ReactNode;
+
+  className?: string;
 };
 
 export function Button({
@@ -26,14 +28,16 @@ export function Button({
   isIconOnly = false,
   leading,
   trailing,
+  className,
   ...props
 }: ButtonProps) {
   /** Button classes */
-  const className = [
+  const Class = [
     'button',
     `button--${variant}`,
     `button--${size}`,
     `button--${interaction}`,
+    className,
 
     isActive && 'button--active',
     isDisabled && 'button--disabled',
@@ -43,12 +47,7 @@ export function Button({
     .join(' ');
 
   return (
-    <button
-      type="button"
-      className={className}
-      disabled={isDisabled}
-      {...props}
-    >
+    <button type="button" className={Class} disabled={isDisabled} {...props}>
       <span className="button__content">
         {!isIconOnly && leading}
         {children}

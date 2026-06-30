@@ -29,15 +29,6 @@
   background: var(--state-pressed);
 }
 
-.entry--selected {
-  background: var(--state-active);
-}
-
-.entry--disabled {
-  opacity: var(--state-disabled);
-  cursor: not-allowed;
-}
-
 .entry__start,
 .entry__end {
   display: flex;
@@ -92,6 +83,17 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+}
+
+/* interaction */
+.entry--selected {
+  background: var(--state-active);
+  color: var(--text-primary);
+}
+
+.entry--disabled {
+  opacity: var(--state-disabled);
+  cursor: not-allowed;
 }
 
 /* Object type specific classes */

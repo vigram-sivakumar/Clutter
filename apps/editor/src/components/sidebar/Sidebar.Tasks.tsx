@@ -15,6 +15,7 @@ export function TasksPanel() {
                 key={navigation.id}
                 title={navigation.title}
                 leading={<Icon />}
+                onClick={() => {}}
               />
             );
           })}

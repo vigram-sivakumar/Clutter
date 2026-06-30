@@ -1,4 +1,4 @@
-import { DateIndicator } from '../DateLable';
+import { DateIndicator } from '../DateLabel';
 import { Entry, type EntryProps } from './Entry';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {

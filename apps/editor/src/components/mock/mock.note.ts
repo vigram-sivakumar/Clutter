@@ -1,10 +1,10 @@
 import { Icons } from '../../design-system/icons';
 
 export const notesNavigation = [
-  { id: 'new-note', title: 'New Note', icon: Icons.NotePencil },
+  { id: 'new-note', title: 'New note', icon: Icons.NotePencil },
   {
     id: 'all-notes',
-    title: 'All Notes',
+    title: 'All notes',
     icon: Icons.Note,
   },
   { id: 'inbox', title: 'Unsorted', icon: Icons.Tray },

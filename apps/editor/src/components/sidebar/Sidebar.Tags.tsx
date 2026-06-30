@@ -15,6 +15,7 @@ export function TagsPanel() {
                 key={navigation.id}
                 title={navigation.title}
                 leading={<Icon />}
+                onClick={() => {}}
               />
             );
           })}
