@@ -6,13 +6,13 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "cd apps/editor && npm run dev",
-    "test": "cd apps/editor && npm test",
-    "test:run": "cd apps/editor && npm test -- --run",
-    "test:e2e": "cd apps/editor && npm run test:e2e",
+    "dev": "npm run dev --workspace=apps/app",
+    "test": "npm test --workspace=apps/app",
+    "test:run": "npm test --workspace=apps/app -- --run",
+    "test:e2e": "npm run test:e2e --workspace=apps/app",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "clean": "rm -rf node_modules apps/editor/node_modules"
+    "clean": "rm -rf node_modules apps/app/node_modules"
   },
   "devDependencies": {
     "prettier": "^3.2.5",

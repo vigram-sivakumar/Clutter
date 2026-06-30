@@ -21,6 +21,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": ["src"],
+  "include": ["src", "../../packages/engine/editor", "e2e"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
