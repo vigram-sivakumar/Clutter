@@ -1,5 +1,5 @@
-import { DateLabel } from '../../components/DateLabel';
-import { Entry, type EntryProps } from '../../components/sidebar/Entry';
+import { DateLabel } from '@components/DateLabel';
+import { Entry, type EntryProps } from '@components/sidebar/Entry';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {
   title?: string;

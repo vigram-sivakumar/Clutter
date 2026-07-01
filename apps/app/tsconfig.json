@@ -26,7 +26,8 @@
       "@components/*": ["./src/components/*"],
       "@features/*": ["./src/features/*"],
       "@design-system/*": ["./src/design-system/*"],
-      "@pages/*": ["./src/pages/*"]
+      "@pages/*": ["./src/pages/*"],
+      "@styles/*": ["./src/design-system/styles/*"]
     }
   },
   "include": ["src", "../../packages/engine/editor", "e2e"],

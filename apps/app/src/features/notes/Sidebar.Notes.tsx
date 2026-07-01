@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
-import { View } from '../../components/sidebar/Sidebar.View';
-import { Section } from '../../components/sidebar/Sidebar.Section';
-import { Navigation } from '../../components/sidebar/Entry.Navigation';
+import { View } from '@components/sidebar/Sidebar.View';
+import { Section } from '@components/sidebar/Sidebar.Section';
+import { Navigation } from '@components/sidebar/Entry.Navigation';
 import { notesNavigation, foldersData } from '../../mock/mock.note';
 import { Folder } from '../../features/notes/Entry.Folder';
 

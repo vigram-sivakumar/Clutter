@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { View } from '../../components/sidebar/Sidebar.View';
-import { Navigation } from '../../components/sidebar/Entry.Navigation';
-import { Section } from '../../components/sidebar/Sidebar.Section';
+import { View } from '@components/sidebar/Sidebar.View';
+import { Navigation } from '@components/sidebar/Entry.Navigation';
+import { Section } from '@components/sidebar/Sidebar.Section';
 import { tagsData, tagsNavigation } from '../../mock/mock.tags';
 import { Tag } from '../../features/tags/Entry.Tag';
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import '../../design-system/styles/sidebar/Sidebar.css';
-import { Tabs, Tab } from '../../components/Tabs';
+import { Tabs, Tab } from '@components/Tabs';
 import { Icons } from '../../design-system/icons';
 
 import { Notes } from '../../features/notes/Sidebar.Notes';
@@ -8,7 +8,7 @@ import { DailyNotesPanel } from '../../features/daily-notes/Sidebar.DailyNotes';
 import { TasksPanel } from '../../features/tasks/Sidebar.Tasks';
 import { TagsPanel } from '../../features/tags/Sidebar.Tags';
 import { SearchPanel } from '../../features/search/Sidebar.Search';
-import { Controls } from '../../components/sidebar/Sidebar.Controls';
+import { Controls } from '@components/sidebar/Sidebar.Controls';
 
 const tabs = [
   {
