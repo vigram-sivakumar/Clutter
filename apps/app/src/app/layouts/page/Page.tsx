@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import '../../design-system/styles/Page.css';
+import './Page.css';
 
 type PageProps = {
   children?: ReactNode;

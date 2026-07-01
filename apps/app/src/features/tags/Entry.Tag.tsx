@@ -1,7 +1,7 @@
-import { CountBadge } from '@components/CountBadge';
-import { Entry, EntryProps } from '@components/sidebar/Entry';
-import { Badge, badgeColor } from '@components/Badge';
-import { Button } from '@components/Button';
+import { CountBadge } from '@components/count-badge/CountBadge';
+import { Entry, EntryProps } from '@components/sidebar/entry/Entry';
+import { Badge, badgeColor } from '@components/badge/Badge';
+import { Button } from '@components/button/Button';
 import { Icons } from '../../design-system/icons';
 
 interface TagProps extends Omit<EntryProps, 'children'> {

@@ -1,6 +1,6 @@
-import '../../design-system/styles/sidebar/Sidebar.Controls.css';
-import { Button } from '../Button';
-import { Icons } from '../../design-system/icons';
+import './Sidebar.Controls.css';
+import { Button } from '../../button/Button';
+import { Icons } from '../../../design-system/icons';
 
 export function Controls() {
   return (

@@ -1,5 +1,5 @@
-import '../design-system/styles/Caret.css';
-import { Icons } from '../design-system/icons';
+import './Caret.css';
+import { Icons } from '../../design-system/icons';
 
 interface CaretProps {
   variant?: 'tree' | 'dropdown';

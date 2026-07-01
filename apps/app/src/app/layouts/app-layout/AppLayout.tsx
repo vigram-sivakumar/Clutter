@@ -1,6 +1,6 @@
-import '../../design-system/styles/AppLayout.css';
-import { Sidebar } from './Sidebar';
-import { Page } from './Page';
+import './AppLayout.css';
+import { Sidebar } from '../sidebar/Sidebar';
+import { Page } from '../page/Page';
 
 export function AppLayout() {
   return (

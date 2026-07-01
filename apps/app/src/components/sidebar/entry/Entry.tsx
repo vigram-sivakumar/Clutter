@@ -1,4 +1,4 @@
-import '../../design-system/styles/sidebar/Sidebar.Entry.css';
+import './Entry.css';
 
 export interface EntryProps {
   children: React.ReactNode;

@@ -1,7 +1,7 @@
-import { Button } from '@components/Button';
-import { Section } from '@components/sidebar/Sidebar.Section';
-import { View } from '@components/sidebar/Sidebar.View';
-import { DateLabel } from '@components/DateLabel';
+import { Button } from '@components/button/Button';
+import { Section } from '@components/sidebar/section/Sidebar.Section';
+import { View } from '@components/sidebar/View/Sidebar.View';
+import { DateLabel } from '@components/date-label/DateLabel';
 
 export function DailyNotesPanel() {
   return (

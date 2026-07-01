@@ -1,5 +1,5 @@
-import { Caret } from '../Caret';
-import { Entry, EntryProps } from './Entry';
+import { Caret } from '../../caret/Caret';
+import { Entry, EntryProps } from '../entry/Entry';
 
 export interface HeaderProps extends Omit<EntryProps, 'children'> {
   title?: string;

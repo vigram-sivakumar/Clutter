@@ -1,4 +1,4 @@
-import '../design-system/styles/count-badge.css';
+import './count-badge.css';
 
 export interface CountBadgeProps {
   count?: number | null;

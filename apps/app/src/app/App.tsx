@@ -1,4 +1,4 @@
-import { AppLayout } from '../app/layouts/AppLayout';
+import { AppLayout } from './layouts/app-layout/AppLayout';
 import { useTheme } from '../design-system/useTheme';
 
 export function App() {

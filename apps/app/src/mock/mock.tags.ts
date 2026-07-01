@@ -1,5 +1,5 @@
 import { Icons } from '../design-system/icons';
-import { badgeColor } from '../components/Badge';
+import { badgeColor } from '../components/badge/Badge';
 
 export const tagsNavigation = [
   { id: 'create-tag', title: 'Create tag', icon: Icons.Plus },
