@@ -1,5 +1,5 @@
-import { DateIndicator } from '../DateLabel';
-import { Entry, type EntryProps } from './Entry';
+import { DateLabel } from '../../components/DateLabel';
+import { Entry, type EntryProps } from '../../components/sidebar/Entry';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -16,7 +16,7 @@ export function DailyNote({
   return (
     <Entry
       {...entryProps}
-      leading={<DateIndicator isToday={isToday} date={date} />}
+      leading={<DateLabel isToday={isToday} date={date} />}
     >
       {title}
     </Entry>

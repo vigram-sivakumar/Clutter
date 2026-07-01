@@ -1,4 +1,4 @@
-import '../styles/DateLabel.css';
+import '../design-system/styles/DateLabel.css';
 
 interface DateLabelProps {
   isToday?: boolean;

@@ -1,4 +1,4 @@
-import '../../styles/Sidebar.View.css';
+import '../../design-system/styles/sidebar/Sidebar.View.css';
 
 interface ViewProps {
   navigation?: React.ReactNode;

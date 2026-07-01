@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import '../../styles/Sidebar.css';
-import { Tabs, Tab } from '../Tabs';
+import '../../design-system/styles/sidebar/Sidebar.css';
+import { Tabs, Tab } from '../../components/Tabs';
 import { Icons } from '../../design-system/icons';
 
-import { Notes } from '../sidebar/Sidebar.Notes';
-import { DailyNotesPanel } from '../sidebar/Sidebar.DailyNotes';
-import { TasksPanel } from '../sidebar/Sidebar.Tasks';
-import { TagsPanel } from '../sidebar/Sidebar.Tags';
-import { SearchPanel } from '../sidebar/Sidebar.Search';
-import { Controls } from '../sidebar/Sidebar.Controls';
+import { Notes } from '../../features/notes/Sidebar.Notes';
+import { DailyNotesPanel } from '../../features/daily-notes/Sidebar.DailyNotes';
+import { TasksPanel } from '../../features/tasks/Sidebar.Tasks';
+import { TagsPanel } from '../../features/tags/Sidebar.Tags';
+import { SearchPanel } from '../../features/search/Sidebar.Search';
+import { Controls } from '../../components/sidebar/Sidebar.Controls';
 
 const tabs = [
   {

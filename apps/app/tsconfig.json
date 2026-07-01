@@ -19,7 +19,15 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+
+    "paths": {
+      "@app/*": ["./src/app/*"],
+      "@components/*": ["./src/components/*"],
+      "@features/*": ["./src/features/*"],
+      "@design-system/*": ["./src/design-system/*"],
+      "@pages/*": ["./src/pages/*"]
+    }
   },
   "include": ["src", "../../packages/engine/editor", "e2e"],
   "references": [{ "path": "./tsconfig.node.json" }]

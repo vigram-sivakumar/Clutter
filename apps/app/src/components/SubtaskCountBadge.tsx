@@ -1,4 +1,4 @@
-import '../styles/subtask-count-badge.css';
+import '../design-system/styles/subtask-count-badge.css';
 
 export type SubtaskCountBadgeProps = {
   completed: number;

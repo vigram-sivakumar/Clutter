@@ -1,4 +1,4 @@
-import '../styles/page-cover.css';
+import '../design-system/styles/page-cover.css';
 
 type PageCoverProps = {
   src?: string;

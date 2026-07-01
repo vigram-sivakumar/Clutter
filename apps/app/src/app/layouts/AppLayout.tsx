@@ -1,4 +1,4 @@
-import '../../styles/AppLayout.css';
+import '../../design-system/styles/AppLayout.css';
 import { Sidebar } from './Sidebar';
 import { Page } from './Page';
 

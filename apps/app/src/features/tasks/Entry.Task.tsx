@@ -1,4 +1,4 @@
-import { Entry, type EntryProps } from './Entry';
+import { Entry, type EntryProps } from '../sidebar/Entry';
 import { Checkbox } from '../Checkbox';
 import { Caret } from '../Caret';
 import { Button } from '../Button';

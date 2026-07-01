@@ -1,7 +1,7 @@
-import { tasksNavaigation } from '../mock/mock.tasks';
-import { Section } from '../Section';
-import { View } from './Sidebar.View';
-import { Navigation } from '../entry/Entry.Navigation';
+import { tasksNavaigation } from '../../mock/mock.tasks';
+import { Section } from '../../components/sidebar/Sidebar.Section';
+import { View } from '../../components/sidebar/Sidebar.View';
+import { Navigation } from '../../components/sidebar/Entry.Navigation';
 
 export function TasksPanel() {
   return (

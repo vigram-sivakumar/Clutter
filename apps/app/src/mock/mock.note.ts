@@ -1,4 +1,4 @@
-import { Icons } from '../../design-system/icons';
+import { Icons } from '../design-system/icons';
 
 export const notesNavigation = [
   { id: 'new-note', title: 'New note', icon: Icons.NotePencil },

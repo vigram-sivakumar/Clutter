@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 
-import '../styles/Badge.css';
+import '../design-system/styles/badge.css';
 
 import type { TagPaletteId } from '../design-system/tag-colors';
 

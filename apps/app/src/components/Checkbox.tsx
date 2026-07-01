@@ -1,5 +1,5 @@
 import { Icons } from '../design-system/icons';
-import '../styles/checkbox.css';
+import '../design-system/styles/checkbox.css';
 
 export interface CheckboxProps {
   isChecked?: boolean;

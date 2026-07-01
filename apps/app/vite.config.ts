@@ -1,12 +1,25 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
+import path from 'node:path';
 
 export default defineConfig({
   plugins: [react(), svgr()],
-  server: {
-    port: 5174, // Different port from desktop app
+
+  resolve: {
+    alias: {
+      '@app': path.resolve(__dirname, 'src/app'),
+      '@components': path.resolve(__dirname, 'src/components'),
+      '@features': path.resolve(__dirname, 'src/features'),
+      '@design-system': path.resolve(__dirname, 'src/design-system'),
+      '@pages': path.resolve(__dirname, 'src/pages'),
+    },
   },
+
+  server: {
+    port: 5174,
+  },
+
   test: {
     environment: 'node',
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],

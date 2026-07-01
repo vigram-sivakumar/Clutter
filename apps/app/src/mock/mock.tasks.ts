@@ -1,4 +1,4 @@
-import { Icons } from '../../design-system/icons';
+import { Icons } from '../design-system/icons';
 
 export const tasksNavaigation = [
   { id: 'create-task', title: 'Create task', icon: Icons.Plus },

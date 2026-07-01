@@ -1,4 +1,4 @@
-import '../styles/Caret.css';
+import '../design-system/styles/Caret.css';
 import { Icons } from '../design-system/icons';
 
 interface CaretProps {

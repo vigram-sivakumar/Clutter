@@ -1,4 +1,4 @@
-import '../../styles/Sidebar.Controls.css';
+import '../../design-system/styles/sidebar/Sidebar.Controls.css';
 import { Button } from '../Button';
 import { Icons } from '../../design-system/icons';
 

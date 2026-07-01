@@ -1,9 +1,9 @@
 import { Fragment, useState } from 'react';
-import { View } from './Sidebar.View';
-import { Section } from '../Section';
-import { Navigation } from '../entry/Entry.Navigation';
-import { notesNavigation, foldersData } from '../mock/mock.note';
-import { Folder } from '../entry/Entry.Folder';
+import { View } from '../../components/sidebar/Sidebar.View';
+import { Section } from '../../components/sidebar/Sidebar.Section';
+import { Navigation } from '../../components/sidebar/Entry.Navigation';
+import { notesNavigation, foldersData } from '../../mock/mock.note';
+import { Folder } from '../../features/notes/Entry.Folder';
 
 export function getChildren(parentId: string) {
   return foldersData.filter((folder) => folder.parentId === parentId);

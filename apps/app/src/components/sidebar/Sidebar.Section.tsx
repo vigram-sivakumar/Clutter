@@ -1,5 +1,5 @@
-import { Header, type HeaderProps } from './entry/Section.Header';
-import '../styles/Section.css';
+import { Header, type HeaderProps } from './Sidebar.Section.Header';
+import '../../design-system/styles/sidebar/Sidebar.Section.css';
 
 export interface SectionProps extends HeaderProps {
   children?: React.ReactNode;

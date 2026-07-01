@@ -1,4 +1,4 @@
-import '../styles/count-badge.css';
+import '../design-system/styles/count-badge.css';
 
 export interface CountBadgeProps {
   count?: number | null;
@@ -15,7 +15,10 @@ function normalizeCount(count: number | null | undefined): number {
   return count;
 }
 
-export function formatCount(count: number | null | undefined, max = 99): string {
+export function formatCount(
+  count: number | null | undefined,
+  max = 99
+): string {
   const value = normalizeCount(count);
 
   if (value > max) {

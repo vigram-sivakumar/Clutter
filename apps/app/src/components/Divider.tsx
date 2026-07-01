@@ -1,4 +1,4 @@
-import '../styles/divider.css';
+import '../design-system/styles/divider.css';
 
 export type DividerProps = {
   className?: string;
