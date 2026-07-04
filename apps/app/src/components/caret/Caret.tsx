@@ -25,7 +25,10 @@ export function Caret({
       <button
         className={`caret-wrapper caret-wrapper--${variant}`}
         type="button"
-        onClick={onClick}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick?.();
+        }}
         disabled={disabled}
       >
         <span

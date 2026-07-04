@@ -1,17 +1,19 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
+
 import { View } from '@components/sidebar/View/Sidebar.View';
 import { Section } from '@components/sidebar/section/Sidebar.Section';
-import { Navigation } from '@components/sidebar/Entry.Navigation';
-import { notesNavigation, foldersData } from '../../mock/mock.note';
-import { Folder } from '../../features/notes/Entry.Folder';
-
-export function getChildren(parentId: string) {
-  return foldersData.filter((folder) => folder.parentId === parentId);
-}
+import { Navigation } from '@components/sidebar/navigation/Navigation';
+import { notesNavigation } from '@features/notes/mock/Mock.Navigation';
+import { folders as foldersData } from '@features/notes/mock/Mock.Folder';
+import { notes as notesData } from '@features/notes/mock/Mock.Note';
+import { renderEntryTree } from '@features/notes/folder/renderEnterTree';
 
 export function Notes() {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(true);
+  const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  console.log('Selected:', selectedEntryIds);
 
   return (
     <View
@@ -19,6 +21,7 @@ export function Notes() {
         <Section>
           {notesNavigation.map((navigation) => {
             const Icon = navigation.icon;
+
             return (
               <Navigation
                 key={navigation.id}
@@ -31,7 +34,6 @@ export function Notes() {
         </Section>
       }
     >
-      {/* Favorites */}
       <Section
         hasHeader
         title="Favorites"
@@ -39,8 +41,8 @@ export function Notes() {
         isExpanded={isFavoritesExpanded}
         onExpandedChange={setFavoritesExpanded}
         onClick={() => {}}
-      ></Section>
-      {/* Folders */}
+      />
+
       <Section
         hasHeader
         title="Folders"
@@ -49,30 +51,17 @@ export function Notes() {
         onExpandedChange={setFoldersExpanded}
         onClick={() => {}}
       >
-        {foldersData
-          .filter((folder) => folder.parentId === null)
-          .map((folder) => {
-            const isFolderEmpty = getChildren(folder.id).length === 0;
-            return (
-              <Fragment key={folder.id}>
-                <Folder
-                  title={folder.title}
-                  isEmpty={isFolderEmpty}
-                  onClick={() => {}}
-                />
-                {getChildren(folder.id).map((child) => {
-                  const isFolderEmpty = getChildren(child.id).length === 0;
-                  return (
-                    <Folder
-                      key={child.id}
-                      title={child.title}
-                      isEmpty={isFolderEmpty}
-                    />
-                  );
-                })}
-              </Fragment>
-            );
-          })}
+        {renderEntryTree({
+          folders: foldersData,
+          notes: notesData,
+          parentId: null,
+          level: 0,
+          expandedFolderIds,
+          setExpandedFolderIds,
+          selectedEntryIds,
+
+          setSelectedEntryIds,
+        })}
       </Section>
     </View>
   );

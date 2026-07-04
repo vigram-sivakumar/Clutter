@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View } from '@components/sidebar/View/Sidebar.View';
-import { Navigation } from '@components/sidebar/Entry.Navigation';
+import { Navigation } from '@components/sidebar/navigation/Navigation';
 import { Section } from '@components/sidebar/section/Sidebar.Section';
 import { tagsData, tagsNavigation } from '../../mock/mock.tags';
 import { Tag } from '../../features/tags/Entry.Tag';

@@ -6,7 +6,9 @@
   height: var(--height-lg);
   border-radius: var(--radius-lg-plus);
   gap: var(--btn-gap-md);
-  padding-inline: var(--space-6);
+
+  padding-right: var(--space-6);
+  padding-left: calc(var(--space-6) + (var(--tree-level) * 16px));
 
   color: var(--text-secondary);
 
@@ -21,7 +23,7 @@
   cursor: pointer;
 }
 
-.entry[role='button']:hover:not(.entry--disabled) {
+.entry[role='button']:not(.entry-disabled):not(.entry-selected):hover {
   background: var(--state-hover);
 }
 
@@ -95,12 +97,12 @@
 }
 
 /* interaction */
-.entry--selected {
+.entry-selected {
   background: var(--state-active);
   color: var(--text-primary);
 }
 
-.entry--disabled {
+.entry-disabled {
   opacity: var(--state-disabled);
   cursor: not-allowed;
 }

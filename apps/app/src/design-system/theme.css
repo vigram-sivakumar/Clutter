@@ -159,8 +159,11 @@ html.theme-transitioning [data-themeable] *::after {
   --state-hover: rgba(0, 0, 0, 0.03);
   --state-pressed: rgba(0, 0, 0, 0.02);
   --state-active: rgba(0, 0, 0, 0.06);
-  --state-disabled: var(--opacity-strong);
+  --state-disabled: var(--opacity-medium);
   --tab-active: var(var(--surface-primary));
+
+  /* Secondary button */
+  --button-secondary-surface: rgba(0, 0, 0, 0.055);
 
   /* Use only for the tabs active state */
   --tab-active: var(--surface-primary);

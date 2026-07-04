@@ -16,7 +16,7 @@ export function Section({
   ...headerProps
 }: SectionProps) {
   return (
-    <div className="section">
+    <div className={`section ${isExpanded && 'section--expanded'}`}>
       {hasHeader && (
         <Header
           {...headerProps}

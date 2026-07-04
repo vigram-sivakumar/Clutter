@@ -1,4 +1,4 @@
-import { Entry, type EntryProps } from '../Entry';
+import { Entry, type EntryProps } from '../entry/Entry';
 
 interface NavigationProps extends Omit<EntryProps, 'children'> {
   title?: string;

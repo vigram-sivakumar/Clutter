@@ -19,9 +19,9 @@
   --accent-hover: #008acc;
 
   /* Opacity */
-  --opacity-strong: 0.3;
-  --opacity-medium: 0.4;
-  --opacity-subtle: 0.7;
+  --opacity-strong: 0.4;
+  --opacity-medium: 0.6;
+  --opacity-subtle: 0.8;
 
   /* Motion */
   --duration-interaction: 120ms;

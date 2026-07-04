@@ -1,6 +1,7 @@
+import type { HTMLAttributes } from 'react';
 import './Entry.css';
 
-export interface EntryProps {
+export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 
   leading?: React.ReactNode;
@@ -9,6 +10,8 @@ export interface EntryProps {
 
   selected?: boolean;
   disabled?: boolean;
+
+  level?: number;
 
   onClick?: () => void;
 }
@@ -21,7 +24,10 @@ export function Entry({
 
   selected = false,
   disabled = false,
+
+  level = 0,
   onClick,
+  ...props
 }: EntryProps) {
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) {
@@ -34,15 +40,23 @@ export function Entry({
       'button, a, input, select, textarea, [role="button"]'
     );
 
-    if (interactiveElement) {
+    if (interactiveElement && interactiveElement !== event.currentTarget) {
       return;
     }
 
     onClick?.();
   };
+  console.log('Selected prop:', selected);
 
   return (
     <div
+      {...props}
+      style={
+        {
+          '--tree-level': level,
+          ...props.style,
+        } as React.CSSProperties
+      }
       className={[
         'entry',
         selected && 'entry-selected',
