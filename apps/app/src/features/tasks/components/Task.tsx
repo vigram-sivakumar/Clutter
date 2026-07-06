@@ -1,8 +1,8 @@
-import { Entry, type EntryProps } from '../sidebar/Entry';
-import { Checkbox } from '../Checkbox';
-import { Caret } from '../Caret';
-import { Button } from '../Button';
-import { Icons } from '../../design-system/icons';
+import { Entry, EntryProps } from '@components/sidebar/entry/Entry';
+import { Checkbox } from '@components/checkbox/Checkbox';
+// import { Caret } from '@components/caret/Caret';
+import { Button } from '@components/button/Button';
+import { Icons } from '@design-system/icons';
 
 interface TaskProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -29,11 +29,11 @@ export function Task({
       {...entryProps}
       leading={
         <>
-          <Caret
+          {/* <Caret
             isPlaceholder={isEmpty}
             isExpanded={isExpanded}
             variant="tree"
-          />
+          /> */}
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
         </>
       }

@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 // components
 import { Section } from '@components/sidebar/section/Sidebar.Section';
-import { DailyNote } from '../components/Entry.DailyNote';
+import { DailyNote } from '../components/DailyNote';
 // helper
 import { MonthGroup } from './groupByMonth';
 import { isToday } from './isToday';

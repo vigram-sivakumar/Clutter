@@ -4,14 +4,12 @@ type TaskGroups = {
   today: Task[];
   overdue: Task[];
   upcoming: Task[];
-  completed: Task[];
 };
 
 const createInitialGroups = (): TaskGroups => ({
   today: [],
   overdue: [],
   upcoming: [],
-  completed: [],
 });
 
 export function groupTasks(tasks: Task[]): TaskGroups {
@@ -23,9 +21,7 @@ export function groupTasks(tasks: Task[]): TaskGroups {
   return tasks.reduce((groups, task) => {
     let group: keyof TaskGroups;
 
-    if (task.isCompleted) {
-      group = 'completed';
-    } else if (task.dueDate === today) {
+    if (task.dueDate === today) {
       group = 'today';
     } else if (task.dueDate < today) {
       group = 'overdue';

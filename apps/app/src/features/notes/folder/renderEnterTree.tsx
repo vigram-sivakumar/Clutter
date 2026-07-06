@@ -3,8 +3,8 @@ import { Fragment } from 'react';
 import { Folder as FolderModels } from '@features/notes/models/Folder';
 import { Note as NoteModels } from '@features/notes/models/Note';
 
-import { Folder } from '@features/notes/components/Entry.Folder';
-import { Note } from '@features/notes/components/Entry.Note';
+import { Folder } from '../components/Folder';
+import { Note } from '../components/Note';
 
 import { getChildFolders } from './getChildFolders';
 import { getChildNotes } from './getChildNotes';

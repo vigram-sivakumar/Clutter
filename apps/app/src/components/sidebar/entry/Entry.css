@@ -118,3 +118,6 @@
   line-height: var(--lh-label);
   color: var(--text-tertiary);
 }
+.section-header::first-letter {
+  text-transform: capitalize;
+}

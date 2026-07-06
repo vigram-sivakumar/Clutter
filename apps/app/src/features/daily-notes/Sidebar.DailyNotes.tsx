@@ -4,9 +4,8 @@ import { Section } from '@components/sidebar/section/Sidebar.Section';
 import { View } from '@components/sidebar/View/Sidebar.View';
 import { DateLabel } from '@components/date-label/DateLabel';
 // helpers
-import { getTodayDailyNote } from './helpers/getTodayDailyNote';
-import { groupByMonth } from './helpers/groupByMonth';
-import { renderByMonth } from './helpers/renderByMonth';
+import { findTodayNote } from './helpers/findTodayNote';
+import { renderDailyNotesByMonth } from './helpers/renderDailyNotesByMonth';
 // mock date
 import { dailyNotes } from './mock/Mock.DailyNote';
 
@@ -16,11 +15,7 @@ export function DailyNotesPanel() {
    * If it exists: Hide the "Create Today's Journal" button.
    * If it doesn't exist: Show the button.
    */
-  const todayNote = getTodayDailyNote(dailyNotes);
-  /**
-   * Organise all daily notes by month
-   */
-  const months = groupByMonth(dailyNotes);
+  const todayNote = findTodayNote(dailyNotes);
 
   return (
     <View
@@ -39,7 +34,7 @@ export function DailyNotesPanel() {
         </Section>
       }
     >
-      {renderByMonth({ months })}
+      {renderDailyNotesByMonth({ dailyNotes })}
     </View>
   );
 }

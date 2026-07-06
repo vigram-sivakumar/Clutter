@@ -2,7 +2,7 @@ import { CountBadge } from '@components/count-badge/CountBadge';
 import { Entry, EntryProps } from '@components/sidebar/entry/Entry';
 import { Badge, badgeColor } from '@components/badge/Badge';
 import { Button } from '@components/button/Button';
-import { Icons } from '../../design-system/icons';
+import { Icons } from '@design-system/icons/index';
 
 interface TagProps extends Omit<EntryProps, 'children'> {
   title?: string;
