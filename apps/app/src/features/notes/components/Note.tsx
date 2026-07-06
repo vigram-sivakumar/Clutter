@@ -6,15 +6,16 @@ import { Entry, type EntryProps } from '@components/sidebar/entry/Entry';
 
 interface NoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
+  hasCaret?: boolean;
 }
 
-export function Note({ title, ...entryProps }: NoteProps) {
+export function Note({ title, hasCaret = true, ...entryProps }: NoteProps) {
   return (
     <Entry
       {...entryProps}
       leading={
         <>
-          <Caret isPlaceholder />
+          {hasCaret && <Caret isPlaceholder />}
           <IconSlot>
             <Icons.Note />
           </IconSlot>

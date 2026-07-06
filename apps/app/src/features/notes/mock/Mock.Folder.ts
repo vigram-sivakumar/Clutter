@@ -8,6 +8,7 @@ export const folders: Folder[] = [
     parentId: null,
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
   {
     id: 'travel',
@@ -15,6 +16,7 @@ export const folders: Folder[] = [
     parentId: 'personal',
     type: 'folder',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'finance',
@@ -22,6 +24,7 @@ export const folders: Folder[] = [
     parentId: 'personal',
     type: 'folder',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'recipes',
@@ -29,15 +32,24 @@ export const folders: Folder[] = [
     parentId: 'personal',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
 
-  { id: 'work', title: 'Work', parentId: null, type: 'folder', position: 0 },
+  {
+    id: 'work',
+    title: 'Work',
+    parentId: null,
+    type: 'folder',
+    position: 0,
+    isFavorite: false,
+  },
   {
     id: 'clutter',
     title: 'Clutter',
     parentId: 'work',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
   {
     id: 'design-system',
@@ -45,6 +57,7 @@ export const folders: Folder[] = [
     parentId: 'work',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
   {
     id: 'research',
@@ -52,6 +65,7 @@ export const folders: Folder[] = [
     parentId: 'work',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
 
   {
@@ -60,6 +74,7 @@ export const folders: Folder[] = [
     parentId: null,
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
 
   {
@@ -68,6 +83,7 @@ export const folders: Folder[] = [
     parentId: 'travel',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
 
   {
@@ -76,6 +92,7 @@ export const folders: Folder[] = [
     parentId: null,
     type: 'folder',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'mobile-app',
@@ -83,6 +100,7 @@ export const folders: Folder[] = [
     parentId: 'projects',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
   {
     id: 'prototype',
@@ -90,6 +108,7 @@ export const folders: Folder[] = [
     parentId: 'mobile-app',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
   {
     id: 'v2-concepts',
@@ -97,5 +116,6 @@ export const folders: Folder[] = [
     parentId: 'prototype',
     type: 'folder',
     position: 0,
+    isFavorite: false,
   },
 ];

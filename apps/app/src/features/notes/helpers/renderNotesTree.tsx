@@ -40,10 +40,20 @@ export function renderNotesTree({
     return (
       <Fragment key={folder.id}>
         {/* Render the current folder */}
-        <Folder title={folder.title} level={level} isEmpty={isEmpty} />
+        <Folder
+          title={folder.title}
+          level={level}
+          isEmpty={isEmpty}
+          onClick={() => {}}
+        />
         {/* Render all notes inside this folder */}
         {childNotes.map((note) => (
-          <Note key={note.id} title={note.title} level={level + 1} />
+          <Note
+            key={note.id}
+            title={note.title}
+            level={level + 1}
+            onClick={() => {}}
+          />
         ))}
         {/* Render this folder's child folders.
             This is the recursive call.

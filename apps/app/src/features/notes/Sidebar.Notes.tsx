@@ -7,6 +7,7 @@ import { notesNavigation } from '@features/notes/mock/Mock.Navigation';
 import { folders as foldersData } from '@features/notes/mock/Mock.Folder';
 import { notes as notesData } from '@features/notes/mock/Mock.Note';
 import { renderEntryTree } from '@features/notes/folder/renderEnterTree';
+import { renderFavorites } from './helpers/renderFavorites';
 
 export function Notes() {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
@@ -41,8 +42,9 @@ export function Notes() {
         isExpanded={isFavoritesExpanded}
         onExpandedChange={setFavoritesExpanded}
         onClick={() => {}}
-      />
-
+      >
+        {renderFavorites(notesData, foldersData)}
+      </Section>
       <Section
         hasHeader
         title="Folders"

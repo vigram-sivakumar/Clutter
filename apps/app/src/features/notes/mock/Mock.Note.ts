@@ -8,6 +8,7 @@ export const notes: Note[] = [
     parentId: 'work',
     type: 'note',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'ux-audit',
@@ -15,6 +16,7 @@ export const notes: Note[] = [
     parentId: 'work',
     type: 'note',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'japan-trip',
@@ -22,6 +24,7 @@ export const notes: Note[] = [
     parentId: 'travel',
     type: 'note',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'packing-list',
@@ -29,6 +32,7 @@ export const notes: Note[] = [
     parentId: 'travel',
     type: 'note',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'reading-list',
@@ -36,6 +40,7 @@ export const notes: Note[] = [
     parentId: 'personal',
     type: 'note',
     position: 0,
+    isFavorite: true,
   },
   {
     id: 'daily-template',
@@ -43,5 +48,6 @@ export const notes: Note[] = [
     parentId: null,
     type: 'note',
     position: 0,
+    isFavorite: true,
   },
 ];

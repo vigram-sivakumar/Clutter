@@ -8,6 +8,7 @@ interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
 
   isEmpty?: boolean;
+  hasCaret?: boolean;
   isExpanded?: boolean;
   onExpandToggle?: () => void;
 }
@@ -15,6 +16,7 @@ interface FolderProps extends Omit<EntryProps, 'children'> {
 export function Folder({
   title,
   isEmpty = false,
+  hasCaret = true,
   isExpanded = false,
   onExpandToggle,
   ...entryProps
@@ -24,12 +26,14 @@ export function Folder({
       {...entryProps}
       leading={
         <>
-          <Caret
-            disabled={isEmpty}
-            isExpanded={isExpanded}
-            variant="tree"
-            onClick={onExpandToggle}
-          />
+          {hasCaret && (
+            <Caret
+              disabled={isEmpty}
+              isExpanded={isExpanded}
+              variant="tree"
+              onClick={onExpandToggle}
+            />
+          )}
           <IconSlot>
             <Icons.Folder />
           </IconSlot>
