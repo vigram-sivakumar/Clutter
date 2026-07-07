@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { View } from '@components/sidebar/View/Sidebar.View';
 import { Section } from '@components/sidebar/section/Sidebar.Section';
 import { Navigation } from '@components/sidebar/navigation/Navigation';
-import { notesNavigation } from '@features/notes/mock/Mock.Navigation';
-import { folders as foldersData } from '@features/notes/mock/Mock.Folder';
-import { notes as notesData } from '@features/notes/mock/Mock.Note';
+import { notesNavigation } from '@features/notes/mock/Navigation';
+import { folders as foldersData } from '@features/notes/mock/Folder';
+import { notes as notesData } from '@features/notes/mock/Note';
 import { renderEntryTree } from '@features/notes/folder/renderEnterTree';
 import { renderFavorites } from './helpers/renderFavorites';
 
@@ -14,7 +14,6 @@ export function Notes() {
   const [isFoldersExpanded, setFoldersExpanded] = useState(true);
   const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
-  console.log('Selected:', selectedEntryIds);
 
   return (
     <View

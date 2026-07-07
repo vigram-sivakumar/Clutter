@@ -50,7 +50,6 @@ export function renderEntryTree({
           isEmpty={isEmpty}
           selected={selectedEntryIds.includes(folder.id)}
           onClick={() => {
-            console.log('Folder clicked', folder.id);
             setSelectedEntryIds([folder.id]);
           }}
           onExpandToggle={() =>
@@ -80,7 +79,6 @@ export function renderEntryTree({
                 title={note.title}
                 selected={selectedEntryIds.includes(note.id)}
                 onClick={() => {
-                  console.log('Notes clicked', folder.id);
                   setSelectedEntryIds([note.id]);
                 }}
               />

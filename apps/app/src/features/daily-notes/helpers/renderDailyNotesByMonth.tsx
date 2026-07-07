@@ -30,9 +30,14 @@ export function renderDailyNotesByMonth({
 
     return (
       <Fragment key={month}>
-        <Section hasHeader title={title}>
+        <Section hasHeader title={title} isCollapsible onClick={() => {}}>
           {notes.map((note) => (
-            <DailyNote key={note.id} title={note.title} date={note.date} />
+            <DailyNote
+              key={note.id}
+              title={note.title}
+              date={note.date}
+              onClick={() => {}}
+            />
           ))}
         </Section>
       </Fragment>

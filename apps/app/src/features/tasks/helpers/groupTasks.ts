@@ -21,6 +21,11 @@ export function groupTasks(tasks: Task[]): TaskGroups {
   return tasks.reduce((groups, task) => {
     let group: keyof TaskGroups;
 
+    // Skips completed tasks TODO: Completed tasks will be render seperately
+    if (task.isCompleted) {
+      return groups;
+    }
+
     if (task.dueDate === today) {
       group = 'today';
     } else if (task.dueDate < today) {

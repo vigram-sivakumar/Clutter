@@ -12,7 +12,7 @@ export function formatMonth(
 ): string {
   const value = date.length === 7 ? `${date}-01` : date;
 
-  return new Date(value).toLocaleDateString('en-US', {
+  return new Date(value).toLocaleDateString('en-UK', {
     month: style,
   });
 }

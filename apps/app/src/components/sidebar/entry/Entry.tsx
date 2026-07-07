@@ -46,7 +46,6 @@ export function Entry({
 
     onClick?.();
   };
-  console.log('Selected prop:', selected);
 
   return (
     <div

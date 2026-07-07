@@ -1,12 +1,13 @@
-import { useState } from 'react';
+// import { useState } from 'react';
 import { View } from '@components/sidebar/View/Sidebar.View';
 import { Navigation } from '@components/sidebar/navigation/Navigation';
 import { Section } from '@components/sidebar/section/Sidebar.Section';
-import { tagsData, tagsNavigation } from './mock/tagsNavigation';
-import { Tag } from './components/Tag';
+import { renderTags } from './helpers/renderTags';
+import { tags as tagsMock } from './mock/tags';
+import { tagsNavigation } from './mock/tagsNavigation';
 
 export function TagsPanel() {
-  const [isAllTagsExpanded, setAllTagsExpanded] = useState(true);
+  // const [isAllTagsExpanded, setAllTagsExpanded] = useState(true);
 
   return (
     <View
@@ -26,25 +27,15 @@ export function TagsPanel() {
         </Section>
       }
     >
-      <Section
+      {/* <Section
         // hasHeader
         title="All tags"
         isExpanded={isAllTagsExpanded}
         onExpandedChange={setAllTagsExpanded}
         onClick={() => {}}
-      >
-        {tagsData.map((tag) => {
-          return (
-            <Tag
-              key={tag.id}
-              title={tag.title}
-              color={tag.color}
-              count={tag.count}
-              onClick={() => {}}
-            />
-          );
-        })}
-      </Section>
+      > */}
+      {renderTags(tagsMock)}
+      {/* </Section> */}
     </View>
   );
 }

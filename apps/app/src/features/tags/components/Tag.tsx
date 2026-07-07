@@ -8,9 +8,16 @@ interface TagProps extends Omit<EntryProps, 'children'> {
   title?: string;
   count?: number;
   color?: badgeColor;
+  isFavorite?: boolean;
 }
 
-export function Tag({ title, color, count, ...entryProps }: TagProps) {
+export function Tag({
+  title,
+  color,
+  count,
+  isFavorite = false,
+  ...entryProps
+}: TagProps) {
   return (
     <Entry
       {...entryProps}

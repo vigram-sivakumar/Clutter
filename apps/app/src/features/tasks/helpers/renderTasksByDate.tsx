@@ -10,6 +10,7 @@ import type { Task as TaskModel } from '../models/Tasks';
 // Helpers
 import { groupTasks } from './groupTasks';
 import { groupTasksByDate } from './groupByDate';
+import { formatShortDate } from '@shared/helpers/date/formatShortDate';
 
 interface RenderTasksByDateProps {
   tasks: TaskModel[];
@@ -30,20 +31,27 @@ export function renderTasksByDate({ tasks }: RenderTasksByDateProps) {
         {/* Render the task group heading. */}
         <Section hasHeader title={groupName} isCollapsible onClick={() => {}}>
           {/* Render every date inside the current task group. */}
-          {Object.entries(dateGroups).map(([date, tasksForDate]) => (
-            <Section key={date} hasHeader title={date}>
-              {/* Render every task for this date. */}
-              {tasksForDate.map((task) => (
-                <Task
-                  key={task.id}
-                  title={task.title}
-                  isChecked={task.isCompleted}
-                  isEmpty={true}
-                  onClick={() => {}}
-                />
-              ))}
-            </Section>
-          ))}
+          {Object.entries(dateGroups).map(([date, tasksForDate]) => {
+            // Format the date for display.
+            // Current year: 12 Jul
+            // Other years: 12 Jul 2025
+            const title = formatShortDate(date);
+
+            return (
+              <Section key={date} hasHeader title={title}>
+                {/* Render every task for this date. */}
+                {tasksForDate.map((task) => (
+                  <Task
+                    key={task.id}
+                    title={task.title}
+                    isChecked={task.isCompleted}
+                    isEmpty={true}
+                    onClick={() => {}}
+                  />
+                ))}
+              </Section>
+            );
+          })}
         </Section>
       </Fragment>
     );

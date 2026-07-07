@@ -27,7 +27,7 @@
   background: var(--state-hover);
 }
 
-.entry[role='button']:active:not(:has(button:active)) {
+.entry[role='button']:active:not(.entry-selected):not(:has(button:active)) {
   background: var(--state-pressed);
 }
 

@@ -7,7 +7,7 @@ import { DateLabel } from '@components/date-label/DateLabel';
 import { findTodayNote } from './helpers/findTodayNote';
 import { renderDailyNotesByMonth } from './helpers/renderDailyNotesByMonth';
 // mock date
-import { dailyNotes } from './mock/Mock.DailyNote';
+import { dailyNotes } from './mock/dailyNote';
 
 export function DailyNotesPanel() {
   /**
