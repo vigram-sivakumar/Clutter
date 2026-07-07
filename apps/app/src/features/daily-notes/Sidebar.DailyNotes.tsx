@@ -5,7 +5,7 @@ import { Button } from '@components/button/Button';
 import { Section } from '@components/sidebar/section/Sidebar.Section';
 import { View } from '@components/sidebar/View/Sidebar.View';
 import { DateLabel } from '@components/date-label/DateLabel';
-import { Calendar } from '@features/calendar/components/Calendar';
+import { Calendar } from '@features/calendar/components/calendar/Calendar';
 // helpers
 import { findTodayNote } from './helpers/findTodayNote';
 import { renderDailyNotesByMonth } from './helpers/renderDailyNotesByMonth';

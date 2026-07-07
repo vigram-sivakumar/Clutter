@@ -1,6 +1,6 @@
-import './Calendar.Week.css';
-import { CalendarDate } from './Calendar.Date';
-import type { CalendarDate as CalendarDateModel } from '../models/CalendarDate';
+import './Week.css';
+import { CalendarDate } from '../date/Date';
+import type { CalendarDate as CalendarDateModel } from '../../models/CalendarDate';
 
 interface CalendarWeekProps {
   dates: CalendarDateModel[];

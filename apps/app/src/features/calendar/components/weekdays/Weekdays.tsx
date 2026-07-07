@@ -1,4 +1,4 @@
-import './Calendar.Weekdays.css';
+import './Weekdays.css';
 
 export function CalendarWeekdays() {
   const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];

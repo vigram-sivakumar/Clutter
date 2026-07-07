@@ -1,7 +1,7 @@
-import './Calendar.Month.css';
+import './Month.css';
 
-import type { CalendarDate as CalendarDateModel } from '../models/CalendarDate';
-import { CalendarWeek } from './Calendar.Week';
+import type { CalendarDate as CalendarDateModel } from '../../models/CalendarDate';
+import { CalendarWeek } from '../week/Week';
 
 interface CalendarMonthProps {
   weeks: CalendarDateModel[][];

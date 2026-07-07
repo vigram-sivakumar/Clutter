@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import './calendar.css';
+import './Calendar.css';
 
-import type { CalendarMode } from '../models/CalendarMode';
+import type { CalendarMode } from '../../models/CalendarMode';
 
-import { CalendarHeader } from './Calendar.Header';
-import { CalendarWeek } from './Calendar.Week';
-import { CalendarMonth } from './Calendar.Month';
-import { CalendarWeekdays } from './Calendar.Weekdays';
+import { CalendarHeader } from '../header/Header';
+import { CalendarWeek } from '../week/Week';
+import { CalendarMonth } from '../month/Month';
+import { CalendarWeekdays } from '../weekdays/Weekdays';
 
-import { getWeek } from '../helpers/getWeek';
-import { getMonth } from '../helpers/getMonth';
-import { moveCalendar } from '../helpers/moveCalendar';
-import { getCalendarTitle } from '../helpers/getCalendarTitle';
+import { getWeek } from '../../helpers/getWeek';
+import { getMonth } from '../../helpers/getMonth';
+import { moveCalendar } from '../../helpers/moveCalendar';
+import { getCalendarTitle } from '../../helpers/getCalendarTitle';
 
 interface CalendarProps {
   mode: CalendarMode;

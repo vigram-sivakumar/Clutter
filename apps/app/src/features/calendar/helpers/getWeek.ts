@@ -26,7 +26,11 @@ export function getWeek(
     // Move forward one day each iteration.
     date.setDate(start.getDate() + index);
 
-    const isoDate = date.toISOString().slice(0, 10);
+    const isoDate = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
 
     week.push({
       fullDate: isoDate,

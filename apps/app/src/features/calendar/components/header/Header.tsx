@@ -1,5 +1,5 @@
 import { Icons } from '@design-system/icons';
-import './Calendar.Header.css';
+import './Header.css';
 import { Button } from '@components/button/Button';
 
 interface CalendarHeaderProps {

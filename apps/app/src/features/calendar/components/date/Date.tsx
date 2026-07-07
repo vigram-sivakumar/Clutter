@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { CalendarDate as CalendarDateModel } from '../models/CalendarDate';
-import './Calendar.Date.css';
+import type { CalendarDate as CalendarDateModel } from '../../models/CalendarDate';
+import './Date.css';
 
 export interface CalendarDateProps extends CalendarDateModel {
   indicator?: ReactNode;
