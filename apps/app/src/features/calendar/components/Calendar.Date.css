@@ -1,0 +1,26 @@
+.calendar-cell {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: var(--height-md);
+  background: transparent;
+  color: var(--text-secondary);
+
+  border: 0;
+  border-radius: var(--radius-lg-plus);
+
+  font-size: var(--text-label);
+  font-weight: var(--fw-medium);
+
+  width: 100%;
+}
+.calendar-cell--today {
+  background: var(--calendar-accent);
+  color: var(--calendar-active-text);
+}
+.calendar-cell--outside-month {
+  color: var(--text-placeholder);
+}

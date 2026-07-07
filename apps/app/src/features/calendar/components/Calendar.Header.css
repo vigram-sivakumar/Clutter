@@ -1,0 +1,27 @@
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--height-md);
+  padding-inline: var(--space-6);
+}
+.calendar-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.calendar-month,
+.calendar-year {
+  color: var(--icon-secondary);
+  font-size: var(--text-body-small);
+  font-weight: var(--fw-medium);
+}
+.calendar-year {
+  opacity: var(--opacity-strong);
+}
+.calendar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}

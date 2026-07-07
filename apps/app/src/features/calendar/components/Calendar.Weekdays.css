@@ -1,0 +1,17 @@
+.calendar-weekdays-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.calendar-weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--height-md);
+  border-radius: var(--radius-md);
+  color: var(--icon-tertiary);
+  font-size: var(--text-label);
+  font-weight: var(--fw-regular);
+}

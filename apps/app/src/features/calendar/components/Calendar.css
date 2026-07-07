@@ -1,0 +1,40 @@
+.calendar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--space-4);
+  margin-bottom: 8px;
+}
+.calendar-view {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.calendar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--height-sm);
+}
+.calendar-toggle--button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  padding-inline: 12px;
+
+  cursor: pointer;
+}
+.calendar-toggle--bar {
+  width: 40px;
+  height: 6px;
+  background: var(--text-tertiary);
+  border-radius: 999px;
+  opacity: var(--opacity-strong);
+
+  transition: opacity 120ms ease;
+}
+.calendar-toggle--button:hover .calendar-toggle--bar {
+  opacity: 100%;
+}

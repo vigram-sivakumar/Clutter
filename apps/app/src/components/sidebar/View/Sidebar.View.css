@@ -6,11 +6,11 @@
 .view--navigation {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-12);
 }
 .view--content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
   overflow-y: scroll;
+  gap: var(--space-4);
 }

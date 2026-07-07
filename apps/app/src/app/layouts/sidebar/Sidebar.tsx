@@ -18,7 +18,7 @@ const tabs = [
   },
   {
     value: 'daily-notes',
-    icon: <Icons.CalendarBlank />,
+    icon: <Icons.CalendarToday />,
     panel: <DailyNotesPanel />,
   },
   {
