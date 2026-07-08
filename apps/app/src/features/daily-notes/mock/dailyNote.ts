@@ -3,7 +3,7 @@ import { DailyNote } from '../models/DailyNote';
 // Daily Notes
 export const dailyNotes: DailyNote[] = [
   {
-    id: 'daily-note-1',
+    id: 'daily-note-0',
     date: '2026-07-07',
     title: 'Todays note',
   },

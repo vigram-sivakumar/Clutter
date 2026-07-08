@@ -5,8 +5,8 @@ export function CalendarWeekdays() {
 
   return (
     <div className="calendar-weekdays-row">
-      {DAYS.map((day) => (
-        <span key={day} className="calendar-weekday">
+      {DAYS.map((day, index) => (
+        <span key={index} className="calendar-weekday">
           {day}
         </span>
       ))}
