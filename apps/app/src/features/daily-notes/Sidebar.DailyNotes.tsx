@@ -9,6 +9,7 @@ import { Calendar } from '@features/calendar/components/calendar/Calendar';
 // helpers
 import { findTodayNote } from './helpers/findTodayNote';
 import { renderDailyNotesByMonth } from './helpers/renderDailyNotesByMonth';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 // mock date
 import { dailyNotes } from './mock/dailyNote';
 
@@ -21,9 +22,7 @@ export function DailyNotesPanel() {
   const todayNote = findTodayNote(dailyNotes);
 
   // Currently selected date in the calendar.
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [selectedDate, setSelectedDate] = useState(toISODate(new Date()));
   // Current calendar display mode.
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('week');
 

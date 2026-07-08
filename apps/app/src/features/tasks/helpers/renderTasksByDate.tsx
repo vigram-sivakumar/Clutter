@@ -10,7 +10,7 @@ import type { Task as TaskModel } from '../models/Tasks';
 // Helpers
 import { groupTasks } from './groupTasks';
 import { groupTasksByDate } from './groupByDate';
-import { formatShortDate } from '@shared/helpers/date/formatShortDate';
+import { formatDate } from '@shared/helpers/time';
 
 interface RenderTasksByDateProps {
   tasks: TaskModel[];
@@ -35,7 +35,7 @@ export function renderTasksByDate({ tasks }: RenderTasksByDateProps) {
             // Format the date for display.
             // Current year: 12 Jul
             // Other years: 12 Jul 2025
-            const title = formatShortDate(date);
+            const title = formatDate(date, 'short');
 
             return (
               <Section key={date} hasHeader title={title}>

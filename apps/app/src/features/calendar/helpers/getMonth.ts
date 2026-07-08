@@ -1,7 +1,7 @@
 import type { CalendarDate } from '../models/CalendarDate';
 
-import { isSameDate } from './isSameDate';
-import { isToday } from './isToday';
+import { isSame, isToday } from '@shared/helpers/time';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 
 /**
  * Returns the calendar cells for a month.
@@ -31,11 +31,7 @@ export function getMonth(
     // Move forward one day each iteration.
     date.setDate(start.getDate() + index);
 
-    const isoDate = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('-');
+    const isoDate = toISODate(date);
 
     cells.push({
       fullDate: isoDate,
@@ -44,7 +40,7 @@ export function getMonth(
 
       isToday: isToday(isoDate),
 
-      isSelected: isSameDate(isoDate, selectedDate),
+      isSelected: isSame(isoDate, selectedDate),
 
       // Previous/next month days.
       isOutsideMonth: date.getMonth() !== month.getMonth(),

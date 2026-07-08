@@ -12,6 +12,7 @@ import { getWeek } from '../../helpers/getWeek';
 import { getMonth } from '../../helpers/getMonth';
 import { moveCalendar } from '../../helpers/moveCalendar';
 import { getCalendarTitle } from '../../helpers/getCalendarTitle';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 
 interface CalendarProps {
   mode: CalendarMode;
@@ -51,7 +52,7 @@ export function Calendar({
   }
 
   function handleToday() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toISODate(new Date());
 
     setVisibleDate(today);
 
@@ -62,7 +63,7 @@ export function Calendar({
     <div className="calendar">
       <CalendarHeader
         month={title.month}
-        year={title.year}
+        year={title.year ?? ''}
         onPrevious={handlePrevious}
         onNext={handleNext}
         onToday={handleToday}

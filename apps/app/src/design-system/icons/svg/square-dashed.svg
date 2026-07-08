@@ -3,7 +3,6 @@
     d="M7.77777 2H9.77777C11.9869 2 13.7778 3.79086 13.7778 6V10C13.7778 12.2091 11.9869 14 9.77777 14H5.77777C3.56863 14 1.77777 12.2091 1.77777 10V6C1.77777 3.79086 3.56863 2 5.77777 2H7.77777Z"
     fill="none"
     stroke="currentColor"
-    stroke-width="var(--clutter-icon-stroke-user, 1.2)"
     stroke-linecap="round"
     stroke-linejoin="round"
     stroke-dasharray="2.6 2.4"

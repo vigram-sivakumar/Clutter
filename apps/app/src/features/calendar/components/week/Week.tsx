@@ -1,11 +1,12 @@
 import './Week.css';
 import { CalendarDate } from '../date/Date';
 import type { CalendarDate as CalendarDateModel } from '../../models/CalendarDate';
+import type { ISODate } from '@shared/helpers/time';
 
 interface CalendarWeekProps {
   dates: CalendarDateModel[];
   isCurrentWeek?: boolean;
-  onSelectedDateChange(fullDate: string): void;
+  onSelectedDateChange(fullDate: ISODate): void;
 }
 
 export function CalendarWeek({

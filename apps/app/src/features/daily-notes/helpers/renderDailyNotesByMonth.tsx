@@ -7,8 +7,12 @@ import { Section } from '@components/sidebar/section/Sidebar.Section';
 import type { DailyNote as DailyNoteModel } from '../models/DailyNote';
 // Helpers
 import { groupByMonth } from './groupByMonth';
-import { formatMonth } from '@shared/helpers/date/formatMonth';
-import { formatMonthYear } from '@shared/helpers/date/formatMonthYear';
+import {
+  formatDate,
+  isCurrentMonth,
+  isCurrentYear,
+  isToday,
+} from '@shared/helpers/time';
 
 interface RenderDailyNotesByMonthProps {
   dailyNotes: DailyNoteModel[];
@@ -19,23 +23,26 @@ export function renderDailyNotesByMonth({
 }: RenderDailyNotesByMonthProps) {
   const monthGroups = groupByMonth(dailyNotes);
   return Object.entries(monthGroups).map(([month, notes]) => {
-    // check current year
-    const currentYear = new Date().getFullYear();
-    const noteYear = new Date(`${month}-01`).getFullYear();
-    // Skips rendering year for current year
-    const title =
-      noteYear === currentYear
-        ? formatMonth(month, 'short')
-        : formatMonthYear(month, 'short');
+    // Skip rendering the year for the current year.
+    const monthDate = `${month}-01`;
+    const title = isCurrentYear(monthDate)
+      ? formatDate(monthDate, 'month')
+      : formatDate(monthDate, 'monthYear');
 
     return (
       <Fragment key={month}>
-        <Section hasHeader title={title} isCollapsible onClick={() => {}}>
+        <Section
+          hasHeader={!isCurrentMonth(month)}
+          title={title}
+          isCollapsible
+          onClick={() => {}}
+        >
           {notes.map((note) => (
             <DailyNote
               key={note.id}
               title={note.title}
               date={note.date}
+              isToday={isToday(note.date)}
               onClick={() => {}}
             />
           ))}

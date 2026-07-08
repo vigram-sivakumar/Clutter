@@ -1,11 +1,11 @@
-import { formatMonth } from '@shared/helpers/date/formatMonth';
+import { formatDate } from '@shared/helpers/time';
 
 /**
  * Returns the calendar title.
  */
 export function getCalendarTitle(visibleDate: string) {
   return {
-    month: formatMonth(visibleDate),
-    year: new Date(visibleDate).getFullYear().toString(),
+    month: formatDate(visibleDate, 'month'),
+    year: formatDate(visibleDate, 'monthYear').split(' ')[1],
   };
 }

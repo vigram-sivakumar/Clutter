@@ -2,10 +2,12 @@ import './Month.css';
 
 import type { CalendarDate as CalendarDateModel } from '../../models/CalendarDate';
 import { CalendarWeek } from '../week/Week';
+import { isToday } from '@shared/helpers/time';
+import type { ISODate } from '@shared/helpers/time';
 
 interface CalendarMonthProps {
   weeks: CalendarDateModel[][];
-  onSelectedDateChange(fullDate: string): void;
+  onSelectedDateChange(fullDate: ISODate): void;
 }
 
 export function CalendarMonth({
@@ -16,8 +18,7 @@ export function CalendarMonth({
     <div className="calendar-month">
       {/* Calendar weeks */}
       {weeks.map((week, index) => {
-        const today = new Date().toISOString().slice(0, 10);
-        const isCurrentWeek = week.some((date) => date.fullDate === today);
+        const isCurrentWeek = week.some((date) => isToday(date.fullDate));
         return (
           <CalendarWeek
             key={index}

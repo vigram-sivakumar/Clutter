@@ -2,6 +2,7 @@ import { DateLabel } from '@components/date-label/DateLabel';
 import { Entry, type EntryProps } from '@components/sidebar/entry/Entry';
 import { Button } from '@components/button/Button';
 import { Icons } from '@design-system/icons';
+import { formatDate } from '@shared/helpers/time';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -15,9 +16,7 @@ export function DailyNote({
   date,
   ...entryProps
 }: DailyNoteProps) {
-  // For now, display only the day of the month.
-  // Later this can be replaced with a shared date formatting helper.
-  const day = date ? Number(date.slice(-2)) : undefined;
+  const day = date ? Number(formatDate(date, 'date')) : undefined;
 
   return (
     <Entry

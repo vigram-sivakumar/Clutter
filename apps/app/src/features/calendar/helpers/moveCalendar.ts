@@ -1,3 +1,4 @@
+import { addMonths, addWeeks } from '@shared/helpers/time';
 import type { CalendarMode } from '../models/CalendarMode';
 
 /**
@@ -9,13 +10,11 @@ export function moveCalendar(
   direction: 'previous' | 'next',
   mode: CalendarMode
 ) {
-  const value = new Date(date);
+  const value = direction === 'next' ? 1 : -1;
 
   if (mode === 'week') {
-    value.setDate(value.getDate() + (direction === 'next' ? 7 : -7));
-  } else {
-    value.setMonth(value.getMonth() + (direction === 'next' ? 1 : -1));
+    return addWeeks(date, value);
   }
 
-  return value.toISOString().slice(0, 10);
+  return addMonths(date, value);
 }

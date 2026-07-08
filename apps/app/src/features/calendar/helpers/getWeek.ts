@@ -1,7 +1,7 @@
-import { CalendarDate } from '../models/CalendarDate';
+import type { CalendarDate } from '../models/CalendarDate';
 
-import { isToday } from './isToday';
-import { isSameDate } from './isSameDate';
+import { isSame, isToday } from '@shared/helpers/time';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 
 /**
  * Returns the seven calendar cells
@@ -26,11 +26,7 @@ export function getWeek(
     // Move forward one day each iteration.
     date.setDate(start.getDate() + index);
 
-    const isoDate = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('-');
+    const isoDate = toISODate(date);
 
     week.push({
       fullDate: isoDate,
@@ -39,7 +35,7 @@ export function getWeek(
 
       isToday: isToday(isoDate),
 
-      isSelected: isSameDate(isoDate, selectedDate),
+      isSelected: isSame(isoDate, selectedDate),
 
       // Week view never has outside month days.
       isOutsideMonth: false,

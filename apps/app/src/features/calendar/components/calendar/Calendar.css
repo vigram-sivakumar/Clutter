@@ -3,7 +3,6 @@
   flex-direction: column;
   width: 100%;
   gap: var(--space-4);
-  margin-bottom: 8px;
 }
 .calendar-view {
   display: flex;
@@ -12,9 +11,10 @@
 }
 .calendar-toggle {
   display: flex;
-  align-items: center;
+  align-items: start;
   justify-content: center;
   height: var(--height-sm);
+  padding: var(--space-2);
 }
 .calendar-toggle--button {
   display: flex;
@@ -29,7 +29,7 @@
 .calendar-toggle--bar {
   width: 40px;
   height: 6px;
-  background: var(--text-tertiary);
+  background: var(--text-placeholder);
   border-radius: 999px;
   opacity: var(--opacity-strong);
 

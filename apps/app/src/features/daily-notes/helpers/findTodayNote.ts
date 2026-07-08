@@ -1,8 +1,6 @@
+import { isToday } from '@shared/helpers/time';
 import { DailyNote } from '../models/DailyNote';
 
 export function findTodayNote(notes: DailyNote[]): DailyNote | null {
-  const today = new Date().toISOString().slice(0, 10);
-  const todayNote = notes.find((note) => note.date === today);
-
-  return todayNote ?? null;
+  return notes.find((note) => isToday(note.date)) ?? null;
 }

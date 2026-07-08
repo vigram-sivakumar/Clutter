@@ -1,0 +1,19 @@
+/**
+ * ISO local date.
+ *
+ * Example:
+ * 2026-07-08
+ */
+export type ISODate = string;
+
+/**
+ * Supported date formats.
+ */
+export type DateFormat =
+  | 'date' // 12
+  | 'month' // Jan
+  | 'short' // 12 Jan
+  | 'monthYear' // Jan 2027
+  | 'shortDate' // 12 Jan 2027
+  | 'longDate' // 12 January 2027
+  | 'weekday'; // Monday, 12 January 2027

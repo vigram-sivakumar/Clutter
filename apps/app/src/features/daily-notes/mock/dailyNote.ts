@@ -4,7 +4,7 @@ import { DailyNote } from '../models/DailyNote';
 export const dailyNotes: DailyNote[] = [
   {
     id: 'daily-note-1',
-    date: '2026-07-04',
+    date: '2026-07-07',
     title: 'Todays note',
   },
   {

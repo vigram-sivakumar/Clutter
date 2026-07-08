@@ -2,7 +2,6 @@
   <path
     d="M8.54545 2L5 2C3.34315 2 2 3.34315 2 5L2 11C2 12.6569 3.34315 14 5 14L11 14C12.6569 14 14 12.6569 14 11V7.4M5.5 10.5L11.5 4.5"
     stroke="currentColor"
-    stroke-width="var(--clutter-icon-stroke-user, 1.2)"
     stroke-linecap="round"
   />
   <circle cx="13.75" cy="2.25" r="1" fill="currentColor" />

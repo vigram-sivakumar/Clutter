@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  flex: 1;
+  min-height: 0;
 }
 .view--navigation {
   display: flex;
@@ -11,6 +13,7 @@
 .view--content {
   display: flex;
   flex-direction: column;
-  overflow-y: scroll;
+  overflow: auto;
   gap: var(--space-4);
+  padding-bottom: var(--space-32);
 }
