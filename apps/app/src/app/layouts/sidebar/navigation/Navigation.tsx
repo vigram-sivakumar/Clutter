@@ -1,6 +1,6 @@
 import { Entry, type EntryProps } from '@app/layouts/sidebar/entry/Entry';
 
-interface NavigationProps extends Omit<EntryProps, 'children'> {
+export interface NavigationProps extends Omit<EntryProps, 'children'> {
   title?: string;
   leading?: React.ReactNode;
 }

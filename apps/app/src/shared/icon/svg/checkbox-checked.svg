@@ -6,7 +6,7 @@
   <path
     d="M5 8.42857L6.8 11L11 5"
     stroke="var(--icon-on-accent, #FFF)"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    stroke-linecap="round"
+    stroke-linejoin="round"
   />
 </svg>

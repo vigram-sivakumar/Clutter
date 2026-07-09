@@ -2,7 +2,7 @@ import { Entry, EntryProps } from '@app/layouts/sidebar/entry/Entry';
 import { Checkbox } from '@components/checkbox/Checkbox';
 // import { Caret } from '@components/caret/Caret';
 import { Button } from '@components/button/Button';
-import { Icons } from '@design-system/icons';
+import { AppIcon } from '@shared/icon';
 
 interface TaskProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -39,7 +39,7 @@ export function Task({
       }
       actions={
         <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
-          <Icons.MoreHorizontal />
+          <AppIcon icon="moreHorizontal" />
         </Button>
       }
     >

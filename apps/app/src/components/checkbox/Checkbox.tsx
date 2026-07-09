@@ -1,4 +1,4 @@
-import { Icons } from '../../design-system/icons';
+import { AppIcon } from '@shared/icon';
 import './checkbox.css';
 
 export interface CheckboxProps {
@@ -29,7 +29,7 @@ export function Checkbox({
       className={className}
       onClick={() => onCheckedChange?.(!isChecked)}
     >
-      {isChecked ? <Icons.CheckboxChecked /> : <Icons.CheckboxUnchecked />}
+      <AppIcon icon={isChecked ? 'checkboxChecked' : 'checkboxUnchecked'} />
     </button>
   );
 }

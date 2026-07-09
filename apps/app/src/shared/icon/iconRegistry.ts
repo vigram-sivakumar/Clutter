@@ -40,6 +40,7 @@ import Plus from './svg/plus.svg?react';
 import Question from './svg/question.svg?react';
 import Settings from './svg/settings.svg?react';
 import Sidebar from './svg/sidebar.svg?react';
+import Slash from './svg/slash.svg?react';
 import Square from './svg/square.svg?react';
 import SquareCheckOutline from './svg/square-check-outline.svg?react';
 import SquareDashed from './svg/square-dashed.svg?react';
@@ -95,6 +96,7 @@ export const iconRegistry = {
   question: Question,
   settings: Settings,
   sidebar: Sidebar,
+  slash: Slash,
   square: Square,
   squareCheckOutline: SquareCheckOutline,
   squareDashed: SquareDashed,

@@ -1,6 +1,6 @@
-import { Icons } from '@design-system/icons';
 import './Header.css';
 import { Button } from '@components/button/Button';
+import { AppIcon } from '@shared/icon';
 
 interface CalendarHeaderProps {
   month: string;
@@ -28,13 +28,13 @@ export function CalendarHeader({
       {/* Navigation */}
       <div className="calendar-actions">
         <Button isIconOnly size="small" variant="ghost" onClick={onPrevious}>
-          <Icons.ArrowLeft />
+          <AppIcon icon="arrowLeft" />
         </Button>
         <Button isIconOnly size="small" variant="ghost" onClick={onNext}>
-          <Icons.ArrowRight />
+          <AppIcon icon="arrowRight" />
         </Button>
         <Button isIconOnly size="small" variant="ghost" onClick={onToday}>
-          <Icons.CalendarWithDot />
+          <AppIcon icon="calendarDot" />
         </Button>
       </div>
     </header>

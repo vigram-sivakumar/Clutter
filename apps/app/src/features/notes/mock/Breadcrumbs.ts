@@ -1,38 +1,37 @@
-import { Icons } from '@design-system/icons';
+import type { BreadcrumbProps } from '@components/breadcrumb/Breadcrumb';
 
-export const breadcrumbs = [
+export const breadcrumbs: BreadcrumbProps[] = [
   {
-    id: 'home',
-    title: 'Notes',
+    id: 'inbox',
+    title: 'Inbox',
+    icon: 'tray',
     onClick: () => console.log('Notes'),
-    icon: Icons.Tray,
   },
-
   {
-    id: 'folder-1',
-    title: 'Projects',
-    onClick: () => console.log('Projects'),
-    icon: Icons.Folder,
+    id: 'personal',
+    title: 'Personal',
+    icon: 'folder',
+    emoji: '🏠',
+    onClick: () => console.log('Personal'),
   },
-
   {
-    id: 'folder-2',
-    title: 'Clutter',
-    onClick: () => console.log('Clutter'),
-    icon: Icons.Folder,
+    id: 'travel',
+    title: 'Travel',
+    icon: 'folder',
+    emoji: '✈️',
+    onClick: () => console.log('Travel'),
   },
-
   {
-    id: 'folder-3',
-    title: 'Design System',
-    onClick: () => console.log('Design System'),
-    icon: Icons.Folder,
+    id: 'japan-trip',
+    title: 'Japan Trip',
+    icon: 'folder',
+    onClick: () => console.log('Japan Trip'),
   },
-
   {
-    id: 'note-1',
-    title: 'Buttons',
-    onClick: () => console.log('Buttons'),
-    icon: Icons.Note,
+    id: 'packing-list',
+    title: 'Packing List',
+    icon: 'note',
+    emoji: '🎒',
+    onClick: () => console.log('Packing List'),
   },
 ];

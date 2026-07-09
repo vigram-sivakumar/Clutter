@@ -5,6 +5,7 @@ import { Section } from '@app/layouts/sidebar/section/Section';
 import { renderTags } from './helpers/renderTags';
 import { tags as tagsMock } from './mock/tags';
 import { tagsNavigation } from './mock/tagsNavigation';
+import { AppIcon } from '@shared/icon';
 
 export function TagsPanel() {
   // const [isAllTagsExpanded, setAllTagsExpanded] = useState(true);
@@ -14,12 +15,13 @@ export function TagsPanel() {
       navigation={
         <Section>
           {tagsNavigation.map((navigation) => {
-            const Icon = navigation.icon;
             return (
               <Navigation
                 key={navigation.id}
                 title={navigation.title}
-                leading={<Icon />}
+                leading={
+                  <AppIcon icon={navigation.icon} emoji={navigation.emoji} />
+                }
                 onClick={() => {}}
               />
             );

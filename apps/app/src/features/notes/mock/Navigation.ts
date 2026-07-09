@@ -1,12 +1,12 @@
-import { Icons } from '@design-system/icons';
+import type { NavigationItem } from '@shared/models/navigation-item';
 
-export const notesNavigation = [
-  { id: 'new-note', title: 'New note', icon: Icons.NotePencil },
+export const notesNavigation: NavigationItem[] = [
+  { id: 'new-note', title: 'New note', icon: 'notePencil' },
   {
     id: 'all-notes',
     title: 'All notes',
-    icon: Icons.Note,
+    icon: 'note',
   },
-  { id: 'inbox', title: 'Unsorted', icon: Icons.Tray },
-  { id: 'templates', title: 'Templates', icon: Icons.Template },
+  { id: 'inbox', title: 'Unsorted', icon: 'tray' },
+  { id: 'templates', title: 'Templates', icon: 'template' },
 ];

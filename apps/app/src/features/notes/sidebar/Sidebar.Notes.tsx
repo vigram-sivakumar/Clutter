@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { AppIcon } from '@shared/icon';
+
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
@@ -20,13 +22,13 @@ export function Notes() {
       navigation={
         <Section>
           {notesNavigation.map((navigation) => {
-            const Icon = navigation.icon;
-
             return (
               <Navigation
                 key={navigation.id}
                 title={navigation.title}
-                leading={<Icon />}
+                leading={
+                  <AppIcon icon={navigation.icon} emoji={navigation.emoji} />
+                }
                 onClick={() => {}}
               />
             );

@@ -4,8 +4,8 @@
     cy="8"
     r="6"
     stroke="currentColor"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    strokeDasharray="3 3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-dasharray="3 3"
   />
 </svg>

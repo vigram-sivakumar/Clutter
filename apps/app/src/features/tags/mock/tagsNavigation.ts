@@ -1,6 +1,6 @@
-import { Icons } from '../../../design-system/icons';
+import type { NavigationItem } from '@shared/models/navigation-item';
 
-export const tagsNavigation = [
-  { id: 'create-tag', title: 'Create tag', icon: Icons.Plus },
-  { id: 'all-tag', title: 'All tag', icon: Icons.Tag },
+export const tagsNavigation: NavigationItem[] = [
+  { id: 'create-tag', title: 'Create tag', icon: 'plus' },
+  { id: 'all-tag', title: 'All tag', icon: 'tag' },
 ];

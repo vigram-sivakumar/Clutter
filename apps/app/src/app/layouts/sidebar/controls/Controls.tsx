@@ -7,15 +7,15 @@ export function Controls() {
     <div className="controls">
       <div className="sidebar-toggle">
         <Button isIconOnly size="medium" variant="ghost">
-          <AppIcon name="sidebar" />
+          <AppIcon icon="sidebar" />
         </Button>
       </div>
       <div className="history-controls">
         <Button isIconOnly size="medium" variant="ghost">
-          <AppIcon name="arrowLeft" />
+          <AppIcon icon="arrowLeft" />
         </Button>
         <Button isIconOnly size="medium" variant="ghost">
-          <AppIcon name="arrowRight" />
+          <AppIcon icon="arrowRight" />
         </Button>
       </div>
     </div>

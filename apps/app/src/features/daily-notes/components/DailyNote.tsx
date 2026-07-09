@@ -1,7 +1,7 @@
 import { DateLabel } from '@components/date-label/DateLabel';
 import { Entry, type EntryProps } from '@app/layouts/sidebar/entry/Entry';
 import { Button } from '@components/button/Button';
-import { Icons } from '@design-system/icons';
+import { AppIcon } from '@shared/icon';
 import { formatDate } from '@shared/helpers/time';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {
@@ -24,7 +24,7 @@ export function DailyNote({
       leading={<DateLabel isToday={isToday} date={day} />}
       actions={
         <Button isIconOnly size="small" variant="ghost" interaction="subtle">
-          <Icons.MoreHorizontal />
+          <AppIcon icon="moreHorizontal" />
         </Button>
       }
     >

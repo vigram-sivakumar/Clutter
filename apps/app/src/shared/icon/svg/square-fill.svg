@@ -6,6 +6,6 @@
   <path
     d="M6 2.59961H10C11.8778 2.59961 13.4004 4.12223 13.4004 6V10C13.4004 11.8778 11.8778 13.4004 10 13.4004H6C4.12223 13.4004 2.59961 11.8778 2.59961 10V6C2.59961 4.12223 4.12223 2.59961 6 2.59961Z"
     stroke="var(--tag-swatch-border, currentColor)"
-    strokeLinecap="round"
+    stroke-linecap="round"
   />
 </svg>

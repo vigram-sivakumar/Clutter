@@ -1,4 +1,5 @@
 import { Breadcrumb, type BreadcrumbProps } from './Breadcrumb';
+import { AppIcon } from '@shared/icon';
 
 interface BreadcrumbsProps {
   items: BreadcrumbProps[];
@@ -27,10 +28,18 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
       {/* Origin */}
 
       <Breadcrumb id={first.id} variant="origin" icon={FirstIcon} />
+      <span className="breadcrumb__slash">
+        <AppIcon icon="slash" />
+      </span>
+      {/* <IconSlot icon="slash" /> */}
       {/* Overflow */}
       {middleItems.length > 0 && (
-        // <Breadcrumb variant="overflow" />
-        <Breadcrumb variant="overflow" />
+        <>
+          <Breadcrumb variant="overflow" />
+          <span className="breadcrumb__slash">
+            <AppIcon icon="slash" />
+          </span>
+        </>
       )}
       {/* Current */}
       <Breadcrumb id={last.id} variant="current" {...last} />

@@ -17,3 +17,15 @@
 .breadcrumb__title {
   white-space: nowrap;
 }
+
+.breadcrumb__slash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 8px;
+  height: 100%;
+  opacity: var(--opacity-strong);
+}
+.breadcrumb__slash svg {
+  flex-shrink: 0;
+}

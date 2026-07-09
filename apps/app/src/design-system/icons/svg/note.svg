@@ -1,7 +1,0 @@
-<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path
-    d="M5 5H11M5 8H11M5 11H9M5 15H11C12.6569 15 14 13.6569 14 12V4C14 2.34315 12.6569 1 11 1H5C3.34315 1 2 2.34315 2 4V12C2 13.6569 3.34315 15 5 15Z"
-    stroke="currentColor"
-    strokeLinecap="round"
-  />
-</svg>

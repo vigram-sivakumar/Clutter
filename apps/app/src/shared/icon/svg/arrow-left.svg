@@ -2,6 +2,6 @@
   <path
     d="M7 4C7 4 4 6.94592 4 8M4 8C4 9.05408 7 12 7 12M4 8H12"
     stroke="currentColor"
-    strokeLinecap="round"
+    stroke-linecap="round"
   />
 </svg>

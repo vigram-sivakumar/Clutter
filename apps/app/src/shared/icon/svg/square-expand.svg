@@ -2,18 +2,18 @@
   <path
     d="M5 2H11C12.6569 2 14 3.34315 14 5V11C14 12.6569 12.6569 14 11 14H5C3.34315 14 2 12.6569 2 11V5C2 3.34315 3.34315 2 5 2Z"
     stroke="currentColor"
-    strokeLinecap="round"
+    stroke-linecap="round"
   />
   <path
     d="M3.54967 8.12138C3.54967 7.4701 4.98726 6.14084 4.98726 6.14084M3.54967 8.12138C3.54966 8.77266 4.98727 10.1018 4.98727 10.1018M3.54967 8.12138H7.24265"
     stroke="currentColor"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    stroke-linecap="round"
+    stroke-linejoin="round"
   />
   <path
     d="M12.4829 8.12134C12.4829 7.47006 11.0454 6.14083 11.0454 6.14083M12.4829 8.12134C12.4829 8.77261 11.0453 10.1018 11.0453 10.1018M12.4829 8.12134H8.78999"
     stroke="currentColor"
-    strokeLinecap="round"
-    strokeLinejoin="round"
+    stroke-linecap="round"
+    stroke-linejoin="round"
   />
 </svg>

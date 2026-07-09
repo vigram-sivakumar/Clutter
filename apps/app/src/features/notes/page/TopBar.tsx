@@ -1,9 +1,9 @@
 import { TopBar } from '@app/layouts/page/topbar/TopBar';
 import { Button } from '@components/button/Button';
-import { Icons } from '@design-system/icons';
 import { Breadcrumbs } from '../../../components/breadcrumb/Breadcrumbs';
 // Mock
 import { breadcrumbs as breadcrumbsMock } from '../mock/Breadcrumbs';
+import { AppIcon } from '@shared/icon';
 
 export function NoteTopBar() {
   return (
@@ -16,13 +16,13 @@ export function NoteTopBar() {
       trailing={
         <>
           <Button size="medium" isIconOnly>
-            {<Icons.FavouriteOutline />}
+            <AppIcon icon={'favouriteOutline'} />
           </Button>
           <Button size="medium" isIconOnly>
-            {<Icons.WidthFill />}
+            <AppIcon icon={'widthFill'} />
           </Button>
           <Button size="medium" isIconOnly>
-            {<Icons.MoreHorizontal />}
+            <AppIcon icon={'moreHorizontal'} />
           </Button>
         </>
       }

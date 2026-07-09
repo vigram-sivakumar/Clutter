@@ -2,7 +2,7 @@ import { CountBadge } from '@components/count-badge/CountBadge';
 import { Entry, EntryProps } from '@app/layouts/sidebar/entry/Entry';
 import { Badge, badgeColor } from '@components/badge/Badge';
 import { Button } from '@components/button/Button';
-import { Icons } from '@design-system/icons/index';
+import { AppIcon } from '@shared/icon';
 
 interface TagProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -24,7 +24,7 @@ export function Tag({
       trailing={<CountBadge count={count} />}
       actions={
         <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
-          <Icons.MoreHorizontal />
+          <AppIcon icon="moreHorizontal" />
         </Button>
       }
     >

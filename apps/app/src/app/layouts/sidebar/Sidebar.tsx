@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
-import type { Icon } from '@shared/icon';
+import type { SystemIcon } from '@shared/icon';
 
 import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
 import { DailyNotesPanel } from '@features/daily-notes/Sidebar.DailyNotes';
@@ -13,32 +13,34 @@ import { Controls } from '@app/layouts/sidebar/controls/Controls';
 
 const tabs: Array<{
   value: string;
-  icon: Icon;
+  icon: SystemIcon;
+  emoji?: string;
   panel: ReactNode;
 }> = [
   {
     value: 'notes',
-    icon: { type: 'system', name: 'note' },
+    icon: 'note',
     panel: <Notes />,
+    emoji: '🍉',
   },
   {
     value: 'daily-notes',
-    icon: { type: 'system', name: 'calendarToday' },
+    icon: 'calendarToday',
     panel: <DailyNotesPanel />,
   },
   {
     value: 'tasks',
-    icon: { type: 'system', name: 'squareCheckOutline' },
+    icon: 'squareCheckOutline',
     panel: <TasksPanel />,
   },
   {
     value: 'tags',
-    icon: { type: 'system', name: 'tag' },
+    icon: 'tag',
     panel: <TagsPanel />,
   },
   {
     value: 'search',
-    icon: { type: 'system', name: 'magnifyingGlass' },
+    icon: 'magnifyingGlass',
     panel: <SearchPanel />,
   },
 ];
@@ -52,7 +54,7 @@ export function Sidebar() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {tabs.map((tab) => (
           <Tab key={tab.value} value={tab.value}>
-            <AppIcon icon={tab.icon} />
+            <AppIcon icon={tab.icon} emoji={tab.emoji} />
           </Tab>
         ))}
       </Tabs>

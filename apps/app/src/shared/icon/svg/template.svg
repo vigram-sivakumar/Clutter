@@ -2,17 +2,17 @@
   <path
     d="M6 2H11C12.6569 2 14 3.34315 14 5V11C14 12.6569 12.6569 14 11 14H5C3.34315 14 2 12.6569 2 11V6"
     stroke="currentColor"
-    strokeLinecap="round"
+    stroke-linecap="round"
   />
   <path
     d="M2.00375 3.5V2M2.00375 0.5V2M2.00375 2L3.5 1.99634M2.00375 2L0.5 1.99634"
     stroke="currentColor"
-    strokeLinecap="round"
+    stroke-linecap="round"
   />
   <path
     d="M5 6.5H11M5 9.5H9"
     stroke="currentColor"
-    strokeLinecap="round"
+    stroke-linecap="round"
     opacity="0.5"
   />
 </svg>

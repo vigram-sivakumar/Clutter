@@ -1,6 +1,5 @@
 import './Caret.css';
-import { Icons } from '../../design-system/icons';
-
+import { AppIcon } from '@shared/icon';
 interface CaretProps {
   variant?: 'tree' | 'dropdown';
   isPlaceholder?: boolean;
@@ -34,7 +33,7 @@ export function Caret({
         <span
           className={`caret-icon ${isExpanded ? 'caret-icon--expanded' : 'caret-icon--collapsed'}`}
         >
-          <Icons.CaretRight width={12} height={12} />
+          <AppIcon icon="caretRight" size={12} />
         </span>
       </button>
     </span>
