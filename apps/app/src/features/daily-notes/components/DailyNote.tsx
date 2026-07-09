@@ -1,5 +1,5 @@
 import { DateLabel } from '@components/date-label/DateLabel';
-import { Entry, type EntryProps } from '@components/sidebar/entry/Entry';
+import { Entry, type EntryProps } from '@app/layouts/sidebar/entry/Entry';
 import { Button } from '@components/button/Button';
 import { Icons } from '@design-system/icons';
 import { formatDate } from '@shared/helpers/time';

@@ -1,0 +1,20 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+
+  padding-inline: var(--space-8);
+  padding-block: var(--space-8);
+}
+.topbar--leading,
+.topbar--trailing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar--trailing {
+  gap: 0px;
+  color: var(--text-tertiary);
+}

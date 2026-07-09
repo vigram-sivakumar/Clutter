@@ -15,9 +15,13 @@ export function formatDate(date: ISODate, format: DateFormat) {
         day: 'numeric',
       }).format(currentDate);
 
-    case 'month':
+    case 'monthShort':
       return new Intl.DateTimeFormat(DEFAULT_LOCALE, {
         month: 'short',
+      }).format(currentDate);
+    case 'monthLong':
+      return new Intl.DateTimeFormat(DEFAULT_LOCALE, {
+        month: 'long',
       }).format(currentDate);
 
     case 'short':

@@ -1,11 +1,11 @@
 import type { CSSProperties, FC } from 'react';
+import { formatDate } from '@shared/helpers/time/';
 
 import CalendarBlankFrame from './svg/calendar-blank.svg?react';
 
 export type CalendarTodayIconProps = {
   /** Local calendar day to show (defaults to today). */
   date?: Date;
-  size?: number;
   className?: string;
   style?: CSSProperties;
 };
@@ -15,34 +15,25 @@ export type CalendarTodayIconProps = {
  * Stroke and digit use `currentColor` — set `style={{ color: 'var(--icon-secondary)' }}` when you need Figma’s muted treatment.
  */
 export const CalendarTodayIcon: FC<CalendarTodayIconProps> = ({
-  date = new Date(),
-  size = 16,
+  date,
   className,
   style,
 }) => {
-  const day = String(date.getDate());
-  const mergedStyle: CSSProperties = {
-    display: 'block',
-    flexShrink: 0,
-    ...style,
-  };
+  const day = formatDate((date ?? new Date()).toISOString(), 'date');
 
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 16 16"
       fill="none"
-      width={size}
-      height={size}
       className={className}
-      style={mergedStyle}
+      style={style}
       aria-hidden
     >
       <CalendarBlankFrame
         width="100%"
         height="100%"
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: 'block' }}
         aria-hidden
       />
       <text

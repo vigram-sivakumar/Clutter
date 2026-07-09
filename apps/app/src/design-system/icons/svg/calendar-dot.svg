@@ -1,0 +1,13 @@
+<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M5 2V1M11 2V1M4.75 4.5H11.25M5 2H11C12.6569 2 14 3.34315 14 5V11C14 12.6569 12.6569 14 11 14H5C3.34315 14 2 12.6569 2 11V5C2 3.34315 3.34315 2 5 2Z"
+    stroke="currentColor"
+    strokeLinecap="round"
+  />
+  <circle
+    cx="8"
+    cy="9"
+    r="2.25"
+    fill="var(--calendar-accent, currentColor)"
+  />
+</svg>

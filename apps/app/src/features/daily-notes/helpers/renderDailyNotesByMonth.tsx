@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 
 // Components
 import { DailyNote } from '../components/DailyNote';
-import { Section } from '@components/sidebar/section/Sidebar.Section';
+import { Section } from '@app/layouts/sidebar/section/Section';
 // Models
 import type { DailyNote as DailyNoteModel } from '../models/DailyNote';
 // Helpers
@@ -26,7 +26,7 @@ export function renderDailyNotesByMonth({
     // Skip rendering the year for the current year.
     const monthDate = `${month}-01`;
     const title = isCurrentYear(monthDate)
-      ? formatDate(monthDate, 'month')
+      ? formatDate(monthDate, 'monthShort')
       : formatDate(monthDate, 'monthYear');
 
     return (

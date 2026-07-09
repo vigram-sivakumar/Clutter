@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import type { CalendarMode } from '@features/calendar/models/CalendarMode';
 import { Button } from '@components/button/Button';
-import { Section } from '@components/sidebar/section/Sidebar.Section';
-import { View } from '@components/sidebar/View/Sidebar.View';
+import { Section } from '@app/layouts/sidebar/section/Section';
+import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { DateLabel } from '@components/date-label/DateLabel';
 import { Calendar } from '@features/calendar/components/calendar/Calendar';
 // helpers

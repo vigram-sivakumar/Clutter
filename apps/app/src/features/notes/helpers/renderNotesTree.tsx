@@ -1,14 +1,14 @@
 // React
 import { Fragment } from 'react/jsx-runtime';
 // Components
-import { Folder } from '../components/Folder';
-import { Note } from '../components/Note';
+import { Folder } from '../sidebar/Folder';
+import { Note } from '../sidebar/Note';
 // Models
 import type { Folder as FolderModels } from '../models/Folder';
 import type { Note as NoteModels } from '../models/Note';
 // Helpers
-import { getChildFolders } from '../folder/getChildFolders';
-import { getChildNotes } from '../folder/getChildNotes';
+import { getChildFolders } from './getChildFolders';
+import { getChildNotes } from './getChildNotes';
 
 interface RenderEntryTreeProps {
   folders: FolderModels[];

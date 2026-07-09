@@ -1,8 +1,8 @@
 import { Fragment } from 'react';
 
 // Components
-import { Task } from '../components/Task';
-import { Section } from '@components/sidebar/section/Sidebar.Section';
+import { Task } from '../sidebar/Task';
+import { Section } from '@app/layouts/sidebar/section/Section';
 
 // Models
 import type { Task as TaskModel } from '../models/Tasks';

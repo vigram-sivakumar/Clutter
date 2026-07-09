@@ -1,4 +1,4 @@
-import { Section } from '@components/sidebar/section/Sidebar.Section';
+import { Section } from '@app/layouts/sidebar/section/Section';
 import { Tag } from '../components/Tag';
 import type { Tag as TagModel } from '../models/Tag';
 

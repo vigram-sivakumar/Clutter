@@ -1,7 +1,7 @@
 // React
 // Components
-import { Folder } from '../components/Folder';
-import { Note } from '../components/Note';
+import { Folder } from '../sidebar/Folder';
+import { Note } from '../sidebar/Note';
 // Models
 import type { Note as NoteModels } from '../models/Note';
 import type { Folder as FolderModels } from '../models/Folder';

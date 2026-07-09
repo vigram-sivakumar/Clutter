@@ -6,6 +6,7 @@ import ArrowLeftSmallHead from './svg/arrow-left-small-head.svg?react';
 import ArrowRight from './svg/arrow-right.svg?react';
 import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import CalendarBlank from './svg/calendar-blank.svg?react';
+import CalendarDot from './svg/calendar-dot.svg?react';
 import CaretDown from './svg/caret-down.svg?react';
 import CaretLeft from './svg/caret-left.svg?react';
 import CaretRight from './svg/caret-right.svg?react';
@@ -51,7 +52,6 @@ import WidthFill from './svg/width-fill.svg?react';
 import WidthHug from './svg/width-hug.svg?react';
 
 import { CalendarTodayIcon } from './calendar-today-icon';
-import { CalendarWithDotIcon } from './calendar-with-dot-icon';
 
 const DEFAULT_ICON_SIZE = 16;
 const DEFAULT_ICON_STROKE_WIDTH = 1.2;
@@ -76,7 +76,7 @@ export const Icons = {
 
   CalendarBlank: createIcon(CalendarBlank),
   CalendarToday: CalendarTodayIcon,
-  CalendarWithDot: CalendarWithDotIcon,
+  CalendarWithDot: createIcon(CalendarDot),
 
   CaretDown: createIcon(CaretDown),
   CaretLeft: createIcon(CaretLeft),

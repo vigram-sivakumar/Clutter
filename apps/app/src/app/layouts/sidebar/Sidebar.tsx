@@ -1,39 +1,44 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
-import { Icons } from '../../../design-system/icons';
+import { AppIcon } from '@shared/icon';
+import type { Icon } from '@shared/icon';
 
-import { Notes } from '../../../features/notes/Sidebar.Notes';
-import { DailyNotesPanel } from '../../../features/daily-notes/Sidebar.DailyNotes';
-import { TasksPanel } from '../../../features/tasks/Sidebar.Tasks';
-import { TagsPanel } from '../../../features/tags/Sidebar.Tags';
-import { SearchPanel } from '../../../features/search/Sidebar.Search';
-import { Controls } from '@components/sidebar/controls/Section.Controls';
+import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
+import { DailyNotesPanel } from '@features/daily-notes/Sidebar.DailyNotes';
+import { TasksPanel } from '@features/tasks/sidebar/Sidebar.Tasks';
+import { TagsPanel } from '@features/tags/Sidebar.Tags';
+import { SearchPanel } from '@features/search/Sidebar.Search';
+import { Controls } from '@app/layouts/sidebar/controls/Controls';
 
-const tabs = [
+const tabs: Array<{
+  value: string;
+  icon: Icon;
+  panel: ReactNode;
+}> = [
   {
     value: 'notes',
-    icon: <Icons.Note />,
+    icon: { type: 'system', name: 'note' },
     panel: <Notes />,
   },
   {
     value: 'daily-notes',
-    icon: <Icons.CalendarToday />,
+    icon: { type: 'system', name: 'calendarToday' },
     panel: <DailyNotesPanel />,
   },
   {
     value: 'tasks',
-    icon: <Icons.SquareCheckOutline />,
+    icon: { type: 'system', name: 'squareCheckOutline' },
     panel: <TasksPanel />,
   },
   {
     value: 'tags',
-    icon: <Icons.Tag />,
+    icon: { type: 'system', name: 'tag' },
     panel: <TagsPanel />,
   },
   {
     value: 'search',
-    icon: <Icons.MagnifyingGlass />,
+    icon: { type: 'system', name: 'magnifyingGlass' },
     panel: <SearchPanel />,
   },
 ];
@@ -47,7 +52,7 @@ export function Sidebar() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {tabs.map((tab) => (
           <Tab key={tab.value} value={tab.value}>
-            {tab.icon}
+            <AppIcon icon={tab.icon} />
           </Tab>
         ))}
       </Tabs>

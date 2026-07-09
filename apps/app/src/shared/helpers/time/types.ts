@@ -11,7 +11,8 @@ export type ISODate = string;
  */
 export type DateFormat =
   | 'date' // 12
-  | 'month' // Jan
+  | 'monthShort' // Jan
+  | 'monthLong' // January
   | 'short' // 12 Jan
   | 'monthYear' // Jan 2027
   | 'shortDate' // 12 Jan 2027
