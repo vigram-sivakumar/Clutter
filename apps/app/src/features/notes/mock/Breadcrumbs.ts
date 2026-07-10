@@ -1,6 +1,6 @@
-import type { BreadcrumbProps } from '@components/breadcrumb/Breadcrumb';
+import type { BreadcrumbItemProps } from '@components/breadcrumb/BreadcrumbItem';
 
-export const breadcrumbs: BreadcrumbProps[] = [
+export const breadcrumbs: BreadcrumbItemProps[] = [
   {
     id: 'inbox',
     title: 'Inbox',

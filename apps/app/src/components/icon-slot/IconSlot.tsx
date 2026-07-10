@@ -2,7 +2,7 @@ import './IconSlot.css';
 import { AppIcon, type SystemIcon } from '@shared/icon';
 
 interface IconSlotProps {
-  icon: SystemIcon;
+  icon?: SystemIcon;
   emoji?: string;
 }
 

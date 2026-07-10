@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import './Page.css';
+import { PageCover } from './cover/Page.Cover';
 
 type PageProps = {
   topBar?: ReactNode;
@@ -7,7 +8,7 @@ type PageProps = {
   tabs?: ReactNode;
   body?: ReactNode;
   references?: ReactNode;
-  cover?: ReactNode;
+  coverImage?: string;
 };
 
 export function Page({
@@ -16,7 +17,7 @@ export function Page({
   tabs,
   body,
   references,
-  cover,
+  coverImage,
 }: PageProps) {
   return (
     <div className="page">
@@ -27,7 +28,7 @@ export function Page({
         {body && <main className="page__body">{body}</main>}
         {references && <aside className="page__references">{references}</aside>}
       </div>
-      {cover && <aside className="page__cover">{cover}</aside>}
+      {coverImage && <PageCover src={coverImage} />}
     </div>
   );
 }

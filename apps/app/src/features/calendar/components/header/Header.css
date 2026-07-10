@@ -3,7 +3,7 @@
   align-items: center;
   justify-content: space-between;
   height: var(--height-md);
-  padding-inline: var(--space-6);
+  padding-left: var(--space-6);
 }
 .calendar-title {
   display: flex;

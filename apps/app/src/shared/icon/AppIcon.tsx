@@ -6,7 +6,7 @@ const DEFAULT_SIZE = 16;
 const DEFAULT_STROKE_WIDTH = 1.5;
 
 export interface AppIconProps {
-  icon: SystemIcon;
+  icon?: SystemIcon;
   emoji?: string;
   size?: number;
 }
@@ -14,6 +14,10 @@ export interface AppIconProps {
 export function AppIcon({ icon, emoji, size = DEFAULT_SIZE }: AppIconProps) {
   if (emoji) {
     return <span className="emoji-icon">{emoji}</span>;
+  }
+
+  if (!icon) {
+    return null;
   }
 
   const Icon = iconRegistry[icon];

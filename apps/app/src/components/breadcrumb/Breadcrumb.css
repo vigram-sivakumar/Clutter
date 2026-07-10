@@ -1,12 +1,7 @@
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .breadcrumb-item {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: start;
   gap: var(--space-6);
 
   color: var(--text-secondary);
@@ -34,21 +29,11 @@
 
 .breadcrumb-item:hover {
   background: var(--state-hover);
+  color: var(--text-primary);
 }
 
 .breadcrumb-item--icon {
+  justify-content: center;
   aspect-ratio: 1;
   padding: 0;
-}
-
-.breadcrumb__slash {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 100%;
-  color: var(--text-placeholder);
-}
-.breadcrumb__slash svg {
-  flex-shrink: 0;
 }

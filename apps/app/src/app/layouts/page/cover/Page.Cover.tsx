@@ -9,5 +9,9 @@ export function PageCover({ src }: PageCoverProps) {
     return null;
   }
 
-  return <img src={src} className="page-cover__image" alt="" />;
+  return (
+    <aside className="page__cover">
+      <img src={src} className="page-cover__image" alt="" />
+    </aside>
+  );
 }

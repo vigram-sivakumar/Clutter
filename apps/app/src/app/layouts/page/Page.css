@@ -23,16 +23,3 @@
   box-shadow: inset 0 0 0 1px var(--border-default);
   border-radius: var(--border-radius);
 }
-
-.page__cover {
-  width: calc(20vw + var(--border-radius));
-  flex-shrink: 0;
-
-  position: relative;
-  z-index: 1;
-  overflow: hidden;
-
-  border-radius: 0 var(--border-radius) var(--border-radius) 0;
-
-  margin-left: calc(var(--border-radius) * -1);
-}
