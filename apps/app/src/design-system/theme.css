@@ -31,7 +31,7 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Text */
   --text-primary: rgba(255, 255, 255, 0.82);
-  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-secondary: rgba(255, 255, 255, 0.65);
   --text-tertiary: rgba(255, 255, 255, 0.35);
   --text-placeholder: rgba(255, 255, 255, 0.2);
   --text-inverse: rgba(0, 0, 0, 0.8);
@@ -42,6 +42,7 @@ html.theme-transitioning [data-themeable] *::after {
   --icon-tertiary: rgba(255, 255, 255, 0.35);
   --icon-placeholder: rgba(255, 255, 255, 0.2);
   --icon-inverse: rgba(0, 0, 0, 0.8);
+  --icon-emoji: rgba(255, 255, 255, 1);
 
   /* Border */
   --border-subtle: rgba(255, 255, 255, 0.04);
@@ -137,7 +138,7 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Text */
   --text-primary: rgba(0, 0, 0, 0.8);
-  --text-secondary: rgba(0, 0, 0, 0.65);
+  --text-secondary: rgba(0, 0, 0, 0.6);
   --text-tertiary: rgba(0, 0, 0, 0.45);
   --text-placeholder: rgba(0, 0, 0, 0.3);
   --text-inverse: rgba(255, 255, 255, 0.82);
@@ -148,6 +149,7 @@ html.theme-transitioning [data-themeable] *::after {
   --icon-tertiary: rgba(0, 0, 0, 0.45);
   --icon-placeholder: rgba(0, 0, 0, 0.3);
   --icon-inverse: rgba(255, 255, 255, 0.82);
+  --icon-emoji: rgba(0, 0, 0, 1);
 
   /* Border */
   --border-subtle: rgba(0, 0, 0, 0.04);

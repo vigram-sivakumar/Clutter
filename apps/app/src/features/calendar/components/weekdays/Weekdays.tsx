@@ -1,7 +1,7 @@
 import './Weekdays.css';
 
 export function CalendarWeekdays() {
-  const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
     <div className="calendar-weekdays-row">

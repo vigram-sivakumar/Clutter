@@ -1,48 +1,66 @@
-import { Breadcrumb, type BreadcrumbProps } from './Breadcrumb';
+import { BreadcrumbItem, BreadcrumbItemProps } from './BreadcrumbItem';
 import { AppIcon } from '@shared/icon';
 
-interface BreadcrumbsProps {
-  items: BreadcrumbProps[];
+interface BreadcrumbsProp {
+  items: BreadcrumbItemProps[];
 }
 
-/**
- * Renders the breadcrumb trail.
- */
-export function Breadcrumbs({ items }: BreadcrumbsProps) {
+export function Breadcrumbs({ items }: BreadcrumbsProp) {
   if (items.length === 0) {
     return null;
   }
-
-  // Current page only.
+  // Current page only
   if (items.length === 1) {
-    return <Breadcrumb variant="current" {...items[0]!} />;
-  }
+    const current = items[0]!;
 
-  const first = items[0]!;
-  const FirstIcon = first.icon;
-  const last = items[items.length - 1]!;
-  const middleItems = items.slice(1, -1);
+    return (
+      <BreadcrumbItem
+        id={current.id}
+        icon={current.icon}
+        emoji={current.emoji}
+        title={current.title}
+        onClick={() => {}}
+      />
+    );
+  }
+  // Renders root, current & overflow
+  const root = items[0]!;
+  const current = items.at(-1)!; //Returns last item in the array
+  const collapsed = items.slice(1, -1)!;
 
   return (
-    <>
-      {/* Origin */}
-
-      <Breadcrumb id={first.id} variant="origin" icon={FirstIcon} />
+    <div className="breadcrumb">
+      <BreadcrumbItem
+        id={root.id}
+        isIconOnly
+        icon={root.icon}
+        emoji={root.emoji}
+        title={root.title}
+        onClick={() => {}}
+      />
       <span className="breadcrumb__slash">
         <AppIcon icon="slash" />
       </span>
-      {/* <IconSlot icon="slash" /> */}
-      {/* Overflow */}
-      {middleItems.length > 0 && (
+      {collapsed.length > 0 && (
         <>
-          <Breadcrumb variant="overflow" />
+          <BreadcrumbItem
+            id={root.id}
+            isIconOnly
+            icon={'moreHorizontal'}
+            onClick={() => {}}
+          />
           <span className="breadcrumb__slash">
             <AppIcon icon="slash" />
           </span>
         </>
       )}
-      {/* Current */}
-      <Breadcrumb id={last.id} variant="current" {...last} />
-    </>
+      <BreadcrumbItem
+        id={root.id}
+        icon={current.icon}
+        emoji={current.emoji}
+        title={current.title}
+        onClick={() => {}}
+      />
+    </div>
   );
 }

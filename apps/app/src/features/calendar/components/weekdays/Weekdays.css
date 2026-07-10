@@ -12,6 +12,7 @@
   height: var(--height-md);
   border-radius: var(--radius-md);
   color: var(--icon-tertiary);
-  font-size: var(--text-label);
+  font-size: var(--text-caption);
+  letter-spacing: var(--ls-caption);
   font-weight: var(--fw-regular);
 }
