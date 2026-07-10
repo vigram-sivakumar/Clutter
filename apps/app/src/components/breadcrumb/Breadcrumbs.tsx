@@ -1,13 +1,14 @@
 import './Breadcrumbs.css';
 import { BreadcrumbItem, BreadcrumbItemProps } from './BreadcrumbItem';
 import { AppIcon } from '@shared/icon';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import { Overlay } from '@shared/overlay/Overlay';
 
-interface BreadcrumbsProp {
+interface BreadcrumbsProps {
   items: BreadcrumbItemProps[];
 }
 
-export function Breadcrumbs({ items }: BreadcrumbsProp) {
+export function Breadcrumbs({ items }: BreadcrumbsProps) {
   if (items.length === 0) {
     return null;
   }
@@ -20,8 +21,6 @@ export function Breadcrumbs({ items }: BreadcrumbsProp) {
         id={current.id}
         icon={current.icon}
         emoji={current.emoji}
-        title={current.title}
-        onClick={() => {}}
       />
     );
   }
@@ -29,7 +28,9 @@ export function Breadcrumbs({ items }: BreadcrumbsProp) {
   const root = items[0]!;
   const current = items.at(-1)!; //Returns last item in the array
   const collapsed = items.slice(1, -1)!;
-  const [isOverflowOpen, setIsOverflowIsOpen] = useState(false);
+  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
+  const closeOverflow = () => setIsOverflowOpen(false);
+  const overflowButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="breadcrumb">
@@ -39,37 +40,36 @@ export function Breadcrumbs({ items }: BreadcrumbsProp) {
         icon={root.icon}
         emoji={root.emoji}
         title={root.title}
-        onClick={() => {}}
       />
       <span className="breadcrumb__slash">
         <AppIcon icon="slash" />
       </span>
       {collapsed.length > 0 && (
         <>
-          <div
-            className="breadcrumb-overflow"
-            onMouseEnter={() => setIsOverflowIsOpen(true)}
-            onMouseLeave={() => setIsOverflowIsOpen(false)}
-          >
+          <div className="breadcrumb-overflow">
             <BreadcrumbItem
-              id={root.id}
+              ref={overflowButtonRef}
               isIconOnly
               icon={'moreHorizontal'}
-              onClick={() => {}}
+              onClick={() => setIsOverflowOpen((prev) => !prev)}
             />
-            {isOverflowOpen && (
+            <Overlay
+              open={isOverflowOpen}
+              anchorRef={overflowButtonRef}
+              placement="top-end"
+              onClose={closeOverflow}
+            >
               <div className="breadcrumb-overflow__menu">
                 {collapsed.map((item) => (
                   <BreadcrumbItem
-                    id={item.id}
+                    key={item.id}
                     icon={item.icon}
                     emoji={item.emoji}
                     title={item.title}
-                    onClick={() => {}}
                   />
                 ))}
               </div>
-            )}
+            </Overlay>
           </div>
           <span className="breadcrumb__slash">
             <AppIcon icon="slash" />
@@ -77,11 +77,10 @@ export function Breadcrumbs({ items }: BreadcrumbsProp) {
         </>
       )}
       <BreadcrumbItem
-        id={root.id}
+        id={current.id}
         icon={current.icon}
         emoji={current.emoji}
         title={current.title}
-        onClick={() => {}}
       />
     </div>
   );

@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { AppIcon, SystemIcon } from '@shared/icon';
 import './Breadcrumb.css';
 
@@ -11,16 +12,16 @@ export interface BreadcrumbItemProps {
   onClick?: () => void;
 }
 
-export function BreadcrumbItem({
-  id,
-  title,
-  icon,
-  emoji,
-  isIconOnly,
-  onClick,
-}: BreadcrumbItemProps) {
+export const BreadcrumbItem = forwardRef<
+  HTMLButtonElement,
+  BreadcrumbItemProps
+>(function BreadcrumbItem(
+  { id, title, icon, emoji, isIconOnly, onClick },
+  ref
+) {
   return (
     <button
+      ref={ref}
       className={`breadcrumb-item ${isIconOnly ? 'breadcrumb-item--icon' : ''}`}
       id={id}
       onClick={onClick}
@@ -30,4 +31,4 @@ export function BreadcrumbItem({
       {!isIconOnly && <span className="breadcrumb-item--title">{title}</span>}
     </button>
   );
-}
+});

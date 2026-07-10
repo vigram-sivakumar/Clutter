@@ -19,9 +19,9 @@
   position: relative;
 }
 .breadcrumb-overflow__menu {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 4px);
+  /* position: absolute; */
+  /* left: 0;
+  top: calc(100% + 4px); */
 
   background: var(--surface-secondary);
   border: 1px solid var(--border-subtle);
@@ -32,12 +32,4 @@
 }
 .breadcrumb-overflow__menu .breadcrumb-item {
   width: 100%;
-}
-.breadcrumb-overflow::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 8px;
 }

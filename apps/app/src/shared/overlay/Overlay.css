@@ -1,0 +1,18 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+
+  pointer-events: none;
+}
+
+.overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+.overlay__surface {
+  position: absolute;
+  pointer-events: auto;
+}
