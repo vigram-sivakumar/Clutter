@@ -16,7 +16,6 @@ export interface OverlayProps {
   placement?: OverlayPlacement;
   offset?: number;
   backdrop?: boolean;
-  dismissOnOutsideClick?: boolean;
   onClose: () => void;
   children: ReactNode;
   animate?: boolean;

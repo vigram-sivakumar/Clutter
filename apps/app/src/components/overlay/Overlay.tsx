@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useRef } from 'react';
-import { OverlayProps } from './Overlay.types';
+import type { OverlayProps } from './Overlay.types';
 import './Overlay.css';
 // Hooks
 import { useEscape } from './hooks/useEscape';
