@@ -1,11 +1,6 @@
-import {
-  RefObject,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useState,
-} from 'react';
-import { OverlayPlacement } from '../types';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import type { RefObject } from 'react';
+import type { OverlayPlacement } from '../Overlay.types';
 
 const VIEWPORT_PADDING = 8;
 
@@ -209,7 +204,7 @@ export function usePosition({
       transformOrigin,
       side,
     });
-  }, [placement, offset]);
+  }, [anchorRef, surfaceRef, placement, offset]);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -223,10 +218,25 @@ export function usePosition({
       return;
     }
 
+    const resizeObserver = new ResizeObserver(() => {
+      updatePosition();
+    });
+
+    if (anchorRef.current) {
+      resizeObserver.observe(anchorRef.current);
+    }
+
+    if (surfaceRef.current) {
+      resizeObserver.observe(surfaceRef.current);
+    }
+
     window.addEventListener('resize', updatePosition);
+    document.addEventListener('scroll', updatePosition, true);
 
     return () => {
       window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('scroll', updatePosition, true);
+      resizeObserver.disconnect();
     };
   }, [open, updatePosition]);
 

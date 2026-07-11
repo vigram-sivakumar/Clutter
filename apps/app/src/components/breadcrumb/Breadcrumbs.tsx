@@ -2,7 +2,7 @@ import './Breadcrumbs.css';
 import { BreadcrumbItem, BreadcrumbItemProps } from './BreadcrumbItem';
 import { AppIcon } from '@shared/icon';
 import { useState, useRef } from 'react';
-import { Overlay } from '@shared/overlay/Overlay';
+import { Overlay } from '@components/overlay/Overlay';
 
 interface BreadcrumbsProps {
   items: BreadcrumbItemProps[];

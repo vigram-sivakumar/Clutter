@@ -1,6 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useRef } from 'react';
-import { OverlayProps } from './types';
+import { OverlayProps } from './Overlay.types';
 import './Overlay.css';
 // Hooks
 import { useEscape } from './hooks/useEscape';
@@ -15,7 +15,6 @@ export function Overlay({
   onClose,
   children,
   backdrop = true,
-  dismissOnOutsideClick = true,
   animate = true,
 }: OverlayProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -44,12 +43,7 @@ export function Overlay({
 
   return createPortal(
     <div className="overlay">
-      {backdrop && (
-        <div
-          className="overlay__backdrop"
-          onClick={dismissOnOutsideClick ? onClose : undefined}
-        />
-      )}
+      {backdrop && <div className="overlay__backdrop" onClick={onClose} />}
 
       <div
         ref={surfaceRef}
@@ -57,7 +51,6 @@ export function Overlay({
         style={{
           top: position.top,
           left: position.left,
-          transformOrigin: position.transformOrigin,
         }}
       >
         <div
@@ -68,6 +61,9 @@ export function Overlay({
           ]
             .filter(Boolean)
             .join(' ')}
+          style={{
+            transformOrigin: position.transformOrigin,
+          }}
         >
           {children}
         </div>

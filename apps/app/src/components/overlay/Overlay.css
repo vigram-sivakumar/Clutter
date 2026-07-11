@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: var(--z-overlay);
+  z-index: var(--z-overlay, 1000);
 
   pointer-events: none;
 }
@@ -15,6 +15,10 @@
 .overlay__surface {
   position: absolute;
   pointer-events: auto;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .overlay__content {
@@ -28,23 +32,23 @@
 }
 
 .overlay__content--top {
-  --overlay-x: 0;
+  --overlay-x: 0px;
   --overlay-y: 4px;
 }
 
 .overlay__content--bottom {
-  --overlay-x: 0;
+  --overlay-x: 0px;
   --overlay-y: -4px;
 }
 
 .overlay__content--left {
   --overlay-x: 4px;
-  --overlay-y: 0;
+  --overlay-y: 0px;
 }
 
 .overlay__content--right {
   --overlay-x: -4px;
-  --overlay-y: 0;
+  --overlay-y: 0px;
 }
 
 @keyframes overlay-enter {
@@ -56,5 +60,12 @@
   to {
     opacity: 1;
     transform: translate(0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay__content--animated {
+    animation: none;
+    will-change: auto;
   }
 }
