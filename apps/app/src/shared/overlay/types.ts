@@ -19,4 +19,5 @@ export interface OverlayProps {
   dismissOnOutsideClick?: boolean;
   onClose: () => void;
   children: ReactNode;
+  animate?: boolean;
 }

@@ -5,6 +5,7 @@ import './Overlay.css';
 // Hooks
 import { useEscape } from './hooks/useEscape';
 import { usePosition } from './hooks/usePosition';
+import { useRestoreFocus } from './hooks/useRestoreFocus';
 
 export function Overlay({
   open,
@@ -15,12 +16,18 @@ export function Overlay({
   children,
   backdrop = true,
   dismissOnOutsideClick = true,
+  animate = true,
 }: OverlayProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
 
   useEscape({
     open,
     onClose,
+  });
+
+  useRestoreFocus({
+    open,
+    anchorRef,
   });
 
   const position = usePosition({
@@ -50,9 +57,20 @@ export function Overlay({
         style={{
           top: position.top,
           left: position.left,
+          transformOrigin: position.transformOrigin,
         }}
       >
-        {children}
+        <div
+          className={[
+            'overlay__content',
+            animate && 'overlay__content--animated',
+            animate && `overlay__content--${position.side}`,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {children}
+        </div>
       </div>
     </div>,
     document.body

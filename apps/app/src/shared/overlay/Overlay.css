@@ -16,3 +16,45 @@
   position: absolute;
   pointer-events: auto;
 }
+
+.overlay__content {
+  --overlay-x: 0px;
+  --overlay-y: 0px;
+}
+
+.overlay__content--animated {
+  will-change: transform, opacity;
+  animation: overlay-enter 140ms ease-out forwards;
+}
+
+.overlay__content--top {
+  --overlay-x: 0;
+  --overlay-y: 4px;
+}
+
+.overlay__content--bottom {
+  --overlay-x: 0;
+  --overlay-y: -4px;
+}
+
+.overlay__content--left {
+  --overlay-x: 4px;
+  --overlay-y: 0;
+}
+
+.overlay__content--right {
+  --overlay-x: -4px;
+  --overlay-y: 0;
+}
+
+@keyframes overlay-enter {
+  from {
+    opacity: 0;
+    transform: translate(var(--overlay-x), var(--overlay-y)) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
