@@ -1,22 +1,26 @@
-import { ReactNode, RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
-export type OverlayPlacement =
-  | 'top-start'
-  | 'top-end'
-  | 'bottom-start'
-  | 'bottom-end'
-  | 'left-start'
-  | 'left-end'
-  | 'right-start'
-  | 'right-end';
+export type OverlaySide = 'top' | 'bottom' | 'left' | 'right';
+
+export type OverlayAlignment = 'start' | 'end';
+
+export type OverlayBackdrop = false | 'transparent' | 'tinted';
 
 export interface OverlayProps {
+  // Visibility
   open: boolean;
-  anchorRef: RefObject<HTMLElement>;
-  placement?: OverlayPlacement;
-  offset?: number;
-  backdrop?: boolean;
   onClose: () => void;
-  children: ReactNode;
+
+  // Positioning
+  anchorRef: RefObject<HTMLElement>;
+  side?: OverlaySide;
+  alignment?: OverlayAlignment;
+  offset?: number;
+
+  // Behaviour
+  backdrop?: OverlayBackdrop;
   animate?: boolean;
+
+  // Content
+  children: ReactNode;
 }

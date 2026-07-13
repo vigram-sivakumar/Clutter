@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import type { RefObject } from 'react';
-import type { OverlayPlacement } from '../Overlay.types';
 
-export type OverlaySide = 'top' | 'bottom' | 'left' | 'right';
+import type { OverlayAlignment, OverlaySide } from '../Overlay.types';
 
 export interface OverlayPosition {
   top: number;
@@ -11,6 +10,17 @@ export interface OverlayPosition {
   side: OverlaySide;
 }
 
+interface UseOverlayPositionOptions {
+  open: boolean;
+  anchorRef: RefObject<HTMLElement>;
+  surfaceRef: RefObject<HTMLDivElement>;
+  side: OverlaySide;
+  alignment: OverlayAlignment;
+  offset: number;
+}
+
+type AvailableSpace = Record<OverlaySide, number>;
+
 const INITIAL_POSITION: OverlayPosition = {
   top: 0,
   left: 0,
@@ -18,238 +28,204 @@ const INITIAL_POSITION: OverlayPosition = {
   side: 'bottom',
 };
 
+// Keep a small gap between the overlay and the viewport edges.
 const COLLISION_PADDING = 8;
 
-interface UseOverlayPositionOptions {
-  open: boolean;
-  anchorRef: RefObject<HTMLElement>;
-  surfaceRef: RefObject<HTMLDivElement>;
-  placement: OverlayPlacement;
-  offset: number;
+const OPPOSITE_SIDE: Record<OverlaySide, OverlaySide> = {
+  top: 'bottom',
+  right: 'left',
+  bottom: 'top',
+  left: 'right',
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
-function resolvePlacement(
-  placement: OverlayPlacement,
-  availableSpace: {
-    top: number;
-    right: number;
-    bottom: number;
-    left: number;
-  },
-  surfaceRect: DOMRect,
+// Prefer the requested side, then the opposite side, then whichever
+// side provides more usable space when neither side fully fits.
+function resolveSide(
+  side: OverlaySide,
+  availableSpace: AvailableSpace,
+  overlayRect: DOMRect,
   offset: number
-): OverlayPlacement {
-  let resolvedPlacement = placement;
+): OverlaySide {
+  const oppositeSide = OPPOSITE_SIDE[side];
 
-  if (
-    resolvedPlacement === 'bottom-start' &&
-    availableSpace.bottom < surfaceRect.height + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'top-start';
+  const isVerticalSide = side === 'top' || side === 'bottom';
+
+  const overlaySize = isVerticalSide ? overlayRect.height : overlayRect.width;
+
+  const requiredSpace = overlaySize + offset + COLLISION_PADDING;
+
+  const requestedSideSpace = availableSpace[side];
+  const oppositeSideSpace = availableSpace[oppositeSide];
+
+  if (requestedSideSpace >= requiredSpace) {
+    return side;
   }
 
-  if (
-    resolvedPlacement === 'bottom-end' &&
-    availableSpace.bottom < surfaceRect.height + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'top-end';
+  if (oppositeSideSpace >= requiredSpace) {
+    return oppositeSide;
   }
 
-  if (
-    resolvedPlacement === 'top-start' &&
-    availableSpace.top < surfaceRect.height + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'bottom-start';
-  }
-
-  if (
-    resolvedPlacement === 'top-end' &&
-    availableSpace.top < surfaceRect.height + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'bottom-end';
-  }
-
-  if (
-    resolvedPlacement === 'left-start' &&
-    availableSpace.left < surfaceRect.width + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'right-start';
-  }
-
-  if (
-    resolvedPlacement === 'left-end' &&
-    availableSpace.left < surfaceRect.width + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'right-end';
-  }
-
-  if (
-    resolvedPlacement === 'right-start' &&
-    availableSpace.right < surfaceRect.width + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'left-start';
-  }
-
-  if (
-    resolvedPlacement === 'right-end' &&
-    availableSpace.right < surfaceRect.width + offset + COLLISION_PADDING
-  ) {
-    resolvedPlacement = 'left-end';
-  }
-
-  return resolvedPlacement;
+  return oppositeSideSpace > requestedSideSpace ? oppositeSide : side;
 }
 
 export function useOverlayPosition({
   open,
   anchorRef,
   surfaceRef,
-  placement,
+  side,
+  alignment,
   offset,
-}: UseOverlayPositionOptions) {
-  const [position, setPosition] = useState<OverlayPosition>(INITIAL_POSITION);
+}: UseOverlayPositionOptions): OverlayPosition {
+  const [position, setPosition] = useState<OverlayPosition>(() => ({
+    ...INITIAL_POSITION,
+    side,
+  }));
 
+  // Measure both elements and calculate the overlay position.
   const updatePosition = useCallback(() => {
-    if (!anchorRef.current || !surfaceRef.current) {
+    const anchorElement = anchorRef.current;
+    const surfaceElement = surfaceRef.current;
+
+    if (!anchorElement || !surfaceElement) {
       return;
     }
 
-    const anchorRect = anchorRef.current.getBoundingClientRect();
-    const surfaceRect = surfaceRef.current.getBoundingClientRect();
-    const availableSpace = {
+    const anchorRect = anchorElement.getBoundingClientRect();
+
+    const overlayRect = surfaceElement.getBoundingClientRect();
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    const availableSpace: AvailableSpace = {
       top: anchorRect.top,
-      right: window.innerWidth - anchorRect.right,
-      bottom: window.innerHeight - anchorRect.bottom,
+      right: viewportWidth - anchorRect.right,
+      bottom: viewportHeight - anchorRect.bottom,
       left: anchorRect.left,
     };
-    const resolvedPlacement = resolvePlacement(
-      placement,
-      availableSpace,
-      surfaceRect,
-      offset
-    );
+
+    const resolvedSide = resolveSide(side, availableSpace, overlayRect, offset);
+
+    const isStartAligned = alignment === 'start';
+
     let top = 0;
     let left = 0;
     let transformOrigin = 'top left';
-    let side: 'top' | 'bottom' | 'left' | 'right' = 'bottom';
 
-    switch (resolvedPlacement) {
-      case 'bottom-start':
+    switch (resolvedSide) {
+      case 'bottom':
         top = anchorRect.bottom + offset;
-        left = anchorRect.left;
-        transformOrigin = 'top left';
-        side = 'bottom';
+
+        left = isStartAligned
+          ? anchorRect.left
+          : anchorRect.right - overlayRect.width;
+
+        transformOrigin = isStartAligned ? 'top left' : 'top right';
         break;
 
-      case 'bottom-end':
-        top = anchorRect.bottom + offset;
-        left = anchorRect.right - surfaceRect.width;
-        transformOrigin = 'top right';
-        side = 'bottom';
+      case 'top':
+        top = anchorRect.top - overlayRect.height - offset;
+
+        left = isStartAligned
+          ? anchorRect.left
+          : anchorRect.right - overlayRect.width;
+
+        transformOrigin = isStartAligned ? 'bottom left' : 'bottom right';
         break;
 
-      case 'top-start':
-        top = anchorRect.top - surfaceRect.height - offset;
-        left = anchorRect.left;
-        transformOrigin = 'bottom left';
-        side = 'top';
+      case 'left':
+        top = isStartAligned
+          ? anchorRect.top
+          : anchorRect.bottom - overlayRect.height;
+
+        left = anchorRect.left - overlayRect.width - offset;
+
+        transformOrigin = isStartAligned ? 'top right' : 'bottom right';
         break;
 
-      case 'top-end':
-        top = anchorRect.top - surfaceRect.height - offset;
-        left = anchorRect.right - surfaceRect.width;
-        transformOrigin = 'bottom right';
-        side = 'top';
-        break;
+      case 'right':
+        top = isStartAligned
+          ? anchorRect.top
+          : anchorRect.bottom - overlayRect.height;
 
-      case 'left-start':
-        top = anchorRect.top;
-        left = anchorRect.left - surfaceRect.width - offset;
-        transformOrigin = 'right top';
-        side = 'left';
-        break;
-
-      case 'left-end':
-        top = anchorRect.bottom - surfaceRect.height;
-        left = anchorRect.left - surfaceRect.width - offset;
-        transformOrigin = 'right bottom';
-        side = 'left';
-        break;
-
-      case 'right-start':
-        top = anchorRect.top;
         left = anchorRect.right + offset;
-        transformOrigin = 'left top';
-        side = 'right';
-        break;
 
-      case 'right-end':
-        top = anchorRect.bottom - surfaceRect.height;
-        left = anchorRect.right + offset;
-        transformOrigin = 'left bottom';
-        side = 'right';
+        transformOrigin = isStartAligned ? 'top left' : 'bottom left';
         break;
-
-      default:
-        top = anchorRect.bottom + offset;
-        left = anchorRect.left;
-        transformOrigin = 'top left';
-        side = 'bottom';
     }
 
-    left = Math.max(COLLISION_PADDING, left);
-    left = Math.min(
-      left,
-      window.innerWidth - surfaceRect.width - COLLISION_PADDING
+    const maxLeft = Math.max(
+      COLLISION_PADDING,
+      viewportWidth - overlayRect.width - COLLISION_PADDING
     );
 
-    top = Math.max(COLLISION_PADDING, top);
-    top = Math.min(
-      top,
-      window.innerHeight - surfaceRect.height - COLLISION_PADDING
+    const maxTop = Math.max(
+      COLLISION_PADDING,
+      viewportHeight - overlayRect.height - COLLISION_PADDING
     );
 
-    setPosition({
-      top,
-      left,
+    const nextPosition: OverlayPosition = {
+      top: clamp(top, COLLISION_PADDING, maxTop),
+      left: clamp(left, COLLISION_PADDING, maxLeft),
       transformOrigin,
-      side,
-    });
-  }, [anchorRef, surfaceRef, placement, offset]);
+      side: resolvedSide,
+    };
 
+    setPosition((currentPosition) => {
+      const positionHasChanged =
+        currentPosition.top !== nextPosition.top ||
+        currentPosition.left !== nextPosition.left ||
+        currentPosition.transformOrigin !== nextPosition.transformOrigin ||
+        currentPosition.side !== nextPosition.side;
+
+      return positionHasChanged ? nextPosition : currentPosition;
+    });
+  }, [anchorRef, surfaceRef, side, alignment, offset]);
+
+  // Position the overlay before the browser paints it.
   useLayoutEffect(() => {
     if (!open) {
       return;
     }
+
     updatePosition();
   }, [open, updatePosition]);
 
+  // Keep the overlay aligned as its elements or surroundings change.
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      updatePosition();
-    });
+    const anchorElement = anchorRef.current;
+    const surfaceElement = surfaceRef.current;
 
-    if (anchorRef.current) {
-      resizeObserver.observe(anchorRef.current);
+    const resizeObserver = new ResizeObserver(updatePosition);
+
+    if (anchorElement) {
+      resizeObserver.observe(anchorElement);
     }
 
-    if (surfaceRef.current) {
-      resizeObserver.observe(surfaceRef.current);
+    if (surfaceElement) {
+      resizeObserver.observe(surfaceElement);
     }
 
     window.addEventListener('resize', updatePosition);
+
     document.addEventListener('scroll', updatePosition, true);
 
     return () => {
       window.removeEventListener('resize', updatePosition);
+
       document.removeEventListener('scroll', updatePosition, true);
+
       resizeObserver.disconnect();
     };
-  }, [open, updatePosition]);
+  }, [open, anchorRef, surfaceRef, updatePosition]);
 
   return position;
 }

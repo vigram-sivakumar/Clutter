@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 
-interface UseEscapeProps {
+interface UseEscapeOptions {
   open: boolean;
   onClose: () => void;
 }
 
-export function useEscape({ open, onClose }: UseEscapeProps) {
+export function useEscape({ open, onClose }: UseEscapeOptions) {
   useEffect(() => {
     if (!open) {
       return;

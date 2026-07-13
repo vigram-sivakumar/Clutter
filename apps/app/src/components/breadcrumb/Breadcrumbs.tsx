@@ -56,7 +56,8 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
             <Overlay
               open={isOverflowOpen}
               anchorRef={overflowButtonRef}
-              placement="bottom-start"
+              side="bottom"
+              alignment="start"
               onClose={closeOverflow}
             >
               <div className="breadcrumb-overflow__menu">

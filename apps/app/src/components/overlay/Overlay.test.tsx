@@ -20,8 +20,8 @@ import {
   vi,
 } from 'vitest';
 
-import { Overlay } from '../overlay/Overlay';
-import type { OverlayPlacement } from '../overlay/Overlay.types';
+import { Overlay } from './Overlay';
+import type { OverlayAlignment, OverlaySide } from './Overlay.types';
 
 type RectInput = {
   top: number;
@@ -52,16 +52,18 @@ class ResizeObserverMock {
 
 type HarnessProps = {
   initialOpen?: boolean;
-  placement?: OverlayPlacement;
+  side?: OverlaySide;
+  alignment?: OverlayAlignment;
   offset?: number;
-  backdrop?: boolean;
+  backdrop?: false | 'transparent' | 'tinted';
   animate?: boolean;
   onClose?: () => void;
 };
 
 function Harness({
   initialOpen = true,
-  placement,
+  side,
+  alignment,
   offset,
   backdrop,
   animate,
@@ -84,7 +86,8 @@ function Harness({
       <Overlay
         open={open}
         anchorRef={anchorRef as RefObject<HTMLElement>}
-        placement={placement}
+        side={side}
+        alignment={alignment}
         offset={offset}
         backdrop={backdrop}
         animate={animate}
@@ -176,7 +179,7 @@ describe('Overlay', () => {
     expect(document.body.querySelector('.overlay')).not.toBeNull();
   });
 
-  it('uses the default bottom-start position and animation origin', async () => {
+  it('uses bottom and start as the default position', async () => {
     render(<Harness />);
 
     const surface = document.body.querySelector(
@@ -193,6 +196,25 @@ describe('Overlay', () => {
 
     expect(content.style.transformOrigin).toBe('top left');
     expect(content.classList.contains('overlay__content--animated')).toBe(true);
+    expect(content.classList.contains('overlay__content--bottom')).toBe(true);
+  });
+
+  it('positions end alignment against the far edge of the anchor', async () => {
+    render(<Harness side="bottom" alignment="end" />);
+
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+    const content = document.body.querySelector(
+      '.overlay__content'
+    ) as HTMLDivElement;
+
+    await waitFor(() => {
+      expect(surface.style.top).toBe('146px');
+      expect(surface.style.left).toBe('140px');
+    });
+
+    expect(content.style.transformOrigin).toBe('top right');
     expect(content.classList.contains('overlay__content--bottom')).toBe(true);
   });
 
@@ -286,7 +308,7 @@ describe('Overlay', () => {
       height: 100,
     });
 
-    render(<Harness placement="bottom-start" offset={6} />);
+    render(<Harness side="bottom" alignment="start" offset={6} />);
 
     const surface = document.body.querySelector(
       '.overlay__surface'
@@ -324,7 +346,7 @@ describe('Overlay', () => {
       height: 100,
     });
 
-    render(<Harness placement="right-start" offset={6} />);
+    render(<Harness side="right" alignment="start" offset={6} />);
 
     const content = document.body.querySelector(
       '.overlay__content'
@@ -335,6 +357,44 @@ describe('Overlay', () => {
     });
 
     expect(content.classList.contains('overlay__content--left')).toBe(true);
+  });
+
+  it('preserves end alignment when the side flips', async () => {
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 300,
+    });
+
+    anchorRect = createRect({
+      top: 260,
+      left: 100,
+      width: 80,
+      height: 20,
+    });
+
+    surfaceRect = createRect({
+      top: 0,
+      left: 0,
+      width: 120,
+      height: 100,
+    });
+
+    render(<Harness side="bottom" alignment="end" offset={6} />);
+
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+    const content = document.body.querySelector(
+      '.overlay__content'
+    ) as HTMLDivElement;
+
+    await waitFor(() => {
+      expect(surface.style.top).toBe('154px');
+      expect(surface.style.left).toBe('60px');
+    });
+
+    expect(content.style.transformOrigin).toBe('bottom right');
+    expect(content.classList.contains('overlay__content--top')).toBe(true);
   });
 
   it('repositions when a scroll event moves the anchor', async () => {

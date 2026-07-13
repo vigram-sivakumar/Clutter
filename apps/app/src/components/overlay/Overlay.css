@@ -20,13 +20,20 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+.overlay__backdrop--transparent {
+  background: transparent;
+}
+
+.overlay__backdrop--tinted {
+  background: var(--surface-overlay);
+}
 
 .overlay__content {
   --overlay-x: 0px;
   --overlay-y: 0px;
 }
 
-.overlay__content--animated {
+.overlay__content--animate {
   animation: overlay-enter 140ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
