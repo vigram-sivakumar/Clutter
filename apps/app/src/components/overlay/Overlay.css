@@ -27,8 +27,7 @@
 }
 
 .overlay__content--animated {
-  will-change: transform, opacity;
-  animation: overlay-enter 140ms ease-out forwards;
+  animation: overlay-enter 140ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .overlay__content--top {
@@ -54,7 +53,7 @@
 @keyframes overlay-enter {
   from {
     opacity: 0;
-    transform: translate(var(--overlay-x), var(--overlay-y)) scale(0.96);
+    transform: translate(var(--overlay-x), var(--overlay-y)) scale(0.98);
   }
 
   to {
@@ -66,6 +65,5 @@
 @media (prefers-reduced-motion: reduce) {
   .overlay__content--animated {
     animation: none;
-    will-change: auto;
   }
 }

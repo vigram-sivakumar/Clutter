@@ -4,7 +4,7 @@ import type { OverlayProps } from './Overlay.types';
 import './Overlay.css';
 // Hooks
 import { useEscape } from './hooks/useEscape';
-import { usePosition } from './hooks/usePosition';
+import { useOverlayPosition } from './hooks/useOverlayPosition';
 import { useRestoreFocus } from './hooks/useRestoreFocus';
 
 export function Overlay({
@@ -29,7 +29,7 @@ export function Overlay({
     anchorRef,
   });
 
-  const position = usePosition({
+  const overlayPosition = useOverlayPosition({
     open,
     anchorRef,
     surfaceRef,
@@ -49,20 +49,20 @@ export function Overlay({
         ref={surfaceRef}
         className="overlay__surface"
         style={{
-          top: position.top,
-          left: position.left,
+          top: overlayPosition.top,
+          left: overlayPosition.left,
         }}
       >
         <div
           className={[
             'overlay__content',
             animate && 'overlay__content--animated',
-            animate && `overlay__content--${position.side}`,
+            animate && `overlay__content--${overlayPosition.side}`,
           ]
             .filter(Boolean)
             .join(' ')}
           style={{
-            transformOrigin: position.transformOrigin,
+            transformOrigin: overlayPosition.transformOrigin,
           }}
         >
           {children}

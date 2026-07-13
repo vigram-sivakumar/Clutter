@@ -2,9 +2,25 @@ import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import type { RefObject } from 'react';
 import type { OverlayPlacement } from '../Overlay.types';
 
-const VIEWPORT_PADDING = 8;
+export type OverlaySide = 'top' | 'bottom' | 'left' | 'right';
 
-interface UsePositionProps {
+export interface OverlayPosition {
+  top: number;
+  left: number;
+  transformOrigin: string;
+  side: OverlaySide;
+}
+
+const INITIAL_POSITION: OverlayPosition = {
+  top: 0,
+  left: 0,
+  transformOrigin: 'top left',
+  side: 'bottom',
+};
+
+const COLLISION_PADDING = 8;
+
+interface UseOverlayPositionOptions {
   open: boolean;
   anchorRef: RefObject<HTMLElement>;
   surfaceRef: RefObject<HTMLDivElement>;
@@ -27,56 +43,56 @@ function resolvePlacement(
 
   if (
     resolvedPlacement === 'bottom-start' &&
-    availableSpace.bottom < surfaceRect.height + offset + VIEWPORT_PADDING
+    availableSpace.bottom < surfaceRect.height + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'top-start';
   }
 
   if (
     resolvedPlacement === 'bottom-end' &&
-    availableSpace.bottom < surfaceRect.height + offset + VIEWPORT_PADDING
+    availableSpace.bottom < surfaceRect.height + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'top-end';
   }
 
   if (
     resolvedPlacement === 'top-start' &&
-    availableSpace.top < surfaceRect.height + offset + VIEWPORT_PADDING
+    availableSpace.top < surfaceRect.height + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'bottom-start';
   }
 
   if (
     resolvedPlacement === 'top-end' &&
-    availableSpace.top < surfaceRect.height + offset + VIEWPORT_PADDING
+    availableSpace.top < surfaceRect.height + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'bottom-end';
   }
 
   if (
     resolvedPlacement === 'left-start' &&
-    availableSpace.left < surfaceRect.width + offset + VIEWPORT_PADDING
+    availableSpace.left < surfaceRect.width + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'right-start';
   }
 
   if (
     resolvedPlacement === 'left-end' &&
-    availableSpace.left < surfaceRect.width + offset + VIEWPORT_PADDING
+    availableSpace.left < surfaceRect.width + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'right-end';
   }
 
   if (
     resolvedPlacement === 'right-start' &&
-    availableSpace.right < surfaceRect.width + offset + VIEWPORT_PADDING
+    availableSpace.right < surfaceRect.width + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'left-start';
   }
 
   if (
     resolvedPlacement === 'right-end' &&
-    availableSpace.right < surfaceRect.width + offset + VIEWPORT_PADDING
+    availableSpace.right < surfaceRect.width + offset + COLLISION_PADDING
   ) {
     resolvedPlacement = 'left-end';
   }
@@ -84,19 +100,14 @@ function resolvePlacement(
   return resolvedPlacement;
 }
 
-export function usePosition({
+export function useOverlayPosition({
   open,
   anchorRef,
   surfaceRef,
   placement,
   offset,
-}: UsePositionProps) {
-  const [position, setPosition] = useState({
-    top: 0,
-    left: 0,
-    transformOrigin: 'top left',
-    side: 'bottom',
-  });
+}: UseOverlayPositionOptions) {
+  const [position, setPosition] = useState<OverlayPosition>(INITIAL_POSITION);
 
   const updatePosition = useCallback(() => {
     if (!anchorRef.current || !surfaceRef.current) {
@@ -186,16 +197,16 @@ export function usePosition({
         side = 'bottom';
     }
 
-    left = Math.max(VIEWPORT_PADDING, left);
+    left = Math.max(COLLISION_PADDING, left);
     left = Math.min(
       left,
-      window.innerWidth - surfaceRect.width - VIEWPORT_PADDING
+      window.innerWidth - surfaceRect.width - COLLISION_PADDING
     );
 
-    top = Math.max(VIEWPORT_PADDING, top);
+    top = Math.max(COLLISION_PADDING, top);
     top = Math.min(
       top,
-      window.innerHeight - surfaceRect.height - VIEWPORT_PADDING
+      window.innerHeight - surfaceRect.height - COLLISION_PADDING
     );
 
     setPosition({

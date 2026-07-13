@@ -20,8 +20,8 @@ import {
   vi,
 } from 'vitest';
 
-import { Overlay } from './Overlay';
-import type { OverlayPlacement } from './Overlay.types';
+import { Overlay } from '../overlay/Overlay';
+import type { OverlayPlacement } from '../overlay/Overlay.types';
 
 type RectInput = {
   top: number;
