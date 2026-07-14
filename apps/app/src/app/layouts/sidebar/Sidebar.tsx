@@ -18,15 +18,15 @@ const tabs: Array<{
   panel: ReactNode;
 }> = [
   {
-    value: 'notes',
-    icon: 'note',
-    panel: <Notes />,
-    emoji: '🍉',
-  },
-  {
     value: 'daily-notes',
     icon: 'calendarToday',
     panel: <DailyNotesPanel />,
+  },
+  {
+    value: 'notes',
+    icon: 'note',
+    panel: <Notes />,
+    // emoji: '🍉',
   },
   {
     value: 'tasks',
@@ -46,7 +46,7 @@ const tabs: Array<{
 ];
 
 export function Sidebar() {
-  const [activeTab, setActiveTab] = useState('notes');
+  const [activeTab, setActiveTab] = useState('daily-notes');
 
   return (
     <aside className="sidebar">

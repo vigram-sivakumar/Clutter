@@ -1,3 +1,8 @@
 export { Overlay } from './Overlay';
 
-export type { OverlayPlacement, OverlayProps } from './Overlay.types';
+export type {
+  OverlayAlignment,
+  OverlayBackdrop,
+  OverlayProps,
+  OverlaySide,
+} from './Overlay.types';

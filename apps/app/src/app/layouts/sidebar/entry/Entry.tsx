@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from 'react';
+import { forwardRef, type HTMLAttributes } from 'react';
 import './Entry.css';
 
 export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
@@ -16,19 +16,26 @@ export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
   onClick?: () => void;
 }
 
-export function Entry({
-  leading,
-  children,
-  trailing,
-  actions,
+export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
+  {
+    leading,
+    children,
+    trailing,
+    actions,
 
-  selected = false,
-  disabled = false,
+    selected = false,
+    disabled = false,
 
-  level = 0,
-  onClick,
-  ...props
-}: EntryProps) {
+    level = 0,
+    onClick,
+    className,
+    role,
+    tabIndex,
+    style,
+    ...props
+  },
+  ref
+) {
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) {
       return;
@@ -50,20 +57,24 @@ export function Entry({
   return (
     <div
       {...props}
+      ref={ref}
       style={
         {
           '--tree-level': level,
-          ...props.style,
+          ...style,
         } as React.CSSProperties
       }
       className={[
         'entry',
+        className,
         selected && 'entry-selected',
         disabled && 'entry-disabled',
-      ].join(' ')}
+      ]
+        .filter(Boolean)
+        .join(' ')}
       onClick={handleClick}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick && !disabled ? 0 : undefined}
+      role={role ?? (onClick ? 'button' : undefined)}
+      tabIndex={tabIndex ?? (onClick && !disabled ? 0 : undefined)}
     >
       {leading && <div className="entry__leading">{leading}</div>}
 
@@ -80,4 +91,6 @@ export function Entry({
       )}
     </div>
   );
-}
+});
+
+Entry.displayName = 'Entry';
