@@ -1,5 +1,5 @@
 import { CountBadge } from '@components/count-badge/CountBadge';
-import { Entry, EntryProps } from '@app/layouts/sidebar/entry/Entry';
+import { Entry, EntryProps } from '@components/entry/Entry';
 import { Badge, badgeColor } from '@components/badge/Badge';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';

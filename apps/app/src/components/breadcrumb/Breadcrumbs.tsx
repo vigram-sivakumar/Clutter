@@ -1,8 +1,8 @@
 import './Breadcrumbs.css';
 import { BreadcrumbItem, BreadcrumbItemProps } from './BreadcrumbItem';
 import { AppIcon } from '@shared/icon';
-import { useState, useRef } from 'react';
 import { Overlay } from '@components/overlay/Overlay';
+import { useOverlay } from '@components/overlay/hooks/useOverlay';
 
 interface BreadcrumbsProps {
   items: BreadcrumbItemProps[];
@@ -28,9 +28,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
   const root = items[0]!;
   const current = items.at(-1)!; //Returns last item in the array
   const collapsed = items.slice(1, -1)!;
-  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
-  const closeOverflow = () => setIsOverflowOpen(false);
-  const overflowButtonRef = useRef<HTMLButtonElement>(null);
+  const overflow = useOverlay<HTMLButtonElement>();
 
   return (
     <div className="breadcrumb">
@@ -48,17 +46,17 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
         <>
           <div className="breadcrumb-overflow">
             <BreadcrumbItem
-              ref={overflowButtonRef}
               isIconOnly
               icon={'moreHorizontal'}
-              onClick={() => setIsOverflowOpen((prev) => !prev)}
+              ref={overflow.anchorRef}
+              onClick={overflow.toggle}
             />
             <Overlay
-              open={isOverflowOpen}
-              anchorRef={overflowButtonRef}
+              open={overflow.open}
+              onClose={overflow.hide}
+              anchorRef={overflow.anchorRef}
               side="bottom"
               alignment="start"
-              onClose={closeOverflow}
             >
               <div className="breadcrumb-overflow__menu">
                 {collapsed.map((item) => (

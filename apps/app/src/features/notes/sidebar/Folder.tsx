@@ -1,7 +1,7 @@
 import { IconSlot } from '@components/icon-slot/IconSlot';
 import { Button } from '@components/button/Button';
 import { Caret } from '@components/caret/Caret';
-import { Entry, type EntryProps } from '@app/layouts/sidebar/entry/Entry';
+import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 
 interface FolderProps extends Omit<EntryProps, 'children'> {

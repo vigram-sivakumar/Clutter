@@ -1,4 +1,4 @@
-import { Entry, EntryProps } from '@app/layouts/sidebar/entry/Entry';
+import { Entry, EntryProps } from '@components/entry/Entry';
 import { Checkbox } from '@components/checkbox/Checkbox';
 // import { Caret } from '@components/caret/Caret';
 import { Button } from '@components/button/Button';

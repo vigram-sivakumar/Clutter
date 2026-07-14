@@ -1,5 +1,5 @@
 import { Caret } from '@components/caret/Caret';
-import { Entry, EntryProps } from '@app/layouts/sidebar/entry/Entry';
+import { Entry, EntryProps } from '@components/entry/Entry';
 
 export interface HeaderProps extends Omit<EntryProps, 'children'> {
   title?: string;

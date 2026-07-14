@@ -1,4 +1,4 @@
-import { Entry, type EntryProps } from '@app/layouts/sidebar/entry/Entry';
+import { Entry, type EntryProps } from '@components/entry/Entry';
 
 export interface NavigationProps extends Omit<EntryProps, 'children'> {
   title?: string;
