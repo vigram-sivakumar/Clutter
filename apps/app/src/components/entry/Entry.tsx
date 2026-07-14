@@ -9,11 +9,12 @@ export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
   actions?: React.ReactNode;
 
   selected?: boolean;
+  active?: boolean;
   disabled?: boolean;
 
   level?: number;
 
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
@@ -24,6 +25,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     actions,
 
     selected = false,
+    active = false,
     disabled = false,
 
     level = 0,
@@ -51,7 +53,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
       return;
     }
 
-    onClick?.();
+    onClick?.(event);
   };
 
   return (
@@ -67,6 +69,8 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
       className={[
         'entry',
         className,
+        onClick && 'entry-interactive',
+        active && 'entry-active',
         selected && 'entry-selected',
         disabled && 'entry-disabled',
       ]
@@ -75,6 +79,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
       onClick={handleClick}
       role={role ?? (onClick ? 'button' : undefined)}
       tabIndex={tabIndex ?? (onClick && !disabled ? 0 : undefined)}
+      aria-disabled={disabled || undefined}
     >
       {leading && <div className="entry__leading">{leading}</div>}
 

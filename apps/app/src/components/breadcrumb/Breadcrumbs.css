@@ -14,22 +14,3 @@
 .breadcrumb__slash svg {
   flex-shrink: 0;
 }
-
-.breadcrumb-overflow {
-  position: relative;
-}
-.breadcrumb-overflow__menu {
-  /* position: absolute; */
-  /* left: 0;
-  top: calc(100% + 4px); */
-
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg-plus);
-  width: 160px;
-
-  padding: var(--space-2);
-}
-.breadcrumb-overflow__menu .breadcrumb-item {
-  width: 100%;
-}

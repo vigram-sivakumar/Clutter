@@ -4,7 +4,7 @@
   height: fit-content;
 }
 .tabs--filled {
-  border-radius: var(--radius-lg-plus);
+  border-radius: var(--radius-lg);
   border: 0;
   background: var(--surface-tertiary);
   padding: var(--space-1);
@@ -23,7 +23,7 @@
   padding: 0;
   background: transparent;
   color: var(--text-tertiary);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
 
   cursor: pointer;

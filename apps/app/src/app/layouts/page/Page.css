@@ -1,5 +1,5 @@
 :root {
-  --border-radius: var(--radius-lg);
+  --border-radius: var(--radius-md);
 }
 
 .page {

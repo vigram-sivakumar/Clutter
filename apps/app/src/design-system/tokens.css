@@ -53,10 +53,10 @@
   --space-128: 128px;
 
   /* Radius */
-  --radius-sm: var(--space-4);
-  --radius-md: var(--space-6);
-  --radius-lg: var(--space-8);
-  --radius-lg-plus: var(--space-10);
+  --radius-xs: var(--space-4);
+  --radius-sm: var(--space-6);
+  --radius-md: var(--space-8);
+  --radius-lg: var(--space-10);
   --radius-xl: var(--space-12);
 
   /* Height */

@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import type { OverlayProps } from './Overlay.types';
 import { useEscape } from './hooks/useEscape';
 import { useOverlayPosition } from './hooks/useOverlayPosition';
-import { useRestoreFocus } from './hooks/useRestoreFocus';
+import { useOverlayFocus } from './hooks/useOverlayFocus';
 
 import './Overlay.css';
 
@@ -29,9 +29,10 @@ export function Overlay({
   });
 
   // Return focus to the trigger after the overlay closes.
-  useRestoreFocus({
+  useOverlayFocus({
     open,
     anchorRef,
+    overlayRef: surfaceRef,
   });
 
   // Calculate where the overlay should appear.

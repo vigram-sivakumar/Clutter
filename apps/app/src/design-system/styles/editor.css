@@ -92,7 +92,6 @@
   visibility: visible;
 }
 
-
 /* Always show dot on hover, even if the node is otherwise empty */
 .clutter-node:hover .clutter-node__bullet {
   visibility: visible;
@@ -121,9 +120,15 @@
   background: var(--node-collapse-ring);
 }
 
-.clutter-mark--bold      { font-weight: bold; }
-.clutter-mark--italic    { font-style: italic; }
-.clutter-mark--underline { text-decoration: underline; }
+.clutter-mark--bold {
+  font-weight: bold;
+}
+.clutter-mark--italic {
+  font-style: italic;
+}
+.clutter-mark--underline {
+  text-decoration: underline;
+}
 
 .clutter-node__content {
   flex: 1;
@@ -139,7 +144,7 @@
 
 .clutter-node {
   position: relative;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
 }
 
@@ -154,7 +159,6 @@
 .clutter-node--block-selected .clutter-node--block-selected {
   background: transparent;
   border: 1px solid transparent;
-
 }
 
 /* Hide text cursor inside block-selected nodes — the highlight is the selection indicator.

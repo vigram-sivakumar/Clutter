@@ -10,7 +10,7 @@
   justify-content: center;
   width: 100%;
   height: var(--height-md);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--icon-tertiary);
   font-size: var(--text-caption);
   letter-spacing: var(--ls-caption);

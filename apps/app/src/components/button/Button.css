@@ -20,17 +20,17 @@
 .button--large {
   height: var(--height-lg);
   padding-inline: var(--space-6);
-  border-radius: var(--radius-lg-plus);
+  border-radius: var(--radius-lg);
 }
 .button--medium {
   height: var(--height-md);
   padding-inline: var(--space-6);
-  border-radius: var(--radius-lg-plus);
+  border-radius: var(--radius-lg);
 }
 .button--small {
   height: var(--height-sm);
   padding-inline: var(--space-6);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 /* Variant */

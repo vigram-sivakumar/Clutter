@@ -4,7 +4,7 @@
 
   width: 100%;
   height: var(--height-lg);
-  border-radius: var(--radius-lg-plus);
+  border-radius: var(--radius-lg);
   gap: var(--btn-gap-md);
 
   padding-right: var(--space-6);
@@ -19,15 +19,17 @@
     background-color 120ms ease,
     color 120ms ease;
 }
-.entry[role='button'] {
+
+.entry-interactive {
   cursor: pointer;
 }
 
-.entry[role='button']:not(.entry-disabled):not(.entry-selected):hover {
+.entry-interactive:not(.entry-disabled):not(.entry-selected):hover,
+.entry-active:not(.entry-disabled):not(.entry-selected) {
   background: var(--state-hover);
 }
 
-.entry[role='button']:active:not(.entry-selected):not(:has(button:active)) {
+.entry-interactive:active:not(.entry-selected):not(:has(button:active)) {
   background: var(--state-pressed);
 }
 

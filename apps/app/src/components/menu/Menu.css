@@ -1,0 +1,17 @@
+.menu {
+  width: 100%;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+
+  padding: var(--space-2);
+}
+
+.menu--small {
+  width: 160px;
+}
+
+.menu:focus,
+.menu:focus-visible {
+  outline: none;
+}

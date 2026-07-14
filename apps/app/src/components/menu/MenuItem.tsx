@@ -1,9 +1,23 @@
+import { useMenuContext } from './Menu.context';
 import { Entry, EntryProps } from '@components/entry/Entry';
+import { useId } from 'react';
 
-export interface MenuItemProps extends EntryProps {
-  closeOnSelect?: boolean;
-}
+export interface MenuItemProps extends EntryProps {}
 
-export function MenuItem({ closeOnSelect = true, ...props }: MenuItemProps) {
-  return <Entry role="menuitem" tabIndex={-1} {...props}></Entry>;
+export function MenuItem(props: MenuItemProps) {
+  const id = useId();
+  const { activeId, setActiveId } = useMenuContext();
+  const active = activeId === id;
+  return (
+    <Entry
+      id={id}
+      role="menuitem"
+      active={active}
+      {...props}
+      onMouseEnter={(event) => {
+        setActiveId(id);
+        props.onMouseEnter?.(event);
+      }}
+    />
+  );
 }

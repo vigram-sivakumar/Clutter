@@ -7,7 +7,7 @@
   aspect-ratio: 1;
 
   background: var(--surface-tertiary);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 .date-label--today {
   display: flex;
@@ -18,7 +18,7 @@
   aspect-ratio: 1;
 
   background: transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
 }
 
 .date-label__today {
