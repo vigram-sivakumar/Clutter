@@ -5,6 +5,7 @@
  */
 
 import Archive from './svg/archive.svg?react';
+import ArrowDownRight from './svg/arrow-down-right.svg?react';
 import ArrowLeft from './svg/arrow-left.svg?react';
 import ArrowLeftSmallHead from './svg/arrow-left-small-head.svg?react';
 import ArrowRight from './svg/arrow-right.svg?react';
@@ -23,6 +24,7 @@ import ChevronRight from './svg/chevron-right.svg?react';
 import ChevronSquareRight from './svg/chevron-square-right.svg?react';
 import ChevronSquareRightLight from './svg/chevron-square-right-light.svg?react';
 import ChevronUp from './svg/chevron-up.svg?react';
+import Copy from './svg/copy.svg?react';
 import CircleDashed from './svg/circle-dashed.svg?react';
 import Clock from './svg/clock.svg?react';
 import FavouriteFilled from './svg/favourite-filled.svg?react';
@@ -60,6 +62,7 @@ import { CalendarTodayIcon } from './svg/calendar-today';
 
 export const iconRegistry = {
   archive: Archive,
+  arrowDownRight: ArrowDownRight,
   arrowLeft: ArrowLeft,
   arrowLeftSmallHead: ArrowLeftSmallHead,
   arrowRight: ArrowRight,
@@ -79,6 +82,7 @@ export const iconRegistry = {
   chevronSquareRight: ChevronSquareRight,
   chevronSquareRightLight: ChevronSquareRightLight,
   chevronUp: ChevronUp,
+  copy: Copy,
   circleDashed: CircleDashed,
   clock: Clock,
   favouriteFilled: FavouriteFilled,

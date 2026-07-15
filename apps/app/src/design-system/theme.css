@@ -50,6 +50,12 @@ html.theme-transitioning [data-themeable] *::after {
   --border-strong: rgba(255, 255, 255, 0.1);
   --border-focus: var(--accent-dark);
 
+  /* Border shadows */
+  --shadow-border-default: inset 0 0 0 1px var(--border-default);
+  --shadow-border-subtle: inset 0 0 0 1px var(--border-subtle);
+  --shadow-border-strong: inset 0 0 0 1px var(--border-strong);
+  --shadow-border-focus: inset 0 0 0 1px var(--border-focus);
+
   /* Interactive states */
   --state-hover: rgba(255, 255, 255, 0.03);
   --state-pressed: rgba(255, 255, 255, 0.02);
@@ -156,6 +162,12 @@ html.theme-transitioning [data-themeable] *::after {
   --border-default: rgba(0, 0, 0, 0.06);
   --border-strong: rgba(0, 0, 0, 0.12);
   --border-focus: var(--accent-light);
+
+  /* Border shadows */
+  --shadow-border-default: inset 0 0 0 1px var(--border-default);
+  --shadow-border-subtle: inset 0 0 0 1px var(--border-subtle);
+  --shadow-border-strong: inset 0 0 0 1px var(--border-strong);
+  --shadow-border-focus: inset 0 0 0 1px var(--border-focus);
 
   /* Interactive states */
   --state-hover: rgba(0, 0, 0, 0.03);

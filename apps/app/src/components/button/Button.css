@@ -39,14 +39,14 @@
 }
 .button--outlined {
   background: transparent;
-  box-shadow: inset 0 0 0 1px var(--border-default);
+  box-shadow: var(--shadow-border-default);
 }
 .button--ghost {
   background: transparent;
 }
 .button--outline-fill {
   background: var(--button-secondary-surface);
-  box-shadow: inset 0 0 0 1px var(--border-default);
+  box-shadow: var(--shadow-border-default);
 }
 .button--subtle {
   background: transparent;

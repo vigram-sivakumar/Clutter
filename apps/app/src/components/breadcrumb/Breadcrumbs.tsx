@@ -75,7 +75,6 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
         alignment="start"
       >
         <Menu size="small">
-          <MenuItem disabled>Disabled Item</MenuItem>
           {collapsed.map((item) => (
             <MenuItem
               key={item.id}

@@ -15,10 +15,6 @@
 .overlay__surface {
   position: absolute;
   pointer-events: auto;
-  max-width: calc(100vw - 16px);
-  max-height: calc(100dvh - 16px);
-  overflow: auto;
-  overscroll-behavior: contain;
 }
 .overlay__backdrop--transparent {
   background: transparent;

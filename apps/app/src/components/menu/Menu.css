@@ -1,17 +1,26 @@
 .menu {
-  width: 100%;
+  max-width: calc(100dvw - 16px);
+  max-height: calc(100dvh - 16px);
+
+  overflow: auto;
+  overscroll-behavior: contain;
+
   background: var(--surface-secondary);
-  border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
 
   padding: var(--space-2);
+
+  box-shadow: var(--shadow-border-default), var(--shadow-md);
 }
 
 .menu--small {
   width: 160px;
 }
 
-.menu:focus,
+.menu--medium {
+  width: 220px;
+}
+
 .menu:focus-visible {
   outline: none;
 }
