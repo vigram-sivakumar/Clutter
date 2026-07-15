@@ -8,6 +8,7 @@
   width: 100%;
 
   border-radius: var(--border-radius);
+  box-shadow: var(--shadow-border-default);
 }
 
 .page__content {

@@ -44,5 +44,5 @@
 .tab--active {
   background: var(--tab-active);
   color: var(--text-primary);
-  box-shadow: var(--shadow-border-strong), var(--shadow-xs);
+  box-shadow: var(--shadow-border-strong), var(--shadow-sm);
 }

@@ -56,6 +56,15 @@ html.theme-transitioning [data-themeable] *::after {
   --shadow-border-strong: inset 0 0 0 1px var(--border-strong);
   --shadow-border-focus: inset 0 0 0 1px var(--border-focus);
 
+  /* Shadows */
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-md:
+    0 8px 16px -4px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 16px 32px -8px rgba(0, 0, 0, 0.16), 0 4px 8px -4px rgba(0, 0, 0, 0.08);
+  --shadow-xl:
+    0 24px 48px -12px rgba(0, 0, 0, 0.22), 0 8px 16px -8px rgba(0, 0, 0, 0.12);
+
   /* Interactive states */
   --state-hover: rgba(255, 255, 255, 0.03);
   --state-pressed: rgba(255, 255, 255, 0.02);
@@ -168,6 +177,18 @@ html.theme-transitioning [data-themeable] *::after {
   --shadow-border-subtle: inset 0 0 0 1px var(--border-subtle);
   --shadow-border-strong: inset 0 0 0 1px var(--border-strong);
   --shadow-border-focus: inset 0 0 0 1px var(--border-focus);
+
+  /* Shadows */
+  --shadow-sm: 0 2px 6px rgba(25, 25, 25, 0.04);
+  --shadow-md:
+    0 8px 16px -4px rgba(25, 25, 25, 0.06),
+    0 2px 4px -2px rgba(25, 25, 25, 0.03);
+  --shadow-lg:
+    0 16px 32px -8px rgba(25, 25, 25, 0.08),
+    0 4px 8px -4px rgba(25, 25, 25, 0.04);
+  --shadow-xl:
+    0 24px 48px -12px rgba(25, 25, 25, 0.1),
+    0 8px 16px -8px rgba(25, 25, 25, 0.05);
 
   /* Interactive states */
   --state-hover: rgba(0, 0, 0, 0.03);
