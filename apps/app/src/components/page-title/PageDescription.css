@@ -1,0 +1,5 @@
+.page-description {
+  color: var(--text-tertiary);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+}

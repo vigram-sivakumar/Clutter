@@ -21,6 +21,16 @@ body {
   background: var(--surface-root);
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+p {
+  margin: 0;
+  padding: 0;
+}
+
 #root {
   height: 100%;
   background: var(--surface-root);

@@ -1,0 +1,10 @@
+.page-title-section {
+  display: flex;
+  flex-direction: column;
+
+  width: 80%;
+  max-width: max(720px, 80%);
+  padding-top: 40px;
+
+  gap: var(--space-4);
+}
