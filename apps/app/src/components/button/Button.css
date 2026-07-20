@@ -79,6 +79,6 @@
 }
 
 .button--muted .button__content {
-  color: var(--text-placeholder);
+  color: var(--text-tertiary);
   justify-content: start;
 }
