@@ -16,15 +16,15 @@ export function MockPage() {
         <PageTitleSection>
           <PageTitle>
             <EditableText
-              value="Untitled"
-              placeholder="Untitled"
+              value=""
+              placeholder="Untitled Note"
               onCommit={() => {}}
             />
           </PageTitle>
 
           <PageDescription>
             <EditableText
-              value="This is a new note with default title"
+              value=""
               placeholder="Add a description..."
               onCommit={() => {}}
             />

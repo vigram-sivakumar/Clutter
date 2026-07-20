@@ -1,15 +1,19 @@
 .editable-text {
   outline: none;
   cursor: text;
+  position: relative;
+  min-width: 1px;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
-.editable-text:empty::before {
-  content: attr(data-placeholder);
-  opacity: 0.5;
-  pointer-events: none;
-}
 .editable-text[data-empty='true']::before {
+  position: absolute;
+  inset: 0;
+
   content: attr(data-placeholder);
   color: var(--text-placeholder);
   pointer-events: none;
+  user-select: none;
 }
