@@ -18,13 +18,12 @@ export const breadcrumbs: BreadcrumbItemProps[] = [
     id: 'travel',
     title: 'Travel',
     icon: 'folder',
-    emoji: '✈️',
     onClick: () => console.log('Travel'),
   },
   {
     id: 'japan-trip',
     title: 'Japan Trip',
-    icon: 'folder',
+    icon: 'note',
     onClick: () => console.log('Japan Trip'),
   },
   {

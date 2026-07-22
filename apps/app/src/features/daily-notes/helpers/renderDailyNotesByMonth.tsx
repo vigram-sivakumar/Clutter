@@ -9,7 +9,7 @@ import type { DailyNote as DailyNoteModel } from '../models/DailyNote';
 import { groupByMonth } from './groupByMonth';
 import {
   formatDate,
-  isCurrentMonth,
+  // isCurrentMonth,
   isCurrentYear,
   isToday,
 } from '@shared/helpers/time';
@@ -31,12 +31,7 @@ export function renderDailyNotesByMonth({
 
     return (
       <Fragment key={month}>
-        <Section
-          hasHeader={!isCurrentMonth(month)}
-          title={title}
-          isCollapsible
-          onClick={() => {}}
-        >
+        <Section hasHeader title={title} isCollapsible onClick={() => {}}>
           {notes.map((note) => (
             <DailyNote
               key={note.id}

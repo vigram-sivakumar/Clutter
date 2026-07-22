@@ -3,15 +3,22 @@ import { DailyNote } from '../models/DailyNote';
 // Daily Notes
 export const dailyNotes: DailyNote[] = [
   {
-    id: 'daily-note-0',
-    date: '2026-07-07',
-    title: 'Todays note',
-  },
-  {
     id: 'daily-note-1',
-    date: '2026-07-02',
+    date: '2026-08-02',
     title: 'Explored Marina Bay',
   },
+  {
+    id: 'daily-note-0',
+    date: '2026-07-23',
+    title: 'Todays note',
+  },
+
+  {
+    id: 'daily-note-0',
+    date: '2026-07-07',
+    title: 'Yesterdays note',
+  },
+
   {
     id: 'daily-note-2',
     date: '2026-07-01',
