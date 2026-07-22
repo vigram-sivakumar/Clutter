@@ -3,7 +3,7 @@ import { iconRegistry } from './iconRegistry';
 import type { SystemIcon } from './types';
 
 const DEFAULT_SIZE = 16;
-const DEFAULT_STROKE_WIDTH = 1.5;
+const DEFAULT_STROKE_WIDTH = 1.2;
 
 export interface AppIconProps {
   icon?: SystemIcon;

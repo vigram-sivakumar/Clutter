@@ -8,6 +8,11 @@ export interface TopBarMenuItem {
 
 export const topBarMenu: TopBarMenuItem[] = [
   {
+    id: 'add-a-description',
+    label: 'Add a description',
+    icon: 'description',
+  },
+  {
     id: 'duplicate',
     label: 'Duplicate',
     icon: 'copy',
@@ -23,13 +28,13 @@ export const topBarMenu: TopBarMenuItem[] = [
     icon: 'favouriteOutline',
   },
   {
-    id: 'archive',
-    label: 'Archive',
-    icon: 'archive',
-  },
-  {
     id: 'version-history',
     label: 'Version history',
     icon: 'clock',
+  },
+  {
+    id: 'archive',
+    label: 'Archive',
+    icon: 'archive',
   },
 ];

@@ -37,7 +37,7 @@ export const CalendarTodayIcon: FC<CalendarTodayIconProps> = ({
         fill="currentColor"
         fontSize={6}
         fontWeight={600}
-        letterSpacing={0.5}
+        letterSpacing={0}
         fontFamily="var(--font-sans, Inter, system-ui, sans-serif)"
       >
         {day}

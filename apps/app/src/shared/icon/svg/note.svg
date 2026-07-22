@@ -1,7 +1,24 @@
+
+
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M2 4C2 2.34315 3.34315 1 5 1H11C12.6569 1 14 2.34315 14 4V12C14 13.6569 12.6569 15 11 15H5C3.34315 15 2 13.6569 2 12V4Z"
+    stroke="currentColor"
+    stroke-linecap="round"
+
+  />
+  <path
+    d="M5 5H11M5 8H9"
+    opacity="0.5"
+    stroke="currentColor"
+    stroke-linecap="round"
+  />
+</svg>
+
+<!-- <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path
     d="M5 5H11M5 8H11M5 11H9M5 15H11C12.6569 15 14 13.6569 14 12V4C14 2.34315 12.6569 1 11 1H5C3.34315 1 2 2.34315 2 4V12C2 13.6569 3.34315 15 5 15Z"
     stroke="currentColor"
     stroke-linecap="round"
   />
-</svg>
+</svg> -->

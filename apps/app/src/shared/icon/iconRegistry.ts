@@ -27,6 +27,7 @@ import ChevronUp from './svg/chevron-up.svg?react';
 import Copy from './svg/copy.svg?react';
 import CircleDashed from './svg/circle-dashed.svg?react';
 import Clock from './svg/clock.svg?react';
+import Description from './svg/description.svg?react';
 import FavouriteFilled from './svg/favourite-filled.svg?react';
 import FavouriteOutline from './svg/favourite-outline.svg?react';
 import Folder from './svg/folder.svg?react';
@@ -85,6 +86,7 @@ export const iconRegistry = {
   copy: Copy,
   circleDashed: CircleDashed,
   clock: Clock,
+  description: Description,
   favouriteFilled: FavouriteFilled,
   favouriteOutline: FavouriteOutline,
   folder: Folder,

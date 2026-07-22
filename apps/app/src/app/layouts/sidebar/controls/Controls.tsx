@@ -11,10 +11,10 @@ export function Controls() {
         </Button>
       </div>
       <div className="history-controls">
-        <Button isIconOnly size="medium" variant="ghost">
+        <Button isIconOnly size="medium" variant="ghost" isDisabled>
           <AppIcon icon="arrowLeft" />
         </Button>
-        <Button isIconOnly size="medium" variant="ghost">
+        <Button isIconOnly size="medium" variant="ghost" isDisabled>
           <AppIcon icon="arrowRight" />
         </Button>
       </div>
