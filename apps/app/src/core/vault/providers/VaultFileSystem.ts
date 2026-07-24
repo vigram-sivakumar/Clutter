@@ -1,8 +1,8 @@
-export type VaultEntry = {
+export interface VaultEntry {
   name: string;
   path: string;
-  kind: 'file' | 'directory';
-};
+  isDirectory: boolean;
+}
 
 export interface VaultFileSystem {
   exists(path: string): Promise<boolean>;

@@ -19,13 +19,27 @@ Clutter.
 
 ---
 
+# Implementation Philosophy
+
+The implementation should remain as simple as possible while preserving the architectural invariants defined in this document.
+
+Principles:
+
+- Build the simplest solution that satisfies current requirements while preserving the frozen architectural invariants.
+- Introduce complexity only when it unlocks meaningful capability.
+- Every abstraction should remove more complexity than it introduces.
+- Prefer composition over inheritance.
+- Hide implementation details behind stable interfaces only at proven volatility boundaries.
+- Optimize for readability, maintainability, and testability over cleverness.
+- Evolve the architecture incrementally rather than through speculative design.
+
 # Core Principles
 
 1.  **The vault owns the knowledge.**
 2.  **Markdown is the canonical page format.**
 3.  **Users own the filesystem organization.**
 4.  **Clutter reflects the physical structure of the vault whenever possible. Virtual views are introduced only when they provide capabilities that cannot be represented by the filesystem alone (for example, Tags, Search, and Backlinks).**
-5.  **Pages have stable identities independent of filenames and
+5.  **Clutter-managed pages have stable identities independent of filenames and
     locations.**
 6.  **Views interpret pages without changing storage.**
 7.  **The editor is rich; the storage remains simple.**
@@ -140,14 +154,13 @@ Clutter-specific metadata.
 
 Examples:
 
-- First meaningful edit
 - User sets an icon
 - User sets a cover
 - User creates an ID-dependent reference
 - User copies a block link
 - User explicitly adopts the page
 
-Viewing a page alone should not require adoption.
+Ordinary reading and text editing alone do not require adoption.
 
 During adoption Clutter adds only the minimum required metadata.
 
@@ -274,7 +287,7 @@ Examples:
 
 Examples:
 
-- Archive → `status == archived`
+- Archived → `status == archived`
 - Folder → Child pages
 - Tag → Pages containing the tag
 
@@ -397,19 +410,79 @@ Layer Responsibility
 
 ---
 
-Filesystem User organization
-Markdown Page content and shared metadata
-Parser Reads and writes the supported Markdown dialect
-Indexer Computes derived information
-Views Interpret pages
-Editor Rich interaction
-UI Presentation
+# 16. Runtime Data Flow
 
-Each layer has exactly one responsibility.
+The runtime pipeline is intentionally layered. Each component has a single responsibility.
+
+```text
+Filesystem
+    ↓
+Vault Provider
+    ↓
+Vault Scanner
+    ↓
+Frontmatter Parser
+    ↓
+Item Model
+    ↓
+Views
+    ↓
+React UI
+```
+
+The runtime pipeline describes the conceptual flow of data. Runtime implementation details are documented separately in the System Design document.
+
+## Responsibilities
+
+**Vault Provider**
+
+Provides filesystem access through an abstract interface.
+
+Responsibilities:
+
+- Read directories
+- Read files
+- Write files
+- Hide platform-specific APIs (Tauri, cloud providers, etc.)
+
+The provider never understands Markdown or Clutter concepts.
+
+**Vault Scanner**
+
+Traverses the vault.
+
+Responsibilities:
+
+- Walk the directory tree
+- Read Markdown files
+- Invoke the parser
+- Construct runtime Items
+
+The scanner never parses Markdown itself.
+
+**Frontmatter Parser**
+
+Reads the supported Clutter frontmatter.
+
+Responsibilities:
+
+- Split frontmatter from body
+- Parse supported metadata
+- Preserve the remaining Markdown body
+
+The parser never accesses the filesystem.
+
+**Item**
+
+Represents a validated runtime object.
+
+Items are created from parsed Markdown and are consumed by views and the UI.
+
+The Item model is not responsible for persistence.
 
 ---
 
-# Architectural Invariants
+# 17. Architectural Invariants
 
 ## Identity
 
@@ -441,6 +514,8 @@ Each layer has exactly one responsibility.
 - Invalid pages remain visible and repairable.
 - File watchers are optimization, not truth.
 - Periodic reconciliation validates the index against the filesystem.
+- The index is an optimization, never a dependency.
+- Core vault functionality must continue to operate when the index is unavailable or rebuilding.
 
 ---
 
@@ -493,6 +568,12 @@ Workspace continuity is stored outside Markdown as part of the vault's workspace
 Workspace continuity must never modify page content.
 
 ---
+
+# Scope of This Document
+
+This document defines the architectural principles and invariants of Clutter.
+
+It intentionally does not define runtime implementation details, algorithms, component structure, or execution flow. Those are documented in the evolving System Design document.
 
 # What Is Not Frozen
 
