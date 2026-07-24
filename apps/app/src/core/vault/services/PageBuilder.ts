@@ -1,35 +1,46 @@
 import type { Page } from '../models';
-import type { ParsedMarkdown } from '../parsers';
+import type { ScannedPage } from './VaultScanResult';
+
+export interface BuildPageInput {
+  readonly parentId: string;
+  readonly page: ScannedPage;
+}
 
 export class PageBuilder {
-  build(
-    markdown: ParsedMarkdown,
-    path: string,
-    parentId: string | null
-  ): Page | null {
-    const id = markdown.frontmatter.id;
+  private getPageName(path: string): string {
+    const fileName = path.substring(path.lastIndexOf('/') + 1);
+    return fileName.endsWith('.md')
+      ? fileName.substring(0, fileName.length - 3)
+      : fileName;
+  }
 
-    if (typeof id !== 'string' || id.length === 0) {
-      return null;
+  build(input: BuildPageInput): Page {
+    const { page, parentId } = input;
+
+    const id = page.frontmatter.id;
+
+    if (!id) {
+      throw new Error(`Missing page ID for "${page.path}".`);
     }
 
-    const type = markdown.frontmatter.type;
+    const type = page.frontmatter.type;
 
     return {
       id,
-      path,
       type: type ?? 'note',
-      name: path.split('/').pop()!.replace(/\.md$/, ''),
-
-      icon: markdown.frontmatter.icon,
-      cover: markdown.frontmatter.cover,
-      description: markdown.frontmatter.description,
-
+      name: this.getPageName(page.path),
+      path: page.path,
       parentId,
-      originalParentId: markdown.frontmatter.originalParentId ?? null,
 
-      createdAt: markdown.frontmatter.createdAt,
-      updatedAt: markdown.frontmatter.updatedAt,
+      metadata: {
+        icon: page.frontmatter.icon ?? null,
+        cover: page.frontmatter.cover ?? null,
+        description: page.frontmatter.description ?? null,
+        favorite: page.frontmatter.favorite ?? false,
+        originalParentId: page.frontmatter.originalParentId ?? null,
+        createdAt: page.frontmatter.createdAt ?? null,
+        updatedAt: page.frontmatter.updatedAt ?? null,
+      },
     };
   }
 }

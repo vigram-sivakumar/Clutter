@@ -1,7 +1,5 @@
 import { useState } from 'react';
-
 import { AppIcon } from '@shared/icon';
-
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
@@ -10,8 +8,14 @@ import { folders as foldersData } from '@features/notes/mock/Folder';
 import { notes as notesData } from '@features/notes/mock/Note';
 import { renderNotesTree } from '../helpers/renderNotesTree';
 import { renderFavorites } from '../helpers/renderFavorites';
+// Vault
+import type { Vault } from '@core/vault/models';
 
-export function Notes() {
+interface NotesProps {
+  vault: Vault;
+}
+
+export function Notes({ vault: _vault }: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
   // const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);

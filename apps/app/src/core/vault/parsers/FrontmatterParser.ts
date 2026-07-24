@@ -1,7 +1,7 @@
-import type { Frontmatter } from '../models';
+import type { PageFrontmatter } from '../models';
 
 export interface ParsedMarkdown {
-  frontmatter: Frontmatter;
+  frontmatter: PageFrontmatter;
   body: string;
 }
 
@@ -24,7 +24,7 @@ export class FrontmatterParser {
       body = body.slice(1);
     }
     // 5. Parse frontmatter line by line
-    const frontmatter: Frontmatter = {};
+    const frontmatter: PageFrontmatter = {};
     for (const line of frontmatterText.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) continue;
@@ -37,11 +37,7 @@ export class FrontmatterParser {
           frontmatter.id = value;
           break;
         case 'type':
-          if (
-            value === 'note' ||
-            value === 'daily-note' ||
-            value === 'folder'
-          ) {
+          if (value === 'note' || value === 'daily-note') {
             frontmatter.type = value;
           }
           break;
@@ -53,6 +49,9 @@ export class FrontmatterParser {
           break;
         case 'description':
           frontmatter.description = value;
+          break;
+        case 'favorite':
+          frontmatter.favorite = value === 'true';
           break;
         case 'originalParentId':
           frontmatter.originalParentId = value;

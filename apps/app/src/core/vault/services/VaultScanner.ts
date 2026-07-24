@@ -1,79 +1,93 @@
-import type { Page } from '../models';
+import type { FolderFrontmatter } from '../models';
+import type { VaultScanResult } from './VaultScanResult';
 import type { VaultFileSystem } from '../providers';
 import { DocumentLoader } from './DocumentLoader';
-import { PageBuilder } from './PageBuilder';
 
 export class VaultScanner {
   private readonly documentLoader: DocumentLoader;
-  private readonly pageBuilder: PageBuilder;
 
   constructor(private readonly fileSystem: VaultFileSystem) {
     this.documentLoader = new DocumentLoader(fileSystem);
-    this.pageBuilder = new PageBuilder();
   }
 
-  async scan(_vaultPath: string): Promise<Page[]> {
-    const exists = await this.fileSystem.exists(_vaultPath);
+  async scan(vaultPath: string): Promise<VaultScanResult> {
+    const exists = await this.fileSystem.exists(vaultPath);
 
     if (!exists) {
-      throw new Error(`Vault does not exist: ${_vaultPath}`);
+      throw new Error(`Vault does not exist: ${vaultPath}`);
     }
 
-    const pages: Page[] = [];
+    const result: VaultScanResult = {
+      rootPath: vaultPath,
+      directories: [],
+      pages: [],
+    };
 
-    await this.scanDirectory(_vaultPath, pages);
+    await this.scanDirectory(vaultPath, null, result);
 
-    return pages;
+    return result;
   }
 
   private async scanDirectory(
     path: string,
-    pages: Page[],
-    parentId: string | null = null
+    parentPath: string | null,
+    result: VaultScanResult
   ): Promise<void> {
     const entries = await this.fileSystem.readDirectory(path);
 
-    let currentFolderId = parentId;
+    const folderMetadataFile = entries.find(
+      (entry) => !entry.isDirectory && entry.name === '.folder.md'
+    );
 
-    for (const entry of entries) {
-      // TODO: Remove filename knowledge from VaultScanner. The scanner should react to page types rather than special filenames.
-      if (entry.name === '.folder.md') {
-        const folder = await this.inspectFile(entry.path, pages, parentId);
+    const pageFiles = entries.filter(
+      (entry) =>
+        !entry.isDirectory &&
+        entry.name.endsWith('.md') &&
+        entry.name !== '.folder.md'
+    );
 
-        if (folder?.type === 'folder') {
-          currentFolderId = folder.id;
-        }
+    const childDirectories = entries.filter((entry) => entry.isDirectory);
 
-        continue;
+    let frontmatter: FolderFrontmatter | null = null;
+
+    if (folderMetadataFile) {
+      const markdown = await this.documentLoader.load(folderMetadataFile.path);
+
+      if (markdown) {
+        frontmatter = markdown.frontmatter;
       }
+    }
 
-      if (entry.isDirectory) {
-        await this.scanDirectory(entry.path, pages, currentFolderId);
-        continue;
-      }
+    result.directories.push({
+      path,
+      parentPath,
+      frontmatter,
+    });
 
-      await this.inspectFile(entry.path, pages, currentFolderId);
+    for (const file of pageFiles) {
+      await this.inspectFile(file.path, path, result);
+    }
+    for (const directory of childDirectories) {
+      await this.scanDirectory(directory.path, path, result);
     }
   }
 
   private async inspectFile(
     path: string,
-    pages: Page[],
-    parentId: string | null
-  ): Promise<Page | null> {
+    directoryPath: string,
+    result: VaultScanResult
+  ): Promise<void> {
     const markdown = await this.documentLoader.load(path);
 
     if (markdown === null) {
-      return null;
+      return;
     }
 
-    const page = this.pageBuilder.build(markdown, path, parentId);
-
-    if (page === null) {
-      return null;
-    }
-
-    pages.push(page);
-    return page;
+    result.pages.push({
+      path,
+      directoryPath,
+      frontmatter: markdown.frontmatter,
+      content: markdown.body,
+    });
   }
 }

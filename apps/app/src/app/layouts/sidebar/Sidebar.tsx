@@ -1,3 +1,4 @@
+import type { Vault } from '@core/vault/models';
 import { useState, type ReactNode } from 'react';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
@@ -11,42 +12,46 @@ import { TagsPanel } from '@features/tags/Sidebar.Tags';
 import { SearchPanel } from '@features/search/Sidebar.Search';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 
-const tabs: Array<{
-  value: string;
-  icon: SystemIcon;
-  emoji?: string;
-  panel: ReactNode;
-}> = [
-  {
-    value: 'daily-notes',
-    icon: 'calendarToday',
-    panel: <DailyNotesPanel />,
-  },
-  {
-    value: 'notes',
-    icon: 'note',
-    panel: <Notes />,
-    // emoji: '🍉',
-  },
-  {
-    value: 'tasks',
-    icon: 'squareCheckOutline',
-    panel: <TasksPanel />,
-  },
-  {
-    value: 'tags',
-    icon: 'tag',
-    panel: <TagsPanel />,
-  },
-  {
-    value: 'search',
-    icon: 'magnifyingGlass',
-    panel: <SearchPanel />,
-  },
-];
+interface SidebarProps {
+  vault: Vault;
+}
 
-export function Sidebar() {
+export function Sidebar({ vault }: SidebarProps) {
   const [activeTab, setActiveTab] = useState('daily-notes');
+
+  const tabs: Array<{
+    value: string;
+    icon: SystemIcon;
+    emoji?: string;
+    panel: ReactNode;
+  }> = [
+    {
+      value: 'daily-notes',
+      icon: 'calendarToday',
+      panel: <DailyNotesPanel />,
+    },
+    {
+      value: 'notes',
+      icon: 'note',
+      panel: <Notes />,
+      // emoji: '🍉',
+    },
+    {
+      value: 'tasks',
+      icon: 'squareCheckOutline',
+      panel: <TasksPanel />,
+    },
+    {
+      value: 'tags',
+      icon: 'tag',
+      panel: <TagsPanel />,
+    },
+    {
+      value: 'search',
+      icon: 'magnifyingGlass',
+      panel: <SearchPanel />,
+    },
+  ];
 
   return (
     <aside className="sidebar">

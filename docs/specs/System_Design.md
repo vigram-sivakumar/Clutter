@@ -92,26 +92,23 @@ Each stage has a single responsibility:
 
 ## Vault
 
-`Vault` is the canonical runtime representation of the currently scanned vault.
+Vault is the canonical runtime representation of the resources belonging to a vault and the invariants governing those resources.
 
-It owns the collection of runtime `Page` objects and provides a stable boundary between the scanning pipeline and the rest of the application.
+It owns the runtime resource model (such as pages, folders, and assets) and provides canonical identity lookup for those resources.
 
-Current responsibilities include:
+### Runtime Boundary
 
-- Owning all discovered pages.
-- Providing lookup by page ID.
-- Representing the current vault root.
-- Enforcing vault-level invariants, such as unique page IDs.
+`Vault` owns the canonical runtime resources discovered within a vault and the invariants governing those resources.
 
-The `Vault` does not currently own:
+Resources currently include pages and will later expand to include folders and other vault-owned resources such as assets.
 
-- Workspace or editor state.
-- Search or graph indexes.
-- File watching.
-- Application lifecycle.
-- UI concerns.
+Derived capabilities such as search, backlinks, graph relationships, and task indexes consume the vault's resources but are not themselves part of the vault's source of truth.
 
-These responsibilities may be introduced later as separate collaborators when they become necessary.
+Vault does not own workspace state, application lifecycle, UI state, or derived capabilities such as search or graph indexes. Those are separate collaborators that depend on the vault rather than becoming part of it.
+
+### Design Principle
+
+Vault owns canonical resources. Derived capabilities (such as search, backlinks, graph views, and task indexes) consume the vault’s resources but are not themselves part of the vault’s source of truth.
 
 ### Design Note
 
@@ -120,6 +117,23 @@ The scanner currently returns a `Vault` directly.
 A separate `OpenVault` orchestration layer is intentionally deferred until opening a vault involves additional responsibilities beyond scanning, such as restoring workspace state, starting filesystem watchers, or initializing derived indexes.
 
 This follows Clutter's implementation philosophy of introducing abstractions only when they provide meaningful value.
+
+### Planned Evolution
+
+The current implementation materializes folder metadata as a `Page` with `type: "folder"` to keep the scanning pipeline simple.
+
+This is an implementation detail rather than the intended runtime model.
+
+The planned design is to introduce a first-class `Folder` runtime model.
+
+At that point:
+
+- Filesystem directories will materialize as `Folder` objects.
+- `.folder.md` will become the persistence representation of folder metadata rather than a runtime page.
+- `Vault` will own both `Page` and `Folder` resources.
+- If assembling heterogeneous resources introduces meaningful complexity, a dedicated `VaultBuilder` may be introduced to construct the runtime `Vault`.
+
+This evolution will be driven by implementation needs rather than speculative abstraction.
 
 ### Page ID
 

@@ -421,9 +421,13 @@ Vault Provider
     ↓
 Vault Scanner
     ↓
+Document Loader
+    ↓
 Frontmatter Parser
     ↓
-Item Model
+Page Builder
+    ↓
+Vault
     ↓
 Views
     ↓
@@ -454,11 +458,23 @@ Traverses the vault.
 Responsibilities:
 
 - Walk the directory tree
-- Read Markdown files
-- Invoke the parser
-- Construct runtime Items
+- Discover Markdown documents
+- Load documents
+- Construct the runtime Vault
 
 The scanner never parses Markdown itself.
+
+**Document Loader**
+
+Reads Markdown documents from the filesystem and delegates parsing.
+
+Responsibilities:
+
+- Read Markdown files.
+- Invoke the Frontmatter Parser.
+- Return parsed Markdown documents.
+
+The Document Loader never constructs runtime domain objects.
 
 **Frontmatter Parser**
 
@@ -468,17 +484,33 @@ Responsibilities:
 
 - Split frontmatter from body
 - Parse supported metadata
-- Preserve the remaining Markdown body
+- Preserve the Markdown body
 
 The parser never accesses the filesystem.
 
-**Item**
+**Page Builder**
 
-Represents a validated runtime object.
+Constructs validated runtime Page objects from parsed Markdown.
 
-Items are created from parsed Markdown and are consumed by views and the UI.
+Responsibilities:
 
-The Item model is not responsible for persistence.
+- Interpret supported Clutter metadata.
+- Materialize runtime Page objects.
+- Validate runtime page invariants.
+
+The Page Builder is not responsible for filesystem access or persistence.
+
+**Vault**
+
+Represents the canonical runtime boundary for the resources belonging to a vault.
+
+Responsibilities:
+
+- Own runtime Page resources.
+- Provide canonical page identity lookup.
+- Enforce vault-level resource invariants.
+
+The Vault does not own workspace state, application lifecycle, or derived capabilities such as search and graph indexes.
 
 ---
 

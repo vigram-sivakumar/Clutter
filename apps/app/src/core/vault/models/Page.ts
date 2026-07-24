@@ -1,11 +1,14 @@
-import type { ItemMetadata } from './ItemMetadata';
+import type { PageMetadata } from './PageMetadata';
 
-export type PageType = 'folder' | 'note' | 'daily-note';
+export type PageType = 'note' | 'daily-note';
 
-export interface Page extends ItemMetadata {
-  id: string;
-  type: PageType;
-  parentId: string | null;
-  name: string;
-  path: string;
+export interface Page {
+  readonly id: string;
+  readonly type: PageType;
+
+  readonly name: string;
+  readonly path: string;
+  readonly parentId: string | null;
+
+  readonly metadata: PageMetadata;
 }
