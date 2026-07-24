@@ -1,5 +1,5 @@
-import { Note } from '../models/Note';
+import type { Page } from '@core/vault/models';
 
-export function getChildNotes(notes: Note[], parentId: string | null) {
-  return notes.filter((note) => note.parentId === parentId);
+export function getChildPages(pages: Page[], parentId: string | null) {
+  return pages.filter((page) => page.parentId === parentId);
 }

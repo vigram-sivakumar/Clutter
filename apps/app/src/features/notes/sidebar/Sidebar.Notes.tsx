@@ -4,8 +4,6 @@ import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
 import { notesNavigation } from '@features/notes/mock/Navigation';
-import { folders as foldersData } from '@features/notes/mock/Folder';
-import { notes as notesData } from '@features/notes/mock/Note';
 import { renderNotesTree } from '../helpers/renderNotesTree';
 import { renderFavorites } from '../helpers/renderFavorites';
 // Vault
@@ -15,11 +13,11 @@ interface NotesProps {
   vault: Vault;
 }
 
-export function Notes({ vault: _vault }: NotesProps) {
+export function Notes({ vault }: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
-  // const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
-  // const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const notes = Array.from(vault.notes());
+  const folders = Array.from(vault.folders());
 
   return (
     <View
@@ -48,7 +46,7 @@ export function Notes({ vault: _vault }: NotesProps) {
         onExpandedChange={setFavoritesExpanded}
         onClick={() => {}}
       >
-        {renderFavorites(notesData, foldersData)}
+        {renderFavorites(notes, folders)}
       </Section>
       <Section
         hasHeader
@@ -59,8 +57,8 @@ export function Notes({ vault: _vault }: NotesProps) {
         onClick={() => {}}
       >
         {renderNotesTree({
-          folders: foldersData,
-          notes: notesData,
+          folders,
+          pages: notes,
           parentId: null,
           level: 0,
         })}

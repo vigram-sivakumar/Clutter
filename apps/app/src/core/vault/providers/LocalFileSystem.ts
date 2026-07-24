@@ -1,4 +1,4 @@
-import { exists, readDir } from '@tauri-apps/plugin-fs';
+import { exists, readDir, readTextFile } from '@tauri-apps/plugin-fs';
 import type { VaultEntry, VaultFileSystem } from './VaultFileSystem';
 
 export class LocalVaultProvider implements VaultFileSystem {
@@ -15,7 +15,7 @@ export class LocalVaultProvider implements VaultFileSystem {
     }));
   }
 
-  async readFile(_path: string): Promise<string> {
-    throw new Error('Not implemented');
+  async readFile(path: string): Promise<string> {
+    return readTextFile(path);
   }
 }

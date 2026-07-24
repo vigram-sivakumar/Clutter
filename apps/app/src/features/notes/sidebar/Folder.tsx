@@ -1,4 +1,3 @@
-import { IconSlot } from '@components/icon-slot/IconSlot';
 import { Button } from '@components/button/Button';
 import { Caret } from '@components/caret/Caret';
 import { Entry, type EntryProps } from '@components/entry/Entry';
@@ -6,6 +5,7 @@ import { AppIcon } from '@shared/icon';
 
 interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
+  emoji?: string | null;
 
   isEmpty?: boolean;
   hasCaret?: boolean;
@@ -15,6 +15,7 @@ interface FolderProps extends Omit<EntryProps, 'children'> {
 
 export function Folder({
   title,
+  emoji,
   isEmpty = false,
   hasCaret = true,
   isExpanded = false,
@@ -34,7 +35,7 @@ export function Folder({
               onClick={onExpandToggle}
             />
           )}
-          <IconSlot icon="folder" />
+          <AppIcon icon="folder" emoji={emoji} />
         </>
       }
       actions={

@@ -1,29 +1,28 @@
-import { Folder } from '../models/Folder';
-import { Note } from '../models/Note';
+import type { Folder, Page } from '@core/vault/models';
 import { FavoriteEntry } from '../models/FavoriteEntry';
 /**
  * Returns all favorite notes and folders
  * as a single list of sidebar entries.
  */
 export function getFavoriteEntries(
-  notes: Note[],
+  pages: Page[],
   folders: Folder[]
 ): FavoriteEntry[] {
   // Convert favorite folders into sidebar entries.
   const favoriteFolders = folders
-    .filter((folder) => folder.isFavorite)
+    .filter((folder) => folder.metadata.favorite)
     .map((folder) => ({
       id: folder.id,
-      title: folder.title,
+      title: folder.name,
       type: 'folder' as const,
     }));
 
   // Convert favorite notes into sidebar entries.
-  const favoriteNotes = notes
-    .filter((note) => note.isFavorite)
-    .map((note) => ({
-      id: note.id,
-      title: note.title,
+  const favoriteNotes = pages
+    .filter((page) => page.metadata.favorite)
+    .map((page) => ({
+      id: page.id,
+      title: page.name,
       type: 'note' as const,
     }));
 

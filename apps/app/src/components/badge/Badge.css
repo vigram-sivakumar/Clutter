@@ -15,7 +15,7 @@
   height: var(--height-xs);
   min-width: var(--height-xs);
   padding: 0 var(--space-6);
-  font-size: var(--text-body);
+  font-size: var(--text-body-small);
   font-weight: var(--fw-regular);
   line-height: var(--lh-body);
 }

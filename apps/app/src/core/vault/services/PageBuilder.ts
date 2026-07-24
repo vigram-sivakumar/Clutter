@@ -1,5 +1,6 @@
 import type { Page } from '../models';
 import type { ScannedPage } from './VaultScanResult';
+import { IdentityResolver } from './IdentityResolver';
 
 export interface BuildPageInput {
   readonly parentId: string;
@@ -7,6 +8,8 @@ export interface BuildPageInput {
 }
 
 export class PageBuilder {
+  private readonly identityResolver = new IdentityResolver();
+
   private getPageName(path: string): string {
     const fileName = path.substring(path.lastIndexOf('/') + 1);
     return fileName.endsWith('.md')
@@ -17,16 +20,15 @@ export class PageBuilder {
   build(input: BuildPageInput): Page {
     const { page, parentId } = input;
 
-    const id = page.frontmatter.id;
-
-    if (!id) {
-      throw new Error(`Missing page ID for "${page.path}".`);
-    }
+    const identity = this.identityResolver.resolve(
+      page.frontmatter.id,
+      page.path
+    );
 
     const type = page.frontmatter.type;
 
     return {
-      id,
+      id: identity.id,
       type: type ?? 'note',
       name: this.getPageName(page.path),
       path: page.path,

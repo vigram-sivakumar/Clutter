@@ -84,10 +84,8 @@ export class VaultScanner {
     }
 
     result.pages.push({
-      path,
+      ...markdown,
       directoryPath,
-      frontmatter: markdown.frontmatter,
-      content: markdown.body,
     });
   }
 }

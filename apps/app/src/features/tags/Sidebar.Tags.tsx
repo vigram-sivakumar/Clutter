@@ -3,12 +3,17 @@ import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { renderTags } from './helpers/renderTags';
-import { tags as tagsMock } from './mock/tags';
+import type { Vault } from '@core/vault/models';
 import { tagsNavigation } from './mock/tagsNavigation';
 import { AppIcon } from '@shared/icon';
 
-export function TagsPanel() {
+interface TagsPanelProps {
+  readonly vault: Vault;
+}
+
+export function Tags({ vault }: TagsPanelProps) {
   // const [isAllTagsExpanded, setAllTagsExpanded] = useState(true);
+  const tags = [...vault.tags()];
 
   return (
     <View
@@ -36,7 +41,7 @@ export function TagsPanel() {
         onExpandedChange={setAllTagsExpanded}
         onClick={() => {}}
       > */}
-      {renderTags(tagsMock)}
+      {renderTags(tags)}
       {/* </Section> */}
     </View>
   );

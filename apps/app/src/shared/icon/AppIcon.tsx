@@ -7,7 +7,7 @@ const DEFAULT_STROKE_WIDTH = 1.2;
 
 export interface AppIconProps {
   icon?: SystemIcon;
-  emoji?: string;
+  emoji?: string | null;
   size?: number;
 }
 

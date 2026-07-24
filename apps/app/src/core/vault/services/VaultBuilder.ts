@@ -1,10 +1,14 @@
 import { Vault } from '../models';
 import type { VaultScanResult } from './VaultScanResult';
 import { PageBuilder } from './PageBuilder';
+import { TagBuilder } from './TagBuilder';
+import { TaskBuilder } from './TaskBuilder';
 import type { Folder } from '../models';
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
+  private readonly tagBuilder = new TagBuilder();
+  private readonly taskBuilder = new TaskBuilder();
 
   private resolveFolderIds(scanResult: VaultScanResult): Map<string, string> {
     const folderIdsByPath = new Map<string, string>();
@@ -40,6 +44,7 @@ export class VaultBuilder {
 
       return {
         id,
+        name: directory.path.split('/').pop() ?? '',
         path: directory.path,
         parentId,
         metadata: {
@@ -64,7 +69,9 @@ export class VaultBuilder {
 
     // Pass 4:
     // Create the Vault.
+    const tags = this.tagBuilder.build(scanResult.pages);
+    const tasks = this.taskBuilder.build(scanResult.pages);
 
-    return new Vault(scanResult.rootPath, pages, folders);
+    return new Vault(scanResult.rootPath, pages, folders, tags, tasks);
   }
 }

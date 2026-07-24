@@ -1,6 +1,6 @@
 import { isToday } from '@shared/helpers/time';
-import { DailyNote } from '../models/DailyNote';
+import type { Page } from '@core/vault/models';
 
-export function findTodayNote(notes: DailyNote[]): DailyNote | null {
-  return notes.find((note) => isToday(note.date)) ?? null;
+export function findTodayNote(dailyNotes: Page[]): Page | null {
+  return dailyNotes.find((note) => isToday(note.name)) ?? null;
 }

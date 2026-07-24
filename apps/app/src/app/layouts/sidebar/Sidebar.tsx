@@ -6,9 +6,9 @@ import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
 import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
-import { DailyNotesPanel } from '@features/daily-notes/Sidebar.DailyNotes';
-import { TasksPanel } from '@features/tasks/sidebar/Sidebar.Tasks';
-import { TagsPanel } from '@features/tags/Sidebar.Tags';
+import { DailyNotes } from '@features/daily-notes/Sidebar.DailyNotes';
+import { Tasks } from '@features/tasks/sidebar/Sidebar.Tasks';
+import { Tags } from '@features/tags/Sidebar.Tags';
 import { SearchPanel } from '@features/search/Sidebar.Search';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 
@@ -28,23 +28,23 @@ export function Sidebar({ vault }: SidebarProps) {
     {
       value: 'daily-notes',
       icon: 'calendarToday',
-      panel: <DailyNotesPanel />,
+      panel: <DailyNotes vault={vault} />,
     },
     {
       value: 'notes',
       icon: 'note',
-      panel: <Notes />,
+      panel: <Notes vault={vault} />,
       // emoji: '🍉',
     },
     {
       value: 'tasks',
       icon: 'squareCheckOutline',
-      panel: <TasksPanel />,
+      panel: <Tasks vault={vault} />,
     },
     {
       value: 'tags',
       icon: 'tag',
-      panel: <TagsPanel />,
+      panel: <Tags vault={vault} />,
     },
     {
       value: 'search',

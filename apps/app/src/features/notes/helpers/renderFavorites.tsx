@@ -1,20 +1,19 @@
 // React
 // Components
-import { Folder } from '../sidebar/Folder';
-import { Note } from '../sidebar/Note';
+import { Folder as FolderEntry } from '../sidebar/Folder';
+import { Note as NoteEntry } from '../sidebar/Note';
 // Models
-import type { Note as NoteModels } from '../models/Note';
-import type { Folder as FolderModels } from '../models/Folder';
+import type { Page, Folder } from '@core/vault/models';
 // Helpers
 import { getFavoriteEntries } from './getFavorites';
 
-export function renderFavorites(notes: NoteModels[], folders: FolderModels[]) {
-  const favoriteItems = getFavoriteEntries(notes, folders);
+export function renderFavorites(pages: Page[], folders: Folder[]) {
+  const favoriteItems = getFavoriteEntries(pages, folders);
 
   return favoriteItems.map((item) => {
     if (item.type === 'note') {
       return (
-        <Note
+        <NoteEntry
           key={item.id}
           title={item.title}
           hasCaret={false}
@@ -23,7 +22,7 @@ export function renderFavorites(notes: NoteModels[], folders: FolderModels[]) {
       );
     }
     return (
-      <Folder
+      <FolderEntry
         key={item.id}
         title={item.title}
         hasCaret={false}

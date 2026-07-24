@@ -1,18 +1,17 @@
 // React
 import { Fragment } from 'react/jsx-runtime';
 // Components
-import { Folder } from '../sidebar/Folder';
-import { Note } from '../sidebar/Note';
+import { Folder as FolderEntry } from '../sidebar/Folder';
+import { Note as NoteEntry } from '../sidebar/Note';
 // Models
-import type { Folder as FolderModels } from '../models/Folder';
-import type { Note as NoteModels } from '../models/Note';
+import type { Folder, Page } from '@core/vault/models';
 // Helpers
 import { getChildFolders } from './getChildFolders';
-import { getChildNotes } from './getChildNotes';
+import { getChildPages } from './getChildNotes';
 
 interface RenderEntryTreeProps {
-  folders: FolderModels[];
-  notes: NoteModels[];
+  folders: Folder[];
+  pages: Page[];
   // The folder whose children we're currently rendering.
   // null means "start from the root".
   parentId: string | null;
@@ -22,7 +21,7 @@ interface RenderEntryTreeProps {
 
 export function renderNotesTree({
   folders,
-  notes,
+  pages,
   parentId,
   level,
 }: RenderEntryTreeProps) {
@@ -31,26 +30,28 @@ export function renderNotesTree({
 
   // Render every child folder.
   return rootFolders.map((folder) => {
-    // Get the notes that belong to this folder.
-    const childNotes = getChildNotes(notes, folder.id);
+    // Get the pages that belong to this folder.
+    const childPages = getChildPages(pages, folder.id);
     const subFolders = getChildFolders(folders, folder.id);
     // Checks if the folder is empty
-    const isEmpty = subFolders.length === 0 && childNotes.length === 0;
+    const isEmpty = subFolders.length === 0 && childPages.length === 0;
 
     return (
       <Fragment key={folder.id}>
         {/* Render the current folder */}
-        <Folder
-          title={folder.title}
+        <FolderEntry
+          title={folder.name}
+          emoji={folder.metadata.icon}
           level={level}
           isEmpty={isEmpty}
           onClick={() => {}}
         />
-        {/* Render all notes inside this folder */}
-        {childNotes.map((note) => (
-          <Note
+        {/* Render all pages inside this folder */}
+        {childPages.map((note) => (
+          <NoteEntry
             key={note.id}
-            title={note.title}
+            title={note.name}
+            emoji={note.metadata.icon}
             level={level + 1}
             onClick={() => {}}
           />
@@ -60,7 +61,7 @@ export function renderNotesTree({
             Every child folder repeats this exact process. */}
         {renderNotesTree({
           folders,
-          notes,
+          pages,
           parentId: folder.id,
           level: level + 1,
         })}

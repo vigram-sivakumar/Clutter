@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import { DailyNote } from '../components/DailyNote';
 import { Section } from '@app/layouts/sidebar/section/Section';
 // Models
-import type { DailyNote as DailyNoteModel } from '../models/DailyNote';
+import type { Page } from '@core/vault/models';
 // Helpers
 import { groupByMonth } from './groupByMonth';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@shared/helpers/time';
 
 interface RenderDailyNotesByMonthProps {
-  dailyNotes: DailyNoteModel[];
+  dailyNotes: Page[];
 }
 
 export function renderDailyNotesByMonth({
@@ -35,9 +35,9 @@ export function renderDailyNotesByMonth({
           {notes.map((note) => (
             <DailyNote
               key={note.id}
-              title={note.title}
-              date={note.date}
-              isToday={isToday(note.date)}
+              title={formatDate(note.name, 'date')}
+              date={note.name}
+              isToday={isToday(note.name)}
               onClick={() => {}}
             />
           ))}

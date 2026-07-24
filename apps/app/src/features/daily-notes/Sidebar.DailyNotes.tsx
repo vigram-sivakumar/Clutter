@@ -10,15 +10,20 @@ import { Calendar } from '@features/calendar/components/calendar/Calendar';
 import { findTodayNote } from './helpers/findTodayNote';
 import { renderDailyNotesByMonth } from './helpers/renderDailyNotesByMonth';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
-// mock date
-import { dailyNotes } from './mock/dailyNote';
+import type { Vault } from '@core/vault/models';
 
-export function DailyNotesPanel() {
+interface DailyNotesPanelProps {
+  vault: Vault;
+}
+
+export function DailyNotes({ vault }: DailyNotesPanelProps) {
   /**
    * Check whether today's journal already exists.
    * If it exists: Hide the "Create Today's Journal" button.
    * If it doesn't exist: Show the button.
    */
+  const dailyNotes = Array.from(vault.dailyNotes());
+
   const todayNote = findTodayNote(dailyNotes);
 
   // Currently selected date in the calendar.

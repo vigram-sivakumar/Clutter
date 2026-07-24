@@ -4,7 +4,7 @@ import { AppLayout } from './layouts/app-layout/AppLayout';
 
 import { Vault } from '../core/vault/models';
 import { LocalVaultProvider } from '../core/vault/providers';
-import { VaultScanner } from '../core/vault/services';
+import { VaultBuilder, VaultScanner } from '../core/vault/services';
 
 export function AppShell() {
   // TODO: Replace with the folder picker.
@@ -19,15 +19,24 @@ export function AppShell() {
 
     async function loadVault() {
       try {
+        console.log('Opening vault:', vaultPath);
         const fileSystem = new LocalVaultProvider();
-        const scanner = new VaultScanner(fileSystem);
 
-        const vault = await scanner.scan(vaultPath);
+        const scanner = new VaultScanner(fileSystem);
+        console.log('Scanning vault...');
+        const builder = new VaultBuilder();
+
+        const scanResult = await scanner.scan(vaultPath);
+        console.log('Scan result:', scanResult);
+        console.log('Building vault...');
+        const vault = builder.build(scanResult);
+        console.log('Vault built:', vault);
 
         if (!cancelled) {
           setVault(vault);
         }
       } catch (error) {
+        console.error('Failed to open vault:', error);
         if (!cancelled) {
           setError(
             error instanceof Error ? error.message : 'Failed to open vault.'

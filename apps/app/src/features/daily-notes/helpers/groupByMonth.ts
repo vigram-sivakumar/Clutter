@@ -1,12 +1,12 @@
-import { DailyNote } from '../models/DailyNote';
+import type { Page } from '@core/vault/models';
 
 type MonthGroups = {
-  [date: string]: DailyNote[];
+  [date: string]: Page[];
 };
 
-export function groupByMonth(dailyNotes: DailyNote[]): MonthGroups {
+export function groupByMonth(dailyNotes: Page[]): MonthGroups {
   return dailyNotes.reduce((groups, dailyNote) => {
-    const month = dailyNote.date.slice(0, 7);
+    const month = dailyNote.name.slice(0, 7);
 
     if (!groups[month]) {
       groups[month] = [];

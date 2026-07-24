@@ -5,15 +5,13 @@ import { Task } from '../sidebar/Task';
 import { Section } from '@app/layouts/sidebar/section/Section';
 
 // Models
-import type { Task as TaskModel } from '../models/Tasks';
+import type { Task as TaskModel } from '@core/vault/models/Task';
 
 // Helpers
 import { groupTasks } from './groupTasks';
-import { groupTasksByDate } from './groupByDate';
-import { formatDate } from '@shared/helpers/time';
 
 interface RenderTasksByDateProps {
-  tasks: TaskModel[];
+  readonly tasks: readonly TaskModel[];
 }
 
 export function renderTasksByDate({ tasks }: RenderTasksByDateProps) {
@@ -23,35 +21,20 @@ export function renderTasksByDate({ tasks }: RenderTasksByDateProps) {
   // Convert the grouped object into an array so we can iterate over it.
   // Each entry has the form: [groupName, tasksInGroup]
   return Object.entries(taskGroups).map(([groupName, tasksInGroup]) => {
-    // Group only the tasks that belong to this section by due date.
-    const dateGroups = groupTasksByDate(tasksInGroup);
-
+    // TODO: Restore date grouping once semantic due-date extraction is added
+    // to the vault Task model.
     return (
       <Fragment key={groupName}>
-        {/* Render the task group heading. */}
         <Section hasHeader title={groupName} isCollapsible onClick={() => {}}>
-          {/* Render every date inside the current task group. */}
-          {Object.entries(dateGroups).map(([date, tasksForDate]) => {
-            // Format the date for display.
-            // Current year: 12 Jul
-            // Other years: 12 Jul 2025
-            const title = formatDate(date, 'short');
-
-            return (
-              <Section key={date} hasHeader title={title}>
-                {/* Render every task for this date. */}
-                {tasksForDate.map((task) => (
-                  <Task
-                    key={task.id}
-                    title={task.title}
-                    isChecked={task.isCompleted}
-                    isEmpty={true}
-                    onClick={() => {}}
-                  />
-                ))}
-              </Section>
-            );
-          })}
+          {tasksInGroup.map((task) => (
+            <Task
+              key={task.text}
+              title={task.text}
+              isChecked={task.completed}
+              isEmpty={true}
+              onClick={() => {}}
+            />
+          ))}
         </Section>
       </Fragment>
     );

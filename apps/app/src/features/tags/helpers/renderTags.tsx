@@ -1,36 +1,13 @@
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Tag } from '../components/Tag';
-import type { Tag as TagModel } from '../models/Tag';
+import type { Tag as TagModel } from '@core/vault/models/Tag';
 
-export function renderTags(tags: TagModel[]) {
-  const favoriteTags = tags.filter((tag) => tag.isFavorite);
-  const otherTags = tags.filter((tag) => !tag.isFavorite);
-
+export function renderTags(tags: readonly TagModel[]) {
   return (
-    <>
-      {/* Section title will not be visible untill we use the "hasHeader" prop */}
-      <Section hasHeader title="Favorites">
-        {favoriteTags.map((tag) => (
-          <Tag
-            key={tag.id}
-            title={tag.title}
-            color={tag.color}
-            isFavorite={true}
-            onClick={() => {}}
-          />
-        ))}
-      </Section>
-      <Section hasHeader title="Others">
-        {otherTags.map((tag) => (
-          <Tag
-            key={tag.id}
-            title={tag.title}
-            color={tag.color}
-            isFavorite={true}
-            onClick={() => {}}
-          />
-        ))}
-      </Section>
-    </>
+    <Section>
+      {tags.map((tag) => (
+        <Tag key={tag.name} title={tag.name} onClick={() => {}} />
+      ))}
+    </Section>
   );
 }
