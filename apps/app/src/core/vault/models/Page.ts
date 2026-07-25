@@ -1,11 +1,11 @@
 import type { PageMetadata } from './PageMetadata';
-import type { ScannedHeading } from '@core/vault/services/document-analysis/extractors/HeadingExtractor';
-import type { ScannedAlias } from '@core/vault/services/document-analysis/extractors/AliasExtractor';
-import type { ScannedBlockReference } from '@core/vault/services/document-analysis/extractors/BlockReferenceExtractor';
-import type { ScannedTask } from '@core/vault/services/document-analysis/extractors/TaskExtractor';
-import type { ScannedTagOccurrence } from '@core/vault/services/document-analysis/extractors/TagExtractor';
-import type { ScannedLink } from '@core/vault/services/document-analysis/extractors/LinkExtractor';
-import type { ScannedEmbed } from '@core/vault/services/document-analysis/extractors/EmbedExtractor';
+import type { Heading } from './analysis/Heading';
+import type { Alias } from './Alias';
+import type { BlockReference } from './analysis/BlockReference';
+import type { TaskOccurrence } from './occurrences/TaskOccurrence';
+import type { TagOccurrence } from './occurrences/TagOccurrence';
+import type { LinkOccurrence } from './occurrences/LinkOccurrence';
+import type { EmbedOccurrence } from './occurrences/EmbedOccurrence';
 
 export type PageType = 'note' | 'daily-note';
 
@@ -17,14 +17,14 @@ export interface PageSource {
 }
 
 export interface PageAnalysis {
-  readonly headings: readonly ScannedHeading[];
-  readonly aliases: readonly ScannedAlias[];
-  readonly blockReferences: readonly ScannedBlockReference[];
+  readonly headings: readonly Heading[];
+  readonly aliases: readonly Alias[];
+  readonly blockReferences: readonly BlockReference[];
 
-  readonly tasks: readonly ScannedTask[];
-  readonly tags: readonly ScannedTagOccurrence[];
-  readonly links: readonly ScannedLink[];
-  readonly embeds: readonly ScannedEmbed[];
+  readonly tasks: readonly TaskOccurrence[];
+  readonly tags: readonly TagOccurrence[];
+  readonly links: readonly LinkOccurrence[];
+  readonly embeds: readonly EmbedOccurrence[];
 
   // TODO(v2): Add outline, sections, transclusions,
   // and other page-owned semantics here.

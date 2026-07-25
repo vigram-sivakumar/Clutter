@@ -1,9 +1,10 @@
 import type { Page } from './Page';
 import type { Folder } from './Folder';
 import type { Tag } from './Tag';
-import type { Task } from './Task';
+import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Link } from './Link';
 import type { Embed } from './Embed';
+import type { KnowledgeGraph } from './graph/KnowledgeGraph';
 
 export class Vault {
   private readonly pagesById = new Map<string, Page>();
@@ -14,21 +15,22 @@ export class Vault {
   // Page.analysis is the canonical owner of extracted semantics. These
   // collections provide efficient vault-wide traversal and may eventually be
   // replaced by dedicated indexes or graph-backed query structures.
-  private readonly taskList = new Array<Task>();
+  private readonly taskList = new Array<TaskOccurrence>();
   private readonly linkList = new Array<Link>();
   private readonly embedList = new Array<Embed>();
 
   // TODO(v2): Replace the growing constructor parameter list with a
   // `VaultCollections` object once additional derived collections
-  // (attachments, graph, templates, etc.) are introduced.
+  // (attachments, templates, saved searches, etc.) are introduced.
   constructor(
     public readonly root: string,
     pages: Iterable<Page>,
     folders: Iterable<Folder>,
     tags: Iterable<Tag>,
-    taskCollection: Iterable<Task>,
+    taskCollection: Iterable<TaskOccurrence>,
     linkCollection: Iterable<Link>,
-    embedCollection: Iterable<Embed>
+    embedCollection: Iterable<Embed>,
+    public readonly knowledgeGraph: KnowledgeGraph
   ) {
     for (const folder of folders) {
       if (this.foldersById.has(folder.id)) {
@@ -77,7 +79,7 @@ export class Vault {
     yield* this.tagsByName.values();
   }
 
-  *tasks(): IterableIterator<Task> {
+  *tasks(): IterableIterator<TaskOccurrence> {
     yield* this.taskList;
   }
 

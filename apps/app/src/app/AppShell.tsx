@@ -4,7 +4,8 @@ import { AppLayout } from './layouts/app-layout/AppLayout';
 
 import { Vault } from '../core/vault/models';
 import { LocalVaultProvider } from '../core/vault/providers';
-import { VaultBuilder, VaultScanner } from '../core/vault/services';
+import { VaultBuilder } from '../core/vault/build';
+import { VaultScanner } from '../core/vault/discover';
 
 export function AppShell() {
   // TODO: Replace with the folder picker.

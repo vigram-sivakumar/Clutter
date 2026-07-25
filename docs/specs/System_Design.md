@@ -76,7 +76,7 @@ PageSource
 MarkdownAnalyzer
     │
     ▼
-PageAnalysis
+ScannedPageAnalysis
     │
     ▼
 Occurrences
@@ -104,7 +104,7 @@ Each stage has a single responsibility:
 | FrontmatterParser   | Split frontmatter from Markdown.                            |
 | PageSource          | Materialize the immutable document snapshot.                |
 | MarkdownAnalyzer    | Derive semantic information from page source.               |
-| PageAnalysis        | Hold page-local semantic analysis.                          |
+| ScannedPageAnalysis | Hold page-local semantic analysis.                          |
 | Occurrences         | Materialize extracted facts from page analysis.             |
 | PageBuilder         | Construct runtime Page resources.                           |
 | VaultBuilder        | Assemble the runtime Vault.                                 |
@@ -120,7 +120,7 @@ Markdown Body
         ↓
 MarkdownAnalyzer
         ↓
-PageAnalysis
+ScannedPageAnalysis
 ├── Tags
 ├── Tasks
 ├── Links
@@ -132,7 +132,7 @@ Each semantic feature follows the same pipeline:
 ```text
 Extractor
         ↓
-PageAnalysis
+ScannedPageAnalysis
         ↓
 Builder
         ↓
