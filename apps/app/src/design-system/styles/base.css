@@ -13,7 +13,7 @@ body {
 
 body {
   font-family: var(--font-sans);
-  font-size: var(--text-body);
+  font-size: var(--text-body-small);
   line-height: var(--lh-body);
   letter-spacing: var(--ls-body);
   font-weight: var(--fw-regular);
@@ -29,6 +29,13 @@ h5,
 p {
   margin: 0;
   padding: 0;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
 }
 
 #root {

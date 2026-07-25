@@ -43,6 +43,11 @@ export class PageBuilder {
         createdAt: page.frontmatter.createdAt ?? null,
         updatedAt: page.frontmatter.updatedAt ?? null,
       },
+      content: {
+        headings: page.analysis.headings,
+        aliases: page.frontmatterAnalysis.aliases,
+        blockReferences: page.analysis.blockReferences,
+      },
     };
   }
 }

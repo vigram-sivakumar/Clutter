@@ -1,3 +1,4 @@
+import type { FrontmatterAnalysis } from './document-analysis/FrontmatterAnalyzer';
 import type { FolderFrontmatter } from '../models';
 import type { PageFrontmatter } from '../models';
 import type { DocumentAnalysis } from './document-analysis/DocumentAnalysis';
@@ -18,6 +19,7 @@ export interface ScannedPage {
   readonly path: string;
   readonly directoryPath: string;
   readonly frontmatter: PageFrontmatter;
+  readonly frontmatterAnalysis: FrontmatterAnalysis;
   readonly content: string;
   readonly analysis: DocumentAnalysis;
 }

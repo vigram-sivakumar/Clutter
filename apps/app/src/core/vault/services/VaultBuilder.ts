@@ -3,12 +3,18 @@ import type { VaultScanResult } from './VaultScanResult';
 import { PageBuilder } from './PageBuilder';
 import { TagBuilder } from './TagBuilder';
 import { TaskBuilder } from './TaskBuilder';
+import { LinkBuilder } from './LinkBuilder';
+import { EmbedBuilder } from './EmbedBuilder';
+import { KnowledgeGraphBuilder } from './KnowledgeGraphBuilder';
 import type { Folder } from '../models';
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
   private readonly tagBuilder = new TagBuilder();
   private readonly taskBuilder = new TaskBuilder();
+  private readonly linkBuilder = new LinkBuilder();
+  private readonly embedBuilder = new EmbedBuilder();
+  private readonly knowledgeGraphBuilder = new KnowledgeGraphBuilder();
 
   private resolveFolderIds(scanResult: VaultScanResult): Map<string, string> {
     const folderIdsByPath = new Map<string, string>();
@@ -71,7 +77,25 @@ export class VaultBuilder {
     // Create the Vault.
     const tags = this.tagBuilder.build(scanResult.pages);
     const tasks = this.taskBuilder.build(scanResult.pages);
+    const links = this.linkBuilder.build(scanResult.pages);
+    const embeds = this.embedBuilder.build(scanResult.pages);
 
-    return new Vault(scanResult.rootPath, pages, folders, tags, tasks);
+    const vault = new Vault(
+      scanResult.rootPath,
+      pages,
+      folders,
+      tags,
+      tasks,
+      links,
+      embeds
+    );
+
+    // TODO(v1): Decide whether the knowledge graph should be owned by the
+    // Vault or exposed as a separate derived model.
+    const knowledgeGraph = this.knowledgeGraphBuilder.build(vault);
+
+    void knowledgeGraph;
+
+    return vault;
   }
 }

@@ -1,20 +1,43 @@
 import type { PageFrontmatter } from '../models';
+import type { DocumentAnalysis } from '../services/document-analysis/DocumentAnalysis';
+import { MarkdownAnalyzer } from '../services/document-analysis/MarkdownAnalyzer';
+import {
+  FrontmatterAnalyzer,
+  type FrontmatterAnalysis,
+} from '../services/document-analysis/FrontmatterAnalyzer';
+
+export type ParsedFrontmatter = Record<string, unknown>;
 
 export interface ParsedMarkdown {
-  frontmatter: PageFrontmatter;
+  frontmatter: ParsedFrontmatter & PageFrontmatter;
+  frontmatterAnalysis: FrontmatterAnalysis;
   body: string;
+  analysis: DocumentAnalysis;
 }
 
 export class FrontmatterParser {
+  private readonly markdownAnalyzer = new MarkdownAnalyzer();
+  private readonly frontmatterAnalyzer = new FrontmatterAnalyzer();
+
   parse(content: string): ParsedMarkdown {
     // 1. Check for opening delimiter
     if (!content.startsWith('---\n')) {
-      return { frontmatter: {}, body: content };
+      return {
+        frontmatter: {},
+        frontmatterAnalysis: this.frontmatterAnalyzer.analyze({}),
+        body: content,
+        analysis: this.markdownAnalyzer.analyze(content),
+      };
     }
     // 2. Find closing delimiter
     const endIdx = content.indexOf('\n---', 4);
     if (endIdx === -1) {
-      return { frontmatter: {}, body: content };
+      return {
+        frontmatter: {},
+        frontmatterAnalysis: this.frontmatterAnalyzer.analyze({}),
+        body: content,
+        analysis: this.markdownAnalyzer.analyze(content),
+      };
     }
     // 3. Extract frontmatter text
     const frontmatterText = content.slice(4, endIdx);
@@ -23,48 +46,116 @@ export class FrontmatterParser {
     if (body.startsWith('\n')) {
       body = body.slice(1);
     }
-    // 5. Parse frontmatter line by line
-    const frontmatter: PageFrontmatter = {};
+    const frontmatter = this.parseFrontmatter(frontmatterText);
+    // 6. Return result
+    const analysis = this.markdownAnalyzer.analyze(body);
+    const frontmatterAnalysis = this.frontmatterAnalyzer.analyze(frontmatter);
+    return {
+      frontmatter,
+      frontmatterAnalysis,
+      body,
+      analysis,
+    };
+  }
+
+  private parseFrontmatter(
+    frontmatterText: string
+  ): ParsedFrontmatter & PageFrontmatter {
+    const frontmatter: ParsedFrontmatter & PageFrontmatter = {};
+
+    let currentArrayKey: string | null = null;
+
     for (const line of frontmatterText.split('\n')) {
       const trimmed = line.trim();
       if (!trimmed) continue;
+
+      if (trimmed.startsWith('- ')) {
+        if (currentArrayKey === 'aliases') {
+          const aliases = (frontmatter.aliases as string[] | undefined) ?? [];
+          aliases.push(trimmed.slice(2).trim());
+          frontmatter.aliases = aliases;
+        }
+        continue;
+      }
+
       const sepIdx = trimmed.indexOf(':');
       if (sepIdx === -1) continue;
+
       const key = trimmed.slice(0, sepIdx).trim();
       const value = trimmed.slice(sepIdx + 1).trim();
+      const scalar = this.parseScalar(value);
+
+      currentArrayKey = value === '' ? key : null;
+
       switch (key) {
         case 'id':
-          frontmatter.id = value;
+          if (typeof scalar === 'string') {
+            frontmatter.id = scalar;
+          }
           break;
         case 'type':
-          if (value === 'note' || value === 'daily-note') {
-            frontmatter.type = value;
+          if (
+            typeof scalar === 'string' &&
+            (scalar === 'note' || scalar === 'daily-note')
+          ) {
+            frontmatter.type = scalar;
           }
           break;
         case 'icon':
-          frontmatter.icon = value;
+          if (typeof scalar === 'string') {
+            frontmatter.icon = scalar;
+          }
           break;
         case 'cover':
-          frontmatter.cover = value;
+          if (typeof scalar === 'string') {
+            frontmatter.cover = scalar;
+          }
           break;
         case 'description':
-          frontmatter.description = value;
+          if (typeof scalar === 'string') {
+            frontmatter.description = scalar;
+          }
           break;
         case 'favorite':
-          frontmatter.favorite = value === 'true';
+          if (typeof scalar === 'boolean') {
+            frontmatter.favorite = scalar;
+          }
           break;
         case 'originalParentId':
-          frontmatter.originalParentId = value;
+          if (typeof scalar === 'string') {
+            frontmatter.originalParentId = scalar;
+          }
           break;
         case 'createdAt':
-          frontmatter.createdAt = value;
+          if (typeof scalar === 'string') {
+            frontmatter.createdAt = scalar;
+          }
           break;
         case 'updatedAt':
-          frontmatter.updatedAt = value;
+          if (typeof scalar === 'string') {
+            frontmatter.updatedAt = scalar;
+          }
+          break;
+        case 'aliases':
+          if (!frontmatter.aliases) {
+            frontmatter.aliases = [];
+          }
           break;
       }
     }
-    // 6. Return result
-    return { frontmatter, body };
+
+    return frontmatter;
+  }
+  private parseScalar(value: string): string | boolean | null {
+    switch (value) {
+      case 'true':
+        return true;
+      case 'false':
+        return false;
+      case 'null':
+        return null;
+      default:
+        return value;
+    }
   }
 }

@@ -1,11 +1,9 @@
 import { FrontmatterParser } from '../parsers';
-import { MarkdownAnalyzer } from './document-analysis/MarkdownAnalyzer';
 import type { VaultFileSystem } from '../providers';
 import type { ScannedPage } from './VaultScanResult';
 
 export class DocumentLoader {
   private readonly frontmatterParser = new FrontmatterParser();
-  private readonly markdownAnalyzer = new MarkdownAnalyzer();
 
   constructor(private readonly fileSystem: VaultFileSystem) {}
 
@@ -26,8 +24,9 @@ export class DocumentLoader {
       path,
       directoryPath: '',
       frontmatter: parsedMarkdown.frontmatter,
+      frontmatterAnalysis: parsedMarkdown.frontmatterAnalysis,
       content: parsedMarkdown.body,
-      analysis: this.markdownAnalyzer.analyze(parsedMarkdown.body),
+      analysis: parsedMarkdown.analysis,
     };
   }
 }

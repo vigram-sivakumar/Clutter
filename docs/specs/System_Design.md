@@ -70,10 +70,16 @@ DocumentLoader
 FrontmatterParser
     │
     ▼
+MarkdownAnalyzer
+    │
+    ▼
+DocumentAnalysis
+    │
+    ▼
 PageBuilder
     │
     ▼
-Page[]
+VaultBuilder
     │
     ▼
 Vault
@@ -86,9 +92,41 @@ Each stage has a single responsibility:
 | VaultProvider     | Access the underlying filesystem.                        |
 | VaultScanner      | Discover Markdown files and orchestrate page creation.   |
 | DocumentLoader    | Read and parse Markdown documents.                       |
-| FrontmatterParser | Extract frontmatter and Markdown body.                   |
+| FrontmatterParser | Parse frontmatter and extract the Markdown body.         |
+| MarkdownAnalyzer  | Extract semantic knowledge from the Markdown body.       |
 | PageBuilder       | Construct runtime `Page` objects.                        |
+| VaultBuilder      | Assemble the runtime Vault and derived indexes.          |
 | Vault             | Represent the current runtime view of the scanned vault. |
+
+## Document Analysis
+
+Every Markdown document undergoes semantic analysis after frontmatter parsing.
+
+```text
+Markdown Body
+        ↓
+MarkdownAnalyzer
+        ↓
+DocumentAnalysis
+├── Tags
+├── Tasks
+├── Links
+└── Future semantic extractors
+```
+
+Each semantic feature follows the same pipeline:
+
+```text
+Extractor
+        ↓
+DocumentAnalysis
+        ↓
+Builder
+        ↓
+Vault
+```
+
+Extractors report what exists in Markdown. Builders transform extracted semantics into runtime indexes and domain models. Resolution, validation, and derived relationships are intentionally performed in later stages.
 
 ## Vault
 
@@ -170,41 +208,50 @@ Unlike the page ID, the path may change whenever the user reorganizes the vault.
 
 ### Wiki Links
 
-Markdown remains human-readable and portable.
+Wiki links are persisted as deterministic, human-readable references in Markdown.
 
-Wiki links are stored using human-readable page references rather than page IDs.
+Clutter accepts multiple imported reference formats, including:
 
-When a page name is unique within the vault, Clutter stores a simple page reference:
+- `[[Page]]`
+- `[[Folder/Page]]`
+- `[[Folder/Page|Alias]]`
+- Standard Markdown links (future)
+
+When Clutter creates or rewrites a link, it emits a single canonical representation:
 
 ```md
-[[Project Alpha]]
+[[Projects/Architecture|Architecture]]
 ```
 
-If multiple pages share the same name, Clutter automatically stores a vault-relative qualified reference:
+The persisted Markdown remains the source of truth for the relationship.
 
-```md
-[[Personal/Project Alpha]]
+### Runtime Resolution
+
+During vault construction and index creation, every persisted wiki link is resolved to the immutable Page ID of its target.
+
+```text
+Markdown
+[[Projects/Architecture|Architecture]]
+        ↓
+Link Resolver
+        ↓
+Page ID
 ```
 
-During indexing, Clutter resolves every wiki link to the target page's immutable ID and stores that relationship internally.
+The runtime Page ID is a derived binding used for navigation, backlinks, graph construction, rename operations, and other runtime capabilities. It is never the persisted representation of the relationship.
 
-As a result:
+### Link Resolution
 
-- Markdown remains readable and compatible with other editors.
-- Runtime relationships remain stable and independent of filesystem paths.
-- Internal features such as backlinks, graph relationships, favorites, and workspace state reference pages by their immutable IDs rather than their paths.
+Clutter resolves links deterministically using the persisted Markdown.
 
-### Wiki Link Resolution
+Resolution order:
 
-Clutter resolves wiki links using the following order:
+1. Exact vault-relative path.
+2. Relative path (when supported).
+3. Unique filename within the vault.
+4. Otherwise mark the link as ambiguous.
 
-1. Resolve a unique page name.
-2. Resolve a qualified vault-relative page reference (for example `[[Personal/Finance]]`).
-3. If multiple matches still exist, prompt the user to choose the intended page.
-
-Once resolved, Clutter stores the relationship internally using the target page's immutable ID.
-
-The Markdown itself remains unchanged and continues to contain only human-readable wiki links.
+Imported links are never silently bound using hidden state. If a link cannot be resolved deterministically from the vault, it remains unresolved until the ambiguity is addressed.
 ---
 
 # Planned Sections

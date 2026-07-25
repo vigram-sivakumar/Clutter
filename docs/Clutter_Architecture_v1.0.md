@@ -43,7 +43,7 @@ Principles:
     locations.**
 6.  **Views interpret pages without changing storage.**
 7.  **The editor is rich; the storage remains simple.**
-8.  **Derived information is computed, not authored.**
+8.  **Derived information is computed from the vault, not authored.**
 9.  **Complexity is introduced only when it unlocks meaningful
     capability.**
 10. **Clutter progressively adopts existing Markdown instead of
@@ -367,19 +367,35 @@ Identity is introduced only when it unlocks meaningful capability.
 
 # 13. References
 
-Every Clutter-managed page has an immutable Page ID.
+Clutter stores references using a deterministic, self-describing Markdown representation while resolving them to stable Page IDs at runtime.
 
-Clutter resolves references using Page IDs whenever available while
-remaining compatible with:
+Persistence, runtime identity, and presentation belong to different layers.
 
-- Obsidian wiki links
+```text
+Markdown representation
+[[Projects/Architecture|Architecture]]
+        ↓
+Link resolver
+        ↓
+Page ID
+```
+
+Persistence uses a vault-relative path so the relationship remains reconstructible from Markdown alone.
+
+Runtime resolution binds each reference to a stable Page ID for efficient lookup, navigation, backlinks, graph construction, and rename operations.
+
+Presentation may render the page title or the supplied alias without exposing the persisted path.
+
+Clutter accepts multiple imported reference formats, including:
+
+- Path-qualified wiki links
+- Filename-only wiki links
 - Standard Markdown links
-- Imported path-based references
+- Other supported imported formats
 
-Reference syntax is intentionally deferred to the Markdown
-specification.
+When Clutter writes or rewrites references, it emits a single deterministic canonical representation.
 
-Reference semantics are frozen.
+Reference resolution is based on the persisted Markdown representation and never relies on hidden bindings that cannot be reconstructed from the vault.
 
 ---
 
@@ -614,7 +630,7 @@ The following remain specification work:
 - Vault format
 - Markdown dialect
 - Frontmatter schema
-- Reference syntax
+- Canonical reference serialization format
 - Block ID syntax
 - Parser implementation
 - Serialization strategy
