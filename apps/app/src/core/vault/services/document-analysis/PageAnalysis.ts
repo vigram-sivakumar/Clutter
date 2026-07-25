@@ -5,7 +5,10 @@ import type { ScannedLink } from './extractors/LinkExtractor';
 import type { ScannedEmbed } from './extractors/EmbedExtractor';
 import type { ScannedHeading } from './extractors/HeadingExtractor';
 
-export interface DocumentAnalysis {
+// Semantic information derived from a single page's source.
+//
+// Page analysis is page-local and never depends on the rest of the vault.
+export interface PageAnalysis {
   readonly tasks: readonly ScannedTask[];
   readonly tags: readonly ScannedTagOccurrence[];
   readonly links: readonly ScannedLink[];

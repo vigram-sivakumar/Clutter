@@ -1,12 +1,12 @@
-import { Vault } from '../models';
-import type { VaultScanResult } from './VaultScanResult';
+import { Vault } from '../../models';
+import type { VaultScanResult } from '../VaultScanResult';
 import { PageBuilder } from './PageBuilder';
 import { TagBuilder } from './TagBuilder';
 import { TaskBuilder } from './TaskBuilder';
 import { LinkBuilder } from './LinkBuilder';
 import { EmbedBuilder } from './EmbedBuilder';
 import { KnowledgeGraphBuilder } from './KnowledgeGraphBuilder';
-import type { Folder } from '../models';
+import type { Folder } from '../../models';
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
@@ -74,11 +74,11 @@ export class VaultBuilder {
     });
 
     // Pass 4:
-    // Create the Vault.
-    const tags = this.tagBuilder.build(scanResult.pages);
-    const tasks = this.taskBuilder.build(scanResult.pages);
-    const links = this.linkBuilder.build(scanResult.pages);
-    const embeds = this.embedBuilder.build(scanResult.pages);
+    // Build vault-wide projections from page analysis.
+    const tags = this.tagBuilder.build(pages);
+    const tasks = this.taskBuilder.build(pages);
+    const links = this.linkBuilder.build(pages);
+    const embeds = this.embedBuilder.build(pages);
 
     const vault = new Vault(
       scanResult.rootPath,

@@ -1,7 +1,9 @@
-// Represents the parsed destination of a wiki link. Resolution is performed
-// separately by LinkResolver.
-export interface Link {
-  readonly sourcePageId: string;
+// Represents a wiki link occurrence extracted from a page.
+//
+// Resolution is performed separately by LinkResolver.
+import type { Occurrence } from './Occurrence';
+
+export interface Link extends Occurrence {
   readonly target: string;
   readonly heading?: string;
   readonly blockReference?: string;

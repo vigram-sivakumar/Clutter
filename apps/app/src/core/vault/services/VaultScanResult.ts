@@ -1,7 +1,7 @@
 import type { FrontmatterAnalysis } from './document-analysis/FrontmatterAnalyzer';
 import type { FolderFrontmatter } from '../models';
 import type { PageFrontmatter } from '../models';
-import type { DocumentAnalysis } from './document-analysis/DocumentAnalysis';
+import type { PageAnalysis } from './document-analysis/PageAnalysis';
 
 export interface VaultScanResult {
   readonly rootPath: string;
@@ -21,5 +21,5 @@ export interface ScannedPage {
   readonly frontmatter: PageFrontmatter;
   readonly frontmatterAnalysis: FrontmatterAnalysis;
   readonly content: string;
-  readonly analysis: DocumentAnalysis;
+  readonly analysis: PageAnalysis;
 }

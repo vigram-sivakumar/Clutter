@@ -1,14 +1,13 @@
-import type { Embed } from '@core/vault/models/Embed';
-import type { ScannedPage } from './VaultScanResult';
+import type { Embed, Page } from '@core/vault/models';
 
 export class EmbedBuilder {
-  build(pages: readonly ScannedPage[]): readonly Embed[] {
+  build(pages: readonly Page[]): readonly Embed[] {
     const embeds: Embed[] = [];
 
     for (const page of pages) {
       for (const embed of page.analysis.embeds) {
         embeds.push({
-          sourcePageId: page.frontmatter.id,
+          sourcePageId: page.id,
           target: embed.target,
           heading: embed.heading,
           blockReference: embed.blockReference,

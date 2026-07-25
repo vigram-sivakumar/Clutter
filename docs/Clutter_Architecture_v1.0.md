@@ -51,9 +51,74 @@ Principles:
 
 ---
 
+# Core Concepts
+
+Clutter distinguishes five architectural concepts.
+
+## Resources
+
+Persisted filesystem entities that exist independently of Clutter.
+
+Examples:
+
+- Page
+- Folder
+
+## Source
+
+The immutable document snapshot from which interpretation begins.
+
+A page's source consists of:
+
+- Markdown
+- Frontmatter
+
+Future implementations may also include document hash, timestamps, and other source metadata.
+
+## Analysis
+
+Analysis is derived entirely from a page's source.
+
+Examples include:
+
+- Headings
+- Block references
+- Parsed links
+- Parsed embeds
+- Parsed tags
+- Parsed tasks
+
+Analysis is page-local and never depends on the rest of the vault.
+
+## Occurrences
+
+Occurrences represent facts extracted from a single page.
+
+Examples:
+
+- LinkOccurrence
+- EmbedOccurrence
+- TagOccurrence
+- TaskOccurrence
+
+Occurrences preserve provenance and may later include source ranges and document versions.
+
+## Derived Projections
+
+Derived projections are rebuildable runtime structures computed from resources and occurrences.
+
+Examples:
+
+- Indexes
+- Resolved references
+- Knowledge graph
+- Search indexes
+
+Derived projections are never authoritative.
+
 # 1. The Vault
 
-The vault is the authoritative source of user knowledge.
+The filesystem vault is the authoritative source of user knowledge. The runtime `Vault` is a materialized snapshot of that source for the current session.
 
 It contains:
 
@@ -251,6 +316,17 @@ date: 2026-07-23
 
 Both use the same editor.
 
+Conceptually, every page consists of four parts:
+
+- Identity
+- Metadata
+- Page Source
+- Page Analysis
+
+Page Source contains the persisted document (Markdown and frontmatter).
+
+Page Analysis contains information derived from that source, such as headings, block references, parsed links, parsed embeds, parsed tags, and parsed tasks.
+
 ---
 
 # 8. Shared Page Header
@@ -367,6 +443,15 @@ Identity is introduced only when it unlocks meaningful capability.
 
 # 13. References
 
+All references share a common conceptual target consisting of:
+
+- Target page
+- Optional heading
+- Optional block reference
+- Optional alias
+
+Different occurrence types (for example, links and embeds) may reference the same target while preserving their own behaviour.
+
 Clutter stores references using a deterministic, self-describing Markdown representation while resolving them to stable Page IDs at runtime.
 
 Persistence, runtime identity, and presentation belong to different layers.
@@ -403,6 +488,8 @@ Reference resolution is based on the persisted Markdown representation and never
 
 The index accelerates interpretation.
 
+Indexes are derived projections built from resources and occurrences. They exist solely to provide efficient runtime queries and can always be discarded and rebuilt from the vault.
+
 Examples:
 
 - Search
@@ -412,11 +499,15 @@ Examples:
 - Timeline
 - Thumbnails
 
-The index is never authoritative.
+# The index is never authoritative.
 
-Deleting the index must never delete user-authored knowledge.
+#
 
-The index is always rebuildable from the vault.
+# Deleting the index must never delete user-authored knowledge.
+
+#
+
+# The index is always rebuildable from the vault.
 
 ---
 
@@ -441,9 +532,15 @@ Document Loader
     ↓
 Frontmatter Parser
     ↓
-Page Builder
+Page Source
+    ↓
+Page Analysis
+    ↓
+Occurrences
     ↓
 Vault
+    ↓
+Derived Projections
     ↓
 Views
     ↓
@@ -504,18 +601,6 @@ Responsibilities:
 
 The parser never accesses the filesystem.
 
-**Page Builder**
-
-Constructs validated runtime Page objects from parsed Markdown.
-
-Responsibilities:
-
-- Interpret supported Clutter metadata.
-- Materialize runtime Page objects.
-- Validate runtime page invariants.
-
-The Page Builder is not responsible for filesystem access or persistence.
-
 **Vault**
 
 Represents the canonical runtime boundary for the resources belonging to a vault.
@@ -526,9 +611,21 @@ Responsibilities:
 - Provide canonical page identity lookup.
 - Enforce vault-level resource invariants.
 
-The Vault does not own workspace state, application lifecycle, or derived capabilities such as search and graph indexes.
+# The Vault represents a consistent runtime snapshot of the opened vault. It may expose derived projections such as indexes and the knowledge graph, but those projections remain disposable, rebuildable, and non-authoritative.
 
 ---
+
+# Resolution
+
+Resolution is a runtime process rather than a persisted data model.
+
+Its responsibilities are to:
+
+- Resolve occurrences through indexes.
+- Apply ambiguity and matching policies.
+- Produce derived runtime relationships.
+
+Resolution never modifies persisted resources or extracted occurrences.
 
 # 17. Architectural Invariants
 
@@ -545,6 +642,11 @@ The Vault does not own workspace state, application lifecycle, or derived capabi
 - Unknown frontmatter is preserved.
 - Unsupported Markdown is preserved whenever possible.
 - Clutter does not unnecessarily rewrite files.
+- Page analysis is derived solely from page source.
+- Parsing never performs reference resolution.
+- Occurrences preserve provenance.
+- Resolution always operates through indexes.
+- Derived projections are disposable and rebuildable.
 
 ## Editing
 

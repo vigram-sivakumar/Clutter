@@ -14,13 +14,13 @@ export interface ResolvedLink {
 
 export class LinkResolver {
   resolve(
-    links: readonly Link[],
+    links: Iterable<Link>,
     pageIndex: PageIndex
   ): readonly ResolvedLink[] {
     // TODO(v2): Extend resolution to support relative paths, aliases,
     // embeds, and additional Markdown link formats.
 
-    return links.map((link) => {
+    return Array.from(links, (link) => {
       const pageByPath = pageIndex.findByPath(link.target);
 
       if (pageByPath) {

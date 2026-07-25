@@ -1,2 +1,2 @@
-export * from './VaultFileSystem';
 export * from './LocalFileSystem';
+export * from './VaultFileSystem';

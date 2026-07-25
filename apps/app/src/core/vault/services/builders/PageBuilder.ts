@@ -1,6 +1,6 @@
-import type { Page } from '../models';
-import type { ScannedPage } from './VaultScanResult';
-import { IdentityResolver } from './IdentityResolver';
+import type { Page } from '../../models';
+import type { ScannedPage } from '../VaultScanResult';
+import { IdentityResolver } from '../IdentityResolver';
 
 export interface BuildPageInput {
   readonly parentId: string;
@@ -43,10 +43,18 @@ export class PageBuilder {
         createdAt: page.frontmatter.createdAt ?? null,
         updatedAt: page.frontmatter.updatedAt ?? null,
       },
-      content: {
+      source: {
+        markdown: page.content,
+      },
+
+      analysis: {
         headings: page.analysis.headings,
         aliases: page.frontmatterAnalysis.aliases,
         blockReferences: page.analysis.blockReferences,
+        tasks: page.analysis.tasks,
+        tags: page.analysis.tags,
+        links: page.analysis.links,
+        embeds: page.analysis.embeds,
       },
     };
   }

@@ -9,9 +9,11 @@ export class Vault {
   private readonly pagesById = new Map<string, Page>();
   private readonly foldersById = new Map<string, Folder>();
   private readonly tagsByName = new Map<string, Tag>();
-  // TODO(v2): These collections are derived from pages. Consider moving
-  // them into dedicated indexes or a graph layer if they become large or
-  // require more advanced querying.
+  // Vault-wide projections derived from page analysis.
+  //
+  // Page.analysis is the canonical owner of extracted semantics. These
+  // collections provide efficient vault-wide traversal and may eventually be
+  // replaced by dedicated indexes or graph-backed query structures.
   private readonly taskList = new Array<Task>();
   private readonly linkList = new Array<Link>();
   private readonly embedList = new Array<Embed>();
@@ -79,9 +81,9 @@ export class Vault {
     yield* this.taskList;
   }
 
-  // TODO(v2): Keep the Vault focused on owning data. Relationship queries
-  // such as backlinks, outgoing links, graph traversal, and unlinked
-  // mentions should live in a dedicated graph/index layer.
+  // Relationship queries (backlinks, outgoing links, graph traversal,
+  // unlinked mentions, etc.) belong to derived projections such as the
+  // knowledge graph rather than the Vault itself.
   *links(): IterableIterator<Link> {
     yield* this.linkList;
   }

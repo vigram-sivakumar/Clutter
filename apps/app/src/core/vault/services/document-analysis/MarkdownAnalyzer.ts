@@ -1,4 +1,4 @@
-import type { DocumentAnalysis } from './DocumentAnalysis';
+import type { PageAnalysis } from './PageAnalysis';
 import { TagExtractor } from './extractors/TagExtractor';
 import { TaskExtractor } from './extractors/TaskExtractor';
 import { LinkExtractor } from './extractors/LinkExtractor';
@@ -14,7 +14,11 @@ export class MarkdownAnalyzer {
   private readonly headingExtractor = new HeadingExtractor();
   private readonly blockReferenceExtractor = new BlockReferenceExtractor();
 
-  analyze(content: string): DocumentAnalysis {
+  // Produces semantic analysis for a single page.
+  //
+  // Analysis is intentionally page-local and performs no vault-wide
+  // interpretation such as reference resolution.
+  analyze(content: string): PageAnalysis {
     return {
       tasks: this.taskExtractor.extract(content),
       tags: this.tagExtractor.extract(content),

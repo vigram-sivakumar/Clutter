@@ -70,10 +70,16 @@ DocumentLoader
 FrontmatterParser
     │
     ▼
+PageSource
+    │
+    ▼
 MarkdownAnalyzer
     │
     ▼
-DocumentAnalysis
+PageAnalysis
+    │
+    ▼
+Occurrences
     │
     ▼
 PageBuilder
@@ -83,22 +89,29 @@ VaultBuilder
     │
     ▼
 Vault
+    │
+    ▼
+Derived Projections
 ```
 
 Each stage has a single responsibility:
 
-| Component         | Responsibility                                           |
-| ----------------- | -------------------------------------------------------- |
-| VaultProvider     | Access the underlying filesystem.                        |
-| VaultScanner      | Discover Markdown files and orchestrate page creation.   |
-| DocumentLoader    | Read and parse Markdown documents.                       |
-| FrontmatterParser | Parse frontmatter and extract the Markdown body.         |
-| MarkdownAnalyzer  | Extract semantic knowledge from the Markdown body.       |
-| PageBuilder       | Construct runtime `Page` objects.                        |
-| VaultBuilder      | Assemble the runtime Vault and derived indexes.          |
-| Vault             | Represent the current runtime view of the scanned vault. |
+| Component           | Responsibility                                              |
+| ------------------- | ----------------------------------------------------------- |
+| VaultProvider       | Access the underlying filesystem.                           |
+| VaultScanner        | Discover Markdown files and orchestrate vault scanning.     |
+| DocumentLoader      | Read Markdown documents.                                    |
+| FrontmatterParser   | Split frontmatter from Markdown.                            |
+| PageSource          | Materialize the immutable document snapshot.                |
+| MarkdownAnalyzer    | Derive semantic information from page source.               |
+| PageAnalysis        | Hold page-local semantic analysis.                          |
+| Occurrences         | Materialize extracted facts from page analysis.             |
+| PageBuilder         | Construct runtime Page resources.                           |
+| VaultBuilder        | Assemble the runtime Vault.                                 |
+| Derived Projections | Build indexes, resolution results, and the knowledge graph. |
+| Vault               | Represent the current runtime snapshot.                     |
 
-## Document Analysis
+## Page Analysis
 
 Every Markdown document undergoes semantic analysis after frontmatter parsing.
 
@@ -107,7 +120,7 @@ Markdown Body
         ↓
 MarkdownAnalyzer
         ↓
-DocumentAnalysis
+PageAnalysis
 ├── Tags
 ├── Tasks
 ├── Links
@@ -119,20 +132,18 @@ Each semantic feature follows the same pipeline:
 ```text
 Extractor
         ↓
-DocumentAnalysis
+PageAnalysis
         ↓
 Builder
         ↓
 Vault
 ```
 
-Extractors report what exists in Markdown. Builders transform extracted semantics into runtime indexes and domain models. Resolution, validation, and derived relationships are intentionally performed in later stages.
+Extractors report what exists in a page's source. Page analysis remains page-local. Occurrences are materialized from that analysis. Resolution, validation, indexes, and graph construction are performed only after the vault has been assembled.
 
 ## Vault
 
-Vault is the canonical runtime representation of the resources belonging to a vault and the invariants governing those resources.
-
-It owns the runtime resource model (such as pages, folders, and assets) and provides canonical identity lookup for those resources.
+Vault is the canonical runtime snapshot of an opened filesystem vault. It owns runtime resources and exposes disposable derived projections without making those projections authoritative.
 
 ### Runtime Boundary
 
@@ -140,9 +151,7 @@ It owns the runtime resource model (such as pages, folders, and assets) and prov
 
 Resources currently include pages and will later expand to include folders and other vault-owned resources such as assets.
 
-Derived capabilities such as search, backlinks, graph relationships, and task indexes consume the vault's resources but are not themselves part of the vault's source of truth.
-
-Vault does not own workspace state, application lifecycle, UI state, or derived capabilities such as search or graph indexes. Those are separate collaborators that depend on the vault rather than becoming part of it.
+Derived projections such as indexes, resolved references, search, and the knowledge graph are rebuildable runtime structures. They may be exposed through the Vault runtime boundary, but they remain derived from the underlying resources rather than becoming an independent source of truth.
 
 ### Design Principle
 
@@ -206,41 +215,15 @@ The path is used for filesystem operations, including:
 
 Unlike the page ID, the path may change whenever the user reorganizes the vault.
 
-### Wiki Links
+## Runtime Resolution
 
-Wiki links are persisted as deterministic, human-readable references in Markdown.
+Resolution is a runtime process, not a persisted model.
 
-Clutter accepts multiple imported reference formats, including:
+It operates on extracted occurrences using runtime indexes and produces derived relationships that power navigation, backlinks, graph queries, and diagnostics.
 
-- `[[Page]]`
-- `[[Folder/Page]]`
-- `[[Folder/Page|Alias]]`
-- Standard Markdown links (future)
+Resolution never mutates resources or occurrences.
 
-When Clutter creates or rewrites a link, it emits a single canonical representation:
-
-```md
-[[Projects/Architecture|Architecture]]
-```
-
-The persisted Markdown remains the source of truth for the relationship.
-
-### Runtime Resolution
-
-During vault construction and index creation, every persisted wiki link is resolved to the immutable Page ID of its target.
-
-```text
-Markdown
-[[Projects/Architecture|Architecture]]
-        ↓
-Link Resolver
-        ↓
-Page ID
-```
-
-The runtime Page ID is a derived binding used for navigation, backlinks, graph construction, rename operations, and other runtime capabilities. It is never the persisted representation of the relationship.
-
-### Link Resolution
+### Reference Resolution
 
 Clutter resolves links deterministically using the persisted Markdown.
 

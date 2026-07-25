@@ -1,5 +1,5 @@
 import type { PageFrontmatter } from '../models';
-import type { DocumentAnalysis } from '../services/document-analysis/DocumentAnalysis';
+import type { PageAnalysis } from '../services/document-analysis/PageAnalysis';
 import { MarkdownAnalyzer } from '../services/document-analysis/MarkdownAnalyzer';
 import {
   FrontmatterAnalyzer,
@@ -12,7 +12,7 @@ export interface ParsedMarkdown {
   frontmatter: ParsedFrontmatter & PageFrontmatter;
   frontmatterAnalysis: FrontmatterAnalysis;
   body: string;
-  analysis: DocumentAnalysis;
+  analysis: PageAnalysis;
 }
 
 export class FrontmatterParser {

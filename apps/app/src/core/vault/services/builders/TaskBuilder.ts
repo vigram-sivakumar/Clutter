@@ -1,8 +1,8 @@
+import type { Page } from '@core/vault/models';
 import type { Task } from '@core/vault/models/Task';
-import type { ScannedPage } from './VaultScanResult';
 
 export class TaskBuilder {
-  build(pages: readonly ScannedPage[]): readonly Task[] {
+  build(pages: readonly Page[]): readonly Task[] {
     const tasks: Task[] = [];
 
     for (const page of pages) {

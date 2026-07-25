@@ -1,8 +1,8 @@
-import type { Tag } from '../models/Tag';
-import type { ScannedPage } from './VaultScanResult';
+import type { Page } from '@core/vault/models';
+import type { Tag } from '../../models/Tag';
 
 export class TagBuilder {
-  build(pages: readonly ScannedPage[]): readonly Tag[] {
+  build(pages: readonly Page[]): readonly Tag[] {
     const tags = new Map<string, Tag>();
 
     for (const page of pages) {

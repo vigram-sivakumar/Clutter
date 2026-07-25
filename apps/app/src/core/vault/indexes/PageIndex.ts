@@ -4,9 +4,12 @@ export class PageIndex {
   private readonly pagesByPath = new Map<string, Page>();
   private readonly pagesByFileName = new Map<string, Page[]>();
   private readonly pagesByAlias = new Map<string, Page[]>();
+  private readonly pages: readonly Page[];
 
-  constructor(private readonly pages: readonly Page[]) {
-    for (const page of pages) {
+  constructor(pages: Iterable<Page>) {
+    this.pages = Array.from(pages);
+
+    for (const page of this.pages) {
       this.pagesByPath.set(page.path, page);
 
       const pagesWithName = this.pagesByFileName.get(page.name);
@@ -17,7 +20,7 @@ export class PageIndex {
         this.pagesByFileName.set(page.name, [page]);
       }
 
-      for (const alias of page.content.aliases) {
+      for (const alias of page.analysis.aliases) {
         const pagesWithAlias = this.pagesByAlias.get(alias.value);
 
         if (pagesWithAlias) {
@@ -44,13 +47,13 @@ export class PageIndex {
   findHeading(pageId: string, heading: string) {
     const page = this.pages.find((page) => page.id === pageId);
 
-    return page?.content.headings.find((item) => item.title === heading);
+    return page?.analysis.headings.find((item) => item.title === heading);
   }
 
   findBlockReference(pageId: string, blockReference: string) {
     const page = this.pages.find((page) => page.id === pageId);
 
-    return page?.content.blockReferences.find(
+    return page?.analysis.blockReferences.find(
       (item) => item.id === blockReference
     );
   }

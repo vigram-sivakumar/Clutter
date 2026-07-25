@@ -1,7 +1,6 @@
-import { LinkResolver } from '@core/vault/services/LinkResolver';
-import { PageIndex } from '@core/vault/indexes/PageIndex';
-import { KnowledgeGraph } from '@core/vault/models/KnowledgeGraph';
-import { Vault } from '@core/vault/models/Vault';
+import { LinkResolver } from '../LinkResolver';
+import { PageIndex } from '../../indexes/PageIndex';
+import { Vault, KnowledgeGraph } from '../../models';
 
 // Builds the derived relationship graph for a vault.
 //
