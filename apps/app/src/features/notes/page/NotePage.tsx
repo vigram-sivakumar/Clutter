@@ -5,17 +5,9 @@ import { PageTitleSection } from '@app/layouts/page/header/PageTitleSection';
 
 import { NoteTopBar } from '@features/notes/page/TopBar';
 
-import { Page } from './Page';
+import { Page } from '../../../app/layouts/page/Page';
 
-/**
- * Temporary page used to develop and validate the Page layout.
- *
- * This component intentionally remains independent of the application
- * layer and document engine. Once the real page flow is implemented,
- * AppLayout will render the Notes page using a DocumentSession instead
- * of this mock component.
- */
-export function MockPage() {
+export function NotePage() {
   return (
     <Page
       topBar={<NoteTopBar />}
@@ -39,6 +31,7 @@ export function MockPage() {
           </PageDescription>
         </PageTitleSection>
       }
+      body={'Markdown goes here...'}
     />
   );
 }

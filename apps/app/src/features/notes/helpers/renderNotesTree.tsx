@@ -17,6 +17,10 @@ interface RenderEntryTreeProps {
   parentId: string | null;
   // Used to indent nested folders.
   level: number;
+  /**
+   * Invoked when a page entry is selected.
+   */
+  onPageClick(page: Page): void;
 }
 
 export function renderNotesTree({
@@ -24,6 +28,7 @@ export function renderNotesTree({
   pages,
   parentId,
   level,
+  onPageClick,
 }: RenderEntryTreeProps) {
   // Get all folders that belong to the current parent.
   const rootFolders = getChildFolders(folders, parentId);
@@ -53,7 +58,7 @@ export function renderNotesTree({
             title={note.name}
             emoji={note.metadata.icon}
             level={level + 1}
-            onClick={() => {}}
+            onClick={() => onPageClick(note)}
           />
         ))}
         {/* Render this folder's child folders.
@@ -64,6 +69,7 @@ export function renderNotesTree({
           pages,
           parentId: folder.id,
           level: level + 1,
+          onPageClick,
         })}
       </Fragment>
     );

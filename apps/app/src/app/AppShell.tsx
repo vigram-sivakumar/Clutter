@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+import { Application } from '../core/application/Application';
 
 import { AppLayout } from './layouts/app-layout/AppLayout';
 
@@ -57,6 +59,11 @@ export function AppShell() {
     };
   }, [vaultPath]);
 
+  const application = useMemo(
+    () => (vault ? new Application(vault) : null),
+    [vault]
+  );
+
   if (isLoading) {
     return <div>Loading vault...</div>;
   }
@@ -65,9 +72,9 @@ export function AppShell() {
     return <div>{error}</div>;
   }
 
-  if (!vault) {
+  if (!application) {
     return <div>No vault loaded.</div>;
   }
 
-  return <AppLayout vault={vault} />;
+  return <AppLayout application={application} />;
 }

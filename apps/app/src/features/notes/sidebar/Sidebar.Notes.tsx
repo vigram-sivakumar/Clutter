@@ -7,13 +7,14 @@ import { notesNavigation } from '@features/notes/mock/Navigation';
 import { renderNotesTree } from '../helpers/renderNotesTree';
 import { renderFavorites } from '../helpers/renderFavorites';
 // Vault
-import type { Vault } from '@core/vault/models';
+import type { Application } from '@core/application/Application';
 
 interface NotesProps {
-  vault: Vault;
+  application: Application;
 }
 
-export function Notes({ vault }: NotesProps) {
+export function Notes({ application }: NotesProps) {
+  const { vault } = application;
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
   const notes = Array.from(vault.notes());
@@ -61,6 +62,9 @@ export function Notes({ vault }: NotesProps) {
           pages: notes,
           parentId: null,
           level: 0,
+          onPageClick: (page) => {
+            application.pageService.openPage(page.id);
+          },
         })}
       </Section>
     </View>

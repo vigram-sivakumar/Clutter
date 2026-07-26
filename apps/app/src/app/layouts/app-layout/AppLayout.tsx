@@ -1,21 +1,21 @@
 import './AppLayout.css';
 import { Sidebar } from '../sidebar/Sidebar';
-import { MockPage } from '../page/mockPage';
-import type { Vault } from '@core/vault/models';
-// import { Page } from '../page/Page';
+import { PageHost } from '../page/PageHost';
+import type { Application } from '@core/application/Application';
 
 interface AppLayoutProps {
-  vault: Vault;
+  application: Application;
 }
 
-export function AppLayout({ vault }: AppLayoutProps) {
+export function AppLayout({ application }: AppLayoutProps) {
   return (
     <div className="app-layout">
       <aside className="app-layout__sidepanel">
-        {<Sidebar vault={vault} />}
+        {<Sidebar application={application} />}
       </aside>
-      {/* <main className="app-layout__page">{<Page />}</main> */}
-      <main className="app-layout__page">{<MockPage />}</main>
+      <main className="app-layout__page">
+        <PageHost application={application} />
+      </main>
     </div>
   );
 }

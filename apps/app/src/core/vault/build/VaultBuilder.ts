@@ -87,7 +87,10 @@ export class VaultBuilder {
       linkOccurrences,
     );
 
-    return new Vault(
+    // The Vault owns the DocumentRegistry. No document sessions are created
+    // during the build process. Sessions are created lazily when pages are
+    // opened for editing.
+    const vault = new Vault(
       scanResult.rootPath,
       pages,
       folders,
@@ -95,7 +98,9 @@ export class VaultBuilder {
       tasks,
       links,
       embeds,
-      knowledgeGraph
+      knowledgeGraph,
     );
+
+    return vault;
   }
 }

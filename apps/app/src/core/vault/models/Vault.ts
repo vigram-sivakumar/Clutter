@@ -5,6 +5,8 @@ import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Link } from './Link';
 import type { Embed } from './Embed';
 import type { KnowledgeGraph } from './graph/KnowledgeGraph';
+import { DocumentRegistry } from '../../engine/DocumentRegistry';
+import type { DocumentSession } from '../../engine/DocumentSession';
 
 export class Vault {
   private readonly pagesById = new Map<string, Page>();
@@ -18,6 +20,14 @@ export class Vault {
   private readonly taskList = new Array<TaskOccurrence>();
   private readonly linkList = new Array<Link>();
   private readonly embedList = new Array<Embed>();
+
+  /**
+   * Manages the active document sessions for this Vault.
+   *
+   * A page becomes editable only after it is opened through the
+   * DocumentRegistry.
+   */
+  private readonly documentRegistry = new DocumentRegistry();
 
   // TODO(v2): Replace the growing constructor parameter list with a
   // `VaultCollections` object once additional derived collections
@@ -116,6 +126,46 @@ export class Vault {
 
   getPage(id: string): Page | undefined {
     return this.pagesById.get(id);
+  }
+
+  /**
+   * Opens a page for editing.
+   *
+   * Returns the authoritative DocumentSession for the page.
+   */
+  openPage(id: string): DocumentSession {
+    const page = this.getPage(id);
+
+    if (!page) {
+      throw new Error(`Page not found: ${id}`);
+    }
+
+    return this.documentRegistry.open(page);
+  }
+
+  /**
+   * Returns the active document session for a page.
+   *
+   * Undefined is returned when the page is not currently open.
+   */
+  getOpenPage(id: string): DocumentSession | undefined {
+    return this.documentRegistry.get(id);
+  }
+
+  /**
+   * Closes an open page.
+   *
+   * If the page is not currently open, this operation has no effect.
+   */
+  closePage(id: string): void {
+    this.documentRegistry.close(id);
+  }
+
+  /**
+   * Returns true if the page currently has an active document session.
+   */
+  isPageOpen(id: string): boolean {
+    return this.documentRegistry.isOpen(id);
   }
   *pages(): IterableIterator<Page> {
     yield* this.pagesById.values();

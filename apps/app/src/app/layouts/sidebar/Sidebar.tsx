@@ -1,4 +1,4 @@
-import type { Vault } from '@core/vault/models';
+import type { Application } from '@core/application/Application';
 import { useState, type ReactNode } from 'react';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
@@ -13,10 +13,11 @@ import { SearchPanel } from '@features/search/Sidebar.Search';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 
 interface SidebarProps {
-  vault: Vault;
+  application: Application;
 }
 
-export function Sidebar({ vault }: SidebarProps) {
+export function Sidebar({ application }: SidebarProps) {
+  const { vault } = application;
   const [activeTab, setActiveTab] = useState('daily-notes');
 
   const tabs: Array<{
@@ -33,8 +34,8 @@ export function Sidebar({ vault }: SidebarProps) {
     {
       value: 'notes',
       icon: 'note',
-      panel: <Notes vault={vault} />,
-      // emoji: '🍉',
+      panel: <Notes application={application} />,
+      emoji: '🍉',
     },
     {
       value: 'tasks',
