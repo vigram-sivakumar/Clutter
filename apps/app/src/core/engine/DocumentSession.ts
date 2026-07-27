@@ -22,7 +22,7 @@ import { DocumentTransaction } from './DocumentTransaction';
  * Lifetime:
  * - Created by the DocumentRegistry.
  * - Shared by every view of the same page.
- * - Disposed when no views remain attached.
+ * - Disposed when the DocumentRegistry closes the session.
  */
 export class DocumentSession {
   /**
@@ -44,11 +44,6 @@ export class DocumentSession {
    * The current lifecycle state of this session.
    */
   private _state = DocumentState.Loading;
-
-  /**
-   * The views currently attached to this session.
-   */
-  private readonly attachedViews = new Set<unknown>();
 
   constructor(page: Page) {
     this._page = page;

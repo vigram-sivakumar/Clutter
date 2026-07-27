@@ -1,9 +1,19 @@
-import { exists, readDir, readTextFile } from '@tauri-apps/plugin-fs';
+import {
+  exists,
+  mkdir,
+  readDir,
+  readTextFile,
+  writeTextFile,
+} from '@tauri-apps/plugin-fs';
 import type { VaultEntry, VaultFileSystem } from './VaultFileSystem';
 
 export class LocalVaultProvider implements VaultFileSystem {
   async exists(_path: string): Promise<boolean> {
     return exists(_path);
+  }
+
+  async createDirectory(path: string): Promise<void> {
+    await mkdir(path, { recursive: true });
   }
 
   async readDirectory(_path: string): Promise<VaultEntry[]> {
@@ -17,5 +27,9 @@ export class LocalVaultProvider implements VaultFileSystem {
 
   async readFile(path: string): Promise<string> {
     return readTextFile(path);
+  }
+
+  async writeFile(path: string, contents: string): Promise<void> {
+    await writeTextFile(path, contents);
   }
 }

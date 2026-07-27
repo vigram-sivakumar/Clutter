@@ -2,14 +2,23 @@ import type { Page } from './Page';
 import type { Folder } from './Folder';
 import type { Tag } from './Tag';
 import type { TaskOccurrence } from './occurrences/TaskOccurrence';
-import type { Link } from './Link';
 import type { Embed } from './Embed';
 import type { KnowledgeGraph } from './graph/KnowledgeGraph';
-import { DocumentRegistry } from '../../engine/DocumentRegistry';
-import type { DocumentSession } from '../../engine/DocumentSession';
 
+/**
+ * Immutable in-memory representation of a vault.
+ *
+ * The Vault owns the application's domain model and derived indexes.
+ * It performs no filesystem operations, startup orchestration, or
+ * runtime page management.
+ *
+ * All collections are rebuilt from the filesystem during startup.
+ */
 export class Vault {
+  // Canonical lookup by the page's current relative filesystem path.
+  // Unlike page IDs, paths may change when pages are renamed or moved.
   private readonly pagesById = new Map<string, Page>();
+  private readonly pagesByPath = new Map<string, Page>();
   private readonly foldersById = new Map<string, Folder>();
   private readonly tagsByName = new Map<string, Tag>();
   // Vault-wide projections derived from page analysis.
@@ -18,28 +27,15 @@ export class Vault {
   // collections provide efficient vault-wide traversal and may eventually be
   // replaced by dedicated indexes or graph-backed query structures.
   private readonly taskList = new Array<TaskOccurrence>();
-  private readonly linkList = new Array<Link>();
   private readonly embedList = new Array<Embed>();
 
-  /**
-   * Manages the active document sessions for this Vault.
-   *
-   * A page becomes editable only after it is opened through the
-   * DocumentRegistry.
-   */
-  private readonly documentRegistry = new DocumentRegistry();
-
-  // TODO(v2): Replace the growing constructor parameter list with a
-  // `VaultCollections` object once additional derived collections
-  // (attachments, templates, saved searches, etc.) are introduced.
   constructor(
     public readonly root: string,
     pages: Iterable<Page>,
     folders: Iterable<Folder>,
     tags: Iterable<Tag>,
-    taskCollection: Iterable<TaskOccurrence>,
-    linkCollection: Iterable<Link>,
-    embedCollection: Iterable<Embed>,
+    tasks: Iterable<TaskOccurrence>,
+    embeds: Iterable<Embed>,
     public readonly knowledgeGraph: KnowledgeGraph
   ) {
     for (const folder of folders) {
@@ -58,15 +54,11 @@ export class Vault {
       this.tagsByName.set(tag.name, tag);
     }
 
-    for (const task of taskCollection) {
+    for (const task of tasks) {
       this.taskList.push(task);
     }
 
-    for (const link of linkCollection) {
-      this.linkList.push(link);
-    }
-
-    for (const embed of embedCollection) {
+    for (const embed of embeds) {
       this.embedList.push(embed);
     }
 
@@ -76,12 +68,14 @@ export class Vault {
       }
 
       this.pagesById.set(page.id, page);
+      this.pagesByPath.set(page.path, page);
     }
   }
 
   getFolder(id: string): Folder | undefined {
     return this.foldersById.get(id);
   }
+
   *folders(): IterableIterator<Folder> {
     yield* this.foldersById.values();
   }
@@ -91,13 +85,6 @@ export class Vault {
 
   *tasks(): IterableIterator<TaskOccurrence> {
     yield* this.taskList;
-  }
-
-  // Relationship queries (backlinks, outgoing links, graph traversal,
-  // unlinked mentions, etc.) belong to derived projections such as the
-  // knowledge graph rather than the Vault itself.
-  *links(): IterableIterator<Link> {
-    yield* this.linkList;
   }
 
   *embeds(): IterableIterator<Embed> {
@@ -110,10 +97,6 @@ export class Vault {
 
   get taskCount(): number {
     return this.taskList.length;
-  }
-
-  get linkCount(): number {
-    return this.linkList.length;
   }
 
   get embedCount(): number {
@@ -129,44 +112,15 @@ export class Vault {
   }
 
   /**
-   * Opens a page for editing.
+   * Resolves a page by its canonical relative filesystem path.
    *
-   * Returns the authoritative DocumentSession for the page.
+   * Used by startup, filesystem synchronization, imports, and other
+   * workflows that begin with a filesystem location rather than a page ID.
    */
-  openPage(id: string): DocumentSession {
-    const page = this.getPage(id);
-
-    if (!page) {
-      throw new Error(`Page not found: ${id}`);
-    }
-
-    return this.documentRegistry.open(page);
+  getPageByPath(path: string): Page | undefined {
+    return this.pagesByPath.get(path);
   }
 
-  /**
-   * Returns the active document session for a page.
-   *
-   * Undefined is returned when the page is not currently open.
-   */
-  getOpenPage(id: string): DocumentSession | undefined {
-    return this.documentRegistry.get(id);
-  }
-
-  /**
-   * Closes an open page.
-   *
-   * If the page is not currently open, this operation has no effect.
-   */
-  closePage(id: string): void {
-    this.documentRegistry.close(id);
-  }
-
-  /**
-   * Returns true if the page currently has an active document session.
-   */
-  isPageOpen(id: string): boolean {
-    return this.documentRegistry.isOpen(id);
-  }
   *pages(): IterableIterator<Page> {
     yield* this.pagesById.values();
   }
@@ -186,6 +140,7 @@ export class Vault {
       }
     }
   }
+
   get pageCount(): number {
     return this.pagesById.size;
   }

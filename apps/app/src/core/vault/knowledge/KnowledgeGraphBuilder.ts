@@ -6,21 +6,33 @@ import type { Page } from '../models/';
 import type { LinkOccurrence } from '../models';
 import type { GraphEdge } from '../models/';
 
-// Builds the derived relationship graph for a vault.
-//
-// The graph is computed from the vault's domain objects and should not
-// mutate or own them.
+/**
+ * Builds the derived KnowledgeGraph from resolved page relationships.
+ *
+ * Responsibilities:
+ * - Resolve page links.
+ * - Produce graph edges.
+ * - Construct the immutable KnowledgeGraph.
+ *
+ * Does NOT:
+ * - Parse markdown.
+ * - Modify Pages.
+ * - Persist graph data.
+ */
 export class KnowledgeGraphBuilder {
   private readonly linkResolver = new LinkResolver();
   build(
     pages: Iterable<Page>,
     links: Iterable<LinkOccurrence>
   ): KnowledgeGraph {
-    const pageIndex = new PageIndex(Array.from(pages));
+    const pageList = Array.from(pages);
+    const pageIndex = new PageIndex(pageList);
     const resolvedLinks = this.linkResolver.resolve(links, pageIndex);
     // TODO(v1): Build outgoing relationships.
     // TODO(v1): Derive backlinks from outgoing relationships.
     // TODO(v1): Track unresolved links.
+    // TODO(Arc 4): Build backlinks, unresolved links and additional
+    // relationship types from the resolved link set.
     const edges = this.buildEdges(resolvedLinks);
     return new KnowledgeGraph(edges);
   }

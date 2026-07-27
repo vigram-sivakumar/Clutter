@@ -58,8 +58,8 @@ export class PageBuilder {
         description: page.frontmatter.description ?? null,
         favorite: page.frontmatter.favorite ?? false,
         originalParentId: page.frontmatter.originalParentId ?? null,
-        createdAt: page.frontmatter.createdAt ?? null,
-        updatedAt: page.frontmatter.updatedAt ?? null,
+        createdAt: page.frontmatter.created ?? null,
+        updatedAt: page.frontmatter.modified ?? null,
       },
       source: {
         markdown: page.content,

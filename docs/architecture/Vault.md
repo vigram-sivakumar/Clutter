@@ -1,5 +1,9 @@
 # Clutter Vault
 
+> **Implementation status (2026-07-27):** the Discover → Understand → Build → Knowledge pipeline and the Vault's ownership boundaries described here match the current implementation.  
+> Canonical page creation is now implemented through `PageCreator`, which generates stable page identities and timestamps before delegating Markdown construction to `PageFactory`.  
+> Two open gaps against this document: (1) Invariant 6, "Page identities remain stable even when pages are renamed or moved," is **not yet true** — `IdentityResolver` falls back to the file's path as its ID when frontmatter has no `id`, so a rename changes the identity unless the file already carries an explicit `id`. (2) Page lookup by path/filename/alias is currently built twice — once in `Vault`'s own maps, once independently in `PageIndex` inside the knowledge stage — rather than as a single shared index. See `docs/architecture/Core Review.md` for the full audit.
+
 ## Purpose
 
 The Vault is Clutter's knowledge model.
@@ -130,7 +134,7 @@ The Vault owns:
 - Assets
 - Derived knowledge
 - Runtime models
-- Page identities
+- Runtime page identities
 
 The Vault does not own:
 
@@ -168,7 +172,7 @@ VaultRuntime
       DocumentSession
 ```
 
-The Vault creates and maintains runtime pages.
+The Vault maintains runtime pages. New pages are created by the application layer (`PageCreator`) and become part of the Vault once they are discovered or registered.
 
 Every page has a stable identity that is independent of its filename or location.
 

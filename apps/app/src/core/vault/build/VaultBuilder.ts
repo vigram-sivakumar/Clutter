@@ -4,7 +4,6 @@ import { PageBuilder } from './PageBuilder';
 import {
   TagBuilder,
   TaskBuilder,
-  LinkBuilder,
   EmbedBuilder,
   KnowledgeGraphBuilder,
 } from '../knowledge';
@@ -15,7 +14,6 @@ export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
   private readonly tagBuilder = new TagBuilder();
   private readonly taskBuilder = new TaskBuilder();
-  private readonly linkBuilder = new LinkBuilder();
   private readonly embedBuilder = new EmbedBuilder();
   private readonly knowledgeGraphBuilder = new KnowledgeGraphBuilder();
   private readonly identityResolver = new IdentityResolver();
@@ -78,29 +76,24 @@ export class VaultBuilder {
     // Build vault-wide projections from page analysis.
     const tags = this.tagBuilder.build(pages);
     const tasks = this.taskBuilder.build(pages);
-    const links = this.linkBuilder.build(pages);
-    const linkOccurrences = pages.flatMap((page) => page.analysis.links);
     const embeds = this.embedBuilder.build(pages);
 
     const knowledgeGraph = this.knowledgeGraphBuilder.build(
       pages,
-      linkOccurrences,
+      pages.flatMap((page) => page.analysis.links),
     );
 
-    // The Vault owns the DocumentRegistry. No document sessions are created
-    // during the build process. Sessions are created lazily when pages are
-    // opened for editing.
-    const vault = new Vault(
+    // Construct the immutable in-memory Vault model.
+    // Runtime services (Workspace, DocumentRegistry) are owned by the
+    // Application and are created separately.
+    return new Vault(
       scanResult.rootPath,
       pages,
       folders,
       tags,
       tasks,
-      links,
       embeds,
       knowledgeGraph,
     );
-
-    return vault;
   }
 }

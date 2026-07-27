@@ -1,5 +1,7 @@
 # Clutter Engine
 
+> **Implementation status (2026-07-27):** this document describes the target architecture. As of Arc 3, `DocumentRegistry`/`DocumentSession`/`DocumentTransaction`/`DocumentRevision`/`DocumentState` exist and match this design for the open/close path. `VaultRuntime` as a distinct object does not exist — `Application` currently plays that role directly. `PageFacts` does not exist as a named type; equivalent semantic data is produced by the Vault's Understand/Build/Knowledge pipeline at full-scan time, not incrementally from committed revisions as described here. `SaveCoordinator` and the entire Persistence Model section are unimplemented — no editor currently calls `DocumentSession.commit()`, so nothing in this document's Mutation Model or Reactive Flow sections has been exercised yet. File Reconciliation is unimplemented. See `docs/architecture/Arc 3 Implementation.md` for phase-by-phase status and `Core Review.md` for the underlying audit.
+
 ## Purpose
 
 The Clutter Engine is the core runtime responsible for loading, editing, persisting, and interpreting knowledge.
@@ -453,6 +455,8 @@ Adding a new feature should require subscribing to the engine rather than modify
 
 # Persistence Model
 
+> **Current implementation:** The persistence model described below is the target architecture. Today, filesystem writes are performed only by `VaultInitializer` (vault bootstrapping) and `DailyNoteService` (creating today's daily note via `PageCreator`). The general persistence pipeline, autosave, reconciliation, and `SaveCoordinator` are not yet implemented.
+
 Markdown files are the durable source of truth.
 
 The engine keeps documents in memory only while they are actively needed.
@@ -497,9 +501,9 @@ The engine reconciles those changes with the active `DocumentSession` instead of
 
 ## Ownership Rule
 
-Only the persistence layer reads from and writes to the file system.
+Once the persistence layer is implemented, it becomes the sole owner of runtime document writes.
 
-All other parts of the application interact with documents through the engine rather than accessing Markdown files directly.
+Until then, filesystem writes are intentionally limited to `VaultInitializer` (bootstrapping) and `DailyNoteService` (daily-note creation via `PageCreator`). The `Vault`, `Workspace`, and `PageApplicationService` do not access the filesystem directly.
 
 ---
 

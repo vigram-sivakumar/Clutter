@@ -5,7 +5,7 @@ import { Task } from '../sidebar/Task';
 import { Section } from '@app/layouts/sidebar/section/Section';
 
 // Models
-import type { Task as TaskModel } from '@core/vault/models/Task';
+import type { TaskOccurrence as TaskModel } from '@core/vault/models/occurrences';
 
 // Helpers
 import { groupTasks } from './groupTasks';

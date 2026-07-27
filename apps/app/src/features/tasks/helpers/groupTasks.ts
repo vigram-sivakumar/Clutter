@@ -1,4 +1,4 @@
-import type { Task } from '@core/vault/models/Task';
+import type { TaskOccurrence as Task } from '@core/vault/models/occurrences';
 
 type TaskGroups = {
   all: readonly Task[];

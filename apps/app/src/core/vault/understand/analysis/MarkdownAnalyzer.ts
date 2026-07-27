@@ -1,4 +1,4 @@
-import type { ScannedPageAnalysis } from './ScannedScannedPageAnalysis';
+import type { ScannedPageAnalysis } from './ScannedPageAnalysis';
 import { TagExtractor } from '../extractors/TagExtractor';
 import { TaskExtractor } from '../extractors/TaskExtractor';
 import { LinkExtractor } from '../extractors/LinkExtractor';

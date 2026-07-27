@@ -7,8 +7,6 @@ import { DocumentSession } from './DocumentSession';
  * - Create DocumentSessions.
  * - Return existing sessions for already-open pages.
  * - Ensure only one DocumentSession exists per page.
- * - Attach and detach views.
- * - Dispose inactive sessions.
  *
  * Does NOT:
  * - Edit documents.
@@ -17,14 +15,15 @@ import { DocumentSession } from './DocumentSession';
  * - Manage workspace state.
  *
  * Lifetime:
- * - Owned by the VaultRuntime.
- * - Exists while the vault is open.
+ * - Owned by the Application.
+ * - Exists for the lifetime of the application.
  */
 export class DocumentRegistry {
   /**
-   * Active document sessions indexed by page identity.
+   * Active runtime sessions indexed by Page ID.
    *
-   * The registry guarantees at most one active DocumentSession per Page.
+   * A page may exist in the Vault without an active session.
+   * A session is created lazily when the page is opened.
    */
   private readonly sessions = new Map<string, DocumentSession>();
 
@@ -70,9 +69,6 @@ export class DocumentRegistry {
    * Closes the session for the specified page.
    *
    * This removes the session from the registry.
-   *
-   * View attachment and automatic disposal will be introduced once
-   * the view model is implemented.
    *
    * If no session exists, this operation has no effect.
    */

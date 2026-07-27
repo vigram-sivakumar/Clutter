@@ -1,6 +1,5 @@
 export * from './TaskBuilder';
 export * from './TagBuilder';
-export * from './LinkBuilder';
 export * from './EmbedBuilder';
 export * from './KnowledgeGraphBuilder';
 

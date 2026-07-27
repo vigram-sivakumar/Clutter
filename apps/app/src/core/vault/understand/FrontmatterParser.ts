@@ -55,6 +55,8 @@ export class FrontmatterParser {
     };
   }
 
+  // TODO: Introduce a matching FrontmatterSerializer so parsing and
+  // serialization share a single canonical implementation.
   private parseFrontmatter(
     frontmatterText: string
   ): ParsedFrontmatter & PageFrontmatter {
@@ -123,14 +125,14 @@ export class FrontmatterParser {
             frontmatter.originalParentId = scalar;
           }
           break;
-        case 'createdAt':
+        case 'created':
           if (typeof scalar === 'string') {
-            frontmatter.createdAt = scalar;
+            frontmatter.created = scalar;
           }
           break;
-        case 'updatedAt':
+        case 'modified':
           if (typeof scalar === 'string') {
-            frontmatter.updatedAt = scalar;
+            frontmatter.modified = scalar;
           }
           break;
         case 'aliases':

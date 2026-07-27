@@ -1,3 +1,9 @@
+/**
+ * Builds the vault-wide embed collection from page analysis.
+ *
+ * This class only aggregates extracted embeds. It does not resolve or
+ * validate embed targets.
+ */
 import type { Embed, Page } from '@core/vault/models';
 
 export class EmbedBuilder {
@@ -7,11 +13,7 @@ export class EmbedBuilder {
     for (const page of pages) {
       for (const embed of page.analysis.embeds) {
         embeds.push({
-          sourcePageId: page.id,
           target: embed.target,
-          heading: embed.heading,
-          blockReference: embed.blockReference,
-          alias: embed.alias,
         });
       }
     }

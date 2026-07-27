@@ -32,6 +32,6 @@
       "@shared/*": ["./src/shared/*"]
     }
   },
-  "include": ["src", "../../packages/engine/editor", "e2e"],
+  "include": ["src", "../../packages/engine/editor"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
