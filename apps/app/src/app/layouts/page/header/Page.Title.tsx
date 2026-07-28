@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import './PageTitle.css';
+import './Page.Title.css';
 
 interface PageTitleProps {
   children: ReactNode;

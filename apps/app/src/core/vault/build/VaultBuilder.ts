@@ -19,6 +19,7 @@ export class VaultBuilder {
   private readonly identityResolver = new IdentityResolver();
 
   build(scanResult: VaultScanResult): Vault {
+    const rootPath = scanResult.rootPath;
     const folderIdsByPath = new Map<string, string>();
 
     for (const directory of scanResult.directories) {
@@ -30,44 +31,52 @@ export class VaultBuilder {
       folderIdsByPath.set(directory.path, identity.id);
     }
 
-    const folders: Folder[] = scanResult.directories.map((directory) => {
-      const id = folderIdsByPath.get(directory.path);
-
-      if (!id) {
-        throw new Error(`Missing folder ID for "${directory.path}".`);
+    // Entries whose parent is the vault root are top-level: the root itself
+    // is not a navigable Folder in the domain model, so its children's
+    // parentId is null rather than the root's id.
+    const resolveParentId = (parentPath: string | null): string | null => {
+      if (parentPath === null || parentPath === rootPath) {
+        return null;
       }
 
-      let parentId: string | null = null;
-
-      if (directory.parentPath !== null) {
-        parentId = folderIdsByPath.get(directory.parentPath) ?? null;
-
-        if (!parentId) {
-          throw new Error(`Missing parent folder "${directory.parentPath}".`);
-        }
-      }
-
-      return {
-        id,
-        name: directory.path.split('/').pop() ?? '',
-        path: directory.path,
-        parentId,
-        metadata: {
-          icon: directory.frontmatter?.icon ?? null,
-          favorite: directory.frontmatter?.favorite ?? false,
-        },
-      };
-    });
-
-    const pages = scanResult.pages.map((page) => {
-      const parentId = folderIdsByPath.get(page.directoryPath);
+      const parentId = folderIdsByPath.get(parentPath);
 
       if (!parentId) {
-        throw new Error(`Missing folder ID for "${page.directoryPath}".`);
+        throw new Error(`Missing parent folder "${parentPath}".`);
       }
 
+      return parentId;
+    };
+
+    // The vault root itself is scanned as a directory (parentPath === null)
+    // so its id can be resolved for its children's parentId, but it is not
+    // a navigable Folder in the domain model.
+    const folders: Folder[] = scanResult.directories
+      .filter((directory) => directory.parentPath !== null)
+      .map((directory) => {
+        const id = folderIdsByPath.get(directory.path);
+
+        if (!id) {
+          throw new Error(`Missing folder ID for "${directory.path}".`);
+        }
+
+        return {
+          id,
+          name: directory.path.split('/').pop() ?? '',
+          path: directory.path,
+          parentId: resolveParentId(directory.parentPath),
+          metadata: {
+            icon: directory.frontmatter?.icon ?? null,
+            favorite: directory.frontmatter?.favorite ?? false,
+            description: directory.frontmatter?.description ?? '',
+            cover: directory.frontmatter?.cover ?? null,
+          },
+        };
+      });
+
+    const pages = scanResult.pages.map((page) => {
       return this.pageBuilder.build({
-        parentId,
+        parentId: resolveParentId(page.directoryPath),
         page,
       });
     });

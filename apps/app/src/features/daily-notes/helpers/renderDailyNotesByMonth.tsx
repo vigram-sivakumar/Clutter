@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 
 // Components
-import { DailyNote } from '../components/DailyNote';
+import { DailyNote } from '../sidebar/DailyNote';
 import { Section } from '@app/layouts/sidebar/section/Section';
 // Models
 import type { Page } from '@core/vault/models';
@@ -16,10 +16,12 @@ import {
 
 interface RenderDailyNotesByMonthProps {
   dailyNotes: Page[];
+  onOpen(pageId: string): void;
 }
 
 export function renderDailyNotesByMonth({
   dailyNotes,
+  onOpen,
 }: RenderDailyNotesByMonthProps) {
   const monthGroups = groupByMonth(dailyNotes);
   return Object.entries(monthGroups).map(([month, notes]) => {
@@ -38,7 +40,7 @@ export function renderDailyNotesByMonth({
               title={formatDate(note.name, 'date')}
               date={note.name}
               isToday={isToday(note.name)}
-              onClick={() => {}}
+              onClick={() => onOpen(note.id)}
             />
           ))}
         </Section>

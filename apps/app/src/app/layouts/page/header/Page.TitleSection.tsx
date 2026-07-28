@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from 'react';
-import './PageTitleSection.css';
+import './Page.TitleSection.css';
 
 interface PageTitleSectionProps extends HTMLAttributes<HTMLElement> {
   children: ReactNode;

@@ -1,6 +1,16 @@
 .emoji-icon {
-  font-size: 16px;
+  font-size: var(--text-body);
   line-height: 1;
   color: var(--icon-emoji);
   image-rendering: pixelated;
+}
+
+.app-icon {
+  width: var(--app-icon-size, 20px);
+  height: var(--app-icon-size, 20px);
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: visible;
 }

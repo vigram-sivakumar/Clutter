@@ -27,6 +27,11 @@ export class Workspace implements Observable {
   private _activePageId: string | null = null;
 
   /**
+   * The folder currently presented to the user.
+   */
+  private _activeFolderId: string | null = null;
+
+  /**
    * Pages currently opened by the workspace.
    *
    * Initially this behaves like a simple list. Later it will evolve
@@ -46,9 +51,17 @@ export class Workspace implements Observable {
     if (!this.openPageIds.includes(pageId)) {
       this.openPageIds.push(pageId);
     }
-
+    this._activeFolderId = null;
     this._activePageId = pageId;
-    console.log('[Workspace] Active page:', this._activePageId);
+    this.notify();
+  }
+
+  /**
+   * Opens a folder within the workspace.
+   */
+  public openFolder(folderId: string): void {
+    this._activePageId = null;
+    this._activeFolderId = folderId;
     this.notify();
   }
 
@@ -102,6 +115,13 @@ export class Workspace implements Observable {
    */
   public get activePageId(): string | null {
     return this._activePageId;
+  }
+
+  /**
+   * The currently active folder.
+   */
+  public get activeFolderId(): string | null {
+    return this._activeFolderId;
   }
 
   /**

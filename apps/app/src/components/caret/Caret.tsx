@@ -33,7 +33,7 @@ export function Caret({
         <span
           className={`caret-icon ${isExpanded ? 'caret-icon--expanded' : 'caret-icon--collapsed'}`}
         >
-          <AppIcon icon="caretRight" size={12} />
+          <AppIcon icon="caretRight" size={12} slotSize={12} />
         </span>
       </button>
     </span>

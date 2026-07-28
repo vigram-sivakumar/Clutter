@@ -7,18 +7,23 @@ import { notesNavigation } from '@features/notes/mock/Navigation';
 import { renderNotesTree } from '../helpers/renderNotesTree';
 import { renderFavorites } from '../helpers/renderFavorites';
 // Vault
-import type { Application } from '@core/application/Application';
+import type { Vault } from '@core/vault/models/Vault';
+import { RESERVED_FOLDER_NAMES } from '@core/vault/initialize/ReservedResources';
 
 interface NotesProps {
-  application: Application;
+  vault: Vault;
+  onOpen(pageId: string): void;
+  onOpenFolder(folderId: string): void;
 }
 
-export function Notes({ application }: NotesProps) {
-  const { vault } = application;
+export function Notes({ vault, onOpen, onOpenFolder }: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
   const notes = Array.from(vault.notes());
-  const folders = Array.from(vault.folders());
+  const folders = Array.from(vault.folders()).filter(
+    (folder) =>
+      !(folder.parentId === null && RESERVED_FOLDER_NAMES.has(folder.name))
+  );
 
   return (
     <View
@@ -63,7 +68,10 @@ export function Notes({ application }: NotesProps) {
           parentId: null,
           level: 0,
           onPageClick: (page) => {
-            application.pageService.openPage(page.id);
+            onOpen(page.id);
+          },
+          onFolderClick: (folder) => {
+            onOpenFolder(folder.id);
           },
         })}
       </Section>

@@ -2,6 +2,7 @@ import { Button } from '@components/button/Button';
 import { Caret } from '@components/caret/Caret';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
 
 interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -35,7 +36,7 @@ export function Folder({
               onClick={onExpandToggle}
             />
           )}
-          <AppIcon icon="folder" emoji={emoji} />
+          <AppIcon icon={getPageIcon('folder')} emoji={emoji} />
         </>
       }
       actions={

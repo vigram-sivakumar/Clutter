@@ -7,7 +7,7 @@ import { Note as NoteEntry } from '../sidebar/Note';
 import type { Folder, Page } from '@core/vault/models';
 // Helpers
 import { getChildFolders } from './getChildFolders';
-import { getChildPages } from './getChildNotes';
+import { getChildPages } from './getChildPages';
 
 interface RenderEntryTreeProps {
   folders: Folder[];
@@ -21,6 +21,10 @@ interface RenderEntryTreeProps {
    * Invoked when a page entry is selected.
    */
   onPageClick(page: Page): void;
+  /**
+   * Invoked when a folder entry is selected.
+   */
+  onFolderClick(folder: Folder): void;
 }
 
 export function renderNotesTree({
@@ -29,6 +33,7 @@ export function renderNotesTree({
   parentId,
   level,
   onPageClick,
+  onFolderClick,
 }: RenderEntryTreeProps) {
   // Get all folders that belong to the current parent.
   const rootFolders = getChildFolders(folders, parentId);
@@ -49,7 +54,7 @@ export function renderNotesTree({
           emoji={folder.metadata.icon}
           level={level}
           isEmpty={isEmpty}
-          onClick={() => {}}
+          onClick={() => onFolderClick(folder)}
         />
         {/* Render all pages inside this folder */}
         {childPages.map((note) => (
@@ -70,6 +75,7 @@ export function renderNotesTree({
           parentId: folder.id,
           level: level + 1,
           onPageClick,
+          onFolderClick,
         })}
       </Fragment>
     );

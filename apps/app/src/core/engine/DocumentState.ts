@@ -11,9 +11,21 @@
  *                  ├── Conflict
  *                  └── SaveError
  *
- * Unsaved changes are not represented by DocumentState.
+ * Unsaved changes are intentionally not represented by DocumentState.
  *
- * A document is considered dirty whenever the current revision differs from the latest saved revision.
+ * DocumentState models only the operational lifecycle of a DocumentSession.
+ *
+ * Dirty state is derived independently by comparing the current revision with the latest saved revision.
+ *
+ * This separation allows lifecycle and dirty state to evolve independently. For example, a document may be:
+ *
+ * - Clean and not dirty.
+ * - Clean but dirty (idle with unsaved edits).
+ * - Saving while dirty.
+ * - In Conflict while dirty.
+ * - In SaveError while dirty.
+ *
+ * DocumentState should never duplicate information that can already be derived from revisions.
  *
  * A disposed DocumentSession enters:
  *

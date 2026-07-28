@@ -7,16 +7,17 @@ import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { DateLabel } from '@components/date-label/DateLabel';
 import { Calendar } from '@features/calendar/components/calendar/Calendar';
 // helpers
-import { findTodayNote } from './helpers/findTodayNote';
-import { renderDailyNotesByMonth } from './helpers/renderDailyNotesByMonth';
+import { findTodayNote } from '../helpers/findTodayNote';
+import { renderDailyNotesByMonth } from '../helpers/renderDailyNotesByMonth';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { Vault } from '@core/vault/models';
 
 interface DailyNotesPanelProps {
   vault: Vault;
+  onOpen(pageId: string): void;
 }
 
-export function DailyNotes({ vault }: DailyNotesPanelProps) {
+export function DailyNotes({ vault, onOpen }: DailyNotesPanelProps) {
   /**
    * Check whether today's journal already exists.
    * If it exists: Hide the "Create Today's Journal" button.
@@ -54,7 +55,10 @@ export function DailyNotes({ vault }: DailyNotesPanelProps) {
         </Section>
       }
     >
-      {renderDailyNotesByMonth({ dailyNotes })}
+      {renderDailyNotesByMonth({
+        dailyNotes,
+        onOpen,
+      })}
     </View>
   );
 }

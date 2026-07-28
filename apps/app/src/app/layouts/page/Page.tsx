@@ -21,12 +21,16 @@ export function Page({
 }: PageProps) {
   return (
     <div className="page">
-      <div className="page__content">
+      <div className="page__document">
         {topBar}
-        {header && <header className="page__header">{header}</header>}
-        {tabs && <nav className="page__tabs">{tabs}</nav>}
-        {body && <main className="page__body">{body}</main>}
-        {references && <aside className="page__references">{references}</aside>}
+        <div className="page__content">
+          {header && <header className="page__header">{header}</header>}
+          {tabs && <nav className="page__tabs">{tabs}</nav>}
+          {body && <main className="page__body">{body}</main>}
+          {references && (
+            <aside className="page__references">{references}</aside>
+          )}
+        </div>
       </div>
       {coverImage && <PageCover src={coverImage} />}
     </div>

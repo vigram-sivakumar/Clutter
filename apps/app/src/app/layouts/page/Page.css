@@ -11,7 +11,7 @@
   box-shadow: var(--shadow-border-default);
 }
 
-.page__content {
+.page__document {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -24,7 +24,20 @@
   box-shadow: inset 0 0 0 1px var(--border-default);
   border-radius: var(--border-radius);
 }
-.page__header {
+
+.page__content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+
+  position: relative;
+
+  gap: var(--space-32);
+}
+
+.page__header,
+.page__body {
   display: flex;
   align-items: center;
   justify-content: center;

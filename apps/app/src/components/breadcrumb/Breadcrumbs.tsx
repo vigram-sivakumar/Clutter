@@ -1,13 +1,27 @@
 import './Breadcrumbs.css';
-import { BreadcrumbItem, BreadcrumbItemProps } from './BreadcrumbItem';
-import { AppIcon } from '@shared/icon';
+import { BreadcrumbItem } from './BreadcrumbItem';
+import { AppIcon, type SystemIcon } from '@shared/icon';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { Overlay } from '@components/overlay/Overlay';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 
-interface BreadcrumbsProps {
-  items: BreadcrumbItemProps[];
+/**
+ * A single entry in a page's ancestry trail.
+ *
+ * This is domain/view data, not UI props — it knows nothing about how it
+ * will be rendered (icon-only, collapsed into an overflow menu, etc.).
+ */
+export interface Breadcrumb {
+  id: string;
+  title: string;
+  icon?: SystemIcon;
+  emoji?: string;
+  onClick?: () => void;
+}
+
+export interface BreadcrumbsProps {
+  items: Breadcrumb[];
 }
 
 export function Breadcrumbs({ items }: BreadcrumbsProps) {
@@ -21,8 +35,10 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
     return (
       <BreadcrumbItem
         id={current.id}
+        title={current.title}
         icon={current.icon}
         emoji={current.emoji}
+        onClick={current.onClick}
       />
     );
   }
@@ -41,6 +57,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           icon={root.icon}
           emoji={root.emoji}
           title={root.title}
+          onClick={root.onClick}
         />
         <span className="breadcrumb__slash">
           <AppIcon icon="slash" />
@@ -63,6 +80,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           icon={current.icon}
           emoji={current.emoji}
           title={current.title}
+          onClick={current.onClick}
         />
       </div>
 
@@ -78,7 +96,10 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           {collapsed.map((item) => (
             <MenuItem
               key={item.id}
-              onClick={overflow.hide}
+              onClick={() => {
+                item.onClick?.();
+                overflow.hide();
+              }}
               leading={
                 item.icon ? (
                   <AppIcon icon={item.icon} emoji={item.emoji} />

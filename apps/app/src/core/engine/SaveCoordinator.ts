@@ -16,25 +16,26 @@ import { DocumentSession } from './DocumentSession';
  * - Manage document sessions.
  *
  * Lifetime:
- * - Owned by the DocumentRegistry (or VaultRuntime).
+ * - Ownership is intentionally left unspecified as it is an application composition concern.
  * - Exists while the vault is open.
  */
 export class SaveCoordinator {
   /**
    * Revisions currently being persisted, keyed by page identity.
+   * Tracks these to detect duplicate or stale save completions in the future.
    */
   private readonly activeSaves = new Map<string, DocumentRevision>();
 
   /**
    * Marks the beginning of a save operation.
    *
-   * For now, this simply records that persistence is in progress.
-   * Actual file writing will be introduced later.
+   * This method captures the session's current revision, transitions the session into the Saving lifecycle state,
+   * records that revision as the active save, and returns the revision that should be persisted.
    */
   public beginSave(session: DocumentSession): DocumentRevision {
-    session.beginSave();
-
     const revision = session.currentRevision;
+
+    session.beginSave();
 
     this.activeSaves.set(session.page.id, revision);
 
@@ -42,12 +43,27 @@ export class SaveCoordinator {
   }
 
   /**
-   * Marks a save operation as successfully completed.
+   * Marks a save operation as successfully completed for a given session and revision.
    *
-   * Persistence integration will update the DocumentSession
-   * once file writing is implemented.
+   * This currently finalizes the in-memory save lifecycle only. Once persistence is integrated,
+   * filesystem writes should call this method only after a successful write.
+   *
+   * If the revision does not match the tracked in-progress revision, the completion is ignored.
+   * This prevents stale save completions from overwriting newer edits.
    */
-  public completeSave(pageId: string): void {
-    this.activeSaves.delete(pageId);
+  public completeSave(
+    session: DocumentSession,
+    revision: DocumentRevision
+  ): void {
+    // Retrieve the tracked revision for this session.
+    const activeRevision = this.activeSaves.get(session.page.id);
+    if (activeRevision !== revision) {
+      // Prevent stale save completions from overwriting newer edits.
+      return;
+    }
+    // Mark the session as saved with this revision.
+    session.markSaved(revision);
+    // Remove from active saves.
+    this.activeSaves.delete(session.page.id);
   }
 }

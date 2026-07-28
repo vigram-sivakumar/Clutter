@@ -45,6 +45,11 @@ export class DocumentSession {
    */
   private _state = DocumentState.Loading;
 
+  /**
+   * Subscribed listeners for change notifications.
+   */
+  private listeners: Set<() => void> = new Set();
+
   constructor(page: Page) {
     this._page = page;
 
@@ -72,6 +77,7 @@ export class DocumentSession {
     );
 
     this._currentRevision = nextRevision;
+    this.notify();
 
     return nextRevision;
   }
@@ -81,6 +87,7 @@ export class DocumentSession {
    */
   public beginSave(): void {
     this._state = DocumentState.Saving;
+    this.notify();
   }
 
   /**
@@ -92,6 +99,29 @@ export class DocumentSession {
   public markSaved(revision: DocumentRevision): void {
     this._savedRevision = revision;
     this._state = DocumentState.Clean;
+    this.notify();
+  }
+
+  /**
+   * DocumentSession exposes change notifications so higher layers can observe
+   * revision and lifecycle changes without introducing UI or persistence responsibilities.
+   *
+   * Subscribe to session changes. Returns an unsubscribe function.
+   */
+  public subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /**
+   * Notifies all subscribed listeners of a change.
+   */
+  private notify(): void {
+    for (const listener of this.listeners) {
+      listener();
+    }
   }
 
   /**

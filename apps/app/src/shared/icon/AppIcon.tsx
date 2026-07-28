@@ -9,18 +9,27 @@ export interface AppIconProps {
   icon?: SystemIcon;
   emoji?: string | null;
   size?: number;
+  slotSize?: number;
 }
 
-export function AppIcon({ icon, emoji, size = DEFAULT_SIZE }: AppIconProps) {
-  if (emoji) {
-    return <span className="emoji-icon">{emoji}</span>;
-  }
+export function AppIcon({
+  icon,
+  emoji,
+  size = DEFAULT_SIZE,
+  slotSize = 20,
+}: AppIconProps) {
+  const Icon = icon ? iconRegistry[icon] : null;
+  const style = {
+    '--app-icon-size': `${slotSize}px`,
+  } as React.CSSProperties;
 
-  if (!icon) {
-    return null;
-  }
-
-  const Icon = iconRegistry[icon];
-
-  return <Icon width={size} height={size} strokeWidth={DEFAULT_STROKE_WIDTH} />;
+  return (
+    <span className="app-icon" style={style}>
+      {emoji ? (
+        <span className="emoji-icon">{emoji}</span>
+      ) : Icon ? (
+        <Icon width={size} height={size} strokeWidth={DEFAULT_STROKE_WIDTH} />
+      ) : null}
+    </span>
+  );
 }

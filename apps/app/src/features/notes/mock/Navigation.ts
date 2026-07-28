@@ -7,6 +7,6 @@ export const notesNavigation: NavigationItem[] = [
     title: 'All notes',
     icon: 'note',
   },
-  { id: 'inbox', title: 'Unsorted', icon: 'tray' },
+  { id: 'inbox', title: 'Inbox', icon: 'tray' },
   { id: 'templates', title: 'Templates', icon: 'template' },
 ];

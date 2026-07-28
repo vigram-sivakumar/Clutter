@@ -2,6 +2,7 @@ import { Button } from '@components/button/Button';
 import { Caret } from '@components/caret/Caret';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
+import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
 
 interface NoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -21,7 +22,7 @@ export function Note({
       leading={
         <>
           {hasCaret && <Caret isPlaceholder />}
-          <AppIcon icon={'note'} emoji={emoji} />
+          <AppIcon icon={getPageIcon('note')} emoji={emoji} />
         </>
       }
       actions={

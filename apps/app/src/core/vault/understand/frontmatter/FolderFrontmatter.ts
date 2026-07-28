@@ -3,4 +3,6 @@ export interface FolderFrontmatter {
 
   icon?: string;
   favorite?: boolean;
+  description?: string;
+  cover?: string;
 }

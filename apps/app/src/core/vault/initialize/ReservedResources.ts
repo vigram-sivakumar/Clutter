@@ -45,3 +45,16 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
     contents: '{}',
   },
 ];
+
+/**
+ * Top-level folder names owned by Clutter as application infrastructure.
+ * These are real Folder entities in the vault, but they are not generic
+ * user content and should not surface in generic folder navigation
+ * (e.g. the Notes sidebar tab) — reserved folders get their own dedicated
+ * surface (e.g. Daily Notes has its own tab) or none yet.
+ */
+export const RESERVED_FOLDER_NAMES: ReadonlySet<string> = new Set(
+  RESERVED_RESOURCES.filter(
+    (resource): resource is ReservedFolder => resource.type === 'folder'
+  ).map((resource) => resource.path)
+);

@@ -21,7 +21,7 @@ import type { Alias } from '../models/Alias';
 import type { BlockReference } from '../models/analysis/BlockReference';
 
 export interface BuildPageInput {
-  readonly parentId: string;
+  readonly parentId: string | null;
   readonly page: ScannedPage;
 }
 

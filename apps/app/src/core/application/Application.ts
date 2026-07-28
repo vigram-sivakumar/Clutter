@@ -9,7 +9,9 @@ import { VaultInitializer } from '../vault/initialize/VaultInitializer';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { PageApplicationService } from './page/PageApplicationService';
+import { FolderApplicationService } from './folder/FolderApplicationService';
 import { DocumentRegistry } from '../engine/DocumentRegistry';
+import { SaveCoordinator } from '../engine/SaveCoordinator';
 
 /**
  * Composition root for the application layer.
@@ -19,8 +21,8 @@ import { DocumentRegistry } from '../engine/DocumentRegistry';
  * Responsibilities:
  * - Own the active Vault.
  * - Own the active Workspace.
- * - Own long-lived runtime services (Workspace, DocumentRegistry, application services).
- * - Own the DocumentRegistry for the lifetime of the application.
+ * - Own long-lived runtime services (Workspace, DocumentRegistry, SaveCoordinator, application services like page and folder services).
+ * - The composition root owns the lifetime of all runtime services used by the application.
  * - Provide a single entry point for the UI.
  *
  * Does NOT:
@@ -31,7 +33,9 @@ import { DocumentRegistry } from '../engine/DocumentRegistry';
 export class Application {
   public readonly workspace: Workspace;
   public readonly documentRegistry: DocumentRegistry;
+  public readonly saveCoordinator: SaveCoordinator;
   public readonly pageService: PageApplicationService;
+  public readonly folderService: FolderApplicationService;
 
   static async open(rootPath: string): Promise<Application> {
     const fileSystem = new LocalVaultProvider();
@@ -69,10 +73,13 @@ export class Application {
   constructor(public readonly vault: Vault) {
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
+    this.saveCoordinator = new SaveCoordinator();
     this.pageService = new PageApplicationService(
       this.workspace,
       vault,
-      this.documentRegistry
+      this.documentRegistry,
+      this.saveCoordinator
     );
+    this.folderService = new FolderApplicationService(this.workspace, vault);
   }
 }

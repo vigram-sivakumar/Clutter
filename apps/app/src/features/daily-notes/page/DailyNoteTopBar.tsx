@@ -1,27 +1,26 @@
-import { TopBar } from '@app/layouts/page/topbar/TopBar';
+import { PageTopBar } from '@app/layouts/page/topbar/Page.TopBar';
+import type { Breadcrumb } from '@components/breadcrumb/Breadcrumbs';
 import { Button } from '@components/button/Button';
-import { Breadcrumbs } from '../../../components/breadcrumb/Breadcrumbs';
 
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { Overlay } from '@components/overlay/Overlay';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 // Mock
-import { breadcrumbs as breadcrumbsMock } from '../mock/Breadcrumbs';
 import { AppIcon } from '@shared/icon';
 import { topBarMenu } from '../mock/TopBarMenu';
 
-export function NoteTopBar() {
+export interface DailyNoteTopBarProps {
+  breadcrumbs: Breadcrumb[];
+}
+
+export function DailyNoteTopBar({ breadcrumbs }: DailyNoteTopBarProps) {
   const overflow = useOverlay<HTMLButtonElement>();
 
   return (
     <>
-      <TopBar
-        leading={
-          <>
-            <Breadcrumbs items={breadcrumbsMock} />
-          </>
-        }
+      <PageTopBar
+        breadcrumbs={breadcrumbs}
         trailing={
           <>
             <Button size="medium" isIconOnly>

@@ -4,6 +4,7 @@ import {
   readDir,
   readTextFile,
   writeTextFile,
+  remove,
 } from '@tauri-apps/plugin-fs';
 import type { VaultEntry, VaultFileSystem } from './VaultFileSystem';
 
@@ -31,5 +32,9 @@ export class LocalVaultProvider implements VaultFileSystem {
 
   async writeFile(path: string, contents: string): Promise<void> {
     await writeTextFile(path, contents);
+  }
+
+  async deleteFile(path: string): Promise<void> {
+    await remove(path);
   }
 }

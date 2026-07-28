@@ -1,40 +1,91 @@
 import type { Application } from '@core/application/Application';
 
-import { MockPage } from './MockPage';
+import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
+import { DailyNotePage } from '@features/daily-notes/page/DailyNotePage';
+import { toDailyNotePageModel } from '@features/daily-notes/page/DailyNotePageModel';
+import { NotePage } from '@features/notes/page/note/NotePage';
+import { toNotePageModel } from '@features/notes/page/note/NotePageModel';
+import { FolderPage } from '@features/notes/page/folder/FolderPage';
+import { toFolderPageModel } from '@features/notes/page/folder/toFolderPageModel';
 
 interface PageHostProps {
   application: Application;
 }
 
 /**
- * Hosts the primary page content for the current workspace.
+ * PageHost is the composition root for page rendering.
  *
- * Eventually this component will:
- * - Observe the active workspace page.
- * - Resolve the corresponding DocumentSession.
- * - Render the appropriate page feature.
+ * It resolves the active navigation target, constructs the appropriate ViewModel,
+ * and delegates rendering to the correct page component.
  *
- * For now it intentionally delegates to MockPage while the
- * workspace-driven page flow is being implemented.
+ * It intentionally contains no business logic or persistence logic.
+ *
+ * Page dispatch currently uses a switch statement but is expected to evolve into a registry
+ * when multiple page types justify the abstraction.
  */
 export function PageHost({ application }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
 
   const activePageId = workspace.activePageId;
+  const activeFolderId = workspace.activeFolderId;
 
-  const session = activePageId
+  const onOpenFolder = (id: string) => application.folderService.openFolder(id);
+
+  if (activeFolderId) {
+    const folder = application.vault.getFolder(activeFolderId);
+
+    if (!folder) {
+      throw new Error(`Folder not found: ${activeFolderId}`);
+    }
+
+    const model = toFolderPageModel(folder, application.vault, {
+      onOpenFolder,
+      onOpenNote: (id) => application.pageService.openPage(id),
+    });
+
+    return <FolderPage model={model} />;
+  }
+
+  // PageHost always renders from a DocumentSession rather than directly from the Vault.
+  // The session is the mutable editing model while the Vault remains the immutable snapshot.
+  // Future React subscriptions should observe DocumentSession changes rather than bypassing the session.
+  const rawSession = activePageId
     ? application.pageService.getSession(activePageId)
     : undefined;
 
-  console.log('[PageHost]', {
-    activePageId,
-    hasSession: session !== undefined,
-  });
+  // React observes DocumentSession changes through this hook.
+  // The session remains the single source of editable document state.
+  const session = useDocumentSession(rawSession);
 
-  // Temporary until the real page renderer is implemented.
-  // Keep the values alive while we validate the application flow.
-  void session;
+  if (!session) {
+    return null;
+  }
 
-  return <MockPage />;
+  // TODO: This temporary dispatch will become a registry-backed page renderer once additional page types exist.
+  // The current switch is intentionally retained until there are enough concrete implementations to justify the abstraction.
+  switch (session.page.type) {
+    case 'note': {
+      const model = toNotePageModel(
+        session.page,
+        session,
+        application.vault,
+        onOpenFolder
+      );
+      return <NotePage model={model} />;
+    }
+
+    case 'daily-note': {
+      const model = toDailyNotePageModel(
+        session.page,
+        session,
+        application.vault,
+        onOpenFolder
+      );
+      return <DailyNotePage model={model} />;
+    }
+
+    default:
+      throw new Error(`Unsupported page type: ${session.page.type}`);
+  }
 }

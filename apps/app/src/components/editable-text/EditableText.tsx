@@ -31,6 +31,13 @@ function syncTextContent(element: HTMLDivElement | null, value: string) {
   updateEmptyState(element);
 }
 
+/**
+ * EditableText is a reusable UI primitive for inline text editing.
+ * - It owns only the browser editing experience.
+ * - It does not own document state, persistence, validation, or business rules.
+ * - Committed values are delegated through `onCommit`.
+ * - The parent decides whether to accept, reject, or persist the change.
+ */
 export function EditableText({
   value,
   placeholder,
@@ -77,11 +84,16 @@ export function EditableText({
     event.currentTarget.blur();
   }
 
+  // Blur represents the commit boundary for the current editing session.
+  // EditableText only emits the proposed value.
+  // It does not mutate application state itself.
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
     const committedValue = event.currentTarget.textContent ?? '';
 
     updateEmptyState(event.currentTarget);
 
+    // Emit the proposed value only when the committed text differs from
+    // the last value accepted by the parent.
     if (committedValue !== value) {
       onCommit(committedValue);
     }
