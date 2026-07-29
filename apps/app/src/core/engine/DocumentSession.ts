@@ -103,6 +103,17 @@ export class DocumentSession {
   }
 
   /**
+   * Marks the session as having a persistence failure.
+   *
+   * The current revision is intentionally preserved so the user's work remains
+   * available for retry after the failure is resolved.
+   */
+  public markSaveFailed(): void {
+    this._state = DocumentState.SaveError;
+    this.notify();
+  }
+
+  /**
    * DocumentSession exposes change notifications so higher layers can observe
    * revision and lifecycle changes without introducing UI or persistence responsibilities.
    *

@@ -7,6 +7,8 @@
  *
  * User content belongs in the vault.
  * Application infrastructure belongs in reserved resources.
+ *
+ * Reserved resources are owned and managed by Clutter. They represent application infrastructure rather than user-created organizational structure and provide stable locations for system features.
  */
 
 export interface ReservedFolder {
@@ -52,6 +54,19 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
  * user content and should not surface in generic folder navigation
  * (e.g. the Notes sidebar tab) — reserved folders get their own dedicated
  * surface (e.g. Daily Notes has its own tab) or none yet.
+ *
+ * Reserved folders:
+ * - .clutter
+ *   Internal application data.
+ * - Daily Notes
+ *   Stores daily notes managed by Clutter.
+ * - Archive
+ *   Stores archived pages. A page is considered archived because it resides in
+ *   this folder, not because of an `archived` metadata flag. When a page is
+ *   archived, `originalParentId` is recorded so the page can later be restored
+ *   to its previous location.
+ * - Inbox
+ *   Default capture location for newly created content.
  */
 export const RESERVED_FOLDER_NAMES: ReadonlySet<string> = new Set(
   RESERVED_RESOURCES.filter(

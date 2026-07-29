@@ -5,16 +5,23 @@ import {
   readTextFile,
   writeTextFile,
   remove,
+  rename,
 } from '@tauri-apps/plugin-fs';
 import type { VaultEntry, VaultFileSystem } from './VaultFileSystem';
 
 export class LocalVaultProvider implements VaultFileSystem {
-  async exists(_path: string): Promise<boolean> {
-    return exists(_path);
+  constructor(private readonly rootPath: string) {}
+
+  private resolvePath(path: string): string {
+    return path.startsWith(this.rootPath) ? path : `${this.rootPath}/${path}`;
+  }
+
+  async exists(path: string): Promise<boolean> {
+    return exists(this.resolvePath(path));
   }
 
   async createDirectory(path: string): Promise<void> {
-    await mkdir(path, { recursive: true });
+    await mkdir(this.resolvePath(path), { recursive: true });
   }
 
   async readDirectory(_path: string): Promise<VaultEntry[]> {
@@ -35,6 +42,13 @@ export class LocalVaultProvider implements VaultFileSystem {
   }
 
   async deleteFile(path: string): Promise<void> {
-    await remove(path);
+    await remove(this.resolvePath(path));
+  }
+
+  async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
+    await rename(
+      this.resolvePath(sourcePath),
+      this.resolvePath(destinationPath)
+    );
   }
 }

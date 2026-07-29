@@ -12,9 +12,10 @@ import { noteTopBarMenu } from '@features/notes/mock/NoteTopBarMenu';
 
 export interface NoteTopBarProps {
   breadcrumbs: Breadcrumb[];
+  onArchive?: () => void;
 }
 
-export function NoteTopBar({ breadcrumbs }: NoteTopBarProps) {
+export function NoteTopBar({ breadcrumbs, onArchive }: NoteTopBarProps) {
   const overflow = useOverlay<HTMLButtonElement>();
 
   return (
@@ -52,7 +53,13 @@ export function NoteTopBar({ breadcrumbs }: NoteTopBarProps) {
           {noteTopBarMenu.map((item) => (
             <MenuItem
               key={item.id}
-              onClick={overflow.hide}
+              onClick={() => {
+                if (item.id === 'archive') {
+                  onArchive?.();
+                }
+
+                overflow.hide();
+              }}
               leading={item.icon ? <AppIcon icon={item.icon} /> : undefined}
             >
               {item.label}

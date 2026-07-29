@@ -4,11 +4,12 @@ import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
 import { notesNavigation } from '@features/notes/mock/Navigation';
-import { renderNotesTree } from '../helpers/renderNotesTree';
-import { renderFavorites } from '../helpers/renderFavorites';
+import { FolderTree } from './FolderTree';
+import { FavoriteList } from './FavoriteList';
 // Vault
 import type { Vault } from '@core/vault/models/Vault';
-import { RESERVED_FOLDER_NAMES } from '@core/vault/initialize/ReservedResources';
+import { VaultQuery } from '@core/vault/queries/VaultQuery';
+import { useVault } from '@app/hooks/useVault';
 
 interface NotesProps {
   vault: Vault;
@@ -17,13 +18,10 @@ interface NotesProps {
 }
 
 export function Notes({ vault, onOpen, onOpenFolder }: NotesProps) {
+  useVault(vault);
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
-  const notes = Array.from(vault.notes());
-  const folders = Array.from(vault.folders()).filter(
-    (folder) =>
-      !(folder.parentId === null && RESERVED_FOLDER_NAMES.has(folder.name))
-  );
+  const query = new VaultQuery(vault);
 
   return (
     <View
@@ -52,7 +50,15 @@ export function Notes({ vault, onOpen, onOpenFolder }: NotesProps) {
         onExpandedChange={setFavoritesExpanded}
         onClick={() => {}}
       >
-        {renderFavorites(notes, folders)}
+        <FavoriteList
+          items={query.getFavorites()}
+          onOpenPage={(id) => {
+            onOpen(id);
+          }}
+          onOpenFolder={(id) => {
+            onOpenFolder(id);
+          }}
+        />
       </Section>
       <Section
         hasHeader
@@ -62,18 +68,17 @@ export function Notes({ vault, onOpen, onOpenFolder }: NotesProps) {
         onExpandedChange={setFoldersExpanded}
         onClick={() => {}}
       >
-        {renderNotesTree({
-          folders,
-          pages: notes,
-          parentId: null,
-          level: 0,
-          onPageClick: (page) => {
+        <FolderTree
+          query={query}
+          parentId={null}
+          level={0}
+          onPageClick={(page) => {
             onOpen(page.id);
-          },
-          onFolderClick: (folder) => {
+          }}
+          onFolderClick={(folder) => {
             onOpenFolder(folder.id);
-          },
-        })}
+          }}
+        />
       </Section>
     </View>
   );

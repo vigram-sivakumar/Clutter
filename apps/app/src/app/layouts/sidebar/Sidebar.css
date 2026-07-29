@@ -5,8 +5,7 @@
 
   height: 100%;
 
-  padding-top: var(--space-16);
-  padding-bottom: 0;
+  padding-block: var(--space-16);
   padding-inline: var(--space-12);
 }
 .sidebar--content {

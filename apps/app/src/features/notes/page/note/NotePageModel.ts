@@ -13,7 +13,8 @@ export function toNotePageModel(
   page: Page,
   session: DocumentSession,
   vault: Vault,
-  onOpenFolder: (folderId: string) => void
+  onOpenFolder: (folderId: string) => void,
+  onUpdateMarkdown: (pageId: string, markdown: string) => void
 ): NotePageModel {
   const revision = session.currentRevision;
 
@@ -50,6 +51,13 @@ export function toNotePageModel(
 
       throw new Error('Not implemented');
     },
+
+    // TODO: Follow the same editing pipeline as rename() and description edits.
+    // Markdown edits should be delegated to the application layer rather than
+    // mutating the DocumentSession directly from the ViewModel.
+    updateMarkdown(markdown: string): void {
+      onUpdateMarkdown(page.id, markdown);
+    },
   };
 }
 
@@ -62,4 +70,5 @@ export interface NotePageModel {
 
   rename(title: string): void;
   updateDescription(description: string): void;
+  updateMarkdown(markdown: string): void;
 }

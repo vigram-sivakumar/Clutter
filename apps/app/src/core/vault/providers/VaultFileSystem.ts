@@ -34,4 +34,5 @@ export interface VaultFileSystem {
    * and business rules before invoking it.
    */
   deleteFile(path: string): Promise<void>;
+  moveFile(sourcePath: string, destinationPath: string): Promise<void>;
 }

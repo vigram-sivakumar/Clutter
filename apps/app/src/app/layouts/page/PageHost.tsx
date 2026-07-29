@@ -1,6 +1,7 @@
 import type { Application } from '@core/application/Application';
 
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
+import { useVault } from '@app/hooks/useVault';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { DailyNotePage } from '@features/daily-notes/page/DailyNotePage';
 import { toDailyNotePageModel } from '@features/daily-notes/page/DailyNotePageModel';
@@ -26,30 +27,11 @@ interface PageHostProps {
  */
 export function PageHost({ application }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
+  const vault = useVault(application.vault);
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
 
-  const onOpenFolder = (id: string) => application.folderService.openFolder(id);
-
-  if (activeFolderId) {
-    const folder = application.vault.getFolder(activeFolderId);
-
-    if (!folder) {
-      throw new Error(`Folder not found: ${activeFolderId}`);
-    }
-
-    const model = toFolderPageModel(folder, application.vault, {
-      onOpenFolder,
-      onOpenNote: (id) => application.pageService.openPage(id),
-    });
-
-    return <FolderPage model={model} />;
-  }
-
-  // PageHost always renders from a DocumentSession rather than directly from the Vault.
-  // The session is the mutable editing model while the Vault remains the immutable snapshot.
-  // Future React subscriptions should observe DocumentSession changes rather than bypassing the session.
   const rawSession = activePageId
     ? application.pageService.getSession(activePageId)
     : undefined;
@@ -57,6 +39,34 @@ export function PageHost({ application }: PageHostProps) {
   // React observes DocumentSession changes through this hook.
   // The session remains the single source of editable document state.
   const session = useDocumentSession(rawSession);
+
+  const onOpenFolder = (id: string) => application.folderService.openFolder(id);
+  const onUpdateMarkdown = (pageId: string, markdown: string): void => {
+    application.pageService.updateMarkdown(pageId, markdown);
+  };
+
+  const onArchive = async (): Promise<void> => {
+    if (!activePageId) {
+      return;
+    }
+
+    await application.pageMutationService.archivePage(activePageId);
+  };
+
+  if (activeFolderId) {
+    const folder = vault.getFolder(activeFolderId);
+
+    if (!folder) {
+      throw new Error(`Folder not found: ${activeFolderId}`);
+    }
+
+    const model = toFolderPageModel(folder, vault, {
+      onOpenFolder,
+      onOpenNote: (id) => application.pageService.openPage(id),
+    });
+
+    return <FolderPage model={model} />;
+  }
 
   if (!session) {
     return null;
@@ -69,17 +79,18 @@ export function PageHost({ application }: PageHostProps) {
       const model = toNotePageModel(
         session.page,
         session,
-        application.vault,
-        onOpenFolder
+        vault,
+        onOpenFolder,
+        onUpdateMarkdown
       );
-      return <NotePage model={model} />;
+      return <NotePage model={model} onArchive={onArchive} />;
     }
 
     case 'daily-note': {
       const model = toDailyNotePageModel(
         session.page,
         session,
-        application.vault,
+        vault,
         onOpenFolder
       );
       return <DailyNotePage model={model} />;

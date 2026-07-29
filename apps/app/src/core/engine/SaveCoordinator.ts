@@ -66,4 +66,22 @@ export class SaveCoordinator {
     // Remove from active saves.
     this.activeSaves.delete(session.page.id);
   }
+
+  /**
+   * Marks a save operation as failed.
+   *
+   * Stale failures are ignored using the same revision guard as successful
+   * completions. The failed revision remains in DocumentSession so it can be
+   * retried or recovered later.
+   */
+  public failSave(session: DocumentSession, revision: DocumentRevision): void {
+    const activeRevision = this.activeSaves.get(session.page.id);
+
+    if (activeRevision !== revision) {
+      return;
+    }
+
+    session.markSaveFailed();
+    this.activeSaves.delete(session.page.id);
+  }
 }

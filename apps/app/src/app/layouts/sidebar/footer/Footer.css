@@ -1,0 +1,9 @@
+.footer {
+  display: flex;
+  justify-content: right;
+  color: var(--text-tertiary);
+}
+.footer__actions {
+  display: flex;
+  gap: var(--space-2);
+}

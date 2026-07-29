@@ -4,6 +4,7 @@ import { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { Vault } from '../../vault/models/Vault';
 import { Workspace } from '../../workspace/Workspace';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
+import { PersistenceService } from '../persistence/PersistenceService';
 
 /**
  * Coordinates page-related application operations and owns the application-level lifecycle of an open page.
@@ -12,21 +13,29 @@ import { DocumentTransaction } from '../../engine/DocumentTransaction';
  * - Open pages/documents and manage their lifecycle.
  * - Coordinate page navigation and document session management.
  * - Validate the page exists before updating the workspace.
+ * - Enforce that archived pages are view-only: opening an archived page is
+ *   always allowed, but editing one is rejected until it is restored. This
+ *   is an application-level policy, not a Vault, persistence, or
+ *   DocumentSession rule — none of those layers know what "archived" means.
  *
+
  * Does NOT:
  * - Edit pages.
- * - Persist pages.
+ * - Perform filesystem persistence directly.
  * - Generate page content.
  *
  * This service orchestrates domain objects and manages navigation and sessions,
  * but does not own editing or persistence concerns.
+ *
+ * Persistence is delegated to PersistenceService after the save lifecycle begins.
  */
 export class PageApplicationService {
   constructor(
     private readonly workspace: Workspace,
     private readonly vault: Vault,
     private readonly documentRegistry: DocumentRegistry,
-    private readonly saveCoordinator: SaveCoordinator
+    private readonly saveCoordinator: SaveCoordinator,
+    private readonly _persistenceService: PersistenceService
   ) {}
 
   /**
@@ -62,7 +71,8 @@ export class PageApplicationService {
    * - Validate the requested title.
    * - Create a DocumentTransaction.
    * - Commit the transaction through DocumentSession.
-   * - Delegate persistence to SaveCoordinator.
+   * - Begin the save lifecycle through SaveCoordinator.
+   * - Delegate persistence to PersistenceService.
    *
    * This service owns the application workflow. It must not write directly to
    * the Vault or filesystem.
@@ -82,23 +92,49 @@ export class PageApplicationService {
    * Target flow:
    * - Resolve the existing DocumentSession.
    * - Validate the session exists.
+   * - Validate the page is not archived (archived pages are view-only until
+   *   restored; see the class-level note on archived-page editing).
    * - Create a DocumentTransaction containing the proposed Markdown.
    * - Commit the transaction through DocumentSession.
    * - Begin the save lifecycle through SaveCoordinator.
    *
-   * Persistence remains the responsibility of SaveCoordinator.
+   * Persistence remains the responsibility of PersistenceService after SaveCoordinator begins the save lifecycle.
    * This service coordinates the workflow but never writes directly to the Vault
    * or filesystem.
+   *
+   * The archived-page check re-reads the page from the Vault rather than
+   * trusting the DocumentSession's own snapshot, so a page archived after
+   * its session was opened is caught on the very next edit attempt — no
+   * separate "was this session's page archived while open" bookkeeping is
+   * needed.
    */
   public updateMarkdown(pageId: string, markdown: string): void {
     const session = this.documentRegistry.get(pageId);
     if (!session) {
       throw new Error(`No open document session for page: ${pageId}`);
     }
+
+    const page = this.vault.getPage(pageId);
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    if (page.metadata.status === 'archived') {
+      throw new Error(
+        `Cannot edit archived page: ${pageId}. Restore it before editing.`
+      );
+    }
+
     const transaction = new DocumentTransaction(markdown);
     session.commit(transaction);
+
     this.saveCoordinator.beginSave(session);
-    // Persistence is intentionally stubbed; do not call completeSave or write to filesystem/vault.
+
+    const revision = session.currentRevision;
+
+    // Persistence currently completes only the save lifecycle.
+    // Filesystem persistence will be introduced incrementally.
+    void this._persistenceService.save(session, revision);
   }
 
   /**

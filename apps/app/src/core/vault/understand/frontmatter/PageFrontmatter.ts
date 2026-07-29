@@ -1,4 +1,4 @@
-import type { PageType } from '../../models';
+import type { PageStatus, PageType } from '../../models';
 /**
  * Canonical metadata stored in every Clutter page.
  *
@@ -13,6 +13,9 @@ export interface PageFrontmatter {
   cover?: string;
   description?: string;
   favorite?: boolean;
+  status?: PageStatus;
+  archivedAt?: string | null;
+  originalPath?: string | null;
   originalParentId?: string | null;
   created?: string;
   modified?: string;

@@ -1,17 +1,15 @@
 // React
 import { Fragment } from 'react/jsx-runtime';
 // Components
-import { Folder as FolderEntry } from '../sidebar/Folder';
-import { Note as NoteEntry } from '../sidebar/Note';
+import { Folder as FolderEntry } from './Folder';
+import { Note as NoteEntry } from './Note';
 // Models
 import type { Folder, Page } from '@core/vault/models';
-// Helpers
-import { getChildFolders } from './getChildFolders';
-import { getChildPages } from './getChildPages';
+// Queries
+import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 
-interface RenderEntryTreeProps {
-  folders: Folder[];
-  pages: Page[];
+interface FolderTreeProps {
+  query: VaultQuery;
   // The folder whose children we're currently rendering.
   // null means "start from the root".
   parentId: string | null;
@@ -27,22 +25,24 @@ interface RenderEntryTreeProps {
   onFolderClick(folder: Folder): void;
 }
 
-export function renderNotesTree({
-  folders,
-  pages,
+export function FolderTree({
+  query,
   parentId,
   level,
   onPageClick,
   onFolderClick,
-}: RenderEntryTreeProps) {
+}: FolderTreeProps) {
   // Get all folders that belong to the current parent.
-  const rootFolders = getChildFolders(folders, parentId);
+  const rootFolders =
+    parentId === null
+      ? query.getVisibleRootFolders()
+      : query.getChildFolders(parentId);
 
   // Render every child folder.
   return rootFolders.map((folder) => {
     // Get the pages that belong to this folder.
-    const childPages = getChildPages(pages, folder.id);
-    const subFolders = getChildFolders(folders, folder.id);
+    const childPages = query.getChildPages(folder.id);
+    const subFolders = query.getChildFolders(folder.id);
     // Checks if the folder is empty
     const isEmpty = subFolders.length === 0 && childPages.length === 0;
 
@@ -69,14 +69,13 @@ export function renderNotesTree({
         {/* Render this folder's child folders.
             This is the recursive call.
             Every child folder repeats this exact process. */}
-        {renderNotesTree({
-          folders,
-          pages,
-          parentId: folder.id,
-          level: level + 1,
-          onPageClick,
-          onFolderClick,
-        })}
+        <FolderTree
+          query={query}
+          parentId={folder.id}
+          level={level + 1}
+          onPageClick={onPageClick}
+          onFolderClick={onFolderClick}
+        />
       </Fragment>
     );
   });

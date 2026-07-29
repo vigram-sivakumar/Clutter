@@ -40,6 +40,13 @@ export class Workspace implements Observable {
   private readonly openPageIds: string[] = [];
 
   /**
+   * Folders currently expanded in tree views.
+   *
+   * This is UI navigation state, not vault data.
+   */
+  private readonly expandedFolderIds = new Set<string>();
+
+  /**
    * Registered workspace observers.
    */
   private readonly listeners = new Set<ChangeListener>();
@@ -104,6 +111,14 @@ export class Workspace implements Observable {
   }
 
   /**
+   * Notifies observers that external state changed and the workspace
+   * should be re-evaluated.
+   */
+  public refresh(): void {
+    this.notify();
+  }
+
+  /**
    * Returns whether the page is currently open.
    */
   public isPageOpen(pageId: string): boolean {
@@ -131,5 +146,25 @@ export class Workspace implements Observable {
    */
   public get openPages(): readonly string[] {
     return [...this.openPageIds];
+  }
+
+  /**
+   * Toggles the expanded state of a folder in tree views.
+   */
+  public toggleFolderExpanded(folderId: string): void {
+    if (this.expandedFolderIds.has(folderId)) {
+      this.expandedFolderIds.delete(folderId);
+    } else {
+      this.expandedFolderIds.add(folderId);
+    }
+
+    this.notify();
+  }
+
+  /**
+   * Returns whether a folder is expanded in tree views.
+   */
+  public isFolderExpanded(folderId: string): boolean {
+    return this.expandedFolderIds.has(folderId);
   }
 }

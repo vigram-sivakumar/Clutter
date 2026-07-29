@@ -1,24 +1,8 @@
 import type { Page } from '../models';
-import type {
-  TaskOccurrence,
-  TagOccurrence,
-  LinkOccurrence,
-  EmbedOccurrence,
-} from '../models/occurrences';
 import type { ScannedPage } from '../discover/VaultScanResult';
 import { IdentityResolver } from './IdentityResolver';
 
-import type { ScannedHeading } from '../understand/extractors/HeadingExtractor';
-import type { ScannedAlias } from '../understand/extractors/AliasExtractor';
-import type { ScannedBlockReference } from '../understand/extractors/BlockReferenceExtractor';
-import type { ScannedTask } from '../understand/extractors/TaskExtractor';
-import type { ScannedTagOccurrence } from '../understand/extractors/TagExtractor';
-import type { ScannedLink } from '../understand/extractors/LinkExtractor';
-import type { ScannedEmbed } from '../understand/extractors/EmbedExtractor';
-
-import type { Heading } from '../models/analysis/Heading';
-import type { Alias } from '../models/Alias';
-import type { BlockReference } from '../models/analysis/BlockReference';
+import { PageAnalysisMapper } from './PageAnalysisMapper';
 
 export interface BuildPageInput {
   readonly parentId: string | null;
@@ -27,6 +11,7 @@ export interface BuildPageInput {
 
 export class PageBuilder {
   private readonly identityResolver = new IdentityResolver();
+  private readonly analysisMapper = new PageAnalysisMapper();
 
   private getPageName(path: string): string {
     const fileName = path.substring(path.lastIndexOf('/') + 1);
@@ -57,6 +42,9 @@ export class PageBuilder {
         cover: page.frontmatter.cover ?? null,
         description: page.frontmatter.description ?? null,
         favorite: page.frontmatter.favorite ?? false,
+        status: page.frontmatter.status ?? 'active',
+        archivedAt: page.frontmatter.archivedAt ?? null,
+        originalPath: page.frontmatter.originalPath ?? null,
         originalParentId: page.frontmatter.originalParentId ?? null,
         createdAt: page.frontmatter.created ?? null,
         updatedAt: page.frontmatter.modified ?? null,
@@ -66,107 +54,16 @@ export class PageBuilder {
       },
 
       analysis: {
-        headings: this.buildHeadings(page.analysis.headings),
-        aliases: this.buildAliases(page.frontmatterAnalysis.aliases),
-        blockReferences: this.buildBlockReferences(
+        headings: this.analysisMapper.buildHeadings(page.analysis.headings),
+        aliases: this.analysisMapper.buildAliases(page.frontmatterAnalysis.aliases),
+        blockReferences: this.analysisMapper.buildBlockReferences(
           page.analysis.blockReferences
         ),
-        tasks: this.buildTasks(identity.id, page.analysis.tasks),
-        tags: this.buildTags(identity.id, page.analysis.tags),
-        links: this.buildLinks(identity.id, page.analysis.links),
-        embeds: this.buildEmbeds(identity.id, page.analysis.embeds),
+        tasks: this.analysisMapper.buildTasks(identity.id, page.analysis.tasks),
+        tags: this.analysisMapper.buildTags(identity.id, page.analysis.tags),
+        links: this.analysisMapper.buildLinks(identity.id, page.analysis.links),
+        embeds: this.analysisMapper.buildEmbeds(identity.id, page.analysis.embeds),
       },
     };
-  }
-
-  // Mapping methods for translation boundary
-  private buildHeadings(
-    headings: readonly ScannedHeading[]
-  ): readonly Heading[] {
-    return headings.map((heading) => ({
-      text: heading.title,
-      level: heading.level,
-    }));
-  }
-
-  private buildAliases(aliases: readonly ScannedAlias[]): readonly Alias[] {
-    return aliases.map((alias) => ({
-      value: alias.value,
-    }));
-  }
-
-  private buildBlockReferences(
-    blocks: readonly ScannedBlockReference[]
-  ): readonly BlockReference[] {
-    return blocks.map((block) => ({
-      id: block.id,
-    }));
-  }
-
-  private buildTasks(
-    sourcePageId: string,
-    scannedTasks: readonly ScannedTask[]
-  ): readonly TaskOccurrence[] {
-    return scannedTasks.map((task) => ({
-      sourcePageId,
-      text: task.text,
-      completed: task.completed,
-      // The following fields are left undefined for now:
-      rawText: undefined,
-      startOffset: undefined,
-      endOffset: undefined,
-      sourceVersion: undefined,
-    }));
-  }
-
-  private buildTags(
-    sourcePageId: string,
-    scannedTags: readonly ScannedTagOccurrence[]
-  ): readonly TagOccurrence[] {
-    return scannedTags.map((tag) => ({
-      sourcePageId,
-      name: tag.name,
-      // The following fields are left undefined for now:
-      rawText: undefined,
-      startOffset: undefined,
-      endOffset: undefined,
-      sourceVersion: undefined,
-    }));
-  }
-
-  private buildLinks(
-    sourcePageId: string,
-    scannedLinks: readonly ScannedLink[]
-  ): readonly LinkOccurrence[] {
-    return scannedLinks.map((link) => ({
-      sourcePageId,
-      target: link.target,
-      heading: link.heading,
-      blockReference: link.blockReference,
-      alias: link.alias,
-      // The following fields are left undefined for now:
-      rawText: undefined,
-      startOffset: undefined,
-      endOffset: undefined,
-      sourceVersion: undefined,
-    }));
-  }
-
-  private buildEmbeds(
-    sourcePageId: string,
-    scannedEmbeds: readonly ScannedEmbed[]
-  ): readonly EmbedOccurrence[] {
-    return scannedEmbeds.map((embed) => ({
-      sourcePageId,
-      target: embed.target,
-      heading: embed.heading,
-      blockReference: embed.blockReference,
-      alias: embed.alias,
-      // The following fields are left undefined for now:
-      rawText: undefined,
-      startOffset: undefined,
-      endOffset: undefined,
-      sourceVersion: undefined,
-    }));
   }
 }

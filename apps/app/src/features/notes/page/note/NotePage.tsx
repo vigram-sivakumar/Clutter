@@ -8,13 +8,19 @@ import { NoteBody } from './NoteBody';
 import type { NotePageModel } from './NotePageModel';
 
 export interface NotePageProps {
-  model: NotePageModel;
+  readonly model: NotePageModel;
+  readonly onArchive?: () => void;
 }
 
-export function NotePage({ model }: NotePageProps) {
+export function NotePage({ model, onArchive }: NotePageProps) {
+  const handleCommit = (markdown: string): void => {
+    model.updateMarkdown(markdown);
+  };
   return (
     <Page
-      topBar={<NoteTopBar breadcrumbs={model.breadcrumbs} />}
+      topBar={
+        <NoteTopBar breadcrumbs={model.breadcrumbs} onArchive={onArchive} />
+      }
       coverImage={model.coverImage ?? undefined}
       header={
         <PageTitleSection>
@@ -25,7 +31,7 @@ export function NotePage({ model }: NotePageProps) {
           />
         </PageTitleSection>
       }
-      body={<NoteBody markdown={model.markdown} />}
+      body={<NoteBody markdown={model.markdown} onCommit={handleCommit} />}
     />
   );
 }

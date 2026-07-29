@@ -6,6 +6,7 @@ import {
   TaskBuilder,
   EmbedBuilder,
   KnowledgeGraphBuilder,
+  VaultProjectionBuilder,
 } from '../knowledge';
 import type { Folder } from '../models';
 import { IdentityResolver } from './IdentityResolver';
@@ -17,6 +18,7 @@ export class VaultBuilder {
   private readonly embedBuilder = new EmbedBuilder();
   private readonly knowledgeGraphBuilder = new KnowledgeGraphBuilder();
   private readonly identityResolver = new IdentityResolver();
+  private readonly projectionBuilder = new VaultProjectionBuilder();
 
   build(scanResult: VaultScanResult): Vault {
     const rootPath = scanResult.rootPath;
@@ -70,6 +72,10 @@ export class VaultBuilder {
             favorite: directory.frontmatter?.favorite ?? false,
             description: directory.frontmatter?.description ?? '',
             cover: directory.frontmatter?.cover ?? null,
+            status: directory.frontmatter?.status ?? 'active',
+            archivedAt: directory.frontmatter?.archivedAt ?? null,
+            originalPath: directory.frontmatter?.originalPath ?? null,
+            originalParentId: directory.frontmatter?.originalParentId ?? null,
           },
         };
       });
@@ -103,6 +109,7 @@ export class VaultBuilder {
       tasks,
       embeds,
       knowledgeGraph,
+      this.projectionBuilder,
     );
   }
 }

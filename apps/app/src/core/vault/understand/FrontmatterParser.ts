@@ -120,9 +120,27 @@ export class FrontmatterParser {
             frontmatter.favorite = scalar;
           }
           break;
+        case 'status':
+          if (
+            typeof scalar === 'string' &&
+            (scalar === 'active' || scalar === 'archived')
+          ) {
+            frontmatter.status = scalar;
+          }
+          break;
+        case 'archivedAt':
+          if (typeof scalar === 'string' || scalar === null) {
+            frontmatter.archivedAt = scalar;
+          }
+          break;
         case 'originalParentId':
-          if (typeof scalar === 'string') {
+          if (typeof scalar === 'string' || scalar === null) {
             frontmatter.originalParentId = scalar;
+          }
+          break;
+        case 'originalPath':
+          if (typeof scalar === 'string' || scalar === null) {
+            frontmatter.originalPath = scalar;
           }
           break;
         case 'created':

@@ -12,6 +12,19 @@ import { PageApplicationService } from './page/PageApplicationService';
 import { FolderApplicationService } from './folder/FolderApplicationService';
 import { DocumentRegistry } from '../engine/DocumentRegistry';
 import { SaveCoordinator } from '../engine/SaveCoordinator';
+import { PersistenceService } from './persistence/PersistenceService';
+import { PagePersistenceCoordinator } from './persistence/PagePersistenceCoordinator';
+import { FrontmatterSerializer } from '../vault/understand/FrontmatterSerializer';
+import { FrontmatterParser } from '../vault/understand/FrontmatterParser';
+import { PageRebuilder } from '../vault/build/PageRebuilder';
+import { PageMutationService } from './page/PageMutationService';
+import { MoveService } from './move/MoveService';
+import { LocalFileSystemWatcher } from '../vault/providers/LocalFileSystemWatcher';
+import { VaultSyncService } from '../vault/sync/VaultSyncService';
+import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
+import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
+import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
+import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher';
 
 /**
  * Composition root for the application layer.
@@ -21,7 +34,7 @@ import { SaveCoordinator } from '../engine/SaveCoordinator';
  * Responsibilities:
  * - Own the active Vault.
  * - Own the active Workspace.
- * - Own long-lived runtime services (Workspace, DocumentRegistry, SaveCoordinator, application services like page and folder services).
+ * - Own long-lived runtime services (Workspace, DocumentRegistry, SaveCoordinator, PersistenceService, application services like page and folder services).
  * - The composition root owns the lifetime of all runtime services used by the application.
  * - Provide a single entry point for the UI.
  *
@@ -34,11 +47,26 @@ export class Application {
   public readonly workspace: Workspace;
   public readonly documentRegistry: DocumentRegistry;
   public readonly saveCoordinator: SaveCoordinator;
+  public readonly persistenceService: PersistenceService;
   public readonly pageService: PageApplicationService;
+  public readonly pageMutationService: PageMutationService;
   public readonly folderService: FolderApplicationService;
+  public readonly vaultSyncService: VaultSyncService;
+  private readonly fileSystemWatcher: LocalFileSystemWatcher;
+  private closed = false;
 
   static async open(rootPath: string): Promise<Application> {
-    const fileSystem = new LocalVaultProvider();
+    // Shared between the write side (SelfWriteAwareFileSystem) and the read
+    // side (SelfWriteAwareWatcher) so the filesystem watcher can recognize
+    // and drop its own echo of a write this app just made, instead of
+    // VaultSyncService re-processing it as a second, duplicate change.
+    const selfWriteRegistry = new SelfWriteRegistry();
+    const rawFileSystem = new LocalVaultProvider(rootPath);
+    const fileSystem = new SelfWriteAwareFileSystem(
+      rawFileSystem,
+      selfWriteRegistry,
+      rootPath
+    );
 
     const initializer = new VaultInitializer(fileSystem);
     await initializer.initialize(rootPath);
@@ -57,7 +85,9 @@ export class Application {
     const builder = new VaultBuilder();
     const vault = builder.build(scanResult);
 
-    const application = new Application(vault);
+    const application = new Application(vault, fileSystem, selfWriteRegistry);
+
+    await application.startFileSystemWatcher(rootPath);
 
     const todayPage = vault.getPageByPath(todayNotePath);
 
@@ -70,16 +100,87 @@ export class Application {
     return application;
   }
 
-  constructor(public readonly vault: Vault) {
+  constructor(
+    public readonly vault: Vault,
+    private readonly fileSystem: VaultFileSystem,
+    private readonly selfWriteRegistry: SelfWriteRegistry
+  ) {
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();
+
+    const moveService = new MoveService(this.vault, this.fileSystem);
+
+    // Single instance shared by PersistenceService and PageMutationService
+    // so every write to a given page — edit-save or structural mutation —
+    // is serialized through the same per-page queue.
+    const persistenceCoordinator = new PagePersistenceCoordinator(
+      this.fileSystem,
+      this.vault,
+      new FrontmatterSerializer(),
+      new FrontmatterParser(),
+      new PageRebuilder(),
+      moveService
+    );
+
+    this.persistenceService = new PersistenceService(
+      persistenceCoordinator,
+      this.saveCoordinator
+    );
     this.pageService = new PageApplicationService(
       this.workspace,
       vault,
       this.documentRegistry,
-      this.saveCoordinator
+      this.saveCoordinator,
+      this.persistenceService
     );
     this.folderService = new FolderApplicationService(this.workspace, vault);
+    this.fileSystemWatcher = new LocalFileSystemWatcher();
+
+    // VaultSyncService subscribes to the self-write-aware wrapper, not the
+    // raw watcher, so it never sees an echo of a write PagePersistenceCoordinator
+    // just made through the equally-wrapped `fileSystem` above. The raw
+    // watcher itself is still what owns the Tauri subscription/start/stop
+    // lifecycle below.
+    const syncWatcher = new SelfWriteAwareWatcher(
+      this.fileSystemWatcher,
+      this.selfWriteRegistry
+    );
+    this.vaultSyncService = new VaultSyncService(
+      vault,
+      this.fileSystem,
+      syncWatcher,
+      this.documentRegistry
+    );
+    this.pageMutationService = new PageMutationService(
+      persistenceCoordinator,
+      this.vault
+    );
+  }
+
+  private async startFileSystemWatcher(rootPath: string): Promise<void> {
+    await this.fileSystemWatcher.start(rootPath);
+  }
+
+  /**
+   * Tears down the runtime graph this composition root created.
+   *
+   * Stops accepting filesystem events first so no partially-destroyed
+   * service can react to a late-arriving change, then disposes
+   * subscriptions, then releases remaining state.
+   *
+   * Idempotent: safe to call more than once (React Strict Mode, repeated
+   * unmounts, or an eventual vault-switch flow may all call this).
+   */
+  public async close(): Promise<void> {
+    if (this.closed) {
+      return;
+    }
+
+    this.closed = true;
+
+    await this.fileSystemWatcher.stop();
+    this.vaultSyncService.dispose();
+    this.documentRegistry.clear();
   }
 }

@@ -36,4 +36,5 @@
 .breadcrumb-item--icon {
   justify-content: center;
   aspect-ratio: 1;
+  padding-right: var(--space-4);
 }

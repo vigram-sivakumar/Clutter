@@ -11,6 +11,7 @@ import { Tasks } from '@features/tasks/sidebar/Sidebar.Tasks';
 import { Tags } from '@features/tags/Sidebar.Tags';
 import { SearchPanel } from '@features/search/Sidebar.Search';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
+import { Footer } from './footer/Footer';
 
 interface SidebarProps {
   application: Application;
@@ -80,6 +81,7 @@ export function Sidebar({ application }: SidebarProps) {
       <div className="sidebar--content">
         {tabs.find((tab) => tab.value === activeTab)?.panel}
       </div>
+      <Footer />
     </aside>
   );
 }

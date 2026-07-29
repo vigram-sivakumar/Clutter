@@ -39,7 +39,7 @@ Arc 4 is intentionally scoped to Folder pages only. Tag or Task pages should onl
 
 ### 6. Is there an architectural inconsistency that should be resolved before implementing FolderPage?
 
-Yes, one very concrete one: `renderNotesTree.tsx` already renders every folder row in the sidebar with `onClick={() => {}}` — a literal no-op (`features/notes/helpers/renderNotesTree.tsx`, `<FolderEntry ... onClick={() => {}} />`). This isn't a UI surface that needs to be built; it's an existing dead handler waiting for something real to call. Wiring it up is part of this milestone, not a separate task.
+Yes, one very concrete one: `folderTreeProps.tsx` already renders every folder row in the sidebar with `onClick={() => {}}` — a literal no-op (`features/notes/helpers/folderTreeProps.tsx`, `<FolderEntry ... onClick={() => {}} />`). This isn't a UI surface that needs to be built; it's an existing dead handler waiting for something real to call. Wiring it up is part of this milestone, not a separate task.
 
 Second: `FolderFrontmatter`/`FolderMetadata` have no `description`/`cover` fields (confirmed by direct inspection — both interfaces list only `id`/`icon`/`favorite`). This must be extended in this milestone, since it's the literal subject of the FolderPage goal — deferring it means shipping FolderPage with permanently-empty fields again.
 
@@ -72,7 +72,7 @@ Second: `FolderFrontmatter`/`FolderMetadata` have no `description`/`cover` field
 - Markdown editing for folders (they are not documents).
 - Unifying Tags/Tasks/Search into the same "open" model — no evidence for this yet (see Q5).
 - Rename/move/delete for folders.
-- Fixing the sidebar tree's separate, pre-existing expand/collapse bug (`Folder.tsx`'s `isExpanded`/`onExpandToggle` props exist but `renderNotesTree.tsx` never passes `onExpandToggle`, so every folder currently renders fully expanded with a non-functional caret). This is real and worth a ticket, but it's unrelated to folder-opening and should not be bundled into this milestone.
+- Fixing the sidebar tree's separate, pre-existing expand/collapse bug (`Folder.tsx`'s `isExpanded`/`onExpandToggle` props exist but `folderTreeProps.tsx` never passes `onExpandToggle`, so every folder currently renders fully expanded with a non-functional caret). This is real and worth a ticket, but it's unrelated to folder-opening and should not be bundled into this milestone.
 
 ### Architectural boundary
 
@@ -91,7 +91,7 @@ Second: `FolderFrontmatter`/`FolderMetadata` have no `description`/`cover` field
 6. **`FolderPageModel` / `toFolderPageModel`** (new) — same shape discipline as `NotePageModel`: the page component receives fully-prepared data, never raw `Folder`/`Page` objects.
 7. **`FolderPage.tsx`** — receives `model: FolderPageModel`, deletes its hardcoded `title`/`description` literals. Renders `PageTopBar` directly with `breadcrumbs={model.breadcrumbs}` — **do not** create a `FolderTopBar` wrapper. `NoteTopBar`/`DailyNoteTopBar` exist to carry per-type trailing actions (favorite/width/overflow buttons); Folder has no such actions yet, so a wrapper component would have nothing to add over calling `PageTopBar` directly. Build `FolderTopBar` only when a real, distinct trailing-action requirement shows up.
 8. **`PageHost`** — add a branch that checks `workspace.activeFolderId` before falling through to the existing page-type switch.
-9. **`renderNotesTree.tsx` / `Sidebar.Notes.tsx` / `Sidebar.tsx`** — thread a new `onOpenFolder(folderId: string): void` callback down to replace the dead `onClick={() => {}}`, mirroring the existing `onOpen`/`onOpenNote` callback already used for notes. Keep them as two separate named callbacks rather than one combined `{id, type}` dispatcher — at exactly two cases, two named functions are at least as clear as a discriminated union and require no new type.
+9. **`folderTreeProps.tsx` / `Sidebar.Notes.tsx` / `Sidebar.tsx`** — thread a new `onOpenFolder(folderId: string): void` callback down to replace the dead `onClick={() => {}}`, mirroring the existing `onOpen`/`onOpenNote` callback already used for notes. Keep them as two separate named callbacks rather than one combined `{id, type}` dispatcher — at exactly two cases, two named functions are at least as clear as a discriminated union and require no new type.
 
 ## Workspace invariant
 
@@ -188,7 +188,7 @@ function toFolderPageModel(
 - `app/layouts/page/topbar/buildBreadcrumbs.ts`
 - `features/notes/page/folder/FolderPage.tsx`
 - `app/layouts/page/PageHost.tsx`
-- `features/notes/helpers/renderNotesTree.tsx`
+- `features/notes/helpers/folderTreeProps.tsx`
 - `features/notes/sidebar/Sidebar.Notes.tsx`
 - `app/layouts/sidebar/Sidebar.tsx`
 
@@ -203,7 +203,7 @@ Each step should leave the project compiling (`tsc --noEmit`) before moving to t
 5. `FolderPageModel` / `toFolderPageModel`.
 6. `FolderPage.tsx` updated to consume the model; delete the hardcoded literals.
 7. `PageHost` gains the `activeFolderId` branch.
-8. Wire `renderNotesTree`'s dead `onClick`, threading `onOpenFolder` through `Sidebar.Notes.tsx` and `Sidebar.tsx`.
+8. Wire `folderTreeProps`'s dead `onClick`, threading `onOpenFolder` through `Sidebar.Notes.tsx` and `Sidebar.tsx`.
 9. Manual verification: click a folder in the sidebar → FolderPage renders with real breadcrumbs and real children; click a child note → opens as a Note; click a child folder → navigates deeper and updates breadcrumbs.
 
 ## Risks
@@ -211,7 +211,7 @@ Each step should leave the project compiling (`tsc --noEmit`) before moving to t
 - **Mutual-exclusion bug.** If `openPage`/`openFolder` don't both clear the other's field, `Workspace` could end up with both `activePageId` and `activeFolderId` set, and `PageHost`'s branch order would silently decide which one wins. This must be a `Workspace` invariant, not caller discipline — write it once, inside the class.
 - **Regression risk in the `buildBreadcrumbs` refactor.** This is the only step touching code two working page types already depend on. Confirm Note/Daily Note breadcrumbs are pixel-identical before and after the extraction.
 - **No test fixture for `description`/`cover`.** Verifying the new `FolderFrontmatter` fields end-to-end requires a real `.folder.md` file in a test vault with those keys set — this doesn't exist yet and should be added alongside step 1.
-- **Scope creep while touching `renderNotesTree.tsx`.** The pre-existing expand/collapse bug (see Non-goals) sits right next to the code being changed. Resist fixing it in the same pass — it's a real, separate issue with its own investigation needed.
+- **Scope creep while touching `folderTreeProps.tsx`.** The pre-existing expand/collapse bug (see Non-goals) sits right next to the code being changed. Resist fixing it in the same pass — it's a real, separate issue with its own investigation needed.
 
 ## Why each change belongs in Arc 4, not a later milestone
 

@@ -14,6 +14,7 @@ export function AppShell() {
 
   useEffect(() => {
     let cancelled = false;
+    let openedApplication: Application | null = null;
 
     async function loadVault() {
       try {
@@ -21,9 +22,13 @@ export function AppShell() {
         const application = await Application.open(vaultPath);
         console.log('Vault opened:', application.vault);
 
-        if (!cancelled) {
-          setApplication(application);
+        if (cancelled) {
+          void application.close();
+          return;
         }
+
+        openedApplication = application;
+        setApplication(application);
       } catch (error) {
         console.error('Failed to open vault:', error);
         if (!cancelled) {
@@ -42,6 +47,7 @@ export function AppShell() {
 
     return () => {
       cancelled = true;
+      void openedApplication?.close();
     };
   }, [vaultPath]);
 

@@ -2,8 +2,7 @@ import type { Folder } from '@core/vault/models';
 import type { Vault } from '@core/vault/models';
 import type { FolderPageActions, FolderPageModel } from './FolderPageModel';
 import { buildBreadcrumbs } from '@app/layouts/page/topbar/buildBreadcrumbs';
-import { getChildFolders } from '@features/notes/helpers/getChildFolders';
-import { getChildPages } from '@features/notes/helpers/getChildPages';
+import { VaultQuery } from '@core/vault/queries/VaultQuery';
 import { toFolderChildItem } from './FolderChildren';
 
 export function toFolderPageModel(
@@ -11,14 +10,15 @@ export function toFolderPageModel(
   vault: Vault,
   actions: FolderPageActions
 ): FolderPageModel {
-  const childFolders = getChildFolders(
-    [...vault.folders()],
-    folder.id
-  ).map((child) => toFolderChildItem(child, actions));
+  const query = new VaultQuery(vault);
 
-  const childPages = getChildPages([...vault.pages()], folder.id).map(
-    (child) => toFolderChildItem(child, actions)
-  );
+  const childFolders = query
+    .getChildFolders(folder.id)
+    .map((child) => toFolderChildItem(child, actions));
+
+  const childPages = query
+    .getChildPages(folder.id)
+    .map((child) => toFolderChildItem(child, actions));
 
   return {
     title: folder.name,
