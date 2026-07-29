@@ -5,6 +5,7 @@ import { DailyNote } from '../sidebar/DailyNote';
 import { Section } from '@app/layouts/sidebar/section/Section';
 // Models
 import type { Page } from '@core/vault/models';
+import type { Workspace } from '@core/workspace/Workspace';
 // Helpers
 import { groupByMonth } from './groupByMonth';
 import {
@@ -16,11 +17,13 @@ import {
 
 interface RenderDailyNotesByMonthProps {
   dailyNotes: Page[];
+  workspace: Workspace;
   onOpen(pageId: string): void;
 }
 
 export function renderDailyNotesByMonth({
   dailyNotes,
+  workspace,
   onOpen,
 }: RenderDailyNotesByMonthProps) {
   const monthGroups = groupByMonth(dailyNotes);
@@ -40,6 +43,7 @@ export function renderDailyNotesByMonth({
               title={formatDate(note.name, 'date')}
               date={note.name}
               isToday={isToday(note.name)}
+              selected={workspace.activePageId === note.id}
               onClick={() => onOpen(note.id)}
             />
           ))}

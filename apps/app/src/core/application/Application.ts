@@ -21,6 +21,7 @@ import { PageMutationService } from './page/PageMutationService';
 import { MoveService } from './move/MoveService';
 import { LocalFileSystemWatcher } from '../vault/providers/LocalFileSystemWatcher';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
+import { reconcileVaultArchiveMetadata } from '../vault/sync/reconcileArchiveMetadata';
 import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
@@ -85,6 +86,14 @@ export class Application {
     const builder = new VaultBuilder();
     const vault = builder.build(scanResult);
 
+    await reconcileVaultArchiveMetadata({
+      vault,
+      fileSystem,
+      serializer: new FrontmatterSerializer(),
+      parser: new FrontmatterParser(),
+      rebuilder: new PageRebuilder(),
+    });
+
     const application = new Application(vault, fileSystem, selfWriteRegistry);
 
     await application.startFileSystemWatcher(rootPath);
@@ -114,10 +123,11 @@ export class Application {
     // Single instance shared by PersistenceService and PageMutationService
     // so every write to a given page — edit-save or structural mutation —
     // is serialized through the same per-page queue.
+    const frontmatterSerializer = new FrontmatterSerializer();
     const persistenceCoordinator = new PagePersistenceCoordinator(
       this.fileSystem,
       this.vault,
-      new FrontmatterSerializer(),
+      frontmatterSerializer,
       new FrontmatterParser(),
       new PageRebuilder(),
       moveService
@@ -150,7 +160,8 @@ export class Application {
       vault,
       this.fileSystem,
       syncWatcher,
-      this.documentRegistry
+      this.documentRegistry,
+      frontmatterSerializer
     );
     this.pageMutationService = new PageMutationService(
       persistenceCoordinator,

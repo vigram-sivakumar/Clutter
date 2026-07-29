@@ -86,7 +86,13 @@ function setup(page: Page) {
   );
 
   const documentRegistry = new DocumentRegistry();
-  new VaultSyncService(vault, fileSystem, watcher, documentRegistry);
+  new VaultSyncService(
+    vault,
+    fileSystem,
+    watcher,
+    documentRegistry,
+    new FrontmatterSerializer()
+  );
 
   let notificationCount = 0;
   vault.subscribe(() => {
@@ -219,7 +225,13 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
     const fileSystem = new SelfWriteAwareFileSystem(rawFileSystem, registry, ROOT);
     const rawWatcher = new FakeVaultFileSystemWatcher();
     const watcher = new SelfWriteAwareWatcher(rawWatcher, registry);
-    new VaultSyncService(vault, fileSystem, watcher, new DocumentRegistry());
+    new VaultSyncService(
+      vault,
+      fileSystem,
+      watcher,
+      new DocumentRegistry(),
+      new FrontmatterSerializer()
+    );
 
     let notificationCount = 0;
     vault.subscribe(() => {
@@ -291,7 +303,13 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
     const fileSystem = new SelfWriteAwareFileSystem(rawFileSystem, registry, ROOT);
     const rawWatcher = new FakeVaultFileSystemWatcher();
     const watcher = new SelfWriteAwareWatcher(rawWatcher, registry);
-    new VaultSyncService(vault, fileSystem, watcher, new DocumentRegistry());
+    new VaultSyncService(
+      vault,
+      fileSystem,
+      watcher,
+      new DocumentRegistry(),
+      new FrontmatterSerializer()
+    );
 
     let notificationCount = 0;
     vault.subscribe(() => {
@@ -349,7 +367,13 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
     const rawWatcher = new FakeVaultFileSystemWatcher();
     const watcher = new SelfWriteAwareWatcher(rawWatcher, registry);
     const vault = makeVault([page]);
-    new VaultSyncService(vault, fileSystem, watcher, new DocumentRegistry());
+    new VaultSyncService(
+      vault,
+      fileSystem,
+      watcher,
+      new DocumentRegistry(),
+      new FrontmatterSerializer()
+    );
 
     let notificationCount = 0;
     vault.subscribe(() => {

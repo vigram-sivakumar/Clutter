@@ -1,4 +1,4 @@
-import type { Breadcrumb } from '@components/breadcrumb/Breadcrumbs';
+import type { Breadcrumb } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import type { SystemIcon } from '@shared/icon';
 
 export interface FolderPageActions {
@@ -12,6 +12,7 @@ export interface FolderChildItem {
   readonly icon: SystemIcon;
   readonly emoji: string | null;
   readonly type: 'folder' | 'note';
+  readonly selected: boolean;
   readonly onClick: () => void;
 }
 

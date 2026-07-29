@@ -1,4 +1,5 @@
 import type { Application } from '@core/application/Application';
+import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useState, type ReactNode } from 'react';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
@@ -19,6 +20,7 @@ interface SidebarProps {
 
 export function Sidebar({ application }: SidebarProps) {
   const { vault } = application;
+  const workspace = useWorkspace(application.workspace);
   const [activeTab, setActiveTab] = useState('daily-notes');
 
   const tabs: Array<{
@@ -33,6 +35,7 @@ export function Sidebar({ application }: SidebarProps) {
       panel: (
         <DailyNotes
           vault={vault}
+          workspace={workspace}
           onOpen={(pageId) => application.pageService.openPage(pageId)}
         />
       ),
@@ -43,6 +46,7 @@ export function Sidebar({ application }: SidebarProps) {
       panel: (
         <Notes
           vault={vault}
+          workspace={workspace}
           onOpen={(pageId) => application.pageService.openPage(pageId)}
           onOpenFolder={(folderId) =>
             application.folderService.openFolder(folderId)

@@ -8,6 +8,8 @@ import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
 import { FakeVaultFileSystemWatcher } from '../testing/FakeVaultFileSystemWatcher';
+import { FrontmatterSerializer } from '../understand/FrontmatterSerializer';
+import { VaultQuery } from '../queries/VaultQuery';
 import type { Page } from '../models/Page';
 import type { Folder } from '../models/Folder';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
@@ -53,6 +55,76 @@ function makeVault(pages: Page[] = [], folders: Folder[] = []): Vault {
   );
 }
 
+const defaultFolderMetadata = {
+  icon: null,
+  favorite: false,
+  description: '',
+  cover: null,
+  status: 'active' as const,
+  archivedAt: null,
+  originalPath: null,
+  originalParentId: null,
+};
+
+function makeArchiveFolder(): Folder {
+  return {
+    id: 'folder-archive',
+    name: 'Archive',
+    path: `${ROOT}/Archive`,
+    parentId: null,
+    metadata: defaultFolderMetadata,
+  };
+}
+
+function makeProjectsFolder(): Folder {
+  return {
+    id: 'folder-projects',
+    name: 'Projects',
+    path: `${ROOT}/Projects`,
+    parentId: null,
+    metadata: defaultFolderMetadata,
+  };
+}
+
+function makeArchiveSubfolder(id: string, name: string): Folder {
+  return {
+    id,
+    name,
+    path: `${ROOT}/Archive/${name}`,
+    parentId: 'folder-archive',
+    metadata: defaultFolderMetadata,
+  };
+}
+
+function buildArchivedPage(path: string, content: string, pageId: string): Page {
+  const page = buildPage(path, content, pageId);
+
+  return {
+    ...page,
+    parentId: 'folder-archive',
+    metadata: {
+      ...page.metadata,
+      status: 'archived',
+      archivedAt: '2024-01-01T00:00:00.000Z',
+      originalPath: `${ROOT}/Inbox/Note.md`,
+      originalParentId: 'folder-inbox',
+    },
+  };
+}
+
+function archivedDiskDocument(pageId: string, body: string): string {
+  return [
+    '---',
+    `id: ${pageId}`,
+    'status: archived',
+    'archivedAt: 2024-01-01T00:00:00.000Z',
+    `originalPath: ${ROOT}/Inbox/Note.md`,
+    'originalParentId: folder-inbox',
+    '---',
+    body,
+  ].join('\n');
+}
+
 function setup(pages: Page[] = [], folders: Folder[] = []) {
   const vault = makeVault(pages, folders);
   const fileSystem = new InMemoryVaultFileSystem();
@@ -62,7 +134,8 @@ function setup(pages: Page[] = [], folders: Folder[] = []) {
     vault,
     fileSystem,
     watcher,
-    documentRegistry
+    documentRegistry,
+    new FrontmatterSerializer()
   );
 
   return { vault, fileSystem, watcher, documentRegistry, service };
@@ -342,7 +415,13 @@ describe('VaultSyncService: sync correctness', () => {
     const fileSystem = new SnapshotThenDelayFileSystem(inner, [30, 0]);
     const watcher = new FakeVaultFileSystemWatcher();
     const documentRegistry = new DocumentRegistry();
-    new VaultSyncService(vault, fileSystem, watcher, documentRegistry);
+    new VaultSyncService(
+      vault,
+      fileSystem,
+      watcher,
+      documentRegistry,
+      new FrontmatterSerializer()
+    );
 
     // Event 1: file changes to "First update".
     watcher.emit({ type: 'changed', path: 'Note.md' });
@@ -432,7 +511,13 @@ describe('VaultSyncService: sync correctness', () => {
     const fileSystem = new DelayedReadOnceFileSystem(inner, 20);
     const watcher = new FakeVaultFileSystemWatcher();
     const documentRegistry = new DocumentRegistry();
-    new VaultSyncService(vault, fileSystem, watcher, documentRegistry);
+    new VaultSyncService(
+      vault,
+      fileSystem,
+      watcher,
+      documentRegistry,
+      new FrontmatterSerializer()
+    );
 
     watcher.emit({ type: 'created', path: 'New.md' });
 
@@ -480,5 +565,308 @@ describe('VaultSyncService: sync correctness', () => {
     expect(final.path).toBe(`${ROOT}/new/Note.md`);
     expect(final.source.markdown).toBe('Edited after move');
     expect(vault.getPageByPath(`${ROOT}/old/Note.md`)).toBeUndefined();
+  });
+});
+
+describe('VaultSyncService: external archive reconciliation', () => {
+  it('archived page moved Archive → Projects clears archive metadata, persists frontmatter, and appears in normal queries', async () => {
+    const archivedPage = buildArchivedPage(
+      'Archive/Clutter.md',
+      'Archived body',
+      'page-archived-1'
+    );
+    const { vault, fileSystem, watcher } = setup(
+      [archivedPage],
+      [makeArchiveFolder(), makeProjectsFolder()]
+    );
+
+    fileSystem.seedFile(
+      `${ROOT}/Projects/Clutter.md`,
+      archivedDiskDocument('page-archived-1', 'Archived body')
+    );
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Archive/Clutter.md',
+      toPath: 'Projects/Clutter.md',
+    });
+    await flush();
+
+    const restored = vault.getPage('page-archived-1')!;
+    expect(restored.path).toBe(`${ROOT}/Projects/Clutter.md`);
+    expect(restored.parentId).toBe('folder-projects');
+    expect(restored.metadata.status).toBe('active');
+    expect(restored.metadata.archivedAt).toBeNull();
+    expect(restored.metadata.originalPath).toBeNull();
+    expect(restored.metadata.originalParentId).toBeNull();
+    expect(restored.source.markdown).toBe('Archived body');
+
+    const disk = fileSystem.getFileSync(`${ROOT}/Projects/Clutter.md`)!;
+    expect(disk).toMatch(/status:\s*active/);
+    expect(disk).not.toMatch(/status:\s*archived/);
+    expect(disk).toMatch(/archivedAt:\s*null/);
+    expect(disk).toMatch(/originalPath:\s*null/);
+    expect(disk).toMatch(/originalParentId:\s*null/);
+
+    const query = new VaultQuery(vault);
+    expect(query.getChildPages('folder-projects').map((page) => page.id)).toContain(
+      'page-archived-1'
+    );
+    expect(query.getArchivedPages().map((page) => page.id)).not.toContain(
+      'page-archived-1'
+    );
+  });
+
+  it('archived page moved Archive → Projects publishes exactly one consistent notification (no intermediate archived-at-new-path state)', async () => {
+    const archivedPage = buildArchivedPage(
+      'Archive/Clutter.md',
+      'Archived body',
+      'page-archived-consistency'
+    );
+    const { vault, fileSystem, watcher } = setup(
+      [archivedPage],
+      [makeArchiveFolder(), makeProjectsFolder()]
+    );
+
+    fileSystem.seedFile(
+      `${ROOT}/Projects/Clutter.md`,
+      archivedDiskDocument('page-archived-consistency', 'Archived body')
+    );
+
+    const observedStates: Array<{ path: string; status: string }> = [];
+    vault.subscribe(() => {
+      const page = vault.getPage('page-archived-consistency')!;
+      observedStates.push({ path: page.path, status: page.metadata.status });
+    });
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Archive/Clutter.md',
+      toPath: 'Projects/Clutter.md',
+    });
+    await flush();
+
+    // Exactly one notification is published for this move, and it already
+    // carries the fully-corrected final state — never an intermediate
+    // snapshot with the new path but still-archived status.
+    expect(observedStates).toHaveLength(1);
+    expect(observedStates[0]).toEqual({
+      path: `${ROOT}/Projects/Clutter.md`,
+      status: 'active',
+    });
+  });
+
+  it('active page moved Projects → Projects leaves metadata untouched', async () => {
+    const activePage = buildPage('Projects/Note.md', 'Active body', 'page-active-1');
+    const activeWithMetadata: Page = {
+      ...activePage,
+      parentId: 'folder-projects',
+      metadata: {
+        ...activePage.metadata,
+        favorite: true,
+        icon: '📌',
+      },
+    };
+    const { vault, fileSystem, watcher } = setup(
+      [activeWithMetadata],
+      [makeProjectsFolder()]
+    );
+
+    fileSystem.seedFile(
+      `${ROOT}/Projects/Renamed.md`,
+      '---\nid: page-active-1\nfavorite: true\nicon: 📌\n---\nActive body'
+    );
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Projects/Note.md',
+      toPath: 'Projects/Renamed.md',
+    });
+    await flush();
+
+    const moved = vault.getPage('page-active-1')!;
+    expect(moved.path).toBe(`${ROOT}/Projects/Renamed.md`);
+    expect(moved.metadata.status).toBe('active');
+    expect(moved.metadata.favorite).toBe(true);
+    expect(moved.metadata.icon).toBe('📌');
+    expect(moved.metadata.archivedAt).toBeNull();
+
+    expect(fileSystem.getFileSync(`${ROOT}/Projects/Renamed.md`)).toBe(
+      '---\nid: page-active-1\nfavorite: true\nicon: 📌\n---\nActive body'
+    );
+  });
+
+  it('normal move (no archive repair needed) still publishes exactly one notification with no extra read/write', async () => {
+    const activePage = buildPage('Projects/Plain.md', 'Plain body', 'page-plain-1');
+    const activeWithParent: Page = {
+      ...activePage,
+      parentId: 'folder-projects',
+    };
+    const { vault, fileSystem, watcher } = setup(
+      [activeWithParent],
+      [makeProjectsFolder()]
+    );
+
+    let notificationCount = 0;
+    vault.subscribe(() => {
+      notificationCount += 1;
+    });
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Projects/Plain.md',
+      toPath: 'Projects/Renamed-Plain.md',
+    });
+    await flush();
+
+    expect(notificationCount).toBe(1);
+
+    const moved = vault.getPage('page-plain-1')!;
+    expect(moved.path).toBe(`${ROOT}/Projects/Renamed-Plain.md`);
+    expect(moved.metadata.status).toBe('active');
+
+    // No reconciliation write occurred: the file at the destination was
+    // never seeded/written by sync, since the original file only ever
+    // "existed" via the in-memory move (there's nothing to read/rewrite
+    // for a page that doesn't need archive-metadata repair).
+    expect(fileSystem.getFileSync(`${ROOT}/Projects/Renamed-Plain.md`)).toBeUndefined();
+  });
+
+  it('archived page moved within Archive leaves metadata untouched', async () => {
+    const archivedPage = buildArchivedPage(
+      'Archive/Old/Note.md',
+      'Still archived',
+      'page-archived-2'
+    );
+    const archivedInSubfolder: Page = {
+      ...archivedPage,
+      parentId: 'folder-archive-old',
+    };
+    const { vault, fileSystem, watcher } = setup(
+      [archivedInSubfolder],
+      [makeArchiveFolder(), makeArchiveSubfolder('folder-archive-old', 'Old')]
+    );
+
+    fileSystem.seedFile(
+      `${ROOT}/Archive/New/Note.md`,
+      archivedDiskDocument('page-archived-2', 'Still archived')
+    );
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Archive/Old/Note.md',
+      toPath: 'Archive/New/Note.md',
+    });
+    await flush();
+
+    const moved = vault.getPage('page-archived-2')!;
+    expect(moved.path).toBe(`${ROOT}/Archive/New/Note.md`);
+    expect(moved.metadata.status).toBe('archived');
+    expect(moved.metadata.archivedAt).toBe('2024-01-01T00:00:00.000Z');
+    expect(moved.metadata.originalPath).toBe(`${ROOT}/Inbox/Note.md`);
+    expect(moved.metadata.originalParentId).toBe('folder-inbox');
+
+    expect(fileSystem.getFileSync(`${ROOT}/Archive/New/Note.md`)).toBe(
+      archivedDiskDocument('page-archived-2', 'Still archived')
+    );
+
+    const query = new VaultQuery(vault);
+    expect(query.getArchivedPages().map((page) => page.id)).toContain(
+      'page-archived-2'
+    );
+  });
+
+  it('active page moved into Archive externally stays active and is not auto-archived', async () => {
+    const activePage = buildPage('Projects/Note.md', 'Active body', 'page-active-2');
+    const activeWithParent: Page = {
+      ...activePage,
+      parentId: 'folder-projects',
+    };
+    const { vault, fileSystem, watcher } = setup(
+      [activeWithParent],
+      [makeArchiveFolder(), makeProjectsFolder()]
+    );
+
+    fileSystem.seedFile(
+      `${ROOT}/Archive/Note.md`,
+      '---\nid: page-active-2\nstatus: active\n---\nActive body'
+    );
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Projects/Note.md',
+      toPath: 'Archive/Note.md',
+    });
+    await flush();
+
+    const moved = vault.getPage('page-active-2')!;
+    expect(moved.path).toBe(`${ROOT}/Archive/Note.md`);
+    expect(moved.metadata.status).toBe('active');
+    expect(moved.metadata.archivedAt).toBeNull();
+    expect(moved.metadata.originalPath).toBeNull();
+
+    expect(fileSystem.getFileSync(`${ROOT}/Archive/Note.md`)).toBe(
+      '---\nid: page-active-2\nstatus: active\n---\nActive body'
+    );
+
+    const query = new VaultQuery(vault);
+    expect(query.getArchivedPages().map((page) => page.id)).not.toContain(
+      'page-active-2'
+    );
+  });
+
+  it('stale archive metadata is repaired via changed event without a moved event', async () => {
+    const stalePage = buildArchivedPage(
+      'Projects/Note.md',
+      'Externally restored body',
+      'page-stale-1'
+    );
+    const staleWithParent: Page = {
+      ...stalePage,
+      parentId: 'folder-projects',
+    };
+    const { vault, fileSystem, watcher } = setup(
+      [staleWithParent],
+      [makeProjectsFolder()]
+    );
+
+    fileSystem.seedFile(
+      `${ROOT}/Projects/Note.md`,
+      archivedDiskDocument('page-stale-1', 'Externally restored body')
+    );
+
+    watcher.emit({ type: 'changed', path: 'Projects/Note.md' });
+    await flush();
+
+    const repaired = vault.getPage('page-stale-1')!;
+    expect(repaired.metadata.status).toBe('active');
+    expect(repaired.metadata.archivedAt).toBeNull();
+    expect(repaired.source.markdown).toBe('Externally restored body');
+
+    const disk = fileSystem.getFileSync(`${ROOT}/Projects/Note.md`)!;
+    expect(disk).toMatch(/status:\s*active/);
+  });
+
+  it('created event with stale archive metadata outside Archive is repaired', async () => {
+    const { vault, fileSystem, watcher } = setup(
+      [],
+      [makeProjectsFolder()]
+    );
+
+    fileSystem.seedFile(
+      `${ROOT}/Projects/Imported.md`,
+      archivedDiskDocument('page-imported-1', 'Imported while closed')
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects/Imported.md' });
+    await flush();
+
+    const page = vault.getPage('page-imported-1')!;
+    expect(page.path).toBe(`${ROOT}/Projects/Imported.md`);
+    expect(page.metadata.status).toBe('active');
+    expect(page.metadata.archivedAt).toBeNull();
+
+    const disk = fileSystem.getFileSync(`${ROOT}/Projects/Imported.md`)!;
+    expect(disk).toMatch(/status:\s*active/);
   });
 });

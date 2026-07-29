@@ -12,7 +12,8 @@ function isFolder(entry: Folder | Page): entry is Folder {
  */
 export function toFolderChildItem(
   entry: Folder | Page,
-  actions: FolderPageActions
+  actions: FolderPageActions,
+  selected: boolean
 ): FolderChildItem {
   return {
     id: entry.id,
@@ -20,6 +21,7 @@ export function toFolderChildItem(
     emoji: entry.metadata?.icon ?? null,
     icon: getPageIcon(isFolder(entry) ? 'folder' : entry.type),
     type: isFolder(entry) ? 'folder' : 'note',
+    selected,
     onClick: () => {
       if (isFolder(entry)) {
         actions.onOpenFolder(entry.id);

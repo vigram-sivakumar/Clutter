@@ -11,13 +11,15 @@ import { findTodayNote } from '../helpers/findTodayNote';
 import { renderDailyNotesByMonth } from '../helpers/renderDailyNotesByMonth';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { Vault } from '@core/vault/models';
+import type { Workspace } from '@core/workspace/Workspace';
 
 interface DailyNotesPanelProps {
   vault: Vault;
+  workspace: Workspace;
   onOpen(pageId: string): void;
 }
 
-export function DailyNotes({ vault, onOpen }: DailyNotesPanelProps) {
+export function DailyNotes({ vault, workspace, onOpen }: DailyNotesPanelProps) {
   /**
    * Check whether today's journal already exists.
    * If it exists: Hide the "Create Today's Journal" button.
@@ -57,6 +59,7 @@ export function DailyNotes({ vault, onOpen }: DailyNotesPanelProps) {
     >
       {renderDailyNotesByMonth({
         dailyNotes,
+        workspace,
         onOpen,
       })}
     </View>

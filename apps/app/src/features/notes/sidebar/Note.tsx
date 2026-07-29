@@ -26,7 +26,15 @@ export function Note({
         </>
       }
       actions={
-        <Button isIconOnly size="small" variant="ghost" interaction="subtle">
+        <Button
+          isIconOnly
+          size="small"
+          variant="ghost"
+          interaction="subtle"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+        >
           <AppIcon icon={'moreHorizontal'} />
         </Button>
       }

@@ -1,7 +1,7 @@
 import type { DocumentSession } from '@core/engine/DocumentSession';
 import type { Page } from '@core/vault/models/Page';
 import type { Vault } from '@core/vault/models/Vault';
-import type { Breadcrumb } from '@components/breadcrumb/Breadcrumbs';
+import type { Breadcrumb } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { buildBreadcrumbs } from '@app/layouts/page/topbar/buildBreadcrumbs';
 
 /**

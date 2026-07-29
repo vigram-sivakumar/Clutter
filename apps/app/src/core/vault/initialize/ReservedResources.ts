@@ -61,10 +61,9 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
  * - Daily Notes
  *   Stores daily notes managed by Clutter.
  * - Archive
- *   Stores archived pages. A page is considered archived because it resides in
- *   this folder, not because of an `archived` metadata flag. When a page is
- *   archived, `originalParentId` is recorded so the page can later be restored
- *   to its previous location.
+ *   Reserved storage location for archived pages. Archiving is expressed
+ *   through page metadata (`status: archived`); residing in Archive/ alone
+ *   does not imply archived lifecycle state.
  * - Inbox
  *   Default capture location for newly created content.
  */

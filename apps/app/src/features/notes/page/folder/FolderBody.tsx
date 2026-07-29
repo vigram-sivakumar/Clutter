@@ -14,6 +14,7 @@ export function FolderBody({ children }: FolderBodyProps) {
         <Entry
           key={child.id}
           leading={<AppIcon icon={child.icon} emoji={child.emoji} />}
+          selected={child.selected}
           onClick={child.onClick}
         >
           {child.title}

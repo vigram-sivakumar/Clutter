@@ -1,5 +1,5 @@
 import { PageTopBar } from '@app/layouts/page/topbar/Page.TopBar';
-import type { Breadcrumb } from '@components/breadcrumb/Breadcrumbs';
+import type { Breadcrumb } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { Button } from '@components/button/Button';
 
 import { Menu } from '@components/menu/Menu';

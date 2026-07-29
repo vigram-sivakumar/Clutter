@@ -1,0 +1,58 @@
+import type { Page } from '../models/Page';
+import type { PageMetadata } from '../models/PageMetadata';
+
+/**
+ * Metadata fields cleared when stale archive state is repaired after an
+ * external change moved a page out of Archive/ without updating frontmatter.
+ */
+export type ArchiveMetadataCorrection = Pick<
+  PageMetadata,
+  'status' | 'archivedAt' | 'originalPath' | 'originalParentId'
+>;
+
+export function isInsideArchiveFolder(
+  absolutePath: string,
+  vaultRoot: string
+): boolean {
+  return absolutePath.startsWith(`${vaultRoot}/Archive/`);
+}
+
+/**
+ * Repairs stale archive metadata after external filesystem changes.
+ *
+ * Lifecycle state lives in frontmatter; Archive/ is a storage convention.
+ * Folder location alone never implies archived status, and entering Archive/
+ * externally never auto-archives. The only automatic repair clears archive
+ * metadata when a page with status archived lives outside Archive/.
+ */
+export function evaluateArchiveMetadataRepair(
+  page: Page,
+  vaultRoot: string
+): ArchiveMetadataCorrection | null {
+  const outsideArchive = !isInsideArchiveFolder(page.path, vaultRoot);
+  const hasStaleArchiveMetadata = page.metadata.status === 'archived';
+
+  if (outsideArchive && hasStaleArchiveMetadata) {
+    return {
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    };
+  }
+
+  return null;
+}
+
+export function applyArchiveMetadataCorrection(
+  page: Page,
+  correction: ArchiveMetadataCorrection
+): Page {
+  return {
+    ...page,
+    metadata: {
+      ...page.metadata,
+      ...correction,
+    },
+  };
+}

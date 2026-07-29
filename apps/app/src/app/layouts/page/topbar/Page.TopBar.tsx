@@ -1,6 +1,9 @@
 import { ReactNode } from 'react';
 import './Page.TopBar.css';
-import { Breadcrumbs, type Breadcrumb } from '@components/breadcrumb/Breadcrumbs';
+import {
+  Breadcrumbs,
+  type Breadcrumb,
+} from '@app/layouts/page/breadcrumb/Breadcrumbs';
 
 interface PageTopBarProps {
   breadcrumbs: Breadcrumb[];

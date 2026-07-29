@@ -9,16 +9,16 @@ import { FavoriteList } from './FavoriteList';
 // Vault
 import type { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
-import { useVault } from '@app/hooks/useVault';
+import type { Workspace } from '@core/workspace/Workspace';
 
 interface NotesProps {
   vault: Vault;
+  workspace: Workspace;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
 }
 
-export function Notes({ vault, onOpen, onOpenFolder }: NotesProps) {
-  useVault(vault);
+export function Notes({ vault, workspace, onOpen, onOpenFolder }: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
   const query = new VaultQuery(vault);
@@ -52,6 +52,7 @@ export function Notes({ vault, onOpen, onOpenFolder }: NotesProps) {
       >
         <FavoriteList
           items={query.getFavorites()}
+          workspace={workspace}
           onOpenPage={(id) => {
             onOpen(id);
           }}
@@ -70,6 +71,7 @@ export function Notes({ vault, onOpen, onOpenFolder }: NotesProps) {
       >
         <FolderTree
           query={query}
+          workspace={workspace}
           parentId={null}
           level={0}
           onPageClick={(page) => {

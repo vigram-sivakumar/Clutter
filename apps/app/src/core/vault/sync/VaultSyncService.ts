@@ -1,4 +1,5 @@
 import type { Vault } from '../models/Vault';
+import type { Page } from '../models/Page';
 import type { VaultFileSystemWatcher } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileChange } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
@@ -7,7 +8,9 @@ import { PageRebuilder } from '../build/PageRebuilder';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FrontmatterParser } from '../understand/FrontmatterParser';
+import { FrontmatterSerializer } from '../understand/FrontmatterSerializer';
 import { VaultSyncCoordinator, type SyncKey } from './VaultSyncCoordinator';
+import { reconcilePageArchiveMetadata } from './reconcileArchiveMetadata';
 
 export class VaultSyncService {
   private readonly unsubscribe: () => void;
@@ -17,13 +20,15 @@ export class VaultSyncService {
   private readonly pageRebuilder: PageRebuilder;
   private readonly documentRegistry: DocumentRegistry;
   private readonly frontmatterParser: FrontmatterParser;
+  private readonly frontmatterSerializer: FrontmatterSerializer;
   private readonly coordinator: VaultSyncCoordinator;
 
   constructor(
     vault: Vault,
     fileSystem: VaultFileSystem,
     watcher: VaultFileSystemWatcher,
-    documentRegistry: DocumentRegistry
+    documentRegistry: DocumentRegistry,
+    frontmatterSerializer: FrontmatterSerializer
   ) {
     this.vault = vault;
     this.fileSystem = fileSystem;
@@ -31,6 +36,7 @@ export class VaultSyncService {
     this.pageRebuilder = new PageRebuilder();
     this.documentRegistry = documentRegistry;
     this.frontmatterParser = new FrontmatterParser();
+    this.frontmatterSerializer = frontmatterSerializer;
     this.coordinator = new VaultSyncCoordinator();
     this.unsubscribe = watcher.subscribe((change) => {
       this.handleChange(change);
@@ -136,6 +142,7 @@ export class VaultSyncService {
     });
 
     this.vault.addPage(page);
+    await this.reconcileArchiveMetadataForPage(page.id);
   }
 
   private async handleChanged(path: string): Promise<void> {
@@ -161,6 +168,8 @@ export class VaultSyncService {
     if (session && !session.isDirty) {
       session.commit(new DocumentTransaction(parsedMarkdown.body));
     }
+
+    await this.reconcileArchiveMetadataForPage(rebuiltPage.id);
   }
 
   private handleDeleted(path: string): void {
@@ -175,10 +184,19 @@ export class VaultSyncService {
   }
 
   /**
-   * A move changes location, not knowledge: the page's content, metadata,
-   * and analysis are untouched, so this never goes through PageRebuilder.
+   * Handles an externally moved/renamed file.
+   *
+   * A move whose destination requires an archive-metadata repair (e.g.
+   * Archive/ -> Projects/ while frontmatter still says `status: archived`)
+   * is never applied as two separate Vault mutations. Evaluating the repair
+   * against the *candidate* destination page — before anything is committed
+   * to the Vault — lets the corrected path, parentId, and metadata land in
+   * a single `replacePage()` call, so the Vault (and therefore every
+   * subscriber, including the sidebar) only ever observes the final,
+   * consistent state. A move that doesn't need repair keeps the original,
+   * cheaper single-notify path with no extra read/write.
    */
-  private handleMoved(fromPath: string, toPath: string): void {
+  private async handleMoved(fromPath: string, toPath: string): Promise<void> {
     const absoluteFrom = this.resolvePath(fromPath);
     const absoluteTo = this.resolvePath(toPath);
     const page = this.vault.getPageByPath(absoluteFrom);
@@ -189,12 +207,66 @@ export class VaultSyncService {
 
     const directoryPath = this.directoryOf(absoluteTo);
     const parentId = this.resolveParentId(directoryPath);
+    const resolvedParentId = parentId === undefined ? page.parentId : parentId;
 
-    this.vault.updatePagePath(
-      page.id,
-      absoluteTo,
-      parentId === undefined ? page.parentId : parentId
+    const candidatePage: Page = {
+      ...page,
+      path: absoluteTo,
+      parentId: resolvedParentId,
+    };
+
+    const reconciled = await reconcilePageArchiveMetadata(
+      {
+        vault: this.vault,
+        fileSystem: this.fileSystem,
+        serializer: this.frontmatterSerializer,
+        parser: this.frontmatterParser,
+        rebuilder: this.pageRebuilder,
+      },
+      candidatePage
     );
+
+    if (!reconciled) {
+      // No archive repair needed: preserve normal move behavior exactly —
+      // one Vault mutation, one `page-moved` notification, no extra I/O.
+      this.vault.updatePagePath(page.id, absoluteTo, resolvedParentId);
+      return;
+    }
+
+    const session = this.documentRegistry.get(reconciled.id);
+
+    if (session && !session.isDirty) {
+      session.commit(new DocumentTransaction(reconciled.source.markdown));
+    }
+  }
+
+  private async reconcileArchiveMetadataForPage(pageId: string): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      return;
+    }
+
+    const rebuiltPage = await reconcilePageArchiveMetadata(
+      {
+        vault: this.vault,
+        fileSystem: this.fileSystem,
+        serializer: this.frontmatterSerializer,
+        parser: this.frontmatterParser,
+        rebuilder: this.pageRebuilder,
+      },
+      page
+    );
+
+    if (!rebuiltPage) {
+      return;
+    }
+
+    const session = this.documentRegistry.get(rebuiltPage.id);
+
+    if (session && !session.isDirty) {
+      session.commit(new DocumentTransaction(rebuiltPage.source.markdown));
+    }
   }
 
   private resolveParentId(directoryPath: string): string | null | undefined {

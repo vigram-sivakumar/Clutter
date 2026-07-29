@@ -7,9 +7,11 @@ import { Note as NoteEntry } from './Note';
 import type { Folder, Page } from '@core/vault/models';
 // Queries
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
+import type { Workspace } from '@core/workspace/Workspace';
 
 interface FolderTreeProps {
   query: VaultQuery;
+  workspace: Workspace;
   // The folder whose children we're currently rendering.
   // null means "start from the root".
   parentId: string | null;
@@ -27,6 +29,7 @@ interface FolderTreeProps {
 
 export function FolderTree({
   query,
+  workspace,
   parentId,
   level,
   onPageClick,
@@ -54,6 +57,9 @@ export function FolderTree({
           emoji={folder.metadata.icon}
           level={level}
           isEmpty={isEmpty}
+          selected={workspace.activeFolderId === folder.id}
+          isExpanded={workspace.isFolderExpanded(folder.id)}
+          onExpandToggle={() => workspace.toggleFolderExpanded(folder.id)}
           onClick={() => onFolderClick(folder)}
         />
         {/* Render all pages inside this folder */}
@@ -63,6 +69,7 @@ export function FolderTree({
             title={note.name}
             emoji={note.metadata.icon}
             level={level + 1}
+            selected={workspace.activePageId === note.id}
             onClick={() => onPageClick(note)}
           />
         ))}
@@ -71,6 +78,7 @@ export function FolderTree({
             Every child folder repeats this exact process. */}
         <FolderTree
           query={query}
+          workspace={workspace}
           parentId={folder.id}
           level={level + 1}
           onPageClick={onPageClick}

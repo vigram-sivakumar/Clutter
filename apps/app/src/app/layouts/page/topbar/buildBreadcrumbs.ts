@@ -1,7 +1,7 @@
 import type { Vault } from '@core/vault/models/Vault';
 import type { Page } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
-import type { Breadcrumb } from '@components/breadcrumb/Breadcrumbs';
+import type { Breadcrumb } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 
 function isPage(entry: Page | Folder): entry is Page {
   return 'type' in entry;

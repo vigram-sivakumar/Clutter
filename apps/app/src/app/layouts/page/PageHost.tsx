@@ -1,7 +1,7 @@
 import type { Application } from '@core/application/Application';
 
+import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
-import { useVault } from '@app/hooks/useVault';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { DailyNotePage } from '@features/daily-notes/page/DailyNotePage';
 import { toDailyNotePageModel } from '@features/daily-notes/page/DailyNotePageModel';
@@ -27,10 +27,11 @@ interface PageHostProps {
  */
 export function PageHost({ application }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
-  const vault = useVault(application.vault);
+  const vault = application.vault;
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
+  const page = useActivePage(vault, activePageId);
 
   const rawSession = activePageId
     ? application.pageService.getSession(activePageId)
@@ -60,24 +61,31 @@ export function PageHost({ application }: PageHostProps) {
       throw new Error(`Folder not found: ${activeFolderId}`);
     }
 
-    const model = toFolderPageModel(folder, vault, {
+    const model = toFolderPageModel(folder, vault, workspace, {
       onOpenFolder,
-      onOpenNote: (id) => application.pageService.openPage(id),
+      onOpenNote: (id: string) => application.pageService.openPage(id),
     });
 
     return <FolderPage model={model} />;
   }
 
-  if (!session) {
+  if (!session || !activePageId) {
     return null;
+  }
+
+  // Structural presentation (path, parent, breadcrumbs, metadata) must read
+  // from the Vault — the live source of truth after moves and archive/restore.
+  // DocumentSession owns only the editor buffer and save lifecycle.
+  if (!page) {
+    throw new Error(`Page not found: ${activePageId}`);
   }
 
   // TODO: This temporary dispatch will become a registry-backed page renderer once additional page types exist.
   // The current switch is intentionally retained until there are enough concrete implementations to justify the abstraction.
-  switch (session.page.type) {
+  switch (page.type) {
     case 'note': {
       const model = toNotePageModel(
-        session.page,
+        page,
         session,
         vault,
         onOpenFolder,
@@ -87,16 +95,11 @@ export function PageHost({ application }: PageHostProps) {
     }
 
     case 'daily-note': {
-      const model = toDailyNotePageModel(
-        session.page,
-        session,
-        vault,
-        onOpenFolder
-      );
+      const model = toDailyNotePageModel(page, session, vault, onOpenFolder);
       return <DailyNotePage model={model} />;
     }
 
     default:
-      throw new Error(`Unsupported page type: ${session.page.type}`);
+      throw new Error(`Unsupported page type: ${page.type}`);
   }
 }
