@@ -81,9 +81,7 @@ export function PageHost({ application }: PageHostProps) {
         breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
         actions={topBar.actions}
         coverImage={model.coverImage ?? undefined}
-        body={
-          <CollectionBody folders={model.folders} notes={model.notes} />
-        }
+        body={<CollectionBody folders={model.folders} notes={model.notes} />}
       />
     );
   }

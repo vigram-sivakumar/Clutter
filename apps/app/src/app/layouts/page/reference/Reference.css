@@ -1,0 +1,18 @@
+.references {
+  display: flex;
+  align-items: center;
+  width: 80%;
+  max-width: 720px;
+  gap: var(--space-8);
+}
+.reference-button {
+  width: fit-content;
+  /* padding: 0; */
+}
+.references__icons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+
+  color: var(--text-secondary);
+}

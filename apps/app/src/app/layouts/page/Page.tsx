@@ -5,6 +5,7 @@ import { PageTopBar } from './topbar/Page.TopBar';
 import { PageTitleSection } from './header/Page.TitleSection';
 import { PageTitle } from './header/Page.Title';
 import { PageDescription } from './header/Page.Description';
+import { References } from './reference/Reference';
 
 type PageProps = {
   title: string;
@@ -39,6 +40,9 @@ export function Page({
             </PageTitleSection>
           </header>
           <main className="page__body">{body}</main>
+          <footer className="page__footer">
+            <References />
+          </footer>
         </div>
       </div>
       {coverImage && <PageCover src={coverImage} />}

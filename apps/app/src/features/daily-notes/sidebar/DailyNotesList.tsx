@@ -48,9 +48,7 @@ function collectMonthSections(vault: Vault, query: VaultQuery): MonthSection[] {
 }
 
 function sortMonthSections(sections: MonthSection[]): MonthSection[] {
-  return sections.sort((a, b) =>
-    b.monthIsoDate.localeCompare(a.monthIsoDate)
-  );
+  return sections.sort((a, b) => b.monthIsoDate.localeCompare(a.monthIsoDate));
 }
 
 function formatMonthSectionTitle(section: MonthSection): string {
@@ -85,7 +83,7 @@ export function DailyNotesList({
         onExpandedChange={() => {
           workspace.toggleFolderExpanded(section.monthFolder.id);
         }}
-        selected={workspace.activeFolderId === section.monthFolder.id}
+        // selected={workspace.activeFolderId === section.monthFolder.id}
         onClick={() => onOpenFolder(section.monthFolder.id)}
       >
         {pages.map((note) => (

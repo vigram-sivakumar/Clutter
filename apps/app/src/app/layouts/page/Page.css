@@ -25,6 +25,13 @@
   border-radius: var(--border-radius);
 }
 
+.page__document::after {
+  content: '';
+  display: block;
+  height: 128px;
+  flex-shrink: 0;
+}
+
 .page__content {
   display: flex;
   flex-direction: column;
@@ -37,8 +44,16 @@
 }
 
 .page__header,
-.page__body {
+.page__body,
+.page__footer {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.page__body {
+  display: flex;
+  align-items: baseline;
+  flex: 1;
+  min-height: 0;
 }
