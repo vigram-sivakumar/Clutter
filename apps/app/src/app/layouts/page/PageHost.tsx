@@ -5,10 +5,10 @@ import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { DailyNotePage } from '@features/daily-notes/page/DailyNotePage';
 import { toDailyNotePageModel } from '@features/daily-notes/page/DailyNotePageModel';
-import { NotePage } from '@features/notes/page/note/NotePage';
-import { toNotePageModel } from '@features/notes/page/note/NotePageModel';
-import { FolderPage } from '@features/notes/page/folder/FolderPage';
-import { toFolderPageModel } from '@features/notes/page/folder/toFolderPageModel';
+import { NotePage } from '@features/notes/page/NotePage';
+import { toNotePageModel } from '@features/notes/page/NotePageModel';
+import { FolderPage } from '@features/folder/page/FolderPage';
+import { toFolderPageModel } from '@features/folder/page/toFolderPageModel';
 
 interface PageHostProps {
   application: Application;
