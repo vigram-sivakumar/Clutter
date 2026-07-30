@@ -73,6 +73,67 @@ function makePage(overrides: Partial<Page> & Pick<Page, 'id' | 'path'>): Page {
   };
 }
 
+describe('Vault.isReservedFolder', () => {
+  it('returns true for a top-level reserved folder', () => {
+    const archive = makeFolder({
+      id: 'folder-archive',
+      path: '/vault/Archive',
+      name: 'Archive',
+    });
+    const vault = makeVault([], [archive]);
+
+    expect(vault.isReservedFolder(archive)).toBe(true);
+  });
+
+  it('returns false for folders nested under a reserved root', () => {
+    const dailyNotes = makeFolder({
+      id: 'folder-daily-notes',
+      path: '/vault/Daily Notes',
+      name: 'Daily Notes',
+    });
+    const monthFolder = makeFolder({
+      id: 'folder-2026-01',
+      path: '/vault/Daily Notes/2026-01',
+      name: '2026-01',
+      parentId: 'folder-daily-notes',
+    });
+    const vault = makeVault([], [dailyNotes, monthFolder]);
+
+    expect(vault.isReservedFolder(dailyNotes)).toBe(true);
+    expect(vault.isReservedFolder(monthFolder)).toBe(false);
+  });
+
+  it('returns false for user-created folders', () => {
+    const projects = makeFolder({
+      id: 'folder-projects',
+      path: '/vault/Projects',
+      name: 'Projects',
+    });
+    const vault = makeVault([], [projects]);
+
+    expect(vault.isReservedFolder(projects)).toBe(false);
+  });
+});
+
+describe('Vault.getReservedFolder', () => {
+  it('returns a reserved folder by stable identifier', () => {
+    const archive = makeFolder({
+      id: 'folder-archive',
+      path: '/vault/Archive',
+      name: 'Archive',
+    });
+    const vault = makeVault([], [archive]);
+
+    expect(vault.getReservedFolder('archive')).toBe(archive);
+  });
+
+  it('returns undefined when the reserved folder is missing', () => {
+    const vault = makeVault([], []);
+
+    expect(vault.getReservedFolder('inbox')).toBeUndefined();
+  });
+});
+
 function makeProjectsHierarchy(): {
   projects: Folder;
   design: Folder;

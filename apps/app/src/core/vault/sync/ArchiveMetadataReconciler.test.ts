@@ -5,7 +5,7 @@ import {
   applyArchiveMetadataCorrection,
   evaluateArchiveMetadataRepair,
   isInsideArchiveFolder,
-} from './archiveMetadataReconciler';
+} from './ArchiveMetadataReconciler';
 
 const ROOT = '/vault';
 
@@ -38,7 +38,7 @@ function buildPage(path: string, status: 'active' | 'archived'): Page {
   });
 }
 
-describe('archiveMetadataReconciler', () => {
+describe('ArchiveMetadataReconciler', () => {
   describe('isInsideArchiveFolder', () => {
     it('returns true for paths under Archive/', () => {
       expect(isInsideArchiveFolder(`${ROOT}/Archive/Note.md`, ROOT)).toBe(true);

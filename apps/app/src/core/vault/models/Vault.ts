@@ -5,6 +5,11 @@ import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Embed } from './Embed';
 import type { KnowledgeGraph } from './graph/KnowledgeGraph';
 import type { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
+import {
+  RESERVED_FOLDER_NAMES,
+  reservedFolderRelativePath,
+  type ReservedFolderId,
+} from '../initialize/ReservedResources';
 
 export type VaultChangeEvent =
   | {
@@ -115,6 +120,30 @@ export class Vault {
 
   getFolderByPath(path: string): Folder | undefined {
     return this.foldersByPath.get(path);
+  }
+
+  /**
+   * Resolves a reserved top-level folder by stable identifier.
+   *
+   * Reserved folder paths are defined in ReservedResources — callers should
+   * use this method rather than constructing paths manually.
+   */
+  getReservedFolder(id: ReservedFolderId): Folder | undefined {
+    const relativePath = reservedFolderRelativePath(id);
+    return this.getFolderByPath(`${this.root}/${relativePath}`);
+  }
+
+  /**
+   * Returns true when the folder is a top-level reserved application
+   * infrastructure folder (Archive, Inbox, Templates, Daily Notes, .clutter).
+   * Nested folders under reserved roots are not reserved.
+   */
+  isReservedFolder(folder: Folder): boolean {
+    if (folder.parentId !== null) {
+      return false;
+    }
+
+    return isReservedTopLevelFolderPath(this.root, folder.path);
   }
 
   *folders(): IterableIterator<Folder> {
@@ -473,4 +502,23 @@ export class Vault {
   get pageCount(): number {
     return this.pagesById.size;
   }
+}
+
+function isReservedTopLevelFolderPath(
+  vaultRoot: string,
+  folderPath: string
+): boolean {
+  const rootPrefix = `${vaultRoot}/`;
+
+  if (!folderPath.startsWith(rootPrefix)) {
+    return false;
+  }
+
+  const relativePath = folderPath.slice(rootPrefix.length);
+
+  if (relativePath.includes('/')) {
+    return false;
+  }
+
+  return RESERVED_FOLDER_NAMES.has(relativePath);
 }

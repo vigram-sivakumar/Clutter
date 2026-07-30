@@ -10,6 +10,7 @@ import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { PageApplicationService } from './page/PageApplicationService';
 import { FolderApplicationService } from './folder/FolderApplicationService';
+import { NavigationService } from './navigation/NavigationService';
 import { DocumentRegistry } from '../engine/DocumentRegistry';
 import { SaveCoordinator } from '../engine/SaveCoordinator';
 import { PersistenceService } from './persistence/PersistenceService';
@@ -52,6 +53,7 @@ export class Application {
   public readonly pageService: PageApplicationService;
   public readonly pageMutationService: PageMutationService;
   public readonly folderService: FolderApplicationService;
+  public readonly navigation: NavigationService;
   public readonly vaultSyncService: VaultSyncService;
   private readonly fileSystemWatcher: LocalFileSystemWatcher;
   private closed = false;
@@ -104,7 +106,7 @@ export class Application {
       throw new Error(`Failed to resolve today's daily note: ${todayNotePath}`);
     }
 
-    application.pageService.openPage(todayPage.id);
+    application.navigation.openDailyNote(todayPage.id);
 
     return application;
   }
@@ -145,6 +147,11 @@ export class Application {
       this.persistenceService
     );
     this.folderService = new FolderApplicationService(this.workspace, vault);
+    this.navigation = new NavigationService(
+      this.pageService,
+      this.folderService,
+      vault
+    );
     this.fileSystemWatcher = new LocalFileSystemWatcher();
 
     // VaultSyncService subscribes to the self-write-aware wrapper, not the

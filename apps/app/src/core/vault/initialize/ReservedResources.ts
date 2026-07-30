@@ -42,11 +42,35 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
     path: 'Inbox',
   },
   {
+    type: 'folder',
+    path: 'Templates',
+  },
+  {
     type: 'file',
     path: '.clutter/workspace.json',
     contents: '{}',
   },
 ];
+
+/**
+ * Stable identifiers for reserved top-level folders.
+ *
+ * Use these with Vault.getReservedFolder() — do not hardcode folder names or
+ * paths in navigation or application code.
+ */
+export const RESERVED_FOLDER_IDS = {
+  clutter: '.clutter',
+  'daily-notes': 'Daily Notes',
+  archive: 'Archive',
+  inbox: 'Inbox',
+  templates: 'Templates',
+} as const;
+
+export type ReservedFolderId = keyof typeof RESERVED_FOLDER_IDS;
+
+export function reservedFolderRelativePath(id: ReservedFolderId): string {
+  return RESERVED_FOLDER_IDS[id];
+}
 
 /**
  * Top-level folder names owned by Clutter as application infrastructure.
@@ -66,6 +90,8 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
  *   does not imply archived lifecycle state.
  * - Inbox
  *   Default capture location for newly created content.
+ * - Templates
+ *   Reusable note templates managed by Clutter.
  */
 export const RESERVED_FOLDER_NAMES: ReadonlySet<string> = new Set(
   RESERVED_RESOURCES.filter(

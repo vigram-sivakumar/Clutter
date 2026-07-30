@@ -6,7 +6,10 @@ import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
 
 import type { CollectionEntryModel } from './CollectionEntryModel';
-import type { CollectionPageActions, CollectionPageModel } from './CollectionPageModel';
+import type {
+  CollectionPageActions,
+  CollectionPageModel,
+} from './CollectionPageModel';
 
 function isFolder(entry: Folder | Page): entry is Folder {
   return !('type' in entry);

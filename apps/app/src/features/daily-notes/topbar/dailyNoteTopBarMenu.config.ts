@@ -13,11 +13,6 @@ export const dailyNoteTopBarMenu: DailyNoteTopBarMenuItem[] = [
     icon: 'description',
   },
   {
-    id: 'add-to-favorite',
-    label: 'Add to favorite',
-    icon: 'favouriteOutline',
-  },
-  {
     id: 'version-history',
     label: 'Version history',
     icon: 'clock',

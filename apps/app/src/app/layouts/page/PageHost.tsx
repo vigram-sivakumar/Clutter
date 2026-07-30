@@ -45,7 +45,7 @@ export function PageHost({ application }: PageHostProps) {
   // The session remains the single source of editable document state.
   const session = useDocumentSession(rawSession);
 
-  const onOpenFolder = (id: string) => application.folderService.openFolder(id);
+  const onOpenFolder = (id: string) => application.navigation.openFolder(id);
   const onUpdateMarkdown = (pageId: string, markdown: string): void => {
     application.pageService.updateMarkdown(pageId, markdown);
   };
@@ -67,11 +67,11 @@ export function PageHost({ application }: PageHostProps) {
 
     const model = toCollectionPageModel(folder, vault, workspace, {
       onOpenFolder,
-      onOpenNote: (id: string) => application.pageService.openPage(id),
+      onOpenNote: (id: string) => application.navigation.openNote(id),
     });
 
     const breadcrumbs = buildBreadcrumbs(folder, vault, onOpenFolder);
-    const topBar = buildTopBarActions(folder);
+    const topBar = buildTopBarActions(folder, { vault });
 
     return (
       <Page
@@ -106,7 +106,7 @@ export function PageHost({ application }: PageHostProps) {
   switch (page.type) {
     case 'note': {
       const model = toNotePageModel(page, session, onUpdateMarkdown);
-      const topBar = buildTopBarActions(page, onArchive);
+      const topBar = buildTopBarActions(page, { vault, onArchive });
 
       return (
         <Page
@@ -130,7 +130,7 @@ export function PageHost({ application }: PageHostProps) {
 
     case 'daily-note': {
       const model = toDailyNotePageModel(page, session, onUpdateMarkdown);
-      const topBar = buildTopBarActions(page, onArchive);
+      const topBar = buildTopBarActions(page, { vault, onArchive });
 
       return (
         <Page

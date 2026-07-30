@@ -1,10 +1,10 @@
-import type { FavoriteEntry } from '../models/FavoriteEntry';
+import type { FavoriteItem } from '../models/FavoriteItem';
 import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
 import type { Workspace } from '@core/workspace/Workspace';
 
 interface FavoriteListProps {
-  items: FavoriteEntry[];
+  items: FavoriteItem[];
   workspace: Workspace;
   onOpenPage(id: string): void;
   onOpenFolder(id: string): void;

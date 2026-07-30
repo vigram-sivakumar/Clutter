@@ -26,7 +26,6 @@
       "@components/*": ["./src/components/*"],
       "@features/*": ["./src/features/*"],
       "@design-system/*": ["./src/design-system/*"],
-      "@pages/*": ["./src/pages/*"],
       "@styles/*": ["./src/design-system/styles/*"],
       "@core/*": ["./src/core/*"],
       "@shared/*": ["./src/shared/*"]

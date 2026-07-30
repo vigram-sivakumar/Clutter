@@ -1,28 +1,39 @@
 import { useState } from 'react';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
-import { NotesNavigation } from '@features/notes/navigation/NotesNavigation';
-import { FolderTree } from './FolderTree';
-import { FavoriteList } from './FavoriteList';
-// Vault
+import type { NavigationService } from '@core/application/navigation/NavigationService';
 import type { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 
+import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
+import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
+import { FolderTree } from './FolderTree';
+import { FavoriteList } from './FavoriteList';
+import { getFavoriteItems } from '../helpers/getFavoriteItems';
+
 interface NotesProps {
   vault: Vault;
   workspace: Workspace;
+  navigation: NavigationService;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
 }
 
-export function Notes({ vault, workspace, onOpen, onOpenFolder }: NotesProps) {
+export function Notes({
+  vault,
+  workspace,
+  navigation,
+  onOpen,
+  onOpenFolder,
+}: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
   const query = new VaultQuery(vault);
+  const onShortcut = buildNotesShortcutHandler(navigation);
 
   return (
-    <View navigation={<NotesNavigation />}>
+    <View navigation={<NotesShortcuts onShortcut={onShortcut} />}>
       <Section
         hasHeader
         title="Favorites"
@@ -32,7 +43,7 @@ export function Notes({ vault, workspace, onOpen, onOpenFolder }: NotesProps) {
         onClick={() => {}}
       >
         <FavoriteList
-          items={query.getFavorites()}
+          items={getFavoriteItems(query)}
           workspace={workspace}
           onOpenPage={(id) => {
             onOpen(id);

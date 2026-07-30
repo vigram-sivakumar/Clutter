@@ -19,7 +19,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ application }: SidebarProps) {
-  const { vault } = application;
+  const { vault, navigation } = application;
   const workspace = useWorkspace(application.workspace);
   const [activeTab, setActiveTab] = useState('daily-notes');
 
@@ -36,7 +36,8 @@ export function Sidebar({ application }: SidebarProps) {
         <DailyNotes
           vault={vault}
           workspace={workspace}
-          onOpen={(pageId) => application.pageService.openPage(pageId)}
+          onOpen={(pageId) => navigation.openDailyNote(pageId)}
+          onOpenFolder={(folderId) => navigation.openFolder(folderId)}
         />
       ),
     },
@@ -47,10 +48,9 @@ export function Sidebar({ application }: SidebarProps) {
         <Notes
           vault={vault}
           workspace={workspace}
-          onOpen={(pageId) => application.pageService.openPage(pageId)}
-          onOpenFolder={(folderId) =>
-            application.folderService.openFolder(folderId)
-          }
+          navigation={navigation}
+          onOpen={(pageId) => navigation.openNote(pageId)}
+          onOpenFolder={(folderId) => navigation.openFolder(folderId)}
         />
       ),
       emoji: '🍉',
@@ -58,12 +58,12 @@ export function Sidebar({ application }: SidebarProps) {
     {
       value: 'tasks',
       icon: 'squareCheckOutline',
-      panel: <Tasks vault={vault} />,
+      panel: <Tasks vault={vault} navigation={navigation} />,
     },
     {
       value: 'tags',
       icon: 'tag',
-      panel: <Tags vault={vault} />,
+      panel: <Tags vault={vault} navigation={navigation} />,
     },
     {
       value: 'search',
@@ -85,7 +85,7 @@ export function Sidebar({ application }: SidebarProps) {
       <div className="sidebar--content">
         {tabs.find((tab) => tab.value === activeTab)?.panel}
       </div>
-      <Footer />
+      <Footer onOpenArchive={() => navigation.openArchive()} />
     </aside>
   );
 }
