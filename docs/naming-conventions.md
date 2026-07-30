@@ -16,7 +16,7 @@ The goal is one clear rule per kind of artifact — not a mix of historical patt
 | Registry         | `*Registry.ts`         | `topBarRegistry.ts`                               |
 | Config           | `*.config.ts`          | `noteTopBarMenu.config.ts`                        |
 | Model / type     | `PascalCase.ts`        | `CollectionPageModel.ts`                          |
-| Helper           | `camelCase.ts`         | `groupByMonth.ts`, `findTodayNote.ts`             |
+| Helper           | `camelCase.ts`         | `findTodayNote.ts`, `getFavoriteItems.ts`         |
 | Feature folder   | `kebab-case`           | `daily-notes/`                                    |
 | Layout namespace | `Parent.Child.tsx`     | `Page.TopBar.tsx`                                 |
 | CSS (component)  | Match component name   | `Page.css`, `Button.css`                          |
@@ -49,8 +49,7 @@ Always. Lowercase start, camelCase throughout.
 | Hooks          | `use*.ts`             | `useActivePage.ts`, `useVault.ts`                              |
 | Builders       | `build*.ts`, `to*.ts` | `buildBreadcrumbs.ts`, `toCollectionPageModel.ts`              |
 | Registries     | `*Registry.ts`        | `topBarRegistry.ts`, `iconRegistry.ts`                         |
-| Helpers        | verb + noun           | `groupByMonth.ts`, `findTodayNote.ts`, `getDefaultPageIcon.ts` |
-| Render helpers | `render*.tsx`         | `renderDailyNotesByMonth.tsx`                                  |
+| Helpers        | verb + noun           | `findTodayNote.ts`, `getDefaultPageIcon.ts` |
 
 **Builders in layout:** `buildTopBarActions.tsx` builds trailing top bar actions (not a menu).
 
@@ -173,8 +172,8 @@ The shell passes `navigation` into the feature sidebar. The feature builds `onSh
 
 | Kind | Example | Owns navigation? |
 |---|---|---|
-| **Helper** | `groupByMonth.ts`, `findTodayNote.ts` | No — pure data |
-| **Presentation builder** | `toCollectionPageModel.ts`, `renderDailyNotesByMonth.tsx` | No — accepts callbacks (`onOpen`, `onOpenNote`) |
+| **Helper** | `findTodayNote.ts`, `getFavoriteItems.ts` | No — pure data |
+| **Presentation builder** | `toCollectionPageModel.ts`, `DailyNotesList.tsx` | No — accepts callbacks (`onOpen`, `onOpenFolder`) |
 | **Navigation intent** | `NavigationService.openNote()` | Yes — decides where the app goes |
 
 Presentation builders expose callbacks like React components expose `onClick`. They do not perform navigation.
