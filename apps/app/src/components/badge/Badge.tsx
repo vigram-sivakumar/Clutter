@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 import './badge.css';
-import type { TagPaletteId } from '../../design-system/tag-colors';
+import type { TagPaletteId } from '../../design-system/TagColors';
 
 export type badgeSize = 'default' | 'small';
 

@@ -1,5 +1,5 @@
 import { Section } from '@app/layouts/sidebar/section/Section';
-import { Tag } from '../components/Tag';
+import { Tag } from '../sidebar/Tag';
 import type { Tag as TagModel } from '@core/vault/models/Tag';
 
 export function renderTags(tags: readonly TagModel[]) {

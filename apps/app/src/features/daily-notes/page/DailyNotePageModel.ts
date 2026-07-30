@@ -1,8 +1,5 @@
 import type { DocumentSession } from '@core/engine/DocumentSession';
 import type { Page } from '@core/vault/models/Page';
-import type { Vault } from '@core/vault/models/Vault';
-import type { Breadcrumb } from '@app/layouts/page/breadcrumb/Breadcrumbs';
-import { buildBreadcrumbs } from '@app/layouts/page/topbar/buildBreadcrumbs';
 
 /**
  * This function is the presentation boundary between the application/domain layers and the Daily Note page UI.
@@ -12,8 +9,7 @@ import { buildBreadcrumbs } from '@app/layouts/page/topbar/buildBreadcrumbs';
 export function toDailyNotePageModel(
   page: Page,
   session: DocumentSession,
-  vault: Vault,
-  onOpenFolder: (folderId: string) => void
+  onUpdateMarkdown: (pageId: string, markdown: string) => void
 ): DailyNotePageModel {
   const revision = session.currentRevision;
 
@@ -24,11 +20,14 @@ export function toDailyNotePageModel(
     // This allows the UI to reflect in-memory edits before they are persisted.
     markdown: revision.markdown,
     coverImage: page.metadata.cover,
-    breadcrumbs: buildBreadcrumbs(page, vault, onOpenFolder),
 
     updateDescription(description: string): void {
       void description;
       throw new Error('Not implemented');
+    },
+
+    updateMarkdown(markdown: string): void {
+      onUpdateMarkdown(page.id, markdown);
     },
   };
 }
@@ -38,7 +37,7 @@ export interface DailyNotePageModel {
   description: string;
   markdown: string;
   coverImage: string | null;
-  breadcrumbs: Breadcrumb[];
 
   updateDescription(description: string): void;
+  updateMarkdown(markdown: string): void;
 }

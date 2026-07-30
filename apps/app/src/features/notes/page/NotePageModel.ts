@@ -1,8 +1,5 @@
 import type { DocumentSession } from '@core/engine/DocumentSession';
 import type { Page } from '@core/vault/models/Page';
-import type { Vault } from '@core/vault/models/Vault';
-import type { Breadcrumb } from '@app/layouts/page/breadcrumb/Breadcrumbs';
-import { buildBreadcrumbs } from '@app/layouts/page/topbar/buildBreadcrumbs';
 
 /**
  * This function is the presentation boundary between the application/domain layers and the Note page UI.
@@ -12,8 +9,6 @@ import { buildBreadcrumbs } from '@app/layouts/page/topbar/buildBreadcrumbs';
 export function toNotePageModel(
   page: Page,
   session: DocumentSession,
-  vault: Vault,
-  onOpenFolder: (folderId: string) => void,
   onUpdateMarkdown: (pageId: string, markdown: string) => void
 ): NotePageModel {
   const revision = session.currentRevision;
@@ -25,7 +20,6 @@ export function toNotePageModel(
     // This allows the UI to reflect in-memory edits before they are persisted.
     markdown: revision.markdown,
     coverImage: page.metadata.cover,
-    breadcrumbs: buildBreadcrumbs(page, vault, onOpenFolder),
 
     // TODO: Route title edits through the Application layer.
     // Target flow:
@@ -66,7 +60,6 @@ export interface NotePageModel {
   description: string;
   markdown: string;
   coverImage: string | null;
-  breadcrumbs: Breadcrumb[];
 
   rename(title: string): void;
   updateDescription(description: string): void;

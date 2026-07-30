@@ -1,24 +1,14 @@
 import './Breadcrumbs.css';
 import { BreadcrumbItem } from './BreadcrumbItem';
-import { AppIcon, type SystemIcon } from '@shared/icon';
+import { AppIcon } from '@shared/icon';
 import { Menu } from '@components/menu/Menu';
 import { MenuItem } from '@components/menu/MenuItem';
 import { Overlay } from '@components/overlay/Overlay';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 
-/**
- * A single entry in a page's ancestry trail.
- *
- * This is domain/view data, not UI props — it knows nothing about how it
- * will be rendered (icon-only, collapsed into an overflow menu, etc.).
- */
-export interface Breadcrumb {
-  id: string;
-  title: string;
-  icon?: SystemIcon;
-  emoji?: string;
-  onClick?: () => void;
-}
+import type { Breadcrumb } from '@core/presentation/Breadcrumb';
+
+export type { Breadcrumb };
 
 export interface BreadcrumbsProps {
   items: Breadcrumb[];

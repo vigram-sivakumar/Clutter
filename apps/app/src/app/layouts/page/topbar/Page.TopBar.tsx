@@ -1,22 +1,18 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import './Page.TopBar.css';
-import {
-  Breadcrumbs,
-  type Breadcrumb,
-} from '@app/layouts/page/breadcrumb/Breadcrumbs';
 
 interface PageTopBarProps {
-  breadcrumbs: Breadcrumb[];
-  trailing?: ReactNode;
+  breadcrumbs?: ReactNode;
+  menu?: ReactNode;
+  actions?: ReactNode;
 }
 
-export function PageTopBar({ breadcrumbs, trailing }: PageTopBarProps) {
+export function PageTopBar({ breadcrumbs, menu, actions }: PageTopBarProps) {
   return (
     <div className="topbar">
-      <div className="topbar--leading">
-        <Breadcrumbs items={breadcrumbs} />
-      </div>
-      <div className="topbar--trailing">{trailing}</div>
+      <div className="topbar--leading">{breadcrumbs}</div>
+      {menu && <div className="topbar--menu">{menu}</div>}
+      <div className="topbar--trailing">{actions}</div>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { FrontmatterSerializer } from '../understand/FrontmatterSerializer';
 import {
   applyArchiveMetadataCorrection,
   evaluateArchiveMetadataRepair,
-} from './ArchiveMetadataReconciler';
+} from './archiveMetadataReconciler';
 import { persistSyncedPageDocument } from './persistSyncedPageDocument';
 
 export interface ReconcileArchiveMetadataDeps {

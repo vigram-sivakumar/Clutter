@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { AppIcon } from '@shared/icon';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
-import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
-import { notesNavigation } from '@features/notes/mock/Navigation';
+import { NotesNavigation } from '@features/notes/navigation/NotesNavigation';
 import { FolderTree } from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 // Vault
@@ -24,24 +22,7 @@ export function Notes({ vault, workspace, onOpen, onOpenFolder }: NotesProps) {
   const query = new VaultQuery(vault);
 
   return (
-    <View
-      navigation={
-        <Section>
-          {notesNavigation.map((navigation) => {
-            return (
-              <Navigation
-                key={navigation.id}
-                title={navigation.title}
-                leading={
-                  <AppIcon icon={navigation.icon} emoji={navigation.emoji} />
-                }
-                onClick={() => {}}
-              />
-            );
-          })}
-        </Section>
-      }
-    >
+    <View navigation={<NotesNavigation />}>
       <Section
         hasHeader
         title="Favorites"

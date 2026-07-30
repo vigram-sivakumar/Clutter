@@ -9,8 +9,8 @@ import type { SystemIcon } from '@shared/icon';
 import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
 import { DailyNotes } from '@features/daily-notes/sidebar/Sidebar.DailyNotes';
 import { Tasks } from '@features/tasks/sidebar/Sidebar.Tasks';
-import { Tags } from '@features/tags/Sidebar.Tags';
-import { SearchPanel } from '@features/search/Sidebar.Search';
+import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
+import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
 

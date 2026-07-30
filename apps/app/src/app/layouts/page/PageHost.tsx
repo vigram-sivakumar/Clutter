@@ -3,12 +3,16 @@ import type { Application } from '@core/application/Application';
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { DailyNotePage } from '@features/daily-notes/page/DailyNotePage';
+import { buildBreadcrumbs } from '@core/presentation/buildBreadcrumbs';
+import { buildTopBarActions } from '@app/layouts/page/topbar/buildTopBarActions';
+import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toDailyNotePageModel } from '@features/daily-notes/page/DailyNotePageModel';
-import { NotePage } from '@features/notes/page/NotePage';
 import { toNotePageModel } from '@features/notes/page/NotePageModel';
-import { FolderPage } from '@features/folder/page/FolderPage';
-import { toFolderPageModel } from '@features/folder/page/toFolderPageModel';
+import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
+import { Page } from '@app/layouts/page/Page';
+import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
+import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
+import { MarkdownEditor } from '@features/markdown/editor/MarkdownEditor';
 
 interface PageHostProps {
   application: Application;
@@ -18,7 +22,7 @@ interface PageHostProps {
  * PageHost is the composition root for page rendering.
  *
  * It resolves the active navigation target, constructs the appropriate ViewModel,
- * and delegates rendering to the correct page component.
+ * and composes the shared Page shell with the appropriate body type.
  *
  * It intentionally contains no business logic or persistence logic.
  *
@@ -46,12 +50,12 @@ export function PageHost({ application }: PageHostProps) {
     application.pageService.updateMarkdown(pageId, markdown);
   };
 
-  const onArchive = async (): Promise<void> => {
+  const onArchive = (): void => {
     if (!activePageId) {
       return;
     }
 
-    await application.pageMutationService.archivePage(activePageId);
+    void application.pageMutationService.archivePage(activePageId);
   };
 
   if (activeFolderId) {
@@ -61,12 +65,27 @@ export function PageHost({ application }: PageHostProps) {
       throw new Error(`Folder not found: ${activeFolderId}`);
     }
 
-    const model = toFolderPageModel(folder, vault, workspace, {
+    const model = toCollectionPageModel(folder, vault, workspace, {
       onOpenFolder,
       onOpenNote: (id: string) => application.pageService.openPage(id),
     });
 
-    return <FolderPage model={model} />;
+    const breadcrumbs = buildBreadcrumbs(folder, vault, onOpenFolder);
+    const topBar = buildTopBarActions(folder);
+
+    return (
+      <Page
+        title={model.title}
+        description={model.description}
+        titleEditable={false}
+        breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+        actions={topBar.actions}
+        coverImage={model.coverImage ?? undefined}
+        body={
+          <CollectionBody folders={model.folders} notes={model.notes} />
+        }
+      />
+    );
   }
 
   if (!session || !activePageId) {
@@ -80,23 +99,57 @@ export function PageHost({ application }: PageHostProps) {
     throw new Error(`Page not found: ${activePageId}`);
   }
 
+  const breadcrumbs = buildBreadcrumbs(page, vault, onOpenFolder);
+
   // TODO: This temporary dispatch will become a registry-backed page renderer once additional page types exist.
   // The current switch is intentionally retained until there are enough concrete implementations to justify the abstraction.
   switch (page.type) {
     case 'note': {
-      const model = toNotePageModel(
-        page,
-        session,
-        vault,
-        onOpenFolder,
-        onUpdateMarkdown
+      const model = toNotePageModel(page, session, onUpdateMarkdown);
+      const topBar = buildTopBarActions(page, onArchive);
+
+      return (
+        <Page
+          title={model.title}
+          description={model.description}
+          titleEditable
+          breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+          actions={topBar.actions}
+          coverImage={model.coverImage ?? undefined}
+          body={
+            <MarkdownBody>
+              <MarkdownEditor
+                markdown={model.markdown}
+                onCommit={(markdown) => model.updateMarkdown(markdown)}
+              />
+            </MarkdownBody>
+          }
+        />
       );
-      return <NotePage model={model} onArchive={onArchive} />;
     }
 
     case 'daily-note': {
-      const model = toDailyNotePageModel(page, session, vault, onOpenFolder);
-      return <DailyNotePage model={model} />;
+      const model = toDailyNotePageModel(page, session, onUpdateMarkdown);
+      const topBar = buildTopBarActions(page, onArchive);
+
+      return (
+        <Page
+          title={model.title}
+          description={model.description}
+          titleEditable
+          breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+          actions={topBar.actions}
+          coverImage={model.coverImage ?? undefined}
+          body={
+            <MarkdownBody>
+              <MarkdownEditor
+                markdown={model.markdown}
+                onCommit={(markdown) => model.updateMarkdown(markdown)}
+              />
+            </MarkdownBody>
+          }
+        />
+      );
     }
 
     default:
