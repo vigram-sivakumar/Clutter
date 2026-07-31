@@ -7,12 +7,24 @@
 }
 .reference-button {
   width: fit-content;
-  /* padding: 0; */
+}
+.reference-button .button__content {
+  gap: 0;
 }
 .references__icons {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-6);
+}
+.references__summary {
+  display: inline-flex;
+  align-items: center;
 
+  font: var(--text-label);
   color: var(--text-secondary);
+}
+
+.references__summary--disabled {
+  color: var(--text-tertiary);
+  opacity: var(--state-disabled);
 }

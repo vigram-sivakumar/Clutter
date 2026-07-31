@@ -51,8 +51,6 @@
 }
 .button--subtle {
   background: transparent;
-  color: var(--text-tertiary);
-
   transition: color 160ms ease;
 }
 .button--icon {
@@ -61,20 +59,20 @@
 }
 
 /* State */
-.button:hover:not(.button--disabled) {
+.button:not(:disabled):hover {
   background: var(--state-hover);
 }
-.button:active:not(.button--disabled) {
+.button:not(:disabled):active {
   background: var(--state-pressed);
 }
 .button--active {
   background: var(--state-active);
 }
-.button--disabled {
+.button:disabled {
   opacity: var(--state-disabled);
   cursor: default;
 }
-.button--ghost.button--subtle:hover {
+.button--ghost.button--subtle:not(:disabled):hover {
   background: transparent;
   color: var(--text-primary);
 }
