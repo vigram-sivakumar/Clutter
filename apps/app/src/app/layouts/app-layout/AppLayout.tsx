@@ -15,11 +15,12 @@ export function AppLayout({ application }: AppLayoutProps) {
 
   return (
     <div className="app-layout">
-      <TauriDragStrip />
       <aside className="app-layout__sidepanel">
+        <TauriDragStrip />
         {<Sidebar application={application} />}
       </aside>
       <main className="app-layout__page">
+        <TauriDragStrip />
         <PageHost application={application} />
       </main>
     </div>

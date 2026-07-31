@@ -13,7 +13,6 @@ import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
-import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 
 interface SidebarProps {
   application: Application;
@@ -75,7 +74,6 @@ export function Sidebar({ application }: SidebarProps) {
 
   return (
     <aside className="sidebar">
-      <TauriDragStrip />
       <Controls />
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         {tabs.map((tab) => (
