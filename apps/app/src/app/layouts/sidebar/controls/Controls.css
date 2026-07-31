@@ -2,6 +2,9 @@
   display: flex;
   justify-content: space-between;
   color: var(--text-tertiary);
+  padding-left: 72px;
+
+  z-index: 2;
 }
 .history-controls {
   display: flex;

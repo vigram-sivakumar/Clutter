@@ -4,7 +4,7 @@ import { AppIcon } from '@shared/icon';
 
 export function Controls() {
   return (
-    <div className="controls">
+    <div className="controls" data-tauri-drag-region>
       <div className="sidebar-toggle">
         <Button isIconOnly size="medium" variant="ghost">
           <AppIcon icon="sidebar" />

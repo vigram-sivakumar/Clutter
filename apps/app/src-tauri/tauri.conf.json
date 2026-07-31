@@ -13,6 +13,12 @@
     "windows": [
       {
         "title": "Clutter",
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay",
+        "trafficLightPosition": {
+          "x": 16,
+          "y": 32
+        },
         "width": 800,
         "height": 600,
         "resizable": true,

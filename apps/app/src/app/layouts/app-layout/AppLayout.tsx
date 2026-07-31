@@ -3,6 +3,7 @@ import { Sidebar } from '../sidebar/Sidebar';
 import { PageHost } from '../page/PageHost';
 import type { Application } from '@core/application/Application';
 import { useVault } from '@app/hooks/useVault';
+import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 
 interface AppLayoutProps {
   application: Application;
@@ -14,6 +15,7 @@ export function AppLayout({ application }: AppLayoutProps) {
 
   return (
     <div className="app-layout">
+      <TauriDragStrip />
       <aside className="app-layout__sidepanel">
         {<Sidebar application={application} />}
       </aside>

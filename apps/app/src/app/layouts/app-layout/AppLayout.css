@@ -4,11 +4,14 @@
   width: 100%;
 
   background: var(--surface-secondary);
+  position: relative;
 }
 
 .app-layout__sidepanel {
   width: 280px;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .app-layout__page {
@@ -16,4 +19,6 @@
   min-width: 0;
   padding: var(--space-8);
   padding-left: 0;
+  position: relative;
+  z-index: 1;
 }
