@@ -1,6 +1,7 @@
 import type { Page } from '../models/Page';
 import { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
+import { VaultPath } from '../ingest/VaultPath';
 
 export class MoveService {
   constructor(
@@ -24,7 +25,7 @@ export class MoveService {
       throw new Error(`Archive folder not found: ${archiveFolderPath}`);
     }
 
-    const filename = this.getFilename(current.path);
+    const filename = VaultPath.filename(current.path);
 
     return {
       path: `${archiveFolderPath}/${filename}`,
@@ -40,7 +41,7 @@ export class MoveService {
     path: string;
     parentId: string | null;
   } {
-    const filename = this.getFilename(current.path);
+    const filename = VaultPath.filename(current.path);
     const originalParentId = current.metadata.originalParentId;
 
     if (originalParentId !== null) {
@@ -85,16 +86,12 @@ export class MoveService {
       throw new Error(`Folder not found: ${destinationFolderId}`);
     }
 
-    const filename = this.getFilename(current.path);
+    const filename = VaultPath.filename(current.path);
 
     return {
       path: `${destinationFolder.path}/${filename}`,
       parentId: destinationFolder.id,
     };
-  }
-
-  private getFilename(path: string): string {
-    return path.slice(path.lastIndexOf('/') + 1);
   }
 
   async movePage(current: Page, updated: Page): Promise<void> {
@@ -118,8 +115,7 @@ export class MoveService {
     }
 
     if (current.path !== updated.path) {
-      const lastSlashIndex = updated.path.lastIndexOf('/');
-      const destinationDirectory = updated.path.slice(0, lastSlashIndex);
+      const destinationDirectory = VaultPath.parentDirectory(updated.path);
 
       if (
         destinationDirectory &&

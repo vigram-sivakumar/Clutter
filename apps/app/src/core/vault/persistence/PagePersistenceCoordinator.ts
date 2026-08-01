@@ -6,6 +6,7 @@ import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { PageBuilder } from '../ingest/PageBuilder';
 import type { ScannedPage } from '../ingest/VaultScanResult';
+import { VaultPath } from '../ingest/VaultPath';
 import { MoveService } from './MoveService';
 
 /**
@@ -185,10 +186,9 @@ export class PagePersistenceCoordinator {
     // ScannedPage's, minus path/directoryPath, so this is not a hand-rolled
     // extraction, it's the existing one.
     const parsed = this.parser.parse(operation.content);
-    const lastSlashIndex = operation.path.lastIndexOf('/');
     const scannedPage: ScannedPage = {
       path: operation.path,
-      directoryPath: lastSlashIndex >= 0 ? operation.path.slice(0, lastSlashIndex) : '',
+      directoryPath: VaultPath.parentDirectory(operation.path),
       frontmatter: parsed.frontmatter,
       frontmatterAnalysis: parsed.frontmatterAnalysis,
       content: parsed.body,

@@ -10,6 +10,7 @@ import {
 } from '../knowledge';
 import type { Folder } from '../models';
 import { IdentityResolver } from './identity/IdentityResolver';
+import { VaultPath } from './VaultPath';
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
@@ -64,7 +65,7 @@ export class VaultBuilder {
 
         return {
           id,
-          name: directory.path.split('/').pop() ?? '',
+          name: VaultPath.filename(directory.path),
           path: directory.path,
           parentId: resolveParentId(directory.parentPath),
           metadata: {

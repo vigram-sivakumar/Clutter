@@ -10,6 +10,7 @@ import {
   reservedFolderRelativePath,
   type ReservedFolderId,
 } from '../initialize/ReservedResources';
+import { VaultPath } from '../ingest/VaultPath';
 
 export type VaultChangeEvent =
   | {
@@ -359,7 +360,7 @@ export class Vault {
     const descendantFolders = [...this.foldersById.values()].filter(
       (candidate) =>
         candidate.id !== folderId &&
-        candidate.path.startsWith(`${oldPrefix}/`)
+        VaultPath.isDescendantOf(candidate.path, oldPrefix)
     );
 
     const folderPathUpdates = new Map<string, string>();

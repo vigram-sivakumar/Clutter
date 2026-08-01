@@ -1,6 +1,7 @@
 import type { Page } from '../models';
 import type { ScannedPage } from './VaultScanResult';
 import { IdentityResolver } from './identity/IdentityResolver';
+import { VaultPath } from './VaultPath';
 
 import { PageAnalysisMapper } from './PageAnalysisMapper';
 
@@ -14,7 +15,7 @@ export class PageBuilder {
   private readonly analysisMapper = new PageAnalysisMapper();
 
   private getPageName(path: string): string {
-    const fileName = path.substring(path.lastIndexOf('/') + 1);
+    const fileName = VaultPath.filename(path);
     return fileName.endsWith('.md')
       ? fileName.substring(0, fileName.length - 3)
       : fileName;

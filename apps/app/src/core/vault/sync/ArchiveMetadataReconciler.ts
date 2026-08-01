@@ -1,5 +1,6 @@
 import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
+import { VaultPath } from '../ingest/VaultPath';
 
 /**
  * Metadata fields cleared when stale archive state is repaired after an
@@ -14,7 +15,7 @@ export function isInsideArchiveFolder(
   absolutePath: string,
   vaultRoot: string
 ): boolean {
-  return absolutePath.startsWith(`${vaultRoot}/Archive/`);
+  return VaultPath.isDescendantOf(absolutePath, `${vaultRoot}/Archive`);
 }
 
 /**

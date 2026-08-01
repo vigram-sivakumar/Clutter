@@ -3,6 +3,7 @@ import type { VaultFileSystem } from '../../vault/providers';
 import type { Vault } from '../../vault/models/Vault';
 import { PageCreator } from '../page/PageCreator';
 import type { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
+import { VaultPath } from '../../vault/ingest/VaultPath';
 
 /**
  * Owns the Daily Notes filesystem convention.
@@ -42,7 +43,7 @@ export class DailyNoteService {
   async ensureDirectory(date: Date, rootPath: string): Promise<string> {
     const relativePath = DailyNotePath.from(date);
     const absolutePath = `${rootPath}/${relativePath}`;
-    const directory = absolutePath.substring(0, absolutePath.lastIndexOf('/'));
+    const directory = VaultPath.parentDirectory(absolutePath);
 
     await this.fileSystem.createDirectory(directory);
 
@@ -66,7 +67,7 @@ export class DailyNoteService {
       return;
     }
 
-    const directory = absolutePath.substring(0, absolutePath.lastIndexOf('/'));
+    const directory = VaultPath.parentDirectory(absolutePath);
     const parentFolder = vault.getFolderByPath(directory);
     const created = pageCreator.create('daily-note');
 

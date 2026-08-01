@@ -9,6 +9,7 @@ import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
+import { VaultPath } from '../ingest/VaultPath';
 import { VaultSyncCoordinator, type SyncKey } from './VaultSyncCoordinator';
 import { reconcilePageArchiveMetadata } from './reconcileArchiveMetadata';
 
@@ -284,7 +285,7 @@ export class VaultSyncService {
   }
 
   private directoryOf(absolutePath: string): string {
-    return absolutePath.slice(0, absolutePath.lastIndexOf('/'));
+    return VaultPath.parentDirectory(absolutePath);
   }
 
   private resolvePath(relativePath: string): string {
