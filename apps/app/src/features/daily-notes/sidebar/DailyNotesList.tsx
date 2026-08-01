@@ -1,6 +1,6 @@
 import type { Folder } from '@core/vault/models';
 import { DailyNotePath } from '@core/application/daily-notes/DailyNotePath';
-import { VaultQuery } from '@core/vault/queries/VaultQuery';
+import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Vault } from '@core/vault/models';
 import type { Workspace } from '@core/workspace/Workspace';
 import { Section } from '@app/layouts/sidebar/section/Section';
@@ -17,6 +17,7 @@ interface MonthSection {
 
 interface DailyNotesListProps {
   vault: Vault;
+  query: VaultQuery;
   workspace: Workspace;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
@@ -60,11 +61,11 @@ function formatMonthSectionTitle(section: MonthSection): string {
 
 export function DailyNotesList({
   vault,
+  query,
   workspace,
   onOpen,
   onOpenFolder,
 }: DailyNotesListProps) {
-  const query = new VaultQuery(vault);
   const monthSections = sortMonthSections(collectMonthSections(vault, query));
 
   return monthSections.map((section) => {

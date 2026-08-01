@@ -3,8 +3,7 @@ import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
-import type { Vault } from '@core/vault/models/Vault';
-import { VaultQuery } from '@core/vault/queries/VaultQuery';
+import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
@@ -14,7 +13,7 @@ import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
 
 interface NotesProps {
-  vault: Vault;
+  query: VaultQuery;
   workspace: Workspace;
   navigation: NavigationRouter;
   pageOperations: PageOperations;
@@ -23,7 +22,7 @@ interface NotesProps {
 }
 
 export function Notes({
-  vault,
+  query,
   workspace,
   navigation,
   pageOperations,
@@ -32,7 +31,6 @@ export function Notes({
 }: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
-  const query = new VaultQuery(vault);
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
 
   return (

@@ -1,9 +1,8 @@
 import type { Folder } from '@core/vault/models';
 import type { Page } from '@core/vault/models/Page';
-import type { Vault } from '@core/vault/models';
+import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
-import { VaultQuery } from '@core/vault/queries/VaultQuery';
 
 import type { CollectionEntryModel } from './CollectionEntryModel';
 import type {
@@ -44,12 +43,10 @@ function toCollectionEntry(
 
 export function toCollectionPageModel(
   folder: Folder,
-  vault: Vault,
+  query: VaultQuery,
   workspace: Workspace,
   actions: CollectionPageActions
 ): CollectionPageModel {
-  const query = new VaultQuery(vault);
-
   const folders = query
     .getChildFolders(folder.id)
     .map((child) =>

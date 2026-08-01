@@ -8,6 +8,7 @@ import { PageCreator } from './page/PageCreator';
 import { PageFactory } from './page/PageFactory';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { Vault } from '../vault/models/Vault';
+import { VaultQuery } from '../vault/queries/VaultQuery';
 import { VaultProjectionBuilder } from '../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
@@ -58,5 +59,15 @@ describe('Application.attachVault', () => {
     const application = new Application(vault, fileSystem, selfWriteRegistry);
 
     expect(application.vault).toBe(vault);
+  });
+
+  it('constructs a single shared VaultQuery instance in the constructor, per rule 6', () => {
+    const vault = makeVault();
+    const fileSystem = new InMemoryVaultFileSystem();
+    const selfWriteRegistry = new SelfWriteRegistry();
+
+    const application = new Application(vault, fileSystem, selfWriteRegistry);
+
+    expect(application.query).toBeInstanceOf(VaultQuery);
   });
 });

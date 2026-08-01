@@ -1,12 +1,14 @@
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { DailyNotesShortcuts } from '@features/daily-notes/shortcuts/DailyNotesShortcuts';
 import type { Vault } from '@core/vault/models';
+import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 
 import { DailyNotesList } from './DailyNotesList';
 
 interface DailyNotesPanelProps {
   vault: Vault;
+  query: VaultQuery;
   workspace: Workspace;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
@@ -14,6 +16,7 @@ interface DailyNotesPanelProps {
 
 export function DailyNotes({
   vault,
+  query,
   workspace,
   onOpen,
   onOpenFolder,
@@ -22,6 +25,7 @@ export function DailyNotes({
     <View navigation={<DailyNotesShortcuts vault={vault} />}>
       <DailyNotesList
         vault={vault}
+        query={query}
         workspace={workspace}
         onOpen={onOpen}
         onOpenFolder={onOpenFolder}

@@ -80,7 +80,7 @@ export function PageHost({ application }: PageHostProps) {
       throw new Error(`Folder not found: ${activeFolderId}`);
     }
 
-    const model = toCollectionPageModel(folder, vault, workspace, {
+    const model = toCollectionPageModel(folder, application.query, workspace, {
       onOpenFolder,
       onOpenNote: (id: string) => application.pageOperations.open(id),
     });

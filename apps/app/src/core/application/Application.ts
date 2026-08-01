@@ -9,6 +9,7 @@ import { VaultScanner } from '../vault/ingest';
 import { VaultInitializer } from '../vault/initialize/VaultInitializer';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
+import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations } from './page/PageOperations';
 import { FolderOperations } from './folder/FolderOperations';
 import { NavigationRouter } from './navigation/NavigationRouter';
@@ -54,6 +55,7 @@ import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher'
  */
 export class Application {
   public readonly vault: Vault;
+  public readonly query: VaultQuery;
   public readonly workspace: Workspace;
   public readonly documentRegistry: DocumentRegistry;
   public readonly saveCoordinator: SaveCoordinator;
@@ -137,6 +139,10 @@ export class Application {
     selfWriteRegistry: SelfWriteRegistry
   ) {
     this.vault = vault;
+    // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
+    // through this shared instance via props, never by constructing its
+    // own VaultQuery(vault) locally.
+    this.query = new VaultQuery(vault);
     this.fileSystem = fileSystem;
     this.selfWriteRegistry = selfWriteRegistry;
     this.workspace = new Workspace();
