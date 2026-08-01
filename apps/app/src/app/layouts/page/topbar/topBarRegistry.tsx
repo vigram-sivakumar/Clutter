@@ -1,20 +1,37 @@
 import type { ReactNode } from 'react';
 
 import type { PageType } from '@core/vault/models/Page';
-import { dailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { folderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
-import { noteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 
 import { ResourceTopBarActions } from './ResourceTopBarActions';
+import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
 import { ReservedFolderTopBarActions } from './ReservedFolderTopBarActions';
 
 export interface TopBarActionsOptions {
+  menu?: readonly TopBarMenuItemConfig[];
   onArchive?: () => void;
+  onRestore?: () => void;
+  onDelete?: () => void;
 }
 
 type TopBarActionsRenderer = (options?: TopBarActionsOptions) => ReactNode;
 
 type TopBarResourceType = PageType | 'folder' | 'reserved-folder';
+
+// Note and daily-note both resolve their status-aware menu upstream, in
+// buildTopBarActions.tsx (the one place that already narrows the resource
+// to a Page and knows its type) — this renderer only ever forwards
+// whatever menu/handlers it's given, identically for both resource types.
+const renderPageActions: TopBarActionsRenderer = (options) => (
+  <ResourceTopBarActions
+    menu={options?.menu ?? []}
+    handlers={{
+      archive: options?.onArchive,
+      restore: options?.onRestore,
+      delete: options?.onDelete,
+    }}
+  />
+);
 
 export const topBarActionsRegistry: Record<
   TopBarResourceType,
@@ -22,18 +39,8 @@ export const topBarActionsRegistry: Record<
 > = {
   folder: () => <ResourceTopBarActions menu={folderTopBarMenu} />,
   'reserved-folder': () => <ReservedFolderTopBarActions />,
-  note: (options) => (
-    <ResourceTopBarActions
-      menu={noteTopBarMenu}
-      handlers={{ archive: options?.onArchive }}
-    />
-  ),
-  'daily-note': (options) => (
-    <ResourceTopBarActions
-      menu={dailyNoteTopBarMenu}
-      handlers={{ archive: options?.onArchive }}
-    />
-  ),
+  note: renderPageActions,
+  'daily-note': renderPageActions,
 };
 
 export function renderTopBarActions(

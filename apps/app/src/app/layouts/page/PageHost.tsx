@@ -58,6 +58,22 @@ export function PageHost({ application }: PageHostProps) {
     void application.pageOperations.archive(activePageId);
   };
 
+  const onRestore = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.restore(activePageId);
+  };
+
+  const onDelete = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.delete(activePageId);
+  };
+
   if (activeFolderId) {
     const folder = vault.getFolder(activeFolderId);
 
@@ -104,7 +120,7 @@ export function PageHost({ application }: PageHostProps) {
   switch (page.type) {
     case 'note': {
       const model = toNotePageModel(page, session, onUpdateMarkdown);
-      const topBar = buildTopBarActions(page, { vault, onArchive });
+      const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
 
       return (
         <Page
@@ -128,7 +144,7 @@ export function PageHost({ application }: PageHostProps) {
 
     case 'daily-note': {
       const model = toDailyNotePageModel(page, session, onUpdateMarkdown);
-      const topBar = buildTopBarActions(page, { vault, onArchive });
+      const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
 
       return (
         <Page
