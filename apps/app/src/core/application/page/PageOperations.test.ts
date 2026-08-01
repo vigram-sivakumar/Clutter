@@ -562,3 +562,85 @@ describe('PageOperations: create/save concurrency', () => {
     expect(vault.getPage(newId)!.source.markdown).toBe('Edited body');
   });
 });
+
+/** Delays every writeFile call and records the order writes were made in. */
+class SlowWriteFileSystem implements VaultFileSystem {
+  public writeCallOrder: string[] = [];
+
+  constructor(private readonly inner: VaultFileSystem, private readonly delayMs: number) {}
+
+  exists(path: string) {
+    return this.inner.exists(path);
+  }
+  createDirectory(path: string) {
+    return this.inner.createDirectory(path);
+  }
+  readDirectory(path: string) {
+    return this.inner.readDirectory(path);
+  }
+  readFile(path: string) {
+    return this.inner.readFile(path);
+  }
+  deleteFile(path: string) {
+    return this.inner.deleteFile(path);
+  }
+  moveFile(sourcePath: string, destinationPath: string) {
+    return this.inner.moveFile(sourcePath, destinationPath);
+  }
+
+  async writeFile(path: string, contents: string): Promise<void> {
+    this.writeCallOrder.push(contents);
+    await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+    await this.inner.writeFile(path, contents);
+  }
+}
+
+/**
+ * Ported from the retired PersistenceDuplication.test.ts (originally
+ * regression-testing PersistenceService vs. PageMutationService racing on
+ * the same page before they shared one PagePersistenceCoordinator). Both
+ * methods now live on PageOperations and already share the same coordinator
+ * instance by construction, but the cross-method race itself is still worth
+ * proving directly against the consolidated facade.
+ */
+describe('PageOperations: save/archive cross-method concurrency', () => {
+  it('a concurrent save and archive on the same page both apply — content updates and archived status survive', async () => {
+    const page = buildPage();
+    const sharedStorage = new InMemoryVaultFileSystem();
+    sharedStorage.seedFile(
+      page.path,
+      new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
+    );
+    const slowFileSystem = new SlowWriteFileSystem(sharedStorage, 20);
+    const { vault, pageOperations } = setup(page, slowFileSystem);
+
+    await pageOperations.open(page.id);
+
+    const savePromise = pageOperations.save(page.id, 'Edited body');
+    const archivePromise = pageOperations.archive(page.id);
+
+    await Promise.all([savePromise, archivePromise]);
+
+    expect(slowFileSystem.writeCallOrder).toHaveLength(2);
+    expect(slowFileSystem.writeCallOrder[0]).toContain('Edited body');
+
+    const finalPage = vault.getPage(page.id)!;
+    const archivePath = archivePathFor(page);
+    expect(finalPage.path).toBe(archivePath);
+    expect(finalPage.source.markdown).toBe('Edited body');
+    expect(finalPage.metadata.status).toBe('archived');
+    expect(finalPage.metadata.archivedAt).not.toBeNull();
+    expect(await sharedStorage.readFile(archivePath)).toContain('Edited body');
+    expect(sharedStorage.hasFileSync(page.path)).toBe(false);
+  });
+
+  // The retired test's second case ("a markdown edit saved after archiving
+  // preserves status") is not ported: it called PersistenceService.save()
+  // directly, bypassing PageApplicationService.updateMarkdown's archived
+  // check entirely, to prove the Gate mechanism itself preserves archived
+  // status through a content-only write. Now that PageOperations owns both
+  // the write and the archived-page-view-only rule, editing an archived
+  // page is rejected by design — already proven by the "archived pages are
+  // view-only" describe block above. Porting this scenario as written would
+  // assert the opposite of that already-correct behavior.
+});

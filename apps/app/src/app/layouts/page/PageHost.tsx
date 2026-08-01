@@ -38,7 +38,7 @@ export function PageHost({ application }: PageHostProps) {
   const page = useActivePage(vault, activePageId);
 
   const rawSession = activePageId
-    ? application.pageService.getSession(activePageId)
+    ? application.pageOperations.getSession(activePageId)
     : undefined;
 
   // React observes DocumentSession changes through this hook.
@@ -47,7 +47,7 @@ export function PageHost({ application }: PageHostProps) {
 
   const onOpenFolder = (id: string) => application.navigation.openFolder(id);
   const onUpdateMarkdown = (pageId: string, markdown: string): void => {
-    application.pageService.updateMarkdown(pageId, markdown);
+    void application.pageOperations.save(pageId, markdown);
   };
 
   const onArchive = (): void => {
@@ -55,7 +55,7 @@ export function PageHost({ application }: PageHostProps) {
       return;
     }
 
-    void application.pageMutationService.archivePage(activePageId);
+    void application.pageOperations.archive(activePageId);
   };
 
   if (activeFolderId) {

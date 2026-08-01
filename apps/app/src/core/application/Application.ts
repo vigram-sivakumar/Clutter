@@ -2,23 +2,22 @@ import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
 import { DailyNoteService } from './daily-notes/DailyNoteService';
 import { PageCreator } from './page/PageCreator';
 import { PageFactory } from './page/PageFactory';
+import { PagePathResolver } from './page/PagePathResolver';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { VaultBuilder } from '../vault/build';
 import { VaultScanner } from '../vault/discover';
 import { VaultInitializer } from '../vault/initialize/VaultInitializer';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
-import { PageApplicationService } from './page/PageApplicationService';
+import { PageOperations } from './page/PageOperations';
 import { FolderApplicationService } from './folder/FolderApplicationService';
 import { NavigationService } from './navigation/NavigationService';
 import { DocumentRegistry } from '../engine/DocumentRegistry';
 import { SaveCoordinator } from '../engine/SaveCoordinator';
-import { PersistenceService } from './persistence/PersistenceService';
 import { PagePersistenceCoordinator } from './persistence/PagePersistenceCoordinator';
 import { FrontmatterSerializer } from '../vault/understand/FrontmatterSerializer';
 import { FrontmatterParser } from '../vault/understand/FrontmatterParser';
 import { PageRebuilder } from '../vault/build/PageRebuilder';
-import { PageMutationService } from './page/PageMutationService';
 import { MoveService } from './move/MoveService';
 import { LocalFileSystemWatcher } from '../vault/providers/LocalFileSystemWatcher';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
@@ -36,7 +35,7 @@ import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher'
  * Responsibilities:
  * - Own the active Vault.
  * - Own the active Workspace.
- * - Own long-lived runtime services (Workspace, DocumentRegistry, SaveCoordinator, PersistenceService, application services like page and folder services).
+ * - Own long-lived runtime services (Workspace, DocumentRegistry, SaveCoordinator, PageOperations, application services like page and folder services).
  * - The composition root owns the lifetime of all runtime services used by the application.
  * - Provide a single entry point for the UI.
  *
@@ -49,9 +48,7 @@ export class Application {
   public readonly workspace: Workspace;
   public readonly documentRegistry: DocumentRegistry;
   public readonly saveCoordinator: SaveCoordinator;
-  public readonly persistenceService: PersistenceService;
-  public readonly pageService: PageApplicationService;
-  public readonly pageMutationService: PageMutationService;
+  public readonly pageOperations: PageOperations;
   public readonly folderService: FolderApplicationService;
   public readonly navigation: NavigationService;
   public readonly vaultSyncService: VaultSyncService;
@@ -78,6 +75,10 @@ export class Application {
     //
     // DailyNoteService orchestrates the daily-note workflow while PageCreator
     // owns canonical page construction (ID, timestamps, and Markdown content).
+    // This same PageCreator instance is threaded into the instance
+    // constructor below and reused by PageOperations.create() — one
+    // instance for both the pre-Vault bootstrap and the running app, not
+    // two independently-constructed ones.
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
     const dailyNotes = new DailyNoteService(fileSystem, pageCreator);
     const todayNotePath = await dailyNotes.ensureToday(rootPath);
@@ -96,7 +97,12 @@ export class Application {
       rebuilder: new PageRebuilder(),
     });
 
-    const application = new Application(vault, fileSystem, selfWriteRegistry);
+    const application = new Application(
+      vault,
+      fileSystem,
+      selfWriteRegistry,
+      pageCreator
+    );
 
     await application.startFileSystemWatcher(rootPath);
 
@@ -114,7 +120,8 @@ export class Application {
   constructor(
     public readonly vault: Vault,
     private readonly fileSystem: VaultFileSystem,
-    private readonly selfWriteRegistry: SelfWriteRegistry
+    private readonly selfWriteRegistry: SelfWriteRegistry,
+    pageCreator: PageCreator
   ) {
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
@@ -122,9 +129,9 @@ export class Application {
 
     const moveService = new MoveService(this.vault, this.fileSystem);
 
-    // Single instance shared by PersistenceService and PageMutationService
-    // so every write to a given page — edit-save or structural mutation —
-    // is serialized through the same per-page queue.
+    // Single instance shared by PageOperations for both edit-save and
+    // structural mutations, so every write to a given page is serialized
+    // through the same per-page queue.
     const frontmatterSerializer = new FrontmatterSerializer();
     const persistenceCoordinator = new PagePersistenceCoordinator(
       this.fileSystem,
@@ -135,20 +142,18 @@ export class Application {
       moveService
     );
 
-    this.persistenceService = new PersistenceService(
-      persistenceCoordinator,
-      this.saveCoordinator
-    );
-    this.pageService = new PageApplicationService(
-      this.workspace,
+    this.pageOperations = new PageOperations(
       vault,
+      this.workspace,
       this.documentRegistry,
       this.saveCoordinator,
-      this.persistenceService
+      persistenceCoordinator,
+      new PagePathResolver(vault),
+      pageCreator
     );
     this.folderService = new FolderApplicationService(this.workspace, vault);
     this.navigation = new NavigationService(
-      this.pageService,
+      this.pageOperations,
       this.folderService,
       vault
     );
@@ -170,7 +175,6 @@ export class Application {
       this.documentRegistry,
       frontmatterSerializer
     );
-    this.pageMutationService = new PageMutationService(persistenceCoordinator);
   }
 
   private async startFileSystemWatcher(rootPath: string): Promise<void> {

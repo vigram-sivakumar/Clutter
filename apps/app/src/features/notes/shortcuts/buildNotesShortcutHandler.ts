@@ -1,14 +1,18 @@
 import type { NavigationService } from '@core/application/navigation/NavigationService';
+import type { PageOperations } from '@core/application/page/PageOperations';
 
 import type { NotesShortcutId } from './notesShortcuts.config';
 
 export function buildNotesShortcutHandler(
-  navigation: NavigationService
+  navigation: NavigationService,
+  pageOperations: PageOperations
 ): (id: NotesShortcutId) => void {
   return (id) => {
     switch (id) {
       case 'new-note':
-        navigation.createNote();
+        void pageOperations
+          .create({ folderId: null })
+          .then((newPageId) => pageOperations.open(newPageId));
         break;
       case 'all-notes':
         navigation.openAllNotes();

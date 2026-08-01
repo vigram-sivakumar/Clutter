@@ -2,52 +2,52 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Folder } from '../../vault/models/Folder';
 import { NavigationService } from './NavigationService';
 import type { FolderApplicationService } from '../folder/FolderApplicationService';
-import type { PageApplicationService } from '../page/PageApplicationService';
+import type { PageOperations } from '../page/PageOperations';
 import type { Vault } from '../../vault/models/Vault';
 
 function createNavigationService(options: {
-  pageService?: Pick<PageApplicationService, 'openPage'>;
+  pageOperations?: Pick<PageOperations, 'open'>;
   folderService?: Pick<FolderApplicationService, 'openFolder'>;
   vault?: Pick<Vault, 'getReservedFolder'>;
 }): NavigationService {
   return new NavigationService(
-    options.pageService as PageApplicationService,
+    options.pageOperations as PageOperations,
     options.folderService as FolderApplicationService,
     options.vault as Vault
   );
 }
 
 describe('NavigationService', () => {
-  it('openNote delegates to pageService.openPage', () => {
-    const openPage = vi.fn();
+  it('openNote delegates to pageOperations.open', () => {
+    const open = vi.fn();
     const navigation = createNavigationService({
-      pageService: { openPage },
+      pageOperations: { open },
       folderService: { openFolder: vi.fn() },
       vault: { getReservedFolder: vi.fn() },
     });
 
     navigation.openNote('page-1');
 
-    expect(openPage).toHaveBeenCalledWith('page-1');
+    expect(open).toHaveBeenCalledWith('page-1');
   });
 
-  it('openDailyNote delegates to pageService.openPage', () => {
-    const openPage = vi.fn();
+  it('openDailyNote delegates to pageOperations.open', () => {
+    const open = vi.fn();
     const navigation = createNavigationService({
-      pageService: { openPage },
+      pageOperations: { open },
       folderService: { openFolder: vi.fn() },
       vault: { getReservedFolder: vi.fn() },
     });
 
     navigation.openDailyNote('daily-1');
 
-    expect(openPage).toHaveBeenCalledWith('daily-1');
+    expect(open).toHaveBeenCalledWith('daily-1');
   });
 
   it('openFolder delegates to folderService.openFolder', () => {
     const openFolder = vi.fn();
     const navigation = createNavigationService({
-      pageService: { openPage: vi.fn() },
+      pageOperations: { open: vi.fn() },
       folderService: { openFolder },
       vault: { getReservedFolder: vi.fn() },
     });
@@ -63,7 +63,7 @@ describe('NavigationService', () => {
       id === 'archive' ? ({ id: 'folder-archive' } as Folder) : undefined
     );
     const navigation = createNavigationService({
-      pageService: { openPage: vi.fn() },
+      pageOperations: { open: vi.fn() },
       folderService: { openFolder },
       vault: { getReservedFolder },
     });
@@ -76,7 +76,7 @@ describe('NavigationService', () => {
 
   it('openArchive throws when the archive reserved folder is missing', () => {
     const navigation = createNavigationService({
-      pageService: { openPage: vi.fn() },
+      pageOperations: { open: vi.fn() },
       folderService: { openFolder: vi.fn() },
       vault: { getReservedFolder: vi.fn(() => undefined) },
     });
@@ -92,7 +92,7 @@ describe('NavigationService', () => {
       id === 'inbox' ? ({ id: 'folder-inbox' } as Folder) : undefined
     );
     const navigation = createNavigationService({
-      pageService: { openPage: vi.fn() },
+      pageOperations: { open: vi.fn() },
       folderService: { openFolder },
       vault: { getReservedFolder },
     });
@@ -105,7 +105,7 @@ describe('NavigationService', () => {
 
   it('openInbox throws when the inbox reserved folder is missing', () => {
     const navigation = createNavigationService({
-      pageService: { openPage: vi.fn() },
+      pageOperations: { open: vi.fn() },
       folderService: { openFolder: vi.fn() },
       vault: { getReservedFolder: vi.fn(() => undefined) },
     });
@@ -121,7 +121,7 @@ describe('NavigationService', () => {
       id === 'templates' ? ({ id: 'folder-templates' } as Folder) : undefined
     );
     const navigation = createNavigationService({
-      pageService: { openPage: vi.fn() },
+      pageOperations: { open: vi.fn() },
       folderService: { openFolder },
       vault: { getReservedFolder },
     });
@@ -134,7 +134,7 @@ describe('NavigationService', () => {
 
   it('openFavorites throws until implemented', () => {
     const navigation = createNavigationService({
-      pageService: { openPage: vi.fn() },
+      pageOperations: { open: vi.fn() },
       folderService: { openFolder: vi.fn() },
       vault: { getReservedFolder: vi.fn() },
     });

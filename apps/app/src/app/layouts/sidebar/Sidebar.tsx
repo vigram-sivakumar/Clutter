@@ -19,7 +19,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ application }: SidebarProps) {
-  const { vault, navigation } = application;
+  const { vault, navigation, pageOperations } = application;
   const workspace = useWorkspace(application.workspace);
   const [activeTab, setActiveTab] = useState('daily-notes');
 
@@ -49,6 +49,7 @@ export function Sidebar({ application }: SidebarProps) {
           vault={vault}
           workspace={workspace}
           navigation={navigation}
+          pageOperations={pageOperations}
           onOpen={(pageId) => navigation.openNote(pageId)}
           onOpenFolder={(folderId) => navigation.openFolder(folderId)}
         />

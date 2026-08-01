@@ -25,7 +25,8 @@ export function toNotePageModel(
     // Target flow:
     // EditableText
     //   -> NotePageModel.rename()
-    //   -> PageApplicationService
+    //   -> PageOperations.rename() (not yet implemented — needs a new
+    //      Persistence Gate operation kind, see ADR-011/ADR-012)
     //   -> DocumentSession.commit()
     //   -> SaveCoordinator
     //   -> VaultFileSystem

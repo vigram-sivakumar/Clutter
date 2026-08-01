@@ -1,35 +1,39 @@
 import type { FolderApplicationService } from '../folder/FolderApplicationService';
-import type { PageApplicationService } from '../page/PageApplicationService';
+import type { PageOperations } from '../page/PageOperations';
 import type { Vault } from '../../vault/models/Vault';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
 
 /**
  * Intention-based navigation API for the UI.
  *
- * Phase 1: thin façade over PageApplicationService and FolderApplicationService.
- * Does not own navigation state — Workspace remains the source of truth.
+ * Phase 2: thin façade over PageOperations and FolderApplicationService.
+ * openNote/openDailyNote/openFolder are pure forwards, kept for now —
+ * they're deleted (callers repointed directly to PageOperations/
+ * FolderOperations) in Phase 4 alongside this class's rename to
+ * NavigationRouter (see ADR-012). Does not own navigation state —
+ * Workspace remains the source of truth.
  */
 export class NavigationService {
-  private readonly pageService: PageApplicationService;
+  private readonly pageOperations: PageOperations;
   private readonly folderService: FolderApplicationService;
   private readonly vault: Vault;
 
   constructor(
-    pageService: PageApplicationService,
+    pageOperations: PageOperations,
     folderService: FolderApplicationService,
     vault: Vault
   ) {
-    this.pageService = pageService;
+    this.pageOperations = pageOperations;
     this.folderService = folderService;
     this.vault = vault;
   }
 
   public openNote(pageId: string): void {
-    this.pageService.openPage(pageId);
+    void this.pageOperations.open(pageId);
   }
 
   public openDailyNote(pageId: string): void {
-    this.pageService.openPage(pageId);
+    void this.pageOperations.open(pageId);
   }
 
   public openFolder(folderId: string): void {
@@ -46,10 +50,6 @@ export class NavigationService {
 
   public openFavorites(): void {
     throw new Error('NavigationService.openFavorites() is not implemented.');
-  }
-
-  public createNote(): void {
-    throw new Error('NavigationService.createNote() is not implemented.');
   }
 
   public openAllNotes(): void {

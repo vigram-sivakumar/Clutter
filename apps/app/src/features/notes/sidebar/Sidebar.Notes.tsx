@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import type { NavigationService } from '@core/application/navigation/NavigationService';
+import type { PageOperations } from '@core/application/page/PageOperations';
 import type { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
@@ -16,6 +17,7 @@ interface NotesProps {
   vault: Vault;
   workspace: Workspace;
   navigation: NavigationService;
+  pageOperations: PageOperations;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
 }
@@ -24,13 +26,14 @@ export function Notes({
   vault,
   workspace,
   navigation,
+  pageOperations,
   onOpen,
   onOpenFolder,
 }: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
   const [isFoldersExpanded, setFoldersExpanded] = useState(false);
   const query = new VaultQuery(vault);
-  const onShortcut = buildNotesShortcutHandler(navigation);
+  const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
 
   return (
     <View navigation={<NotesShortcuts onShortcut={onShortcut} />}>
