@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildNoteTopBarMenu } from './noteTopBarMenu.config';
-import { PageBuilder } from '@core/vault/build/PageBuilder';
+import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import type { Page } from '@core/vault/models/Page';
 
 function buildPage(status: 'active' | 'archived'): Page {

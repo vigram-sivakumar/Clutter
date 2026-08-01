@@ -3,12 +3,12 @@ import type { Page } from '../models/Page';
 import type { VaultFileSystemWatcher } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileChange } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
-import { PageBuilder } from '../build/PageBuilder';
-import { PageRebuilder } from '../build/PageRebuilder';
+import { PageBuilder } from '../ingest/PageBuilder';
+import { PageRebuilder } from '../ingest/PageRebuilder';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
-import { FrontmatterParser } from '../understand/FrontmatterParser';
-import { FrontmatterSerializer } from '../understand/FrontmatterSerializer';
+import { FrontmatterParser } from '../ingest/FrontmatterParser';
+import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultSyncCoordinator, type SyncKey } from './VaultSyncCoordinator';
 import { reconcilePageArchiveMetadata } from './reconcileArchiveMetadata';
 

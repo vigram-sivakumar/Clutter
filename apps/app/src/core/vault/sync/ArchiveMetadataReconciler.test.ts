@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PageBuilder } from '../build/PageBuilder';
+import { PageBuilder } from '../ingest/PageBuilder';
 import type { Page } from '../models/Page';
 import {
   applyArchiveMetadataCorrection,

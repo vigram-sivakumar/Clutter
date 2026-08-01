@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { toResourcePageModel } from './toResourcePageModel';
 import { DocumentSession } from '@core/engine/DocumentSession';
 import { DocumentTransaction } from '@core/engine/DocumentTransaction';
-import { PageBuilder } from '@core/vault/build/PageBuilder';
+import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import type { Page } from '@core/vault/models/Page';
 
 function buildPage(overrides: { description?: string; cover?: string } = {}): Page {

@@ -8,9 +8,9 @@ import { MoveService } from '../move/MoveService';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
-import { FrontmatterSerializer } from '../../vault/understand/FrontmatterSerializer';
-import { FrontmatterParser } from '../../vault/understand/FrontmatterParser';
-import { PageRebuilder } from '../../vault/build/PageRebuilder';
+import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
+import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
+import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 import type { Folder } from '../../vault/models/Folder';
 

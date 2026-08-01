@@ -1,7 +1,7 @@
-import type { FrontmatterAnalysis } from '../understand';
-import type { FolderFrontmatter } from '../understand';
-import type { PageFrontmatter } from '../understand';
-import type { ScannedPageAnalysis } from '../understand';
+import type { FrontmatterAnalysis } from './analysis';
+import type { FolderFrontmatter } from './frontmatter';
+import type { PageFrontmatter } from './frontmatter';
+import type { ScannedPageAnalysis } from './analysis';
 
 export interface VaultScanResult {
   readonly rootPath: string;

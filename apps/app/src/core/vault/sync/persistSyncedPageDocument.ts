@@ -1,9 +1,9 @@
 import type { Page } from '../models/Page';
 import type { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
-import { FrontmatterSerializer } from '../understand/FrontmatterSerializer';
-import { FrontmatterParser } from '../understand/FrontmatterParser';
-import { PageRebuilder } from '../build/PageRebuilder';
+import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
+import { FrontmatterParser } from '../ingest/FrontmatterParser';
+import { PageRebuilder } from '../ingest/PageRebuilder';
 
 export interface PersistSyncedPageDocumentDeps {
   readonly fileSystem: VaultFileSystem;

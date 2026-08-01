@@ -1,6 +1,6 @@
 import { FrontmatterParser } from './FrontmatterParser';
 import type { VaultFileSystem } from '../providers';
-import type { ScannedPage } from '../discover';
+import type { ScannedPage } from './VaultScanResult';
 
 export class DocumentLoader {
   private readonly frontmatterParser = new FrontmatterParser();

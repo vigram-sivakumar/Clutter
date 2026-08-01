@@ -1,9 +1,9 @@
 import type { Page } from '../models/Page';
 import type { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
-import { PageRebuilder } from '../build/PageRebuilder';
-import { FrontmatterParser } from '../understand/FrontmatterParser';
-import { FrontmatterSerializer } from '../understand/FrontmatterSerializer';
+import { PageRebuilder } from '../ingest/PageRebuilder';
+import { FrontmatterParser } from '../ingest/FrontmatterParser';
+import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import {
   applyArchiveMetadataCorrection,
   evaluateArchiveMetadataRepair,

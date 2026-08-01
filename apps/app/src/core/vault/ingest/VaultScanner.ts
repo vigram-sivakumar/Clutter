@@ -1,7 +1,7 @@
-import type { FolderFrontmatter } from '../understand';
+import type { FolderFrontmatter } from './frontmatter';
 import type { VaultScanResult } from './VaultScanResult';
 import type { VaultFileSystem } from '../providers';
-import { DocumentLoader } from '../understand';
+import { DocumentLoader } from './DocumentLoader';
 
 export class VaultScanner {
   private readonly documentLoader: DocumentLoader;

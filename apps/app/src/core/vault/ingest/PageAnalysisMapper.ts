@@ -1,11 +1,11 @@
 import type { TaskOccurrence, TagOccurrence, LinkOccurrence, EmbedOccurrence } from '../models/occurrences';
-import type { ScannedHeading } from '../understand/extractors/HeadingExtractor';
-import type { ScannedAlias } from '../understand/extractors/AliasExtractor';
-import type { ScannedBlockReference } from '../understand/extractors/BlockReferenceExtractor';
-import type { ScannedTask } from '../understand/extractors/TaskExtractor';
-import type { ScannedTagOccurrence } from '../understand/extractors/TagExtractor';
-import type { ScannedLink } from '../understand/extractors/LinkExtractor';
-import type { ScannedEmbed } from '../understand/extractors/EmbedExtractor';
+import type { ScannedHeading } from './extractors/HeadingExtractor';
+import type { ScannedAlias } from './extractors/AliasExtractor';
+import type { ScannedBlockReference } from './extractors/BlockReferenceExtractor';
+import type { ScannedTask } from './extractors/TaskExtractor';
+import type { ScannedTagOccurrence } from './extractors/TagExtractor';
+import type { ScannedLink } from './extractors/LinkExtractor';
+import type { ScannedEmbed } from './extractors/EmbedExtractor';
 import type { Heading } from '../models/analysis/Heading';
 import type { Alias } from '../models/Alias';
 import type { BlockReference } from '../models/analysis/BlockReference';

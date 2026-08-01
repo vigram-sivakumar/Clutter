@@ -1,6 +1,6 @@
 import type { Page } from '../models';
-import type { ScannedPage } from '../discover/VaultScanResult';
-import { IdentityResolver } from './IdentityResolver';
+import type { ScannedPage } from './VaultScanResult';
+import { IdentityResolver } from './identity/IdentityResolver';
 
 import { PageAnalysisMapper } from './PageAnalysisMapper';
 

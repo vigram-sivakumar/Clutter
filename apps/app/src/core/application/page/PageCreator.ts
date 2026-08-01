@@ -1,6 +1,6 @@
 import { IdGenerator } from '../../shared/identity/IdGenerator';
 import { PageFactory } from './PageFactory';
-import type { PageFrontmatter } from '../../vault/understand/frontmatter/PageFrontmatter';
+import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontmatter';
 
 export interface CreatedPage {
   id: string;

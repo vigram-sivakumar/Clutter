@@ -7,10 +7,10 @@ import { FakeVaultFileSystemWatcher } from '../testing/FakeVaultFileSystemWatche
 import { Vault } from '../models/Vault';
 import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../models/graph/KnowledgeGraph';
-import { PageBuilder } from '../build/PageBuilder';
-import { PageRebuilder } from '../build/PageRebuilder';
-import { FrontmatterSerializer } from '../understand/FrontmatterSerializer';
-import { FrontmatterParser } from '../understand/FrontmatterParser';
+import { PageBuilder } from '../ingest/PageBuilder';
+import { PageRebuilder } from '../ingest/PageRebuilder';
+import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
+import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PagePersistenceCoordinator } from '../../application/persistence/PagePersistenceCoordinator';
 import { MoveService } from '../../application/move/MoveService';
 import { VaultSyncService } from '../sync/VaultSyncService';

@@ -1,5 +1,5 @@
-import type { PageFrontmatter } from '../../vault/understand/frontmatter';
-import { FrontmatterSerializer } from '../../vault/understand';
+import type { PageFrontmatter } from '../../vault/ingest/frontmatter';
+import { FrontmatterSerializer } from '../../vault/ingest';
 
 /**
  * Constructs the initial Markdown content for newly created pages.

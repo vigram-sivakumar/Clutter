@@ -1,11 +1,11 @@
 import type { Page } from '../../vault/models/Page';
 import { Vault } from '../../vault/models/Vault';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
-import { FrontmatterSerializer } from '../../vault/understand/FrontmatterSerializer';
-import { FrontmatterParser } from '../../vault/understand/FrontmatterParser';
-import { PageRebuilder } from '../../vault/build/PageRebuilder';
-import { PageBuilder } from '../../vault/build/PageBuilder';
-import type { ScannedPage } from '../../vault/discover/VaultScanResult';
+import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
+import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
+import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
+import { PageBuilder } from '../../vault/ingest/PageBuilder';
+import type { ScannedPage } from '../../vault/ingest/VaultScanResult';
 import { MoveService } from '../move/MoveService';
 
 /**

@@ -3,7 +3,7 @@ import { MoveService } from './MoveService';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
-import { PageBuilder } from '../../vault/build/PageBuilder';
+import { PageBuilder } from '../../vault/ingest/PageBuilder';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';

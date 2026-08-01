@@ -1,5 +1,5 @@
 import { Page } from '../models/Page';
-import type { ParsedMarkdown } from '../understand/FrontmatterParser';
+import type { ParsedMarkdown } from './FrontmatterParser';
 import { PageAnalysisMapper } from './PageAnalysisMapper';
 
 /**

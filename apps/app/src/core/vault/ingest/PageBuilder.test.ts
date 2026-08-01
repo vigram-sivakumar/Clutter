@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PageBuilder } from './PageBuilder';
-import type { ScannedPage } from '../discover/VaultScanResult';
+import type { ScannedPage } from './VaultScanResult';
 
 function makeScannedPage(overrides: Partial<ScannedPage> = {}): ScannedPage {
   return {

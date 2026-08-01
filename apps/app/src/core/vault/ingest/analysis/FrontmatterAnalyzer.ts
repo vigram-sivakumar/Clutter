@@ -1,4 +1,4 @@
-import type { ParsedFrontmatter } from '@core/vault/understand/FrontmatterParser';
+import type { ParsedFrontmatter } from '@core/vault/ingest/FrontmatterParser';
 import { AliasExtractor } from '../extractors/AliasExtractor';
 import type { ScannedAlias } from '../extractors/AliasExtractor';
 

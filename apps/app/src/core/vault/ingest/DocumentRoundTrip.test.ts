@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { FrontmatterSerializer } from './FrontmatterSerializer';
 import { FrontmatterParser } from './FrontmatterParser';
-import { PageBuilder } from '../build/PageBuilder';
-import { PageRebuilder } from '../build/PageRebuilder';
+import { PageBuilder } from './PageBuilder';
+import { PageRebuilder } from './PageRebuilder';
 import type { Page } from '../models/Page';
 
 /**

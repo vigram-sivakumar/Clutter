@@ -3,7 +3,7 @@ import { PagePathResolver } from './PagePathResolver';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
-import { PageBuilder } from '../../vault/build/PageBuilder';
+import { PageBuilder } from '../../vault/ingest/PageBuilder';
 import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';
 

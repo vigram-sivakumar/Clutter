@@ -1,5 +1,5 @@
 import { Vault } from '../models';
-import type { VaultScanResult } from '../discover';
+import type { VaultScanResult } from './VaultScanResult';
 import { PageBuilder } from './PageBuilder';
 import {
   TagBuilder,
@@ -9,7 +9,7 @@ import {
   VaultProjectionBuilder,
 } from '../knowledge';
 import type { Folder } from '../models';
-import { IdentityResolver } from './IdentityResolver';
+import { IdentityResolver } from './identity/IdentityResolver';
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
