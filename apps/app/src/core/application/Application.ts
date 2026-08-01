@@ -10,7 +10,7 @@ import { VaultInitializer } from '../vault/initialize/VaultInitializer';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { PageOperations } from './page/PageOperations';
-import { FolderApplicationService } from './folder/FolderApplicationService';
+import { FolderOperations } from './folder/FolderOperations';
 import { NavigationService } from './navigation/NavigationService';
 import { DocumentRegistry } from '../engine/DocumentRegistry';
 import { SaveCoordinator } from '../engine/SaveCoordinator';
@@ -49,7 +49,7 @@ export class Application {
   public readonly documentRegistry: DocumentRegistry;
   public readonly saveCoordinator: SaveCoordinator;
   public readonly pageOperations: PageOperations;
-  public readonly folderService: FolderApplicationService;
+  public readonly folderOperations: FolderOperations;
   public readonly navigation: NavigationService;
   public readonly vaultSyncService: VaultSyncService;
   private readonly fileSystemWatcher: LocalFileSystemWatcher;
@@ -151,10 +151,10 @@ export class Application {
       new PagePathResolver(vault),
       pageCreator
     );
-    this.folderService = new FolderApplicationService(this.workspace, vault);
+    this.folderOperations = new FolderOperations(vault, this.workspace);
     this.navigation = new NavigationService(
       this.pageOperations,
-      this.folderService,
+      this.folderOperations,
       vault
     );
     this.fileSystemWatcher = new LocalFileSystemWatcher();

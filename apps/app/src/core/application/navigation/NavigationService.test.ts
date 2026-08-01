@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Folder } from '../../vault/models/Folder';
 import { NavigationService } from './NavigationService';
-import type { FolderApplicationService } from '../folder/FolderApplicationService';
+import type { FolderOperations } from '../folder/FolderOperations';
 import type { PageOperations } from '../page/PageOperations';
 import type { Vault } from '../../vault/models/Vault';
 
 function createNavigationService(options: {
   pageOperations?: Pick<PageOperations, 'open'>;
-  folderService?: Pick<FolderApplicationService, 'openFolder'>;
+  folderOperations?: Pick<FolderOperations, 'open'>;
   vault?: Pick<Vault, 'getReservedFolder'>;
 }): NavigationService {
   return new NavigationService(
     options.pageOperations as PageOperations,
-    options.folderService as FolderApplicationService,
+    options.folderOperations as FolderOperations,
     options.vault as Vault
   );
 }
@@ -22,7 +22,7 @@ describe('NavigationService', () => {
     const open = vi.fn();
     const navigation = createNavigationService({
       pageOperations: { open },
-      folderService: { openFolder: vi.fn() },
+      folderOperations: { open: vi.fn() },
       vault: { getReservedFolder: vi.fn() },
     });
 
@@ -35,7 +35,7 @@ describe('NavigationService', () => {
     const open = vi.fn();
     const navigation = createNavigationService({
       pageOperations: { open },
-      folderService: { openFolder: vi.fn() },
+      folderOperations: { open: vi.fn() },
       vault: { getReservedFolder: vi.fn() },
     });
 
@@ -44,11 +44,11 @@ describe('NavigationService', () => {
     expect(open).toHaveBeenCalledWith('daily-1');
   });
 
-  it('openFolder delegates to folderService.openFolder', () => {
+  it('openFolder delegates to folderOperations.open', () => {
     const openFolder = vi.fn();
     const navigation = createNavigationService({
       pageOperations: { open: vi.fn() },
-      folderService: { openFolder },
+      folderOperations: { open: openFolder },
       vault: { getReservedFolder: vi.fn() },
     });
 
@@ -64,7 +64,7 @@ describe('NavigationService', () => {
     );
     const navigation = createNavigationService({
       pageOperations: { open: vi.fn() },
-      folderService: { openFolder },
+      folderOperations: { open: openFolder },
       vault: { getReservedFolder },
     });
 
@@ -77,7 +77,7 @@ describe('NavigationService', () => {
   it('openArchive throws when the archive reserved folder is missing', () => {
     const navigation = createNavigationService({
       pageOperations: { open: vi.fn() },
-      folderService: { openFolder: vi.fn() },
+      folderOperations: { open: vi.fn() },
       vault: { getReservedFolder: vi.fn(() => undefined) },
     });
 
@@ -93,7 +93,7 @@ describe('NavigationService', () => {
     );
     const navigation = createNavigationService({
       pageOperations: { open: vi.fn() },
-      folderService: { openFolder },
+      folderOperations: { open: openFolder },
       vault: { getReservedFolder },
     });
 
@@ -106,7 +106,7 @@ describe('NavigationService', () => {
   it('openInbox throws when the inbox reserved folder is missing', () => {
     const navigation = createNavigationService({
       pageOperations: { open: vi.fn() },
-      folderService: { openFolder: vi.fn() },
+      folderOperations: { open: vi.fn() },
       vault: { getReservedFolder: vi.fn(() => undefined) },
     });
 
@@ -122,7 +122,7 @@ describe('NavigationService', () => {
     );
     const navigation = createNavigationService({
       pageOperations: { open: vi.fn() },
-      folderService: { openFolder },
+      folderOperations: { open: openFolder },
       vault: { getReservedFolder },
     });
 
@@ -135,7 +135,7 @@ describe('NavigationService', () => {
   it('openFavorites throws until implemented', () => {
     const navigation = createNavigationService({
       pageOperations: { open: vi.fn() },
-      folderService: { openFolder: vi.fn() },
+      folderOperations: { open: vi.fn() },
       vault: { getReservedFolder: vi.fn() },
     });
 

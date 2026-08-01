@@ -1,4 +1,4 @@
-import type { FolderApplicationService } from '../folder/FolderApplicationService';
+import type { FolderOperations } from '../folder/FolderOperations';
 import type { PageOperations } from '../page/PageOperations';
 import type { Vault } from '../../vault/models/Vault';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
@@ -6,7 +6,7 @@ import type { ReservedFolderId } from '../../vault/initialize/ReservedResources'
 /**
  * Intention-based navigation API for the UI.
  *
- * Phase 2: thin façade over PageOperations and FolderApplicationService.
+ * Phase 2: thin façade over PageOperations and FolderOperations.
  * openNote/openDailyNote/openFolder are pure forwards, kept for now —
  * they're deleted (callers repointed directly to PageOperations/
  * FolderOperations) in Phase 4 alongside this class's rename to
@@ -15,16 +15,16 @@ import type { ReservedFolderId } from '../../vault/initialize/ReservedResources'
  */
 export class NavigationService {
   private readonly pageOperations: PageOperations;
-  private readonly folderService: FolderApplicationService;
+  private readonly folderOperations: FolderOperations;
   private readonly vault: Vault;
 
   constructor(
     pageOperations: PageOperations,
-    folderService: FolderApplicationService,
+    folderOperations: FolderOperations,
     vault: Vault
   ) {
     this.pageOperations = pageOperations;
-    this.folderService = folderService;
+    this.folderOperations = folderOperations;
     this.vault = vault;
   }
 
@@ -37,7 +37,7 @@ export class NavigationService {
   }
 
   public openFolder(folderId: string): void {
-    this.folderService.openFolder(folderId);
+    void this.folderOperations.open(folderId);
   }
 
   public openArchive(): void {
@@ -91,6 +91,6 @@ export class NavigationService {
       throw new Error(`Reserved ${id} folder not found in vault`);
     }
 
-    this.folderService.openFolder(folder.id);
+    void this.folderOperations.open(folder.id);
   }
 }
