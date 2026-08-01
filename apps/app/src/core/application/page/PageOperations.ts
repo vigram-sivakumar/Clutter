@@ -15,13 +15,13 @@ export interface CreatePageOptions {
 
 /**
  * Owns the entire lifecycle of a page as a single capability surface —
- * open, close, save, archive, restore, create, delete.
+ * open, close, save, archive, restore, create, delete, move.
  *
- * Does not have move()/rename(): neither has a backing Persistence Gate
- * operation kind yet, and building one without a real caller would be
- * exactly the placeholder machinery this migration exists to avoid (see
- * ADR-012). Does not have draft-promotion logic: this codebase's Page
- * model has no 'draft' status to promote from (see ADR-012).
+ * Does not have rename(): no backing Persistence Gate operation kind
+ * exists yet, and building one without a real caller would be exactly the
+ * placeholder machinery this migration exists to avoid (see ADR-012).
+ * Does not have draft-promotion logic: this codebase's Page model has no
+ * 'draft' status to promote from (see ADR-012).
  */
 export class PageOperations {
   constructor(
@@ -145,6 +145,17 @@ export class PageOperations {
     this.workspace.openPage(created.id);
 
     return created.id;
+  }
+
+  public async move(pageId: string, destinationFolderId: string): Promise<void> {
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'move',
+      destinationFolderId,
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
   }
 
   /**

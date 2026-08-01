@@ -644,3 +644,92 @@ describe('PageOperations: save/archive cross-method concurrency', () => {
   // view-only" describe block above. Porting this scenario as written would
   // assert the opposite of that already-correct behavior.
 });
+
+describe('PageOperations.move()', () => {
+  it('moves the page into the destination folder', async () => {
+    const page = buildPage();
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      folder,
+    ]);
+
+    await pageOperations.move(page.id, 'folder-1');
+
+    const moved = vault.getPage(page.id)!;
+    expect(moved.path).toBe(`${ROOT}/Projects/Note.md`);
+    expect(moved.parentId).toBe('folder-1');
+  });
+
+  it('throws for an unknown destination folder', async () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    await expect(pageOperations.move(page.id, 'does-not-exist')).rejects.toThrow(
+      /Folder not found/
+    );
+  });
+
+  it('throws when the destination path is already occupied', async () => {
+    const page = buildPage();
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const occupant = new PageBuilder().build({
+      parentId: 'folder-1',
+      page: {
+        path: `${ROOT}/Projects/Note.md`,
+        directoryPath: `${ROOT}/Projects`,
+        frontmatter: { id: 'page-occupant' },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Existing occupant.',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+    const { vault, pageOperations, fileSystem } = setup(page, undefined, [
+      makeArchiveFolder(),
+      folder,
+    ]);
+    vault.addPage(occupant);
+    (fileSystem as InMemoryVaultFileSystem).seedFile(
+      occupant.path,
+      new FrontmatterSerializer().serializeDocument(occupant, occupant.source.markdown)
+    );
+
+    await expect(pageOperations.move(page.id, 'folder-1')).rejects.toThrow(
+      /Path already in use/
+    );
+  });
+
+  it('throws for an unknown page id', async () => {
+    const page = buildPage();
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { pageOperations } = setup(page, undefined, [makeArchiveFolder(), folder]);
+
+    await expect(pageOperations.move('does-not-exist', 'folder-1')).rejects.toThrow(
+      /Page not found/
+    );
+  });
+
+  it('a move immediately followed by a save on the same id resolves in order', async () => {
+    const page = buildPage();
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      folder,
+    ]);
+
+    await pageOperations.open(page.id);
+    await pageOperations.move(page.id, 'folder-1');
+    await pageOperations.save(page.id, 'Edited after move');
+
+    const moved = vault.getPage(page.id)!;
+    expect(moved.path).toBe(`${ROOT}/Projects/Note.md`);
+    expect(moved.source.markdown).toBe('Edited after move');
+  });
+});
