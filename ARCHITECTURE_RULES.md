@@ -120,13 +120,13 @@ If a rule and a deadline conflict, the deadline yields, or the rule is formally 
 
 ## 10. Path semantics are confined to one place outside Platform
 
-**Rule:** No file outside `platform/` and a single designated `vault/path/` helper performs path-string manipulation (splitting on `/`, computing parent directories, checking prefixes for folder membership, etc.).
+**Rule:** No file outside `platform/` and a single designated `vault/ingest/VaultPath.ts` helper performs path-string manipulation (splitting on `/`, computing parent directories, checking prefixes for folder membership, etc.). `VaultPath` is a pure value object: it knows only how to interpret a path string — never the filesystem, `Vault`, ids, `Page`/`Folder`, metadata, persistence, or any other business rule (see ADR-015).
 
-**Why it exists:** The assessment found this exact logic scattered across `MoveService`, `PagePathResolver`, `IdentityResolver`, and `Vault`'s own path-keyed indexes — meaning a future storage backend with different path semantics (or none at all, e.g. a flat object-store-backed vault) would require auditing the entire codebase rather than one file. Confining it now, while there is still only one backend, is cheap; discovering it needs confining after a second backend is underway is not.
+**Why it exists:** Phase 5's audit found this logic actually scattered across `MoveService`, `PagePersistenceCoordinator`, `VaultSyncService`, `Vault.moveFolder`'s descendant-folder check, `ArchiveMetadataReconciler`, `VaultBuilder`, `PageBuilder`, and `DailyNoteService` — not `PagePathResolver`/`IdentityResolver` as originally assumed (neither does any path-string parsing; see ADR-015) — meaning a future storage backend with different path semantics (or none at all, e.g. a flat object-store-backed vault) would require auditing the entire codebase rather than one file. Confining it now, while there is still only one backend, is cheap; discovering it needs confining after a second backend is underway is not.
 
 **How it is enforced:** Compliance checklist, "Domain Rules" — flagged as a code-review checkpoint specifically because it's not fully mechanically enforceable (string operations don't have a single lint-detectable shape the way an import does).
 
-**Regression signature:** New code calling `.split('/')`, `.lastIndexOf('/')`, or equivalent path-string operations outside `vault/path/`/`platform/`.
+**Regression signature:** New code calling `.split('/')`, `.lastIndexOf('/')`, or equivalent path-string operations outside `vault/ingest/VaultPath.ts`/`platform/`.
 
 ---
 

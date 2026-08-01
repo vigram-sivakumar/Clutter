@@ -18,3 +18,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [012](./012-phase2-application-layer-consolidation.md) | Phase 2 application-layer consolidation — scope and divergence record | Accepted |
 | [013](./013-phase3-move-backend-and-presentational-dedup.md) | Phase 3 — Move backend/UI split, Restore/Delete UI, presentational dedup — scope and divergence record | Accepted |
 | [014](./014-phase4-composition-root-and-navigation-cleanup.md) | Phase 4 — Composition root and navigation cleanup, including a Startup-sequence spec amendment | Accepted |
+| [015](./015-phase5-ingest-merge-and-vaultpath.md) | Phase 5 — Ingest merge, Gate relocation, VaultPath extraction, and a folder-org self-contradiction fix | Accepted |

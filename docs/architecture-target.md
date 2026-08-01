@@ -273,11 +273,13 @@ apps/app/src/
     ingest/                # scan + parse + build, merged (today's discover+understand+build)
       extractors/
       identity/
+      VaultPath.ts          # the VaultPath helper (§11) — the one place path-string logic lives outside
+                             # platform; a file here, not its own top-level folder (see ADR-015 — this
+                             # row previously contradicted §11's own "cross-cutting, not a folder" text)
     model/                 # Vault, Page, Folder, projections (tags/tasks live; graph/embed/alias lazy)
       graph/                # kept, just invoked lazily — not deleted
     sync/                   # VaultSyncService, VaultSyncCoordinator, archive reconciliation
     persistence/            # the expanded Persistence Gate (create/save/archive/restore/move/delete/rename ops)
-    path/                   # the VaultPath helper (§11) — the one place path-string logic lives outside platform
     query/                  # VaultQuery (read-only)
 
   application/
@@ -329,7 +331,7 @@ These should almost never change, and each is paired with how it's enforced so i
 1. **The Vault is the only place that holds "what pages/folders exist."** Enforced by: nothing outside `vault/model/` and `vault/persistence/`+`vault/sync/` ever calls a `Vault` mutation method — verified by an ESLint boundary rule (the project has done this before, per git history) restricting `vault/model` mutation-method imports to those two folders.
 2. **There is exactly one path from "user or sync wants to write a page" to "bytes hit disk."** Enforced by: `VaultFileSystem.writeFile`/`deleteFile`/`moveFile` are only importable from `vault/persistence/` and `vault/sync/` — an ESLint boundary rule, not a comment, is what keeps `PageOperations` from "just quickly" writing a file directly the way `ResourceCreation` does today.
 3. **Every capability has exactly one facade method, and consumers never bypass it.** Enforced by: `PageOperations`/`FolderOperations` are the only exports from `application/page/` and `application/folder/` that anything outside the application layer imports — internal collaborators (`DocumentSession`, business-rule helpers) are not exported from the package's public entry point.
-4. **Storage is swappable behind `VaultFileSystem` + `VaultPath`.** Enforced by: no `string.split('/')`/`lastIndexOf('/')` path logic outside `vault/path/` and `platform/` — lint rule or code-review checklist item, since this one is harder to mechanically enforce than the other three.
+4. **Storage is swappable behind `VaultFileSystem` + `VaultPath`.** Enforced by: no `string.split('/')`/`lastIndexOf('/')` path logic outside `vault/ingest/VaultPath.ts` and `platform/` — lint rule or code-review checklist item, since this one is harder to mechanically enforce than the other three.
 5. **Business rules live beside the operation they modify, not in a separate "rules" layer.** (`shouldPromoteDraft` is the model — this invariant is about *preventing* a rules/policy layer from being invented later, not building one now.)
 6. **The UI never imports a concrete application-layer implementation, only the facade type.** Enforced by: features receive `PageOperations`/`FolderOperations` (or narrower callback props derived from them) via props from `PageHost`/composition, never via a direct import of `Application`.
 
@@ -341,7 +343,7 @@ These should almost never change, and each is paired with how it's enforced so i
 2. **Every filesystem write for a page or folder goes through the Persistence Gate — no exceptions, including bootstrap code.** If bootstrap timing is a problem (as it is for the first daily note, before the Vault exists), solve it with the composition root's two-phase construction, not with a second write path.
 3. **If a facade method's body is a single unconditional forward to another method, delete it.** This is what's currently wrong with half of `NavigationService` — a name that promises orchestration but delivers pass-through.
 4. **Don't build a projection, index, or extractor for a feature that doesn't have a UI consumer yet**, with one documented exception: if the projection is genuinely cheap to derive from data already being extracted for a live feature (as tags/tasks are), it's fine to keep it lazy and unused rather than deleting the extractor — the rule is about not adding new *unconsumed* machinery, not about deleting today's (see §3a: keep the graph, just make it lazy).
-5. **Path logic is a code-review flag.** Any PR that manipulates a path string outside `vault/path/` or `platform/` should be asked to move that logic, even if it "only needs one line."
+5. **Path logic is a code-review flag.** Any PR that manipulates a path string outside `vault/ingest/VaultPath.ts` or `platform/` should be asked to move that logic, even if it "only needs one line."
 6. **New capabilities are exposed by adding a method to an existing facade or, for a new aggregate, creating one facade with the same shape (`open/create/save-or-equivalent/archive-or-equivalent/delete/move`).** Never expose a capability by having a UI component import an internal collaborator directly.
 7. **Tests for a facade method should include a concurrency case** (does calling `create` and `save` on adjacent operations serialize correctly?) — this is the class of bug the current split write-paths are exposed to, and it's cheap to guard against once there's one queue to test against.
 
@@ -390,6 +392,8 @@ Highest priority because it's the one place the current architecture has an actu
 
 16. Physically merge `discover/`+`understand/`+`build/` into `vault/ingest/`. Mechanical file moves plus collapsing `ScannedPageFactory`'s redundant wrapping — no logic changes.
 17. Extract the `VaultPath` helper from the path-string logic currently scattered across `MoveService`/`PagePathResolver`/`IdentityResolver`, and add the ESLint boundary rule from Invariant 4.
+
+> **Executed differently than described above — see [ADR-015](./adr/015-phase5-ingest-merge-and-vaultpath.md).** `ScannedPageFactory` doesn't exist on this branch — same stale-premise pattern as ADR-011/012/013 elsewhere; item 16 proceeded without that sub-task. Item 17's named locations were wrong: `PagePathResolver` only composes paths (never parses), and `IdentityResolver` does no path-string logic at all. The actual scattered set — `MoveService`, `PagePersistenceCoordinator`, `VaultSyncService`, `Vault.moveFolder`, `ArchiveMetadataReconciler`, `VaultBuilder`, `PageBuilder`, and `DailyNoteService` (the last one added by Phase 4, after this text was written) — is what got migrated. `VaultPath` is a file inside `vault/ingest/`, not its own top-level folder, resolving a self-contradiction in this document (§11 said "not a folder," the folder-org diagram showed one anyway). Phase 5 also relocated `PagePersistenceCoordinator`/`MoveService` from `core/application/` to `vault/persistence/`, matching this document's own subsystem placement — a gap items 16-17 never actually named. The ESLint boundary rule was not added: none of rules 2/3/6/7/10 have any lint enforcement built yet anywhere in this migration, so building one rule's worth in isolation was deferred as unscoped future work rather than done piecemeal. Read the ADR before treating this phase's original text as an accurate description of what shipped.
 
 ### Phase 6 — Cleanup with zero migration risk (any time, low priority, can interleave)
 
