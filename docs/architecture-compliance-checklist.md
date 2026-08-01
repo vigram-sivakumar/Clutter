@@ -27,11 +27,11 @@ If a PR touches multiple subsystems, run every relevant section separately for e
 
 ## Persistence Rules
 
-- [ ] Does this PR call `VaultFileSystem.writeFile`, `.deleteFile`, or `.moveFile` from anywhere other than the Persistence Gate, Sync's internal write helper, or Platform's own implementation?
+- [ ] Does this PR call `VaultFileSystem.writeFile`, `.deleteFile`, or `.moveFile` for **Vault domain content** (a `Page`/`Folder`, or anything that becomes one) from anywhere other than the Persistence Gate, Sync's internal write helper, or Platform's own implementation? (Writes to Clutter-owned infrastructure/config that never becomes a `Page`/`Folder` — e.g. `.clutter/workspace.json`, caches, indexes, plugin state — are out of the Gate's scope by definition; see `ARCHITECTURE_RULES.md` rule 2's Scope note. Directory-only scaffolding, e.g. `VaultInitializer`/`DailyNoteService` calling `createDirectory` before the Vault exists, is likewise not a content write.)
 - [ ] Does this PR create a new write path for page or folder content that does not enqueue through `PagePersistenceCoordinator`?
 - [ ] Does this PR mutate `Vault` (`addPage`/`replacePage`/`removePage`/`updatePagePath`/`moveFolder`) from any file outside the Persistence Gate or Sync?
 - [ ] Does this PR add a new `PersistenceOperation` kind whose handler skips the per-page queue (e.g., writes synchronously outside `enqueue`)?
-- [ ] Does this PR introduce a "temporary" or "bootstrap-only" bypass of the Gate that isn't the one documented, reviewed exception in the Composition Root's two-phase construction?
+- [ ] Does this PR introduce a "temporary" or "bootstrap-only" bypass of the Gate for **page/folder content** that isn't the one documented, reviewed exception in the Composition Root's two-phase construction? (As of Phase 4/ADR-014, there is no longer any such exception for page content — even the bootstrap daily note is created through the real Gate. A pre-Vault direct write is only compliant if it's infrastructure/config or directory scaffolding, per the scope note above — not page content.)
 - [ ] Does this PR let a path-changing operation (move/archive/restore) call `fileSystem.moveFile` directly instead of going through `MoveService`?
 
 ## Application Layer Rules
