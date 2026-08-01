@@ -20,11 +20,6 @@ export function buildNoteTopBarMenu(page: Page): TopBarMenuItemConfig[] {
       icon: 'copy',
     },
     {
-      id: 'move-to',
-      label: 'Move to…',
-      icon: 'arrowDownRight',
-    },
-    {
       id: 'add-to-favorite',
       label: 'Add to favorite',
       icon: 'favouriteOutline',
