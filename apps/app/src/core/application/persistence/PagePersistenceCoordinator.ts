@@ -23,12 +23,16 @@ export type PersistenceOperation =
       readonly content: string;
     }
   | { readonly kind: 'archive' }
-  | { readonly kind: 'restore' };
+  | { readonly kind: 'restore' }
+  | { readonly kind: 'delete' };
 
 export type PersistenceResult =
   | {
       readonly status: 'saved';
       readonly page: Page;
+    }
+  | {
+      readonly status: 'deleted';
     }
   | {
       readonly status: 'abandoned';
@@ -121,7 +125,21 @@ export class PagePersistenceCoordinator {
         return this.runArchive(current);
       case 'restore':
         return this.runRestore(current);
+      case 'delete':
+        return this.runDelete(current);
     }
+  }
+
+  private async runDelete(current: Page): Promise<PersistenceResult> {
+    await this.fileSystem.deleteFile(current.path);
+    // Only possible caller of removePage for an app-initiated deletion is
+    // this dispatch, reached only after the existing-page guard above, so
+    // there is no double-delete race for removePage to reject here — the
+    // per-page queue already prevents a second delete for the same id from
+    // reaching this point concurrently.
+    this.vault.removePage(current.id);
+
+    return { status: 'deleted' };
   }
 
   private async runCreate(operation: {
