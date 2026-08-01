@@ -1,10 +1,10 @@
-import type { NavigationService } from '@core/application/navigation/NavigationService';
+import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
 
 import type { NotesShortcutId } from './notesShortcuts.config';
 
 export function buildNotesShortcutHandler(
-  navigation: NavigationService,
+  navigation: NavigationRouter,
   pageOperations: PageOperations
 ): (id: NotesShortcutId) => void {
   return (id) => {

@@ -1,9 +1,9 @@
-import type { NavigationService } from '@core/application/navigation/NavigationService';
+import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 
 import type { TagsShortcutId } from './tagsShortcuts.config';
 
 export function buildTagsShortcutHandler(
-  navigation: NavigationService
+  navigation: NavigationRouter
 ): (id: TagsShortcutId) => void {
   return (id) => {
     switch (id) {

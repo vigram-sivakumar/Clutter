@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Application } from './Application';
 import { PageOperations } from './page/PageOperations';
 import { FolderOperations } from './folder/FolderOperations';
-import { NavigationService } from './navigation/NavigationService';
+import { NavigationRouter } from './navigation/NavigationRouter';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
 import { PageCreator } from './page/PageCreator';
 import { PageFactory } from './page/PageFactory';
@@ -46,7 +46,7 @@ describe('Application.attachVault', () => {
 
     expect(application.pageOperations).toBeInstanceOf(PageOperations);
     expect(application.folderOperations).toBeInstanceOf(FolderOperations);
-    expect(application.navigation).toBeInstanceOf(NavigationService);
+    expect(application.navigation).toBeInstanceOf(NavigationRouter);
     expect(application.vaultSyncService).toBeInstanceOf(VaultSyncService);
   });
 

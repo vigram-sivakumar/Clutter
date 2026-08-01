@@ -1,9 +1,9 @@
-import type { NavigationService } from '@core/application/navigation/NavigationService';
+import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 
 import type { TasksShortcutId } from './tasksShortcuts.config';
 
 export function buildTasksShortcutHandler(
-  navigation: NavigationService
+  navigation: NavigationRouter
 ): (id: TasksShortcutId) => void {
   return (id) => {
     switch (id) {

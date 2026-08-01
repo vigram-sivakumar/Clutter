@@ -1,5 +1,5 @@
 import type { Vault } from '@core/vault/models';
-import type { NavigationService } from '@core/application/navigation/NavigationService';
+import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { buildTasksShortcutHandler } from '@features/tasks/shortcuts/buildTasksShortcutHandler';
 import { TasksShortcuts } from '@features/tasks/shortcuts/TasksShortcuts';
@@ -7,7 +7,7 @@ import { renderTasksByDate } from '../helpers/renderTasksByDate';
 
 interface TasksPanelProps {
   readonly vault: Vault;
-  readonly navigation: NavigationService;
+  readonly navigation: NavigationRouter;
 }
 
 export function Tasks({ vault, navigation }: TasksPanelProps) {

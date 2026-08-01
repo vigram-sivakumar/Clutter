@@ -11,7 +11,7 @@ import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { PageOperations } from './page/PageOperations';
 import { FolderOperations } from './folder/FolderOperations';
-import { NavigationService } from './navigation/NavigationService';
+import { NavigationRouter } from './navigation/NavigationRouter';
 import { DocumentRegistry } from '../engine/DocumentRegistry';
 import { SaveCoordinator } from '../engine/SaveCoordinator';
 import { PagePersistenceCoordinator } from './persistence/PagePersistenceCoordinator';
@@ -59,7 +59,7 @@ export class Application {
   public readonly saveCoordinator: SaveCoordinator;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
-  public navigation!: NavigationService;
+  public navigation!: NavigationRouter;
   public vaultSyncService!: VaultSyncService;
   private readonly fileSystem: VaultFileSystem;
   private readonly selfWriteRegistry: SelfWriteRegistry;
@@ -180,11 +180,7 @@ export class Application {
       pageCreator
     );
     this.folderOperations = new FolderOperations(vault, this.workspace);
-    this.navigation = new NavigationService(
-      this.pageOperations,
-      this.folderOperations,
-      vault
-    );
+    this.navigation = new NavigationRouter(this.folderOperations, vault);
     this.fileSystemWatcher = new LocalFileSystemWatcher();
 
     // VaultSyncService subscribes to the self-write-aware wrapper, not the
@@ -221,7 +217,7 @@ export class Application {
       );
     }
 
-    this.navigation.openDailyNote(todayPage.id);
+    void this.pageOperations.open(todayPage.id);
   }
 
   /**

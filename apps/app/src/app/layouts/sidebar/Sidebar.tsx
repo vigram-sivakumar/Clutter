@@ -19,7 +19,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ application }: SidebarProps) {
-  const { vault, navigation, pageOperations } = application;
+  const { vault, navigation, pageOperations, folderOperations } = application;
   const workspace = useWorkspace(application.workspace);
   const [activeTab, setActiveTab] = useState('daily-notes');
 
@@ -36,8 +36,8 @@ export function Sidebar({ application }: SidebarProps) {
         <DailyNotes
           vault={vault}
           workspace={workspace}
-          onOpen={(pageId) => navigation.openDailyNote(pageId)}
-          onOpenFolder={(folderId) => navigation.openFolder(folderId)}
+          onOpen={(pageId) => pageOperations.open(pageId)}
+          onOpenFolder={(folderId) => folderOperations.open(folderId)}
         />
       ),
     },
@@ -50,8 +50,8 @@ export function Sidebar({ application }: SidebarProps) {
           workspace={workspace}
           navigation={navigation}
           pageOperations={pageOperations}
-          onOpen={(pageId) => navigation.openNote(pageId)}
-          onOpenFolder={(folderId) => navigation.openFolder(folderId)}
+          onOpen={(pageId) => pageOperations.open(pageId)}
+          onOpenFolder={(folderId) => folderOperations.open(folderId)}
         />
       ),
       emoji: '🍉',

@@ -44,7 +44,7 @@ export function PageHost({ application }: PageHostProps) {
   // The session remains the single source of editable document state.
   const session = useDocumentSession(rawSession);
 
-  const onOpenFolder = (id: string) => application.navigation.openFolder(id);
+  const onOpenFolder = (id: string) => application.folderOperations.open(id);
   const onUpdateMarkdown = (pageId: string, markdown: string): void => {
     void application.pageOperations.save(pageId, markdown);
   };
@@ -82,7 +82,7 @@ export function PageHost({ application }: PageHostProps) {
 
     const model = toCollectionPageModel(folder, vault, workspace, {
       onOpenFolder,
-      onOpenNote: (id: string) => application.navigation.openNote(id),
+      onOpenNote: (id: string) => application.pageOperations.open(id),
     });
 
     const breadcrumbs = buildBreadcrumbs(folder, vault, onOpenFolder);

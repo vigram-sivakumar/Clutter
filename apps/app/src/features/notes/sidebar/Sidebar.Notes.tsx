@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
-import type { NavigationService } from '@core/application/navigation/NavigationService';
+import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
@@ -16,7 +16,7 @@ import { getFavoriteItems } from '../helpers/getFavoriteItems';
 interface NotesProps {
   vault: Vault;
   workspace: Workspace;
-  navigation: NavigationService;
+  navigation: NavigationRouter;
   pageOperations: PageOperations;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
