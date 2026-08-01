@@ -152,7 +152,7 @@ describe('Persistence duplication risk: PersistenceService vs PageMutationServic
       moveService
     );
     const persistenceService = new PersistenceService(coordinator, saveCoordinator);
-    const pageMutationService = new PageMutationService(coordinator, vault);
+    const pageMutationService = new PageMutationService(coordinator);
 
     const session = new DocumentSession(page);
     session.commit(new DocumentTransaction('Edited body'));
@@ -208,7 +208,7 @@ describe('Persistence duplication risk: PersistenceService vs PageMutationServic
       moveService
     );
     const persistenceService = new PersistenceService(coordinator, saveCoordinator);
-    const pageMutationService = new PageMutationService(coordinator, vault);
+    const pageMutationService = new PageMutationService(coordinator);
 
     await pageMutationService.archivePage(page.id);
     const archivedPage = vault.getPage(page.id)!;

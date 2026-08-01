@@ -14,6 +14,7 @@ import type { Folder } from '../../vault/models/Folder';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
 const ROOT = '/vault';
+const ARCHIVE_FOLDER_ID = 'folder-archive';
 
 function buildPage(): Page {
   const builder = new PageBuilder();
@@ -37,30 +38,11 @@ function buildPage(): Page {
   });
 }
 
-function makeFolder(): Folder {
+function makeArchiveFolder(): Folder {
   return {
-    id: 'folder-1',
-    name: 'Folder',
-    path: `${ROOT}/Folder`,
-    parentId: null,
-    metadata: {
-      icon: null,
-      favorite: false,
-      description: '',
-      cover: null,
-      status: 'active',
-      archivedAt: null,
-      originalPath: null,
-      originalParentId: null,
-    },
-  };
-}
-
-function makeNewFolder(): Folder {
-  return {
-    id: 'new-folder-1',
-    name: 'NewFolder',
-    path: `${ROOT}/NewFolder`,
+    id: ARCHIVE_FOLDER_ID,
+    name: 'Archive',
+    path: `${ROOT}/Archive`,
     parentId: null,
     metadata: {
       icon: null,
@@ -147,32 +129,32 @@ function setup(page: Page, folders: Folder[] = []) {
   return { vault, fileSystem, coordinator };
 }
 
-describe('PagePersistenceCoordinator page move vertical slice', () => {
-  it('moves the file on disk and updates vault path and parentId when operate changes location', async () => {
+/**
+ * Phase 1 has no standalone `move` kind (no caller/business-rule owner
+ * exists yet — see ADR-011). These scenarios exercise the same underlying
+ * mechanism — PagePersistenceCoordinator delegating a path/parentId change
+ * to MoveService mid-dispatch — through the `archive` kind, which is the
+ * one real caller of that mechanism in Phase 1.
+ */
+describe('PagePersistenceCoordinator move-on-structural-change (via the archive kind)', () => {
+  it('moves the file on disk and updates vault path and parentId when archiving', async () => {
     const page = buildPage();
-    const folder = makeFolder();
-    const { vault, fileSystem, coordinator } = setup(page, [folder]);
+    const archiveFolder = makeArchiveFolder();
+    const { vault, fileSystem, coordinator } = setup(page, [archiveFolder]);
 
-    const result = await coordinator.enqueue(page.id, (current) => ({
-      page: {
-        ...current,
-        path: `${ROOT}/Folder/A.md`,
-        parentId: folder.id,
-      },
-      markdown: current.source.markdown,
-    }));
+    const result = await coordinator.enqueue(page.id, { kind: 'archive' });
 
     expect(result.status).toBe('saved');
     expect(fileSystem.hasFileSync(`${ROOT}/A.md`)).toBe(false);
-    expect(fileSystem.hasFileSync(`${ROOT}/Folder/A.md`)).toBe(true);
-    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Folder/A.md`);
-    expect(vault.getPage(page.id)!.parentId).toBe(folder.id);
+    expect(fileSystem.hasFileSync(`${ROOT}/Archive/A.md`)).toBe(true);
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Archive/A.md`);
+    expect(vault.getPage(page.id)!.parentId).toBe(archiveFolder.id);
   });
 
   it('leaves vault path unchanged when moveFile throws', async () => {
     const page = buildPage();
-    const folder = makeFolder();
-    const vault = makeVault([page], [folder]);
+    const archiveFolder = makeArchiveFolder();
+    const vault = makeVault([page], [archiveFolder]);
     const inner = new InMemoryVaultFileSystem();
     inner.seedFile(
       page.path,
@@ -216,27 +198,20 @@ describe('PagePersistenceCoordinator page move vertical slice', () => {
       moveService
     );
 
-    await expect(
-      coordinator.enqueue(page.id, (current) => ({
-        page: {
-          ...current,
-          path: `${ROOT}/Folder/A.md`,
-          parentId: folder.id,
-        },
-        markdown: current.source.markdown,
-      }))
-    ).rejects.toThrow(/move failed/);
+    await expect(coordinator.enqueue(page.id, { kind: 'archive' })).rejects.toThrow(
+      /move failed/
+    );
 
     expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/A.md`);
     expect(vault.getPage(page.id)!.parentId).toBeNull();
     expect(inner.hasFileSync(`${ROOT}/A.md`)).toBe(true);
-    expect(inner.hasFileSync(`${ROOT}/Folder/A.md`)).toBe(false);
+    expect(inner.hasFileSync(`${ROOT}/Archive/A.md`)).toBe(false);
   });
 
-  it('moves the page when the destination directory does not exist yet', async () => {
+  it('archives the page when the destination directory does not exist yet', async () => {
     const page = buildPage();
-    const newFolder = makeNewFolder();
-    const vault = makeVault([page], [newFolder]);
+    const archiveFolder = makeArchiveFolder();
+    const vault = makeVault([page], [archiveFolder]);
     const inner = new InMemoryVaultFileSystem();
     inner.seedFile(
       page.path,
@@ -254,23 +229,16 @@ describe('PagePersistenceCoordinator page move vertical slice', () => {
       moveService
     );
 
-    expect(await inner.exists(`${ROOT}/NewFolder`)).toBe(false);
+    expect(await inner.exists(`${ROOT}/Archive`)).toBe(false);
 
-    const result = await coordinator.enqueue(page.id, (current) => ({
-      page: {
-        ...current,
-        path: `${ROOT}/NewFolder/A.md`,
-        parentId: newFolder.id,
-      },
-      markdown: current.source.markdown,
-    }));
+    const result = await coordinator.enqueue(page.id, { kind: 'archive' });
 
     expect(result.status).toBe('saved');
-    expect(fileSystem.createDirectoryCalls).toEqual([`${ROOT}/NewFolder`]);
+    expect(fileSystem.createDirectoryCalls).toEqual([`${ROOT}/Archive`]);
     expect(fileSystem.hasFileSync(`${ROOT}/A.md`)).toBe(false);
-    expect(fileSystem.hasFileSync(`${ROOT}/NewFolder/A.md`)).toBe(true);
-    expect(vault.getPageByPath(`${ROOT}/NewFolder/A.md`)?.id).toBe(page.id);
+    expect(fileSystem.hasFileSync(`${ROOT}/Archive/A.md`)).toBe(true);
+    expect(vault.getPageByPath(`${ROOT}/Archive/A.md`)?.id).toBe(page.id);
     expect(vault.getPageByPath(`${ROOT}/A.md`)).toBeUndefined();
-    expect(vault.getPage(page.id)!.parentId).toBe(newFolder.id);
+    expect(vault.getPage(page.id)!.parentId).toBe(archiveFolder.id);
   });
 });

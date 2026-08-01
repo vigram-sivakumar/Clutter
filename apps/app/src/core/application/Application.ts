@@ -170,10 +170,7 @@ export class Application {
       this.documentRegistry,
       frontmatterSerializer
     );
-    this.pageMutationService = new PageMutationService(
-      persistenceCoordinator,
-      this.vault
-    );
+    this.pageMutationService = new PageMutationService(persistenceCoordinator);
   }
 
   private async startFileSystemWatcher(rootPath: string): Promise<void> {

@@ -118,10 +118,10 @@ describe('Internal write vs. filesystem watcher: duplicate-notification suppress
     const page = buildPage();
     const { vault, rawWatcher, coordinator, getNotificationCount } = setup(page);
 
-    const result = await coordinator.enqueue(page.id, (current) => ({
-      page: current,
-      markdown: 'Saved from inside Clutter',
-    }));
+    const result = await coordinator.enqueue(page.id, {
+      kind: 'save',
+      content: 'Saved from inside Clutter',
+    });
     expect(result.status).toBe('saved');
 
     // The single notification so far came from PagePersistenceCoordinator's
@@ -162,10 +162,10 @@ describe('Internal write vs. filesystem watcher: duplicate-notification suppress
     const page = buildPage();
     const { vault, rawFileSystem, rawWatcher, coordinator, getNotificationCount } = setup(page);
 
-    await coordinator.enqueue(page.id, (current) => ({
-      page: current,
-      markdown: 'Saved from inside Clutter',
-    }));
+    await coordinator.enqueue(page.id, {
+      kind: 'save',
+      content: 'Saved from inside Clutter',
+    });
     expect(getNotificationCount()).toBe(1);
 
     // Echo of our own save arrives first and is suppressed.

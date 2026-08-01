@@ -135,7 +135,7 @@ function setup(page: Page, vault?: Vault) {
     new PageRebuilder(),
     moveService
   );
-  const service = new PageMutationService(coordinator, resolvedVault);
+  const service = new PageMutationService(coordinator);
 
   return { vault: resolvedVault, fileSystem, service, serializer };
 }
@@ -317,7 +317,7 @@ describe('PageMutationService.archivePage()', () => {
       new PageRebuilder(),
       moveService
     );
-    const service = new PageMutationService(coordinator, vault);
+    const service = new PageMutationService(coordinator);
 
     await expect(service.archivePage(page.id)).rejects.toThrow(/Path already in use/);
     expect(fileSystem.hasFileSync(page.path)).toBe(true);
@@ -352,7 +352,7 @@ describe('PageMutationService.archivePage()', () => {
       new PageRebuilder(),
       moveService
     );
-    const service = new PageMutationService(coordinator, vault);
+    const service = new PageMutationService(coordinator);
 
     await expect(service.archivePage(page.id)).rejects.toThrow(/Archive folder not found/);
     expect(fileSystem.hasFileSync(page.path)).toBe(true);

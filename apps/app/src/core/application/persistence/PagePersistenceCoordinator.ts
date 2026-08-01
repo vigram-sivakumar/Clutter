@@ -7,18 +7,15 @@ import { PageRebuilder } from '../../vault/build/PageRebuilder';
 import { MoveService } from '../move/MoveService';
 
 /**
- * Describes a single change to persist for a page: the Page whose metadata
- * should be serialized, and the Markdown body to persist alongside it.
- *
- * This is an ordered persistence operation, not a database transaction —
- * it carries no isolation or rollback semantics of its own. Correctness
- * comes entirely from PagePersistenceCoordinator serializing operations
- * per page and handing each one the latest committed Page.
+ * Every disk write for a page — save, archive, restore, and (future kinds
+ * added the same way) create/delete/move/rename — is expressed as one of
+ * these and enqueued through PagePersistenceCoordinator. This is the only
+ * vocabulary any caller uses; there is no other way to reach a write.
  */
-export interface PagePersistenceOperation {
-  readonly page: Page;
-  readonly markdown: string;
-}
+export type PersistenceOperation =
+  | { readonly kind: 'save'; readonly content: string }
+  | { readonly kind: 'archive' }
+  | { readonly kind: 'restore' };
 
 export type PersistenceResult =
   | {
@@ -34,8 +31,8 @@ export type PersistenceResult =
  * Sole owner of the write -> parse -> rebuild -> vault.replacePage pipeline
  * for page content.
  *
- * Every writer of page content — edit-saves, archive, rename, and any future
- * structural mutation — must go through here. A single per-page queue
+ * Every writer of page content — edit-saves, archive, restore, and any
+ * future structural mutation — must go through here. A single per-page queue
  * serializes every write targeting a given page, and each queued operation
  * is handed the Vault's latest committed Page for that id at the moment it
  * actually runs (not whatever the caller captured when it enqueued), so a
@@ -44,7 +41,7 @@ export type PersistenceResult =
  *
  * Does NOT know about DocumentSession, DocumentRevision, or SaveCoordinator.
  * Callers are responsible for translating their own vocabulary (a committed
- * revision, an archive request, ...) into a PagePersistenceOperation.
+ * revision, an archive request, ...) into a PersistenceOperation.
  */
 export class PagePersistenceCoordinator {
   private readonly queues = new Map<string, Promise<unknown>>();
@@ -62,17 +59,17 @@ export class PagePersistenceCoordinator {
    * Enqueues a persistence operation for the given page.
    *
    * The operation runs only once every previously enqueued operation for
-   * the same page has settled, and receives the Vault's current Page for
-   * that id as `current` at that point in time.
+   * the same page has settled, and is dispatched against the Vault's
+   * current Page for that id as of that point in time.
    */
   public enqueue(
     pageId: string,
-    operate: (current: Page) => PagePersistenceOperation
+    operation: PersistenceOperation
   ): Promise<PersistenceResult> {
     const previous = this.queues.get(pageId) ?? Promise.resolve();
     const next = previous
       .catch(() => undefined)
-      .then(() => this.runOperation(pageId, operate));
+      .then(() => this.runOperation(pageId, operation));
 
     this.queues.set(pageId, next);
 
@@ -85,7 +82,7 @@ export class PagePersistenceCoordinator {
 
   private async runOperation(
     pageId: string,
-    operate: (current: Page) => PagePersistenceOperation
+    operation: PersistenceOperation
   ): Promise<PersistenceResult> {
     const current = this.vault.getPage(pageId);
 
@@ -96,12 +93,81 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    const { page, markdown } = operate(current);
+    switch (operation.kind) {
+      case 'save':
+        return this.writeParseRebuildReplace(current, operation.content);
+      case 'archive':
+        return this.runArchive(current);
+      case 'restore':
+        return this.runRestore(current);
+    }
+  }
 
-    if (page.path !== current.path || page.parentId !== current.parentId) {
-      await this.moveService.movePage(current, page);
+  private async runArchive(current: Page): Promise<PersistenceResult> {
+    if (current.metadata.status === 'archived') {
+      throw new Error(`Page is already archived: ${current.id}`);
     }
 
+    const now = new Date().toISOString();
+    const destination = this.moveService.resolveArchiveDestination(current);
+
+    const page: Page = {
+      ...current,
+      path: destination.path,
+      parentId: destination.parentId,
+      metadata: {
+        ...current.metadata,
+        status: 'archived',
+        archivedAt: now,
+        updatedAt: now,
+        originalPath: current.path,
+        originalParentId: current.parentId,
+      },
+    };
+
+    await this.moveService.movePage(current, page);
+
+    return this.writeParseRebuildReplace(page, current.source.markdown);
+  }
+
+  private async runRestore(current: Page): Promise<PersistenceResult> {
+    if (current.metadata.status !== 'archived') {
+      throw new Error(`Page is not archived: ${current.id}`);
+    }
+
+    const now = new Date().toISOString();
+    const destination = this.moveService.resolveRestoreDestination(current);
+
+    const page: Page = {
+      ...current,
+      path: destination.path,
+      parentId: destination.parentId,
+      metadata: {
+        ...current.metadata,
+        status: 'active',
+        archivedAt: null,
+        originalPath: null,
+        originalParentId: null,
+        updatedAt: now,
+      },
+    };
+
+    await this.moveService.movePage(current, page);
+
+    return this.writeParseRebuildReplace(page, current.source.markdown);
+  }
+
+  /**
+   * Shared by every kind above: serialize the given Page/markdown pair,
+   * write it to disk, re-parse what was written, and rebuild the Vault's
+   * Page from that. Sync's own metadata-repair write path shares this same
+   * shape (see VaultSyncService), so the mechanics of "write, then trust
+   * only what a re-read confirms" exist in exactly one place.
+   */
+  private async writeParseRebuildReplace(
+    page: Page,
+    markdown: string
+  ): Promise<PersistenceResult> {
     const document = this.serializer.serializeDocument(page, markdown);
 
     await this.fileSystem.writeFile(page.path, document);

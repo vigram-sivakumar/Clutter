@@ -115,7 +115,7 @@ function setup(page: Page) {
     saveCoordinator,
     persistenceService
   );
-  const pageMutationService = new PageMutationService(coordinator, vault);
+  const pageMutationService = new PageMutationService(coordinator);
 
   return { vault, fileSystem, documentRegistry, pageService, pageMutationService };
 }

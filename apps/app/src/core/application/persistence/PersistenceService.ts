@@ -44,10 +44,10 @@ export class PersistenceService {
     }
 
     try {
-      const result = await this.coordinator.enqueue(session.page.id, (current) => ({
-        page: current,
-        markdown: revision.markdown,
-      }));
+      const result = await this.coordinator.enqueue(session.page.id, {
+        kind: 'save',
+        content: revision.markdown,
+      });
 
       if (result.status === 'abandoned') {
         this.saveCoordinator.failSave(session, revision);
