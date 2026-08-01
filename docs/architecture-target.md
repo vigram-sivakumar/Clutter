@@ -402,6 +402,8 @@ Highest priority because it's the one place the current architecture has an actu
 20. Make the knowledge-graph/embed/alias projections lazy (§3a) — pure performance change, no consumer to break.
 21. Wire or delete the `Reference` component and the disabled `Controls` history buttons — product decision, not architectural, but flagged because shipping either way is cheap once decided.
 
+> **Executed differently than described above — see [ADR-016](./adr/016-phase6-cleanup-and-migration-close.md).** Items 18-19 shipped exactly as described. Item 20's "alias" was dropped — no vault-wide alias projection exists to make lazy — and making `knowledgeGraph`/`embeds` lazy required a real method-shape fix (`knowledgeGraph` was a property getter, spec §3 wants a method) and splitting `VaultProjectionBuilder.build()` into eager/lazy halves, not just a timing change. Item 21 split: `References`' fake wiring (rendered with no data source anywhere) was removed, but the presentation component itself was kept — clean, reusable, and now a deliberately deferred feature pending a backlink-indexing subsystem and `VaultQuery` exposure, not dead code. `Controls`'s 3 inert controls remain untouched, open, not resolved by this phase. **The six-phase migration plan is substantially, not entirely, complete** — `Controls` is the one remaining piece of its original scope. Read the ADR before treating this phase's original text as an accurate description of what shipped.
+
 ### Explicitly out of scope for this migration
 
 - Rewriting `core/engine`/`DocumentEditing` — kept as-is; only revisited when a richer editor is actually being built.
