@@ -9,10 +9,11 @@ import type { ScannedPage } from '../../vault/discover/VaultScanResult';
 import { MoveService } from '../move/MoveService';
 
 /**
- * Every disk write for a page — save, create, archive, restore, and (future
- * kinds added the same way) delete/move/rename — is expressed as one of
- * these and enqueued through PagePersistenceCoordinator. This is the only
- * vocabulary any caller uses; there is no other way to reach a write.
+ * Every disk write for a page — save, create, archive, restore, delete,
+ * move, and (a future kind added the same way) rename — is expressed as
+ * one of these and enqueued through PagePersistenceCoordinator. This is
+ * the only vocabulary any caller uses; there is no other way to reach a
+ * write.
  */
 export type PersistenceOperation =
   | { readonly kind: 'save'; readonly content: string }
@@ -24,7 +25,8 @@ export type PersistenceOperation =
     }
   | { readonly kind: 'archive' }
   | { readonly kind: 'restore' }
-  | { readonly kind: 'delete' };
+  | { readonly kind: 'delete' }
+  | { readonly kind: 'move'; readonly destinationFolderId: string };
 
 export type PersistenceResult =
   | {
@@ -127,7 +129,35 @@ export class PagePersistenceCoordinator {
         return this.runRestore(current);
       case 'delete':
         return this.runDelete(current);
+      case 'move':
+        return this.runMove(current, operation.destinationFolderId);
     }
+  }
+
+  /**
+   * Unlike save/archive/restore, a pure move changes neither file content
+   * nor frontmatter — there is nothing to re-serialize or re-parse, so this
+   * does not go through writeParseRebuildReplace. movePage already updates
+   * the Vault's path index internally.
+   */
+  private async runMove(
+    current: Page,
+    destinationFolderId: string
+  ): Promise<PersistenceResult> {
+    const destination = this.moveService.resolveMoveDestination(
+      current,
+      destinationFolderId
+    );
+
+    const updated: Page = {
+      ...current,
+      path: destination.path,
+      parentId: destination.parentId,
+    };
+
+    await this.moveService.movePage(current, updated);
+
+    return { status: 'saved', page: this.vault.getPage(current.id)! };
   }
 
   private async runDelete(current: Page): Promise<PersistenceResult> {
