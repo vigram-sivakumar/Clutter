@@ -56,6 +56,17 @@ export class DailyNoteService {
    * directory exists (see ensureDirectory/ensureDirectoryForToday) and that
    * `vault` was built from a scan that observed it, so the folder this
    * resolves for `parentId` is real.
+   *
+   * Calls the Gate directly rather than PageOperations.create() — this is
+   * deliberate, not a bypass: PageOperations.create() decides where
+   * user-chosen content should go, with collision-free naming this call
+   * doesn't need; this method decides only whether today's one specific,
+   * fixed-path page already exists. Different decision, same Gate. See
+   * ARCHITECTURE_RULES.md rule 1's amendment and ADR-014's amendment
+   * before assuming this should be routed through PageOperations — if a
+   * second such bypass ever appears elsewhere, that is the signal to
+   * generalize a facade method, not this one, singular, already-examined
+   * case.
    */
   async ensurePage(
     absolutePath: string,

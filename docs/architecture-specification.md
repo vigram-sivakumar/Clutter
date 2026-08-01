@@ -122,7 +122,7 @@ Stateless. Every class is either constructed once at the Composition Root and re
 ### Invariants
 - `PageBuilder` and `PageRebuilder` both route through the same `PageAnalysisMapper` — there is exactly one mapping from extractor DTOs to domain occurrence types, never two.
 - Identity resolution is deterministic: same frontmatter `id` (or same path, if no `id`) always resolves to the same id, across both the initial scan and any later rebuild.
-- Ingest never calls `Vault` mutation methods and never calls `VaultFileSystem.writeFile`/`deleteFile`/`moveFile` — read-only with respect to disk (`readFile`/`readDirectory` only), and has no reference to a `Vault` instance at all.
+- Ingest never calls `Vault` mutation methods and never calls `VaultFileSystem.writeFile`/`deleteFile`/`moveFile` — read-only with respect to disk (`readFile`/`readDirectory` only). The one named exception is `VaultBuilder`, whose sole job is assembling the one authoritative `Vault` instance at startup from Ingest's own outputs (built `Page`/`Folder` objects, extracted tags/tasks/etc.) — it constructs and returns a `Vault`, but never mutates one afterward and holds no reference beyond that single construction call. No other file in Ingest references a `Vault` instance at all.
 
 ### Concurrency model
 None needed — every operation is a pure function of its input. Safe to call concurrently for different files; the caller (Persistence Gate or Sync) is responsible for not calling `rebuild` twice concurrently for the *same* page, which is exactly what their queues exist to prevent.
