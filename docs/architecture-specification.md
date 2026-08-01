@@ -52,7 +52,7 @@ Constructed once by the Composition Root during `bootstrap()`. `start()` is call
 No concurrency control of its own — Platform is a pass-through to OS calls. Concurrency is the Persistence Gate's and Sync's problem, not Platform's. Rename-pairing inside `vault_watcher.rs` uses a bounded 300ms correlation window (this is a Platform-internal detail, not part of the public contract — callers only ever see the resolved `moved` event).
 
 ### Ownership
-Platform owns the storage seam. It must never own path-shape assumptions beyond the interface's own `string` type — any splitting/joining of path segments happens in `vault/path/` (§3), not here.
+Platform owns the storage seam. It must never own path-shape assumptions beyond the interface's own `string` type — any splitting/joining of path segments happens in the `VaultPath` helper (§2, Vault Ingest), not here.
 
 ### Extension points
 A second backend (cloud, git-backed, etc.) is a new pair of `VaultFileSystem`/`VaultFileSystemWatcher` implementations, wired at the Composition Root. No other subsystem's code changes.
@@ -100,6 +100,16 @@ Pure transformation: raw file bytes → typed, identity-resolved `Page`/`Folder`
 + class IdentityResolver {
     resolvePage(scanned: ScannedPage): string;
     resolveFolder(scanned: ScannedDirectory): string;
+  }
+
++ class VaultPath {
+    // Pure value object — path-string semantics only. No filesystem,
+    // Vault, id, Page/Folder, metadata, persistence, or business-rule
+    // knowledge (see ADR-015). The one place outside platform/ that
+    // performs path-string parsing (ARCHITECTURE_RULES.md rule 10).
+    static filename(path: string): string;
+    static parentDirectory(path: string): string;
+    static isDescendantOf(path: string, ancestorPath: string): boolean;
   }
 ```
 

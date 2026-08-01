@@ -59,7 +59,7 @@ If a PR touches multiple subsystems, run every relevant section separately for e
 - [ ] Does this PR add a new live (always-rebuilt) projection without a real, already-shipped UI consumer?
 - [ ] Does this PR add a new lazy projection that isn't invalidated on every relevant mutation?
 - [ ] Does this PR allow a page or folder to exist in two different, inconsistent states across `pagesById`/`pagesByPath` (or the folder equivalents) even momentarily in a way another reader could observe?
-- [ ] Does this PR add path-manipulation logic anywhere outside `vault/path/` or `platform/`?
+- [ ] Does this PR add path-manipulation logic anywhere outside `vault/ingest/VaultPath.ts` or `platform/`?
 
 ## Composition Root Rules
 
