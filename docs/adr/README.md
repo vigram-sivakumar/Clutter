@@ -15,3 +15,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [009](./009-delete-orphaned-packages.md) | Delete orphaned `packages/engine` and `packages/editor` rather than integrate | Accepted |
 | [010](./010-retain-document-editing-engine.md) | Retain `DocumentEditing` (formerly `core/engine`) unshrunk as an internal collaborator | Accepted |
 | [011](./011-phase1-persistence-gate-rescoping.md) | Phase 1 rescoped to build create/delete fresh, not migrate them | Accepted |
+| [012](./012-phase2-application-layer-consolidation.md) | Phase 2 application-layer consolidation — scope and divergence record | Accepted |

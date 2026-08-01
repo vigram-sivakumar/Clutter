@@ -367,6 +367,8 @@ Highest priority because it's the one place the current architecture has an actu
 7. Update `PageHost` and the three shortcut-handler files to call the new facades. This is the only UI-facing change in this phase, and it's a signature change, not a behavior change.
 8. Delete the 5 now-empty source files once every method has moved and every caller updated.
 
+> **Executed differently than described above — see [ADR-012](./adr/012-phase2-application-layer-consolidation.md).** `ResourceCreation`/`ResourceDeletionService` never existed on this branch (see ADR-011), so step 5's "move their methods in" describes migrating code that isn't there; `PageOperations.create()`/`.delete()` were instead built as new methods backed by Phase 1's Gate kinds. `shouldPromoteDraft` is omitted (no `draft` status exists in this branch's `Page` model). `move()`/`rename()` remain absent from both facades pending their Gate operation kinds. Read the ADR before treating this phase's original text as an accurate description of what shipped.
+
 ### Phase 3 — Ship the cheap wins the consolidation unlocks (weeks 8–10)
 
 9. Expose `PageOperations.move` and wire a "Move to…" UI entry point — this was already noted as the cheapest unbuilt capability, and Phase 2 makes it a one-line facade addition.
