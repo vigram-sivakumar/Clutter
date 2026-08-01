@@ -25,7 +25,7 @@ Making them lazy required more than the "pure performance change" item 20 descri
 
 **Disposition:** permanent. Referential-stability and invalidate/rebuild-on-access behavior covered by 5 new tests, including a spy-based test proving `buildLazy()` is never called by a mutation itself and rebuilds at most once across several stacked mutations.
 
-### 3. Item 21 splits: `References` deferred as a real feature, not dead code; `Controls` left open
+### 3. Item 21 splits: `References` deferred as a real feature, not dead code; `Controls` kept and fully disabled, not deleted
 
 **`References`:** `Page.tsx` rendered `<References>` with no `references` prop and no real data source anywhere — permanently empty regardless of user action, the literal "fake wiring that always produces an empty result" this item targets. That render call and its supporting `referencesExpanded` state were removed.
 
@@ -36,15 +36,21 @@ Making them lazy required more than the "pure performance change" item 20 descri
 3. Wire `Reference.tsx` to that real query API from `Page.tsx`.
 4. Keep all parsing, indexing, and business logic outside the UI component — `Reference.tsx` stays exactly as presentation-only as it is today.
 
-**`Controls`:** initially deleted (its 3 inert controls — two permanently-`disabled` history buttons with no navigation-history state anywhere, and a sidebar-toggle button with no handler at all) in the same pass as `References`, then explicitly restored per your follow-up direction: it will be wired later rather than removed now. `Controls.tsx` is unchanged from its pre-Phase-6 state.
+**`Controls`:** initially deleted (its 3 inert controls — two permanently-`disabled` history buttons with no navigation-history state anywhere, and a sidebar-toggle button with no handler at all) in the same pass as `References`, then explicitly restored per your follow-up direction. The layout and all 3 controls are kept, intentionally, as placeholders for future navigation-history and sidebar-state features — this is not completed functionality, and none of the backing state (navigation history, sidebar-collapse state) exists anywhere yet.
 
-**Disposition:** `References` — permanent removal of the fake wiring, component kept, tracked as a named future feature (not a phase — no phase assigned, same status as several other post-Phase-2 findings). `Controls` — untouched, open, no disposition change from before this phase; it remains 3 inert controls, unresolved.
+The sidebar-toggle button was found to violate the same "no fake wiring" standard `References` was held to: it was enabled with no `onClick` at all — a control a user could click that would silently do nothing, worse than the two history buttons, which were at least `disabled`. Fixed by disabling it too, so all 3 controls now present consistently as unavailable rather than as working. A code comment in `Controls.tsx` records why all 3 stay `disabled` rather than one of them quietly regressing back to enabled-and-inert later.
+
+**Disposition:** `References` — permanent removal of the fake wiring, component kept, tracked as a named future feature (not a phase — no phase assigned, same status as several other post-Phase-2 findings). `Controls` — kept in full, all 3 controls now `disabled`, tracked as placeholders for the same two not-yet-built features (navigation history, sidebar-collapse state) they always implied. Neither is dead code or a completed feature; both are named, deferred work with a clear "not yet" presented honestly to the user in the meantime.
 
 ## Closing the Six-Phase Migration Plan
 
-Items 18-20 are fully closed. Item 21 is half-closed (`References`) and half-open (`Controls`) by explicit choice, not oversight. That means Phase 6 — and with it, `architecture-target.md`'s originally-numbered six-phase migration plan — is **substantially, not entirely, complete**. This is worth stating plainly rather than rounding up: `Controls`'s 3 inert controls are the one piece of the original six-phase plan's scope that remains genuinely open.
+Items 18-20 are fully closed. Item 21 resolved neither literally-named way ("wire" nor "delete") for `Controls` — it took a third disposition: kept, and made honestly `disabled` rather than either built out or removed. That fully closes the underlying architectural concern item 21 named for `References` and `Controls` specifically (`architecture-compliance-checklist.md`'s UI Rules: no control presenting as enabled while silently doing nothing).
 
-What's left, beyond `Controls`, is the backlog every prior phase's ADR has been accumulating — none of it was ever in the six-phase plan's scope, and none of it gets pulled in now:
+**It does not close that concern app-wide.** A broader sweep run while verifying this fix — searching every `.tsx` file for a `<Button>` with neither `onClick` nor `disabled` — found 9 more, none touched by any phase of this migration: the favorite/width-fill buttons in `ResourceTopBarActions.tsx` and `ReservedFolderTopBarActions.tsx`, the "more options" buttons in `Task.tsx`/`DailyNote.tsx`/`Tag.tsx`, both action buttons in `Folder.tsx` (add, more options), and the "Start your day..." button in `DailyNotesShortcuts.tsx`. These predate this migration entirely and were never in any phase's scope — not fixed here, listed in the backlog below rather than left for the next person to rediscover from scratch.
+
+That means `architecture-target.md`'s originally-numbered six-phase migration plan is now **complete** — every item across all six phases has a disposition, whether shipped as originally described, corrected and shipped differently, or (for the small number of sub-findings surfaced along the way) explicitly deferred to the backlog below with a named reason. "Complete" here means the plan's own scope is exhausted, not that every architectural question this migration surfaced has an implementation, and — as the sweep above shows — not that every instance of a pattern this migration cared about has been found and fixed everywhere in the app.
+
+What's left is the backlog every prior phase's ADR has been accumulating — none of it was ever in the six-phase plan's scope, and none of it gets pulled in now:
 - The `core/engine` → `application/editing/` rename, and `VaultSyncService`'s `DocumentRegistry` dependency it's tied to (ADR-012).
 - `PageOperations.rename()` — no Gate operation shape exists yet (ADR-011/012).
 - `createTask`/`createTag` — blocked on `TaskOperations`/`TagOperations` existing (ADR-013's referenced ADR-012 disposition).
@@ -52,7 +58,8 @@ What's left, beyond `Controls`, is the backlog every prior phase's ADR has been 
 - The `Workspace` "active view" state extension the 6 deleted view-intent stubs would need to come back (ADR-014).
 - `.folder.md`'s write side and root-metadata support (ADR-015).
 - The 5 ESLint architectural-boundary rules — none built anywhere in this migration (ADR-015).
-- `Controls`'s 3 inert controls (this ADR).
+- Real navigation-history and sidebar-collapse state for `Controls`'s 3 placeholder controls (this ADR).
+- 9 more enabled, no-op `<Button>`s app-wide, outside this migration's scope but sharing the exact defect `Controls`'s sidebar-toggle had (this ADR): `ResourceTopBarActions.tsx` (favorite, width-fill), `ReservedFolderTopBarActions.tsx` (width-fill), `Task.tsx`/`DailyNote.tsx`/`Tag.tsx` (each a "more options" button), `Folder.tsx` (add, more options), `DailyNotesShortcuts.tsx` ("Start your day...").
 - The backlink/reference indexing subsystem `References` needs (this ADR).
 
 ## Why These Are Preferred
