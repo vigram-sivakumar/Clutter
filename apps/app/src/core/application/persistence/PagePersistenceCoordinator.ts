@@ -4,16 +4,24 @@ import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 import { FrontmatterSerializer } from '../../vault/understand/FrontmatterSerializer';
 import { FrontmatterParser } from '../../vault/understand/FrontmatterParser';
 import { PageRebuilder } from '../../vault/build/PageRebuilder';
+import { PageBuilder } from '../../vault/build/PageBuilder';
+import type { ScannedPage } from '../../vault/discover/VaultScanResult';
 import { MoveService } from '../move/MoveService';
 
 /**
- * Every disk write for a page — save, archive, restore, and (future kinds
- * added the same way) create/delete/move/rename — is expressed as one of
+ * Every disk write for a page — save, create, archive, restore, and (future
+ * kinds added the same way) delete/move/rename — is expressed as one of
  * these and enqueued through PagePersistenceCoordinator. This is the only
  * vocabulary any caller uses; there is no other way to reach a write.
  */
 export type PersistenceOperation =
   | { readonly kind: 'save'; readonly content: string }
+  | {
+      readonly kind: 'create';
+      readonly path: string;
+      readonly parentId: string | null;
+      readonly content: string;
+    }
   | { readonly kind: 'archive' }
   | { readonly kind: 'restore' };
 
@@ -45,6 +53,12 @@ export type PersistenceResult =
  */
 export class PagePersistenceCoordinator {
   private readonly queues = new Map<string, Promise<unknown>>();
+
+  // Constructed once here, for this Gate's own lifetime — a separate,
+  // stateless PageBuilder instance from the one VaultBuilder owns for the
+  // initial scan, since the two serve genuinely different lifecycles (see
+  // ADR-011). Not a duplicate construction of the same long-lived purpose.
+  private readonly pageBuilder = new PageBuilder();
 
   constructor(
     private readonly fileSystem: VaultFileSystem,
@@ -84,6 +98,13 @@ export class PagePersistenceCoordinator {
     pageId: string,
     operation: PersistenceOperation
   ): Promise<PersistenceResult> {
+    // 'create' targets a page that does not exist in the Vault yet by
+    // definition, so it must be dispatched before the existing-page guard
+    // below (which every other kind requires).
+    if (operation.kind === 'create') {
+      return this.runCreate(operation);
+    }
+
     const current = this.vault.getPage(pageId);
 
     if (!current) {
@@ -101,6 +122,48 @@ export class PagePersistenceCoordinator {
       case 'restore':
         return this.runRestore(current);
     }
+  }
+
+  private async runCreate(operation: {
+    readonly kind: 'create';
+    readonly path: string;
+    readonly parentId: string | null;
+    readonly content: string;
+  }): Promise<PersistenceResult> {
+    await this.fileSystem.writeFile(operation.path, operation.content);
+
+    // Reuses the same parse pipeline VaultScanner/DocumentLoader use during
+    // scan — ParsedMarkdown's fields are structurally identical to
+    // ScannedPage's, minus path/directoryPath, so this is not a hand-rolled
+    // extraction, it's the existing one.
+    const parsed = this.parser.parse(operation.content);
+    const lastSlashIndex = operation.path.lastIndexOf('/');
+    const scannedPage: ScannedPage = {
+      path: operation.path,
+      directoryPath: lastSlashIndex >= 0 ? operation.path.slice(0, lastSlashIndex) : '',
+      frontmatter: parsed.frontmatter,
+      frontmatterAnalysis: parsed.frontmatterAnalysis,
+      content: parsed.body,
+      analysis: parsed.analysis,
+    };
+
+    const built = this.pageBuilder.build({
+      parentId: operation.parentId,
+      page: scannedPage,
+    });
+
+    try {
+      this.vault.addPage(built);
+    } catch (error) {
+      return {
+        status: 'abandoned',
+        reason: `Vault rejected the created page after a successful write: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return { status: 'saved', page: built };
   }
 
   private async runArchive(current: Page): Promise<PersistenceResult> {
