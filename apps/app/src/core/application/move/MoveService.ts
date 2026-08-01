@@ -70,6 +70,29 @@ export class MoveService {
     };
   }
 
+  /**
+   * Computes where `current` should live if moved into an arbitrary
+   * destination folder, preserving its filename. Path/parentId only —
+   * does not move anything itself (see movePage).
+   */
+  resolveMoveDestination(
+    current: Page,
+    destinationFolderId: string
+  ): { path: string; parentId: string } {
+    const destinationFolder = this.vault.getFolder(destinationFolderId);
+
+    if (!destinationFolder) {
+      throw new Error(`Folder not found: ${destinationFolderId}`);
+    }
+
+    const filename = this.getFilename(current.path);
+
+    return {
+      path: `${destinationFolder.path}/${filename}`,
+      parentId: destinationFolder.id,
+    };
+  }
+
   private getFilename(path: string): string {
     return path.slice(path.lastIndexOf('/') + 1);
   }
