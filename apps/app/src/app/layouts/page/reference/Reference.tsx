@@ -1,39 +1,84 @@
 import './Reference.css';
-import { Caret } from '@components/caret/Caret';
-import { Button } from '@components/button/Button';
-
+import { Button, type ButtonProps } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 
-interface ReferencesProps {
-  isEmpty?: boolean;
-  isExpanded?: boolean;
-  onExpandToggle?: () => void;
+interface ReferenceSummary {
+  type: 'note' | 'dailyNote' | 'task';
+  count: number;
+}
+
+interface ReferencesProps extends Omit<
+  ButtonProps,
+  'leading' | 'children' | 'onClick'
+> {
+  references?: ReferenceSummary[];
+  isExpanded: boolean;
+  onExpandToggle: () => void;
+  children?: React.ReactNode;
 }
 
 export function References({
-  isEmpty,
+  references = [],
   isExpanded,
   onExpandToggle,
+  children,
   ...buttonProps
 }: ReferencesProps) {
+  const totalReferences = references.reduce(
+    (total, reference) => total + reference.count,
+    0
+  );
+
+  const isEmpty = totalReferences === 0;
+
+  const referenceTypes: ReferenceSummary['type'][] = [
+    'note',
+    'dailyNote',
+    'task',
+  ];
+
   return (
     <div className="references">
       <Button
         className="reference-button"
         interaction="subtle"
         {...buttonProps}
+        disabled={isEmpty}
         onClick={onExpandToggle}
         leading={
-          <Caret disabled={isEmpty} isExpanded={isExpanded} variant="tree" />
+          <AppIcon icon={isExpanded ? 'caretDown' : 'caretRight'} size={12} />
         }
       >
         References
       </Button>
       <div className="references__icons">
-        <AppIcon icon="note" />
-        <AppIcon icon="calendar" />
-        <AppIcon icon="squareCheckOutline" />
+        {referenceTypes.map((type) => {
+          const count =
+            references.find((reference) => reference.type === type)?.count ?? 0;
+
+          const icon =
+            type === 'note'
+              ? 'note'
+              : type === 'dailyNote'
+                ? 'calendar'
+                : 'squareCheckOutline';
+
+          return (
+            <div
+              key={type}
+              className={
+                count === 0
+                  ? 'references__summary references__summary--disabled'
+                  : 'references__summary'
+              }
+            >
+              <AppIcon icon={icon} />
+              <span>{count}</span>
+            </div>
+          );
+        })}
       </div>
+      {isExpanded && !isEmpty && children}
     </div>
   );
 }

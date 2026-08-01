@@ -2,7 +2,7 @@ import { forwardRef } from 'react';
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
 import './Button.css';
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children?: ReactNode;
 
   variant?: 'filled' | 'outlined' | 'ghost' | 'outline-fill';
@@ -10,7 +10,6 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   interaction?: 'default' | 'subtle';
 
   isActive?: boolean;
-  isDisabled?: boolean;
   isIconOnly?: boolean;
 
   leading?: ReactNode;
@@ -27,7 +26,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       size = 'large',
       interaction = 'default',
       isActive = false,
-      isDisabled = false,
+      disabled = false,
       isIconOnly = false,
       leading,
       trailing,
@@ -45,7 +44,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       className,
 
       isActive && 'button--active',
-      isDisabled && 'button--disabled',
+      disabled && 'button--disabled',
       isIconOnly && 'button--icon',
     ]
       .filter(Boolean)
@@ -56,7 +55,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         type="button"
         className={Class}
-        disabled={isDisabled}
+        disabled={disabled}
         {...props}
       >
         <span className="button__content">
