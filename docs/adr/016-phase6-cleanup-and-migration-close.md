@@ -53,7 +53,7 @@ That means `architecture-target.md`'s originally-numbered six-phase migration pl
 What's left is the backlog every prior phase's ADR has been accumulating — none of it was ever in the six-phase plan's scope, and none of it gets pulled in now:
 - The `core/engine` → `application/editing/` rename, and `VaultSyncService`'s `DocumentRegistry` dependency it's tied to (ADR-012).
 - `PageOperations.rename()` — no Gate operation shape exists yet (ADR-011/012).
-- `createTask`/`createTag` — blocked on `TaskOperations`/`TagOperations` existing (ADR-013's referenced ADR-012 disposition).
+- `createTask`/`createTag` themselves — the capability is still blocked on `TaskOperations`/`TagOperations` existing (ADR-013's referenced ADR-012 disposition); their live-UI reachability problem is fixed (Post-Migration Cleanup, Finding A).
 - Move's destination-picker UI (ADR-013).
 - The `Workspace` "active view" state extension the 6 deleted view-intent stubs would need to come back (ADR-014).
 - `.folder.md`'s write side and root-metadata support (ADR-015).
@@ -61,6 +61,35 @@ What's left is the backlog every prior phase's ADR has been accumulating — non
 - Real navigation-history and sidebar-collapse state for `Controls`'s 3 placeholder controls (this ADR).
 - 9 more enabled, no-op `<Button>`s app-wide, outside this migration's scope but sharing the exact defect `Controls`'s sidebar-toggle had (this ADR): `ResourceTopBarActions.tsx` (favorite, width-fill), `ReservedFolderTopBarActions.tsx` (width-fill), `Task.tsx`/`DailyNote.tsx`/`Tag.tsx` (each a "more options" button), `Folder.tsx` (add, more options), `DailyNotesShortcuts.tsx` ("Start your day...").
 - The backlink/reference indexing subsystem `References` needs (this ADR).
+- `DailyNotesList.tsx`'s direct `DailyNotePath` import — a minor rule-6 boundary crossing, stateless/side-effect-free, not folded into the Post-Migration Cleanup's Finding B fix (Post-Migration Cleanup, Finding C).
+
+## Post-Migration Cleanup (Architecture v1.0 Audit)
+
+A dedicated final audit (not a phase — see `implementation-rules.md`'s process) verified this repository directly against every governance document and found 4 findings, resolved as follows.
+
+### Finding A — `createTask`/`createTag` disabled, not implemented or deleted
+
+Both were live, reachable sidebar shortcuts that unconditionally threw — a real, shipped bug, not backlog. Fixed with the smallest correct change: `tasksShortcuts.config.ts`/`tagsShortcuts.config.ts` mark both entries `disabled: true`, threaded through `TasksShortcuts.tsx`/`TagsShortcuts.tsx` into `Navigation`/`Entry`'s real `disabled` prop, which short-circuits `onClick` before it ever reaches the handler. `NavigationRouter.createTask()`/`.createTag()` themselves are unchanged — still throw if ever reached some other way, matching this codebase's existing throw-on-invariant-violation style. Per explicit direction, no `TaskOperations`/`TagOperations` facade was built as part of this fix. 2 new tests confirm both entries render `aria-disabled` and never invoke their handler.
+
+**Disposition:** the *reachability* problem is closed, permanently. The *capability* (`TaskOperations`/`TagOperations` not existing, so task/tag creation genuinely can't happen yet) remains open backlog, unchanged from ADR-012/013/014's disposition.
+
+### Finding B — the 3 `new VaultQuery(vault)` sites fixed
+
+`toCollectionPageModel.ts`, `DailyNotesList.tsx`, and `Sidebar.Notes.tsx` each constructed their own `VaultQuery` instead of receiving one — the exact three-component violation `ARCHITECTURE_RULES.md` rule 6 cites as its own founding historical example. `Application` now constructs one `VaultQuery` in its constructor (`application.query`), threaded down through `Sidebar.tsx` → `Sidebar.Notes.tsx`/`Sidebar.DailyNotes.tsx` → `DailyNotesList.tsx`, and through `PageHost.tsx` → `toCollectionPageModel.ts`. `DailyNotesList.tsx` keeps its `vault` prop too — still needed directly for `vault.getReservedFolder()`, which `VaultQuery` doesn't expose. Confirmed via grep: the only remaining `new VaultQuery(...)` anywhere in production code is inside `Application`'s own constructor.
+
+**Disposition:** permanent, fully closed.
+
+### Finding C — `DailyNotePath`'s direct import: not naturally resolved, left as noted follow-up
+
+Fixing Finding B did not touch this — `DailyNotePath.monthIsoFromFolderNames(...)` in `DailyNotesList.tsx` is a separate, unrelated static-utility call, not a `VaultQuery` construction. Per explicit direction, left as-is rather than folded into Finding B's fix.
+
+**Disposition:** open, minor. Lower severity than Finding B was — `DailyNotePath` is stateless, side-effect-free path formatting, not a stateful service — but technically still matches rule 6's literal regression signature (direct import of a concrete application-layer class into a feature file).
+
+### Finding D — spec corrected to match implementation, not the reverse
+
+Spec §11 named `Application`'s facade fields `pages`/`folders`; the shipped code has always used `pageOperations`/`folderOperations`. Per explicit direction, the frozen spec was corrected rather than renaming working code with no functional reason to change. The Startup sequence's matching `pages.open(...)` shorthand was corrected to `pageOperations.open(...)` in the same commit.
+
+**Disposition:** permanent, fully closed.
 
 ## Why These Are Preferred
 
