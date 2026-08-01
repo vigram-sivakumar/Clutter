@@ -2,15 +2,16 @@ import type { DocumentSession } from '@core/engine/DocumentSession';
 import type { Page } from '@core/vault/models/Page';
 
 /**
- * This function is the presentation boundary between the application/domain layers and the Daily Note page UI.
- * It transforms domain objects into a UI-focused model.
- * It intentionally does not mutate the document.
+ * This function is the presentation boundary between the application/domain
+ * layers and any editable-markdown page UI (notes, daily notes). It
+ * transforms domain objects into a UI-focused model and intentionally does
+ * not mutate the document itself.
  */
-export function toDailyNotePageModel(
+export function toResourcePageModel(
   page: Page,
   session: DocumentSession,
   onUpdateMarkdown: (pageId: string, markdown: string) => void
-): DailyNotePageModel {
+): ResourcePageModel {
   const revision = session.currentRevision;
 
   return {
@@ -21,8 +22,13 @@ export function toDailyNotePageModel(
     markdown: revision.markdown,
     coverImage: page.metadata.cover,
 
+    // TODO: Follow the same editing pipeline as updateMarkdown() once
+    // description edits are routed through the Application layer.
+    // Description edits should never update the Vault or DocumentSession
+    // directly from the ViewModel.
     updateDescription(description: string): void {
       void description;
+
       throw new Error('Not implemented');
     },
 
@@ -32,7 +38,7 @@ export function toDailyNotePageModel(
   };
 }
 
-export interface DailyNotePageModel {
+export interface ResourcePageModel {
   title: string;
   description: string;
   markdown: string;

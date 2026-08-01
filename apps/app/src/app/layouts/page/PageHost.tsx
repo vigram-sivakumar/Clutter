@@ -6,8 +6,7 @@ import { useWorkspace } from '@app/hooks/useWorkspace';
 import { buildBreadcrumbs } from '@core/presentation/buildBreadcrumbs';
 import { buildTopBarActions } from '@app/layouts/page/topbar/buildTopBarActions';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
-import { toDailyNotePageModel } from '@features/daily-notes/page/DailyNotePageModel';
-import { toNotePageModel } from '@features/notes/page/NotePageModel';
+import { toResourcePageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
 import { Page } from '@app/layouts/page/Page';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
@@ -119,7 +118,7 @@ export function PageHost({ application }: PageHostProps) {
   // The current switch is intentionally retained until there are enough concrete implementations to justify the abstraction.
   switch (page.type) {
     case 'note': {
-      const model = toNotePageModel(page, session, onUpdateMarkdown);
+      const model = toResourcePageModel(page, session, onUpdateMarkdown);
       const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
 
       return (
@@ -143,7 +142,7 @@ export function PageHost({ application }: PageHostProps) {
     }
 
     case 'daily-note': {
-      const model = toDailyNotePageModel(page, session, onUpdateMarkdown);
+      const model = toResourcePageModel(page, session, onUpdateMarkdown);
       const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
 
       return (
