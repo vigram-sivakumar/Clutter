@@ -1,20 +1,14 @@
 import { DailyNotePath } from './DailyNotePath';
 import type { VaultFileSystem } from '../../vault/providers';
+import type { Vault } from '../../vault/models/Vault';
 import { PageCreator } from '../page/PageCreator';
+import type { PagePersistenceCoordinator } from '../persistence/PagePersistenceCoordinator';
 
 /**
  * Owns the Daily Notes filesystem convention.
  *
  * This service is responsible only for the filesystem conventions around Daily Notes,
  * such as computing paths and ensuring the existence of the appropriate files and directories.
- *
- * Note that creating a brand-new Markdown file for a daily note is conceptually different from
- * persisting edits to an existing document. Writing the initial file during creation is acceptable
- * here because no DocumentSession exists yet.
- *
- * Once a document has been opened, all subsequent edits must flow through the editing and persistence
- * pipeline: DocumentSession → SaveCoordinator → VaultFileSystem. Direct file writes bypassing this
- * pipeline are not allowed after the initial creation.
  *
  * Responsibilities:
  * - Compute today's daily note location.
@@ -29,37 +23,64 @@ import { PageCreator } from '../page/PageCreator';
  * - Modify the workspace.
  */
 export class DailyNoteService {
-  constructor(
-    private readonly fileSystem: VaultFileSystem,
-    private readonly pageCreator: PageCreator
-  ) {}
+  constructor(private readonly fileSystem: VaultFileSystem) {}
 
-  async ensureToday(rootPath: string): Promise<string> {
-    return this.ensure(new Date(), rootPath);
+  async ensureDirectoryForToday(rootPath: string): Promise<string> {
+    return this.ensureDirectory(new Date(), rootPath);
   }
 
-  async ensure(date: Date, rootPath: string): Promise<string> {
+  /**
+   * Creates the year/month directory hierarchy for `date`'s daily note, if
+   * missing, and returns the note's absolute path. Directory creation only —
+   * this must run before the Vault's initial scan, so the (possibly new)
+   * month folder is discovered as a real Folder rather than left for a
+   * caller to synthesize a parentId for one that doesn't exist yet. This is
+   * structural scaffolding, the same class of pre-Vault operation
+   * VaultInitializer already performs for reserved folders — not page/folder
+   * content, so it doesn't touch the Persistence Gate's write path.
+   */
+  async ensureDirectory(date: Date, rootPath: string): Promise<string> {
     const relativePath = DailyNotePath.from(date);
     const absolutePath = `${rootPath}/${relativePath}`;
+    const directory = absolutePath.substring(0, absolutePath.lastIndexOf('/'));
 
-    if (!(await this.fileSystem.exists(absolutePath))) {
-      const directory = absolutePath.substring(
-        0,
-        absolutePath.lastIndexOf('/')
-      );
-
-      await this.fileSystem.createDirectory(directory);
-
-      const page = this.pageCreator.create('daily-note');
-
-      // This writes the initial contents of a brand-new daily note.
-      // It intentionally bypasses SaveCoordinator because no editable document
-      // session exists yet. Future edits to this file must never write directly
-      // through VaultFileSystem and should instead flow through the standard
-      // editing and persistence pipeline.
-      await this.fileSystem.writeFile(absolutePath, page.content);
-    }
+    await this.fileSystem.createDirectory(directory);
 
     return absolutePath;
+  }
+
+  /**
+   * Ensures a page exists at `absolutePath`, creating it through the given
+   * Gate if missing. Callers must have already ensured the containing
+   * directory exists (see ensureDirectory/ensureDirectoryForToday) and that
+   * `vault` was built from a scan that observed it, so the folder this
+   * resolves for `parentId` is real.
+   */
+  async ensurePage(
+    absolutePath: string,
+    vault: Vault,
+    coordinator: PagePersistenceCoordinator,
+    pageCreator: PageCreator
+  ): Promise<void> {
+    if (vault.getPageByPath(absolutePath)) {
+      return;
+    }
+
+    const directory = absolutePath.substring(0, absolutePath.lastIndexOf('/'));
+    const parentFolder = vault.getFolderByPath(directory);
+    const created = pageCreator.create('daily-note');
+
+    const result = await coordinator.enqueue(created.id, {
+      kind: 'create',
+      path: absolutePath,
+      parentId: parentFolder ? parentFolder.id : null,
+      content: created.content,
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(
+        `Failed to create today's daily note at ${absolutePath}: ${result.reason}`
+      );
+    }
   }
 }

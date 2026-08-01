@@ -32,6 +32,14 @@ import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher'
  *
  * Owns the long-lived application services and shared runtime state.
  *
+ * Two-phase construction: bootstrap(rootPath) constructs Platform + Vault
+ * Ingest, ensures today's Daily Notes directory exists, scans and builds
+ * the Vault, then calls attachVault() internally (not from AppShell, as the
+ * frozen spec's literal Startup sequence describes — see ADR-014 for why)
+ * so today's daily note can be created through the real Persistence Gate
+ * before bootstrap() returns, with no bypass and an accurate parentId.
+ * open() starts the watcher and opens today's note.
+ *
  * Responsibilities:
  * - Own the active Vault.
  * - Own the active Workspace.
@@ -45,17 +53,23 @@ import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher'
  * - Implement document editing.
  */
 export class Application {
+  public readonly vault: Vault;
   public readonly workspace: Workspace;
   public readonly documentRegistry: DocumentRegistry;
   public readonly saveCoordinator: SaveCoordinator;
-  public readonly pageOperations: PageOperations;
-  public readonly folderOperations: FolderOperations;
-  public readonly navigation: NavigationService;
-  public readonly vaultSyncService: VaultSyncService;
-  private readonly fileSystemWatcher: LocalFileSystemWatcher;
+  public pageOperations!: PageOperations;
+  public folderOperations!: FolderOperations;
+  public navigation!: NavigationService;
+  public vaultSyncService!: VaultSyncService;
+  private readonly fileSystem: VaultFileSystem;
+  private readonly selfWriteRegistry: SelfWriteRegistry;
+  private persistenceCoordinator!: PagePersistenceCoordinator;
+  private fileSystemWatcher!: LocalFileSystemWatcher;
+  private rootPath!: string;
+  private todayNotePath!: string;
   private closed = false;
 
-  static async open(rootPath: string): Promise<Application> {
+  static async bootstrap(rootPath: string): Promise<Application> {
     // Shared between the write side (SelfWriteAwareFileSystem) and the read
     // side (SelfWriteAwareWatcher) so the filesystem watcher can recognize
     // and drop its own echo of a write this app just made, instead of
@@ -71,17 +85,15 @@ export class Application {
     const initializer = new VaultInitializer(fileSystem);
     await initializer.initialize(rootPath);
 
-    // Ensure today's landing page exists before scanning the vault.
-    //
-    // DailyNoteService orchestrates the daily-note workflow while PageCreator
-    // owns canonical page construction (ID, timestamps, and Markdown content).
-    // This same PageCreator instance is threaded into the instance
-    // constructor below and reused by PageOperations.create() — one
-    // instance for both the pre-Vault bootstrap and the running app, not
-    // two independently-constructed ones.
-    const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
-    const dailyNotes = new DailyNoteService(fileSystem, pageCreator);
-    const todayNotePath = await dailyNotes.ensureToday(rootPath);
+    // Ensure today's Daily Notes year/month directory exists before
+    // scanning, so the scan discovers it as a real Folder rather than
+    // requiring a synthesized parentId for one that doesn't exist yet.
+    // Directory scaffolding only, the same class of pre-Vault operation
+    // VaultInitializer already performs above for reserved folders — the
+    // note's own content is created below, through the real Gate, once one
+    // exists.
+    const dailyNotes = new DailyNoteService(fileSystem);
+    const todayNotePath = await dailyNotes.ensureDirectoryForToday(rootPath);
 
     const scanner = new VaultScanner(fileSystem);
     const scanResult = await scanner.scan(rootPath);
@@ -97,37 +109,51 @@ export class Application {
       rebuilder: new PageRebuilder(),
     });
 
-    const application = new Application(
+    const application = new Application(vault, fileSystem, selfWriteRegistry);
+
+    application.rootPath = rootPath;
+    application.todayNotePath = todayNotePath;
+
+    const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
+
+    application.attachVault(vault, pageCreator);
+
+    // Now that the real Gate exists, ensure today's note exists through it —
+    // no bypass, and an accurate parentId, since the directory ensured
+    // above was part of this same scan.
+    await dailyNotes.ensurePage(
+      todayNotePath,
       vault,
-      fileSystem,
-      selfWriteRegistry,
+      application.persistenceCoordinator,
       pageCreator
     );
-
-    await application.startFileSystemWatcher(rootPath);
-
-    const todayPage = vault.getPageByPath(todayNotePath);
-
-    if (!todayPage) {
-      throw new Error(`Failed to resolve today's daily note: ${todayNotePath}`);
-    }
-
-    application.navigation.openDailyNote(todayPage.id);
 
     return application;
   }
 
   constructor(
-    public readonly vault: Vault,
-    private readonly fileSystem: VaultFileSystem,
-    private readonly selfWriteRegistry: SelfWriteRegistry,
-    pageCreator: PageCreator
+    vault: Vault,
+    fileSystem: VaultFileSystem,
+    selfWriteRegistry: SelfWriteRegistry
   ) {
+    this.vault = vault;
+    this.fileSystem = fileSystem;
+    this.selfWriteRegistry = selfWriteRegistry;
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();
+  }
 
-    const moveService = new MoveService(this.vault, this.fileSystem);
+  /**
+   * Constructs every subsystem that needs a live Vault. Called once,
+   * internally, at the end of bootstrap() — not by AppShell — since
+   * bootstrap() needs the fully-attached Gate before it can ensure today's
+   * daily note through it. Kept as its own method, matching the frozen
+   * spec's public shape, so the two construction phases stay a named,
+   * testable seam rather than one undifferentiated block.
+   */
+  public attachVault(vault: Vault, pageCreator: PageCreator): void {
+    const moveService = new MoveService(vault, this.fileSystem);
 
     // Single instance shared by PageOperations for both edit-save and
     // structural mutations, so every write to a given page is serialized
@@ -135,12 +161,14 @@ export class Application {
     const frontmatterSerializer = new FrontmatterSerializer();
     const persistenceCoordinator = new PagePersistenceCoordinator(
       this.fileSystem,
-      this.vault,
+      vault,
       frontmatterSerializer,
       new FrontmatterParser(),
       new PageRebuilder(),
       moveService
     );
+
+    this.persistenceCoordinator = persistenceCoordinator;
 
     this.pageOperations = new PageOperations(
       vault,
@@ -177,8 +205,23 @@ export class Application {
     );
   }
 
-  private async startFileSystemWatcher(rootPath: string): Promise<void> {
-    await this.fileSystemWatcher.start(rootPath);
+  /**
+   * Starts the filesystem watcher and opens today's daily note. Everything
+   * this needs (the Gate, today's note guaranteed to exist) was already
+   * constructed/ensured by bootstrap().
+   */
+  public async open(): Promise<void> {
+    await this.fileSystemWatcher.start(this.rootPath);
+
+    const todayPage = this.vault.getPageByPath(this.todayNotePath);
+
+    if (!todayPage) {
+      throw new Error(
+        `Failed to resolve today's daily note: ${this.todayNotePath}`
+      );
+    }
+
+    this.navigation.openDailyNote(todayPage.id);
   }
 
   /**

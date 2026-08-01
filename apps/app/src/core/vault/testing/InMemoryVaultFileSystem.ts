@@ -20,8 +20,22 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     return this.files.has(path) || this.directories.has(path);
   }
 
+  /**
+   * Mirrors LocalFileSystem's recursive mkdir: creating a nested path also
+   * creates every intermediate ancestor, so a scan starting from a shared
+   * root can walk down into it via readDirectory the same way it would on
+   * a real filesystem.
+   */
   async createDirectory(path: string): Promise<void> {
-    this.directories.add(path);
+    const segments = path.split('/');
+
+    for (let i = 1; i <= segments.length; i++) {
+      const ancestor = segments.slice(0, i).join('/');
+
+      if (ancestor) {
+        this.directories.add(ancestor);
+      }
+    }
   }
 
   async readDirectory(path: string): Promise<VaultEntry[]> {

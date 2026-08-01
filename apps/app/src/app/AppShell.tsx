@@ -19,7 +19,8 @@ export function AppShell() {
     async function loadVault() {
       try {
         console.log('Opening vault:', vaultPath);
-        const application = await Application.open(vaultPath);
+        const application = await Application.bootstrap(vaultPath);
+        await application.open();
         console.log('Vault opened:', application.vault);
 
         if (cancelled) {
