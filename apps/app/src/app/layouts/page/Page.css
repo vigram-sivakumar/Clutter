@@ -44,8 +44,7 @@
 }
 
 .page__header,
-.page__body,
-.page__footer {
+.page__body {
   display: flex;
   align-items: center;
   justify-content: center;
