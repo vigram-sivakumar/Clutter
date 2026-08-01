@@ -10,9 +10,6 @@ export function buildTagsShortcutHandler(
       case 'create-tag':
         navigation.createTag();
         break;
-      case 'all-tag':
-        navigation.openAllTags();
-        break;
       default: {
         const _exhaustive: never = id;
         throw new Error(`Unknown tags shortcut: ${_exhaustive}`);

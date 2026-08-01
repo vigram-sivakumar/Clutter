@@ -84,15 +84,4 @@ describe('NavigationRouter', () => {
     expect(getReservedFolder).toHaveBeenCalledWith('templates');
     expect(openFolder).toHaveBeenCalledWith('folder-templates');
   });
-
-  it('openFavorites throws until implemented', () => {
-    const navigation = createNavigationRouter({
-      folderOperations: { open: vi.fn() },
-      vault: { getReservedFolder: vi.fn() },
-    });
-
-    expect(() => navigation.openFavorites()).toThrow(
-      /NavigationRouter\.openFavorites\(\) is not implemented/
-    );
-  });
 });

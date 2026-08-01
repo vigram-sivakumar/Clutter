@@ -33,40 +33,22 @@ export class NavigationRouter {
     this.openReservedFolder('inbox');
   }
 
-  public openFavorites(): void {
-    throw new Error('NavigationRouter.openFavorites() is not implemented.');
-  }
-
-  public openAllNotes(): void {
-    throw new Error('NavigationRouter.openAllNotes() is not implemented.');
-  }
-
   public openTemplates(): void {
     this.openReservedFolder('templates');
   }
 
+  // createTask/createTag are NOT deleted alongside the 6 view-intent stubs
+  // removed in Phase 4 commit 3 (see ADR-014): unlike a filtered view,
+  // removing "create a task/tag" from the UI entirely is a product
+  // regression, not just a cleanup. ADR-012 already disposed of these —
+  // permanent removal, blocked on TaskOperations/TagOperations existing,
+  // no phase assigned — and that disposition is unchanged here.
   public createTask(): void {
     throw new Error('NavigationRouter.createTask() is not implemented.');
   }
 
-  public openAllTasks(): void {
-    throw new Error('NavigationRouter.openAllTasks() is not implemented.');
-  }
-
-  public openSomedayTasks(): void {
-    throw new Error('NavigationRouter.openSomedayTasks() is not implemented.');
-  }
-
-  public openCompletedTasks(): void {
-    throw new Error('NavigationRouter.openCompletedTasks() is not implemented.');
-  }
-
   public createTag(): void {
     throw new Error('NavigationRouter.createTag() is not implemented.');
-  }
-
-  public openAllTags(): void {
-    throw new Error('NavigationRouter.openAllTags() is not implemented.');
   }
 
   private openReservedFolder(id: ReservedFolderId): void {

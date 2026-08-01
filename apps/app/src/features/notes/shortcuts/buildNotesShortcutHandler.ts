@@ -14,9 +14,6 @@ export function buildNotesShortcutHandler(
           .create({ folderId: null })
           .then((newPageId) => pageOperations.open(newPageId));
         break;
-      case 'all-notes':
-        navigation.openAllNotes();
-        break;
       case 'inbox':
         navigation.openInbox();
         break;

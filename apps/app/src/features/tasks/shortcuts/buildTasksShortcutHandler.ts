@@ -10,15 +10,6 @@ export function buildTasksShortcutHandler(
       case 'create-task':
         navigation.createTask();
         break;
-      case 'all-task':
-        navigation.openAllTasks();
-        break;
-      case 'someday':
-        navigation.openSomedayTasks();
-        break;
-      case 'completed':
-        navigation.openCompletedTasks();
-        break;
       default: {
         const _exhaustive: never = id;
         throw new Error(`Unknown tasks shortcut: ${_exhaustive}`);
