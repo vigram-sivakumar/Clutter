@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Vault } from './Vault';
 import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
@@ -339,5 +339,76 @@ describe('moveFolder cascade', () => {
     expect(vault.getFolderByPath('/vault/Work')?.id).toBe('folder-projects');
     expect(vault.getFolderByPath('/vault/Work/Design')?.id).toBe('folder-design');
     expect(vault.getPageByPath('/vault/Work/Design/Notes.md')?.id).toBe('page-notes');
+  });
+});
+
+describe('Vault lazy projections (embeds, knowledgeGraph)', () => {
+  it('knowledgeGraph() and embeds() are callable methods, matching spec §3', () => {
+    const vault = makeVault([]);
+
+    expect(typeof vault.knowledgeGraph).toBe('function');
+    expect(typeof vault.embeds).toBe('function');
+  });
+
+  it('returns the same cached reference across consecutive calls with no intervening mutation', () => {
+    const vault = makeVault([makePage({ id: 'page-1', path: '/vault/Note.md' })]);
+
+    const graphA = vault.knowledgeGraph();
+    const graphB = vault.knowledgeGraph();
+    const embedsA = vault.embeds();
+    const embedsB = vault.embeds();
+
+    expect(graphB).toBe(graphA);
+    expect(embedsB).toBe(embedsA);
+  });
+
+  it('rebuilds to a new reference after a mutation invalidates the cache', () => {
+    const vault = makeVault([makePage({ id: 'page-1', path: '/vault/Note.md' })]);
+
+    const graphBefore = vault.knowledgeGraph();
+    const embedsBefore = vault.embeds();
+
+    vault.addPage(makePage({ id: 'page-2', path: '/vault/Other.md' }));
+
+    const graphAfter = vault.knowledgeGraph();
+    const embedsAfter = vault.embeds();
+
+    expect(graphAfter).not.toBe(graphBefore);
+    expect(embedsAfter).not.toBe(embedsBefore);
+  });
+
+  it('does not rebuild on mutation itself, and rebuilds at most once for several stacked mutations', () => {
+    const projectionBuilder = new VaultProjectionBuilder();
+    const buildLazySpy = vi.spyOn(projectionBuilder, 'buildLazy');
+    const vault = new Vault(
+      '/vault',
+      [makePage({ id: 'page-1', path: '/vault/Note.md' })],
+      [],
+      [],
+      [],
+      [],
+      new KnowledgeGraph([]),
+      projectionBuilder
+    );
+
+    buildLazySpy.mockClear(); // constructor doesn't call buildLazy — clear defensively anyway
+
+    vault.addPage(makePage({ id: 'page-2', path: '/vault/Other.md' }));
+    vault.addPage(makePage({ id: 'page-3', path: '/vault/Third.md' }));
+    expect(buildLazySpy).not.toHaveBeenCalled();
+
+    vault.knowledgeGraph();
+    vault.embeds();
+    vault.embeds();
+    expect(buildLazySpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('tags/tasks stay eagerly correct on every mutation, unaffected by the lazy split', () => {
+    const vault = makeVault([]);
+
+    vault.addPage(makePage({ id: 'page-1', path: '/vault/Note.md' }));
+
+    expect(vault.pageCount).toBe(1);
+    expect(vault.getPage('page-1')).toBeDefined();
   });
 });

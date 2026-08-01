@@ -8,9 +8,12 @@ import { TaskBuilder } from './TaskBuilder';
 import { EmbedBuilder } from './EmbedBuilder';
 import { KnowledgeGraphBuilder } from './KnowledgeGraphBuilder';
 
-export interface VaultProjections {
+export interface EagerVaultProjections {
   readonly tags: readonly Tag[];
   readonly tasks: readonly TaskOccurrence[];
+}
+
+export interface LazyVaultProjections {
   readonly embeds: readonly Embed[];
   readonly knowledgeGraph: KnowledgeGraph;
 }
@@ -24,6 +27,13 @@ export interface VaultProjections {
  * truth. This builder is the single place that knows how to derive them,
  * so callers (including Vault) never need to know how tags, tasks, embeds,
  * or graph edges are extracted.
+ *
+ * Split into buildEager/buildLazy rather than one combined build(): tags
+ * and tasks have real, already-shipped consumers and must stay correct on
+ * every mutation, while embeds and the knowledge graph have none yet and
+ * are rebuilt only when Vault.embeds()/.knowledgeGraph() are actually
+ * called (see ADR-016). A single combined method would defeat that split
+ * by computing all four every time either half was needed.
  */
 export class VaultProjectionBuilder {
   private readonly tagBuilder = new TagBuilder();
@@ -31,12 +41,19 @@ export class VaultProjectionBuilder {
   private readonly embedBuilder = new EmbedBuilder();
   private readonly knowledgeGraphBuilder = new KnowledgeGraphBuilder();
 
-  build(pages: Iterable<Page>): VaultProjections {
+  buildEager(pages: Iterable<Page>): EagerVaultProjections {
     const pageList = Array.from(pages);
 
     return {
       tags: this.tagBuilder.build(pageList),
       tasks: this.taskBuilder.build(pageList),
+    };
+  }
+
+  buildLazy(pages: Iterable<Page>): LazyVaultProjections {
+    const pageList = Array.from(pages);
+
+    return {
       embeds: this.embedBuilder.build(pageList),
       knowledgeGraph: this.knowledgeGraphBuilder.build(
         pageList,

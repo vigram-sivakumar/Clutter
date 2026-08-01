@@ -63,8 +63,13 @@ export class Vault {
   // projectionBuilder, never mutated incrementally in place.
   private readonly tagsByName = new Map<string, Tag>();
   private readonly taskList = new Array<TaskOccurrence>();
-  private readonly embedList = new Array<Embed>();
-  private _knowledgeGraph: KnowledgeGraph;
+  // Lazy: null means invalidated since the last mutation. Rebuilt on next
+  // access to embeds()/knowledgeGraph(), not on every mutation — neither
+  // has a shipped consumer yet (see ADR-004/ADR-016). Two consecutive
+  // accesses with no intervening mutation return the same cached
+  // reference, satisfying spec §3a's referential-stability requirement.
+  private _embeds: readonly Embed[] | null;
+  private _knowledgeGraph: KnowledgeGraph | null;
 
   private readonly listeners = new Set<VaultChangeListener>();
 
@@ -78,6 +83,7 @@ export class Vault {
     knowledgeGraph: KnowledgeGraph,
     private readonly projectionBuilder: VaultProjectionBuilder
   ) {
+    this._embeds = Array.from(embeds);
     this._knowledgeGraph = knowledgeGraph;
 
     for (const folder of folders) {
@@ -99,10 +105,6 @@ export class Vault {
 
     for (const task of tasks) {
       this.taskList.push(task);
-    }
-
-    for (const embed of embeds) {
-      this.embedList.push(embed);
     }
 
     for (const page of pages) {
@@ -158,8 +160,13 @@ export class Vault {
     yield* this.taskList;
   }
 
-  *embeds(): IterableIterator<Embed> {
-    yield* this.embedList;
+  /**
+   * Lazy: rebuilds only if invalidated by a mutation since the last call to
+   * embeds() or knowledgeGraph() (see ensureLazyProjectionsFresh()).
+   */
+  embeds(): Iterable<Embed> {
+    this.ensureLazyProjectionsFresh();
+    return this._embeds!;
   }
 
   get tagCount(): number {
@@ -171,42 +178,69 @@ export class Vault {
   }
 
   get embedCount(): number {
-    return this.embedList.length;
+    this.ensureLazyProjectionsFresh();
+    return this._embeds!.length;
   }
 
   get folderCount(): number {
     return this.foldersById.size;
   }
 
-  get knowledgeGraph(): KnowledgeGraph {
-    return this._knowledgeGraph;
+  /**
+   * Lazy: rebuilds only if invalidated by a mutation since the last call to
+   * embeds() or knowledgeGraph() (see ensureLazyProjectionsFresh()).
+   */
+  knowledgeGraph(): KnowledgeGraph {
+    this.ensureLazyProjectionsFresh();
+    return this._knowledgeGraph!;
   }
 
   /**
-   * Rebuilds tags, tasks, embeds, and the knowledge graph from the current
-   * set of Pages.
+   * Rebuilds tags and tasks from the current set of Pages, and invalidates
+   * (but does not rebuild) embeds and the knowledge graph.
+   *
+   * Tags/tasks have real, already-shipped consumers, so they stay eagerly
+   * correct on every mutation — the same trade this method always made.
+   * Embeds/knowledgeGraph have none yet (see ADR-004/ADR-016), so rebuilding
+   * them here would be pure waste: nothing reads the eagerly-rebuilt value
+   * before the next mutation invalidates it anyway. They rebuild lazily,
+   * only when embeds()/knowledgeGraph()/embedCount is actually called.
    *
    * Projections are disposable and always fully reconstructable from Pages,
-   * the authoritative source of truth, so every mutation rebuilds them from
-   * scratch rather than patching them incrementally in place. This trades
-   * O(n) work per mutation for a guarantee that projections can never drift
-   * from the Pages they were derived from.
+   * the authoritative source of truth, whichever way they rebuild — this
+   * only changes *when* embeds/knowledgeGraph recompute, never whether they
+   * can drift from the Pages they were derived from.
    */
   private refreshProjections(): void {
-    const projections = this.projectionBuilder.build(this.pagesById.values());
+    const eager = this.projectionBuilder.buildEager(this.pagesById.values());
 
     this.tagsByName.clear();
-    for (const tag of projections.tags) {
+    for (const tag of eager.tags) {
       this.tagsByName.set(tag.name, tag);
     }
 
     this.taskList.length = 0;
-    this.taskList.push(...projections.tasks);
+    this.taskList.push(...eager.tasks);
 
-    this.embedList.length = 0;
-    this.embedList.push(...projections.embeds);
+    this._embeds = null;
+    this._knowledgeGraph = null;
+  }
 
-    this._knowledgeGraph = projections.knowledgeGraph;
+  /**
+   * The single place embeds/knowledgeGraph actually rebuild. Called only
+   * from their own accessors — never from refreshProjections() — so a
+   * mutation invalidates them without paying their rebuild cost until
+   * something asks for the result.
+   */
+  private ensureLazyProjectionsFresh(): void {
+    if (this._embeds !== null && this._knowledgeGraph !== null) {
+      return;
+    }
+
+    const lazy = this.projectionBuilder.buildLazy(this.pagesById.values());
+
+    this._embeds = lazy.embeds;
+    this._knowledgeGraph = lazy.knowledgeGraph;
   }
 
   getPage(id: string): Page | undefined {
@@ -509,17 +543,9 @@ function isReservedTopLevelFolderPath(
   vaultRoot: string,
   folderPath: string
 ): boolean {
-  const rootPrefix = `${vaultRoot}/`;
-
-  if (!folderPath.startsWith(rootPrefix)) {
+  if (VaultPath.parentDirectory(folderPath) !== vaultRoot) {
     return false;
   }
 
-  const relativePath = folderPath.slice(rootPrefix.length);
-
-  if (relativePath.includes('/')) {
-    return false;
-  }
-
-  return RESERVED_FOLDER_NAMES.has(relativePath);
+  return RESERVED_FOLDER_NAMES.has(VaultPath.filename(folderPath));
 }
