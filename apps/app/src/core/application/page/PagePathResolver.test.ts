@@ -62,12 +62,12 @@ function makeVault(pages: Page[] = [], folders: Folder[] = []): Vault {
   );
 }
 
-describe('PagePathResolver.resolveCreatePath', () => {
+describe('PagePathResolver.createNotePath', () => {
   it('resolves a note at the vault root when folderId is null', () => {
     const vault = makeVault();
     const resolver = new PagePathResolver(vault);
 
-    const result = resolver.resolveCreatePath(null, 'Untitled');
+    const result = resolver.createNotePath(null, 'Untitled');
 
     expect(result).toEqual({ path: `${ROOT}/Untitled.md`, parentId: null });
   });
@@ -77,7 +77,7 @@ describe('PagePathResolver.resolveCreatePath', () => {
     const vault = makeVault([], [folder]);
     const resolver = new PagePathResolver(vault);
 
-    const result = resolver.resolveCreatePath('folder-1', 'Idea');
+    const result = resolver.createNotePath('folder-1', 'Idea');
 
     expect(result).toEqual({ path: `${ROOT}/Projects/Idea.md`, parentId: 'folder-1' });
   });
@@ -86,7 +86,7 @@ describe('PagePathResolver.resolveCreatePath', () => {
     const vault = makeVault();
     const resolver = new PagePathResolver(vault);
 
-    expect(() => resolver.resolveCreatePath('does-not-exist', 'Idea')).toThrow(
+    expect(() => resolver.createNotePath('does-not-exist', 'Idea')).toThrow(
       /Folder not found: does-not-exist/
     );
   });
@@ -95,11 +95,11 @@ describe('PagePathResolver.resolveCreatePath', () => {
     const vault = makeVault();
     const resolver = new PagePathResolver(vault);
 
-    expect(resolver.resolveCreatePath(null, '')).toEqual({
+    expect(resolver.createNotePath(null, '')).toEqual({
       path: `${ROOT}/Untitled.md`,
       parentId: null,
     });
-    expect(resolver.resolveCreatePath(null, '   ')).toEqual({
+    expect(resolver.createNotePath(null, '   ')).toEqual({
       path: `${ROOT}/Untitled.md`,
       parentId: null,
     });
@@ -110,7 +110,7 @@ describe('PagePathResolver.resolveCreatePath', () => {
     const vault = makeVault([existing]);
     const resolver = new PagePathResolver(vault);
 
-    const result = resolver.resolveCreatePath(null, 'Untitled');
+    const result = resolver.createNotePath(null, 'Untitled');
 
     expect(result).toEqual({ path: `${ROOT}/Untitled 2.md`, parentId: null });
   });
@@ -124,7 +124,7 @@ describe('PagePathResolver.resolveCreatePath', () => {
     const vault = makeVault(existing);
     const resolver = new PagePathResolver(vault);
 
-    const result = resolver.resolveCreatePath(null, 'Untitled');
+    const result = resolver.createNotePath(null, 'Untitled');
 
     expect(result).toEqual({ path: `${ROOT}/Untitled 4.md`, parentId: null });
   });

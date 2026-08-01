@@ -37,7 +37,7 @@ If a PR touches multiple subsystems, run every relevant section separately for e
 ## Application Layer Rules
 
 - [ ] Does this PR add a method to `PageOperations`/`FolderOperations`/`NavigationRouter` whose entire body is an unconditional forward to another method (a pure pass-through facade)?
-- [ ] Does this PR put a business rule (validation, lifecycle decision, side-effecting policy) inside the Persistence Gate, Vault Ingest, or the UI instead of inside a capability facade?
+- [ ] Does this PR put a *business policy* decision (draft promotion, permissions, feature gating, lifecycle decision, side-effecting policy — anything that varies by product rule rather than by the Vault's own state) inside the Persistence Gate, Vault Ingest, or the UI instead of inside a capability facade? (A *structural/concurrency* precondition — e.g. "already archived," "path occupied," "id already exists" — evaluated at dequeue time inside the Gate is not this violation; see `ARCHITECTURE_RULES.md` rule 5 and ADR-011's amendment.)
 - [ ] Does this PR add a capability-lifecycle method to `NavigationRouter` (create/save/archive/restore/delete/move/rename-shaped) instead of to `PageOperations`/`FolderOperations`?
 - [ ] Does this PR call `VaultFileSystem` or `Vault` mutation methods directly from `PageOperations`/`FolderOperations` instead of going through the Persistence Gate?
 - [ ] Does this PR leave a stub method (`throw new Error('not implemented')`) wired to a live UI entry point (keyboard shortcut, button, menu item) that a user can actually trigger?

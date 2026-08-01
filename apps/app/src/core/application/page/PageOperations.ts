@@ -123,7 +123,7 @@ export class PageOperations {
   }
 
   public async create(options: CreatePageOptions): Promise<string> {
-    const destination = this.pathResolver.resolveCreatePath(
+    const destination = this.pathResolver.createNotePath(
       options.folderId,
       options.title ?? 'Untitled'
     );

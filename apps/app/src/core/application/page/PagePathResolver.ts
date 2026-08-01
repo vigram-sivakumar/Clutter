@@ -15,7 +15,7 @@ export interface ResolvedCreatePath {
 export class PagePathResolver {
   constructor(private readonly vault: Vault) {}
 
-  resolveCreatePath(folderId: string | null, title: string): ResolvedCreatePath {
+  createNotePath(folderId: string | null, title: string): ResolvedCreatePath {
     const folderPath = this.resolveFolderPath(folderId);
     const baseName = title.trim() || 'Untitled';
 
