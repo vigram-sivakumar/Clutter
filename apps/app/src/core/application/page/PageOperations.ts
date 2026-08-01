@@ -8,8 +8,8 @@ import { PagePersistenceCoordinator } from '../persistence/PagePersistenceCoordi
 
 /**
  * Owns the entire lifecycle of a page as a single capability surface —
- * open, close, save, and (structural mutations added in later commits of
- * this phase) archive, restore, create, delete.
+ * open, close, save, archive, restore, and (added in a later commit of
+ * this phase) create, delete.
  *
  * Does not have move()/rename(): neither has a backing Persistence Gate
  * operation kind yet, and building one without a real caller would be
@@ -95,6 +95,22 @@ export class PageOperations {
     } catch (error) {
       this.saveCoordinator.failSave(session, revision);
       throw error;
+    }
+  }
+
+  public async archive(pageId: string): Promise<void> {
+    const result = await this.coordinator.enqueue(pageId, { kind: 'archive' });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+  }
+
+  public async restore(pageId: string): Promise<void> {
+    const result = await this.coordinator.enqueue(pageId, { kind: 'restore' });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
     }
   }
 }
