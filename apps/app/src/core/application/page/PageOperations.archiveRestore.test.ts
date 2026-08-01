@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PageOperations } from './PageOperations';
-import { PagePersistenceCoordinator } from '../persistence/PagePersistenceCoordinator';
+import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { Workspace } from '../../workspace/Workspace';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
@@ -10,7 +10,7 @@ import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
 import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
-import { MoveService } from '../move/MoveService';
+import { MoveService } from '../../vault/persistence/MoveService';
 import { PageBuilder } from '../../vault/ingest/PageBuilder';
 import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';

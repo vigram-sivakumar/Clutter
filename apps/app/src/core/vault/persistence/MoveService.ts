@@ -1,6 +1,6 @@
-import type { Page } from '../../vault/models/Page';
-import { Vault } from '../../vault/models/Vault';
-import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
+import type { Page } from '../models/Page';
+import { Vault } from '../models/Vault';
+import type { VaultFileSystem } from '../providers/VaultFileSystem';
 
 export class MoveService {
   constructor(

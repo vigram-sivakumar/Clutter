@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PagePersistenceCoordinator } from './PagePersistenceCoordinator';
-import { MoveService } from '../move/MoveService';
+import { MoveService } from './MoveService';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';

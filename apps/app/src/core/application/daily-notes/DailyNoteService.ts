@@ -2,7 +2,7 @@ import { DailyNotePath } from './DailyNotePath';
 import type { VaultFileSystem } from '../../vault/providers';
 import type { Vault } from '../../vault/models/Vault';
 import { PageCreator } from '../page/PageCreator';
-import type { PagePersistenceCoordinator } from '../persistence/PagePersistenceCoordinator';
+import type { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 
 /**
  * Owns the Daily Notes filesystem convention.

@@ -4,7 +4,7 @@ import { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { Vault } from '../../vault/models/Vault';
 import { Workspace } from '../../workspace/Workspace';
-import { PagePersistenceCoordinator } from '../persistence/PagePersistenceCoordinator';
+import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 
