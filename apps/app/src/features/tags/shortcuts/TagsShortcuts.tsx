@@ -16,6 +16,7 @@ export function TagsShortcuts({ onShortcut }: TagsShortcutsProps) {
           key={shortcut.id}
           title={shortcut.title}
           leading={<AppIcon icon={shortcut.icon} />}
+          disabled={shortcut.disabled}
           onClick={() => onShortcut(shortcut.id)}
         />
       ))}
