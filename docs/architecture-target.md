@@ -358,6 +358,8 @@ Highest priority because it's the one place the current architecture has an actu
 3. Leave `ResourceCreation.createDailyNote`'s bootstrap-time bypass as-is for now (it has a real reason: no Vault yet) but mark it as the one documented exception, to be closed in Phase 4 when the composition root gets its explicit two-phase split.
 4. No UI changes in this phase. This phase is pure risk reduction, invisible to the product.
 
+> **Executed differently than described above — see [ADR-011](./adr/011-phase1-persistence-gate-rescoping.md).** `ResourceCreation`, `ResourceDeletionService`, and `PagePathResolver` never existed on the branch this migration actually shipped from; steps 2–3 above describe a migration of code that wasn't there to migrate. Phase 1 was executed as: build `create`/`delete` fresh against the Gate's kind-based `PersistenceOperation` contract, with no new facade and no UI wiring (deferred to Phase 2, which is where a UI-reachable caller belongs). Read the ADR before treating steps 2–3 as an accurate description of what shipped.
+
 ### Phase 2 — Consolidate the application layer (weeks 4–8)
 
 5. Create `PageOperations` as a new file; move `PageApplicationService`, `PageMutationService`, `ResourceCreation`, `ResourceDeletionService`, and `MoveService`'s public methods into it one at a time, each migration covered by the existing tests for that method (they were already well-tested independently — this is mechanical consolidation, not new logic).

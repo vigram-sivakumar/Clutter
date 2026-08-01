@@ -14,3 +14,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [008](./008-composition-root-two-phase.md) | Two-phase Composition Root construction (`bootstrap` / `attachVault`) | Accepted |
 | [009](./009-delete-orphaned-packages.md) | Delete orphaned `packages/engine` and `packages/editor` rather than integrate | Accepted |
 | [010](./010-retain-document-editing-engine.md) | Retain `DocumentEditing` (formerly `core/engine`) unshrunk as an internal collaborator | Accepted |
+| [011](./011-phase1-persistence-gate-rescoping.md) | Phase 1 rescoped to build create/delete fresh, not migrate them | Accepted |
