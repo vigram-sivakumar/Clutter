@@ -578,11 +578,13 @@ Construct every subsystem in the correct order and wire dependencies. Own nothin
 
     readonly vault: Vault;
     readonly workspace: Workspace;
-    readonly pages: PageOperations;
-    readonly folders: FolderOperations;
+    readonly pageOperations: PageOperations;
+    readonly folderOperations: FolderOperations;
     readonly navigation: NavigationRouter;
   }
 ```
+
+Field names `pageOperations`/`folderOperations` (not `pages`/`folders`) — matches the implementation, which used these names throughout and predates this spec's `pages`/`folders` wording. Corrected here rather than renaming shipped, working code with no functional reason to change (see the Architecture v1.0 audit).
 
 ### Lifecycle
 `bootstrap(rootPath)` — constructs Platform + Vault Ingest; ensures the Daily Notes year/month directory exists (structural scaffolding, no Gate involved — see [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md)); runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists; then ensures today's daily note's content exists through the now-real Gate. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`. Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and navigates to today's note. `close()` stops the watcher and tears down subscriptions.
@@ -664,7 +666,7 @@ AppShell
         accurate parentId resolved from the folder the scan above just discovered]
   → Application.open()
       → watcher.start(rootPath)
-      → pages.open(vault.getPageByPath(todayNotePath).id)
+      → pageOperations.open(vault.getPageByPath(todayNotePath).id)
   → AppLayout renders, PageHost shows today's note
 ```
 
