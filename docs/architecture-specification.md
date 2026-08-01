@@ -575,7 +575,7 @@ Construct every subsystem in the correct order and wire dependencies. Own nothin
 ```
 
 ### Lifecycle
-`bootstrap(rootPath)` — constructs Platform + Vault Ingest + a minimal Persistence Gate sufficient for the pre-Vault daily-note-ensure step; performs that daily-note-ensure; runs the initial scan and build. `attachVault(vault)` — constructs everything else (`PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`), now that a real `Vault` exists. `open()` starts the watcher and navigates to today's note. `close()` stops the watcher and tears down subscriptions.
+`bootstrap(rootPath)` — constructs Platform + Vault Ingest; ensures the Daily Notes year/month directory exists (structural scaffolding, no Gate involved — see [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md)); runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists; then ensures today's daily note's content exists through the now-real Gate. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`. Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and navigates to today's note. `close()` stops the watcher and tears down subscriptions.
 
 ### Invariants
 - This is the only file in the codebase that imports `LocalFileSystem`/`LocalFileSystemWatcher` concretely — everything else imports the interface types.
@@ -633,19 +633,25 @@ Each sequence lists the exact call chain implementers should produce. `Gate` = P
 
 ### Startup
 
+> Amended by [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md): the version of this sequence below (a "minimal Gate" running before the Vault exists) was internally inconsistent with §5's own invariant that the Gate requires a `Vault` to construct. The sequence below is the corrected version — no minimal Gate, `attachVault()` called internally by `bootstrap()` rather than by `AppShell`.
+
 ```
 AppShell
   → Application.bootstrap(rootPath)
       → Platform: construct LocalFileSystem, wrap in SelfWriteAwareFileSystem
       → Platform: VaultInitializer.initialize(rootPath)   [ensure reserved folders]
-      → minimal Gate + Ingest: ensure today's daily note exists (create-if-absent,
-        via the same 'create' PersistenceOperation kind used post-boot — no separate
-        bypass path, per Invariant §5)
+      → DailyNoteService.ensureDirectoryForToday(rootPath)   [directory scaffolding
+        only — the same class of pre-Vault operation as VaultInitializer above, not
+        a page/folder content write, so this is not a Gate bypass]
       → Ingest: VaultScanner.scan(rootPath) → VaultBuilder.build(scanResult) → Vault
-  → Application.attachVault(vault)
-      → construct full Gate, PageOperations, FolderOperations, NavigationRouter,
-        Sync (Sync subscribes to the watcher here, not before — no events are
-        meaningful before the Vault exists)
+      → Application.attachVault(vault)   [called internally here, not by AppShell —
+        bootstrap() needs the real Gate before it can ensure today's note through it]
+          → construct full Gate, PageOperations, FolderOperations, NavigationRouter,
+            Sync (Sync subscribes to the watcher here, not before — no events are
+            meaningful before the Vault exists)
+      → DailyNoteService.ensurePage(...) via Gate.enqueue(id, {kind:'create',...})
+        [create-if-absent, through the real Gate now that it exists — no bypass,
+        accurate parentId resolved from the folder the scan above just discovered]
   → Application.open()
       → watcher.start(rootPath)
       → pages.open(vault.getPageByPath(todayNotePath).id)

@@ -17,3 +17,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [011](./011-phase1-persistence-gate-rescoping.md) | Phase 1 rescoped to build create/delete fresh, not migrate them | Accepted |
 | [012](./012-phase2-application-layer-consolidation.md) | Phase 2 application-layer consolidation — scope and divergence record | Accepted |
 | [013](./013-phase3-move-backend-and-presentational-dedup.md) | Phase 3 — Move backend/UI split, Restore/Delete UI, presentational dedup — scope and divergence record | Accepted |
+| [014](./014-phase4-composition-root-and-navigation-cleanup.md) | Phase 4 — Composition root and navigation cleanup, including a Startup-sequence spec amendment | Accepted |
