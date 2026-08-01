@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 
 import type { PageType } from '@core/vault/models/Page';
-import { DailyNoteTopBarActions } from '@features/daily-notes/topbar/DailyNoteTopBarActions';
-import { FolderTopBarActions } from '@features/notes/topbar/FolderTopBarActions';
-import { NoteTopBarActions } from '@features/notes/topbar/NoteTopBarActions';
+import { dailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
+import { folderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
+import { noteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 
+import { ResourceTopBarActions } from './ResourceTopBarActions';
 import { ReservedFolderTopBarActions } from './ReservedFolderTopBarActions';
 
 export interface TopBarActionsOptions {
@@ -19,11 +20,19 @@ export const topBarActionsRegistry: Record<
   TopBarResourceType,
   TopBarActionsRenderer
 > = {
-  folder: () => <FolderTopBarActions />,
+  folder: () => <ResourceTopBarActions menu={folderTopBarMenu} />,
   'reserved-folder': () => <ReservedFolderTopBarActions />,
-  note: (options) => <NoteTopBarActions onArchive={options?.onArchive} />,
+  note: (options) => (
+    <ResourceTopBarActions
+      menu={noteTopBarMenu}
+      handlers={{ archive: options?.onArchive }}
+    />
+  ),
   'daily-note': (options) => (
-    <DailyNoteTopBarActions onArchive={options?.onArchive} />
+    <ResourceTopBarActions
+      menu={dailyNoteTopBarMenu}
+      handlers={{ archive: options?.onArchive }}
+    />
   ),
 };
 

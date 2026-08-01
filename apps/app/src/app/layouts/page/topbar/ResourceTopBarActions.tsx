@@ -4,10 +4,27 @@ import { MenuItem } from '@components/menu/MenuItem';
 import { Overlay } from '@components/overlay/Overlay';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { AppIcon } from '@shared/icon';
+import type { SystemIcon } from '@shared/icon';
 
-import { folderTopBarMenu } from './folderTopBarMenu.config';
+export interface TopBarMenuItemConfig {
+  id: string;
+  label: string;
+  icon: SystemIcon;
+}
 
-export function FolderTopBarActions() {
+export interface ResourceTopBarActionsProps {
+  menu: readonly TopBarMenuItemConfig[];
+  handlers?: Partial<Record<string, () => void>>;
+}
+
+/**
+ * Shared overflow-menu top bar actions for any resource type (note,
+ * daily note, folder). Each resource passes its own menu config and a
+ * handlers map keyed by menu item id — items with no matching handler
+ * still render but only close the menu when clicked, exactly as every
+ * currently-unwired item already behaves today.
+ */
+export function ResourceTopBarActions({ menu, handlers }: ResourceTopBarActionsProps) {
   const overflow = useOverlay<HTMLButtonElement>();
 
   return (
@@ -34,10 +51,13 @@ export function FolderTopBarActions() {
         alignment="end"
       >
         <Menu size="medium">
-          {folderTopBarMenu.map((item) => (
+          {menu.map((item) => (
             <MenuItem
               key={item.id}
-              onClick={overflow.hide}
+              onClick={() => {
+                handlers?.[item.id]?.();
+                overflow.hide();
+              }}
               leading={item.icon ? <AppIcon icon={item.icon} /> : undefined}
             >
               {item.label}

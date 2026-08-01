@@ -1,12 +1,6 @@
-import type { SystemIcon } from '@shared/icon';
+import type { TopBarMenuItemConfig } from '@app/layouts/page/topbar/ResourceTopBarActions';
 
-export interface NoteTopBarMenuItem {
-  id: string;
-  label: string;
-  icon: SystemIcon;
-}
-
-export const noteTopBarMenu: NoteTopBarMenuItem[] = [
+export const noteTopBarMenu: TopBarMenuItemConfig[] = [
   {
     id: 'add-a-description',
     label: 'Add a description',
