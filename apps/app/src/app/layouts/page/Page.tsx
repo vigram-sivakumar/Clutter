@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import './Page.css';
 import { PageCover } from './cover/Page.Cover';
 import { PageTopBar } from './topbar/Page.TopBar';
@@ -28,6 +28,8 @@ export function Page({
   body,
   coverImage,
 }: PageProps) {
+  const [referencesExpanded, setReferencesExpanded] = useState(false);
+
   return (
     <div className="page">
       <div className="page__document">
@@ -41,7 +43,10 @@ export function Page({
           </header>
           <main className="page__body">{body}</main>
           <footer className="page__footer">
-            <References />
+            <References
+              isExpanded={referencesExpanded}
+              onExpandToggle={() => setReferencesExpanded((expanded) => !expanded)}
+            />
           </footer>
         </div>
       </div>
