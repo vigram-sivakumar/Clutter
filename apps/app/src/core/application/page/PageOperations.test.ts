@@ -13,6 +13,10 @@ import { FrontmatterParser } from '../../vault/understand/FrontmatterParser';
 import { PageRebuilder } from '../../vault/build/PageRebuilder';
 import { MoveService } from '../move/MoveService';
 import { PageBuilder } from '../../vault/build/PageBuilder';
+import { PagePathResolver } from './PagePathResolver';
+import { PageCreator } from './PageCreator';
+import { PageFactory } from './PageFactory';
+import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';
@@ -82,8 +86,8 @@ function makeVault(pages: Page[], folders: Folder[] = [makeArchiveFolder()]): Va
   );
 }
 
-function setup(page: Page, fileSystem?: VaultFileSystem) {
-  const vault = makeVault([page]);
+function setup(page: Page, fileSystem?: VaultFileSystem, folders?: Folder[]) {
+  const vault = makeVault([page], folders ?? [makeArchiveFolder()]);
   const resolvedFileSystem = fileSystem ?? new InMemoryVaultFileSystem();
 
   if (resolvedFileSystem instanceof InMemoryVaultFileSystem) {
@@ -110,7 +114,9 @@ function setup(page: Page, fileSystem?: VaultFileSystem) {
     workspace,
     documentRegistry,
     saveCoordinator,
-    coordinator
+    coordinator,
+    new PagePathResolver(vault),
+    new PageCreator(new UuidGenerator(), new PageFactory())
   );
 
   return {
@@ -405,5 +411,154 @@ describe('PageOperations.save(): concurrent saves on the same page', () => {
     const session = pageOperations.getSession(page.id)!;
     expect(session.savedRevision.markdown).toBe('Revision B');
     expect(session.savedRevision.markdown).not.toBe('Revision A');
+  });
+});
+
+function makeFolder(id: string, path: string): Folder {
+  return {
+    id,
+    name: path.slice(path.lastIndexOf('/') + 1),
+    path,
+    parentId: null,
+    metadata: {
+      icon: null,
+      favorite: false,
+      description: '',
+      cover: null,
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    },
+  };
+}
+
+describe('PageOperations.create()', () => {
+  it('creates the page, writes it to disk, and opens it in the workspace', async () => {
+    const existing = buildPage();
+    const { vault, fileSystem, workspace, pageOperations } = setup(existing);
+
+    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+
+    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(`${ROOT}/Idea.md`)).toBe(true);
+    const created = vault.getPage(newId);
+    expect(created).toBeDefined();
+    expect(created!.path).toBe(`${ROOT}/Idea.md`);
+    expect(workspace.isPageOpen(newId)).toBe(true);
+  });
+
+  it('creates the page inside the given folder', async () => {
+    const existing = buildPage();
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, pageOperations } = setup(existing, undefined, [
+      makeArchiveFolder(),
+      folder,
+    ]);
+
+    const newId = await pageOperations.create({ folderId: 'folder-1', title: 'Roadmap' });
+
+    const created = vault.getPage(newId)!;
+    expect(created.path).toBe(`${ROOT}/Projects/Roadmap.md`);
+    expect(created.parentId).toBe('folder-1');
+  });
+
+  it('throws for an unknown destination folder', async () => {
+    const existing = buildPage();
+    const { pageOperations } = setup(existing);
+
+    await expect(
+      pageOperations.create({ folderId: 'does-not-exist', title: 'Idea' })
+    ).rejects.toThrow(/Folder not found/);
+  });
+
+  it('picks the next free numbered name when the title collides', async () => {
+    const existing = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(existing);
+    (fileSystem as InMemoryVaultFileSystem).seedFile(
+      `${ROOT}/Idea.md`,
+      '---\nid: page-occupant\n---\nAlready here'
+    );
+    vault.addPage(
+      new PageBuilder().build({
+        parentId: null,
+        page: {
+          path: `${ROOT}/Idea.md`,
+          directoryPath: ROOT,
+          frontmatter: { id: 'page-occupant' },
+          frontmatterAnalysis: { aliases: [] },
+          content: 'Already here',
+          analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+        },
+      })
+    );
+
+    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+
+    expect(vault.getPage(newId)!.path).toBe(`${ROOT}/Idea 2.md`);
+  });
+
+  it('the created page id in the Vault matches the id PageCreator generated', async () => {
+    const existing = buildPage();
+    const { vault, pageOperations } = setup(existing);
+
+    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+
+    const created = vault.getPage(newId)!;
+    expect(created.id).toBe(newId);
+  });
+});
+
+describe('PageOperations.delete()', () => {
+  it('closes the session, deletes the file, and closes the workspace entry', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, workspace, documentRegistry, pageOperations } = setup(page);
+
+    await pageOperations.open(page.id);
+    expect(documentRegistry.get(page.id)).toBeDefined();
+
+    await pageOperations.delete(page.id);
+
+    expect(documentRegistry.get(page.id)).toBeUndefined();
+    expect(workspace.isPageOpen(page.id)).toBe(false);
+    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(false);
+    expect(vault.getPage(page.id)).toBeUndefined();
+  });
+
+  it('closes the session before enqueueing the disk delete', async () => {
+    const page = buildPage();
+    const { documentRegistry, coordinator, pageOperations } = setup(page);
+    await pageOperations.open(page.id);
+
+    const closeSpy = vi.spyOn(documentRegistry, 'close');
+    const enqueueSpy = vi.spyOn(coordinator, 'enqueue');
+
+    await pageOperations.delete(page.id);
+
+    expect(closeSpy).toHaveBeenCalledWith(page.id);
+    expect(enqueueSpy).toHaveBeenCalledWith(page.id, { kind: 'delete' });
+    const closeOrder = closeSpy.mock.invocationCallOrder[0]!;
+    const enqueueOrder = enqueueSpy.mock.invocationCallOrder[0]!;
+    expect(closeOrder).toBeLessThan(enqueueOrder);
+  });
+
+  it('throws for an unknown page id and touches no disk', async () => {
+    const page = buildPage();
+    const { fileSystem, pageOperations } = setup(page);
+
+    await expect(pageOperations.delete('does-not-exist')).rejects.toThrow(/Page not found/);
+    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(true);
+  });
+});
+
+describe('PageOperations: create/save concurrency', () => {
+  it('create immediately followed by save on the same freshly-created id applies both writes in order', async () => {
+    const existing = buildPage();
+    const { vault, pageOperations } = setup(existing);
+
+    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+    await pageOperations.open(newId);
+    await pageOperations.save(newId, 'Edited body');
+
+    expect(vault.getPage(newId)!.source.markdown).toBe('Edited body');
   });
 });

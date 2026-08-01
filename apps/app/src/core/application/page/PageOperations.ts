@@ -5,11 +5,17 @@ import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { Vault } from '../../vault/models/Vault';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../persistence/PagePersistenceCoordinator';
+import { PagePathResolver } from './PagePathResolver';
+import { PageCreator } from './PageCreator';
+
+export interface CreatePageOptions {
+  readonly folderId: string | null;
+  readonly title?: string;
+}
 
 /**
  * Owns the entire lifecycle of a page as a single capability surface —
- * open, close, save, archive, restore, and (added in a later commit of
- * this phase) create, delete.
+ * open, close, save, archive, restore, create, delete.
  *
  * Does not have move()/rename(): neither has a backing Persistence Gate
  * operation kind yet, and building one without a real caller would be
@@ -23,7 +29,9 @@ export class PageOperations {
     private readonly workspace: Workspace,
     private readonly documentRegistry: DocumentRegistry,
     private readonly saveCoordinator: SaveCoordinator,
-    private readonly coordinator: PagePersistenceCoordinator
+    private readonly coordinator: PagePersistenceCoordinator,
+    private readonly pathResolver: PagePathResolver,
+    private readonly pageCreator: PageCreator
   ) {}
 
   public async open(pageId: string): Promise<void> {
@@ -112,5 +120,46 @@ export class PageOperations {
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
     }
+  }
+
+  public async create(options: CreatePageOptions): Promise<string> {
+    const destination = this.pathResolver.resolveCreatePath(
+      options.folderId,
+      options.title ?? 'Untitled'
+    );
+    const created = this.pageCreator.create('note');
+
+    const result = await this.coordinator.enqueue(created.id, {
+      kind: 'create',
+      path: destination.path,
+      parentId: destination.parentId,
+      content: created.content,
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(
+        `Failed to create page at ${destination.path}: ${result.reason}`
+      );
+    }
+
+    this.workspace.openPage(created.id);
+
+    return created.id;
+  }
+
+  /**
+   * Closes any open session before enqueueing the disk delete, so no save
+   * can complete against a page mid-deletion.
+   */
+  public async delete(pageId: string): Promise<void> {
+    this.documentRegistry.close(pageId);
+
+    const result = await this.coordinator.enqueue(pageId, { kind: 'delete' });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    this.workspace.closePage(pageId);
   }
 }

@@ -12,6 +12,10 @@ import { FrontmatterParser } from '../../vault/understand/FrontmatterParser';
 import { PageRebuilder } from '../../vault/build/PageRebuilder';
 import { MoveService } from '../move/MoveService';
 import { PageBuilder } from '../../vault/build/PageBuilder';
+import { PagePathResolver } from './PagePathResolver';
+import { PageCreator } from './PageCreator';
+import { PageFactory } from './PageFactory';
+import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 import type { Folder } from '../../vault/models/Folder';
 import type { Page } from '../../vault/models/Page';
@@ -133,7 +137,9 @@ function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOpe
     new Workspace(),
     new DocumentRegistry(),
     new SaveCoordinator(),
-    coordinator
+    coordinator,
+    new PagePathResolver(vault),
+    new PageCreator(new UuidGenerator(), new PageFactory())
   );
 }
 
