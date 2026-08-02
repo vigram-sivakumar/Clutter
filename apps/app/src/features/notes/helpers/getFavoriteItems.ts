@@ -8,12 +8,17 @@ import type { FavoriteItem } from '../models/FavoriteItem';
 function toFavoriteItem(entry: Folder | Page): FavoriteItem {
   const isPage = 'type' in entry;
 
+  // Folders always have a real, deliberate name (no placeholder chain
+  // applies to them); pages go through the shared display-label rule so
+  // a favorited-but-unnamed note doesn't show a raw "Untitled 2" — and
+  // carry the source through so the row can render it as a placeholder,
+  // not just different text.
+  const label = isPage ? getPageDisplayLabel(entry) : null;
+
   return {
     id: entry.id,
-    // Folders always have a real, deliberate name (no placeholder chain
-    // applies to them); pages go through the shared display-label rule
-    // so a favorited-but-unnamed note doesn't show a raw "Untitled 2".
-    title: isPage ? getPageDisplayLabel(entry).text : entry.name,
+    title: label ? label.text : entry.name,
+    titleStyle: label?.source === 'placeholder' ? 'placeholder' : 'default',
     type: isPage ? 'note' : 'folder',
   };
 }

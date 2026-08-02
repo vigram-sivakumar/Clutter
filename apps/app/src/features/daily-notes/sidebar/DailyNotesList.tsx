@@ -88,16 +88,21 @@ export function DailyNotesList({
         // selected={workspace.activeFolderId === section.monthFolder.id}
         onClick={() => onOpenFolder(section.monthFolder.id)}
       >
-        {pages.map((note) => (
-          <DailyNote
-            key={note.id}
-            title={getPageDisplayLabel(note).text}
-            date={note.name}
-            isToday={isToday(note.name)}
-            selected={workspace.activePageId === note.id}
-            onClick={() => onOpen(note.id)}
-          />
-        ))}
+        {pages.map((note) => {
+          const label = getPageDisplayLabel(note);
+
+          return (
+            <DailyNote
+              key={note.id}
+              title={label.text}
+              titleStyle={label.source === 'placeholder' ? 'placeholder' : 'default'}
+              date={note.name}
+              isToday={isToday(note.name)}
+              selected={workspace.activePageId === note.id}
+              onClick={() => onOpen(note.id)}
+            />
+          );
+        })}
       </Section>
     );
   });

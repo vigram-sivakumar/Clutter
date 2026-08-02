@@ -96,16 +96,21 @@ export function FolderTree({
               onClick={() => onFolderClick(folder)}
             />
             {/* Render all pages inside this folder */}
-            {childPages.map((note) => (
-              <NoteEntry
-                key={note.id}
-                title={getPageDisplayLabel(note).text}
-                emoji={note.metadata.icon}
-                level={level + 1}
-                selected={workspace.activePageId === note.id}
-                onClick={() => onPageClick(note)}
-              />
-            ))}
+            {childPages.map((note) => {
+              const label = getPageDisplayLabel(note);
+
+              return (
+                <NoteEntry
+                  key={note.id}
+                  title={label.text}
+                  titleStyle={label.source === 'placeholder' ? 'placeholder' : 'default'}
+                  emoji={note.metadata.icon}
+                  level={level + 1}
+                  selected={workspace.activePageId === note.id}
+                  onClick={() => onPageClick(note)}
+                />
+              );
+            })}
             {/* Render this folder's child folders.
                 This is the recursive call.
                 Every child folder repeats this exact process. */}

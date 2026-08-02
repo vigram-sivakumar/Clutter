@@ -68,7 +68,9 @@ describe('toFavoriteItems', () => {
 
     const items = toFavoriteItems([folder], []);
 
-    expect(items).toEqual([{ id: 'folder-1', title: 'Projects', type: 'folder' }]);
+    expect(items).toEqual([
+      { id: 'folder-1', title: 'Projects', titleStyle: 'default', type: 'folder' },
+    ]);
   });
 
   it('uses the real filename for a deliberately-named favorited page', () => {
@@ -76,7 +78,9 @@ describe('toFavoriteItems', () => {
 
     const items = toFavoriteItems([], [page]);
 
-    expect(items).toEqual([{ id: 'page-1', title: 'Meeting Notes', type: 'note' }]);
+    expect(items).toEqual([
+      { id: 'page-1', title: 'Meeting Notes', titleStyle: 'default', type: 'note' },
+    ]);
   });
 
   it('does not show a raw auto-generated name for a favorited-but-unnamed page', () => {
@@ -87,6 +91,18 @@ describe('toFavoriteItems', () => {
 
     const items = toFavoriteItems([], [page]);
 
-    expect(items).toEqual([{ id: 'page-1', title: 'Real content here', type: 'note' }]);
+    expect(items).toEqual([
+      { id: 'page-1', title: 'Real content here', titleStyle: 'default', type: 'note' },
+    ]);
+  });
+
+  it('marks the item as a placeholder when the label falls all the way through to it', () => {
+    const page = makePage({ name: 'Untitled', source: { markdown: '' } });
+
+    const items = toFavoriteItems([], [page]);
+
+    expect(items).toEqual([
+      { id: 'page-1', title: 'New Note', titleStyle: 'placeholder', type: 'note' },
+    ]);
   });
 });

@@ -22,6 +22,7 @@ export function FavoriteList({
         <NoteEntry
           key={item.id}
           title={item.title}
+          titleStyle={item.titleStyle}
           hasCaret={false}
           selected={workspace.activePageId === item.id}
           onClick={() => onOpenPage(item.id)}
