@@ -1,5 +1,6 @@
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
 import { DailyNoteService } from './daily-notes/DailyNoteService';
+import { DailyNotePath } from './daily-notes/DailyNotePath';
 import { PageCreator } from './page/PageCreator';
 import { PageFactory } from './page/PageFactory';
 import { PagePathResolver } from './page/PagePathResolver';
@@ -36,16 +37,19 @@ import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher'
  * Owns the long-lived application services and shared runtime state.
  *
  * Two-phase construction: bootstrap(rootPath) constructs Platform + Vault
- * Ingest, ensures today's Daily Notes directory exists (structural
- * scaffolding only — see DailyNoteService), scans and builds the Vault,
- * then calls attachVault() internally (not from AppShell — see ADR-014).
- * bootstrap() no longer creates today's note through the Gate (ADR-017
- * supersedes that part of ADR-014 Decision 1): navigation never creates
- * durable knowledge, not even at boot. attachVault() still runs inside
- * bootstrap() regardless, since open() needs pageOperations constructed
- * before its resolve-or-draft call below can run.
+ * Ingest, scans and builds the Vault, then calls attachVault() internally
+ * (not from AppShell — see ADR-014). bootstrap() no longer creates today's
+ * note through the Gate (ADR-017 supersedes that part of ADR-014
+ * Decision 1), nor scaffolds its directory ahead of the scan (ADR-019
+ * retires that too, now that DailyNoteService.ensureFolderChain
+ * materializes Daily Note folders at persist time instead): navigation
+ * never creates durable knowledge, not even at boot. attachVault() still
+ * runs inside bootstrap() regardless, since open() needs pageOperations
+ * constructed before its resolve-or-draft call below can run.
  * open() starts the watcher and resolves today's note — the real page if
- * one exists, otherwise an unpersisted draft at its deterministic path.
+ * one exists, otherwise an unpersisted draft at its deterministic path,
+ * computed here rather than carried from bootstrap() (ADR-019) — the one
+ * documented seam a future startup-strategy parameter would extend.
  *
  * Responsibilities:
  * - Own the active Vault.
@@ -73,7 +77,6 @@ export class Application {
   private readonly selfWriteRegistry: SelfWriteRegistry;
   private fileSystemWatcher!: LocalFileSystemWatcher;
   private rootPath!: string;
-  private todayNotePath!: string;
   private closed = false;
 
   static async bootstrap(rootPath: string): Promise<Application> {
@@ -92,15 +95,7 @@ export class Application {
     const initializer = new VaultInitializer(fileSystem);
     await initializer.initialize(rootPath);
 
-    // Ensure today's Daily Notes year/month directory exists before
-    // scanning, so the scan discovers it as a real Folder rather than
-    // requiring a synthesized parentId for one that doesn't exist yet.
-    // Directory scaffolding only, the same class of pre-Vault operation
-    // VaultInitializer already performs above for reserved folders — the
-    // note's own content is created below, through the real Gate, once one
-    // exists.
     const dailyNotes = new DailyNoteService(fileSystem);
-    const todayNotePath = await dailyNotes.ensureDirectoryForToday(rootPath);
 
     const scanner = new VaultScanner(fileSystem);
     const scanResult = await scanner.scan(rootPath);
@@ -119,17 +114,18 @@ export class Application {
     const application = new Application(vault, fileSystem, selfWriteRegistry);
 
     application.rootPath = rootPath;
-    application.todayNotePath = todayNotePath;
 
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
     application.attachVault(vault, pageCreator, dailyNotes);
 
-    // ADR-017: today's note is no longer created through the Gate here.
-    // open() below resolves it — the real page if the scan found one, or
-    // an unpersisted draft at todayNotePath otherwise — never a boot-time
-    // write. dailyNotes.ensurePage() (the Gate-writing method this
-    // replaced) is retired.
+    // ADR-017/ADR-019: today's note is no longer created through the Gate,
+    // and no directory is scaffolded for it, here. open() below resolves
+    // it — the real page if the scan found one, or an unpersisted draft at
+    // its deterministic path otherwise — never a boot-time write.
+    // dailyNotes.ensurePage() (the Gate-writing method ADR-017 replaced)
+    // and ensureDirectoryForToday() (the scaffolding ADR-019 replaced) are
+    // both retired.
 
     return application;
   }
@@ -223,24 +219,33 @@ export class Application {
   }
 
   /**
-   * Starts the filesystem watcher and resolves today's daily note —
-   * opening the real Vault page if the startup scan found one, otherwise
-   * opening an unpersisted draft at the deterministic path bootstrap()
-   * already ensured a directory for (ADR-017 §7/Decision item 7). Never
-   * writes through the Gate itself; PageOperations.openAtPath() decides
-   * that, on first save, same as every other draft.
+   * Starts the filesystem watcher, then decides what opens at boot —
+   * currently always today's daily note, opening the real Vault page if
+   * the startup scan found one, otherwise an unpersisted draft at its
+   * deterministic path (ADR-017 §7/Decision item 7). The path is computed
+   * here, not carried from bootstrap() (ADR-019) — no directory is
+   * scaffolded for it ahead of time; PageOperations.openAtPath()'s
+   * draft-promotion path materializes the Daily Note's folder chain on
+   * first save, via DailyNoteService.ensureFolderChain. Never writes
+   * through the Gate itself.
+   *
+   * This is the Composition Root's one documented seam for a future
+   * startup-strategy choice (Open Today's Note / Restore Last Session /
+   * Open Empty Workspace, ADR-019) — not implemented yet, so today's
+   * behavior is the only branch.
    */
   public async open(): Promise<void> {
     await this.fileSystemWatcher.start(this.rootPath);
 
-    const todayPage = this.vault.getPageByPath(this.todayNotePath);
+    const todayNotePath = DailyNotePath.absoluteFrom(this.vault.root, new Date());
+    const todayPage = this.vault.getPageByPath(todayNotePath);
 
     if (todayPage) {
       void this.pageOperations.open(todayPage.id);
       return;
     }
 
-    void this.pageOperations.openAtPath(this.todayNotePath, {
+    void this.pageOperations.openAtPath(todayNotePath, {
       type: 'daily-note',
     });
   }
