@@ -1,6 +1,7 @@
 import { Vault } from '../models';
 import type { VaultScanResult } from './VaultScanResult';
 import { PageBuilder } from './PageBuilder';
+import { FolderBuilder } from './FolderBuilder';
 import {
   TagBuilder,
   TaskBuilder,
@@ -10,10 +11,10 @@ import {
 } from '../knowledge';
 import type { Folder } from '../models';
 import { IdentityResolver } from './identity/IdentityResolver';
-import { VaultPath } from './VaultPath';
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
+  private readonly folderBuilder = new FolderBuilder();
   private readonly tagBuilder = new TagBuilder();
   private readonly taskBuilder = new TaskBuilder();
   private readonly embedBuilder = new EmbedBuilder();
@@ -56,30 +57,12 @@ export class VaultBuilder {
     // a navigable Folder in the domain model.
     const folders: Folder[] = scanResult.directories
       .filter((directory) => directory.parentPath !== null)
-      .map((directory) => {
-        const id = folderIdsByPath.get(directory.path);
-
-        if (!id) {
-          throw new Error(`Missing folder ID for "${directory.path}".`);
-        }
-
-        return {
-          id,
-          name: VaultPath.filename(directory.path),
-          path: directory.path,
+      .map((directory) =>
+        this.folderBuilder.build({
+          directory,
           parentId: resolveParentId(directory.parentPath),
-          metadata: {
-            icon: directory.frontmatter?.icon ?? null,
-            favorite: directory.frontmatter?.favorite ?? false,
-            description: directory.frontmatter?.description ?? '',
-            cover: directory.frontmatter?.cover ?? null,
-            status: directory.frontmatter?.status ?? 'active',
-            archivedAt: directory.frontmatter?.archivedAt ?? null,
-            originalPath: directory.frontmatter?.originalPath ?? null,
-            originalParentId: directory.frontmatter?.originalParentId ?? null,
-          },
-        };
-      });
+        })
+      );
 
     const pages = scanResult.pages.map((page) => {
       return this.pageBuilder.build({

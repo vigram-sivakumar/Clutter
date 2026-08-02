@@ -1,11 +1,13 @@
 import type { Page } from '../models/Page';
+import type { Folder } from '../models/Folder';
 import { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { PageBuilder } from '../ingest/PageBuilder';
-import type { ScannedPage } from '../ingest/VaultScanResult';
+import { FolderBuilder } from '../ingest/FolderBuilder';
+import type { ScannedPage, ScannedDirectory } from '../ingest/VaultScanResult';
 import { VaultPath } from '../ingest/VaultPath';
 import { MoveService } from './MoveService';
 
@@ -15,6 +17,9 @@ import { MoveService } from './MoveService';
  * one of these and enqueued through PagePersistenceCoordinator. This is
  * the only vocabulary any caller uses; there is no other way to reach a
  * write.
+ *
+ * 'create-folder' is the one folder-scoped kind: folder operations reuse
+ * this same Gate, keyed by folder id instead of page id, per spec §7.
  */
 export type PersistenceOperation =
   | { readonly kind: 'save'; readonly content: string }
@@ -27,7 +32,13 @@ export type PersistenceOperation =
   | { readonly kind: 'archive' }
   | { readonly kind: 'restore' }
   | { readonly kind: 'delete' }
-  | { readonly kind: 'move'; readonly destinationFolderId: string };
+  | { readonly kind: 'move'; readonly destinationFolderId: string }
+  | {
+      readonly kind: 'create-folder';
+      readonly path: string;
+      readonly parentId: string | null;
+      readonly content: string;
+    };
 
 export type PersistenceResult =
   | {
@@ -40,6 +51,10 @@ export type PersistenceResult =
   | {
       readonly status: 'abandoned';
       readonly reason: string;
+    }
+  | {
+      readonly status: 'folder-created';
+      readonly folder: Folder;
     };
 
 /**
@@ -66,6 +81,8 @@ export class PagePersistenceCoordinator {
   // initial scan, since the two serve genuinely different lifecycles (see
   // ADR-011). Not a duplicate construction of the same long-lived purpose.
   private readonly pageBuilder = new PageBuilder();
+  // Same reasoning as pageBuilder above, for folders.
+  private readonly folderBuilder = new FolderBuilder();
 
   constructor(
     private readonly fileSystem: VaultFileSystem,
@@ -77,51 +94,60 @@ export class PagePersistenceCoordinator {
   ) {}
 
   /**
-   * Enqueues a persistence operation for the given page.
+   * Enqueues a persistence operation for the given page or folder id.
    *
    * The operation runs only once every previously enqueued operation for
-   * the same page has settled, and is dispatched against the Vault's
-   * current Page for that id as of that point in time.
+   * the same id has settled, and (for page kinds) is dispatched against the
+   * Vault's current Page for that id as of that point in time. Folder
+   * operations share this same queue, keyed by folder id instead of page
+   * id (spec §7) — the two id spaces never collide in practice, and this
+   * class doesn't need to distinguish them ahead of dispatch.
    */
   public enqueue(
-    pageId: string,
+    id: string,
     operation: PersistenceOperation
   ): Promise<PersistenceResult> {
-    const previous = this.queues.get(pageId) ?? Promise.resolve();
+    const previous = this.queues.get(id) ?? Promise.resolve();
     const next = previous
       .catch(() => undefined)
-      .then(() => this.runOperation(pageId, operation));
+      .then(() => this.runOperation(id, operation));
 
-    this.queues.set(pageId, next);
+    this.queues.set(id, next);
 
     return next.finally(() => {
-      if (this.queues.get(pageId) === next) {
-        this.queues.delete(pageId);
+      if (this.queues.get(id) === next) {
+        this.queues.delete(id);
       }
     });
   }
 
   private async runOperation(
-    pageId: string,
+    id: string,
     operation: PersistenceOperation
   ): Promise<PersistenceResult> {
-    // 'create' is dispatched before the existing-page guard below, because
-    // its usual target does not exist in the Vault yet. It is not exempt
-    // from that guard, though (see runCreate's own dequeue-time check,
-    // ADR-017 §4) — deferred-persistence callers (a promoted draft's first
-    // save) can enqueue a second 'create' for an id the first one already
-    // persisted, so 'create' itself resolves the id's current Vault state
-    // at dequeue time instead of assuming it, same as every other kind.
+    // 'create' and 'create-folder' are dispatched before the existing-page
+    // guard below, because their usual target does not exist in the Vault
+    // yet. 'create' is not exempt from that guard, though (see runCreate's
+    // own dequeue-time check, ADR-017 §4) — deferred-persistence callers (a
+    // promoted draft's first save) can enqueue a second 'create' for an id
+    // the first one already persisted, so 'create' itself resolves the id's
+    // current Vault state at dequeue time instead of assuming it, same as
+    // every other kind. 'create-folder' has the same dequeue-time guard
+    // (runCreateFolder), for the same reason.
     if (operation.kind === 'create') {
-      return this.runCreate(pageId, operation);
+      return this.runCreate(id, operation);
     }
 
-    const current = this.vault.getPage(pageId);
+    if (operation.kind === 'create-folder') {
+      return this.runCreateFolder(id, operation);
+    }
+
+    const current = this.vault.getPage(id);
 
     if (!current) {
       return {
         status: 'abandoned',
-        reason: `Page no longer exists in the vault: ${pageId}`,
+        reason: `Page no longer exists in the vault: ${id}`,
       };
     }
 
@@ -239,6 +265,63 @@ export class PagePersistenceCoordinator {
     }
 
     return { status: 'saved', page: built };
+  }
+
+  /**
+   * Mirrors runCreate, one aggregate over: writes the directory and its
+   * .folder.md (the persisted-identity file — see FolderCreator), then
+   * registers the resulting Folder in the Vault. Unlike a page, a folder
+   * has no separate 'save' path to fall back on for its dequeue-time
+   * double-create guard — a second 'create-folder' for an id this queue
+   * already persisted simply returns that already-registered Folder.
+   */
+  private async runCreateFolder(
+    folderId: string,
+    operation: {
+      readonly kind: 'create-folder';
+      readonly path: string;
+      readonly parentId: string | null;
+      readonly content: string;
+    }
+  ): Promise<PersistenceResult> {
+    const existing = this.vault.getFolder(folderId);
+
+    if (existing) {
+      return { status: 'folder-created', folder: existing };
+    }
+
+    await this.fileSystem.createDirectory(operation.path);
+    await this.fileSystem.writeFile(
+      `${operation.path}/.folder.md`,
+      operation.content
+    );
+
+    // Reuses the same parse pipeline VaultScanner/DocumentLoader use during
+    // scan, same as runCreate does for pages.
+    const parsed = this.parser.parse(operation.content);
+    const scannedDirectory: ScannedDirectory = {
+      path: operation.path,
+      parentPath: null, // unused by FolderBuilder — parentId is passed explicitly below
+      frontmatter: parsed.frontmatter,
+    };
+
+    const built = this.folderBuilder.build({
+      parentId: operation.parentId,
+      directory: scannedDirectory,
+    });
+
+    try {
+      this.vault.addFolder(built);
+    } catch (error) {
+      return {
+        status: 'abandoned',
+        reason: `Vault rejected the created folder after a successful write: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return { status: 'folder-created', folder: built };
   }
 
   private async runArchive(current: Page): Promise<PersistenceResult> {
