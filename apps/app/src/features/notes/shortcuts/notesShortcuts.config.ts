@@ -1,5 +1,5 @@
 export const notesShortcuts = [
-  { id: 'new-note', title: 'New note', icon: 'notePencil' },
+  { id: 'new-note', title: 'New', icon: 'plus' },
   { id: 'inbox', title: 'Inbox', icon: 'tray' },
   { id: 'templates', title: 'Templates', icon: 'template' },
 ] as const;
