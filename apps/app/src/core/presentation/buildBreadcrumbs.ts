@@ -34,7 +34,7 @@ function getEntryIcon(entry: Page | Folder) {
   if (!isPage(entry)) {
     return 'folder';
   }
-  return entry.type === 'daily-note' ? 'calendarDot' : 'note';
+  return iconForPageType(entry.type);
 }
 
 function iconForPageType(type: PageType) {

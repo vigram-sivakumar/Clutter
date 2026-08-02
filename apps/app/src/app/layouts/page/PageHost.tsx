@@ -173,64 +173,39 @@ export function PageHost({ application }: PageHostProps) {
 
   const breadcrumbs = buildBreadcrumbs(page, vault, onOpenFolder);
 
-  // TODO: This temporary dispatch will become a registry-backed page renderer once additional page types exist.
-  // The current switch is intentionally retained until there are enough concrete implementations to justify the abstraction.
-  switch (page.type) {
-    case 'note': {
-      const model = toResourcePageModel(page, session, onUpdateMarkdown);
-      const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
-
-      return (
-        <Page
-          key={activePageId}
-          title={model.title}
-          description={model.description}
-          titleEditable
-          breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-          actions={topBar.actions}
-          coverImage={model.coverImage ?? undefined}
-          bodyFocusRef={editorRef}
-          body={
-            <MarkdownBody>
-              <MarkdownEditor
-                ref={editorRef}
-                markdown={model.markdown}
-                onCommit={(markdown) => model.updateMarkdown(markdown)}
-              />
-            </MarkdownBody>
-          }
-        />
-      );
-    }
-
-    case 'daily-note': {
-      const model = toResourcePageModel(page, session, onUpdateMarkdown);
-      const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
-
-      return (
-        <Page
-          key={activePageId}
-          title={model.title}
-          description={model.description}
-          titleEditable
-          breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-          actions={topBar.actions}
-          coverImage={model.coverImage ?? undefined}
-          bodyFocusRef={editorRef}
-          body={
-            <MarkdownBody>
-              <MarkdownEditor
-                ref={editorRef}
-                markdown={model.markdown}
-                onCommit={(markdown) => model.updateMarkdown(markdown)}
-              />
-            </MarkdownBody>
-          }
-        />
-      );
-    }
-
-    default:
-      throw new Error(`Unsupported page type: ${page.type}`);
+  // Note and Daily Note render identically today (both markdown-editable,
+  // both resolve through toResourcePageModel/buildTopBarActions) — this
+  // guard exists because page.type is user-editable frontmatter, not a
+  // TypeScript-enforced value, so a malformed/unexpected type on disk must
+  // fail loudly rather than silently render as one of the two known types.
+  // Reintroduce a per-type branch here (or a registry) if a future page
+  // type actually needs different rendering.
+  if (page.type !== 'note' && page.type !== 'daily-note') {
+    throw new Error(`Unsupported page type: ${page.type}`);
   }
+
+  const model = toResourcePageModel(page, session, onUpdateMarkdown);
+  const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
+
+  return (
+    <Page
+      key={activePageId}
+      title={model.title}
+      description={model.description}
+      titleEditable
+      breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+      actions={topBar.actions}
+      coverImage={model.coverImage ?? undefined}
+      bodyFocusRef={editorRef}
+      body={
+        <MarkdownBody>
+          <MarkdownEditor
+            ref={editorRef}
+            markdown={model.markdown}
+            onCommit={(markdown) => model.updateMarkdown(markdown)}
+          />
+        </MarkdownBody>
+      }
+    />
+  );
 }

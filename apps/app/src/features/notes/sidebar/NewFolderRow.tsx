@@ -3,7 +3,7 @@ import { Entry } from '@components/entry/Entry';
 import { Caret } from '@components/caret/Caret';
 import { EditableText } from '@components/editable-text/EditableText';
 import { AppIcon } from '@shared/icon';
-import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 
 interface NewFolderRowProps {
   level: number;

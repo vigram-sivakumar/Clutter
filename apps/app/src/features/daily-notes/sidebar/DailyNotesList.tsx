@@ -80,9 +80,9 @@ export function DailyNotesList({
         .sort((a, b) => b.name.localeCompare(a.name)),
     }))
     // A month section with no Daily Notes in it has nothing to show — a
-    // permanent presentation rule, independent of how or when the month
-    // folder itself came to exist (eagerly at boot today; possibly
-    // lazily on first save later).
+    // permanent presentation rule, independent of how the month folder
+    // itself came to exist (always materialized at persist time, per
+    // DailyNoteService.ensureFolderChain — ADR-019).
     .filter(({ pages }) => pages.length > 0)
     .map(({ section, pages }) => {
       const isExpanded = workspace.isFolderExpanded(section.monthFolder.id);

@@ -2,7 +2,7 @@ import { Button } from '@components/button/Button';
 import { Caret } from '@components/caret/Caret';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
-import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 
 interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;

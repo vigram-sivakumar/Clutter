@@ -2,7 +2,7 @@ import type { Folder } from '@core/vault/models';
 import type { Page } from '@core/vault/models/Page';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
-import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
+import { getPageIcon } from '@core/presentation/getPageIcon';
 import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 
 import type { CollectionEntryModel } from './CollectionEntryModel';

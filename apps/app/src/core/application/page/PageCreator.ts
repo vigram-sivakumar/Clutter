@@ -2,25 +2,11 @@ import { IdGenerator } from '../../shared/identity/IdGenerator';
 import { PageFactory } from './PageFactory';
 import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontmatter';
 
-export interface CreatedPage {
-  id: string;
-  content: string;
-}
-
 export class PageCreator {
   public constructor(
     private readonly idGenerator: IdGenerator,
     private readonly pageFactory: PageFactory
   ) {}
-
-  public create(type: PageFrontmatter['type'], body = ''): CreatedPage {
-    const id = this.generateId();
-
-    return {
-      id,
-      content: this.buildContent(id, type, body),
-    };
-  }
 
   /**
    * Mints an id without building content — for a draft (ADR-017), the id
@@ -32,10 +18,11 @@ export class PageCreator {
   }
 
   /**
-   * Builds a document for an already-known id — the other half of
-   * create()'s split, reused when a draft (ADR-017) is persisted for the
-   * first time and must keep the id it was opened with rather than
-   * minting a new one.
+   * Builds a document for an already-known id — paired with generateId()
+   * because every caller needs the id before content can be built (ADR-017:
+   * a draft is opened, and shown, with its id well before it has any
+   * content), and reused when a draft is persisted for the first time and
+   * must keep the id it was opened with rather than minting a new one.
    */
   public buildContent(
     id: string,
