@@ -34,6 +34,10 @@ export type VaultChangeEvent =
       type: 'folder-moved';
       folderId: string;
       path: string;
+    }
+  | {
+      type: 'folder-added';
+      folderId: string;
     };
 
 type VaultChangeListener = (event: VaultChangeEvent) => void;
@@ -369,6 +373,41 @@ export class Vault {
       pageId,
       path,
     });
+  }
+
+  /**
+   * Registers a newly created Folder as the Vault's live source of truth.
+   *
+   * Mirrors addPage(): folders otherwise enter the Vault only once, via the
+   * startup scan (VaultBuilder) — this is the one other entry point, used
+   * by FolderOperations.create() through the Persistence Gate.
+   */
+  addFolder(folder: Folder): void {
+    if (this.foldersById.has(folder.id)) {
+      throw new Error(`Folder already exists: ${folder.id}`);
+    }
+
+    this.assertFolderPathAvailable(folder.path);
+
+    this.foldersById.set(folder.id, folder);
+    this.foldersByPath.set(folder.path, folder);
+
+    this.notify({
+      type: 'folder-added',
+      folderId: folder.id,
+    });
+  }
+
+  /**
+   * Guards the "one path maps to one folder" invariant, mirroring
+   * assertPathAvailable's page equivalent.
+   */
+  private assertFolderPathAvailable(path: string): void {
+    const occupant = this.foldersByPath.get(path);
+
+    if (occupant) {
+      throw new Error(`Folder path already in use: ${path}`);
+    }
   }
 
   moveFolder(folderId: string, path: string, parentId: string | null): void {

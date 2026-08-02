@@ -412,3 +412,82 @@ describe('Vault lazy projections (embeds, knowledgeGraph)', () => {
     expect(vault.getPage('page-1')).toBeDefined();
   });
 });
+
+describe('Vault.addFolder', () => {
+  it('registers the folder by id and by path', () => {
+    const vault = makeVault([]);
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+
+    vault.addFolder(folder);
+
+    expect(vault.getFolder('folder-1')).toBe(folder);
+    expect(vault.getFolderByPath('/vault/Projects')).toBe(folder);
+    expect(vault.folderCount).toBe(1);
+  });
+
+  it('rejects a duplicate folder id', () => {
+    const existing = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+    const vault = makeVault([], [existing]);
+
+    expect(() =>
+      vault.addFolder(makeFolder({ id: 'folder-1', path: '/vault/Other' }))
+    ).toThrow(/Folder already exists/);
+  });
+
+  it('rejects a duplicate folder path, leaving the original occupant reachable', () => {
+    const existing = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+    const vault = makeVault([], [existing]);
+
+    expect(() =>
+      vault.addFolder(makeFolder({ id: 'folder-2', path: '/vault/Projects' }))
+    ).toThrow(/Folder path already in use/);
+
+    expect(vault.getFolderByPath('/vault/Projects')).toBe(existing);
+    expect(vault.getFolder('folder-2')).toBeUndefined();
+  });
+
+  it('keeps foldersById/foldersByPath consistent after the mutation', () => {
+    const vault = makeVault([]);
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+
+    vault.addFolder(folder);
+
+    const byId = vault.getFolder('folder-1');
+    const byPath = vault.getFolderByPath('/vault/Projects');
+
+    expect(byId).toBe(byPath);
+  });
+
+  it('notifies listeners with a folder-added event', () => {
+    const vault = makeVault([]);
+    const listener = vi.fn();
+    vault.subscribe(listener);
+
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+    vault.addFolder(folder);
+
+    expect(listener).toHaveBeenCalledWith({
+      type: 'folder-added',
+      folderId: 'folder-1',
+    });
+  });
+
+  it('does not touch tag/task projections, unlike addPage', () => {
+    const projectionBuilder = new VaultProjectionBuilder();
+    const buildEagerSpy = vi.spyOn(projectionBuilder, 'buildEager');
+    const vault = new Vault(
+      '/vault',
+      [],
+      [],
+      [],
+      [],
+      [],
+      new KnowledgeGraph([]),
+      projectionBuilder
+    );
+
+    vault.addFolder(makeFolder({ id: 'folder-1', path: '/vault/Projects' }));
+
+    expect(buildEagerSpy).not.toHaveBeenCalled();
+  });
+});
