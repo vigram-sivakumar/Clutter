@@ -22,3 +22,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [016](./016-phase6-cleanup-and-migration-close.md) | Phase 6 — Cleanup and closing the six-phase migration plan (substantially, not entirely, complete) | Accepted |
 | [017](./017-draft-page-lifecycle.md) | Draft page lifecycle — unpersisted `PageOperations` sessions, no `Vault`/`PageStatus` change | Accepted |
 | [018](./018-document-editing-identity-decoupling.md) | Decouple `DocumentEditing` from `Page` — identity-free editing sessions | Accepted |
+| [019](./019-retire-boot-time-daily-note-scaffolding.md) | Retire `ensureDirectoryForToday` — Composition Root no longer scaffolds Daily Notes at boot | Accepted |

@@ -607,11 +607,11 @@ Construct every subsystem in the correct order and wire dependencies. Own nothin
 Field names `pageOperations`/`folderOperations` (not `pages`/`folders`) — matches the implementation, which used these names throughout and predates this spec's `pages`/`folders` wording. Corrected here rather than renaming shipped, working code with no functional reason to change (see the Architecture v1.0 audit).
 
 ### Lifecycle
-`bootstrap(rootPath)` — constructs Platform + Vault Ingest; ensures the Daily Notes year/month directory exists (structural scaffolding, no Gate involved — see [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md)); runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists. It no longer creates today's daily note's content through the Gate ([ADR-017](./adr/017-draft-page-lifecycle.md) supersedes that part of ADR-014's resolution — see the Startup sequence below); `attachVault()` still runs inside `bootstrap()` regardless, since `open()` needs `pageOperations` constructed before its resolve-or-draft call can run, not because today's note still needs to be ensured through it. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`. Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and resolves today's note — the real page if the scan found one, otherwise an unpersisted draft at its deterministic path. `close()` stops the watcher and tears down subscriptions.
+`bootstrap(rootPath)` — constructs Platform + Vault Ingest; runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists. It performs no Daily-Notes-specific work at all ([ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md) retires the boot-time directory scaffolding ADR-014/ADR-017 disclosed as temporary — Daily Note folder materialization now happens entirely at persist time, see §6's `PageOperations.persistDraft`/`DailyNoteService.ensureFolderChain`); `attachVault()` still runs inside `bootstrap()` regardless, since `open()` needs `pageOperations` constructed before its resolve-or-draft call can run. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`. Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and resolves today's note — the real page if the scan found one, otherwise an unpersisted draft at its deterministic path, computed at call time rather than read from a bootstrap-time field ([ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md)). `close()` stops the watcher and tears down subscriptions.
 
 ### Invariants
 - This is the only file in the codebase that imports `LocalFileSystem`/`LocalFileSystemWatcher` concretely — everything else imports the interface types.
-- No conditional business logic — the only branch allowed here is `open()`'s "does the vault already have today's note, real page or draft," which is a resolve-or-draft ordering question ([ADR-017](./adr/017-draft-page-lifecycle.md)), not a product rule.
+- No conditional business logic — the only branch allowed here is `open()`'s "does the vault already have today's note, real page or draft," which is a resolve-or-draft ordering question ([ADR-017](./adr/017-draft-page-lifecycle.md)), not a product rule. This is also the one documented seam for a future startup-strategy branch ([ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md)) — not yet implemented.
 - No object is constructed more than once for the same purpose (the two-phase split exists precisely so the pre-Vault and post-Vault construction needs are each satisfied by exactly one instance, not two overlapping ones).
 
 ### Concurrency model
@@ -667,19 +667,15 @@ Each sequence lists the exact call chain implementers should produce. `Gate` = P
 
 > Amended by [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md): the version of this sequence below (a "minimal Gate" running before the Vault exists) was internally inconsistent with §5's own invariant that the Gate requires a `Vault` to construct. The sequence below is the corrected version — no minimal Gate, `attachVault()` called internally by `bootstrap()` rather than by `AppShell`.
 >
-> Further amended by [ADR-017](./adr/017-draft-page-lifecycle.md): `DailyNoteService.ensurePage()` (the step that created today's note through the Gate during `bootstrap()`) is retired. Navigation must never create durable knowledge — not even at boot — so resolving today's note moves entirely into `open()`, as a resolve-or-draft call: the real page if the scan found one, otherwise an unpersisted draft at the deterministic path `ensureDirectoryForToday` already scaffolded a directory for. `attachVault()` still runs inside `bootstrap()`, but now only because `open()` needs `pageOperations` constructed before it can run, not to make today's note-through-the-Gate possible.
+> Further amended by [ADR-017](./adr/017-draft-page-lifecycle.md): `DailyNoteService.ensurePage()` (the step that created today's note through the Gate during `bootstrap()`) is retired. Navigation must never create durable knowledge — not even at boot — so resolving today's note moves entirely into `open()`, as a resolve-or-draft call.
+>
+> Further amended by [ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md): `DailyNoteService.ensureDirectoryForToday()` (the disclosed, temporary directory-scaffolding step ADR-017 §9 retained) is retired now that Daily Note folder materialization happens entirely at persist time (`DailyNoteService.ensureFolderChain`, called from `PageOperations.persistDraft` — see §6). `bootstrap()` no longer does anything Daily-Notes-specific, and `open()` computes today's deterministic path itself at call time instead of reading a `todayNotePath` field `bootstrap()` used to precompute.
 
 ```
 AppShell
   → Application.bootstrap(rootPath)
       → Platform: construct LocalFileSystem, wrap in SelfWriteAwareFileSystem
       → Platform: VaultInitializer.initialize(rootPath)   [ensure reserved folders]
-      → DailyNoteService.ensureDirectoryForToday(rootPath)   [directory scaffolding
-        only — the same class of pre-Vault operation as VaultInitializer above, not
-        a page/folder content write, so this is not a Gate bypass. Still the one
-        disclosed, temporary exception to "navigation never creates durable
-        knowledge" — see ADR-017 §9: Vault has no live folder-registration
-        capability, so this can't move to first-save time without inventing one.]
       → Ingest: VaultScanner.scan(rootPath) → VaultBuilder.build(scanResult) → Vault
       → Application.attachVault(vault)   [called internally here, not by AppShell —
         open() needs pageOperations constructed before its resolve-or-draft call]
@@ -688,13 +684,17 @@ AppShell
             meaningful before the Vault exists)
   → Application.open()
       → watcher.start(rootPath)
-      → vault.getPageByPath(todayNotePath)
+      → path = DailyNotePath.absoluteFrom(vault.root, today)   [computed here, not
+        read from a bootstrap-time field]
+      → vault.getPageByPath(path)
           → [found]      pageOperations.open(todayPage.id)
-          → [not found]  pageOperations.openAtPath(todayNotePath, { type: 'daily-note' })
+          → [not found]  pageOperations.openAtPath(path, { type: 'daily-note' })
               [opens an unpersisted draft — no Gate call, no Vault call. Title
-              defaults to the filename (minus .md), folderId resolved from the
-              directory ensureDirectoryForToday scaffolded. Persists only on the
-              first save(), through the ordinary draft-promotion path (§6).]
+              defaults to the filename (minus .md), folderId resolved from
+              whatever the scan found for that month, if anything. Persists only
+              on the first save(), through the ordinary draft-promotion path
+              (§6), which materializes the year/month Folder chain at that point
+              via DailyNoteService.ensureFolderChain — not before.]
   → AppLayout renders, PageHost shows today's note (real or draft)
 ```
 
