@@ -10,7 +10,7 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
  */
 export function getMonth(
   visibleDate: string,
-  selectedDate: string
+  selectedDate: string | undefined
 ): CalendarDate[][] {
   // Current visible month.
   const month = new Date(visibleDate);
@@ -40,7 +40,10 @@ export function getMonth(
 
       isToday: isToday(isoDate),
 
-      isSelected: isSame(isoDate, selectedDate),
+      // No active Daily Note means nothing is selected — never falls back
+      // to "today" or a locally-remembered date (single source of truth
+      // is the active page, not the calendar widget).
+      isSelected: selectedDate ? isSame(isoDate, selectedDate) : false,
 
       // Previous/next month days.
       isOutsideMonth: date.getMonth() !== month.getMonth(),

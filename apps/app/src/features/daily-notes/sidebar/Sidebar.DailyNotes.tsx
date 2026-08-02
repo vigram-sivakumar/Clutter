@@ -10,6 +10,7 @@ interface DailyNotesPanelProps {
   vault: Vault;
   query: VaultQuery;
   workspace: Workspace;
+  activeDate: string | undefined;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
   onStartToday(): void;
@@ -20,6 +21,7 @@ export function DailyNotes({
   vault,
   query,
   workspace,
+  activeDate,
   onOpen,
   onOpenFolder,
   onStartToday,
@@ -30,6 +32,7 @@ export function DailyNotes({
       navigation={
         <DailyNotesShortcuts
           vault={vault}
+          activeDate={activeDate}
           onStartToday={onStartToday}
           onOpenDate={onOpenDate}
         />

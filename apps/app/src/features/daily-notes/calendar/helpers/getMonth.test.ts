@@ -55,4 +55,11 @@ describe('getMonth', () => {
     expect(selected[0]!.fullDate).toBe('2026-06-29');
     expect(selected[0]!.isOutsideMonth).toBe(true);
   });
+
+  it('marks no day as selected when selectedDate is undefined, including today', () => {
+    const allDays = getMonth('2026-07-15', undefined).flat();
+
+    expect(allDays.some((day) => day.isSelected)).toBe(false);
+    expect(allDays.some((day) => day.isToday)).toBe(true);
+  });
 });

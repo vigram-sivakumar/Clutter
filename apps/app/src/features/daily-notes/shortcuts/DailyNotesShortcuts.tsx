@@ -6,19 +6,25 @@ import { Section } from '@app/layouts/sidebar/section/Section';
 import { DateLabel } from '@components/date-label/DateLabel';
 import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
 import type { Vault } from '@core/vault/models';
-import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 
 import { findTodayNote } from '../helpers/findTodayNote';
 import { datesWithNotes } from '@features/daily-notes/calendar/helpers/datesWithNotes';
 
 interface DailyNotesShortcutsProps {
   vault: Vault;
+  // The active Daily Note's date, or undefined when the active page isn't
+  // a Daily Note. The calendar renders this directly rather than keeping
+  // its own selection state, so it can never drift from whatever's
+  // actually open (sidebar list, search, backlinks, Today — any entry
+  // point).
+  activeDate: string | undefined;
   onStartToday(): void;
   onOpenDate(date: string): void;
 }
 
 export function DailyNotesShortcuts({
   vault,
+  activeDate,
   onStartToday,
   onOpenDate,
 }: DailyNotesShortcutsProps) {
@@ -26,25 +32,15 @@ export function DailyNotesShortcuts({
   const todayNote = findTodayNote(dailyNotes);
   const notedDates = datesWithNotes(dailyNotes);
 
-  const [selectedDate, setSelectedDate] = useState(toISODate(new Date()));
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('week');
-
-  // The Calendar's date cells and its header's "Today" button both funnel
-  // through this single handler (Calendar.tsx's handleToday calls the same
-  // onSelectedDateChange prop) — one resolve-or-draft flow, no special case
-  // for "Today".
-  function handleSelectedDateChange(date: string) {
-    setSelectedDate(date);
-    onOpenDate(date);
-  }
 
   return (
     <Section>
       <Calendar
         mode={calendarMode}
-        selectedDate={selectedDate}
+        selectedDate={activeDate}
         notedDates={notedDates}
-        onSelectedDateChange={handleSelectedDateChange}
+        onSelectedDateChange={onOpenDate}
         onModeChange={setCalendarMode}
       />
       {!todayNote && (

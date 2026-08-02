@@ -2,6 +2,7 @@ import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useState, type ReactNode } from 'react';
 import { DailyNotePath } from '@core/application/daily-notes/DailyNotePath';
+import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
@@ -23,6 +24,11 @@ export function Sidebar({ application }: SidebarProps) {
   const { vault, query, navigation, pageOperations, folderOperations } = application;
   const workspace = useWorkspace(application.workspace);
   const [activeTab, setActiveTab] = useState('daily-notes');
+  const activeDailyNoteDate = getActiveDailyNoteDate(
+    vault,
+    workspace.activePageId,
+    pageOperations
+  );
 
   const tabs: Array<{
     value: string;
@@ -38,6 +44,7 @@ export function Sidebar({ application }: SidebarProps) {
           vault={vault}
           query={query}
           workspace={workspace}
+          activeDate={activeDailyNoteDate}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onStartToday={() =>

@@ -16,7 +16,11 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 
 interface CalendarProps {
   mode: CalendarMode;
-  selectedDate: string;
+  // The active Daily Note's date, or undefined when the active page isn't
+  // a Daily Note — the calendar never invents or remembers its own
+  // selection, it only renders whatever this is (single source of truth
+  // is the active page, not the calendar widget).
+  selectedDate: string | undefined;
   notedDates?: Set<string>;
   onSelectedDateChange(date: string): void;
   onModeChange(mode: CalendarMode): void;
@@ -29,13 +33,21 @@ export function Calendar({
   onSelectedDateChange,
   onModeChange,
 }: CalendarProps) {
-  // Date currently visible in the calendar.
-  const [visibleDate, setVisibleDate] = useState(selectedDate);
+  // Date currently visible in the calendar. Purely a browsing position —
+  // independent of selection — so it needs its own fallback when nothing
+  // is selected yet.
+  const [visibleDate, setVisibleDate] = useState(
+    () => selectedDate ?? toISODate(new Date())
+  );
 
-  // Keep the visible date in sync when the
-  // selected date changes externally.
+  // Follow the active Daily Note into view when one becomes active — but
+  // don't jerk the visible month when selection is merely cleared (the
+  // active page became a non-Daily-Note page), since the user may still
+  // be browsing.
   useEffect(() => {
-    setVisibleDate(selectedDate);
+    if (selectedDate) {
+      setVisibleDate(selectedDate);
+    }
   }, [selectedDate]);
 
   // Calendar title.

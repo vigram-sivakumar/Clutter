@@ -9,7 +9,7 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
  */
 export function getWeek(
   visibleDate: string,
-  selectedDate: string
+  selectedDate: string | undefined
 ): CalendarDate[] {
   // Create a Date from the visible date.
   const start = new Date(visibleDate);
@@ -35,7 +35,10 @@ export function getWeek(
 
       isToday: isToday(isoDate),
 
-      isSelected: isSame(isoDate, selectedDate),
+      // No active Daily Note means nothing is selected — never falls back
+      // to "today" or a locally-remembered date (single source of truth
+      // is the active page, not the calendar widget).
+      isSelected: selectedDate ? isSame(isoDate, selectedDate) : false,
 
       // Week view never has outside month days.
       isOutsideMonth: false,
