@@ -1,27 +1,27 @@
 import { DailyNotePath } from './DailyNotePath';
 import type { VaultFileSystem } from '../../vault/providers';
-import type { Vault } from '../../vault/models/Vault';
-import { PageCreator } from '../page/PageCreator';
-import type { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
 
 /**
  * Owns the Daily Notes filesystem convention.
  *
- * This service is responsible only for the filesystem conventions around Daily Notes,
- * such as computing paths and ensuring the existence of the appropriate files and directories.
+ * This service is responsible only for the filesystem conventions around
+ * Daily Notes — computing paths and ensuring the required directory
+ * hierarchy exists. It does not create the note itself (ADR-017): that is
+ * PageOperations.openAtPath()'s job, same resolve-or-draft mechanism as
+ * every other entry point, so today's note is never eagerly persisted
+ * through the Gate just because the app was opened.
  *
  * Responsibilities:
  * - Compute today's daily note location.
  * - Ensure the required year/month folder hierarchy exists.
- * - Ensure today's daily note exists.
- * - Return the path of today's daily note.
  *
  * Does NOT:
  * - Scan the vault.
  * - Build domain models.
  * - Open pages.
  * - Modify the workspace.
+ * - Create or persist a page (ADR-017 — see PageOperations.openAtPath()).
  */
 export class DailyNoteService {
   constructor(private readonly fileSystem: VaultFileSystem) {}
@@ -48,51 +48,5 @@ export class DailyNoteService {
     await this.fileSystem.createDirectory(directory);
 
     return absolutePath;
-  }
-
-  /**
-   * Ensures a page exists at `absolutePath`, creating it through the given
-   * Gate if missing. Callers must have already ensured the containing
-   * directory exists (see ensureDirectory/ensureDirectoryForToday) and that
-   * `vault` was built from a scan that observed it, so the folder this
-   * resolves for `parentId` is real.
-   *
-   * Calls the Gate directly rather than PageOperations.create() — this is
-   * deliberate, not a bypass: PageOperations.create() decides where
-   * user-chosen content should go, with collision-free naming this call
-   * doesn't need; this method decides only whether today's one specific,
-   * fixed-path page already exists. Different decision, same Gate. See
-   * ARCHITECTURE_RULES.md rule 1's amendment and ADR-014's amendment
-   * before assuming this should be routed through PageOperations — if a
-   * second such bypass ever appears elsewhere, that is the signal to
-   * generalize a facade method, not this one, singular, already-examined
-   * case.
-   */
-  async ensurePage(
-    absolutePath: string,
-    vault: Vault,
-    coordinator: PagePersistenceCoordinator,
-    pageCreator: PageCreator
-  ): Promise<void> {
-    if (vault.getPageByPath(absolutePath)) {
-      return;
-    }
-
-    const directory = VaultPath.parentDirectory(absolutePath);
-    const parentFolder = vault.getFolderByPath(directory);
-    const created = pageCreator.create('daily-note');
-
-    const result = await coordinator.enqueue(created.id, {
-      kind: 'create',
-      path: absolutePath,
-      parentId: parentFolder ? parentFolder.id : null,
-      content: created.content,
-    });
-
-    if (result.status === 'abandoned') {
-      throw new Error(
-        `Failed to create today's daily note at ${absolutePath}: ${result.reason}`
-      );
-    }
   }
 }

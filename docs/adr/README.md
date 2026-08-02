@@ -20,3 +20,5 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [014](./014-phase4-composition-root-and-navigation-cleanup.md) | Phase 4 — Composition root and navigation cleanup, including a Startup-sequence spec amendment | Accepted |
 | [015](./015-phase5-ingest-merge-and-vaultpath.md) | Phase 5 — Ingest merge, Gate relocation, VaultPath extraction, and a folder-org self-contradiction fix | Accepted |
 | [016](./016-phase6-cleanup-and-migration-close.md) | Phase 6 — Cleanup and closing the six-phase migration plan (substantially, not entirely, complete) | Accepted |
+| [017](./017-draft-page-lifecycle.md) | Draft page lifecycle — unpersisted `PageOperations` sessions, no `Vault`/`PageStatus` change | Accepted |
+| [018](./018-document-editing-identity-decoupling.md) | Decouple `DocumentEditing` from `Page` — identity-free editing sessions | Accepted |

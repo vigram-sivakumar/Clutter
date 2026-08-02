@@ -14,10 +14,37 @@ export class PageCreator {
   ) {}
 
   public create(type: PageFrontmatter['type'], body = ''): CreatedPage {
-    const id = this.idGenerator.generate();
+    const id = this.generateId();
+
+    return {
+      id,
+      content: this.buildContent(id, type, body),
+    };
+  }
+
+  /**
+   * Mints an id without building content — for a draft (ADR-017), the id
+   * is needed at open time, before there is any content to build a
+   * document from yet.
+   */
+  public generateId(): string {
+    return this.idGenerator.generate();
+  }
+
+  /**
+   * Builds a document for an already-known id — the other half of
+   * create()'s split, reused when a draft (ADR-017) is persisted for the
+   * first time and must keep the id it was opened with rather than
+   * minting a new one.
+   */
+  public buildContent(
+    id: string,
+    type: PageFrontmatter['type'],
+    body = ''
+  ): string {
     const now = new Date().toISOString();
 
-    const content = this.pageFactory.create(
+    return this.pageFactory.create(
       {
         id,
         type,
@@ -26,10 +53,5 @@ export class PageCreator {
       },
       body
     );
-
-    return {
-      id,
-      content,
-    };
   }
 }

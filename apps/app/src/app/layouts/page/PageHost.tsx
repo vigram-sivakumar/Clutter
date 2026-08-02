@@ -3,10 +3,10 @@ import type { Application } from '@core/application/Application';
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { buildBreadcrumbs } from '@core/presentation/buildBreadcrumbs';
+import { buildBreadcrumbs, buildBreadcrumbsForDraft } from '@core/presentation/buildBreadcrumbs';
 import { buildTopBarActions } from '@app/layouts/page/topbar/buildTopBarActions';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
-import { toResourcePageModel } from '@app/layouts/page/toResourcePageModel';
+import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
 import { Page } from '@app/layouts/page/Page';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
@@ -109,7 +109,49 @@ export function PageHost({ application }: PageHostProps) {
   // from the Vault — the live source of truth after moves and archive/restore.
   // DocumentSession owns only the editor buffer and save lifecycle.
   if (!page) {
-    throw new Error(`Page not found: ${activePageId}`);
+    // ADR-017: a session with no backing Vault page is an unpersisted
+    // draft, not an error, as long as PageOperations still has a
+    // descriptor for it (getDraft). Anything else missing from both is
+    // the pre-existing "dangling id" error, unchanged.
+    const draft = application.pageOperations.getDraft(activePageId);
+
+    if (!draft) {
+      throw new Error(`Page not found: ${activePageId}`);
+    }
+
+    const draftBreadcrumbs = buildBreadcrumbsForDraft(
+      activePageId,
+      draft.folderId,
+      draft.title ?? 'Untitled',
+      draft.type,
+      vault,
+      onOpenFolder
+    );
+    const model = toDraftPageModel(activePageId, draft.title, session, onUpdateMarkdown);
+
+    return (
+      <Page
+        title={model.title}
+        description={model.description}
+        titleEditable
+        titlePlaceholder={draft.type === 'daily-note' ? 'Untitled Note' : 'New Note'}
+        breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
+        // Archive/restore/delete/move/rename only apply to persisted
+        // pages (ADR-017 Decision item 9) — rather than wire them to a
+        // draft-shaped topbar menu, they're omitted entirely while
+        // unpersisted, so there's no reachable control that would
+        // silently no-op against the Gate's abandon-if-missing guard.
+        actions={null}
+        body={
+          <MarkdownBody>
+            <MarkdownEditor
+              markdown={model.markdown}
+              onCommit={(markdown) => model.updateMarkdown(markdown)}
+            />
+          </MarkdownBody>
+        }
+      />
+    );
   }
 
   const breadcrumbs = buildBreadcrumbs(page, vault, onOpenFolder);

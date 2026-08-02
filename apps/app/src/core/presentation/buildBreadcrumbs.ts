@@ -1,5 +1,5 @@
 import type { Vault } from '@core/vault/models/Vault';
-import type { Page } from '@core/vault/models/Page';
+import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 
 import type { Breadcrumb } from './Breadcrumb';
@@ -21,16 +21,22 @@ function getEntryIcon(entry: Page | Folder) {
   return entry.type === 'daily-note' ? 'calendarDot' : 'note';
 }
 
-export function buildBreadcrumbs(
-  entry: Page | Folder,
+function iconForPageType(type: PageType) {
+  return type === 'daily-note' ? 'calendarDot' : 'note';
+}
+
+/** Shared by buildBreadcrumbs and buildBreadcrumbsForDraft — the ancestor
+ * chain only ever depends on a starting folderId and the Vault. */
+function ancestorBreadcrumbs(
+  folderId: string | null,
   vault: Vault,
   onOpenFolder: (folderId: string) => void
 ): Breadcrumb[] {
   const ancestors: Breadcrumb[] = [];
+  let current = folderId;
 
-  let folderId = entry.parentId;
-  while (folderId) {
-    const folder = vault.getFolder(folderId);
+  while (current) {
+    const folder = vault.getFolder(current);
 
     if (!folder) {
       break;
@@ -44,14 +50,50 @@ export function buildBreadcrumbs(
       onClick: () => onOpenFolder(folder.id),
     });
 
-    folderId = folder.parentId;
+    current = folder.parentId;
   }
+
+  return ancestors;
+}
+
+export function buildBreadcrumbs(
+  entry: Page | Folder,
+  vault: Vault,
+  onOpenFolder: (folderId: string) => void
+): Breadcrumb[] {
+  const ancestors = ancestorBreadcrumbs(entry.parentId, vault, onOpenFolder);
 
   ancestors.push({
     id: entry.id,
     title: entry.name,
     icon: getEntryIcon(entry),
     emoji: entry.metadata.icon ?? undefined,
+  });
+
+  return ancestors;
+}
+
+/**
+ * Breadcrumbs for an unpersisted draft (ADR-017) — same ancestor-folder
+ * walk as a real page, since a draft's folderId is already known before
+ * it exists in the Vault; the trailing crumb has no metadata icon yet
+ * (nothing has been persisted to hold one) and no onClick (nothing to
+ * navigate to that isn't already the active page).
+ */
+export function buildBreadcrumbsForDraft(
+  draftId: string,
+  folderId: string | null,
+  title: string,
+  type: PageType,
+  vault: Vault,
+  onOpenFolder: (folderId: string) => void
+): Breadcrumb[] {
+  const ancestors = ancestorBreadcrumbs(folderId, vault, onOpenFolder);
+
+  ancestors.push({
+    id: draftId,
+    title,
+    icon: iconForPageType(type),
   });
 
   return ancestors;

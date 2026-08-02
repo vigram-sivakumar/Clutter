@@ -38,6 +38,40 @@ export function toResourcePageModel(
   };
 }
 
+/**
+ * The draft (ADR-017) counterpart: same ResourcePageModel shape, built from
+ * a draft id + title (PageOperations.getDraft()) instead of a Vault Page —
+ * there is no metadata/description/cover yet, since nothing is persisted.
+ */
+export function toDraftPageModel(
+  draftId: string,
+  title: string | undefined,
+  session: DocumentSession,
+  onUpdateMarkdown: (pageId: string, markdown: string) => void
+): ResourcePageModel {
+  const revision = session.currentRevision;
+
+  return {
+    // Empty, not a literal 'Untitled' string — an untitled draft (New
+    // Note) should show a placeholder, not filled-in placeholder-looking
+    // text. Daily-note drafts always have a real title by this point
+    // (PageOperations.openAtPath derives one from the deterministic
+    // path), so this only actually applies to New Note.
+    title: title ?? '',
+    description: '',
+    markdown: revision.markdown,
+    coverImage: null,
+
+    updateDescription(): void {
+      throw new Error('Not implemented');
+    },
+
+    updateMarkdown(markdown: string): void {
+      onUpdateMarkdown(draftId, markdown);
+    },
+  };
+}
+
 export interface ResourcePageModel {
   title: string;
   description: string;

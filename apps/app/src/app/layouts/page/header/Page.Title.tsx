@@ -6,17 +6,19 @@ interface PageTitleProps {
   children: ReactNode;
   editable?: boolean;
   className?: string;
+  placeholder?: string;
 }
 
-export function PageTitle({ children, editable, className }: PageTitleProps) {
+export function PageTitle({
+  children,
+  editable,
+  className,
+  placeholder = 'Untitled Note',
+}: PageTitleProps) {
   return (
     <div className={['page-title', className].filter(Boolean).join(' ')}>
       {editable && typeof children === 'string' ? (
-        <EditableText
-          value={children}
-          placeholder="Untitled Note"
-          onCommit={() => {}}
-        />
+        <EditableText value={children} placeholder={placeholder} onCommit={() => {}} />
       ) : (
         children
       )}

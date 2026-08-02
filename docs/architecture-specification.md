@@ -298,6 +298,7 @@ Constructed once at the Composition Root, after the Vault exists (it needs a `Va
 - Two operations enqueued for the same `pageId` execute strictly in enqueue order; operations for different `pageId`s execute concurrently.
 - Every operation that changes a page's path (move/archive/restore) delegates path computation and the actual `moveFile` call to `MoveService`, never inlines it.
 - On any step failure (write fails, parse fails), the queue for that page rejects the current operation and continues processing subsequent ones — one failed save never wedges the queue.
+- **`create` resolves the target id's existence at dequeue time, not before** ([ADR-017](./adr/017-draft-page-lifecycle.md) §4). Once a page's persistence can be deferred (a draft, see §6), a second `create` can be enqueued for an id an earlier queued operation already persisted — e.g. two rapid `save()` calls on the same still-unpersisted draft. If `vault.getPage(pageId)` already resolves when `create` actually runs, it is dispatched as a save against the existing page (via the same `writeParseRebuildReplace` helper `save` uses) instead of writing a second file and calling `Vault.addPage` a second time. This is the one dequeue-time guard `create` needed to match every other kind, which already had one.
 
 ### Concurrency model
 One `Promise`-chain queue per `pageId`, keyed in a `Map<string, Promise<unknown>>`. This is the single most important concurrency primitive in the app — every other subsystem's safety claims about "atomic" page mutation ultimately reduce to this queue's correctness.
@@ -322,34 +323,42 @@ await coordinator.enqueue(pageId, { kind: 'archive' });
 ## 6. Application Layer — `PageOperations`
 
 ### Responsibilities
-Own the entire lifecycle of a page as a single capability surface: the one file every caller (UI, shortcuts, future plugin/automation/API surfaces) calls for anything page-related.
+Own the entire lifecycle of a page as a single capability surface: the one file every caller (UI, shortcuts, future plugin/automation/API surfaces) calls for anything page-related — including, since [ADR-017](./adr/017-draft-page-lifecycle.md), the earliest phase of that lifecycle: an unpersisted draft that exists only as a `DocumentSession`, before it has a real `Vault` page.
 
 ### Public API
 
 ```ts
 + class PageOperations {
     open(pageId: string): Promise<void>;
+    openDraft(options: CreatePageOptions & { type?: PageType }): Promise<string>;   // returns new draft id; no Gate/Vault call
+    openAtPath(path: string, options: { type: PageType; title?: string }): Promise<string>;
+      // resolve-or-draft for a known target path (Daily Notes' "Today", a future Calendar date)
+    getDraft(pageId: string): DraftInfo | undefined;   // { folderId, type, title? } — undefined for a real page or an unknown id
     close(pageId: string): void;
-    create(options: CreatePageOptions): Promise<string>;   // returns new pageId
+    create(options: CreatePageOptions): Promise<string>;   // eager, immediate-persist — returns new pageId
     save(pageId: string, markdown: string): Promise<void>;
     archive(pageId: string): Promise<void>;
     restore(pageId: string): Promise<void>;
     delete(pageId: string): Promise<void>;
     move(pageId: string, destinationFolderId: string): Promise<void>;
-    rename(pageId: string, title: string): Promise<void>;
+    rename(pageId: string, title: string): Promise<void>;   // not yet implemented — see §5/ADR-012 disposition
     getSession(pageId: string): DocumentSession | undefined;
   }
 ```
 
+`rename()` is listed per the original target design but has no shipped implementation and no backing Gate operation kind — unchanged by ADR-017, carried forward from ADR-012's disposition.
+
 ### Internal collaborators
-`- PagePersistenceCoordinator` (all writes), `- DocumentSession`/`- DocumentRegistry`/`- SaveCoordinator` (editing lifecycle, §9), `- shouldPromoteDraft`/`- promoteDraftToActive`, `Vault` (read-only queries), `Workspace` (post-operation state updates, e.g. closing a deleted page).
+`- PagePersistenceCoordinator` (all writes), `- DocumentSession`/`- DocumentRegistry`/`- SaveCoordinator` (editing lifecycle, §9), `- PagePathResolver`, `- PageCreator` (id generation + document construction, shared between eager `create()` and a draft's first-persist), a private `- drafts` map (id → `DraftInfo`, ADR-017's non-Vault descriptor) and `- draftIdByDeterministicPath` map (path → id, so a second "open Today" reuses the already-open draft instead of minting a second one), `Vault` (read-only queries), `Workspace` (post-operation state updates, e.g. closing a deleted page).
 
 ### Lifecycle
-Constructed once at the Composition Root. No internal state of its own beyond its collaborators — `DocumentRegistry` holds the actual per-page session state.
+Constructed once at the Composition Root. No internal state of its own beyond its collaborators — `DocumentRegistry` holds the actual per-page session state, and `PageOperations`'s own `drafts` map holds the non-Vault descriptor a draft needs before it has one.
 
 ### Invariants
 - Every method that changes disk state calls exactly one `PagePersistenceCoordinator.enqueue`.
-- `save()` is the only method that can trigger draft promotion, and it does so via `shouldPromoteDraft`, never inline.
+- `openDraft()`/`openAtPath()` never call the Gate or mutate `Vault` — [ADR-017](./adr/017-draft-page-lifecycle.md)'s Governing Principle ("navigation must never create durable knowledge") applies to every entry point, not just these two.
+- `save()` is the only method that can promote a draft to a real page, and it does so by checking `vault.getPage(pageId)` — undefined means first save, dispatched through the same private helper (`persistDraft`) `create()` uses, never a duplicated "resolve path, enqueue create" implementation. This check is an optimistic guess about which Gate call to make, not a correctness guarantee — see §5's `create` invariant for where correctness against a racing second draft-save actually lives.
+- `delete()`/`close()` have no existence check of their own ([ADR-017](./adr/017-draft-page-lifecycle.md) §5/§7): `delete()` enqueues `{kind:'delete'}` unconditionally, relying on the Gate's own abandon-if-missing guard, so a delete for a draft that was never persisted resolves harmlessly instead of racing an in-flight, not-yet-executed `create` for the same id.
 - `delete()` and `close()` on the same page never race — `delete()` closes the session (via `DocumentRegistry`) before enqueuing the disk delete, so no save can complete against a page mid-deletion.
 - No method here ever calls `VaultFileSystem` directly.
 
@@ -370,6 +379,11 @@ One test suite per method, plus integration tests that exercise a realistic sequ
 const id = await pageOperations.create({ folderId, title: 'Untitled' });
 await pageOperations.save(id, '# Hello');
 await pageOperations.archive(id);
+
+// ADR-017: navigation-triggered entry points open a draft instead —
+// nothing exists in Vault or on disk until the first save.
+const draftId = await pageOperations.openDraft({ folderId: null });
+await pageOperations.save(draftId, '# My new note');   // first save persists it
 ```
 
 ---
@@ -465,25 +479,28 @@ Own the live edit buffer, revision tracking, and save-lifecycle state for pages 
 
 ```ts
 - class DocumentRegistry {
-    open(pageId: string, initialContent: string): DocumentSession;
+    open(id: string, initialContent: string): DocumentSession;
     get(pageId: string): DocumentSession | undefined;
     close(pageId: string): void;
   }
 
 - class DocumentSession {
-    commit(content: string): DocumentTransaction;
+    commit(transaction: DocumentTransaction): DocumentRevision;
     beginSave(): void;
     markSaved(revision: DocumentRevision): void;
-    markSaveFailed(error: Error): void;
+    markSaveFailed(): void;
     subscribe(listener: () => void): Unsubscribe;
+    get id(): string;
   }
 ```
+
+[ADR-018](./adr/018-document-editing-identity-decoupling.md): `open`'s first parameter and `DocumentSession`'s own identity are a bare `id`, not a `Page` — `DocumentEditing` has no reference to `Page` or `Vault` anywhere. This was already this section's literal text; the shipped code had drifted from it (`open(page: Page)`) until ADR-018 corrected the code to match, rather than the reverse.
 
 ### Internal collaborators
 `- DocumentRevision`, `- DocumentTransaction`, `- DocumentState`, `- SaveCoordinator`.
 
 ### Lifecycle
-A `DocumentSession` is created on `PageOperations.open()` and destroyed on `PageOperations.close()`. It is not persisted — closing and reopening a page creates a fresh session seeded from the Vault's current content.
+A `DocumentSession` is created on `PageOperations.open()` (seeded from the Vault's current content), `openDraft()`, or `openAtPath()` (both seeded empty — [ADR-017](./adr/017-draft-page-lifecycle.md); the id is real and stable from creation, whether or not a `Vault` page exists yet), and destroyed on `PageOperations.close()`. It is not persisted — closing and reopening a page creates a fresh session.
 
 ### Invariants
 - `SaveCoordinator` guards against stale completions: if save #1 is still in flight when save #2 begins, save #1's eventual completion must not overwrite save #2's in-progress state.
@@ -503,11 +520,11 @@ State-machine tests: verify every legal transition (Loading→Clean→Saving→C
 
 ### Example
 ```ts
-const session = documentRegistry.open(pageId, page.content);
-const tx = session.commit(newMarkdown);
+const session = documentRegistry.open(pageId, page.source.markdown);
+const revision = session.commit(new DocumentTransaction(newMarkdown));
 session.beginSave();
 // ... PageOperations.save() enqueues the write via the Gate, then:
-session.markSaved(newRevision);
+session.markSaved(revision);
 ```
 
 ---
@@ -587,11 +604,11 @@ Construct every subsystem in the correct order and wire dependencies. Own nothin
 Field names `pageOperations`/`folderOperations` (not `pages`/`folders`) — matches the implementation, which used these names throughout and predates this spec's `pages`/`folders` wording. Corrected here rather than renaming shipped, working code with no functional reason to change (see the Architecture v1.0 audit).
 
 ### Lifecycle
-`bootstrap(rootPath)` — constructs Platform + Vault Ingest; ensures the Daily Notes year/month directory exists (structural scaffolding, no Gate involved — see [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md)); runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists; then ensures today's daily note's content exists through the now-real Gate. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`. Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and navigates to today's note. `close()` stops the watcher and tears down subscriptions.
+`bootstrap(rootPath)` — constructs Platform + Vault Ingest; ensures the Daily Notes year/month directory exists (structural scaffolding, no Gate involved — see [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md)); runs the initial scan and build; calls `attachVault(vault)` internally, now that a real `Vault` exists. It no longer creates today's daily note's content through the Gate ([ADR-017](./adr/017-draft-page-lifecycle.md) supersedes that part of ADR-014's resolution — see the Startup sequence below); `attachVault()` still runs inside `bootstrap()` regardless, since `open()` needs `pageOperations` constructed before its resolve-or-draft call can run, not because today's note still needs to be ensured through it. `attachVault(vault)` — constructs `PageOperations`, `FolderOperations`, `NavigationRouter`, `Sync`. Kept as its own callable method (matching a named, testable construction seam) even though `bootstrap()` is its only caller today. `open()` starts the watcher and resolves today's note — the real page if the scan found one, otherwise an unpersisted draft at its deterministic path. `close()` stops the watcher and tears down subscriptions.
 
 ### Invariants
 - This is the only file in the codebase that imports `LocalFileSystem`/`LocalFileSystemWatcher` concretely — everything else imports the interface types.
-- No conditional business logic — the only branches allowed here are "does the vault already have today's note," which is a bootstrap-ordering question, not a product rule.
+- No conditional business logic — the only branch allowed here is `open()`'s "does the vault already have today's note, real page or draft," which is a resolve-or-draft ordering question ([ADR-017](./adr/017-draft-page-lifecycle.md)), not a product rule.
 - No object is constructed more than once for the same purpose (the two-phase split exists precisely so the pre-Vault and post-Vault construction needs are each satisfied by exactly one instance, not two overlapping ones).
 
 ### Concurrency model
@@ -646,6 +663,8 @@ Each sequence lists the exact call chain implementers should produce. `Gate` = P
 ### Startup
 
 > Amended by [ADR-014](./adr/014-phase4-composition-root-and-navigation-cleanup.md): the version of this sequence below (a "minimal Gate" running before the Vault exists) was internally inconsistent with §5's own invariant that the Gate requires a `Vault` to construct. The sequence below is the corrected version — no minimal Gate, `attachVault()` called internally by `bootstrap()` rather than by `AppShell`.
+>
+> Further amended by [ADR-017](./adr/017-draft-page-lifecycle.md): `DailyNoteService.ensurePage()` (the step that created today's note through the Gate during `bootstrap()`) is retired. Navigation must never create durable knowledge — not even at boot — so resolving today's note moves entirely into `open()`, as a resolve-or-draft call: the real page if the scan found one, otherwise an unpersisted draft at the deterministic path `ensureDirectoryForToday` already scaffolded a directory for. `attachVault()` still runs inside `bootstrap()`, but now only because `open()` needs `pageOperations` constructed before it can run, not to make today's note-through-the-Gate possible.
 
 ```
 AppShell
@@ -654,20 +673,26 @@ AppShell
       → Platform: VaultInitializer.initialize(rootPath)   [ensure reserved folders]
       → DailyNoteService.ensureDirectoryForToday(rootPath)   [directory scaffolding
         only — the same class of pre-Vault operation as VaultInitializer above, not
-        a page/folder content write, so this is not a Gate bypass]
+        a page/folder content write, so this is not a Gate bypass. Still the one
+        disclosed, temporary exception to "navigation never creates durable
+        knowledge" — see ADR-017 §9: Vault has no live folder-registration
+        capability, so this can't move to first-save time without inventing one.]
       → Ingest: VaultScanner.scan(rootPath) → VaultBuilder.build(scanResult) → Vault
       → Application.attachVault(vault)   [called internally here, not by AppShell —
-        bootstrap() needs the real Gate before it can ensure today's note through it]
+        open() needs pageOperations constructed before its resolve-or-draft call]
           → construct full Gate, PageOperations, FolderOperations, NavigationRouter,
             Sync (Sync subscribes to the watcher here, not before — no events are
             meaningful before the Vault exists)
-      → DailyNoteService.ensurePage(...) via Gate.enqueue(id, {kind:'create',...})
-        [create-if-absent, through the real Gate now that it exists — no bypass,
-        accurate parentId resolved from the folder the scan above just discovered]
   → Application.open()
       → watcher.start(rootPath)
-      → pageOperations.open(vault.getPageByPath(todayNotePath).id)
-  → AppLayout renders, PageHost shows today's note
+      → vault.getPageByPath(todayNotePath)
+          → [found]      pageOperations.open(todayPage.id)
+          → [not found]  pageOperations.openAtPath(todayNotePath, { type: 'daily-note' })
+              [opens an unpersisted draft — no Gate call, no Vault call. Title
+              defaults to the filename (minus .md), folderId resolved from the
+              directory ensureDirectoryForToday scaffolded. Persists only on the
+              first save(), through the ordinary draft-promotion path (§6).]
+  → AppLayout renders, PageHost shows today's note (real or draft)
 ```
 
 ### Save
@@ -675,9 +700,11 @@ AppShell
 ```
 MarkdownEditor.onBlur(content)
   → PageOperations.save(pageId, content)
-      → DocumentSession.commit(content) → DocumentTransaction
+      → vault.getPage(pageId) → [undefined] this is a draft's first save — see
+        "Draft" sequence below, persistDraft() handles it instead of the rest
+        of this sequence
+      → DocumentSession.commit(new DocumentTransaction(content)) → DocumentRevision
       → SaveCoordinator.beginSave()
-      → shouldPromoteDraft(content) → [if true] promoteDraftToActive()
       → Gate.enqueue(pageId, { kind: 'save', content })
           → FrontmatterSerializer.serializeDocument
           → VaultFileSystem.writeFile
@@ -687,6 +714,8 @@ MarkdownEditor.onBlur(content)
       → SaveCoordinator.completeSave()
       → DocumentSession.markSaved(newRevision)
 ```
+
+`shouldPromoteDraft`/`promoteDraftToActive`, named here in earlier revisions of this spec, were never built (ADR-012: no `'draft'` `PageStatus` existed to promote from). [ADR-017](./adr/017-draft-page-lifecycle.md) gives the underlying idea its real, shipped shape — not a status-promotion step inside `save()`, but the `vault.getPage(pageId)` branch above, dispatching to an entirely different Gate call.
 
 ### Create
 
@@ -704,6 +733,45 @@ UI "New Note" action
   → returns newPageId to caller
 ```
 
+Eager, immediate-persist entry point for non-interactive/programmatic callers ([ADR-017](./adr/017-draft-page-lifecycle.md) §6) — UI entry points ("New Note", "Today") use the Draft sequence below instead.
+
+### Draft (open, then first save promotes it)
+
+```
+UI "New Note" action
+  → PageOperations.openDraft({ folderId, title? })
+      → PageCreator.generateId()   [no content built yet — nothing to build for]
+      → DocumentRegistry.open(id, '')   [no Vault call, no Gate call]
+      → Workspace.openPage(id)
+  → returns draft id to caller
+
+UI "Today" / Calendar date action
+  → PageOperations.openAtPath(path, { type, title? })
+      → vault.getPageByPath(path) → [found] PageOperations.open(existing.id), done
+      → [not found] reuse the already-open draft for this exact path, if any
+        (draftIdByDeterministicPath) — otherwise mint a new one, same as
+        openDraft() above, with folderId resolved from path's directory and
+        title defaulted to the filename (minus .md) if none given
+
+MarkdownEditor.onBlur(content)   [first save for a draft id]
+  → PageOperations.save(pageId, content)
+      → vault.getPage(pageId) → undefined
+      → DocumentSession.commit(...) → DocumentRevision
+      → SaveCoordinator.beginSave()
+      → persistDraft(pageId, revision.markdown)   [shared with create() — Rule 4]
+          → PagePathResolver.createNotePath(...)   [or the draft's stored
+            deterministic path, if opened via openAtPath — never both]
+          → PageCreator.buildContent(id, type, body)   [same id the draft
+            already had — never a new one]
+          → Gate.enqueue(pageId, { kind: 'create', path, parentId, content })
+              → runCreate's dequeue-time existence guard (§5) — normally a
+                no-op here, since nothing raced this first persist
+              → VaultFileSystem.writeFile → FrontmatterParser.parse →
+                PageBuilder.build → Vault.addPage → notify()
+      → SaveCoordinator.completeSave()
+      → DocumentSession.markSaved(newRevision)
+```
+
 ### Delete
 
 ```
@@ -711,8 +779,12 @@ UI "Delete" menu item
   → PageOperations.delete(pageId)
       → DocumentRegistry.close(pageId)   [close any open session first]
       → Gate.enqueue(pageId, { kind: 'delete' })
-          → VaultFileSystem.deleteFile
-          → Vault.removePage → notify()
+          → [pageId resolves in Vault]  VaultFileSystem.deleteFile →
+            Vault.removePage → notify()
+          → [pageId does not resolve]  abandoned — no disk write, no error
+            surfaced to the caller (ADR-017 §5/§7): a delete for a draft
+            that was never persisted is indistinguishable, from here, from
+            deleting an already-gone real page, and both are harmless no-ops
       → Workspace.closePage(pageId)
 ```
 

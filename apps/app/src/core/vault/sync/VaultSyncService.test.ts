@@ -300,7 +300,7 @@ describe('VaultSyncService: sync correctness', () => {
     const { vault, fileSystem, watcher, documentRegistry } = setup([existing]);
 
     // The user opens the page and makes an unsaved local edit.
-    const session = documentRegistry.open(existing);
+    const session = documentRegistry.open(existing.id, existing.source.markdown);
     session.commit(new DocumentTransaction('My unsaved local edit'));
     expect(session.isDirty).toBe(true);
 

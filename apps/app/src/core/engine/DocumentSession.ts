@@ -1,9 +1,13 @@
-import type { Page } from '../vault/models';
 import { DocumentState } from './DocumentState';
 import { DocumentRevision } from './DocumentRevision';
 import { DocumentTransaction } from './DocumentTransaction';
 /**
- * Represents the single authoritative editable version of an open page.
+ * Represents the single authoritative editable version of an open document.
+ *
+ * Owns only the buffer under revision, identified by an opaque id — no
+ * knowledge of Page, Vault, or whether that id is backed by anything
+ * durable yet (see ADR-018). Domain identity (title, path, type,
+ * persisted-or-not) is resolved by callers, not by this class.
  *
  * Responsibilities:
  * - Own the live document content.
@@ -21,14 +25,15 @@ import { DocumentTransaction } from './DocumentTransaction';
  *
  * Lifetime:
  * - Created by the DocumentRegistry.
- * - Shared by every view of the same page.
+ * - Shared by every view of the same document.
  * - Disposed when the DocumentRegistry closes the session.
  */
 export class DocumentSession {
   /**
-   * The page currently being edited.
+   * The opaque identity of the document being edited. Not necessarily
+   * backed by a Vault page yet (see ADR-017's draft lifecycle).
    */
-  private readonly _page: Page;
+  private readonly _id: string;
 
   /**
    * The latest committed revision.
@@ -50,10 +55,10 @@ export class DocumentSession {
    */
   private listeners: Set<() => void> = new Set();
 
-  constructor(page: Page) {
-    this._page = page;
+  constructor(id: string, initialMarkdown: string) {
+    this._id = id;
 
-    const initialRevision = new DocumentRevision(0, page.source.markdown);
+    const initialRevision = new DocumentRevision(0, initialMarkdown);
 
     this._currentRevision = initialRevision;
     this._savedRevision = initialRevision;
@@ -136,10 +141,10 @@ export class DocumentSession {
   }
 
   /**
-   * The page owned by this session.
+   * The opaque identity of the document owned by this session.
    */
-  public get page(): Page {
-    return this._page;
+  public get id(): string {
+    return this._id;
   }
 
   /**

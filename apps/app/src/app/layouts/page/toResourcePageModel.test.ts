@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { toResourcePageModel } from './toResourcePageModel';
+import { toResourcePageModel, toDraftPageModel } from './toResourcePageModel';
 import { DocumentSession } from '@core/engine/DocumentSession';
 import { DocumentTransaction } from '@core/engine/DocumentTransaction';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
@@ -33,7 +33,7 @@ function buildPage(overrides: { description?: string; cover?: string } = {}): Pa
 describe('toResourcePageModel', () => {
   it('derives title, description, markdown, and coverImage from the page and session', () => {
     const page = buildPage({ description: 'A note', cover: '/vault/cover.png' });
-    const session = new DocumentSession(page);
+    const session = new DocumentSession(page.id, page.source.markdown);
 
     const model = toResourcePageModel(page, session, vi.fn());
 
@@ -45,7 +45,7 @@ describe('toResourcePageModel', () => {
 
   it('renders the session\'s in-memory revision, not just the Vault snapshot', () => {
     const page = buildPage();
-    const session = new DocumentSession(page);
+    const session = new DocumentSession(page.id, page.source.markdown);
     session.commit(new DocumentTransaction('Edited body'));
 
     const model = toResourcePageModel(page, session, vi.fn());
@@ -55,7 +55,7 @@ describe('toResourcePageModel', () => {
 
   it('updateMarkdown delegates to the onUpdateMarkdown callback with the page id', () => {
     const page = buildPage();
-    const session = new DocumentSession(page);
+    const session = new DocumentSession(page.id, page.source.markdown);
     const onUpdateMarkdown = vi.fn();
 
     const model = toResourcePageModel(page, session, onUpdateMarkdown);
@@ -66,12 +66,49 @@ describe('toResourcePageModel', () => {
 
   it('updateDescription throws — not yet routed through the Application layer', () => {
     const page = buildPage();
-    const session = new DocumentSession(page);
+    const session = new DocumentSession(page.id, page.source.markdown);
 
     const model = toResourcePageModel(page, session, vi.fn());
 
     expect(() => model.updateDescription('New description')).toThrow(
       'Not implemented'
     );
+  });
+});
+
+describe('toDraftPageModel (ADR-017)', () => {
+  it('derives title from the draft descriptor, defaulting to empty (a placeholder, not filled-in text), and has no description/cover', () => {
+    const session = new DocumentSession('draft-1', '');
+
+    expect(toDraftPageModel('draft-1', 'My Draft', session, vi.fn()).title).toBe(
+      'My Draft'
+    );
+    expect(toDraftPageModel('draft-1', undefined, session, vi.fn()).title).toBe('');
+    expect(toDraftPageModel('draft-1', 'My Draft', session, vi.fn()).description).toBe(
+      ''
+    );
+    expect(toDraftPageModel('draft-1', 'My Draft', session, vi.fn()).coverImage).toBe(
+      null
+    );
+  });
+
+  it("renders the session's in-memory revision", () => {
+    const session = new DocumentSession('draft-1', '');
+    session.commit(new DocumentTransaction('Typed content'));
+
+    const model = toDraftPageModel('draft-1', 'My Draft', session, vi.fn());
+
+    expect(model.markdown).toBe('Typed content');
+  });
+
+  it('updateMarkdown delegates to onUpdateMarkdown with the draft id', () => {
+    const session = new DocumentSession('draft-1', '');
+    const onUpdateMarkdown = vi.fn();
+
+    toDraftPageModel('draft-1', 'My Draft', session, onUpdateMarkdown).updateMarkdown(
+      'New content'
+    );
+
+    expect(onUpdateMarkdown).toHaveBeenCalledWith('draft-1', 'New content');
   });
 });

@@ -111,6 +111,40 @@ describe('PagePersistenceCoordinator cross-kind concurrency', () => {
     expect(vault.getPage('page-new')!.source.markdown).toBe('Edited body');
   });
 
+  it('two creates enqueued back-to-back for the same not-yet-persisted id apply the second as a save, not a duplicate write (ADR-017 §4)', async () => {
+    const { vault, fileSystem, coordinator } = setup();
+
+    // Simulates two rapid PageOperations.save() calls on the same
+    // still-unpersisted draft, both guessing 'create' before either has
+    // resolved — the exact race ADR-017's concurrency correction closes.
+    const firstCreate = coordinator.enqueue('draft-1', {
+      kind: 'create',
+      path: `${ROOT}/Untitled.md`,
+      parentId: null,
+      content: noteDocument('draft-1', 'First body'),
+    });
+    const secondCreate = coordinator.enqueue('draft-1', {
+      kind: 'create',
+      path: `${ROOT}/Untitled.md`,
+      parentId: null,
+      content: noteDocument('draft-1', 'Second body'),
+    });
+
+    const [firstResult, secondResult] = await Promise.all([
+      firstCreate,
+      secondCreate,
+    ]);
+
+    expect(firstResult.status).toBe('saved');
+    expect(secondResult.status).toBe('saved');
+    // No duplicate-id rejection, no second file — the second 'create' was
+    // dispatched as a save against the page the first one just persisted.
+    expect(vault.getPage('draft-1')!.source.markdown).toBe('Second body');
+    expect(
+      (fileSystem as InMemoryVaultFileSystem).hasFileSync(`${ROOT}/Untitled.md`)
+    ).toBe(true);
+  });
+
   it('create immediately followed by delete on the same id resolves in order, leaving no trace', async () => {
     const { vault, fileSystem, coordinator } = setup();
 

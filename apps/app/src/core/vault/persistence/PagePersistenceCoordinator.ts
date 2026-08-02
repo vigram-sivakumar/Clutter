@@ -105,11 +105,15 @@ export class PagePersistenceCoordinator {
     pageId: string,
     operation: PersistenceOperation
   ): Promise<PersistenceResult> {
-    // 'create' targets a page that does not exist in the Vault yet by
-    // definition, so it must be dispatched before the existing-page guard
-    // below (which every other kind requires).
+    // 'create' is dispatched before the existing-page guard below, because
+    // its usual target does not exist in the Vault yet. It is not exempt
+    // from that guard, though (see runCreate's own dequeue-time check,
+    // ADR-017 §4) — deferred-persistence callers (a promoted draft's first
+    // save) can enqueue a second 'create' for an id the first one already
+    // persisted, so 'create' itself resolves the id's current Vault state
+    // at dequeue time instead of assuming it, same as every other kind.
     if (operation.kind === 'create') {
-      return this.runCreate(operation);
+      return this.runCreate(pageId, operation);
     }
 
     const current = this.vault.getPage(pageId);
@@ -173,12 +177,35 @@ export class PagePersistenceCoordinator {
     return { status: 'deleted' };
   }
 
-  private async runCreate(operation: {
-    readonly kind: 'create';
-    readonly path: string;
-    readonly parentId: string | null;
-    readonly content: string;
-  }): Promise<PersistenceResult> {
+  private async runCreate(
+    pageId: string,
+    operation: {
+      readonly kind: 'create';
+      readonly path: string;
+      readonly parentId: string | null;
+      readonly content: string;
+    }
+  ): Promise<PersistenceResult> {
+    // Dequeue-time existence check (ADR-017 §4 concurrency correction): a
+    // second 'create' enqueued for the same id — possible once persistence
+    // can be deferred past a single synchronous call, e.g. two rapid saves
+    // on the same still-unpersisted draft — must not write a second file or
+    // call Vault.addPage a second time. If the id was already persisted by
+    // an earlier operation in this same per-page queue, treat this as the
+    // save it actually is against the page's real, already-established
+    // path, via the same helper 'save' already uses. This is the only
+    // guard 'create' needed; every other kind already had its own.
+    const existing = this.vault.getPage(pageId);
+
+    if (existing) {
+      // 'create's content is always a full serialized document (frontmatter
+      // + body, per PageCreator/PageFactory) — not the body-only markdown
+      // writeParseRebuildReplace (shared with 'save') expects. Parse it
+      // first to recover just the body.
+      const { body } = this.parser.parse(operation.content);
+      return this.writeParseRebuildReplace(existing, body);
+    }
+
     await this.fileSystem.writeFile(operation.path, operation.content);
 
     // Reuses the same parse pipeline VaultScanner/DocumentLoader use during

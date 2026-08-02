@@ -21,7 +21,7 @@ import { DocumentSession } from './DocumentSession';
  */
 export class SaveCoordinator {
   /**
-   * Revisions currently being persisted, keyed by page identity.
+   * Revisions currently being persisted, keyed by document id.
    * Tracks these to detect duplicate or stale save completions in the future.
    */
   private readonly activeSaves = new Map<string, DocumentRevision>();
@@ -37,7 +37,7 @@ export class SaveCoordinator {
 
     session.beginSave();
 
-    this.activeSaves.set(session.page.id, revision);
+    this.activeSaves.set(session.id, revision);
 
     return revision;
   }
@@ -56,7 +56,7 @@ export class SaveCoordinator {
     revision: DocumentRevision
   ): void {
     // Retrieve the tracked revision for this session.
-    const activeRevision = this.activeSaves.get(session.page.id);
+    const activeRevision = this.activeSaves.get(session.id);
     if (activeRevision !== revision) {
       // Prevent stale save completions from overwriting newer edits.
       return;
@@ -64,7 +64,7 @@ export class SaveCoordinator {
     // Mark the session as saved with this revision.
     session.markSaved(revision);
     // Remove from active saves.
-    this.activeSaves.delete(session.page.id);
+    this.activeSaves.delete(session.id);
   }
 
   /**
@@ -75,13 +75,13 @@ export class SaveCoordinator {
    * retried or recovered later.
    */
   public failSave(session: DocumentSession, revision: DocumentRevision): void {
-    const activeRevision = this.activeSaves.get(session.page.id);
+    const activeRevision = this.activeSaves.get(session.id);
 
     if (activeRevision !== revision) {
       return;
     }
 
     session.markSaveFailed();
-    this.activeSaves.delete(session.page.id);
+    this.activeSaves.delete(session.id);
   }
 }

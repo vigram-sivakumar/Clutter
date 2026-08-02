@@ -10,6 +10,7 @@ type PageProps = {
   title: string;
   description?: string;
   titleEditable?: boolean;
+  titlePlaceholder?: string;
   breadcrumbs?: ReactNode;
   menu?: ReactNode;
   actions?: ReactNode;
@@ -21,6 +22,7 @@ export function Page({
   title,
   description,
   titleEditable,
+  titlePlaceholder,
   breadcrumbs,
   menu,
   actions,
@@ -34,7 +36,9 @@ export function Page({
         <div className="page__content">
           <header className="page__header">
             <PageTitleSection>
-              <PageTitle editable={titleEditable}>{title}</PageTitle>
+              <PageTitle editable={titleEditable} placeholder={titlePlaceholder}>
+                {title}
+              </PageTitle>
               {description && <PageDescription>{description}</PageDescription>}
             </PageTitleSection>
           </header>

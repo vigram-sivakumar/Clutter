@@ -11,8 +11,10 @@
   width: 100%;
   height: var(--height-md);
   border-radius: var(--radius-sm);
-  color: var(--icon-tertiary);
+  color: var(--text-secondary);
   font-size: var(--text-caption);
   letter-spacing: var(--ls-caption);
   font-weight: var(--fw-regular);
+
+  opacity: var(--opacity-strong);
 }

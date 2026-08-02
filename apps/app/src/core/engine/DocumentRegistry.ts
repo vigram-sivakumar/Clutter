@@ -1,12 +1,15 @@
-import type { Page } from '../vault/models';
 import { DocumentSession } from './DocumentSession';
 /**
  * Manages the collection of active document sessions.
  *
+ * Sessions are identified by an opaque id, with no knowledge of Page or
+ * Vault (see ADR-018) — an id need not be backed by a Vault page yet
+ * (see ADR-017's draft lifecycle).
+ *
  * Responsibilities:
  * - Create DocumentSessions.
- * - Return existing sessions for already-open pages.
- * - Ensure only one DocumentSession exists per page.
+ * - Return existing sessions for already-open documents.
+ * - Ensure only one DocumentSession exists per id.
  *
  * Does NOT:
  * - Edit documents.
@@ -20,28 +23,30 @@ import { DocumentSession } from './DocumentSession';
  */
 export class DocumentRegistry {
   /**
-   * Active runtime sessions indexed by Page ID.
+   * Active runtime sessions indexed by document id.
    *
-   * A page may exist in the Vault without an active session.
-   * A session is created lazily when the page is opened.
+   * A page may exist in the Vault without an active session. An id may
+   * also have an active session without yet existing in the Vault (a
+   * draft). A session is created lazily when the document is opened.
    */
   private readonly sessions = new Map<string, DocumentSession>();
 
   /**
-   * Opens a page and returns its authoritative DocumentSession.
+   * Opens a document and returns its authoritative DocumentSession.
    *
-   * If the page is already open, the existing session is returned.
+   * If the id is already open, the existing session is returned and
+   * `initialContent` is ignored.
    */
-  public open(page: Page): DocumentSession {
-    const existingSession = this.sessions.get(page.id);
+  public open(id: string, initialContent: string): DocumentSession {
+    const existingSession = this.sessions.get(id);
 
     if (existingSession) {
       return existingSession;
     }
 
-    const session = new DocumentSession(page);
+    const session = new DocumentSession(id, initialContent);
 
-    this.sessions.set(page.id, session);
+    this.sessions.set(id, session);
 
     return session;
   }

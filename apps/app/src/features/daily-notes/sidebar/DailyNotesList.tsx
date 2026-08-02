@@ -55,7 +55,7 @@ function sortMonthSections(sections: MonthSection[]): MonthSection[] {
 function formatMonthSectionTitle(section: MonthSection): string {
   const monthIsoDate = section.monthIsoDate;
   return isCurrentYear(monthIsoDate)
-    ? formatDate(monthIsoDate, 'monthShort')
+    ? formatDate(monthIsoDate, 'monthLong')
     : formatDate(monthIsoDate, 'monthYear');
 }
 

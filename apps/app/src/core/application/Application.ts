@@ -34,12 +34,16 @@ import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher'
  * Owns the long-lived application services and shared runtime state.
  *
  * Two-phase construction: bootstrap(rootPath) constructs Platform + Vault
- * Ingest, ensures today's Daily Notes directory exists, scans and builds
- * the Vault, then calls attachVault() internally (not from AppShell, as the
- * frozen spec's literal Startup sequence describes — see ADR-014 for why)
- * so today's daily note can be created through the real Persistence Gate
- * before bootstrap() returns, with no bypass and an accurate parentId.
- * open() starts the watcher and opens today's note.
+ * Ingest, ensures today's Daily Notes directory exists (structural
+ * scaffolding only — see DailyNoteService), scans and builds the Vault,
+ * then calls attachVault() internally (not from AppShell — see ADR-014).
+ * bootstrap() no longer creates today's note through the Gate (ADR-017
+ * supersedes that part of ADR-014 Decision 1): navigation never creates
+ * durable knowledge, not even at boot. attachVault() still runs inside
+ * bootstrap() regardless, since open() needs pageOperations constructed
+ * before its resolve-or-draft call below can run.
+ * open() starts the watcher and resolves today's note — the real page if
+ * one exists, otherwise an unpersisted draft at its deterministic path.
  *
  * Responsibilities:
  * - Own the active Vault.
@@ -65,7 +69,6 @@ export class Application {
   public vaultSyncService!: VaultSyncService;
   private readonly fileSystem: VaultFileSystem;
   private readonly selfWriteRegistry: SelfWriteRegistry;
-  private persistenceCoordinator!: PagePersistenceCoordinator;
   private fileSystemWatcher!: LocalFileSystemWatcher;
   private rootPath!: string;
   private todayNotePath!: string;
@@ -120,15 +123,11 @@ export class Application {
 
     application.attachVault(vault, pageCreator);
 
-    // Now that the real Gate exists, ensure today's note exists through it —
-    // no bypass, and an accurate parentId, since the directory ensured
-    // above was part of this same scan.
-    await dailyNotes.ensurePage(
-      todayNotePath,
-      vault,
-      application.persistenceCoordinator,
-      pageCreator
-    );
+    // ADR-017: today's note is no longer created through the Gate here.
+    // open() below resolves it — the real page if the scan found one, or
+    // an unpersisted draft at todayNotePath otherwise — never a boot-time
+    // write. dailyNotes.ensurePage() (the Gate-writing method this
+    // replaced) is retired.
 
     return application;
   }
@@ -174,8 +173,6 @@ export class Application {
       moveService
     );
 
-    this.persistenceCoordinator = persistenceCoordinator;
-
     this.pageOperations = new PageOperations(
       vault,
       this.workspace,
@@ -208,22 +205,26 @@ export class Application {
   }
 
   /**
-   * Starts the filesystem watcher and opens today's daily note. Everything
-   * this needs (the Gate, today's note guaranteed to exist) was already
-   * constructed/ensured by bootstrap().
+   * Starts the filesystem watcher and resolves today's daily note —
+   * opening the real Vault page if the startup scan found one, otherwise
+   * opening an unpersisted draft at the deterministic path bootstrap()
+   * already ensured a directory for (ADR-017 §7/Decision item 7). Never
+   * writes through the Gate itself; PageOperations.openAtPath() decides
+   * that, on first save, same as every other draft.
    */
   public async open(): Promise<void> {
     await this.fileSystemWatcher.start(this.rootPath);
 
     const todayPage = this.vault.getPageByPath(this.todayNotePath);
 
-    if (!todayPage) {
-      throw new Error(
-        `Failed to resolve today's daily note: ${this.todayNotePath}`
-      );
+    if (todayPage) {
+      void this.pageOperations.open(todayPage.id);
+      return;
     }
 
-    void this.pageOperations.open(todayPage.id);
+    void this.pageOperations.openAtPath(this.todayNotePath, {
+      type: 'daily-note',
+    });
   }
 
   /**

@@ -1,67 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DailyNoteService } from './DailyNoteService';
-import { PageCreator } from '../page/PageCreator';
-import { PageFactory } from '../page/PageFactory';
-import { UuidGenerator } from '../../shared/identity/UuidGenerator';
-import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
-import { MoveService } from '../../vault/persistence/MoveService';
-import { Vault } from '../../vault/models/Vault';
-import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
-import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
-import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
-import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
-import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
-import type { Folder } from '../../vault/models/Folder';
 
 const ROOT = '/vault';
-
-function makeFolder(id: string, path: string): Folder {
-  return {
-    id,
-    name: path.slice(path.lastIndexOf('/') + 1),
-    path,
-    parentId: null,
-    metadata: {
-      icon: null,
-      favorite: false,
-      description: '',
-      cover: null,
-      status: 'active',
-      archivedAt: null,
-      originalPath: null,
-      originalParentId: null,
-    },
-  };
-}
-
-function makeVault(folders: Folder[] = []): Vault {
-  return new Vault(
-    ROOT,
-    [],
-    folders,
-    [],
-    [],
-    [],
-    new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
-  );
-}
-
-function makeCoordinator(fileSystem: InMemoryVaultFileSystem, vault: Vault) {
-  return new PagePersistenceCoordinator(
-    fileSystem,
-    vault,
-    new FrontmatterSerializer(),
-    new FrontmatterParser(),
-    new PageRebuilder(),
-    new MoveService(vault, fileSystem)
-  );
-}
-
-function makePageCreator(): PageCreator {
-  return new PageCreator(new UuidGenerator(), new PageFactory());
-}
 
 describe('DailyNoteService.ensureDirectory', () => {
   it('creates the year/month directory and returns the absolute note path', async () => {
@@ -78,66 +19,10 @@ describe('DailyNoteService.ensureDirectory', () => {
   });
 });
 
-describe('DailyNoteService.ensurePage', () => {
-  it('creates the page through the given Gate when missing, using the resolved folder as parentId', async () => {
-    const fileSystem = new InMemoryVaultFileSystem();
-    const service = new DailyNoteService(fileSystem);
-    const date = new Date(2026, 7, 1);
-    const absolutePath = await service.ensureDirectory(date, ROOT);
-
-    const monthFolder = makeFolder(
-      'folder-august',
-      `${ROOT}/Daily Notes/2026/August`
-    );
-    const vault = makeVault([monthFolder]);
-    const coordinator = makeCoordinator(fileSystem, vault);
-    const pageCreator = makePageCreator();
-
-    await service.ensurePage(absolutePath, vault, coordinator, pageCreator);
-
-    const created = vault.getPageByPath(absolutePath);
-    expect(created).toBeDefined();
-    expect(created!.parentId).toBe('folder-august');
-    expect(await fileSystem.exists(absolutePath)).toBe(true);
-  });
-
-  it('falls back to a null parentId if the folder is not in the vault', async () => {
-    const fileSystem = new InMemoryVaultFileSystem();
-    const service = new DailyNoteService(fileSystem);
-    const date = new Date(2026, 7, 1);
-    const absolutePath = await service.ensureDirectory(date, ROOT);
-
-    const vault = makeVault([]);
-    const coordinator = makeCoordinator(fileSystem, vault);
-    const pageCreator = makePageCreator();
-
-    await service.ensurePage(absolutePath, vault, coordinator, pageCreator);
-
-    const created = vault.getPageByPath(absolutePath);
-    expect(created).toBeDefined();
-    expect(created!.parentId).toBeNull();
-  });
-
-  it('is a no-op if the page already exists in the vault', async () => {
-    const fileSystem = new InMemoryVaultFileSystem();
-    const service = new DailyNoteService(fileSystem);
-    const date = new Date(2026, 7, 1);
-    const absolutePath = await service.ensureDirectory(date, ROOT);
-
-    const monthFolder = makeFolder(
-      'folder-august',
-      `${ROOT}/Daily Notes/2026/August`
-    );
-    const vault = makeVault([monthFolder]);
-    const coordinator = makeCoordinator(fileSystem, vault);
-    const pageCreator = makePageCreator();
-
-    await service.ensurePage(absolutePath, vault, coordinator, pageCreator);
-    const firstWrite = fileSystem.getFileSync(absolutePath);
-
-    await service.ensurePage(absolutePath, vault, coordinator, pageCreator);
-    const secondWrite = fileSystem.getFileSync(absolutePath);
-
-    expect(secondWrite).toBe(firstWrite);
-  });
-});
+// DailyNoteService.ensurePage() was retired by ADR-017: creating today's
+// note through the Gate is no longer this service's job (it owns
+// path/directory conventions only). The equivalent behavior — resolving a
+// deterministic path to either the real Vault page or an unpersisted
+// draft, and persisting that draft correctly on first save — is now
+// PageOperations.openAtPath()'s responsibility, covered in
+// PageOperations.test.ts's "drafts (ADR-017)" describe block.

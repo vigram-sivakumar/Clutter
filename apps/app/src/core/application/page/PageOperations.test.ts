@@ -184,7 +184,7 @@ describe('PageOperations.save(): archived pages are view-only', () => {
     await archiveDirectly(coordinator, page.id);
 
     await expect(pageOperations.open(page.id)).resolves.toBeUndefined();
-    expect(documentRegistry.get(page.id)?.page.id).toBe(page.id);
+    expect(documentRegistry.get(page.id)?.id).toBe(page.id);
   });
 
   it('save() rejects for an archived page and never touches the session or disk', async () => {
@@ -541,11 +541,11 @@ describe('PageOperations.delete()', () => {
     expect(closeOrder).toBeLessThan(enqueueOrder);
   });
 
-  it('throws for an unknown page id and touches no disk', async () => {
+  it('resolves without throwing for an unknown page id and touches no disk (ADR-017: delete has no existence check, matching a never-persisted draft)', async () => {
     const page = buildPage();
     const { fileSystem, pageOperations } = setup(page);
 
-    await expect(pageOperations.delete('does-not-exist')).rejects.toThrow(/Page not found/);
+    await expect(pageOperations.delete('does-not-exist')).resolves.toBeUndefined();
     expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(true);
   });
 });
@@ -731,5 +731,143 @@ describe('PageOperations.move()', () => {
     const moved = vault.getPage(page.id)!;
     expect(moved.path).toBe(`${ROOT}/Projects/Note.md`);
     expect(moved.source.markdown).toBe('Edited after move');
+  });
+});
+
+function setupEmpty(folders: Folder[] = [makeArchiveFolder()]) {
+  const vault = makeVault([], folders);
+  const fileSystem = new InMemoryVaultFileSystem();
+  const workspace = new Workspace();
+  const documentRegistry = new DocumentRegistry();
+  const saveCoordinator = new SaveCoordinator();
+  const moveService = new MoveService(vault, fileSystem);
+  const coordinator = new PagePersistenceCoordinator(
+    fileSystem,
+    vault,
+    new FrontmatterSerializer(),
+    new FrontmatterParser(),
+    new PageRebuilder(),
+    moveService
+  );
+  const pageOperations = new PageOperations(
+    vault,
+    workspace,
+    documentRegistry,
+    saveCoordinator,
+    coordinator,
+    new PagePathResolver(vault),
+    new PageCreator(new UuidGenerator(), new PageFactory())
+  );
+
+  return { vault, fileSystem, workspace, documentRegistry, coordinator, pageOperations };
+}
+
+describe('PageOperations: drafts (ADR-017)', () => {
+  it('openDraft opens a session and marks the workspace open, with no Vault entry and no disk write', async () => {
+    const { vault, fileSystem, workspace, documentRegistry, pageOperations } =
+      setupEmpty();
+
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Untitled' });
+
+    expect(documentRegistry.get(id)).toBeDefined();
+    expect(workspace.isPageOpen(id)).toBe(true);
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(fileSystem.hasFileSync(`${ROOT}/Untitled.md`)).toBe(false);
+  });
+
+  it("first save() on a draft persists it through the Gate's create path, at a collision-free path", async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+
+    const id = await pageOperations.openDraft({ folderId: null, title: 'My Note' });
+    await pageOperations.save(id, 'First real content');
+
+    const page = vault.getPage(id)!;
+    expect(page.id).toBe(id);
+    expect(page.path).toBe(`${ROOT}/My Note.md`);
+    expect(page.source.markdown).toBe('First real content');
+    expect(fileSystem.hasFileSync(`${ROOT}/My Note.md`)).toBe(true);
+  });
+
+  it('a second save() on an already-persisted (promoted) draft is an ordinary save, not another create', async () => {
+    const { vault, pageOperations } = setupEmpty();
+
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Note' });
+    await pageOperations.save(id, 'First');
+    await pageOperations.save(id, 'Second');
+
+    expect(vault.getPage(id)!.source.markdown).toBe('Second');
+  });
+
+  it('deleting a draft that was never saved is a no-op: no throw, no disk write, closes the session', async () => {
+    const { fileSystem, workspace, documentRegistry, pageOperations } = setupEmpty();
+
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Abandoned' });
+    await expect(pageOperations.delete(id)).resolves.toBeUndefined();
+
+    expect(documentRegistry.get(id)).toBeUndefined();
+    expect(workspace.isPageOpen(id)).toBe(false);
+    expect(fileSystem.hasFileSync(`${ROOT}/Abandoned.md`)).toBe(false);
+  });
+
+  it("save() on a real page that vanished out from under its session still throws 'Page not found', not a draft error", async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.open(page.id);
+    vault.removePage(page.id);
+
+    await expect(pageOperations.save(page.id, 'x')).rejects.toThrow(/Page not found/);
+  });
+
+  it('openAtPath opens the real Vault page directly when one already exists at that path', async () => {
+    const page = buildPage();
+    const { workspace, documentRegistry, pageOperations } = setup(page);
+
+    const id = await pageOperations.openAtPath(page.path, {
+      type: 'daily-note',
+    });
+
+    expect(id).toBe(page.id);
+    expect(documentRegistry.get(page.id)).toBeDefined();
+    expect(workspace.isPageOpen(page.id)).toBe(true);
+  });
+
+  it('openAtPath opens a draft when nothing exists at that path yet, and a second call for the same path reuses it', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+
+    const firstId = await pageOperations.openAtPath(path, {
+      type: 'daily-note',
+    });
+    const secondId = await pageOperations.openAtPath(path, {
+      type: 'daily-note',
+    });
+
+    expect(secondId).toBe(firstId);
+    expect(vault.getPage(firstId)).toBeUndefined();
+  });
+
+  it('openAtPath defaults the draft title to the filename (minus .md) when no title is given, matching PageBuilder', async () => {
+    const { pageOperations } = setupEmpty();
+    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    expect(pageOperations.getDraft(id)?.title).toBe('2026-08-01');
+  });
+
+  it('openAtPath-opened draft persists at its exact deterministic path on first save, not a PagePathResolver-computed one', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+
+    const id = await pageOperations.openAtPath(path, {
+      type: 'daily-note',
+      title: '2026-08-01',
+    });
+    await pageOperations.save(id, "Today's entry");
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.path).toBe(path);
+    expect(persisted.type).toBe('daily-note');
   });
 });

@@ -10,9 +10,10 @@ export function buildNotesShortcutHandler(
   return (id) => {
     switch (id) {
       case 'new-note':
-        void pageOperations
-          .create({ folderId: null })
-          .then((newPageId) => pageOperations.open(newPageId));
+        // ADR-017: opens an unpersisted draft, not an immediate Gate
+        // write — openDraft() already opens the session/workspace itself,
+        // unlike create(), so no composed .open() call is needed here.
+        void pageOperations.openDraft({ folderId: null });
         break;
       case 'inbox':
         navigation.openInbox();
