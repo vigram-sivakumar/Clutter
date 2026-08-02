@@ -6,7 +6,6 @@
   width: var(--height-xs);
   aspect-ratio: 1;
 
-  background: var(--surface-tertiary);
   border-radius: var(--radius-sm);
 }
 .date-label--today {

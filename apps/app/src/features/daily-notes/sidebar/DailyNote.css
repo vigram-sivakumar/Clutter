@@ -1,0 +1,7 @@
+.daily-note__title {
+  color: inherit;
+}
+
+.daily-note__title--placeholder {
+  color: var(--text-placeholder);
+}

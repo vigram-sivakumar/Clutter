@@ -4,14 +4,18 @@ import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
 
+import './Note.css';
+
 interface NoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
+  titleStyle?: 'default' | 'placeholder';
   emoji?: string | null;
   hasCaret?: boolean;
 }
 
 export function Note({
   title,
+  titleStyle = 'default',
   emoji,
   hasCaret = true,
   ...entryProps
@@ -39,7 +43,15 @@ export function Note({
         </Button>
       }
     >
-      {title}
+      <span
+        className={
+          titleStyle === 'placeholder'
+            ? 'note__title note__title--placeholder'
+            : 'note__title'
+        }
+      >
+        {title}
+      </span>
     </Entry>
   );
 }

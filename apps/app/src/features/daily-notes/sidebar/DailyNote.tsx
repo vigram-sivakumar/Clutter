@@ -3,17 +3,20 @@ import { Entry, type EntryProps } from '@components/entry/Entry';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { formatDate } from '@shared/helpers/time';
+import './DailyNote.css';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
   isToday?: boolean;
   date?: string;
+  titleStyle?: 'default' | 'placeholder';
 }
 
 export function DailyNote({
   title,
   isToday,
   date,
+  titleStyle = 'default',
   ...entryProps
 }: DailyNoteProps) {
   const day = date ? Number(formatDate(date, 'date')) : undefined;
@@ -28,7 +31,15 @@ export function DailyNote({
         </Button>
       }
     >
-      {title}
+      <span
+        className={
+          titleStyle === 'placeholder'
+            ? 'daily-note__title daily-note__title--placeholder'
+            : 'daily-note__title'
+        }
+      >
+        {title}
+      </span>
     </Entry>
   );
 }

@@ -1,0 +1,7 @@
+.note__title {
+  color: inherit;
+}
+
+.note__title--placeholder {
+  color: var(--text-placeholder);
+}
