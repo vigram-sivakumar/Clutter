@@ -7,7 +7,10 @@ import { NewFolderRow } from './NewFolderRow';
 // Models
 import type { Folder, Page } from '@core/vault/models';
 // Presentation
-import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
+import {
+  getPageDisplayLabel,
+  getPageDisplayLabelStyle,
+} from '@core/presentation/getPageDisplayLabel';
 // Queries
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
@@ -103,7 +106,7 @@ export function FolderTree({
                 <NoteEntry
                   key={note.id}
                   title={label.text}
-                  titleStyle={label.source === 'placeholder' ? 'placeholder' : 'default'}
+                  titleStyle={getPageDisplayLabelStyle(label)}
                   emoji={note.metadata.icon}
                   level={level + 1}
                   selected={workspace.activePageId === note.id}

@@ -49,3 +49,18 @@ export function getPageDisplayLabel(page: Page): PageDisplayLabel {
     source: 'placeholder',
   };
 }
+
+/**
+ * The single owner of "which title styling does a label get." Semantic,
+ * not literal: 'default' means "this is the page's explicit title,"
+ * 'placeholder' means "Clutter inferred this to help identify the page" —
+ * covering description and content-derived labels too, not only the
+ * literal placeholder fallback. Every rendering surface that shows a
+ * PageDisplayLabel calls this instead of comparing source === 'placeholder'
+ * itself, so the distinction can't drift between call sites.
+ */
+export function getPageDisplayLabelStyle(
+  label: PageDisplayLabel
+): 'default' | 'placeholder' {
+  return label.source === 'title' ? 'default' : 'placeholder';
+}

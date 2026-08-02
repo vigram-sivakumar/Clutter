@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPageDisplayLabel } from './getPageDisplayLabel';
+import { getPageDisplayLabel, getPageDisplayLabelStyle } from './getPageDisplayLabel';
 import type { Page } from '../vault/models/Page';
 
 const defaultMetadata: Page['metadata'] = {
@@ -130,5 +130,25 @@ describe('getPageDisplayLabel — Daily Notes', () => {
       text: 'Retro',
       source: 'content',
     });
+  });
+});
+
+describe('getPageDisplayLabelStyle', () => {
+  it('is "default" only for the real explicit title', () => {
+    expect(getPageDisplayLabelStyle({ text: 'Meeting Notes', source: 'title' })).toBe(
+      'default'
+    );
+  });
+
+  it('is "placeholder" for every inferred source, not only the literal placeholder', () => {
+    expect(
+      getPageDisplayLabelStyle({ text: 'A summary', source: 'description' })
+    ).toBe('placeholder');
+    expect(getPageDisplayLabelStyle({ text: 'Buy milk', source: 'content' })).toBe(
+      'placeholder'
+    );
+    expect(getPageDisplayLabelStyle({ text: 'New Note', source: 'placeholder' })).toBe(
+      'placeholder'
+    );
   });
 });

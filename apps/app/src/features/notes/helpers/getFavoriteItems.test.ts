@@ -83,7 +83,7 @@ describe('toFavoriteItems', () => {
     ]);
   });
 
-  it('does not show a raw auto-generated name for a favorited-but-unnamed page', () => {
+  it('does not show a raw auto-generated name for a favorited-but-unnamed page, and styles the inferred label as a placeholder', () => {
     const page = makePage({
       name: 'Untitled 2',
       source: { markdown: 'Real content here' },
@@ -92,7 +92,12 @@ describe('toFavoriteItems', () => {
     const items = toFavoriteItems([], [page]);
 
     expect(items).toEqual([
-      { id: 'page-1', title: 'Real content here', titleStyle: 'default', type: 'note' },
+      {
+        id: 'page-1',
+        title: 'Real content here',
+        titleStyle: 'placeholder',
+        type: 'note',
+      },
     ]);
   });
 

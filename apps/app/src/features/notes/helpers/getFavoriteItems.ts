@@ -1,7 +1,10 @@
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
-import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
+import {
+  getPageDisplayLabel,
+  getPageDisplayLabelStyle,
+} from '@core/presentation/getPageDisplayLabel';
 
 import type { FavoriteItem } from '../models/FavoriteItem';
 
@@ -18,7 +21,7 @@ function toFavoriteItem(entry: Folder | Page): FavoriteItem {
   return {
     id: entry.id,
     title: label ? label.text : entry.name,
-    titleStyle: label?.source === 'placeholder' ? 'placeholder' : 'default',
+    titleStyle: label ? getPageDisplayLabelStyle(label) : 'default',
     type: isPage ? 'note' : 'folder',
   };
 }
