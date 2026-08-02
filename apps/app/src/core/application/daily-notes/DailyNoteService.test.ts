@@ -18,21 +18,6 @@ import type { IdGenerator } from '../../shared/identity/IdGenerator';
 
 const ROOT = '/vault';
 
-describe('DailyNoteService.ensureDirectory', () => {
-  it('creates the year/month directory and returns the absolute note path', async () => {
-    const fileSystem = new InMemoryVaultFileSystem();
-    const service = new DailyNoteService(fileSystem);
-    const date = new Date(2026, 7, 1); // August 1, 2026
-
-    const path = await service.ensureDirectory(date, ROOT);
-
-    expect(path).toBe(`${ROOT}/Daily Notes/2026/August/2026-08-01.md`);
-    expect(await fileSystem.exists(`${ROOT}/Daily Notes/2026/August`)).toBe(
-      true
-    );
-  });
-});
-
 const defaultFolderMetadata: Folder['metadata'] = {
   icon: null,
   favorite: false,
@@ -95,7 +80,7 @@ function setup(folders: Folder[] = [], ids: string[] = []) {
 describe('DailyNoteService.ensureFolderChain', () => {
   it('creates both the year and month folder when neither exists', async () => {
     const { vault, folderOperations } = setup([], ['year-2026', 'month-august']);
-    const service = new DailyNoteService(new InMemoryVaultFileSystem());
+    const service = new DailyNoteService();
 
     const monthFolderId = await service.ensureFolderChain(
       vault,
@@ -116,7 +101,7 @@ describe('DailyNoteService.ensureFolderChain', () => {
     const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'daily-notes-root');
     const { vault, folderOperations } = setup([year], ['month-august']);
     const createSpy = vi.spyOn(folderOperations, 'create');
-    const service = new DailyNoteService(new InMemoryVaultFileSystem());
+    const service = new DailyNoteService();
 
     const monthFolderId = await service.ensureFolderChain(
       vault,
@@ -135,7 +120,7 @@ describe('DailyNoteService.ensureFolderChain', () => {
     const month = makeFolder('month-august', `${ROOT}/Daily Notes/2026/August`, 'year-2026');
     const { vault, folderOperations } = setup([year, month]);
     const createSpy = vi.spyOn(folderOperations, 'create');
-    const service = new DailyNoteService(new InMemoryVaultFileSystem());
+    const service = new DailyNoteService();
 
     const monthFolderId = await service.ensureFolderChain(
       vault,
@@ -149,7 +134,7 @@ describe('DailyNoteService.ensureFolderChain', () => {
 
   it('throws for a malformed daily note path', async () => {
     const { vault, folderOperations } = setup();
-    const service = new DailyNoteService(new InMemoryVaultFileSystem());
+    const service = new DailyNoteService();
 
     await expect(
       service.ensureFolderChain(vault, folderOperations, `${ROOT}/Daily Notes/2026.md`)

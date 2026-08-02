@@ -146,7 +146,7 @@ function setup(page: Page, fileSystem?: VaultFileSystem, folders?: Folder[]) {
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     makeFolderOperations(vault, workspace, coordinator),
-    new DailyNoteService(resolvedFileSystem)
+    new DailyNoteService()
   );
 
   return {
@@ -788,7 +788,7 @@ function setupEmpty(folders: Folder[] = [makeArchiveFolder()]) {
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     makeFolderOperations(vault, workspace, coordinator),
-    new DailyNoteService(fileSystem)
+    new DailyNoteService()
   );
 
   return { vault, fileSystem, workspace, documentRegistry, coordinator, pageOperations };
@@ -907,10 +907,10 @@ describe('PageOperations: drafts (ADR-017)', () => {
   });
 
   // Regression test for the reported bug: a Daily Note for any month
-  // other than the one ensureDirectoryForToday scaffolded at boot failed
-  // to persist, because openAtPath's folderId fallback (null, when the
-  // month folder isn't scanned yet) was trusted at save time instead of
-  // being re-resolved. persistDraft now calls
+  // other than the one bootstrap-time scaffolding used to cover (retired
+  // by ADR-019) failed to persist, because openAtPath's folderId fallback
+  // (null, when the month folder isn't scanned yet) was trusted at save
+  // time instead of being re-resolved. persistDraft now calls
   // DailyNoteService.ensureFolderChain for daily notes, which is what
   // this test actually exercises — no year/month folder exists in this
   // fixture at all, only the "Daily Notes" reserved root.

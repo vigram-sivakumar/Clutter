@@ -95,7 +95,7 @@ export class Application {
     const initializer = new VaultInitializer(fileSystem);
     await initializer.initialize(rootPath);
 
-    const dailyNotes = new DailyNoteService(fileSystem);
+    const dailyNotes = new DailyNoteService();
 
     const scanner = new VaultScanner(fileSystem);
     const scanResult = await scanner.scan(rootPath);

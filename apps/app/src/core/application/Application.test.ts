@@ -44,7 +44,7 @@ describe('Application.attachVault', () => {
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
     const application = new Application(vault, fileSystem, selfWriteRegistry);
-    application.attachVault(vault, pageCreator, new DailyNoteService(fileSystem));
+    application.attachVault(vault, pageCreator, new DailyNoteService());
 
     expect(application.pageOperations).toBeInstanceOf(PageOperations);
     expect(application.folderOperations).toBeInstanceOf(FolderOperations);

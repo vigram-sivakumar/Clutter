@@ -300,11 +300,11 @@ export class PageOperations {
    * For a Daily Note, the parentId used here is re-resolved via
    * DailyNoteService.ensureFolderChain rather than trusting
    * descriptor.folderId (captured at draft-open time by openAtPath's own
-   * best-effort folder lookup, which silently falls back to null when
-   * the month folder isn't scanned yet — true for any month besides the
-   * one ensureDirectoryForToday scaffolded at boot). Materializing the
-   * folder chain only happens here, at the moment of an actual save —
-   * never at open/navigation time, per ADR-017's governing principle.
+   * best-effort folder lookup, which silently falls back to null whenever
+   * the month folder hasn't been scanned or created yet — no directory is
+   * scaffolded ahead of time, per ADR-019). Materializing the folder chain
+   * only happens here, at the moment of an actual save — never at
+   * open/navigation time, per ADR-017's governing principle.
    */
   private async persistDraft(id: string, body: string): Promise<Page> {
     const descriptor = this.drafts.get(id);

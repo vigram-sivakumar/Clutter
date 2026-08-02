@@ -154,7 +154,7 @@ function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOpe
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     folderOperations,
-    new DailyNoteService(fileSystem)
+    new DailyNoteService()
   );
 }
 
