@@ -13,7 +13,7 @@ export function PageTitle({
   children,
   editable,
   className,
-  placeholder = 'Untitled Note',
+  placeholder = 'New Note',
 }: PageTitleProps) {
   return (
     <div className={['page-title', className].filter(Boolean).join(' ')}>

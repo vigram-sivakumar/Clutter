@@ -69,7 +69,7 @@ describe('toResourcePageModel', () => {
     expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content');
   });
 
-  it('shows the shared display label, not the raw filename, for an auto-generated name', () => {
+  it('shows an empty title (not body content) for a note with an auto-generated name — the header is an editing surface, not a preview', () => {
     const page = buildPage({
       path: '/vault/Untitled 2.md',
       content: 'Real content here',
@@ -78,8 +78,34 @@ describe('toResourcePageModel', () => {
 
     const model = toResourcePageModel(page, session, vi.fn());
 
-    expect(model.title).toBe('Real content here');
-    expect(model.title).not.toBe(page.name);
+    expect(model.title).toBe('');
+  });
+
+  it('always shows the real filename for a daily note, even one with an auto-generated-looking name — its identity is always the date, never a placeholder', () => {
+    const page = new PageBuilder().build({
+      parentId: null,
+      page: {
+        path: '/vault/Daily Notes/2026/08/Untitled.md',
+        directoryPath: '/vault/Daily Notes/2026/08',
+        frontmatter: { id: 'daily-1', type: 'daily-note' },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Hello world I am here',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+    const session = new DocumentSession(page.id, page.source.markdown);
+
+    const model = toResourcePageModel(page, session, vi.fn());
+
+    expect(model.title).toBe('Untitled');
+    expect(model.title).toBe(page.name);
   });
 
   it('updateDescription throws — not yet routed through the Application layer', () => {

@@ -1,6 +1,6 @@
 import type { DocumentSession } from '@core/engine/DocumentSession';
 import type { Page } from '@core/vault/models/Page';
-import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
+import { isNoteUntitled } from '@core/presentation/isNoteUntitled';
 
 /**
  * This function is the presentation boundary between the application/domain
@@ -16,7 +16,17 @@ export function toResourcePageModel(
   const revision = session.currentRevision;
 
   return {
-    title: getPageDisplayLabel(page).text,
+    // The header is an editing/identity surface, not a preview — it must
+    // keep representing the page's actual title, never body content or a
+    // description (that's getPageDisplayLabel's job, for browse surfaces
+    // only). Empty, not a literal placeholder string, so EditableText's
+    // own placeholder mechanism renders it — the same "browser owns an
+    // empty draft, never a filled-in placeholder-looking value" reasoning
+    // toDraftPageModel already uses below. Always page.name for a Daily
+    // Note: its filename is a real, permanent calendar identity, never
+    // something "unset" the way an unnamed Note's is (isNoteUntitled is
+    // deliberately always false for daily-note — see its own doc comment).
+    title: isNoteUntitled(page) ? '' : page.name,
     description: page.metadata.description ?? '',
     // Render the current editable document revision rather than the immutable Vault snapshot.
     // This allows the UI to reflect in-memory edits before they are persisted.

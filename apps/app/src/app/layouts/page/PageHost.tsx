@@ -122,7 +122,7 @@ export function PageHost({ application }: PageHostProps) {
     const draftBreadcrumbs = buildBreadcrumbsForDraft(
       activePageId,
       draft.folderId,
-      draft.title ?? 'Untitled',
+      draft.title ?? 'New Note',
       draft.type,
       vault,
       onOpenFolder
@@ -134,7 +134,7 @@ export function PageHost({ application }: PageHostProps) {
         title={model.title}
         description={model.description}
         titleEditable
-        titlePlaceholder={draft.type === 'daily-note' ? 'Untitled Note' : 'New Note'}
+        titlePlaceholder={draft.type === 'daily-note' ? 'Daily Note' : 'New Note'}
         breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
         // Archive/restore/delete/move/rename only apply to persisted
         // pages (ADR-017 Decision item 9) — rather than wire them to a
