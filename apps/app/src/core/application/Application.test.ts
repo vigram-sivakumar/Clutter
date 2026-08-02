@@ -6,6 +6,7 @@ import { NavigationRouter } from './navigation/NavigationRouter';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
 import { PageCreator } from './page/PageCreator';
 import { PageFactory } from './page/PageFactory';
+import { DailyNoteService } from './daily-notes/DailyNoteService';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
@@ -43,7 +44,7 @@ describe('Application.attachVault', () => {
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
     const application = new Application(vault, fileSystem, selfWriteRegistry);
-    application.attachVault(vault, pageCreator);
+    application.attachVault(vault, pageCreator, new DailyNoteService(fileSystem));
 
     expect(application.pageOperations).toBeInstanceOf(PageOperations);
     expect(application.folderOperations).toBeInstanceOf(FolderOperations);

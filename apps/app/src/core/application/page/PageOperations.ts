@@ -9,6 +9,8 @@ import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersiste
 import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
+import type { FolderOperations } from '../folder/FolderOperations';
+import type { DailyNoteService } from '../daily-notes/DailyNoteService';
 
 export interface CreatePageOptions {
   readonly folderId: string | null;
@@ -68,7 +70,9 @@ export class PageOperations {
     private readonly saveCoordinator: SaveCoordinator,
     private readonly coordinator: PagePersistenceCoordinator,
     private readonly pathResolver: PagePathResolver,
-    private readonly pageCreator: PageCreator
+    private readonly pageCreator: PageCreator,
+    private readonly folderOperations: FolderOperations,
+    private readonly dailyNoteService: DailyNoteService
   ) {}
 
   public async open(pageId: string): Promise<void> {
@@ -292,6 +296,15 @@ export class PageOperations {
    * otherwise), builds the document for the id the draft already has, and
    * enqueues the one Gate `create` call either caller uses. The only
    * write path from "this page doesn't exist in the Vault yet" to disk.
+   *
+   * For a Daily Note, the parentId used here is re-resolved via
+   * DailyNoteService.ensureFolderChain rather than trusting
+   * descriptor.folderId (captured at draft-open time by openAtPath's own
+   * best-effort folder lookup, which silently falls back to null when
+   * the month folder isn't scanned yet — true for any month besides the
+   * one ensureDirectoryForToday scaffolded at boot). Materializing the
+   * folder chain only happens here, at the moment of an actual save —
+   * never at open/navigation time, per ADR-017's governing principle.
    */
   private async persistDraft(id: string, body: string): Promise<Page> {
     const descriptor = this.drafts.get(id);
@@ -301,7 +314,17 @@ export class PageOperations {
     }
 
     const destination = descriptor.deterministicPath
-      ? { path: descriptor.deterministicPath, parentId: descriptor.folderId }
+      ? {
+          path: descriptor.deterministicPath,
+          parentId:
+            descriptor.type === 'daily-note'
+              ? await this.dailyNoteService.ensureFolderChain(
+                  this.vault,
+                  this.folderOperations,
+                  descriptor.deterministicPath
+                )
+              : descriptor.folderId,
+        }
       : this.pathResolver.createNotePath(
           descriptor.folderId,
           descriptor.title ?? 'Untitled'

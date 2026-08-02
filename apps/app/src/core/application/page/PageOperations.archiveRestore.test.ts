@@ -17,6 +17,10 @@ import { PageCreator } from './PageCreator';
 import { PageFactory } from './PageFactory';
 import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
+import { FolderOperations } from '../folder/FolderOperations';
+import { FolderPathResolver } from '../folder/FolderPathResolver';
+import { FolderCreator } from '../folder/FolderCreator';
+import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import type { Folder } from '../../vault/models/Folder';
 import type { Page } from '../../vault/models/Page';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
@@ -132,14 +136,25 @@ function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOpe
     new PageRebuilder(),
     moveService
   );
+  const workspace = new Workspace();
+  const folderOperations = new FolderOperations(
+    vault,
+    workspace,
+    coordinator,
+    new FolderPathResolver(vault),
+    new FolderCreator(new UuidGenerator())
+  );
+
   return new PageOperations(
     vault,
-    new Workspace(),
+    workspace,
     new DocumentRegistry(),
     new SaveCoordinator(),
     coordinator,
     new PagePathResolver(vault),
-    new PageCreator(new UuidGenerator(), new PageFactory())
+    new PageCreator(new UuidGenerator(), new PageFactory()),
+    folderOperations,
+    new DailyNoteService(fileSystem)
   );
 }
 

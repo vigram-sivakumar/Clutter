@@ -18,9 +18,27 @@ import { PageCreator } from './PageCreator';
 import { PageFactory } from './PageFactory';
 import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
+import { FolderOperations } from '../folder/FolderOperations';
+import { FolderPathResolver } from '../folder/FolderPathResolver';
+import { FolderCreator } from '../folder/FolderCreator';
+import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
+
+function makeFolderOperations(
+  vault: Vault,
+  workspace: Workspace,
+  coordinator: PagePersistenceCoordinator
+): FolderOperations {
+  return new FolderOperations(
+    vault,
+    workspace,
+    coordinator,
+    new FolderPathResolver(vault),
+    new FolderCreator(new UuidGenerator())
+  );
+}
 
 const ROOT = '/vault';
 const ARCHIVE_FOLDER_ID = 'folder-archive';
@@ -41,6 +59,16 @@ function makeArchiveFolder(): Folder {
     id: ARCHIVE_FOLDER_ID,
     name: 'Archive',
     path: `${ROOT}/Archive`,
+    parentId: null,
+    metadata: defaultFolderMetadata,
+  };
+}
+
+function makeDailyNotesFolder(): Folder {
+  return {
+    id: 'folder-daily-notes',
+    name: 'Daily Notes',
+    path: `${ROOT}/Daily Notes`,
     parentId: null,
     metadata: defaultFolderMetadata,
   };
@@ -116,7 +144,9 @@ function setup(page: Page, fileSystem?: VaultFileSystem, folders?: Folder[]) {
     saveCoordinator,
     coordinator,
     new PagePathResolver(vault),
-    new PageCreator(new UuidGenerator(), new PageFactory())
+    new PageCreator(new UuidGenerator(), new PageFactory()),
+    makeFolderOperations(vault, workspace, coordinator),
+    new DailyNoteService(resolvedFileSystem)
   );
 
   return {
@@ -756,7 +786,9 @@ function setupEmpty(folders: Folder[] = [makeArchiveFolder()]) {
     saveCoordinator,
     coordinator,
     new PagePathResolver(vault),
-    new PageCreator(new UuidGenerator(), new PageFactory())
+    new PageCreator(new UuidGenerator(), new PageFactory()),
+    makeFolderOperations(vault, workspace, coordinator),
+    new DailyNoteService(fileSystem)
   );
 
   return { vault, fileSystem, workspace, documentRegistry, coordinator, pageOperations };
@@ -857,7 +889,10 @@ describe('PageOperations: drafts (ADR-017)', () => {
   });
 
   it('openAtPath-opened draft persists at its exact deterministic path on first save, not a PagePathResolver-computed one', async () => {
-    const { vault, pageOperations } = setupEmpty();
+    const { vault, pageOperations } = setupEmpty([
+      makeArchiveFolder(),
+      makeDailyNotesFolder(),
+    ]);
     const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
 
     const id = await pageOperations.openAtPath(path, {
@@ -869,5 +904,35 @@ describe('PageOperations: drafts (ADR-017)', () => {
     const persisted = vault.getPage(id)!;
     expect(persisted.path).toBe(path);
     expect(persisted.type).toBe('daily-note');
+  });
+
+  // Regression test for the reported bug: a Daily Note for any month
+  // other than the one ensureDirectoryForToday scaffolded at boot failed
+  // to persist, because openAtPath's folderId fallback (null, when the
+  // month folder isn't scanned yet) was trusted at save time instead of
+  // being re-resolved. persistDraft now calls
+  // DailyNoteService.ensureFolderChain for daily notes, which is what
+  // this test actually exercises — no year/month folder exists in this
+  // fixture at all, only the "Daily Notes" reserved root.
+  it('persists a Daily Note whose year/month folder does not exist yet — materializing the chain via FolderOperations, not relying on a stale open-time parentId', async () => {
+    const { vault, pageOperations } = setupEmpty([
+      makeArchiveFolder(),
+      makeDailyNotesFolder(),
+    ]);
+    const path = `${ROOT}/Daily Notes/2027/March/2027-03-15.md`;
+
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+    await pageOperations.save(id, "March's entry");
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.path).toBe(path);
+
+    const yearFolder = vault.getFolderByPath(`${ROOT}/Daily Notes/2027`);
+    const monthFolder = vault.getFolderByPath(`${ROOT}/Daily Notes/2027/March`);
+    expect(yearFolder).toBeDefined();
+    expect(monthFolder).toBeDefined();
+    expect(yearFolder!.parentId).toBe('folder-daily-notes');
+    expect(monthFolder!.parentId).toBe(yearFolder!.id);
+    expect(persisted.parentId).toBe(monthFolder!.id);
   });
 });

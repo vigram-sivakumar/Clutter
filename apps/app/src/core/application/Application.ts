@@ -123,7 +123,7 @@ export class Application {
 
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
-    application.attachVault(vault, pageCreator);
+    application.attachVault(vault, pageCreator, dailyNotes);
 
     // ADR-017: today's note is no longer created through the Gate here.
     // open() below resolves it — the real page if the scan found one, or
@@ -159,7 +159,11 @@ export class Application {
    * spec's public shape, so the two construction phases stay a named,
    * testable seam rather than one undifferentiated block.
    */
-  public attachVault(vault: Vault, pageCreator: PageCreator): void {
+  public attachVault(
+    vault: Vault,
+    pageCreator: PageCreator,
+    dailyNoteService: DailyNoteService
+  ): void {
     const moveService = new MoveService(vault, this.fileSystem);
 
     // Single instance shared by PageOperations for both edit-save and
@@ -175,6 +179,17 @@ export class Application {
       moveService
     );
 
+    // Constructed before PageOperations: PageOperations' Daily Note persist
+    // path (DailyNoteService.ensureFolderChain) needs a real FolderOperations
+    // to materialize missing year/month folders — the same instance
+    // NavigationRouter already depends on below, not a second one.
+    this.folderOperations = new FolderOperations(
+      vault,
+      this.workspace,
+      persistenceCoordinator,
+      new FolderPathResolver(vault),
+      new FolderCreator(new UuidGenerator())
+    );
     this.pageOperations = new PageOperations(
       vault,
       this.workspace,
@@ -182,14 +197,9 @@ export class Application {
       this.saveCoordinator,
       persistenceCoordinator,
       new PagePathResolver(vault),
-      pageCreator
-    );
-    this.folderOperations = new FolderOperations(
-      vault,
-      this.workspace,
-      persistenceCoordinator,
-      new FolderPathResolver(vault),
-      new FolderCreator(new UuidGenerator())
+      pageCreator,
+      this.folderOperations,
+      dailyNoteService
     );
     this.navigation = new NavigationRouter(this.folderOperations, vault);
     this.fileSystemWatcher = new LocalFileSystemWatcher();
