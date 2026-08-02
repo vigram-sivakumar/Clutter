@@ -110,4 +110,21 @@ describe('VaultQuery folder ordering', () => {
       'Zebra',
     ]);
   });
+
+  it('accepts an explicit sortMode, not just the default', () => {
+    const folders = [
+      makeFolder('folder-z', 'Zebra'),
+      makeFolder('folder-a', 'Apple'),
+    ];
+    const query = new VaultQuery(makeVault(folders));
+
+    // Only 'title' exists today, but this proves getRootFolders/
+    // getChildFolders/getVisibleRootFolders actually take the mode as a
+    // real parameter (not just default it silently) — the seam a future
+    // Sort control plugs into without any of these signatures changing.
+    expect(query.getRootFolders('title').map((f) => f.name)).toEqual([
+      'Apple',
+      'Zebra',
+    ]);
+  });
 });
