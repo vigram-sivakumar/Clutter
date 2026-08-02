@@ -3,9 +3,24 @@ import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
 
 import type { Breadcrumb } from './Breadcrumb';
+import { isNoteUntitled } from './isNoteUntitled';
 
 function isPage(entry: Page | Folder): entry is Page {
   return 'type' in entry;
+}
+
+// Breadcrumb is a static label with no native "empty value" placeholder
+// mechanism (unlike the page header's EditableText) — so, unlike the
+// header, an untitled Note's crumb needs the literal placeholder text,
+// not an empty string. Folders always have a real, deliberate name; a
+// Daily Note's crumb is always its real date (isNoteUntitled — Category
+// B's predicate — is deliberately always false for daily-note).
+function entryBreadcrumbTitle(entry: Page | Folder): string {
+  if (isPage(entry) && isNoteUntitled(entry)) {
+    return 'New Note';
+  }
+
+  return entry.name;
 }
 
 /**
@@ -65,7 +80,7 @@ export function buildBreadcrumbs(
 
   ancestors.push({
     id: entry.id,
-    title: entry.name,
+    title: entryBreadcrumbTitle(entry),
     icon: getEntryIcon(entry),
     emoji: entry.metadata.icon ?? undefined,
   });
