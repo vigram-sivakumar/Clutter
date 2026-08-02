@@ -6,6 +6,8 @@ import { Note as NoteEntry } from './Note';
 import { NewFolderRow } from './NewFolderRow';
 // Models
 import type { Folder, Page } from '@core/vault/models';
+// Presentation
+import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 // Queries
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
@@ -97,7 +99,7 @@ export function FolderTree({
             {childPages.map((note) => (
               <NoteEntry
                 key={note.id}
-                title={note.name}
+                title={getPageDisplayLabel(note).text}
                 emoji={note.metadata.icon}
                 level={level + 1}
                 selected={workspace.activePageId === note.id}
