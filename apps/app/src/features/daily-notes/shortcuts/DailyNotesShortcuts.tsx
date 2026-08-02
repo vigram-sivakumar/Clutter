@@ -6,6 +6,7 @@ import { Section } from '@app/layouts/sidebar/section/Section';
 import { DateLabel } from '@components/date-label/DateLabel';
 import { Calendar } from '@features/daily-notes/calendar/components/calendar/Calendar';
 import type { Vault } from '@core/vault/models';
+import { isToday } from '@shared/helpers/time';
 
 import { findTodayNote } from '../helpers/findTodayNote';
 import { datesWithNotes } from '@features/daily-notes/calendar/helpers/datesWithNotes';
@@ -32,6 +33,12 @@ export function DailyNotesShortcuts({
   const todayNote = findTodayNote(dailyNotes);
   const notedDates = datesWithNotes(dailyNotes);
 
+  // activeDate already covers both a persisted Daily Note and an open,
+  // unpersisted draft (getActiveDailyNoteDate) — todayNote alone only
+  // covers the persisted case, so checking it in isolation kept the CTA
+  // visible while today's note was open but not yet saved.
+  const isTodayOpen = activeDate !== undefined && isToday(activeDate);
+
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('week');
 
   return (
@@ -43,7 +50,7 @@ export function DailyNotesShortcuts({
         onSelectedDateChange={onOpenDate}
         onModeChange={setCalendarMode}
       />
-      {!todayNote && (
+      {!todayNote && !isTodayOpen && (
         <Button
           leading={<DateLabel isToday />}
           variant="outline-fill"
