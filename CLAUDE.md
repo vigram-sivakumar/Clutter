@@ -20,3 +20,14 @@ Clutter's architecture is frozen. Before doing any architectural implementation 
 6. Report any divergence from the specification explicitly, rather than letting it merge silently.
 
 Skip this process only for work that is clearly non-architectural (styling, copy changes, isolated bug fixes with no ownership/write-path/dependency implications).
+
+## Git commit workflow (permanent)
+
+Every logically complete implementation milestone must be verified and committed before moving to the next one:
+
+1. Run the relevant verification (`tsc`, targeted tests, or the full suite, as appropriate for what changed).
+2. Report the verification results.
+3. If verification passes, create a Git commit with a clear, descriptive message.
+4. Report the commit hash and message before starting the next milestone.
+
+Do not accumulate multiple completed milestones into one uncommitted change unless explicitly told to. If verification fails, do not commit — explain the failure first and fix it before proceeding.
