@@ -42,10 +42,13 @@ export function EditableText({
   value,
   placeholder,
   isDisabled = false,
+  autoFocus = false,
   onCommit,
+  onEditingEnd,
 }: EditableTextProps) {
   const editableElementRef = useRef<HTMLDivElement>(null);
   const isComposingRef = useRef(false);
+  const isEscapingRef = useRef(false);
 
   /**
    * React owns the committed value.
@@ -67,6 +70,16 @@ export function EditableText({
     syncTextContent(editableElement, value);
   }, [value]);
 
+  // Focuses once, on mount, for a row that renders already in edit mode
+  // rather than one the user clicks into. Deliberately runs once — a later
+  // `autoFocus` prop flip isn't a fresh "start editing" moment.
+  useLayoutEffect(() => {
+    if (autoFocus) {
+      editableElementRef.current?.focus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleInput(event: FormEvent<HTMLDivElement>) {
     updateEmptyState(event.currentTarget);
   }
@@ -80,23 +93,38 @@ export function EditableText({
       return;
     }
 
+    if (event.key === 'Escape') {
+      // Escape always discards the draft, even valid, changed text —
+      // revert the visible content now so handleBlur has nothing left to
+      // compare against value, and so a consumer that keeps the element
+      // mounted after a cancel doesn't show stale typed text.
+      isEscapingRef.current = true;
+      syncTextContent(event.currentTarget, value);
+    }
+
     event.preventDefault();
     event.currentTarget.blur();
   }
 
-  // Blur represents the commit boundary for the current editing session.
-  // EditableText only emits the proposed value.
-  // It does not mutate application state itself.
+  // Blur represents the end-of-session boundary for the current editing
+  // session. EditableText only emits the proposed value (via onCommit) and
+  // the fact that the session ended (via onEditingEnd) — it does not
+  // mutate application state itself, and it does not know what "cancel"
+  // means to any particular consumer.
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
     const committedValue = event.currentTarget.textContent ?? '';
+    const wasEscaped = isEscapingRef.current;
+    isEscapingRef.current = false;
 
     updateEmptyState(event.currentTarget);
 
-    // Emit the proposed value only when the committed text differs from
-    // the last value accepted by the parent.
-    if (committedValue !== value) {
+    // Emit the proposed value only when this wasn't an Escape, and the
+    // committed text differs from the last value accepted by the parent.
+    if (!wasEscaped && committedValue !== value) {
       onCommit(committedValue);
     }
+
+    onEditingEnd?.();
   }
 
   function handleCompositionStart(_event: CompositionEvent<HTMLDivElement>) {
