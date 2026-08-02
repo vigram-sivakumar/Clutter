@@ -65,6 +65,10 @@ export function FolderTree({
       ? query.getVisibleRootFolders()
       : query.getChildFolders(parentId);
 
+  // Only meaningful at the true root — a nested folder's own pages are
+  // already rendered via getChildPages(folder.id) below, per folder.
+  const rootPages = parentId === null ? query.getRootPages() : [];
+
   const isCreatingHere =
     pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
 
@@ -129,6 +133,23 @@ export function FolderTree({
               onCancelNewFolder={onCancelNewFolder}
             />
           </Fragment>
+        );
+      })}
+      {/* Render root-level pages, at the same indentation as root
+          folders — they aren't nested under anything. */}
+      {rootPages.map((note) => {
+        const label = getPageDisplayLabel(note);
+
+        return (
+          <NoteEntry
+            key={note.id}
+            title={label.text}
+            titleStyle={getPageDisplayLabelStyle(label)}
+            emoji={note.metadata.icon}
+            level={level}
+            selected={workspace.activePageId === note.id}
+            onClick={() => onPageClick(note)}
+          />
         );
       })}
     </>
