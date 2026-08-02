@@ -4,6 +4,7 @@ import { Vault } from '../models/Vault';
 import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../models/graph/KnowledgeGraph';
 import type { Folder } from '../models/Folder';
+import type { Page } from '../models/Page';
 
 const ROOT = '/vault';
 
@@ -30,10 +31,46 @@ function makeFolder(
   };
 }
 
-function makeVault(folders: Folder[]): Vault {
+function makePage(
+  id: string,
+  name: string,
+  parentId: string | null = null
+): Page {
+  return {
+    id,
+    type: 'note',
+    name,
+    path: `${ROOT}/${name}.md`,
+    parentId,
+    metadata: {
+      icon: null,
+      cover: null,
+      description: null,
+      favorite: false,
+      status: 'active',
+      archivedAt: null,
+      originalParentId: null,
+      originalPath: null,
+      createdAt: null,
+      updatedAt: null,
+    },
+    source: { markdown: '' },
+    analysis: {
+      headings: [],
+      aliases: [],
+      blockReferences: [],
+      tasks: [],
+      tags: [],
+      links: [],
+      embeds: [],
+    },
+  };
+}
+
+function makeVault(folders: Folder[] = [], pages: Page[] = []): Vault {
   return new Vault(
     ROOT,
-    [],
+    pages,
     folders,
     [],
     [],
@@ -125,6 +162,42 @@ describe('VaultQuery folder ordering', () => {
     expect(query.getRootFolders('title').map((f) => f.name)).toEqual([
       'Apple',
       'Zebra',
+    ]);
+  });
+});
+
+describe('VaultQuery.getRootPages', () => {
+  it('returns pages whose parentId is null', () => {
+    const rootPage = makePage('page-1', 'Root Note', null);
+    const query = new VaultQuery(makeVault([], [rootPage]));
+
+    expect(query.getRootPages().map((p) => p.id)).toEqual(['page-1']);
+  });
+
+  it('excludes a page that belongs to a folder', () => {
+    const folder = makeFolder('folder-1', 'Projects');
+    const nestedPage = makePage('page-1', 'Nested Note', 'folder-1');
+    const query = new VaultQuery(makeVault([folder], [nestedPage]));
+
+    expect(query.getRootPages()).toEqual([]);
+  });
+
+  it('applies no ordering — mirrors getChildPages exactly, deliberately unsorted', () => {
+    // Insertion order deliberately not alphabetical. Unlike
+    // getRootFolders, this is NOT expected to come out sorted — page
+    // ordering (root or nested) is an unresolved product decision, not
+    // something to define for root pages ahead of nested ones.
+    const pages = [
+      makePage('page-z', 'Zebra', null),
+      makePage('page-a', 'Apple', null),
+      makePage('page-m', 'Mango', null),
+    ];
+    const query = new VaultQuery(makeVault([], pages));
+
+    expect(query.getRootPages().map((p) => p.name)).toEqual([
+      'Zebra',
+      'Apple',
+      'Mango',
     ]);
   });
 });

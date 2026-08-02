@@ -60,6 +60,18 @@ export class VaultQuery {
     );
   }
 
+  // Deliberately unsorted, mirroring getChildPages exactly — page
+  // ordering (root and nested alike) is an unresolved product decision,
+  // not something to define one entity-location at a time. See
+  // getChildPages' own lack of a sort for the same reasoning. When
+  // ordering is defined, it should apply to both together, likely
+  // through the same upcoming sort-menu mechanism, not added here first.
+  public getRootPages(): Page[] {
+    return Array.from(this.vault.pages()).filter(
+      (page) => page.parentId === null
+    );
+  }
+
   public getFavoriteFolders(): Folder[] {
     return Array.from(this.vault.folders()).filter(
       (folder) => folder.metadata.favorite
