@@ -158,7 +158,7 @@ describe('getPageDisplayLabelStyle — Notes', () => {
 describe('getPageDisplayLabelStyle — Daily Notes', () => {
   const dailyNotePage = makePage({ type: 'daily-note' });
 
-  it('is always "default", never "placeholder" — the date is already shown elsewhere, so the label is never a stand-in for a missing title', () => {
+  it('is "default" for description or content — real, deliberate information, not a stand-in for the date (which is never shown here at all)', () => {
     expect(
       getPageDisplayLabelStyle(dailyNotePage, {
         text: 'Standup notes',
@@ -168,12 +168,15 @@ describe('getPageDisplayLabelStyle — Daily Notes', () => {
     expect(
       getPageDisplayLabelStyle(dailyNotePage, { text: 'Retro', source: 'content' })
     ).toBe('default');
+  });
+
+  it('is "placeholder" for the literal "Daily Note" fallback — nothing was available at all', () => {
     expect(
       getPageDisplayLabelStyle(dailyNotePage, {
         text: 'Daily Note',
         source: 'placeholder',
       })
-    ).toBe('default');
+    ).toBe('placeholder');
   });
 
   it('is still "default" even for the (unreachable in practice) source "title"', () => {

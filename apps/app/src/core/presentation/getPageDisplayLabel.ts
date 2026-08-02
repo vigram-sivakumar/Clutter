@@ -53,27 +53,36 @@ export function getPageDisplayLabel(page: Page): PageDisplayLabel {
 
 /**
  * The single owner of "which title styling does a label get." Semantic,
- * not literal: 'default' means "this is the page's explicit title,"
- * 'placeholder' means "Clutter inferred this to help identify the page" —
- * covering description and content-derived labels too, not only the
- * literal placeholder fallback. Every rendering surface that shows a
- * PageDisplayLabel calls this instead of comparing source === 'placeholder'
- * itself, so the distinction can't drift between call sites.
+ * not literal, and the rule differs by type — deliberately, not as two
+ * unrelated special cases:
  *
- * Daily Notes are a deliberate exception to the source-based rule: their
- * filename (the date) is never shown in browse surfaces at all — it's
- * already represented elsewhere (day badge, month grouping, page header).
- * getPageDisplayLabel's returned label is therefore always the Daily
- * Note's primary browse label, not a stand-in for a missing title the
- * way it is for Notes, regardless of whether it came from description,
- * content, or the "Daily Note" fallback — so it always renders as
- * 'default', never 'placeholder'. Notes keep the source-based rule
- * unchanged: 'default' only for source === 'title'.
+ * - The literal placeholder fallback (source === 'placeholder' — "New
+ *   Note" / "Daily Note") always renders as 'placeholder' for both types:
+ *   it means "nothing was available at all," which is never a stand-in
+ *   for real content.
+ * - For Notes, everything short of the explicit title (description,
+ *   content) is Clutter inferring a label to help identify an otherwise
+ *   unnamed page, so it renders as 'placeholder' too — only source ===
+ *   'title' is 'default'.
+ * - For Daily Notes, a description or body content is real, deliberate
+ *   information the user wrote — not a stand-in for a missing title the
+ *   date could have been, since the date is never shown here at all
+ *   (already represented elsewhere: day badge, month grouping, page
+ *   header). So description/content render as 'default' for Daily Notes,
+ *   even though the identical sources are 'placeholder' for Notes.
+ *
+ * Every rendering surface that shows a PageDisplayLabel calls this
+ * instead of comparing label.source itself, so the distinction can't
+ * drift between call sites or between the two page types.
  */
 export function getPageDisplayLabelStyle(
   page: Page,
   label: PageDisplayLabel
 ): 'default' | 'placeholder' {
+  if (label.source === 'placeholder') {
+    return 'placeholder';
+  }
+
   if (page.type === 'daily-note') {
     return 'default';
   }
