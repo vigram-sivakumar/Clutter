@@ -32,6 +32,17 @@ export class DailyNotePath {
     return `${this.ROOT}/${year}/${month}/${day}.md`;
   }
 
+  /**
+   * Absolute path for `date`'s daily note under `rootPath` — the one
+   * concatenation every "open the daily note for this date" call site
+   * needs, so it's computed here once rather than inlined at each caller
+   * (Sidebar's "Start your day..." and the Calendar's date/Today
+   * selection both resolve through this).
+   */
+  static absoluteFrom(rootPath: string, date: Date): string {
+    return `${rootPath}/${this.from(date)}`;
+  }
+
   static monthName(date: Date): string {
     return this.MONTH_NAMES[date.getMonth()]!;
   }

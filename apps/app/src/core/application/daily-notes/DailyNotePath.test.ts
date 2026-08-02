@@ -9,6 +9,12 @@ describe('DailyNotePath', () => {
     );
   });
 
+  it('builds an absolute path by prefixing the vault root', () => {
+    expect(DailyNotePath.absoluteFrom('/vault', new Date(2026, 6, 30))).toBe(
+      '/vault/Daily Notes/2026/July/2026-07-30.md'
+    );
+  });
+
   it('derives month ISO date from year and month folder names', () => {
     expect(DailyNotePath.monthIsoFromFolderNames('2026', 'July')).toBe(
       '2026-07-01'

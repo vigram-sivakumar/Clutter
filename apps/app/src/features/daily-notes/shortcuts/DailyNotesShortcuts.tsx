@@ -12,21 +12,36 @@ import { findTodayNote } from '../helpers/findTodayNote';
 
 interface DailyNotesShortcutsProps {
   vault: Vault;
+  onStartToday(): void;
+  onOpenDate(date: string): void;
 }
 
-export function DailyNotesShortcuts({ vault }: DailyNotesShortcutsProps) {
+export function DailyNotesShortcuts({
+  vault,
+  onStartToday,
+  onOpenDate,
+}: DailyNotesShortcutsProps) {
   const dailyNotes = Array.from(vault.dailyNotes());
   const todayNote = findTodayNote(dailyNotes);
 
   const [selectedDate, setSelectedDate] = useState(toISODate(new Date()));
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('week');
 
+  // The Calendar's date cells and its header's "Today" button both funnel
+  // through this single handler (Calendar.tsx's handleToday calls the same
+  // onSelectedDateChange prop) — one resolve-or-draft flow, no special case
+  // for "Today".
+  function handleSelectedDateChange(date: string) {
+    setSelectedDate(date);
+    onOpenDate(date);
+  }
+
   return (
     <Section>
       <Calendar
         mode={calendarMode}
         selectedDate={selectedDate}
-        onSelectedDateChange={setSelectedDate}
+        onSelectedDateChange={handleSelectedDateChange}
         onModeChange={setCalendarMode}
       />
       {!todayNote && (
@@ -34,6 +49,7 @@ export function DailyNotesShortcuts({ vault }: DailyNotesShortcutsProps) {
           leading={<DateLabel isToday />}
           variant="outline-fill"
           className="button--muted"
+          onClick={onStartToday}
         >
           Start your day...
         </Button>

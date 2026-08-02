@@ -12,6 +12,8 @@ interface DailyNotesPanelProps {
   workspace: Workspace;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
+  onStartToday(): void;
+  onOpenDate(date: string): void;
 }
 
 export function DailyNotes({
@@ -20,9 +22,19 @@ export function DailyNotes({
   workspace,
   onOpen,
   onOpenFolder,
+  onStartToday,
+  onOpenDate,
 }: DailyNotesPanelProps) {
   return (
-    <View navigation={<DailyNotesShortcuts vault={vault} />}>
+    <View
+      navigation={
+        <DailyNotesShortcuts
+          vault={vault}
+          onStartToday={onStartToday}
+          onOpenDate={onOpenDate}
+        />
+      }
+    >
       <DailyNotesList
         vault={vault}
         query={query}

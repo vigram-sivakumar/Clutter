@@ -1,6 +1,7 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { useState, type ReactNode } from 'react';
+import { DailyNotePath } from '@core/application/daily-notes/DailyNotePath';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
@@ -39,6 +40,18 @@ export function Sidebar({ application }: SidebarProps) {
           workspace={workspace}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
+          onStartToday={() =>
+            pageOperations.openAtPath(
+              DailyNotePath.absoluteFrom(vault.root, new Date()),
+              { type: 'daily-note' }
+            )
+          }
+          onOpenDate={(date) =>
+            pageOperations.openAtPath(
+              DailyNotePath.absoluteFrom(vault.root, new Date(date)),
+              { type: 'daily-note' }
+            )
+          }
         />
       ),
     },
