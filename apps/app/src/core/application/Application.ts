@@ -12,6 +12,8 @@ import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations } from './page/PageOperations';
 import { FolderOperations } from './folder/FolderOperations';
+import { FolderPathResolver } from './folder/FolderPathResolver';
+import { FolderCreator } from './folder/FolderCreator';
 import { NavigationRouter } from './navigation/NavigationRouter';
 import { DocumentRegistry } from '../engine/DocumentRegistry';
 import { SaveCoordinator } from '../engine/SaveCoordinator';
@@ -182,7 +184,13 @@ export class Application {
       new PagePathResolver(vault),
       pageCreator
     );
-    this.folderOperations = new FolderOperations(vault, this.workspace);
+    this.folderOperations = new FolderOperations(
+      vault,
+      this.workspace,
+      persistenceCoordinator,
+      new FolderPathResolver(vault),
+      new FolderCreator(new UuidGenerator())
+    );
     this.navigation = new NavigationRouter(this.folderOperations, vault);
     this.fileSystemWatcher = new LocalFileSystemWatcher();
 
