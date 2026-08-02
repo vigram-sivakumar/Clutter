@@ -41,4 +41,25 @@ export interface EditableTextProps {
    * about.
    */
   onEditingEnd?(): void;
+
+  /**
+   * Called specifically when Enter ended the session — never for Escape,
+   * never for a plain blur. Distinct from onCommit (which only fires on a
+   * changed value) and onEditingEnd (which fires for every outcome): a
+   * consumer that wants to advance focus to the next field on Enter, but
+   * not on Escape or an incidental blur, has no other way to tell which
+   * key ended the session. Fires after onCommit/onEditingEnd, once both
+   * have already run for this session.
+   */
+  onSubmit?(): void;
+}
+
+/**
+ * Imperative handle for callers that need to move focus into an
+ * already-mounted EditableText — e.g. advancing focus to it from a
+ * sibling field's onSubmit. Kept minimal: focus is the only thing a
+ * caller should ever need to do to this element from outside.
+ */
+export interface EditableTextHandle {
+  focus(): void;
 }

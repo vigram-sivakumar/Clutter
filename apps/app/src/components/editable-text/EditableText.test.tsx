@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
+import { createRef } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EditableText } from './EditableText';
+import type { EditableTextHandle } from './EditableText.types';
 
 afterEach(() => {
   cleanup();
@@ -123,5 +125,74 @@ describe('EditableText commit/cancel lifecycle', () => {
     render(<EditableText value="" onCommit={vi.fn()} />);
 
     expect(document.activeElement).not.toBe(getEditable());
+  });
+});
+
+describe('EditableText onSubmit', () => {
+  it('fires on Enter, after onCommit/onEditingEnd', () => {
+    const calls: string[] = [];
+    const onCommit = vi.fn(() => calls.push('commit'));
+    const onEditingEnd = vi.fn(() => calls.push('editingEnd'));
+    const onSubmit = vi.fn(() => calls.push('submit'));
+    render(
+      <EditableText
+        value=""
+        onCommit={onCommit}
+        onEditingEnd={onEditingEnd}
+        onSubmit={onSubmit}
+      />
+    );
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Projects');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(calls).toEqual(['commit', 'editingEnd', 'submit']);
+  });
+
+  it('fires on Enter even when the text is unchanged', () => {
+    const onSubmit = vi.fn();
+    render(<EditableText value="Same" onCommit={vi.fn()} onSubmit={onSubmit} />);
+
+    const editable = getEditable();
+    editable.focus();
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('never fires on Escape', () => {
+    const onSubmit = vi.fn();
+    render(<EditableText value="" onCommit={vi.fn()} onSubmit={onSubmit} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Projects');
+    fireEvent.keyDown(editable, { key: 'Escape' });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('never fires on a plain blur (no key pressed)', () => {
+    const onSubmit = vi.fn();
+    render(<EditableText value="" onCommit={vi.fn()} onSubmit={onSubmit} />);
+
+    fireEvent.blur(getEditable());
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe('EditableText imperative focus handle', () => {
+  it('lets a caller focus an already-mounted instance via ref', () => {
+    const ref = createRef<EditableTextHandle>();
+    render(<EditableText ref={ref} value="Hello" onCommit={vi.fn()} />);
+
+    expect(document.activeElement).not.toBe(getEditable());
+
+    ref.current?.focus();
+
+    expect(document.activeElement).toBe(getEditable());
   });
 });
