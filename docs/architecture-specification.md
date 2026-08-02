@@ -398,11 +398,13 @@ The same lifecycle ownership as `PageOperations`, scoped to folders.
 ```ts
 + class FolderOperations {
     open(folderId: string): Promise<void>;
-    create(name: string, parentId: string): Promise<string>;
+    create(name: string, parentId: string | null): Promise<string>;
     move(folderId: string, destinationFolderId: string): Promise<void>;
     rename(folderId: string, name: string): Promise<void>;
   }
 ```
+
+`create()`'s `parentId` is nullable (null means the vault root), matching `Folder.parentId`'s own type (§3) and `PageOperations.create()`'s equivalent `folderId: string | null` (§6) — a folder facade that couldn't create at the root would be unable to express a state the domain model already allows. This was corrected here after implementation (see the `architecture-migration` branch's folder-creation work) found the original text disagreed with the domain model; a documentation correction, not a design change — no alternative was considered or rejected.
 
 ### Internal collaborators
 `PagePersistenceCoordinator` (folder-scoped operations reuse the same Gate, keyed by folder id instead of page id), `Vault`, `Workspace`.
@@ -412,7 +414,8 @@ Identical pattern to `PageOperations` (§6), scoped to folders. Notably: `Vault.
 
 ### Example
 ```ts
-await folderOperations.create('Projects', rootFolderId);
+await folderOperations.create('Projects', null); // vault root
+await folderOperations.create('Q1', projectsFolderId); // nested
 await folderOperations.move(folderId, newParentId);
 ```
 
