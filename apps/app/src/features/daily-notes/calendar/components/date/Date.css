@@ -22,7 +22,8 @@
     background-color 120ms ease,
     color 120ms ease;
 }
-.calendar-cell--today {
+.calendar-cell--today,
+.calendar-cell--today.calendar-cell--outside-month {
   color: var(--calendar-accent);
 }
 .calendar-cell--outside-month {
