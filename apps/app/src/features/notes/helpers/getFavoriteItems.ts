@@ -14,15 +14,25 @@ function toFavoriteItem(entry: Folder | Page): FavoriteItem {
   // Folders always have a real, deliberate name (no placeholder chain
   // applies to them); pages go through the shared display-label rule so
   // a favorited-but-unnamed note doesn't show a raw "Untitled 2" — and
-  // carry the source through so the row can render it as a placeholder,
-  // not just different text.
-  const label = isPage ? getPageDisplayLabel(entry) : null;
+  // carry the source through so the row can render it with the correct
+  // styling (getPageDisplayLabelStyle also decides Daily Notes always
+  // render as 'default', never 'placeholder').
+  if (isPage) {
+    const label = getPageDisplayLabel(entry);
+
+    return {
+      id: entry.id,
+      title: label.text,
+      titleStyle: getPageDisplayLabelStyle(entry, label),
+      type: 'note',
+    };
+  }
 
   return {
     id: entry.id,
-    title: label ? label.text : entry.name,
-    titleStyle: label ? getPageDisplayLabelStyle(label) : 'default',
-    type: isPage ? 'note' : 'folder',
+    title: entry.name,
+    titleStyle: 'default',
+    type: 'folder',
   };
 }
 

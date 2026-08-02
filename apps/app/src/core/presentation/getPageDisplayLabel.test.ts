@@ -133,22 +133,52 @@ describe('getPageDisplayLabel — Daily Notes', () => {
   });
 });
 
-describe('getPageDisplayLabelStyle', () => {
+describe('getPageDisplayLabelStyle — Notes', () => {
+  const notePage = makePage({ type: 'note' });
+
   it('is "default" only for the real explicit title', () => {
-    expect(getPageDisplayLabelStyle({ text: 'Meeting Notes', source: 'title' })).toBe(
-      'default'
-    );
+    expect(
+      getPageDisplayLabelStyle(notePage, { text: 'Meeting Notes', source: 'title' })
+    ).toBe('default');
   });
 
   it('is "placeholder" for every inferred source, not only the literal placeholder', () => {
     expect(
-      getPageDisplayLabelStyle({ text: 'A summary', source: 'description' })
+      getPageDisplayLabelStyle(notePage, { text: 'A summary', source: 'description' })
     ).toBe('placeholder');
-    expect(getPageDisplayLabelStyle({ text: 'Buy milk', source: 'content' })).toBe(
-      'placeholder'
-    );
-    expect(getPageDisplayLabelStyle({ text: 'New Note', source: 'placeholder' })).toBe(
-      'placeholder'
-    );
+    expect(
+      getPageDisplayLabelStyle(notePage, { text: 'Buy milk', source: 'content' })
+    ).toBe('placeholder');
+    expect(
+      getPageDisplayLabelStyle(notePage, { text: 'New Note', source: 'placeholder' })
+    ).toBe('placeholder');
+  });
+});
+
+describe('getPageDisplayLabelStyle — Daily Notes', () => {
+  const dailyNotePage = makePage({ type: 'daily-note' });
+
+  it('is always "default", never "placeholder" — the date is already shown elsewhere, so the label is never a stand-in for a missing title', () => {
+    expect(
+      getPageDisplayLabelStyle(dailyNotePage, {
+        text: 'Standup notes',
+        source: 'description',
+      })
+    ).toBe('default');
+    expect(
+      getPageDisplayLabelStyle(dailyNotePage, { text: 'Retro', source: 'content' })
+    ).toBe('default');
+    expect(
+      getPageDisplayLabelStyle(dailyNotePage, {
+        text: 'Daily Note',
+        source: 'placeholder',
+      })
+    ).toBe('default');
+  });
+
+  it('is still "default" even for the (unreachable in practice) source "title"', () => {
+    expect(
+      getPageDisplayLabelStyle(dailyNotePage, { text: '2026-08-02', source: 'title' })
+    ).toBe('default');
   });
 });

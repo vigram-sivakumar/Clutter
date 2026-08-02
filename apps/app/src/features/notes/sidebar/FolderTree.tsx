@@ -110,7 +110,7 @@ export function FolderTree({
                 <NoteEntry
                   key={note.id}
                   title={label.text}
-                  titleStyle={getPageDisplayLabelStyle(label)}
+                  titleStyle={getPageDisplayLabelStyle(note, label)}
                   emoji={note.metadata.icon}
                   level={level + 1}
                   selected={workspace.activePageId === note.id}
@@ -144,7 +144,7 @@ export function FolderTree({
           <NoteEntry
             key={note.id}
             title={label.text}
-            titleStyle={getPageDisplayLabelStyle(label)}
+            titleStyle={getPageDisplayLabelStyle(note, label)}
             emoji={note.metadata.icon}
             level={level}
             selected={workspace.activePageId === note.id}

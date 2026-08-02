@@ -59,9 +59,24 @@ export function getPageDisplayLabel(page: Page): PageDisplayLabel {
  * literal placeholder fallback. Every rendering surface that shows a
  * PageDisplayLabel calls this instead of comparing source === 'placeholder'
  * itself, so the distinction can't drift between call sites.
+ *
+ * Daily Notes are a deliberate exception to the source-based rule: their
+ * filename (the date) is never shown in browse surfaces at all — it's
+ * already represented elsewhere (day badge, month grouping, page header).
+ * getPageDisplayLabel's returned label is therefore always the Daily
+ * Note's primary browse label, not a stand-in for a missing title the
+ * way it is for Notes, regardless of whether it came from description,
+ * content, or the "Daily Note" fallback — so it always renders as
+ * 'default', never 'placeholder'. Notes keep the source-based rule
+ * unchanged: 'default' only for source === 'title'.
  */
 export function getPageDisplayLabelStyle(
+  page: Page,
   label: PageDisplayLabel
 ): 'default' | 'placeholder' {
+  if (page.type === 'daily-note') {
+    return 'default';
+  }
+
   return label.source === 'title' ? 'default' : 'placeholder';
 }
