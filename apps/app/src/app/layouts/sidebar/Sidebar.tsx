@@ -71,6 +71,7 @@ export function Sidebar({ application }: SidebarProps) {
           workspace={workspace}
           navigation={navigation}
           pageOperations={pageOperations}
+          folderOperations={folderOperations}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
         />
