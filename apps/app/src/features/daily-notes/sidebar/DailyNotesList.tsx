@@ -6,6 +6,7 @@ import type { Workspace } from '@core/workspace/Workspace';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { formatDate, isCurrentYear, isToday } from '@shared/helpers/time';
 import type { ISODate } from '@shared/helpers/time/types';
+import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 
 import { DailyNote } from './DailyNote';
 
@@ -90,7 +91,7 @@ export function DailyNotesList({
         {pages.map((note) => (
           <DailyNote
             key={note.id}
-            title={formatDate(note.name, 'date')}
+            title={getPageDisplayLabel(note).text}
             date={note.name}
             isToday={isToday(note.name)}
             selected={workspace.activePageId === note.id}
