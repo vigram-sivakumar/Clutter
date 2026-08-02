@@ -7,11 +7,13 @@ import type { ISODate } from '@shared/helpers/time';
 
 interface CalendarMonthProps {
   weeks: CalendarDateModel[][];
+  notedDates?: Set<string>;
   onSelectedDateChange(fullDate: ISODate): void;
 }
 
 export function CalendarMonth({
   weeks,
+  notedDates,
   onSelectedDateChange,
 }: CalendarMonthProps) {
   return (
@@ -23,6 +25,7 @@ export function CalendarMonth({
           <CalendarWeek
             key={index}
             dates={week}
+            notedDates={notedDates}
             onSelectedDateChange={onSelectedDateChange}
             isCurrentWeek={isCurrentWeek}
           />

@@ -6,12 +6,14 @@ import type { ISODate } from '@shared/helpers/time';
 interface CalendarWeekProps {
   dates: CalendarDateModel[];
   isCurrentWeek?: boolean;
+  notedDates?: Set<string>;
   onSelectedDateChange(fullDate: ISODate): void;
 }
 
 export function CalendarWeek({
   dates,
   isCurrentWeek,
+  notedDates,
   onSelectedDateChange,
 }: CalendarWeekProps) {
   return (
@@ -24,6 +26,11 @@ export function CalendarWeek({
           isToday={date.isToday}
           isSelected={date.isSelected}
           isOutsideMonth={date.isOutsideMonth}
+          indicator={
+            notedDates?.has(date.fullDate) ? (
+              <span className="calendar-cell__dot" />
+            ) : undefined
+          }
           onClick={onSelectedDateChange}
         />
       ))}

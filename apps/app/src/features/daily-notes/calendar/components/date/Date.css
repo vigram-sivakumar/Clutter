@@ -45,3 +45,18 @@
 .calendar-cell:active:not(:disabled) {
   background: var(--state-active);
 }
+
+.calendar-cell__indicator {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.calendar-cell__dot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-placeholder);
+}

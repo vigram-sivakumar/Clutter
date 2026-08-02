@@ -17,6 +17,7 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 interface CalendarProps {
   mode: CalendarMode;
   selectedDate: string;
+  notedDates?: Set<string>;
   onSelectedDateChange(date: string): void;
   onModeChange(mode: CalendarMode): void;
 }
@@ -24,6 +25,7 @@ interface CalendarProps {
 export function Calendar({
   mode,
   selectedDate,
+  notedDates,
   onSelectedDateChange,
   onModeChange,
 }: CalendarProps) {
@@ -74,11 +76,13 @@ export function Calendar({
           <CalendarWeek
             dates={getWeek(visibleDate, selectedDate)}
             isCurrentWeek
+            notedDates={notedDates}
             onSelectedDateChange={onSelectedDateChange}
           />
         ) : (
           <CalendarMonth
             weeks={getMonth(visibleDate, selectedDate)}
+            notedDates={notedDates}
             onSelectedDateChange={onSelectedDateChange}
           />
         )}

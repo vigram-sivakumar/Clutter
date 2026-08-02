@@ -9,6 +9,7 @@ import type { Vault } from '@core/vault/models';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 
 import { findTodayNote } from '../helpers/findTodayNote';
+import { datesWithNotes } from '@features/daily-notes/calendar/helpers/datesWithNotes';
 
 interface DailyNotesShortcutsProps {
   vault: Vault;
@@ -23,6 +24,7 @@ export function DailyNotesShortcuts({
 }: DailyNotesShortcutsProps) {
   const dailyNotes = Array.from(vault.dailyNotes());
   const todayNote = findTodayNote(dailyNotes);
+  const notedDates = datesWithNotes(dailyNotes);
 
   const [selectedDate, setSelectedDate] = useState(toISODate(new Date()));
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('week');
@@ -41,6 +43,7 @@ export function DailyNotesShortcuts({
       <Calendar
         mode={calendarMode}
         selectedDate={selectedDate}
+        notedDates={notedDates}
         onSelectedDateChange={handleSelectedDateChange}
         onModeChange={setCalendarMode}
       />
