@@ -6,7 +6,10 @@ import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { buildBreadcrumbs, buildBreadcrumbsForDraft } from '@core/presentation/buildBreadcrumbs';
 import { getPageTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
-import { buildTopBarActions } from '@app/layouts/page/topbar/buildTopBarActions';
+import {
+  buildTopBarActions,
+  buildDraftTopBarActions,
+} from '@app/layouts/page/topbar/buildTopBarActions';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
@@ -140,6 +143,7 @@ export function PageHost({ application }: PageHostProps) {
       onOpenFolder
     );
     const model = toDraftPageModel(activePageId, draft.title, session, onUpdateMarkdown);
+    const draftTopBar = buildDraftTopBarActions(draft.type);
 
     return (
       <Page
@@ -149,12 +153,10 @@ export function PageHost({ application }: PageHostProps) {
         titleEditable
         titlePlaceholder={getPageTitlePlaceholder(draft.type)}
         breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
-        // Archive/restore/delete/move/rename only apply to persisted
-        // pages (ADR-017 Decision item 9) — rather than wire them to a
-        // draft-shaped topbar menu, they're omitted entirely while
-        // unpersisted, so there's no reachable control that would
-        // silently no-op against the Gate's abandon-if-missing guard.
-        actions={null}
+        // Same page chrome as a persisted page (ADR-017 Decision item 9) —
+        // archive/restore/delete render disabled, not omitted, since they
+        // don't apply until this draft is actually persisted.
+        actions={draftTopBar.actions}
         bodyFocusRef={editorRef}
         body={
           <MarkdownBody>

@@ -72,4 +72,18 @@ describe('ResourceTopBarActions', () => {
 
     expect(() => fireEvent.click(screen.getByText('Archive'))).not.toThrow();
   });
+
+  it('renders a disabled item but never invokes its handler on click', () => {
+    const onArchive = vi.fn();
+    const disabledMenu: TopBarMenuItemConfig[] = [
+      { id: 'archive', label: 'Archive', icon: 'archive', disabled: true },
+    ];
+    render(<ResourceTopBarActions menu={disabledMenu} handlers={{ archive: onArchive }} />);
+    openMenu();
+
+    expect(screen.getByText('Archive')).toBeDefined();
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(onArchive).not.toHaveBeenCalled();
+  });
 });

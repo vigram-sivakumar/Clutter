@@ -5,11 +5,23 @@ import { Overlay } from '@components/overlay/Overlay';
 import { useOverlay } from '@components/overlay/hooks/useOverlay';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
+import type { PageStatus } from '@core/vault/models/PageMetadata';
+
+/**
+ * A page's top-bar-relevant lifecycle state: its persisted `PageStatus`,
+ * or the explicit `'draft'` state for an unpersisted `PageOperations`
+ * draft (ADR-017) — a real, named third value, never represented as
+ * `undefined`/`null` standing in for "not yet persisted" (a menu builder
+ * that forgot to check would otherwise silently treat a draft as active).
+ */
+export type TopBarPageState = PageStatus | 'draft';
 
 export interface TopBarMenuItemConfig {
   id: string;
   label: string;
   icon: SystemIcon;
+  /** Rendered but non-interactive (ADR-017 Decision item 9 / ADR-016 Finding A's "disabled, not silently inert" pattern) — never omitted from the menu. */
+  disabled?: boolean;
 }
 
 export interface ResourceTopBarActionsProps {
@@ -54,6 +66,7 @@ export function ResourceTopBarActions({ menu, handlers }: ResourceTopBarActionsP
           {menu.map((item) => (
             <MenuItem
               key={item.id}
+              disabled={item.disabled}
               onClick={() => {
                 handlers?.[item.id]?.();
                 overflow.hide();

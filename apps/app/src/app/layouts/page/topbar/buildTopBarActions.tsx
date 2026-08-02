@@ -6,7 +6,7 @@ import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNote
 import { buildNoteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 
 import { renderTopBarActions } from './topBarRegistry';
-import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
+import type { TopBarMenuItemConfig, TopBarPageState } from './ResourceTopBarActions';
 
 function isPage(entry: Page | Folder): entry is Page {
   return 'type' in entry;
@@ -30,16 +30,21 @@ function getTopBarResourceType(
 }
 
 /**
- * Resolves the status-aware menu for a page resource. Lives here, not in
+ * Resolves the state-aware menu for a page type. Lives here, not in
  * topBarRegistry.tsx, because this is the one place that already narrows
- * Page | Folder to a specific Page and its type.
+ * Page | Folder to a specific Page and its type — and, for drafts (see
+ * buildDraftTopBarActions below), the one place a PageType is known
+ * without a backing Page at all (ADR-017).
  */
-function buildMenuForPage(page: Page): readonly TopBarMenuItemConfig[] {
-  switch (page.type) {
+function buildMenuForType(
+  type: PageType,
+  state: TopBarPageState
+): readonly TopBarMenuItemConfig[] {
+  switch (type) {
     case 'note':
-      return buildNoteTopBarMenu(page);
+      return buildNoteTopBarMenu(state);
     case 'daily-note':
-      return buildDailyNoteTopBarMenu(page);
+      return buildDailyNoteTopBarMenu(state);
     default:
       return [];
   }
@@ -64,7 +69,9 @@ export function buildTopBarActions(
   options: BuildTopBarActionsOptions
 ): TopBarParts {
   const resourceType = getTopBarResourceType(resource, options.vault);
-  const menu = isPage(resource) ? buildMenuForPage(resource) : undefined;
+  const menu = isPage(resource)
+    ? buildMenuForType(resource.type, resource.metadata.status)
+    : undefined;
 
   return {
     actions: renderTopBarActions(resourceType, {
@@ -72,6 +79,22 @@ export function buildTopBarActions(
       onArchive: options.onArchive,
       onRestore: options.onRestore,
       onDelete: options.onDelete,
+    }),
+  };
+}
+
+/**
+ * The draft (ADR-017) counterpart to buildTopBarActions: same page chrome
+ * (favorite/width-fill/overflow menu — see ResourceTopBarActions), built
+ * from just a PageType since a draft has no backing Page/Folder/Vault
+ * entry yet. Archive/restore/delete render disabled, never omitted
+ * (ADR-017 Decision item 9) — no handlers are passed because a disabled
+ * MenuItem never invokes onClick (Entry's own disabled guard).
+ */
+export function buildDraftTopBarActions(type: PageType): TopBarParts {
+  return {
+    actions: renderTopBarActions(type, {
+      menu: buildMenuForType(type, 'draft'),
     }),
   };
 }

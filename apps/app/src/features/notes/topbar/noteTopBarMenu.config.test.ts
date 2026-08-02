@@ -1,32 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildNoteTopBarMenu } from './noteTopBarMenu.config';
-import { PageBuilder } from '@core/vault/ingest/PageBuilder';
-import type { Page } from '@core/vault/models/Page';
-
-function buildPage(status: 'active' | 'archived'): Page {
-  return new PageBuilder().build({
-    parentId: null,
-    page: {
-      path: '/vault/Note.md',
-      directoryPath: '/vault',
-      frontmatter: { id: 'page-1', status },
-      frontmatterAnalysis: { aliases: [] },
-      content: 'Body',
-      analysis: {
-        headings: [],
-        blockReferences: [],
-        tasks: [],
-        tags: [],
-        links: [],
-        embeds: [],
-      },
-    },
-  });
-}
 
 describe('buildNoteTopBarMenu', () => {
   it("includes 'archive', not 'restore', for an active page", () => {
-    const menu = buildNoteTopBarMenu(buildPage('active'));
+    const menu = buildNoteTopBarMenu('active');
     const ids = menu.map((item) => item.id);
 
     expect(ids).toContain('archive');
@@ -34,7 +11,7 @@ describe('buildNoteTopBarMenu', () => {
   });
 
   it("includes 'restore', not 'archive', for an archived page", () => {
-    const menu = buildNoteTopBarMenu(buildPage('archived'));
+    const menu = buildNoteTopBarMenu('archived');
     const ids = menu.map((item) => item.id);
 
     expect(ids).toContain('restore');
@@ -42,11 +19,24 @@ describe('buildNoteTopBarMenu', () => {
   });
 
   it("includes 'delete' regardless of status", () => {
-    expect(buildNoteTopBarMenu(buildPage('active')).map((i) => i.id)).toContain(
-      'delete'
-    );
-    expect(buildNoteTopBarMenu(buildPage('archived')).map((i) => i.id)).toContain(
-      'delete'
-    );
+    expect(buildNoteTopBarMenu('active').map((i) => i.id)).toContain('delete');
+    expect(buildNoteTopBarMenu('archived').map((i) => i.id)).toContain('delete');
+  });
+
+  it("enabled 'archive'/'delete', not disabled, for a persisted (active) page", () => {
+    const menu = buildNoteTopBarMenu('active');
+
+    expect(menu.find((i) => i.id === 'archive')?.disabled).toBeFalsy();
+    expect(menu.find((i) => i.id === 'delete')?.disabled).toBeFalsy();
+  });
+
+  it("includes 'archive', not 'restore', for a draft, and disables both it and 'delete'", () => {
+    const menu = buildNoteTopBarMenu('draft');
+    const ids = menu.map((item) => item.id);
+
+    expect(ids).toContain('archive');
+    expect(ids).not.toContain('restore');
+    expect(menu.find((i) => i.id === 'archive')?.disabled).toBe(true);
+    expect(menu.find((i) => i.id === 'delete')?.disabled).toBe(true);
   });
 });

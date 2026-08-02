@@ -1,11 +1,16 @@
-import type { Page } from '@core/vault/models/Page';
-import type { TopBarMenuItemConfig } from '@app/layouts/page/topbar/ResourceTopBarActions';
+import type {
+  TopBarMenuItemConfig,
+  TopBarPageState,
+} from '@app/layouts/page/topbar/ResourceTopBarActions';
 
 /**
  * Archive/Restore is a status-dependent toggle, not two statically-present
- * items — see noteTopBarMenu.config.ts for the same pattern.
+ * items — see noteTopBarMenu.config.ts for the same pattern, including the
+ * `'draft'` state's disabled-not-omitted treatment (ADR-017 Decision item 9).
  */
-export function buildDailyNoteTopBarMenu(page: Page): TopBarMenuItemConfig[] {
+export function buildDailyNoteTopBarMenu(state: TopBarPageState): TopBarMenuItemConfig[] {
+  const persisted = state !== 'draft';
+
   return [
     {
       id: 'add-a-description',
@@ -17,13 +22,14 @@ export function buildDailyNoteTopBarMenu(page: Page): TopBarMenuItemConfig[] {
       label: 'Version history',
       icon: 'clock',
     },
-    page.metadata.status === 'archived'
-      ? { id: 'restore', label: 'Restore', icon: 'archive' }
-      : { id: 'archive', label: 'Archive', icon: 'archive' },
+    state === 'archived'
+      ? { id: 'restore', label: 'Restore', icon: 'archive', disabled: !persisted }
+      : { id: 'archive', label: 'Archive', icon: 'archive', disabled: !persisted },
     {
       id: 'delete',
       label: 'Delete',
       icon: 'trash',
+      disabled: !persisted,
     },
   ];
 }

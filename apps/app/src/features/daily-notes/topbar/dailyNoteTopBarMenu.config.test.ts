@@ -1,32 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildDailyNoteTopBarMenu } from './dailyNoteTopBarMenu.config';
-import { PageBuilder } from '@core/vault/ingest/PageBuilder';
-import type { Page } from '@core/vault/models/Page';
-
-function buildPage(status: 'active' | 'archived'): Page {
-  return new PageBuilder().build({
-    parentId: null,
-    page: {
-      path: '/vault/Daily Notes/2026-08-01.md',
-      directoryPath: '/vault/Daily Notes',
-      frontmatter: { id: 'page-1', type: 'daily-note', status },
-      frontmatterAnalysis: { aliases: [] },
-      content: 'Body',
-      analysis: {
-        headings: [],
-        blockReferences: [],
-        tasks: [],
-        tags: [],
-        links: [],
-        embeds: [],
-      },
-    },
-  });
-}
 
 describe('buildDailyNoteTopBarMenu', () => {
   it("includes 'archive', not 'restore', for an active page", () => {
-    const menu = buildDailyNoteTopBarMenu(buildPage('active'));
+    const menu = buildDailyNoteTopBarMenu('active');
     const ids = menu.map((item) => item.id);
 
     expect(ids).toContain('archive');
@@ -34,7 +11,7 @@ describe('buildDailyNoteTopBarMenu', () => {
   });
 
   it("includes 'restore', not 'archive', for an archived page", () => {
-    const menu = buildDailyNoteTopBarMenu(buildPage('archived'));
+    const menu = buildDailyNoteTopBarMenu('archived');
     const ids = menu.map((item) => item.id);
 
     expect(ids).toContain('restore');
@@ -42,11 +19,24 @@ describe('buildDailyNoteTopBarMenu', () => {
   });
 
   it("includes 'delete' regardless of status", () => {
-    expect(
-      buildDailyNoteTopBarMenu(buildPage('active')).map((i) => i.id)
-    ).toContain('delete');
-    expect(
-      buildDailyNoteTopBarMenu(buildPage('archived')).map((i) => i.id)
-    ).toContain('delete');
+    expect(buildDailyNoteTopBarMenu('active').map((i) => i.id)).toContain('delete');
+    expect(buildDailyNoteTopBarMenu('archived').map((i) => i.id)).toContain('delete');
+  });
+
+  it("enabled 'archive'/'delete', not disabled, for a persisted (active) page", () => {
+    const menu = buildDailyNoteTopBarMenu('active');
+
+    expect(menu.find((i) => i.id === 'archive')?.disabled).toBeFalsy();
+    expect(menu.find((i) => i.id === 'delete')?.disabled).toBeFalsy();
+  });
+
+  it("includes 'archive', not 'restore', for a draft, and disables both it and 'delete'", () => {
+    const menu = buildDailyNoteTopBarMenu('draft');
+    const ids = menu.map((item) => item.id);
+
+    expect(ids).toContain('archive');
+    expect(ids).not.toContain('restore');
+    expect(menu.find((i) => i.id === 'archive')?.disabled).toBe(true);
+    expect(menu.find((i) => i.id === 'delete')?.disabled).toBe(true);
   });
 });
