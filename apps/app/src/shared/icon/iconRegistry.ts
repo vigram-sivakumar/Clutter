@@ -10,6 +10,7 @@ import ArrowLeft from './svg/arrow-left.svg?react';
 import ArrowLeftSmallHead from './svg/arrow-left-small-head.svg?react';
 import ArrowRight from './svg/arrow-right.svg?react';
 import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
+import BookshelfBox from './svg/bookshelf-box.svg?react';
 import CalendarBlank from './svg/calendar-blank.svg?react';
 import CalendarDot from './svg/calendar-dot.svg?react';
 import CaretDown from './svg/caret-down.svg?react';
@@ -68,6 +69,7 @@ export const iconRegistry = {
   arrowLeftSmallHead: ArrowLeftSmallHead,
   arrowRight: ArrowRight,
   arrowRightSmallHead: ArrowRightSmallHead,
+  bookshelfBox: BookshelfBox,
   calendar: CalendarBlank,
   calendarDot: CalendarDot,
   calendarToday: CalendarTodayIcon,
