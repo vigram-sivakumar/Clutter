@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { Application } from '@core/application/Application';
 
 import { useActivePage } from '@app/hooks/useActivePage';
@@ -12,7 +13,10 @@ import { toCollectionPageModel } from '@features/collection/page/toCollectionPag
 import { Page } from '@app/layouts/page/Page';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
-import { MarkdownEditor } from '@features/markdown/editor/MarkdownEditor';
+import {
+  MarkdownEditor,
+  type MarkdownEditorHandle,
+} from '@features/markdown/editor/MarkdownEditor';
 
 interface PageHostProps {
   application: Application;
@@ -32,6 +36,13 @@ interface PageHostProps {
 export function PageHost({ application }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
+
+  // One handle, reused across the draft/note/daily-note branches below —
+  // only one of them ever renders per render, and each gets a fresh
+  // instance anyway via the per-entity `key` on <Page>. Lets the title's
+  // Enter (Page's bodyFocusRef) move focus into the editor without Page
+  // needing to know what body actually is.
+  const editorRef = useRef<MarkdownEditorHandle>(null);
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
@@ -132,6 +143,7 @@ export function PageHost({ application }: PageHostProps) {
 
     return (
       <Page
+        key={activePageId}
         title={model.title}
         description={model.description}
         titleEditable
@@ -143,9 +155,11 @@ export function PageHost({ application }: PageHostProps) {
         // unpersisted, so there's no reachable control that would
         // silently no-op against the Gate's abandon-if-missing guard.
         actions={null}
+        bodyFocusRef={editorRef}
         body={
           <MarkdownBody>
             <MarkdownEditor
+              ref={editorRef}
               markdown={model.markdown}
               onCommit={(markdown) => model.updateMarkdown(markdown)}
             />
@@ -166,15 +180,18 @@ export function PageHost({ application }: PageHostProps) {
 
       return (
         <Page
+          key={activePageId}
           title={model.title}
           description={model.description}
           titleEditable
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
           coverImage={model.coverImage ?? undefined}
+          bodyFocusRef={editorRef}
           body={
             <MarkdownBody>
               <MarkdownEditor
+                ref={editorRef}
                 markdown={model.markdown}
                 onCommit={(markdown) => model.updateMarkdown(markdown)}
               />
@@ -190,15 +207,18 @@ export function PageHost({ application }: PageHostProps) {
 
       return (
         <Page
+          key={activePageId}
           title={model.title}
           description={model.description}
           titleEditable
           breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
           actions={topBar.actions}
           coverImage={model.coverImage ?? undefined}
+          bodyFocusRef={editorRef}
           body={
             <MarkdownBody>
               <MarkdownEditor
+                ref={editorRef}
                 markdown={model.markdown}
                 onCommit={(markdown) => model.updateMarkdown(markdown)}
               />
