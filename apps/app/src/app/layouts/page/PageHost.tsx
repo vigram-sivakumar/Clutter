@@ -4,6 +4,7 @@ import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { buildBreadcrumbs, buildBreadcrumbsForDraft } from '@core/presentation/buildBreadcrumbs';
+import { getPageTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
 import { buildTopBarActions } from '@app/layouts/page/topbar/buildTopBarActions';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
@@ -122,7 +123,7 @@ export function PageHost({ application }: PageHostProps) {
     const draftBreadcrumbs = buildBreadcrumbsForDraft(
       activePageId,
       draft.folderId,
-      draft.title ?? 'New Note',
+      draft.title ?? getPageTitlePlaceholder(draft.type),
       draft.type,
       vault,
       onOpenFolder
@@ -134,7 +135,7 @@ export function PageHost({ application }: PageHostProps) {
         title={model.title}
         description={model.description}
         titleEditable
-        titlePlaceholder={draft.type === 'daily-note' ? 'Daily Note' : 'New Note'}
+        titlePlaceholder={getPageTitlePlaceholder(draft.type)}
         breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
         // Archive/restore/delete/move/rename only apply to persisted
         // pages (ADR-017 Decision item 9) — rather than wire them to a

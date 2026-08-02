@@ -4,6 +4,7 @@ import type { Folder } from '@core/vault/models/Folder';
 
 import type { Breadcrumb } from './Breadcrumb';
 import { isNoteUntitled } from './isNoteUntitled';
+import { getPageTitlePlaceholder } from './PageDisplayPlaceholders';
 
 function isPage(entry: Page | Folder): entry is Page {
   return 'type' in entry;
@@ -17,7 +18,7 @@ function isPage(entry: Page | Folder): entry is Page {
 // B's predicate — is deliberately always false for daily-note).
 function entryBreadcrumbTitle(entry: Page | Folder): string {
   if (isPage(entry) && isNoteUntitled(entry)) {
-    return 'New Note';
+    return getPageTitlePlaceholder(entry.type);
   }
 
   return entry.name;
