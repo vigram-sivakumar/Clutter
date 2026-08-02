@@ -1,5 +1,6 @@
 import type { DocumentSession } from '@core/engine/DocumentSession';
 import type { Page } from '@core/vault/models/Page';
+import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 
 /**
  * This function is the presentation boundary between the application/domain
@@ -15,7 +16,7 @@ export function toResourcePageModel(
   const revision = session.currentRevision;
 
   return {
-    title: page.name,
+    title: getPageDisplayLabel(page).text,
     description: page.metadata.description ?? '',
     // Render the current editable document revision rather than the immutable Vault snapshot.
     // This allows the UI to reflect in-memory edits before they are persisted.

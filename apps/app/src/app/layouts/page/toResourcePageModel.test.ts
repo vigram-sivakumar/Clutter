@@ -5,11 +5,16 @@ import { DocumentTransaction } from '@core/engine/DocumentTransaction';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import type { Page } from '@core/vault/models/Page';
 
-function buildPage(overrides: { description?: string; cover?: string } = {}): Page {
+function buildPage(overrides: {
+  path?: string;
+  description?: string;
+  cover?: string;
+  content?: string;
+} = {}): Page {
   return new PageBuilder().build({
     parentId: null,
     page: {
-      path: '/vault/Note.md',
+      path: overrides.path ?? '/vault/Note.md',
       directoryPath: '/vault',
       frontmatter: {
         id: 'page-1',
@@ -17,7 +22,7 @@ function buildPage(overrides: { description?: string; cover?: string } = {}): Pa
         cover: overrides.cover,
       },
       frontmatterAnalysis: { aliases: [] },
-      content: 'Body',
+      content: overrides.content ?? 'Body',
       analysis: {
         headings: [],
         blockReferences: [],
@@ -62,6 +67,19 @@ describe('toResourcePageModel', () => {
     model.updateMarkdown('New content');
 
     expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content');
+  });
+
+  it('shows the shared display label, not the raw filename, for an auto-generated name', () => {
+    const page = buildPage({
+      path: '/vault/Untitled 2.md',
+      content: 'Real content here',
+    });
+    const session = new DocumentSession(page.id, page.source.markdown);
+
+    const model = toResourcePageModel(page, session, vi.fn());
+
+    expect(model.title).toBe('Real content here');
+    expect(model.title).not.toBe(page.name);
   });
 
   it('updateDescription throws — not yet routed through the Application layer', () => {
