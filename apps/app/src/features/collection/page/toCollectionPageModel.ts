@@ -3,6 +3,7 @@ import type { Page } from '@core/vault/models/Page';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import { getPageIcon } from '@core/presentation/getDefaultPageIcon';
+import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 
 import type { CollectionEntryModel } from './CollectionEntryModel';
 import type {
@@ -27,7 +28,12 @@ function toCollectionEntry(
   return {
     id: entry.id,
     type,
-    title: entry.name,
+    // This is a browse surface (Category A) — a page's title must go
+    // through the shared display-label rule, the same as the sidebar and
+    // breadcrumbs, so an unnamed note doesn't show a raw "Untitled 2"
+    // here while looking correct everywhere else. A folder's name is
+    // always real and deliberate; no fallback chain applies to it.
+    title: isFolder(entry) ? entry.name : getPageDisplayLabel(entry).text,
     emoji: entry.metadata?.icon ?? null,
     icon: getPageIcon(isFolder(entry) ? 'folder' : entry.type),
     selected,
