@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import './Page.css';
 import { PageCover } from './cover/Page.Cover';
 import { PageTopBar } from './topbar/Page.TopBar';
@@ -16,6 +16,13 @@ type PageProps = {
   actions?: ReactNode;
   body?: ReactNode;
   coverImage?: string;
+  /**
+   * A handle onto whatever's rendered in `body`, so title's Enter can
+   * advance focus into it — Page doesn't need to know what body actually
+   * is (MarkdownEditor today, a future page type's own editing surface
+   * later), only that it can be focused.
+   */
+  bodyFocusRef?: RefObject<{ focus(): void } | null>;
 };
 
 export function Page({
@@ -28,7 +35,15 @@ export function Page({
   actions,
   body,
   coverImage,
+  bodyFocusRef,
 }: PageProps) {
+  // The one place "is this entity missing its title" is decided for the
+  // editing/identity surface — driven entirely by the title string the
+  // caller already resolved (empty means missing, per the same convention
+  // isNoteUntitled/getPageDisplayLabel established), not by any page-type
+  // knowledge Page itself would otherwise need.
+  const shouldAutoFocusTitle = Boolean(titleEditable) && title === '';
+
   return (
     <div className="page">
       <div className="page__document">
@@ -36,7 +51,12 @@ export function Page({
         <div className="page__content">
           <header className="page__header">
             <PageTitleSection>
-              <PageTitle editable={titleEditable} placeholder={titlePlaceholder}>
+              <PageTitle
+                editable={titleEditable}
+                placeholder={titlePlaceholder}
+                autoFocus={shouldAutoFocusTitle}
+                onSubmit={() => bodyFocusRef?.current?.focus()}
+              >
                 {title}
               </PageTitle>
               {description && <PageDescription>{description}</PageDescription>}
