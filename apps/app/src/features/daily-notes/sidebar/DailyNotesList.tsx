@@ -72,41 +72,50 @@ export function DailyNotesList({
 }: DailyNotesListProps) {
   const monthSections = sortMonthSections(collectMonthSections(vault, query));
 
-  return monthSections.map((section) => {
-    const pages = query
-      .getChildPages(section.monthFolder.id)
-      .sort((a, b) => b.name.localeCompare(a.name));
-    const isExpanded = workspace.isFolderExpanded(section.monthFolder.id);
+  return monthSections
+    .map((section) => ({
+      section,
+      pages: query
+        .getChildPages(section.monthFolder.id)
+        .sort((a, b) => b.name.localeCompare(a.name)),
+    }))
+    // A month section with no Daily Notes in it has nothing to show — a
+    // permanent presentation rule, independent of how or when the month
+    // folder itself came to exist (eagerly at boot today; possibly
+    // lazily on first save later).
+    .filter(({ pages }) => pages.length > 0)
+    .map(({ section, pages }) => {
+      const isExpanded = workspace.isFolderExpanded(section.monthFolder.id);
 
-    return (
-      <Section
-        key={section.monthFolder.id}
-        hasHeader
-        title={formatMonthSectionTitle(section)}
-        isCollapsible
-        isExpanded={isExpanded}
-        onExpandedChange={() => {
-          workspace.toggleFolderExpanded(section.monthFolder.id);
-        }}
-        // selected={workspace.activeFolderId === section.monthFolder.id}
-        onClick={() => onOpenFolder(section.monthFolder.id)}
-      >
-        {pages.map((note) => {
-          const label = getPageDisplayLabel(note);
+      return (
+        <Section
+          key={section.monthFolder.id}
+          hasHeader
+          title={formatMonthSectionTitle(section)}
+          isCollapsible
+          isExpanded={isExpanded}
+          onExpandedChange={() => {
+            workspace.toggleFolderExpanded(section.monthFolder.id);
+          }}
+          // selected={workspace.activeFolderId === section.monthFolder.id}
+          onClick={() => onOpenFolder(section.monthFolder.id)}
+        >
+          {pages.map((note) => {
+            const label = getPageDisplayLabel(note);
 
-          return (
-            <DailyNote
-              key={note.id}
-              title={label.text}
-              titleStyle={getPageDisplayLabelStyle(label)}
-              date={note.name}
-              isToday={isToday(note.name)}
-              selected={workspace.activePageId === note.id}
-              onClick={() => onOpen(note.id)}
-            />
-          );
-        })}
-      </Section>
-    );
-  });
+            return (
+              <DailyNote
+                key={note.id}
+                title={label.text}
+                titleStyle={getPageDisplayLabelStyle(label)}
+                date={note.name}
+                isToday={isToday(note.name)}
+                selected={workspace.activePageId === note.id}
+                onClick={() => onOpen(note.id)}
+              />
+            );
+          })}
+        </Section>
+      );
+    });
 }
