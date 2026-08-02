@@ -1,4 +1,6 @@
 import { Vault } from '../../vault/models/Vault';
+import { resolveCollisionFreeName } from '../../shared/naming/resolveCollisionFreeName';
+import { resolveFolderPathOrRoot } from '../resolveFolderPathOrRoot';
 
 export interface ResolvedCreateFolderPath {
   readonly path: string;
@@ -16,34 +18,17 @@ export class FolderPathResolver {
   constructor(private readonly vault: Vault) {}
 
   createFolderPath(parentId: string | null, name: string): ResolvedCreateFolderPath {
-    const parentPath = this.resolveParentPath(parentId);
+    const parentPath = resolveFolderPathOrRoot(this.vault, parentId);
     const baseName = name.trim() || 'Untitled Folder';
 
-    let candidateName = baseName;
-    let suffix = 1;
-
-    while (this.vault.getFolderByPath(`${parentPath}/${candidateName}`)) {
-      suffix += 1;
-      candidateName = `${baseName} ${suffix}`;
-    }
+    const candidateName = resolveCollisionFreeName(
+      baseName,
+      (name) => this.vault.getFolderByPath(`${parentPath}/${name}`) !== undefined
+    );
 
     return {
       path: `${parentPath}/${candidateName}`,
       parentId,
     };
-  }
-
-  private resolveParentPath(parentId: string | null): string {
-    if (parentId === null) {
-      return this.vault.root;
-    }
-
-    const folder = this.vault.getFolder(parentId);
-
-    if (!folder) {
-      throw new Error(`Folder not found: ${parentId}`);
-    }
-
-    return folder.path;
   }
 }
