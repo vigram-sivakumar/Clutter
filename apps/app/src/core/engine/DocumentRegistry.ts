@@ -73,11 +73,22 @@ export class DocumentRegistry {
   /**
    * Closes the session for the specified page.
    *
-   * This removes the session from the registry.
+   * Marks the session Disposed before removing it from the registry, so
+   * anything still holding a reference to it (a scheduled timer, an
+   * in-flight save's completion handler) observes a terminal, inert session
+   * rather than one silently absent from the registry but still reporting
+   * live lifecycle state.
    *
    * If no session exists, this operation has no effect.
    */
   public close(pageId: string): void {
+    const session = this.sessions.get(pageId);
+
+    if (!session) {
+      return;
+    }
+
+    session.markDisposed();
     this.sessions.delete(pageId);
   }
 
@@ -91,9 +102,18 @@ export class DocumentRegistry {
   /**
    * Removes every active document session.
    *
-   * Primarily used when closing a vault.
+   * Primarily used when closing a vault (see Application.close()). Disposes
+   * each session first, for the same reason close() does: anything still
+   * holding a reference to one of these sessions (a scheduled timer, an
+   * in-flight save's completion handler) must observe a terminal, inert
+   * session rather than one silently absent from the registry but still
+   * reporting live lifecycle state.
    */
   public clear(): void {
+    for (const session of this.sessions.values()) {
+      session.markDisposed();
+    }
+
     this.sessions.clear();
   }
 

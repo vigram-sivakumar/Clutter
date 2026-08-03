@@ -70,8 +70,17 @@ export class DocumentSession {
    *
    * A successful commit produces a new immutable revision,
    * which becomes the session's current revision.
+   *
+   * A no-op once Disposed: Disposed is terminal (autosave-execution-model.md
+   * §1.6 — "any pending timer or in-flight-save completion for it must be
+   * inert"), so a commit that arrives after disposal (e.g. a keystroke
+   * event racing session teardown) must not resurrect any other state,
+   * consistent with this method's own existing no-op-transaction guard.
    */
   public commit(transaction: DocumentTransaction): DocumentRevision {
+    if (this._state === DocumentState.Disposed) {
+      return this._currentRevision;
+    }
     // Ignore no-op transactions to preserve a meaningful revision history.
     if (transaction.markdown === this._currentRevision.markdown) {
       return this._currentRevision;
@@ -89,8 +98,15 @@ export class DocumentSession {
 
   /**
    * Transitions the session into the Saving state.
+   *
+   * A no-op once Disposed — see commit()'s doc comment for why this guard
+   * exists on every state-mutating method, not just markDisposed() itself.
    */
   public beginSave(): void {
+    if (this._state === DocumentState.Disposed) {
+      return;
+    }
+
     this._state = DocumentState.Saving;
     this.notify();
   }
@@ -100,8 +116,16 @@ export class DocumentSession {
    *
    * The supplied revision becomes the latest durable revision
    * known by this session.
+   *
+   * A no-op once Disposed: a save that was already in flight when the
+   * session was disposed must not resurrect it back to Clean once that
+   * save completes — see commit()'s doc comment.
    */
   public markSaved(revision: DocumentRevision): void {
+    if (this._state === DocumentState.Disposed) {
+      return;
+    }
+
     this._savedRevision = revision;
     this._state = DocumentState.Clean;
     this.notify();
@@ -112,9 +136,33 @@ export class DocumentSession {
    *
    * The current revision is intentionally preserved so the user's work remains
    * available for retry after the failure is resolved.
+   *
+   * A no-op once Disposed — see commit()'s doc comment.
    */
   public markSaveFailed(): void {
+    if (this._state === DocumentState.Disposed) {
+      return;
+    }
+
     this._state = DocumentState.SaveError;
+    this.notify();
+  }
+
+  /**
+   * Transitions the session into the terminal Disposed state.
+   *
+   * Called by DocumentRegistry when the session is closed, so anything still
+   * holding a reference (a scheduled timer, an in-flight save's completion
+   * handler) can observe that this session is no longer live rather than
+   * silently acting on a session removed from the registry. Idempotent: a
+   * second call is a no-op, since Disposed is terminal.
+   */
+  public markDisposed(): void {
+    if (this._state === DocumentState.Disposed) {
+      return;
+    }
+
+    this._state = DocumentState.Disposed;
     this.notify();
   }
 

@@ -269,6 +269,15 @@ export class Application {
 
     await this.fileSystemWatcher.stop();
     this.vaultSyncService.dispose();
+    // Cancel every armed autosave timer before dropping the sessions they
+    // belong to — documentRegistry.clear() disposes each session but has
+    // no concept of timers, and PageOperations.close()/delete() (the
+    // usual place timers are cancelled) is never called for this
+    // whole-vault teardown path. Found during M5's pre-implementation
+    // audit (autosave-execution-model.md §5's "cleared at the same moment
+    // the session is marked Disposed" applies here too, not just to the
+    // single-session close() path).
+    this.saveCoordinator.cancelAllTimers();
     this.documentRegistry.clear();
   }
 }

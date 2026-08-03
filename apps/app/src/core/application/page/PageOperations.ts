@@ -1,6 +1,7 @@
 import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
+import { DocumentState } from '../../engine/DocumentState';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { Vault } from '../../vault/models/Vault';
 import type { Page, PageType } from '../../vault/models/Page';
@@ -255,11 +256,120 @@ export class PageOperations {
   public close(pageId: string): void {
     this.workspace.closePage(pageId);
     this.documentRegistry.close(pageId);
+    // No armed timer may survive a closed session (autosave-execution-model.md
+    // §5) — cancelled explicitly here rather than relied upon to merely
+    // resolve as a harmless no-op if it fires, since a cancelled timer
+    // structurally cannot fire at all.
+    this.saveCoordinator.cancelTimers(pageId);
     this.drafts.delete(pageId);
   }
 
   public getSession(pageId: string): DocumentSession | undefined {
     return this.documentRegistry.get(pageId);
+  }
+
+  /**
+   * Commits a new revision into the page's open session without persisting
+   * it — the Committed-stage half of autosave (durability-model.md, Stage
+   * 1), decoupled from the Durable-stage write save() performs
+   * (autosave-execution-model.md §3.1). No Gate call, no draft-promotion
+   * check, no DocumentState transition beyond what DocumentSession.commit()
+   * itself already does (a no-op commit leaves state untouched; a real one
+   * stays in whatever state it was already in — Clean or Saving).
+   *
+   * A silent no-op if the page has no open session: mirrors §4.1's
+   * treatment of a save request for a session that no longer exists —
+   * nothing to commit into, nothing to do.
+   *
+   * A real (non-no-op) commit arms/resets this session's autosave timers
+   * (autosave-execution-model.md §5) — checked via DocumentSession.commit()'s
+   * own return value (a no-op returns the same revision reference it was
+   * already holding), so an identical-content commit never wastes a timer
+   * reset on nothing actually having changed.
+   */
+  public commitEdit(pageId: string, markdown: string): void {
+    const session = this.documentRegistry.get(pageId);
+
+    if (!session) {
+      return;
+    }
+
+    const revisionBefore = session.currentRevision;
+    const revisionAfter = session.commit(new DocumentTransaction(markdown));
+
+    if (revisionAfter === revisionBefore) {
+      return;
+    }
+
+    this.saveCoordinator.scheduleSave(session, () => {
+      void this.requestSave(pageId);
+    });
+  }
+
+  /**
+   * The single entry point every background save trigger (debounce, blur,
+   * navigation-away, shutdown-flush) calls — never save() directly, and
+   * never SaveCoordinator directly (autosave-execution-model.md §3).
+   *
+   * Carries no payload: a save request is a signal ("make this session
+   * durable if it isn't already"), not content — the content to persist is
+   * always read fresh from the session's own currentRevision at the moment
+   * it's actually needed, never captured by the caller.
+   *
+   * Drives the session to a stable Durable state, not just one attempt:
+   * if new content commits while this call's own save is still in flight,
+   * that content is picked up and saved too, within this same call, before
+   * it resolves — so a caller awaiting requestSave() (e.g. a future
+   * shutdown flush) can rely on its resolution meaning "durable," not
+   * "attempted once." See autosave-execution-model.md §2 (T9/T10) and §4.1.
+   *
+   * Never throws: every failure this method's own save() call can produce —
+   * synchronous (archived page, missing session) or asynchronous (a Gate
+   * failure) — is caught here and converted into the session's SaveError
+   * state via SaveCoordinator.failSave(), so a background trigger that
+   * doesn't await this call's result can never produce an unhandled
+   * rejection (autosave-execution-model.md §1.3a, §6).
+   */
+  public async requestSave(pageId: string): Promise<void> {
+    const session = this.documentRegistry.get(pageId);
+
+    if (!session) {
+      return;
+    }
+
+    for (;;) {
+      const decision = this.saveCoordinator.evaluate(session);
+
+      if (decision === 'suppress') {
+        return;
+      }
+
+      try {
+        await this.save(pageId, session.currentRevision.markdown);
+      } catch {
+        // Two distinct failure shapes reach here (§1.3a's T11a vs T11b),
+        // and only one of them still needs handling at this point:
+        //
+        // T11b (async Gate failure): save() already routed this through
+        // saveCoordinator.failSave() and transitioned the session to
+        // SaveError *before* re-throwing — nothing further to do here.
+        // Calling rejectSaveRequest() again would still leave the state
+        // correct (SaveError), but would fire a second, redundant
+        // notify() for a state that hasn't actually changed again.
+        //
+        // T11a (synchronous validation failure — archived page, missing
+        // session): save() threw *before* beginSave() ever ran, so the
+        // session's state is untouched — still whatever it was before
+        // this call (never SaveError from this attempt). Checking state
+        // here is what distinguishes the two: only T11a leaves it as
+        // anything other than SaveError, and only T11a is what
+        // rejectSaveRequest() needs to handle.
+        if (session.state !== DocumentState.SaveError) {
+          this.saveCoordinator.rejectSaveRequest(session);
+        }
+        return;
+      }
+    }
   }
 
   /**
@@ -587,6 +697,9 @@ export class PageOperations {
    */
   public async delete(pageId: string): Promise<void> {
     this.documentRegistry.close(pageId);
+    // Same reasoning as close() — a deleted page's session must not leave
+    // a timer behind that could still fire against it.
+    this.saveCoordinator.cancelTimers(pageId);
     this.drafts.delete(pageId);
 
     await this.coordinator.enqueue(pageId, { kind: 'delete' });
