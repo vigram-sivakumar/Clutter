@@ -78,7 +78,7 @@ export function Notes({
         onClick={() => {}}
       >
         <FavoriteList
-          items={getFavoriteItems(query)}
+          items={getFavoriteItems(query, effectivePageState)}
           workspace={workspace}
           onOpenPage={(id) => {
             onOpen(id);
