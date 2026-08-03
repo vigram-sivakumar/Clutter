@@ -1,12 +1,9 @@
 import type { Folder } from '@core/vault/models';
-import type { Page } from '@core/vault/models/Page';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
 import { getPageIcon } from '@core/presentation/getPageIcon';
-import {
-  getPageDisplayLabel,
-  toPageDisplayLabelInput,
-} from '@core/presentation/getPageDisplayLabel';
+import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
 
 import type { CollectionEntryModel } from './CollectionEntryModel';
 import type {
@@ -14,15 +11,18 @@ import type {
   CollectionPageModel,
 } from './CollectionPageModel';
 
-function isFolder(entry: Folder | Page): entry is Folder {
+function isFolder(entry: Folder | EffectivePage): entry is Folder {
   return !('type' in entry);
 }
 
 /**
- * Maps a Folder or Page domain object to a CollectionEntryModel for collection listing.
+ * Maps a Folder or EffectivePage to a CollectionEntryModel for collection
+ * listing. Pages come from EffectivePageState (ARCHITECTURE_RULES.md rule
+ * 13) — existence, label, and icon for both durable and draft-only pages,
+ * the same read façade FolderTree/DailyNotesList already use.
  */
 function toCollectionEntry(
-  entry: Folder | Page,
+  entry: Folder | EffectivePage,
   actions: CollectionPageActions,
   selected: boolean
 ): CollectionEntryModel {
@@ -36,18 +36,22 @@ function toCollectionEntry(
     // breadcrumbs, so an unnamed note doesn't show a raw "Untitled 2"
     // here while looking correct everywhere else. A folder's name is
     // always real and deliberate; no fallback chain applies to it.
-    title: isFolder(entry)
-      ? entry.name
-      : getPageDisplayLabel(toPageDisplayLabelInput(entry)).text,
-    emoji: entry.metadata?.icon ?? null,
+    title: isFolder(entry) ? entry.name : getPageDisplayLabel(entry).text,
+    emoji: isFolder(entry) ? entry.metadata.icon : entry.icon,
     icon: getPageIcon(isFolder(entry) ? 'folder' : entry.type),
     selected,
     onClick: () => {
       if (isFolder(entry)) {
         actions.onOpenFolder(entry.id);
-      } else {
-        actions.onOpenNote(entry.id);
+        return;
       }
+
+      if (entry.isDraft) {
+        actions.onOpenDraftNote(entry.id);
+        return;
+      }
+
+      actions.onOpenNote(entry.id);
     },
   };
 }
@@ -55,6 +59,7 @@ function toCollectionEntry(
 export function toCollectionPageModel(
   folder: Folder,
   query: VaultQuery,
+  effectivePageState: EffectivePageState,
   workspace: Workspace,
   actions: CollectionPageActions
 ): CollectionPageModel {
@@ -64,7 +69,7 @@ export function toCollectionPageModel(
       toCollectionEntry(child, actions, workspace.activeFolderId === child.id)
     );
 
-  const notes = query
+  const notes = effectivePageState
     .getChildPages(folder.id)
     .map((child) =>
       toCollectionEntry(child, actions, workspace.activePageId === child.id)

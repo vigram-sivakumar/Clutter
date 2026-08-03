@@ -1,5 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 import { toCollectionPageModel } from './toCollectionPageModel';
+import { EffectivePageState } from '@core/application/page/EffectivePageState';
+import { PageOperations } from '@core/application/page/PageOperations';
+import { PagePersistenceCoordinator } from '@core/vault/persistence/PagePersistenceCoordinator';
+import { DocumentRegistry } from '@core/engine/DocumentRegistry';
+import { SaveCoordinator } from '@core/engine/SaveCoordinator';
+import { FrontmatterSerializer } from '@core/vault/ingest/FrontmatterSerializer';
+import { FrontmatterParser } from '@core/vault/ingest/FrontmatterParser';
+import { PageRebuilder } from '@core/vault/ingest/PageRebuilder';
+import { MoveService } from '@core/vault/persistence/MoveService';
+import { PagePathResolver } from '@core/application/page/PagePathResolver';
+import { PageCreator } from '@core/application/page/PageCreator';
+import { PageFactory } from '@core/application/page/PageFactory';
+import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
+import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
+import { FolderOperations } from '@core/application/folder/FolderOperations';
+import { FolderPathResolver } from '@core/application/folder/FolderPathResolver';
+import { FolderCreator } from '@core/application/folder/FolderCreator';
+import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
@@ -69,7 +87,22 @@ function makePage(overrides: Partial<Page> = {}): Page {
   };
 }
 
-function makeQuery(folders: Folder[], pages: Page[]): VaultQuery {
+function makeFolderOperations(
+  vault: Vault,
+  workspace: Workspace,
+  coordinator: PagePersistenceCoordinator
+): FolderOperations {
+  return new FolderOperations(
+    vault,
+    workspace,
+    coordinator,
+    new FolderPathResolver(vault),
+    new FolderCreator(new UuidGenerator()),
+    () => {}
+  );
+}
+
+function setup(folders: Folder[], pages: Page[]) {
   const vault = new Vault(
     ROOT,
     pages,
@@ -80,18 +113,46 @@ function makeQuery(folders: Folder[], pages: Page[]): VaultQuery {
     new KnowledgeGraph([]),
     new VaultProjectionBuilder()
   );
-  return new VaultQuery(vault);
+  const query = new VaultQuery(vault);
+  const workspace = new Workspace();
+  const fileSystem = new InMemoryVaultFileSystem();
+  const documentRegistry = new DocumentRegistry();
+  const saveCoordinator = new SaveCoordinator();
+  const moveService = new MoveService(vault, fileSystem);
+  const coordinator = new PagePersistenceCoordinator(
+    fileSystem,
+    vault,
+    new FrontmatterSerializer(),
+    new FrontmatterParser(),
+    new PageRebuilder(),
+    moveService
+  );
+  const pageOperations = new PageOperations(
+    vault,
+    workspace,
+    documentRegistry,
+    saveCoordinator,
+    coordinator,
+    new PagePathResolver(vault),
+    new PageCreator(new UuidGenerator(), new PageFactory()),
+    makeFolderOperations(vault, workspace, coordinator),
+    new DailyNoteService()
+  );
+  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+
+  return { vault, query, workspace, pageOperations, effectivePageState };
 }
 
 describe('toCollectionPageModel — browse surface (Category A)', () => {
   it('uses the folder name verbatim for a subfolder entry', () => {
     const active = makeFolder({ id: 'folder-1', name: 'Root' });
     const child = makeFolder({ id: 'folder-2', name: 'Subfolder', parentId: 'folder-1' });
-    const query = makeQuery([active, child], []);
+    const { query, effectivePageState, workspace } = setup([active, child], []);
 
-    const model = toCollectionPageModel(active, query, new Workspace(), {
+    const model = toCollectionPageModel(active, query, effectivePageState, workspace, {
       onOpenFolder: vi.fn(),
       onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
     });
 
     expect(model.folders).toEqual([
@@ -102,11 +163,12 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
   it('uses the real filename for a deliberately-named note', () => {
     const active = makeFolder({ id: 'folder-1' });
     const page = makePage({ name: 'Meeting Notes' });
-    const query = makeQuery([active], [page]);
+    const { query, effectivePageState, workspace } = setup([active], [page]);
 
-    const model = toCollectionPageModel(active, query, new Workspace(), {
+    const model = toCollectionPageModel(active, query, effectivePageState, workspace, {
       onOpenFolder: vi.fn(),
       onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
     });
 
     expect(model.notes).toEqual([
@@ -120,15 +182,64 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
       name: 'Untitled 2',
       source: { markdown: 'Real content here' },
     });
-    const query = makeQuery([active], [page]);
+    const { query, effectivePageState, workspace } = setup([active], [page]);
 
-    const model = toCollectionPageModel(active, query, new Workspace(), {
+    const model = toCollectionPageModel(active, query, effectivePageState, workspace, {
       onOpenFolder: vi.fn(),
       onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
     });
 
     expect(model.notes).toEqual([
       expect.objectContaining({ id: 'page-1', title: 'Real content here' }),
     ]);
+  });
+});
+
+describe('toCollectionPageModel — draft-only pages appear immediately (ARCHITECTURE_RULES.md rule 13)', () => {
+  it('a freshly opened draft targeting the active folder appears in notes before any save', async () => {
+    const active = makeFolder({ id: 'folder-1' });
+    const { query, pageOperations, effectivePageState, workspace } = setup([active], []);
+
+    const draftId = await pageOperations.openDraft({
+      folderId: 'folder-1',
+      title: 'My Draft',
+    });
+
+    const model = toCollectionPageModel(active, query, effectivePageState, workspace, {
+      onOpenFolder: vi.fn(),
+      onOpenNote: vi.fn(),
+      onOpenDraftNote: vi.fn(),
+    });
+
+    expect(model.notes).toEqual([
+      expect.objectContaining({ id: draftId, title: 'My Draft', type: 'note' }),
+    ]);
+  });
+
+  it('clicking a draft entry invokes onOpenDraftNote, not onOpenNote', async () => {
+    const active = makeFolder({ id: 'folder-1' });
+    const { query, pageOperations, effectivePageState, workspace } = setup([active], []);
+
+    await pageOperations.openDraft({ folderId: 'folder-1', title: 'My Draft' });
+
+    const onOpenNote = vi.fn();
+    const onOpenDraftNote = vi.fn();
+    const model = toCollectionPageModel(active, query, effectivePageState, workspace, {
+      onOpenFolder: vi.fn(),
+      onOpenNote,
+      onOpenDraftNote,
+    });
+
+    const note = model.notes[0];
+
+    if (!note) {
+      throw new Error('expected exactly one note in the model');
+    }
+
+    note.onClick();
+
+    expect(onOpenDraftNote).toHaveBeenCalledWith(note.id);
+    expect(onOpenNote).not.toHaveBeenCalled();
   });
 });

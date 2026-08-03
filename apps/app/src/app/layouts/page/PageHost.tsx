@@ -105,10 +105,17 @@ export function PageHost({ application }: PageHostProps) {
       throw new Error(`Folder not found: ${activeFolderId}`);
     }
 
-    const model = toCollectionPageModel(folder, application.query, workspace, {
-      onOpenFolder,
-      onOpenNote: (id: string) => application.pageOperations.open(id),
-    });
+    const model = toCollectionPageModel(
+      folder,
+      application.query,
+      application.effectivePageState,
+      workspace,
+      {
+        onOpenFolder,
+        onOpenNote: (id: string) => application.pageOperations.open(id),
+        onOpenDraftNote: (id: string) => application.workspace.openPage(id),
+      }
+    );
 
     const breadcrumbs = buildBreadcrumbs(folder, vault, onOpenFolder);
     const topBar = buildTopBarActions(folder, { vault });
