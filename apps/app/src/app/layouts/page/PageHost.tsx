@@ -60,8 +60,14 @@ export function PageHost({ application }: PageHostProps) {
   const session = useDocumentSession(rawSession);
 
   const onOpenFolder = (id: string) => application.folderOperations.open(id);
+  // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
+  // no persistence. Durable-stage persistence is a separate, payload-free
+  // request (onRequestSave below), fired on blur.
   const onUpdateMarkdown = (pageId: string, markdown: string): void => {
-    void application.pageOperations.save(pageId, markdown);
+    application.pageOperations.commitEdit(pageId, markdown);
+  };
+  const onRequestSave = (pageId: string): void => {
+    void application.pageOperations.requestSave(pageId);
   };
 
   const onUpdateDescription = (pageId: string, description: string): void => {
@@ -146,7 +152,13 @@ export function PageHost({ application }: PageHostProps) {
       vault,
       onOpenFolder
     );
-    const model = toDraftPageModel(activePageId, draft.title, session, onUpdateMarkdown);
+    const model = toDraftPageModel(
+      activePageId,
+      draft.title,
+      session,
+      onUpdateMarkdown,
+      onRequestSave
+    );
     const draftTopBar = buildDraftTopBarActions(draft.type);
 
     return (
@@ -170,7 +182,8 @@ export function PageHost({ application }: PageHostProps) {
             <MarkdownEditor
               ref={editorRef}
               markdown={model.markdown}
-              onCommit={(markdown) => model.updateMarkdown(markdown)}
+              onEdit={(markdown) => model.updateMarkdown(markdown)}
+              onFlush={() => model.requestSave()}
             />
           </MarkdownBody>
         }
@@ -191,7 +204,13 @@ export function PageHost({ application }: PageHostProps) {
     throw new Error(`Unsupported page type: ${page.type}`);
   }
 
-  const model = toResourcePageModel(page, session, onUpdateMarkdown, onUpdateDescription);
+  const model = toResourcePageModel(
+    page,
+    session,
+    onUpdateMarkdown,
+    onRequestSave,
+    onUpdateDescription
+  );
   const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
 
   return (
@@ -209,7 +228,8 @@ export function PageHost({ application }: PageHostProps) {
           <MarkdownEditor
             ref={editorRef}
             markdown={model.markdown}
-            onCommit={(markdown) => model.updateMarkdown(markdown)}
+            onEdit={(markdown) => model.updateMarkdown(markdown)}
+            onFlush={() => model.requestSave()}
           />
         </MarkdownBody>
       }

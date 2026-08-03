@@ -12,6 +12,7 @@ export function toResourcePageModel(
   page: Page,
   session: DocumentSession,
   onUpdateMarkdown: (pageId: string, markdown: string) => void,
+  onRequestSave: (pageId: string) => void,
   onUpdateDescription: (pageId: string, description: string) => void
 ): ResourcePageModel {
   const revision = session.currentRevision;
@@ -41,6 +42,10 @@ export function toResourcePageModel(
     updateMarkdown(markdown: string): void {
       onUpdateMarkdown(page.id, markdown);
     },
+
+    requestSave(): void {
+      onRequestSave(page.id);
+    },
   };
 }
 
@@ -53,7 +58,8 @@ export function toDraftPageModel(
   draftId: string,
   title: string | undefined,
   session: DocumentSession,
-  onUpdateMarkdown: (pageId: string, markdown: string) => void
+  onUpdateMarkdown: (pageId: string, markdown: string) => void,
+  onRequestSave: (pageId: string) => void
 ): ResourcePageModel {
   const revision = session.currentRevision;
 
@@ -75,6 +81,10 @@ export function toDraftPageModel(
     updateMarkdown(markdown: string): void {
       onUpdateMarkdown(draftId, markdown);
     },
+
+    requestSave(): void {
+      onRequestSave(draftId);
+    },
   };
 }
 
@@ -86,4 +96,5 @@ export interface ResourcePageModel {
 
   updateDescription(description: string): void;
   updateMarkdown(markdown: string): void;
+  requestSave(): void;
 }

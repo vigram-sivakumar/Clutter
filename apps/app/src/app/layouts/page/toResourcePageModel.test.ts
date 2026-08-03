@@ -40,7 +40,7 @@ describe('toResourcePageModel', () => {
     const page = buildPage({ description: 'A note', cover: '/vault/cover.png' });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
 
     expect(model.title).toBe(page.name);
     expect(model.description).toBe('A note');
@@ -53,7 +53,7 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     session.commit(new DocumentTransaction('Edited body'));
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
 
     expect(model.markdown).toBe('Edited body');
   });
@@ -63,10 +63,22 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     const onUpdateMarkdown = vi.fn();
 
-    const model = toResourcePageModel(page, session, onUpdateMarkdown, vi.fn());
+    const model = toResourcePageModel(page, session, onUpdateMarkdown, vi.fn(), vi.fn());
     model.updateMarkdown('New content');
 
     expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content');
+  });
+
+  it('requestSave delegates to the onRequestSave callback with the page id, no payload', () => {
+    const page = buildPage();
+    const session = new DocumentSession(page.id, page.source.markdown);
+    const onRequestSave = vi.fn();
+
+    const model = toResourcePageModel(page, session, vi.fn(), onRequestSave, vi.fn());
+    model.requestSave();
+
+    expect(onRequestSave).toHaveBeenCalledWith(page.id);
+    expect(onRequestSave).toHaveBeenCalledTimes(1);
   });
 
   it('shows an empty title (not body content) for a note with an auto-generated name — the header is an editing surface, not a preview', () => {
@@ -76,7 +88,7 @@ describe('toResourcePageModel', () => {
     });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
 
     expect(model.title).toBe('');
   });
@@ -102,7 +114,7 @@ describe('toResourcePageModel', () => {
     });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
 
     expect(model.title).toBe('Untitled');
     expect(model.title).toBe(page.name);
@@ -113,7 +125,7 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     const onUpdateDescription = vi.fn();
 
-    const model = toResourcePageModel(page, session, vi.fn(), onUpdateDescription);
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), onUpdateDescription);
     model.updateDescription('New description');
 
     expect(onUpdateDescription).toHaveBeenCalledWith(page.id, 'New description');
@@ -124,23 +136,25 @@ describe('toDraftPageModel (ADR-017)', () => {
   it('derives title from the draft descriptor, defaulting to empty (a placeholder, not filled-in text), and has no description/cover', () => {
     const session = new DocumentSession('draft-1', '');
 
-    expect(toDraftPageModel('draft-1', 'My Draft', session, vi.fn()).title).toBe(
-      'My Draft'
-    );
-    expect(toDraftPageModel('draft-1', undefined, session, vi.fn()).title).toBe('');
-    expect(toDraftPageModel('draft-1', 'My Draft', session, vi.fn()).description).toBe(
-      ''
-    );
-    expect(toDraftPageModel('draft-1', 'My Draft', session, vi.fn()).coverImage).toBe(
-      null
-    );
+    expect(
+      toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn()).title
+    ).toBe('My Draft');
+    expect(
+      toDraftPageModel('draft-1', undefined, session, vi.fn(), vi.fn()).title
+    ).toBe('');
+    expect(
+      toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn()).description
+    ).toBe('');
+    expect(
+      toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn()).coverImage
+    ).toBe(null);
   });
 
   it("renders the session's in-memory revision", () => {
     const session = new DocumentSession('draft-1', '');
     session.commit(new DocumentTransaction('Typed content'));
 
-    const model = toDraftPageModel('draft-1', 'My Draft', session, vi.fn());
+    const model = toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn());
 
     expect(model.markdown).toBe('Typed content');
   });
@@ -149,10 +163,24 @@ describe('toDraftPageModel (ADR-017)', () => {
     const session = new DocumentSession('draft-1', '');
     const onUpdateMarkdown = vi.fn();
 
-    toDraftPageModel('draft-1', 'My Draft', session, onUpdateMarkdown).updateMarkdown(
-      'New content'
-    );
+    toDraftPageModel(
+      'draft-1',
+      'My Draft',
+      session,
+      onUpdateMarkdown,
+      vi.fn()
+    ).updateMarkdown('New content');
 
     expect(onUpdateMarkdown).toHaveBeenCalledWith('draft-1', 'New content');
+  });
+
+  it('requestSave delegates to onRequestSave with the draft id, no payload', () => {
+    const session = new DocumentSession('draft-1', '');
+    const onRequestSave = vi.fn();
+
+    toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), onRequestSave).requestSave();
+
+    expect(onRequestSave).toHaveBeenCalledWith('draft-1');
+    expect(onRequestSave).toHaveBeenCalledTimes(1);
   });
 });
