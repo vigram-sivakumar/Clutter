@@ -6,14 +6,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { TagsShortcuts } from './TagsShortcuts';
 
 describe('TagsShortcuts', () => {
-  it('renders "Create tag" disabled and never invokes onShortcut when clicked', () => {
+  it('renders "New" disabled and never invokes onShortcut when clicked', () => {
     const onShortcut = vi.fn();
     render(<TagsShortcuts onShortcut={onShortcut} />);
 
-    const entry = screen.getByText('Create tag').closest('[aria-disabled]');
+    const entry = screen.getByText('New').closest('[aria-disabled]');
     expect(entry?.getAttribute('aria-disabled')).toBe('true');
 
-    fireEvent.click(screen.getByText('Create tag'));
+    fireEvent.click(screen.getByText('New'));
 
     expect(onShortcut).not.toHaveBeenCalled();
   });

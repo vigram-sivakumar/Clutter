@@ -6,14 +6,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { TasksShortcuts } from './TasksShortcuts';
 
 describe('TasksShortcuts', () => {
-  it('renders "Create task" disabled and never invokes onShortcut when clicked', () => {
+  it('renders "New" disabled and never invokes onShortcut when clicked', () => {
     const onShortcut = vi.fn();
     render(<TasksShortcuts onShortcut={onShortcut} />);
 
-    const entry = screen.getByText('Create task').closest('[aria-disabled]');
+    const entry = screen.getByText('New').closest('[aria-disabled]');
     expect(entry?.getAttribute('aria-disabled')).toBe('true');
 
-    fireEvent.click(screen.getByText('Create task'));
+    fireEvent.click(screen.getByText('New'));
 
     expect(onShortcut).not.toHaveBeenCalled();
   });
