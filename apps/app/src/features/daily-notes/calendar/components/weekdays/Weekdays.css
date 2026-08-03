@@ -16,5 +16,5 @@
   letter-spacing: var(--ls-caption);
   font-weight: var(--fw-regular);
 
-  opacity: var(--opacity-strong);
+  opacity: var(--opacity-medium);
 }
