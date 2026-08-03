@@ -21,11 +21,11 @@ Dogfooding surfaced several related symptoms: the sidebar's hover caret is visib
 | Active filters/search state | Doesn't exist — `SearchPanel.tsx` is a literal stub (`Work in progress...`) | N/A | Nothing to own yet |
 | Selected sidebar item | `Workspace` (`activePageId`/`activeFolderId`, read via `selected={workspace.activePageId === entry.id}`) | Discrete | None — already correct, listed for completeness only |
 
-### Root cause of the caret symptom — not an architecture gap
+### The caret symptom is an incomplete capability, not an architecture gap
 
 Traced through `Caret.tsx` → `Folder.tsx` → `Entry.tsx` → `FolderTree.tsx`. The click-isolation is actually implemented correctly and redundantly: `Folder.tsx`'s caret button calls `event.stopPropagation()` before `onExpandToggle?.()`, and `Entry.tsx`'s own `handleClick` independently checks `event.target.closest('button, a, input, select, textarea, [role="button"]')` and returns early when the click originated on a nested interactive element — a second, independent guard against exactly this failure mode. `Workspace.isFolderExpanded`/`toggleFolderExpanded` are fully implemented and already wired: `FolderTree.tsx` passes both to `FolderEntry`.
 
-**The actual bug:** `FolderTree.tsx` reads `workspace.isFolderExpanded(folder.id)` only to set the caret's rotation (`isExpanded` prop, purely visual) — nothing gates whether `childPages`/the recursive `<FolderTree>` call actually render. A folder's children render unconditionally regardless of collapse state, so toggling the caret changes the arrow's rotation and nothing else. The general pattern this needs already exists and is proven correct elsewhere in the same codebase: `Section.tsx` (used by `DailyNotesList`'s month sections and `Sidebar.Notes`' Favorites/Folders headers) already does `{isExpanded && <div className="section__content">{children}</div>}` correctly. `FolderTree` is the one place that owns its own bespoke rendering instead of reusing that pattern, and it's the one place missing the gate. This is a small, isolated, low-risk fix requiring zero new state — folded into the roadmap below, decoupled from everything else in this ADR.
+**What's actually incomplete:** `FolderTree.tsx` reads `workspace.isFolderExpanded(folder.id)` only to set the caret's rotation (`isExpanded` prop, purely visual) — nothing gates whether `childPages`/the recursive `<FolderTree>` call actually render. `Workspace` already owns and correctly exposes the capability; `FolderTree` is the one remaining consumer that never finished wiring it through to rendering. The general pattern this needs already exists and is proven correct elsewhere in the same codebase: `Section.tsx` (used by `DailyNotesList`'s month sections and `Sidebar.Notes`' Favorites/Folders headers) already does `{isExpanded && <div className="section__content">{children}</div>}` correctly. This is a small, isolated, low-risk change requiring zero new state — completing an existing `Workspace` capability's last mile, not introducing one — folded into the roadmap below as its own milestone, decoupled from everything else in this ADR.
 
 ## Decision
 
@@ -45,10 +45,24 @@ Traced through `Caret.tsx` → `Folder.tsx` → `Entry.tsx` → `FolderTree.tsx`
 
 Navigation history (`Controls`' back/forward buttons) is **not** decided here — it's a materially different shape (an ordered stack, not a discrete toggle) and ADR-016 already scoped it as separate future work; bundling it into this ADR would be exactly the "expand because it's nearby" reflex this task warned against avoiding.
 
-### What does not extend `Workspace`
+### `Workspace`'s responsibility boundary, made explicit
+
+`Workspace` owns **shared, session-scoped workspace state** — state that (a) more than one component needs to read or write, (b) is coarse-grained/discrete rather than continuous or high-frequency, and (c) describes what the workspace is currently showing or has currently toggled, the same category as its existing `activePageId`/`activeFolderId`/`openPageIds`/`collapsedFolderIds`. Passing this test is what justifies `activeSidebarTab`, `collapsedSectionIds`, and `isSidebarVisible` above — each is the same shape as state `Workspace` already correctly owns, not an expansion of what kind of thing it owns.
+
+`Workspace` does **not** own transient UI state that fails any part of that test, regardless of how convenient it would be to have "one object for UI state." Named explicitly, so this isn't left to be rediscovered piecemeal later:
+
+- **Search query / temporary filters** — feature-internal to whatever eventually consumes them (Search, a future filtered view); not shared across components today, and coupling `Workspace` to a search feature's query shape would be a dependency pointing the wrong way.
+- **Dialog/modal visibility** — scoped to the dialog's own mount lifecycle; a dialog that needs to persist its open state across a remount is a sign something else is wrong, not a reason to lift it into `Workspace`.
+- **Hover state** — inherently component-local and high-frequency (mouse-move-adjacent); the same granularity argument that keeps splitter geometry out applies here even more strongly.
+- **Inline editing state** (e.g., a folder being renamed, a field mid-edit) — scoped to the editing component, the same pattern `pendingNewFolder` already establishes in `Sidebar.Notes.tsx`; promoting it to `Workspace` would make every editing gesture a workspace-wide notification for no consumer that needs it.
+- **Ephemeral component state in general** (a component's own open/closed animation phase, a list's scroll position, form validation state, etc.) — the default is component-local `useState`; `Workspace` is not a catch-all replacement for it.
+
+Splitter/panel sizes and search/filter state (already named above) are instances of this same boundary, not separate exceptions to it — repeated below for completeness with the rest of the "does not extend" list:
 
 - Splitter/panel sizes: component-local state (or an uncontrolled/CSS-driven resize) until a second consumer exists.
 - Search/filter state: feature-local, owned inside the eventual Search feature itself, the same pattern `Sidebar.Notes.tsx`'s `pendingNewFolder` already establishes for feature-scoped transient state that doesn't need cross-component sharing.
+
+None of these are permanently forbidden from ever reaching `Workspace` — the boundary is the three-part test above, not a fixed list. If a future need genuinely produces shared, session-scoped, coarse-grained state of this kind (the same way `activeSidebarTab` does today), it's evaluated against the same test, not reflexively excluded because it appears on this list or reflexively included because `Workspace` already exists.
 
 ### Persistence
 
