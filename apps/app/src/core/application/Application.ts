@@ -12,6 +12,7 @@ import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations';
+import { EffectivePageState } from './page/EffectivePageState';
 import { FolderOperations } from './folder/FolderOperations';
 import { FolderPathResolver } from './folder/FolderPathResolver';
 import { FolderCreator } from './folder/FolderCreator';
@@ -73,6 +74,7 @@ export class Application {
   public folderOperations!: FolderOperations;
   public navigation!: NavigationRouter;
   public vaultSyncService!: VaultSyncService;
+  public effectivePageState!: EffectivePageState;
   private readonly fileSystem: VaultFileSystem;
   private readonly selfWriteRegistry: SelfWriteRegistry;
   private fileSystemWatcher!: LocalFileSystemWatcher;
@@ -208,6 +210,16 @@ export class Application {
       dailyNoteService
     );
     this.navigation = new NavigationRouter(this.folderOperations, vault);
+    // ADR-020: constructed after query/workspace/pageOperations all exist
+    // above — the projection reconciling Vault (Durable) with
+    // PageOperations/DocumentEditing (Committed) state. No production
+    // consumer yet; this milestone only wires its lifecycle.
+    this.effectivePageState = new EffectivePageState(
+      vault,
+      this.query,
+      this.pageOperations,
+      this.workspace
+    );
     this.fileSystemWatcher = new LocalFileSystemWatcher();
 
     // VaultSyncService subscribes to the self-write-aware wrapper, not the
@@ -301,6 +313,12 @@ export class Application {
     // the session is marked Disposed" applies here too, not just to the
     // single-session close() path).
     this.saveCoordinator.cancelAllTimers();
+    // ADR-020 §5: must run before documentRegistry.clear() below — the
+    // projection holds live DocumentSession subscriptions, and clear()
+    // disposes every session, after which further interaction with them
+    // is inert. Same ordering constraint flushAll() documents for itself
+    // above, applied to a second consumer of the same resource.
+    this.effectivePageState.dispose();
     this.documentRegistry.clear();
   }
 }
