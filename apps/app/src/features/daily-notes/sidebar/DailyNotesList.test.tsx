@@ -1,9 +1,28 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
+import { EffectivePageState } from '@core/application/page/EffectivePageState';
+import { PageOperations } from '@core/application/page/PageOperations';
+import { PagePersistenceCoordinator } from '@core/vault/persistence/PagePersistenceCoordinator';
+import { DocumentRegistry } from '@core/engine/DocumentRegistry';
+import { SaveCoordinator } from '@core/engine/SaveCoordinator';
+import { FrontmatterSerializer } from '@core/vault/ingest/FrontmatterSerializer';
+import { FrontmatterParser } from '@core/vault/ingest/FrontmatterParser';
+import { PageRebuilder } from '@core/vault/ingest/PageRebuilder';
+import { MoveService } from '@core/vault/persistence/MoveService';
+import { PagePathResolver } from '@core/application/page/PagePathResolver';
+import { PageCreator } from '@core/application/page/PageCreator';
+import { PageFactory } from '@core/application/page/PageFactory';
+import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
+import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
+import { FolderOperations } from '@core/application/folder/FolderOperations';
+import { FolderPathResolver } from '@core/application/folder/FolderPathResolver';
+import { FolderCreator } from '@core/application/folder/FolderCreator';
+import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
@@ -75,6 +94,62 @@ function makeDailyNote(id: string, name: string, parentId: string): Page {
   };
 }
 
+function makeFolderOperations(
+  vault: Vault,
+  workspace: Workspace,
+  coordinator: PagePersistenceCoordinator
+): FolderOperations {
+  return new FolderOperations(
+    vault,
+    workspace,
+    coordinator,
+    new FolderPathResolver(vault),
+    new FolderCreator(new UuidGenerator()),
+    () => {}
+  );
+}
+
+function setup(pages: Page[], folders: Folder[]) {
+  const vault = new Vault(
+    ROOT,
+    pages,
+    folders,
+    [],
+    [],
+    [],
+    new KnowledgeGraph([]),
+    new VaultProjectionBuilder()
+  );
+  const query = new VaultQuery(vault);
+  const workspace = new Workspace();
+  const fileSystem = new InMemoryVaultFileSystem();
+  const documentRegistry = new DocumentRegistry();
+  const saveCoordinator = new SaveCoordinator();
+  const moveService = new MoveService(vault, fileSystem);
+  const coordinator = new PagePersistenceCoordinator(
+    fileSystem,
+    vault,
+    new FrontmatterSerializer(),
+    new FrontmatterParser(),
+    new PageRebuilder(),
+    moveService
+  );
+  const pageOperations = new PageOperations(
+    vault,
+    workspace,
+    documentRegistry,
+    saveCoordinator,
+    coordinator,
+    new PagePathResolver(vault),
+    new PageCreator(new UuidGenerator(), new PageFactory()),
+    makeFolderOperations(vault, workspace, coordinator),
+    new DailyNoteService()
+  );
+  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+
+  return { vault, query, workspace, pageOperations, effectivePageState };
+}
+
 describe('DailyNotesList — empty month sections', () => {
   it('does not render a month section with no Daily Notes in it', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
@@ -85,23 +160,19 @@ describe('DailyNotesList — empty month sections', () => {
       `${ROOT}/Daily Notes/2026/July`,
       'year-2026'
     );
-    const vault = new Vault(
-      ROOT,
+    const { vault, query, effectivePageState, workspace } = setup(
       [],
-      [dailyNotesRoot, year, emptyMonth],
-      [],
-      [],
-      [],
-      new KnowledgeGraph([]),
-      new VaultProjectionBuilder()
+      [dailyNotesRoot, year, emptyMonth]
     );
 
     render(
       <DailyNotesList
         vault={vault}
-        query={new VaultQuery(vault)}
-        workspace={new Workspace()}
+        query={query}
+        effectivePageState={effectivePageState}
+        workspace={workspace}
         onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
         onOpenFolder={vi.fn()}
       />
     );
@@ -121,27 +192,103 @@ describe('DailyNotesList — empty month sections', () => {
       'year-2026'
     );
     const note = makeDailyNote('daily-1', '2026-08-15', 'month-august');
-    const vault = new Vault(
-      ROOT,
+    const { vault, query, effectivePageState, workspace } = setup(
       [note],
-      [dailyNotesRoot, year, month],
-      [],
-      [],
-      [],
-      new KnowledgeGraph([]),
-      new VaultProjectionBuilder()
+      [dailyNotesRoot, year, month]
     );
 
     render(
       <DailyNotesList
         vault={vault}
-        query={new VaultQuery(vault)}
-        workspace={new Workspace()}
+        query={query}
+        effectivePageState={effectivePageState}
+        workspace={workspace}
         onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
         onOpenFolder={vi.fn()}
       />
     );
 
     expect(screen.queryByText(/August/)).not.toBeNull();
+  });
+});
+
+describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 13 adoption)', () => {
+  it('a Daily Note draft opened via openAtPath, targeting an existing month folder, appears before any save', async () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const { pageOperations, vault, query, effectivePageState, workspace } = setup(
+      [],
+      [dailyNotesRoot, year, month]
+    );
+
+    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
+      type: 'daily-note',
+    });
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        effectivePageState={effectivePageState}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // The month section now exists (it did before too, since the folder
+    // was pre-seeded) and renders one row for the draft. A daily-note's
+    // filename is never shown as its title (getPageDisplayLabel's own
+    // rule — the date is redundant next to the day badge), and it has no
+    // description/body yet, so it falls all the way to the shared
+    // placeholder — "the draft appeared" is what's under test, not its
+    // exact label text.
+    expect(screen.queryByText(/August/)).not.toBeNull();
+    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+  });
+
+  it('clicking a draft Daily Note invokes onOpenDraft, not onOpen', async () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const { pageOperations, vault, query, effectivePageState, workspace } = setup(
+      [],
+      [dailyNotesRoot, year, month]
+    );
+
+    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-21.md`, {
+      type: 'daily-note',
+    });
+
+    const onOpen = vi.fn();
+    const onOpenDraft = vi.fn();
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        effectivePageState={effectivePageState}
+        workspace={workspace}
+        onOpen={onOpen}
+        onOpenDraft={onOpenDraft}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    screen.getByText('Start typing...').click();
+
+    expect(onOpenDraft).toHaveBeenCalledWith(expect.any(String));
+    expect(onOpen).not.toHaveBeenCalled();
   });
 });

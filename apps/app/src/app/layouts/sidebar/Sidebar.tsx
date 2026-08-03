@@ -50,9 +50,11 @@ export function Sidebar({ application }: SidebarProps) {
         <DailyNotes
           vault={vault}
           query={query}
+          effectivePageState={effectivePageState}
           workspace={workspace}
           activeDate={activeDailyNoteDate}
           onOpen={(pageId) => pageOperations.open(pageId)}
+          onOpenDraft={(pageId) => workspace.openPage(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onStartToday={() =>
             pageOperations.openAtPath(

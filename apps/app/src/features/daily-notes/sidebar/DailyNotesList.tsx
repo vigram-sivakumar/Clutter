@@ -3,13 +3,13 @@ import { DailyNotePath } from '@core/application/daily-notes/DailyNotePath';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Vault } from '@core/vault/models';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { Section } from '@app/layouts/sidebar/section/Section';
 import { formatDate, isCurrentYear, isToday } from '@shared/helpers/time';
 import type { ISODate } from '@shared/helpers/time/types';
 import {
   getPageDisplayLabel,
   getPageDisplayLabelStyle,
-  toPageDisplayLabelInput,
 } from '@core/presentation/getPageDisplayLabel';
 
 import { DailyNote } from './DailyNote';
@@ -21,10 +21,22 @@ interface MonthSection {
 }
 
 interface DailyNotesListProps {
+  // Folders only — year/month folders have no draft concept (ARCHITECTURE_RULES.md rule 13).
   vault: Vault;
   query: VaultQuery;
+  // ADR-020 / rule 13: the single read surface for page rendering —
+  // existence, identity, and presentation fields for both durable and
+  // draft-only Daily Notes.
+  effectivePageState: EffectivePageState;
   workspace: Workspace;
   onOpen(pageId: string): void;
+  /**
+   * A draft has no Vault entry yet, so onOpen() (PageOperations.open(),
+   * which requires one) would throw for it — it's already open via
+   * openAtPath(), so clicking it again is a re-select, not a fresh open.
+   * Same reasoning as FolderTree's onDraftPageClick.
+   */
+  onOpenDraft(pageId: string): void;
   onOpenFolder(folderId: string): void;
 }
 
@@ -67,8 +79,10 @@ function formatMonthSectionTitle(section: MonthSection): string {
 export function DailyNotesList({
   vault,
   query,
+  effectivePageState,
   workspace,
   onOpen,
+  onOpenDraft,
   onOpenFolder,
 }: DailyNotesListProps) {
   const monthSections = sortMonthSections(collectMonthSections(vault, query));
@@ -76,7 +90,7 @@ export function DailyNotesList({
   return monthSections
     .map((section) => ({
       section,
-      pages: query
+      pages: effectivePageState
         .getChildPages(section.monthFolder.id)
         .sort((a, b) => b.name.localeCompare(a.name)),
     }))
@@ -101,18 +115,20 @@ export function DailyNotesList({
           // selected={workspace.activeFolderId === section.monthFolder.id}
           onClick={() => onOpenFolder(section.monthFolder.id)}
         >
-          {pages.map((note) => {
-            const label = getPageDisplayLabel(toPageDisplayLabelInput(note));
+          {pages.map((entry) => {
+            const label = getPageDisplayLabel(entry);
 
             return (
               <DailyNote
-                key={note.id}
+                key={entry.id}
                 title={label.text}
                 titleStyle={getPageDisplayLabelStyle(label)}
-                date={note.name}
-                isToday={isToday(note.name)}
-                selected={workspace.activePageId === note.id}
-                onClick={() => onOpen(note.id)}
+                date={entry.name}
+                isToday={isToday(entry.name)}
+                selected={workspace.activePageId === entry.id}
+                onClick={() =>
+                  entry.isDraft ? onOpenDraft(entry.id) : onOpen(entry.id)
+                }
               />
             );
           })}

@@ -3,15 +3,18 @@ import { DailyNotesShortcuts } from '@features/daily-notes/shortcuts/DailyNotesS
 import type { Vault } from '@core/vault/models';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 
 import { DailyNotesList } from './DailyNotesList';
 
 interface DailyNotesPanelProps {
   vault: Vault;
   query: VaultQuery;
+  effectivePageState: EffectivePageState;
   workspace: Workspace;
   activeDate: string | undefined;
   onOpen(pageId: string): void;
+  onOpenDraft(pageId: string): void;
   onOpenFolder(folderId: string): void;
   onStartToday(): void;
   onOpenDate(date: string): void;
@@ -20,9 +23,11 @@ interface DailyNotesPanelProps {
 export function DailyNotes({
   vault,
   query,
+  effectivePageState,
   workspace,
   activeDate,
   onOpen,
+  onOpenDraft,
   onOpenFolder,
   onStartToday,
   onOpenDate,
@@ -41,8 +46,10 @@ export function DailyNotes({
       <DailyNotesList
         vault={vault}
         query={query}
+        effectivePageState={effectivePageState}
         workspace={workspace}
         onOpen={onOpen}
+        onOpenDraft={onOpenDraft}
         onOpenFolder={onOpenFolder}
       />
     </View>
