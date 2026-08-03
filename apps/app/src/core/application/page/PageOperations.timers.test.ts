@@ -82,7 +82,8 @@ function setup(page: Page) {
     workspace,
     coordinator,
     new FolderPathResolver(vault),
-    new FolderCreator(new UuidGenerator())
+    new FolderCreator(new UuidGenerator()),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FolderOperations } from './FolderOperations';
 import { FolderPathResolver } from './FolderPathResolver';
 import { FolderCreator } from './FolderCreator';
@@ -56,7 +56,11 @@ function makeSequentialIdGenerator(ids: string[]): IdGenerator {
   };
 }
 
-function setup(folders: Folder[] = [], ids: string[] = ['folder-new']) {
+function setup(
+  folders: Folder[] = [],
+  ids: string[] = ['folder-new'],
+  prepareNavigation: () => void = () => {}
+) {
   const vault = makeVault(folders);
   const workspace = new Workspace();
   const fileSystem = new InMemoryVaultFileSystem();
@@ -74,7 +78,8 @@ function setup(folders: Folder[] = [], ids: string[] = ['folder-new']) {
     workspace,
     coordinator,
     new FolderPathResolver(vault),
-    new FolderCreator(makeSequentialIdGenerator(ids))
+    new FolderCreator(makeSequentialIdGenerator(ids)),
+    prepareNavigation
   );
 
   return { vault, workspace, fileSystem, folderOperations };
@@ -97,6 +102,49 @@ describe('FolderOperations.open()', () => {
     await expect(folderOperations.open('does-not-exist')).rejects.toThrow(
       /Folder not found/
     );
+  });
+
+  it('calls prepareNavigation before switching the workspace to the new folder', async () => {
+    const prepareNavigation = vi.fn();
+    const { folderOperations, workspace } = setup(
+      [makeFolder('folder-1', `${ROOT}/Projects`)],
+      undefined,
+      prepareNavigation
+    );
+
+    await folderOperations.open('folder-1');
+
+    expect(prepareNavigation).toHaveBeenCalledTimes(1);
+    expect(prepareNavigation).toHaveBeenCalledWith();
+    expect(workspace.activeFolderId).toBe('folder-1');
+  });
+
+  it('does not call prepareNavigation for a failed open (unknown folder id) — no navigation actually happens', async () => {
+    const prepareNavigation = vi.fn();
+    const { folderOperations } = setup([], undefined, prepareNavigation);
+
+    await expect(folderOperations.open('does-not-exist')).rejects.toThrow();
+
+    expect(prepareNavigation).not.toHaveBeenCalled();
+  });
+
+  it('is page-agnostic — FolderOperations never inspects what prepareNavigation does, only that it gets called', async () => {
+    // The hook here does something FolderOperations has no concept of
+    // (touching a page-shaped id) — proving this facade doesn't know or
+    // care what the callback represents, only that it's invoked before
+    // the workspace switch (autosave-ownership.md's page-agnostic
+    // navigation hook design).
+    const calls: string[] = [];
+    const prepareNavigation = () => calls.push('flushed-something-page-shaped');
+    const { folderOperations } = setup(
+      [makeFolder('folder-1', `${ROOT}/Projects`)],
+      undefined,
+      prepareNavigation
+    );
+
+    await folderOperations.open('folder-1');
+
+    expect(calls).toEqual(['flushed-something-page-shaped']);
   });
 });
 

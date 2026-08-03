@@ -71,7 +71,8 @@ function setup(folders: Folder[] = [], ids: string[] = []) {
     new Workspace(),
     coordinator,
     new FolderPathResolver(vault),
-    new FolderCreator(makeSequentialIdGenerator(ids))
+    new FolderCreator(makeSequentialIdGenerator(ids)),
+    () => {}
   );
 
   return { vault, folderOperations };

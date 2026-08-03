@@ -179,12 +179,22 @@ export class Application {
     // path (DailyNoteService.ensureFolderChain) needs a real FolderOperations
     // to materialize missing year/month folders — the same instance
     // NavigationRouter already depends on below, not a second one.
+    //
+    // prepareNavigation resolves this.pageOperations lazily (via `this`,
+    // not a captured local) — FolderOperations is constructed before
+    // PageOperations exists, the same construction-order constraint
+    // SaveCoordinator's timer callback already works around (M5). The
+    // closure itself is a bare forward with no decision in it — the
+    // actual "what should happen before navigation" logic lives in
+    // PageOperations.flushActivePage(), not here (spec §11's own
+    // invariant against business logic in the Composition Root).
     this.folderOperations = new FolderOperations(
       vault,
       this.workspace,
       persistenceCoordinator,
       new FolderPathResolver(vault),
-      new FolderCreator(new UuidGenerator())
+      new FolderCreator(new UuidGenerator()),
+      () => this.pageOperations.flushActivePage()
     );
     this.pageOperations = new PageOperations(
       vault,

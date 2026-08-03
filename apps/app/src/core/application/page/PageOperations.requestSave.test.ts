@@ -166,7 +166,8 @@ function setup(page: Page, fileSystem?: VaultFileSystem) {
     workspace,
     coordinator,
     new FolderPathResolver(vault),
-    new FolderCreator(new UuidGenerator())
+    new FolderCreator(new UuidGenerator()),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,

@@ -92,6 +92,49 @@ export class PageOperations {
     private readonly dailyNoteService: DailyNoteService
   ) {}
 
+  /**
+   * NAVIGATION SUPPORT ONLY — not a general-purpose persistence API.
+   *
+   * This exists to answer exactly one question: "the active page is about
+   * to change (or be cleared) — does whatever was active need flushing
+   * first?" It is the shared implementation behind every navigation entry
+   * point's outgoing-page save request (autosave-execution-model.md §2,
+   * T5) — this facade's own open()/openDraft()/openAtPath()/create(), and
+   * (indirectly, via the page-agnostic prepareNavigation hook —
+   * FolderOperations.ts) FolderOperations.open(). It is public only
+   * because the Composition Root's wiring closure for that hook needs to
+   * reach it from outside this class, not because it's meant to be a
+   * second, more convenient way to trigger a save from arbitrary code.
+   *
+   * Do NOT call this to "make sure a page is saved" outside of a
+   * navigation transition — for that, call requestSave(pageId) directly
+   * (autosave-execution-model.md §3), which operates on an explicit id
+   * regardless of what Workspace currently considers active. This method
+   * exists specifically because navigation code doesn't have (and
+   * shouldn't need) that id in hand — it reads workspace.activePageId
+   * itself, at the moment it's called, which is only a meaningful
+   * question to ask immediately before that value is about to change.
+   * Calling it from unrelated code would silently couple that code to
+   * "whatever happens to be the active page right now," which is almost
+   * never what an unrelated caller actually wants.
+   *
+   * Every call site in this file calls this *after* its own validation/
+   * existence checks and *before* the corresponding workspace.openPage()
+   * — never the reverse — so a navigation attempt that's about to fail
+   * never triggers a flush for a switch that isn't actually happening.
+   * Fire-and-forget by design (autosave-strategy-analysis.md §1 —
+   * navigation must not block on the outgoing save's completion);
+   * requestSave() itself never throws (autosave-execution-model.md
+   * §1.3a), so there is nothing to catch here.
+   */
+  public flushActivePage(): void {
+    const activePageId = this.workspace.activePageId;
+
+    if (activePageId) {
+      void this.requestSave(activePageId);
+    }
+  }
+
   public async open(pageId: string): Promise<void> {
     const page = this.vault.getPage(pageId);
 
@@ -99,6 +142,10 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
+    // Flush right before the navigation actually happens, not before the
+    // existence check above — a failed open() (unknown id) never switches
+    // the active page, so it shouldn't trigger a flush either.
+    this.flushActivePage();
     this.documentRegistry.open(page.id, page.source.markdown);
     this.workspace.openPage(pageId);
   }
@@ -128,6 +175,7 @@ export class PageOperations {
     const type = options.type ?? 'note';
 
     this.drafts.set(id, { folderId: options.folderId, type, title: options.title });
+    this.flushActivePage();
     this.documentRegistry.open(id, '');
     this.workspace.openPage(id);
 
@@ -160,6 +208,7 @@ export class PageOperations {
     const existingDraftId = this.draftIdByDeterministicPath.get(path);
 
     if (existingDraftId && this.documentRegistry.get(existingDraftId)) {
+      this.flushActivePage();
       this.workspace.openPage(existingDraftId);
       return existingDraftId;
     }
@@ -179,6 +228,7 @@ export class PageOperations {
       title: options.title ?? this.deriveNameFromPath(path),
       deterministicPath: path,
     });
+    this.flushActivePage();
     this.documentRegistry.open(id, '');
     this.workspace.openPage(id);
     this.draftIdByDeterministicPath.set(path, id);
@@ -551,6 +601,7 @@ export class PageOperations {
     this.drafts.set(id, { folderId: options.folderId, type: 'note', title: options.title });
 
     await this.persistDraft(id, '');
+    this.flushActivePage();
     this.workspace.openPage(id);
 
     return id;

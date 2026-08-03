@@ -37,7 +37,8 @@ function makeFolderOperations(
     workspace,
     coordinator,
     new FolderPathResolver(vault),
-    new FolderCreator(new UuidGenerator())
+    new FolderCreator(new UuidGenerator()),
+    () => {}
   );
 }
 

@@ -23,7 +23,18 @@ export class FolderOperations {
     private readonly workspace: Workspace,
     private readonly coordinator: PagePersistenceCoordinator,
     private readonly pathResolver: FolderPathResolver,
-    private readonly folderCreator: FolderCreator
+    private readonly folderCreator: FolderCreator,
+    /**
+     * Called before this facade changes Workspace's active target — a
+     * page-agnostic navigation hook, not a page-specific callback:
+     * FolderOperations has no concept of pages or persistence and must
+     * not gain one just to flush an outgoing page's autosave
+     * (autosave-execution-model.md §2, T5). The Composition Root supplies
+     * the actual behavior (today: flush whatever page is active via
+     * PageOperations.flushActivePage()) — this class only knows it must
+     * call the hook, never what the hook does.
+     */
+    private readonly prepareNavigation: () => void
   ) {}
 
   public async open(folderId: string): Promise<void> {
@@ -33,6 +44,7 @@ export class FolderOperations {
       throw new Error(`Folder not found: ${folderId}`);
     }
 
+    this.prepareNavigation();
     this.workspace.openFolder(folderId);
   }
 
