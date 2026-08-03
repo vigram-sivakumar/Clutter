@@ -3,6 +3,7 @@ import { Caret } from '@components/caret/Caret';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
+import './Folder.css';
 
 interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
@@ -36,7 +37,9 @@ export function Folder({
               onClick={onExpandToggle}
             />
           )}
-          <AppIcon icon={getPageIcon('folder')} emoji={emoji} />
+          <span className="folder__icon">
+            <AppIcon icon={getPageIcon('folder')} emoji={emoji} />
+          </span>
         </>
       }
       actions={

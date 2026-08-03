@@ -5,7 +5,7 @@
 // but it must never be clickable while it can only throw (see ADR-016's
 // post-migration cleanup entry).
 export const tasksShortcuts = [
-  { id: 'create-task', title: 'Create task', icon: 'plus', disabled: true },
+  { id: 'create-task', title: 'New', icon: 'plus', disabled: true },
 ] as const;
 
 export type TasksShortcutId = (typeof tasksShortcuts)[number]['id'];

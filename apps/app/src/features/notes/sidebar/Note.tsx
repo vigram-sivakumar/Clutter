@@ -26,7 +26,9 @@ export function Note({
       leading={
         <>
           {hasCaret && <Caret isPlaceholder />}
-          <AppIcon icon={getPageIcon('note')} emoji={emoji} />
+          <span className="note__icon">
+            <AppIcon icon={getPageIcon('note')} emoji={emoji} />
+          </span>
         </>
       }
       actions={

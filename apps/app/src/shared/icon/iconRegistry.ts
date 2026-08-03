@@ -51,6 +51,7 @@ import SquareDashed from './svg/square-dashed.svg?react';
 import SquareExpand from './svg/square-expand.svg?react';
 import SquareFill from './svg/square-fill.svg?react';
 import SquareHug from './svg/square-hug.svg?react';
+import SquiggleLine from './svg/squiggle-line.svg?react';
 import Tabs from './svg/tabs.svg?react';
 import TabsFlat from './svg/tabs-flat.svg?react';
 import Tag from './svg/tag.svg?react';
@@ -111,6 +112,7 @@ export const iconRegistry = {
   squareExpand: SquareExpand,
   squareFill: SquareFill,
   squareHug: SquareHug,
+  squiggleLine: SquiggleLine,
   tabs: Tabs,
   tabsFlat: TabsFlat,
   tag: Tag,

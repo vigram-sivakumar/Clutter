@@ -5,7 +5,7 @@
 // but it must never be clickable while it can only throw (see ADR-016's
 // post-migration cleanup entry).
 export const tagsShortcuts = [
-  { id: 'create-tag', title: 'Create tag', icon: 'plus', disabled: true },
+  { id: 'create-tag', title: 'New', icon: 'plus', disabled: true },
 ] as const;
 
 export type TagsShortcutId = (typeof tagsShortcuts)[number]['id'];

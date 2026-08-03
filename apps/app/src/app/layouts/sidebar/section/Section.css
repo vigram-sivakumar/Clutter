@@ -3,13 +3,15 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+.section-header {
+  padding-left: var(--space-4);
+}
 .section::first-letter {
   text-transform: uppercase;
 }
 .section--expanded {
   padding-bottom: var(--space-8);
 }
-
 .section__content {
   display: flex;
   flex-direction: column;

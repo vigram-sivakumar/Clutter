@@ -34,8 +34,8 @@ export function Notes({
   onOpen,
   onOpenFolder,
 }: NotesProps) {
-  const [isFavoritesExpanded, setFavoritesExpanded] = useState(false);
-  const [isFoldersExpanded, setFoldersExpanded] = useState(false);
+  const [isFavoritesExpanded, setFavoritesExpanded] = useState(true);
+  const [isFoldersExpanded, setFoldersExpanded] = useState(true);
   const [pendingNewFolder, setPendingNewFolder] = useState<PendingNewFolder | null>(
     null
   );

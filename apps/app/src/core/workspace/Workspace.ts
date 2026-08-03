@@ -40,11 +40,12 @@ export class Workspace implements Observable {
   private readonly openPageIds: string[] = [];
 
   /**
-   * Folders currently expanded in tree views.
+   * Folders currently collapsed in tree views.
    *
+   * Folders are expanded by default; only explicitly collapsed ids are stored.
    * This is UI navigation state, not vault data.
    */
-  private readonly expandedFolderIds = new Set<string>();
+  private readonly collapsedFolderIds = new Set<string>();
 
   /**
    * Registered workspace observers.
@@ -152,10 +153,10 @@ export class Workspace implements Observable {
    * Toggles the expanded state of a folder in tree views.
    */
   public toggleFolderExpanded(folderId: string): void {
-    if (this.expandedFolderIds.has(folderId)) {
-      this.expandedFolderIds.delete(folderId);
+    if (this.collapsedFolderIds.has(folderId)) {
+      this.collapsedFolderIds.delete(folderId);
     } else {
-      this.expandedFolderIds.add(folderId);
+      this.collapsedFolderIds.add(folderId);
     }
 
     this.notify();
@@ -165,6 +166,6 @@ export class Workspace implements Observable {
    * Returns whether a folder is expanded in tree views.
    */
   public isFolderExpanded(folderId: string): boolean {
-    return this.expandedFolderIds.has(folderId);
+    return !this.collapsedFolderIds.has(folderId);
   }
 }

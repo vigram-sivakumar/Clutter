@@ -11,7 +11,7 @@ import type { PageType } from '@core/vault/models/Page';
 export function getPageIcon(pageType: PageType | 'folder' | 'tag'): SystemIcon {
   switch (pageType) {
     case 'note':
-      return 'note';
+      return 'squiggleLine';
     case 'daily-note':
       return 'calendar';
     case 'folder':

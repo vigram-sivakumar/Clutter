@@ -8,7 +8,7 @@
   gap: var(--btn-gap-md);
 
   padding-right: var(--space-6);
-  padding-left: calc(var(--space-6) + (var(--tree-level) * 16px));
+  padding-left: calc(var(--space-4) + (var(--tree-level) * 16px));
 
   color: var(--text-secondary);
 
