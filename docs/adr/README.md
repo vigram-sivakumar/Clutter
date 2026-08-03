@@ -24,3 +24,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [018](./018-document-editing-identity-decoupling.md) | Decouple `DocumentEditing` from `Page` — identity-free editing sessions | Accepted |
 | [019](./019-retire-boot-time-daily-note-scaffolding.md) | Retire `ensureDirectoryForToday` — Composition Root no longer scaffolds Daily Notes at boot | Accepted |
 | [020](./020-effective-page-state-projection.md) | Effective Page State — a reconciled read projection over `Vault` and `DocumentEditing` | Accepted |
+| [021](./021-ui-chrome-state.md) | UI Chrome State — extend `Workspace` for discrete navigation-shaped toggles; layout geometry stays local | Accepted |
