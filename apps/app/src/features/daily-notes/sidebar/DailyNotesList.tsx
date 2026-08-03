@@ -107,7 +107,7 @@ export function DailyNotesList({
               <DailyNote
                 key={note.id}
                 title={label.text}
-                titleStyle={getPageDisplayLabelStyle(note, label)}
+                titleStyle={getPageDisplayLabelStyle(label)}
                 date={note.name}
                 isToday={isToday(note.name)}
                 selected={workspace.activePageId === note.id}

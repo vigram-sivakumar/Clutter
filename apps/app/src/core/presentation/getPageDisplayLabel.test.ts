@@ -133,55 +133,25 @@ describe('getPageDisplayLabel — Daily Notes', () => {
   });
 });
 
-describe('getPageDisplayLabelStyle — Notes', () => {
-  const notePage = makePage({ type: 'note' });
-
-  it('is "default" only for the real explicit title', () => {
-    expect(
-      getPageDisplayLabelStyle(notePage, { text: 'Meeting Notes', source: 'title' })
-    ).toBe('default');
+describe('getPageDisplayLabelStyle', () => {
+  it('is "default" for real user content — title, description, or content — regardless of page type', () => {
+    expect(getPageDisplayLabelStyle({ text: 'Meeting Notes', source: 'title' })).toBe(
+      'default'
+    );
+    expect(getPageDisplayLabelStyle({ text: 'A summary', source: 'description' })).toBe(
+      'default'
+    );
+    expect(getPageDisplayLabelStyle({ text: 'Buy milk', source: 'content' })).toBe(
+      'default'
+    );
   });
 
-  it('is "placeholder" for every inferred source, not only the literal placeholder', () => {
+  it('is "placeholder" only for the literal placeholder fallback — nothing was available at all', () => {
+    expect(getPageDisplayLabelStyle({ text: 'New Note', source: 'placeholder' })).toBe(
+      'placeholder'
+    );
     expect(
-      getPageDisplayLabelStyle(notePage, { text: 'A summary', source: 'description' })
+      getPageDisplayLabelStyle({ text: 'Start typing...', source: 'placeholder' })
     ).toBe('placeholder');
-    expect(
-      getPageDisplayLabelStyle(notePage, { text: 'Buy milk', source: 'content' })
-    ).toBe('placeholder');
-    expect(
-      getPageDisplayLabelStyle(notePage, { text: 'New Note', source: 'placeholder' })
-    ).toBe('placeholder');
-  });
-});
-
-describe('getPageDisplayLabelStyle — Daily Notes', () => {
-  const dailyNotePage = makePage({ type: 'daily-note' });
-
-  it('is "default" for description or content — real, deliberate information, not a stand-in for the date (which is never shown here at all)', () => {
-    expect(
-      getPageDisplayLabelStyle(dailyNotePage, {
-        text: 'Standup notes',
-        source: 'description',
-      })
-    ).toBe('default');
-    expect(
-      getPageDisplayLabelStyle(dailyNotePage, { text: 'Retro', source: 'content' })
-    ).toBe('default');
-  });
-
-  it('is "placeholder" for the literal "Start typing..." fallback — nothing was available at all', () => {
-    expect(
-      getPageDisplayLabelStyle(dailyNotePage, {
-        text: 'Start typing...',
-        source: 'placeholder',
-      })
-    ).toBe('placeholder');
-  });
-
-  it('is still "default" even for the (unreachable in practice) source "title"', () => {
-    expect(
-      getPageDisplayLabelStyle(dailyNotePage, { text: '2026-08-02', source: 'title' })
-    ).toBe('default');
   });
 });

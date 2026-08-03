@@ -52,40 +52,19 @@ export function getPageDisplayLabel(page: Page): PageDisplayLabel {
 }
 
 /**
- * The single owner of "which title styling does a label get." Semantic,
- * not literal, and the rule differs by type — deliberately, not as two
- * unrelated special cases:
- *
- * - The literal placeholder fallback (source === 'placeholder' — "New
- *   Note" / "Start typing...") always renders as 'placeholder' for both types:
- *   it means "nothing was available at all," which is never a stand-in
- *   for real content.
- * - For Notes, everything short of the explicit title (description,
- *   content) is Clutter inferring a label to help identify an otherwise
- *   unnamed page, so it renders as 'placeholder' too — only source ===
- *   'title' is 'default'.
- * - For Daily Notes, a description or body content is real, deliberate
- *   information the user wrote — not a stand-in for a missing title the
- *   date could have been, since the date is never shown here at all
- *   (already represented elsewhere: day badge, month grouping, page
- *   header). So description/content render as 'default' for Daily Notes,
- *   even though the identical sources are 'placeholder' for Notes.
+ * The single owner of "which title styling does a label get." Styling
+ * tracks only whether real user content exists: 'title', 'description',
+ * and 'content' are all things the user actually wrote, so they render
+ * as 'default'. Only the literal placeholder fallback ("New Note" /
+ * "Start typing...") — meaning nothing was available at all — renders
+ * as 'placeholder'. This is the same rule for Notes and Daily Notes.
  *
  * Every rendering surface that shows a PageDisplayLabel calls this
  * instead of comparing label.source itself, so the distinction can't
- * drift between call sites or between the two page types.
+ * drift between call sites.
  */
 export function getPageDisplayLabelStyle(
-  page: Page,
   label: PageDisplayLabel
 ): 'default' | 'placeholder' {
-  if (label.source === 'placeholder') {
-    return 'placeholder';
-  }
-
-  if (page.type === 'daily-note') {
-    return 'default';
-  }
-
-  return label.source === 'title' ? 'default' : 'placeholder';
+  return label.source === 'placeholder' ? 'placeholder' : 'default';
 }

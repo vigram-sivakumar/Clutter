@@ -83,7 +83,7 @@ describe('toFavoriteItems', () => {
     ]);
   });
 
-  it('does not show a raw auto-generated name for a favorited-but-unnamed page, and styles the inferred label as a placeholder', () => {
+  it('does not show a raw auto-generated name for a favorited-but-unnamed page, and styles the inferred content label as default (real user content)', () => {
     const page = makePage({
       name: 'Untitled 2',
       source: { markdown: 'Real content here' },
@@ -95,7 +95,7 @@ describe('toFavoriteItems', () => {
       {
         id: 'page-1',
         title: 'Real content here',
-        titleStyle: 'placeholder',
+        titleStyle: 'default',
         type: 'note',
       },
     ]);

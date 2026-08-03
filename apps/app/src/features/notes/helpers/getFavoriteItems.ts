@@ -15,15 +15,14 @@ function toFavoriteItem(entry: Folder | Page): FavoriteItem {
   // applies to them); pages go through the shared display-label rule so
   // a favorited-but-unnamed note doesn't show a raw "Untitled 2" — and
   // carry the source through so the row can render it with the correct
-  // styling (getPageDisplayLabelStyle also decides Daily Notes always
-  // render as 'default', never 'placeholder').
+  // styling.
   if (isPage) {
     const label = getPageDisplayLabel(entry);
 
     return {
       id: entry.id,
       title: label.text,
-      titleStyle: getPageDisplayLabelStyle(entry, label),
+      titleStyle: getPageDisplayLabelStyle(label),
       type: 'note',
     };
   }
