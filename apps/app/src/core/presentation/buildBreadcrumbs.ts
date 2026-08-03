@@ -5,6 +5,7 @@ import type { Folder } from '@core/vault/models/Folder';
 import type { Breadcrumb } from './Breadcrumb';
 import { isNoteUntitled } from './isNoteUntitled';
 import { getPageTitlePlaceholder } from './PageDisplayPlaceholders';
+import { getPageIcon } from './getPageIcon';
 
 function isPage(entry: Page | Folder): entry is Page {
   return 'type' in entry;
@@ -31,14 +32,7 @@ function entryBreadcrumbTitle(entry: Page | Folder): string {
  * breadcrumb differs based on the entry type.
  */
 function getEntryIcon(entry: Page | Folder) {
-  if (!isPage(entry)) {
-    return 'folder';
-  }
-  return iconForPageType(entry.type);
-}
-
-function iconForPageType(type: PageType) {
-  return type === 'daily-note' ? 'calendarDot' : 'note';
+  return getPageIcon(isPage(entry) ? entry.type : 'folder');
 }
 
 /** Shared by buildBreadcrumbs and buildBreadcrumbsForDraft — the ancestor
@@ -61,7 +55,7 @@ function ancestorBreadcrumbs(
     ancestors.unshift({
       id: folder.id,
       title: folder.name,
-      icon: 'folder',
+      icon: getPageIcon('folder'),
       emoji: folder.metadata.icon ?? undefined,
       onClick: () => onOpenFolder(folder.id),
     });
@@ -109,7 +103,7 @@ export function buildBreadcrumbsForDraft(
   ancestors.push({
     id: draftId,
     title,
-    icon: iconForPageType(type),
+    icon: getPageIcon(type),
   });
 
   return ancestors;

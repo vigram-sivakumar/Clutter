@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildBreadcrumbs } from './buildBreadcrumbs';
+import { buildBreadcrumbs, buildBreadcrumbsForDraft } from './buildBreadcrumbs';
+import { getPageIcon } from './getPageIcon';
 import { Vault } from '../vault/models/Vault';
 import { VaultProjectionBuilder } from '../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
@@ -107,5 +108,49 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
     const crumbs = buildBreadcrumbs(page, makeVault(), vi.fn());
 
     expect(crumbs.at(-1)!.title).toBe('2026-08-02');
+  });
+});
+
+describe('buildBreadcrumbs — icon sourced from getPageIcon (single authority)', () => {
+  it('uses getPageIcon for a folder crumb', () => {
+    const folder = makeFolder();
+    const crumbs = buildBreadcrumbs(folder, makeVault(), vi.fn());
+
+    expect(crumbs.at(-1)!.icon).toBe(getPageIcon('folder'));
+  });
+
+  it('uses getPageIcon for a note crumb', () => {
+    const page = makePage({ type: 'note' });
+    const crumbs = buildBreadcrumbs(page, makeVault(), vi.fn());
+
+    expect(crumbs.at(-1)!.icon).toBe(getPageIcon('note'));
+  });
+
+  it('uses getPageIcon for a daily-note crumb', () => {
+    const page = makePage({ type: 'daily-note', name: '2026-08-02' });
+    const crumbs = buildBreadcrumbs(page, makeVault(), vi.fn());
+
+    expect(crumbs.at(-1)!.icon).toBe(getPageIcon('daily-note'));
+  });
+
+  it('uses getPageIcon for an ancestor folder crumb', () => {
+    const parent = makeFolder({ id: 'folder-1', name: 'Projects', parentId: null });
+    const page = makePage({ parentId: 'folder-1' });
+    const crumbs = buildBreadcrumbs(page, makeVault([parent]), vi.fn());
+
+    expect(crumbs[0]!.icon).toBe(getPageIcon('folder'));
+  });
+
+  it('uses getPageIcon for a draft crumb', () => {
+    const crumbs = buildBreadcrumbsForDraft(
+      'draft-1',
+      null,
+      'New Note',
+      'note',
+      makeVault(),
+      vi.fn()
+    );
+
+    expect(crumbs.at(-1)!.icon).toBe(getPageIcon('note'));
   });
 });
