@@ -133,6 +133,7 @@ export function FolderTree({
         const subFolders = query.getChildFolders(folder.id);
         // Checks if the folder is empty
         const isEmpty = subFolders.length === 0 && childPages.length === 0;
+        const isExpanded = workspace.isFolderExpanded(folder.id);
 
         return (
           <Fragment key={folder.id}>
@@ -143,37 +144,44 @@ export function FolderTree({
               level={level}
               isEmpty={isEmpty}
               selected={workspace.activeFolderId === folder.id}
-              isExpanded={workspace.isFolderExpanded(folder.id)}
+              isExpanded={isExpanded}
               onExpandToggle={() => workspace.toggleFolderExpanded(folder.id)}
               onClick={() => onFolderClick(folder)}
             />
-            {/* Render all pages inside this folder */}
-            {childPages.map((entry) => (
-              <PageEntry
-                key={entry.id}
-                entry={entry}
-                level={level + 1}
-                workspace={workspace}
-                onPageClick={onPageClick}
-                onDraftPageClick={onDraftPageClick}
-              />
-            ))}
-            {/* Render this folder's child folders.
-                This is the recursive call.
-                Every child folder repeats this exact process. */}
-            <FolderTree
-              query={query}
-              workspace={workspace}
-              effectivePageState={effectivePageState}
-              parentId={folder.id}
-              level={level + 1}
-              onPageClick={onPageClick}
-              onDraftPageClick={onDraftPageClick}
-              onFolderClick={onFolderClick}
-              pendingNewFolder={pendingNewFolder}
-              onCommitNewFolder={onCommitNewFolder}
-              onCancelNewFolder={onCancelNewFolder}
-            />
+            {/* Completes the existing Workspace.isFolderExpanded capability
+                (ADR-021) — a collapsed folder's pages and subfolders render
+                nothing, rather than only rotating the caret. */}
+            {isExpanded && (
+              <>
+                {/* Render all pages inside this folder */}
+                {childPages.map((entry) => (
+                  <PageEntry
+                    key={entry.id}
+                    entry={entry}
+                    level={level + 1}
+                    workspace={workspace}
+                    onPageClick={onPageClick}
+                    onDraftPageClick={onDraftPageClick}
+                  />
+                ))}
+                {/* Render this folder's child folders.
+                    This is the recursive call.
+                    Every child folder repeats this exact process. */}
+                <FolderTree
+                  query={query}
+                  workspace={workspace}
+                  effectivePageState={effectivePageState}
+                  parentId={folder.id}
+                  level={level + 1}
+                  onPageClick={onPageClick}
+                  onDraftPageClick={onDraftPageClick}
+                  onFolderClick={onFolderClick}
+                  pendingNewFolder={pendingNewFolder}
+                  onCommitNewFolder={onCommitNewFolder}
+                  onCancelNewFolder={onCancelNewFolder}
+                />
+              </>
+            )}
           </Fragment>
         );
       })}

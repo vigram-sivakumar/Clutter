@@ -33,6 +33,7 @@ import { FolderOperations } from '@core/application/folder/FolderOperations';
 import { FolderPathResolver } from '@core/application/folder/FolderPathResolver';
 import { FolderCreator } from '@core/application/folder/FolderCreator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
+import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 
 afterEach(() => {
@@ -43,11 +44,11 @@ const ROOT = '/vault';
 
 function buildPersistedPage(
   path: string,
-  overrides: { icon?: string; description?: string } = {}
+  overrides: { icon?: string; description?: string; parentId?: string | null } = {}
 ): Page {
   const builder = new PageBuilder();
   return builder.build({
-    parentId: null,
+    parentId: overrides.parentId ?? null,
     page: {
       path,
       directoryPath: ROOT,
@@ -70,11 +71,30 @@ function buildPersistedPage(
   });
 }
 
-function makeVault(pages: Page[]): Vault {
+function makeFolder(id: string, path: string, parentId: string | null): Folder {
+  return {
+    id,
+    name: path.slice(path.lastIndexOf('/') + 1),
+    path,
+    parentId,
+    metadata: {
+      icon: null,
+      favorite: false,
+      description: '',
+      cover: null,
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    },
+  };
+}
+
+function makeVault(pages: Page[], folders: Folder[] = []): Vault {
   return new Vault(
     ROOT,
     pages,
-    [],
+    folders,
     [],
     [],
     [],
@@ -98,8 +118,8 @@ function makeFolderOperations(
   );
 }
 
-function setup(initialPages: Page[] = []) {
-  const vault = makeVault(initialPages);
+function setup(initialPages: Page[] = [], initialFolders: Folder[] = []) {
+  const vault = makeVault(initialPages, initialFolders);
   const query = new VaultQuery(vault);
   const fileSystem = new InMemoryVaultFileSystem();
 
@@ -368,5 +388,129 @@ describe('FolderTree: draft promotion', () => {
     // Now rendered via the durable (query-driven) path, not the draft
     // overlay — still exactly one row, never both simultaneously.
     expect(getAllByText('Promote Me')).toHaveLength(1);
+  });
+});
+
+describe('FolderTree: folder expansion completes an existing Workspace capability (ADR-021)', () => {
+  it('a folder is expanded by default — children render with no prior toggle', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
+    const { query, workspace, effectivePageState } = setup([page], [folder]);
+
+    render(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Roadmap')).toBeInTheDocument();
+  });
+
+  it('collapsing a folder hides its pages and subfolders; expanding again restores them', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
+    const { query, workspace, effectivePageState } = setup([page], [folder]);
+
+    const { rerender } = render(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Roadmap')).toBeInTheDocument();
+
+    workspace.toggleFolderExpanded('folder-1');
+    rerender(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText('Roadmap')).not.toBeInTheDocument();
+
+    workspace.toggleFolderExpanded('folder-1');
+    rerender(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Roadmap')).toBeInTheDocument();
+  });
+
+  it('clicking the caret toggles expansion without invoking onFolderClick (the row navigate handler)', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
+    const { query, workspace, effectivePageState } = setup([page], [folder]);
+    const onFolderClick = vi.fn();
+
+    const { container } = render(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={onFolderClick}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(workspace.isFolderExpanded('folder-1')).toBe(true);
+
+    const caret = container.querySelector('.folder__caret .caret-slot');
+
+    if (!caret) {
+      throw new Error('expected a caret button to be rendered');
+    }
+
+    (caret as HTMLElement).click();
+
+    expect(workspace.isFolderExpanded('folder-1')).toBe(false);
+    expect(onFolderClick).not.toHaveBeenCalled();
   });
 });
