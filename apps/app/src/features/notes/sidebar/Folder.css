@@ -1,7 +1,7 @@
-/* .folder__icon {
+.folder__icon {
   color: var(--icon-tertiary);
 }
-.entry-selected .folder__icon,
+/* .entry-selected .folder__icon,
 .entry-active .folder__icon {
   color: inherit;
 } */
