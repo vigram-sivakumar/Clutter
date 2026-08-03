@@ -10,6 +10,7 @@ Clutter's architecture is frozen. Before doing any architectural implementation 
 4. `docs/architecture-compliance-checklist.md` — the Yes/No PR checklist derived from the rules above.
 5. `docs/adr/` — decision records explaining *why* each major architectural choice was made over its alternatives. Consult before questioning or trying to change a settled decision.
 6. `docs/architecture-target.md` and `docs/architecture-assessment.md` — rationale and history: what the target architecture looks like and why, and the original independent audit that motivated it.
+7. `docs/durability-model.md` — the vocabulary for what "saved" actually guarantees, stage by stage (Committed / Durable / Reconciled) and what's explicitly out of scope today (undo/version history, cloud sync, atomic writes). Consult before any work touching persistence, autosave cadence, crash recovery, or sync — state which stage a change affects, using this document's terms, rather than re-deriving what "saved" means.
 
 **Operational contract for any implementation task touching the architecture** (from `docs/implementation-rules.md`):
 1. Read `docs/implementation-rules.md`.
