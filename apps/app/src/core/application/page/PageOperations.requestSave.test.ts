@@ -285,16 +285,25 @@ describe('PageOperations.requestSave: in-flight save (Saving row + T10 restart)'
     pageOperations.commitEdit(page.id, 'Second edit, during save');
 
     // A trigger fires now (e.g. the debounce ceiling, or navigation) — per
-    // the Saving+dirty row, this must be suppressed, not start a second
-    // concurrent write while the first is still gated.
-    await pageOperations.requestSave(page.id);
+    // the Saving+dirty row, this must not start a second concurrent write
+    // while the first is still gated. As of M8, it also isn't a trivial
+    // suppressed no-op: since a save for this id is already in flight,
+    // this second call receives that exact same (still-pending) promise
+    // — asserted directly — so it correctly won't resolve until the whole
+    // restart cycle below finishes, not just because it happened not to
+    // race a new write. It must NOT be awaited yet, or this test would
+    // deadlock waiting on itself before release() ever runs.
+    const secondCall = pageOperations.requestSave(page.id);
+    expect(secondCall).toBe(requestPromise);
     expect(gated.writeFileCallCount).toBe(1);
 
     // Release the first write — it should complete, then the loop inside
     // the *original* requestSave() call should detect the session is
-    // still dirty and automatically restart exactly once.
+    // still dirty and automatically restart exactly once. Both variables
+    // reference the same promise at this point, but awaiting both is
+    // still correct and makes the intent explicit.
     release();
-    await requestPromise;
+    await Promise.all([requestPromise, secondCall]);
 
     expect(gated.writeFileCallCount).toBe(2);
     expect(documentRegistry.get(page.id)!.state).toBe(DocumentState.Clean);
@@ -328,6 +337,57 @@ describe('PageOperations.requestSave: in-flight save (Saving row + T10 restart)'
     expect(writeSpy).toHaveBeenCalledTimes(1);
     expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
   });
+});
+
+describe('PageOperations.requestSave: concurrent calls share one in-flight promise (M8 prerequisite)', () => {
+  it('two concurrent requestSave() calls for the same page return the exact same promise object', async () => {
+    const page = buildPage();
+    const gated = new GatedVaultFileSystem(new InMemoryVaultFileSystem());
+    const { pageOperations } = setup(page, gated);
+    await pageOperations.open(page.id);
+    pageOperations.commitEdit(page.id, 'Edited body');
+
+    const { release, entered } = gated.hold();
+    const firstCall = pageOperations.requestSave(page.id);
+    await entered;
+
+    const secondCall = pageOperations.requestSave(page.id);
+
+    // Not merely "both eventually resolve" — the second call must be the
+    // identical Promise instance, not a new one that happens to resolve
+    // around the same time. This is what lets a caller like flushAll()
+    // genuinely await the real, already-running attempt rather than a
+    // redundant one that resolves the moment evaluate() sees Saving.
+    expect(secondCall).toBe(firstCall);
+
+    release();
+    await Promise.all([firstCall, secondCall]);
+  });
+
+  it('results in exactly one persistence operation, not one per caller', async () => {
+    const page = buildPage();
+    const gated = new GatedVaultFileSystem(new InMemoryVaultFileSystem());
+    const { pageOperations, documentRegistry } = setup(page, gated);
+    await pageOperations.open(page.id);
+    pageOperations.commitEdit(page.id, 'Edited body');
+
+    const { release, entered } = gated.hold();
+    const calls = [
+      pageOperations.requestSave(page.id),
+      pageOperations.requestSave(page.id),
+      pageOperations.requestSave(page.id),
+    ];
+    await entered;
+
+    expect(gated.writeFileCallCount).toBe(1);
+
+    release();
+    await Promise.all(calls);
+
+    expect(gated.writeFileCallCount).toBe(1);
+    expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
+  });
+
 });
 
 describe('PageOperations.requestSave: failure handling (never an unhandled rejection)', () => {

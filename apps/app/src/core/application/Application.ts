@@ -11,7 +11,7 @@ import { VaultInitializer } from '../vault/initialize/VaultInitializer';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
-import { PageOperations } from './page/PageOperations';
+import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations';
 import { FolderOperations } from './folder/FolderOperations';
 import { FolderPathResolver } from './folder/FolderPathResolver';
 import { FolderCreator } from './folder/FolderCreator';
@@ -263,9 +263,21 @@ export class Application {
   /**
    * Tears down the runtime graph this composition root created.
    *
-   * Stops accepting filesystem events first so no partially-destroyed
-   * service can react to a late-arriving change, then disposes
-   * subscriptions, then releases remaining state.
+   * Flushes every dirty or in-flight page first — while every session is
+   * still live — then stops accepting filesystem events so no partially-
+   * destroyed service can react to a late-arriving change, then disposes
+   * subscriptions, then cancels timers and releases remaining state.
+   * flushAll() must run before everything else here, not after: once
+   * DocumentRegistry.clear() disposes every session (M1/M4), further
+   * commit()/beginSave()/markSaved()/markSaveFailed() calls become inert
+   * and there would be nothing left to flush.
+   *
+   * This is the orderly-shutdown entry point (autosave-execution-model.md
+   * §7) — it knows nothing about *why* it's being called (window close,
+   * app quit, a future vault-switch flow) or how that event is detected;
+   * that's the caller's job (see AppShell.tsx's Tauri close-request
+   * handling), kept deliberately outside this class so Application never
+   * needs to import a platform/window API.
    *
    * Idempotent: safe to call more than once (React Strict Mode, repeated
    * unmounts, or an eventual vault-switch flow may all call this).
@@ -277,6 +289,7 @@ export class Application {
 
     this.closed = true;
 
+    await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
     await this.fileSystemWatcher.stop();
     this.vaultSyncService.dispose();
     // Cancel every armed autosave timer before dropping the sessions they

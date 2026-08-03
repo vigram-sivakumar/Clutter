@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import { Application } from '../core/application/Application';
 
@@ -15,6 +16,7 @@ export function AppShell() {
   useEffect(() => {
     let cancelled = false;
     let openedApplication: Application | null = null;
+    let unlistenCloseRequested: (() => void) | null = null;
 
     async function loadVault() {
       try {
@@ -30,6 +32,23 @@ export function AppShell() {
 
         openedApplication = application;
         setApplication(application);
+
+        // Intercept the actual window/app close so dirty content isn't
+        // silently lost (autosave-execution-model.md §7) — today, nothing
+        // called Application.close() when the user actually quits; this
+        // effect's own unmount cleanup below only fires on component
+        // unmount, which doesn't correspond to the OS window closing.
+        // Application itself stays unaware of the Tauri window API by
+        // design (M8's audit) — this handler's only job is triggering the
+        // already-existing, already-orderly close() at the right moment,
+        // then letting the window actually finish closing.
+        unlistenCloseRequested = await getCurrentWindow().onCloseRequested(
+          async (event) => {
+            event.preventDefault();
+            await application.close();
+            await getCurrentWindow().destroy();
+          }
+        );
       } catch (error) {
         console.error('Failed to open vault:', error);
         if (!cancelled) {
@@ -48,6 +67,7 @@ export function AppShell() {
 
     return () => {
       cancelled = true;
+      unlistenCloseRequested?.();
       void openedApplication?.close();
     };
   }, [vaultPath]);

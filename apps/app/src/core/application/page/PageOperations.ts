@@ -16,6 +16,16 @@ import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontma
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { DailyNoteService } from '../daily-notes/DailyNoteService';
 
+/**
+ * How long PageOperations.flushAll() (the shutdown flush) waits for
+ * pending saves before giving up and letting the application close
+ * anyway. A placeholder value, not a tuned one — same status as
+ * SaveCoordinator's AUTOSAVE_DEBOUNCE_MS/AUTOSAVE_CEILING_MS
+ * (autosave-strategy-analysis.md §7 Risk 2 explicitly defers exact
+ * tuning as a product decision, separate from this architecture).
+ */
+export const SHUTDOWN_FLUSH_TIMEOUT_MS = 5000;
+
 export interface CreatePageOptions {
   readonly folderId: string | null;
   readonly title?: string;
@@ -79,6 +89,19 @@ export class PageOperations {
    * already-open draft instead of minting a second one (ADR-017 §7).
    */
   private readonly draftIdByDeterministicPath = new Map<string, string>();
+
+  /**
+   * Tracks the currently in-flight requestSave() promise per page id, so a
+   * concurrent call for the same id joins the real, already-running
+   * attempt instead of independently evaluating and immediately
+   * suppressing (found during M8's pre-implementation audit — without
+   * this, PageOperations.flushAll() could believe a page was flushed
+   * while a save started by an earlier, unawaited trigger — e.g. a
+   * debounce timer — was still genuinely in progress). Populated and
+   * cleared entirely within requestSave() itself; nothing else reads or
+   * writes this map.
+   */
+  private readonly inFlightSaves = new Map<string, Promise<void>>();
 
   constructor(
     private readonly vault: Vault,
@@ -379,8 +402,35 @@ export class PageOperations {
    * state via SaveCoordinator.failSave(), so a background trigger that
    * doesn't await this call's result can never produce an unhandled
    * rejection (autosave-execution-model.md §1.3a, §6).
+   *
+   * Concurrent calls for the same pageId share one underlying attempt: if
+   * a call is already in flight for this id, this returns that exact same
+   * promise rather than starting a second, independent evaluation. This
+   * matters beyond mere efficiency — it's what lets a caller like
+   * flushAll() correctly await a save that a different, earlier, never-
+   * awaited trigger (e.g. a debounce timer) already started, instead of
+   * the redundant call's own evaluate() seeing Saving, suppressing, and
+   * resolving immediately while the real write is still in progress.
    */
-  public async requestSave(pageId: string): Promise<void> {
+  public requestSave(pageId: string): Promise<void> {
+    const existing = this.inFlightSaves.get(pageId);
+
+    if (existing) {
+      return existing;
+    }
+
+    const promise = this.runRequestSave(pageId).finally(() => {
+      if (this.inFlightSaves.get(pageId) === promise) {
+        this.inFlightSaves.delete(pageId);
+      }
+    });
+
+    this.inFlightSaves.set(pageId, promise);
+
+    return promise;
+  }
+
+  private async runRequestSave(pageId: string): Promise<void> {
     const session = this.documentRegistry.get(pageId);
 
     if (!session) {
@@ -420,6 +470,52 @@ export class PageOperations {
         return;
       }
     }
+  }
+
+  /**
+   * Shutdown flush (autosave-execution-model.md §7): flushes every
+   * session that either has unsaved content or is already mid-save,
+   * bounded by timeoutMs so a single hung write can never block
+   * application exit indefinitely. Called once, from Application.close(),
+   * before that method's own teardown sequence (watcher stop, service
+   * disposal, timer cancellation, registry clear) — this must run first,
+   * while every session is still live, since disposal makes a session's
+   * commit()/beginSave()/markSaved()/markSaveFailed() inert (M1/M4) and
+   * DocumentRegistry.clear() removes it from getAll() entirely.
+   *
+   * No special-casing between an already-Saving session and a dirty-but-
+   * idle one — both are simply passed to requestSave(), uniformly.
+   * Because requestSave() now shares one in-flight promise per id, a
+   * Saving session's requestSave() call joins whatever attempt is already
+   * running (rather than seeing Saving, suppressing, and resolving
+   * immediately) — flushAll() genuinely waits for it, not just for a
+   * redundant no-op.
+   *
+   * Every session's flush runs independently via Promise.allSettled —
+   * never sequential await in a loop — so one slow or permanently-failing
+   * document (e.g. archived out from under its session) never delays or
+   * blocks another's successful flush, mirroring the Gate's own per-page
+   * failure isolation. requestSave() itself never throws (§1.3a), so
+   * "settled" and "resolved" are equivalent here in practice — allSettled
+   * is used anyway as the explicit, defensive form of that guarantee.
+   */
+  public async flushAll(timeoutMs: number): Promise<void> {
+    const dirtyOrSaving = this.documentRegistry
+      .getAll()
+      .filter((session) => session.isDirty || session.state === DocumentState.Saving);
+
+    if (dirtyOrSaving.length === 0) {
+      return;
+    }
+
+    const flushes = Promise.allSettled(
+      dirtyOrSaving.map((session) => this.requestSave(session.id))
+    );
+
+    await Promise.race([
+      flushes,
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
   }
 
   /**
