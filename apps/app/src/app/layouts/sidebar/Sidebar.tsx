@@ -21,8 +21,14 @@ interface SidebarProps {
 }
 
 export function Sidebar({ application }: SidebarProps) {
-  const { vault, query, navigation, pageOperations, folderOperations } =
-    application;
+  const {
+    vault,
+    query,
+    navigation,
+    pageOperations,
+    folderOperations,
+    effectivePageState,
+  } = application;
   const workspace = useWorkspace(application.workspace);
   const [activeTab, setActiveTab] = useState('daily-notes');
   const activeDailyNoteDate = getActiveDailyNoteDate(
@@ -73,8 +79,10 @@ export function Sidebar({ application }: SidebarProps) {
           navigation={navigation}
           pageOperations={pageOperations}
           folderOperations={folderOperations}
+          effectivePageState={effectivePageState}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
+          onOpenDraft={(pageId) => workspace.openPage(pageId)}
         />
       ),
     },

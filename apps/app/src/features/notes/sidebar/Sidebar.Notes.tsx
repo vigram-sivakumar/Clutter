@@ -6,6 +6,7 @@ import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
@@ -21,8 +22,16 @@ interface NotesProps {
   navigation: NavigationRouter;
   pageOperations: PageOperations;
   folderOperations: FolderOperations;
+  effectivePageState: EffectivePageState;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
+  /**
+   * A draft has no Vault entry yet, so onOpen()/pageOperations.open()
+   * (which requires one) would throw for it — it's already open via
+   * openDraft()/openAtPath(), so clicking it again is a re-select, not a
+   * fresh open (ADR-020, M3).
+   */
+  onOpenDraft(pageId: string): void;
 }
 
 export function Notes({
@@ -31,8 +40,10 @@ export function Notes({
   navigation,
   pageOperations,
   folderOperations,
+  effectivePageState,
   onOpen,
   onOpenFolder,
+  onOpenDraft,
 }: NotesProps) {
   const [isFavoritesExpanded, setFavoritesExpanded] = useState(true);
   const [isFoldersExpanded, setFoldersExpanded] = useState(true);
@@ -102,6 +113,7 @@ export function Notes({
         <FolderTree
           query={query}
           workspace={workspace}
+          effectivePageState={effectivePageState}
           parentId={null}
           level={0}
           pendingNewFolder={pendingNewFolder}
@@ -110,6 +122,7 @@ export function Notes({
           onPageClick={(page) => {
             onOpen(page.id);
           }}
+          onDraftPageClick={onOpenDraft}
           onFolderClick={(folder) => {
             onOpenFolder(folder.id);
           }}
