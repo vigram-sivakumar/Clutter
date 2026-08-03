@@ -51,6 +51,7 @@ If a PR touches multiple subsystems, run every relevant section separately for e
 - [ ] Does this PR add a new component that renders with required props left undefined at its call site?
 - [ ] Does this PR duplicate an existing presentational pattern (e.g., another near-identical top-bar-actions or page-model component) instead of extracting or reusing the shared shape?
 - [ ] Does this PR let a feature component call into `NavigationRouter`/`PageOperations`/`FolderOperations` other than via the callback-prop pattern already established?
+- [ ] Does this PR add or modify a page-list UI (existence, folder membership, title/label, description, body preview, or icon for more than one page) that reads `VaultQuery`/`Vault` directly instead of `EffectivePageState` — without an explicit justification (e.g., durable-only membership like Favorites) in the PR description? (`ARCHITECTURE_RULES.md` rule 13.)
 
 ## Domain Rules
 
