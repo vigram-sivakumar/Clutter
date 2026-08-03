@@ -119,9 +119,7 @@ export function Notes({
           pendingNewFolder={pendingNewFolder}
           onCommitNewFolder={handleCommitNewFolder}
           onCancelNewFolder={() => setPendingNewFolder(null)}
-          onPageClick={(page) => {
-            onOpen(page.id);
-          }}
+          onPageClick={onOpen}
           onDraftPageClick={onOpenDraft}
           onFolderClick={(folder) => {
             onOpenFolder(folder.id);

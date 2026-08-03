@@ -4,6 +4,7 @@ import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import {
   getPageDisplayLabel,
   getPageDisplayLabelStyle,
+  toPageDisplayLabelInput,
 } from '@core/presentation/getPageDisplayLabel';
 
 import type { FavoriteItem } from '../models/FavoriteItem';
@@ -17,7 +18,7 @@ function toFavoriteItem(entry: Folder | Page): FavoriteItem {
   // carry the source through so the row can render it with the correct
   // styling.
   if (isPage) {
-    const label = getPageDisplayLabel(entry);
+    const label = getPageDisplayLabel(toPageDisplayLabelInput(entry));
 
     return {
       id: entry.id,

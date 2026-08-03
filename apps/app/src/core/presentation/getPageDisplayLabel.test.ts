@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getPageDisplayLabel, getPageDisplayLabelStyle } from './getPageDisplayLabel';
+import {
+  getPageDisplayLabel,
+  getPageDisplayLabelStyle,
+  toPageDisplayLabelInput,
+} from './getPageDisplayLabel';
 import type { Page } from '../vault/models/Page';
 
 const defaultMetadata: Page['metadata'] = {
@@ -43,7 +47,7 @@ describe('getPageDisplayLabel — Notes', () => {
   it('uses the filename when it looks deliberately chosen', () => {
     const page = makePage({ name: 'Meeting Notes' });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
       text: 'Meeting Notes',
       source: 'title',
     });
@@ -55,7 +59,7 @@ describe('getPageDisplayLabel — Notes', () => {
       metadata: { ...defaultMetadata, description: 'A quick summary' },
     });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
       text: 'A quick summary',
       source: 'description',
     });
@@ -67,7 +71,7 @@ describe('getPageDisplayLabel — Notes', () => {
       source: { markdown: '- [ ] Buy milk' },
     });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
       text: 'Buy milk',
       source: 'content',
     });
@@ -76,7 +80,21 @@ describe('getPageDisplayLabel — Notes', () => {
   it('falls through to the placeholder when nothing else is available', () => {
     const page = makePage({ name: 'Untitled', source: { markdown: '' } });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
+      text: 'New Note',
+      source: 'placeholder',
+    });
+  });
+
+  it('treats an empty name as absent, not as a deliberate title — only reachable via an EffectivePage draft, never a persisted Page', () => {
+    expect(
+      getPageDisplayLabel({
+        type: 'note',
+        name: '',
+        description: null,
+        markdown: '',
+      })
+    ).toEqual({
       text: 'New Note',
       source: 'placeholder',
     });
@@ -89,7 +107,7 @@ describe('getPageDisplayLabel — Notes', () => {
       source: { markdown: 'Real content' },
     });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
       text: 'Real content',
       source: 'content',
     });
@@ -100,7 +118,7 @@ describe('getPageDisplayLabel — Daily Notes', () => {
   it('never treats the date filename as a meaningful title, even without other content', () => {
     const page = makePage({ type: 'daily-note', name: '2026-08-02' });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
       text: 'Start typing...',
       source: 'placeholder',
     });
@@ -113,7 +131,7 @@ describe('getPageDisplayLabel — Daily Notes', () => {
       metadata: { ...defaultMetadata, description: 'Standup notes' },
     });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
       text: 'Standup notes',
       source: 'description',
     });
@@ -126,7 +144,7 @@ describe('getPageDisplayLabel — Daily Notes', () => {
       source: { markdown: '# Retro\nWent well today' },
     });
 
-    expect(getPageDisplayLabel(page)).toEqual({
+    expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
       text: 'Retro',
       source: 'content',
     });

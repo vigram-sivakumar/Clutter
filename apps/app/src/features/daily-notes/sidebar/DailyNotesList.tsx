@@ -9,6 +9,7 @@ import type { ISODate } from '@shared/helpers/time/types';
 import {
   getPageDisplayLabel,
   getPageDisplayLabelStyle,
+  toPageDisplayLabelInput,
 } from '@core/presentation/getPageDisplayLabel';
 
 import { DailyNote } from './DailyNote';
@@ -101,7 +102,7 @@ export function DailyNotesList({
           onClick={() => onOpenFolder(section.monthFolder.id)}
         >
           {pages.map((note) => {
-            const label = getPageDisplayLabel(note);
+            const label = getPageDisplayLabel(toPageDisplayLabelInput(note));
 
             return (
               <DailyNote

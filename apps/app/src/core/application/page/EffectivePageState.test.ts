@@ -96,9 +96,11 @@ describe('EffectivePageState: draft-only entries', () => {
       id: draftId,
       type: 'note',
       folderId: null,
-      name: 'My Draft',
-      markdown: '',
       isDraft: true,
+      name: 'My Draft',
+      description: null,
+      markdown: '',
+      icon: null,
     });
 
     const children = effectivePageState.getChildPages(null);
@@ -139,6 +141,36 @@ describe('EffectivePageState: promotion transition', () => {
       isDraft: false,
       markdown: '# Hello',
     });
+  });
+});
+
+describe('EffectivePageState: description/icon (Category 2/4, ADR-020 M3 amendment)', () => {
+  it('a draft has no description or icon — neither DraftInfo nor DocumentSession tracks them', async () => {
+    const { pageOperations, effectivePageState } = setup();
+
+    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Draft' });
+
+    expect(effectivePageState.getPage(draftId)).toMatchObject({
+      description: null,
+      icon: null,
+    });
+  });
+
+  it('a persisted page surfaces its durable description and icon, unaffected by an open session', async () => {
+    const { pageOperations, effectivePageState } = setup();
+
+    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Persisted' });
+    await pageOperations.save(draftId, '# Hello');
+    await pageOperations.updateMetadata(draftId, { description: 'A durable description' });
+
+    const entry = effectivePageState.getPage(draftId);
+    expect(entry?.description).toBe('A durable description');
+
+    // A live, uncommitted body edit doesn't touch description — Category 4
+    // has no Committed stage (ADR-020 Non-Goals) and never will via this
+    // path; only markdown (Category 3) is session-sourced.
+    pageOperations.commitEdit(draftId, 'unsaved body edit');
+    expect(effectivePageState.getPage(draftId)?.description).toBe('A durable description');
   });
 });
 

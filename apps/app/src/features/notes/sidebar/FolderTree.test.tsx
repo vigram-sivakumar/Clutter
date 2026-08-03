@@ -41,14 +41,21 @@ afterEach(() => {
 
 const ROOT = '/vault';
 
-function buildPersistedPage(path: string): Page {
+function buildPersistedPage(
+  path: string,
+  overrides: { icon?: string; description?: string } = {}
+): Page {
   const builder = new PageBuilder();
   return builder.build({
     parentId: null,
     page: {
       path,
       directoryPath: ROOT,
-      frontmatter: { id: 'persisted-page' },
+      frontmatter: {
+        id: 'persisted-page',
+        icon: overrides.icon,
+        description: overrides.description,
+      },
       frontmatterAnalysis: { aliases: [] },
       content: 'Original body',
       analysis: {
@@ -193,6 +200,37 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
   });
 });
 
+describe('FolderTree: draft click routing', () => {
+  it('clicking a draft row invokes onDraftPageClick, not onPageClick (open() would throw for a draft)', async () => {
+    const { query, workspace, pageOperations, effectivePageState } = setup();
+    await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
+
+    const onPageClick = vi.fn();
+    const onDraftPageClick = vi.fn();
+
+    render(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={onPageClick}
+        onDraftPageClick={onDraftPageClick}
+        onFolderClick={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    screen.getByText('My Draft').click();
+
+    expect(onDraftPageClick).toHaveBeenCalledWith(expect.any(String));
+    expect(onPageClick).not.toHaveBeenCalled();
+  });
+});
+
 describe('FolderTree: draft discard', () => {
   it('closing an unsaved draft removes it from the tree', async () => {
     const { query, workspace, pageOperations, effectivePageState } = setup();
@@ -247,10 +285,36 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
     expect(screen.getByText('My Persisted Note')).toBeInTheDocument();
   });
 
-  it('clicking a persisted page invokes onPageClick with the real Page, unchanged', () => {
+  it('renders the durable description as the label when the filename is auto-generated (EffectivePageState M3 amendment)', () => {
+    const page = buildPersistedPage(`${ROOT}/Untitled.md`, {
+      description: 'A durable description',
+    });
+    const { query, workspace, effectivePageState } = setup([page]);
+
+    render(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('A durable description')).toBeInTheDocument();
+  });
+
+  it('clicking a persisted page invokes onPageClick with its id (not a draft click)', () => {
     const page = buildPersistedPage(`${ROOT}/Clickable.md`);
     const { query, workspace, effectivePageState } = setup([page]);
     const onPageClick = vi.fn();
+    const onDraftPageClick = vi.fn();
 
     render(
       <FolderTree
@@ -260,7 +324,7 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
         parentId={null}
         level={0}
         onPageClick={onPageClick}
-        onDraftPageClick={vi.fn()}
+        onDraftPageClick={onDraftPageClick}
         onFolderClick={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
@@ -270,7 +334,8 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
 
     screen.getByText('Clickable').click();
 
-    expect(onPageClick).toHaveBeenCalledWith(expect.objectContaining({ id: page.id }));
+    expect(onPageClick).toHaveBeenCalledWith(page.id);
+    expect(onDraftPageClick).not.toHaveBeenCalled();
   });
 });
 

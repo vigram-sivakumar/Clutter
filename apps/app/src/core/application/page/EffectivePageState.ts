@@ -9,16 +9,23 @@ type Unsubscribe = () => void;
 /**
  * Per-id reconciliation of what's Committed (an open DocumentSession/draft)
  * with what's Durable (a Vault page) — ADR-020's merge contract, Categories
- * 1-3. Category 4 (description/metadata) has no Committed stage today and
- * is deliberately absent here; see ADR-020's Non-Goals.
+ * 1-4. The complete, deliberately minimal read model for page-list
+ * rendering (ADR-020's M3 amendment) — a presentation read model, not a
+ * second domain model: `description`/`icon` are the only Category 2/4
+ * fields included, because they're the only ones a page-list row needs to
+ * render without a second Vault read. `Page`'s `analysis`, timestamps,
+ * `path`, `favorite`, and `status` are deliberately excluded; add a field
+ * only when a shipped consumer demonstrably needs it, never speculatively.
  */
 export interface EffectivePage {
   readonly id: string;
   readonly type: PageType;
   readonly folderId: string | null;
-  readonly name: string;
-  readonly markdown: string;
   readonly isDraft: boolean;
+  readonly name: string;
+  readonly description: string | null;
+  readonly markdown: string;
+  readonly icon: string | null;
 }
 
 /**
@@ -143,11 +150,12 @@ export class EffectivePageState {
   }
 
   /**
-   * Category 1/2/3 reconciliation for one id, per ADR-020 §3. A Vault page
+   * Category 1-4 reconciliation for one id, per ADR-020 §3. A Vault page
    * (if one exists) is authoritative for identity and durable-structural
-   * fields; an open session, if any, overrides only the Committed-tracked
-   * label inputs (name pre-promotion via DraftInfo, markdown always via
-   * DocumentSession) — never the reverse.
+   * fields (folderId, description, icon — none of which a draft or an
+   * open session ever tracks); an open session/draft, if any, overrides
+   * only the Committed-tracked label inputs (name pre-promotion via
+   * DraftInfo, markdown always via DocumentSession) — never the reverse.
    */
   private resolve(id: string): EffectivePage | undefined {
     const page = this.vault.getPage(id);
@@ -163,9 +171,11 @@ export class EffectivePageState {
       id,
       type: page ? page.type : (draft as NonNullable<typeof draft>).type,
       folderId: page ? page.parentId : (draft as NonNullable<typeof draft>).folderId,
-      name: page ? page.name : ((draft as NonNullable<typeof draft>).title ?? ''),
-      markdown: session ? session.currentRevision.markdown : (page ? page.source.markdown : ''),
       isDraft: !page,
+      name: page ? page.name : ((draft as NonNullable<typeof draft>).title ?? ''),
+      description: page ? page.metadata.description : null,
+      markdown: session ? session.currentRevision.markdown : (page ? page.source.markdown : ''),
+      icon: page ? page.metadata.icon : null,
     };
   }
 

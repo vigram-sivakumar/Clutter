@@ -3,7 +3,10 @@ import type { Page } from '@core/vault/models/Page';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import { getPageIcon } from '@core/presentation/getPageIcon';
-import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
+import {
+  getPageDisplayLabel,
+  toPageDisplayLabelInput,
+} from '@core/presentation/getPageDisplayLabel';
 
 import type { CollectionEntryModel } from './CollectionEntryModel';
 import type {
@@ -33,7 +36,9 @@ function toCollectionEntry(
     // breadcrumbs, so an unnamed note doesn't show a raw "Untitled 2"
     // here while looking correct everywhere else. A folder's name is
     // always real and deliberate; no fallback chain applies to it.
-    title: isFolder(entry) ? entry.name : getPageDisplayLabel(entry).text,
+    title: isFolder(entry)
+      ? entry.name
+      : getPageDisplayLabel(toPageDisplayLabelInput(entry)).text,
     emoji: entry.metadata?.icon ?? null,
     icon: getPageIcon(isFolder(entry) ? 'folder' : entry.type),
     selected,
