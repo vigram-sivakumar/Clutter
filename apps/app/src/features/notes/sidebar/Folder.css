@@ -1,6 +1,34 @@
 .folder__icon {
   color: var(--icon-tertiary);
 }
+
+.folder__leading {
+  display: grid;
+  place-items: center;
+}
+
+.folder__caret,
+.folder__icon {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 120ms ease;
+}
+
+.folder__caret {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.entry:hover .folder__leading--has-caret .folder__caret {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.entry:hover .folder__leading--has-caret .folder__icon {
+  opacity: 0;
+}
 /* .entry-selected .folder__icon,
 .entry-active .folder__icon {
   color: inherit;

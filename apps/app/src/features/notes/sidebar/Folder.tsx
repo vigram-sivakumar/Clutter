@@ -28,19 +28,27 @@ export function Folder({
     <Entry
       {...entryProps}
       leading={
-        <>
+        <span
+          className={`folder__leading${hasCaret ? ' folder__leading--has-caret' : ''}`}
+        >
           {hasCaret && (
-            <Caret
-              disabled={isEmpty}
-              isExpanded={isExpanded}
-              variant="tree"
-              onClick={onExpandToggle}
-            />
+            <span className="folder__caret">
+              <Caret
+                disabled={isEmpty}
+                isExpanded={isExpanded}
+                variant="tree"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onExpandToggle?.();
+                }}
+              />
+            </span>
           )}
+
           <span className="folder__icon">
             <AppIcon icon={getPageIcon('folder')} emoji={emoji} />
           </span>
-        </>
+        </span>
       }
       actions={
         <>

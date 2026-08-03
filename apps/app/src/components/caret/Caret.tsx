@@ -5,7 +5,7 @@ interface CaretProps {
   isPlaceholder?: boolean;
   isExpanded?: boolean;
   disabled?: boolean;
-  onClick?: () => void;
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
 export function Caret({
@@ -20,22 +20,17 @@ export function Caret({
   }
 
   return (
-    <span className="caret-slot">
-      <button
-        className={`caret-wrapper caret-wrapper--${variant}`}
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onClick?.();
-        }}
-        disabled={disabled}
+    <button
+      type="button"
+      className="caret-slot"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span
+        className={`caret-icon caret-icon--${variant} ${isExpanded ? 'caret-icon--expanded' : 'caret-icon--collapsed'}`}
       >
-        <span
-          className={`caret-icon ${isExpanded ? 'caret-icon--expanded' : 'caret-icon--collapsed'}`}
-        >
-          <AppIcon icon="caretRight" size={12} slotSize={12} />
-        </span>
-      </button>
-    </span>
+        <AppIcon icon="caretRight" size={12} slotSize={12} />
+      </span>
+    </button>
   );
 }

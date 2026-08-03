@@ -21,7 +21,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ application }: SidebarProps) {
-  const { vault, query, navigation, pageOperations, folderOperations } = application;
+  const { vault, query, navigation, pageOperations, folderOperations } =
+    application;
   const workspace = useWorkspace(application.workspace);
   const [activeTab, setActiveTab] = useState('daily-notes');
   const activeDailyNoteDate = getActiveDailyNoteDate(
@@ -76,7 +77,6 @@ export function Sidebar({ application }: SidebarProps) {
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
         />
       ),
-      emoji: '🍉',
     },
     {
       value: 'tasks',

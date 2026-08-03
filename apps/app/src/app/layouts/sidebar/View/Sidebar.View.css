@@ -1,7 +1,7 @@
 .view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-16);
   flex: 1;
   min-height: 0;
 }
@@ -14,6 +14,9 @@
   display: flex;
   flex-direction: column;
   overflow: auto;
-  gap: var(--space-4);
+  gap: var(--space-8);
   padding-bottom: var(--space-32);
+}
+.view--navigation .section--expanded {
+  padding-bottom: var(--space-0);
 }
