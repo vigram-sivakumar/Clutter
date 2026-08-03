@@ -45,8 +45,6 @@ export function Notes({
   onOpenFolder,
   onOpenDraft,
 }: NotesProps) {
-  const [isFavoritesExpanded, setFavoritesExpanded] = useState(true);
-  const [isFoldersExpanded, setFoldersExpanded] = useState(true);
   const [pendingNewFolder, setPendingNewFolder] = useState<PendingNewFolder | null>(
     null
   );
@@ -73,8 +71,8 @@ export function Notes({
         hasHeader
         title="Favorites"
         isCollapsible
-        isExpanded={isFavoritesExpanded}
-        onExpandedChange={setFavoritesExpanded}
+        isExpanded={workspace.isSectionExpanded('favorites')}
+        onExpandedChange={() => workspace.toggleSectionExpanded('favorites')}
         onClick={() => {}}
       >
         <FavoriteList
@@ -92,8 +90,8 @@ export function Notes({
         hasHeader
         title="Folders"
         isCollapsible
-        isExpanded={isFoldersExpanded}
-        onExpandedChange={setFoldersExpanded}
+        isExpanded={workspace.isSectionExpanded('folders')}
+        onExpandedChange={() => workspace.toggleSectionExpanded('folders')}
         onClick={() => {}}
         actions={
           <Button
@@ -102,7 +100,9 @@ export function Notes({
             interaction="subtle"
             isIconOnly
             onClick={() => {
-              setFoldersExpanded(true);
+              if (!workspace.isSectionExpanded('folders')) {
+                workspace.toggleSectionExpanded('folders');
+              }
               setPendingNewFolder({ parentId: null });
             }}
           >

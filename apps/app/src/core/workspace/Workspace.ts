@@ -48,6 +48,17 @@ export class Workspace implements Observable {
   private readonly collapsedFolderIds = new Set<string>();
 
   /**
+   * Sidebar section headers (Favorites, Folders, ...) currently collapsed.
+   *
+   * A deliberately separate set from collapsedFolderIds (ADR-021), not a
+   * generic "collapsed ids" structure — sections and folders are different
+   * node kinds, and merging them risks an id collision (e.g. a folder
+   * literally named "favorites") for no benefit. Same shape and default
+   * (expanded unless explicitly collapsed) as collapsedFolderIds.
+   */
+  private readonly collapsedSectionIds = new Set<string>();
+
+  /**
    * Which sidebar tab (Daily Notes/Notes/Tasks/Tags/Search) is currently
    * showing (ADR-021). Discrete, shared, session-scoped — the same shape
    * as activePageId/activeFolderId, just for the sidebar's own tab strip
@@ -175,6 +186,26 @@ export class Workspace implements Observable {
    */
   public isFolderExpanded(folderId: string): boolean {
     return !this.collapsedFolderIds.has(folderId);
+  }
+
+  /**
+   * Toggles the expanded state of a sidebar section header.
+   */
+  public toggleSectionExpanded(sectionId: string): void {
+    if (this.collapsedSectionIds.has(sectionId)) {
+      this.collapsedSectionIds.delete(sectionId);
+    } else {
+      this.collapsedSectionIds.add(sectionId);
+    }
+
+    this.notify();
+  }
+
+  /**
+   * Returns whether a sidebar section header is expanded.
+   */
+  public isSectionExpanded(sectionId: string): boolean {
+    return !this.collapsedSectionIds.has(sectionId);
   }
 
   /**
