@@ -74,7 +74,7 @@ export function Overlay({
         <div
           className={[
             'overlay__content',
-            animate && 'overlay__content--animate',
+            animate && 'overlay__content--animated',
             animate && `overlay__content--${overlayPosition.side}`,
           ]
             .filter(Boolean)

@@ -144,7 +144,7 @@ export function useOverlayPosition({
 
         left = anchorRect.left - overlayRect.width - offset;
 
-        transformOrigin = isStartAligned ? 'top right' : 'bottom right';
+        transformOrigin = isStartAligned ? 'right top' : 'right bottom';
         break;
 
       case 'right':
@@ -154,7 +154,7 @@ export function useOverlayPosition({
 
         left = anchorRect.right + offset;
 
-        transformOrigin = isStartAligned ? 'top left' : 'bottom left';
+        transformOrigin = isStartAligned ? 'left top' : 'left bottom';
         break;
     }
 
