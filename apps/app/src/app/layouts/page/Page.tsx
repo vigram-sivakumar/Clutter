@@ -23,6 +23,12 @@ type PageProps = {
    * later), only that it can be focused.
    */
   bodyFocusRef?: RefObject<{ focus(): void } | null>;
+  /**
+   * Fired when a changed title commits (see PageTitle.onCommit). Only the
+   * draft branch supplies this today — persisted-page rename has no
+   * backing capability yet (ADR-012).
+   */
+  onTitleCommit?(title: string): void;
 };
 
 export function Page({
@@ -36,6 +42,7 @@ export function Page({
   body,
   coverImage,
   bodyFocusRef,
+  onTitleCommit,
 }: PageProps) {
   // The one place "is this entity missing its title" is decided for the
   // editing/identity surface — driven entirely by the title string the
@@ -56,6 +63,7 @@ export function Page({
                 placeholder={titlePlaceholder}
                 autoFocus={shouldAutoFocusTitle}
                 onSubmit={() => bodyFocusRef?.current?.focus()}
+                onCommit={onTitleCommit}
               >
                 {title}
               </PageTitle>

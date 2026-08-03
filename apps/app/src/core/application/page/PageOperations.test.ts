@@ -994,3 +994,60 @@ describe('PageOperations: drafts (ADR-017)', () => {
     expect(persisted.parentId).toBe(monthFolder!.id);
   });
 });
+
+describe('PageOperations.updateDraftTitle()', () => {
+  it('updates the draft descriptor title, read back via getDraft', async () => {
+    const { pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    pageOperations.updateDraftTitle(id, 'Test note');
+
+    expect(pageOperations.getDraft(id)?.title).toBe('Test note');
+  });
+
+  it('notifies Workspace observers (ADR-020) without touching Vault', async () => {
+    const { vault, workspace, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    pageOperations.updateDraftTitle(id, 'Test note');
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(vault.getPage(id)).toBeUndefined();
+  });
+
+  it('a subsequent first save uses the updated title, not the Untitled fallback', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+
+    const id = await pageOperations.openDraft({ folderId: null });
+    pageOperations.updateDraftTitle(id, 'Test note');
+    await pageOperations.save(id, 'Hey');
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.path).toBe(`${ROOT}/Test note.md`);
+    expect(persisted.name).toBe('Test note');
+    expect(fileSystem.hasFileSync(`${ROOT}/Test note.md`)).toBe(true);
+  });
+
+  it('throws for a non-draft id, and never calls Workspace.refresh()', () => {
+    const { workspace, pageOperations } = setupEmpty();
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    expect(() => pageOperations.updateDraftTitle('does-not-exist', 'x')).toThrow(
+      /No draft descriptor/
+    );
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('throws once a draft has been promoted to a persisted page', async () => {
+    const { pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Note' });
+    await pageOperations.save(id, 'First content');
+
+    expect(() => pageOperations.updateDraftTitle(id, 'Renamed')).toThrow(
+      /No draft descriptor/
+    );
+  });
+});

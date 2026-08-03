@@ -19,6 +19,13 @@ interface PageTitleProps {
    * title. Page uses this to advance focus to the editor.
    */
   onSubmit?(): void;
+  /**
+   * Fired when a changed title is committed (Enter or a blur with changed
+   * text — see EditableText.onCommit). Optional: the persisted-page
+   * branch has no rename() capability yet (ADR-012) and leaves this
+   * unset, same as before — only the draft branch supplies one today.
+   */
+  onCommit?(value: string): void;
 }
 
 export function PageTitle({
@@ -33,6 +40,7 @@ export function PageTitle({
   placeholder = getPageTitlePlaceholder('note'),
   autoFocus,
   onSubmit,
+  onCommit,
 }: PageTitleProps) {
   return (
     <div className={['page-title', className].filter(Boolean).join(' ')}>
@@ -41,7 +49,7 @@ export function PageTitle({
           value={children}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          onCommit={() => {}}
+          onCommit={onCommit ?? (() => {})}
           onSubmit={onSubmit}
         />
       ) : (

@@ -162,6 +162,9 @@ export function PageHost({ application }: PageHostProps) {
         // don't apply until this draft is actually persisted.
         actions={draftTopBar.actions}
         bodyFocusRef={editorRef}
+        onTitleCommit={(title) =>
+          application.pageOperations.updateDraftTitle(activePageId, title)
+        }
         body={
           <MarkdownBody>
             <MarkdownEditor

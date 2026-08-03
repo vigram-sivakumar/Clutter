@@ -190,6 +190,37 @@ export class PageOperations {
     return fileName.endsWith('.md') ? fileName.slice(0, -3) : fileName;
   }
 
+  /**
+   * Updates a still-unpersisted draft's title before first save — pure
+   * in-memory replacement of the DraftDescriptor entry, no Vault call, no
+   * Gate call, no disk write (ADR-017's "no durable knowledge before first
+   * save" principle). persistDraft() already reads descriptor.title at
+   * persist time; this only ensures a typed title reaches it instead of
+   * falling back to 'Untitled'.
+   *
+   * Only valid for a genuine draft: this.drafts.has(pageId) is both
+   * necessary and sufficient to check that, since persistDraft() deletes
+   * the descriptor at the exact moment a draft is promoted (no window
+   * where both a descriptor and a Vault page exist for the same id).
+   *
+   * Drafts have no Vault entry (ADR-017), so Workspace — the only object
+   * already tracking which id is the current workspace target — is the
+   * sole available signal that the active draft's presentation-relevant
+   * state changed (ADR-020). Not a general precedent: a persisted page's
+   * metadata already notifies through Vault (see updateMetadata) and must
+   * never route through Workspace.refresh() instead.
+   */
+  public updateDraftTitle(pageId: string, title: string): void {
+    const descriptor = this.drafts.get(pageId);
+
+    if (!descriptor) {
+      throw new Error(`No draft descriptor for page: ${pageId}`);
+    }
+
+    this.drafts.set(pageId, { ...descriptor, title });
+    this.workspace.refresh();
+  }
+
   public close(pageId: string): void {
     this.workspace.closePage(pageId);
     this.documentRegistry.close(pageId);

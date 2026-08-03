@@ -550,6 +550,7 @@ Own transient navigation UI state: active page/folder, open pages, expanded fold
     get activePageId(): string | undefined;
     get activeFolderId(): string | undefined;
     subscribe(listener: () => void): Unsubscribe;
+    refresh(): void;
   }
 ```
 
@@ -567,6 +568,8 @@ Synchronous, single-threaded — no async operations, no races possible.
 
 ### Ownership
 Owns navigation UI state. Must never own persisted product data or write logic.
+
+`refresh()` is a general-purpose "external state changed, re-evaluate" notification, distinct from every other method here — it fires `notify()` without Workspace itself mutating any owned field. Per ADR-020, it may be called only when both hold: (1) the changed state has no other observable owner reachable from the UI (persisted-page state notifies through `Vault`; editor content notifies through `DocumentSession` — `refresh()` is never a substitute for wiring to an owner that already exists), and (2) the change concerns a target Workspace already tracks (the active page/folder, or another currently open page) — not a domain event unrelated to what Workspace tracks. `refresh()` must never become a default "make the UI update" convenience.
 
 ### Extension points
 Persisting workspace state (the currently-dead `.clutter/workspace.json`) would be a new `- WorkspaceSnapshot` serializer reading/writing through `VaultFileSystem` — decide deliberately if/when this becomes a product requirement; don't half-build it speculatively.

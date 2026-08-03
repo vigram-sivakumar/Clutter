@@ -74,3 +74,56 @@ describe('Page — title Enter advances focus to the body', () => {
     expect(() => fireEvent.keyDown(title, { key: 'Enter' })).not.toThrow();
   });
 });
+
+describe('Page — title commit', () => {
+  it('calls onTitleCommit with the typed value when Enter commits the title', () => {
+    const onTitleCommit = vi.fn();
+    render(
+      <Page title="" titleEditable body={<div />} onTitleCommit={onTitleCommit} />
+    );
+
+    const title = getTitle();
+    title.textContent = 'Test note';
+    fireEvent.input(title);
+    fireEvent.keyDown(title, { key: 'Enter' });
+
+    expect(onTitleCommit).toHaveBeenCalledWith('Test note');
+  });
+
+  it('calls onTitleCommit on a plain blur with changed text, not just Enter', () => {
+    const onTitleCommit = vi.fn();
+    render(
+      <Page title="" titleEditable body={<div />} onTitleCommit={onTitleCommit} />
+    );
+
+    const title = getTitle();
+    title.textContent = 'Test note';
+    fireEvent.input(title);
+    fireEvent.blur(title);
+
+    expect(onTitleCommit).toHaveBeenCalledWith('Test note');
+  });
+
+  it('does not call onTitleCommit on Escape', () => {
+    const onTitleCommit = vi.fn();
+    render(
+      <Page title="" titleEditable body={<div />} onTitleCommit={onTitleCommit} />
+    );
+
+    const title = getTitle();
+    title.textContent = 'Test note';
+    fireEvent.input(title);
+    fireEvent.keyDown(title, { key: 'Escape' });
+
+    expect(onTitleCommit).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when no onTitleCommit is provided (persisted-page branch today)', () => {
+    render(<Page title="" titleEditable body={<div />} />);
+
+    const title = getTitle();
+    title.textContent = 'Test note';
+    fireEvent.input(title);
+    expect(() => fireEvent.blur(title)).not.toThrow();
+  });
+});
