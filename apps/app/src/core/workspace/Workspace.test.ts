@@ -83,3 +83,25 @@ describe('Workspace.collapsedSectionIds / section expansion (ADR-021, M3)', () =
     expect(workspace.isSectionExpanded('folders')).toBe(true);
   });
 });
+
+describe('Workspace.isSidebarVisible (ADR-021, M4)', () => {
+  it('defaults to visible', () => {
+    const workspace = new Workspace();
+
+    expect(workspace.isSidebarVisible).toBe(true);
+  });
+
+  it('toggleSidebarVisible flips visibility and notifies each time', () => {
+    const workspace = new Workspace();
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    workspace.toggleSidebarVisible();
+    expect(workspace.isSidebarVisible).toBe(false);
+
+    workspace.toggleSidebarVisible();
+    expect(workspace.isSidebarVisible).toBe(true);
+
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+});

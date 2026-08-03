@@ -67,6 +67,13 @@ export class Workspace implements Observable {
   private _activeSidebarTab = 'daily-notes';
 
   /**
+   * Whether the sidebar panel is currently shown (ADR-021). Unblocks
+   * Controls' sidebar-toggle button, previously disabled per ADR-016
+   * ("no backing state exists for either yet").
+   */
+  private _isSidebarVisible = true;
+
+  /**
    * Registered workspace observers.
    */
   private readonly listeners = new Set<ChangeListener>();
@@ -224,6 +231,21 @@ export class Workspace implements Observable {
     }
 
     this._activeSidebarTab = tab;
+    this.notify();
+  }
+
+  /**
+   * Whether the sidebar panel is currently shown.
+   */
+  public get isSidebarVisible(): boolean {
+    return this._isSidebarVisible;
+  }
+
+  /**
+   * Toggles sidebar panel visibility.
+   */
+  public toggleSidebarVisible(): void {
+    this._isSidebarVisible = !this._isSidebarVisible;
     this.notify();
   }
 }

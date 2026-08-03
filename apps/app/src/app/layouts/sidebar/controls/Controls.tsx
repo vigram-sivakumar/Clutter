@@ -2,18 +2,29 @@ import './Controls.css';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 
+interface ControlsProps {
+  isSidebarVisible: boolean;
+  onToggleSidebarVisible(): void;
+}
+
 /**
- * Sidebar-toggle and history (back/forward) controls are intentional
- * placeholders for future sidebar-state and navigation-history features —
- * no backing state exists for either yet. All three stay `disabled` until
- * that state exists; an enabled control with no handler is not an
- * acceptable placeholder (see ADR-016).
+ * History (back/forward) controls remain intentional placeholders — no
+ * backing state exists for navigation history yet (ADR-016). The
+ * sidebar-toggle button is no longer one: Workspace.isSidebarVisible
+ * (ADR-021, M4) is its backing state.
  */
-export function Controls() {
+export function Controls({ isSidebarVisible, onToggleSidebarVisible }: ControlsProps) {
   return (
     <div className="controls" data-tauri-drag-region>
       <div className="sidebar-toggle">
-        <Button isIconOnly size="medium" variant="ghost" disabled>
+        <Button
+          isIconOnly
+          size="medium"
+          variant="ghost"
+          isActive={isSidebarVisible}
+          aria-pressed={isSidebarVisible}
+          onClick={onToggleSidebarVisible}
+        >
           <AppIcon icon="sidebar" />
         </Button>
       </div>

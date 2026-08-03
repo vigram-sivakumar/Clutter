@@ -106,21 +106,32 @@ export function Sidebar({ application }: SidebarProps) {
 
   return (
     <aside className="sidebar">
-      <Controls />
-      <Tabs
-        value={workspace.activeSidebarTab}
-        onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
-      >
-        {tabs.map((tab) => (
-          <Tab key={tab.value} value={tab.value}>
-            <AppIcon icon={tab.icon} emoji={tab.emoji} />
-          </Tab>
-        ))}
-      </Tabs>
-      <div className="sidebar--content">
-        {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
-      </div>
-      <Footer onOpenArchive={() => navigation.openArchive()} />
+      {/* Controls (including the sidebar-toggle button itself) stays
+          rendered regardless of isSidebarVisible — hiding it alongside
+          the rest of the sidebar would remove the only way to show the
+          sidebar again (ADR-021, M4). */}
+      <Controls
+        isSidebarVisible={workspace.isSidebarVisible}
+        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+      />
+      {workspace.isSidebarVisible && (
+        <>
+          <Tabs
+            value={workspace.activeSidebarTab}
+            onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
+          >
+            {tabs.map((tab) => (
+              <Tab key={tab.value} value={tab.value}>
+                <AppIcon icon={tab.icon} emoji={tab.emoji} />
+              </Tab>
+            ))}
+          </Tabs>
+          <div className="sidebar--content">
+            {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
+          </div>
+          <Footer onOpenArchive={() => navigation.openArchive()} />
+        </>
+      )}
     </aside>
   );
 }
