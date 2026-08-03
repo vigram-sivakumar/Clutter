@@ -71,6 +71,17 @@ export function buildBreadcrumbs(
   vault: Vault,
   onOpenFolder: (folderId: string) => void
 ): Breadcrumb[] {
+  // Root-level entries have no breadcrumb trail. Breadcrumbs exist to
+  // communicate hierarchy, not identity — at the vault root there is no
+  // hierarchy to show, and the page header already displays the entry's
+  // name, so a root crumb would only restate it. Reads directly off the
+  // domain model (parentId), not off the ancestor walk's result, so the
+  // policy can't silently drift if the traversal implementation ever
+  // changes.
+  if (entry.parentId === null) {
+    return [];
+  }
+
   const ancestors = ancestorBreadcrumbs(entry.parentId, vault, onOpenFolder);
 
   ancestors.push({
@@ -98,6 +109,12 @@ export function buildBreadcrumbsForDraft(
   vault: Vault,
   onOpenFolder: (folderId: string) => void
 ): Breadcrumb[] {
+  // Root-level entries have no breadcrumb trail — same policy as
+  // buildBreadcrumbs. A draft with no folder is a root entry.
+  if (folderId === null) {
+    return [];
+  }
+
   const ancestors = ancestorBreadcrumbs(folderId, vault, onOpenFolder);
 
   ancestors.push({
