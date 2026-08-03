@@ -1,4 +1,5 @@
 import type { Page } from '../models/Page';
+import type { PageMetadata } from '../models/PageMetadata';
 import type { Folder } from '../models/Folder';
 import { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
@@ -22,7 +23,18 @@ import { MoveService } from './MoveService';
  * this same Gate, keyed by folder id instead of page id, per spec §7.
  */
 export type PersistenceOperation =
-  | { readonly kind: 'save'; readonly content: string }
+  | {
+      readonly kind: 'save';
+      readonly content: string;
+      // Optional metadata patch, applied to the current Page before
+      // re-serializing (see writeParseRebuildReplace) — lets a metadata-only
+      // update (PageOperations.updateMetadata) reuse this same kind and the
+      // same write-parse-rebuild-replace pipeline body saves already use,
+      // instead of a second operation kind that would just call the same
+      // helper again (ARCHITECTURE_RULES.md rule 12; implementation-rules
+      // §6 "merge instead of expand").
+      readonly metadata?: Partial<PageMetadata>;
+    }
   | {
       readonly kind: 'create';
       readonly path: string;
@@ -152,8 +164,12 @@ export class PagePersistenceCoordinator {
     }
 
     switch (operation.kind) {
-      case 'save':
-        return this.writeParseRebuildReplace(current, operation.content);
+      case 'save': {
+        const target = operation.metadata
+          ? { ...current, metadata: { ...current.metadata, ...operation.metadata } }
+          : current;
+        return this.writeParseRebuildReplace(target, operation.content);
+      }
       case 'archive':
         return this.runArchive(current);
       case 'restore':

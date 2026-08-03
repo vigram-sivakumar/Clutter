@@ -40,7 +40,7 @@ describe('toResourcePageModel', () => {
     const page = buildPage({ description: 'A note', cover: '/vault/cover.png' });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.title).toBe(page.name);
     expect(model.description).toBe('A note');
@@ -53,7 +53,7 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     session.commit(new DocumentTransaction('Edited body'));
 
-    const model = toResourcePageModel(page, session, vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.markdown).toBe('Edited body');
   });
@@ -63,7 +63,7 @@ describe('toResourcePageModel', () => {
     const session = new DocumentSession(page.id, page.source.markdown);
     const onUpdateMarkdown = vi.fn();
 
-    const model = toResourcePageModel(page, session, onUpdateMarkdown);
+    const model = toResourcePageModel(page, session, onUpdateMarkdown, vi.fn());
     model.updateMarkdown('New content');
 
     expect(onUpdateMarkdown).toHaveBeenCalledWith(page.id, 'New content');
@@ -76,7 +76,7 @@ describe('toResourcePageModel', () => {
     });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.title).toBe('');
   });
@@ -102,21 +102,21 @@ describe('toResourcePageModel', () => {
     });
     const session = new DocumentSession(page.id, page.source.markdown);
 
-    const model = toResourcePageModel(page, session, vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn());
 
     expect(model.title).toBe('Untitled');
     expect(model.title).toBe(page.name);
   });
 
-  it('updateDescription throws — not yet routed through the Application layer', () => {
+  it('updateDescription delegates to the onUpdateDescription callback with the page id', () => {
     const page = buildPage();
     const session = new DocumentSession(page.id, page.source.markdown);
+    const onUpdateDescription = vi.fn();
 
-    const model = toResourcePageModel(page, session, vi.fn());
+    const model = toResourcePageModel(page, session, vi.fn(), onUpdateDescription);
+    model.updateDescription('New description');
 
-    expect(() => model.updateDescription('New description')).toThrow(
-      'Not implemented'
-    );
+    expect(onUpdateDescription).toHaveBeenCalledWith(page.id, 'New description');
   });
 });
 

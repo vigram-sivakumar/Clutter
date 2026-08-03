@@ -11,7 +11,8 @@ import { isNoteUntitled } from '@core/presentation/isNoteUntitled';
 export function toResourcePageModel(
   page: Page,
   session: DocumentSession,
-  onUpdateMarkdown: (pageId: string, markdown: string) => void
+  onUpdateMarkdown: (pageId: string, markdown: string) => void,
+  onUpdateDescription: (pageId: string, description: string) => void
 ): ResourcePageModel {
   const revision = session.currentRevision;
 
@@ -33,14 +34,8 @@ export function toResourcePageModel(
     markdown: revision.markdown,
     coverImage: page.metadata.cover,
 
-    // TODO: Follow the same editing pipeline as updateMarkdown() once
-    // description edits are routed through the Application layer.
-    // Description edits should never update the Vault or DocumentSession
-    // directly from the ViewModel.
     updateDescription(description: string): void {
-      void description;
-
-      throw new Error('Not implemented');
+      onUpdateDescription(page.id, description);
     },
 
     updateMarkdown(markdown: string): void {

@@ -64,6 +64,10 @@ export function PageHost({ application }: PageHostProps) {
     void application.pageOperations.save(pageId, markdown);
   };
 
+  const onUpdateDescription = (pageId: string, description: string): void => {
+    void application.pageOperations.updateMetadata(pageId, { description });
+  };
+
   const onArchive = (): void => {
     if (!activePageId) {
       return;
@@ -184,7 +188,7 @@ export function PageHost({ application }: PageHostProps) {
     throw new Error(`Unsupported page type: ${page.type}`);
   }
 
-  const model = toResourcePageModel(page, session, onUpdateMarkdown);
+  const model = toResourcePageModel(page, session, onUpdateMarkdown, onUpdateDescription);
   const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
 
   return (

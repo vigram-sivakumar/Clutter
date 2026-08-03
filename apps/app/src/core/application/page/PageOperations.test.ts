@@ -5,6 +5,7 @@ import { Workspace } from '../../workspace/Workspace';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { DocumentState } from '../../engine/DocumentState';
+import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
@@ -272,6 +273,63 @@ describe('PageOperations.save(): archived pages are view-only', () => {
 
     await expect(pageOperations.save(page.id, 'Edit after restore')).resolves.toBeUndefined();
     expect(vault.getPage(page.id)!.source.markdown).toBe('Edit after restore');
+  });
+});
+
+describe('PageOperations.updateMetadata()', () => {
+  it('persists a metadata patch to disk and the vault, without requiring an open session', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, { description: 'A new description' });
+
+    expect(vault.getPage(page.id)!.metadata.description).toBe('A new description');
+    expect(await fileSystem.readFile(page.path)).toContain('description: A new description');
+  });
+
+  it('preserves unrelated metadata (icon, favorite) across a metadata-only patch', async () => {
+    const page = buildPage({ icon: '📝', favorite: true });
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, { description: 'A new description' });
+
+    const updated = vault.getPage(page.id)!;
+    expect(updated.metadata.icon).toBe('📝');
+    expect(updated.metadata.favorite).toBe(true);
+  });
+
+  it('writes the vault\'s current durable body, leaving a dirty open session untouched', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.open(page.id);
+    const session = pageOperations.getSession(page.id)!;
+    session.commit(new DocumentTransaction('Unsaved editor content'));
+
+    await pageOperations.updateMetadata(page.id, { description: 'A new description' });
+
+    expect(vault.getPage(page.id)!.source.markdown).toBe('Original body');
+    expect(session.currentRevision.markdown).toBe('Unsaved editor content');
+    expect(session.isDirty).toBe(true);
+  });
+
+  it('rejects for an archived page', async () => {
+    const page = buildPage();
+    const { coordinator, pageOperations } = setup(page);
+    await archiveDirectly(coordinator, page.id);
+
+    await expect(
+      pageOperations.updateMetadata(page.id, { description: 'Blocked' })
+    ).rejects.toThrow(/Cannot edit archived page/);
+  });
+
+  it('rejects for an unknown page id', async () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    await expect(
+      pageOperations.updateMetadata('does-not-exist', { description: 'x' })
+    ).rejects.toThrow(/Page not found/);
   });
 });
 

@@ -4,6 +4,7 @@ import { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { Vault } from '../../vault/models/Vault';
 import type { Page, PageType } from '../../vault/models/Page';
+import type { PageMetadata } from '../../vault/models/PageMetadata';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { PagePathResolver } from './PagePathResolver';
@@ -16,6 +17,19 @@ export interface CreatePageOptions {
   readonly folderId: string | null;
   readonly title?: string;
 }
+
+/**
+ * The subset of PageMetadata a caller may set through updateMetadata().
+ * Deliberately excludes status/archivedAt/originalPath/originalParentId
+ * (owned solely by archive()/restore()), createdAt (owned solely by page
+ * creation), and updatedAt (derived by the rebuild pipeline on every
+ * write) — those fields already have a single owner elsewhere, and
+ * updateMetadata() must not become a second way to reach them.
+ */
+export type EditablePageMetadata = Pick<
+  PageMetadata,
+  'description' | 'icon' | 'cover' | 'favorite'
+>;
 
 /** The public shape UI reads for a draft it can't find in the Vault yet — see PageOperations.getDraft(). */
 export interface DraftInfo {
@@ -251,6 +265,50 @@ export class PageOperations {
     } catch (error) {
       this.saveCoordinator.failSave(session, revision);
       throw error;
+    }
+  }
+
+  /**
+   * Updates user-editable metadata (description, icon, cover, favorite) for
+   * an already-persisted page. Deliberately does not touch DocumentSession
+   * or SaveCoordinator — a metadata edit is not a document-revision event,
+   * so it persists the Vault's current durable body (page.source.markdown)
+   * alongside the patch, leaving any dirty editor buffer untouched. Reuses
+   * the Gate's 'save' kind (see PagePersistenceCoordinator) rather than a
+   * dedicated operation kind, since the write-parse-rebuild-replace
+   * pipeline it needs is exactly the one 'save' already runs.
+   *
+   * Same archived-page guard as save(): metadata is part of a page's
+   * editable surface, not a structural property like status/path, so an
+   * archived page stays fully view-only until restored.
+   *
+   * Not available for drafts (ADR-017) — a draft has no Vault Page and
+   * therefore no metadata yet; that is unchanged by this method.
+   */
+  public async updateMetadata(
+    pageId: string,
+    patch: Partial<EditablePageMetadata>
+  ): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    if (page.metadata.status === 'archived') {
+      throw new Error(
+        `Cannot edit archived page: ${pageId}. Restore it before editing.`
+      );
+    }
+
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'save',
+      content: page.source.markdown,
+      metadata: patch,
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
     }
   }
 
