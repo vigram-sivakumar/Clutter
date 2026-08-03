@@ -48,6 +48,14 @@ export class Workspace implements Observable {
   private readonly collapsedFolderIds = new Set<string>();
 
   /**
+   * Which sidebar tab (Daily Notes/Notes/Tasks/Tags/Search) is currently
+   * showing (ADR-021). Discrete, shared, session-scoped — the same shape
+   * as activePageId/activeFolderId, just for the sidebar's own tab strip
+   * rather than the main content pane.
+   */
+  private _activeSidebarTab = 'daily-notes';
+
+  /**
    * Registered workspace observers.
    */
   private readonly listeners = new Set<ChangeListener>();
@@ -167,5 +175,24 @@ export class Workspace implements Observable {
    */
   public isFolderExpanded(folderId: string): boolean {
     return !this.collapsedFolderIds.has(folderId);
+  }
+
+  /**
+   * The sidebar tab currently showing.
+   */
+  public get activeSidebarTab(): string {
+    return this._activeSidebarTab;
+  }
+
+  /**
+   * Switches the active sidebar tab.
+   */
+  public setActiveSidebarTab(tab: string): void {
+    if (this._activeSidebarTab === tab) {
+      return;
+    }
+
+    this._activeSidebarTab = tab;
+    this.notify();
   }
 }

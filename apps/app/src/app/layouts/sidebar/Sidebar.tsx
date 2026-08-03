@@ -1,6 +1,6 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { DailyNotePath } from '@core/application/daily-notes/DailyNotePath';
 import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
 import './Sidebar.css';
@@ -30,7 +30,6 @@ export function Sidebar({ application }: SidebarProps) {
     effectivePageState,
   } = application;
   const workspace = useWorkspace(application.workspace);
-  const [activeTab, setActiveTab] = useState('daily-notes');
   const activeDailyNoteDate = getActiveDailyNoteDate(
     vault,
     workspace.activePageId,
@@ -108,7 +107,10 @@ export function Sidebar({ application }: SidebarProps) {
   return (
     <aside className="sidebar">
       <Controls />
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs
+        value={workspace.activeSidebarTab}
+        onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
+      >
         {tabs.map((tab) => (
           <Tab key={tab.value} value={tab.value}>
             <AppIcon icon={tab.icon} emoji={tab.emoji} />
@@ -116,7 +118,7 @@ export function Sidebar({ application }: SidebarProps) {
         ))}
       </Tabs>
       <div className="sidebar--content">
-        {tabs.find((tab) => tab.value === activeTab)?.panel}
+        {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
       <Footer onOpenArchive={() => navigation.openArchive()} />
     </aside>
