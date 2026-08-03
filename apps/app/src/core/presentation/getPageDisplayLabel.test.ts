@@ -101,7 +101,7 @@ describe('getPageDisplayLabel — Daily Notes', () => {
     const page = makePage({ type: 'daily-note', name: '2026-08-02' });
 
     expect(getPageDisplayLabel(page)).toEqual({
-      text: 'Empty daily note',
+      text: 'Start typing...',
       source: 'placeholder',
     });
   });
@@ -170,10 +170,10 @@ describe('getPageDisplayLabelStyle — Daily Notes', () => {
     ).toBe('default');
   });
 
-  it('is "placeholder" for the literal "Empty daily note" fallback — nothing was available at all', () => {
+  it('is "placeholder" for the literal "Start typing..." fallback — nothing was available at all', () => {
     expect(
       getPageDisplayLabelStyle(dailyNotePage, {
-        text: 'Empty daily note',
+        text: 'Start typing...',
         source: 'placeholder',
       })
     ).toBe('placeholder');

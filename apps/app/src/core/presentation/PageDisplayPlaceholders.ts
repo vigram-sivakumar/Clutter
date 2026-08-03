@@ -9,5 +9,5 @@ import type { PageType } from '../vault/models/Page';
  * literals would.
  */
 export function getPageTitlePlaceholder(type: PageType): string {
-  return type === 'daily-note' ? 'Empty daily note' : 'New Note';
+  return type === 'daily-note' ? 'Start typing...' : 'New Note';
 }

@@ -57,7 +57,7 @@ export function getPageDisplayLabel(page: Page): PageDisplayLabel {
  * unrelated special cases:
  *
  * - The literal placeholder fallback (source === 'placeholder' — "New
- *   Note" / "Empty daily note") always renders as 'placeholder' for both types:
+ *   Note" / "Start typing...") always renders as 'placeholder' for both types:
  *   it means "nothing was available at all," which is never a stand-in
  *   for real content.
  * - For Notes, everything short of the explicit title (description,
