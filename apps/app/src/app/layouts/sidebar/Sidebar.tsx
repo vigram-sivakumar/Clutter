@@ -65,7 +65,7 @@ export function Sidebar({ application }: SidebarProps) {
     },
     {
       value: 'notes',
-      icon: 'note',
+      icon: 'squiggleLine',
       panel: (
         <Notes
           query={query}
