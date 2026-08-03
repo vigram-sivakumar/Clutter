@@ -23,4 +23,3 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [017](./017-draft-page-lifecycle.md) | Draft page lifecycle — unpersisted `PageOperations` sessions, no `Vault`/`PageStatus` change | Accepted |
 | [018](./018-document-editing-identity-decoupling.md) | Decouple `DocumentEditing` from `Page` — identity-free editing sessions | Accepted |
 | [019](./019-retire-boot-time-daily-note-scaffolding.md) | Retire `ensureDirectoryForToday` — Composition Root no longer scaffolds Daily Notes at boot | Accepted |
-| [020](./020-workspace-refresh-exceptional-notification.md) | `Workspace.refresh()` as an exceptional, gated notification channel | Accepted |

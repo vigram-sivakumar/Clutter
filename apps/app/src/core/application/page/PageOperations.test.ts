@@ -1005,7 +1005,7 @@ describe('PageOperations.updateDraftTitle()', () => {
     expect(pageOperations.getDraft(id)?.title).toBe('Test note');
   });
 
-  it('notifies Workspace observers (ADR-020) without touching Vault', async () => {
+  it("notifies Workspace observers (ADR-006's amendment) without touching Vault", async () => {
     const { vault, workspace, pageOperations } = setupEmpty();
     const id = await pageOperations.openDraft({ folderId: null });
     const listener = vi.fn();

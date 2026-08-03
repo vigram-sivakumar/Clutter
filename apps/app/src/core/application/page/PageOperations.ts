@@ -206,7 +206,7 @@ export class PageOperations {
    * Drafts have no Vault entry (ADR-017), so Workspace — the only object
    * already tracking which id is the current workspace target — is the
    * sole available signal that the active draft's presentation-relevant
-   * state changed (ADR-020). Not a general precedent: a persisted page's
+   * state changed (ADR-006's amendment). Not a general precedent: a persisted page's
    * metadata already notifies through Vault (see updateMetadata) and must
    * never route through Workspace.refresh() instead.
    */
