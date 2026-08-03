@@ -10,6 +10,8 @@ import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersiste
 import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
+import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
+import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontmatter';
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { DailyNoteService } from '../daily-notes/DailyNoteService';
 
@@ -191,12 +193,27 @@ export class PageOperations {
   }
 
   /**
-   * Updates a still-unpersisted draft's title before first save — pure
-   * in-memory replacement of the DraftDescriptor entry, no Vault call, no
-   * Gate call, no disk write (ADR-017's "no durable knowledge before first
-   * save" principle). persistDraft() already reads descriptor.title at
-   * persist time; this only ensures a typed title reaches it instead of
-   * falling back to 'Untitled'.
+   * Updates a still-unpersisted draft's title — pure in-memory replacement
+   * of the DraftDescriptor entry, no Vault call, no Gate call, no disk
+   * write on its own (ADR-017's "no durable knowledge before first save"
+   * principle). persistDraft() already reads descriptor.title at persist
+   * time; this ensures a typed title reaches it instead of falling back to
+   * 'Untitled'.
+   *
+   * A non-empty, changed title is a committed, persistent, user-owned
+   * change — the same category promoting the draft via a body save already
+   * is — so it promotes here too, through the exact same persistDraft()
+   * helper, for every draft type except Daily Notes (descriptor
+   * .deterministicPath set): a Daily Note's title is derived from its date
+   * and never consumed by persistDraft's deterministic-path branch, so
+   * committing it carries no user intent to make today's note real — only
+   * its own body/metadata commits do, unchanged from before this milestone.
+   *
+   * "Committed change" is verified here, not assumed from the caller: the
+   * comparison is against descriptor.title itself (mirrors EditableText's
+   * own change check), so a caller that isn't the current UI — a future
+   * plugin, an accidental duplicate call — cannot trigger a spurious
+   * promotion by calling this with a value that isn't actually new.
    *
    * Only valid for a genuine draft: this.drafts.has(pageId) is both
    * necessary and sufficient to check that, since persistDraft() deletes
@@ -206,19 +223,33 @@ export class PageOperations {
    * Drafts have no Vault entry (ADR-017), so Workspace — the only object
    * already tracking which id is the current workspace target — is the
    * sole available signal that the active draft's presentation-relevant
-   * state changed (ADR-006's amendment). Not a general precedent: a persisted page's
-   * metadata already notifies through Vault (see updateMetadata) and must
-   * never route through Workspace.refresh() instead.
+   * state changed (ADR-006's amendment), for the case where this call
+   * doesn't promote (Daily Notes). Once promotion happens, Vault's own
+   * notify (fired by persistDraft's Gate 'create') is what UI already
+   * observes — this call still refreshes Workspace either way, which is
+   * redundant but harmless in the promoting case, not a second mechanism.
    */
-  public updateDraftTitle(pageId: string, title: string): void {
+  public async updateDraftTitle(pageId: string, title: string): Promise<void> {
     const descriptor = this.drafts.get(pageId);
 
     if (!descriptor) {
       throw new Error(`No draft descriptor for page: ${pageId}`);
     }
 
+    if (title === (descriptor.title ?? '')) {
+      return;
+    }
+
     this.drafts.set(pageId, { ...descriptor, title });
     this.workspace.refresh();
+
+    if (descriptor.deterministicPath) {
+      return;
+    }
+
+    const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
+
+    await this.persistDraft(pageId, body);
   }
 
   public close(pageId: string): void {
@@ -301,20 +332,39 @@ export class PageOperations {
 
   /**
    * Updates user-editable metadata (description, icon, cover, favorite) for
-   * an already-persisted page. Deliberately does not touch DocumentSession
-   * or SaveCoordinator — a metadata edit is not a document-revision event,
-   * so it persists the Vault's current durable body (page.source.markdown)
-   * alongside the patch, leaving any dirty editor buffer untouched. Reuses
-   * the Gate's 'save' kind (see PagePersistenceCoordinator) rather than a
-   * dedicated operation kind, since the write-parse-rebuild-replace
-   * pipeline it needs is exactly the one 'save' already runs.
+   * a page — persisted or still a draft.
    *
-   * Same archived-page guard as save(): metadata is part of a page's
-   * editable surface, not a structural property like status/path, so an
-   * archived page stays fully view-only until restored.
+   * Persisted branch (unchanged from before this milestone): deliberately
+   * does not touch DocumentSession or SaveCoordinator — a metadata edit is
+   * not a document-revision event, so it persists the Vault's current
+   * durable body (page.source.markdown) alongside the patch, leaving any
+   * dirty editor buffer untouched. Reuses the Gate's 'save' kind (see
+   * PagePersistenceCoordinator) rather than a dedicated operation kind,
+   * since the write-parse-rebuild-replace pipeline it needs is exactly the
+   * one 'save' already runs. Same archived-page guard as save(): metadata
+   * is part of a page's editable surface, not a structural property like
+   * status/path, so an archived page stays fully view-only until restored.
    *
-   * Not available for drafts (ADR-017) — a draft has no Vault Page and
-   * therefore no metadata yet; that is unchanged by this method.
+   * Draft branch: a patch is a committed, persistent, user-owned change —
+   * the same category as a title or body commit — only for the keys whose
+   * value actually differs from what a blank page would already have.
+   * "Blank page" is resolvePageMetadata({}) — the exact defaulting
+   * PageBuilder itself uses for missing frontmatter, not a
+   * separately-maintained table, so this check never needs revisiting when
+   * a new EditablePageMetadata field is added (Description milestone,
+   * draft-promotion generalization). A patch matching every field's
+   * default (e.g. { favorite: false } on a draft that was never favorited)
+   * is not a committed change: no promotion, no error, a true no-op — the
+   * check is enforced here, not assumed from the caller, so a future
+   * caller that isn't today's UI cannot trigger a spurious promotion.
+   *
+   * Daily Notes (descriptor.deterministicPath set) do not participate —
+   * same exclusion as updateDraftTitle, and for the same reason: nothing
+   * about interacting with a Daily Note's not-yet-meaningful pre-promotion
+   * state should make today's note real. Metadata has no in-memory home on
+   * a draft the way title does (DraftDescriptor carries no metadata
+   * field — no entry point sets any before promotion), so a Daily Note
+   * draft is treated the same as any id with nowhere to persist metadata.
    */
   public async updateMetadata(
     pageId: string,
@@ -322,25 +372,43 @@ export class PageOperations {
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
 
-    if (!page) {
+    if (page) {
+      if (page.metadata.status === 'archived') {
+        throw new Error(
+          `Cannot edit archived page: ${pageId}. Restore it before editing.`
+        );
+      }
+
+      const result = await this.coordinator.enqueue(pageId, {
+        kind: 'save',
+        content: page.source.markdown,
+        metadata: patch,
+      });
+
+      if (result.status === 'abandoned') {
+        throw new Error(`Page not found: ${pageId}`);
+      }
+
+      return;
+    }
+
+    const descriptor = this.drafts.get(pageId);
+
+    if (!descriptor || descriptor.deterministicPath) {
       throw new Error(`Page not found: ${pageId}`);
     }
 
-    if (page.metadata.status === 'archived') {
-      throw new Error(
-        `Cannot edit archived page: ${pageId}. Restore it before editing.`
-      );
+    const defaults = resolvePageMetadata({});
+    const keys = Object.keys(patch) as (keyof EditablePageMetadata)[];
+    const isCommittedChange = keys.some((key) => patch[key] !== defaults[key]);
+
+    if (!isCommittedChange) {
+      return;
     }
 
-    const result = await this.coordinator.enqueue(pageId, {
-      kind: 'save',
-      content: page.source.markdown,
-      metadata: patch,
-    });
+    const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
-    if (result.status === 'abandoned') {
-      throw new Error(`Page not found: ${pageId}`);
-    }
+    await this.persistDraft(pageId, body, patch);
   }
 
   public async archive(pageId: string): Promise<void> {
@@ -379,12 +447,23 @@ export class PageOperations {
   }
 
   /**
-   * Shared by create() and save()'s first-save branch: resolves the
+   * Shared by create(), save()'s first-save branch, updateDraftTitle()'s
+   * promotion branch, and updateMetadata()'s draft branch: resolves the
    * destination path (deterministic, if the descriptor was opened via
    * openAtPath — Daily Notes; collision-free via PagePathResolver,
    * otherwise), builds the document for the id the draft already has, and
-   * enqueues the one Gate `create` call either caller uses. The only
-   * write path from "this page doesn't exist in the Vault yet" to disk.
+   * enqueues the one Gate `create` call every caller uses. The only write
+   * path from "this page doesn't exist in the Vault yet" to disk —
+   * whichever kind of committed change triggered promotion (title, body,
+   * or metadata), it converges here, never a second creation path.
+   *
+   * metadataPatch carries an editable-metadata patch when the first
+   * persistent change was a metadata edit rather than a title/body one —
+   * translated from EditablePageMetadata's string|null shape to
+   * PageFrontmatter's string|undefined shape (null means "no value", which
+   * frontmatter expresses by omitting the key, not by writing it) before
+   * reaching PageCreator, which stays typed purely in terms of
+   * PageFrontmatter.
    *
    * For a Daily Note, the parentId used here is re-resolved via
    * DailyNoteService.ensureFolderChain rather than trusting
@@ -395,7 +474,11 @@ export class PageOperations {
    * only happens here, at the moment of an actual save — never at
    * open/navigation time, per ADR-017's governing principle.
    */
-  private async persistDraft(id: string, body: string): Promise<Page> {
+  private async persistDraft(
+    id: string,
+    body: string,
+    metadataPatch?: Partial<EditablePageMetadata>
+  ): Promise<Page> {
     const descriptor = this.drafts.get(id);
 
     if (!descriptor) {
@@ -419,7 +502,12 @@ export class PageOperations {
           descriptor.title ?? 'Untitled'
         );
 
-    const content = this.pageCreator.buildContent(id, descriptor.type, body);
+    const content = this.pageCreator.buildContent(
+      id,
+      descriptor.type,
+      body,
+      metadataPatch ? this.toFrontmatterMetadataPatch(metadataPatch) : undefined
+    );
 
     const result = await this.coordinator.enqueue(id, {
       kind: 'create',
@@ -443,6 +531,37 @@ export class PageOperations {
     }
 
     return result.page;
+  }
+
+  /**
+   * EditablePageMetadata's string|null fields mean "explicitly no value";
+   * PageFrontmatter's string|undefined fields mean the same thing by
+   * omitting the key (FrontmatterSerializer only skips undefined values —
+   * writing a literal null would end up as the text "null" in the file).
+   * Only keys actually present in the patch are translated, so a caller
+   * that didn't mention a field never clears it.
+   */
+  private toFrontmatterMetadataPatch(
+    patch: Partial<EditablePageMetadata>
+  ): Partial<Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite'>> {
+    const result: Partial<
+      Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite'>
+    > = {};
+
+    if ('description' in patch) {
+      result.description = patch.description ?? undefined;
+    }
+    if ('icon' in patch) {
+      result.icon = patch.icon ?? undefined;
+    }
+    if ('cover' in patch) {
+      result.cover = patch.cover ?? undefined;
+    }
+    if ('favorite' in patch) {
+      result.favorite = patch.favorite;
+    }
+
+    return result;
   }
 
   public async move(pageId: string, destinationFolderId: string): Promise<void> {

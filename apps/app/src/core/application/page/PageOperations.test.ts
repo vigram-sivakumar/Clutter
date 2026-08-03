@@ -996,48 +996,89 @@ describe('PageOperations: drafts (ADR-017)', () => {
 });
 
 describe('PageOperations.updateDraftTitle()', () => {
-  it('updates the draft descriptor title, read back via getDraft', async () => {
-    const { pageOperations } = setupEmpty();
-    const id = await pageOperations.openDraft({ folderId: null });
-
-    pageOperations.updateDraftTitle(id, 'Test note');
-
-    expect(pageOperations.getDraft(id)?.title).toBe('Test note');
-  });
-
-  it("notifies Workspace observers (ADR-006's amendment) without touching Vault", async () => {
-    const { vault, workspace, pageOperations } = setupEmpty();
-    const id = await pageOperations.openDraft({ folderId: null });
-    const listener = vi.fn();
-    workspace.subscribe(listener);
-
-    pageOperations.updateDraftTitle(id, 'Test note');
-
-    expect(listener).toHaveBeenCalledTimes(1);
-    expect(vault.getPage(id)).toBeUndefined();
-  });
-
-  it('a subsequent first save uses the updated title, not the Untitled fallback', async () => {
+  it('a non-empty committed title promotes a regular-note draft immediately, with an empty body', async () => {
     const { vault, fileSystem, pageOperations } = setupEmpty();
-
     const id = await pageOperations.openDraft({ folderId: null });
-    pageOperations.updateDraftTitle(id, 'Test note');
-    await pageOperations.save(id, 'Hey');
+
+    await pageOperations.updateDraftTitle(id, 'Test note');
 
     const persisted = vault.getPage(id)!;
     expect(persisted.path).toBe(`${ROOT}/Test note.md`);
     expect(persisted.name).toBe('Test note');
+    expect(persisted.source.markdown).toBe('');
     expect(fileSystem.hasFileSync(`${ROOT}/Test note.md`)).toBe(true);
+    expect(pageOperations.getDraft(id)).toBeUndefined();
   });
 
-  it('throws for a non-draft id, and never calls Workspace.refresh()', () => {
+  it('a subsequent body save on a title-promoted draft is an ordinary save, not another create', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.updateDraftTitle(id, 'Test note');
+    await pageOperations.open(id);
+    await pageOperations.save(id, 'Hey');
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.path).toBe(`${ROOT}/Test note.md`);
+    expect(persisted.source.markdown).toBe('Hey');
+  });
+
+  it('re-committing the same title is not a committed change: no promotion, no error', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Same' });
+
+    await pageOperations.updateDraftTitle(id, 'Same');
+
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(pageOperations.getDraft(id)?.title).toBe('Same');
+  });
+
+  it('an empty committed title is not a committed change: no promotion, no error', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.updateDraftTitle(id, '');
+
+    expect(vault.getPage(id)).toBeUndefined();
+  });
+
+  it('does not promote a Daily Note draft on title commit — only its own body/metadata commits do', async () => {
+    const { vault, pageOperations } = setupEmpty([
+      makeArchiveFolder(),
+      makeDailyNotesFolder(),
+    ]);
+    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    await pageOperations.updateDraftTitle(id, 'Something else entirely');
+
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(pageOperations.getDraft(id)?.title).toBe('Something else entirely');
+  });
+
+  it("notifies Workspace observers (ADR-006's amendment) for a non-promoting (Daily Note) title commit", async () => {
+    const { workspace, pageOperations } = setupEmpty([
+      makeArchiveFolder(),
+      makeDailyNotesFolder(),
+    ]);
+    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    await pageOperations.updateDraftTitle(id, 'Something else entirely');
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws for a non-draft id, and never calls Workspace.refresh()', async () => {
     const { workspace, pageOperations } = setupEmpty();
     const listener = vi.fn();
     workspace.subscribe(listener);
 
-    expect(() => pageOperations.updateDraftTitle('does-not-exist', 'x')).toThrow(
-      /No draft descriptor/
-    );
+    await expect(
+      pageOperations.updateDraftTitle('does-not-exist', 'x')
+    ).rejects.toThrow(/No draft descriptor/);
     expect(listener).not.toHaveBeenCalled();
   });
 
@@ -1046,8 +1087,104 @@ describe('PageOperations.updateDraftTitle()', () => {
     const id = await pageOperations.openDraft({ folderId: null, title: 'Note' });
     await pageOperations.save(id, 'First content');
 
-    expect(() => pageOperations.updateDraftTitle(id, 'Renamed')).toThrow(
+    await expect(pageOperations.updateDraftTitle(id, 'Renamed')).rejects.toThrow(
       /No draft descriptor/
     );
+  });
+});
+
+describe('PageOperations.updateMetadata(): draft promotion', () => {
+  it('a committed metadata patch promotes a regular-note draft immediately, with an empty body', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.updateMetadata(id, { favorite: true });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.metadata.favorite).toBe(true);
+    expect(persisted.source.markdown).toBe('');
+    expect(persisted.path).toBe(`${ROOT}/Untitled.md`);
+    expect(fileSystem.hasFileSync(`${ROOT}/Untitled.md`)).toBe(true);
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+  });
+
+  it('a patch matching every field\'s default is not a committed change: no promotion, no error', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.updateMetadata(id, { favorite: false, description: null });
+
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(pageOperations.getDraft(id)).toBeDefined();
+  });
+
+  it('promotion via metadata uses whatever title was already captured', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+    await pageOperations.updateDraftTitle(id, ''); // no-op, still a draft
+    const draft = await pageOperations.openDraft({ folderId: null, title: 'My favorite note' });
+
+    await pageOperations.updateMetadata(draft, { favorite: true });
+
+    expect(vault.getPage(draft)!.path).toBe(`${ROOT}/My favorite note.md`);
+  });
+
+  it('does not promote a Daily Note draft on a metadata commit', async () => {
+    const { vault, pageOperations } = setupEmpty([
+      makeArchiveFolder(),
+      makeDailyNotesFolder(),
+    ]);
+    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    await expect(
+      pageOperations.updateMetadata(id, { favorite: true })
+    ).rejects.toThrow(/Page not found/);
+    expect(vault.getPage(id)).toBeUndefined();
+  });
+
+  it('rejects for a truly unknown id', async () => {
+    const { pageOperations } = setupEmpty();
+
+    await expect(
+      pageOperations.updateMetadata('does-not-exist', { favorite: true })
+    ).rejects.toThrow(/Page not found/);
+  });
+});
+
+describe('Draft promotion race: a losing create attempt must not lose the other trigger\'s change', () => {
+  // Scope, matching the ADR-017 amendment: this milestone guarantees exactly
+  // one page is created, no duplicate create occurs, and no user-owned
+  // metadata is lost when two promotion attempts race. It does NOT
+  // guarantee which of two *different destination paths* (i.e. a
+  // concurrent title change) wins — reconciling that is the future rename
+  // capability's job, not draft promotion's. These tests deliberately
+  // assert nothing about the resulting path.
+  it('title-triggered and metadata-triggered promotion racing on the same draft: exactly one page is created, metadata is preserved, no errors', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Race note' });
+
+    const titlePromotion = pageOperations.updateDraftTitle(id, 'Race note updated');
+    const metadataPromotion = pageOperations.updateMetadata(id, { favorite: true });
+
+    await Promise.all([titlePromotion, metadataPromotion]);
+
+    expect(Array.from(vault.pages())).toHaveLength(1);
+    const persisted = vault.getPage(id)!;
+    expect(persisted.metadata.favorite).toBe(true);
+  });
+
+  it('the reverse arrival order also creates exactly one page with metadata preserved, no errors', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null, title: 'Race note' });
+
+    const metadataPromotion = pageOperations.updateMetadata(id, { favorite: true });
+    const titlePromotion = pageOperations.updateDraftTitle(id, 'Race note updated');
+
+    await Promise.all([metadataPromotion, titlePromotion]);
+
+    expect(Array.from(vault.pages())).toHaveLength(1);
+    const persisted = vault.getPage(id)!;
+    expect(persisted.metadata.favorite).toBe(true);
   });
 });

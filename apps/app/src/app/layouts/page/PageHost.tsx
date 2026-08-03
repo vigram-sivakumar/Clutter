@@ -163,7 +163,7 @@ export function PageHost({ application }: PageHostProps) {
         actions={draftTopBar.actions}
         bodyFocusRef={editorRef}
         onTitleCommit={(title) =>
-          application.pageOperations.updateDraftTitle(activePageId, title)
+          void application.pageOperations.updateDraftTitle(activePageId, title)
         }
         body={
           <MarkdownBody>

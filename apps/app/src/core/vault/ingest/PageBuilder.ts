@@ -2,6 +2,7 @@ import type { Page } from '../models';
 import type { ScannedPage } from './VaultScanResult';
 import { IdentityResolver } from './identity/IdentityResolver';
 import { VaultPath } from './VaultPath';
+import { resolvePageMetadata } from './resolvePageMetadata';
 
 import { PageAnalysisMapper } from './PageAnalysisMapper';
 
@@ -38,18 +39,7 @@ export class PageBuilder {
       path: page.path,
       parentId,
 
-      metadata: {
-        icon: page.frontmatter.icon ?? null,
-        cover: page.frontmatter.cover ?? null,
-        description: page.frontmatter.description ?? null,
-        favorite: page.frontmatter.favorite ?? false,
-        status: page.frontmatter.status ?? 'active',
-        archivedAt: page.frontmatter.archivedAt ?? null,
-        originalPath: page.frontmatter.originalPath ?? null,
-        originalParentId: page.frontmatter.originalParentId ?? null,
-        createdAt: page.frontmatter.created ?? null,
-        updatedAt: page.frontmatter.modified ?? null,
-      },
+      metadata: resolvePageMetadata(page.frontmatter),
       source: {
         markdown: page.content,
       },

@@ -1,5 +1,6 @@
 import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
+import type { PageFrontmatter } from '../ingest/frontmatter/PageFrontmatter';
 import type { Folder } from '../models/Folder';
 import { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
@@ -243,9 +244,25 @@ export class PagePersistenceCoordinator {
       // 'create's content is always a full serialized document (frontmatter
       // + body, per PageCreator/PageFactory) — not the body-only markdown
       // writeParseRebuildReplace (shared with 'save') expects. Parse it
-      // first to recover just the body.
-      const { body } = this.parser.parse(operation.content);
-      return this.writeParseRebuildReplace(existing, body);
+      // first to recover the body.
+      const { frontmatter, body } = this.parser.parse(operation.content);
+
+      // A losing 'create' in a promotion race (ADR-017 §4's guard, now
+      // reached from any of title/body/metadata) can be a metadata-only
+      // promotion attempt whose entire payload is this frontmatter — if it
+      // were discarded here, the user's change would be silently lost even
+      // though this dispatch reports success. Only the explicitly-present
+      // editable fields are merged (never 'created'/'modified'/'status'/
+      // etc., which the losing attempt's own content is stale for — the
+      // winning create already established those); an absent field here
+      // must never overwrite one the winner already set.
+      const metadataPatch = this.extractEditableMetadataPatch(frontmatter);
+      const target =
+        Object.keys(metadataPatch).length > 0
+          ? { ...existing, metadata: { ...existing.metadata, ...metadataPatch } }
+          : existing;
+
+      return this.writeParseRebuildReplace(target, body);
     }
 
     await this.fileSystem.writeFile(operation.path, operation.content);
@@ -392,6 +409,43 @@ export class PagePersistenceCoordinator {
     await this.moveService.movePage(current, page);
 
     return this.writeParseRebuildReplace(page, current.source.markdown);
+  }
+
+  /**
+   * Picks only the user-editable metadata fields that are explicitly
+   * present in a parsed frontmatter object — never the system-owned ones
+   * (status/archivedAt/originalPath/originalParentId/created/modified),
+   * and never a field the frontmatter simply omits, so an absent key can
+   * never be mistaken for "clear this field" and overwrite a value another
+   * concurrent write already established.
+   */
+  private extractEditableMetadataPatch(frontmatter: PageFrontmatter): {
+    description?: PageMetadata['description'];
+    icon?: PageMetadata['icon'];
+    cover?: PageMetadata['cover'];
+    favorite?: PageMetadata['favorite'];
+  } {
+    const patch: {
+      description?: PageMetadata['description'];
+      icon?: PageMetadata['icon'];
+      cover?: PageMetadata['cover'];
+      favorite?: PageMetadata['favorite'];
+    } = {};
+
+    if (frontmatter.description !== undefined) {
+      patch.description = frontmatter.description;
+    }
+    if (frontmatter.icon !== undefined) {
+      patch.icon = frontmatter.icon;
+    }
+    if (frontmatter.cover !== undefined) {
+      patch.cover = frontmatter.cover;
+    }
+    if (frontmatter.favorite !== undefined) {
+      patch.favorite = frontmatter.favorite;
+    }
+
+    return patch;
   }
 
   /**
