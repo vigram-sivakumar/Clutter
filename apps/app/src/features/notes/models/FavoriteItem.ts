@@ -3,4 +3,5 @@ export type FavoriteItem = {
   title: string;
   titleStyle: 'default' | 'placeholder';
   type: 'note' | 'folder';
+  emoji: string | null;
 };

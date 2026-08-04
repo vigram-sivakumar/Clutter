@@ -3,9 +3,7 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
-import { getPageIcon } from '@core/presentation/getPageIcon';
-import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
-import { isToday } from '@shared/helpers/time';
+import { buildEntryPresentation } from '@core/presentation/buildEntryPresentation';
 import {
   getSystemLocationForFolder,
   getSystemLocationPresentation,
@@ -35,20 +33,14 @@ function toCollectionEntry(
   selected: boolean
 ): CollectionEntryModel {
   const type = isFolder(entry) ? 'folder' : 'note';
+  const { title, icon, emoji } = buildEntryPresentation(entry);
 
   return {
     id: entry.id,
     type,
-    // This is a browse surface (Category A) — a page's title must go
-    // through the shared display-label rule, the same as the sidebar and
-    // breadcrumbs, so an unnamed note doesn't show a raw "Untitled 2"
-    // here while looking correct everywhere else. A folder's name is
-    // always real and deliberate; no fallback chain applies to it.
-    title: isFolder(entry) ? entry.name : getPageDisplayLabel(entry).text,
-    emoji: isFolder(entry) ? entry.metadata.icon : entry.icon,
-    icon: isFolder(entry)
-      ? getPageIcon('folder')
-      : getPageIcon(entry.type, entry.type === 'daily-note' && isToday(entry.name)),
+    title,
+    icon,
+    emoji,
     selected,
     onClick: () => {
       if (isFolder(entry)) {

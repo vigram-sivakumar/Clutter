@@ -15,7 +15,7 @@ describe('FavoriteList — no unknown DOM props leak through Entry (React consol
   it('renders a favorited note without React warning about an unrecognized DOM attribute', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const items: FavoriteItem[] = [
-      { id: 'note-1', title: 'My Note', titleStyle: 'default', type: 'note' },
+      { id: 'note-1', title: 'My Note', titleStyle: 'default', type: 'note', emoji: null },
     ];
 
     render(
@@ -34,7 +34,7 @@ describe('FavoriteList — no unknown DOM props leak through Entry (React consol
   it('renders a favorited folder without React warning about an unrecognized DOM attribute', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const items: FavoriteItem[] = [
-      { id: 'folder-1', title: 'My Folder', titleStyle: 'default', type: 'folder' },
+      { id: 'folder-1', title: 'My Folder', titleStyle: 'default', type: 'folder', emoji: null },
     ];
 
     render(

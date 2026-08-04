@@ -151,7 +151,7 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
     const items = toFavoriteItems([folder], [], effectivePageState);
 
     expect(items).toEqual([
-      { id: 'folder-1', title: 'Projects', titleStyle: 'default', type: 'folder' },
+      { id: 'folder-1', title: 'Projects', titleStyle: 'default', type: 'folder', emoji: null },
     ]);
   });
 
@@ -162,7 +162,7 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
     const items = toFavoriteItems([], [page], effectivePageState);
 
     expect(items).toEqual([
-      { id: 'page-1', title: 'Meeting Notes', titleStyle: 'default', type: 'note' },
+      { id: 'page-1', title: 'Meeting Notes', titleStyle: 'default', type: 'note', emoji: null },
     ]);
   });
 
@@ -181,6 +181,7 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
         title: 'Real content here',
         titleStyle: 'default',
         type: 'note',
+        emoji: null,
       },
     ]);
   });
@@ -192,7 +193,7 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
     const items = toFavoriteItems([], [page], effectivePageState);
 
     expect(items).toEqual([
-      { id: 'page-1', title: 'New Note', titleStyle: 'placeholder', type: 'note' },
+      { id: 'page-1', title: 'New Note', titleStyle: 'placeholder', type: 'note', emoji: null },
     ]);
   });
 
@@ -209,7 +210,7 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
     // still say '' here — the label must come from the open session's
     // current revision, not from the raw Page argument.
     expect(items).toEqual([
-      { id: 'page-1', title: 'Live, unsaved content', titleStyle: 'default', type: 'note' },
+      { id: 'page-1', title: 'Live, unsaved content', titleStyle: 'default', type: 'note', emoji: null },
     ]);
   });
 });

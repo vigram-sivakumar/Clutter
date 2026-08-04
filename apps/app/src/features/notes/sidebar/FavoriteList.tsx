@@ -23,6 +23,7 @@ export function FavoriteList({
           key={item.id}
           title={item.title}
           titleStyle={item.titleStyle}
+          emoji={item.emoji}
           selected={workspace.activePageId === item.id}
           onClick={() => onOpenPage(item.id)}
         />
@@ -33,6 +34,7 @@ export function FavoriteList({
       <FolderEntry
         key={item.id}
         title={item.title}
+        emoji={item.emoji}
         hasCaret={false}
         selected={workspace.activeFolderId === item.id}
         onClick={() => onOpenFolder(item.id)}
