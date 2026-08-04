@@ -18,14 +18,16 @@ interface RenderTasksByDateProps {
   readonly workspace: Workspace;
 }
 
-function renderTaskRow(task: TaskModel) {
-  const isOverdue = task.dueDate != null && isPast(task.dueDate);
+function renderTaskRow(task: TaskModel, { showDueDate }: { showDueDate: boolean }) {
+  const isOverdue = !task.completed && task.dueDate != null && isPast(task.dueDate);
 
   return (
     <Task
       key={task.text}
       title={task.text}
-      dueDate={task.dueDate ? formatTaskDueDate(task.dueDate) : undefined}
+      dueDate={
+        showDueDate && task.dueDate ? formatTaskDueDate(task.dueDate) : undefined
+      }
       isOverdue={isOverdue}
       isChecked={task.completed}
       onClick={() => {}}
@@ -45,7 +47,7 @@ export function renderTasksByDate({ tasks, workspace }: RenderTasksByDateProps) 
         isExpanded={workspace.isSectionExpanded('tasks-today')}
         onExpandedChange={() => workspace.toggleSectionExpanded('tasks-today')}
       >
-        {today.map(renderTaskRow)}
+        {today.map((task) => renderTaskRow(task, { showDueDate: false }))}
 
         {todayCompleted.length > 0 && (
           <Section
@@ -57,7 +59,7 @@ export function renderTasksByDate({ tasks, workspace }: RenderTasksByDateProps) 
               workspace.toggleSectionExpanded('tasks-today-completed')
             }
           >
-            {todayCompleted.map(renderTaskRow)}
+            {todayCompleted.map((task) => renderTaskRow(task, { showDueDate: false }))}
           </Section>
         )}
       </Section>
@@ -69,7 +71,7 @@ export function renderTasksByDate({ tasks, workspace }: RenderTasksByDateProps) 
         isExpanded={workspace.isSectionExpanded('tasks-upcoming')}
         onExpandedChange={() => workspace.toggleSectionExpanded('tasks-upcoming')}
       >
-        {upcoming.map(renderTaskRow)}
+        {upcoming.map((task) => renderTaskRow(task, { showDueDate: true }))}
       </Section>
     </Fragment>
   );
