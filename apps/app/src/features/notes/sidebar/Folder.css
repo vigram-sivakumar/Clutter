@@ -1,5 +1,15 @@
 .folder__icon {
   color: var(--icon-tertiary);
+  /* Purely decorative — shares .folder__caret's grid cell and sits above
+     it in paint order (later in Folder.tsx's DOM). opacity: 0 alone does
+     not remove an element from hit-testing, so without this the icon
+     silently intercepts clicks meant for the caret underneath, even
+     while invisible. Unconditional (not just on hover): when not
+     hovering, .folder__caret is itself pointer-events: none too, so a
+     click still falls through both layers to the Entry row exactly as
+     before — this only changes which element the caret-targeted click
+     actually reaches. */
+  pointer-events: none;
 }
 
 .folder__leading {
@@ -28,6 +38,7 @@
 
 .entry:hover .folder__leading--has-caret .folder__icon {
   opacity: 0;
+  pointer-events: none;
 }
 /* .entry-selected .folder__icon,
 .entry-active .folder__icon {
