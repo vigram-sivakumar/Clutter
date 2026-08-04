@@ -4,10 +4,8 @@
   text-decoration-thickness: 0.09em;
 }
 .task__due-date {
-  color: var(--text-tertiary);
   font-size: var(--text-label);
-  line-height: var(--lh-label);
-  opacity: var(--opacity-medium);
+  color: var(--text-tertiary);
 
   min-width: 40px;
   text-align: right;

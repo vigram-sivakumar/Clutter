@@ -21,9 +21,11 @@ export function Note({
     <Entry
       {...entryProps}
       leading={
-        <span className="note__icon">
-          <AppIcon icon={getPageIcon('note')} emoji={emoji} />
-        </span>
+        <AppIcon
+          className="note__icon"
+          icon={getPageIcon('note')}
+          emoji={emoji}
+        />
       }
       actions={
         <Button

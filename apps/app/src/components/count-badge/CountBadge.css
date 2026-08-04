@@ -7,9 +7,9 @@
   padding: 0 var(--space-4);
   flex-shrink: 0;
 
-  font-size: var(--text-caption);
-  font-weight: var(--fw-medium);
-  line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--text-placeholder);
+
+  font-size: var(--text-caption);
+  line-height: var(--line-height-caption);
+  color: var(--text-tertiary);
 }

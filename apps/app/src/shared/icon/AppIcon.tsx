@@ -10,6 +10,7 @@ export interface AppIconProps {
   emoji?: string | null;
   size?: number;
   slotSize?: number;
+  className?: string;
 }
 
 export function AppIcon({
@@ -17,6 +18,7 @@ export function AppIcon({
   emoji,
   size = DEFAULT_SIZE,
   slotSize = 20,
+  className,
 }: AppIconProps) {
   const Icon = icon ? iconRegistry[icon] : null;
   const style = {
@@ -24,7 +26,7 @@ export function AppIcon({
   } as React.CSSProperties;
 
   return (
-    <span className="app-icon" style={style}>
+    <span className={`app-icon ${className || ''}`} style={style}>
       {emoji ? (
         <span className="emoji-icon">{emoji}</span>
       ) : Icon ? (

@@ -46,9 +46,8 @@ export function Notes({
   onOpenFolder,
   onOpenDraft,
 }: NotesProps) {
-  const [pendingNewFolder, setPendingNewFolder] = useState<PendingNewFolder | null>(
-    null
-  );
+  const [pendingNewFolder, setPendingNewFolder] =
+    useState<PendingNewFolder | null>(null);
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
 
   // Only cleared once the Gate call settles (success or failure) — this is
@@ -68,6 +67,7 @@ export function Notes({
 
   return (
     <View navigation={<NotesShortcuts onShortcut={onShortcut} />}>
+      {/* TODO: Render the favorites section only when they exist */}
       <Section
         hasHeader
         title={getSystemLocationPresentation('favorites').label}

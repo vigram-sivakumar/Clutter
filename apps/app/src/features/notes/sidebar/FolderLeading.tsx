@@ -51,9 +51,11 @@ export function FolderLeading({
         </span>
       )}
 
-      <span className="folder__icon">
-        <AppIcon icon={getPageIcon('folder')} emoji={emoji} />
-      </span>
+      <AppIcon
+        className="folder__icon"
+        icon={getPageIcon('folder')}
+        emoji={emoji}
+      />
     </span>
   );
 }

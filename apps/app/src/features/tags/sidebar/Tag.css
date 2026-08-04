@@ -1,0 +1,7 @@
+.tag__icon {
+  color: var(--icon-tertiary);
+}
+.tag__favorite-icon {
+  color: var(--icon-placeholder);
+  opacity: var(--opacity-strong);
+}
