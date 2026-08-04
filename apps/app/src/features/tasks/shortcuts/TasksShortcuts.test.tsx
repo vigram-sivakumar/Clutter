@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TasksShortcuts } from './TasksShortcuts';
+
+afterEach(() => {
+  cleanup();
+});
 
 describe('TasksShortcuts', () => {
   it('renders "New" disabled and never invokes onShortcut when clicked', () => {
@@ -16,5 +20,18 @@ describe('TasksShortcuts', () => {
     fireEvent.click(screen.getByText('New'));
 
     expect(onShortcut).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['All Tasks', 'all-tasks'],
+    ['Unscheduled', 'unscheduled'],
+    ['Completed', 'completed'],
+  ] as const)('invokes onShortcut with "%s" when clicked', (title, id) => {
+    const onShortcut = vi.fn();
+    render(<TasksShortcuts onShortcut={onShortcut} />);
+
+    fireEvent.click(screen.getByText(title));
+
+    expect(onShortcut).toHaveBeenCalledWith(id);
   });
 });

@@ -194,4 +194,83 @@ describe('TaskOperations', () => {
       /Could not locate task/
     );
   });
+
+  it('extracts and mutates a task the same way regardless of page type (Note vs Daily Note)', async () => {
+    const builder = new PageBuilder();
+    const body = '- [ ] Log today';
+    const dailyNotePage = builder.build({
+      parentId: null,
+      page: {
+        path: `${ROOT}/2026-08-04.md`,
+        directoryPath: ROOT,
+        frontmatter: { id: 'daily-1', type: 'daily-note' },
+        frontmatterAnalysis: { aliases: [] },
+        content: body,
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: new TaskExtractor().extract(body),
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+
+    const { vault, taskOperations } = setup(dailyNotePage);
+
+    expect(dailyNotePage.type).toBe('daily-note');
+    expect(dailyNotePage.analysis.tasks[0]!.text).toBe('Log today');
+
+    await taskOperations.toggleComplete(firstTask(dailyNotePage));
+
+    expect(vault.getPage('daily-1')!.source.markdown).toBe(
+      '- [x] Log today @completed:2026-08-04'
+    );
+  });
+
+  it('mutates the first matching line when two tasks share identical rawText (documented limitation — no stable id yet)', async () => {
+    const page = buildPage('p1', '- [ ] Buy milk\n- [ ] Buy milk');
+    const { vault, taskOperations } = setup(page);
+
+    await taskOperations.setDueDate(firstTask(page), '2026-08-05');
+
+    expect(vault.getPage('p1')!.source.markdown).toBe(
+      '- [ ] Buy milk @due:2026-08-05\n- [ ] Buy milk'
+    );
+  });
+
+  it('runs the full lifecycle — due date, complete, uncomplete, remove due date — without drift', async () => {
+    const page = buildPage('p1', '- [ ] Collect the bill');
+    const { vault, fileSystem, taskOperations } = setup(page);
+
+    await taskOperations.setDueDate(firstTask(page), '2026-08-05');
+    expect(vault.getPage('p1')!.source.markdown).toBe(
+      '- [ ] Collect the bill @due:2026-08-05'
+    );
+
+    await taskOperations.toggleComplete(vault.getPage('p1')!.analysis.tasks[0]!);
+    expect(vault.getPage('p1')!.source.markdown).toBe(
+      '- [x] Collect the bill @due:2026-08-05 @completed:2026-08-04'
+    );
+    expect(vault.getPage('p1')!.analysis.tasks[0]!.completed).toBe(true);
+
+    await taskOperations.toggleComplete(vault.getPage('p1')!.analysis.tasks[0]!);
+    expect(vault.getPage('p1')!.source.markdown).toBe(
+      '- [ ] Collect the bill @due:2026-08-05'
+    );
+
+    await taskOperations.removeDueDate(vault.getPage('p1')!.analysis.tasks[0]!);
+    expect(vault.getPage('p1')!.source.markdown).toBe('- [ ] Collect the bill');
+
+    // Persistence: what's actually on "disk" (the Gate's own writeFile
+    // target) matches the final in-memory state — the same
+    // write-parse-rebuild-replace pipeline a fresh VaultScanner.scan()
+    // would re-run on restart, so a restart would re-derive this same
+    // TaskOccurrence from this same persisted line.
+    const persisted = await fileSystem.readFile(page.path);
+    expect(persisted).toContain('- [ ] Collect the bill');
+    expect(persisted).not.toContain('@due:');
+    expect(persisted).not.toContain('@completed:');
+  });
 });

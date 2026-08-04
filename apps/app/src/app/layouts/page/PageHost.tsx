@@ -17,7 +17,10 @@ import { getSystemLocationPresentation } from '@core/presentation/systemPresenta
 import { Page } from '@app/layouts/page/Page';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
-import { TasksCollectionBody } from '@features/tasks/page/TasksCollectionBody';
+import {
+  TasksCollectionBody,
+  type TasksCollectionView,
+} from '@features/tasks/page/TasksCollectionBody';
 import {
   MarkdownEditor,
   type MarkdownEditorHandle,
@@ -26,6 +29,14 @@ import {
 interface PageHostProps {
   application: Application;
 }
+
+const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>([
+  'tasks-today',
+  'tasks-upcoming',
+  'tasks-completed',
+  'tasks-all',
+  'tasks-unscheduled',
+]);
 
 /**
  * PageHost is the composition root for page rendering.
@@ -136,7 +147,7 @@ export function PageHost({ application }: PageHostProps) {
     );
   }
 
-  // The Today/Upcoming task collection views are filtered views too, but
+  // The task collection views are filtered views too, but
   // CollectionPageModel/CollectionBody are folder+note shaped — no room
   // for completed/dueDate — so this dispatches to TasksCollectionBody
   // instead of toCollectionPageModel, before the generic filtered-view
@@ -144,10 +155,9 @@ export function PageHost({ application }: PageHostProps) {
   // Favorites).
   if (
     workspace.activeView?.type === 'filtered-view' &&
-    (workspace.activeView.view === 'tasks-today' ||
-      workspace.activeView.view === 'tasks-upcoming')
+    TASK_COLLECTION_VIEWS.has(workspace.activeView.view)
   ) {
-    const view = workspace.activeView.view;
+    const view = workspace.activeView.view as TasksCollectionView;
 
     return (
       <Page
@@ -160,6 +170,8 @@ export function PageHost({ application }: PageHostProps) {
             tasks={[...vault.tasks()]}
             workspace={workspace}
             onToggleComplete={(task) => void application.taskOperations.toggleComplete(task)}
+            onOpenTask={(task) => void application.pageOperations.open(task.sourcePageId)}
+            onOpenCompleted={() => application.navigation.openTasksCompleted()}
           />
         }
       />

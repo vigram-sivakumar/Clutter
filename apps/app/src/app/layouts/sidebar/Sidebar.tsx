@@ -92,6 +92,7 @@ export function Sidebar({ application }: SidebarProps) {
           navigation={navigation}
           workspace={workspace}
           taskOperations={taskOperations}
+          pageOperations={pageOperations}
         />
       ),
     },

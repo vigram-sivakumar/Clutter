@@ -5,6 +5,10 @@ export type TaskGroups = {
   today: readonly Task[];
   todayCompleted: readonly Task[];
   upcoming: readonly Task[];
+  // The unscheduled subset of `upcoming`, exposed separately for the
+  // dedicated Unscheduled collection view — computed once here rather
+  // than re-deriving the same predicate a second time at the call site.
+  unscheduled: readonly Task[];
 };
 
 function isDueToday(task: Task): boolean {
@@ -51,5 +55,6 @@ export function groupTasks(tasks: readonly Task[]): TaskGroups {
     today,
     todayCompleted,
     upcoming: [...overdue, ...future, ...unscheduled],
+    unscheduled,
   };
 }

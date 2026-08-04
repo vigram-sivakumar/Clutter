@@ -18,6 +18,7 @@ import { isPast, isToday } from '@shared/helpers/time';
 
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskModel) => void;
+  readonly onOpenTask: (task: TaskModel) => void;
 }
 
 // A due date is never worth showing when it's today — whichever section a
@@ -25,7 +26,7 @@ interface TaskRowCallbacks {
 // conveys "today" by construction, so the label would just repeat it. Any
 // other date (including a completed task's past or future due date) is
 // shown normally.
-export function renderTaskRow(task: TaskModel, { onToggleComplete }: TaskRowCallbacks) {
+export function renderTaskRow(task: TaskModel, { onToggleComplete, onOpenTask }: TaskRowCallbacks) {
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
   const isOverdue = !task.completed && dueDate != null && isPast(dueDate);
@@ -38,7 +39,7 @@ export function renderTaskRow(task: TaskModel, { onToggleComplete }: TaskRowCall
       isOverdue={isOverdue}
       isChecked={task.completed}
       onCheckedChange={() => onToggleComplete(task)}
-      onClick={() => {}}
+      onClick={() => onOpenTask(task)}
     />
   );
 }
@@ -46,6 +47,7 @@ export function renderTaskRow(task: TaskModel, { onToggleComplete }: TaskRowCall
 export interface RenderTodayContentProps extends TaskRowCallbacks {
   readonly tasks: readonly TaskModel[];
   readonly workspace: Workspace;
+  readonly onOpenCompleted: () => void;
 }
 
 /**
@@ -54,17 +56,20 @@ export interface RenderTodayContentProps extends TaskRowCallbacks {
  * both the sidebar (which wraps this in its own collapsible Section) and
  * the Today collection page (embedded directly under the page's own
  * title) render identical rows from one implementation.
- *
- * The completed-today accordion just expands/collapses for now — no
- * dedicated Completed collection view exists yet.
  */
-export function renderTodayContent({ tasks, workspace, onToggleComplete }: RenderTodayContentProps) {
+export function renderTodayContent({
+  tasks,
+  workspace,
+  onToggleComplete,
+  onOpenTask,
+  onOpenCompleted,
+}: RenderTodayContentProps) {
   const { today, todayCompleted } = groupTasks(tasks);
   const toggleCompleted = () => workspace.toggleSectionExpanded('tasks-today-completed');
 
   return (
     <Fragment>
-      {today.map((task) => renderTaskRow(task, { onToggleComplete }))}
+      {today.map((task) => renderTaskRow(task, { onToggleComplete, onOpenTask }))}
 
       {todayCompleted.length > 0 && (
         <Fragment>
@@ -79,13 +84,13 @@ export function renderTodayContent({ tasks, workspace, onToggleComplete }: Rende
                 }}
               />
             }
-            onClick={toggleCompleted}
+            onClick={onOpenCompleted}
           >
             <span className="text-tertiary">{`${todayCompleted.length} Completed`}</span>
           </Entry>
 
           {workspace.isSectionExpanded('tasks-today-completed') &&
-            todayCompleted.map((task) => renderTaskRow(task, { onToggleComplete }))}
+            todayCompleted.map((task) => renderTaskRow(task, { onToggleComplete, onOpenTask }))}
         </Fragment>
       )}
     </Fragment>
@@ -101,10 +106,18 @@ export interface RenderUpcomingContentProps extends TaskRowCallbacks {
  * incomplete tasks, in that order — no outer Section wrapper, same reuse
  * reasoning as renderTodayContent.
  */
-export function renderUpcomingContent({ tasks, onToggleComplete }: RenderUpcomingContentProps) {
+export function renderUpcomingContent({
+  tasks,
+  onToggleComplete,
+  onOpenTask,
+}: RenderUpcomingContentProps) {
   const { upcoming } = groupTasks(tasks);
 
-  return <Fragment>{upcoming.map((task) => renderTaskRow(task, { onToggleComplete }))}</Fragment>;
+  return (
+    <Fragment>
+      {upcoming.map((task) => renderTaskRow(task, { onToggleComplete, onOpenTask }))}
+    </Fragment>
+  );
 }
 
 interface RenderTasksByDateProps extends TaskRowCallbacks {
@@ -117,6 +130,7 @@ export function renderTasksByDate({
   tasks,
   workspace,
   onToggleComplete,
+  onOpenTask,
   navigation,
 }: RenderTasksByDateProps) {
   return (
@@ -129,7 +143,13 @@ export function renderTasksByDate({
         onExpandedChange={() => workspace.toggleSectionExpanded('tasks-today')}
         onClick={() => navigation.openTasksToday()}
       >
-        {renderTodayContent({ tasks, workspace, onToggleComplete })}
+        {renderTodayContent({
+          tasks,
+          workspace,
+          onToggleComplete,
+          onOpenTask,
+          onOpenCompleted: () => navigation.openTasksCompleted(),
+        })}
       </Section>
 
       <Section
@@ -140,7 +160,7 @@ export function renderTasksByDate({
         onExpandedChange={() => workspace.toggleSectionExpanded('tasks-upcoming')}
         onClick={() => navigation.openTasksUpcoming()}
       >
-        {renderUpcomingContent({ tasks, onToggleComplete })}
+        {renderUpcomingContent({ tasks, onToggleComplete, onOpenTask })}
       </Section>
     </Fragment>
   );

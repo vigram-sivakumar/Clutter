@@ -4,10 +4,18 @@ import { type ChangeListener, type Observable } from '../shared/Observable';
  * A non-folder, non-page main-content view — a filtered aggregate defined
  * by a query rather than a location in the folder tree (ADR-022). Grows
  * only when a real consumer ships; 'workspace'/'favorites' (root
- * folders+notes, favorited items) and 'tasks-today'/'tasks-upcoming'
- * (Today/Upcoming task collection views) are the ones that exist today.
+ * folders+notes, favorited items) and the five task collection views
+ * (Today/Upcoming/Completed/All Tasks/Unscheduled) are the ones that
+ * exist today.
  */
-export type FilteredViewKind = 'workspace' | 'favorites' | 'tasks-today' | 'tasks-upcoming';
+export type FilteredViewKind =
+  | 'workspace'
+  | 'favorites'
+  | 'tasks-today'
+  | 'tasks-upcoming'
+  | 'tasks-completed'
+  | 'tasks-all'
+  | 'tasks-unscheduled';
 
 /**
  * What the main content pane is currently showing — a tagged union so

@@ -1,6 +1,7 @@
 import type { Vault } from '@core/vault/models';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
+import type { PageOperations } from '@core/application/page/PageOperations';
 import type { TaskOperations } from '@core/application/task/TaskOperations';
 import type { Workspace } from '@core/workspace/Workspace';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
@@ -13,9 +14,16 @@ interface TasksPanelProps {
   readonly navigation: NavigationRouter;
   readonly workspace: Workspace;
   readonly taskOperations: TaskOperations;
+  readonly pageOperations: PageOperations;
 }
 
-export function Tasks({ vault, navigation, workspace, taskOperations }: TasksPanelProps) {
+export function Tasks({
+  vault,
+  navigation,
+  workspace,
+  taskOperations,
+  pageOperations,
+}: TasksPanelProps) {
   const tasks = [...vault.tasks()];
   const onShortcut = buildTasksShortcutHandler(navigation);
 
@@ -27,9 +35,16 @@ export function Tasks({ vault, navigation, workspace, taskOperations }: TasksPan
     void taskOperations.toggleComplete(task);
   };
 
+  // Clicking a task opens its source note — the same PageOperations.open()
+  // every other sidebar entry (FolderTree, DailyNotesList) already uses,
+  // via the sourcePageId every TaskOccurrence already carries.
+  const onOpenTask = (task: TaskOccurrence): void => {
+    void pageOperations.open(task.sourcePageId);
+  };
+
   return (
     <View navigation={<TasksShortcuts onShortcut={onShortcut} />}>
-      {renderTasksByDate({ tasks, workspace, onToggleComplete, navigation })}
+      {renderTasksByDate({ tasks, workspace, onToggleComplete, onOpenTask, navigation })}
     </View>
   );
 }

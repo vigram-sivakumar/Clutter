@@ -25,6 +25,7 @@ function fakeNavigation(): NavigationRouter {
   return {
     openTasksToday: vi.fn(),
     openTasksUpcoming: vi.fn(),
+    openTasksCompleted: vi.fn(),
   } as unknown as NavigationRouter;
 }
 
@@ -41,6 +42,7 @@ describe('renderTasksByDate', () => {
   it('calls onToggleComplete with the clicked task when its checkbox is clicked', () => {
     const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
     const onToggleComplete = vi.fn();
+    const onOpenTask = vi.fn();
 
     const { getByText } = render(
       <>
@@ -48,6 +50,7 @@ describe('renderTasksByDate', () => {
           tasks: [dueToday],
           workspace: new Workspace(),
           onToggleComplete,
+          onOpenTask,
           navigation: fakeNavigation(),
         })}
       </>
@@ -57,6 +60,30 @@ describe('renderTasksByDate', () => {
     fireEvent.click(within(row).getByRole('checkbox'));
 
     expect(onToggleComplete).toHaveBeenCalledWith(dueToday);
+    expect(onOpenTask).not.toHaveBeenCalled();
+  });
+
+  it('calls onOpenTask, not onToggleComplete, when the task row itself is clicked', () => {
+    const dueToday = task({ text: 'Review designs', dueDate: '2026-08-04' });
+    const onToggleComplete = vi.fn();
+    const onOpenTask = vi.fn();
+
+    const { getByText } = render(
+      <>
+        {renderTasksByDate({
+          tasks: [dueToday],
+          workspace: new Workspace(),
+          onToggleComplete,
+          onOpenTask,
+          navigation: fakeNavigation(),
+        })}
+      </>
+    );
+
+    fireEvent.click(getByText('Review designs'));
+
+    expect(onOpenTask).toHaveBeenCalledWith(dueToday);
+    expect(onToggleComplete).not.toHaveBeenCalled();
   });
 
   it('does not render a trailing due-date label on a Today-section row', () => {
@@ -68,6 +95,7 @@ describe('renderTasksByDate', () => {
           tasks: [dueToday],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
       </>
@@ -90,6 +118,7 @@ describe('renderTasksByDate', () => {
           tasks: [completedToday],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
       </>
@@ -112,6 +141,7 @@ describe('renderTasksByDate', () => {
           tasks: [completedToday],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
       </>
@@ -135,6 +165,7 @@ describe('renderTasksByDate', () => {
           tasks: [completedToday],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
       </>
@@ -153,6 +184,7 @@ describe('renderTasksByDate', () => {
           tasks: [dueSoon],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation: fakeNavigation(),
         })}
       </>
@@ -170,6 +202,7 @@ describe('renderTasksByDate', () => {
           tasks: [],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation,
         })}
       </>
@@ -189,6 +222,7 @@ describe('renderTasksByDate', () => {
           tasks: [],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation,
         })}
       </>
@@ -199,7 +233,7 @@ describe('renderTasksByDate', () => {
     expect(navigation.openTasksUpcoming).toHaveBeenCalled();
   });
 
-  it('toggles the completed-today accordion when its row is clicked', () => {
+  it('navigates to Completed when the completed-today accordion row is clicked, without toggling it', () => {
     const navigation = fakeNavigation();
     const completedToday = task({
       text: 'Submit expenses',
@@ -214,19 +248,19 @@ describe('renderTasksByDate', () => {
           tasks: [completedToday],
           workspace,
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation,
         })}
       </>
     );
 
-    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
-
     fireEvent.click(getByText('1 Completed'));
 
-    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(false);
+    expect(navigation.openTasksCompleted).toHaveBeenCalled();
+    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
   });
 
-  it('toggles the completed-today accordion when its caret is clicked', () => {
+  it('toggles the completed-today accordion when its caret is clicked, without navigating', () => {
     const navigation = fakeNavigation();
     const completedToday = task({
       text: 'Submit expenses',
@@ -241,6 +275,7 @@ describe('renderTasksByDate', () => {
           tasks: [completedToday],
           workspace,
           onToggleComplete: vi.fn(),
+          onOpenTask: vi.fn(),
           navigation,
         })}
       </>
@@ -249,6 +284,7 @@ describe('renderTasksByDate', () => {
     const header = getByText('1 Completed').closest('.entry') as HTMLElement;
     fireEvent.click(within(header).getByRole('button'));
 
+    expect(navigation.openTasksCompleted).not.toHaveBeenCalled();
     expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(false);
   });
 });

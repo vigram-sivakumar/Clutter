@@ -68,6 +68,17 @@ describe('groupTasks', () => {
     ]);
   });
 
+  it('exposes the unscheduled subset of upcoming separately', () => {
+    const future = task({ text: 'future', dueDate: '2026-08-10' });
+    const overdue = task({ text: 'overdue', dueDate: '2026-07-20' });
+    const unscheduled = task({ text: 'unscheduled' });
+
+    const groups = groupTasks([future, overdue, unscheduled]);
+
+    expect(groups.unscheduled).toEqual([unscheduled]);
+    expect(groups.upcoming).toEqual([overdue, future, unscheduled]);
+  });
+
   it('treats an unparseable due date as unscheduled rather than dropping the task', () => {
     const malformed = task({ text: 'malformed', dueDate: 'not-a-date' });
 
