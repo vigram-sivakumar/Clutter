@@ -1,5 +1,4 @@
 import { Button } from '@components/button/Button';
-// import { Caret } from '@components/caret/Caret';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
@@ -10,26 +9,21 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
   titleStyle?: 'default' | 'placeholder';
   emoji?: string | null;
-  // hasCaret?: boolean;
 }
 
 export function Note({
   title,
   titleStyle = 'default',
   emoji,
-  // hasCaret = true,
   ...entryProps
 }: NoteProps) {
   return (
     <Entry
       {...entryProps}
       leading={
-        <>
-          {/* {hasCaret && <Caret isPlaceholder />} */}
-          <span className="note__icon">
-            <AppIcon icon={getPageIcon('note')} emoji={emoji} />
-          </span>
-        </>
+        <span className="note__icon">
+          <AppIcon icon={getPageIcon('note')} emoji={emoji} />
+        </span>
       }
       actions={
         <Button
