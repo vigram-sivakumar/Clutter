@@ -19,7 +19,6 @@ export type SystemLocationId =
   | 'tasks'
   | 'tasks-today'
   | 'tasks-upcoming'
-  | 'tasks-completed'
   | 'tags'
   | 'favorites'
   | 'workspace'
@@ -59,11 +58,6 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   'tasks-upcoming': {
     id: 'tasks-upcoming',
     label: 'Upcoming',
-    icon: 'squareCheckOutline',
-  },
-  'tasks-completed': {
-    id: 'tasks-completed',
-    label: 'Completed',
     icon: 'squareCheckOutline',
   },
   tags: { id: 'tags', label: 'Tags', icon: 'tag' },

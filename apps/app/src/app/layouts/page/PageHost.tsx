@@ -136,7 +136,7 @@ export function PageHost({ application }: PageHostProps) {
     );
   }
 
-  // The three task collection views (Phase 2E) are filtered views too, but
+  // The Today/Upcoming task collection views are filtered views too, but
   // CollectionPageModel/CollectionBody are folder+note shaped — no room
   // for completed/dueDate — so this dispatches to TasksCollectionBody
   // instead of toCollectionPageModel, before the generic filtered-view
@@ -145,8 +145,7 @@ export function PageHost({ application }: PageHostProps) {
   if (
     workspace.activeView?.type === 'filtered-view' &&
     (workspace.activeView.view === 'tasks-today' ||
-      workspace.activeView.view === 'tasks-upcoming' ||
-      workspace.activeView.view === 'tasks-completed')
+      workspace.activeView.view === 'tasks-upcoming')
   ) {
     const view = workspace.activeView.view;
 
@@ -161,7 +160,6 @@ export function PageHost({ application }: PageHostProps) {
             tasks={[...vault.tasks()]}
             workspace={workspace}
             onToggleComplete={(task) => void application.taskOperations.toggleComplete(task)}
-            onOpenCompleted={() => application.navigation.openTasksCompleted()}
           />
         }
       />

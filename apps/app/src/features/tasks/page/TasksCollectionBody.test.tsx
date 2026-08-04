@@ -40,7 +40,6 @@ describe('TasksCollectionBody', () => {
         tasks={[dueToday, dueTomorrow]}
         workspace={new Workspace()}
         onToggleComplete={vi.fn()}
-        onOpenCompleted={vi.fn()}
       />
     );
 
@@ -58,39 +57,10 @@ describe('TasksCollectionBody', () => {
         tasks={[dueTomorrow, dueToday]}
         workspace={new Workspace()}
         onToggleComplete={vi.fn()}
-        onOpenCompleted={vi.fn()}
       />
     );
 
     expect(getByText('Book flights')).not.toBeNull();
     expect(queryByText('Review designs')).toBeNull();
-  });
-
-  it('renders every completed task, newest-completed-first, for the tasks-completed view', () => {
-    const oldCompleted = task({
-      text: 'Old completed',
-      completed: true,
-      completedAt: '2026-07-01',
-    });
-    const recentCompleted = task({
-      text: 'Recent completed',
-      completed: true,
-      completedAt: '2026-08-04',
-    });
-    const incomplete = task({ text: 'Still open' });
-
-    const { getByText, queryByText } = render(
-      <TasksCollectionBody
-        view="tasks-completed"
-        tasks={[oldCompleted, recentCompleted, incomplete]}
-        workspace={new Workspace()}
-        onToggleComplete={vi.fn()}
-        onOpenCompleted={vi.fn()}
-      />
-    );
-
-    expect(getByText('Old completed')).not.toBeNull();
-    expect(getByText('Recent completed')).not.toBeNull();
-    expect(queryByText('Still open')).toBeNull();
   });
 });

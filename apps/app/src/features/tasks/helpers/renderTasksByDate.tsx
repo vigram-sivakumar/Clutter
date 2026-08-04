@@ -46,7 +46,6 @@ export function renderTaskRow(task: TaskModel, { onToggleComplete }: TaskRowCall
 export interface RenderTodayContentProps extends TaskRowCallbacks {
   readonly tasks: readonly TaskModel[];
   readonly workspace: Workspace;
-  readonly onOpenCompleted: () => void;
 }
 
 /**
@@ -54,15 +53,14 @@ export interface RenderTodayContentProps extends TaskRowCallbacks {
  * nested completed-today accordion — with no outer Section wrapper, so
  * both the sidebar (which wraps this in its own collapsible Section) and
  * the Today collection page (embedded directly under the page's own
- * title) render identical rows from one implementation (Phase 2E).
+ * title) render identical rows from one implementation.
+ *
+ * The completed-today accordion just expands/collapses for now — no
+ * dedicated Completed collection view exists yet.
  */
-export function renderTodayContent({
-  tasks,
-  workspace,
-  onToggleComplete,
-  onOpenCompleted,
-}: RenderTodayContentProps) {
+export function renderTodayContent({ tasks, workspace, onToggleComplete }: RenderTodayContentProps) {
   const { today, todayCompleted } = groupTasks(tasks);
+  const toggleCompleted = () => workspace.toggleSectionExpanded('tasks-today-completed');
 
   return (
     <Fragment>
@@ -77,11 +75,11 @@ export function renderTodayContent({
                 isExpanded={workspace.isSectionExpanded('tasks-today-completed')}
                 onClick={(event) => {
                   event.stopPropagation();
-                  workspace.toggleSectionExpanded('tasks-today-completed');
+                  toggleCompleted();
                 }}
               />
             }
-            onClick={onOpenCompleted}
+            onClick={toggleCompleted}
           >
             <span className="text-tertiary">{`${todayCompleted.length} Completed`}</span>
           </Entry>
@@ -131,12 +129,7 @@ export function renderTasksByDate({
         onExpandedChange={() => workspace.toggleSectionExpanded('tasks-today')}
         onClick={() => navigation.openTasksToday()}
       >
-        {renderTodayContent({
-          tasks,
-          workspace,
-          onToggleComplete,
-          onOpenCompleted: () => navigation.openTasksCompleted(),
-        })}
+        {renderTodayContent({ tasks, workspace, onToggleComplete })}
       </Section>
 
       <Section

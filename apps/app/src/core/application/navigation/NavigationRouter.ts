@@ -79,14 +79,6 @@ export class NavigationRouter {
     this.workspace.openFilteredView('tasks-upcoming');
   }
 
-  /**
-   * Shows the Completed tasks collection view (Phase 2E) — every
-   * completed task regardless of completion date, newest first.
-   */
-  public openTasksCompleted(): void {
-    this.workspace.openFilteredView('tasks-completed');
-  }
-
   // createTask/createTag are NOT deleted alongside the 6 view-intent stubs
   // removed in Phase 4 commit 3 (see ADR-014): unlike a filtered view,
   // removing "create a task/tag" from the UI entirely is a product

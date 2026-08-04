@@ -25,7 +25,6 @@ function fakeNavigation(): NavigationRouter {
   return {
     openTasksToday: vi.fn(),
     openTasksUpcoming: vi.fn(),
-    openTasksCompleted: vi.fn(),
   } as unknown as NavigationRouter;
 }
 
@@ -200,7 +199,7 @@ describe('renderTasksByDate', () => {
     expect(navigation.openTasksUpcoming).toHaveBeenCalled();
   });
 
-  it('navigates to Completed when the completed-today accordion row is clicked, without toggling it', () => {
+  it('toggles the completed-today accordion when its row is clicked', () => {
     const navigation = fakeNavigation();
     const completedToday = task({
       text: 'Submit expenses',
@@ -220,13 +219,14 @@ describe('renderTasksByDate', () => {
       </>
     );
 
+    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
+
     fireEvent.click(getByText('1 Completed'));
 
-    expect(navigation.openTasksCompleted).toHaveBeenCalled();
-    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
+    expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(false);
   });
 
-  it('toggles the completed-today accordion when its caret is clicked, without navigating', () => {
+  it('toggles the completed-today accordion when its caret is clicked', () => {
     const navigation = fakeNavigation();
     const completedToday = task({
       text: 'Submit expenses',
@@ -249,7 +249,6 @@ describe('renderTasksByDate', () => {
     const header = getByText('1 Completed').closest('.entry') as HTMLElement;
     fireEvent.click(within(header).getByRole('button'));
 
-    expect(navigation.openTasksCompleted).not.toHaveBeenCalled();
     expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(false);
   });
 });
