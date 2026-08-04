@@ -292,3 +292,39 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
     expect(onOpen).not.toHaveBeenCalled();
   });
 });
+
+describe('DailyNotesList — today has no dedicated section', () => {
+  it("renders today's note inside its month section, not as a separate heading or row", () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const today = makeDailyNote('daily-today', '2026-08-15', 'month-august');
+    const other = makeDailyNote('daily-other', '2026-08-10', 'month-august');
+    const { vault, query, effectivePageState, workspace } = setup(
+      [today, other],
+      [dailyNotesRoot, year, month]
+    );
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        effectivePageState={effectivePageState}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // No dedicated "Today" heading — only the month heading exists, and
+    // both notes render once each, purely as members of that one section.
+    expect(screen.queryByText('Today')).toBeNull();
+    expect(screen.getAllByText(/August/)).toHaveLength(1);
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+  });
+});

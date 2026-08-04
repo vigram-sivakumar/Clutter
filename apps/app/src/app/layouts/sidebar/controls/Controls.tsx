@@ -13,7 +13,10 @@ interface ControlsProps {
  * sidebar-toggle button is no longer one: Workspace.isSidebarVisible
  * (ADR-021, M4) is its backing state.
  */
-export function Controls({ isSidebarVisible, onToggleSidebarVisible }: ControlsProps) {
+export function Controls({
+  isSidebarVisible,
+  onToggleSidebarVisible,
+}: ControlsProps) {
   return (
     <div className="controls" data-tauri-drag-region>
       <div className="sidebar-toggle">
@@ -21,7 +24,7 @@ export function Controls({ isSidebarVisible, onToggleSidebarVisible }: ControlsP
           isIconOnly
           size="medium"
           variant="ghost"
-          isActive={isSidebarVisible}
+          // There is no active state for the sidebar-toggle button, as it is a toggle button that controls the visibility of the sidebar. The button's appearance does not change based on the sidebar's visibility, so we use aria-pressed to indicate its state instead.
           aria-pressed={isSidebarVisible}
           onClick={onToggleSidebarVisible}
         >
