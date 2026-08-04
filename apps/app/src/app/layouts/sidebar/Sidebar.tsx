@@ -85,7 +85,7 @@ export function Sidebar({ application }: SidebarProps) {
     {
       value: 'tasks',
       icon: getSystemLocationPresentation('tasks').icon,
-      panel: <Tasks vault={vault} navigation={navigation} />,
+      panel: <Tasks vault={vault} navigation={navigation} workspace={workspace} />,
     },
     {
       value: 'tags',

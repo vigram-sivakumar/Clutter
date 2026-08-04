@@ -1,11 +1,13 @@
 import { Entry, EntryProps } from '@components/entry/Entry';
 import { Checkbox } from '@components/checkbox/Checkbox';
-// import { Caret } from '@components/caret/Caret';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
+import './Task.css';
 
 interface TaskProps extends Omit<EntryProps, 'children'> {
   title?: string;
+  dueDate?: string;
+  isOverdue?: boolean;
 
   isEmpty?: boolean;
   isExpanded?: boolean;
@@ -17,6 +19,8 @@ interface TaskProps extends Omit<EntryProps, 'children'> {
 
 export function Task({
   title,
+  dueDate,
+  isOverdue,
   isChecked,
   isExpanded = false,
   isEmpty = false,
@@ -29,21 +33,26 @@ export function Task({
       {...entryProps}
       leading={
         <>
-          {/* <Caret
-            isPlaceholder={isEmpty}
-            isExpanded={isExpanded}
-            variant="tree"
-          /> */}
           <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
         </>
       }
+      trailing={
+        dueDate && (
+          <span className={`task__due-date ${isOverdue ? 'is-overdue' : ''}`}>
+            {dueDate}
+          </span>
+        )
+      }
+
       actions={
         <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
           <AppIcon icon="moreHorizontal" />
         </Button>
       }
     >
-      <span className={isChecked ? 'is-completed' : undefined}>{title}</span>
+      <span className={`task-title ${isChecked ? 'is-completed' : ''}`}>
+        {title}
+      </span>
     </Entry>
   );
 }

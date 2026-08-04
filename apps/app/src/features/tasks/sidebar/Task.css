@@ -1,0 +1,18 @@
+.is-completed {
+  color: var(--strikethrough-color);
+  text-decoration: line-through;
+  text-decoration-thickness: 0.09em;
+}
+.task__due-date {
+  color: var(--text-tertiary);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  opacity: var(--opacity-medium);
+
+  min-width: 40px;
+  text-align: right;
+}
+.is-overdue {
+  color: var(--calendar-accent);
+  opacity: var(--opacity-subtle);
+}
