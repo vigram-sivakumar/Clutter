@@ -28,6 +28,7 @@ export function Sidebar({ application }: SidebarProps) {
     navigation,
     pageOperations,
     folderOperations,
+    taskOperations,
     effectivePageState,
   } = application;
   const workspace = useWorkspace(application.workspace);
@@ -85,7 +86,14 @@ export function Sidebar({ application }: SidebarProps) {
     {
       value: 'tasks',
       icon: getSystemLocationPresentation('tasks').icon,
-      panel: <Tasks vault={vault} navigation={navigation} workspace={workspace} />,
+      panel: (
+        <Tasks
+          vault={vault}
+          navigation={navigation}
+          workspace={workspace}
+          taskOperations={taskOperations}
+        />
+      ),
     },
     {
       value: 'tags',

@@ -17,6 +17,9 @@ export type SystemLocationId =
   | 'notes'
   | 'daily-notes'
   | 'tasks'
+  | 'tasks-today'
+  | 'tasks-upcoming'
+  | 'tasks-completed'
   | 'tags'
   | 'favorites'
   | 'workspace'
@@ -52,6 +55,17 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   notes: { id: 'notes', label: 'Notes', icon: 'squiggleLine' },
   'daily-notes': { id: 'daily-notes', label: 'Daily Notes', icon: 'calendarToday' },
   tasks: { id: 'tasks', label: 'Tasks', icon: 'squareCheckOutline' },
+  'tasks-today': { id: 'tasks-today', label: 'Today', icon: 'squareCheckOutline' },
+  'tasks-upcoming': {
+    id: 'tasks-upcoming',
+    label: 'Upcoming',
+    icon: 'squareCheckOutline',
+  },
+  'tasks-completed': {
+    id: 'tasks-completed',
+    label: 'Completed',
+    icon: 'squareCheckOutline',
+  },
   tags: { id: 'tags', label: 'Tags', icon: 'tag' },
   favorites: { id: 'favorites', label: 'Favorites', icon: 'favouriteOutline' },
   workspace: { id: 'workspace', label: 'Workspace', icon: 'folder' },

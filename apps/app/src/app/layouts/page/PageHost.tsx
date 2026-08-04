@@ -13,9 +13,11 @@ import {
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
+import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
+import { TasksCollectionBody } from '@features/tasks/page/TasksCollectionBody';
 import {
   MarkdownEditor,
   type MarkdownEditorHandle,
@@ -130,6 +132,38 @@ export function PageHost({ application }: PageHostProps) {
         actions={topBar.actions}
         coverImage={model.coverImage ?? undefined}
         body={<CollectionBody folders={model.folders} notes={model.notes} />}
+      />
+    );
+  }
+
+  // The three task collection views (Phase 2E) are filtered views too, but
+  // CollectionPageModel/CollectionBody are folder+note shaped — no room
+  // for completed/dueDate — so this dispatches to TasksCollectionBody
+  // instead of toCollectionPageModel, before the generic filtered-view
+  // branch below (which stays exactly as ADR-022 left it for Workspace/
+  // Favorites).
+  if (
+    workspace.activeView?.type === 'filtered-view' &&
+    (workspace.activeView.view === 'tasks-today' ||
+      workspace.activeView.view === 'tasks-upcoming' ||
+      workspace.activeView.view === 'tasks-completed')
+  ) {
+    const view = workspace.activeView.view;
+
+    return (
+      <Page
+        title={getSystemLocationPresentation(view).label}
+        titleEditable={false}
+        breadcrumbs={<Breadcrumbs items={[]} />}
+        body={
+          <TasksCollectionBody
+            view={view}
+            tasks={[...vault.tasks()]}
+            workspace={workspace}
+            onToggleComplete={(task) => void application.taskOperations.toggleComplete(task)}
+            onOpenCompleted={() => application.navigation.openTasksCompleted()}
+          />
+        }
       />
     );
   }
