@@ -60,4 +60,5 @@
   height: 4px;
   border-radius: 50%;
   background: var(--text-tertiary);
+  opacity: var(--opacity-medium);
 }
