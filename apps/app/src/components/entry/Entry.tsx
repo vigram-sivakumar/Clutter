@@ -56,6 +56,32 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     onClick?.(event);
   };
 
+  // A role="button" <div> has no native Enter/Space activation the way a
+  // real <button> does (unlike e.g. Caret's own <button>, which needs no
+  // equivalent handler). Dispatches a real click at the row itself rather
+  // than calling onClick directly, so keyboard activation goes through the
+  // exact same path — and the same disabled/interactive-descendant guard —
+  // as a mouse click, instead of a second, parallel implementation of it.
+  // target !== currentTarget means focus (and thus this keydown) is on a
+  // nested interactive element (e.g. the caret button) — its own native
+  // handling already covers that case, so this must not double-fire.
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (disabled) {
+      return;
+    }
+
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.click();
+  };
+
   return (
     <div
       {...props}
@@ -77,6 +103,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
         .filter(Boolean)
         .join(' ')}
       onClick={handleClick}
+      onKeyDown={onClick ? handleKeyDown : undefined}
       role={role ?? (onClick ? 'button' : undefined)}
       tabIndex={tabIndex ?? (onClick && !disabled ? 0 : undefined)}
       aria-disabled={disabled || undefined}
