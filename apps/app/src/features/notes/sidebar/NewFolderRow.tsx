@@ -1,9 +1,7 @@
 import { useRef } from 'react';
 import { Entry } from '@components/entry/Entry';
-import { Caret } from '@components/caret/Caret';
 import { EditableText } from '@components/editable-text/EditableText';
-import { AppIcon } from '@shared/icon';
-import { getPageIcon } from '@core/presentation/getPageIcon';
+import { FolderLeading } from './FolderLeading';
 
 interface NewFolderRowProps {
   level: number;
@@ -27,15 +25,13 @@ export function NewFolderRow({ level, onCommit, onCancel }: NewFolderRowProps) {
   return (
     <Entry
       level={level}
-      leading={
-        <>
-          {/* Placeholder-only, like Note.tsx's non-expandable rows — this
-              row can never expand, but every row at this level reserves
-              the caret's leading space so icons stay aligned. */}
-          <Caret isPlaceholder />
-          <AppIcon icon={getPageIcon('folder')} />
-        </>
-      }
+      // Same leading composition as a real Folder row — an in-progress
+      // folder has no children yet, so this matches how an existing,
+      // empty Folder renders: the caret occupies its grid cell (kept
+      // disabled, no onExpandToggle) rather than a standalone
+      // placeholder span, so spacing, hover crossfade, and alignment
+      // stay identical to every other folder-shaped row.
+      leading={<FolderLeading isEmpty hasCaret />}
     >
       <EditableText
         value=""

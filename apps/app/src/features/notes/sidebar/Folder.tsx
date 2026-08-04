@@ -1,8 +1,7 @@
 import { Button } from '@components/button/Button';
-import { Caret } from '@components/caret/Caret';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
-import { getPageIcon } from '@core/presentation/getPageIcon';
+import { FolderLeading } from './FolderLeading';
 import './Folder.css';
 
 interface FolderProps extends Omit<EntryProps, 'children'> {
@@ -28,27 +27,13 @@ export function Folder({
     <Entry
       {...entryProps}
       leading={
-        <span
-          className={`folder__leading${hasCaret ? ' folder__leading--has-caret' : ''}`}
-        >
-          {hasCaret && (
-            <span className="folder__caret">
-              <Caret
-                disabled={isEmpty}
-                isExpanded={isExpanded}
-                variant="tree"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onExpandToggle?.();
-                }}
-              />
-            </span>
-          )}
-
-          <span className="folder__icon">
-            <AppIcon icon={getPageIcon('folder')} emoji={emoji} />
-          </span>
-        </span>
+        <FolderLeading
+          emoji={emoji}
+          isEmpty={isEmpty}
+          hasCaret={hasCaret}
+          isExpanded={isExpanded}
+          onExpandToggle={onExpandToggle}
+        />
       }
       actions={
         <>
