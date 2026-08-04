@@ -8,7 +8,7 @@
   gap: var(--btn-gap-md);
 
   padding-right: var(--space-6);
-  padding-left: calc(var(--space-6) + (var(--tree-level) * 16px));
+  padding-left: calc(var(--space-6) + (var(--tree-level) * 24px));
 
   color: var(--text-secondary);
 
@@ -67,6 +67,11 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.entry__content span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 
 /* actions */
 .entry__actions,
@@ -80,6 +85,8 @@
   pointer-events: none;
 
   transition: opacity 150ms ease;
+
+  overflow: hidden;
 }
 .entry:hover .entry__actions,
 .entry:focus-visible .entry__actions,

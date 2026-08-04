@@ -3,9 +3,7 @@
   flex-direction: column;
   gap: var(--space-1);
 }
-.section-header {
-  padding-left: var(--space-2);
-}
+
 .section::first-letter {
   text-transform: uppercase;
 }

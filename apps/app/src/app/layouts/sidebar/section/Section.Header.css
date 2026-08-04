@@ -1,0 +1,6 @@
+.section-header {
+  padding-left: var(--space-2);
+}
+.entry__content:has(.section-header) {
+  gap: 0;
+}
