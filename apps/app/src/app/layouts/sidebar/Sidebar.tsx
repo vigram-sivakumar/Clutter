@@ -55,12 +55,6 @@ export function Sidebar({ application }: SidebarProps) {
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
-          onStartToday={() =>
-            pageOperations.openAtPath(
-              DailyNotePath.absoluteFrom(vault.root, new Date()),
-              { type: 'daily-note' }
-            )
-          }
           onOpenDate={(date) =>
             pageOperations.openAtPath(
               DailyNotePath.absoluteFrom(vault.root, new Date(date)),

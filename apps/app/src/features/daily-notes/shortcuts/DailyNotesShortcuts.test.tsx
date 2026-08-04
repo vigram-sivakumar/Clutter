@@ -68,37 +68,37 @@ function makeVault(pages: Page[] = []): Vault {
 
 function renderShortcuts(vault: Vault, activeDate: string | undefined) {
   return render(
-    <DailyNotesShortcuts
-      vault={vault}
-      activeDate={activeDate}
-      onStartToday={vi.fn()}
-      onOpenDate={vi.fn()}
-    />
+    <DailyNotesShortcuts vault={vault} activeDate={activeDate} onOpenDate={vi.fn()} />
   );
 }
 
-describe('DailyNotesShortcuts — "Start your day..." visibility', () => {
-  it('shows the CTA when today has no note and nothing is open', () => {
+// The "Start your day..." CTA was removed in favor of a permanent first
+// row in DailyNotesList (see DailyNotesList.test.tsx's "permanent today
+// row" suite) — today's Daily Note is now always represented there,
+// never as a conditional element in the shortcuts/calendar section.
+// These tests are a regression guard: no state should bring the CTA back.
+describe('DailyNotesShortcuts — no conditional "Start your day..." CTA', () => {
+  it('never renders the CTA when today has no note and nothing is open', () => {
     renderShortcuts(makeVault(), undefined);
 
-    expect(screen.queryByText('Start your day...')).not.toBeNull();
+    expect(screen.queryByText('Start your day...')).toBeNull();
   });
 
-  it('hides the CTA when a persisted note for today already exists', () => {
+  it('never renders the CTA when a persisted note for today already exists', () => {
     renderShortcuts(makeVault([makeDailyNote(TODAY)]), undefined);
 
     expect(screen.queryByText('Start your day...')).toBeNull();
   });
 
-  it('hides the CTA when today is open as an unpersisted draft (no Vault page yet, activeDate is today)', () => {
+  it('never renders the CTA when today is open as an unpersisted draft', () => {
     renderShortcuts(makeVault(), TODAY);
 
     expect(screen.queryByText('Start your day...')).toBeNull();
   });
 
-  it('still shows the CTA when a different, non-today date is open', () => {
+  it('never renders the CTA when a different, non-today date is open', () => {
     renderShortcuts(makeVault(), '2020-01-01');
 
-    expect(screen.queryByText('Start your day...')).not.toBeNull();
+    expect(screen.queryByText('Start your day...')).toBeNull();
   });
 });
