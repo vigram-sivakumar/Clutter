@@ -59,7 +59,9 @@ describe('PageBuilder', () => {
       analysis: {
         headings: [{ title: 'Heading', level: 1 }],
         blockReferences: [],
-        tasks: [{ text: 'do the thing', completed: false }],
+        tasks: [
+          { text: 'do the thing', completed: false, rawText: '- [ ] do the thing' },
+        ],
         tags: [{ name: 'design' }],
         links: [],
         embeds: [],
@@ -74,7 +76,7 @@ describe('PageBuilder', () => {
         sourcePageId: 'page-xyz',
         text: 'do the thing',
         completed: false,
-        rawText: undefined,
+        rawText: '- [ ] do the thing',
         startOffset: undefined,
         endOffset: undefined,
         sourceVersion: undefined,

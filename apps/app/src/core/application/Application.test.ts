@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Application } from './Application';
 import { PageOperations } from './page/PageOperations';
 import { FolderOperations } from './folder/FolderOperations';
+import { TaskOperations } from './task/TaskOperations';
 import { NavigationRouter } from './navigation/NavigationRouter';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
 import { EffectivePageState } from './page/EffectivePageState';
@@ -59,6 +60,7 @@ describe('Application.attachVault', () => {
 
     expect(application.pageOperations).toBeInstanceOf(PageOperations);
     expect(application.folderOperations).toBeInstanceOf(FolderOperations);
+    expect(application.taskOperations).toBeInstanceOf(TaskOperations);
     expect(application.navigation).toBeInstanceOf(NavigationRouter);
     expect(application.vaultSyncService).toBeInstanceOf(VaultSyncService);
     // ADR-020, M2: constructed alongside the other vault-dependent

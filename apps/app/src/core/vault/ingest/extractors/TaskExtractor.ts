@@ -3,6 +3,12 @@ export interface ScannedTask {
   readonly completed: boolean;
   readonly dueDate?: string;
   readonly completedAt?: string;
+  // The exact, unmodified source line this task was extracted from —
+  // fulfils Occurrence.rawText's long-reserved "populate during analysis"
+  // contract. This is what TaskOperations (the mutation facade) matches
+  // against to locate the line it needs to rewrite; there is no other
+  // stable identity for a task occurrence today.
+  readonly rawText: string;
 }
 
 // Inline occurrence metadata: `@key:value`, recognized keys only — an
@@ -12,9 +18,9 @@ export interface ScannedTask {
 // Extending this to a new key (@priority, @repeat, @estimate, @reminder)
 // means adding one entry here and one field on ScannedTask/TaskOccurrence
 // — the token grammar itself (@key:value) does not change.
-type RecognizedMetadataKey = 'due' | 'completed';
+export type RecognizedMetadataKey = 'due' | 'completed';
 
-const RECOGNIZED_METADATA_KEYS: ReadonlySet<string> = new Set<RecognizedMetadataKey>([
+export const RECOGNIZED_METADATA_KEYS: ReadonlySet<string> = new Set<RecognizedMetadataKey>([
   'due',
   'completed',
 ]);
@@ -22,9 +28,13 @@ const RECOGNIZED_METADATA_KEYS: ReadonlySet<string> = new Set<RecognizedMetadata
 // TODO: @priority, @repeat, @estimate, @reminder — not yet recognized, so
 // tokens using these keys pass through untouched in `text` today.
 
-export class TaskExtractor {
-  private static readonly METADATA_TOKEN = /@([a-zA-Z]+):(\S+)/g;
+// Exported so TaskOperations (the mutation facade) can locate and rewrite
+// a task's checkbox/metadata without duplicating this recognition logic —
+// same regexes, read side and write side (ARCHITECTURE_RULES rule 4).
+export const TASK_LINE_PATTERN = /^(\s*)- \[( |x|X)\]\s+(.+)$/;
+export const METADATA_TOKEN_PATTERN = /@([a-zA-Z]+):(\S+)/g;
 
+export class TaskExtractor {
   extract(content: string): readonly ScannedTask[] {
     const tasks: ScannedTask[] = [];
 
@@ -40,31 +50,27 @@ export class TaskExtractor {
   }
 
   private extractFromLine(line: string): ScannedTask | null {
-    const match = line.match(/^\s*- \[( |x|X)\]\s+(.+)$/);
+    const match = line.match(TASK_LINE_PATTERN);
 
     if (!match) {
       return null;
     }
 
-    const rawText = match[2];
+    const completedMarker = match[2];
+    const rest = match[3];
 
-    if (!rawText) {
+    if (!completedMarker || !rest) {
       return null;
     }
 
-    const completedMarker = match[1];
-
-    if (!completedMarker) {
-      return null;
-    }
-
-    const { text, metadata } = this.extractMetadata(rawText);
+    const { text, metadata } = this.extractMetadata(rest);
 
     return {
       completed: completedMarker.toLowerCase() === 'x',
       text,
       dueDate: metadata.due,
       completedAt: metadata.completed,
+      rawText: line,
     };
   }
 
@@ -79,7 +85,7 @@ export class TaskExtractor {
     const metadata: Partial<Record<RecognizedMetadataKey, string>> = {};
 
     const stripped = text.replace(
-      TaskExtractor.METADATA_TOKEN,
+      METADATA_TOKEN_PATTERN,
       (token, key: string, value: string) => {
         if (!RECOGNIZED_METADATA_KEYS.has(key)) {
           return token;

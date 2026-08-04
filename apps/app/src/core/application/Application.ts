@@ -14,6 +14,7 @@ import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations';
 import { EffectivePageState } from './page/EffectivePageState';
 import { FolderOperations } from './folder/FolderOperations';
+import { TaskOperations } from './task/TaskOperations';
 import { FolderPathResolver } from './folder/FolderPathResolver';
 import { FolderCreator } from './folder/FolderCreator';
 import { NavigationRouter } from './navigation/NavigationRouter';
@@ -72,6 +73,7 @@ export class Application {
   public readonly saveCoordinator: SaveCoordinator;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
+  public taskOperations!: TaskOperations;
   public navigation!: NavigationRouter;
   public vaultSyncService!: VaultSyncService;
   public effectivePageState!: EffectivePageState;
@@ -210,6 +212,9 @@ export class Application {
       dailyNoteService
     );
     this.navigation = new NavigationRouter(this.folderOperations, vault, this.workspace);
+    // Same Gate instance every other facade writes through — a task
+    // mutation is just another 'save' kind, never a second write path.
+    this.taskOperations = new TaskOperations(vault, persistenceCoordinator);
     // ADR-020: constructed after query/workspace/pageOperations all exist
     // above — the projection reconciling Vault (Durable) with
     // PageOperations/DocumentEditing (Committed) state. No production
