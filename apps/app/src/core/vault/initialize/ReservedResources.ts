@@ -73,6 +73,22 @@ export function reservedFolderRelativePath(id: ReservedFolderId): string {
 }
 
 /**
+ * The inverse of reservedFolderRelativePath: which reserved id (if any) a
+ * top-level folder's name corresponds to. Name-only, deliberately not
+ * vault-root/path-aware — callers that need to confirm a folder is
+ * actually reserved (not just named the same thing) call
+ * Vault.isReservedFolder() first, the same composition
+ * VaultQuery.getVisibleRootFolders() already relies on
+ * (RESERVED_FOLDER_NAMES, name-based) rather than this function
+ * reimplementing that path/parentId check itself.
+ */
+export function reservedFolderIdForName(name: string): ReservedFolderId | undefined {
+  return (Object.entries(RESERVED_FOLDER_IDS) as [ReservedFolderId, string][]).find(
+    ([, folderName]) => folderName === name
+  )?.[0];
+}
+
+/**
  * Top-level folder names owned by Clutter as application infrastructure.
  * These are real Folder entities in the vault, but they are not generic
  * user content and should not surface in generic folder navigation

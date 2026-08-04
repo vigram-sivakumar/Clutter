@@ -1,11 +1,16 @@
 import type { Vault } from '@core/vault/models/Vault';
 import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
+import { isToday } from '@shared/helpers/time';
 
 import type { Breadcrumb } from './Breadcrumb';
 import { isNoteUntitled } from './isNoteUntitled';
 import { getPageTitlePlaceholder } from './PageDisplayPlaceholders';
 import { getPageIcon } from './getPageIcon';
+import {
+  getSystemLocationForFolder,
+  getSystemLocationPresentation,
+} from './systemPresentation';
 
 function isPage(entry: Page | Folder): entry is Page {
   return 'type' in entry;
@@ -32,7 +37,11 @@ function entryBreadcrumbTitle(entry: Page | Folder): string {
  * breadcrumb differs based on the entry type.
  */
 function getEntryIcon(entry: Page | Folder) {
-  return getPageIcon(isPage(entry) ? entry.type : 'folder');
+  if (!isPage(entry)) {
+    return getPageIcon('folder');
+  }
+
+  return getPageIcon(entry.type, entry.type === 'daily-note' && isToday(entry.name));
 }
 
 /** Shared by buildBreadcrumbs and buildBreadcrumbsForDraft — the ancestor
@@ -52,11 +61,22 @@ function ancestorBreadcrumbs(
       break;
     }
 
+    // A reserved folder (Archive, Inbox, Templates, Daily Notes) in the
+    // ancestor chain gets its canonical system-location icon/label
+    // instead of the generic folder icon and raw Vault folder name — the
+    // same presentation an ordinary folder never has, since it's not one.
+    // No emoji override for these: they're fixed, non-customizable system
+    // icons, same as Tasks/Tags/Search already are.
+    const systemLocation = getSystemLocationForFolder(folder, vault);
+    const presentation = systemLocation
+      ? getSystemLocationPresentation(systemLocation)
+      : undefined;
+
     ancestors.unshift({
       id: folder.id,
-      title: folder.name,
-      icon: getPageIcon('folder'),
-      emoji: folder.metadata.icon ?? undefined,
+      title: presentation ? presentation.label : folder.name,
+      icon: presentation ? presentation.icon : getPageIcon('folder'),
+      emoji: presentation ? undefined : (folder.metadata.icon ?? undefined),
       onClick: () => onOpenFolder(folder.id),
     });
 
@@ -120,7 +140,10 @@ export function buildBreadcrumbsForDraft(
   ancestors.push({
     id: draftId,
     title,
-    icon: getPageIcon(type),
+    // A Daily Note draft's title is always its date (never user-chosen —
+    // ADR-017 §5), so it doubles as the isToday input here, same as a
+    // persisted daily-note's `name` does in getEntryIcon above.
+    icon: getPageIcon(type, type === 'daily-note' && isToday(title)),
   });
 
   return ancestors;

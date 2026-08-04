@@ -7,6 +7,7 @@ import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
+import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
 import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
 import { DailyNotes } from '@features/daily-notes/sidebar/Sidebar.DailyNotes';
@@ -44,7 +45,7 @@ export function Sidebar({ application }: SidebarProps) {
   }> = [
     {
       value: 'daily-notes',
-      icon: 'calendarToday',
+      icon: getSystemLocationPresentation('daily-notes').icon,
       panel: (
         <DailyNotes
           vault={vault}
@@ -66,7 +67,7 @@ export function Sidebar({ application }: SidebarProps) {
     },
     {
       value: 'notes',
-      icon: 'squiggleLine',
+      icon: getSystemLocationPresentation('notes').icon,
       panel: (
         <Notes
           query={query}
@@ -83,17 +84,17 @@ export function Sidebar({ application }: SidebarProps) {
     },
     {
       value: 'tasks',
-      icon: 'squareCheckOutline',
+      icon: getSystemLocationPresentation('tasks').icon,
       panel: <Tasks vault={vault} navigation={navigation} />,
     },
     {
       value: 'tags',
-      icon: 'tag',
+      icon: getSystemLocationPresentation('tags').icon,
       panel: <Tags vault={vault} navigation={navigation} />,
     },
     {
       value: 'search',
-      icon: 'magnifyingGlass',
+      icon: getSystemLocationPresentation('search').icon,
       panel: <SearchPanel />,
     },
   ];

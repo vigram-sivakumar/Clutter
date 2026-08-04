@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildBreadcrumbs, buildBreadcrumbsForDraft } from './buildBreadcrumbs';
 import { getPageIcon } from './getPageIcon';
+import { getSystemLocationPresentation } from './systemPresentation';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { Vault } from '../vault/models/Vault';
 import { VaultProjectionBuilder } from '../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
@@ -270,6 +272,122 @@ describe('buildBreadcrumbs — icon sourced from getPageIcon (single authority)'
       makeVault([parent]),
       vi.fn()
     );
+
+    expect(crumbs.at(-1)!.icon).toBe(getPageIcon('note'));
+  });
+});
+
+describe('buildBreadcrumbs — reserved-folder ancestors use their canonical system-location presentation', () => {
+  it('shows the canonical icon and label for an Archive ancestor, not the generic folder icon and raw name', () => {
+    const archive = makeFolder({
+      id: 'archive-folder',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const page = makePage({ parentId: 'archive-folder' });
+    const crumbs = buildBreadcrumbs(page, makeVault([archive]), vi.fn());
+
+    const archiveCrumb = crumbs[0]!;
+    expect(archiveCrumb.title).toBe(getSystemLocationPresentation('archive').label);
+    expect(archiveCrumb.icon).toBe(getSystemLocationPresentation('archive').icon);
+    expect(archiveCrumb.icon).not.toBe(getPageIcon('folder'));
+  });
+
+  it('shows the canonical icon and label for an Inbox/Templates ancestor too', () => {
+    const inbox = makeFolder({
+      id: 'inbox-folder',
+      name: 'Inbox',
+      path: `${ROOT}/Inbox`,
+      parentId: null,
+    });
+    const page = makePage({ parentId: 'inbox-folder' });
+    const crumbs = buildBreadcrumbs(page, makeVault([inbox]), vi.fn());
+
+    expect(crumbs[0]!.title).toBe(getSystemLocationPresentation('inbox').label);
+    expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('inbox').icon);
+  });
+
+  it('does not apply system-location presentation to an ordinary folder that merely shares a reserved name at a non-root path', () => {
+    // "Archive" only counts as reserved when it is a real top-level Vault
+    // folder (Vault.isReservedFolder checks parentId === null AND the
+    // exact reserved path) — a user-created nested folder that happens to
+    // be named "Archive" must not be hijacked into the reserved
+    // presentation.
+    const grandparent = makeFolder({ id: 'grandparent', name: 'Projects', parentId: null });
+    const nestedArchive = makeFolder({
+      id: 'nested-archive',
+      name: 'Archive',
+      parentId: 'grandparent',
+    });
+    const page = makePage({ parentId: 'nested-archive' });
+    const crumbs = buildBreadcrumbs(page, makeVault([grandparent, nestedArchive]), vi.fn());
+
+    const nestedArchiveCrumb = crumbs[1]!;
+    expect(nestedArchiveCrumb.title).toBe('Archive');
+    expect(nestedArchiveCrumb.icon).toBe(getPageIcon('folder'));
+  });
+
+  it('leaves an ordinary, non-reserved folder ancestor exactly as before', () => {
+    const parent = makeAncestorFolder({ name: 'Projects' });
+    const page = makePage({ parentId: 'ancestor-folder' });
+    const crumbs = buildBreadcrumbs(page, makeVault([parent]), vi.fn());
+
+    expect(crumbs[0]!.title).toBe('Projects');
+    expect(crumbs[0]!.icon).toBe(getPageIcon('folder'));
+  });
+});
+
+describe("buildBreadcrumbs — today's Daily Note gets the dotted calendar icon", () => {
+  it("uses the dotted calendar icon for today's persisted daily note, not a non-today one", () => {
+    const parent = makeAncestorFolder();
+    const today = makePage({
+      type: 'daily-note',
+      name: toISODate(new Date()),
+      parentId: 'ancestor-folder',
+    });
+    const notToday = makePage({
+      type: 'daily-note',
+      name: '2020-01-01',
+      parentId: 'ancestor-folder',
+    });
+
+    const todayCrumbs = buildBreadcrumbs(today, makeVault([parent]), vi.fn());
+    const notTodayCrumbs = buildBreadcrumbs(notToday, makeVault([parent]), vi.fn());
+
+    expect(todayCrumbs.at(-1)!.icon).toBe(getPageIcon('daily-note', true));
+    expect(notTodayCrumbs.at(-1)!.icon).toBe(getPageIcon('daily-note', false));
+    expect(todayCrumbs.at(-1)!.icon).not.toBe(notTodayCrumbs.at(-1)!.icon);
+  });
+
+  it("uses the dotted calendar icon for today's Daily Note draft (title doubles as its date)", () => {
+    const parent = makeAncestorFolder();
+
+    const todayCrumbs = buildBreadcrumbsForDraft(
+      'draft-1',
+      'ancestor-folder',
+      toISODate(new Date()),
+      'daily-note',
+      makeVault([parent]),
+      vi.fn()
+    );
+    const notTodayCrumbs = buildBreadcrumbsForDraft(
+      'draft-2',
+      'ancestor-folder',
+      '2020-01-01',
+      'daily-note',
+      makeVault([parent]),
+      vi.fn()
+    );
+
+    expect(todayCrumbs.at(-1)!.icon).toBe(getPageIcon('daily-note', true));
+    expect(notTodayCrumbs.at(-1)!.icon).toBe(getPageIcon('daily-note', false));
+  });
+
+  it('never applies the dotted variant to a regular note, even if its type check were skipped', () => {
+    const parent = makeAncestorFolder();
+    const page = makePage({ type: 'note', name: 'Untitled', parentId: 'ancestor-folder' });
+    const crumbs = buildBreadcrumbs(page, makeVault([parent]), vi.fn());
 
     expect(crumbs.at(-1)!.icon).toBe(getPageIcon('note'));
   });

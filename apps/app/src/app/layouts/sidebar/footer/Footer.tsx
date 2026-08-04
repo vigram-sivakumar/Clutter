@@ -1,6 +1,7 @@
 import './Footer.css';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
+import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
 interface FooterProps {
   onOpenArchive(): void;
@@ -16,7 +17,7 @@ export function Footer({ onOpenArchive }: FooterProps) {
           variant="ghost"
           onClick={onOpenArchive}
         >
-          <AppIcon icon="archive" />
+          <AppIcon icon={getSystemLocationPresentation('archive').icon} />
         </Button>
       </div>
     </div>

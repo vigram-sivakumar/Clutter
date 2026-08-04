@@ -107,6 +107,7 @@ export function PageHost({ application }: PageHostProps) {
 
     const model = toCollectionPageModel(
       folder,
+      vault,
       application.query,
       application.effectivePageState,
       workspace,

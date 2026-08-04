@@ -15,6 +15,7 @@ import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
+import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
 interface NotesProps {
   query: VaultQuery;
@@ -69,7 +70,7 @@ export function Notes({
     <View navigation={<NotesShortcuts onShortcut={onShortcut} />}>
       <Section
         hasHeader
-        title="Favorites"
+        title={getSystemLocationPresentation('favorites').label}
         isCollapsible
         isExpanded={workspace.isSectionExpanded('favorites')}
         onExpandedChange={() => workspace.toggleSectionExpanded('favorites')}

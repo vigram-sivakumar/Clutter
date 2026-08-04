@@ -1,9 +1,15 @@
 import type { Folder } from '@core/vault/models';
+import type { Vault } from '@core/vault/models/Vault';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
 import { getPageIcon } from '@core/presentation/getPageIcon';
 import { getPageDisplayLabel } from '@core/presentation/getPageDisplayLabel';
+import { isToday } from '@shared/helpers/time';
+import {
+  getSystemLocationForFolder,
+  getSystemLocationPresentation,
+} from '@core/presentation/systemPresentation';
 
 import type { CollectionEntryModel } from './CollectionEntryModel';
 import type {
@@ -40,7 +46,9 @@ function toCollectionEntry(
     // always real and deliberate; no fallback chain applies to it.
     title: isFolder(entry) ? entry.name : getPageDisplayLabel(entry).text,
     emoji: isFolder(entry) ? entry.metadata.icon : entry.icon,
-    icon: getPageIcon(isFolder(entry) ? 'folder' : entry.type),
+    icon: isFolder(entry)
+      ? getPageIcon('folder')
+      : getPageIcon(entry.type, entry.type === 'daily-note' && isToday(entry.name)),
     selected,
     onClick: () => {
       if (isFolder(entry)) {
@@ -60,6 +68,7 @@ function toCollectionEntry(
 
 export function toCollectionPageModel(
   folder: Folder,
+  vault: Vault,
   query: VaultQuery,
   effectivePageState: EffectivePageState,
   workspace: Workspace,
@@ -77,8 +86,17 @@ export function toCollectionPageModel(
       toCollectionEntry(child, actions, workspace.activePageId === child.id)
     );
 
+  // A reserved folder (Archive, Inbox, Templates, Daily Notes) viewed
+  // directly gets its canonical system-location label instead of the raw
+  // Vault folder name — same helper buildBreadcrumbs' ancestor handling
+  // uses, so the two surfaces can't drift.
+  const systemLocation = getSystemLocationForFolder(folder, vault);
+  const title = systemLocation
+    ? getSystemLocationPresentation(systemLocation).label
+    : folder.name;
+
   return {
-    title: folder.name,
+    title,
     description: folder.metadata.description,
     coverImage: folder.metadata.cover,
     folders,
