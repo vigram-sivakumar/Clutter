@@ -180,8 +180,8 @@ function renderTree(
   );
 }
 
-describe('FolderTree: sidebar membership is durable-only — drafts are not sidebar items', () => {
-  it('a freshly opened, untitled draft does not appear in the tree', async () => {
+describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () => {
+  it('a freshly created draft appears in the tree before any save', async () => {
     const { query, workspace, pageOperations, effectivePageState } = setup();
     const { rerender } = renderTree(query, workspace, effectivePageState);
 
@@ -204,28 +204,60 @@ describe('FolderTree: sidebar membership is durable-only — drafts are not side
       />
     );
 
-    // The editor has an open, in-memory session for this draft (it just
-    // isn't rendered here) — the sidebar simply doesn't list it until a
-    // real Vault page exists. EffectivePageState still reconciled it
-    // (isDraft: true); FolderTree is the one that now filters it out.
-    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
+    // No explicit title was given, so it falls back to the same shared
+    // placeholder copy the rest of the app already uses for an untitled
+    // page — not a new label, an existing one applied to a new case.
+    expect(screen.getByText('New Note')).toBeInTheDocument();
   });
 
-  it('a titled, unsaved draft still does not appear in the tree', async () => {
+  it('a titled draft renders its title immediately', async () => {
     const { query, workspace, pageOperations, effectivePageState } = setup();
 
     await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
-    const { queryByText } = renderTree(query, workspace, effectivePageState);
+    const { getByText } = renderTree(query, workspace, effectivePageState);
 
-    expect(queryByText('My Draft')).not.toBeInTheDocument();
+    expect(getByText('My Draft')).toBeInTheDocument();
   });
+});
 
-  it('closing an unsaved draft is a no-op for the tree — it was never there', async () => {
+describe('FolderTree: draft click routing', () => {
+  it('clicking a draft row invokes onDraftPageClick, not onPageClick (open() would throw for a draft)', async () => {
+    const { query, workspace, pageOperations, effectivePageState } = setup();
+    await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
+
+    const onPageClick = vi.fn();
+    const onDraftPageClick = vi.fn();
+
+    render(
+      <FolderTree
+        query={query}
+        workspace={workspace}
+        effectivePageState={effectivePageState}
+        parentId={null}
+        level={0}
+        onPageClick={onPageClick}
+        onDraftPageClick={onDraftPageClick}
+        onFolderClick={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    screen.getByText('My Draft').click();
+
+    expect(onDraftPageClick).toHaveBeenCalledWith(expect.any(String));
+    expect(onPageClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('FolderTree: draft discard', () => {
+  it('closing an unsaved draft removes it from the tree', async () => {
     const { query, workspace, pageOperations, effectivePageState } = setup();
 
     const draftId = await pageOperations.openDraft({ folderId: null, title: 'Throwaway' });
     const { rerender, queryByText } = renderTree(query, workspace, effectivePageState);
-    expect(queryByText('Throwaway')).not.toBeInTheDocument();
+    expect(queryByText('Throwaway')).toBeInTheDocument();
 
     pageOperations.close(draftId);
 
@@ -246,6 +278,32 @@ describe('FolderTree: sidebar membership is durable-only — drafts are not side
     );
 
     expect(queryByText('Throwaway')).not.toBeInTheDocument();
+  });
+});
+
+describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId) surfaces correctly here', () => {
+  it('clicking "New Note" twice without saving shows exactly one placeholder row, not two', async () => {
+    const { query, workspace, pageOperations, effectivePageState } = setup();
+
+    await pageOperations.openDraft({ folderId: null });
+    await pageOperations.openDraft({ folderId: null });
+
+    const { getAllByText } = renderTree(query, workspace, effectivePageState);
+
+    expect(getAllByText('New Note')).toHaveLength(1);
+  });
+
+  it('a draft with real content is left alone — a second "New Note" click shows two distinct rows', async () => {
+    const { query, workspace, pageOperations, effectivePageState } = setup();
+
+    const firstId = await pageOperations.openDraft({ folderId: null });
+    pageOperations.commitEdit(firstId, 'Real content');
+    await pageOperations.openDraft({ folderId: null });
+
+    const { getAllByText, getByText } = renderTree(query, workspace, effectivePageState);
+
+    expect(getByText('Real content')).toBeInTheDocument();
+    expect(getAllByText('New Note')).toHaveLength(1);
   });
 });
 
@@ -328,12 +386,12 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
 });
 
 describe('FolderTree: draft promotion', () => {
-  it('a draft appears in the tree for the first time only once it is saved (first persist)', async () => {
+  it('never renders the same page twice across the promotion window', async () => {
     const { query, workspace, pageOperations, effectivePageState } = setup();
 
     const draftId = await pageOperations.openDraft({ folderId: null, title: 'Promote Me' });
-    const { rerender, queryByText } = renderTree(query, workspace, effectivePageState);
-    expect(queryByText('Promote Me')).not.toBeInTheDocument();
+    const { rerender, getAllByText } = renderTree(query, workspace, effectivePageState);
+    expect(getAllByText('Promote Me')).toHaveLength(1);
 
     await pageOperations.save(draftId, '# Hello');
 
@@ -353,9 +411,9 @@ describe('FolderTree: draft promotion', () => {
       />
     );
 
-    // Now a real Vault page, rendered via the durable (query-driven)
-    // path — exactly one row, appearing for the first time here.
-    expect(queryByText('Promote Me')).toBeInTheDocument();
+    // Now rendered via the durable (query-driven) path, not the draft
+    // overlay — still exactly one row, never both simultaneously.
+    expect(getAllByText('Promote Me')).toHaveLength(1);
   });
 });
 

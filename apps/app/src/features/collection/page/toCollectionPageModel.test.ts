@@ -196,29 +196,8 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
   });
 });
 
-describe('toCollectionPageModel — sidebar/collection membership is durable-only', () => {
-  it('a freshly opened draft targeting the active folder does not appear in notes before any save', async () => {
-    const active = makeFolder({ id: 'folder-1' });
-    const { query, pageOperations, effectivePageState, workspace } = setup([active], []);
-
-    await pageOperations.openDraft({
-      folderId: 'folder-1',
-      title: 'My Draft',
-    });
-
-    const model = toCollectionPageModel(active, query, effectivePageState, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote: vi.fn(),
-      onOpenDraftNote: vi.fn(),
-    });
-
-    // EffectivePageState still reconciled the draft (isDraft: true) — the
-    // editor session exists — toCollectionPageModel is what now filters
-    // it out of collection/notes membership until first persist.
-    expect(model.notes).toEqual([]);
-  });
-
-  it('the same draft appears in notes only once it is saved (first persist)', async () => {
+describe('toCollectionPageModel — draft-only pages appear immediately (ARCHITECTURE_RULES.md rule 13)', () => {
+  it('a freshly opened draft targeting the active folder appears in notes before any save', async () => {
     const active = makeFolder({ id: 'folder-1' });
     const { query, pageOperations, effectivePageState, workspace } = setup([active], []);
 
@@ -226,16 +205,6 @@ describe('toCollectionPageModel — sidebar/collection membership is durable-onl
       folderId: 'folder-1',
       title: 'My Draft',
     });
-
-    expect(
-      toCollectionPageModel(active, query, effectivePageState, workspace, {
-        onOpenFolder: vi.fn(),
-        onOpenNote: vi.fn(),
-        onOpenDraftNote: vi.fn(),
-      }).notes
-    ).toEqual([]);
-
-    await pageOperations.save(draftId, '# Hello');
 
     const model = toCollectionPageModel(active, query, effectivePageState, workspace, {
       onOpenFolder: vi.fn(),
@@ -248,10 +217,11 @@ describe('toCollectionPageModel — sidebar/collection membership is durable-onl
     ]);
   });
 
-  it('clicking a persisted note entry invokes onOpenNote, not onOpenDraftNote', () => {
+  it('clicking a draft entry invokes onOpenDraftNote, not onOpenNote', async () => {
     const active = makeFolder({ id: 'folder-1' });
-    const page = makePage({ name: 'Meeting Notes' });
-    const { query, effectivePageState, workspace } = setup([active], [page]);
+    const { query, pageOperations, effectivePageState, workspace } = setup([active], []);
+
+    await pageOperations.openDraft({ folderId: 'folder-1', title: 'My Draft' });
 
     const onOpenNote = vi.fn();
     const onOpenDraftNote = vi.fn();
@@ -269,7 +239,7 @@ describe('toCollectionPageModel — sidebar/collection membership is durable-onl
 
     note.onClick();
 
-    expect(onOpenNote).toHaveBeenCalledWith('page-1');
-    expect(onOpenDraftNote).not.toHaveBeenCalled();
+    expect(onOpenDraftNote).toHaveBeenCalledWith(note.id);
+    expect(onOpenNote).not.toHaveBeenCalled();
   });
 });

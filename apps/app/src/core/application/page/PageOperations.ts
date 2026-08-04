@@ -190,12 +190,32 @@ export class PageOperations {
    * navigation never creates durable knowledge). The id is real and
    * stable from this point on; first save() persists it under this exact
    * id via the same Gate path create() uses (see persistDraft).
+   *
+   * Reuses an existing empty draft of the same type instead of minting a
+   * new one, so repeated "New Note" clicks converge on one sidebar
+   * entry rather than accumulating empty ones (see findReusableDraftId).
+   * A draft that already holds real content is never reused — the
+   * caller gets a genuinely new draft alongside it, exactly as before
+   * this behavior existed. On reuse, the descriptor is still overwritten
+   * with this call's own options — the same "the request's own target
+   * wins" rule openAtPath's retarget branch follows — so a caller that
+   * does pass a folderId/title isn't silently ignored just because an
+   * existing empty draft happened to be reusable.
    */
   public async openDraft(
     options: CreatePageOptions & { readonly type?: PageType }
   ): Promise<string> {
-    const id = this.pageCreator.generateId();
     const type = options.type ?? 'note';
+    const reusableId = this.findReusableDraftId(type);
+
+    if (reusableId) {
+      this.drafts.set(reusableId, { folderId: options.folderId, type, title: options.title });
+      this.flushActivePage();
+      this.workspace.openPage(reusableId);
+      return reusableId;
+    }
+
+    const id = this.pageCreator.generateId();
 
     this.drafts.set(id, { folderId: options.folderId, type, title: options.title });
     this.flushActivePage();
@@ -209,13 +229,14 @@ export class PageOperations {
    * Resolve-or-draft for an entry point with a known target path before
    * any content exists (Daily Notes' "Today", a future Calendar date).
    * Never calls the Gate itself — either opens the real page, reopens an
-   * already-open draft for this exact path, or opens a fresh one.
+   * already-open draft for this exact path, retargets a reusable draft
+   * (still empty, different path) onto this one, or opens a fresh one.
    *
    * Resolves the parent folder from `path` itself (same lookup
    * DailyNoteService.ensurePage() used to do inline before ADR-017
    * retired it) rather than requiring every caller to duplicate that
    * lookup — both current callers (Application.open() at boot, and the
-   * "Start your day..." shortcut) need the exact same resolution.
+   * calendar's date-select) need the exact same resolution.
    */
   public async openAtPath(
     path: string,
@@ -236,27 +257,104 @@ export class PageOperations {
       return existingDraftId;
     }
 
-    const directory = VaultPath.parentDirectory(path);
-    const parentFolder = this.vault.getFolderByPath(directory);
+    const target = this.resolveDraftTarget(path, options);
+    const reusableId = this.findReusableDraftId(options.type);
+
+    if (reusableId) {
+      // Retarget in place — same session, same id, only the descriptor
+      // (and the reverse path lookup) changes. DocumentSession/
+      // DocumentRegistry carry no path/date identity to update (ADR-018),
+      // and EffectivePageState re-derives from the descriptor on every
+      // call (ADR-020 §7), so nothing else needs to be told. This is the
+      // same in-place descriptor mutation updateDraftTitle() already
+      // performs for one field, generalized to all of them.
+      const staleDescriptor = this.drafts.get(reusableId);
+
+      if (staleDescriptor?.deterministicPath) {
+        this.draftIdByDeterministicPath.delete(staleDescriptor.deterministicPath);
+      }
+
+      this.drafts.set(reusableId, target);
+      this.draftIdByDeterministicPath.set(path, reusableId);
+      this.flushActivePage();
+      this.workspace.openPage(reusableId);
+
+      return reusableId;
+    }
+
     const id = this.pageCreator.generateId();
 
-    this.drafts.set(id, {
-      folderId: parentFolder ? parentFolder.id : null,
-      type: options.type,
-      // Defaults to the same name PageBuilder.getPageName() would derive
-      // once this is actually persisted (filename minus .md), so the
-      // title shown while drafting doesn't visibly change the moment it
-      // saves. Computed here, once, rather than requiring every caller
-      // (boot, "Start your day...") to duplicate PageBuilder's naming rule.
-      title: options.title ?? this.deriveNameFromPath(path),
-      deterministicPath: path,
-    });
+    this.drafts.set(id, target);
     this.flushActivePage();
     this.documentRegistry.open(id, '');
     this.workspace.openPage(id);
     this.draftIdByDeterministicPath.set(path, id);
 
     return id;
+  }
+
+  /**
+   * The folderId/title/deterministicPath a draft targeting `path` should
+   * carry — shared by openAtPath's fresh-mint and retarget branches so
+   * neither reimplements the parent-folder lookup or title-defaulting
+   * rule (Rule 4).
+   */
+  private resolveDraftTarget(
+    path: string,
+    options: { readonly type: PageType; readonly title?: string }
+  ): DraftDescriptor {
+    const directory = VaultPath.parentDirectory(path);
+    const parentFolder = this.vault.getFolderByPath(directory);
+
+    return {
+      folderId: parentFolder ? parentFolder.id : null,
+      type: options.type,
+      // Defaults to the same name PageBuilder.getPageName() would derive
+      // once this is actually persisted (filename minus .md), so the
+      // title shown while drafting doesn't visibly change the moment it
+      // saves. Computed here, once, rather than requiring every caller
+      // (boot, the calendar's date-select) to duplicate PageBuilder's
+      // naming rule.
+      title: options.title ?? this.deriveNameFromPath(path),
+      deterministicPath: path,
+    };
+  }
+
+  /**
+   * A draft is reusable when it exists, has a live session, and is still
+   * empty — the business-intent question openDraft()/openAtPath() ask;
+   * callers don't need to know *why* a draft qualifies, only whether one
+   * does. "Empty" is body-only (see isEmptyDraft): anything still in
+   * `drafts` is, by construction, guaranteed to have no committed title
+   * or metadata already — updateDraftTitle()/updateMetadata() promote
+   * (and remove the descriptor) the instant either commits, for every
+   * type except Daily Notes, whose title is derived from its date and
+   * never user-committed in the first place. So body content is the only
+   * thing left that can make a still-open draft non-empty, for both
+   * Notes and Daily Notes alike.
+   */
+  private findReusableDraftId(type: PageType): string | undefined {
+    for (const [id, descriptor] of this.drafts) {
+      if (descriptor.type !== type) {
+        continue;
+      }
+
+      if (!this.documentRegistry.get(id)) {
+        continue;
+      }
+
+      if (this.isEmptyDraft(id)) {
+        return id;
+      }
+    }
+
+    return undefined;
+  }
+
+  private isEmptyDraft(id: string): boolean {
+    const session = this.documentRegistry.get(id);
+
+    return (session?.currentRevision.markdown ?? '').trim() === '';
   }
 
   /** Mirrors PageBuilder.getPageName() — filename minus a trailing .md. */
