@@ -25,6 +25,14 @@ export function FolderLeading({
   isExpanded = false,
   onExpandToggle,
 }: FolderLeadingProps) {
+  // An empty folder has nothing to expand into, so its caret must always
+  // read as collapsed — regardless of whatever expand/collapse state
+  // happens to be stored for its id (e.g. a brand-new folder defaults to
+  // "expanded" per Workspace.isFolderExpanded, even though it has never
+  // actually been toggled). This only changes which way the icon points;
+  // onExpandToggle/disabled below are unaffected.
+  const visualIsExpanded = isEmpty ? false : isExpanded;
+
   return (
     <span
       className={`folder__leading${hasCaret ? ' folder__leading--has-caret' : ''}`}
@@ -33,7 +41,7 @@ export function FolderLeading({
         <span className="folder__caret">
           <Caret
             disabled={isEmpty}
-            isExpanded={isExpanded}
+            isExpanded={visualIsExpanded}
             variant="tree"
             onClick={(event) => {
               event.stopPropagation();
