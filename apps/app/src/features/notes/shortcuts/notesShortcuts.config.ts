@@ -1,4 +1,5 @@
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
+import type { NavigationItem } from '@app/layouts/sidebar/navigation/NavigationItem';
 
 export const notesShortcuts = [
   { id: 'new-note', title: 'New', icon: 'plus' },
@@ -12,6 +13,6 @@ export const notesShortcuts = [
     title: getSystemLocationPresentation('templates').label,
     icon: getSystemLocationPresentation('templates').icon,
   },
-] as const;
+] as const satisfies readonly NavigationItem[];
 
 export type NotesShortcutId = (typeof notesShortcuts)[number]['id'];
