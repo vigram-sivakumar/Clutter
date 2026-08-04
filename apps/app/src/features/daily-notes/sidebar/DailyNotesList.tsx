@@ -24,9 +24,13 @@ interface DailyNotesListProps {
   // Folders only — year/month folders have no draft concept (ARCHITECTURE_RULES.md rule 13).
   vault: Vault;
   query: VaultQuery;
-  // ADR-020 / rule 13: the single read surface for page rendering —
-  // existence, identity, and presentation fields for both durable and
-  // draft-only Daily Notes.
+  // ADR-020: the single read surface for page rendering — existence,
+  // identity, and presentation fields. Sidebar membership itself is
+  // durable-only (see the filter in the component body below) — the
+  // same durable-only-membership pattern already used by Favorites
+  // (getFavoriteItems.ts, rule 13's documented exception).
+  // EffectivePageState itself is untouched and keeps reconciling draft
+  // + durable state for consumers that need both.
   effectivePageState: EffectivePageState;
   workspace: Workspace;
   onOpen(pageId: string): void;
@@ -92,6 +96,7 @@ export function DailyNotesList({
       section,
       pages: effectivePageState
         .getChildPages(section.monthFolder.id)
+        .filter((page) => !page.isDraft)
         .sort((a, b) => b.name.localeCompare(a.name)),
     }))
     // A month section with no Daily Notes in it has nothing to show — a

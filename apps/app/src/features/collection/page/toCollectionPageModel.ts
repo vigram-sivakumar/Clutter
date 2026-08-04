@@ -18,8 +18,11 @@ function isFolder(entry: Folder | EffectivePage): entry is Folder {
 /**
  * Maps a Folder or EffectivePage to a CollectionEntryModel for collection
  * listing. Pages come from EffectivePageState (ARCHITECTURE_RULES.md rule
- * 13) — existence, label, and icon for both durable and draft-only pages,
- * the same read façade FolderTree/DailyNotesList already use.
+ * 13) — existence, label, and icon — the same read façade
+ * FolderTree/DailyNotesList already use. Membership is durable-only (see
+ * the filter in toCollectionPageModel below), matching FolderTree and
+ * DailyNotesList's sidebar-membership policy and the pre-existing
+ * durable-only pattern in getFavoriteItems.ts.
  */
 function toCollectionEntry(
   entry: Folder | EffectivePage,
@@ -71,6 +74,7 @@ export function toCollectionPageModel(
 
   const notes = effectivePageState
     .getChildPages(folder.id)
+    .filter((child) => !child.isDraft)
     .map((child) =>
       toCollectionEntry(child, actions, workspace.activePageId === child.id)
     );

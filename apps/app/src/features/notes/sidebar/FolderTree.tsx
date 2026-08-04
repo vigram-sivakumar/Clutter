@@ -111,7 +111,17 @@ export function FolderTree({
 
   // Only meaningful at the true root — a nested folder's own pages are
   // already rendered via getChildPages(folder.id) below, per folder.
-  const rootPages = parentId === null ? effectivePageState.getChildPages(null) : [];
+  // Sidebar membership is durable-only (!isDraft) — the same
+  // durable-only-membership pattern already used by Favorites
+  // (getFavoriteItems.ts, ARCHITECTURE_RULES.md rule 13's documented
+  // exception): a page isn't sidebar-visible until its first successful
+  // persist. EffectivePageState itself is untouched and keeps
+  // reconciling draft + durable state for consumers that need both
+  // (e.g. the open editor via workspace.activePageId).
+  const rootPages =
+    parentId === null
+      ? effectivePageState.getChildPages(null).filter((page) => !page.isDraft)
+      : [];
 
   const isCreatingHere =
     pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
@@ -127,9 +137,11 @@ export function FolderTree({
       )}
       {/* Render every child folder. */}
       {rootFolders.map((folder) => {
-        // Every page that should currently be shown as a child of this
-        // folder — durable and draft-only alike (ADR-020).
-        const childPages = effectivePageState.getChildPages(folder.id);
+        // Sidebar membership is durable-only (!isDraft) — see the
+        // rootPages comment above for the rationale.
+        const childPages = effectivePageState
+          .getChildPages(folder.id)
+          .filter((page) => !page.isDraft);
         const subFolders = query.getChildFolders(folder.id);
         // Checks if the folder is empty
         const isEmpty = subFolders.length === 0 && childPages.length === 0;

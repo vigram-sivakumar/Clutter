@@ -213,8 +213,8 @@ describe('DailyNotesList — empty month sections', () => {
   });
 });
 
-describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 13 adoption)', () => {
-  it('a Daily Note draft opened via openAtPath, targeting an existing month folder, appears before any save', async () => {
+describe('DailyNotesList — sidebar membership is durable-only — drafts are not sidebar items', () => {
+  it('a Daily Note draft opened via openAtPath does not appear, and its now-empty month section does not render either', async () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
     const month = makeFolder(
@@ -243,18 +243,15 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       />
     );
 
-    // The month section now exists (it did before too, since the folder
-    // was pre-seeded) and renders one row for the draft. A daily-note's
-    // filename is never shown as its title (getPageDisplayLabel's own
-    // rule — the date is redundant next to the day badge), and it has no
-    // description/body yet, so it falls all the way to the shared
-    // placeholder — "the draft appeared" is what's under test, not its
-    // exact label text.
-    expect(screen.queryByText(/August/)).not.toBeNull();
-    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+    // EffectivePageState still reconciled the draft (isDraft: true) —
+    // the editor session exists — but DailyNotesList filters it out, and
+    // since it was the month's only entry, the month section itself has
+    // nothing left to show (same empty-section rule as above).
+    expect(screen.queryByText(/August/)).toBeNull();
+    expect(screen.queryByText('Start typing...')).toBeNull();
   });
 
-  it('clicking a draft Daily Note invokes onOpenDraft, not onOpen', async () => {
+  it('the same draft appears — inside its month section — only once it is saved (first persist)', async () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
     const month = makeFolder(
@@ -267,9 +264,60 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       [dailyNotesRoot, year, month]
     );
 
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-21.md`, {
-      type: 'daily-note',
-    });
+    const draftId = await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      { type: 'daily-note' }
+    );
+
+    const { rerender } = render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        effectivePageState={effectivePageState}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/August/)).toBeNull();
+
+    await pageOperations.save(draftId, '# Hello');
+
+    rerender(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        effectivePageState={effectivePageState}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // Now a real Vault page — the month section and its row appear for
+    // the first time here, via the durable (query-driven) path. Label
+    // comes from the saved body's primary content ("Hello"), not the
+    // placeholder, since real content now exists.
+    expect(screen.queryByText(/August/)).not.toBeNull();
+    expect(screen.getByText('Hello')).toBeInTheDocument();
+  });
+
+  it('clicking a persisted Daily Note (not a draft) calls onOpen, not onOpenDraft', async () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const note = makeDailyNote('daily-1', '2026-08-21', 'month-august');
+    const { vault, query, effectivePageState, workspace } = setup(
+      [note],
+      [dailyNotesRoot, year, month]
+    );
 
     const onOpen = vi.fn();
     const onOpenDraft = vi.fn();
@@ -288,8 +336,8 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
 
     screen.getByText('Start typing...').click();
 
-    expect(onOpenDraft).toHaveBeenCalledWith(expect.any(String));
-    expect(onOpen).not.toHaveBeenCalled();
+    expect(onOpen).toHaveBeenCalledWith('daily-1');
+    expect(onOpenDraft).not.toHaveBeenCalled();
   });
 });
 
