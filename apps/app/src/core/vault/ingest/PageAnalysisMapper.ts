@@ -42,6 +42,8 @@ export class PageAnalysisMapper {
       sourcePageId,
       text: task.text,
       completed: task.completed,
+      dueDate: task.dueDate,
+      completedAt: task.completedAt,
       rawText: undefined,
       startOffset: undefined,
       endOffset: undefined,
