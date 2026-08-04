@@ -1,7 +1,7 @@
 import type { Folder } from '@core/vault/models';
 import type { Vault } from '@core/vault/models/Vault';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
-import type { Workspace } from '@core/workspace/Workspace';
+import type { FilteredViewKind, Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
 import { buildEntryPresentation } from '@core/presentation/buildEntryPresentation';
 import {
@@ -14,6 +14,15 @@ import type {
   CollectionPageActions,
   CollectionPageModel,
 } from './CollectionPageModel';
+
+/**
+ * What toCollectionPageModel builds a page from: either a real Folder's
+ * children, or a filtered view (ADR-022) — Workspace-root or Favorites —
+ * neither of which is one folder's children. Discriminated by `view`
+ * rather than `type`, since neither Folder nor EffectivePage has a `view`
+ * field, mirroring isFolder()'s own Folder/EffectivePage discrimination.
+ */
+export type CollectionPageSource = Folder | { readonly view: FilteredViewKind };
 
 function isFolder(entry: Folder | EffectivePage): entry is Folder {
   return !('type' in entry);
@@ -58,7 +67,46 @@ function toCollectionEntry(
   };
 }
 
-export function toCollectionPageModel(
+function isFolderSource(source: CollectionPageSource): source is Folder {
+  return !('view' in source);
+}
+
+/**
+ * A Workspace-root or Favorites collection page (ADR-022). Membership
+ * comes from exactly the same VaultQuery/EffectivePageState calls the
+ * sidebar's FolderTree/FavoriteList already make — getRootFolders() +
+ * getChildPages(null) for 'workspace', getFavoriteFolders() +
+ * getFavoritePages() for 'favorites' — so the page can never drift from
+ * what the sidebar shows for the same view.
+ */
+function toFilteredCollectionPageModel(
+  view: FilteredViewKind,
+  query: VaultQuery,
+  effectivePageState: EffectivePageState,
+  workspace: Workspace,
+  actions: CollectionPageActions
+): CollectionPageModel {
+  const rawFolders =
+    view === 'workspace' ? query.getRootFolders() : query.getFavoriteFolders();
+  const rawNotes =
+    view === 'workspace'
+      ? effectivePageState.getChildPages(null)
+      : effectivePageState.getFavoritePages();
+
+  return {
+    title: getSystemLocationPresentation(view).label,
+    description: '',
+    coverImage: null,
+    folders: rawFolders.map((child) =>
+      toCollectionEntry(child, actions, workspace.activeFolderId === child.id)
+    ),
+    notes: rawNotes.map((child) =>
+      toCollectionEntry(child, actions, workspace.activePageId === child.id)
+    ),
+  };
+}
+
+function toFolderCollectionPageModel(
   folder: Folder,
   vault: Vault,
   query: VaultQuery,
@@ -94,4 +142,25 @@ export function toCollectionPageModel(
     folders,
     notes,
   };
+}
+
+export function toCollectionPageModel(
+  source: CollectionPageSource,
+  vault: Vault,
+  query: VaultQuery,
+  effectivePageState: EffectivePageState,
+  workspace: Workspace,
+  actions: CollectionPageActions
+): CollectionPageModel {
+  if (isFolderSource(source)) {
+    return toFolderCollectionPageModel(source, vault, query, effectivePageState, workspace, actions);
+  }
+
+  return toFilteredCollectionPageModel(
+    source.view,
+    query,
+    effectivePageState,
+    workspace,
+    actions
+  );
 }

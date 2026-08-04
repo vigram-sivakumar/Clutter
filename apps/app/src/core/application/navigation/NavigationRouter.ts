@@ -1,6 +1,7 @@
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { Vault } from '../../vault/models/Vault';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
+import type { Workspace } from '../../workspace/Workspace';
 
 /**
  * Translates named, view-level user intents into Workspace state changes
@@ -19,10 +20,12 @@ import type { ReservedFolderId } from '../../vault/initialize/ReservedResources'
 export class NavigationRouter {
   private readonly folderOperations: FolderOperations;
   private readonly vault: Vault;
+  private readonly workspace: Workspace;
 
-  constructor(folderOperations: FolderOperations, vault: Vault) {
+  constructor(folderOperations: FolderOperations, vault: Vault, workspace: Workspace) {
     this.folderOperations = folderOperations;
     this.vault = vault;
+    this.workspace = workspace;
   }
 
   public openArchive(): void {
@@ -35,6 +38,27 @@ export class NavigationRouter {
 
   public openTemplates(): void {
     this.openReservedFolder('templates');
+  }
+
+  /**
+   * Shows the root-level folders+notes collection view (ADR-022) — a
+   * filtered-view intent, not a folder open: root has no backing Folder
+   * (ReservedFolderId has no root/workspace member), so this sets
+   * Workspace's activeView directly rather than going through
+   * FolderOperations.open, which requires a real Vault Folder to exist.
+   */
+  public openWorkspace(): void {
+    this.workspace.openFilteredView('workspace');
+  }
+
+  /**
+   * Shows the favorites collection view (ADR-022) — same reasoning as
+   * openWorkspace(): Favorites is a cross-cutting query (any favorited
+   * folder/page anywhere), not one folder's children, so it has no
+   * backing Folder to open either.
+   */
+  public openFavorites(): void {
+    this.workspace.openFilteredView('favorites');
   }
 
   // createTask/createTag are NOT deleted alongside the 6 view-intent stubs

@@ -1,4 +1,24 @@
 import { type ChangeListener, type Observable } from '../shared/Observable';
+
+/**
+ * A non-folder, non-page main-content view — a filtered aggregate defined
+ * by a query rather than a location in the folder tree (ADR-022). Grows
+ * only when a real consumer ships; 'workspace' (root folders+notes) and
+ * 'favorites' are the two that exist today.
+ */
+export type FilteredViewKind = 'workspace' | 'favorites';
+
+/**
+ * What the main content pane is currently showing — a tagged union so
+ * "exactly one of these is active" is expressed by the type itself rather
+ * than by convention across separate nullable fields (ADR-022, replacing
+ * the prior activePageId/activeFolderId-only shape).
+ */
+export type ActiveView =
+  | { readonly type: 'page'; readonly id: string }
+  | { readonly type: 'folder'; readonly id: string }
+  | { readonly type: 'filtered-view'; readonly view: FilteredViewKind };
+
 /**
  * Represents the user's current working context.
  *
@@ -22,14 +42,11 @@ import { type ChangeListener, type Observable } from '../shared/Observable';
  */
 export class Workspace implements Observable {
   /**
-   * The page currently presented to the user.
+   * What the main content pane is currently showing — a page, a folder, or
+   * a filtered view (ADR-022). activePageId/activeFolderId below remain as
+   * derived accessors over this so no existing caller needs to change.
    */
-  private _activePageId: string | null = null;
-
-  /**
-   * The folder currently presented to the user.
-   */
-  private _activeFolderId: string | null = null;
+  private _activeView: ActiveView | null = null;
 
   /**
    * Pages currently opened by the workspace.
@@ -85,8 +102,7 @@ export class Workspace implements Observable {
     if (!this.openPageIds.includes(pageId)) {
       this.openPageIds.push(pageId);
     }
-    this._activeFolderId = null;
-    this._activePageId = pageId;
+    this._activeView = { type: 'page', id: pageId };
     this.notify();
   }
 
@@ -94,8 +110,17 @@ export class Workspace implements Observable {
    * Opens a folder within the workspace.
    */
   public openFolder(folderId: string): void {
-    this._activePageId = null;
-    this._activeFolderId = folderId;
+    this._activeView = { type: 'folder', id: folderId };
+    this.notify();
+  }
+
+  /**
+   * Shows a filtered, non-folder view in the main content pane (ADR-022)
+   * — the entry point NavigationRouter's view-level intents (openWorkspace,
+   * openFavorites) use, the same way openFolder is FolderOperations.open's.
+   */
+  public openFilteredView(view: FilteredViewKind): void {
+    this._activeView = { type: 'filtered-view', view };
     this.notify();
   }
 
@@ -111,8 +136,9 @@ export class Workspace implements Observable {
 
     this.openPageIds.splice(index, 1);
 
-    if (this._activePageId === pageId) {
-      this._activePageId = this.openPageIds.at(-1) ?? null;
+    if (this.activePageId === pageId) {
+      const nextId = this.openPageIds.at(-1) ?? null;
+      this._activeView = nextId ? { type: 'page', id: nextId } : null;
     }
     this.notify();
   }
@@ -153,17 +179,24 @@ export class Workspace implements Observable {
   }
 
   /**
-   * The currently active page.
+   * What the main content pane is currently showing (ADR-022).
    */
-  public get activePageId(): string | null {
-    return this._activePageId;
+  public get activeView(): ActiveView | null {
+    return this._activeView;
   }
 
   /**
-   * The currently active folder.
+   * The currently active page. Derived from activeView.
+   */
+  public get activePageId(): string | null {
+    return this._activeView?.type === 'page' ? this._activeView.id : null;
+  }
+
+  /**
+   * The currently active folder. Derived from activeView.
    */
   public get activeFolderId(): string | null {
-    return this._activeFolderId;
+    return this._activeView?.type === 'folder' ? this._activeView.id : null;
   }
 
   /**

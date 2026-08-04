@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toFavoriteItems } from './getFavoriteItems';
+import { getFavoriteItems } from './getFavoriteItems';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { PageOperations } from '@core/application/page/PageOperations';
 import { PagePersistenceCoordinator } from '@core/vault/persistence/PagePersistenceCoordinator';
@@ -143,12 +143,12 @@ function setup(folders: Folder[], pages: Page[]) {
   return { vault, query, workspace, pageOperations, effectivePageState };
 }
 
-describe('toFavoriteItems — membership durable-only, label via EffectivePageState', () => {
+describe('getFavoriteItems — membership durable-only, label via EffectivePageState', () => {
   it('uses the folder name verbatim — folders never go through the display-label fallback chain', () => {
     const folder = makeFolder({ name: 'Projects' });
-    const { effectivePageState } = setup([folder], []);
+    const { query, effectivePageState } = setup([folder], []);
 
-    const items = toFavoriteItems([folder], [], effectivePageState);
+    const items = getFavoriteItems(query, effectivePageState);
 
     expect(items).toEqual([
       { id: 'folder-1', title: 'Projects', titleStyle: 'default', type: 'folder', emoji: null },
@@ -157,9 +157,9 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
 
   it('uses the real filename for a deliberately-named favorited page', () => {
     const page = makePage({ name: 'Meeting Notes' });
-    const { effectivePageState } = setup([], [page]);
+    const { query, effectivePageState } = setup([], [page]);
 
-    const items = toFavoriteItems([], [page], effectivePageState);
+    const items = getFavoriteItems(query, effectivePageState);
 
     expect(items).toEqual([
       { id: 'page-1', title: 'Meeting Notes', titleStyle: 'default', type: 'note', emoji: null },
@@ -171,9 +171,9 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
       name: 'Untitled 2',
       source: { markdown: 'Real content here' },
     });
-    const { effectivePageState } = setup([], [page]);
+    const { query, effectivePageState } = setup([], [page]);
 
-    const items = toFavoriteItems([], [page], effectivePageState);
+    const items = getFavoriteItems(query, effectivePageState);
 
     expect(items).toEqual([
       {
@@ -188,9 +188,9 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
 
   it('marks the item as a placeholder when the label falls all the way through to it', () => {
     const page = makePage({ name: 'Untitled', source: { markdown: '' } });
-    const { effectivePageState } = setup([], [page]);
+    const { query, effectivePageState } = setup([], [page]);
 
-    const items = toFavoriteItems([], [page], effectivePageState);
+    const items = getFavoriteItems(query, effectivePageState);
 
     expect(items).toEqual([
       { id: 'page-1', title: 'New Note', titleStyle: 'placeholder', type: 'note', emoji: null },
@@ -199,16 +199,17 @@ describe('toFavoriteItems — membership durable-only, label via EffectivePageSt
 
   it('reflects a live, uncommitted-to-disk body edit on an open favorited page — the actual point of this migration', async () => {
     const page = makePage({ name: 'Untitled', source: { markdown: '' } });
-    const { pageOperations, effectivePageState } = setup([], [page]);
+    const { query, pageOperations, effectivePageState } = setup([], [page]);
 
     await pageOperations.open(page.id);
     pageOperations.commitEdit(page.id, 'Live, unsaved content');
 
-    const items = toFavoriteItems([], [page], effectivePageState);
+    const items = getFavoriteItems(query, effectivePageState);
 
-    // page.source.markdown (the stale, durable snapshot passed in) would
-    // still say '' here — the label must come from the open session's
-    // current revision, not from the raw Page argument.
+    // page.source.markdown (the stale, durable snapshot on the setup
+    // fixture) would still say '' here — the label must come from the
+    // open session's current revision, reached via
+    // EffectivePageState.getFavoritePages().
     expect(items).toEqual([
       { id: 'page-1', title: 'Live, unsaved content', titleStyle: 'default', type: 'note', emoji: null },
     ]);

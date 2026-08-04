@@ -107,6 +107,24 @@ export class EffectivePageState {
   }
 
   /**
+   * Every page that should currently be considered a favorite — Vault's
+   * favorited (durable-only, per ARCHITECTURE_RULES.md rule 13's
+   * documented exception: the favorite flag lives in PageMetadata, which a
+   * draft never has) pages, reconciled the same way getChildPages()
+   * reconciles folder membership, so a favorited-but-currently-open page
+   * reflects its live, uncommitted content rather than only what's on
+   * disk. The single owner of this reconciliation — Favorites' sidebar
+   * list and the Favorites collection page (ADR-022) both call this
+   * instead of each re-deriving their own resolve-or-fallback logic.
+   */
+  public getFavoritePages(): EffectivePage[] {
+    return this.query
+      .getFavoritePages()
+      .map((page) => this.resolve(page.id))
+      .filter((entry): entry is EffectivePage => entry !== undefined);
+  }
+
+  /**
    * The number of DocumentSessions currently subscribed to — exposed
    * read-only for tests to assert against directly, mirroring
    * DocumentRegistry.size's precedent, not a value any production

@@ -224,6 +224,38 @@ describe('EffectivePageState: live body updates from DocumentSession', () => {
   });
 });
 
+describe('EffectivePageState.getFavoritePages (ADR-022, shared with the Favorites collection page)', () => {
+  it('returns only favorited, durable pages, not every open draft', async () => {
+    const { pageOperations, effectivePageState } = setup();
+
+    const favoritedId = await pageOperations.openDraft({ folderId: null, title: 'Favorite Me' });
+    await pageOperations.save(favoritedId, 'content');
+    await pageOperations.updateMetadata(favoritedId, { favorite: true });
+
+    await pageOperations.openDraft({ folderId: null, title: 'Not favorited' });
+
+    const favorites = effectivePageState.getFavoritePages();
+
+    expect(favorites.map((page) => page.id)).toEqual([favoritedId]);
+  });
+
+  it('reflects a live, uncommitted-to-disk body edit on an open favorited page', async () => {
+    const { pageOperations, effectivePageState } = setup();
+
+    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Untitled' });
+    await pageOperations.save(draftId, '');
+    await pageOperations.updateMetadata(draftId, { favorite: true });
+
+    pageOperations.commitEdit(draftId, 'Live, unsaved content');
+
+    const favorites = effectivePageState.getFavoritePages();
+
+    expect(favorites).toEqual([
+      expect.objectContaining({ id: draftId, markdown: 'Live, unsaved content' }),
+    ]);
+  });
+});
+
 describe('EffectivePageState: subscription lifecycle', () => {
   it('survives repeated open/close cycles without leaking session subscriptions', async () => {
     const { pageOperations, effectivePageState, workspace } = setup();

@@ -74,7 +74,7 @@ export function Notes({
         isCollapsible
         isExpanded={workspace.isSectionExpanded('favorites')}
         onExpandedChange={() => workspace.toggleSectionExpanded('favorites')}
-        onClick={() => {}}
+        onClick={() => navigation.openFavorites()}
       >
         <FavoriteList
           items={getFavoriteItems(query, effectivePageState)}
@@ -89,11 +89,11 @@ export function Notes({
       </Section>
       <Section
         hasHeader
-        title="Folders"
+        title={getSystemLocationPresentation('workspace').label}
         isCollapsible
         isExpanded={workspace.isSectionExpanded('folders')}
         onExpandedChange={() => workspace.toggleSectionExpanded('folders')}
-        onClick={() => {}}
+        onClick={() => navigation.openWorkspace()}
         actions={
           <Button
             size="small"

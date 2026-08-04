@@ -19,6 +19,7 @@ export type SystemLocationId =
   | 'tasks'
   | 'tags'
   | 'favorites'
+  | 'workspace'
   | 'search'
   | 'archive'
   | 'inbox'
@@ -53,6 +54,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   tasks: { id: 'tasks', label: 'Tasks', icon: 'squareCheckOutline' },
   tags: { id: 'tags', label: 'Tags', icon: 'tag' },
   favorites: { id: 'favorites', label: 'Favorites', icon: 'favouriteOutline' },
+  workspace: { id: 'workspace', label: 'Workspace', icon: 'folder' },
   search: { id: 'search', label: 'Search', icon: 'magnifyingGlass' },
   archive: { id: 'archive', label: 'Archive', icon: 'archive' },
   inbox: { id: 'inbox', label: 'Inbox', icon: 'tray' },

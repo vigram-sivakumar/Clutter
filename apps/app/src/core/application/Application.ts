@@ -209,7 +209,7 @@ export class Application {
       this.folderOperations,
       dailyNoteService
     );
-    this.navigation = new NavigationRouter(this.folderOperations, vault);
+    this.navigation = new NavigationRouter(this.folderOperations, vault, this.workspace);
     // ADR-020: constructed after query/workspace/pageOperations all exist
     // above — the projection reconciling Vault (Durable) with
     // PageOperations/DocumentEditing (Committed) state. No production

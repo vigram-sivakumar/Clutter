@@ -3,14 +3,17 @@ import type { Folder } from '../../vault/models/Folder';
 import { NavigationRouter } from './NavigationRouter';
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { Vault } from '../../vault/models/Vault';
+import type { Workspace } from '../../workspace/Workspace';
 
 function createNavigationRouter(options: {
   folderOperations?: Pick<FolderOperations, 'open'>;
   vault?: Pick<Vault, 'getReservedFolder'>;
+  workspace?: Pick<Workspace, 'openFilteredView'>;
 }): NavigationRouter {
   return new NavigationRouter(
     options.folderOperations as FolderOperations,
-    options.vault as Vault
+    options.vault as Vault,
+    options.workspace as Workspace
   );
 }
 
@@ -83,5 +86,33 @@ describe('NavigationRouter', () => {
 
     expect(getReservedFolder).toHaveBeenCalledWith('templates');
     expect(openFolder).toHaveBeenCalledWith('folder-templates');
+  });
+
+  it('openWorkspace shows the workspace filtered view directly, without touching FolderOperations', () => {
+    const openFilteredView = vi.fn();
+    const openFolder = vi.fn();
+    const navigation = createNavigationRouter({
+      folderOperations: { open: openFolder },
+      workspace: { openFilteredView },
+    });
+
+    navigation.openWorkspace();
+
+    expect(openFilteredView).toHaveBeenCalledWith('workspace');
+    expect(openFolder).not.toHaveBeenCalled();
+  });
+
+  it('openFavorites shows the favorites filtered view directly, without touching FolderOperations', () => {
+    const openFilteredView = vi.fn();
+    const openFolder = vi.fn();
+    const navigation = createNavigationRouter({
+      folderOperations: { open: openFolder },
+      workspace: { openFilteredView },
+    });
+
+    navigation.openFavorites();
+
+    expect(openFilteredView).toHaveBeenCalledWith('favorites');
+    expect(openFolder).not.toHaveBeenCalled();
   });
 });

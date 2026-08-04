@@ -84,6 +84,79 @@ describe('Workspace.collapsedSectionIds / section expansion (ADR-021, M3)', () =
   });
 });
 
+describe('Workspace.activeView (ADR-022)', () => {
+  it('defaults to no active view', () => {
+    const workspace = new Workspace();
+
+    expect(workspace.activeView).toBeNull();
+    expect(workspace.activePageId).toBeNull();
+    expect(workspace.activeFolderId).toBeNull();
+  });
+
+  it('openPage sets a page-typed activeView, derived activePageId/activeFolderId agree', () => {
+    const workspace = new Workspace();
+
+    workspace.openPage('page-1');
+
+    expect(workspace.activeView).toEqual({ type: 'page', id: 'page-1' });
+    expect(workspace.activePageId).toBe('page-1');
+    expect(workspace.activeFolderId).toBeNull();
+  });
+
+  it('openFolder sets a folder-typed activeView, derived activePageId/activeFolderId agree', () => {
+    const workspace = new Workspace();
+
+    workspace.openFolder('folder-1');
+
+    expect(workspace.activeView).toEqual({ type: 'folder', id: 'folder-1' });
+    expect(workspace.activeFolderId).toBe('folder-1');
+    expect(workspace.activePageId).toBeNull();
+  });
+
+  it('openFilteredView sets a filtered-view-typed activeView, clearing any active page/folder', () => {
+    const workspace = new Workspace();
+    workspace.openFolder('folder-1');
+
+    workspace.openFilteredView('workspace');
+
+    expect(workspace.activeView).toEqual({ type: 'filtered-view', view: 'workspace' });
+    expect(workspace.activePageId).toBeNull();
+    expect(workspace.activeFolderId).toBeNull();
+  });
+
+  it('exactly one of page/folder/filtered-view is active at a time — each open call clears the others', () => {
+    const workspace = new Workspace();
+
+    workspace.openFilteredView('favorites');
+    expect(workspace.activeView).toEqual({ type: 'filtered-view', view: 'favorites' });
+
+    workspace.openPage('page-1');
+    expect(workspace.activeView).toEqual({ type: 'page', id: 'page-1' });
+
+    workspace.openFolder('folder-1');
+    expect(workspace.activeView).toEqual({ type: 'folder', id: 'folder-1' });
+  });
+
+  it('notifies subscribers when a filtered view opens', () => {
+    const workspace = new Workspace();
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    workspace.openFilteredView('workspace');
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('closePage on the active page clears activeView entirely when no other page remains open', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+
+    workspace.closePage('page-1');
+
+    expect(workspace.activeView).toBeNull();
+  });
+});
+
 describe('Workspace.isSidebarVisible (ADR-021, M4)', () => {
   it('defaults to visible', () => {
     const workspace = new Workspace();

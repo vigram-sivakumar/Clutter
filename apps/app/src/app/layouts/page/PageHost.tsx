@@ -134,6 +134,36 @@ export function PageHost({ application }: PageHostProps) {
     );
   }
 
+  // A filtered view (ADR-022) — Workspace-root or Favorites — has no
+  // backing Folder/breadcrumb trail or per-resource top-bar actions
+  // (archive/restore/delete don't apply to a view), so this branch is
+  // deliberately smaller than the folder branch above, not a stripped-down
+  // copy of it.
+  if (workspace.activeView?.type === 'filtered-view') {
+    const model = toCollectionPageModel(
+      { view: workspace.activeView.view },
+      vault,
+      application.query,
+      application.effectivePageState,
+      workspace,
+      {
+        onOpenFolder,
+        onOpenNote: (id: string) => application.pageOperations.open(id),
+        onOpenDraftNote: (id: string) => application.workspace.openPage(id),
+      }
+    );
+
+    return (
+      <Page
+        title={model.title}
+        description={model.description}
+        titleEditable={false}
+        breadcrumbs={<Breadcrumbs items={[]} />}
+        body={<CollectionBody folders={model.folders} notes={model.notes} />}
+      />
+    );
+  }
+
   if (!session || !activePageId) {
     return null;
   }

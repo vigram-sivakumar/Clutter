@@ -277,3 +277,86 @@ describe('toCollectionPageModel — a reserved folder viewed directly uses its c
     expect(model.title).toBe('Projects');
   });
 });
+
+describe('toCollectionPageModel — filtered views (ADR-022), reusing the same membership the sidebar uses', () => {
+  it("'workspace' shows exactly the root folders and root notes, titled from systemPresentation", () => {
+    const root = makeFolder({ id: 'folder-1', name: 'Root', parentId: null });
+    const nested = makeFolder({ id: 'folder-2', name: 'Nested', parentId: 'folder-1' });
+    const rootPage = makePage({ id: 'page-1', name: 'Root Note', parentId: null });
+    const nestedPage = makePage({ id: 'page-2', name: 'Nested Note', parentId: 'folder-1' });
+    const { vault, query, effectivePageState, workspace } = setup(
+      [root, nested],
+      [rootPage, nestedPage]
+    );
+
+    const model = toCollectionPageModel(
+      { view: 'workspace' },
+      vault,
+      query,
+      effectivePageState,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    expect(model.title).toBe(getSystemLocationPresentation('workspace').label);
+    expect(model.folders).toEqual([expect.objectContaining({ id: 'folder-1' })]);
+    expect(model.notes).toEqual([expect.objectContaining({ id: 'page-1' })]);
+  });
+
+  it("'favorites' shows exactly the favorited folders and pages, regardless of where they live in the tree", () => {
+    const favoritedFolder = makeFolder({
+      id: 'folder-1',
+      name: 'Favorited',
+      parentId: null,
+      metadata: { ...defaultFolderMetadata, favorite: true },
+    });
+    const plainFolder = makeFolder({
+      id: 'folder-2',
+      name: 'Plain',
+      parentId: null,
+    });
+    const favoritedPage = makePage({
+      id: 'page-1',
+      name: 'Favorited Note',
+      parentId: 'folder-2',
+      metadata: { ...defaultPageMetadata, favorite: true },
+    });
+    const plainPage = makePage({ id: 'page-2', name: 'Plain Note', parentId: 'folder-2' });
+    const { vault, query, effectivePageState, workspace } = setup(
+      [favoritedFolder, plainFolder],
+      [favoritedPage, plainPage]
+    );
+
+    const model = toCollectionPageModel(
+      { view: 'favorites' },
+      vault,
+      query,
+      effectivePageState,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    expect(model.title).toBe(getSystemLocationPresentation('favorites').label);
+    expect(model.folders).toEqual([expect.objectContaining({ id: 'folder-1' })]);
+    expect(model.notes).toEqual([expect.objectContaining({ id: 'page-1' })]);
+  });
+
+  it("clicking a 'workspace' folder entry invokes onOpenFolder, same as an ordinary folder view", () => {
+    const root = makeFolder({ id: 'folder-1', name: 'Root', parentId: null });
+    const { vault, query, effectivePageState, workspace } = setup([root], []);
+    const onOpenFolder = vi.fn();
+
+    const model = toCollectionPageModel(
+      { view: 'workspace' },
+      vault,
+      query,
+      effectivePageState,
+      workspace,
+      { onOpenFolder, onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    model.folders[0]?.onClick();
+
+    expect(onOpenFolder).toHaveBeenCalledWith('folder-1');
+  });
+});
