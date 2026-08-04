@@ -67,7 +67,6 @@ export function useMenuKeyboard(
           if (!activeId) {
             const firstEnabledItem = findFirstEnabledItem(items);
             if (firstEnabledItem) {
-              console.log('ArrowDown -> firstEnabledItem', firstEnabledItem.id);
               setActiveId(firstEnabledItem.id);
             }
             return;
@@ -75,11 +74,6 @@ export function useMenuKeyboard(
           const currentIndex = items.findIndex((item) => item.id === activeId);
           const nextItem = findNextEnabledItem(items, currentIndex);
           if (nextItem) {
-            console.log('ArrowDown -> nextItem', {
-              currentIndex,
-              current: activeId,
-              next: nextItem.id,
-            });
             setActiveId(nextItem.id);
           }
           return;
@@ -91,7 +85,6 @@ export function useMenuKeyboard(
           if (!activeId) {
             const lastEnabledItem = findLastEnabledItem(items);
             if (lastEnabledItem) {
-              console.log('ArrowUp -> lastEnabledItem', lastEnabledItem.id);
               setActiveId(lastEnabledItem.id);
             }
             return;
@@ -99,11 +92,6 @@ export function useMenuKeyboard(
           const currentIndex = items.findIndex((item) => item.id === activeId);
           const previousItem = findPreviousEnabledItem(items, currentIndex);
           if (previousItem) {
-            console.log('ArrowUp -> previousItem', {
-              currentIndex,
-              current: activeId,
-              previous: previousItem.id,
-            });
             setActiveId(previousItem.id);
           }
           return;
@@ -140,7 +128,6 @@ export function useMenuKeyboard(
           const activeItem = items.find((item) => item.id === activeId);
 
           if (activeItem?.getAttribute('aria-disabled') !== 'true') {
-            console.log('Activate', activeItem?.id);
             activeItem?.click();
           }
 
