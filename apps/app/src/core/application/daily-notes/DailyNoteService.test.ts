@@ -13,6 +13,8 @@ import { MoveService } from '../../vault/persistence/MoveService';
 import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
+import { DocumentRegistry } from '../../engine/DocumentRegistry';
+import { SaveCoordinator } from '../../engine/SaveCoordinator';
 import type { Folder } from '../../vault/models/Folder';
 import type { IdGenerator } from '../../shared/identity/IdGenerator';
 
@@ -72,7 +74,9 @@ function setup(folders: Folder[] = [], ids: string[] = []) {
     coordinator,
     new FolderPathResolver(vault),
     new FolderCreator(makeSequentialIdGenerator(ids)),
-    () => {}
+    () => {},
+    new DocumentRegistry(),
+    new SaveCoordinator()
   );
 
   return { vault, folderOperations };

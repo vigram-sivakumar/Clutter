@@ -3,6 +3,8 @@ import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './FolderCreator';
+import type { DocumentRegistry } from '../../engine/DocumentRegistry';
+import type { SaveCoordinator } from '../../engine/SaveCoordinator';
 
 /**
  * The same lifecycle ownership as PageOperations, scoped to folders.
@@ -13,9 +15,11 @@ import { FolderCreator } from './FolderCreator';
  * "New Folder" inline-rename row); this method receives confirmed intent,
  * not a name-in-progress, and persists on the very first call.
  *
- * Does not have move()/rename(): no backing Persistence Gate operation
- * kind exists yet for either — the same reasoning PageOperations already
- * applies to its own move()/rename() (see ADR-012).
+ * delete()/rename() added by ADR-024. rename() is an interim, explicitly
+ * time-boxed capability (same-parent only — see the ADR's implementation-
+ * sequencing amendment); move() remains absent until the Folder Picker UI
+ * exists to drive it, the same "no backing capability without a caller
+ * that can exercise it" reasoning ADR-012 already applied to page rename.
  */
 export class FolderOperations {
   constructor(
@@ -34,7 +38,19 @@ export class FolderOperations {
      * PageOperations.flushActivePage()) — this class only knows it must
      * call the hook, never what the hook does.
      */
-    private readonly prepareNavigation: () => void
+    private readonly prepareNavigation: () => void,
+    /**
+     * ADR-024 §"Resolved product decisions" #2: delete()'s only reason to
+     * touch page-editing state at all — closing every descendant page's
+     * open session/timers before enqueueing the cascade delete, mirroring
+     * PageOperations.delete()'s own single-page ordering exactly (close
+     * first, so no save already in progress from the UI can be newly
+     * initiated against a page mid-deletion). FolderOperations still has
+     * no concept of drafts/DocumentSession content — it only ever calls
+     * close()/cancelTimers() by id, never reads or writes session state.
+     */
+    private readonly documentRegistry: DocumentRegistry,
+    private readonly saveCoordinator: SaveCoordinator
   ) {}
 
   public async open(folderId: string): Promise<void> {
@@ -79,5 +95,57 @@ export class FolderOperations {
     }
 
     return result.folder.id;
+  }
+
+  /**
+   * Deletes a folder and everything nested inside it (ADR-024). No
+   * existence check of its own — relies on the Gate's dequeue-time guard
+   * (runDeleteFolder abandons harmlessly for an unknown id), the same
+   * pattern PageOperations.delete() already uses.
+   *
+   * Before enqueueing: closes every descendant page's open session and
+   * cancels its pending autosave timer, mirroring PageOperations.delete()'s
+   * single-page ordering — done here, synchronously, before the cascade
+   * delete runs, so no save the UI could still trigger races the deletion.
+   * (This does not address an open *draft* — one with no Vault page yet —
+   * targeting a to-be-deleted folder; that is a narrower, separately
+   * tracked gap, not one this method's cascade can see, since a draft
+   * never appears in Vault.getDescendantFoldersAndPages' output.)
+   *
+   * The confirmation-before-calling-this decision for a non-empty folder
+   * (ADR-024 §"Resolved product decisions" #1) lives in the UI, not here —
+   * this method is an unconditional cascade once called, same as the
+   * Gate's own runDeleteFolder.
+   */
+  public async delete(folderId: string): Promise<void> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (folder) {
+      const { pages } = this.vault.getDescendantFoldersAndPages(folderId);
+
+      for (const page of pages) {
+        this.documentRegistry.close(page.id);
+        this.saveCoordinator.cancelTimers(page.id);
+      }
+    }
+
+    await this.coordinator.enqueue(folderId, { kind: 'delete-folder' });
+  }
+
+  /**
+   * Renames a folder in place (ADR-024's interim 'rename-folder' kind —
+   * same parent only; see the class docstring and the ADR's
+   * implementation-sequencing amendment). No existence check of its own,
+   * same reasoning as delete() above.
+   */
+  public async rename(folderId: string, name: string): Promise<void> {
+    const result = await this.coordinator.enqueue(folderId, {
+      kind: 'rename-folder',
+      name,
+    });
+
+    if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
+      throw new Error(`Failed to rename folder ${folderId}: ${result.status}`);
+    }
   }
 }
