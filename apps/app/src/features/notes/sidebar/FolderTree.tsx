@@ -58,6 +58,11 @@ interface FolderTreeProps {
    */
   onFolderClick(folder: Folder): void;
   /**
+   * Invoked when a folder row's "+" action is clicked — opens a new draft
+   * note scoped to that folder (PageOperations.openDraft({ folderId })).
+   */
+  onCreateNote(folderId: string): void;
+  /**
    * At most one folder-creation row is active anywhere in the tree at a
    * time. Every recursive level checks whether it owns this pending
    * folder's parentId, so root-level and nested creation share the exact
@@ -104,6 +109,7 @@ export function FolderTree({
   onPageClick,
   onDraftPageClick,
   onFolderClick,
+  onCreateNote,
   pendingNewFolder,
   onCommitNewFolder,
   onCancelNewFolder,
@@ -177,6 +183,7 @@ export function FolderTree({
               isExpanded={isExpanded}
               onExpandToggle={() => workspace.toggleFolderExpanded(folder.id)}
               onClick={() => onFolderClick(folder)}
+              onAddClick={() => onCreateNote(folder.id)}
             />
             {/* Completes the existing Workspace.isFolderExpanded capability
                 (ADR-021) — a collapsed folder's pages and subfolders render
@@ -206,6 +213,7 @@ export function FolderTree({
                   onPageClick={onPageClick}
                   onDraftPageClick={onDraftPageClick}
                   onFolderClick={onFolderClick}
+                  onCreateNote={onCreateNote}
                   pendingNewFolder={pendingNewFolder}
                   onCommitNewFolder={onCommitNewFolder}
                   onCancelNewFolder={onCancelNewFolder}

@@ -12,6 +12,12 @@ interface FolderProps extends Omit<EntryProps, 'children'> {
   hasCaret?: boolean;
   isExpanded?: boolean;
   onExpandToggle?: () => void;
+  /**
+   * The per-row "+" action — opens a new draft note scoped to this folder.
+   * Optional so Folder stays usable in contexts (e.g. read-only pickers)
+   * that don't want the affordance.
+   */
+  onAddClick?: () => void;
 }
 
 export function Folder({
@@ -21,6 +27,7 @@ export function Folder({
   hasCaret = true,
   isExpanded = false,
   onExpandToggle,
+  onAddClick,
   ...entryProps
 }: FolderProps) {
   return (
@@ -37,7 +44,13 @@ export function Folder({
       }
       actions={
         <>
-          <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
+          <Button
+            size="small"
+            variant="ghost"
+            interaction="subtle"
+            isIconOnly
+            onClick={onAddClick}
+          >
             <AppIcon icon={'plus'} />
           </Button>
           <Button size="small" variant="ghost" interaction="subtle" isIconOnly>

@@ -199,6 +199,7 @@ function renderTree(
       onPageClick={vi.fn()}
       onDraftPageClick={vi.fn()}
       onFolderClick={vi.fn()}
+      onCreateNote={vi.fn()}
       pendingNewFolder={null}
       onCommitNewFolder={vi.fn()}
       onCancelNewFolder={vi.fn()}
@@ -224,6 +225,7 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -264,6 +266,7 @@ describe('FolderTree: draft click routing', () => {
         onPageClick={onPageClick}
         onDraftPageClick={onDraftPageClick}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -304,6 +307,7 @@ describe('FolderTree: draft discard', () => {
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -359,6 +363,7 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -384,6 +389,7 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -409,6 +415,7 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
         onPageClick={onPageClick}
         onDraftPageClick={onDraftPageClick}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -480,6 +487,7 @@ describe('FolderTree: draft promotion', () => {
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -510,6 +518,7 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -536,6 +545,7 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -555,6 +565,7 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -574,6 +585,7 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -601,6 +613,7 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
         onPageClick={vi.fn()}
         onDraftPageClick={vi.fn()}
         onFolderClick={onFolderClick}
+        onCreateNote={vi.fn()}
         pendingNewFolder={null}
         onCommitNewFolder={vi.fn()}
         onCancelNewFolder={vi.fn()}
@@ -619,5 +632,145 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
 
     expect(workspace.isFolderExpanded('folder-1')).toBe(false);
     expect(onFolderClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('FolderTree: create note from folder ("+" button)', () => {
+  function clickAddButton(folderTitle: string) {
+    const row = screen.getByText(folderTitle).closest('.entry');
+
+    if (!row) {
+      throw new Error(`expected an entry row for "${folderTitle}"`);
+    }
+
+    const addButton = row.querySelector('.entry__actions button');
+
+    if (!addButton) {
+      throw new Error(`expected a "+" button on the "${folderTitle}" row`);
+    }
+
+    (addButton as HTMLElement).click();
+  }
+
+  it('clicking a root folder\'s "+" invokes onCreateNote with that folder\'s id, not onFolderClick', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const onFolderClick = vi.fn();
+    const onCreateNote = vi.fn();
+
+    render(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={onFolderClick}
+        onCreateNote={onCreateNote}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    clickAddButton('Projects');
+
+    expect(onCreateNote).toHaveBeenCalledWith('folder-1');
+    expect(onFolderClick).not.toHaveBeenCalled();
+  });
+
+  it('clicking a nested folder\'s "+" invokes onCreateNote with the nested folder\'s id', () => {
+    const parent = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const child = makeFolder('folder-2', `${ROOT}/Projects/Q1`, 'folder-1');
+    const { query, workspace, membershipSelector } = setup([], [parent, child]);
+    const onCreateNote = vi.fn();
+
+    render(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        onCreateNote={onCreateNote}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    clickAddButton('Q1');
+
+    expect(onCreateNote).toHaveBeenCalledWith('folder-2');
+  });
+
+  it('a draft opened via pageOperations.openDraft({ folderId }) appears immediately under that folder, before any save', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const { query, workspace, pageOperations, membershipSelector } = setup(
+      [],
+      [folder]
+    );
+    const { rerender } = renderTree(query, membershipSelector, workspace);
+
+    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
+
+    await pageOperations.openDraft({ folderId: 'folder-1' });
+    rerender(
+      <FolderTree
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        parentId={null}
+        level={0}
+        onPageClick={vi.fn()}
+        onDraftPageClick={vi.fn()}
+        onFolderClick={vi.fn()}
+        onCreateNote={vi.fn()}
+        pendingNewFolder={null}
+        onCommitNewFolder={vi.fn()}
+        onCancelNewFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('New Note')).toBeInTheDocument();
+    expect(workspace.activePageId).toBeDefined();
+  });
+
+  it('drafts opened in two different folders each render only under their own folder', async () => {
+    const folderA = makeFolder('folder-a', `${ROOT}/A`, null);
+    const folderB = makeFolder('folder-b', `${ROOT}/B`, null);
+    const { query, workspace, pageOperations, membershipSelector } = setup(
+      [],
+      [folderA, folderB]
+    );
+
+    const draftA = await pageOperations.openDraft({ folderId: 'folder-a' });
+    pageOperations.commitEdit(draftA, 'Real content');
+    await pageOperations.openDraft({ folderId: 'folder-b' });
+
+    const { container } = renderTree(query, membershipSelector, workspace);
+
+    const rowA = screen.getByText('A').closest('.entry');
+    const rowB = screen.getByText('B').closest('.entry');
+
+    if (!rowA || !rowB) {
+      throw new Error('expected both folder rows to render');
+    }
+
+    // Expand both folders so their children render (default-expanded per
+    // ADR-021, but assert explicitly rather than relying on it silently).
+    expect(workspace.isFolderExpanded('folder-a')).toBe(true);
+    expect(workspace.isFolderExpanded('folder-b')).toBe(true);
+
+    expect(container.querySelectorAll('.entry').length).toBeGreaterThan(2);
+    // Exactly one "New Note" placeholder (folder B's empty draft) plus
+    // folder A's promoted-to-real-content draft rendered by its own title.
+    expect(screen.getAllByText('New Note')).toHaveLength(1);
+    expect(screen.getByText('Real content')).toBeInTheDocument();
   });
 });

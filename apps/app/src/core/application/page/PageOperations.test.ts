@@ -1286,6 +1286,83 @@ describe('PageOperations: drafts (ADR-017)', () => {
     expect(documentRegistry.get(page.id)).toBeDefined();
     expect(workspace.isPageOpen(page.id)).toBe(true);
   });
+});
+
+describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', () => {
+  it('openDraft({ folderId }) scopes the draft to that folder with no Vault entry and no disk write', async () => {
+    const folder = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const { vault, fileSystem, workspace, documentRegistry, pageOperations } =
+      setupEmpty([folder]);
+
+    const id = await pageOperations.openDraft({ folderId: folder.id });
+
+    expect(pageOperations.getDraft(id)?.folderId).toBe(folder.id);
+    expect(documentRegistry.get(id)).toBeDefined();
+    expect(workspace.isPageOpen(id)).toBe(true);
+    expect(workspace.activePageId).toBe(id);
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(fileSystem.hasFileSync(`${ROOT}/Projects/Untitled.md`)).toBe(false);
+  });
+
+  it('openDraft({ folderId }) works for a nested folder', async () => {
+    const parent = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const child = {
+      ...makeFolder('folder-2', `${ROOT}/Projects/Q1`),
+      parentId: 'folder-1',
+    };
+    const { pageOperations } = setupEmpty([parent, child]);
+
+    const id = await pageOperations.openDraft({ folderId: child.id });
+
+    expect(pageOperations.getDraft(id)?.folderId).toBe(child.id);
+  });
+
+  it('opening drafts in two different folders keeps each scoped to its own folder, once the first is no longer an empty reusable draft', async () => {
+    // findReusableDraftId (ADR-017) retargets a still-empty draft in place
+    // rather than minting a second one — giving folder A's draft real
+    // content is what makes folder B's openDraft() mint a genuinely new,
+    // separately-scoped draft instead of stealing folder A's.
+    const folderA = { ...makeFolder('folder-a', `${ROOT}/A`), parentId: null };
+    const folderB = { ...makeFolder('folder-b', `${ROOT}/B`), parentId: null };
+    const { pageOperations } = setupEmpty([folderA, folderB]);
+
+    const idA = await pageOperations.openDraft({ folderId: folderA.id });
+    pageOperations.commitEdit(idA, 'Real content');
+    const idB = await pageOperations.openDraft({ folderId: folderB.id });
+
+    expect(idA).not.toBe(idB);
+    expect(pageOperations.getDraft(idA)?.folderId).toBe(folderA.id);
+    expect(pageOperations.getDraft(idB)?.folderId).toBe(folderB.id);
+  });
+
+  it('first save() persists the folder-scoped draft as a markdown file inside that folder', async () => {
+    const folder = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const { vault, fileSystem, pageOperations } = setupEmpty([folder]);
+
+    const id = await pageOperations.openDraft({
+      folderId: folder.id,
+      title: 'Kickoff',
+    });
+    await pageOperations.save(id, 'Agenda');
+
+    const page = vault.getPage(id)!;
+    expect(page.parentId).toBe(folder.id);
+    expect(page.path).toBe(`${ROOT}/Projects/Kickoff.md`);
+    expect(fileSystem.hasFileSync(`${ROOT}/Projects/Kickoff.md`)).toBe(true);
+  });
+
+  it('deleting the folder-scoped draft before any save is a no-op that closes the session, per the existing draft-deletion lifecycle', async () => {
+    const folder = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const { fileSystem, workspace, documentRegistry, pageOperations } =
+      setupEmpty([folder]);
+
+    const id = await pageOperations.openDraft({ folderId: folder.id });
+    await expect(pageOperations.delete(id)).resolves.toBeUndefined();
+
+    expect(documentRegistry.get(id)).toBeUndefined();
+    expect(workspace.isPageOpen(id)).toBe(false);
+    expect(fileSystem.hasFileSync(`${ROOT}/Projects/Untitled.md`)).toBe(false);
+  });
 
   it('openAtPath opens a draft when nothing exists at that path yet, and a second call for the same path reuses it', async () => {
     const { vault, pageOperations } = setupEmpty();

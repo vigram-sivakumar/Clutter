@@ -138,6 +138,13 @@ export function Notes({
           onFolderClick={(folder) => {
             onOpenFolder(folder.id);
           }}
+          onCreateNote={(folderId) => {
+            // ADR-017: opens an unpersisted draft scoped to this folder —
+            // openDraft() already opens the session/workspace itself, so
+            // no composed .open() call is needed here, mirroring the
+            // root-level 'new-note' shortcut in buildNotesShortcutHandler.
+            void pageOperations.openDraft({ folderId });
+          }}
         />
       </Section>
     </View>
