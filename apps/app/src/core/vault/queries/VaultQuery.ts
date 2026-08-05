@@ -2,8 +2,6 @@ import type { Folder } from '../models/Folder';
 import type { Page } from '../models/Page';
 import type { Vault } from '../models/Vault';
 
-import { RESERVED_FOLDER_NAMES } from '../initialize/ReservedResources';
-
 // Vault.foldersById (a Map) iterates in insertion order, which reflects
 // startup scan order for scanned folders and creation order for anything
 // added mid-session (Vault.addFolder always appends) — neither is a
@@ -96,11 +94,6 @@ export class VaultQuery {
   public getPagesByTag(name: string): Page[] {
     return Array.from(this.vault.pages()).filter((page) =>
       page.analysis.tags.some((occurrence) => occurrence.name === name)
-    );
-  }
-  public getVisibleRootFolders(sortMode: FolderSortMode = 'title'): Folder[] {
-    return this.getRootFolders(sortMode).filter(
-      (folder) => !RESERVED_FOLDER_NAMES.has(folder.name)
     );
   }
 }

@@ -8,6 +8,7 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
@@ -25,6 +26,7 @@ interface NotesProps {
   pageOperations: PageOperations;
   folderOperations: FolderOperations;
   effectivePageState: EffectivePageState;
+  membershipSelector: MembershipSelector;
   onOpen(pageId: string): void;
   onOpenFolder(folderId: string): void;
   /**
@@ -43,6 +45,7 @@ export function Notes({
   pageOperations,
   folderOperations,
   effectivePageState,
+  membershipSelector,
   onOpen,
   onOpenFolder,
   onOpenDraft,
@@ -114,6 +117,7 @@ export function Notes({
       >
         <FolderTree
           query={query}
+          membershipSelector={membershipSelector}
           workspace={workspace}
           effectivePageState={effectivePageState}
           parentId={null}

@@ -17,6 +17,7 @@ import { DocumentRegistry } from '@core/engine/DocumentRegistry';
 import { SaveCoordinator } from '@core/engine/SaveCoordinator';
 import { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
+import { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import { FrontmatterSerializer } from '@core/vault/ingest/FrontmatterSerializer';
@@ -154,18 +155,21 @@ function setup(initialPages: Page[] = [], initialFolders: Folder[] = []) {
     new DailyNoteService()
   );
   const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
 
-  return { vault, query, workspace, pageOperations, effectivePageState };
+  return { vault, query, workspace, pageOperations, effectivePageState, membershipSelector };
 }
 
 function renderTree(
   query: VaultQuery,
+  membershipSelector: MembershipSelector,
   workspace: Workspace,
   effectivePageState: EffectivePageState
 ) {
   return render(
     <FolderTree
       query={query}
+        membershipSelector={membershipSelector}
       workspace={workspace}
       effectivePageState={effectivePageState}
       parentId={null}
@@ -182,8 +186,8 @@ function renderTree(
 
 describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () => {
   it('a freshly created draft appears in the tree before any save', async () => {
-    const { query, workspace, pageOperations, effectivePageState } = setup();
-    const { rerender } = renderTree(query, workspace, effectivePageState);
+    const { query, workspace, pageOperations, effectivePageState, membershipSelector } = setup();
+    const { rerender } = renderTree(query, membershipSelector, workspace, effectivePageState);
 
     expect(screen.queryByText('New Note')).not.toBeInTheDocument();
 
@@ -191,6 +195,7 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
     rerender(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -211,10 +216,10 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
   });
 
   it('a titled draft renders its title immediately', async () => {
-    const { query, workspace, pageOperations, effectivePageState } = setup();
+    const { query, workspace, pageOperations, effectivePageState, membershipSelector } = setup();
 
     await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
-    const { getByText } = renderTree(query, workspace, effectivePageState);
+    const { getByText } = renderTree(query, membershipSelector, workspace, effectivePageState);
 
     expect(getByText('My Draft')).toBeInTheDocument();
   });
@@ -222,7 +227,7 @@ describe('FolderTree: draft-only entries appear immediately (ADR-020, M3)', () =
 
 describe('FolderTree: draft click routing', () => {
   it('clicking a draft row invokes onDraftPageClick, not onPageClick (open() would throw for a draft)', async () => {
-    const { query, workspace, pageOperations, effectivePageState } = setup();
+    const { query, workspace, pageOperations, effectivePageState, membershipSelector } = setup();
     await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
 
     const onPageClick = vi.fn();
@@ -231,6 +236,7 @@ describe('FolderTree: draft click routing', () => {
     render(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -253,10 +259,10 @@ describe('FolderTree: draft click routing', () => {
 
 describe('FolderTree: draft discard', () => {
   it('closing an unsaved draft removes it from the tree', async () => {
-    const { query, workspace, pageOperations, effectivePageState } = setup();
+    const { query, workspace, pageOperations, effectivePageState, membershipSelector } = setup();
 
     const draftId = await pageOperations.openDraft({ folderId: null, title: 'Throwaway' });
-    const { rerender, queryByText } = renderTree(query, workspace, effectivePageState);
+    const { rerender, queryByText } = renderTree(query, membershipSelector, workspace, effectivePageState);
     expect(queryByText('Throwaway')).toBeInTheDocument();
 
     pageOperations.close(draftId);
@@ -264,6 +270,7 @@ describe('FolderTree: draft discard', () => {
     rerender(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -283,24 +290,24 @@ describe('FolderTree: draft discard', () => {
 
 describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId) surfaces correctly here', () => {
   it('clicking "New Note" twice without saving shows exactly one placeholder row, not two', async () => {
-    const { query, workspace, pageOperations, effectivePageState } = setup();
+    const { query, workspace, pageOperations, effectivePageState, membershipSelector } = setup();
 
     await pageOperations.openDraft({ folderId: null });
     await pageOperations.openDraft({ folderId: null });
 
-    const { getAllByText } = renderTree(query, workspace, effectivePageState);
+    const { getAllByText } = renderTree(query, membershipSelector, workspace, effectivePageState);
 
     expect(getAllByText('New Note')).toHaveLength(1);
   });
 
   it('a draft with real content is left alone — a second "New Note" click shows two distinct rows', async () => {
-    const { query, workspace, pageOperations, effectivePageState } = setup();
+    const { query, workspace, pageOperations, effectivePageState, membershipSelector } = setup();
 
     const firstId = await pageOperations.openDraft({ folderId: null });
     pageOperations.commitEdit(firstId, 'Real content');
     await pageOperations.openDraft({ folderId: null });
 
-    const { getAllByText, getByText } = renderTree(query, workspace, effectivePageState);
+    const { getAllByText, getByText } = renderTree(query, membershipSelector, workspace, effectivePageState);
 
     expect(getByText('Real content')).toBeInTheDocument();
     expect(getAllByText('New Note')).toHaveLength(1);
@@ -310,11 +317,12 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
 describe('FolderTree: persisted-page rendering is unchanged', () => {
   it('renders an existing persisted page via the same getPageDisplayLabel path as before', () => {
     const page = buildPersistedPage(`${ROOT}/My Persisted Note.md`);
-    const { query, workspace, effectivePageState } = setup([page]);
+    const { query, workspace, effectivePageState, membershipSelector } = setup([page]);
 
     render(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -335,11 +343,12 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
     const page = buildPersistedPage(`${ROOT}/Untitled.md`, {
       description: 'A durable description',
     });
-    const { query, workspace, effectivePageState } = setup([page]);
+    const { query, workspace, effectivePageState, membershipSelector } = setup([page]);
 
     render(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -358,13 +367,14 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
 
   it('clicking a persisted page invokes onPageClick with its id (not a draft click)', () => {
     const page = buildPersistedPage(`${ROOT}/Clickable.md`);
-    const { query, workspace, effectivePageState } = setup([page]);
+    const { query, workspace, effectivePageState, membershipSelector } = setup([page]);
     const onPageClick = vi.fn();
     const onDraftPageClick = vi.fn();
 
     render(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -387,10 +397,10 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
 
 describe('FolderTree: draft promotion', () => {
   it('never renders the same page twice across the promotion window', async () => {
-    const { query, workspace, pageOperations, effectivePageState } = setup();
+    const { query, workspace, pageOperations, effectivePageState, membershipSelector } = setup();
 
     const draftId = await pageOperations.openDraft({ folderId: null, title: 'Promote Me' });
-    const { rerender, getAllByText } = renderTree(query, workspace, effectivePageState);
+    const { rerender, getAllByText } = renderTree(query, membershipSelector, workspace, effectivePageState);
     expect(getAllByText('Promote Me')).toHaveLength(1);
 
     await pageOperations.save(draftId, '# Hello');
@@ -398,6 +408,7 @@ describe('FolderTree: draft promotion', () => {
     rerender(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -421,11 +432,12 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
   it('a folder is expanded by default — children render with no prior toggle', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
     const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
-    const { query, workspace, effectivePageState } = setup([page], [folder]);
+    const { query, workspace, effectivePageState, membershipSelector } = setup([page], [folder]);
 
     render(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -445,11 +457,12 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
   it('collapsing a folder hides its pages and subfolders; expanding again restores them', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
     const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
-    const { query, workspace, effectivePageState } = setup([page], [folder]);
+    const { query, workspace, effectivePageState, membershipSelector } = setup([page], [folder]);
 
     const { rerender } = render(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -469,6 +482,7 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
     rerender(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -488,6 +502,7 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
     rerender(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}
@@ -507,12 +522,13 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
   it('clicking the caret toggles expansion without invoking onFolderClick (the row navigate handler)', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
     const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
-    const { query, workspace, effectivePageState } = setup([page], [folder]);
+    const { query, workspace, effectivePageState, membershipSelector } = setup([page], [folder]);
     const onFolderClick = vi.fn();
 
     const { container } = render(
       <FolderTree
         query={query}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         effectivePageState={effectivePageState}
         parentId={null}

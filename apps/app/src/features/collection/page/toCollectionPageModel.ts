@@ -3,6 +3,7 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { FilteredView, Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { buildEntryPresentation } from '@core/presentation/buildEntryPresentation';
 import {
   getSystemLocationForFolder,
@@ -73,11 +74,16 @@ function isFolderSource(source: CollectionPageSource): source is Folder {
 
 /**
  * A Workspace-root, Favorites, or single-tag collection page (ADR-022).
- * Membership comes from exactly the same VaultQuery/EffectivePageState
- * calls the sidebar's own list components make — getRootFolders() +
- * getChildPages(null) for 'workspace', getFavoriteFolders() +
- * getFavoritePages() for 'favorites', getPagesByTag() for 'tag' — so the
- * page can never drift from what the sidebar shows for the same view.
+ * Workspace-folder membership comes from MembershipSelector.getWorkspaceFolders()
+ * (ADR-023) — the same call the sidebar's FolderTree makes at its root, so
+ * the page can never drift from what the sidebar shows for the same view
+ * (this was previously two independent calls — query.getRootFolders() here,
+ * unfiltered, vs. query.getVisibleRootFolders() in FolderTree — see
+ * ADR-023's Context section). Favorites/tag membership are unaffected —
+ * getFavoriteFolders()/getFavoritePages()/getPagesByTag() remain
+ * VaultQuery/EffectivePageState's structural/durable-only jobs, per
+ * ARCHITECTURE_RULES.md rule 13's documented exception; neither is a
+ * membership question MembershipSelector owns.
  *
  * The tag branch returns early: a tag has no folders (folders: [] always)
  * and its title/icon come from the Tag entity itself (vault.getTagByName),
@@ -90,6 +96,7 @@ function toFilteredCollectionPageModel(
   vault: Vault,
   query: VaultQuery,
   effectivePageState: EffectivePageState,
+  membershipSelector: MembershipSelector,
   workspace: Workspace,
   actions: CollectionPageActions
 ): CollectionPageModel {
@@ -109,7 +116,9 @@ function toFilteredCollectionPageModel(
   }
 
   const rawFolders =
-    view.kind === 'workspace' ? query.getRootFolders() : query.getFavoriteFolders();
+    view.kind === 'workspace'
+      ? membershipSelector.getWorkspaceFolders()
+      : query.getFavoriteFolders();
   const rawNotes =
     view.kind === 'workspace'
       ? effectivePageState.getChildPages(null)
@@ -171,6 +180,7 @@ export function toCollectionPageModel(
   vault: Vault,
   query: VaultQuery,
   effectivePageState: EffectivePageState,
+  membershipSelector: MembershipSelector,
   workspace: Workspace,
   actions: CollectionPageActions
 ): CollectionPageModel {
@@ -183,6 +193,7 @@ export function toCollectionPageModel(
     vault,
     query,
     effectivePageState,
+    membershipSelector,
     workspace,
     actions
   );

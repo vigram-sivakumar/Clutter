@@ -30,6 +30,7 @@ export function Sidebar({ application }: SidebarProps) {
     folderOperations,
     taskOperations,
     effectivePageState,
+    membershipSelector,
   } = application;
   const workspace = useWorkspace(application.workspace);
   const activeDailyNoteDate = getActiveDailyNoteDate(
@@ -77,6 +78,7 @@ export function Sidebar({ application }: SidebarProps) {
           pageOperations={pageOperations}
           folderOperations={folderOperations}
           effectivePageState={effectivePageState}
+          membershipSelector={membershipSelector}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}

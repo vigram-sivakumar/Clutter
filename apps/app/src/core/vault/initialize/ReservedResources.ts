@@ -98,8 +98,8 @@ export function reservedFolderRelativePath(id: ReservedFolderId): string {
  * vault-root/path-aware — callers that need to confirm a folder is
  * actually reserved (not just named the same thing) call
  * Vault.isReservedFolder() first, the same composition
- * VaultQuery.getVisibleRootFolders() already relies on
- * (RESERVED_FOLDER_NAMES, name-based) rather than this function
+ * MembershipSelector.isWorkspaceFolder()/isSystemFolder() (ADR-023) and
+ * getSystemLocationForFolder() already rely on, rather than this function
  * reimplementing that path/parentId check itself.
  */
 export function reservedFolderIdForName(name: string): ReservedFolderId | undefined {

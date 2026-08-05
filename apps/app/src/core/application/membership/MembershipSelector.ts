@@ -107,26 +107,22 @@ export class MembershipSelector {
   }
 
   /**
-   * NOT YET WIRED TO ANY CONSUMER (Phase 1 of ADR-023's rollout — this
-   * layer coexists with the current implementations until Phase 2).
-   *
-   * Workspace membership for a root folder. Placeholder definition,
-   * matching today's sidebar behavior (VaultQuery.getVisibleRootFolders():
-   * exclude every reserved folder) — this is the answer FolderTree's
-   * "Workspace" section currently renders. It does NOT yet match
-   * toCollectionPageModel's Workspace page, which reads
-   * VaultQuery.getRootFolders() unfiltered, per ADR-022's stated design.
-   * That divergence (ADR-023's Context section, "conformance gap against
-   * ADR-022") must be resolved — confirming which of the two is the
-   * intended product behavior — before this method is wired to either
-   * consumer in Phase 2. Implemented here as a placeholder purely so the
-   * layer's shape is complete; not to be treated as the resolved answer.
+   * Workspace membership for a root folder (ADR-023 §4, resolving the
+   * two-definition bug the ADR's Context section documents): a root folder
+   * belongs to Workspace unless it's a system/reserved folder (Archive,
+   * Inbox, Templates, Daily Notes, .clutter). This is the single
+   * implementation both the sidebar's FolderTree and the Workspace
+   * collection page (toCollectionPageModel) now consume — resolved in
+   * favor of ReservedResources.ts's documented intent ("reserved folders...
+   * should not surface in generic folder navigation") over ADR-022's
+   * literal text, which described the Workspace page as unfiltered; see
+   * ADR-022's amendment recording this correction.
    */
   public isWorkspaceFolder(folder: Folder): boolean {
     return folder.parentId === null && !this.isSystemFolder(folder);
   }
 
-  /** See isWorkspaceFolder's placeholder caveat above. */
+  /** Every root folder that belongs to Workspace — see isWorkspaceFolder. */
   public getWorkspaceFolders(): Folder[] {
     return this.query.getRootFolders().filter((folder) => this.isWorkspaceFolder(folder));
   }

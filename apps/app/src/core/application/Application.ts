@@ -265,9 +265,9 @@ export class Application {
     // ADR-023: the read-side classification layer — for a page/folder plus
     // a named product concept (Notes, Daily Notes, a system folder,
     // Archive), the one place that decides membership. Constructed after
-    // query/effectivePageState, its only inputs. No production consumer
-    // yet (Phase 1 of the ADR's rollout) — this milestone only wires its
-    // lifecycle, mirroring how ADR-020 introduced EffectivePageState.
+    // query/effectivePageState, its only inputs. Workspace-folder
+    // membership (FolderTree, toCollectionPageModel) is its first migrated
+    // consumer (Phase 2 of the ADR's rollout).
     this.membershipSelector = new MembershipSelector(
       vault,
       this.query,

@@ -123,6 +123,7 @@ export function PageHost({ application }: PageHostProps) {
       vault,
       application.query,
       application.effectivePageState,
+      application.membershipSelector,
       workspace,
       {
         onOpenFolder,
@@ -189,6 +190,7 @@ export function PageHost({ application }: PageHostProps) {
       vault,
       application.query,
       application.effectivePageState,
+      application.membershipSelector,
       workspace,
       {
         onOpenFolder,

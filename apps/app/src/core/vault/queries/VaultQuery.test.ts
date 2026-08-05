@@ -134,20 +134,6 @@ describe('VaultQuery folder ordering', () => {
     ]);
   });
 
-  it('getVisibleRootFolders stays sorted after filtering out reserved folders', () => {
-    const folders = [
-      makeFolder('folder-z', 'Zebra'),
-      makeFolder('folder-a', 'Apple'),
-      { ...makeFolder('folder-archive', 'Archive'), parentId: null },
-    ];
-    const query = new VaultQuery(makeVault(folders));
-
-    expect(query.getVisibleRootFolders().map((f) => f.name)).toEqual([
-      'Apple',
-      'Zebra',
-    ]);
-  });
-
   it('accepts an explicit sortMode, not just the default', () => {
     const folders = [
       makeFolder('folder-z', 'Zebra'),
@@ -156,9 +142,9 @@ describe('VaultQuery folder ordering', () => {
     const query = new VaultQuery(makeVault(folders));
 
     // Only 'title' exists today, but this proves getRootFolders/
-    // getChildFolders/getVisibleRootFolders actually take the mode as a
-    // real parameter (not just default it silently) — the seam a future
-    // Sort control plugs into without any of these signatures changing.
+    // getChildFolders actually take the mode as a real parameter (not just
+    // default it silently) — the seam a future Sort control plugs into
+    // without either signature changing.
     expect(query.getRootFolders('title').map((f) => f.name)).toEqual([
       'Apple',
       'Zebra',

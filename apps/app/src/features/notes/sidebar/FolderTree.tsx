@@ -15,6 +15,7 @@ import {
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 
 export interface PendingNewFolder {
   // The parent under which a not-yet-persisted folder is being named.
@@ -24,8 +25,17 @@ export interface PendingNewFolder {
 
 interface FolderTreeProps {
   // Folders only — folders have no draft concept (ADR-017 is scoped to
-  // pages), so query remains their sole, correct source.
+  // pages), so query remains their sole, correct source for structural
+  // reads (a folder's children). Root-level Workspace membership goes
+  // through membershipSelector instead — see below.
   query: VaultQuery;
+  // ADR-023: the single owner of "is this folder part of Workspace" — used
+  // only for the true root's folder list (getWorkspaceFolders()); nested
+  // folders keep reading structurally through query.getChildFolders(),
+  // which has no membership question to answer (a folder already inside a
+  // non-reserved folder is never itself a reserved folder, so nothing to
+  // classify one layer down).
+  membershipSelector: MembershipSelector;
   workspace: Workspace;
   // ADR-020 (M3 amendment): the single read surface for page rendering —
   // existence, identity, and every presentation field (name, description,
@@ -92,6 +102,7 @@ function PageEntry({
 
 export function FolderTree({
   query,
+  membershipSelector,
   workspace,
   effectivePageState,
   parentId,
@@ -103,10 +114,17 @@ export function FolderTree({
   onCommitNewFolder,
   onCancelNewFolder,
 }: FolderTreeProps) {
-  // Get all folders that belong to the current parent.
+  // Get all folders that belong to the current parent. Root-level: ADR-023's
+  // MembershipSelector is the single owner of "is this folder part of
+  // Workspace" (formerly query.getVisibleRootFolders() here, and
+  // independently query.getRootFolders() unfiltered in
+  // toCollectionPageModel's Workspace branch — the two-definition bug
+  // ADR-023 exists to close). Nested: query.getChildFolders() remains the
+  // correct structural source — no membership question applies one layer
+  // below the root.
   const rootFolders =
     parentId === null
-      ? query.getVisibleRootFolders()
+      ? membershipSelector.getWorkspaceFolders()
       : query.getChildFolders(parentId);
 
   // Only meaningful at the true root — a nested folder's own pages are
@@ -178,6 +196,7 @@ export function FolderTree({
                     Every child folder repeats this exact process. */}
                 <FolderTree
                   query={query}
+                  membershipSelector={membershipSelector}
                   workspace={workspace}
                   effectivePageState={effectivePageState}
                   parentId={folder.id}
