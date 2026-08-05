@@ -83,7 +83,9 @@ function setup(page: Page) {
     coordinator,
     new FolderPathResolver(vault),
     new FolderCreator(new UuidGenerator()),
-    () => {}
+    () => {},
+    new DocumentRegistry(),
+    new SaveCoordinator()
   );
   const pageOperations = new PageOperations(
     vault,
@@ -94,7 +96,8 @@ function setup(page: Page) {
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     folderOperations,
-    new DailyNoteService()
+    new DailyNoteService(),
+    () => {}
   );
 
   return { vault, inner, documentRegistry, saveCoordinator, coordinator, pageOperations };

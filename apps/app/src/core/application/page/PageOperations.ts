@@ -112,7 +112,17 @@ export class PageOperations {
     private readonly pathResolver: PagePathResolver,
     private readonly pageCreator: PageCreator,
     private readonly folderOperations: FolderOperations,
-    private readonly dailyNoteService: DailyNoteService
+    private readonly dailyNoteService: DailyNoteService,
+    /**
+     * Composition-Root-injected hook, same shape as FolderOperations'
+     * prepareNavigation — lets delete() ask "open whatever the app
+     * considers its fallback page" without this class knowing what that
+     * is (today: Application.openFallbackPage() resolves-or-drafts
+     * today's Daily Note). Keeps the fallback-page decision an
+     * application-policy concern (Composition Root, per ADR-019's own
+     * framing of that decision) rather than duplicating it here.
+     */
+    private readonly openFallbackPage: () => void
   ) {}
 
   /**
@@ -939,6 +949,14 @@ export class PageOperations {
    * synchronously here whether to skip the Gate could race an in-flight,
    * not-yet-executed create for the same id and resurrect a "deleted"
    * draft once that create ran.
+   *
+   * The missing lifecycle transition this closes (see ADR-025): closePage()
+   * already tries to restore a previously-open page for us — that's
+   * Workspace's own navigation-history job, unchanged here. What was
+   * missing is the next step when there is no previous page to restore:
+   * without it, the app was left with no active page/folder at all after
+   * deleting the last one open. We only ever ask the Composition Root to
+   * open its fallback page — we never decide what that page is.
    */
   public async delete(pageId: string): Promise<void> {
     this.documentRegistry.close(pageId);
@@ -950,5 +968,9 @@ export class PageOperations {
     await this.coordinator.enqueue(pageId, { kind: 'delete' });
 
     this.workspace.closePage(pageId);
+
+    if (!this.workspace.activeView) {
+      this.openFallbackPage();
+    }
   }
 }

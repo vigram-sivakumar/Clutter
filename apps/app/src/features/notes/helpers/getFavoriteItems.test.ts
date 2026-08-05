@@ -98,7 +98,9 @@ function makeFolderOperations(
     coordinator,
     new FolderPathResolver(vault),
     new FolderCreator(new UuidGenerator()),
-    () => {}
+    () => {},
+    new DocumentRegistry(),
+    new SaveCoordinator()
   );
 }
 
@@ -136,7 +138,8 @@ function setup(folders: Folder[], pages: Page[]) {
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     makeFolderOperations(vault, workspace, coordinator),
-    new DailyNoteService()
+    new DailyNoteService(),
+    () => {}
   );
   const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
 

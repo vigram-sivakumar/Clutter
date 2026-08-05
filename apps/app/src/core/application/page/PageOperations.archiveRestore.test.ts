@@ -143,7 +143,9 @@ function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOpe
     coordinator,
     new FolderPathResolver(vault),
     new FolderCreator(new UuidGenerator()),
-    () => {}
+    () => {},
+    new DocumentRegistry(),
+    new SaveCoordinator()
   );
 
   return new PageOperations(
@@ -155,7 +157,8 @@ function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOpe
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     folderOperations,
-    new DailyNoteService()
+    new DailyNoteService(),
+    () => {}
   );
 }
 

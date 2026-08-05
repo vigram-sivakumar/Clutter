@@ -134,7 +134,9 @@ function makeMembershipSelector(vault: Vault): MembershipSelector {
     coordinator,
     new FolderPathResolver(vault),
     new FolderCreator(new UuidGenerator()),
-    () => {}
+    () => {},
+    new DocumentRegistry(),
+    new SaveCoordinator()
   );
   const pageOperations = new PageOperations(
     vault,
@@ -145,7 +147,8 @@ function makeMembershipSelector(vault: Vault): MembershipSelector {
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     folderOperations,
-    new DailyNoteService()
+    new DailyNoteService(),
+    () => {}
   );
   const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
 

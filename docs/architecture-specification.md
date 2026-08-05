@@ -349,7 +349,7 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
 `rename()` is listed per the original target design but has no shipped implementation and no backing Gate operation kind — unchanged by ADR-017, carried forward from ADR-012's disposition.
 
 ### Internal collaborators
-`- PagePersistenceCoordinator` (all writes), `- DocumentSession`/`- DocumentRegistry`/`- SaveCoordinator` (editing lifecycle, §9), `- PagePathResolver`, `- PageCreator` (id generation + document construction, shared between eager `create()` and a draft's first-persist), a private `- drafts` map (id → `DraftInfo`, ADR-017's non-Vault descriptor) and `- draftIdByDeterministicPath` map (path → id, so a second "open Today" reuses the already-open draft instead of minting a second one), `Vault` (read-only queries), `Workspace` (post-operation state updates, e.g. closing a deleted page).
+`- PagePersistenceCoordinator` (all writes), `- DocumentSession`/`- DocumentRegistry`/`- SaveCoordinator` (editing lifecycle, §9), `- PagePathResolver`, `- PageCreator` (id generation + document construction, shared between eager `create()` and a draft's first-persist), a private `- drafts` map (id → `DraftInfo`, ADR-017's non-Vault descriptor) and `- draftIdByDeterministicPath` map (path → id, so a second "open Today" reuses the already-open draft instead of minting a second one), `Vault` (read-only queries), `Workspace` (post-operation state updates, e.g. closing a deleted page), a Composition-Root-injected `- openFallbackPage: () => void` callback (ADR-025) — the same constructor-injected-hook shape as `FolderOperations`'s `prepareNavigation`, invoked only when `delete()` leaves `Workspace` with no active page/folder, so `PageOperations` can ask for a fallback page without knowing what it is.
 
 ### Lifecycle
 Constructed once at the Composition Root. No internal state of its own beyond its collaborators — `DocumentRegistry` holds the actual per-page session state, and `PageOperations`'s own `drafts` map holds the non-Vault descriptor a draft needs before it has one.
@@ -791,7 +791,12 @@ UI "Delete" menu item
             surfaced to the caller (ADR-017 §5/§7): a delete for a draft
             that was never persisted is indistinguishable, from here, from
             deleting an already-gone real page, and both are harmless no-ops
-      → Workspace.closePage(pageId)
+      → Workspace.closePage(pageId)   [restores a previously-open page if
+        one exists — Workspace's own navigation-history job, unchanged]
+      → [Workspace.activeView is still null after that]
+          → the Composition-Root-injected openFallbackPage callback
+            (ADR-025) — PageOperations never decides what the fallback
+            page is, only that one must be opened when deleting left none
 ```
 
 ### Rename

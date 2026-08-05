@@ -229,7 +229,9 @@ export class Application {
       persistenceCoordinator,
       new FolderPathResolver(vault),
       new FolderCreator(new UuidGenerator()),
-      () => this.pageOperations.flushActivePage()
+      () => this.pageOperations.flushActivePage(),
+      this.documentRegistry,
+      this.saveCoordinator
     );
     this.pageOperations = new PageOperations(
       vault,
@@ -240,7 +242,15 @@ export class Application {
       new PagePathResolver(vault),
       pageCreator,
       this.folderOperations,
-      dailyNoteService
+      dailyNoteService,
+      // ADR-025: same lazy-`this`-closure shape as FolderOperations'
+      // prepareNavigation hook above — PageOperations is constructed
+      // before openFallbackPage() has any reason to exist as anything but
+      // a method on `this`, and the closure itself decides nothing (the
+      // fallback-page policy lives entirely in openFallbackPage() below).
+      () => {
+        void this.openFallbackPage();
+      }
     );
     this.navigation = new NavigationRouter(this.folderOperations, vault, this.workspace);
     // Same Gate instance every other facade writes through — a task
@@ -294,24 +304,37 @@ export class Application {
   }
 
   /**
-   * Starts the filesystem watcher, then decides what opens at boot —
-   * currently always today's daily note, opening the real Vault page if
-   * the startup scan found one, otherwise an unpersisted draft at its
-   * deterministic path (ADR-017 §7/Decision item 7). The path is computed
-   * here, not carried from bootstrap() (ADR-019) — no directory is
-   * scaffolded for it ahead of time; PageOperations.openAtPath()'s
-   * draft-promotion path materializes the Daily Note's folder chain on
-   * first save, via DailyNoteService.ensureFolderChain. Never writes
-   * through the Gate itself.
-   *
-   * This is the Composition Root's one documented seam for a future
-   * startup-strategy choice (Open Today's Note / Restore Last Session /
-   * Open Empty Workspace, ADR-019) — not implemented yet, so today's
-   * behavior is the only branch.
+   * Starts the filesystem watcher, then opens the fallback page to decide
+   * what shows at boot (see openFallbackPage() below).
    */
   public async open(): Promise<void> {
     await this.fileSystemWatcher.start(this.rootPath);
 
+    void this.openFallbackPage();
+  }
+
+  /**
+   * The application's fallback-page policy (ADR-025, following up on the
+   * seam ADR-019 named): currently always today's Daily Note, opening the
+   * real Vault page if one exists, otherwise an unpersisted draft at its
+   * deterministic path (ADR-017 §7/Decision item 7). The path is computed
+   * here, not cached (ADR-019) — no directory is scaffolded for it ahead
+   * of time; PageOperations.openAtPath()'s draft-promotion path
+   * materializes the Daily Note's folder chain on first save, via
+   * DailyNoteService.ensureFolderChain. Never writes through the Gate
+   * itself.
+   *
+   * Two callers: open() at boot, and PageOperations.delete() (via the
+   * constructor-injected callback in attachVault()) when deleting the
+   * active page leaves the workspace with no page/folder to fall back to.
+   * Neither caller — nor PageOperations itself — knows what the fallback
+   * page is; that decision lives only here, matching ADR-019's framing of
+   * this as the Composition Root's one documented seam for a future
+   * startup-strategy choice (Open Today's Note / Restore Last Session /
+   * Open Empty Workspace) — not implemented yet, so today's Daily Note is
+   * still the only branch.
+   */
+  private async openFallbackPage(): Promise<void> {
     const todayNotePath = DailyNotePath.absoluteFrom(this.vault.root, new Date());
     const todayPage = this.vault.getPageByPath(todayNotePath);
 

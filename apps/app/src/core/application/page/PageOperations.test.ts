@@ -38,7 +38,9 @@ function makeFolderOperations(
     coordinator,
     new FolderPathResolver(vault),
     new FolderCreator(new UuidGenerator()),
-    () => {}
+    () => {},
+    new DocumentRegistry(),
+    new SaveCoordinator()
   );
 }
 
@@ -103,6 +105,28 @@ function buildPage(overrides: { icon?: string; favorite?: boolean } = {}): Page 
   });
 }
 
+function buildNamedPage(id: string, path: string): Page {
+  const builder = new PageBuilder();
+  return builder.build({
+    parentId: null,
+    page: {
+      path,
+      directoryPath: ROOT,
+      frontmatter: { id },
+      frontmatterAnalysis: { aliases: [] },
+      content: 'Original body',
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [],
+        links: [],
+        embeds: [],
+      },
+    },
+  });
+}
+
 function makeVault(pages: Page[], folders: Folder[] = [makeArchiveFolder()]): Vault {
   return new Vault(
     ROOT,
@@ -116,7 +140,12 @@ function makeVault(pages: Page[], folders: Folder[] = [makeArchiveFolder()]): Va
   );
 }
 
-function setup(page: Page, fileSystem?: VaultFileSystem, folders?: Folder[]) {
+function setup(
+  page: Page,
+  fileSystem?: VaultFileSystem,
+  folders?: Folder[],
+  openFallbackPage: () => void = () => {}
+) {
   const vault = makeVault([page], folders ?? [makeArchiveFolder()]);
   const resolvedFileSystem = fileSystem ?? new InMemoryVaultFileSystem();
 
@@ -148,7 +177,8 @@ function setup(page: Page, fileSystem?: VaultFileSystem, folders?: Folder[]) {
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     makeFolderOperations(vault, workspace, coordinator),
-    new DailyNoteService()
+    new DailyNoteService(),
+    openFallbackPage
   );
 
   return {
@@ -637,6 +667,139 @@ describe('PageOperations.delete()', () => {
     await expect(pageOperations.delete('does-not-exist')).resolves.toBeUndefined();
     expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(true);
   });
+
+  // ADR-025: deleting the active page must never leave the app without a
+  // valid page — either a previously-open page is restored (Workspace's
+  // own job), or PageOperations asks the Composition Root to open its
+  // fallback page. delete() never knows what that fallback page is.
+  describe('fallback-page navigation (ADR-025)', () => {
+    it('opens the fallback page when deleting the only open (active) page', async () => {
+      const page = buildPage();
+      const openFallbackPage = vi.fn();
+      const { workspace, pageOperations } = setup(page, undefined, undefined, openFallbackPage);
+
+      await pageOperations.open(page.id);
+      expect(workspace.activePageId).toBe(page.id);
+
+      await pageOperations.delete(page.id);
+
+      expect(workspace.activeView).toBeNull();
+      expect(openFallbackPage).toHaveBeenCalledTimes(1);
+    });
+
+    it('restores the previously-open page instead of opening the fallback page', async () => {
+      const activePage = buildNamedPage('page-active', `${ROOT}/Active.md`);
+      const previousPage = buildNamedPage('page-previous', `${ROOT}/Previous.md`);
+      const openFallbackPage = vi.fn();
+      const vault = makeVault([activePage, previousPage]);
+      const fileSystem = new InMemoryVaultFileSystem();
+      fileSystem.seedFile(
+        activePage.path,
+        new FrontmatterSerializer().serializeDocument(activePage, activePage.source.markdown)
+      );
+      fileSystem.seedFile(
+        previousPage.path,
+        new FrontmatterSerializer().serializeDocument(previousPage, previousPage.source.markdown)
+      );
+      const workspace = new Workspace();
+      const documentRegistry = new DocumentRegistry();
+      const saveCoordinator = new SaveCoordinator();
+      const moveService = new MoveService(vault, fileSystem);
+      const coordinator = new PagePersistenceCoordinator(
+        fileSystem,
+        vault,
+        new FrontmatterSerializer(),
+        new FrontmatterParser(),
+        new PageRebuilder(),
+        moveService
+      );
+      const pageOperations = new PageOperations(
+        vault,
+        workspace,
+        documentRegistry,
+        saveCoordinator,
+        coordinator,
+        new PagePathResolver(vault),
+        new PageCreator(new UuidGenerator(), new PageFactory()),
+        makeFolderOperations(vault, workspace, coordinator),
+        new DailyNoteService(),
+        openFallbackPage
+      );
+
+      // Both open, in order, so previousPage is the workspace's next
+      // fallback once activePage closes.
+      await pageOperations.open(previousPage.id);
+      await pageOperations.open(activePage.id);
+      expect(workspace.activePageId).toBe(activePage.id);
+
+      await pageOperations.delete(activePage.id);
+
+      expect(workspace.activePageId).toBe(previousPage.id);
+      expect(openFallbackPage).not.toHaveBeenCalled();
+    });
+
+    it('does not open the fallback page when deleting a page that is not the active one', async () => {
+      const activePage = buildNamedPage('page-active', `${ROOT}/Active.md`);
+      const backgroundPage = buildNamedPage('page-background', `${ROOT}/Background.md`);
+      const openFallbackPage = vi.fn();
+      const vault = makeVault([activePage, backgroundPage]);
+      const fileSystem = new InMemoryVaultFileSystem();
+      fileSystem.seedFile(
+        activePage.path,
+        new FrontmatterSerializer().serializeDocument(activePage, activePage.source.markdown)
+      );
+      fileSystem.seedFile(
+        backgroundPage.path,
+        new FrontmatterSerializer().serializeDocument(backgroundPage, backgroundPage.source.markdown)
+      );
+      const workspace = new Workspace();
+      const documentRegistry = new DocumentRegistry();
+      const saveCoordinator = new SaveCoordinator();
+      const moveService = new MoveService(vault, fileSystem);
+      const coordinator = new PagePersistenceCoordinator(
+        fileSystem,
+        vault,
+        new FrontmatterSerializer(),
+        new FrontmatterParser(),
+        new PageRebuilder(),
+        moveService
+      );
+      const pageOperations = new PageOperations(
+        vault,
+        workspace,
+        documentRegistry,
+        saveCoordinator,
+        coordinator,
+        new PagePathResolver(vault),
+        new PageCreator(new UuidGenerator(), new PageFactory()),
+        makeFolderOperations(vault, workspace, coordinator),
+        new DailyNoteService(),
+        openFallbackPage
+      );
+
+      await pageOperations.open(backgroundPage.id);
+      await pageOperations.open(activePage.id);
+
+      await pageOperations.delete(backgroundPage.id);
+
+      expect(workspace.activePageId).toBe(activePage.id);
+      expect(openFallbackPage).not.toHaveBeenCalled();
+    });
+
+    it('opens the fallback page when deleting an unpersisted draft that was the only open page', async () => {
+      const page = buildPage();
+      const openFallbackPage = vi.fn();
+      const { workspace, pageOperations } = setup(page, undefined, undefined, openFallbackPage);
+
+      const draftId = await pageOperations.openDraft({ folderId: null });
+      expect(workspace.activePageId).toBe(draftId);
+
+      await pageOperations.delete(draftId);
+
+      expect(workspace.activeView).toBeNull();
+      expect(openFallbackPage).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 describe('PageOperations: create/save concurrency', () => {
@@ -847,7 +1010,8 @@ function setupEmpty(folders: Folder[] = [makeArchiveFolder()]) {
     new PagePathResolver(vault),
     new PageCreator(new UuidGenerator(), new PageFactory()),
     makeFolderOperations(vault, workspace, coordinator),
-    new DailyNoteService()
+    new DailyNoteService(),
+    () => {}
   );
 
   return { vault, fileSystem, workspace, documentRegistry, coordinator, pageOperations };

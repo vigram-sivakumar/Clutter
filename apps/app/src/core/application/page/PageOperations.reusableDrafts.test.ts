@@ -87,9 +87,12 @@ function setup(folders: Folder[] = []) {
       coordinator,
       new FolderPathResolver(vault),
       new FolderCreator(new UuidGenerator()),
-      () => {}
+      () => {},
+      new DocumentRegistry(),
+      new SaveCoordinator()
     ),
-    new DailyNoteService()
+    new DailyNoteService(),
+    () => {}
   );
   const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
 

@@ -28,3 +28,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [022](./022-workspace-favorites-active-view.md) | Workspace/Favorites as Active-View Variants, Not Folders | Accepted |
 | [023](./023-membership-selector-layer.md) | Membership Selector — the missing read-side classification layer | Accepted |
 | [024](./024-folder-aggregate-lifecycle.md) | Complete the Folder Aggregate Lifecycle — Delete, Rename, Move, and Their Sync Counterparts | Proposed |
+| [025](./025-fallback-page-on-delete.md) | Fallback Page — deleting the active page must never leave the app without one | Accepted |
