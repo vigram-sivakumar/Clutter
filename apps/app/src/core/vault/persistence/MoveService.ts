@@ -18,17 +18,21 @@ export class MoveService {
     path: string;
     parentId: string;
   } {
-    const archiveFolderPath = `${this.vault.root}/Archive`;
-    const archiveFolder = this.vault.getFolderByPath(archiveFolderPath);
+    // ReservedResources.ts, via Vault.getReservedFolder(), is the one
+    // place the Archive folder's identity/path is defined — no hardcoded
+    // path literal here (ADR-023's audit found this file and
+    // ArchiveMetadataReconciler.ts independently hardcoding the same
+    // "${vault.root}/Archive" string).
+    const archiveFolder = this.vault.getReservedFolder('archive');
 
     if (!archiveFolder) {
-      throw new Error(`Archive folder not found: ${archiveFolderPath}`);
+      throw new Error(`Archive folder not found: ${this.vault.root}/Archive`);
     }
 
     const filename = VaultPath.filename(current.path);
 
     return {
-      path: `${archiveFolderPath}/${filename}`,
+      path: `${archiveFolder.path}/${filename}`,
       parentId: archiveFolder.id,
     };
   }
@@ -55,12 +59,13 @@ export class MoveService {
       }
     }
 
-    const inboxFolderPath = `${this.vault.root}/Inbox`;
-    const inboxFolder = this.vault.getFolderByPath(inboxFolderPath);
+    // Same rationale as resolveArchiveDestination above — Vault.getReservedFolder
+    // is the single source, no hardcoded "Inbox" path literal.
+    const inboxFolder = this.vault.getReservedFolder('inbox');
 
     if (inboxFolder) {
       return {
-        path: `${inboxFolderPath}/${filename}`,
+        path: `${inboxFolder.path}/${filename}`,
         parentId: inboxFolder.id,
       };
     }

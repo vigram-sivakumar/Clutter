@@ -1,6 +1,7 @@
 import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
 import { VaultPath } from '../ingest/VaultPath';
+import { reservedFolderRelativePath } from '../initialize/ReservedResources';
 
 /**
  * Metadata fields cleared when stale archive state is repaired after an
@@ -15,7 +16,16 @@ export function isInsideArchiveFolder(
   absolutePath: string,
   vaultRoot: string
 ): boolean {
-  return VaultPath.isDescendantOf(absolutePath, `${vaultRoot}/Archive`);
+  // ReservedResources.ts is the one source of the "Archive" name — no
+  // hardcoded path literal here (see MoveService.resolveArchiveDestination
+  // for the same fix against the same duplicated literal, found by
+  // ADR-023's audit). This function only has a vaultRoot string, not a
+  // Vault instance, so it can't call Vault.getReservedFolder() directly —
+  // reservedFolderRelativePath() is the string-only equivalent.
+  return VaultPath.isDescendantOf(
+    absolutePath,
+    `${vaultRoot}/${reservedFolderRelativePath('archive')}`
+  );
 }
 
 /**
