@@ -13,6 +13,7 @@ import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
 import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations';
 import { EffectivePageState } from './page/EffectivePageState';
+import { MembershipSelector } from './membership/MembershipSelector';
 import { FolderOperations } from './folder/FolderOperations';
 import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
@@ -84,6 +85,7 @@ export class Application {
   public navigation!: NavigationRouter;
   public vaultSyncService!: VaultSyncService;
   public effectivePageState!: EffectivePageState;
+  public membershipSelector!: MembershipSelector;
   private readonly fileSystem: VaultFileSystem;
   private readonly selfWriteRegistry: SelfWriteRegistry;
   private fileSystemWatcher!: LocalFileSystemWatcher;
@@ -259,6 +261,17 @@ export class Application {
       this.query,
       this.pageOperations,
       this.workspace
+    );
+    // ADR-023: the read-side classification layer — for a page/folder plus
+    // a named product concept (Notes, Daily Notes, a system folder,
+    // Archive), the one place that decides membership. Constructed after
+    // query/effectivePageState, its only inputs. No production consumer
+    // yet (Phase 1 of the ADR's rollout) — this milestone only wires its
+    // lifecycle, mirroring how ADR-020 introduced EffectivePageState.
+    this.membershipSelector = new MembershipSelector(
+      vault,
+      this.query,
+      this.effectivePageState
     );
     this.fileSystemWatcher = new LocalFileSystemWatcher();
 

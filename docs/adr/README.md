@@ -25,3 +25,5 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [019](./019-retire-boot-time-daily-note-scaffolding.md) | Retire `ensureDirectoryForToday` — Composition Root no longer scaffolds Daily Notes at boot | Accepted |
 | [020](./020-effective-page-state-projection.md) | Effective Page State — a reconciled read projection over `Vault` and `DocumentEditing` | Accepted |
 | [021](./021-ui-chrome-state.md) | UI Chrome State — extend `Workspace` for discrete navigation-shaped toggles; layout geometry stays local | Accepted |
+| [022](./022-workspace-favorites-active-view.md) | Workspace/Favorites as Active-View Variants, Not Folders | Accepted |
+| [023](./023-membership-selector-layer.md) | Membership Selector — the missing read-side classification layer | Accepted |
