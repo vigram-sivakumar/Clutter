@@ -228,7 +228,7 @@ describe('renderTasksByDate', () => {
       </>
     );
 
-    fireEvent.click(getByText('Upcoming'));
+    fireEvent.click(getByText('Everything else'));
 
     expect(navigation.openTasksUpcoming).toHaveBeenCalled();
   });

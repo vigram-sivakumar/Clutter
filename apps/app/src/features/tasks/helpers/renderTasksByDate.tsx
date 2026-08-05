@@ -7,7 +7,7 @@ import { Entry } from '@components/entry/Entry';
 import { Caret } from '@components/caret/Caret';
 
 // Models
-import type { TaskOccurrence as TaskModel } from '@core/vault/models/occurrences';
+import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 
@@ -17,8 +17,8 @@ import { formatTaskDueDate } from './formatTaskDueDate';
 import { isPast, isToday } from '@shared/helpers/time';
 
 interface TaskRowCallbacks {
-  readonly onToggleComplete: (task: TaskModel) => void;
-  readonly onOpenTask: (task: TaskModel) => void;
+  readonly onToggleComplete: (task: TaskOccurrence) => void;
+  readonly onOpenTask: (task: TaskOccurrence) => void;
 }
 
 // A due date is never worth showing when it's today — whichever section a
@@ -26,7 +26,10 @@ interface TaskRowCallbacks {
 // conveys "today" by construction, so the label would just repeat it. Any
 // other date (including a completed task's past or future due date) is
 // shown normally.
-export function renderTaskRow(task: TaskModel, { onToggleComplete, onOpenTask }: TaskRowCallbacks) {
+export function renderTaskRow(
+  task: TaskOccurrence,
+  { onToggleComplete, onOpenTask }: TaskRowCallbacks
+) {
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
   const isOverdue = !task.completed && dueDate != null && isPast(dueDate);
@@ -45,7 +48,7 @@ export function renderTaskRow(task: TaskModel, { onToggleComplete, onOpenTask }:
 }
 
 export interface RenderTodayContentProps extends TaskRowCallbacks {
-  readonly tasks: readonly TaskModel[];
+  readonly tasks: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly onOpenCompleted: () => void;
 }
@@ -65,11 +68,14 @@ export function renderTodayContent({
   onOpenCompleted,
 }: RenderTodayContentProps) {
   const { today, todayCompleted } = groupTasks(tasks);
-  const toggleCompleted = () => workspace.toggleSectionExpanded('tasks-today-completed');
+  const toggleCompleted = () =>
+    workspace.toggleSectionExpanded('tasks-today-completed');
 
   return (
     <Fragment>
-      {today.map((task) => renderTaskRow(task, { onToggleComplete, onOpenTask }))}
+      {today.map((task) =>
+        renderTaskRow(task, { onToggleComplete, onOpenTask })
+      )}
 
       {todayCompleted.length > 0 && (
         <Fragment>
@@ -77,7 +83,9 @@ export function renderTodayContent({
             leading={
               <Caret
                 variant="tree"
-                isExpanded={workspace.isSectionExpanded('tasks-today-completed')}
+                isExpanded={workspace.isSectionExpanded(
+                  'tasks-today-completed'
+                )}
                 onClick={(event) => {
                   event.stopPropagation();
                   toggleCompleted();
@@ -90,7 +98,9 @@ export function renderTodayContent({
           </Entry>
 
           {workspace.isSectionExpanded('tasks-today-completed') &&
-            todayCompleted.map((task) => renderTaskRow(task, { onToggleComplete, onOpenTask }))}
+            todayCompleted.map((task) =>
+              renderTaskRow(task, { onToggleComplete, onOpenTask })
+            )}
         </Fragment>
       )}
     </Fragment>
@@ -98,7 +108,7 @@ export function renderTodayContent({
 }
 
 export interface RenderUpcomingContentProps extends TaskRowCallbacks {
-  readonly tasks: readonly TaskModel[];
+  readonly tasks: readonly TaskOccurrence[];
 }
 
 /**
@@ -115,13 +125,15 @@ export function renderUpcomingContent({
 
   return (
     <Fragment>
-      {upcoming.map((task) => renderTaskRow(task, { onToggleComplete, onOpenTask }))}
+      {upcoming.map((task) =>
+        renderTaskRow(task, { onToggleComplete, onOpenTask })
+      )}
     </Fragment>
   );
 }
 
 interface RenderTasksByDateProps extends TaskRowCallbacks {
-  readonly tasks: readonly TaskModel[];
+  readonly tasks: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly navigation: NavigationRouter;
 }
@@ -151,13 +163,14 @@ export function renderTasksByDate({
           onOpenCompleted: () => navigation.openTasksCompleted(),
         })}
       </Section>
-
       <Section
         hasHeader
-        title="Upcoming"
+        title="Everything else"
         isCollapsible
         isExpanded={workspace.isSectionExpanded('tasks-upcoming')}
-        onExpandedChange={() => workspace.toggleSectionExpanded('tasks-upcoming')}
+        onExpandedChange={() =>
+          workspace.toggleSectionExpanded('tasks-upcoming')
+        }
         onClick={() => navigation.openTasksUpcoming()}
       >
         {renderUpcomingContent({ tasks, onToggleComplete, onOpenTask })}

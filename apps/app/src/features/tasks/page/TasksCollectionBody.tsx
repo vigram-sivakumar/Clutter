@@ -1,5 +1,5 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
-import type { TaskOccurrence as TaskModel } from '@core/vault/models/occurrences';
+import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { Workspace } from '@core/workspace/Workspace';
 import {
   renderTaskRow,
@@ -18,10 +18,10 @@ export type TasksCollectionView =
 
 export interface TasksCollectionBodyProps {
   readonly view: TasksCollectionView;
-  readonly tasks: readonly TaskModel[];
+  readonly tasks: readonly TaskOccurrence[];
   readonly workspace: Workspace;
-  readonly onToggleComplete: (task: TaskModel) => void;
-  readonly onOpenTask: (task: TaskModel) => void;
+  readonly onToggleComplete: (task: TaskOccurrence) => void;
+  readonly onOpenTask: (task: TaskOccurrence) => void;
   readonly onOpenCompleted: () => void;
 }
 

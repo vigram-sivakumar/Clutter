@@ -1,37 +1,37 @@
-import type { TaskOccurrence as Task } from '@core/vault/models/occurrences';
+import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { isFuture, isPast, isToday } from '@shared/helpers/time';
 
 export type TaskGroups = {
-  today: readonly Task[];
-  todayCompleted: readonly Task[];
-  upcoming: readonly Task[];
+  today: readonly TaskOccurrence[];
+  todayCompleted: readonly TaskOccurrence[];
+  upcoming: readonly TaskOccurrence[];
   // The unscheduled subset of `upcoming`, exposed separately for the
   // dedicated Unscheduled collection view — computed once here rather
   // than re-deriving the same predicate a second time at the call site.
-  unscheduled: readonly Task[];
+  unscheduled: readonly TaskOccurrence[];
 };
 
-function isDueToday(task: Task): boolean {
+function isDueToday(task: TaskOccurrence): boolean {
   return task.dueDate != null && isToday(task.dueDate);
 }
 
-function isCompletedToday(task: Task): boolean {
+function isCompletedToday(task: TaskOccurrence): boolean {
   return task.completedAt != null && isToday(task.completedAt);
 }
 
-function isOverdue(task: Task): boolean {
+function isOverdue(task: TaskOccurrence): boolean {
   return task.dueDate != null && isPast(task.dueDate);
 }
 
-function isDueInFuture(task: Task): boolean {
+function isDueInFuture(task: TaskOccurrence): boolean {
   return task.dueDate != null && isFuture(task.dueDate);
 }
 
-function byDueDateAscending(a: Task, b: Task): number {
+function byDueDateAscending(a: TaskOccurrence, b: TaskOccurrence): number {
   return a.dueDate!.localeCompare(b.dueDate!);
 }
 
-export function groupTasks(tasks: readonly Task[]): TaskGroups {
+export function groupTasks(tasks: readonly TaskOccurrence[]): TaskGroups {
   const incomplete = tasks.filter((task) => !task.completed);
   const completed = tasks.filter((task) => task.completed);
 

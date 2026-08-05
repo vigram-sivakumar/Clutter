@@ -1,4 +1,4 @@
-import type { TaskOccurrence as Task } from '@core/vault/models/occurrences';
+import type { TaskOccurrence } from '@core/vault/models/occurrences';
 
 /**
  * Every completed task, regardless of when it was completed, sorted
@@ -7,7 +7,9 @@ import type { TaskOccurrence as Task } from '@core/vault/models/occurrences';
  * `completedAt` (e.g. hand-edited markdown that checked the box without
  * the metadata) sorts last rather than being dropped.
  */
-export function getCompletedTasks(tasks: readonly Task[]): readonly Task[] {
+export function getCompletedTasks(
+  tasks: readonly TaskOccurrence[]
+): readonly TaskOccurrence[] {
   return tasks
     .filter((task) => task.completed)
     .slice()
