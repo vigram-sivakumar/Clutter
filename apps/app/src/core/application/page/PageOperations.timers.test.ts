@@ -3,7 +3,11 @@ import { PageOperations } from './PageOperations';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { Workspace } from '../../workspace/Workspace';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
-import { AUTOSAVE_CEILING_MS, AUTOSAVE_DEBOUNCE_MS, SaveCoordinator } from '../../engine/SaveCoordinator';
+import {
+  AUTOSAVE_CEILING_MS,
+  AUTOSAVE_DEBOUNCE_MS,
+  SaveCoordinator,
+} from '../../engine/SaveCoordinator';
 import { DocumentState } from '../../engine/DocumentState';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
@@ -85,7 +89,8 @@ function setup(page: Page) {
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,
@@ -100,7 +105,14 @@ function setup(page: Page) {
     () => {}
   );
 
-  return { vault, inner, documentRegistry, saveCoordinator, coordinator, pageOperations };
+  return {
+    vault,
+    inner,
+    documentRegistry,
+    saveCoordinator,
+    coordinator,
+    pageOperations,
+  };
 }
 
 describe('PageOperations: autosave timers, end-to-end through commitEdit/requestSave', () => {
@@ -138,7 +150,9 @@ describe('PageOperations: autosave timers, end-to-end through commitEdit/request
 
     pageOperations.commitEdit(page.id, page.source.markdown);
 
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_CEILING_MS);
+    await vi.advanceTimersByTimeAsync(
+      AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_CEILING_MS
+    );
 
     expect(writeSpy).not.toHaveBeenCalled();
   });
@@ -174,7 +188,9 @@ describe('PageOperations: autosave timers, end-to-end through commitEdit/request
     pageOperations.commitEdit(page.id, 'Never persisted');
     pageOperations.close(page.id);
 
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_CEILING_MS);
+    await vi.advanceTimersByTimeAsync(
+      AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_CEILING_MS
+    );
 
     expect(writeSpy).not.toHaveBeenCalled();
   });
@@ -189,7 +205,9 @@ describe('PageOperations: autosave timers, end-to-end through commitEdit/request
     await pageOperations.delete(page.id);
     writeSpy.mockClear(); // delete() itself writes nothing here (file already gone), but clear to isolate the assertion below
 
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_CEILING_MS);
+    await vi.advanceTimersByTimeAsync(
+      AUTOSAVE_DEBOUNCE_MS + AUTOSAVE_CEILING_MS
+    );
 
     expect(writeSpy).not.toHaveBeenCalled();
   });

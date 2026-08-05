@@ -78,7 +78,10 @@ class GatedVaultFileSystem implements VaultFileSystem {
   }
 
   async writeFile(path: string, contents: string): Promise<void> {
-    this.writeFileCallCounts.set(path, (this.writeFileCallCounts.get(path) ?? 0) + 1);
+    this.writeFileCallCounts.set(
+      path,
+      (this.writeFileCallCounts.get(path) ?? 0) + 1
+    );
     this.onEnter.get(path)?.();
     this.onEnter.delete(path);
     const gate = this.gates.get(path);
@@ -148,7 +151,8 @@ function setup(pages: Page[], fileSystem?: VaultFileSystem) {
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,
@@ -291,7 +295,10 @@ describe('PageOperations.flushAll', () => {
 
   it('includes a still-unpersisted, dirty draft — no special-casing needed', async () => {
     const { inner, vault, documentRegistry, pageOperations } = setup([]);
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'New Draft' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'New Draft',
+    });
     pageOperations.commitEdit(draftId, '# Draft content');
 
     await pageOperations.flushAll(1000);

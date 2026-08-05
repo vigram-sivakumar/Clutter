@@ -82,7 +82,10 @@ function makeDesignFolder(path = `${ROOT}/Projects/Design`): Folder {
   };
 }
 
-function buildActivePage(overrides?: { parentId?: string | null; path?: string }): Page {
+function buildActivePage(overrides?: {
+  parentId?: string | null;
+  path?: string;
+}): Page {
   const builder = new PageBuilder();
   const parentId = overrides?.parentId ?? null;
   const path = overrides?.path ?? `${ROOT}/Note.md`;
@@ -108,7 +111,10 @@ function buildActivePage(overrides?: { parentId?: string | null; path?: string }
   });
 }
 
-function makeVault(pages: Page[], folders: Folder[] = [makeArchiveFolder()]): Vault {
+function makeVault(
+  pages: Page[],
+  folders: Folder[] = [makeArchiveFolder()]
+): Vault {
   return new Vault(
     ROOT,
     pages,
@@ -126,7 +132,10 @@ function archivePathFor(page: Page): string {
   return `${ROOT}/Archive/${filename}`;
 }
 
-function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOperations {
+function buildPageOperations(
+  vault: Vault,
+  fileSystem: VaultFileSystem
+): PageOperations {
   const moveService = new MoveService(vault, fileSystem);
   const coordinator = new PagePersistenceCoordinator(
     fileSystem,
@@ -145,7 +154,8 @@ function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOpe
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 
   return new PageOperations(
@@ -163,17 +173,24 @@ function buildPageOperations(vault: Vault, fileSystem: VaultFileSystem): PageOpe
 }
 
 function setup(page: Page, vault?: Vault) {
-  const resolvedVault = vault ?? makeVault([page], [makeArchiveFolder(), makeInboxFolder()]);
+  const resolvedVault =
+    vault ?? makeVault([page], [makeArchiveFolder(), makeInboxFolder()]);
   const fileSystem = new InMemoryVaultFileSystem();
   const serializer = new FrontmatterSerializer();
-  fileSystem.seedFile(page.path, serializer.serializeDocument(page, page.source.markdown));
+  fileSystem.seedFile(
+    page.path,
+    serializer.serializeDocument(page, page.source.markdown)
+  );
 
   const pageOperations = buildPageOperations(resolvedVault, fileSystem);
 
   return { vault: resolvedVault, fileSystem, pageOperations, serializer };
 }
 
-async function archivePage(page: Page, folders: Folder[] = [makeArchiveFolder(), makeInboxFolder()]) {
+async function archivePage(
+  page: Page,
+  folders: Folder[] = [makeArchiveFolder(), makeInboxFolder()]
+) {
   const context = setup(page, makeVault([page], folders));
   await context.pageOperations.archive(page.id);
   return context;
@@ -307,7 +324,9 @@ describe('PageOperations.archive()', () => {
     expect(reloaded.metadata.archivedAt).not.toBeNull();
     expect(reloaded.metadata.originalPath).toBe(`${ROOT}/Projects/Note.md`);
     expect(reloaded.metadata.originalParentId).toBe(PROJECTS_FOLDER_ID);
-    expect(reloaded.source.markdown).toBe('Content that must survive archiving.');
+    expect(reloaded.source.markdown).toBe(
+      'Content that must survive archiving.'
+    );
     expect(reloaded.metadata.icon).toBe('📌');
   });
 
@@ -335,7 +354,10 @@ describe('PageOperations.archive()', () => {
     const vault = makeVault([page, occupant]);
     const fileSystem = new InMemoryVaultFileSystem();
     const serializer = new FrontmatterSerializer();
-    fileSystem.seedFile(page.path, serializer.serializeDocument(page, page.source.markdown));
+    fileSystem.seedFile(
+      page.path,
+      serializer.serializeDocument(page, page.source.markdown)
+    );
     fileSystem.seedFile(
       occupant.path,
       serializer.serializeDocument(occupant, occupant.source.markdown)
@@ -343,7 +365,9 @@ describe('PageOperations.archive()', () => {
 
     const pageOperations = buildPageOperations(vault, fileSystem);
 
-    await expect(pageOperations.archive(page.id)).rejects.toThrow(/Path already in use/);
+    await expect(pageOperations.archive(page.id)).rejects.toThrow(
+      /Path already in use/
+    );
     expect(fileSystem.hasFileSync(page.path)).toBe(true);
     expect(vault.getPage(page.id)!.metadata.status).toBe('active');
   });
@@ -354,7 +378,9 @@ describe('PageOperations.archive()', () => {
 
     await pageOperations.archive(page.id);
 
-    await expect(pageOperations.archive(page.id)).rejects.toThrow(/already archived/);
+    await expect(pageOperations.archive(page.id)).rejects.toThrow(
+      /already archived/
+    );
     expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(true);
     expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
   });
@@ -369,7 +395,9 @@ describe('PageOperations.archive()', () => {
     );
     const pageOperations = buildPageOperations(vault, fileSystem);
 
-    await expect(pageOperations.archive(page.id)).rejects.toThrow(/Archive folder not found/);
+    await expect(pageOperations.archive(page.id)).rejects.toThrow(
+      /Archive folder not found/
+    );
     expect(fileSystem.hasFileSync(page.path)).toBe(true);
   });
 
@@ -377,7 +405,9 @@ describe('PageOperations.archive()', () => {
     const page = buildActivePage();
     const { fileSystem, pageOperations } = setup(page);
 
-    await expect(pageOperations.archive('does-not-exist')).rejects.toThrow(/Page not found/);
+    await expect(pageOperations.archive('does-not-exist')).rejects.toThrow(
+      /Page not found/
+    );
     expect(fileSystem.hasFileSync(page.path)).toBe(true);
     expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(false);
   });
@@ -406,9 +436,13 @@ describe('PageOperations.restore()', () => {
     expect(restored.metadata.archivedAt).toBeNull();
     expect(restored.metadata.originalPath).toBeNull();
     expect(restored.metadata.originalParentId).toBeNull();
-    expect(fileSystem.hasFileSync(`${ROOT}/Projects/Design/Note.md`)).toBe(true);
+    expect(fileSystem.hasFileSync(`${ROOT}/Projects/Design/Note.md`)).toBe(
+      true
+    );
     expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(false);
-    expect(restored.source.markdown).toBe('Content that must survive archiving.');
+    expect(restored.source.markdown).toBe(
+      'Content that must survive archiving.'
+    );
   });
 
   it('uses the current folder path when the original folder was renamed', async () => {
@@ -419,7 +453,12 @@ describe('PageOperations.restore()', () => {
     });
     const vault = makeVault(
       [archivedPage],
-      [makeArchiveFolder(), makeInboxFolder(), makeProjectsFolder(), renamedDesign]
+      [
+        makeArchiveFolder(),
+        makeInboxFolder(),
+        makeProjectsFolder(),
+        renamedDesign,
+      ]
     );
     const { fileSystem, pageOperations } = setup(archivedPage, vault);
 
@@ -429,7 +468,9 @@ describe('PageOperations.restore()', () => {
     expect(restored.path).toBe(`${ROOT}/Projects/Product Design/Note.md`);
     expect(restored.parentId).toBe(DESIGN_FOLDER_ID);
     expect(restored.metadata.originalPath).toBeNull();
-    expect(fileSystem.hasFileSync(`${ROOT}/Projects/Product Design/Note.md`)).toBe(true);
+    expect(
+      fileSystem.hasFileSync(`${ROOT}/Projects/Product Design/Note.md`)
+    ).toBe(true);
   });
 
   it('falls back to Inbox when the original folder no longer exists', async () => {
@@ -437,7 +478,10 @@ describe('PageOperations.restore()', () => {
       originalParentId: DESIGN_FOLDER_ID,
       originalPath: `${ROOT}/Projects/Design/Note.md`,
     });
-    const vault = makeVault([archivedPage], [makeArchiveFolder(), makeInboxFolder()]);
+    const vault = makeVault(
+      [archivedPage],
+      [makeArchiveFolder(), makeInboxFolder()]
+    );
     const { fileSystem, pageOperations } = setup(archivedPage, vault);
 
     await pageOperations.restore(archivedPage.id);
@@ -491,15 +535,25 @@ describe('PageOperations.restore()', () => {
       },
     });
 
-    const folders = [makeArchiveFolder(), makeInboxFolder(), makeProjectsFolder(), design];
-    const { vault, fileSystem, pageOperations, serializer } = await archivePage(page, folders);
+    const folders = [
+      makeArchiveFolder(),
+      makeInboxFolder(),
+      makeProjectsFolder(),
+      design,
+    ];
+    const { vault, fileSystem, pageOperations, serializer } = await archivePage(
+      page,
+      folders
+    );
     vault.addPage(occupant);
     fileSystem.seedFile(
       occupant.path,
       serializer.serializeDocument(occupant, occupant.source.markdown)
     );
 
-    await expect(pageOperations.restore(page.id)).rejects.toThrow(/Path already in use/);
+    await expect(pageOperations.restore(page.id)).rejects.toThrow(
+      /Path already in use/
+    );
     expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
     expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(true);
   });
@@ -528,7 +582,9 @@ describe('PageOperations.restore()', () => {
     expect(reloaded.metadata.archivedAt).toBeNull();
     expect(reloaded.metadata.originalPath).toBeNull();
     expect(reloaded.metadata.originalParentId).toBeNull();
-    expect(reloaded.source.markdown).toBe('Content that must survive archiving.');
+    expect(reloaded.source.markdown).toBe(
+      'Content that must survive archiving.'
+    );
     expect(reloaded.metadata.icon).toBe('📌');
   });
 
@@ -536,7 +592,9 @@ describe('PageOperations.restore()', () => {
     const page = buildActivePage();
     const { fileSystem, pageOperations } = setup(page);
 
-    await expect(pageOperations.restore(page.id)).rejects.toThrow(/not archived/);
+    await expect(pageOperations.restore(page.id)).rejects.toThrow(
+      /not archived/
+    );
     expect(fileSystem.hasFileSync(page.path)).toBe(true);
   });
 
@@ -555,13 +613,17 @@ describe('PageOperations.restore()', () => {
 
     await pageOperations.restore(page.id);
 
-    await expect(pageOperations.restore(page.id)).rejects.toThrow(/not archived/);
+    await expect(pageOperations.restore(page.id)).rejects.toThrow(
+      /not archived/
+    );
   });
 
   it('throws for an unknown page id', async () => {
     const page = buildActivePage();
     const { pageOperations } = setup(page);
 
-    await expect(pageOperations.restore('does-not-exist')).rejects.toThrow(/Page not found/);
+    await expect(pageOperations.restore('does-not-exist')).rejects.toThrow(
+      /Page not found/
+    );
   });
 });

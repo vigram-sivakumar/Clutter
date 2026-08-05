@@ -167,6 +167,27 @@ export class Workspace implements Observable {
   }
 
   /**
+   * Closes a folder within the workspace (ADR-024/post-delete-navigation
+   * consistency fix) — the folder-scoped counterpart to closePage().
+   *
+   * Simpler than closePage(): folders have no open-tabs list to restore
+   * from (openPageIds only ever tracks pages), so there is nothing to fall
+   * back to besides null when the closed folder was the active view — a
+   * no-op otherwise. Leaving activeView at null (rather than guessing a
+   * sibling folder) is deliberate: PageOperations.delete()'s ADR-025
+   * fallback-page mechanism already owns "what should be active when
+   * nothing else is," and this method must not duplicate that decision.
+   */
+  public closeFolder(folderId: string): void {
+    if (this.activeFolderId !== folderId) {
+      return;
+    }
+
+    this._activeView = null;
+    this.notify();
+  }
+
+  /**
    * Registers a workspace observer.
    */
   public subscribe(listener: ChangeListener): () => void {

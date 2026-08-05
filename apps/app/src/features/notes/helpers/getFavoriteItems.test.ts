@@ -100,7 +100,8 @@ function makeFolderOperations(
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 }
 
@@ -141,7 +142,12 @@ function setup(folders: Folder[], pages: Page[]) {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
 
   return { vault, query, workspace, pageOperations, effectivePageState };
 }
@@ -154,7 +160,13 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     const items = getFavoriteItems(query, effectivePageState);
 
     expect(items).toEqual([
-      { id: 'folder-1', title: 'Projects', titleStyle: 'default', type: 'folder', emoji: null },
+      {
+        id: 'folder-1',
+        title: 'Projects',
+        titleStyle: 'default',
+        type: 'folder',
+        emoji: null,
+      },
     ]);
   });
 
@@ -165,7 +177,13 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     const items = getFavoriteItems(query, effectivePageState);
 
     expect(items).toEqual([
-      { id: 'page-1', title: 'Meeting Notes', titleStyle: 'default', type: 'note', emoji: null },
+      {
+        id: 'page-1',
+        title: 'Meeting Notes',
+        titleStyle: 'default',
+        type: 'note',
+        emoji: null,
+      },
     ]);
   });
 
@@ -196,7 +214,13 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     const items = getFavoriteItems(query, effectivePageState);
 
     expect(items).toEqual([
-      { id: 'page-1', title: 'New Note', titleStyle: 'placeholder', type: 'note', emoji: null },
+      {
+        id: 'page-1',
+        title: 'New Note',
+        titleStyle: 'placeholder',
+        type: 'note',
+        emoji: null,
+      },
     ]);
   });
 
@@ -214,7 +238,13 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     // open session's current revision, reached via
     // EffectivePageState.getFavoritePages().
     expect(items).toEqual([
-      { id: 'page-1', title: 'Live, unsaved content', titleStyle: 'default', type: 'note', emoji: null },
+      {
+        id: 'page-1',
+        title: 'Live, unsaved content',
+        titleStyle: 'default',
+        type: 'note',
+        emoji: null,
+      },
     ]);
   });
 });

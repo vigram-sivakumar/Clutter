@@ -51,7 +51,8 @@ function makeFolderOperations(
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 }
 
@@ -83,7 +84,12 @@ function setup() {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
 
   return { vault, query, workspace, pageOperations, effectivePageState };
 }
@@ -92,7 +98,10 @@ describe('EffectivePageState: draft-only entries', () => {
   it('a freshly opened draft appears as a child of its folder before any save', async () => {
     const { pageOperations, effectivePageState } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'My Draft',
+    });
 
     const entry = effectivePageState.getPage(draftId);
     expect(entry).toEqual({
@@ -129,7 +138,10 @@ describe('EffectivePageState: promotion transition', () => {
   it('never lists the same id twice across the promotion window, and the entry becomes durable-sourced', async () => {
     const { vault, pageOperations, effectivePageState } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Promote Me' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Promote Me',
+    });
     await pageOperations.save(draftId, '# Hello');
 
     expect(vault.getPage(draftId)).toBeDefined();
@@ -151,7 +163,10 @@ describe('EffectivePageState: description/icon (Category 2/4, ADR-020 M3 amendme
   it('a draft has no description or icon — neither DraftInfo nor DocumentSession tracks them', async () => {
     const { pageOperations, effectivePageState } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Draft' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Draft',
+    });
 
     expect(effectivePageState.getPage(draftId)).toMatchObject({
       description: null,
@@ -162,9 +177,14 @@ describe('EffectivePageState: description/icon (Category 2/4, ADR-020 M3 amendme
   it('a persisted page surfaces its durable description and icon, unaffected by an open session', async () => {
     const { pageOperations, effectivePageState } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Persisted' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Persisted',
+    });
     await pageOperations.save(draftId, '# Hello');
-    await pageOperations.updateMetadata(draftId, { description: 'A durable description' });
+    await pageOperations.updateMetadata(draftId, {
+      description: 'A durable description',
+    });
 
     const entry = effectivePageState.getPage(draftId);
     expect(entry?.description).toBe('A durable description');
@@ -173,7 +193,9 @@ describe('EffectivePageState: description/icon (Category 2/4, ADR-020 M3 amendme
     // has no Committed stage (ADR-020 Non-Goals) and never will via this
     // path; only markdown (Category 3) is session-sourced.
     pageOperations.commitEdit(draftId, 'unsaved body edit');
-    expect(effectivePageState.getPage(draftId)?.description).toBe('A durable description');
+    expect(effectivePageState.getPage(draftId)?.description).toBe(
+      'A durable description'
+    );
   });
 });
 
@@ -198,18 +220,25 @@ describe('EffectivePageState: live body updates from DocumentSession', () => {
     const draftId = await pageOperations.openDraft({ folderId: null });
     pageOperations.commitEdit(draftId, 'typed content, not yet saved');
 
-    expect(effectivePageState.getPage(draftId)?.markdown).toBe('typed content, not yet saved');
+    expect(effectivePageState.getPage(draftId)?.markdown).toBe(
+      'typed content, not yet saved'
+    );
   });
 
   it('reflects a live body edit on an already-persisted, currently-open page', async () => {
     const { pageOperations, effectivePageState } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Persisted' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Persisted',
+    });
     await pageOperations.save(draftId, 'first version');
 
     pageOperations.commitEdit(draftId, 'second version, not yet saved');
 
-    expect(effectivePageState.getPage(draftId)?.markdown).toBe('second version, not yet saved');
+    expect(effectivePageState.getPage(draftId)?.markdown).toBe(
+      'second version, not yet saved'
+    );
   });
 
   it('notifies subscribers when a session commits a new revision', async () => {
@@ -231,7 +260,10 @@ describe('EffectivePageState.getFavoritePages (ADR-022, shared with the Favorite
   it('returns only favorited, durable pages, not every open draft', async () => {
     const { pageOperations, effectivePageState } = setup();
 
-    const favoritedId = await pageOperations.openDraft({ folderId: null, title: 'Favorite Me' });
+    const favoritedId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Favorite Me',
+    });
     await pageOperations.save(favoritedId, 'content');
     await pageOperations.updateMetadata(favoritedId, { favorite: true });
 
@@ -245,7 +277,10 @@ describe('EffectivePageState.getFavoritePages (ADR-022, shared with the Favorite
   it('reflects a live, uncommitted-to-disk body edit on an open favorited page', async () => {
     const { pageOperations, effectivePageState } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Untitled' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Untitled',
+    });
     await pageOperations.save(draftId, '');
     await pageOperations.updateMetadata(draftId, { favorite: true });
 
@@ -254,7 +289,10 @@ describe('EffectivePageState.getFavoritePages (ADR-022, shared with the Favorite
     const favorites = effectivePageState.getFavoritePages();
 
     expect(favorites).toEqual([
-      expect.objectContaining({ id: draftId, markdown: 'Live, unsaved content' }),
+      expect.objectContaining({
+        id: draftId,
+        markdown: 'Live, unsaved content',
+      }),
     ]);
   });
 });
@@ -263,7 +301,10 @@ describe('EffectivePageState.getPagesByTag', () => {
   it('returns only pages referencing the tag, reflecting live unsaved content', async () => {
     const { pageOperations, effectivePageState } = setup();
 
-    const taggedId = await pageOperations.openDraft({ folderId: null, title: 'Tagged' });
+    const taggedId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Tagged',
+    });
     await pageOperations.save(taggedId, 'Mentions #project here.');
 
     await pageOperations.openDraft({ folderId: null, title: 'Untagged' });

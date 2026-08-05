@@ -169,7 +169,8 @@ function setup(page: Page, fileSystem?: VaultFileSystem) {
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,
@@ -195,7 +196,10 @@ function setup(page: Page, fileSystem?: VaultFileSystem) {
   };
 }
 
-async function archiveDirectly(coordinator: PagePersistenceCoordinator, pageId: string) {
+async function archiveDirectly(
+  coordinator: PagePersistenceCoordinator,
+  pageId: string
+) {
   await coordinator.enqueue(pageId, { kind: 'archive' });
 }
 
@@ -238,7 +242,9 @@ describe('PageOperations.requestSave: coalescing table, end-to-end', () => {
     const page = buildPage();
     const { pageOperations } = setup(page);
 
-    await expect(pageOperations.requestSave('unknown-id')).resolves.toBeUndefined();
+    await expect(
+      pageOperations.requestSave('unknown-id')
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -390,7 +396,6 @@ describe('PageOperations.requestSave: concurrent calls share one in-flight promi
     expect(gated.writeFileCallCount).toBe(1);
     expect(documentRegistry.get(page.id)!.isDirty).toBe(false);
   });
-
 });
 
 describe('PageOperations.requestSave: failure handling (never an unhandled rejection)', () => {
@@ -533,7 +538,10 @@ describe('PageOperations.requestSave: draft promotion is unchanged', () => {
   it('promotes an unpersisted draft through the existing save()/persistDraft() path — no second mechanism', async () => {
     const page = buildPage();
     const { vault, inner, pageOperations, documentRegistry } = setup(page);
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'New Draft' });
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'New Draft',
+    });
     pageOperations.commitEdit(draftId, '# A brand new draft');
 
     expect(vault.getPage(draftId)).toBeUndefined();

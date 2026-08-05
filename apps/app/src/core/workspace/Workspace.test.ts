@@ -182,6 +182,58 @@ describe('Workspace.activeView (ADR-022)', () => {
   });
 });
 
+describe('Workspace.closeFolder (post-delete-navigation consistency fix)', () => {
+  it('clears activeView when the active folder is closed', () => {
+    const workspace = new Workspace();
+    workspace.openFolder('folder-1');
+
+    workspace.closeFolder('folder-1');
+
+    expect(workspace.activeView).toBeNull();
+    expect(workspace.activeFolderId).toBeNull();
+  });
+
+  it('is a no-op when the closed folder is not the active view', () => {
+    const workspace = new Workspace();
+    workspace.openFolder('folder-1');
+
+    workspace.closeFolder('some-other-folder');
+
+    expect(workspace.activeFolderId).toBe('folder-1');
+  });
+
+  it('is a no-op when a page (not a folder) is active', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+
+    workspace.closeFolder('folder-1');
+
+    expect(workspace.activePageId).toBe('page-1');
+  });
+
+  it('notifies subscribers when it clears the active folder', () => {
+    const workspace = new Workspace();
+    workspace.openFolder('folder-1');
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    workspace.closeFolder('folder-1');
+
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not notify subscribers on a no-op call', () => {
+    const workspace = new Workspace();
+    workspace.openFolder('folder-1');
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    workspace.closeFolder('some-other-folder');
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
 describe('Workspace.isSidebarVisible (ADR-021, M4)', () => {
   it('defaults to visible', () => {
     const workspace = new Workspace();

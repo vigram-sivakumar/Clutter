@@ -40,7 +40,8 @@ function makeFolderOperations(
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 }
 
@@ -83,14 +84,20 @@ function archivePathFor(page: Page): string {
   return `${ROOT}/Archive/${filename}`;
 }
 
-function buildPage(overrides: { icon?: string; favorite?: boolean } = {}): Page {
+function buildPage(
+  overrides: { icon?: string; favorite?: boolean } = {}
+): Page {
   const builder = new PageBuilder();
   return builder.build({
     parentId: null,
     page: {
       path: `${ROOT}/Note.md`,
       directoryPath: ROOT,
-      frontmatter: { id: 'page-1', icon: overrides.icon, favorite: overrides.favorite },
+      frontmatter: {
+        id: 'page-1',
+        icon: overrides.icon,
+        favorite: overrides.favorite,
+      },
       frontmatterAnalysis: { aliases: [] },
       content: 'Original body',
       analysis: {
@@ -127,7 +134,10 @@ function buildNamedPage(id: string, path: string): Page {
   });
 }
 
-function makeVault(pages: Page[], folders: Folder[] = [makeArchiveFolder()]): Vault {
+function makeVault(
+  pages: Page[],
+  folders: Folder[] = [makeArchiveFolder()]
+): Vault {
   return new Vault(
     ROOT,
     pages,
@@ -197,7 +207,10 @@ function setup(
  * commit 3) since this test file only covers open/close/getSession/save
  * (commit 2's scope).
  */
-async function archiveDirectly(coordinator: PagePersistenceCoordinator, pageId: string) {
+async function archiveDirectly(
+  coordinator: PagePersistenceCoordinator,
+  pageId: string
+) {
   await coordinator.enqueue(pageId, { kind: 'archive' });
 }
 
@@ -216,7 +229,9 @@ describe('PageOperations: open / close / getSession', () => {
     const page = buildPage();
     const { pageOperations } = setup(page);
 
-    await expect(pageOperations.open('does-not-exist')).rejects.toThrow(/Page not found/);
+    await expect(pageOperations.open('does-not-exist')).rejects.toThrow(
+      /Page not found/
+    );
   });
 
   it('getSession returns undefined when no session is open', () => {
@@ -260,9 +275,9 @@ describe('PageOperations.save(): archived pages are view-only', () => {
     const archivePath = archivePathFor(page);
     const diskBefore = await fileSystem.readFile(archivePath);
 
-    await expect(pageOperations.save(page.id, 'Attempted edit')).rejects.toThrow(
-      /Cannot edit archived page/
-    );
+    await expect(
+      pageOperations.save(page.id, 'Attempted edit')
+    ).rejects.toThrow(/Cannot edit archived page/);
 
     expect(session.currentRevision).toBe(revisionBefore);
     expect(session.state).not.toBe(DocumentState.Saving);
@@ -275,16 +290,18 @@ describe('PageOperations.save(): archived pages are view-only', () => {
     const { coordinator, pageOperations } = setup(page);
 
     await pageOperations.open(page.id);
-    await expect(pageOperations.save(page.id, 'Edit while active')).resolves.toBeUndefined();
+    await expect(
+      pageOperations.save(page.id, 'Edit while active')
+    ).resolves.toBeUndefined();
     expect(pageOperations.getSession(page.id)!.currentRevision.markdown).toBe(
       'Edit while active'
     );
 
     await archiveDirectly(coordinator, page.id);
 
-    await expect(pageOperations.save(page.id, 'Edit after archiving')).rejects.toThrow(
-      /Cannot edit archived page/
-    );
+    await expect(
+      pageOperations.save(page.id, 'Edit after archiving')
+    ).rejects.toThrow(/Cannot edit archived page/);
   });
 
   it('once a page is restored to active status, edits are allowed again', async () => {
@@ -292,17 +309,26 @@ describe('PageOperations.save(): archived pages are view-only', () => {
     const { vault, pageOperations } = setup(page);
 
     await pageOperations.open(page.id);
-    const archived = { ...page, metadata: { ...page.metadata, status: 'archived' as const } };
+    const archived = {
+      ...page,
+      metadata: { ...page.metadata, status: 'archived' as const },
+    };
     vault.replacePage(archived);
 
     await expect(pageOperations.save(page.id, 'Blocked')).rejects.toThrow();
 
     vault.replacePage({
       ...vault.getPage(page.id)!,
-      metadata: { ...vault.getPage(page.id)!.metadata, status: 'active', archivedAt: null },
+      metadata: {
+        ...vault.getPage(page.id)!.metadata,
+        status: 'active',
+        archivedAt: null,
+      },
     });
 
-    await expect(pageOperations.save(page.id, 'Edit after restore')).resolves.toBeUndefined();
+    await expect(
+      pageOperations.save(page.id, 'Edit after restore')
+    ).resolves.toBeUndefined();
     expect(vault.getPage(page.id)!.source.markdown).toBe('Edit after restore');
   });
 });
@@ -312,24 +338,32 @@ describe('PageOperations.updateMetadata()', () => {
     const page = buildPage();
     const { vault, fileSystem, pageOperations } = setup(page);
 
-    await pageOperations.updateMetadata(page.id, { description: 'A new description' });
+    await pageOperations.updateMetadata(page.id, {
+      description: 'A new description',
+    });
 
-    expect(vault.getPage(page.id)!.metadata.description).toBe('A new description');
-    expect(await fileSystem.readFile(page.path)).toContain('description: A new description');
+    expect(vault.getPage(page.id)!.metadata.description).toBe(
+      'A new description'
+    );
+    expect(await fileSystem.readFile(page.path)).toContain(
+      'description: A new description'
+    );
   });
 
   it('preserves unrelated metadata (icon, favorite) across a metadata-only patch', async () => {
     const page = buildPage({ icon: '📝', favorite: true });
     const { vault, pageOperations } = setup(page);
 
-    await pageOperations.updateMetadata(page.id, { description: 'A new description' });
+    await pageOperations.updateMetadata(page.id, {
+      description: 'A new description',
+    });
 
     const updated = vault.getPage(page.id)!;
     expect(updated.metadata.icon).toBe('📝');
     expect(updated.metadata.favorite).toBe(true);
   });
 
-  it('writes the vault\'s current durable body, leaving a dirty open session untouched', async () => {
+  it("writes the vault's current durable body, leaving a dirty open session untouched", async () => {
     const page = buildPage();
     const { vault, pageOperations } = setup(page);
 
@@ -337,7 +371,9 @@ describe('PageOperations.updateMetadata()', () => {
     const session = pageOperations.getSession(page.id)!;
     session.commit(new DocumentTransaction('Unsaved editor content'));
 
-    await pageOperations.updateMetadata(page.id, { description: 'A new description' });
+    await pageOperations.updateMetadata(page.id, {
+      description: 'A new description',
+    });
 
     expect(vault.getPage(page.id)!.source.markdown).toBe('Original body');
     expect(session.currentRevision.markdown).toBe('Unsaved editor content');
@@ -454,9 +490,13 @@ describe('PageOperations.save(): round-trip and failure behavior', () => {
 
     await pageOperations.open(page.id);
 
-    await expect(pageOperations.save(page.id, 'New content')).rejects.toThrow('disk full');
+    await expect(pageOperations.save(page.id, 'New content')).rejects.toThrow(
+      'disk full'
+    );
 
-    expect(pageOperations.getSession(page.id)!.state).toBe(DocumentState.SaveError);
+    expect(pageOperations.getSession(page.id)!.state).toBe(
+      DocumentState.SaveError
+    );
     expect(vault.getPage(page.id)!.source.markdown).toBe('Original body');
   });
 
@@ -493,7 +533,9 @@ describe('PageOperations.save(): round-trip and failure behavior', () => {
 
     await expect(savePromise).resolves.toBeUndefined();
 
-    expect(pageOperations.getSession(page.id)!.state).toBe(DocumentState.SaveError);
+    expect(pageOperations.getSession(page.id)!.state).toBe(
+      DocumentState.SaveError
+    );
     expect(vault.getPage(page.id)).toBeUndefined();
     expect(await fileSystem.readFile(page.path)).toContain('New content');
   });
@@ -557,9 +599,14 @@ describe('PageOperations.create()', () => {
     const existing = buildPage();
     const { vault, fileSystem, workspace, pageOperations } = setup(existing);
 
-    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+    const newId = await pageOperations.create({
+      folderId: null,
+      title: 'Idea',
+    });
 
-    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(`${ROOT}/Idea.md`)).toBe(true);
+    expect(
+      (fileSystem as InMemoryVaultFileSystem).hasFileSync(`${ROOT}/Idea.md`)
+    ).toBe(true);
     const created = vault.getPage(newId);
     expect(created).toBeDefined();
     expect(created!.path).toBe(`${ROOT}/Idea.md`);
@@ -574,7 +621,10 @@ describe('PageOperations.create()', () => {
       folder,
     ]);
 
-    const newId = await pageOperations.create({ folderId: 'folder-1', title: 'Roadmap' });
+    const newId = await pageOperations.create({
+      folderId: 'folder-1',
+      title: 'Roadmap',
+    });
 
     const created = vault.getPage(newId)!;
     expect(created.path).toBe(`${ROOT}/Projects/Roadmap.md`);
@@ -606,12 +656,22 @@ describe('PageOperations.create()', () => {
           frontmatter: { id: 'page-occupant' },
           frontmatterAnalysis: { aliases: [] },
           content: 'Already here',
-          analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+          analysis: {
+            headings: [],
+            blockReferences: [],
+            tasks: [],
+            tags: [],
+            links: [],
+            embeds: [],
+          },
         },
       })
     );
 
-    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+    const newId = await pageOperations.create({
+      folderId: null,
+      title: 'Idea',
+    });
 
     expect(vault.getPage(newId)!.path).toBe(`${ROOT}/Idea 2.md`);
   });
@@ -620,7 +680,10 @@ describe('PageOperations.create()', () => {
     const existing = buildPage();
     const { vault, pageOperations } = setup(existing);
 
-    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+    const newId = await pageOperations.create({
+      folderId: null,
+      title: 'Idea',
+    });
 
     const created = vault.getPage(newId)!;
     expect(created.id).toBe(newId);
@@ -630,7 +693,8 @@ describe('PageOperations.create()', () => {
 describe('PageOperations.delete()', () => {
   it('closes the session, deletes the file, and closes the workspace entry', async () => {
     const page = buildPage();
-    const { vault, fileSystem, workspace, documentRegistry, pageOperations } = setup(page);
+    const { vault, fileSystem, workspace, documentRegistry, pageOperations } =
+      setup(page);
 
     await pageOperations.open(page.id);
     expect(documentRegistry.get(page.id)).toBeDefined();
@@ -639,7 +703,9 @@ describe('PageOperations.delete()', () => {
 
     expect(documentRegistry.get(page.id)).toBeUndefined();
     expect(workspace.isPageOpen(page.id)).toBe(false);
-    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(false);
+    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(
+      false
+    );
     expect(vault.getPage(page.id)).toBeUndefined();
   });
 
@@ -664,8 +730,12 @@ describe('PageOperations.delete()', () => {
     const page = buildPage();
     const { fileSystem, pageOperations } = setup(page);
 
-    await expect(pageOperations.delete('does-not-exist')).resolves.toBeUndefined();
-    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(true);
+    await expect(
+      pageOperations.delete('does-not-exist')
+    ).resolves.toBeUndefined();
+    expect((fileSystem as InMemoryVaultFileSystem).hasFileSync(page.path)).toBe(
+      true
+    );
   });
 
   // ADR-025: deleting the active page must never leave the app without a
@@ -676,7 +746,12 @@ describe('PageOperations.delete()', () => {
     it('opens the fallback page when deleting the only open (active) page', async () => {
       const page = buildPage();
       const openFallbackPage = vi.fn();
-      const { workspace, pageOperations } = setup(page, undefined, undefined, openFallbackPage);
+      const { workspace, pageOperations } = setup(
+        page,
+        undefined,
+        undefined,
+        openFallbackPage
+      );
 
       await pageOperations.open(page.id);
       expect(workspace.activePageId).toBe(page.id);
@@ -689,17 +764,26 @@ describe('PageOperations.delete()', () => {
 
     it('restores the previously-open page instead of opening the fallback page', async () => {
       const activePage = buildNamedPage('page-active', `${ROOT}/Active.md`);
-      const previousPage = buildNamedPage('page-previous', `${ROOT}/Previous.md`);
+      const previousPage = buildNamedPage(
+        'page-previous',
+        `${ROOT}/Previous.md`
+      );
       const openFallbackPage = vi.fn();
       const vault = makeVault([activePage, previousPage]);
       const fileSystem = new InMemoryVaultFileSystem();
       fileSystem.seedFile(
         activePage.path,
-        new FrontmatterSerializer().serializeDocument(activePage, activePage.source.markdown)
+        new FrontmatterSerializer().serializeDocument(
+          activePage,
+          activePage.source.markdown
+        )
       );
       fileSystem.seedFile(
         previousPage.path,
-        new FrontmatterSerializer().serializeDocument(previousPage, previousPage.source.markdown)
+        new FrontmatterSerializer().serializeDocument(
+          previousPage,
+          previousPage.source.markdown
+        )
       );
       const workspace = new Workspace();
       const documentRegistry = new DocumentRegistry();
@@ -740,17 +824,26 @@ describe('PageOperations.delete()', () => {
 
     it('does not open the fallback page when deleting a page that is not the active one', async () => {
       const activePage = buildNamedPage('page-active', `${ROOT}/Active.md`);
-      const backgroundPage = buildNamedPage('page-background', `${ROOT}/Background.md`);
+      const backgroundPage = buildNamedPage(
+        'page-background',
+        `${ROOT}/Background.md`
+      );
       const openFallbackPage = vi.fn();
       const vault = makeVault([activePage, backgroundPage]);
       const fileSystem = new InMemoryVaultFileSystem();
       fileSystem.seedFile(
         activePage.path,
-        new FrontmatterSerializer().serializeDocument(activePage, activePage.source.markdown)
+        new FrontmatterSerializer().serializeDocument(
+          activePage,
+          activePage.source.markdown
+        )
       );
       fileSystem.seedFile(
         backgroundPage.path,
-        new FrontmatterSerializer().serializeDocument(backgroundPage, backgroundPage.source.markdown)
+        new FrontmatterSerializer().serializeDocument(
+          backgroundPage,
+          backgroundPage.source.markdown
+        )
       );
       const workspace = new Workspace();
       const documentRegistry = new DocumentRegistry();
@@ -789,7 +882,12 @@ describe('PageOperations.delete()', () => {
     it('opens the fallback page when deleting an unpersisted draft that was the only open page', async () => {
       const page = buildPage();
       const openFallbackPage = vi.fn();
-      const { workspace, pageOperations } = setup(page, undefined, undefined, openFallbackPage);
+      const { workspace, pageOperations } = setup(
+        page,
+        undefined,
+        undefined,
+        openFallbackPage
+      );
 
       const draftId = await pageOperations.openDraft({ folderId: null });
       expect(workspace.activePageId).toBe(draftId);
@@ -807,7 +905,10 @@ describe('PageOperations: create/save concurrency', () => {
     const existing = buildPage();
     const { vault, pageOperations } = setup(existing);
 
-    const newId = await pageOperations.create({ folderId: null, title: 'Idea' });
+    const newId = await pageOperations.create({
+      folderId: null,
+      title: 'Idea',
+    });
     await pageOperations.open(newId);
     await pageOperations.save(newId, 'Edited body');
 
@@ -819,7 +920,10 @@ describe('PageOperations: create/save concurrency', () => {
 class SlowWriteFileSystem implements VaultFileSystem {
   public writeCallOrder: string[] = [];
 
-  constructor(private readonly inner: VaultFileSystem, private readonly delayMs: number) {}
+  constructor(
+    private readonly inner: VaultFileSystem,
+    private readonly delayMs: number
+  ) {}
 
   exists(path: string) {
     return this.inner.exists(path);
@@ -917,9 +1021,9 @@ describe('PageOperations.move()', () => {
     const page = buildPage();
     const { pageOperations } = setup(page);
 
-    await expect(pageOperations.move(page.id, 'does-not-exist')).rejects.toThrow(
-      /Folder not found/
-    );
+    await expect(
+      pageOperations.move(page.id, 'does-not-exist')
+    ).rejects.toThrow(/Folder not found/);
   });
 
   it('throws when the destination path is already occupied', async () => {
@@ -950,7 +1054,10 @@ describe('PageOperations.move()', () => {
     vault.addPage(occupant);
     (fileSystem as InMemoryVaultFileSystem).seedFile(
       occupant.path,
-      new FrontmatterSerializer().serializeDocument(occupant, occupant.source.markdown)
+      new FrontmatterSerializer().serializeDocument(
+        occupant,
+        occupant.source.markdown
+      )
     );
 
     await expect(pageOperations.move(page.id, 'folder-1')).rejects.toThrow(
@@ -961,11 +1068,14 @@ describe('PageOperations.move()', () => {
   it('throws for an unknown page id', async () => {
     const page = buildPage();
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const { pageOperations } = setup(page, undefined, [makeArchiveFolder(), folder]);
+    const { pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      folder,
+    ]);
 
-    await expect(pageOperations.move('does-not-exist', 'folder-1')).rejects.toThrow(
-      /Page not found/
-    );
+    await expect(
+      pageOperations.move('does-not-exist', 'folder-1')
+    ).rejects.toThrow(/Page not found/);
   });
 
   it('a move immediately followed by a save on the same id resolves in order', async () => {
@@ -1014,7 +1124,14 @@ function setupEmpty(folders: Folder[] = [makeArchiveFolder()]) {
     () => {}
   );
 
-  return { vault, fileSystem, workspace, documentRegistry, coordinator, pageOperations };
+  return {
+    vault,
+    fileSystem,
+    workspace,
+    documentRegistry,
+    coordinator,
+    pageOperations,
+  };
 }
 
 describe('PageOperations: drafts (ADR-017)', () => {
@@ -1022,7 +1139,10 @@ describe('PageOperations: drafts (ADR-017)', () => {
     const { vault, fileSystem, workspace, documentRegistry, pageOperations } =
       setupEmpty();
 
-    const id = await pageOperations.openDraft({ folderId: null, title: 'Untitled' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Untitled',
+    });
 
     expect(documentRegistry.get(id)).toBeDefined();
     expect(workspace.isPageOpen(id)).toBe(true);
@@ -1033,7 +1153,10 @@ describe('PageOperations: drafts (ADR-017)', () => {
   it("first save() on a draft persists it through the Gate's create path, at a collision-free path", async () => {
     const { vault, fileSystem, pageOperations } = setupEmpty();
 
-    const id = await pageOperations.openDraft({ folderId: null, title: 'My Note' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'My Note',
+    });
     await pageOperations.save(id, 'First real content');
 
     const page = vault.getPage(id)!;
@@ -1046,7 +1169,10 @@ describe('PageOperations: drafts (ADR-017)', () => {
   it('a second save() on an already-persisted (promoted) draft is an ordinary save, not another create', async () => {
     const { vault, pageOperations } = setupEmpty();
 
-    const id = await pageOperations.openDraft({ folderId: null, title: 'Note' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Note',
+    });
     await pageOperations.save(id, 'First');
     await pageOperations.save(id, 'Second');
 
@@ -1054,9 +1180,13 @@ describe('PageOperations: drafts (ADR-017)', () => {
   });
 
   it('deleting a draft that was never saved is a no-op: no throw, no disk write, closes the session', async () => {
-    const { fileSystem, workspace, documentRegistry, pageOperations } = setupEmpty();
+    const { fileSystem, workspace, documentRegistry, pageOperations } =
+      setupEmpty();
 
-    const id = await pageOperations.openDraft({ folderId: null, title: 'Abandoned' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Abandoned',
+    });
     await expect(pageOperations.delete(id)).resolves.toBeUndefined();
 
     expect(documentRegistry.get(id)).toBeUndefined();
@@ -1071,7 +1201,9 @@ describe('PageOperations: drafts (ADR-017)', () => {
     await pageOperations.open(page.id);
     vault.removePage(page.id);
 
-    await expect(pageOperations.save(page.id, 'x')).rejects.toThrow(/Page not found/);
+    await expect(pageOperations.save(page.id, 'x')).rejects.toThrow(
+      /Page not found/
+    );
   });
 
   it('openAtPath opens the real Vault page directly when one already exists at that path', async () => {
@@ -1190,7 +1322,10 @@ describe('PageOperations.updateDraftTitle()', () => {
 
   it('re-committing the same title is not a committed change: no promotion, no error', async () => {
     const { vault, pageOperations } = setupEmpty();
-    const id = await pageOperations.openDraft({ folderId: null, title: 'Same' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Same',
+    });
 
     await pageOperations.updateDraftTitle(id, 'Same');
 
@@ -1249,12 +1384,15 @@ describe('PageOperations.updateDraftTitle()', () => {
 
   it('throws once a draft has been promoted to a persisted page', async () => {
     const { pageOperations } = setupEmpty();
-    const id = await pageOperations.openDraft({ folderId: null, title: 'Note' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Note',
+    });
     await pageOperations.save(id, 'First content');
 
-    await expect(pageOperations.updateDraftTitle(id, 'Renamed')).rejects.toThrow(
-      /No draft descriptor/
-    );
+    await expect(
+      pageOperations.updateDraftTitle(id, 'Renamed')
+    ).rejects.toThrow(/No draft descriptor/);
   });
 });
 
@@ -1273,11 +1411,14 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
     expect(pageOperations.getDraft(id)).toBeUndefined();
   });
 
-  it('a patch matching every field\'s default is not a committed change: no promotion, no error', async () => {
+  it("a patch matching every field's default is not a committed change: no promotion, no error", async () => {
     const { vault, pageOperations } = setupEmpty();
     const id = await pageOperations.openDraft({ folderId: null });
 
-    await pageOperations.updateMetadata(id, { favorite: false, description: null });
+    await pageOperations.updateMetadata(id, {
+      favorite: false,
+      description: null,
+    });
 
     expect(vault.getPage(id)).toBeUndefined();
     expect(pageOperations.getDraft(id)).toBeDefined();
@@ -1287,7 +1428,10 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
     const { vault, pageOperations } = setupEmpty();
     const id = await pageOperations.openDraft({ folderId: null });
     await pageOperations.updateDraftTitle(id, ''); // no-op, still a draft
-    const draft = await pageOperations.openDraft({ folderId: null, title: 'My favorite note' });
+    const draft = await pageOperations.openDraft({
+      folderId: null,
+      title: 'My favorite note',
+    });
 
     await pageOperations.updateMetadata(draft, { favorite: true });
 
@@ -1317,7 +1461,7 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
   });
 });
 
-describe('Draft promotion race: a losing create attempt must not lose the other trigger\'s change', () => {
+describe("Draft promotion race: a losing create attempt must not lose the other trigger's change", () => {
   // Scope, matching the ADR-017 amendment: this milestone guarantees exactly
   // one page is created, no duplicate create occurs, and no user-owned
   // metadata is lost when two promotion attempts race. It does NOT
@@ -1327,10 +1471,18 @@ describe('Draft promotion race: a losing create attempt must not lose the other 
   // assert nothing about the resulting path.
   it('title-triggered and metadata-triggered promotion racing on the same draft: exactly one page is created, metadata is preserved, no errors', async () => {
     const { vault, pageOperations } = setupEmpty();
-    const id = await pageOperations.openDraft({ folderId: null, title: 'Race note' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Race note',
+    });
 
-    const titlePromotion = pageOperations.updateDraftTitle(id, 'Race note updated');
-    const metadataPromotion = pageOperations.updateMetadata(id, { favorite: true });
+    const titlePromotion = pageOperations.updateDraftTitle(
+      id,
+      'Race note updated'
+    );
+    const metadataPromotion = pageOperations.updateMetadata(id, {
+      favorite: true,
+    });
 
     await Promise.all([titlePromotion, metadataPromotion]);
 
@@ -1341,10 +1493,18 @@ describe('Draft promotion race: a losing create attempt must not lose the other 
 
   it('the reverse arrival order also creates exactly one page with metadata preserved, no errors', async () => {
     const { vault, pageOperations } = setupEmpty();
-    const id = await pageOperations.openDraft({ folderId: null, title: 'Race note' });
+    const id = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Race note',
+    });
 
-    const metadataPromotion = pageOperations.updateMetadata(id, { favorite: true });
-    const titlePromotion = pageOperations.updateDraftTitle(id, 'Race note updated');
+    const metadataPromotion = pageOperations.updateMetadata(id, {
+      favorite: true,
+    });
+    const titlePromotion = pageOperations.updateDraftTitle(
+      id,
+      'Race note updated'
+    );
 
     await Promise.all([metadataPromotion, titlePromotion]);
 

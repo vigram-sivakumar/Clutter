@@ -95,7 +95,8 @@ function setup(
   folders: Folder[] = [],
   ids: string[] = ['folder-new'],
   prepareNavigation: () => void = () => {},
-  pages: Page[] = []
+  pages: Page[] = [],
+  openFallbackPage: () => void = () => {}
 ) {
   const vault = makeVault(folders, pages);
   const workspace = new Workspace();
@@ -119,7 +120,8 @@ function setup(
     new FolderCreator(makeSequentialIdGenerator(ids)),
     prepareNavigation,
     documentRegistry,
-    saveCoordinator
+    saveCoordinator,
+    openFallbackPage
   );
 
   return { vault, workspace, fileSystem, folderOperations, documentRegistry, saveCoordinator };
@@ -314,6 +316,106 @@ describe('FolderOperations.delete() (ADR-024)', () => {
     expect(vault.getFolder('folder-projects')).toBeUndefined();
     expect(vault.getFolder('folder-design')).toBeUndefined();
     expect(vault.getPage('page-notes')).toBeUndefined();
+  });
+});
+
+describe('FolderOperations.delete() post-delete navigation (consistency fix)', () => {
+  it('clears the active view when the deleted folder was active, and does not ask for a fallback if another view is already active', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const openFallbackPage = vi.fn();
+    const { vault, fileSystem, folderOperations, workspace } = setup(
+      [folder],
+      undefined,
+      undefined,
+      [],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(folder.path);
+    workspace.openFolder('folder-1');
+
+    await folderOperations.delete('folder-1');
+
+    expect(vault.getFolder('folder-1')).toBeUndefined();
+    expect(workspace.activeFolderId).toBeNull();
+  });
+
+  it('closes every descendant page\'s workspace tab, not just its DocumentRegistry session', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const page = makePage('page-1', `${ROOT}/Projects/Notes.md`, 'folder-1');
+    const { fileSystem, folderOperations, workspace } = setup(
+      [folder],
+      undefined,
+      undefined,
+      [page]
+    );
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.writeFile(page.path, '# Notes');
+    workspace.openPage('page-1');
+    expect(workspace.isPageOpen('page-1')).toBe(true);
+
+    await folderOperations.delete('folder-1');
+
+    expect(workspace.isPageOpen('page-1')).toBe(false);
+  });
+
+  it('asks for a fallback page when deleting the active folder leaves the workspace with nothing active — same hook PageOperations.delete() uses (ADR-025)', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const openFallbackPage = vi.fn();
+    const { fileSystem, folderOperations, workspace } = setup(
+      [folder],
+      undefined,
+      undefined,
+      [],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(folder.path);
+    workspace.openFolder('folder-1');
+
+    await folderOperations.delete('folder-1');
+
+    expect(openFallbackPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for a fallback page when deleting a folder leaves no active page after its active descendant page is closed', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const page = makePage('page-1', `${ROOT}/Projects/Notes.md`, 'folder-1');
+    const openFallbackPage = vi.fn();
+    const { fileSystem, folderOperations, workspace } = setup(
+      [folder],
+      undefined,
+      undefined,
+      [page],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.writeFile(page.path, '# Notes');
+    workspace.openPage('page-1');
+
+    await folderOperations.delete('folder-1');
+
+    expect(workspace.activeView).toBeNull();
+    expect(openFallbackPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not ask for a fallback page when deleting a folder that is not the active view and has no active descendant', async () => {
+    const active = makeFolder('folder-active', `${ROOT}/Active`);
+    const toDelete = makeFolder('folder-1', `${ROOT}/Projects`);
+    const openFallbackPage = vi.fn();
+    const { fileSystem, folderOperations, workspace } = setup(
+      [active, toDelete],
+      undefined,
+      undefined,
+      [],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(active.path);
+    await fileSystem.createDirectory(toDelete.path);
+    workspace.openFolder('folder-active');
+
+    await folderOperations.delete('folder-1');
+
+    expect(workspace.activeFolderId).toBe('folder-active');
+    expect(openFallbackPage).not.toHaveBeenCalled();
   });
 });
 

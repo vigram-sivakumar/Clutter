@@ -136,7 +136,8 @@ function makeMembershipSelector(vault: Vault): MembershipSelector {
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,
@@ -150,7 +151,12 @@ function makeMembershipSelector(vault: Vault): MembershipSelector {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
 
   return new MembershipSelector(vault, query, effectivePageState);
 }
@@ -170,14 +176,24 @@ function makeAncestorFolder(overrides: Partial<Folder> = {}): Folder {
 describe('buildBreadcrumbs — root visibility policy', () => {
   it('returns no breadcrumb trail for a root folder', () => {
     const folder = makeFolder({ parentId: null });
-    const crumbs = buildBreadcrumbs(folder, makeVault(), makeMembershipSelector(makeVault()), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      folder,
+      makeVault(),
+      makeMembershipSelector(makeVault()),
+      vi.fn()
+    );
 
     expect(crumbs).toEqual([]);
   });
 
   it('returns no breadcrumb trail for a root note', () => {
     const page = makePage({ parentId: null });
-    const crumbs = buildBreadcrumbs(page, makeVault(), makeMembershipSelector(makeVault()), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault(),
+      makeMembershipSelector(makeVault()),
+      vi.fn()
+    );
 
     expect(crumbs).toEqual([]);
   });
@@ -188,7 +204,12 @@ describe('buildBreadcrumbs — root visibility policy', () => {
       name: '2026-08-02',
       parentId: null,
     });
-    const crumbs = buildBreadcrumbs(page, makeVault(), makeMembershipSelector(makeVault()), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault(),
+      makeMembershipSelector(makeVault()),
+      vi.fn()
+    );
 
     expect(crumbs).toEqual([]);
   });
@@ -218,17 +239,33 @@ describe('buildBreadcrumbs — nested entries render the full chain', () => {
       name: 'Design',
       parentId: 'ancestor-folder',
     });
-    const crumbs = buildBreadcrumbs(folder, makeVault([parent, folder]), makeMembershipSelector(makeVault([parent, folder])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      folder,
+      makeVault([parent, folder]),
+      makeMembershipSelector(makeVault([parent, folder])),
+      vi.fn()
+    );
 
     expect(crumbs.map((crumb) => crumb.title)).toEqual(['Ancestor', 'Design']);
   });
 
   it('returns the parent folder plus the current note for a nested note', () => {
     const parent = makeAncestorFolder();
-    const page = makePage({ name: 'Meeting Notes', parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const page = makePage({
+      name: 'Meeting Notes',
+      parentId: 'ancestor-folder',
+    });
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
-    expect(crumbs.map((crumb) => crumb.title)).toEqual(['Ancestor', 'Meeting Notes']);
+    expect(crumbs.map((crumb) => crumb.title)).toEqual([
+      'Ancestor',
+      'Meeting Notes',
+    ]);
   });
 
   it('returns the parent folder plus the current daily note for a nested daily note', () => {
@@ -238,9 +275,17 @@ describe('buildBreadcrumbs — nested entries render the full chain', () => {
       name: '2026-08-02',
       parentId: 'ancestor-folder',
     });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
-    expect(crumbs.map((crumb) => crumb.title)).toEqual(['Ancestor', '2026-08-02']);
+    expect(crumbs.map((crumb) => crumb.title)).toEqual([
+      'Ancestor',
+      '2026-08-02',
+    ]);
   });
 });
 
@@ -257,23 +302,42 @@ describe('buildBreadcrumbsForDraft — nested drafts render the full chain', () 
       vi.fn()
     );
 
-    expect(crumbs.map((crumb) => crumb.title)).toEqual(['Ancestor', 'New Note']);
+    expect(crumbs.map((crumb) => crumb.title)).toEqual([
+      'Ancestor',
+      'New Note',
+    ]);
   });
 });
 
 describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
   it('uses the real name for a folder', () => {
     const parent = makeAncestorFolder();
-    const folder = makeFolder({ name: 'Projects', parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(folder, makeVault([parent, folder]), makeMembershipSelector(makeVault([parent, folder])), vi.fn());
+    const folder = makeFolder({
+      name: 'Projects',
+      parentId: 'ancestor-folder',
+    });
+    const crumbs = buildBreadcrumbs(
+      folder,
+      makeVault([parent, folder]),
+      makeMembershipSelector(makeVault([parent, folder])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.title).toBe('Projects');
   });
 
   it('uses the real filename for a deliberately-named note', () => {
     const parent = makeAncestorFolder();
-    const page = makePage({ name: 'Meeting Notes', parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const page = makePage({
+      name: 'Meeting Notes',
+      parentId: 'ancestor-folder',
+    });
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.title).toBe('Meeting Notes');
   });
@@ -281,7 +345,12 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
   it('shows the placeholder text, not the raw generated name, for an untitled note', () => {
     const parent = makeAncestorFolder();
     const page = makePage({ name: 'Untitled 2', parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.title).toBe('New Note');
   });
@@ -293,7 +362,12 @@ describe('buildBreadcrumbs — trailing crumb (Category B)', () => {
       name: '2026-08-02',
       parentId: 'ancestor-folder',
     });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.title).toBe('2026-08-02');
   });
@@ -303,7 +377,12 @@ describe('buildBreadcrumbs — icon sourced from getPageIcon (single authority)'
   it('uses getPageIcon for a folder crumb', () => {
     const parent = makeAncestorFolder();
     const folder = makeFolder({ parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(folder, makeVault([parent, folder]), makeMembershipSelector(makeVault([parent, folder])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      folder,
+      makeVault([parent, folder]),
+      makeMembershipSelector(makeVault([parent, folder])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.icon).toBe(getPageIcon('folder'));
   });
@@ -311,7 +390,12 @@ describe('buildBreadcrumbs — icon sourced from getPageIcon (single authority)'
   it('uses getPageIcon for a note crumb', () => {
     const parent = makeAncestorFolder();
     const page = makePage({ type: 'note', parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.icon).toBe(getPageIcon('note'));
   });
@@ -323,15 +407,29 @@ describe('buildBreadcrumbs — icon sourced from getPageIcon (single authority)'
       name: '2026-08-02',
       parentId: 'ancestor-folder',
     });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.icon).toBe(getPageIcon('daily-note'));
   });
 
   it('uses getPageIcon for an ancestor folder crumb', () => {
-    const parent = makeFolder({ id: 'folder-1', name: 'Projects', parentId: null });
+    const parent = makeFolder({
+      id: 'folder-1',
+      name: 'Projects',
+      parentId: null,
+    });
     const page = makePage({ parentId: 'folder-1' });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs[0]!.icon).toBe(getPageIcon('folder'));
   });
@@ -361,11 +459,20 @@ describe('buildBreadcrumbs — reserved-folder ancestors use their canonical sys
       parentId: null,
     });
     const page = makePage({ parentId: 'archive-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([archive]), makeMembershipSelector(makeVault([archive])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([archive]),
+      makeMembershipSelector(makeVault([archive])),
+      vi.fn()
+    );
 
     const archiveCrumb = crumbs[0]!;
-    expect(archiveCrumb.title).toBe(getSystemLocationPresentation('archive').label);
-    expect(archiveCrumb.icon).toBe(getSystemLocationPresentation('archive').icon);
+    expect(archiveCrumb.title).toBe(
+      getSystemLocationPresentation('archive').label
+    );
+    expect(archiveCrumb.icon).toBe(
+      getSystemLocationPresentation('archive').icon
+    );
     expect(archiveCrumb.icon).not.toBe(getPageIcon('folder'));
   });
 
@@ -377,7 +484,12 @@ describe('buildBreadcrumbs — reserved-folder ancestors use their canonical sys
       parentId: null,
     });
     const page = makePage({ parentId: 'inbox-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([inbox]), makeMembershipSelector(makeVault([inbox])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([inbox]),
+      makeMembershipSelector(makeVault([inbox])),
+      vi.fn()
+    );
 
     expect(crumbs[0]!.title).toBe(getSystemLocationPresentation('inbox').label);
     expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('inbox').icon);
@@ -389,14 +501,23 @@ describe('buildBreadcrumbs — reserved-folder ancestors use their canonical sys
     // exact reserved path) — a user-created nested folder that happens to
     // be named "Archive" must not be hijacked into the reserved
     // presentation.
-    const grandparent = makeFolder({ id: 'grandparent', name: 'Projects', parentId: null });
+    const grandparent = makeFolder({
+      id: 'grandparent',
+      name: 'Projects',
+      parentId: null,
+    });
     const nestedArchive = makeFolder({
       id: 'nested-archive',
       name: 'Archive',
       parentId: 'grandparent',
     });
     const page = makePage({ parentId: 'nested-archive' });
-    const crumbs = buildBreadcrumbs(page, makeVault([grandparent, nestedArchive]), makeMembershipSelector(makeVault([grandparent, nestedArchive])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([grandparent, nestedArchive]),
+      makeMembershipSelector(makeVault([grandparent, nestedArchive])),
+      vi.fn()
+    );
 
     const nestedArchiveCrumb = crumbs[1]!;
     expect(nestedArchiveCrumb.title).toBe('Archive');
@@ -406,7 +527,12 @@ describe('buildBreadcrumbs — reserved-folder ancestors use their canonical sys
   it('leaves an ordinary, non-reserved folder ancestor exactly as before', () => {
     const parent = makeAncestorFolder({ name: 'Projects' });
     const page = makePage({ parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs[0]!.title).toBe('Projects');
     expect(crumbs[0]!.icon).toBe(getPageIcon('folder'));
@@ -427,8 +553,18 @@ describe("buildBreadcrumbs — today's Daily Note gets the dotted calendar icon"
       parentId: 'ancestor-folder',
     });
 
-    const todayCrumbs = buildBreadcrumbs(today, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
-    const notTodayCrumbs = buildBreadcrumbs(notToday, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const todayCrumbs = buildBreadcrumbs(
+      today,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
+    const notTodayCrumbs = buildBreadcrumbs(
+      notToday,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(todayCrumbs.at(-1)!.icon).toBe(getPageIcon('daily-note', true));
     expect(notTodayCrumbs.at(-1)!.icon).toBe(getPageIcon('daily-note', false));
@@ -463,8 +599,17 @@ describe("buildBreadcrumbs — today's Daily Note gets the dotted calendar icon"
 
   it('never applies the dotted variant to a regular note, even if its type check were skipped', () => {
     const parent = makeAncestorFolder();
-    const page = makePage({ type: 'note', name: 'Untitled', parentId: 'ancestor-folder' });
-    const crumbs = buildBreadcrumbs(page, makeVault([parent]), makeMembershipSelector(makeVault([parent])), vi.fn());
+    const page = makePage({
+      type: 'note',
+      name: 'Untitled',
+      parentId: 'ancestor-folder',
+    });
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([parent]),
+      makeMembershipSelector(makeVault([parent])),
+      vi.fn()
+    );
 
     expect(crumbs.at(-1)!.icon).toBe(getPageIcon('note'));
   });

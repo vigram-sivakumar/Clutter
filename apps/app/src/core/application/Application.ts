@@ -231,7 +231,13 @@ export class Application {
       new FolderCreator(new UuidGenerator()),
       () => this.pageOperations.flushActivePage(),
       this.documentRegistry,
-      this.saveCoordinator
+      this.saveCoordinator,
+      // ADR-025's fallback hook, shared verbatim with PageOperations below —
+      // post-delete-navigation consistency fix: the same closure, not a
+      // second implementation of "what's the fallback page."
+      () => {
+        void this.openFallbackPage();
+      }
     );
     this.pageOperations = new PageOperations(
       vault,

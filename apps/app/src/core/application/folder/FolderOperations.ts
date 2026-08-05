@@ -20,6 +20,13 @@ import type { SaveCoordinator } from '../../engine/SaveCoordinator';
  * sequencing amendment); move() remains absent until the Folder Picker UI
  * exists to drive it, the same "no backing capability without a caller
  * that can exercise it" reasoning ADR-012 already applied to page rename.
+ *
+ * delete()'s post-delete navigation (post-delete-navigation consistency
+ * fix) mirrors PageOperations.delete()'s ADR-025 shape exactly — closes
+ * every affected workspace entry (its own and every descendant page's),
+ * then asks the same Composition-Root-injected fallback hook for a page
+ * if nothing is left active. One implementation of "what happens after
+ * the active resource disappears," shared by both facades.
  */
 export class FolderOperations {
   constructor(
@@ -50,7 +57,16 @@ export class FolderOperations {
      * close()/cancelTimers() by id, never reads or writes session state.
      */
     private readonly documentRegistry: DocumentRegistry,
-    private readonly saveCoordinator: SaveCoordinator
+    private readonly saveCoordinator: SaveCoordinator,
+    /**
+     * Post-delete-navigation consistency fix: the exact same
+     * Composition-Root-injected hook PageOperations receives (ADR-025) —
+     * not a second, folder-specific fallback mechanism. delete() calls
+     * this only when, after closing its own workspace entry (and every
+     * descendant page's), Workspace is left with no active page/folder at
+     * all. FolderOperations still doesn't know what the fallback page is.
+     */
+    private readonly openFallbackPage: () => void
   ) {}
 
   public async open(folderId: string): Promise<void> {
@@ -116,12 +132,25 @@ export class FolderOperations {
    * (ADR-024 §"Resolved product decisions" #1) lives in the UI, not here —
    * this method is an unconditional cascade once called, same as the
    * Gate's own runDeleteFolder.
+   *
+   * Post-delete navigation (consistency fix, mirrors PageOperations.delete()
+   * exactly): every descendant page's workspace tab is closed via
+   * workspace.closePage() — not just its DocumentRegistry session — and the
+   * folder's own workspace entry via workspace.closeFolder(), so a deleted
+   * folder (or a page nested inside it) can never remain the active view.
+   * If that leaves Workspace with no active page/folder at all, the same
+   * fallback hook PageOperations.delete() uses is asked for one. Neither
+   * facade decides what the fallback is — both only recognize when one is
+   * needed.
    */
   public async delete(folderId: string): Promise<void> {
     const folder = this.vault.getFolder(folderId);
+    let descendantPageIds: readonly string[] = [];
 
     if (folder) {
       const { pages } = this.vault.getDescendantFoldersAndPages(folderId);
+
+      descendantPageIds = pages.map((page) => page.id);
 
       for (const page of pages) {
         this.documentRegistry.close(page.id);
@@ -130,6 +159,15 @@ export class FolderOperations {
     }
 
     await this.coordinator.enqueue(folderId, { kind: 'delete-folder' });
+
+    for (const pageId of descendantPageIds) {
+      this.workspace.closePage(pageId);
+    }
+    this.workspace.closeFolder(folderId);
+
+    if (!this.workspace.activeView) {
+      this.openFallbackPage();
+    }
   }
 
   /**

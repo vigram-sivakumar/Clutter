@@ -100,7 +100,8 @@ function makeFolderOperations(
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 }
 
@@ -141,10 +142,26 @@ function setup(folders: Folder[] = [], pages: Page[] = []) {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
-  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
+  const membershipSelector = new MembershipSelector(
+    vault,
+    query,
+    effectivePageState
+  );
 
-  return { vault, query, workspace, pageOperations, effectivePageState, membershipSelector };
+  return {
+    vault,
+    query,
+    workspace,
+    pageOperations,
+    effectivePageState,
+    membershipSelector,
+  };
 }
 
 describe('MembershipSelector.getWorkspaceFolders (ADR-023)', () => {
@@ -152,18 +169,25 @@ describe('MembershipSelector.getWorkspaceFolders (ADR-023)', () => {
     const folders = [
       makeFolder({ id: 'folder-z', name: 'Zebra', path: `${ROOT}/Zebra` }),
       makeFolder({ id: 'folder-a', name: 'Apple', path: `${ROOT}/Apple` }),
-      makeFolder({ id: 'folder-archive', name: 'Archive', path: `${ROOT}/Archive` }),
+      makeFolder({
+        id: 'folder-archive',
+        name: 'Archive',
+        path: `${ROOT}/Archive`,
+      }),
     ];
     const { membershipSelector } = setup(folders);
 
-    expect(membershipSelector.getWorkspaceFolders().map((f) => f.name)).toEqual([
-      'Apple',
-      'Zebra',
-    ]);
+    expect(membershipSelector.getWorkspaceFolders().map((f) => f.name)).toEqual(
+      ['Apple', 'Zebra']
+    );
   });
 
   it('excludes a nested folder that merely shares a reserved name (isReservedFolder is path/parentId-aware, not name-only)', () => {
-    const parent = makeFolder({ id: 'parent', name: 'Projects', path: `${ROOT}/Projects` });
+    const parent = makeFolder({
+      id: 'parent',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+    });
     const nestedNamedArchive = makeFolder({
       id: 'nested-archive',
       name: 'Archive',
@@ -178,15 +202,27 @@ describe('MembershipSelector.getWorkspaceFolders (ADR-023)', () => {
     // (the implementation this replaced) never actually risked, but which
     // isWorkspaceFolder's own isSystemFolder delegation must still get
     // right for any future root-scoped consumer.
-    expect(membershipSelector.isWorkspaceFolder(nestedNamedArchive)).toBe(false);
-    expect(membershipSelector.getWorkspaceFolders().map((f) => f.id)).toEqual(['parent']);
+    expect(membershipSelector.isWorkspaceFolder(nestedNamedArchive)).toBe(
+      false
+    );
+    expect(membershipSelector.getWorkspaceFolders().map((f) => f.id)).toEqual([
+      'parent',
+    ]);
   });
 });
 
 describe('MembershipSelector.isSystemFolder', () => {
   it('delegates to Vault.isReservedFolder rather than re-deriving reserved-ness', () => {
-    const reserved = makeFolder({ id: 'archive', name: 'Archive', path: `${ROOT}/Archive` });
-    const ordinary = makeFolder({ id: 'projects', name: 'Projects', path: `${ROOT}/Projects` });
+    const reserved = makeFolder({
+      id: 'archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+    });
+    const ordinary = makeFolder({
+      id: 'projects',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+    });
     const { membershipSelector } = setup([reserved, ordinary]);
 
     expect(membershipSelector.isSystemFolder(reserved)).toBe(true);
@@ -200,7 +236,12 @@ describe('MembershipSelector Notes/Daily Notes classification (ADR-023 §4)', ()
       [],
       [
         makePage({ id: 'note-1', type: 'note', parentId: null }),
-        makePage({ id: 'daily-1', type: 'daily-note', name: '2026-08-05', parentId: null }),
+        makePage({
+          id: 'daily-1',
+          type: 'daily-note',
+          name: '2026-08-05',
+          parentId: null,
+        }),
       ]
     );
 
@@ -218,18 +259,30 @@ describe('MembershipSelector Notes/Daily Notes classification (ADR-023 §4)', ()
       [],
       [
         makePage({ id: 'note-1', type: 'note', parentId: null }),
-        makePage({ id: 'daily-1', type: 'daily-note', name: '2026-08-05', parentId: null }),
+        makePage({
+          id: 'daily-1',
+          type: 'daily-note',
+          name: '2026-08-05',
+          parentId: null,
+        }),
       ]
     );
 
-    expect(membershipSelector.getNotesChildPages(null).map((p) => p.id)).toEqual(['note-1']);
-    expect(membershipSelector.getDailyNoteChildPages(null).map((p) => p.id)).toEqual(['daily-1']);
+    expect(
+      membershipSelector.getNotesChildPages(null).map((p) => p.id)
+    ).toEqual(['note-1']);
+    expect(
+      membershipSelector.getDailyNoteChildPages(null).map((p) => p.id)
+    ).toEqual(['daily-1']);
   });
 });
 
 describe('MembershipSelector.isArchivedPage', () => {
   it('delegates to the same metadata.status predicate VaultQuery.getArchivedPages uses', () => {
-    const archived = makePage({ id: 'archived-1', metadata: { ...defaultPageMetadata, status: 'archived' } });
+    const archived = makePage({
+      id: 'archived-1',
+      metadata: { ...defaultPageMetadata, status: 'archived' },
+    });
     const active = makePage({ id: 'active-1' });
     const { membershipSelector } = setup([], [archived, active]);
 

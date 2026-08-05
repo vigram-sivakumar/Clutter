@@ -86,7 +86,8 @@ function setup(pages: Page[]) {
     new FolderCreator(new UuidGenerator()),
     () => pageOperations.flushActivePage(),
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,
@@ -101,7 +102,15 @@ function setup(pages: Page[]) {
     () => {}
   );
 
-  return { vault, inner, workspace, documentRegistry, coordinator, pageOperations, folderOperations };
+  return {
+    vault,
+    inner,
+    workspace,
+    documentRegistry,
+    coordinator,
+    pageOperations,
+    folderOperations,
+  };
 }
 
 describe('PageOperations.flushActivePage', () => {
@@ -125,7 +134,9 @@ describe('PageOperations.flushActivePage', () => {
   });
 
   it('flushes the active page when it is dirty', async () => {
-    const { inner, documentRegistry, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const { inner, documentRegistry, pageOperations } = setup([
+      buildPage('page-a', 'A'),
+    ]);
     await pageOperations.open('page-a');
     pageOperations.commitEdit('page-a', 'Edited A');
 
@@ -180,7 +191,9 @@ describe('PageOperations.open: flushes the outgoing page before switching', () =
 
 describe('PageOperations.openDraft: flushes the outgoing page before opening a new draft', () => {
   it('flushes a dirty previously-active page', async () => {
-    const { inner, documentRegistry, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const { inner, documentRegistry, pageOperations } = setup([
+      buildPage('page-a', 'A'),
+    ]);
     await pageOperations.open('page-a');
     pageOperations.commitEdit('page-a', 'Edited A before New Note');
 
@@ -196,7 +209,9 @@ describe('PageOperations.openDraft: flushes the outgoing page before opening a n
 
 describe('PageOperations.create: flushes the outgoing page before opening the newly created one', () => {
   it('flushes a dirty previously-active page', async () => {
-    const { inner, documentRegistry, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const { inner, documentRegistry, pageOperations } = setup([
+      buildPage('page-a', 'A'),
+    ]);
     await pageOperations.open('page-a');
     pageOperations.commitEdit('page-a', 'Edited A before eager create');
 
@@ -212,9 +227,8 @@ describe('PageOperations.create: flushes the outgoing page before opening the ne
 
 describe('FolderOperations.open (via prepareNavigation): flushes the active page when switching to a folder', () => {
   it('flushes a dirty previously-active page before the folder becomes active', async () => {
-    const { vault, inner, documentRegistry, pageOperations, folderOperations } = setup([
-      buildPage('page-a', 'A'),
-    ]);
+    const { vault, inner, documentRegistry, pageOperations, folderOperations } =
+      setup([buildPage('page-a', 'A')]);
     await pageOperations.open('page-a');
     pageOperations.commitEdit('page-a', 'Edited A before opening a folder');
     // A folder must exist in the vault for open() to succeed — create one

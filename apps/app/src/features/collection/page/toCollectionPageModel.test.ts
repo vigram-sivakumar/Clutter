@@ -103,7 +103,8 @@ function makeFolderOperations(
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 }
 
@@ -148,23 +149,52 @@ function setup(folders: Folder[], pages: Page[]) {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
-  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
+  const membershipSelector = new MembershipSelector(
+    vault,
+    query,
+    effectivePageState
+  );
 
-  return { vault, query, workspace, pageOperations, effectivePageState, membershipSelector };
+  return {
+    vault,
+    query,
+    workspace,
+    pageOperations,
+    effectivePageState,
+    membershipSelector,
+  };
 }
 
 describe('toCollectionPageModel — browse surface (Category A)', () => {
   it('uses the folder name verbatim for a subfolder entry', () => {
     const active = makeFolder({ id: 'folder-1', name: 'Root' });
-    const child = makeFolder({ id: 'folder-2', name: 'Subfolder', parentId: 'folder-1' });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([active, child], []);
-
-    const model = toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote: vi.fn(),
-      onOpenDraftNote: vi.fn(),
+    const child = makeFolder({
+      id: 'folder-2',
+      name: 'Subfolder',
+      parentId: 'folder-1',
     });
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([active, child], []);
+
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote: vi.fn(),
+        onOpenDraftNote: vi.fn(),
+      }
+    );
 
     expect(model.folders).toEqual([
       expect.objectContaining({ id: 'folder-2', title: 'Subfolder' }),
@@ -174,13 +204,22 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
   it('uses the real filename for a deliberately-named note', () => {
     const active = makeFolder({ id: 'folder-1' });
     const page = makePage({ name: 'Meeting Notes' });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([active], [page]);
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([active], [page]);
 
-    const model = toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote: vi.fn(),
-      onOpenDraftNote: vi.fn(),
-    });
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote: vi.fn(),
+        onOpenDraftNote: vi.fn(),
+      }
+    );
 
     expect(model.notes).toEqual([
       expect.objectContaining({ id: 'page-1', title: 'Meeting Notes' }),
@@ -193,13 +232,22 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
       name: 'Untitled 2',
       source: { markdown: 'Real content here' },
     });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([active], [page]);
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([active], [page]);
 
-    const model = toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote: vi.fn(),
-      onOpenDraftNote: vi.fn(),
-    });
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote: vi.fn(),
+        onOpenDraftNote: vi.fn(),
+      }
+    );
 
     expect(model.notes).toEqual([
       expect.objectContaining({ id: 'page-1', title: 'Real content here' }),
@@ -210,18 +258,33 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
 describe('toCollectionPageModel — draft-only pages appear immediately (ARCHITECTURE_RULES.md rule 13)', () => {
   it('a freshly opened draft targeting the active folder appears in notes before any save', async () => {
     const active = makeFolder({ id: 'folder-1' });
-    const { vault, query, pageOperations, effectivePageState, membershipSelector, workspace } = setup([active], []);
+    const {
+      vault,
+      query,
+      pageOperations,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+    } = setup([active], []);
 
     const draftId = await pageOperations.openDraft({
       folderId: 'folder-1',
       title: 'My Draft',
     });
 
-    const model = toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote: vi.fn(),
-      onOpenDraftNote: vi.fn(),
-    });
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote: vi.fn(),
+        onOpenDraftNote: vi.fn(),
+      }
+    );
 
     expect(model.notes).toEqual([
       expect.objectContaining({ id: draftId, title: 'My Draft', type: 'note' }),
@@ -230,17 +293,32 @@ describe('toCollectionPageModel — draft-only pages appear immediately (ARCHITE
 
   it('clicking a draft entry invokes onOpenDraftNote, not onOpenNote', async () => {
     const active = makeFolder({ id: 'folder-1' });
-    const { vault, query, pageOperations, effectivePageState, membershipSelector, workspace } = setup([active], []);
+    const {
+      vault,
+      query,
+      pageOperations,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+    } = setup([active], []);
 
     await pageOperations.openDraft({ folderId: 'folder-1', title: 'My Draft' });
 
     const onOpenNote = vi.fn();
     const onOpenDraftNote = vi.fn();
-    const model = toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote,
-      onOpenDraftNote,
-    });
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote,
+        onOpenDraftNote,
+      }
+    );
 
     const note = model.notes[0];
 
@@ -263,26 +341,44 @@ describe('toCollectionPageModel — a reserved folder viewed directly uses its c
       path: `${ROOT}/Archive`,
       parentId: null,
     });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([archive], []);
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([archive], []);
 
-    const model = toCollectionPageModel(archive, vault, query, effectivePageState, membershipSelector, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote: vi.fn(),
-      onOpenDraftNote: vi.fn(),
-    });
+    const model = toCollectionPageModel(
+      archive,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote: vi.fn(),
+        onOpenDraftNote: vi.fn(),
+      }
+    );
 
     expect(model.title).toBe(getSystemLocationPresentation('archive').label);
   });
 
-  it('leaves an ordinary folder\'s title as its raw name, unaffected', () => {
+  it("leaves an ordinary folder's title as its raw name, unaffected", () => {
     const active = makeFolder({ id: 'folder-1', name: 'Projects' });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([active], []);
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([active], []);
 
-    const model = toCollectionPageModel(active, vault, query, effectivePageState, membershipSelector, workspace, {
-      onOpenFolder: vi.fn(),
-      onOpenNote: vi.fn(),
-      onOpenDraftNote: vi.fn(),
-    });
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote: vi.fn(),
+        onOpenDraftNote: vi.fn(),
+      }
+    );
 
     expect(model.title).toBe('Projects');
   });
@@ -291,13 +387,23 @@ describe('toCollectionPageModel — a reserved folder viewed directly uses its c
 describe('toCollectionPageModel — filtered views (ADR-022), reusing the same membership the sidebar uses', () => {
   it("'workspace' shows exactly the root folders and root notes, titled from systemPresentation", () => {
     const root = makeFolder({ id: 'folder-1', name: 'Root', parentId: null });
-    const nested = makeFolder({ id: 'folder-2', name: 'Nested', parentId: 'folder-1' });
-    const rootPage = makePage({ id: 'page-1', name: 'Root Note', parentId: null });
-    const nestedPage = makePage({ id: 'page-2', name: 'Nested Note', parentId: 'folder-1' });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup(
-      [root, nested],
-      [rootPage, nestedPage]
-    );
+    const nested = makeFolder({
+      id: 'folder-2',
+      name: 'Nested',
+      parentId: 'folder-1',
+    });
+    const rootPage = makePage({
+      id: 'page-1',
+      name: 'Root Note',
+      parentId: null,
+    });
+    const nestedPage = makePage({
+      id: 'page-2',
+      name: 'Nested Note',
+      parentId: 'folder-1',
+    });
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([root, nested], [rootPage, nestedPage]);
 
     const model = toCollectionPageModel(
       { view: { kind: 'workspace' } },
@@ -310,20 +416,31 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
     );
 
     expect(model.title).toBe(getSystemLocationPresentation('workspace').label);
-    expect(model.folders).toEqual([expect.objectContaining({ id: 'folder-1' })]);
+    expect(model.folders).toEqual([
+      expect.objectContaining({ id: 'folder-1' }),
+    ]);
     expect(model.notes).toEqual([expect.objectContaining({ id: 'page-1' })]);
   });
 
   it("'workspace' excludes a root-level Daily Note draft (ADR-023, Phase 6 parity fix) — the Workspace page must match FolderTree's root exactly", async () => {
-    const { vault, query, effectivePageState, membershipSelector, workspace, pageOperations } =
-      setup([], []);
+    const {
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      pageOperations,
+    } = setup([], []);
 
     // Mirrors a fresh-vault boot: no Daily Notes month folder exists yet,
     // so the draft's folderId is null — previously indistinguishable, in
     // this collection page, from a root-level Note.
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     const model = toCollectionPageModel(
       { view: { kind: 'workspace' } },
@@ -356,11 +473,13 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
       parentId: 'folder-2',
       metadata: { ...defaultPageMetadata, favorite: true },
     });
-    const plainPage = makePage({ id: 'page-2', name: 'Plain Note', parentId: 'folder-2' });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup(
-      [favoritedFolder, plainFolder],
-      [favoritedPage, plainPage]
-    );
+    const plainPage = makePage({
+      id: 'page-2',
+      name: 'Plain Note',
+      parentId: 'folder-2',
+    });
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([favoritedFolder, plainFolder], [favoritedPage, plainPage]);
 
     const model = toCollectionPageModel(
       { view: { kind: 'favorites' } },
@@ -373,13 +492,16 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
     );
 
     expect(model.title).toBe(getSystemLocationPresentation('favorites').label);
-    expect(model.folders).toEqual([expect.objectContaining({ id: 'folder-1' })]);
+    expect(model.folders).toEqual([
+      expect.objectContaining({ id: 'folder-1' }),
+    ]);
     expect(model.notes).toEqual([expect.objectContaining({ id: 'page-1' })]);
   });
 
   it("clicking a 'workspace' folder entry invokes onOpenFolder, same as an ordinary folder view", () => {
     const root = makeFolder({ id: 'folder-1', name: 'Root', parentId: null });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([root], []);
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([root], []);
     const onOpenFolder = vi.fn();
 
     const model = toCollectionPageModel(
@@ -404,10 +526,18 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
       id: 'page-1',
       name: 'Tagged',
       parentId: null,
-      analysis: { ...defaultAnalysis, tags: [{ name: 'Project', sourcePageId: 'page-1' }] },
+      analysis: {
+        ...defaultAnalysis,
+        tags: [{ name: 'Project', sourcePageId: 'page-1' }],
+      },
     });
-    const untagged = makePage({ id: 'page-2', name: 'Untagged', parentId: null });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([], [tagged, untagged]);
+    const untagged = makePage({
+      id: 'page-2',
+      name: 'Untagged',
+      parentId: null,
+    });
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([], [tagged, untagged]);
 
     const model = toCollectionPageModel(
       { view: { kind: 'tag', tagName: 'Project' } },
@@ -425,7 +555,8 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
   });
 
   it('falls back to the raw tag name as title when the tag has no matching Tag entity (e.g. it was just removed from Markdown)', () => {
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([], []);
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([], []);
 
     const model = toCollectionPageModel(
       { view: { kind: 'tag', tagName: 'ghost' } },
@@ -446,9 +577,13 @@ describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCol
       id: 'page-1',
       name: 'Tagged',
       parentId: null,
-      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] },
+      analysis: {
+        ...defaultAnalysis,
+        tags: [{ name: 'project', sourcePageId: 'page-1' }],
+      },
     });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup([], [tagged]);
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([], [tagged]);
     const onOpenNote = vi.fn();
 
     const model = toCollectionPageModel(

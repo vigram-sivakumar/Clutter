@@ -45,7 +45,11 @@ const ROOT = '/vault';
 
 function buildPersistedPage(
   path: string,
-  overrides: { icon?: string; description?: string; parentId?: string | null } = {}
+  overrides: {
+    icon?: string;
+    description?: string;
+    parentId?: string | null;
+  } = {}
 ): Page {
   const builder = new PageBuilder();
   return builder.build({
@@ -117,7 +121,8 @@ function makeFolderOperations(
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 }
 
@@ -157,10 +162,26 @@ function setup(initialPages: Page[] = [], initialFolders: Folder[] = []) {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
-  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
+  const membershipSelector = new MembershipSelector(
+    vault,
+    query,
+    effectivePageState
+  );
 
-  return { vault, query, workspace, pageOperations, effectivePageState, membershipSelector };
+  return {
+    vault,
+    query,
+    workspace,
+    pageOperations,
+    effectivePageState,
+    membershipSelector,
+  };
 }
 
 function renderTree(
@@ -260,8 +281,15 @@ describe('FolderTree: draft discard', () => {
   it('closing an unsaved draft removes it from the tree', async () => {
     const { query, workspace, pageOperations, membershipSelector } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Throwaway' });
-    const { rerender, queryByText } = renderTree(query, membershipSelector, workspace);
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Throwaway',
+    });
+    const { rerender, queryByText } = renderTree(
+      query,
+      membershipSelector,
+      workspace
+    );
     expect(queryByText('Throwaway')).toBeInTheDocument();
 
     pageOperations.close(draftId);
@@ -305,7 +333,11 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
     pageOperations.commitEdit(firstId, 'Real content');
     await pageOperations.openDraft({ folderId: null });
 
-    const { getAllByText, getByText } = renderTree(query, membershipSelector, workspace);
+    const { getAllByText, getByText } = renderTree(
+      query,
+      membershipSelector,
+      workspace
+    );
 
     expect(getByText('Real content')).toBeInTheDocument();
     expect(getAllByText('New Note')).toHaveLength(1);
@@ -398,9 +430,12 @@ describe('FolderTree: Daily Note membership (ADR-023) — the bug this phase fix
     // "Daily Notes/<year>/<month>" folder chain exists yet in a fresh
     // vault, so the resulting draft's folderId is null — previously
     // indistinguishable, to FolderTree, from a root-level Note.
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     renderTree(query, membershipSelector, workspace);
 
@@ -422,8 +457,15 @@ describe('FolderTree: draft promotion', () => {
   it('never renders the same page twice across the promotion window', async () => {
     const { query, workspace, pageOperations, membershipSelector } = setup();
 
-    const draftId = await pageOperations.openDraft({ folderId: null, title: 'Promote Me' });
-    const { rerender, getAllByText } = renderTree(query, membershipSelector, workspace);
+    const draftId = await pageOperations.openDraft({
+      folderId: null,
+      title: 'Promote Me',
+    });
+    const { rerender, getAllByText } = renderTree(
+      query,
+      membershipSelector,
+      workspace
+    );
     expect(getAllByText('Promote Me')).toHaveLength(1);
 
     await pageOperations.save(draftId, '# Hello');
@@ -453,7 +495,9 @@ describe('FolderTree: draft promotion', () => {
 describe('FolderTree: folder expansion completes an existing Workspace capability (ADR-021)', () => {
   it('a folder is expanded by default — children render with no prior toggle', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
+    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, {
+      parentId: 'folder-1',
+    });
     const { query, workspace, membershipSelector } = setup([page], [folder]);
 
     render(
@@ -477,7 +521,9 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
 
   it('collapsing a folder hides its pages and subfolders; expanding again restores them', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
+    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, {
+      parentId: 'folder-1',
+    });
     const { query, workspace, membershipSelector } = setup([page], [folder]);
 
     const { rerender } = render(
@@ -539,7 +585,9 @@ describe('FolderTree: folder expansion completes an existing Workspace capabilit
 
   it('clicking the caret toggles expansion without invoking onFolderClick (the row navigate handler)', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, { parentId: 'folder-1' });
+    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, {
+      parentId: 'folder-1',
+    });
     const { query, workspace, membershipSelector } = setup([page], [folder]);
     const onFolderClick = vi.fn();
 

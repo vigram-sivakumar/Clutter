@@ -85,7 +85,8 @@ function setup(page: Page) {
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
   const pageOperations = new PageOperations(
     vault,
@@ -111,7 +112,9 @@ describe('PageOperations.commitEdit', () => {
 
     pageOperations.commitEdit(page.id, 'Edited body');
 
-    expect(documentRegistry.get(page.id)?.currentRevision.markdown).toBe('Edited body');
+    expect(documentRegistry.get(page.id)?.currentRevision.markdown).toBe(
+      'Edited body'
+    );
   });
 
   it('leaves DocumentState unchanged — does not transition to Saving', async () => {
@@ -161,14 +164,18 @@ describe('PageOperations.commitEdit', () => {
     const page = buildPage();
     const { pageOperations } = setup(page);
 
-    expect(() => pageOperations.commitEdit(page.id, 'Edited body')).not.toThrow();
+    expect(() =>
+      pageOperations.commitEdit(page.id, 'Edited body')
+    ).not.toThrow();
   });
 
   it('is a silent no-op for an id that was never opened at all', () => {
     const page = buildPage();
     const { pageOperations } = setup(page);
 
-    expect(() => pageOperations.commitEdit('unknown-id', 'content')).not.toThrow();
+    expect(() =>
+      pageOperations.commitEdit('unknown-id', 'content')
+    ).not.toThrow();
   });
 });
 
@@ -183,7 +190,9 @@ describe('PageOperations.commitEdit: DocumentSession invariants (audit)', () => 
     pageOperations.commitEdit(page.id, 'Edit 2');
     pageOperations.commitEdit(page.id, 'Edit 3');
 
-    expect(documentRegistry.get(page.id)!.revisionNumber).toBe(initialNumber + 3);
+    expect(documentRegistry.get(page.id)!.revisionNumber).toBe(
+      initialNumber + 3
+    );
   });
 
   it('short-circuits identical-content commits — no new revision, no notification', async () => {

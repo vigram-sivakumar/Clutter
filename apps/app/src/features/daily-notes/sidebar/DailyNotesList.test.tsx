@@ -108,7 +108,8 @@ function makeFolderOperations(
     new FolderCreator(new UuidGenerator()),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 }
 
@@ -149,8 +150,17 @@ function setup(pages: Page[], folders: Folder[]) {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
-  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
+  const effectivePageState = new EffectivePageState(
+    vault,
+    query,
+    pageOperations,
+    workspace
+  );
+  const membershipSelector = new MembershipSelector(
+    vault,
+    query,
+    effectivePageState
+  );
 
   return { vault, query, workspace, pageOperations, membershipSelector };
 }
@@ -223,11 +233,15 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
     // No Daily Notes/Archive/etc. folders seeded at all — mirrors a
     // freshly-deleted vault's first boot, where Application.open()
     // resolves today's note via openAtPath with nothing on disk yet.
-    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
+    const { pageOperations, vault, query, membershipSelector, workspace } =
+      setup([], []);
 
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     render(
       <DailyNotesList
@@ -251,21 +265,26 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
   it('an unplaced draft folds into an existing month section covering the same date, rather than rendering a duplicate header', async () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder('month-august', `${ROOT}/Daily Notes/2026/August`, 'year-2026');
-    const persisted = makeDailyNote('daily-1', '2026-08-05', 'month-august');
-    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
-      [persisted],
-      [dailyNotesRoot, year, month]
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
     );
+    const persisted = makeDailyNote('daily-1', '2026-08-05', 'month-august');
+    const { pageOperations, vault, query, membershipSelector, workspace } =
+      setup([persisted], [dailyNotesRoot, year, month]);
 
     // A second August date, opened via a path whose month folder happens
     // to already exist — resolveDraftTarget resolves a real folderId here,
     // so this is the "placed" case, included only to prove the "unplaced"
     // test above is exercising the genuinely different (folderId: null)
     // path, not something every openAtPath call would pass anyway.
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     render(
       <DailyNotesList
@@ -283,11 +302,15 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
   });
 
   it('an unplaced (folder-less) month section is clickable — it opens its one draft, since there is no Folder to open a collection for', async () => {
-    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
+    const { pageOperations, vault, query, membershipSelector, workspace } =
+      setup([], []);
 
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     const onOpenDraft = vi.fn();
     const onOpen = vi.fn();
@@ -311,11 +334,15 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
   });
 
   it('an unplaced (folder-less) month section is collapsible, tracked via Workspace section state rather than a Folder id', async () => {
-    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
+    const { pageOperations, vault, query, membershipSelector, workspace } =
+      setup([], []);
 
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     const { container, queryByText } = render(
       <DailyNotesList
@@ -331,7 +358,9 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
 
     expect(queryByText('Start typing...')).not.toBeNull();
 
-    const caret = container.querySelector('.section-header__caret') as HTMLElement;
+    const caret = container.querySelector(
+      '.section-header__caret'
+    ) as HTMLElement;
     fireEvent.click(caret);
 
     expect(workspace.isSectionExpanded('unplaced:2026-08-01')).toBe(false);
@@ -347,14 +376,15 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       `${ROOT}/Daily Notes/2026/August`,
       'year-2026'
     );
-    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
-      [],
-      [dailyNotesRoot, year, month]
-    );
+    const { pageOperations, vault, query, membershipSelector, workspace } =
+      setup([], [dailyNotesRoot, year, month]);
 
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     render(
       <DailyNotesList
@@ -387,14 +417,15 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       `${ROOT}/Daily Notes/2026/August`,
       'year-2026'
     );
-    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
-      [],
-      [dailyNotesRoot, year, month]
-    );
+    const { pageOperations, vault, query, membershipSelector, workspace } =
+      setup([], [dailyNotesRoot, year, month]);
 
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-21.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-21.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     const onOpen = vi.fn();
     const onOpenDraft = vi.fn();
@@ -427,17 +458,21 @@ describe('DailyNotesList — reusable-draft policy (PageOperations.findReusableD
       `${ROOT}/Daily Notes/2026/August`,
       'year-2026'
     );
-    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
-      [],
-      [dailyNotesRoot, year, month]
-    );
+    const { pageOperations, vault, query, membershipSelector, workspace } =
+      setup([], [dailyNotesRoot, year, month]);
 
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-09.md`, {
-      type: 'daily-note',
-    });
-    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-15.md`, {
-      type: 'daily-note',
-    });
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-09.md`,
+      {
+        type: 'daily-note',
+      }
+    );
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/2026/August/2026-08-15.md`,
+      {
+        type: 'daily-note',
+      }
+    );
 
     render(
       <DailyNotesList

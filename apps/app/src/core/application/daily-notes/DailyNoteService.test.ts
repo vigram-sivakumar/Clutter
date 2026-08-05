@@ -47,7 +47,11 @@ function makeSequentialIdGenerator(ids: string[]): IdGenerator {
 }
 
 function setup(folders: Folder[] = [], ids: string[] = []) {
-  const dailyNotesRoot = makeFolder('daily-notes-root', `${ROOT}/Daily Notes`, null);
+  const dailyNotesRoot = makeFolder(
+    'daily-notes-root',
+    `${ROOT}/Daily Notes`,
+    null
+  );
   const vault = new Vault(
     ROOT,
     [],
@@ -76,7 +80,8 @@ function setup(folders: Folder[] = [], ids: string[] = []) {
     new FolderCreator(makeSequentialIdGenerator(ids)),
     () => {},
     new DocumentRegistry(),
-    new SaveCoordinator()
+    new SaveCoordinator(),
+    () => {}
   );
 
   return { vault, folderOperations };
@@ -84,7 +89,10 @@ function setup(folders: Folder[] = [], ids: string[] = []) {
 
 describe('DailyNoteService.ensureFolderChain', () => {
   it('creates both the year and month folder when neither exists', async () => {
-    const { vault, folderOperations } = setup([], ['year-2026', 'month-august']);
+    const { vault, folderOperations } = setup(
+      [],
+      ['year-2026', 'month-august']
+    );
     const service = new DailyNoteService();
 
     const monthFolderId = await service.ensureFolderChain(
@@ -103,7 +111,11 @@ describe('DailyNoteService.ensureFolderChain', () => {
   });
 
   it('creates only the month folder when the year already exists', async () => {
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'daily-notes-root');
+    const year = makeFolder(
+      'year-2026',
+      `${ROOT}/Daily Notes/2026`,
+      'daily-notes-root'
+    );
     const { vault, folderOperations } = setup([year], ['month-august']);
     const createSpy = vi.spyOn(folderOperations, 'create');
     const service = new DailyNoteService();
@@ -121,8 +133,16 @@ describe('DailyNoteService.ensureFolderChain', () => {
   });
 
   it('creates nothing when both the year and month already exist', async () => {
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'daily-notes-root');
-    const month = makeFolder('month-august', `${ROOT}/Daily Notes/2026/August`, 'year-2026');
+    const year = makeFolder(
+      'year-2026',
+      `${ROOT}/Daily Notes/2026`,
+      'daily-notes-root'
+    );
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
     const { vault, folderOperations } = setup([year, month]);
     const createSpy = vi.spyOn(folderOperations, 'create');
     const service = new DailyNoteService();
@@ -142,7 +162,11 @@ describe('DailyNoteService.ensureFolderChain', () => {
     const service = new DailyNoteService();
 
     await expect(
-      service.ensureFolderChain(vault, folderOperations, `${ROOT}/Daily Notes/2026.md`)
+      service.ensureFolderChain(
+        vault,
+        folderOperations,
+        `${ROOT}/Daily Notes/2026.md`
+      )
     ).rejects.toThrow(/Malformed Daily Note path/);
   });
 });
