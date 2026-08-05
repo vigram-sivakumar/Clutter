@@ -4,7 +4,10 @@ import { Tag } from '../sidebar/Tag';
 import { groupTagsByFavorite } from './groupTagsByFavorite';
 import type { Tag as TagModel } from '@core/vault/models/Tag';
 
-export function renderTags(tags: readonly TagModel[]) {
+export function renderTags(
+  tags: readonly TagModel[],
+  onOpenTag: (name: string) => void
+) {
   const { favorites, others } = groupTagsByFavorite(tags);
 
   return (
@@ -17,7 +20,7 @@ export function renderTags(tags: readonly TagModel[]) {
             emoji={tag.icon}
             count={tag.usageCount}
             isFavorite
-            onClick={() => {}}
+            onClick={() => onOpenTag(tag.name)}
           />
         ))}
       </FavoritesSection>
@@ -30,7 +33,7 @@ export function renderTags(tags: readonly TagModel[]) {
             title={tag.name}
             emoji={tag.icon}
             count={tag.usageCount}
-            onClick={() => {}}
+            onClick={() => onOpenTag(tag.name)}
           />
         ))}
       </Section>

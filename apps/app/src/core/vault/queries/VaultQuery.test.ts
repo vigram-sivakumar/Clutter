@@ -201,3 +201,29 @@ describe('VaultQuery.getRootPages', () => {
     ]);
   });
 });
+
+describe('VaultQuery.getPagesByTag', () => {
+  function withTag(page: Page, tagName: string): Page {
+    return {
+      ...page,
+      analysis: {
+        ...page.analysis,
+        tags: [{ name: tagName, sourcePageId: page.id }],
+      },
+    };
+  }
+
+  it('returns exactly the pages referencing the given tag, by exact name match', () => {
+    const tagged = withTag(makePage('page-1', 'Tagged'), 'Project');
+    const untagged = makePage('page-2', 'Untagged');
+    const query = new VaultQuery(makeVault([], [tagged, untagged]));
+
+    expect(query.getPagesByTag('Project').map((p) => p.id)).toEqual(['page-1']);
+  });
+
+  it('returns an empty array when no page references the tag', () => {
+    const query = new VaultQuery(makeVault([], [makePage('page-1', 'Untagged')]));
+
+    expect(query.getPagesByTag('nonexistent')).toEqual([]);
+  });
+});

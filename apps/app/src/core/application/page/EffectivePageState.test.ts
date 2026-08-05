@@ -256,6 +256,27 @@ describe('EffectivePageState.getFavoritePages (ADR-022, shared with the Favorite
   });
 });
 
+describe('EffectivePageState.getPagesByTag', () => {
+  it('returns only pages referencing the tag, reflecting live unsaved content', async () => {
+    const { pageOperations, effectivePageState } = setup();
+
+    const taggedId = await pageOperations.openDraft({ folderId: null, title: 'Tagged' });
+    await pageOperations.save(taggedId, 'Mentions #project here.');
+
+    await pageOperations.openDraft({ folderId: null, title: 'Untagged' });
+
+    const results = effectivePageState.getPagesByTag('project');
+
+    expect(results.map((page) => page.id)).toEqual([taggedId]);
+  });
+
+  it('returns an empty array when no page references the tag', () => {
+    const { effectivePageState } = setup();
+
+    expect(effectivePageState.getPagesByTag('nonexistent')).toEqual([]);
+  });
+});
+
 describe('EffectivePageState: subscription lifecycle', () => {
   it('survives repeated open/close cycles without leaking session subscriptions', async () => {
     const { pageOperations, effectivePageState, workspace } = setup();

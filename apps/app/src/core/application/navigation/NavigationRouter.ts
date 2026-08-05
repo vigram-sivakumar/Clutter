@@ -48,7 +48,7 @@ export class NavigationRouter {
    * FolderOperations.open, which requires a real Vault Folder to exist.
    */
   public openWorkspace(): void {
-    this.workspace.openFilteredView('workspace');
+    this.workspace.openFilteredView({ kind: 'workspace' });
   }
 
   /**
@@ -58,7 +58,7 @@ export class NavigationRouter {
    * backing Folder to open either.
    */
   public openFavorites(): void {
-    this.workspace.openFilteredView('favorites');
+    this.workspace.openFilteredView({ kind: 'favorites' });
   }
 
   /**
@@ -68,7 +68,7 @@ export class NavigationRouter {
    * reasoning as those two.
    */
   public openTasksToday(): void {
-    this.workspace.openFilteredView('tasks-today');
+    this.workspace.openFilteredView({ kind: 'tasks-today' });
   }
 
   /**
@@ -76,7 +76,7 @@ export class NavigationRouter {
    * and unscheduled incomplete tasks, in that order.
    */
   public openTasksUpcoming(): void {
-    this.workspace.openFilteredView('tasks-upcoming');
+    this.workspace.openFilteredView({ kind: 'tasks-upcoming' });
   }
 
   /**
@@ -84,21 +84,31 @@ export class NavigationRouter {
    * regardless of completion date, newest first.
    */
   public openTasksCompleted(): void {
-    this.workspace.openFilteredView('tasks-completed');
+    this.workspace.openFilteredView({ kind: 'tasks-completed' });
   }
 
   /**
    * Shows every task, incomplete and completed alike.
    */
   public openAllTasks(): void {
-    this.workspace.openFilteredView('tasks-all');
+    this.workspace.openFilteredView({ kind: 'tasks-all' });
   }
 
   /**
    * Shows every incomplete task with no due date.
    */
   public openTasksUnscheduled(): void {
-    this.workspace.openFilteredView('tasks-unscheduled');
+    this.workspace.openFilteredView({ kind: 'tasks-unscheduled' });
+  }
+
+  /**
+   * Shows the collection of notes/daily notes referencing one tag —
+   * query-defined membership like the other filtered views above, not a
+   * folder-backed or entity-open like openFolder/PageOperations.open. Tag
+   * has no Vault id of its own; name is its only identity.
+   */
+  public openTag(name: string): void {
+    this.workspace.openFilteredView({ kind: 'tag', tagName: name });
   }
 
   // createTask/createTag are NOT deleted alongside the 6 view-intent stubs

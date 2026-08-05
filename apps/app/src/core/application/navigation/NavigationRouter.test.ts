@@ -98,7 +98,7 @@ describe('NavigationRouter', () => {
 
     navigation.openWorkspace();
 
-    expect(openFilteredView).toHaveBeenCalledWith('workspace');
+    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'workspace' });
     expect(openFolder).not.toHaveBeenCalled();
   });
 
@@ -112,7 +112,21 @@ describe('NavigationRouter', () => {
 
     navigation.openFavorites();
 
-    expect(openFilteredView).toHaveBeenCalledWith('favorites');
+    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'favorites' });
+    expect(openFolder).not.toHaveBeenCalled();
+  });
+
+  it('openTag shows the tag filtered view with the given name, without touching FolderOperations', () => {
+    const openFilteredView = vi.fn();
+    const openFolder = vi.fn();
+    const navigation = createNavigationRouter({
+      folderOperations: { open: openFolder },
+      workspace: { openFilteredView },
+    });
+
+    navigation.openTag('Project');
+
+    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'tag', tagName: 'Project' });
     expect(openFolder).not.toHaveBeenCalled();
   });
 });

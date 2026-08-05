@@ -125,6 +125,23 @@ export class EffectivePageState {
   }
 
   /**
+   * Every page (note or daily note alike) referencing the given tag —
+   * durable-only by construction, unlike getChildPages()/getFavoritePages():
+   * a draft has no Page.analysis (tags are extracted only from scanned
+   * Vault content), so there is no equivalent "draft mentions this tag"
+   * case to reconcile. Still resolved through resolve() rather than
+   * returned as raw Pages, so a currently-open page's live, uncommitted
+   * title/description/icon show correctly, same as every other
+   * page-list read here.
+   */
+  public getPagesByTag(name: string): EffectivePage[] {
+    return this.query
+      .getPagesByTag(name)
+      .map((page) => this.resolve(page.id))
+      .filter((entry): entry is EffectivePage => entry !== undefined);
+  }
+
+  /**
    * The number of DocumentSessions currently subscribed to — exposed
    * read-only for tests to assert against directly, mirroring
    * DocumentRegistry.size's precedent, not a value any production

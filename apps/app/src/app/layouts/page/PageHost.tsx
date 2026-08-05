@@ -155,9 +155,9 @@ export function PageHost({ application }: PageHostProps) {
   // Favorites).
   if (
     workspace.activeView?.type === 'filtered-view' &&
-    TASK_COLLECTION_VIEWS.has(workspace.activeView.view)
+    TASK_COLLECTION_VIEWS.has(workspace.activeView.view.kind)
   ) {
-    const view = workspace.activeView.view as TasksCollectionView;
+    const view = workspace.activeView.view.kind as TasksCollectionView;
 
     return (
       <Page

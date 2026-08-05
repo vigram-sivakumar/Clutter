@@ -22,6 +22,7 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import { Vault } from '@core/vault/models/Vault';
 import { VaultQuery } from '@core/vault/queries/VaultQuery';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
+import { TagBuilder } from '@core/vault/knowledge/TagBuilder';
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import { Workspace } from '@core/workspace/Workspace';
 import type { Folder } from '@core/vault/models/Folder';
@@ -104,11 +105,15 @@ function makeFolderOperations(
 }
 
 function setup(folders: Folder[], pages: Page[]) {
+  // Mirrors VaultBuilder: tags are derived from pages, not hand-supplied,
+  // so a fixture page with #tag occurrences in its analysis is reflected
+  // in vault.tags()/getTagByName() exactly like a real scan would.
+  const tags = new TagBuilder().build(pages);
   const vault = new Vault(
     ROOT,
     pages,
     folders,
-    [],
+    tags,
     [],
     [],
     new KnowledgeGraph([]),
@@ -290,7 +295,7 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
     );
 
     const model = toCollectionPageModel(
-      { view: 'workspace' },
+      { view: { kind: 'workspace' } },
       vault,
       query,
       effectivePageState,
@@ -328,7 +333,7 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
     );
 
     const model = toCollectionPageModel(
-      { view: 'favorites' },
+      { view: { kind: 'favorites' } },
       vault,
       query,
       effectivePageState,
@@ -347,7 +352,7 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
     const onOpenFolder = vi.fn();
 
     const model = toCollectionPageModel(
-      { view: 'workspace' },
+      { view: { kind: 'workspace' } },
       vault,
       query,
       effectivePageState,
@@ -358,5 +363,71 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
     model.folders[0]?.onClick();
 
     expect(onOpenFolder).toHaveBeenCalledWith('folder-1');
+  });
+});
+
+describe("toCollectionPageModel — a 'tag' filtered view, reusing toFilteredCollectionPageModel rather than a parallel mapper", () => {
+  it('shows exactly the pages referencing the tag, with no folders — title/icon come from the Tag entity, not the folder/note lookup', () => {
+    const tagged = makePage({
+      id: 'page-1',
+      name: 'Tagged',
+      parentId: null,
+      analysis: { ...defaultAnalysis, tags: [{ name: 'Project', sourcePageId: 'page-1' }] },
+    });
+    const untagged = makePage({ id: 'page-2', name: 'Untagged', parentId: null });
+    const { vault, query, effectivePageState, workspace } = setup([], [tagged, untagged]);
+
+    const model = toCollectionPageModel(
+      { view: { kind: 'tag', tagName: 'Project' } },
+      vault,
+      query,
+      effectivePageState,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    expect(model.title).toBe('Project');
+    expect(model.folders).toEqual([]);
+    expect(model.notes).toEqual([expect.objectContaining({ id: 'page-1' })]);
+  });
+
+  it('falls back to the raw tag name as title when the tag has no matching Tag entity (e.g. it was just removed from Markdown)', () => {
+    const { vault, query, effectivePageState, workspace } = setup([], []);
+
+    const model = toCollectionPageModel(
+      { view: { kind: 'tag', tagName: 'ghost' } },
+      vault,
+      query,
+      effectivePageState,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    expect(model.title).toBe('ghost');
+    expect(model.notes).toEqual([]);
+  });
+
+  it('clicking a note entry invokes onOpenNote, same as any other collection view', () => {
+    const tagged = makePage({
+      id: 'page-1',
+      name: 'Tagged',
+      parentId: null,
+      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] },
+    });
+    const { vault, query, effectivePageState, workspace } = setup([], [tagged]);
+    const onOpenNote = vi.fn();
+
+    const model = toCollectionPageModel(
+      { view: { kind: 'tag', tagName: 'project' } },
+      vault,
+      query,
+      effectivePageState,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote, onOpenDraftNote: vi.fn() }
+    );
+
+    model.notes[0]?.onClick();
+
+    expect(onOpenNote).toHaveBeenCalledWith('page-1');
   });
 });

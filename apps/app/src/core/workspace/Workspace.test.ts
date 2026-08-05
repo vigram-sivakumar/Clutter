@@ -117,9 +117,9 @@ describe('Workspace.activeView (ADR-022)', () => {
     const workspace = new Workspace();
     workspace.openFolder('folder-1');
 
-    workspace.openFilteredView('workspace');
+    workspace.openFilteredView({ kind: 'workspace' });
 
-    expect(workspace.activeView).toEqual({ type: 'filtered-view', view: 'workspace' });
+    expect(workspace.activeView).toEqual({ type: 'filtered-view', view: { kind: 'workspace' } });
     expect(workspace.activePageId).toBeNull();
     expect(workspace.activeFolderId).toBeNull();
   });
@@ -127,8 +127,8 @@ describe('Workspace.activeView (ADR-022)', () => {
   it('exactly one of page/folder/filtered-view is active at a time — each open call clears the others', () => {
     const workspace = new Workspace();
 
-    workspace.openFilteredView('favorites');
-    expect(workspace.activeView).toEqual({ type: 'filtered-view', view: 'favorites' });
+    workspace.openFilteredView({ kind: 'favorites' });
+    expect(workspace.activeView).toEqual({ type: 'filtered-view', view: { kind: 'favorites' } });
 
     workspace.openPage('page-1');
     expect(workspace.activeView).toEqual({ type: 'page', id: 'page-1' });
@@ -142,7 +142,7 @@ describe('Workspace.activeView (ADR-022)', () => {
     const listener = vi.fn();
     workspace.subscribe(listener);
 
-    workspace.openFilteredView('workspace');
+    workspace.openFilteredView({ kind: 'workspace' });
 
     expect(listener).toHaveBeenCalledTimes(1);
   });

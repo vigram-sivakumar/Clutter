@@ -1,16 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Vault } from './Vault';
 import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
+import { TagBuilder } from '../knowledge/TagBuilder';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
 import type { Page } from './Page';
 import type { Folder } from './Folder';
 
 function makeVault(pages: Page[], folders: Folder[] = []): Vault {
+  // Mirrors VaultBuilder: tags are derived from pages, not hand-supplied,
+  // so a fixture page with #tag occurrences in its analysis is reflected
+  // in vault.tags()/getTagByName() exactly like a real scan would.
   return new Vault(
     '/vault',
     pages,
     folders,
-    [],
+    new TagBuilder().build(pages),
     [],
     [],
     new KnowledgeGraph([]),
@@ -125,6 +129,25 @@ describe('Vault.setTagMetadata', () => {
     // again to remove it) — proving orphaned metadata alone can never
     // resurrect or sustain a Tag once Markdown stops mentioning it.
     expect([...vault.tags()]).toEqual([]);
+  });
+});
+
+describe('Vault.getTagByName', () => {
+  it('finds a tag by its exact stored name — mirrors getPage/getFolder', () => {
+    const page = makePage({
+      id: 'page-1',
+      path: '/vault/Note.md',
+      analysis: { ...defaultAnalysis, tags: [{ name: 'Project', sourcePageId: 'page-1' }] },
+    });
+    const vault = makeVault([page]);
+
+    expect(vault.getTagByName('Project')?.name).toBe('Project');
+  });
+
+  it('returns undefined for a name with no matching tag', () => {
+    const vault = makeVault([]);
+
+    expect(vault.getTagByName('nonexistent')).toBeUndefined();
   });
 });
 

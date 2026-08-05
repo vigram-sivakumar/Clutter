@@ -4,18 +4,32 @@ import { type ChangeListener, type Observable } from '../shared/Observable';
  * A non-folder, non-page main-content view — a filtered aggregate defined
  * by a query rather than a location in the folder tree (ADR-022). Grows
  * only when a real consumer ships; 'workspace'/'favorites' (root
- * folders+notes, favorited items) and the five task collection views
- * (Today/Upcoming/Completed/All Tasks/Unscheduled) are the ones that
- * exist today.
+ * folders+notes, favorited items), the five task collection views
+ * (Today/Upcoming/Completed/All Tasks/Unscheduled), and 'tag' (notes
+ * referencing one tag) are the ones that exist today.
+ *
+ * A single discriminated union, not a string enum with a bolted-on
+ * exception for parameterized views: 'tag' is the first filtered view that
+ * needs a payload, but it won't be the last (a future 'search' view is the
+ * expected next one) — every member carries its own shape from the start
+ * rather than mixing plain strings with the occasional object.
  */
-export type FilteredViewKind =
-  | 'workspace'
-  | 'favorites'
-  | 'tasks-today'
-  | 'tasks-upcoming'
-  | 'tasks-completed'
-  | 'tasks-all'
-  | 'tasks-unscheduled';
+export type FilteredView =
+  | { readonly kind: 'workspace' }
+  | { readonly kind: 'favorites' }
+  | { readonly kind: 'tasks-today' }
+  | { readonly kind: 'tasks-upcoming' }
+  | { readonly kind: 'tasks-completed' }
+  | { readonly kind: 'tasks-all' }
+  | { readonly kind: 'tasks-unscheduled' }
+  | { readonly kind: 'tag'; readonly tagName: string };
+
+/**
+ * Derived, not redeclared — for call sites that only ever want the plain
+ * string tag (e.g. a Set membership check, a presentation-table key),
+ * not the full payload.
+ */
+export type FilteredViewKind = FilteredView['kind'];
 
 /**
  * What the main content pane is currently showing — a tagged union so
@@ -26,7 +40,7 @@ export type FilteredViewKind =
 export type ActiveView =
   | { readonly type: 'page'; readonly id: string }
   | { readonly type: 'folder'; readonly id: string }
-  | { readonly type: 'filtered-view'; readonly view: FilteredViewKind };
+  | { readonly type: 'filtered-view'; readonly view: FilteredView };
 
 /**
  * Represents the user's current working context.
@@ -128,7 +142,7 @@ export class Workspace implements Observable {
    * — the entry point NavigationRouter's view-level intents (openWorkspace,
    * openFavorites) use, the same way openFolder is FolderOperations.open's.
    */
-  public openFilteredView(view: FilteredViewKind): void {
+  public openFilteredView(view: FilteredView): void {
     this._activeView = { type: 'filtered-view', view };
     this.notify();
   }

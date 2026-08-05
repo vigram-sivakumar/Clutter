@@ -1,7 +1,7 @@
 import type { Folder } from '@core/vault/models';
 import type { Vault } from '@core/vault/models/Vault';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
-import type { FilteredViewKind, Workspace } from '@core/workspace/Workspace';
+import type { FilteredView, Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
 import { buildEntryPresentation } from '@core/presentation/buildEntryPresentation';
 import {
@@ -17,12 +17,12 @@ import type {
 
 /**
  * What toCollectionPageModel builds a page from: either a real Folder's
- * children, or a filtered view (ADR-022) — Workspace-root or Favorites —
- * neither of which is one folder's children. Discriminated by `view`
+ * children, or a filtered view (ADR-022) — Workspace-root, Favorites, or a
+ * tag — none of which is one folder's children. Discriminated by `view`
  * rather than `type`, since neither Folder nor EffectivePage has a `view`
  * field, mirroring isFolder()'s own Folder/EffectivePage discrimination.
  */
-export type CollectionPageSource = Folder | { readonly view: FilteredViewKind };
+export type CollectionPageSource = Folder | { readonly view: FilteredView };
 
 function isFolder(entry: Folder | EffectivePage): entry is Folder {
   return !('type' in entry);
@@ -72,29 +72,51 @@ function isFolderSource(source: CollectionPageSource): source is Folder {
 }
 
 /**
- * A Workspace-root or Favorites collection page (ADR-022). Membership
- * comes from exactly the same VaultQuery/EffectivePageState calls the
- * sidebar's FolderTree/FavoriteList already make — getRootFolders() +
+ * A Workspace-root, Favorites, or single-tag collection page (ADR-022).
+ * Membership comes from exactly the same VaultQuery/EffectivePageState
+ * calls the sidebar's own list components make — getRootFolders() +
  * getChildPages(null) for 'workspace', getFavoriteFolders() +
- * getFavoritePages() for 'favorites' — so the page can never drift from
- * what the sidebar shows for the same view.
+ * getFavoritePages() for 'favorites', getPagesByTag() for 'tag' — so the
+ * page can never drift from what the sidebar shows for the same view.
+ *
+ * The tag branch returns early: a tag has no folders (folders: [] always)
+ * and its title/icon come from the Tag entity itself (vault.getTagByName),
+ * never from the system-location presentation table below, which has no
+ * per-tag entries and structurally can't (it's a closed, fixed-key
+ * lookup — see the investigation this followed).
  */
 function toFilteredCollectionPageModel(
-  view: FilteredViewKind,
+  view: FilteredView,
+  vault: Vault,
   query: VaultQuery,
   effectivePageState: EffectivePageState,
   workspace: Workspace,
   actions: CollectionPageActions
 ): CollectionPageModel {
+  if (view.kind === 'tag') {
+    const tag = vault.getTagByName(view.tagName);
+    const notes = effectivePageState
+      .getPagesByTag(view.tagName)
+      .map((child) => toCollectionEntry(child, actions, workspace.activePageId === child.id));
+
+    return {
+      title: tag?.name ?? view.tagName,
+      description: '',
+      coverImage: null,
+      folders: [],
+      notes,
+    };
+  }
+
   const rawFolders =
-    view === 'workspace' ? query.getRootFolders() : query.getFavoriteFolders();
+    view.kind === 'workspace' ? query.getRootFolders() : query.getFavoriteFolders();
   const rawNotes =
-    view === 'workspace'
+    view.kind === 'workspace'
       ? effectivePageState.getChildPages(null)
       : effectivePageState.getFavoritePages();
 
   return {
-    title: getSystemLocationPresentation(view).label,
+    title: getSystemLocationPresentation(view.kind).label,
     description: '',
     coverImage: null,
     folders: rawFolders.map((child) =>
@@ -158,6 +180,7 @@ export function toCollectionPageModel(
 
   return toFilteredCollectionPageModel(
     source.view,
+    vault,
     query,
     effectivePageState,
     workspace,

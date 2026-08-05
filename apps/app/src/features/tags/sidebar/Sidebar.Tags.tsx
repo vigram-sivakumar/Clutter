@@ -16,7 +16,7 @@ export function Tags({ vault, navigation }: TagsPanelProps) {
 
   return (
     <View navigation={<TagsShortcuts onShortcut={onShortcut} />}>
-      {renderTags(tags)}
+      {renderTags(tags, (name) => navigation.openTag(name))}
     </View>
   );
 }

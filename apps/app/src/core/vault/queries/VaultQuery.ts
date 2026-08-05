@@ -89,6 +89,15 @@ export class VaultQuery {
       (page) => page.metadata.status === 'archived'
     );
   }
+
+  // Exact match against the tag's stored (as-typed) name — a tag
+  // collection view is always opened from a known Tag (e.g. a sidebar
+  // click), so the caller already has the exact casing tags() preserves.
+  public getPagesByTag(name: string): Page[] {
+    return Array.from(this.vault.pages()).filter((page) =>
+      page.analysis.tags.some((occurrence) => occurrence.name === name)
+    );
+  }
   public getVisibleRootFolders(sortMode: FolderSortMode = 'title'): Folder[] {
     return this.getRootFolders(sortMode).filter(
       (folder) => !RESERVED_FOLDER_NAMES.has(folder.name)

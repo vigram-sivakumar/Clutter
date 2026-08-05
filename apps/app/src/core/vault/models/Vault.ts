@@ -173,6 +173,20 @@ export class Vault {
     yield* this.tagsByName.values();
   }
 
+  /**
+   * Direct lookup by Tag's one natural identity — name (a Tag has no
+   * separate id/path axis the way Page/Folder do). Mirrors getPage(id)/
+   * getFolder(id): O(1) via the same map tags()/refreshProjections()
+   * already maintain, not a new index. Exact match on the as-typed
+   * casing tags() itself preserves — callers that only have a
+   * differently-cased name should normalize before calling this, the
+   * same way TagBuilder/TagOperations already do at their own comparison
+   * points.
+   */
+  getTagByName(name: string): Tag | undefined {
+    return this.tagsByName.get(name);
+  }
+
   *tasks(): IterableIterator<TaskOccurrence> {
     yield* this.taskList;
   }
