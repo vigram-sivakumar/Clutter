@@ -27,3 +27,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [021](./021-ui-chrome-state.md) | UI Chrome State — extend `Workspace` for discrete navigation-shaped toggles; layout geometry stays local | Accepted |
 | [022](./022-workspace-favorites-active-view.md) | Workspace/Favorites as Active-View Variants, Not Folders | Accepted |
 | [023](./023-membership-selector-layer.md) | Membership Selector — the missing read-side classification layer | Accepted |
+| [024](./024-folder-aggregate-lifecycle.md) | Complete the Folder Aggregate Lifecycle — Delete, Rename, Move, and Their Sync Counterparts | Proposed |
