@@ -14,7 +14,7 @@ import {
 // Queries
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
-import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
+import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 
 export interface PendingNewFolder {
@@ -37,11 +37,6 @@ interface FolderTreeProps {
   // classify one layer down).
   membershipSelector: MembershipSelector;
   workspace: Workspace;
-  // ADR-020 (M3 amendment): the single read surface for page rendering —
-  // existence, identity, and every presentation field (name, description,
-  // markdown, icon) for both durable and draft-only pages. query/Vault are
-  // no longer consulted for pages at all.
-  effectivePageState: EffectivePageState;
   // The folder whose children we're currently rendering.
   // null means "start from the root".
   parentId: string | null;
@@ -104,7 +99,6 @@ export function FolderTree({
   query,
   membershipSelector,
   workspace,
-  effectivePageState,
   parentId,
   level,
   onPageClick,
@@ -128,7 +122,7 @@ export function FolderTree({
       : query.getChildFolders(parentId);
 
   // Only meaningful at the true root — a nested folder's own pages are
-  // already rendered via getChildPages(folder.id) below, per folder.
+  // already rendered via getNotesChildPages(folder.id) below, per folder.
   // ADR-020 (M3 amendment): sidebar membership includes draft-only pages
   // alongside durable ones — the sidebar always reflects what's
   // currently being edited. Unbounded draft accumulation is prevented
@@ -136,7 +130,13 @@ export function FolderTree({
   // openAtPath's findReusableDraftId) — at most one empty draft of a
   // given type is ever open at once, so there's never more than one
   // "New Note"-placeholder row to show here.
-  const rootPages = parentId === null ? effectivePageState.getChildPages(null) : [];
+  //
+  // ADR-023: narrowed to Notes membership (page.type === 'note'), not just
+  // folderId — this is the fix for a Daily Note draft (folderId: null
+  // before its month folder exists) rendering here as if it were a Note.
+  // Daily Notes membership is a different, identity-driven question
+  // DailyNotesList now asks separately, through the same MembershipSelector.
+  const rootPages = parentId === null ? membershipSelector.getNotesChildPages(null) : [];
 
   const isCreatingHere =
     pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
@@ -153,10 +153,11 @@ export function FolderTree({
       {/* Render every child folder. */}
       {rootFolders.map((folder) => {
         // Every page that should currently be shown as a child of this
-        // folder — durable and draft-only alike (ADR-020); see the
-        // rootPages comment above for why draft accumulation isn't a
-        // concern here.
-        const childPages = effectivePageState.getChildPages(folder.id);
+        // folder — durable and draft-only alike (ADR-020), narrowed to
+        // Notes membership (ADR-023); see the rootPages comment above for
+        // both why draft accumulation isn't a concern here and why the
+        // narrowing is necessary.
+        const childPages = membershipSelector.getNotesChildPages(folder.id);
         const subFolders = query.getChildFolders(folder.id);
         // Checks if the folder is empty
         const isEmpty = subFolders.length === 0 && childPages.length === 0;
@@ -198,7 +199,6 @@ export function FolderTree({
                   query={query}
                   membershipSelector={membershipSelector}
                   workspace={workspace}
-                  effectivePageState={effectivePageState}
                   parentId={folder.id}
                   level={level + 1}
                   onPageClick={onPageClick}

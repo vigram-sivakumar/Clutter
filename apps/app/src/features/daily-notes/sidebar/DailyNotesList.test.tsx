@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
+import { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { PageOperations } from '@core/application/page/PageOperations';
 import { PagePersistenceCoordinator } from '@core/vault/persistence/PagePersistenceCoordinator';
 import { DocumentRegistry } from '@core/engine/DocumentRegistry';
@@ -146,8 +147,9 @@ function setup(pages: Page[], folders: Folder[]) {
     new DailyNoteService()
   );
   const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
 
-  return { vault, query, workspace, pageOperations, effectivePageState };
+  return { vault, query, workspace, pageOperations, membershipSelector };
 }
 
 describe('DailyNotesList — empty month sections', () => {
@@ -160,7 +162,7 @@ describe('DailyNotesList — empty month sections', () => {
       `${ROOT}/Daily Notes/2026/July`,
       'year-2026'
     );
-    const { vault, query, effectivePageState, workspace } = setup(
+    const { vault, query, membershipSelector, workspace } = setup(
       [],
       [dailyNotesRoot, year, emptyMonth]
     );
@@ -169,7 +171,7 @@ describe('DailyNotesList — empty month sections', () => {
       <DailyNotesList
         vault={vault}
         query={query}
-        effectivePageState={effectivePageState}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         onOpen={vi.fn()}
         onOpenDraft={vi.fn()}
@@ -192,7 +194,7 @@ describe('DailyNotesList — empty month sections', () => {
       'year-2026'
     );
     const note = makeDailyNote('daily-1', '2026-08-15', 'month-august');
-    const { vault, query, effectivePageState, workspace } = setup(
+    const { vault, query, membershipSelector, workspace } = setup(
       [note],
       [dailyNotesRoot, year, month]
     );
@@ -201,7 +203,7 @@ describe('DailyNotesList — empty month sections', () => {
       <DailyNotesList
         vault={vault}
         query={query}
-        effectivePageState={effectivePageState}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         onOpen={vi.fn()}
         onOpenDraft={vi.fn()}
@@ -210,6 +212,71 @@ describe('DailyNotesList — empty month sections', () => {
     );
 
     expect(screen.queryByText(/August/)).not.toBeNull();
+  });
+});
+
+describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this phase fixes', () => {
+  it("today's draft appears here even with NO Daily Notes folder chain on disk yet (fresh-vault boot)", async () => {
+    // No Daily Notes/Archive/etc. folders seeded at all — mirrors a
+    // freshly-deleted vault's first boot, where Application.open()
+    // resolves today's note via openAtPath with nothing on disk yet.
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
+
+    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
+      type: 'daily-note',
+    });
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // A synthetic, folder-less month section renders the draft — no crash,
+    // no silent omission, and (per FolderTree's own new test) it no longer
+    // also renders in Notes.
+    expect(screen.queryByText(/August/)).not.toBeNull();
+    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+  });
+
+  it('an unplaced draft folds into an existing month section covering the same date, rather than rendering a duplicate header', async () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const month = makeFolder('month-august', `${ROOT}/Daily Notes/2026/August`, 'year-2026');
+    const persisted = makeDailyNote('daily-1', '2026-08-05', 'month-august');
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
+      [persisted],
+      [dailyNotesRoot, year, month]
+    );
+
+    // A second August date, opened via a path whose month folder happens
+    // to already exist — resolveDraftTarget resolves a real folderId here,
+    // so this is the "placed" case, included only to prove the "unplaced"
+    // test above is exercising the genuinely different (folderId: null)
+    // path, not something every openAtPath call would pass anyway.
+    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
+      type: 'daily-note',
+    });
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText(/August/)).toHaveLength(1);
   });
 });
 
@@ -222,7 +289,7 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       `${ROOT}/Daily Notes/2026/August`,
       'year-2026'
     );
-    const { pageOperations, vault, query, effectivePageState, workspace } = setup(
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
       [],
       [dailyNotesRoot, year, month]
     );
@@ -235,7 +302,7 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       <DailyNotesList
         vault={vault}
         query={query}
-        effectivePageState={effectivePageState}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         onOpen={vi.fn()}
         onOpenDraft={vi.fn()}
@@ -262,7 +329,7 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       `${ROOT}/Daily Notes/2026/August`,
       'year-2026'
     );
-    const { pageOperations, vault, query, effectivePageState, workspace } = setup(
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
       [],
       [dailyNotesRoot, year, month]
     );
@@ -278,7 +345,7 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
       <DailyNotesList
         vault={vault}
         query={query}
-        effectivePageState={effectivePageState}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         onOpen={onOpen}
         onOpenDraft={onOpenDraft}
@@ -302,7 +369,7 @@ describe('DailyNotesList — reusable-draft policy (PageOperations.findReusableD
       `${ROOT}/Daily Notes/2026/August`,
       'year-2026'
     );
-    const { pageOperations, vault, query, effectivePageState, workspace } = setup(
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
       [],
       [dailyNotesRoot, year, month]
     );
@@ -318,7 +385,7 @@ describe('DailyNotesList — reusable-draft policy (PageOperations.findReusableD
       <DailyNotesList
         vault={vault}
         query={query}
-        effectivePageState={effectivePageState}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         onOpen={vi.fn()}
         onOpenDraft={vi.fn()}
@@ -342,7 +409,7 @@ describe('DailyNotesList — today has no dedicated section', () => {
     );
     const today = makeDailyNote('daily-today', '2026-08-15', 'month-august');
     const other = makeDailyNote('daily-other', '2026-08-10', 'month-august');
-    const { vault, query, effectivePageState, workspace } = setup(
+    const { vault, query, membershipSelector, workspace } = setup(
       [today, other],
       [dailyNotesRoot, year, month]
     );
@@ -351,7 +418,7 @@ describe('DailyNotesList — today has no dedicated section', () => {
       <DailyNotesList
         vault={vault}
         query={query}
-        effectivePageState={effectivePageState}
+        membershipSelector={membershipSelector}
         workspace={workspace}
         onOpen={vi.fn()}
         onOpenDraft={vi.fn()}

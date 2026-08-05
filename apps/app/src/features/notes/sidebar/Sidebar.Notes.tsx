@@ -119,7 +119,6 @@ export function Notes({
           query={query}
           membershipSelector={membershipSelector}
           workspace={workspace}
-          effectivePageState={effectivePageState}
           parentId={null}
           level={0}
           pendingNewFolder={pendingNewFolder}

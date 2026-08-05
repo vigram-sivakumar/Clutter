@@ -52,7 +52,7 @@ export function Sidebar({ application }: SidebarProps) {
         <DailyNotes
           vault={vault}
           query={query}
-          effectivePageState={effectivePageState}
+          membershipSelector={membershipSelector}
           workspace={workspace}
           activeDate={activeDailyNoteDate}
           onOpen={(pageId) => pageOperations.open(pageId)}
