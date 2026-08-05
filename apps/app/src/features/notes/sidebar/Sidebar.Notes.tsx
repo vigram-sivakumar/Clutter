@@ -105,7 +105,7 @@ export function Notes({
         isCollapsible
         isEmpty={isFoldersEmpty}
         isExpanded={workspace.isSectionExpanded('folders')}
-        onExpandedChange={() => workspace.toggleSectionExpanded('folders')}
+        onExpandedChange={(expanded) => workspace.setSectionExpanded('folders', expanded)}
         onClick={() => navigation.openWorkspace()}
         actions={
           <Button

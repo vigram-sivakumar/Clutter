@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
@@ -277,6 +277,61 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
     );
 
     expect(screen.getAllByText(/August/)).toHaveLength(1);
+  });
+
+  it('an unplaced (folder-less) month section is clickable — it opens its one draft, since there is no Folder to open a collection for', async () => {
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
+
+    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
+      type: 'daily-note',
+    });
+
+    const onOpenDraft = vi.fn();
+    const onOpen = vi.fn();
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={onOpen}
+        onOpenDraft={onOpenDraft}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/August/));
+
+    expect(onOpenDraft).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('an unplaced (folder-less) month section is collapsible, tracked via Workspace section state rather than a Folder id', async () => {
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
+
+    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
+      type: 'daily-note',
+    });
+
+    const { container, queryByText } = render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    expect(queryByText('Start typing...')).not.toBeNull();
+
+    const caret = container.querySelector('.section-header__caret') as HTMLElement;
+    fireEvent.click(caret);
+
+    expect(workspace.isSectionExpanded('unplaced:2026-08-01')).toBe(false);
   });
 });
 

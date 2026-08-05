@@ -168,7 +168,9 @@ export function renderTasksByDate({
         isCollapsible
         isEmpty={today.length === 0 && todayCompleted.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-today')}
-        onExpandedChange={() => workspace.toggleSectionExpanded('tasks-today')}
+        onExpandedChange={(expanded) =>
+          workspace.setSectionExpanded('tasks-today', expanded)
+        }
         onClick={() => navigation.openTasksToday()}
       >
         {renderTodayContent({
@@ -186,8 +188,8 @@ export function renderTasksByDate({
         isCollapsible
         isEmpty={upcoming.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-upcoming')}
-        onExpandedChange={() =>
-          workspace.toggleSectionExpanded('tasks-upcoming')
+        onExpandedChange={(expanded) =>
+          workspace.setSectionExpanded('tasks-upcoming', expanded)
         }
         onClick={() => navigation.openTasksUpcoming()}
       >

@@ -272,6 +272,24 @@ export class Workspace implements Observable {
   }
 
   /**
+   * Sets the expanded state of a sidebar section header directly, unlike
+   * toggleSectionExpanded's blind negation of whatever is currently stored.
+   * Needed by callers (Section's empty-state default) that must land on a
+   * specific target state — e.g. a section visually forced collapsed by its
+   * caller while empty still needs a click to result in "expanded", not in
+   * negating a stored value the click's own effect never matched on screen.
+   */
+  public setSectionExpanded(sectionId: string, expanded: boolean): void {
+    if (expanded) {
+      this.collapsedSectionIds.delete(sectionId);
+    } else {
+      this.collapsedSectionIds.add(sectionId);
+    }
+
+    this.notify();
+  }
+
+  /**
    * The sidebar tab currently showing.
    */
   public get activeSidebarTab(): string {

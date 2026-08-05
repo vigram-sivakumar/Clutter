@@ -82,6 +82,31 @@ describe('Workspace.collapsedSectionIds / section expansion (ADR-021, M3)', () =
     expect(workspace.isSectionExpanded('favorites')).toBe(false);
     expect(workspace.isSectionExpanded('folders')).toBe(true);
   });
+
+  it('setSectionExpanded lands on the exact requested state, unlike a blind toggle', () => {
+    const workspace = new Workspace();
+    const listener = vi.fn();
+    workspace.subscribe(listener);
+
+    // Requesting "expanded" on an already-expanded (default) section is a
+    // no-op state-wise, but still a deliberate landing on `true` — not a
+    // negation of whatever was stored, which is what setSectionExpanded is
+    // for (Section's empty-state default needs to force a specific target,
+    // not flip an unknown current value).
+    workspace.setSectionExpanded('folders', true);
+    expect(workspace.isSectionExpanded('folders')).toBe(true);
+
+    workspace.setSectionExpanded('folders', false);
+    expect(workspace.isSectionExpanded('folders')).toBe(false);
+
+    workspace.setSectionExpanded('folders', false);
+    expect(workspace.isSectionExpanded('folders')).toBe(false);
+
+    workspace.setSectionExpanded('folders', true);
+    expect(workspace.isSectionExpanded('folders')).toBe(true);
+
+    expect(listener).toHaveBeenCalledTimes(4);
+  });
 });
 
 describe('Workspace.activeView (ADR-022)', () => {

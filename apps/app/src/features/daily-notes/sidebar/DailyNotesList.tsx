@@ -147,23 +147,47 @@ export function DailyNotesList({
   return sections.map((section) => {
     const monthFolder = section.monthFolder;
     const key = monthFolder?.id ?? `unplaced:${section.monthIsoDate}`;
-    // A folder-less (unplaced) section has nothing to collapse/open —
-    // always expanded, no folder-navigate handler — since there is no
-    // Folder yet for workspace.isFolderExpanded/onOpenFolder to target.
-    const isExpanded = monthFolder ? workspace.isFolderExpanded(monthFolder.id) : true;
+    // Interactivity is content-driven, not folder-existence-driven — every
+    // rendered section already has at least one page by this point (the
+    // .filter above guarantees it), whether persisted or an in-memory draft
+    // (ADR-023). A missing Folder changes *how* expand state is tracked and
+    // where a click navigates, never *whether* the section is interactive:
+    // a folder-less section falls back to Workspace's generic, string-keyed
+    // section state (same mechanism renderTasksByDate.tsx uses for
+    // 'tasks-today'/'tasks-upcoming') using the same synthetic key used
+    // above, and to opening its one page directly (mirroring each row's own
+    // onClick just below) since there's no Folder to open a collection for.
+    const isExpanded = monthFolder
+      ? workspace.isFolderExpanded(monthFolder.id)
+      : workspace.isSectionExpanded(key);
+
+    const handleExpandedChange = monthFolder
+      ? () => workspace.toggleFolderExpanded(monthFolder.id)
+      : () => workspace.toggleSectionExpanded(key);
+
+    const handleClick = monthFolder
+      ? () => onOpenFolder(monthFolder.id)
+      : () => {
+          // ADR-023: "at most one [unplaced] entry exists at a time" — see
+          // the comment above where these sections are built — so the
+          // section's own single page is the click target. section.pages
+          // is non-empty here (the .filter above guarantees every rendered
+          // section has at least one page), TypeScript just can't see that
+          // through the array index.
+          const onlyPage = section.pages[0]!;
+          return onlyPage.isDraft ? onOpenDraft(onlyPage.id) : onOpen(onlyPage.id);
+        };
 
     return (
       <Section
         key={key}
         hasHeader
         title={formatMonthSectionTitle(section.monthIsoDate)}
-        isCollapsible={monthFolder !== null}
+        isCollapsible={section.pages.length > 0}
         isExpanded={isExpanded}
-        onExpandedChange={
-          monthFolder ? () => workspace.toggleFolderExpanded(monthFolder.id) : undefined
-        }
+        onExpandedChange={handleExpandedChange}
         // selected={workspace.activeFolderId === monthFolder?.id}
-        onClick={monthFolder ? () => onOpenFolder(monthFolder.id) : undefined}
+        onClick={handleClick}
       >
         {section.pages.map((entry) => {
           const label = getPageDisplayLabel(entry);
