@@ -54,6 +54,14 @@ export function Notes({
     useState<PendingNewFolder | null>(null);
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
   const favoriteItems = getFavoriteItems(query, effectivePageState);
+  // A pending (not-yet-persisted) root-level folder counts as non-empty too
+  // — otherwise clicking "+" on an empty section would force it open via
+  // the actions button below, only for the empty-guard here to immediately
+  // hide the very NewFolderRow that click was meant to reveal.
+  const isFoldersEmpty =
+    membershipSelector.getWorkspaceFolders().length === 0 &&
+    membershipSelector.getNotesChildPages(null).length === 0 &&
+    pendingNewFolder?.parentId !== null;
 
   // Only cleared once the Gate call settles (success or failure) — this is
   // what lets the temporary row stay visible until the real Folder is
@@ -95,6 +103,7 @@ export function Notes({
         hasHeader
         title={getSystemLocationPresentation('workspace').label}
         isCollapsible
+        isEmpty={isFoldersEmpty}
         isExpanded={workspace.isSectionExpanded('folders')}
         onExpandedChange={() => workspace.toggleSectionExpanded('folders')}
         onClick={() => navigation.openWorkspace()}

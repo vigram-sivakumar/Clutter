@@ -49,7 +49,12 @@ export function renderTaskRow(
 }
 
 export interface RenderTodayContentProps extends TaskRowCallbacks {
-  readonly tasks: readonly TaskOccurrence[];
+  // Pre-grouped, not raw tasks — the outer Section (renderTasksByDate) and
+  // the Today collection page (TasksCollectionBody) both need these same
+  // counts to decide their own default-expansion/emptiness, so grouping
+  // happens once at whichever call site owns that decision, not again here.
+  readonly today: readonly TaskOccurrence[];
+  readonly todayCompleted: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly onOpenCompleted: () => void;
 }
@@ -62,13 +67,13 @@ export interface RenderTodayContentProps extends TaskRowCallbacks {
  * title) render identical rows from one implementation.
  */
 export function renderTodayContent({
-  tasks,
+  today,
+  todayCompleted,
   workspace,
   onToggleComplete,
   onOpenTask,
   onOpenCompleted,
 }: RenderTodayContentProps) {
-  const { today, todayCompleted } = groupTasks(tasks);
   const toggleCompleted = () =>
     workspace.toggleSectionExpanded('tasks-today-completed');
 
@@ -113,7 +118,8 @@ export function renderTodayContent({
 }
 
 export interface RenderUpcomingContentProps extends TaskRowCallbacks {
-  readonly tasks: readonly TaskOccurrence[];
+  // Pre-grouped, not raw tasks — see RenderTodayContentProps.today.
+  readonly upcoming: readonly TaskOccurrence[];
 }
 
 /**
@@ -122,12 +128,10 @@ export interface RenderUpcomingContentProps extends TaskRowCallbacks {
  * reasoning as renderTodayContent.
  */
 export function renderUpcomingContent({
-  tasks,
+  upcoming,
   onToggleComplete,
   onOpenTask,
 }: RenderUpcomingContentProps) {
-  const { upcoming } = groupTasks(tasks);
-
   return (
     <Fragment>
       {upcoming.map((task) =>
@@ -150,18 +154,26 @@ export function renderTasksByDate({
   onOpenTask,
   navigation,
 }: RenderTasksByDateProps) {
+  // Grouped once here — both Sections need these counts to know whether
+  // they're empty (for default expansion) as well as what to render, and
+  // renderTodayContent/renderUpcomingContent take the groups directly so
+  // groupTasks never runs a second time for the same tree.
+  const { today, todayCompleted, upcoming } = groupTasks(tasks);
+
   return (
     <Fragment>
       <Section
         hasHeader
         title="Today"
         isCollapsible
+        isEmpty={today.length === 0 && todayCompleted.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-today')}
         onExpandedChange={() => workspace.toggleSectionExpanded('tasks-today')}
         onClick={() => navigation.openTasksToday()}
       >
         {renderTodayContent({
-          tasks,
+          today,
+          todayCompleted,
           workspace,
           onToggleComplete,
           onOpenTask,
@@ -172,13 +184,14 @@ export function renderTasksByDate({
         hasHeader
         title="Everything else"
         isCollapsible
+        isEmpty={upcoming.length === 0}
         isExpanded={workspace.isSectionExpanded('tasks-upcoming')}
         onExpandedChange={() =>
           workspace.toggleSectionExpanded('tasks-upcoming')
         }
         onClick={() => navigation.openTasksUpcoming()}
       >
-        {renderUpcomingContent({ tasks, onToggleComplete, onOpenTask })}
+        {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask })}
       </Section>
     </Fragment>
   );

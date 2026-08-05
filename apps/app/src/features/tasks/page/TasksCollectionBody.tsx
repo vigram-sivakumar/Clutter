@@ -46,15 +46,26 @@ export function TasksCollectionBody({
   const rowCallbacks = { onToggleComplete, onOpenTask };
 
   if (view === 'tasks-today') {
+    const { today, todayCompleted } = groupTasks(tasks);
     return (
       <PageBody>
-        {renderTodayContent({ tasks, workspace, onToggleComplete, onOpenTask, onOpenCompleted })}
+        {renderTodayContent({
+          today,
+          todayCompleted,
+          workspace,
+          onToggleComplete,
+          onOpenTask,
+          onOpenCompleted,
+        })}
       </PageBody>
     );
   }
 
   if (view === 'tasks-upcoming') {
-    return <PageBody>{renderUpcomingContent({ tasks, onToggleComplete, onOpenTask })}</PageBody>;
+    const { upcoming } = groupTasks(tasks);
+    return (
+      <PageBody>{renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask })}</PageBody>
+    );
   }
 
   if (view === 'tasks-completed') {
