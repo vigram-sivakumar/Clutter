@@ -384,6 +384,7 @@ export class Application {
     this.closed = true;
 
     await this.pageOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
+    await this.folderOperations.flushAll(SHUTDOWN_FLUSH_TIMEOUT_MS);
     await this.fileSystemWatcher.stop();
     this.vaultSyncService.dispose();
     // Cancel every armed autosave timer before dropping the sessions they

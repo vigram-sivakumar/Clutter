@@ -262,3 +262,47 @@ describe('PageOperations title channel (continuous commit + debounced autosave)'
     expect(vault.getPage(page.id)!.name).toBe('Renamed');
   });
 });
+
+describe('PageOperations.cancelTitleEdit() (Escape support)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('reverts a pending, not-yet-persisted title edit — no rename occurs, even after the debounce window elapses', async () => {
+    const page = buildPage();
+    const { vault, inner, pageOperations } = setup(page);
+    const moveSpy = vi.spyOn(inner, 'moveFile');
+
+    pageOperations.commitTitle(page.id, 'Cancelled Title');
+    pageOperations.cancelTitleEdit(page.id);
+
+    await vi.advanceTimersByTimeAsync(TITLE_AUTOSAVE_DEBOUNCE_MS + TITLE_AUTOSAVE_CEILING_MS);
+
+    expect(moveSpy).not.toHaveBeenCalled();
+    expect(vault.getPage(page.id)!.name).toBe(page.name);
+  });
+
+  it('is a silent no-op for a page with no title-editing activity', () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    expect(() => pageOperations.cancelTitleEdit(page.id)).not.toThrow();
+  });
+
+  it('a subsequent real edit after a cancel still works normally', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    pageOperations.commitTitle(page.id, 'Cancelled Title');
+    pageOperations.cancelTitleEdit(page.id);
+
+    pageOperations.commitTitle(page.id, 'Renamed');
+    await pageOperations.requestTitleSave(page.id);
+
+    expect(vault.getPage(page.id)!.name).toBe('Renamed');
+  });
+});

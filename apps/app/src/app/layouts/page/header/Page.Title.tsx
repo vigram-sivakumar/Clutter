@@ -44,12 +44,21 @@ interface PageTitleProps {
 
   /**
    * Continuous-commit counterpart to onSubmit-adjacent flush timing: fired
-   * on every blur, unconditionally, asking the title channel to persist
-   * now regardless of its own debounce state (PageOperations.
+   * on every non-escaped blur, asking the title channel to persist now
+   * regardless of its own debounce state (PageOperations.
    * requestTitleSave()) — the same "blur always flushes" guarantee the
-   * body already has via MarkdownEditor's onFlush.
+   * body already has via MarkdownEditor's onFlush. Does not fire on an
+   * escaped blur — see onCancel.
    */
   onFlush?(): void;
+
+  /**
+   * Fired specifically on Escape — reverts the title channel's pending
+   * value back to whatever's actually persisted and cancels its timer
+   * (PageOperations.cancelTitleEdit()), so a cancelled edit cannot
+   * silently persist later on its own debounce/ceiling schedule.
+   */
+  onCancel?(): void;
 }
 
 export function PageTitle({
@@ -67,6 +76,7 @@ export function PageTitle({
   onCommit,
   onEdit,
   onFlush,
+  onCancel,
 }: PageTitleProps) {
   return (
     <div className={['page-title', className].filter(Boolean).join(' ')}>
@@ -78,6 +88,7 @@ export function PageTitle({
           onCommit={onCommit ?? (() => {})}
           onEdit={onEdit}
           onFlush={onFlush}
+          onCancel={onCancel}
           onSubmit={onSubmit}
         />
       ) : (

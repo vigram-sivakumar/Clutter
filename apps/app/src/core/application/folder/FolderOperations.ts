@@ -5,6 +5,20 @@ import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './FolderCreator';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import type { SaveCoordinator } from '../../engine/SaveCoordinator';
+import { FieldEditState } from '../../engine/FieldEditState';
+import { DocumentState } from '../../engine/DocumentState';
+
+/**
+ * The folder-name channel's own debounce/ceiling — mirrors
+ * PageOperations' TITLE_AUTOSAVE_DEBOUNCE_MS/CEILING_MS for the identical
+ * reason: a folder rename is a real filesystem rename (here, a directory
+ * rename cascading to every descendant's path), materially more expensive
+ * than an in-place write, so it coalesces more aggressively than a typical
+ * body-content autosave would. Placeholder values, not tuned ones, same
+ * status as every other autosave-cadence constant in this codebase.
+ */
+export const FOLDER_NAME_AUTOSAVE_DEBOUNCE_MS = 4000;
+export const FOLDER_NAME_AUTOSAVE_CEILING_MS = 60000;
 
 /**
  * The same lifecycle ownership as PageOperations, scoped to folders.
@@ -29,6 +43,17 @@ import type { SaveCoordinator } from '../../engine/SaveCoordinator';
  * the active resource disappears," shared by both facades.
  */
 export class FolderOperations {
+  /**
+   * Per-folder name edit/save state — the folder-name channel's
+   * counterpart to PageOperations' titleStates, using the exact same
+   * FieldEditState<string> shape and SaveCoordinator channel primitives.
+   * Lazily created on a folder's first commitName() call.
+   */
+  private readonly nameStates = new Map<string, FieldEditState<string>>();
+
+  /** In-flight requestNameSave() promises, keyed by nameChannelKey — mirrors PageOperations' inFlightSaves dedup. */
+  private readonly inFlightNameSaves = new Map<string, Promise<void>>();
+
   constructor(
     private readonly vault: Vault,
     private readonly workspace: Workspace,
@@ -77,7 +102,30 @@ export class FolderOperations {
     }
 
     this.prepareNavigation();
+    // Navigation-away boundary for the outgoing folder's own pending name
+    // edit — mirrors PageOperations.flushActivePage()'s guarantee that an
+    // uncommitted, still-debouncing autosave can never survive a
+    // navigation, extended to folders now that folder names are also
+    // channel-backed.
+    this.flushActiveFolder();
     this.workspace.openFolder(folderId);
+  }
+
+  /**
+   * Flushes the workspace's currently active folder's name channel, if
+   * dirty — the folder-name counterpart to PageOperations.flushActivePage().
+   * Called before switching to a different folder (open(), above) and
+   * before switching to a page (PageOperations.flushActivePage(), which
+   * holds a reference to this class and calls this directly) — either
+   * direction of navigation-away must flush an outgoing folder's pending
+   * rename the same way.
+   */
+  public flushActiveFolder(): void {
+    const activeFolderId = this.workspace.activeFolderId;
+
+    if (activeFolderId) {
+      void this.requestNameSave(activeFolderId);
+    }
   }
 
   /**
@@ -164,10 +212,28 @@ export class FolderOperations {
       this.workspace.closePage(pageId);
     }
     this.workspace.closeFolder(folderId);
+    this.disposeNameState(folderId);
 
     if (!this.workspace.activeView) {
       this.openFallbackPage();
     }
+  }
+
+  /**
+   * Tears down a folder's name channel, if it has one — no armed timer or
+   * live FieldEditState may outlive the folder it belongs to, mirroring
+   * PageOperations.disposeTitleState() exactly.
+   */
+  private disposeNameState(folderId: string): void {
+    const nameState = this.nameStates.get(folderId);
+
+    if (!nameState) {
+      return;
+    }
+
+    this.saveCoordinator.cancelTimers(this.nameChannelKey(folderId));
+    nameState.markDisposed();
+    this.nameStates.delete(folderId);
   }
 
   /**
@@ -185,5 +251,143 @@ export class FolderOperations {
     if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
       throw new Error(`Failed to rename folder ${folderId}: ${result.status}`);
     }
+  }
+
+  /** The name channel's SaveCoordinator key — distinct from `folderId` so it can never collide with any other channel keyed by the same id. */
+  private nameChannelKey(folderId: string): string {
+    return `${folderId}:name`;
+  }
+
+  /**
+   * Commits a folder's name in memory only — the name-channel counterpart
+   * to PageOperations.commitTitle(), same contract: no Gate call, no
+   * persistence, just arms the channel's own debounce/ceiling timers
+   * (FOLDER_NAME_AUTOSAVE_DEBOUNCE_MS/CEILING_MS).
+   */
+  public commitName(folderId: string, name: string): void {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      throw new Error(`Folder not found: ${folderId}`);
+    }
+
+    const nameState = this.nameStates.get(folderId) ?? new FieldEditState(folder.name);
+
+    this.nameStates.set(folderId, nameState);
+    nameState.commit(name);
+
+    this.saveCoordinator.scheduleSave(
+      this.nameChannelKey(folderId),
+      () => {
+        void this.requestNameSave(folderId);
+      },
+      { debounceMs: FOLDER_NAME_AUTOSAVE_DEBOUNCE_MS, ceilingMs: FOLDER_NAME_AUTOSAVE_CEILING_MS }
+    );
+  }
+
+  /**
+   * The name channel's counterpart to PageOperations.requestTitleSave() —
+   * same single-entry-point, coalescing, and never-throws contract. A
+   * silent no-op if this folder has no name-editing activity.
+   */
+  public requestNameSave(folderId: string): Promise<void> {
+    const key = this.nameChannelKey(folderId);
+    const existing = this.inFlightNameSaves.get(key);
+
+    if (existing) {
+      return existing;
+    }
+
+    const promise = this.runRequestNameSave(folderId).finally(() => {
+      if (this.inFlightNameSaves.get(key) === promise) {
+        this.inFlightNameSaves.delete(key);
+      }
+    });
+
+    this.inFlightNameSaves.set(key, promise);
+
+    return promise;
+  }
+
+  private async runRequestNameSave(folderId: string): Promise<void> {
+    const nameState = this.nameStates.get(folderId);
+
+    if (!nameState) {
+      return;
+    }
+
+    const key = this.nameChannelKey(folderId);
+
+    for (;;) {
+      const decision = this.saveCoordinator.evaluate(nameState.state, nameState.isDirty);
+
+      if (decision === 'suppress') {
+        return;
+      }
+
+      const value = nameState.currentValue;
+
+      nameState.beginSave();
+      this.saveCoordinator.beginChannelSave(key, value);
+
+      try {
+        await this.rename(folderId, value);
+
+        if (this.saveCoordinator.completeChannelSave(key, value)) {
+          nameState.markSaved(value);
+        }
+      } catch {
+        if (this.saveCoordinator.failChannelSave(key, value)) {
+          nameState.markSaveFailed();
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Escape's channel-side counterpart (EditableText.onCancel): reverts the
+   * name channel's pending value back to whatever's actually persisted and
+   * cancels its armed timer — mirrors PageOperations.cancelTitleEdit()
+   * exactly, same "cancel not-yet-executed work, never touch anything
+   * already durable" scope.
+   */
+  public cancelNameEdit(folderId: string): void {
+    const nameState = this.nameStates.get(folderId);
+
+    if (!nameState) {
+      return;
+    }
+
+    nameState.commit(nameState.savedValue);
+    this.saveCoordinator.cancelTimers(this.nameChannelKey(folderId));
+  }
+
+  /**
+   * Shutdown flush for every folder with a dirty or in-flight name
+   * channel — the folder-name counterpart to PageOperations.flushAll(),
+   * called alongside it from Application.close(). Folders have no
+   * DocumentSession/body to flush, so this only ever concerns the name
+   * channel.
+   */
+  public async flushAll(timeoutMs: number): Promise<void> {
+    const dirtyOrSavingFolderIds = [...this.nameStates.entries()]
+      .filter(
+        ([, nameState]) => nameState.isDirty || nameState.state === DocumentState.Saving
+      )
+      .map(([folderId]) => folderId);
+
+    if (dirtyOrSavingFolderIds.length === 0) {
+      return;
+    }
+
+    const flushes = Promise.allSettled(
+      dirtyOrSavingFolderIds.map((folderId) => this.requestNameSave(folderId))
+    );
+
+    await Promise.race([
+      flushes,
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
   }
 }

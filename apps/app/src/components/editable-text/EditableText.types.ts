@@ -33,37 +33,51 @@ export interface EditableTextProps {
    * Called on every input event with the live, uncommitted draft text —
    * the same continuous-commit shape MarkdownEditor's onEdit already gives
    * the body (autosave-execution-model.md §3.1). Optional: a consumer that
-   * only wants the final, blur/Enter-committed value (the folder-rename
-   * and draft-title rows today) omits this and uses onCommit alone, same
-   * as before this prop existed. A consumer that wants continuous,
-   * debounced persistence while typing (a persisted page's title) supplies
-   * this instead of relying on onCommit to drive persistence at all.
+   * only wants the final, blur/Enter-committed value omits this and uses
+   * onCommit alone, same as before this prop existed. A consumer that
+   * wants continuous, debounced persistence while typing (a persisted
+   * page's title, a folder's name) supplies this instead of relying on
+   * onCommit to drive persistence at all.
    *
-   * Note for a continuous-commit consumer: Escape's existing "discard the
-   * draft" behavior only resets what's visibly displayed — it cannot undo
-   * an onEdit call already made before Escape was pressed. If an earlier
-   * keystroke's commit was already autosaved (e.g. a debounce fired
-   * mid-typing), Escape does not roll that back. This is a real, if
-   * narrow, product trade-off of continuous autosave for a field that
-   * previously supported discard-on-Escape — EditableText does not try to
-   * solve it (no rollback/undo model exists in this architecture today,
-   * per durability-model.md's explicit scope), it only surfaces the raw
-   * events; the consumer's use of onEdit vs onCommit-only is what decides
-   * whether this trade-off applies to a given field.
+   * Note for a continuous-commit consumer: Escape reverts the visible text
+   * and fires onCancel (not onFlush — see below), but that only tells the
+   * consumer to revert its own pending value; it cannot undo a debounce
+   * that already fired and persisted *before* Escape was pressed. That
+   * narrower residual gap is a real, disclosed trade-off of continuous
+   * autosave (no rollback/undo model exists in this architecture, per
+   * durability-model.md's explicit scope) — but an ordinary Escape, pressed
+   * before any debounce/ceiling has fired, is now fully cancelled: nothing
+   * is persisted for that session at all.
    */
   onEdit?(value: string): void;
 
   /**
-   * Called on every blur, unconditionally — even when the text didn't
-   * change (unlike onCommit, which only fires on a real change) and even
-   * when the session was escaped. The continuous-commit counterpart to
-   * onCommit's "final say" role for a discrete-commit consumer: mirrors
-   * MarkdownEditor's onFlush ("blur means flush now, regardless of
-   * debounce state"). Optional — a discrete-commit consumer that doesn't
-   * use onEdit has no use for a separate flush signal, since onCommit
-   * already tells it everything it needs.
+   * Called on every *non-escaped* blur, unconditionally — even when the
+   * text didn't change (unlike onCommit, which only fires on a real
+   * change). The continuous-commit counterpart to onCommit's "final say"
+   * role for a discrete-commit consumer: mirrors MarkdownEditor's onFlush
+   * ("blur means flush now, regardless of debounce state"). Does NOT fire
+   * when the session was escaped — see onCancel, which fires instead in
+   * that case. Optional — a discrete-commit consumer that doesn't use
+   * onEdit has no use for a separate flush signal, since onCommit already
+   * tells it everything it needs.
    */
   onFlush?(): void;
+
+  /**
+   * Called specifically when Escape ends the session — never for a
+   * committed blur or Enter. The continuous-commit counterpart to
+   * onCommit's escape-awareness: a consumer using onEdit has been
+   * advancing its own pending, not-yet-persisted value on every keystroke,
+   * with no way to know a session was cancelled unless told explicitly —
+   * this is that signal, so it can revert its pending value back to
+   * whatever was last actually persisted (and cancel any timer it armed),
+   * rather than have the cancelled text quietly persist on its own
+   * schedule regardless of the user's Escape. A discrete-commit consumer
+   * (onCommit alone) has no use for this — Escape already produces no
+   * onCommit call for it, which is the entire signal it needs.
+   */
+  onCancel?(): void;
 
   /**
    * Called when an editing session ends, whether or not it committed.

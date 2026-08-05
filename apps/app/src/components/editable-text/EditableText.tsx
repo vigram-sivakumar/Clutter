@@ -52,6 +52,7 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
       onCommit,
       onEdit,
       onFlush,
+      onCancel,
       onEditingEnd,
       onSubmit,
     },
@@ -148,7 +149,20 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
         onCommit(committedValue);
       }
 
-      onFlush?.();
+      // A continuous-commit consumer's onFlush must not fire on an escaped
+      // blur — an escaped session already committed nothing via onCommit,
+      // but a consumer using onEdit (continuous commit, per keystroke) has
+      // already been advancing its own pending state independent of this
+      // blur; firing onFlush here would force-persist that pending state
+      // despite the user explicitly cancelling. onCancel is the signal
+      // such a consumer needs instead, to revert whatever it already
+      // committed via onEdit back to its last-known-good value.
+      if (wasEscaped) {
+        onCancel?.();
+      } else {
+        onFlush?.();
+      }
+
       onEditingEnd?.();
 
       if (wasSubmitted) {

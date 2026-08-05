@@ -200,6 +200,14 @@ export class PageOperations {
       // title-editing activity (requestTitleSave()'s own guard).
       void this.requestTitleSave(activePageId);
     }
+
+    // This is the same pre-navigation flush boundary FolderOperations.open()
+    // already calls this method for (via prepareNavigation) — extended to
+    // cover the reverse direction: navigating into a page must flush an
+    // outgoing folder's pending name edit the same way navigating between
+    // folders already does. A no-op if no folder is active or it has no
+    // name-editing activity (flushActiveFolder()'s own guards).
+    this.folderOperations.flushActiveFolder();
   }
 
   public async open(pageId: string): Promise<void> {
@@ -494,6 +502,29 @@ export class PageOperations {
     this.saveCoordinator.cancelTimers(this.titleChannelKey(pageId));
     titleState.markDisposed();
     this.titleStates.delete(pageId);
+  }
+
+  /**
+   * Escape's channel-side counterpart: reverts the title channel's pending
+   * value back to whatever's actually persisted and cancels its armed
+   * timer, so a cancelled edit cannot silently persist later on its own
+   * debounce/ceiling schedule (EditableText.onCancel, fired only on
+   * Escape). Does not touch anything already durable — if a debounce/
+   * ceiling already fired and completed (or is currently in flight)
+   * before Escape was pressed, that write is not undone; this only
+   * cancels work that hasn't happened yet, using the exact same
+   * commit()/cancelTimers() primitives commitTitle() itself uses, not a
+   * new rollback mechanism.
+   */
+  public cancelTitleEdit(pageId: string): void {
+    const titleState = this.titleStates.get(pageId);
+
+    if (!titleState) {
+      return;
+    }
+
+    titleState.commit(titleState.savedValue);
+    this.saveCoordinator.cancelTimers(this.titleChannelKey(pageId));
   }
 
   public getSession(pageId: string): DocumentSession | undefined {

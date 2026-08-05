@@ -153,7 +153,7 @@ describe('EditableText onEdit/onFlush (continuous-commit channel)', () => {
     expect(onFlush).toHaveBeenCalledTimes(1);
   });
 
-  it('onFlush still fires on a blur that follows Escape — flush is unconditional, unlike onCommit', () => {
+  it('onFlush does NOT fire on a blur that follows Escape — an escaped session must not force-persist', () => {
     const onCommit = vi.fn();
     const onFlush = vi.fn();
     render(<EditableText value="Original" onCommit={onCommit} onFlush={onFlush} />);
@@ -164,7 +164,44 @@ describe('EditableText onEdit/onFlush (continuous-commit channel)', () => {
     fireEvent.keyDown(editable, { key: 'Escape' });
 
     expect(onCommit).not.toHaveBeenCalled();
-    expect(onFlush).toHaveBeenCalledTimes(1);
+    expect(onFlush).not.toHaveBeenCalled();
+  });
+
+  it('onCancel fires specifically on Escape, in place of onFlush', () => {
+    const onFlush = vi.fn();
+    const onCancel = vi.fn();
+    render(<EditableText value="Original" onCommit={vi.fn()} onFlush={onFlush} onCancel={onCancel} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Something else');
+    fireEvent.keyDown(editable, { key: 'Escape' });
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onFlush).not.toHaveBeenCalled();
+  });
+
+  it('onCancel does not fire on an ordinary (non-escaped) blur', () => {
+    const onCancel = vi.fn();
+    render(<EditableText value="" onCommit={vi.fn()} onCancel={onCancel} />);
+
+    const editable = getEditable();
+    typeText(editable, 'Projects');
+    fireEvent.blur(editable);
+
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('onCancel does not fire on Enter', () => {
+    const onCancel = vi.fn();
+    render(<EditableText value="" onCommit={vi.fn()} onCancel={onCancel} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Projects');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(onCancel).not.toHaveBeenCalled();
   });
 
   it('a consumer using only onCommit (folder rename, draft title) is unaffected — onEdit/onFlush are additive, not a replacement', () => {

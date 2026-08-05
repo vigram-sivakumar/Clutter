@@ -142,22 +142,30 @@ export function PageHost({ application }: PageHostProps) {
     application.navigation.openWorkspace();
   };
 
-  const onRenameFolder = (folderId: string, name: string): void => {
-    void application.folderOperations.rename(folderId, name);
-  };
-
-  // A persisted Note's title uses the continuous-commit/debounced-autosave
-  // channel (PageOperations.commitTitle()/requestTitleSave()), not a single
-  // blur-triggered rename() call — see SaveCoordinator's channel model and
-  // TITLE_AUTOSAVE_DEBOUNCE_MS/CEILING_MS's own doc comment for why title
-  // gets its own, longer cadence than the body while sharing the identical
-  // mechanism. rename() itself still does the actual persisting underneath
-  // both paths; this only changes how often it's called.
+  // Both a persisted Note's title and a folder's name use the same
+  // continuous-commit/debounced-autosave channel model (SaveCoordinator's
+  // channel primitives + a FieldEditState<string>), not a single
+  // blur-triggered rename() call — folder rename() itself still does the
+  // actual persisting underneath; this only changes how often it's called
+  // and adds Escape-cancel support (onCancel reverts the pending value).
   const onEditPageTitle = (pageId: string, title: string): void => {
     application.pageOperations.commitTitle(pageId, title);
   };
   const onFlushPageTitle = (pageId: string): void => {
     void application.pageOperations.requestTitleSave(pageId);
+  };
+  const onCancelPageTitle = (pageId: string): void => {
+    application.pageOperations.cancelTitleEdit(pageId);
+  };
+
+  const onEditFolderName = (folderId: string, name: string): void => {
+    application.folderOperations.commitName(folderId, name);
+  };
+  const onFlushFolderName = (folderId: string): void => {
+    void application.folderOperations.requestNameSave(folderId);
+  };
+  const onCancelFolderName = (folderId: string): void => {
+    application.folderOperations.cancelNameEdit(folderId);
   };
 
   if (activeFolderId) {
@@ -198,7 +206,9 @@ export function PageHost({ application }: PageHostProps) {
         title={model.title}
         description={model.description}
         titleEditable={isRenameable}
-        onTitleCommit={isRenameable ? (title) => onRenameFolder(folder.id, title) : undefined}
+        onTitleEdit={isRenameable ? (name) => onEditFolderName(folder.id, name) : undefined}
+        onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
+        onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
         breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
         actions={topBar.actions}
         coverImage={model.coverImage ?? undefined}
@@ -377,6 +387,7 @@ export function PageHost({ application }: PageHostProps) {
       titleEditable
       onTitleEdit={isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined}
       onTitleFlush={isRenameable ? () => onFlushPageTitle(page.id) : undefined}
+      onTitleCancel={isRenameable ? () => onCancelPageTitle(page.id) : undefined}
       breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
       actions={topBar.actions}
       coverImage={model.coverImage ?? undefined}
