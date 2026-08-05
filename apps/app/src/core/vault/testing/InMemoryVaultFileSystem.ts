@@ -79,23 +79,66 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     this.files.set(path, contents);
   }
 
+  /**
+   * Deletes a file or a directory (ADR-024's folder-delete cascade calls
+   * this once per descendant path, innermost-first, exactly the way
+   * LocalFileSystem's non-recursive remove() requires — mirrored here by
+   * accepting either a tracked file or a tracked directory, matching real
+   * filesystem rmdir/unlink semantics for an already-empty directory).
+   */
   async deleteFile(path: string): Promise<void> {
-    if (!this.files.has(path)) {
-      throw new Error(`InMemoryVaultFileSystem: file not found: ${path}`);
+    if (this.files.has(path)) {
+      this.files.delete(path);
+      return;
     }
 
-    this.files.delete(path);
+    if (this.directories.has(path)) {
+      this.directories.delete(path);
+      return;
+    }
+
+    throw new Error(`InMemoryVaultFileSystem: path not found: ${path}`);
   }
 
+  /**
+   * Moves a file, or a directory and everything nested inside it (ADR-024
+   * — mirrors LocalFileSystem.moveFile()'s real behavior: an OS-level
+   * rename of a directory implicitly changes every descendant path too,
+   * since they're resolved relative to it). Renaming/moving a directory
+   * without cascading its contents' tracked paths would leave this double
+   * silently out of sync with what Vault.moveFolder() computes for the
+   * same operation.
+   */
   async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
-    const contents = this.files.get(sourcePath);
-
-    if (contents === undefined) {
-      throw new Error(`InMemoryVaultFileSystem: file not found: ${sourcePath}`);
+    if (this.files.has(sourcePath)) {
+      const contents = this.files.get(sourcePath)!;
+      this.files.delete(sourcePath);
+      this.files.set(destinationPath, contents);
+      return;
     }
 
-    this.files.delete(sourcePath);
-    this.files.set(destinationPath, contents);
+    if (this.directories.has(sourcePath)) {
+      const prefix = `${sourcePath}/`;
+
+      for (const filePath of [...this.files.keys()]) {
+        if (filePath.startsWith(prefix)) {
+          const contents = this.files.get(filePath)!;
+          this.files.delete(filePath);
+          this.files.set(destinationPath + filePath.slice(sourcePath.length), contents);
+        }
+      }
+
+      for (const dirPath of [...this.directories]) {
+        if (dirPath === sourcePath || dirPath.startsWith(prefix)) {
+          this.directories.delete(dirPath);
+          this.directories.add(destinationPath + dirPath.slice(sourcePath.length));
+        }
+      }
+
+      return;
+    }
+
+    throw new Error(`InMemoryVaultFileSystem: path not found: ${sourcePath}`);
   }
 
   /**
