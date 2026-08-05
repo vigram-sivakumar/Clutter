@@ -1,10 +1,9 @@
+import { useState } from 'react';
+
 import { Button } from '@components/button/Button';
-import { Menu } from '@components/menu/Menu';
-import { MenuItem } from '@components/menu/MenuItem';
-import { Overlay } from '@components/overlay/Overlay';
-import { useOverlay } from '@components/overlay/hooks/useOverlay';
+import { OverflowMenu } from '@components/menu/OverflowMenu';
+import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { AppIcon } from '@shared/icon';
-import type { SystemIcon } from '@shared/icon';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
 /**
@@ -16,13 +15,14 @@ import type { PageStatus } from '@core/vault/models/PageMetadata';
  */
 export type TopBarPageState = PageStatus | 'draft';
 
-export interface TopBarMenuItemConfig {
-  id: string;
-  label: string;
-  icon: SystemIcon;
-  /** Rendered but non-interactive (ADR-017 Decision item 9 / ADR-016 Finding A's "disabled, not silently inert" pattern) — never omitted from the menu. */
-  disabled?: boolean;
-}
+/**
+ * Re-exported from OverflowMenu, the generic primitive this menu shape
+ * actually belongs to (ADR-017 Decision item 9 / ADR-016 Finding A's
+ * "disabled, not silently inert" pattern governs the `disabled` field) —
+ * kept under this name so every existing importer (buildTopBarActions.tsx,
+ * topBarRegistry.tsx, the per-type menu configs) is unaffected.
+ */
+export type TopBarMenuItemConfig = OverflowMenuItemConfig;
 
 export interface ResourceTopBarActionsProps {
   menu: readonly TopBarMenuItemConfig[];
@@ -37,7 +37,7 @@ export interface ResourceTopBarActionsProps {
  * currently-unwired item already behaves today.
  */
 export function ResourceTopBarActions({ menu, handlers }: ResourceTopBarActionsProps) {
-  const overflow = useOverlay<HTMLButtonElement>();
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -47,37 +47,12 @@ export function ResourceTopBarActions({ menu, handlers }: ResourceTopBarActionsP
       <Button size="medium" isIconOnly>
         <AppIcon icon={'widthFill'} />
       </Button>
-      <Button
-        size="medium"
-        isIconOnly
-        ref={overflow.anchorRef}
-        onClick={overflow.toggle}
-      >
-        <AppIcon icon={'moreHorizontal'} />
-      </Button>
-      <Overlay
-        open={overflow.open}
-        onClose={overflow.hide}
-        anchorRef={overflow.anchorRef}
-        side="bottom"
-        alignment="end"
-      >
-        <Menu size="medium">
-          {menu.map((item) => (
-            <MenuItem
-              key={item.id}
-              disabled={item.disabled}
-              onClick={() => {
-                handlers?.[item.id]?.();
-                overflow.hide();
-              }}
-              leading={item.icon ? <AppIcon icon={item.icon} /> : undefined}
-            >
-              {item.label}
-            </MenuItem>
-          ))}
-        </Menu>
-      </Overlay>
+      <OverflowMenu
+        items={menu}
+        open={open}
+        onOpenChange={setOpen}
+        onSelect={(id) => handlers?.[id]?.()}
+      />
     </>
   );
 }
