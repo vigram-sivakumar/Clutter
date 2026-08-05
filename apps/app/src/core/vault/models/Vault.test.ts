@@ -420,6 +420,50 @@ describe('moveFolder cascade', () => {
   });
 });
 
+describe('Vault.getDescendantFoldersAndPages (ADR-024)', () => {
+  it('returns every nested folder and page under the given folder', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const vault = makeVault([notes], [projects, design]);
+
+    const result = vault.getDescendantFoldersAndPages('folder-projects');
+
+    expect(result.folders.map((f) => f.id)).toEqual(['folder-design']);
+    expect(result.pages.map((p) => p.id)).toEqual(['page-notes']);
+  });
+
+  it('excludes an unrelated sibling folder and its pages', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const sibling = makeFolder({ id: 'folder-sibling', path: '/vault/Sibling' });
+    const siblingPage = makePage({
+      id: 'page-sibling',
+      path: '/vault/Sibling/Note.md',
+      parentId: 'folder-sibling',
+    });
+    const vault = makeVault([notes, siblingPage], [projects, design, sibling]);
+
+    const result = vault.getDescendantFoldersAndPages('folder-projects');
+
+    expect(result.folders.map((f) => f.id)).not.toContain('folder-sibling');
+    expect(result.pages.map((p) => p.id)).not.toContain('page-sibling');
+  });
+
+  it('returns empty arrays for a leaf folder', () => {
+    const leaf = makeFolder({ id: 'folder-leaf', path: '/vault/Leaf' });
+    const vault = makeVault([], [leaf]);
+
+    const result = vault.getDescendantFoldersAndPages('folder-leaf');
+
+    expect(result.folders).toEqual([]);
+    expect(result.pages).toEqual([]);
+  });
+
+  it('throws for an unknown folder id', () => {
+    const vault = makeVault([]);
+
+    expect(() => vault.getDescendantFoldersAndPages('does-not-exist')).toThrow();
+  });
+});
+
 describe('Vault.removeFolder cascade (ADR-024)', () => {
   it('removes the folder, every descendant folder, and every descendant page', () => {
     const { projects, design, notes } = makeProjectsHierarchy();

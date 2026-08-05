@@ -170,6 +170,44 @@ export class Vault {
     return isReservedTopLevelFolderPath(this.root, folder.path);
   }
 
+  /**
+   * Every folder nested (at any depth) inside folderId, and every page
+   * whose parentId is that folder or one of those nested folders (ADR-024).
+   * A pure read, freely callable from anywhere — not a mutation method.
+   *
+   * The one implementation of this subtree walk: removeFolder() uses it
+   * to know what to delete, moveFolder() uses the equivalent inline
+   * (recomputing paths rather than removing, so it isn't a drop-in
+   * consumer of this exact shape), and the Persistence Gate's cascade
+   * delete (ADR-024 §5) uses it to know what to delete from disk, in the
+   * same order, before calling removeFolder(). A future descendant-count
+   * UI (e.g. a delete-confirmation dialog) is the same read, not a new one.
+   */
+  getDescendantFoldersAndPages(folderId: string): {
+    readonly folders: readonly Folder[];
+    readonly pages: readonly Page[];
+  } {
+    const folder = this.foldersById.get(folderId);
+
+    if (!folder) {
+      throw new Error(`Unknown folder: ${folderId}`);
+    }
+
+    const descendantFolders = [...this.foldersById.values()].filter(
+      (candidate) =>
+        candidate.id !== folderId &&
+        VaultPath.isDescendantOf(candidate.path, folder.path)
+    );
+
+    const subtreeFolderIds = new Set([folderId, ...descendantFolders.map((f) => f.id)]);
+
+    const pages = [...this.pagesById.values()].filter(
+      (page) => page.parentId !== null && subtreeFolderIds.has(page.parentId)
+    );
+
+    return { folders: descendantFolders, pages };
+  }
+
   *folders(): IterableIterator<Folder> {
     yield* this.foldersById.values();
   }
@@ -605,17 +643,8 @@ export class Vault {
       throw new Error(`Cannot remove unknown folder: ${folderId}`);
     }
 
-    const descendantFolders = [...this.foldersById.values()].filter(
-      (candidate) =>
-        candidate.id !== folderId &&
-        VaultPath.isDescendantOf(candidate.path, folder.path)
-    );
-
-    const subtreeFolderIds = new Set([folderId, ...descendantFolders.map((f) => f.id)]);
-
-    const pagesInSubtree = [...this.pagesById.values()].filter(
-      (page) => page.parentId !== null && subtreeFolderIds.has(page.parentId)
-    );
+    const { folders: descendantFolders, pages: pagesInSubtree } =
+      this.getDescendantFoldersAndPages(folderId);
 
     for (const page of pagesInSubtree) {
       this.pagesById.delete(page.id);
