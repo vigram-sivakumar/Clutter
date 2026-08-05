@@ -31,6 +31,14 @@ export type ReservedResource = ReservedFolder | ReservedFile;
  */
 export const TAG_METADATA_RELATIVE_PATH = '.clutter/tags.json';
 
+/**
+ * The file's shape when no tag has metadata yet — the seed contents below,
+ * and the fallback both bootstrap and TagOperations read when the file is
+ * missing (e.g. mid-scaffolding, or a vault predating this reserved file).
+ * One literal, three readers, instead of three copies of the same string.
+ */
+export const EMPTY_TAG_METADATA_FILE_CONTENTS = '{"tags":{}}';
+
 export const RESERVED_RESOURCES: readonly ReservedResource[] = [
   {
     type: 'folder',
@@ -60,7 +68,7 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
   {
     type: 'file',
     path: TAG_METADATA_RELATIVE_PATH,
-    contents: '{"tags":{}}',
+    contents: EMPTY_TAG_METADATA_FILE_CONTENTS,
   },
 ];
 

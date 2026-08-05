@@ -18,6 +18,7 @@ import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
 import {
   TAG_METADATA_RELATIVE_PATH,
+  EMPTY_TAG_METADATA_FILE_CONTENTS,
 } from '../vault/initialize/ReservedResources';
 import { normalizeTagName, type TagMetadataEntry } from '../vault/models/Tag';
 import { FolderPathResolver } from './folder/FolderPathResolver';
@@ -122,7 +123,7 @@ export class Application {
       JSON.parse(
         (await fileSystem.exists(tagsMetadataPath))
           ? await fileSystem.readFile(tagsMetadataPath)
-          : '{"tags":{}}'
+          : EMPTY_TAG_METADATA_FILE_CONTENTS
       ).tags ?? {}
     ) as Record<string, TagMetadataEntry>;
     const tagMetadata = new Map<string, TagMetadataEntry>(

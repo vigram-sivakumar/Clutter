@@ -1,6 +1,9 @@
 import { Vault } from '../../vault/models/Vault';
 import { normalizeTagName, type TagMetadataEntry } from '../../vault/models/Tag';
-import { TAG_METADATA_RELATIVE_PATH } from '../../vault/initialize/ReservedResources';
+import {
+  TAG_METADATA_RELATIVE_PATH,
+  EMPTY_TAG_METADATA_FILE_CONTENTS,
+} from '../../vault/initialize/ReservedResources';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
 /**
@@ -65,7 +68,7 @@ export class TagOperations {
   ): Promise<ReadonlyMap<string, TagMetadataEntry>> {
     const content = (await this.fileSystem.exists(path))
       ? await this.fileSystem.readFile(path)
-      : '{"tags":{}}';
+      : EMPTY_TAG_METADATA_FILE_CONTENTS;
 
     const raw = (JSON.parse(content).tags ?? {}) as Record<
       string,
