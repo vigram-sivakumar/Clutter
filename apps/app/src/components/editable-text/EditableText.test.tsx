@@ -128,6 +128,57 @@ describe('EditableText commit/cancel lifecycle', () => {
   });
 });
 
+describe('EditableText onEdit/onFlush (continuous-commit channel)', () => {
+  it('onEdit fires on every input event with the live, uncommitted text', () => {
+    const onEdit = vi.fn();
+    render(<EditableText value="" onCommit={vi.fn()} onEdit={onEdit} />);
+
+    const editable = getEditable();
+    typeText(editable, 'M');
+    typeText(editable, 'Me');
+    typeText(editable, 'Meeting');
+
+    expect(onEdit).toHaveBeenNthCalledWith(1, 'M');
+    expect(onEdit).toHaveBeenNthCalledWith(2, 'Me');
+    expect(onEdit).toHaveBeenNthCalledWith(3, 'Meeting');
+    expect(onEdit).toHaveBeenCalledTimes(3);
+  });
+
+  it('onFlush fires on every blur, unconditionally, even when the text is unchanged', () => {
+    const onFlush = vi.fn();
+    render(<EditableText value="Same" onCommit={vi.fn()} onFlush={onFlush} />);
+
+    fireEvent.blur(getEditable());
+
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it('onFlush still fires on a blur that follows Escape — flush is unconditional, unlike onCommit', () => {
+    const onCommit = vi.fn();
+    const onFlush = vi.fn();
+    render(<EditableText value="Original" onCommit={onCommit} onFlush={onFlush} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Something else');
+    fireEvent.keyDown(editable, { key: 'Escape' });
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it('a consumer using only onCommit (folder rename, draft title) is unaffected — onEdit/onFlush are additive, not a replacement', () => {
+    const onCommit = vi.fn();
+    render(<EditableText value="" onCommit={onCommit} />);
+
+    const editable = getEditable();
+    typeText(editable, 'Projects');
+    fireEvent.blur(editable);
+
+    expect(onCommit).toHaveBeenCalledWith('Projects');
+  });
+});
+
 describe('EditableText onSubmit', () => {
   it('fires on Enter, after onCommit/onEditingEnd', () => {
     const calls: string[] = [];

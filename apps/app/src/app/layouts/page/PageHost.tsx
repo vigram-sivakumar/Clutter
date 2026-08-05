@@ -146,8 +146,18 @@ export function PageHost({ application }: PageHostProps) {
     void application.folderOperations.rename(folderId, name);
   };
 
-  const onRenamePage = (pageId: string, title: string): void => {
-    void application.pageOperations.rename(pageId, title);
+  // A persisted Note's title uses the continuous-commit/debounced-autosave
+  // channel (PageOperations.commitTitle()/requestTitleSave()), not a single
+  // blur-triggered rename() call — see SaveCoordinator's channel model and
+  // TITLE_AUTOSAVE_DEBOUNCE_MS/CEILING_MS's own doc comment for why title
+  // gets its own, longer cadence than the body while sharing the identical
+  // mechanism. rename() itself still does the actual persisting underneath
+  // both paths; this only changes how often it's called.
+  const onEditPageTitle = (pageId: string, title: string): void => {
+    application.pageOperations.commitTitle(pageId, title);
+  };
+  const onFlushPageTitle = (pageId: string): void => {
+    void application.pageOperations.requestTitleSave(pageId);
   };
 
   if (activeFolderId) {
@@ -365,7 +375,8 @@ export function PageHost({ application }: PageHostProps) {
       title={model.title}
       description={model.description}
       titleEditable
-      onTitleCommit={isRenameable ? (title) => onRenamePage(page.id, title) : undefined}
+      onTitleEdit={isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined}
+      onTitleFlush={isRenameable ? () => onFlushPageTitle(page.id) : undefined}
       breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
       actions={topBar.actions}
       coverImage={model.coverImage ?? undefined}

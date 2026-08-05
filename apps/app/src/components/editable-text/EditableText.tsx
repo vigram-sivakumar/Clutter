@@ -37,7 +37,9 @@ function syncTextContent(element: HTMLDivElement | null, value: string) {
  * EditableText is a reusable UI primitive for inline text editing.
  * - It owns only the browser editing experience.
  * - It does not own document state, persistence, validation, or business rules.
- * - Committed values are delegated through `onCommit`.
+ * - Committed values are delegated through `onCommit` (discrete, blur/Enter-only)
+ *   and, optionally, `onEdit`/`onFlush` (continuous, every keystroke + unconditional
+ *   blur — see EditableTextProps' doc comments for which shape a given consumer wants).
  * - The parent decides whether to accept, reject, or persist the change.
  */
 export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
@@ -48,6 +50,8 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
       isDisabled = false,
       autoFocus = false,
       onCommit,
+      onEdit,
+      onFlush,
       onEditingEnd,
       onSubmit,
     },
@@ -96,6 +100,7 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
 
     function handleInput(event: FormEvent<HTMLDivElement>) {
       updateEmptyState(event.currentTarget);
+      onEdit?.(event.currentTarget.textContent ?? '');
     }
 
     function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -143,6 +148,7 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
         onCommit(committedValue);
       }
 
+      onFlush?.();
       onEditingEnd?.();
 
       if (wasSubmitted) {

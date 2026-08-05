@@ -25,11 +25,15 @@ type PageProps = {
   bodyFocusRef?: RefObject<{ focus(): void } | null>;
   /**
    * Fired when a changed title commits (see PageTitle.onCommit). Supplied
-   * by the draft branch and, since ADR-024, the folder branch
-   * (FolderOperations.rename()) — persisted-page rename still has no
-   * backing capability yet (ADR-012) and leaves this unset.
+   * by the draft branch and the folder branch (FolderOperations.rename(),
+   * ADR-024) — both discrete-commit consumers. A persisted Note supplies
+   * onTitleEdit/onTitleFlush instead (below), not this.
    */
   onTitleCommit?(title: string): void;
+  /** See PageTitle.onEdit — the persisted-Note title's continuous-commit entry point. */
+  onTitleEdit?(title: string): void;
+  /** See PageTitle.onFlush — the persisted-Note title's unconditional-blur-flush entry point. */
+  onTitleFlush?(): void;
 };
 
 export function Page({
@@ -44,6 +48,8 @@ export function Page({
   coverImage,
   bodyFocusRef,
   onTitleCommit,
+  onTitleEdit,
+  onTitleFlush,
 }: PageProps) {
   // The one place "is this entity missing its title" is decided for the
   // editing/identity surface — driven entirely by the title string the
@@ -65,6 +71,8 @@ export function Page({
                 autoFocus={shouldAutoFocusTitle}
                 onSubmit={() => bodyFocusRef?.current?.focus()}
                 onCommit={onTitleCommit}
+                onEdit={onTitleEdit}
+                onFlush={onTitleFlush}
               >
                 {title}
               </PageTitle>

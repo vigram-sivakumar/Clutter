@@ -18,7 +18,7 @@ describe('SaveCoordinator.evaluate', () => {
 
     expect(session.state).toBe(DocumentState.Clean);
     expect(session.isDirty).toBe(false);
-    expect(coordinator.evaluate(session)).toBe('suppress');
+    expect(coordinator.evaluate(session.state, session.isDirty)).toBe('suppress');
   });
 
   it('Clean + dirty -> execute', () => {
@@ -28,7 +28,7 @@ describe('SaveCoordinator.evaluate', () => {
 
     expect(session.state).toBe(DocumentState.Clean);
     expect(session.isDirty).toBe(true);
-    expect(coordinator.evaluate(session)).toBe('execute');
+    expect(coordinator.evaluate(session.state, session.isDirty)).toBe('execute');
   });
 
   it('SaveError + dirty -> execute (this is SaveError\'s only exit)', () => {
@@ -40,7 +40,7 @@ describe('SaveCoordinator.evaluate', () => {
 
     expect(session.state).toBe(DocumentState.SaveError);
     expect(session.isDirty).toBe(true);
-    expect(coordinator.evaluate(session)).toBe('execute');
+    expect(coordinator.evaluate(session.state, session.isDirty)).toBe('execute');
   });
 
   it('Saving + not dirty -> suppress (a save for this exact content is already in flight)', () => {
@@ -50,7 +50,7 @@ describe('SaveCoordinator.evaluate', () => {
 
     expect(session.state).toBe(DocumentState.Saving);
     expect(session.isDirty).toBe(false);
-    expect(coordinator.evaluate(session)).toBe('suppress');
+    expect(coordinator.evaluate(session.state, session.isDirty)).toBe('suppress');
   });
 
   it('Saving + dirty -> suppress (the "defer" row — restart is realized on completion, not here)', () => {
@@ -63,7 +63,7 @@ describe('SaveCoordinator.evaluate', () => {
 
     expect(session.state).toBe(DocumentState.Saving);
     expect(session.isDirty).toBe(true);
-    expect(coordinator.evaluate(session)).toBe('suppress');
+    expect(coordinator.evaluate(session.state, session.isDirty)).toBe('suppress');
   });
 
   it('Disposed + dirty -> suppress, unconditionally', () => {
@@ -74,7 +74,7 @@ describe('SaveCoordinator.evaluate', () => {
 
     expect(session.state).toBe(DocumentState.Disposed);
     expect(session.isDirty).toBe(true);
-    expect(coordinator.evaluate(session)).toBe('suppress');
+    expect(coordinator.evaluate(session.state, session.isDirty)).toBe('suppress');
   });
 
   it('Disposed + not dirty -> suppress, unconditionally', () => {
@@ -84,7 +84,7 @@ describe('SaveCoordinator.evaluate', () => {
 
     expect(session.state).toBe(DocumentState.Disposed);
     expect(session.isDirty).toBe(false);
-    expect(coordinator.evaluate(session)).toBe('suppress');
+    expect(coordinator.evaluate(session.state, session.isDirty)).toBe('suppress');
   });
 
   /**
@@ -93,33 +93,30 @@ describe('SaveCoordinator.evaluate', () => {
    * DocumentSession API path produces them (SaveError only follows a failed
    * save on dirty content; Conflict has no producer anywhere in the
    * codebase, reserved for a future Sync feature; Loading is bypassed by
-   * the constructor, which sets Clean immediately). They're tested here
-   * anyway, via a minimal fake cast to DocumentSession's shape, purely to
-   * confirm evaluate()'s switch is exhaustive and defensively correct — not
-   * because any real trigger can produce them.
+   * the constructor, which sets Clean immediately). Tested here directly
+   * against evaluate()'s now-explicit (state, isDirty) inputs — no fake
+   * DocumentSession needed since evaluate() no longer takes one — purely
+   * to confirm evaluate()'s switch is exhaustive and defensively correct,
+   * not because any real trigger can produce them.
    */
-  function fakeSession(state: DocumentState, isDirty: boolean): DocumentSession {
-    return { state, isDirty } as unknown as DocumentSession;
-  }
-
   it('SaveError + not dirty -> suppress (unreachable in practice; exhaustiveness check)', () => {
     const coordinator = new SaveCoordinator();
 
-    expect(coordinator.evaluate(fakeSession(DocumentState.SaveError, false))).toBe('suppress');
+    expect(coordinator.evaluate(DocumentState.SaveError, false)).toBe('suppress');
   });
 
   it('Conflict -> suppress regardless of dirty (out of scope for autosave; exhaustiveness check)', () => {
     const coordinator = new SaveCoordinator();
 
-    expect(coordinator.evaluate(fakeSession(DocumentState.Conflict, true))).toBe('suppress');
-    expect(coordinator.evaluate(fakeSession(DocumentState.Conflict, false))).toBe('suppress');
+    expect(coordinator.evaluate(DocumentState.Conflict, true)).toBe('suppress');
+    expect(coordinator.evaluate(DocumentState.Conflict, false)).toBe('suppress');
   });
 
   it('Loading -> suppress regardless of dirty (unreachable in practice; exhaustiveness check)', () => {
     const coordinator = new SaveCoordinator();
 
-    expect(coordinator.evaluate(fakeSession(DocumentState.Loading, true))).toBe('suppress');
-    expect(coordinator.evaluate(fakeSession(DocumentState.Loading, false))).toBe('suppress');
+    expect(coordinator.evaluate(DocumentState.Loading, true)).toBe('suppress');
+    expect(coordinator.evaluate(DocumentState.Loading, false)).toBe('suppress');
   });
 
   it('is a pure query — calling it repeatedly does not change the outcome or mutate the session', () => {
@@ -127,14 +124,64 @@ describe('SaveCoordinator.evaluate', () => {
     session.commit(new DocumentTransaction('# Hello, edited'));
     const coordinator = new SaveCoordinator();
 
-    const first = coordinator.evaluate(session);
-    const second = coordinator.evaluate(session);
-    const third = coordinator.evaluate(session);
+    const first = coordinator.evaluate(session.state, session.isDirty);
+    const second = coordinator.evaluate(session.state, session.isDirty);
+    const third = coordinator.evaluate(session.state, session.isDirty);
 
     expect([first, second, third]).toEqual(['execute', 'execute', 'execute']);
     expect(session.state).toBe(DocumentState.Clean);
     expect(session.isDirty).toBe(true);
   });
+});
+
+describe('SaveCoordinator channel generalization (title and future non-body channels)', () => {
+  it('scheduleSave() accepts a plain string channel key, independent of any DocumentSession', () => {
+    const coordinator = new SaveCoordinator();
+    const onFire = () => {};
+
+    expect(() => coordinator.scheduleSave('page-1:title', onFire)).not.toThrow();
+  });
+
+  it('beginChannelSave/completeChannelSave: a completion matching the tracked in-flight value succeeds and clears it', () => {
+    const coordinator = new SaveCoordinator();
+
+    coordinator.beginChannelSave('page-1:title', 'Renamed');
+
+    expect(coordinator.completeChannelSave('page-1:title', 'Renamed')).toBe(true);
+    // Cleared — a second completion for the same (now-stale) value no longer matches.
+    expect(coordinator.completeChannelSave('page-1:title', 'Renamed')).toBe(false);
+  });
+
+  it('completeChannelSave: a stale completion (superseded by a newer in-flight value) is rejected', () => {
+    const coordinator = new SaveCoordinator();
+
+    coordinator.beginChannelSave('page-1:title', 'First');
+    coordinator.beginChannelSave('page-1:title', 'Second'); // supersedes the first
+
+    expect(coordinator.completeChannelSave('page-1:title', 'First')).toBe(false);
+    expect(coordinator.completeChannelSave('page-1:title', 'Second')).toBe(true);
+  });
+
+  it('failChannelSave: same stale-guard shape as completeChannelSave', () => {
+    const coordinator = new SaveCoordinator();
+
+    coordinator.beginChannelSave('page-1:title', 'Renamed');
+
+    expect(coordinator.failChannelSave('page-1:title', 'something else')).toBe(false);
+    expect(coordinator.failChannelSave('page-1:title', 'Renamed')).toBe(true);
+  });
+
+  it('different channel keys for the same page never collide, even with equal-looking values', () => {
+    const coordinator = new SaveCoordinator();
+
+    coordinator.beginChannelSave('page-1:title', 'shared-value');
+
+    // A different channel key for a value that happens to be identical is
+    // not the same in-flight save.
+    expect(coordinator.completeChannelSave('page-1:description', 'shared-value')).toBe(false);
+    expect(coordinator.completeChannelSave('page-1:title', 'shared-value')).toBe(true);
+  });
+
 });
 
 describe('SaveCoordinator.rejectSaveRequest', () => {

@@ -3,6 +3,7 @@ import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { DocumentState } from '../../engine/DocumentState';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
+import { FieldEditState } from '../../engine/FieldEditState';
 import { Vault } from '../../vault/models/Vault';
 import type { Page, PageType } from '../../vault/models/Page';
 import type { PageMetadata } from '../../vault/models/PageMetadata';
@@ -25,6 +26,18 @@ import type { DailyNoteService } from '../daily-notes/DailyNoteService';
  * tuning as a product decision, separate from this architecture).
  */
 export const SHUTDOWN_FLUSH_TIMEOUT_MS = 5000;
+
+/**
+ * The title channel's own debounce/ceiling — deliberately longer than the
+ * body's (SaveCoordinator.AUTOSAVE_DEBOUNCE_MS/AUTOSAVE_CEILING_MS), since
+ * persisting a title change is a real filesystem rename (visible to git,
+ * external tools, and other pages' by-name link resolution), not an
+ * in-place content rewrite — materially more expensive per write, so the
+ * title channel should coalesce more aggressively than the body does.
+ * Placeholder values, not tuned ones, same status as the body's constants.
+ */
+export const TITLE_AUTOSAVE_DEBOUNCE_MS = 4000;
+export const TITLE_AUTOSAVE_CEILING_MS = 60000;
 
 export interface CreatePageOptions {
   readonly folderId: string | null;
@@ -106,6 +119,18 @@ export class PageOperations {
    */
   private readonly inFlightSaves = new Map<string, Promise<void>>();
 
+  /**
+   * Per-persisted-page title edit/save state — the title channel's
+   * counterpart to DocumentRegistry's per-page DocumentSession, but never
+   * shared with DocumentEditing (ADR-018 — title is domain identity, not
+   * something the engine owns). Lazily created on a persisted page's first
+   * commitTitle() call; a page with no title-editing activity has no
+   * entry here at all. Never populated for a draft — a draft's title is
+   * updateDraftTitle()'s job, unchanged (no commit/persist split needed
+   * before the draft is promoted).
+   */
+  private readonly titleStates = new Map<string, FieldEditState<string>>();
+
   constructor(
     private readonly vault: Vault,
     private readonly workspace: Workspace,
@@ -168,6 +193,12 @@ export class PageOperations {
 
     if (activePageId) {
       void this.requestSave(activePageId);
+      // Navigation-away is a "nothing dirty may survive this moment"
+      // boundary for the whole page, not just its body — an uncommitted,
+      // still-debouncing title rename must not be silently dropped here
+      // any more than an unsaved body edit is. A no-op if this page has no
+      // title-editing activity (requestTitleSave()'s own guard).
+      void this.requestTitleSave(activePageId);
     }
   }
 
@@ -444,6 +475,25 @@ export class PageOperations {
     // structurally cannot fire at all.
     this.saveCoordinator.cancelTimers(pageId);
     this.drafts.delete(pageId);
+    this.disposeTitleState(pageId);
+  }
+
+  /**
+   * Tears down a page's title channel, if it has one — the title
+   * counterpart to DocumentRegistry.close()'s session teardown, called
+   * from both close() and delete() for the same reason: no armed timer or
+   * live FieldEditState may outlive the page it belongs to.
+   */
+  private disposeTitleState(pageId: string): void {
+    const titleState = this.titleStates.get(pageId);
+
+    if (!titleState) {
+      return;
+    }
+
+    this.saveCoordinator.cancelTimers(this.titleChannelKey(pageId));
+    titleState.markDisposed();
+    this.titleStates.delete(pageId);
   }
 
   public getSession(pageId: string): DocumentSession | undefined {
@@ -483,7 +533,7 @@ export class PageOperations {
       return;
     }
 
-    this.saveCoordinator.scheduleSave(session, () => {
+    this.saveCoordinator.scheduleSave(session.id, () => {
       void this.requestSave(pageId);
     });
   }
@@ -547,7 +597,7 @@ export class PageOperations {
     }
 
     for (;;) {
-      const decision = this.saveCoordinator.evaluate(session);
+      const decision = this.saveCoordinator.evaluate(session.state, session.isDirty);
 
       if (decision === 'suppress') {
         return;
@@ -575,6 +625,121 @@ export class PageOperations {
         // rejectSaveRequest() needs to handle.
         if (session.state !== DocumentState.SaveError) {
           this.saveCoordinator.rejectSaveRequest(session);
+        }
+        return;
+      }
+    }
+  }
+
+  /** The title channel's SaveCoordinator key — distinct from `pageId` so it can never collide with the body channel's timers/stale-guard entries for the same page. */
+  private titleChannelKey(pageId: string): string {
+    return `${pageId}:title`;
+  }
+
+  /**
+   * Commits a persisted page's title in memory only — the title-channel
+   * counterpart to commitEdit() (autosave-execution-model.md §3.1's
+   * "commit without persisting" contract), then arms the title channel's
+   * own, longer-cadence timers (TITLE_AUTOSAVE_DEBOUNCE_MS/CEILING_MS —
+   * see their own doc comment for why title uses a different policy than
+   * the body while sharing the identical SaveCoordinator mechanism).
+   *
+   * Only valid for a real, persisted page — a draft's title has no
+   * separate commit/persist split and continues to go through
+   * updateDraftTitle() unconditionally; a caller mistakenly calling this
+   * for a draft id fails loudly here rather than entering a save loop
+   * that can only ever fail (the Gate's 'rename' kind abandons for an id
+   * with no Vault page).
+   */
+  public commitTitle(pageId: string, title: string): void {
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    const titleState = this.titleStates.get(pageId) ?? new FieldEditState(page.name);
+
+    this.titleStates.set(pageId, titleState);
+    titleState.commit(title);
+
+    this.saveCoordinator.scheduleSave(
+      this.titleChannelKey(pageId),
+      () => {
+        void this.requestTitleSave(pageId);
+      },
+      { debounceMs: TITLE_AUTOSAVE_DEBOUNCE_MS, ceilingMs: TITLE_AUTOSAVE_CEILING_MS }
+    );
+  }
+
+  /**
+   * The title channel's counterpart to requestSave() — same single-entry-
+   * point, coalescing, and never-throws contract, evaluated against the
+   * page's FieldEditState<string> instead of its DocumentSession. Every
+   * trigger that should flush a still-debouncing title (its own timer,
+   * blur, navigation-away, shutdown) calls this; a body-only trigger
+   * (the body's own debounce) never does, so the two channels' cadences
+   * stay genuinely independent (see SaveCoordinator's class doc comment).
+   *
+   * A silent no-op if this page has no title-editing activity (no
+   * FieldEditState was ever created) — mirrors runRequestSave()'s "no
+   * session" no-op for a page that was never opened.
+   */
+  public requestTitleSave(pageId: string): Promise<void> {
+    const key = this.titleChannelKey(pageId);
+    const existing = this.inFlightSaves.get(key);
+
+    if (existing) {
+      return existing;
+    }
+
+    const promise = this.runRequestTitleSave(pageId).finally(() => {
+      if (this.inFlightSaves.get(key) === promise) {
+        this.inFlightSaves.delete(key);
+      }
+    });
+
+    this.inFlightSaves.set(key, promise);
+
+    return promise;
+  }
+
+  private async runRequestTitleSave(pageId: string): Promise<void> {
+    const titleState = this.titleStates.get(pageId);
+
+    if (!titleState) {
+      return;
+    }
+
+    const key = this.titleChannelKey(pageId);
+
+    for (;;) {
+      const decision = this.saveCoordinator.evaluate(titleState.state, titleState.isDirty);
+
+      if (decision === 'suppress') {
+        return;
+      }
+
+      const value = titleState.currentValue;
+
+      titleState.beginSave();
+      this.saveCoordinator.beginChannelSave(key, value);
+
+      try {
+        await this.rename(pageId, value);
+
+        if (this.saveCoordinator.completeChannelSave(key, value)) {
+          titleState.markSaved(value);
+        }
+      } catch {
+        // Mirrors runRequestSave()'s T11a/T11b split: rename() can throw
+        // either before enqueueing (page not found — a title-channel
+        // entry for a since-deleted page) or after a Gate failure. Either
+        // way, only a still-current (non-stale) failure should transition
+        // this channel to SaveError — a superseded attempt's failure must
+        // not clobber a newer, still-in-flight or already-succeeded one.
+        if (this.saveCoordinator.failChannelSave(key, value)) {
+          titleState.markSaveFailed();
         }
         return;
       }
@@ -613,13 +778,24 @@ export class PageOperations {
       .getAll()
       .filter((session) => session.isDirty || session.state === DocumentState.Saving);
 
-    if (dirtyOrSaving.length === 0) {
+    // Shutdown is the same "nothing dirty may survive this moment"
+    // boundary flushActivePage() already applies to navigation, extended
+    // to every open page's title channel, not just the active one's.
+    const dirtyOrSavingTitlePageIds = [...this.titleStates.entries()]
+      .filter(
+        ([, titleState]) =>
+          titleState.isDirty || titleState.state === DocumentState.Saving
+      )
+      .map(([pageId]) => pageId);
+
+    if (dirtyOrSaving.length === 0 && dirtyOrSavingTitlePageIds.length === 0) {
       return;
     }
 
-    const flushes = Promise.allSettled(
-      dirtyOrSaving.map((session) => this.requestSave(session.id))
-    );
+    const flushes = Promise.allSettled([
+      ...dirtyOrSaving.map((session) => this.requestSave(session.id)),
+      ...dirtyOrSavingTitlePageIds.map((pageId) => this.requestTitleSave(pageId)),
+    ]);
 
     await Promise.race([
       flushes,
@@ -984,6 +1160,7 @@ export class PageOperations {
     // a timer behind that could still fire against it.
     this.saveCoordinator.cancelTimers(pageId);
     this.drafts.delete(pageId);
+    this.disposeTitleState(pageId);
 
     await this.coordinator.enqueue(pageId, { kind: 'delete' });
 
