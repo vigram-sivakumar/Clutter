@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
-import type { Vault } from '@core/vault/models/Vault';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { buildNoteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 
@@ -14,15 +14,19 @@ function isPage(entry: Page | Folder): entry is Page {
 
 type TopBarResourceType = PageType | 'folder' | 'reserved-folder';
 
+// ADR-023: routes through MembershipSelector.isSystemFolder() rather than
+// calling Vault.isReservedFolder() directly — the single owning
+// classification layer for "is this a system/reserved folder," same as
+// systemPresentation.ts's getSystemLocationForFolder().
 function getTopBarResourceType(
   resource: Page | Folder,
-  vault: Vault
+  membershipSelector: MembershipSelector
 ): TopBarResourceType {
   if (isPage(resource)) {
     return resource.type;
   }
 
-  if (vault.isReservedFolder(resource)) {
+  if (membershipSelector.isSystemFolder(resource)) {
     return 'reserved-folder';
   }
 
@@ -55,7 +59,7 @@ export interface TopBarParts {
 }
 
 export interface BuildTopBarActionsOptions {
-  vault: Vault;
+  membershipSelector: MembershipSelector;
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
@@ -68,7 +72,7 @@ export function buildTopBarActions(
   resource: Page | Folder,
   options: BuildTopBarActionsOptions
 ): TopBarParts {
-  const resourceType = getTopBarResourceType(resource, options.vault);
+  const resourceType = getTopBarResourceType(resource, options.membershipSelector);
   const menu = isPage(resource)
     ? buildMenuForType(resource.type, resource.metadata.status)
     : undefined;

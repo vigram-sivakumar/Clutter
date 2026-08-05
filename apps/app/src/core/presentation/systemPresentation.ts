@@ -1,6 +1,6 @@
 import type { SystemIcon } from '@shared/icon';
 import type { Folder } from '@core/vault/models/Folder';
-import type { Vault } from '@core/vault/models/Vault';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { reservedFolderIdForName } from '@core/vault/initialize/ReservedResources';
 
 /**
@@ -106,17 +106,20 @@ export function getSystemLocationPresentation(
  * every consumer that has a Folder in hand (breadcrumb ancestors, the
  * page header for a directly-viewed folder, and any future one) resolves
  * this, rather than each re-deriving "is this Archive/Inbox/Templates/
- * Daily Notes" itself. Reuses Vault.isReservedFolder() for the "is this
- * actually reserved, not just named the same thing" check (path/parentId
- * -aware) instead of reimplementing it, and reservedFolderIdForName() for
- * the name→id lookup. 'clutter' is reserved but never a presented
- * location — excluded the same way an unreserved folder is.
+ * Daily Notes" itself. Reuses MembershipSelector.isSystemFolder() (ADR-023)
+ * for the "is this actually reserved, not just named the same thing"
+ * check (path/parentId-aware) instead of reimplementing it or calling
+ * Vault.isReservedFolder() directly — MembershipSelector is the single
+ * owning classification layer every system-folder question routes
+ * through — and reservedFolderIdForName() for the name→id lookup.
+ * 'clutter' is reserved but never a presented location — excluded the
+ * same way an unreserved folder is.
  */
 export function getSystemLocationForFolder(
   folder: Folder,
-  vault: Vault
+  membershipSelector: MembershipSelector
 ): SystemLocationId | undefined {
-  if (!vault.isReservedFolder(folder)) {
+  if (!membershipSelector.isSystemFolder(folder)) {
     return undefined;
   }
 

@@ -145,9 +145,9 @@ function toFilteredCollectionPageModel(
 
 function toFolderCollectionPageModel(
   folder: Folder,
-  vault: Vault,
   query: VaultQuery,
   effectivePageState: EffectivePageState,
+  membershipSelector: MembershipSelector,
   workspace: Workspace,
   actions: CollectionPageActions
 ): CollectionPageModel {
@@ -167,7 +167,7 @@ function toFolderCollectionPageModel(
   // directly gets its canonical system-location label instead of the raw
   // Vault folder name — same helper buildBreadcrumbs' ancestor handling
   // uses, so the two surfaces can't drift.
-  const systemLocation = getSystemLocationForFolder(folder, vault);
+  const systemLocation = getSystemLocationForFolder(folder, membershipSelector);
   const title = systemLocation
     ? getSystemLocationPresentation(systemLocation).label
     : folder.name;
@@ -191,7 +191,14 @@ export function toCollectionPageModel(
   actions: CollectionPageActions
 ): CollectionPageModel {
   if (isFolderSource(source)) {
-    return toFolderCollectionPageModel(source, vault, query, effectivePageState, workspace, actions);
+    return toFolderCollectionPageModel(
+      source,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      actions
+    );
   }
 
   return toFilteredCollectionPageModel(

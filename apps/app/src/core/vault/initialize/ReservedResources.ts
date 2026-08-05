@@ -96,11 +96,10 @@ export function reservedFolderRelativePath(id: ReservedFolderId): string {
  * The inverse of reservedFolderRelativePath: which reserved id (if any) a
  * top-level folder's name corresponds to. Name-only, deliberately not
  * vault-root/path-aware — callers that need to confirm a folder is
- * actually reserved (not just named the same thing) call
- * Vault.isReservedFolder() first, the same composition
- * MembershipSelector.isWorkspaceFolder()/isSystemFolder() (ADR-023) and
- * getSystemLocationForFolder() already rely on, rather than this function
- * reimplementing that path/parentId check itself.
+ * actually reserved (not just named the same thing) go through
+ * MembershipSelector.isSystemFolder()/isWorkspaceFolder() (ADR-023) —
+ * which itself calls Vault.isReservedFolder(), the one path/parentId-aware
+ * check — rather than this function reimplementing that check itself.
  */
 export function reservedFolderIdForName(name: string): ReservedFolderId | undefined {
   return (Object.entries(RESERVED_FOLDER_IDS) as [ReservedFolderId, string][]).find(

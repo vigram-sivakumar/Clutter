@@ -1,6 +1,7 @@
 import type { Vault } from '@core/vault/models/Vault';
 import type { Page, PageType } from '@core/vault/models/Page';
 import type { Folder } from '@core/vault/models/Folder';
+import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { isToday } from '@shared/helpers/time';
 
 import type { Breadcrumb } from './Breadcrumb';
@@ -49,6 +50,7 @@ function getEntryIcon(entry: Page | Folder) {
 function ancestorBreadcrumbs(
   folderId: string | null,
   vault: Vault,
+  membershipSelector: MembershipSelector,
   onOpenFolder: (folderId: string) => void
 ): Breadcrumb[] {
   const ancestors: Breadcrumb[] = [];
@@ -67,7 +69,7 @@ function ancestorBreadcrumbs(
     // same presentation an ordinary folder never has, since it's not one.
     // No emoji override for these: they're fixed, non-customizable system
     // icons, same as Tasks/Tags/Search already are.
-    const systemLocation = getSystemLocationForFolder(folder, vault);
+    const systemLocation = getSystemLocationForFolder(folder, membershipSelector);
     const presentation = systemLocation
       ? getSystemLocationPresentation(systemLocation)
       : undefined;
@@ -89,6 +91,7 @@ function ancestorBreadcrumbs(
 export function buildBreadcrumbs(
   entry: Page | Folder,
   vault: Vault,
+  membershipSelector: MembershipSelector,
   onOpenFolder: (folderId: string) => void
 ): Breadcrumb[] {
   // Root-level entries have no breadcrumb trail. Breadcrumbs exist to
@@ -102,7 +105,7 @@ export function buildBreadcrumbs(
     return [];
   }
 
-  const ancestors = ancestorBreadcrumbs(entry.parentId, vault, onOpenFolder);
+  const ancestors = ancestorBreadcrumbs(entry.parentId, vault, membershipSelector, onOpenFolder);
 
   ancestors.push({
     id: entry.id,
@@ -127,6 +130,7 @@ export function buildBreadcrumbsForDraft(
   title: string,
   type: PageType,
   vault: Vault,
+  membershipSelector: MembershipSelector,
   onOpenFolder: (folderId: string) => void
 ): Breadcrumb[] {
   // Root-level entries have no breadcrumb trail — same policy as
@@ -135,7 +139,7 @@ export function buildBreadcrumbsForDraft(
     return [];
   }
 
-  const ancestors = ancestorBreadcrumbs(folderId, vault, onOpenFolder);
+  const ancestors = ancestorBreadcrumbs(folderId, vault, membershipSelector, onOpenFolder);
 
   ancestors.push({
     id: draftId,

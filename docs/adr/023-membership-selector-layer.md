@@ -150,6 +150,19 @@ The originating audit's §4/§2.4 grouped four `page.metadata.status === 'archiv
 
 This is recorded here rather than left as a silent no-op so a future reader doesn't rediscover the same four call sites and re-attempt a consolidation rule 5's amendment already forbids.
 
+## Amendment (implementation closure): remaining direct `Vault.isReservedFolder()` callers routed through the layer
+
+A post-implementation sweep of the whole codebase for membership logic bypassing `MembershipSelector` (patterns: `page.type ===`, `folderId ===`, `parentId ===`, `isReservedFolder`, `RESERVED_FOLDER_NAMES`, `status === 'archived'`, folder-hierarchy traversal used for ownership) found every remaining hit was either the layer's own canonical implementation, a legitimately different responsibility (write-path structural guards, per the Phase 5 amendment above; structural folder navigation; presentation formatting), or two residual direct callers of `Vault.isReservedFolder()`:
+
+- `systemPresentation.ts`'s `getSystemLocationForFolder()`
+- `app/layouts/page/topbar/buildTopBarActions.tsx`'s `getTopBarResourceType()`
+
+Both answered "is this folder a system/reserved folder" — a question §4 explicitly names as `MembershipSelector`'s — without going through it, even though (unlike the pre-Phase-2 `getVisibleRootFolders()` case) there was no logic divergence, only a bypass of the intended single entry point. Both are now migrated to call `membershipSelector.isSystemFolder()` instead of `vault.isReservedFolder()` directly. This required threading `MembershipSelector` through `buildBreadcrumbs()`/`buildBreadcrumbsForDraft()`/`ancestorBreadcrumbs()` (which call `getSystemLocationForFolder()`) and through `buildTopBarActions()`'s options, and adding it as a fourth parameter on `toFolderCollectionPageModel()` (which also calls `getSystemLocationForFolder()`, previously passing `vault` — now unused there and removed).
+
+No behavior changed: `isSystemFolder()` delegates to the identical `vault.isReservedFolder()` call, just from one place instead of three. Verification (`tsc --noEmit`, full vitest suite) confirmed zero regressions.
+
+**Post-sweep verification confirms no remaining ownership bypasses.** Every membership question named in §4 (Workspace, Notes, Daily Notes, system-folder, archive-visibility) now has exactly one call path into `MembershipSelector`, with no direct alternate route to the same answer anywhere in `apps/app/src` outside test files. This closes the ADR-023 implementation arc — Phases 1–6 plus this closing sweep.
+
 ## Why This Approach Is Preferred
 
 It is the only option of the four considered that closes the gap without either bloating an existing frozen contract past its documented boundary (Options A/B) or leaving the duplication in place merely relocated (Options C/D). It mirrors ADR-020's own precedent exactly: a real, named gap in the read-side architecture, closed by a new, narrow Application-Layer subsystem with a scoped input contract and an explicit "must never own" boundary — not a redesign of anything already working, and not a new general-purpose place for business logic to accumulate.

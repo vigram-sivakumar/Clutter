@@ -132,8 +132,8 @@ export function PageHost({ application }: PageHostProps) {
       }
     );
 
-    const breadcrumbs = buildBreadcrumbs(folder, vault, onOpenFolder);
-    const topBar = buildTopBarActions(folder, { vault });
+    const breadcrumbs = buildBreadcrumbs(folder, vault, application.membershipSelector, onOpenFolder);
+    const topBar = buildTopBarActions(folder, { membershipSelector: application.membershipSelector });
 
     return (
       <Page
@@ -234,6 +234,7 @@ export function PageHost({ application }: PageHostProps) {
       draft.title ?? getPageTitlePlaceholder(draft.type),
       draft.type,
       vault,
+      application.membershipSelector,
       onOpenFolder
     );
     const model = toDraftPageModel(
@@ -275,7 +276,7 @@ export function PageHost({ application }: PageHostProps) {
     );
   }
 
-  const breadcrumbs = buildBreadcrumbs(page, vault, onOpenFolder);
+  const breadcrumbs = buildBreadcrumbs(page, vault, application.membershipSelector, onOpenFolder);
 
   // Note and Daily Note render identically today (both markdown-editable,
   // both resolve through toResourcePageModel/buildTopBarActions) — this
@@ -295,7 +296,12 @@ export function PageHost({ application }: PageHostProps) {
     onRequestSave,
     onUpdateDescription
   );
-  const topBar = buildTopBarActions(page, { vault, onArchive, onRestore, onDelete });
+  const topBar = buildTopBarActions(page, {
+    membershipSelector: application.membershipSelector,
+    onArchive,
+    onRestore,
+    onDelete,
+  });
 
   return (
     <Page

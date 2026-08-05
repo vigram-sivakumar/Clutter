@@ -161,7 +161,9 @@ export function FolderTree({
         const subFolders = query.getChildFolders(folder.id);
         // Checks if the folder is empty
         const isEmpty = subFolders.length === 0 && childPages.length === 0;
-        const isExpanded = workspace.isFolderExpanded(folder.id);
+        // Empty folders default to collapsed rather than Workspace's normal
+        // expanded-by-default state, since there's nothing to reveal.
+        const isExpanded = isEmpty ? false : workspace.isFolderExpanded(folder.id);
 
         return (
           <Fragment key={folder.id}>
