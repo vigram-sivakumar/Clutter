@@ -105,6 +105,27 @@ describe('Vault.setTagMetadata', () => {
 
     expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦' }]);
   });
+
+  it('drops a tag from vault.tags() once its last Markdown occurrence is removed, even though its metadata entry still exists — tags.json never manufactures tag existence on its own', () => {
+    const page = makePage({
+      id: 'page-1',
+      path: '/vault/Note.md',
+      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] },
+    });
+    const vault = makeVault([page]);
+
+    vault.setTagMetadata(new Map([['project', { icon: '📦' }]]));
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦' }]);
+
+    // The tag's only occurrence is edited out of the Markdown — an ordinary
+    // page save/rebuild, going through no tag-specific code path.
+    vault.replacePage({ ...page, analysis: defaultAnalysis });
+
+    // The metadata entry is still present (setTagMetadata was never called
+    // again to remove it) — proving orphaned metadata alone can never
+    // resurrect or sustain a Tag once Markdown stops mentioning it.
+    expect([...vault.tags()]).toEqual([]);
+  });
 });
 
 describe('Vault.isReservedFolder', () => {
