@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { TagBuilder } from './TagBuilder';
 import type { Page } from '../models';
 
-function makePage(name: string, tagNames: readonly string[]): Page {
+function makePage(
+  name: string,
+  tagNames: readonly string[],
+  type: Page['type'] = 'note'
+): Page {
   return {
     id: `page-${name}`,
-    type: 'note',
+    type,
     name,
     path: `/vault/${name}.md`,
     parentId: null,
@@ -51,7 +55,7 @@ describe('TagBuilder', () => {
       new Map([['project', { icon: '📦' }]])
     );
 
-    expect(tags).toEqual([{ name: 'project', icon: '📦', favorite: false }]);
+    expect(tags).toEqual([{ name: 'project', icon: '📦', favorite: false, usageCount: 1 }]);
   });
 
   it('never manufactures a Tag from metadata alone — markdown determines existence', () => {
@@ -106,5 +110,51 @@ describe('TagBuilder', () => {
     );
 
     expect(tags[0]!.favorite).toBe(true);
+  });
+
+  describe('usageCount', () => {
+    it('counts multiple occurrences within the same page as one', () => {
+      const builder = new TagBuilder();
+      const tags = builder.build([
+        makePage('a', ['project', 'project', 'project', 'project', 'project']),
+      ]);
+
+      expect(tags[0]!.usageCount).toBe(1);
+    });
+
+    it('counts each unique page once, regardless of occurrence count within it', () => {
+      const builder = new TagBuilder();
+      // Note A: 5 mentions, Note B: 1 mention, Daily Note C: 3 mentions —
+      // matches the exact scenario from the requirement: displayed count
+      // must be 3 (unique pages), not 9 (total occurrences).
+      const tags = builder.build([
+        makePage('noteA', ['project', 'project', 'project', 'project', 'project']),
+        makePage('noteB', ['project']),
+        makePage('dailyC', ['project', 'project', 'project'], 'daily-note'),
+      ]);
+
+      expect(tags[0]!.usageCount).toBe(3);
+    });
+
+    it('counts notes and daily notes equally, with no type-based distinction', () => {
+      const builder = new TagBuilder();
+      const tags = builder.build([
+        makePage('note', ['project'], 'note'),
+        makePage('daily', ['project'], 'daily-note'),
+      ]);
+
+      expect(tags[0]!.usageCount).toBe(2);
+    });
+
+    it('tracks usageCount independently per tag name', () => {
+      const builder = new TagBuilder();
+      const tags = builder.build([
+        makePage('a', ['project', 'design']),
+        makePage('b', ['project']),
+      ]);
+
+      expect(tags.find((tag) => tag.name === 'project')?.usageCount).toBe(2);
+      expect(tags.find((tag) => tag.name === 'design')?.usageCount).toBe(1);
+    });
   });
 });

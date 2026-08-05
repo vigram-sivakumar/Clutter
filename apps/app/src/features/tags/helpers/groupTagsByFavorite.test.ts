@@ -3,7 +3,7 @@ import { groupTagsByFavorite } from './groupTagsByFavorite';
 import type { Tag } from '@core/vault/models/Tag';
 
 function tag(name: string, favorite: boolean): Tag {
-  return { name, favorite };
+  return { name, favorite, usageCount: 0 };
 }
 
 describe('groupTagsByFavorite', () => {

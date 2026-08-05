@@ -15,6 +15,12 @@ export interface Tag {
   // so favorite-based grouping is correct today and needs no redesign once
   // toggling ships.
   readonly favorite: boolean;
+  // Number of unique pages (notes and daily notes alike — no distinction
+  // made) that reference this tag at least once. Not an occurrence count:
+  // five #project mentions in one note contribute 1, not 5. Derived
+  // entirely from Pages (TagBuilder), same as the rest of Tag — never
+  // stored, never able to drift from what Markdown actually contains.
+  readonly usageCount: number;
 }
 
 // Presentation-only metadata assigned to a Tag entity by the user, keyed by

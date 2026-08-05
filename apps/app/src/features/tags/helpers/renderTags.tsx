@@ -15,7 +15,7 @@ export function renderTags(tags: readonly TagModel[]) {
             key={tag.name}
             title={tag.name}
             emoji={tag.icon}
-            count={0}
+            count={tag.usageCount}
             isFavorite
             onClick={() => {}}
           />
@@ -29,7 +29,7 @@ export function renderTags(tags: readonly TagModel[]) {
             key={tag.name}
             title={tag.name}
             emoji={tag.icon}
-            count={0}
+            count={tag.usageCount}
             onClick={() => {}}
           />
         ))}

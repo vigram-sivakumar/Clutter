@@ -13,7 +13,7 @@ afterEach(() => {
 describe('renderTags', () => {
   it('renders the assigned icon for a tag that has one', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'project', icon: '📦', favorite: false }])}</>
+      <>{renderTags([{ name: 'project', icon: '📦', favorite: false, usageCount: 0 }])}</>
     );
 
     expect(screen.getAllByText('📦').length).toBeGreaterThan(0);
@@ -22,7 +22,7 @@ describe('renderTags', () => {
 
   it('falls back to the default tag icon when icon is absent', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'design', favorite: false }])}</>
+      <>{renderTags([{ name: 'design', favorite: false, usageCount: 0 }])}</>
     );
 
     // No emoji span rendered anywhere for this tag — AppIcon falls back to
@@ -31,15 +31,23 @@ describe('renderTags', () => {
     expect(screen.getAllByText('design').length).toBeGreaterThan(0);
   });
 
+  it('displays usageCount as the trailing value', () => {
+    render(
+      <>{renderTags([{ name: 'project', favorite: false, usageCount: 3 }])}</>
+    );
+
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
   it('a tag with favorite: false renders only in the remaining section, never in Favorites', () => {
-    render(<>{renderTags([{ name: 'project', favorite: false }])}</>);
+    render(<>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }])}</>);
 
     expect(screen.getAllByText('project')).toHaveLength(1);
     expect(screen.queryByText('Favorites')).toBeNull();
   });
 
   it('a tag with favorite: true renders only in Favorites, never in the remaining section', () => {
-    render(<>{renderTags([{ name: 'project', favorite: true }])}</>);
+    render(<>{renderTags([{ name: 'project', favorite: true, usageCount: 0 }])}</>);
 
     expect(screen.getAllByText('project')).toHaveLength(1);
     expect(screen.getByText('Favorites')).toBeInTheDocument();
@@ -49,8 +57,8 @@ describe('renderTags', () => {
     render(
       <>
         {renderTags([
-          { name: 'project', favorite: false },
-          { name: 'design', favorite: false },
+          { name: 'project', favorite: false, usageCount: 0 },
+          { name: 'design', favorite: false, usageCount: 0 },
         ])}
       </>
     );
@@ -60,7 +68,7 @@ describe('renderTags', () => {
 
   it('renders the remaining section without a header when it is the only visible section', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'project', favorite: false }])}</>
+      <>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }])}</>
     );
 
     expect(container.querySelectorAll('.section-header')).toHaveLength(0);
@@ -70,8 +78,8 @@ describe('renderTags', () => {
     const { container } = render(
       <>
         {renderTags([
-          { name: 'project', favorite: true },
-          { name: 'design', favorite: false },
+          { name: 'project', favorite: true, usageCount: 0 },
+          { name: 'design', favorite: false, usageCount: 0 },
         ])}
       </>
     );
@@ -84,8 +92,8 @@ describe('renderTags', () => {
     render(
       <>
         {renderTags([
-          { name: 'project', favorite: true },
-          { name: 'design', favorite: false },
+          { name: 'project', favorite: true, usageCount: 0 },
+          { name: 'design', favorite: false, usageCount: 0 },
         ])}
       </>
     );
