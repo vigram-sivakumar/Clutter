@@ -6,7 +6,7 @@ import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBui
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
 import { Workspace } from '../../workspace/Workspace';
 import { FolderOperations } from '../folder/FolderOperations';
-import { FolderPathResolver } from '../folder/FolderPathResolver';
+import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from '../folder/FolderCreator';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { MoveService } from '../../vault/persistence/MoveService';

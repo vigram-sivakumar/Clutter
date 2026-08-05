@@ -1,4 +1,4 @@
-import type { Vault } from '../vault/models/Vault';
+import type { Vault } from '../models/Vault';
 
 /**
  * Resolves a destination folder id to its path, or the vault root when

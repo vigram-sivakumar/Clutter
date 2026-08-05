@@ -54,7 +54,7 @@ export interface SystemLocationPresentation {
 export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   Record<SystemLocationId, SystemLocationPresentation>
 > = {
-  notes: { id: 'notes', label: 'Notes', icon: 'squiggleLine' },
+  notes: { id: 'notes', label: 'Notes', icon: 'note' },
   'daily-notes': {
     id: 'daily-notes',
     label: 'Daily Notes',

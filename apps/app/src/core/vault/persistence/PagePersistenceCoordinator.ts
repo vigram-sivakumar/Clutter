@@ -9,6 +9,7 @@ import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { PageBuilder } from '../ingest/PageBuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
+import { FolderPathResolver } from './FolderPathResolver';
 import type { ScannedPage, ScannedDirectory } from '../ingest/VaultScanResult';
 import { VaultPath } from '../ingest/VaultPath';
 import { MoveService } from './MoveService';
@@ -51,7 +52,15 @@ export type PersistenceOperation =
       readonly path: string;
       readonly parentId: string | null;
       readonly content: string;
-    };
+    }
+  | { readonly kind: 'delete-folder' }
+  // ADR-024 amendment: interim, explicitly time-boxed kind — same-parent
+  // path change only (no destinationFolderId in its shape, so it cannot
+  // express a move even by caller error). Retired and merged into the
+  // originally-specified unified 'move-folder' kind once FolderOperations.move()
+  // ships with its Folder Picker UI; see the ADR's implementation-sequencing
+  // amendment.
+  | { readonly kind: 'rename-folder'; readonly name: string };
 
 export type PersistenceResult =
   | {
@@ -67,6 +76,13 @@ export type PersistenceResult =
     }
   | {
       readonly status: 'folder-created';
+      readonly folder: Folder;
+    }
+  | {
+      readonly status: 'folder-deleted';
+    }
+  | {
+      readonly status: 'folder-renamed';
       readonly folder: Folder;
     };
 
@@ -153,6 +169,18 @@ export class PagePersistenceCoordinator {
 
     if (operation.kind === 'create-folder') {
       return this.runCreateFolder(id, operation);
+    }
+
+    // Folder-scoped kinds, keyed by folder id (spec §7) — dispatched here,
+    // like 'create'/'create-folder' above, because the page-existence
+    // guard right below would incorrectly abandon them (a folder id never
+    // resolves via vault.getPage).
+    if (operation.kind === 'delete-folder') {
+      return this.runDeleteFolder(id);
+    }
+
+    if (operation.kind === 'rename-folder') {
+      return this.runRenameFolder(id, operation.name);
     }
 
     const current = this.vault.getPage(id);
@@ -355,6 +383,91 @@ export class PagePersistenceCoordinator {
     }
 
     return { status: 'folder-created', folder: built };
+  }
+
+  /**
+   * Cascade-deletes a folder and everything nested inside it (ADR-024 §5).
+   * Reuses Vault.getDescendantFoldersAndPages() — the one implementation of
+   * this subtree walk — for both the disk-deletion order and, ultimately,
+   * Vault.removeFolder()'s own cascade.
+   *
+   * Deletes bottom-up: every descendant page's file first (order doesn't
+   * matter among these — they're leaves), then every descendant folder's
+   * directory deepest-first, then the target folder's own directory last.
+   * This is why no recursive-delete Platform capability is needed
+   * (ARCHITECTURE_RULES.md rule 4's Alternative B, rejected in the ADR):
+   * by construction, every path still inside a directory has already been
+   * removed by the time that directory itself is deleted, so the existing
+   * single-entry deleteFile() is always deleting an empty directory.
+   */
+  private async runDeleteFolder(folderId: string): Promise<PersistenceResult> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return {
+        status: 'abandoned',
+        reason: `Folder no longer exists in the vault: ${folderId}`,
+      };
+    }
+
+    const { folders: descendantFolders, pages: descendantPages } =
+      this.vault.getDescendantFoldersAndPages(folderId);
+
+    for (const page of descendantPages) {
+      await this.fileSystem.deleteFile(page.path);
+    }
+
+    // Deepest-first (longest path first) — a parent directory must still
+    // be empty of tracked descendants when its own deleteFile() call runs.
+    const foldersInnermostFirst = [...descendantFolders, folder].sort(
+      (a, b) => b.path.length - a.path.length
+    );
+
+    for (const folderToDelete of foldersInnermostFirst) {
+      const folderMetadataPath = `${folderToDelete.path}/.folder.md`;
+
+      if (await this.fileSystem.exists(folderMetadataPath)) {
+        await this.fileSystem.deleteFile(folderMetadataPath);
+      }
+
+      await this.fileSystem.deleteFile(folderToDelete.path);
+    }
+
+    this.vault.removeFolder(folderId);
+
+    return { status: 'folder-deleted' };
+  }
+
+  /**
+   * Renames a folder in place (ADR-024's interim 'rename-folder' kind —
+   * never reparents; see the ADR's implementation-sequencing amendment).
+   * moveFile() already cascades a directory move to every nested path
+   * (LocalFileSystem — a thin wrapper over the Tauri fs plugin's generic
+   * rename(); InMemoryVaultFileSystem — fixed to match), so one call moves
+   * the folder and everything inside it; Vault.moveFolder() then applies
+   * the identical cascade to the in-memory model.
+   */
+  private async runRenameFolder(
+    folderId: string,
+    name: string
+  ): Promise<PersistenceResult> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return {
+        status: 'abandoned',
+        reason: `Folder no longer exists in the vault: ${folderId}`,
+      };
+    }
+
+    const destination = new FolderPathResolver(this.vault).resolveRenamePath(folderId, name);
+
+    if (destination.path !== folder.path) {
+      await this.fileSystem.moveFile(folder.path, destination.path);
+      this.vault.moveFolder(folderId, destination.path, destination.parentId);
+    }
+
+    return { status: 'folder-renamed', folder: this.vault.getFolder(folderId)! };
   }
 
   private async runArchive(current: Page): Promise<PersistenceResult> {

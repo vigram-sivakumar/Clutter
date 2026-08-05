@@ -577,10 +577,18 @@ export class Vault {
       this.pagesByPath.delete(page.path);
     }
 
+    // name is recomputed from the new path's filename — until ADR-024, this
+    // method was only ever exercised by FolderOperations.create() (which
+    // never changes an existing folder's basename), so a change to the
+    // trailing path segment (a rename) never had a live caller to surface
+    // this. moveFolder() covers both move and rename (only the interim
+    // 'rename-folder' Gate kind calls it with a changed basename today,
+    // per the ADR's implementation-sequencing amendment).
     const movedFolder: Folder = {
       ...folder,
       path,
       parentId,
+      name: VaultPath.filename(path),
     };
 
     this.foldersById.set(folderId, movedFolder);

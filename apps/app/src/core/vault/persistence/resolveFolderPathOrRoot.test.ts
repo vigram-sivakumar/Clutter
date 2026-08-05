@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { resolveFolderPathOrRoot } from './resolveFolderPathOrRoot';
-import { Vault } from '../vault/models/Vault';
-import { VaultProjectionBuilder } from '../vault/knowledge/VaultProjectionBuilder';
-import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
-import type { Folder } from '../vault/models/Folder';
+import { Vault } from '../models/Vault';
+import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
+import { KnowledgeGraph } from '../models/graph/KnowledgeGraph';
+import type { Folder } from '../models/Folder';
 
 const ROOT = '/vault';
 

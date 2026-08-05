@@ -25,7 +25,7 @@ import { PageFactory } from '../application/page/PageFactory';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { FolderOperations } from '../application/folder/FolderOperations';
-import { FolderPathResolver } from '../application/folder/FolderPathResolver';
+import { FolderPathResolver } from '../vault/persistence/FolderPathResolver';
 import { FolderCreator } from '../application/folder/FolderCreator';
 import { DailyNoteService } from '../application/daily-notes/DailyNoteService';
 import { Workspace } from '../workspace/Workspace';

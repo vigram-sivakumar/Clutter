@@ -22,7 +22,7 @@ import {
   EMPTY_TAG_METADATA_FILE_CONTENTS,
 } from '../vault/initialize/ReservedResources';
 import { normalizeTagName, type TagMetadataEntry } from '../vault/models/Tag';
-import { FolderPathResolver } from './folder/FolderPathResolver';
+import { FolderPathResolver } from '../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './folder/FolderCreator';
 import { NavigationRouter } from './navigation/NavigationRouter';
 import { DocumentRegistry } from '../engine/DocumentRegistry';

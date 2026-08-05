@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FolderOperations } from './FolderOperations';
-import { FolderPathResolver } from './FolderPathResolver';
+import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './FolderCreator';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';

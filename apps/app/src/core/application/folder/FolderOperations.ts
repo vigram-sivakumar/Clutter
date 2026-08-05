@@ -1,7 +1,7 @@
 import { Vault } from '../../vault/models/Vault';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
-import { FolderPathResolver } from './FolderPathResolver';
+import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './FolderCreator';
 
 /**
