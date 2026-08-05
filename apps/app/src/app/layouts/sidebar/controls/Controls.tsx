@@ -5,17 +5,26 @@ import { AppIcon } from '@shared/icon';
 interface ControlsProps {
   isSidebarVisible: boolean;
   onToggleSidebarVisible(): void;
+  canNavigateBack: boolean;
+  canNavigateForward: boolean;
+  onNavigateBack(): void;
+  onNavigateForward(): void;
 }
 
 /**
- * History (back/forward) controls remain intentional placeholders — no
- * backing state exists for navigation history yet (ADR-016). The
- * sidebar-toggle button is no longer one: Workspace.isSidebarVisible
- * (ADR-021, M4) is its backing state.
+ * The sidebar-toggle button's backing state is Workspace.isSidebarVisible
+ * (ADR-021, M4). The history (back/forward) buttons' backing state is
+ * Workspace's navigation-history stacks, and their handlers are
+ * NavigationRouter.back()/forward() (ADR-027) — no longer the disabled
+ * placeholders ADR-016 kept them as.
  */
 export function Controls({
   isSidebarVisible,
   onToggleSidebarVisible,
+  canNavigateBack,
+  canNavigateForward,
+  onNavigateBack,
+  onNavigateForward,
 }: ControlsProps) {
   return (
     <div className="controls" data-tauri-drag-region>
@@ -32,10 +41,22 @@ export function Controls({
         </Button>
       </div>
       <div className="history-controls">
-        <Button isIconOnly size="medium" variant="ghost" disabled>
+        <Button
+          isIconOnly
+          size="medium"
+          variant="ghost"
+          disabled={!canNavigateBack}
+          onClick={onNavigateBack}
+        >
           <AppIcon icon="arrowLeft" />
         </Button>
-        <Button isIconOnly size="medium" variant="ghost" disabled>
+        <Button
+          isIconOnly
+          size="medium"
+          variant="ghost"
+          disabled={!canNavigateForward}
+          onClick={onNavigateForward}
+        >
           <AppIcon icon="arrowRight" />
         </Button>
       </div>
