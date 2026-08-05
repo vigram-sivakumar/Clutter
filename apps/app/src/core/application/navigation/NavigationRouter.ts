@@ -1,7 +1,8 @@
 import type { FolderOperations } from '../folder/FolderOperations';
+import type { PageOperations } from '../page/PageOperations';
 import type { Vault } from '../../vault/models/Vault';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
-import type { Workspace } from '../../workspace/Workspace';
+import type { ActiveView, Workspace } from '../../workspace/Workspace';
 
 /**
  * Translates named, view-level user intents into Workspace state changes
@@ -13,19 +14,119 @@ import type { Workspace } from '../../workspace/Workspace';
  * PageOperations.open()/FolderOperations.open(), which ARCHITECTURE_RULES.md
  * rule 9 forbids on any facade. Callers now hold a reference to
  * PageOperations/FolderOperations directly instead of going through this
- * class for those three — which is also why this class no longer depends
- * on PageOperations at all. Does not own navigation state — Workspace
- * remains the source of truth.
+ * class for those three. Does not own navigation state — Workspace remains
+ * the source of truth (this class owns none of the history stacks either;
+ * see back()/forward() below).
+ *
+ * back()/forward() (ADR-027) reintroduce a PageOperations dependency this
+ * class lost in Phase 4 — not a regression of that finding, since neither
+ * method is a bare forward: both combine a Workspace stack read, a Vault
+ * existence check, and a facade call, which is exactly the "compound
+ * intent" shape ADR-005 already scoped this class for.
  */
 export class NavigationRouter {
   private readonly folderOperations: FolderOperations;
+  private readonly pageOperations: PageOperations;
   private readonly vault: Vault;
   private readonly workspace: Workspace;
 
-  constructor(folderOperations: FolderOperations, vault: Vault, workspace: Workspace) {
+  constructor(
+    folderOperations: FolderOperations,
+    pageOperations: PageOperations,
+    vault: Vault,
+    workspace: Workspace
+  ) {
     this.folderOperations = folderOperations;
+    this.pageOperations = pageOperations;
     this.vault = vault;
     this.workspace = workspace;
+  }
+
+  /**
+   * Navigates to the previous entry in history (ADR-027), skipping past
+   * any entry whose target no longer exists in the Vault rather than
+   * invoking any fallback policy (that's a different concern — see
+   * PageOperations.delete()/Application.openFallbackPage(), ADR-025,
+   * which this method never calls). A no-op when there's nothing left to
+   * go back to.
+   */
+  public back(): void {
+    while (this.workspace.canNavigateBack) {
+      const entry = this.workspace.peekBack();
+
+      if (!entry) {
+        return;
+      }
+
+      if (!this.stillExists(entry)) {
+        this.workspace.discardBackEntry();
+        continue;
+      }
+
+      this.workspace.popBackForReplay();
+      this.commit(entry);
+      return;
+    }
+  }
+
+  /**
+   * Symmetric counterpart to back(). See its doc comment.
+   */
+  public forward(): void {
+    while (this.workspace.canNavigateForward) {
+      const entry = this.workspace.peekForward();
+
+      if (!entry) {
+        return;
+      }
+
+      if (!this.stillExists(entry)) {
+        this.workspace.discardForwardEntry();
+        continue;
+      }
+
+      this.workspace.popForwardForReplay();
+      this.commit(entry);
+      return;
+    }
+  }
+
+  /**
+   * A plain Vault read, not a fallback decision — used only to decide
+   * whether to keep walking the stack past a stale entry. Renamed or
+   * archived pages/folders are not stale by this check: rename changes
+   * path/title, archive changes status/folder, neither removes the Vault
+   * entry, so back()/forward() reopen them showing their current state,
+   * same as opening them from anywhere else would.
+   */
+  private stillExists(entry: ActiveView): boolean {
+    if (entry.type === 'page') {
+      return this.vault.getPage(entry.id) !== undefined;
+    }
+
+    if (entry.type === 'folder') {
+      return this.vault.getFolder(entry.id) !== undefined;
+    }
+
+    // Filtered views have no id to go stale — an empty result set is a
+    // normal, already-handled render state, not a missing-resource case.
+    return true;
+  }
+
+  /**
+   * Reactivates a validated history entry through the same path a normal
+   * open would use (session creation, outgoing-page flush), with
+   * recordHistory:false so replaying history is never itself recorded
+   * (ADR-027).
+   */
+  private commit(entry: ActiveView): void {
+    if (entry.type === 'page') {
+      void this.pageOperations.open(entry.id, { recordHistory: false });
+    } else if (entry.type === 'folder') {
+      void this.folderOperations.open(entry.id, { recordHistory: false });
+    } else {
+      this.workspace.openFilteredView(entry.view, { recordHistory: false });
+    }
   }
 
   public openArchive(): void {

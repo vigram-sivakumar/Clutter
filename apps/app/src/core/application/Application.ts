@@ -258,7 +258,12 @@ export class Application {
         void this.openFallbackPage();
       }
     );
-    this.navigation = new NavigationRouter(this.folderOperations, vault, this.workspace);
+    this.navigation = new NavigationRouter(
+      this.folderOperations,
+      this.pageOperations,
+      vault,
+      this.workspace
+    );
     // Same Gate instance every other facade writes through — a task
     // mutation is just another 'save' kind, never a second write path.
     this.taskOperations = new TaskOperations(vault, persistenceCoordinator);
