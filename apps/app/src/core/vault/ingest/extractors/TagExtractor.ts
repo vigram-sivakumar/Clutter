@@ -1,6 +1,7 @@
-import { normalizeTagName } from '../../models/Tag';
-
 export interface ScannedTagOccurrence {
+  // Exactly as typed in Markdown — never rewritten or case-normalized.
+  // normalizeTagName() exists for comparison (dedup, metadata lookup,
+  // future autocomplete matching), not for deciding what gets stored.
   readonly name: string;
 }
 
@@ -28,7 +29,7 @@ export class TagExtractor {
       }
 
       tags.push({
-        name: normalizeTagName(name),
+        name,
       });
     }
 

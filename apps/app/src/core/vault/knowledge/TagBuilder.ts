@@ -1,4 +1,13 @@
 import type { Page, Tag, TagMetadataEntry } from '../models';
+import { normalizeTagName } from '../models/Tag';
+
+interface TagAccumulator {
+  // First-typed casing wins for the same normalized identity — e.g. #Project
+  // in one page and #project in another still merge into one Tag, and this
+  // is the only place that decision gets made.
+  name: string;
+  pageIds: Set<string>;
+}
 
 export class TagBuilder {
   /**
@@ -6,43 +15,51 @@ export class TagBuilder {
    * occurrences, never tagMetadata's keys, so a metadata-only entry with no
    * occurrence anywhere in the vault never manufactures a Tag (see
    * .clutter/tags.json's "only tags with metadata exist" / orphan-entry
-   * handling). tagMetadata is enrichment consulted per name, once per
-   * unique name — never a second source of tag existence.
+   * handling). tagMetadata is enrichment consulted per normalized name,
+   * once per unique tag — never a second source of tag existence.
+   *
+   * normalizeTagName() is used here purely as a comparison/grouping key —
+   * it decides which occurrences are "the same tag," never what gets
+   * stored as Tag.name. The stored name is always the exact text the user
+   * typed (see TagAccumulator.name) — this is the one place in the whole
+   * pipeline where identity (normalized) and display (as-typed) diverge,
+   * and it stays local to this function, never promoted to a second field
+   * on Tag itself.
    */
   build(
     pages: readonly Page[],
     tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map()
   ): readonly Tag[] {
-    // Tracks which pages reference each tag name — a Set, so a tag
-    // mentioned five times in one page still only ever contributes that
-    // page's id once. usageCount (below) is this set's size: unique pages,
-    // never an occurrence count. No page-type distinction is made, so
-    // notes and daily notes contribute identically.
-    const pageIdsByTagName = new Map<string, Set<string>>();
+    const byNormalizedName = new Map<string, TagAccumulator>();
 
     for (const page of pages) {
       for (const occurrence of page.analysis.tags) {
-        if (!pageIdsByTagName.has(occurrence.name)) {
-          pageIdsByTagName.set(occurrence.name, new Set());
+        const key = normalizeTagName(occurrence.name);
+        let accumulator = byNormalizedName.get(key);
+
+        if (!accumulator) {
+          accumulator = { name: occurrence.name, pageIds: new Set() };
+          byNormalizedName.set(key, accumulator);
         }
 
-        pageIdsByTagName.get(occurrence.name)!.add(page.id);
+        accumulator.pageIds.add(page.id);
       }
     }
 
-    const tags: Tag[] = [...pageIdsByTagName.entries()].map(([name, pageIds]) => ({
-      name,
-      icon: tagMetadata.get(name)?.icon,
-      favorite: tagMetadata.get(name)?.favorite ?? false,
-      usageCount: pageIds.size,
-    }));
+    const tags: Tag[] = [...byNormalizedName.entries()].map(
+      ([key, { name, pageIds }]) => ({
+        name,
+        icon: tagMetadata.get(key)?.icon,
+        favorite: tagMetadata.get(key)?.favorite ?? false,
+        usageCount: pageIds.size,
+      })
+    );
 
     // Alphabetical (case-insensitive) is the default ordering for every
     // consumer of vault.tags() — sorted once here, not left to each reader
     // (sidebar, future collection views, search) to remember to do
-    // themselves. Occurrence names are already normalized to lowercase by
-    // TagExtractor, but comparing case-insensitively here doesn't depend on
-    // that staying true.
+    // themselves. This comparison, like the grouping above, never touches
+    // what's stored — only how the already-preserved names are ordered.
     return tags.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
     );

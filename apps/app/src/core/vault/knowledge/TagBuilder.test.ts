@@ -74,11 +74,6 @@ describe('TagBuilder', () => {
 
   it('sorts tags alphabetically, case-insensitively, regardless of occurrence order', () => {
     const builder = new TagBuilder();
-    // Occurrence names are already lowercased by TagExtractor in real
-    // usage; constructing 'Architecture' directly here (bypassing the
-    // extractor) isolates TagBuilder's own sort comparator — it must order
-    // case-insensitively without depending on that upstream normalization,
-    // and it must not itself alter the name's casing (that's not its job).
     const tags = builder.build([
       makePage('a', ['travel', 'Architecture', 'design']),
       makePage('b', ['groceries']),
@@ -110,6 +105,45 @@ describe('TagBuilder', () => {
     );
 
     expect(tags[0]!.favorite).toBe(true);
+  });
+
+  describe('casing', () => {
+    it('preserves a single, consistently-cased tag name exactly as typed', () => {
+      const builder = new TagBuilder();
+      const tags = builder.build([makePage('a', ['ProJET'])]);
+
+      expect(tags[0]!.name).toBe('ProJET');
+    });
+
+    it('merges differently-cased occurrences of the same tag, keeping the first-typed casing', () => {
+      const builder = new TagBuilder();
+      // #Project (page a, processed first) and #project (page b) are the
+      // same tag for dedup/counting purposes — normalizeTagName() decides
+      // that — but the stored, displayed name is never rewritten to
+      // lowercase; it's exactly what was first encountered.
+      const tags = builder.build([
+        makePage('a', ['Project']),
+        makePage('b', ['project']),
+      ]);
+
+      expect(tags).toHaveLength(1);
+      expect(tags[0]!.name).toBe('Project');
+      expect(tags[0]!.usageCount).toBe(2);
+    });
+
+    it('looks up metadata by normalized key even when occurrence casing differs from the tags.json key', () => {
+      const builder = new TagBuilder();
+      // tags.json keys are already normalized on read (TagOperations/
+      // bootstrap) — this confirms the builder's own lookup is normalized
+      // too, so #Project still resolves metadata stored under "project".
+      const tags = builder.build(
+        [makePage('a', ['Project'])],
+        new Map([['project', { icon: '📦' }]])
+      );
+
+      expect(tags[0]!.name).toBe('Project');
+      expect(tags[0]!.icon).toBe('📦');
+    });
   });
 
   describe('usageCount', () => {
