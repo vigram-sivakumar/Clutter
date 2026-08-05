@@ -439,13 +439,17 @@ Translate named, view-level user intents into `Workspace` state changes and/or `
     openSomedayTasks(): void;
     openCompletedTasks(): void;
     openAllTags(): void;
+    back(): void;
+    forward(): void;
   }
 ```
 
 Note what is **absent** compared to today's `NavigationService`: `openNote`, `openDailyNote`, `createNote`, `createTask`, `createTag` are deleted from this class — callers use `PageOperations.open`/`.create` directly, since those methods added no logic beyond forwarding.
 
+`back()`/`forward()` ([ADR-027](./adr/027-navigation-history.md)): walk `Workspace`'s navigation-history stacks one step, skipping any entry whose target no longer exists in the `Vault`, and reactivate the first valid one through `PageOperations.open()`/`FolderOperations.open()`/`Workspace.openFilteredView()` — each called with `{ recordHistory: false }` so the replay is never itself recorded. A no-op when the relevant stack is empty. Neither method is a bare forward (each combines a `Workspace` stack read, a `Vault` existence check, and a facade call), so their presence here does not reopen the "no unconditional forwards" finding that removed `openNote`/`openDailyNote`/`openFolder` in Phase 4.
+
 ### Internal collaborators
-`Vault`/`VaultQuery` (read-only, for filtered views), `Workspace` (state changes).
+`Vault`/`VaultQuery` (read-only, for filtered views), `Workspace` (state changes and history-stack reads), `PageOperations` (reactivating a page history entry — added by ADR-027; the class lost this dependency in Phase 4 for the unrelated reason above and regains it here for a genuinely non-forwarding use).
 
 ### Lifecycle
 Constructed once at the Composition Root. Stateless beyond its collaborators.
@@ -453,6 +457,7 @@ Constructed once at the Composition Root. Stateless beyond its collaborators.
 ### Invariants
 - No method body here is ever a bare forward to a single `PageOperations`/`FolderOperations` call — if it becomes one after a refactor, the method is deleted and callers redirected (enforced by code review, not tooling).
 - Never calls the Persistence Gate directly — if an intent needs to mutate a page/folder, it delegates to `PageOperations`/`FolderOperations`, it doesn't reimplement the mutation.
+- `back()`/`forward()` ([ADR-027](./adr/027-navigation-history.md)): a stale history entry is skipped via a plain `Vault.getPage()`/`getFolder()` existence read, never via a caught exception, and never by invoking `Application`'s delete-time fallback policy (ADR-025) — traversal and fallback are separate concerns. Committing a replayed entry always passes `recordHistory: false`; there is no code path by which `back()`/`forward()` cause a stack push.
 
 ### Concurrency model
 None needed — pure read/navigate operations, no writes.
@@ -541,8 +546,9 @@ Own transient navigation UI state: active page/folder, open pages, expanded fold
 
 ```ts
 + class Workspace {
-    openPage(pageId: string): void;
-    openFolder(folderId: string): void;
+    openPage(pageId: string, options?: { recordHistory?: boolean }): void;
+    openFolder(folderId: string, options?: { recordHistory?: boolean }): void;
+    openFilteredView(view: FilteredView, options?: { recordHistory?: boolean }): void;
     closePage(pageId: string): void;
     toggleFolderExpanded(folderId: string): void;
     isPageOpen(pageId: string): boolean;
@@ -551,17 +557,32 @@ Own transient navigation UI state: active page/folder, open pages, expanded fold
     get activeFolderId(): string | undefined;
     subscribe(listener: () => void): Unsubscribe;
     refresh(): void;
+
+    // Navigation history (ADR-027) — mechanical stack bookkeeping only;
+    // NavigationRouter.back()/forward() own the traversal policy.
+    get canNavigateBack(): boolean;
+    get canNavigateForward(): boolean;
+    peekBack(): ActiveView | undefined;
+    peekForward(): ActiveView | undefined;
+    discardBackEntry(): void;
+    discardForwardEntry(): void;
+    popBackForReplay(): void;
+    popForwardForReplay(): void;
   }
 ```
 
 ### Internal collaborators
-None — this is already a minimal, self-contained subsystem (unchanged from today).
+None — this is already a minimal, self-contained subsystem (unchanged from today). This remains true after [ADR-027](./adr/027-navigation-history.md): navigation history is stored as `ActiveView` snapshots (already a `Workspace`-owned type) and validated only mechanically (stack push/pop/peek), never by checking `Vault` existence — that check, which would require a real dependency, is deliberately kept in `NavigationRouter` instead.
 
 ### Lifecycle
 Constructed once at the Composition Root, lives for the app session. In-memory only — does not persist across restarts (this is intentional, not a gap, per the target document).
 
 ### Invariants
-Exactly one of `activePageId`/`activeFolderId` is set at a time (opening a page clears the active folder and vice versa).
+- Exactly one of `activePageId`/`activeFolderId` is set at a time (opening a page clears the active folder and vice versa).
+- `Workspace` is the only mutator of `activeView`, through exactly five call sites, all private to `Workspace.ts`: `openPage()`, `openFolder()`, `openFilteredView()`, `closePage()`, `closeFolder()` ([ADR-027](./adr/027-navigation-history.md)). No other file assigns `activeView` by any path.
+- History recording and replay are mutually exclusive: `options.recordHistory === false` never triggers a stack push or a `forwardStack` clear; the default (`true`, or the option omitted) always does, subject to two guards — there must be a current `activeView` to remember (none at boot or right after everything closes), and the new target must differ from the one already active ([ADR-027](./adr/027-navigation-history.md)).
+- A recorded navigation (the default `recordHistory: true` path) always clears `forwardStack` — browser-style branching: navigating anywhere new after `back()` permanently discards the redo path.
+- `closePage()`/`closeFolder()` never touch the history stacks — restoring the last-open tab, or clearing to `null`, is tab lifecycle (ADR-025's Responsibilities split), not a recorded navigation.
 
 ### Concurrency model
 Synchronous, single-threaded — no async operations, no races possible.
