@@ -13,9 +13,8 @@
 
 .calendar-month,
 .calendar-year {
-  color: var(--icon-secondary);
+  color: var(--text-secondary);
   font-size: var(--text-body-small);
-  font-weight: var(--fw-medium);
 }
 .calendar-year {
   opacity: var(--opacity-strong);
