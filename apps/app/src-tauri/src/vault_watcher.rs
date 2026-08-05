@@ -24,7 +24,14 @@ const RENAME_CORRELATION_WINDOW: Duration = Duration::from_millis(300);
 #[serde(tag = "type")]
 pub enum VaultFileChange {
     #[serde(rename = "created")]
-    Created { path: String },
+    Created {
+        path: String,
+        // ADR-024: resolved once here (std::fs::metadata) rather than
+        // probed on the TS side per event — lets VaultSyncService dispatch
+        // a directory straight to folder handling.
+        #[serde(rename = "isDirectory")]
+        is_directory: bool,
+    },
     #[serde(rename = "changed")]
     Changed { path: String },
     #[serde(rename = "deleted")]
@@ -315,12 +322,18 @@ fn relative_path(root_path: &Path, path: &Path) -> Option<String> {
 }
 
 fn emit_change(app_handle: &AppHandle, root_path: &Path, path: &Path, change_type: &str) {
+    // Resolved before the move into relative_path below — "created" is the
+    // only case that needs it (ADR-024); a deleted path may no longer
+    // exist to stat, and "changed" never applies to a directory in this
+    // watcher's own classification (see classify_event_kind).
+    let is_directory = change_type == "created" && path.is_dir();
+
     let Some(path) = relative_path(root_path, path) else {
         return;
     };
 
     let change = match change_type {
-        "created" => VaultFileChange::Created { path },
+        "created" => VaultFileChange::Created { path, is_directory },
         "deleted" => VaultFileChange::Deleted { path },
         _ => VaultFileChange::Changed { path },
     };

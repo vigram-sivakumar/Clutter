@@ -146,7 +146,7 @@ describe('VaultSyncService', () => {
     const { vault, fileSystem, watcher } = setup();
     fileSystem.seedFile(`${ROOT}/New.md`, '---\nid: new-page\n---\nHello');
 
-    watcher.emit({ type: 'created', path: 'New.md' });
+    watcher.emit({ type: 'created', path: 'New.md', isDirectory: false });
     await flush();
 
     const page = vault.getPageByPath(`${ROOT}/New.md`);
@@ -163,7 +163,7 @@ describe('VaultSyncService', () => {
       '---\nid: orphan\n---\nBody'
     );
 
-    watcher.emit({ type: 'created', path: 'unknown-folder/New.md' });
+    watcher.emit({ type: 'created', path: 'unknown-folder/New.md', isDirectory: false });
     await flush();
 
     expect(
@@ -285,12 +285,138 @@ describe('VaultSyncService', () => {
       '---\nid: nested-page\n---\nBody'
     );
 
-    watcher.emit({ type: 'created', path: 'notes/New.md' });
+    watcher.emit({ type: 'created', path: 'notes/New.md', isDirectory: false });
     await flush();
 
     const page = vault.getPage('nested-page');
     expect(page).toBeDefined();
     expect(page!.parentId).toBe('folder-1');
+  });
+});
+
+describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
+  it('created: a new directory with no .folder.md becomes a Folder (identity is path-derived, matching VaultScanner)', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+
+    watcher.emit({ type: 'created', path: 'Projects', isDirectory: true });
+    await flush();
+
+    const folder = vault.getFolderByPath(`${ROOT}/Projects`);
+    expect(folder).toBeDefined();
+    expect(folder!.parentId).toBeNull();
+  });
+
+  it('created: a new directory with a .folder.md picks up its frontmatter (icon, favorite, etc.)', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      '---\nid: folder-imported\nicon: 📁\nfavorite: true\n---\n'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects', isDirectory: true });
+    await flush();
+
+    const folder = vault.getFolder('folder-imported');
+    expect(folder).toBeDefined();
+    expect(folder!.metadata.icon).toBe('📁');
+    expect(folder!.metadata.favorite).toBe(true);
+  });
+
+  it("created: a .folder.md file's own 'created' event (arriving as a separate filesystem event) is not built as a page", async () => {
+    const { vault, fileSystem, watcher } = setup();
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      '---\nid: folder-1\n---\n'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects', isDirectory: true });
+    await flush();
+    watcher.emit({ type: 'created', path: 'Projects/.folder.md', isDirectory: false });
+    await flush();
+
+    expect(vault.getFolder('folder-1')).toBeDefined();
+    expect(vault.getPageByPath(`${ROOT}/Projects/.folder.md`)).toBeUndefined();
+  });
+
+  it('created: a nested directory inside an unresolvable parent is safely ignored, same as a page would be', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    await fileSystem.createDirectory(`${ROOT}/unknown-parent/Nested`);
+
+    watcher.emit({ type: 'created', path: 'unknown-parent/Nested', isDirectory: true });
+    await flush();
+
+    expect(vault.getFolderByPath(`${ROOT}/unknown-parent/Nested`)).toBeUndefined();
+  });
+
+  it('deleted: an externally removed folder disappears from the vault, cascading to its descendants', async () => {
+    const projects = makeProjectsFolder();
+    const design = { ...makeArchiveSubfolder('folder-design', 'Design'), parentId: 'folder-projects', path: `${ROOT}/Projects/Design` };
+    const notes = buildPage('Projects/Design/Notes.md', 'content', 'page-notes');
+    const notesInDesign: Page = { ...notes, parentId: 'folder-design' };
+    const { vault, watcher } = setup([notesInDesign], [projects, design]);
+
+    watcher.emit({ type: 'deleted', path: 'Projects' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getFolder('folder-design')).toBeUndefined();
+    expect(vault.getPage('page-notes')).toBeUndefined();
+  });
+
+  it('deleted: an unrelated sibling folder is untouched', async () => {
+    const projects = makeProjectsFolder();
+    const archive = makeArchiveFolder();
+    const { vault, watcher } = setup([], [projects, archive]);
+
+    watcher.emit({ type: 'deleted', path: 'Projects' });
+    await flush();
+
+    expect(vault.getFolder('folder-archive')).toBeDefined();
+  });
+
+  it('moved: an externally renamed folder keeps its id and updates its path — the folder-rename case', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, watcher } = setup([], [projects]);
+
+    watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Work' });
+    await flush();
+
+    const renamed = vault.getFolder('folder-projects');
+    expect(renamed).toBeDefined();
+    expect(renamed!.path).toBe(`${ROOT}/Work`);
+    expect(renamed!.name).toBe('Work');
+    expect(renamed!.parentId).toBeNull();
+  });
+
+  it('moved: an externally moved folder (reparented) updates path and parentId — the folder-move case, same event shape as rename', async () => {
+    const projects = makeProjectsFolder();
+    const archive = makeArchiveFolder();
+    const { vault, watcher } = setup([], [projects, archive]);
+
+    watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Archive/Projects' });
+    await flush();
+
+    const moved = vault.getFolder('folder-projects');
+    expect(moved).toBeDefined();
+    expect(moved!.path).toBe(`${ROOT}/Archive/Projects`);
+    expect(moved!.parentId).toBe('folder-archive');
+  });
+
+  it('moved: cascades to descendant folders and pages', async () => {
+    const projects = makeProjectsFolder();
+    const design = { ...makeArchiveSubfolder('folder-design', 'Design'), parentId: 'folder-projects', path: `${ROOT}/Projects/Design` };
+    const notes = buildPage('Projects/Design/Notes.md', 'content', 'page-notes');
+    const notesInDesign: Page = { ...notes, parentId: 'folder-design' };
+    const { vault, watcher } = setup([notesInDesign], [projects, design]);
+
+    watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Work' });
+    await flush();
+
+    expect(vault.getFolder('folder-design')!.path).toBe(`${ROOT}/Work/Design`);
+    expect(vault.getPage('page-notes')!.path).toBe(`${ROOT}/Work/Design/Notes.md`);
   });
 });
 
@@ -519,7 +645,7 @@ describe('VaultSyncService: sync correctness', () => {
       new FrontmatterSerializer()
     );
 
-    watcher.emit({ type: 'created', path: 'New.md' });
+    watcher.emit({ type: 'created', path: 'New.md', isDirectory: false });
 
     // Fires before 'created' has resolved. Before VaultSyncCoordinator
     // existed, handleChanged() would run concurrently, find no page yet
@@ -858,7 +984,7 @@ describe('VaultSyncService: external archive reconciliation', () => {
       archivedDiskDocument('page-imported-1', 'Imported while closed')
     );
 
-    watcher.emit({ type: 'created', path: 'Projects/Imported.md' });
+    watcher.emit({ type: 'created', path: 'Projects/Imported.md', isDirectory: false });
     await flush();
 
     const page = vault.getPage('page-imported-1')!;

@@ -2,13 +2,20 @@
  * Identifies the exclusive lane a sync operation runs in.
  *
  * A `page` key anchors to durable page identity (survives rename/move). A
- * `path` key is a fallback for filesystem locations that don't resolve to a
- * known page yet (a brand-new file, or the destination half of a rename
- * before it lands).
+ * `folder` key does the same for folders (ADR-024) — both keep a rename's
+ * "from" and "to" halves serialized against the same lane, rather than
+ * against two different path-shaped keys. A `path` key is a fallback for
+ * filesystem locations that don't resolve to a known page or folder yet (a
+ * brand-new file/directory, or the destination half of a rename before it
+ * lands).
  */
 export type SyncKey =
   | {
       readonly type: 'page';
+      readonly id: string;
+    }
+  | {
+      readonly type: 'folder';
       readonly id: string;
     }
   | {
@@ -72,6 +79,8 @@ export class VaultSyncCoordinator {
     switch (key.type) {
       case 'page':
         return `page:${key.id}`;
+      case 'folder':
+        return `folder:${key.id}`;
       case 'path':
         return `path:${key.path}`;
     }

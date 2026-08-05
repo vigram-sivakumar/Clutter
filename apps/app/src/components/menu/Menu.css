@@ -6,9 +6,9 @@
   overscroll-behavior: contain;
 
   background: var(--surface-secondary);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-xxl);
 
-  padding: var(--space-2);
+  padding: var(--space-4);
 
   box-shadow: var(--shadow-border-default), var(--shadow-md);
 }
