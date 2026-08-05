@@ -72,12 +72,15 @@ interface DraftDescriptor {
 
 /**
  * Owns the entire lifecycle of a page as a single capability surface —
- * open, close, save, archive, restore, create, delete, move, and now the
- * earliest phase of that lifecycle: an unpersisted draft (ADR-017).
+ * open, close, save, archive, restore, create, delete, move, rename, and
+ * the earliest phase of that lifecycle: an unpersisted draft (ADR-017).
  *
- * Does not have rename(): no backing Persistence Gate operation kind
- * exists yet, and building one without a real caller would be exactly the
- * placeholder machinery this migration exists to avoid (see ADR-012).
+ * rename() completes the capability spec §6 always listed but left
+ * unimplemented pending a real caller (ADR-012's disposition) — Notes'
+ * inline title-edit affordance is that caller, mirroring
+ * FolderOperations.rename()'s shape exactly (same-parent path change via
+ * the Gate's 'rename' kind). Only for a real, persisted page — a still-open
+ * draft's title is updateDraftTitle()'s job, unchanged.
  */
 export class PageOperations {
   /** Draft descriptors, keyed by the id they were opened with (ADR-017 Decision item 2). */
@@ -367,11 +370,9 @@ export class PageOperations {
     return (session?.currentRevision.markdown ?? '').trim() === '';
   }
 
-  /** Mirrors PageBuilder.getPageName() — filename minus a trailing .md. */
+  /** VaultPath.pageName — the one shared implementation (rule 4). */
   private deriveNameFromPath(path: string): string {
-    const fileName = VaultPath.filename(path);
-
-    return fileName.endsWith('.md') ? fileName.slice(0, -3) : fileName;
+    return VaultPath.pageName(path);
   }
 
   /**
@@ -933,6 +934,25 @@ export class PageOperations {
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'move',
       destinationFolderId,
+    });
+
+    if (result.status === 'abandoned') {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+  }
+
+  /**
+   * Renames a persisted page in place — same-parent path change only,
+   * mirroring FolderOperations.rename()'s shape exactly. No existence check
+   * of its own, same reasoning as move()/delete(): relies on the Gate's
+   * dequeue-time guard. Only valid for a real Vault page; a still-open
+   * draft's title goes through updateDraftTitle() instead, which has no
+   * Gate call to make until the draft is otherwise promoted.
+   */
+  public async rename(pageId: string, title: string): Promise<void> {
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'rename',
+      title,
     });
 
     if (result.status === 'abandoned') {

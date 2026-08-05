@@ -146,6 +146,10 @@ export function PageHost({ application }: PageHostProps) {
     void application.folderOperations.rename(folderId, name);
   };
 
+  const onRenamePage = (pageId: string, title: string): void => {
+    void application.pageOperations.rename(pageId, title);
+  };
+
   if (activeFolderId) {
     const folder = vault.getFolder(activeFolderId);
 
@@ -347,6 +351,13 @@ export function PageHost({ application }: PageHostProps) {
     onRestore,
     onDelete,
   });
+  // A Daily Note's title is derived from its date and is its permanent
+  // calendar identity (toResourcePageModel's own title comment) — renaming
+  // it would desynchronize its filename from the deterministic path
+  // DailyNoteService/Application.openFallbackPage resolve by date, so it
+  // stays view-only here the same way a reserved folder's title does
+  // (isRenameable above). Notes have no such constraint.
+  const isRenameable = page.type !== 'daily-note';
 
   return (
     <Page
@@ -354,6 +365,7 @@ export function PageHost({ application }: PageHostProps) {
       title={model.title}
       description={model.description}
       titleEditable
+      onTitleCommit={isRenameable ? (title) => onRenamePage(page.id, title) : undefined}
       breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
       actions={topBar.actions}
       coverImage={model.coverImage ?? undefined}

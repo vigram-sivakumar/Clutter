@@ -21,10 +21,11 @@ interface PageTitleProps {
   onSubmit?(): void;
   /**
    * Fired when a changed title is committed (Enter or a blur with changed
-   * text — see EditableText.onCommit). Optional: a persisted *page* still
-   * has no rename() capability (ADR-012) and leaves this unset; the draft
-   * branch and, since ADR-024, the folder branch (FolderOperations.rename())
-   * both supply one.
+   * text — see EditableText.onCommit). Optional: a Daily Note's title is
+   * its permanent, date-derived calendar identity and leaves this unset
+   * (PageHost's isRenameable guard); every other branch — draft, folder
+   * (FolderOperations.rename(), ADR-024), and now persisted Notes
+   * (PageOperations.rename()) — supplies one.
    */
   onCommit?(value: string): void;
 }

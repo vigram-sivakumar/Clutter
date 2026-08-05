@@ -341,12 +341,12 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     restore(pageId: string): Promise<void>;
     delete(pageId: string): Promise<void>;
     move(pageId: string, destinationFolderId: string): Promise<void>;
-    rename(pageId: string, title: string): Promise<void>;   // not yet implemented — see §5/ADR-012 disposition
+    rename(pageId: string, title: string): Promise<void>;
     getSession(pageId: string): DocumentSession | undefined;
   }
 ```
 
-`rename()` is listed per the original target design but has no shipped implementation and no backing Gate operation kind — unchanged by ADR-017, carried forward from ADR-012's disposition.
+`rename()` is implemented (post-delete-navigation/rename consistency milestone), backed by the Gate's `'rename'` kind — same-parent path change only, mirroring `FolderOperations.rename()`'s shape exactly (ADR-024's interim `'rename-folder'` kind). Destination resolution lives in `MoveService.resolveRenameDestination` (Persistence Gate layer), not `PagePathResolver` (application layer) — the Gate must never depend upward on the application layer (rule 7), and every other page-destination resolver it already uses (`resolveArchiveDestination`, `resolveRestoreDestination`, `resolveMoveDestination`) lives in `MoveService` for the same reason.
 
 ### Internal collaborators
 `- PagePersistenceCoordinator` (all writes), `- DocumentSession`/`- DocumentRegistry`/`- SaveCoordinator` (editing lifecycle, §9), `- PagePathResolver`, `- PageCreator` (id generation + document construction, shared between eager `create()` and a draft's first-persist), a private `- drafts` map (id → `DraftInfo`, ADR-017's non-Vault descriptor) and `- draftIdByDeterministicPath` map (path → id, so a second "open Today" reuses the already-open draft instead of minting a second one), `Vault` (read-only queries), `Workspace` (post-operation state updates, e.g. closing a deleted page), a Composition-Root-injected `- openFallbackPage: () => void` callback (ADR-025) — the same constructor-injected-hook shape as `FolderOperations`'s `prepareNavigation`, invoked only when `delete()` leaves `Workspace` with no active page/folder, so `PageOperations` can ask for a fallback page without knowing what it is.

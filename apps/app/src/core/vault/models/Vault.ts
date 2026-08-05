@@ -430,6 +430,15 @@ export class Vault {
     });
   }
 
+  /**
+   * Updates a page's path/parentId — the one Vault mutation both a pure
+   * folder move (filename unchanged) and a rename (filename changes, same
+   * parent) share, per PagePathResolver.resolveRenamePath's use of this
+   * same method. `name` is recomputed from the new path every time (mirrors
+   * moveFolder's `name: VaultPath.filename(path)` recompute for folders) —
+   * a no-op for a plain move, since the filename doesn't change; correct
+   * for a rename, since it does.
+   */
   updatePagePath(
     pageId: string,
     path: string,
@@ -451,6 +460,7 @@ export class Vault {
 
     const updatedPage: Page = {
       ...page,
+      name: VaultPath.pageName(path),
       path,
       parentId,
     };

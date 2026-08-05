@@ -29,13 +29,13 @@ function makeFolder(id: string, path: string): Folder {
   };
 }
 
-function buildPage(path: string): Page {
+function buildPage(path: string, parentId: string | null = null, id = 'page-1'): Page {
   return new PageBuilder().build({
-    parentId: null,
+    parentId,
     page: {
       path,
       directoryPath: path.slice(0, path.lastIndexOf('/')),
-      frontmatter: { id: 'page-1' },
+      frontmatter: { id },
       frontmatterAnalysis: { aliases: [] },
       content: 'Body',
       analysis: {
@@ -100,5 +100,55 @@ describe('MoveService.resolveMoveDestination', () => {
       path: `${ROOT}/Archive Bin/My Great Idea (draft).md`,
       parentId: 'folder-1',
     });
+  });
+});
+
+describe('MoveService.resolveRenameDestination', () => {
+  it('resolves a new filename under the same parent, at the vault root', () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const vault = makeVault([page], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveRenameDestination(page, 'Renamed');
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Renamed.md`,
+      parentId: null,
+    });
+  });
+
+  it('resolves a new filename under the same non-root parent, never reparenting', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const page = buildPage(`${ROOT}/Projects/Note.md`, 'folder-1');
+    const vault = makeVault([page], [folder]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveRenameDestination(page, 'Renamed');
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Projects/Renamed.md`,
+      parentId: 'folder-1',
+    });
+  });
+
+  it('resolving to the current title is a no-op, not a self-collision', () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const vault = makeVault([page], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveRenameDestination(page, 'Note');
+
+    expect(destination.path).toBe(`${ROOT}/Note.md`);
+  });
+
+  it('appends a numeric suffix when the new title collides with a sibling page', () => {
+    const page = buildPage(`${ROOT}/Note.md`, null, 'page-1');
+    const occupant = buildPage(`${ROOT}/Other.md`, null, 'page-2');
+    const vault = makeVault([page, occupant], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveRenameDestination(page, 'Other');
+
+    expect(destination.path).toBe(`${ROOT}/Other 2.md`);
   });
 });

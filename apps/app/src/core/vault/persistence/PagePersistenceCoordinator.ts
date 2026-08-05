@@ -16,10 +16,9 @@ import { MoveService } from './MoveService';
 
 /**
  * Every disk write for a page — save, create, archive, restore, delete,
- * move, and (a future kind added the same way) rename — is expressed as
- * one of these and enqueued through PagePersistenceCoordinator. This is
- * the only vocabulary any caller uses; there is no other way to reach a
- * write.
+ * move, and rename — is expressed as one of these and enqueued through
+ * PagePersistenceCoordinator. This is the only vocabulary any caller uses;
+ * there is no other way to reach a write.
  *
  * 'create-folder' is the one folder-scoped kind: folder operations reuse
  * this same Gate, keyed by folder id instead of page id, per spec §7.
@@ -47,6 +46,7 @@ export type PersistenceOperation =
   | { readonly kind: 'restore' }
   | { readonly kind: 'delete' }
   | { readonly kind: 'move'; readonly destinationFolderId: string }
+  | { readonly kind: 'rename'; readonly title: string }
   | {
       readonly kind: 'create-folder';
       readonly path: string;
@@ -207,6 +207,8 @@ export class PagePersistenceCoordinator {
         return this.runDelete(current);
       case 'move':
         return this.runMove(current, operation.destinationFolderId);
+      case 'rename':
+        return this.runRename(current, operation.title);
     }
   }
 
@@ -224,6 +226,29 @@ export class PagePersistenceCoordinator {
       current,
       destinationFolderId
     );
+
+    const updated: Page = {
+      ...current,
+      path: destination.path,
+      parentId: destination.parentId,
+    };
+
+    await this.moveService.movePage(current, updated);
+
+    return { status: 'saved', page: this.vault.getPage(current.id)! };
+  }
+
+  /**
+   * Renames a page in place (completes the rename() capability spec §6
+   * always listed but left unimplemented — ADR-012's disposition). Same
+   * parent only, mirroring runRenameFolder's shape exactly, one aggregate
+   * over: like a pure move, this changes neither file content nor
+   * frontmatter, so it doesn't go through writeParseRebuildReplace —
+   * movePage() already updates the Vault's path (and, since it recomputes
+   * `name` from the new path, title) index internally.
+   */
+  private async runRename(current: Page, title: string): Promise<PersistenceResult> {
+    const destination = this.moveService.resolveRenameDestination(current, title);
 
     const updated: Page = {
       ...current,

@@ -2,6 +2,8 @@ import type { Page } from '../models/Page';
 import { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { VaultPath } from '../ingest/VaultPath';
+import { resolveCollisionFreeName } from '../../shared/naming/resolveCollisionFreeName';
+import { resolveFolderPathOrRoot } from './resolveFolderPathOrRoot';
 
 export class MoveService {
   constructor(
@@ -96,6 +98,39 @@ export class MoveService {
     return {
       path: `${destinationFolder.path}/${filename}`,
       parentId: destinationFolder.id,
+    };
+  }
+
+  /**
+   * Computes a collision-free destination path for renaming `current` in
+   * place — same parent only, never reparents. Mirrors
+   * FolderPathResolver.resolveRenamePath exactly, one aggregate over; lives
+   * here (not PagePathResolver, application layer) because the Persistence
+   * Gate is this method's only caller, and the Gate must never depend
+   * upward on the application layer (rule 7) — every other page-destination
+   * resolver the Gate already uses (resolveArchiveDestination,
+   * resolveRestoreDestination, resolveMoveDestination) lives in this same
+   * file for the same reason.
+   *
+   * `current`'s own path is excluded from the collision check, so renaming
+   * to the same title (a no-op) resolves to its existing path rather than
+   * appending " 2" against itself.
+   */
+  resolveRenameDestination(
+    current: Page,
+    title: string
+  ): { path: string; parentId: string | null } {
+    const folderPath = resolveFolderPathOrRoot(this.vault, current.parentId);
+    const baseName = title.trim() || current.name;
+
+    const candidateName = resolveCollisionFreeName(baseName, (candidate) => {
+      const occupant = this.vault.getPageByPath(`${folderPath}/${candidate}.md`);
+      return occupant !== undefined && occupant.id !== current.id;
+    });
+
+    return {
+      path: `${folderPath}/${candidateName}.md`,
+      parentId: current.parentId,
     };
   }
 

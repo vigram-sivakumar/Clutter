@@ -25,4 +25,16 @@ export class VaultPath {
   static isDescendantOf(path: string, ancestorPath: string): boolean {
     return path.startsWith(`${ancestorPath}/`);
   }
+
+  /**
+   * A page's display name — its filename, minus a trailing `.md` — derived
+   * from its path the same way everywhere it's needed: PageBuilder (initial
+   * scan), PageOperations (a still-unpersisted draft's default title), and
+   * Vault.updatePagePath (recomputed after a move or rename). One
+   * implementation, not three (rule 4).
+   */
+  static pageName(path: string): string {
+    const fileName = this.filename(path);
+    return fileName.endsWith('.md') ? fileName.slice(0, -3) : fileName;
+  }
 }

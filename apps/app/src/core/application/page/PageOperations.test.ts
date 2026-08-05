@@ -1096,6 +1096,74 @@ describe('PageOperations.move()', () => {
   });
 });
 
+describe('PageOperations.rename() (completes spec §6 rename())', () => {
+  it('renames the page in place, updating its path and name, without reparenting', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.rename(page.id, 'Renamed');
+
+    const renamed = vault.getPage(page.id)!;
+    expect(renamed.path).toBe(`${ROOT}/Renamed.md`);
+    expect(renamed.name).toBe('Renamed');
+    expect(renamed.parentId).toBeNull();
+  });
+
+  it('preserves the page under its current folder', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const page = new PageBuilder().build({
+      parentId: 'folder-1',
+      page: {
+        path: `${ROOT}/Projects/Note.md`,
+        directoryPath: `${ROOT}/Projects`,
+        frontmatter: { id: 'page-1' },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Body',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+    const { vault, pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      folder,
+    ]);
+
+    await pageOperations.rename(page.id, 'Renamed');
+
+    const renamed = vault.getPage(page.id)!;
+    expect(renamed.parentId).toBe('folder-1');
+    expect(renamed.path).toBe(`${ROOT}/Projects/Renamed.md`);
+  });
+
+  it('throws for an unknown page id', async () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    await expect(
+      pageOperations.rename('does-not-exist', 'Renamed')
+    ).rejects.toThrow(/Page not found/);
+  });
+
+  it('a rename immediately followed by a save on the same id resolves in order', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.open(page.id);
+    await pageOperations.rename(page.id, 'Renamed');
+    await pageOperations.save(page.id, 'Edited after rename');
+
+    const renamed = vault.getPage(page.id)!;
+    expect(renamed.path).toBe(`${ROOT}/Renamed.md`);
+    expect(renamed.source.markdown).toBe('Edited after rename');
+  });
+});
+
 function setupEmpty(folders: Folder[] = [makeArchiveFolder()]) {
   const vault = makeVault([], folders);
   const fileSystem = new InMemoryVaultFileSystem();

@@ -314,6 +314,27 @@ describe('updatePagePath', () => {
     expect(moved!.parentId).toBe('folder-target');
   });
 
+  it('preserves name across a plain move (filename unchanged)', () => {
+    const folder = makeFolder({ id: 'folder-target', path: '/vault/Target', name: 'Target' });
+    const page = makePage({ id: 'page-1', path: '/vault/Note.md', name: 'Note' });
+    const vault = makeVault([page], [folder]);
+
+    vault.updatePagePath('page-1', '/vault/Target/Note.md', 'folder-target');
+
+    expect(vault.getPage('page-1')!.name).toBe('Note');
+  });
+
+  it('recomputes name from the new path — the mechanism PageOperations.rename() relies on', () => {
+    const page = makePage({ id: 'page-1', path: '/vault/Note.md', name: 'Note' });
+    const vault = makeVault([page]);
+
+    vault.updatePagePath('page-1', '/vault/Renamed.md', null);
+
+    const renamed = vault.getPage('page-1')!;
+    expect(renamed.name).toBe('Renamed');
+    expect(renamed.path).toBe('/vault/Renamed.md');
+  });
+
   it('is a no-op when path and parentId are unchanged', () => {
     const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects', name: 'Projects' });
     const page = makePage({

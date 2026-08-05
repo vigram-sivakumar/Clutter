@@ -15,13 +15,6 @@ export class PageBuilder {
   private readonly identityResolver = new IdentityResolver();
   private readonly analysisMapper = new PageAnalysisMapper();
 
-  private getPageName(path: string): string {
-    const fileName = VaultPath.filename(path);
-    return fileName.endsWith('.md')
-      ? fileName.substring(0, fileName.length - 3)
-      : fileName;
-  }
-
   build(input: BuildPageInput): Page {
     const { page, parentId } = input;
 
@@ -35,7 +28,7 @@ export class PageBuilder {
     return {
       id: identity.id,
       type: type ?? 'note',
-      name: this.getPageName(page.path),
+      name: VaultPath.pageName(page.path),
       path: page.path,
       parentId,
 

@@ -58,3 +58,17 @@ describe('VaultPath.isDescendantOf', () => {
     );
   });
 });
+
+describe('VaultPath.pageName', () => {
+  it('strips a trailing .md from the filename', () => {
+    expect(VaultPath.pageName('/vault/Notes/Idea.md')).toBe('Idea');
+  });
+
+  it('leaves a filename with no .md extension unchanged', () => {
+    expect(VaultPath.pageName('/vault/Notes/Idea')).toBe('Idea');
+  });
+
+  it('only strips a trailing .md, not one embedded mid-filename', () => {
+    expect(VaultPath.pageName('/vault/Notes/my.md.backup')).toBe('my.md.backup');
+  });
+});
