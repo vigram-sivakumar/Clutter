@@ -11,6 +11,7 @@ export function renderTags(tags: readonly TagModel[]) {
           <Tag
             key={tag.name}
             title={tag.name}
+            emoji={tag.icon}
             count={0}
             isFavorite
             onClick={() => {}}
@@ -19,7 +20,13 @@ export function renderTags(tags: readonly TagModel[]) {
       </Section>
       <Section hasHeader title="Others">
         {tags.map((tag) => (
-          <Tag key={tag.name} title={tag.name} count={0} onClick={() => {}} />
+          <Tag
+            key={tag.name}
+            title={tag.name}
+            emoji={tag.icon}
+            count={0}
+            onClick={() => {}}
+          />
         ))}
       </Section>
     </>
