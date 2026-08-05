@@ -25,10 +25,19 @@ export class TagBuilder {
         tags.set(occurrence.name, {
           name: occurrence.name,
           icon: tagMetadata.get(occurrence.name)?.icon,
+          favorite: tagMetadata.get(occurrence.name)?.favorite ?? false,
         });
       }
     }
 
-    return [...tags.values()];
+    // Alphabetical (case-insensitive) is the default ordering for every
+    // consumer of vault.tags() — sorted once here, not left to each reader
+    // (sidebar, future collection views, search) to remember to do
+    // themselves. Occurrence names are already normalized to lowercase by
+    // TagExtractor, but comparing case-insensitively here doesn't depend on
+    // that staying true.
+    return [...tags.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
   }
 }

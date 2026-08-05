@@ -51,7 +51,7 @@ describe('TagBuilder', () => {
       new Map([['project', { icon: '📦' }]])
     );
 
-    expect(tags).toEqual([{ name: 'project', icon: '📦' }]);
+    expect(tags).toEqual([{ name: 'project', icon: '📦', favorite: false }]);
   });
 
   it('never manufactures a Tag from metadata alone — markdown determines existence', () => {
@@ -66,5 +66,45 @@ describe('TagBuilder', () => {
 
     expect(tags).toHaveLength(1);
     expect(tags[0]!.name).toBe('project');
+  });
+
+  it('sorts tags alphabetically, case-insensitively, regardless of occurrence order', () => {
+    const builder = new TagBuilder();
+    // Occurrence names are already lowercased by TagExtractor in real
+    // usage; constructing 'Architecture' directly here (bypassing the
+    // extractor) isolates TagBuilder's own sort comparator — it must order
+    // case-insensitively without depending on that upstream normalization,
+    // and it must not itself alter the name's casing (that's not its job).
+    const tags = builder.build([
+      makePage('a', ['travel', 'Architecture', 'design']),
+      makePage('b', ['groceries']),
+    ]);
+
+    expect(tags.map((tag) => tag.name)).toEqual([
+      'Architecture',
+      'design',
+      'groceries',
+      'travel',
+    ]);
+  });
+
+  it('defaults favorite to false when metadata omits it, including pre-existing files with no favorite field', () => {
+    const builder = new TagBuilder();
+    const tags = builder.build(
+      [makePage('a', ['project'])],
+      new Map([['project', { icon: '📦' }]])
+    );
+
+    expect(tags[0]!.favorite).toBe(false);
+  });
+
+  it('resolves favorite: true from metadata onto the Tag', () => {
+    const builder = new TagBuilder();
+    const tags = builder.build(
+      [makePage('a', ['project'])],
+      new Map([['project', { favorite: true }]])
+    );
+
+    expect(tags[0]!.favorite).toBe(true);
   });
 });

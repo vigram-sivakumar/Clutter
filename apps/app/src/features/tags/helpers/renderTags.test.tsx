@@ -1,24 +1,96 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import '@testing-library/jest-dom/vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { renderTags } from './renderTags';
 
+afterEach(() => {
+  cleanup();
+});
+
 describe('renderTags', () => {
   it('renders the assigned icon for a tag that has one', () => {
-    const { container } = render(<>{renderTags([{ name: 'project', icon: '📦' }])}</>);
+    const { container } = render(
+      <>{renderTags([{ name: 'project', icon: '📦', favorite: false }])}</>
+    );
 
     expect(screen.getAllByText('📦').length).toBeGreaterThan(0);
     expect(container.querySelectorAll('.emoji-icon').length).toBeGreaterThan(0);
   });
 
   it('falls back to the default tag icon when icon is absent', () => {
-    const { container } = render(<>{renderTags([{ name: 'design' }])}</>);
+    const { container } = render(
+      <>{renderTags([{ name: 'design', favorite: false }])}</>
+    );
 
     // No emoji span rendered anywhere for this tag — AppIcon falls back to
     // the default "tag" system icon, unchanged from today's behavior.
     expect(container.querySelectorAll('.emoji-icon').length).toBe(0);
     expect(screen.getAllByText('design').length).toBeGreaterThan(0);
+  });
+
+  it('a tag with favorite: false renders only in the remaining section, never in Favorites', () => {
+    render(<>{renderTags([{ name: 'project', favorite: false }])}</>);
+
+    expect(screen.getAllByText('project')).toHaveLength(1);
+    expect(screen.queryByText('Favorites')).toBeNull();
+  });
+
+  it('a tag with favorite: true renders only in Favorites, never in the remaining section', () => {
+    render(<>{renderTags([{ name: 'project', favorite: true }])}</>);
+
+    expect(screen.getAllByText('project')).toHaveLength(1);
+    expect(screen.getByText('Favorites')).toBeInTheDocument();
+  });
+
+  it('omits the Favorites section entirely when no tag is favorited', () => {
+    render(
+      <>
+        {renderTags([
+          { name: 'project', favorite: false },
+          { name: 'design', favorite: false },
+        ])}
+      </>
+    );
+
+    expect(screen.queryByText('Favorites')).toBeNull();
+  });
+
+  it('renders the remaining section without a header when it is the only visible section', () => {
+    const { container } = render(
+      <>{renderTags([{ name: 'project', favorite: false }])}</>
+    );
+
+    expect(container.querySelectorAll('.section-header')).toHaveLength(0);
+  });
+
+  it('renders a header for the remaining section once Favorites is also visible', () => {
+    const { container } = render(
+      <>
+        {renderTags([
+          { name: 'project', favorite: true },
+          { name: 'design', favorite: false },
+        ])}
+      </>
+    );
+
+    // One header for Favorites, one for the remaining section.
+    expect(container.querySelectorAll('.section-header')).toHaveLength(2);
+  });
+
+  it('never renders the same tag in both groups', () => {
+    render(
+      <>
+        {renderTags([
+          { name: 'project', favorite: true },
+          { name: 'design', favorite: false },
+        ])}
+      </>
+    );
+
+    expect(screen.getAllByText('project')).toHaveLength(1);
+    expect(screen.getAllByText('design')).toHaveLength(1);
   });
 });

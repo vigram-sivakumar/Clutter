@@ -8,6 +8,13 @@ export interface Tag {
   // Generic icon, not "emoji" — today's UI only offers an emoji picker, but
   // the domain concept is a reusable icon assigned to the Tag entity.
   readonly icon?: string;
+  // Always resolved to a real boolean (never undefined) on the domain
+  // model, mirroring FolderMetadata.favorite/PageMetadata.favorite — unlike
+  // icon, "not yet decided" isn't a meaningful state for favorite. No
+  // mutation path sets this yet (see TagMetadataEntry.favorite); it exists
+  // so favorite-based grouping is correct today and needs no redesign once
+  // toggling ships.
+  readonly favorite: boolean;
 }
 
 // Presentation-only metadata assigned to a Tag entity by the user, keyed by
@@ -15,6 +22,10 @@ export interface Tag {
 // markdown, never duplicated onto TagOccurrence.
 export interface TagMetadataEntry {
   readonly icon?: string;
+  // Optional here (absent in hand-edited or pre-existing files) but always
+  // defaulted to false where it's read into the domain model — see
+  // TagBuilder. No UI or TagOperations call sets this yet.
+  readonly favorite?: boolean;
 }
 
 /**

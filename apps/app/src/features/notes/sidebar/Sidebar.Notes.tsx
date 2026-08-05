@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from '@app/layouts/sidebar/View/Sidebar.View';
 import { Section } from '@app/layouts/sidebar/section/Section';
+import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
@@ -49,6 +50,7 @@ export function Notes({
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
+  const favoriteItems = getFavoriteItems(query, effectivePageState);
 
   // Only cleared once the Gate call settles (success or failure) — this is
   // what lets the temporary row stay visible until the real Folder is
@@ -67,9 +69,8 @@ export function Notes({
 
   return (
     <View navigation={<NotesShortcuts onShortcut={onShortcut} />}>
-      {/* TODO: Render the favorites section only when they exist */}
-      <Section
-        hasHeader
+      <FavoritesSection
+        isEmpty={favoriteItems.length === 0}
         title={getSystemLocationPresentation('favorites').label}
         isCollapsible
         isExpanded={workspace.isSectionExpanded('favorites')}
@@ -77,7 +78,7 @@ export function Notes({
         onClick={() => navigation.openFavorites()}
       >
         <FavoriteList
-          items={getFavoriteItems(query, effectivePageState)}
+          items={favoriteItems}
           workspace={workspace}
           onOpenPage={(id) => {
             onOpen(id);
@@ -86,7 +87,7 @@ export function Notes({
             onOpenFolder(id);
           }}
         />
-      </Section>
+      </FavoritesSection>
       <Section
         hasHeader
         title={getSystemLocationPresentation('workspace').label}

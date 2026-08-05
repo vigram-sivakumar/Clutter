@@ -87,7 +87,7 @@ describe('Vault.setTagMetadata', () => {
 
     vault.setTagMetadata(new Map([['project', { icon: '📦' }]]));
 
-    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦' }]);
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false }]);
     expect(listener).toHaveBeenCalledWith({ type: 'tag-metadata-changed' });
   });
 
@@ -103,7 +103,7 @@ describe('Vault.setTagMetadata', () => {
 
     vault.replacePage({ ...page, analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] } });
 
-    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦' }]);
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false }]);
   });
 
   it('drops a tag from vault.tags() once its last Markdown occurrence is removed, even though its metadata entry still exists — tags.json never manufactures tag existence on its own', () => {
@@ -115,7 +115,7 @@ describe('Vault.setTagMetadata', () => {
     const vault = makeVault([page]);
 
     vault.setTagMetadata(new Map([['project', { icon: '📦' }]]));
-    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦' }]);
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦', favorite: false }]);
 
     // The tag's only occurrence is edited out of the Markdown — an ordinary
     // page save/rebuild, going through no tag-specific code path.
