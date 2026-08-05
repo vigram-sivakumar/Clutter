@@ -225,6 +225,34 @@ describe('PageOperations.create: flushes the outgoing page before opening the ne
   });
 });
 
+describe('PageOperations.open: recordHistory pass-through (ADR-027)', () => {
+  it('defaults to recording — a second open() records the first as history', async () => {
+    const { workspace, pageOperations } = setup([
+      buildPage('page-a', 'A'),
+      buildPage('page-b', 'B'),
+    ]);
+
+    await pageOperations.open('page-a');
+    await pageOperations.open('page-b');
+
+    expect(workspace.canNavigateBack).toBe(true);
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-a' });
+  });
+
+  it('recordHistory: false suppresses recording, matching a history replay', async () => {
+    const { workspace, pageOperations } = setup([
+      buildPage('page-a', 'A'),
+      buildPage('page-b', 'B'),
+    ]);
+
+    await pageOperations.open('page-a');
+    await pageOperations.open('page-b', { recordHistory: false });
+
+    expect(workspace.canNavigateBack).toBe(false);
+    expect(workspace.activePageId).toBe('page-b');
+  });
+});
+
 describe('FolderOperations.open (via prepareNavigation): flushes the active page when switching to a folder', () => {
   it('flushes a dirty previously-active page before the folder becomes active', async () => {
     const { vault, inner, documentRegistry, pageOperations, folderOperations } =
@@ -244,5 +272,22 @@ describe('FolderOperations.open (via prepareNavigation): flushes the active page
     });
     const persisted = await inner.readFile(`${ROOT}/A.md`);
     expect(persisted).toContain('Edited A before opening a folder');
+  });
+});
+
+describe('FolderOperations.open: recordHistory pass-through (ADR-027)', () => {
+  it('recordHistory: false suppresses recording, matching a history replay', async () => {
+    const { vault, workspace, pageOperations, folderOperations } = setup([
+      buildPage('page-a', 'A'),
+    ]);
+    await pageOperations.open('page-a');
+    await folderOperations.create('Projects', null);
+
+    await folderOperations.open(vault.getFolderByPath(`${ROOT}/Projects`)!.id, {
+      recordHistory: false,
+    });
+
+    expect(workspace.canNavigateBack).toBe(false);
+    expect(workspace.activeFolderId).toBe(vault.getFolderByPath(`${ROOT}/Projects`)!.id);
   });
 });

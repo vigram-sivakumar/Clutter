@@ -94,7 +94,15 @@ export class FolderOperations {
     private readonly openFallbackPage: () => void
   ) {}
 
-  public async open(folderId: string): Promise<void> {
+  /**
+   * `options.recordHistory` (default true) passes straight through to
+   * `workspace.openFolder()` — ADR-027. See PageOperations.open()'s
+   * matching doc comment for who passes `false` and why.
+   */
+  public async open(
+    folderId: string,
+    options?: { readonly recordHistory?: boolean }
+  ): Promise<void> {
     const folder = this.vault.getFolder(folderId);
 
     if (!folder) {
@@ -108,7 +116,7 @@ export class FolderOperations {
     // navigation, extended to folders now that folder names are also
     // channel-backed.
     this.flushActiveFolder();
-    this.workspace.openFolder(folderId);
+    this.workspace.openFolder(folderId, options);
   }
 
   /**

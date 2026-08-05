@@ -210,7 +210,18 @@ export class PageOperations {
     this.folderOperations.flushActiveFolder();
   }
 
-  public async open(pageId: string): Promise<void> {
+  /**
+   * `options.recordHistory` (default true) passes straight through to
+   * `workspace.openPage()` — ADR-027. The only caller that ever passes
+   * `false` is `NavigationRouter.back()`/`.forward()`, replaying a
+   * history entry through the normal open path (so session creation and
+   * outgoing-page flush still happen exactly as they do for any other
+   * open) without re-recording the replay as a new navigation.
+   */
+  public async open(
+    pageId: string,
+    options?: { readonly recordHistory?: boolean }
+  ): Promise<void> {
     const page = this.vault.getPage(pageId);
 
     if (!page) {
@@ -222,7 +233,7 @@ export class PageOperations {
     // the active page, so it shouldn't trigger a flush either.
     this.flushActivePage();
     this.documentRegistry.open(page.id, page.source.markdown);
-    this.workspace.openPage(pageId);
+    this.workspace.openPage(pageId, options);
   }
 
   /**
