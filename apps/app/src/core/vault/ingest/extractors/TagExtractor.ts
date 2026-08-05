@@ -1,3 +1,5 @@
+import { normalizeTagName } from '../../models/Tag';
+
 export interface ScannedTagOccurrence {
   readonly name: string;
 }
@@ -26,7 +28,7 @@ export class TagExtractor {
       }
 
       tags.push({
-        name: name.toLowerCase(),
+        name: normalizeTagName(name),
       });
     }
 

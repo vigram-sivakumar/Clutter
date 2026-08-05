@@ -15,6 +15,11 @@ import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations
 import { EffectivePageState } from './page/EffectivePageState';
 import { FolderOperations } from './folder/FolderOperations';
 import { TaskOperations } from './task/TaskOperations';
+import { TagOperations } from './tags/TagOperations';
+import {
+  TAG_METADATA_RELATIVE_PATH,
+} from '../vault/initialize/ReservedResources';
+import { normalizeTagName, type TagMetadataEntry } from '../vault/models/Tag';
 import { FolderPathResolver } from './folder/FolderPathResolver';
 import { FolderCreator } from './folder/FolderCreator';
 import { NavigationRouter } from './navigation/NavigationRouter';
@@ -74,6 +79,7 @@ export class Application {
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public taskOperations!: TaskOperations;
+  public tagOperations!: TagOperations;
   public navigation!: NavigationRouter;
   public vaultSyncService!: VaultSyncService;
   public effectivePageState!: EffectivePageState;
@@ -104,8 +110,30 @@ export class Application {
     const scanner = new VaultScanner(fileSystem);
     const scanResult = await scanner.scan(rootPath);
 
+    // Tag presentation metadata (icon today, color later) is read directly
+    // here, once, the same way VaultInitializer already reads/writes
+    // .clutter/workspace.json — not through VaultScanner (this isn't Page/
+    // Folder content) and not through a dedicated loader (one reader, one
+    // writer, plain JSON: see TagOperations for why that doesn't warrant
+    // its own module). TagBuilder never sees the JSON shape — it only ever
+    // receives this already-parsed, already-normalized Map.
+    const tagsMetadataPath = `${rootPath}/${TAG_METADATA_RELATIVE_PATH}`;
+    const rawTagMetadata = (
+      JSON.parse(
+        (await fileSystem.exists(tagsMetadataPath))
+          ? await fileSystem.readFile(tagsMetadataPath)
+          : '{"tags":{}}'
+      ).tags ?? {}
+    ) as Record<string, TagMetadataEntry>;
+    const tagMetadata = new Map<string, TagMetadataEntry>(
+      Object.entries(rawTagMetadata).map(([key, value]) => [
+        normalizeTagName(key),
+        value,
+      ])
+    );
+
     const builder = new VaultBuilder();
-    const vault = builder.build(scanResult);
+    const vault = builder.build(scanResult, tagMetadata);
 
     await reconcileVaultArchiveMetadata({
       vault,
@@ -215,6 +243,12 @@ export class Application {
     // Same Gate instance every other facade writes through — a task
     // mutation is just another 'save' kind, never a second write path.
     this.taskOperations = new TaskOperations(vault, persistenceCoordinator);
+    // Not Gate-backed, deliberately — tag metadata is presentation
+    // configuration (.clutter/tags.json), not Vault domain content, so it
+    // is outside the Persistence Gate's scope (ARCHITECTURE_RULES.md rule
+    // 2). TagOperations talks to VaultFileSystem directly, same as
+    // VaultInitializer already does for .clutter/workspace.json.
+    this.tagOperations = new TagOperations(vault, this.fileSystem, this.rootPath);
     // ADR-020: constructed after query/workspace/pageOperations all exist
     // above — the projection reconciling Vault (Durable) with
     // PageOperations/DocumentEditing (Committed) state. No production

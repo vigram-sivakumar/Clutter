@@ -1,6 +1,6 @@
 import type { Page } from './Page';
 import type { Folder } from './Folder';
-import type { Tag } from './Tag';
+import type { Tag, TagMetadataEntry } from './Tag';
 import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Embed } from './Embed';
 import type { KnowledgeGraph } from './graph/KnowledgeGraph';
@@ -38,6 +38,9 @@ export type VaultChangeEvent =
   | {
       type: 'folder-added';
       folderId: string;
+    }
+  | {
+      type: 'tag-metadata-changed';
     };
 
 type VaultChangeListener = (event: VaultChangeEvent) => void;
@@ -77,6 +80,14 @@ export class Vault {
 
   private readonly listeners = new Set<VaultChangeListener>();
 
+  // Presentation-only tag metadata (icon today, color later), loaded from
+  // .clutter/tags.json — not Vault domain content, never written through
+  // the Persistence Gate. Private: an input refreshProjections() folds into
+  // TagBuilder on every rebuild, exactly like frontmatter is an input to
+  // page building — never a second thing consumers read directly. Callers
+  // read only tags(); see setTagMetadata().
+  private tagMetadata: ReadonlyMap<string, TagMetadataEntry>;
+
   constructor(
     public readonly root: string,
     pages: Iterable<Page>,
@@ -85,8 +96,10 @@ export class Vault {
     tasks: Iterable<TaskOccurrence>,
     embeds: Iterable<Embed>,
     knowledgeGraph: KnowledgeGraph,
-    private readonly projectionBuilder: VaultProjectionBuilder
+    private readonly projectionBuilder: VaultProjectionBuilder,
+    tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map()
   ) {
+    this.tagMetadata = tagMetadata;
     this._embeds = Array.from(embeds);
     this._knowledgeGraph = knowledgeGraph;
 
@@ -216,7 +229,10 @@ export class Vault {
    * can drift from the Pages they were derived from.
    */
   private refreshProjections(): void {
-    const eager = this.projectionBuilder.buildEager(this.pagesById.values());
+    const eager = this.projectionBuilder.buildEager(
+      this.pagesById.values(),
+      this.tagMetadata
+    );
 
     this.tagsByName.clear();
     for (const tag of eager.tags) {
@@ -263,6 +279,25 @@ export class Vault {
     for (const listener of this.listeners) {
       listener(event);
     }
+  }
+
+  /**
+   * Updates the current tag presentation metadata and rebuilds the tags()
+   * projection from it, exactly like any other mutation rebuilds eager
+   * projections — no second rebuild path, no second projection lifecycle.
+   *
+   * Called only by TagOperations (see ARCHITECTURE_RULES.md rule 3's
+   * caller list — this is a narrow, documented addition to it, mirroring
+   * ADR-014's DailyNoteService.ensurePage() exception: tag metadata is
+   * presentation configuration, not Vault domain content written through
+   * the Persistence Gate, so the concurrency rationale behind restricting
+   * mutation methods to Gate/Sync doesn't apply here). PagePersistenceCoordinator
+   * and VaultSyncService never call this and never reference tags.json.
+   */
+  setTagMetadata(metadata: ReadonlyMap<string, TagMetadataEntry>): void {
+    this.tagMetadata = metadata;
+    this.refreshProjections();
+    this.notify({ type: 'tag-metadata-changed' });
   }
 
   /**

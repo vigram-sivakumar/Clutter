@@ -24,6 +24,13 @@ export interface ReservedFile {
 
 export type ReservedResource = ReservedFolder | ReservedFile;
 
+/**
+ * Relative path of the tag presentation-metadata file, reused by
+ * application bootstrap (initial load) and TagOperations (the only writer)
+ * so the two don't each carry their own copy of this literal.
+ */
+export const TAG_METADATA_RELATIVE_PATH = '.clutter/tags.json';
+
 export const RESERVED_RESOURCES: readonly ReservedResource[] = [
   {
     type: 'folder',
@@ -49,6 +56,11 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
     type: 'file',
     path: '.clutter/workspace.json',
     contents: '{}',
+  },
+  {
+    type: 'file',
+    path: TAG_METADATA_RELATIVE_PATH,
+    contents: '{"tags":{}}',
   },
 ];
 

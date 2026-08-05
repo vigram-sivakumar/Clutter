@@ -1,5 +1,5 @@
 import type { Page } from '../models/Page';
-import type { Tag } from '../models/Tag';
+import type { Tag, TagMetadataEntry } from '../models/Tag';
 import type { Embed } from '../models/Embed';
 import type { TaskOccurrence } from '../models/occurrences/TaskOccurrence';
 import { KnowledgeGraph } from '../models/graph/KnowledgeGraph';
@@ -41,11 +41,14 @@ export class VaultProjectionBuilder {
   private readonly embedBuilder = new EmbedBuilder();
   private readonly knowledgeGraphBuilder = new KnowledgeGraphBuilder();
 
-  buildEager(pages: Iterable<Page>): EagerVaultProjections {
+  buildEager(
+    pages: Iterable<Page>,
+    tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map()
+  ): EagerVaultProjections {
     const pageList = Array.from(pages);
 
     return {
-      tags: this.tagBuilder.build(pageList),
+      tags: this.tagBuilder.build(pageList, tagMetadata),
       tasks: this.taskBuilder.build(pageList),
     };
   }

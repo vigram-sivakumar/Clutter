@@ -73,6 +73,40 @@ function makePage(overrides: Partial<Page> & Pick<Page, 'id' | 'path'>): Page {
   };
 }
 
+describe('Vault.setTagMetadata', () => {
+  it('enriches tags() and notifies subscribers, without touching pages/folders', () => {
+    const page = makePage({ id: 'page-1', path: '/vault/Note.md' });
+    const vault = makeVault([
+      { ...page, analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] } },
+    ]);
+
+    const listener = vi.fn();
+    vault.subscribe(listener);
+
+    expect([...vault.tags()][0]?.icon).toBeUndefined();
+
+    vault.setTagMetadata(new Map([['project', { icon: '📦' }]]));
+
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦' }]);
+    expect(listener).toHaveBeenCalledWith({ type: 'tag-metadata-changed' });
+  });
+
+  it('a subsequent page mutation keeps the enriched icon', () => {
+    const page = makePage({
+      id: 'page-1',
+      path: '/vault/Note.md',
+      analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] },
+    });
+    const vault = makeVault([page]);
+
+    vault.setTagMetadata(new Map([['project', { icon: '📦' }]]));
+
+    vault.replacePage({ ...page, analysis: { ...defaultAnalysis, tags: [{ name: 'project', sourcePageId: 'page-1' }] } });
+
+    expect([...vault.tags()]).toEqual([{ name: 'project', icon: '📦' }]);
+  });
+});
+
 describe('Vault.isReservedFolder', () => {
   it('returns true for a top-level reserved folder', () => {
     const archive = makeFolder({

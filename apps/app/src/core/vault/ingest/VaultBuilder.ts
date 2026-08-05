@@ -9,7 +9,7 @@ import {
   KnowledgeGraphBuilder,
   VaultProjectionBuilder,
 } from '../knowledge';
-import type { Folder } from '../models';
+import type { Folder, TagMetadataEntry } from '../models';
 import { IdentityResolver } from './identity/IdentityResolver';
 
 export class VaultBuilder {
@@ -22,7 +22,10 @@ export class VaultBuilder {
   private readonly identityResolver = new IdentityResolver();
   private readonly projectionBuilder = new VaultProjectionBuilder();
 
-  build(scanResult: VaultScanResult): Vault {
+  build(
+    scanResult: VaultScanResult,
+    tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map()
+  ): Vault {
     const rootPath = scanResult.rootPath;
     const folderIdsByPath = new Map<string, string>();
 
@@ -73,7 +76,7 @@ export class VaultBuilder {
 
     // Pass 4:
     // Build vault-wide projections from page analysis.
-    const tags = this.tagBuilder.build(pages);
+    const tags = this.tagBuilder.build(pages, tagMetadata);
     const tasks = this.taskBuilder.build(pages);
     const embeds = this.embedBuilder.build(pages);
 
@@ -94,6 +97,7 @@ export class VaultBuilder {
       embeds,
       knowledgeGraph,
       this.projectionBuilder,
+      tagMetadata,
     );
   }
 }
