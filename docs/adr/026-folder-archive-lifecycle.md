@@ -16,9 +16,19 @@ A request to add folder archive (matching the affordance `Page` already has) is 
 
 Follow `Page`'s existing archive shape exactly, adapted for the one structural difference `moveFolder`/`removeFolder` already established a precedent for: a folder archive/restore must move a whole directory, not flatten it.
 
+### 0. How much of Page's archive mechanism actually reuses, checked explicitly before proposing anything new
+
+Splitting "archive" into its two halves, rather than treating it as one opaque capability:
+
+- **The decision — fully shareable, not just similarly-shaped.** Archiving computes `{status: 'archived', archivedAt: now, originalPath: <current path>, originalParentId: <current parentId>}`; restoring computes the inverse, preferring `originalParentId` if it still resolves, else `Inbox`, else vault root. `FolderMetadata` already carries the identical four fields `PageMetadata` does (confirmed directly). This patch-computation is the same business logic for both aggregates, not merely parallel — today it's written as an inline object literal inside `PagePersistenceCoordinator.runArchive`/`runRestore`; extending it to folders should factor it into one shared helper both `runArchive` and `runArchiveFolder` call (rule 4), not a second inline copy.
+- **The persistence — irreducibly aggregate-specific.** A page's archive is a flatten-to-`Archive/<filename>` single-file move; a folder can't flatten (it's a container, not a leaf) — archiving it means relocating a whole subtree while preserving structure, exactly what `Vault.moveFolder()`'s cascade already does. This isn't a gap in reuse, it's the same asymmetry `delete`/`delete-folder` and `move`/`rename-folder` already have for the identical reason (§Alternatives C).
+- **Gate dispatch — a folder id can never reach a page-scoped kind name without an early branch**, because `runOperation()` resolves `vault.getPage(id)` before its general switch (exactly why `'delete-folder'`/`'rename-folder'` are separately named, not unified with `'delete'`/`'move'`). Reusing the literal `'archive'`/`'restore'` kind names for folders would be the *first* deviation from that established pattern, not a continuation of it.
+
+**Conclusion of this check:** the mechanism is highly reusable at the business-logic layer (§2's shared metadata-patch helper) and only genuinely aggregate-specific at the disk-relocation/Gate-dispatch layer — consistent with, not an exception to, how every other folder capability in ADR-024 was built. What remains open is not mechanism, but two product decisions named in Non-Goals below, which is why a (now narrower) decision record is still proposed rather than either silent implementation or a full architectural redesign.
+
 ### 1. Scope: no new subsystem, same five touched by ADR-024
 
-`Vault` (two new mutations), Persistence Gate (two new operation kinds), `FolderOperations` (two new facade methods), `MembershipSelector` (one new read-side predicate — see §5), UI (one topbar menu item + reserved-folder guard). No new class of subsystem.
+`Vault` (two new mutations), Persistence Gate (two new operation kinds, sharing a metadata-patch helper with `runArchive`/`runRestore` per §0), `FolderOperations` (two new facade methods), `MembershipSelector` (one new read-side predicate — see §5), UI (one topbar menu item + reserved-folder guard). No new class of subsystem.
 
 ### 2. Archiving relocates the folder as a unit, not per-descendant
 
@@ -50,7 +60,7 @@ A page or folder nested inside an archived folder must not appear in ordinary wo
 
 **B — Metadata-only folder archive, no physical relocation.** Rejected for consistency: every other archived thing in the vault (`Page`) lives under `Archive/` on disk — a metadata-only folder archive would mean "archived" has two different physical meanings depending on aggregate type, undermining the one mental model (`Archive/` is where archived things live) `ArchiveMetadataReconciler` depends on.
 
-**C — Reuse `PageOperations`'s Gate kinds (`'archive'`/`'restore'`) for folders too, keyed by folder id.** Rejected: those kinds assume a single-file flatten-to-`Archive/` move (`MoveService.resolveArchiveDestination`); a folder's directory-preserving move is a different operation, not a parameterization of the same one — same reasoning ADR-024 §Alternatives A used to keep `'delete-folder'` separate from `'delete'`.
+**C — Reuse `PageOperations`'s Gate kinds (`'archive'`/`'restore'`) for folders too, keyed by folder id.** Rejected at the Gate-dispatch/kind-naming layer only (§0): those kinds assume a single-file flatten-to-`Archive/` move; a folder's directory-preserving move is a different operation, not a parameterization of the same one — same reasoning ADR-024 §Alternatives A used to keep `'delete-folder'` separate from `'delete'`. This is narrower than rejecting reuse outright — the underlying archive/restore metadata-patch logic *is* shared (§0, §2), only the Gate kind names and disk-relocation mechanics are kept separate.
 
 ## Non-Goals
 
