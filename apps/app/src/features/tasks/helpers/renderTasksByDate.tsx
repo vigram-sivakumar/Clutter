@@ -15,6 +15,7 @@ import type { NavigationRouter } from '@core/application/navigation/NavigationRo
 import { groupTasks } from './groupTasks';
 import { formatTaskDueDate } from './formatTaskDueDate';
 import { isPast, isToday } from '@shared/helpers/time';
+import { CountBadge } from '@components/count-badge/CountBadge';
 
 interface TaskRowCallbacks {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
@@ -80,21 +81,25 @@ export function renderTodayContent({
       {todayCompleted.length > 0 && (
         <Fragment>
           <Entry
+            className="tertiary"
             leading={
-              <Caret
-                variant="tree"
-                isExpanded={workspace.isSectionExpanded(
-                  'tasks-today-completed'
-                )}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  toggleCompleted();
-                }}
-              />
+              <>
+                <Caret
+                  variant="tree"
+                  isExpanded={workspace.isSectionExpanded(
+                    'tasks-today-completed'
+                  )}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    toggleCompleted();
+                  }}
+                />
+              </>
             }
+            trailing={<CountBadge count={todayCompleted.length} />}
             onClick={onOpenCompleted}
           >
-            <span className="text-tertiary">{`${todayCompleted.length} Completed`}</span>
+            Completed
           </Entry>
 
           {workspace.isSectionExpanded('tasks-today-completed') &&

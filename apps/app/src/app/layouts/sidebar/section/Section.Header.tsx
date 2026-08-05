@@ -21,17 +21,15 @@ export function Header({
   ...entryProps
 }: HeaderProps) {
   return (
-    <Entry {...entryProps} actions={actions}>
-      <span className="section-header"> {title}</span>
-
+    <Entry className="section-header" {...entryProps} actions={actions}>
+      {title}
       {isCollapsible && (
-        <span className="section-header__caret">
-          <Caret
-            variant="dropdown"
-            isExpanded={isExpanded}
-            onClick={onExpandToggle}
-          />
-        </span>
+        <Caret
+          className="section-header__caret"
+          variant="dropdown"
+          isExpanded={isExpanded}
+          onClick={onExpandToggle}
+        />
       )}
     </Entry>
   );

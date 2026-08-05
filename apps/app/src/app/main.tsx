@@ -9,6 +9,7 @@ import { App } from './App';
 import '../design-system/tokens.css';
 import '../design-system/theme.css';
 import '../design-system/styles/base.css';
+import '../design-system/styles/utilities.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');

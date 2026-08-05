@@ -1,6 +1,15 @@
-.section-header {
-  padding-left: var(--space-2);
-}
-.entry__content:has(.section-header) {
+.section-header .entry__content {
   gap: 0;
+}
+/* actions */
+.section-header__caret {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms ease;
+}
+
+.entry:hover .section-header__caret,
+.entry:focus-visible .section-header__caret {
+  opacity: 1;
+  pointer-events: auto;
 }

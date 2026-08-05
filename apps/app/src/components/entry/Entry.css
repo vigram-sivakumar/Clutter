@@ -76,8 +76,7 @@
 }
 
 /* actions */
-.entry__actions,
-.section-header__caret {
+.entry__actions {
   width: 0;
   display: flex;
   align-items: center;
@@ -90,17 +89,16 @@
 
   overflow: hidden;
 }
-.entry:hover .entry__actions,
-.entry:focus-visible .entry__actions,
-.entry:hover .section-header__caret,
-.entry:focus-visible .section-header__caret {
+.entry:hover:has(.entry__actions) .entry__actions,
+.entry:focus-visible:has(.entry__actions) .entry__actions {
   width: auto;
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
 }
-.entry:hover .entry__meta,
-.entry:focus-visible .entry__meta {
+
+.entry:hover:has(.entry__actions) .entry__meta,
+.entry:focus-visible:has(.entry__actions) .entry__meta {
   width: 0;
   opacity: 0;
   visibility: hidden;

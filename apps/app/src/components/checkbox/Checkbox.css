@@ -18,16 +18,15 @@
     color 150ms ease;
 }
 
-/* .checkbox:hover:not(:disabled) {
-  color: var(--checkbox-border-hover);
-} */
-
+.checkbox--checked {
+  color: var(--checkbox-bg-checked);
+}
 .checkbox:not(.checkbox--checked):active:not(:disabled) {
-  opacity: var(--opacity-medium);
+  opacity: var(--checkbox-bg-checked);
 }
 
 .checkbox--checked:hover:not(:disabled) {
-  --checkbox-bg-checked: var(--checkbox-bg-checked-hover);
+  color: var(--checkbox-bg-checked-hover);
 }
 
 .checkbox:disabled,

@@ -5,6 +5,7 @@ interface CaretProps {
   isPlaceholder?: boolean;
   isExpanded?: boolean;
   disabled?: boolean;
+  className?: string;
   onClick?: React.MouseEventHandler<HTMLButtonElement>;
 }
 
@@ -13,16 +14,17 @@ export function Caret({
   isPlaceholder = false,
   isExpanded = false,
   disabled = false,
+  className,
   onClick,
 }: CaretProps) {
   if (isPlaceholder) {
-    return <span className="caret-slot" aria-hidden />;
+    return <span className={`caret-slot ${className ?? ''}`} aria-hidden />;
   }
 
   return (
     <button
       type="button"
-      className="caret-slot"
+      className={`caret-slot ${className ?? ''}`}
       disabled={disabled}
       onClick={onClick}
     >

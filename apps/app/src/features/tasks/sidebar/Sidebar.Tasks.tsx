@@ -44,7 +44,13 @@ export function Tasks({
 
   return (
     <View navigation={<TasksShortcuts onShortcut={onShortcut} />}>
-      {renderTasksByDate({ tasks, workspace, onToggleComplete, onOpenTask, navigation })}
+      {renderTasksByDate({
+        tasks,
+        workspace,
+        onToggleComplete,
+        onOpenTask,
+        navigation,
+      })}
     </View>
   );
 }

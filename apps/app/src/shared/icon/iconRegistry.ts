@@ -56,6 +56,7 @@ import Tabs from './svg/tabs.svg?react';
 import TabsFlat from './svg/tabs-flat.svg?react';
 import Tag from './svg/tag.svg?react';
 import Template from './svg/template.svg?react';
+import Tick from './svg/tick.svg?react';
 import Tray from './svg/tray.svg?react';
 import Trash from './svg/trash.svg?react';
 import WidthFill from './svg/width-fill.svg?react';
@@ -117,6 +118,7 @@ export const iconRegistry = {
   tabsFlat: TabsFlat,
   tag: Tag,
   template: Template,
+  tick: Tick,
   tray: Tray,
   trash: Trash,
   widthFill: WidthFill,

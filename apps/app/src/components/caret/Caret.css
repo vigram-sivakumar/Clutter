@@ -37,7 +37,3 @@
 .caret-icon--dropdown.caret-icon--expanded {
   transform: rotate(-90deg);
 }
-
-.caret-icon--dropdown {
-  color: var(--text-tertiary);
-}

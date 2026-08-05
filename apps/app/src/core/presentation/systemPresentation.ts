@@ -55,9 +55,17 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   Record<SystemLocationId, SystemLocationPresentation>
 > = {
   notes: { id: 'notes', label: 'Notes', icon: 'squiggleLine' },
-  'daily-notes': { id: 'daily-notes', label: 'Daily Notes', icon: 'calendarToday' },
+  'daily-notes': {
+    id: 'daily-notes',
+    label: 'Daily Notes',
+    icon: 'calendarToday',
+  },
   tasks: { id: 'tasks', label: 'Tasks', icon: 'squareCheckOutline' },
-  'tasks-today': { id: 'tasks-today', label: 'Today', icon: 'squareCheckOutline' },
+  'tasks-today': {
+    id: 'tasks-today',
+    label: 'Today',
+    icon: 'squareCheckOutline',
+  },
   'tasks-upcoming': {
     id: 'tasks-upcoming',
     label: 'Upcoming',
@@ -65,14 +73,18 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   },
   'tasks-completed': {
     id: 'tasks-completed',
-    label: 'Completed',
+    label: 'Done',
+    icon: 'tick',
+  },
+  'tasks-all': {
+    id: 'tasks-all',
+    label: 'All Tasks',
     icon: 'squareCheckOutline',
   },
-  'tasks-all': { id: 'tasks-all', label: 'All Tasks', icon: 'squareCheckOutline' },
   'tasks-unscheduled': {
     id: 'tasks-unscheduled',
     label: 'Unscheduled',
-    icon: 'squareCheckOutline',
+    icon: 'clock',
   },
   tags: { id: 'tags', label: 'Tags', icon: 'tag' },
   favorites: { id: 'favorites', label: 'Favorites', icon: 'favouriteOutline' },
