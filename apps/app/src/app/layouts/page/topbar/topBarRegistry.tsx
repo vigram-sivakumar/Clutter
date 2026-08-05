@@ -33,11 +33,24 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
   />
 );
 
+// ADR-024: folder gains a real handler map (delete) — previously ignored
+// `options` entirely since there was nothing to wire yet. Rename isn't a
+// menu item; it reuses the same inline title-edit mechanism pages already
+// have (Page's titleEditable/onTitleCommit), wired in PageHost.tsx.
+const renderFolderActions: TopBarActionsRenderer = (options) => (
+  <ResourceTopBarActions
+    menu={folderTopBarMenu}
+    handlers={{
+      delete: options?.onDelete,
+    }}
+  />
+);
+
 export const topBarActionsRegistry: Record<
   TopBarResourceType,
   TopBarActionsRenderer
 > = {
-  folder: () => <ResourceTopBarActions menu={folderTopBarMenu} />,
+  folder: renderFolderActions,
   'reserved-folder': () => <ReservedFolderTopBarActions />,
   note: renderPageActions,
   'daily-note': renderPageActions,

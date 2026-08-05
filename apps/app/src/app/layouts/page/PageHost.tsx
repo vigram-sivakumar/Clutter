@@ -111,6 +111,41 @@ export function PageHost({ application }: PageHostProps) {
     void application.pageOperations.delete(activePageId);
   };
 
+  // ADR-024: unlike page delete (no confirmation, matching its existing
+  // no-undo behavior), a non-empty folder's delete requires confirmation —
+  // its blast radius is unbounded. The descendant count is a plain
+  // Vault read (Vault.getDescendantFoldersAndPages, the same subtree the
+  // Gate's cascade and Vault.removeFolder() both already use internally),
+  // not a new business rule computed here. FolderOperations.delete()
+  // itself remains an unconditional cascade once called — this check is
+  // UI-layer only, per the ADR's resolved decision #1.
+  const onDeleteFolder = async (folderId: string): Promise<void> => {
+    const { folders, pages } = vault.getDescendantFoldersAndPages(folderId);
+    const hasDescendants = folders.length > 0 || pages.length > 0;
+
+    if (hasDescendants) {
+      const confirmed = window.confirm(
+        `Delete this folder and everything inside it? This will permanently delete ${folders.length} folder(s) and ${pages.length} page(s). This cannot be undone.`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    await application.folderOperations.delete(folderId);
+    // The just-deleted folder can no longer be the active target — without
+    // this, the next render's vault.getFolder(activeFolderId) below would
+    // throw. Workspace is the closest existing fallback with no
+    // folder-specific "restore a valid target" logic yet (unlike pages,
+    // ADR-025) — a real gap, named as such, not silently worked around.
+    application.navigation.openWorkspace();
+  };
+
+  const onRenameFolder = (folderId: string, name: string): void => {
+    void application.folderOperations.rename(folderId, name);
+  };
+
   if (activeFolderId) {
     const folder = vault.getFolder(activeFolderId);
 
@@ -133,13 +168,23 @@ export function PageHost({ application }: PageHostProps) {
     );
 
     const breadcrumbs = buildBreadcrumbs(folder, vault, application.membershipSelector, onOpenFolder);
-    const topBar = buildTopBarActions(folder, { membershipSelector: application.membershipSelector });
+    const topBar = buildTopBarActions(folder, {
+      membershipSelector: application.membershipSelector,
+      onDelete: () => void onDeleteFolder(folder.id),
+    });
+    // A reserved folder (Archive, Inbox, Templates, Daily Notes) can't be
+    // renamed or deleted — buildTopBarActions already dispatches it to
+    // ReservedFolderTopBarActions (no delete button) via
+    // MembershipSelector.isSystemFolder, but title-editability has no
+    // equivalent automatic gate, so it's checked here explicitly.
+    const isRenameable = !application.membershipSelector.isSystemFolder(folder);
 
     return (
       <Page
         title={model.title}
         description={model.description}
-        titleEditable={false}
+        titleEditable={isRenameable}
+        onTitleCommit={isRenameable ? (title) => onRenameFolder(folder.id, title) : undefined}
         breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
         actions={topBar.actions}
         coverImage={model.coverImage ?? undefined}

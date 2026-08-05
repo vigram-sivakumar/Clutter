@@ -21,9 +21,10 @@ interface PageTitleProps {
   onSubmit?(): void;
   /**
    * Fired when a changed title is committed (Enter or a blur with changed
-   * text — see EditableText.onCommit). Optional: the persisted-page
-   * branch has no rename() capability yet (ADR-012) and leaves this
-   * unset, same as before — only the draft branch supplies one today.
+   * text — see EditableText.onCommit). Optional: a persisted *page* still
+   * has no rename() capability (ADR-012) and leaves this unset; the draft
+   * branch and, since ADR-024, the folder branch (FolderOperations.rename())
+   * both supply one.
    */
   onCommit?(value: string): void;
 }

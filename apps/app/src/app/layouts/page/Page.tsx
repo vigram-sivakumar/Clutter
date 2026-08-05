@@ -24,9 +24,10 @@ type PageProps = {
    */
   bodyFocusRef?: RefObject<{ focus(): void } | null>;
   /**
-   * Fired when a changed title commits (see PageTitle.onCommit). Only the
-   * draft branch supplies this today — persisted-page rename has no
-   * backing capability yet (ADR-012).
+   * Fired when a changed title commits (see PageTitle.onCommit). Supplied
+   * by the draft branch and, since ADR-024, the folder branch
+   * (FolderOperations.rename()) — persisted-page rename still has no
+   * backing capability yet (ADR-012) and leaves this unset.
    */
   onTitleCommit?(title: string): void;
 };
