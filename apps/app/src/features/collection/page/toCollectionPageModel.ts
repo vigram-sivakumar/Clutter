@@ -119,9 +119,15 @@ function toFilteredCollectionPageModel(
     view.kind === 'workspace'
       ? membershipSelector.getWorkspaceFolders()
       : query.getFavoriteFolders();
+  // ADR-023: narrowed to Notes membership for the same reason FolderTree's
+  // root-level page list is (Sidebar.Notes.tsx §FolderTree) — Workspace's
+  // page list and the sidebar's "Workspace" section render the same root
+  // page set, so a root-level Daily Note draft (folderId: null, before its
+  // month folder exists) must be excluded from both surfaces identically,
+  // not just the sidebar one.
   const rawNotes =
     view.kind === 'workspace'
-      ? effectivePageState.getChildPages(null)
+      ? membershipSelector.getNotesChildPages(null)
       : effectivePageState.getFavoritePages();
 
   return {

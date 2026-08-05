@@ -311,6 +311,30 @@ describe('toCollectionPageModel — filtered views (ADR-022), reusing the same m
     expect(model.notes).toEqual([expect.objectContaining({ id: 'page-1' })]);
   });
 
+  it("'workspace' excludes a root-level Daily Note draft (ADR-023, Phase 6 parity fix) — the Workspace page must match FolderTree's root exactly", async () => {
+    const { vault, query, effectivePageState, membershipSelector, workspace, pageOperations } =
+      setup([], []);
+
+    // Mirrors a fresh-vault boot: no Daily Notes month folder exists yet,
+    // so the draft's folderId is null — previously indistinguishable, in
+    // this collection page, from a root-level Note.
+    await pageOperations.openAtPath(`${ROOT}/Daily Notes/2026/August/2026-08-20.md`, {
+      type: 'daily-note',
+    });
+
+    const model = toCollectionPageModel(
+      { view: { kind: 'workspace' } },
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      { onOpenFolder: vi.fn(), onOpenNote: vi.fn(), onOpenDraftNote: vi.fn() }
+    );
+
+    expect(model.notes).toEqual([]);
+  });
+
   it("'favorites' shows exactly the favorited folders and pages, regardless of where they live in the tree", () => {
     const favoritedFolder = makeFolder({
       id: 'folder-1',
