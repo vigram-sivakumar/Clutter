@@ -420,6 +420,80 @@ describe('moveFolder cascade', () => {
   });
 });
 
+describe('Vault.removeFolder cascade (ADR-024)', () => {
+  it('removes the folder, every descendant folder, and every descendant page', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const vault = makeVault([notes], [projects, design]);
+
+    vault.removeFolder('folder-projects');
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getFolder('folder-design')).toBeUndefined();
+    expect(vault.getPage('page-notes')).toBeUndefined();
+  });
+
+  it('clears path lookups for the folder, its descendants, and their pages', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const vault = makeVault([notes], [projects, design]);
+
+    vault.removeFolder('folder-projects');
+
+    expect(vault.getFolderByPath('/vault/Projects')).toBeUndefined();
+    expect(vault.getFolderByPath('/vault/Projects/Design')).toBeUndefined();
+    expect(vault.getPageByPath('/vault/Projects/Design/Notes.md')).toBeUndefined();
+  });
+
+  it('leaves an unrelated sibling folder and its pages untouched', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const sibling = makeFolder({ id: 'folder-sibling', path: '/vault/Sibling' });
+    const siblingPage = makePage({
+      id: 'page-sibling',
+      path: '/vault/Sibling/Note.md',
+      parentId: 'folder-sibling',
+    });
+    const vault = makeVault([notes, siblingPage], [projects, design, sibling]);
+
+    vault.removeFolder('folder-projects');
+
+    expect(vault.getFolder('folder-sibling')).toBeDefined();
+    expect(vault.getPage('page-sibling')).toBeDefined();
+  });
+
+  it('emits exactly one folder-removed event for a cascade removal', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const vault = makeVault([notes], [projects, design]);
+    const events: unknown[] = [];
+
+    vault.subscribe((event) => {
+      events.push(event);
+    });
+
+    vault.removeFolder('folder-projects');
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({
+      type: 'folder-removed',
+      folderId: 'folder-projects',
+    });
+  });
+
+  it('throws for an unknown folder id, mirroring removePage', () => {
+    const vault = makeVault([]);
+
+    expect(() => vault.removeFolder('does-not-exist')).toThrow();
+  });
+
+  it('removes a leaf folder with no descendant pages cleanly', () => {
+    const leaf = makeFolder({ id: 'folder-leaf', path: '/vault/Leaf' });
+    const vault = makeVault([], [leaf]);
+
+    vault.removeFolder('folder-leaf');
+
+    expect(vault.getFolder('folder-leaf')).toBeUndefined();
+    expect(vault.getFolderByPath('/vault/Leaf')).toBeUndefined();
+  });
+});
+
 describe('Vault lazy projections (embeds, knowledgeGraph)', () => {
   it('knowledgeGraph() and embeds() are callable methods, matching spec §3', () => {
     const vault = makeVault([]);

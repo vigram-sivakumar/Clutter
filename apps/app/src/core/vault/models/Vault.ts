@@ -40,6 +40,10 @@ export type VaultChangeEvent =
       folderId: string;
     }
   | {
+      type: 'folder-removed';
+      folderId: string;
+    }
+  | {
       type: 'tag-metadata-changed';
     };
 
@@ -574,6 +578,65 @@ export class Vault {
       type: 'folder-moved',
       folderId,
       path,
+    });
+  }
+
+  /**
+   * Removes a folder and every page/folder nested inside it (ADR-024).
+   *
+   * Mirrors moveFolder's descendant-collection pattern exactly (same
+   * VaultPath.isDescendantOf walk), since both need the same subtree —
+   * moveFolder recomputes its paths, this deletes them outright. One
+   * refreshProjections() call if any pages were removed, one
+   * `folder-removed` notification for the whole operation regardless of
+   * how many descendants it took with it — the same granularity
+   * removePage/moveFolder already use, since no subscriber diffs event
+   * payloads for per-descendant detail.
+   *
+   * Caller responsibility (Persistence Gate/Sync only, per rule 3): any
+   * disk deletion for the folder's contents must already be complete (app-
+   * initiated) or have already happened externally (sync) before this is
+   * called — Vault performs zero filesystem I/O, here as everywhere else.
+   */
+  removeFolder(folderId: string): void {
+    const folder = this.foldersById.get(folderId);
+
+    if (!folder) {
+      throw new Error(`Cannot remove unknown folder: ${folderId}`);
+    }
+
+    const descendantFolders = [...this.foldersById.values()].filter(
+      (candidate) =>
+        candidate.id !== folderId &&
+        VaultPath.isDescendantOf(candidate.path, folder.path)
+    );
+
+    const subtreeFolderIds = new Set([folderId, ...descendantFolders.map((f) => f.id)]);
+
+    const pagesInSubtree = [...this.pagesById.values()].filter(
+      (page) => page.parentId !== null && subtreeFolderIds.has(page.parentId)
+    );
+
+    for (const page of pagesInSubtree) {
+      this.pagesById.delete(page.id);
+      this.pagesByPath.delete(page.path);
+    }
+
+    for (const descendant of descendantFolders) {
+      this.foldersById.delete(descendant.id);
+      this.foldersByPath.delete(descendant.path);
+    }
+
+    this.foldersById.delete(folderId);
+    this.foldersByPath.delete(folder.path);
+
+    if (pagesInSubtree.length > 0) {
+      this.refreshProjections();
+    }
+
+    this.notify({
+      type: 'folder-removed',
+      folderId,
     });
   }
 
