@@ -72,6 +72,7 @@ export function Sidebar({ application }: SidebarProps) {
       icon: getSystemLocationPresentation('notes').icon,
       panel: (
         <Notes
+          vault={vault}
           query={query}
           workspace={workspace}
           navigation={navigation}

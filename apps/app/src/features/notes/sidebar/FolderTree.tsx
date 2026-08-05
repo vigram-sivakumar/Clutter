@@ -4,6 +4,8 @@ import { Fragment } from 'react/jsx-runtime';
 import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
 import { NewFolderRow } from './NewFolderRow';
+import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
+import { folderSidebarMenu } from './folderSidebarMenu.config';
 // Models
 import type { Folder } from '@core/vault/models';
 // Presentation
@@ -21,6 +23,42 @@ export interface PendingNewFolder {
   // The parent under which a not-yet-persisted folder is being named.
   // null means the vault root.
   readonly parentId: string | null;
+}
+
+/**
+ * Single owner of "which row's overflow menu/rename session is active,"
+ * supplied by the caller (Sidebar.Notes.tsx) so it's shared across every
+ * row FolderTree recurses through — the mechanism that guarantees only
+ * one menu is ever open at a time, and threads every menu action back to
+ * PageOperations/FolderOperations, the facades that already own rename/
+ * archive/delete (no new write path is introduced by any handler here).
+ * Optional so every existing FolderTree caller/test that doesn't wire row
+ * actions keeps rendering the plain, unwired overflow button it always
+ * has.
+ */
+export interface SidebarRowActions {
+  openMenuId: string | null;
+  onOpenMenu(id: string): void;
+  onCloseMenu(): void;
+
+  editingId: string | null;
+  onStartRename(id: string): void;
+  onRenameEnd(): void;
+
+  /** Continuous-commit channel (PageOperations.commitTitle), persisted notes only. */
+  onNoteTitleEdit(pageId: string, value: string): void;
+  onNoteTitleFlush(pageId: string): void;
+  onNoteTitleCancel(pageId: string): void;
+  /** Discrete commit (PageOperations.updateDraftTitle), draft notes only. */
+  onDraftTitleCommit(pageId: string, value: string): void;
+  onArchiveNote(pageId: string): void;
+  onDeleteNote(pageId: string): void;
+
+  /** Continuous-commit channel (FolderOperations.commitName), same shape as a persisted note's title. */
+  onFolderTitleEdit(folderId: string, value: string): void;
+  onFolderTitleFlush(folderId: string): void;
+  onFolderTitleCancel(folderId: string): void;
+  onDeleteFolder(folderId: string): void;
 }
 
 interface FolderTreeProps {
@@ -71,6 +109,8 @@ interface FolderTreeProps {
   pendingNewFolder: PendingNewFolder | null;
   onCommitNewFolder(name: string, parentId: string | null): void;
   onCancelNewFolder(): void;
+  /** Overflow-menu/rename wiring — see SidebarRowActions. */
+  rowActions?: SidebarRowActions;
 }
 
 function PageEntry({
@@ -79,14 +119,17 @@ function PageEntry({
   workspace,
   onPageClick,
   onDraftPageClick,
+  rowActions,
 }: {
   entry: EffectivePage;
   level: number;
   workspace: Workspace;
   onPageClick(pageId: string): void;
   onDraftPageClick(pageId: string): void;
+  rowActions?: SidebarRowActions;
 }) {
   const label = getPageDisplayLabel(entry);
+  const isEditing = rowActions?.editingId === entry.id;
 
   return (
     <NoteEntry
@@ -95,7 +138,53 @@ function PageEntry({
       emoji={entry.icon}
       level={level}
       selected={workspace.activePageId === entry.id}
-      onClick={() => (entry.isDraft ? onDraftPageClick(entry.id) : onPageClick(entry.id))}
+      // A row mid-rename must not also navigate on click — EditableText's
+      // contenteditable surface isn't one of Entry's recognized
+      // interactive-descendant tags, so leaving onClick wired here would
+      // fire row selection on every click into the field.
+      onClick={
+        isEditing
+          ? undefined
+          : () => (entry.isDraft ? onDraftPageClick(entry.id) : onPageClick(entry.id))
+      }
+      isEditing={isEditing}
+      onTitleEdit={
+        !entry.isDraft && rowActions
+          ? (value) => rowActions.onNoteTitleEdit(entry.id, value)
+          : undefined
+      }
+      onTitleFlush={
+        !entry.isDraft && rowActions ? () => rowActions.onNoteTitleFlush(entry.id) : undefined
+      }
+      onTitleCancel={
+        !entry.isDraft && rowActions ? () => rowActions.onNoteTitleCancel(entry.id) : undefined
+      }
+      onTitleCommit={
+        entry.isDraft && rowActions
+          ? (value) => rowActions.onDraftTitleCommit(entry.id, value)
+          : undefined
+      }
+      onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
+      menuItems={rowActions ? buildNoteSidebarMenu(entry.isDraft) : undefined}
+      menuOpen={rowActions?.openMenuId === entry.id}
+      onMenuOpenChange={
+        rowActions
+          ? (open) => (open ? rowActions.onOpenMenu(entry.id) : rowActions.onCloseMenu())
+          : undefined
+      }
+      onMenuSelect={
+        rowActions
+          ? (id) => {
+              if (id === 'rename') {
+                rowActions.onStartRename(entry.id);
+              } else if (id === 'archive') {
+                rowActions.onArchiveNote(entry.id);
+              } else if (id === 'delete') {
+                rowActions.onDeleteNote(entry.id);
+              }
+            }
+          : undefined
+      }
     />
   );
 }
@@ -113,6 +202,7 @@ export function FolderTree({
   pendingNewFolder,
   onCommitNewFolder,
   onCancelNewFolder,
+  rowActions,
 }: FolderTreeProps) {
   // Get all folders that belong to the current parent. Root-level: ADR-023's
   // MembershipSelector is the single owner of "is this folder part of
@@ -170,6 +260,7 @@ export function FolderTree({
         // Empty folders default to collapsed rather than Workspace's normal
         // expanded-by-default state, since there's nothing to reveal.
         const isExpanded = isEmpty ? false : workspace.isFolderExpanded(folder.id);
+        const isEditingFolder = rowActions?.editingId === folder.id;
 
         return (
           <Fragment key={folder.id}>
@@ -182,8 +273,38 @@ export function FolderTree({
               selected={workspace.activeFolderId === folder.id}
               isExpanded={isExpanded}
               onExpandToggle={() => workspace.toggleFolderExpanded(folder.id)}
-              onClick={() => onFolderClick(folder)}
+              // Same rename/navigate conflict guard as PageEntry above.
+              onClick={isEditingFolder ? undefined : () => onFolderClick(folder)}
               onAddClick={() => onCreateNote(folder.id)}
+              isEditing={isEditingFolder}
+              onTitleEdit={
+                rowActions ? (value) => rowActions.onFolderTitleEdit(folder.id, value) : undefined
+              }
+              onTitleFlush={
+                rowActions ? () => rowActions.onFolderTitleFlush(folder.id) : undefined
+              }
+              onTitleCancel={
+                rowActions ? () => rowActions.onFolderTitleCancel(folder.id) : undefined
+              }
+              onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
+              menuItems={rowActions ? folderSidebarMenu : undefined}
+              menuOpen={rowActions?.openMenuId === folder.id}
+              onMenuOpenChange={
+                rowActions
+                  ? (open) => (open ? rowActions.onOpenMenu(folder.id) : rowActions.onCloseMenu())
+                  : undefined
+              }
+              onMenuSelect={
+                rowActions
+                  ? (id) => {
+                      if (id === 'rename') {
+                        rowActions.onStartRename(folder.id);
+                      } else if (id === 'delete') {
+                        rowActions.onDeleteFolder(folder.id);
+                      }
+                    }
+                  : undefined
+              }
             />
             {/* Completes the existing Workspace.isFolderExpanded capability
                 (ADR-021) — a collapsed folder's pages and subfolders render
@@ -199,6 +320,7 @@ export function FolderTree({
                     workspace={workspace}
                     onPageClick={onPageClick}
                     onDraftPageClick={onDraftPageClick}
+                    rowActions={rowActions}
                   />
                 ))}
                 {/* Render this folder's child folders.
@@ -217,6 +339,7 @@ export function FolderTree({
                   pendingNewFolder={pendingNewFolder}
                   onCommitNewFolder={onCommitNewFolder}
                   onCancelNewFolder={onCancelNewFolder}
+                  rowActions={rowActions}
                 />
               </>
             )}
@@ -233,6 +356,7 @@ export function FolderTree({
           workspace={workspace}
           onPageClick={onPageClick}
           onDraftPageClick={onDraftPageClick}
+          rowActions={rowActions}
         />
       ))}
     </>

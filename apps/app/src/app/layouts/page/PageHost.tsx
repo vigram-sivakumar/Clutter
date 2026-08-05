@@ -10,6 +10,7 @@ import {
   buildTopBarActions,
   buildDraftTopBarActions,
 } from '@app/layouts/page/topbar/buildTopBarActions';
+import { deleteFolderWithConfirmation } from '@features/notes/helpers/deleteFolderWithConfirmation';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
@@ -111,29 +112,17 @@ export function PageHost({ application }: PageHostProps) {
     void application.pageOperations.delete(activePageId);
   };
 
-  // ADR-024: unlike page delete (no confirmation, matching its existing
-  // no-undo behavior), a non-empty folder's delete requires confirmation —
-  // its blast radius is unbounded. The descendant count is a plain
-  // Vault read (Vault.getDescendantFoldersAndPages, the same subtree the
-  // Gate's cascade and Vault.removeFolder() both already use internally),
-  // not a new business rule computed here. FolderOperations.delete()
-  // itself remains an unconditional cascade once called — this check is
-  // UI-layer only, per the ADR's resolved decision #1.
   const onDeleteFolder = async (folderId: string): Promise<void> => {
-    const { folders, pages } = vault.getDescendantFoldersAndPages(folderId);
-    const hasDescendants = folders.length > 0 || pages.length > 0;
+    const deleted = await deleteFolderWithConfirmation(
+      vault,
+      application.folderOperations,
+      folderId
+    );
 
-    if (hasDescendants) {
-      const confirmed = window.confirm(
-        `Delete this folder and everything inside it? This will permanently delete ${folders.length} folder(s) and ${pages.length} page(s). This cannot be undone.`
-      );
-
-      if (!confirmed) {
-        return;
-      }
+    if (!deleted) {
+      return;
     }
 
-    await application.folderOperations.delete(folderId);
     // The just-deleted folder can no longer be the active target — without
     // this, the next render's vault.getFolder(activeFolderId) below would
     // throw. Workspace is the closest existing fallback with no

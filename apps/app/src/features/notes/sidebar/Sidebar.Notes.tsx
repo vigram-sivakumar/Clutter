@@ -5,6 +5,7 @@ import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection'
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
+import type { Vault } from '@core/vault/models/Vault';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
@@ -12,14 +13,16 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
-import { FolderTree, type PendingNewFolder } from './FolderTree';
+import { FolderTree, type PendingNewFolder, type SidebarRowActions } from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
+import { deleteFolderWithConfirmation } from '../helpers/deleteFolderWithConfirmation';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 
 interface NotesProps {
+  vault: Vault;
   query: VaultQuery;
   workspace: Workspace;
   navigation: NavigationRouter;
@@ -39,6 +42,7 @@ interface NotesProps {
 }
 
 export function Notes({
+  vault,
   query,
   workspace,
   navigation,
@@ -52,6 +56,48 @@ export function Notes({
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
+
+  // Single owner of "which row's overflow menu/rename session is open" —
+  // shared by every row FolderTree recurses through (SidebarRowActions),
+  // the mechanism that guarantees only one menu is ever open at a time and
+  // that starting a rename elsewhere closes any other in-progress one.
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const rowActions: SidebarRowActions = {
+    openMenuId,
+    onOpenMenu: (id) => setOpenMenuId(id),
+    onCloseMenu: () => setOpenMenuId(null),
+
+    editingId,
+    onStartRename: (id) => {
+      setOpenMenuId(null);
+      setEditingId(id);
+    },
+    onRenameEnd: () => setEditingId(null),
+
+    onNoteTitleEdit: (pageId, value) => pageOperations.commitTitle(pageId, value),
+    onNoteTitleFlush: (pageId) => void pageOperations.requestTitleSave(pageId),
+    onNoteTitleCancel: (pageId) => pageOperations.cancelTitleEdit(pageId),
+    onDraftTitleCommit: (pageId, value) => void pageOperations.updateDraftTitle(pageId, value),
+    onArchiveNote: (pageId) => void pageOperations.archive(pageId),
+    onDeleteNote: (pageId) => void pageOperations.delete(pageId),
+
+    onFolderTitleEdit: (folderId, value) => folderOperations.commitName(folderId, value),
+    onFolderTitleFlush: (folderId) => void folderOperations.requestNameSave(folderId),
+    onFolderTitleCancel: (folderId) => folderOperations.cancelNameEdit(folderId),
+    onDeleteFolder: (folderId) => {
+      void (async () => {
+        const deleted = await deleteFolderWithConfirmation(vault, folderOperations, folderId);
+
+        // Mirrors PageHost's onDeleteFolder: the just-deleted folder can no
+        // longer be the active target if it was one.
+        if (deleted && workspace.activeFolderId === folderId) {
+          navigation.openWorkspace();
+        }
+      })();
+    },
+  };
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
   const favoriteItems = getFavoriteItems(query, effectivePageState);
   // A pending (not-yet-persisted) root-level folder counts as non-empty too
@@ -133,6 +179,7 @@ export function Notes({
           pendingNewFolder={pendingNewFolder}
           onCommitNewFolder={handleCommitNewFolder}
           onCancelNewFolder={() => setPendingNewFolder(null)}
+          rowActions={rowActions}
           onPageClick={onOpen}
           onDraftPageClick={onOpenDraft}
           onFolderClick={(folder) => {
