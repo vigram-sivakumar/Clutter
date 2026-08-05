@@ -43,6 +43,31 @@ export type ActiveView =
   | { readonly type: 'filtered-view'; readonly view: FilteredView };
 
 /**
+ * Structural equality for two ActiveViews (ADR-027) — used solely to skip
+ * recording a redundant history entry when a navigation "changes" to the
+ * view that's already active. Plain field comparison; FilteredView's only
+ * non-discriminant field (tagName) is compared alongside kind.
+ */
+function activeViewsEqual(a: ActiveView, b: ActiveView): boolean {
+  if (a.type !== b.type) {
+    return false;
+  }
+
+  if (a.type === 'page' || a.type === 'folder') {
+    return a.id === (b as typeof a).id;
+  }
+
+  const viewA = a.view;
+  const viewB = (b as typeof a).view;
+
+  if (viewA.kind !== viewB.kind) {
+    return false;
+  }
+
+  return viewA.kind === 'tag' ? viewA.tagName === (viewB as typeof viewA).tagName : true;
+}
+
+/**
  * Represents the user's current working context.
  *
  * A Workspace references a Vault and owns navigation state,
@@ -119,20 +144,46 @@ export class Workspace implements Observable {
   private readonly listeners = new Set<ChangeListener>();
 
   /**
-   * Opens a page within the workspace.
+   * Navigation-history stacks (ADR-027) — `ActiveView` snapshots, reusing
+   * ADR-022's union rather than a new "history entry" shape, since it
+   * already identifies anything navigable (page, folder, filtered view).
+   * Owned entirely by Workspace: mechanical bookkeeping only (push/pop,
+   * peek, discard), no existence checks and no dependency on Vault, which
+   * would break Workspace's zero-dependency invariant (ADR-006).
+   * NavigationRouter.back()/forward() own the policy of walking past a
+   * stale entry and reactivating a valid one; Workspace only tracks what
+   * the stacks contain.
    */
-  public openPage(pageId: string): void {
+  private readonly backStack: ActiveView[] = [];
+  private readonly forwardStack: ActiveView[] = [];
+
+  /**
+   * Opens a page within the workspace.
+   *
+   * `recordHistory` (default true) is the sole mechanism (ADR-027) by
+   * which a caller distinguishes a real user navigation from a history
+   * replay (NavigationRouter.back()/forward(), which always passes
+   * `false` — see PageOperations.open()). No other caller of this method
+   * should ever pass `false`: delete-time fallback and startup's initial
+   * open are unrecorded today only because they run while `activeView` is
+   * still null (see recordNavigation() below), not because they pass the
+   * flag — a future internal-recovery caller that could run with a
+   * non-null activeView must pass `recordHistory: false` explicitly.
+   */
+  public openPage(pageId: string, options?: { readonly recordHistory?: boolean }): void {
     if (!this.openPageIds.includes(pageId)) {
       this.openPageIds.push(pageId);
     }
+    this.recordNavigation({ type: 'page', id: pageId }, options?.recordHistory);
     this._activeView = { type: 'page', id: pageId };
     this.notify();
   }
 
   /**
-   * Opens a folder within the workspace.
+   * Opens a folder within the workspace. See openPage() for `recordHistory`.
    */
-  public openFolder(folderId: string): void {
+  public openFolder(folderId: string, options?: { readonly recordHistory?: boolean }): void {
+    this.recordNavigation({ type: 'folder', id: folderId }, options?.recordHistory);
     this._activeView = { type: 'folder', id: folderId };
     this.notify();
   }
@@ -141,10 +192,119 @@ export class Workspace implements Observable {
    * Shows a filtered, non-folder view in the main content pane (ADR-022)
    * — the entry point NavigationRouter's view-level intents (openWorkspace,
    * openFavorites) use, the same way openFolder is FolderOperations.open's.
+   * See openPage() for `recordHistory`.
    */
-  public openFilteredView(view: FilteredView): void {
+  public openFilteredView(
+    view: FilteredView,
+    options?: { readonly recordHistory?: boolean }
+  ): void {
+    this.recordNavigation({ type: 'filtered-view', view }, options?.recordHistory);
     this._activeView = { type: 'filtered-view', view };
     this.notify();
+  }
+
+  /**
+   * ADR-027's recording branch, shared by all three open*() methods above.
+   * Pushes the *current* (about-to-be-replaced) activeView onto backStack
+   * and clears forwardStack (browser-style branching invariant) — but only
+   * when: recording wasn't explicitly suppressed (`recordHistory !== false`
+   * — the history-replay path), there is a current view to remember (a
+   * null activeView, as at boot or right after everything is closed, has
+   * nothing worth recording), and the new target isn't the same view
+   * already active (clicking the same page again shouldn't create a junk
+   * entry).
+   */
+  private recordNavigation(next: ActiveView, recordHistory: boolean | undefined): void {
+    if (recordHistory === false) {
+      return;
+    }
+
+    const current = this._activeView;
+
+    if (!current || activeViewsEqual(current, next)) {
+      return;
+    }
+
+    this.backStack.push(current);
+    this.forwardStack.length = 0;
+  }
+
+  /**
+   * Whether back() has anywhere to go (ADR-027) — drives Controls' Previous
+   * button's disabled state.
+   */
+  public get canNavigateBack(): boolean {
+    return this.backStack.length > 0;
+  }
+
+  /**
+   * Whether forward() has anywhere to go (ADR-027) — drives Controls' Next
+   * button's disabled state.
+   */
+  public get canNavigateForward(): boolean {
+    return this.forwardStack.length > 0;
+  }
+
+  /**
+   * Read-only look at the top of backStack, for NavigationRouter.back() to
+   * validate (via Vault) before committing — does not mutate anything.
+   */
+  public peekBack(): ActiveView | undefined {
+    return this.backStack.at(-1);
+  }
+
+  /**
+   * Read-only look at the top of forwardStack. See peekBack().
+   */
+  public peekForward(): ActiveView | undefined {
+    return this.forwardStack.at(-1);
+  }
+
+  /**
+   * Permanently drops a confirmed-stale entry from the top of backStack
+   * (ADR-027: history traversal skips a deleted target rather than
+   * invoking any fallback policy). The discarded entry is not moved to
+   * forwardStack — it no longer exists, so there is nothing to redo.
+   */
+  public discardBackEntry(): void {
+    this.backStack.pop();
+  }
+
+  /**
+   * Discards a confirmed-stale entry from the top of forwardStack. See
+   * discardBackEntry().
+   */
+  public discardForwardEntry(): void {
+    this.forwardStack.pop();
+  }
+
+  /**
+   * Stack bookkeeping for committing a validated backStack entry
+   * (NavigationRouter.back(), after peekBack() + an existence check):
+   * pops backStack and pushes the current activeView onto forwardStack.
+   * Does not touch activeView itself — the caller commits the popped
+   * entry separately (via PageOperations.open()/FolderOperations.open()/
+   * Workspace.openFilteredView(), each with `recordHistory: false`) so
+   * that page/folder reactivation still goes through the same session-
+   * creation and edit-flush machinery a normal open() does.
+   */
+  public popBackForReplay(): void {
+    this.backStack.pop();
+
+    if (this._activeView) {
+      this.forwardStack.push(this._activeView);
+    }
+  }
+
+  /**
+   * Symmetric counterpart to popBackForReplay() for NavigationRouter.forward().
+   */
+  public popForwardForReplay(): void {
+    this.forwardStack.pop();
+
+    if (this._activeView) {
+      this.backStack.push(this._activeView);
+    }
   }
 
   /**

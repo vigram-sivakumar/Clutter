@@ -234,6 +234,154 @@ describe('Workspace.closeFolder (post-delete-navigation consistency fix)', () =>
   });
 });
 
+describe('Workspace navigation history (ADR-027)', () => {
+  it('starts with empty history — canNavigateBack/Forward both false', () => {
+    const workspace = new Workspace();
+
+    expect(workspace.canNavigateBack).toBe(false);
+    expect(workspace.canNavigateForward).toBe(false);
+  });
+
+  it('the very first navigation records nothing (no current view to remember)', () => {
+    const workspace = new Workspace();
+
+    workspace.openPage('page-1');
+
+    expect(workspace.canNavigateBack).toBe(false);
+  });
+
+  it('a second navigation pushes the previous view onto backStack', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+
+    workspace.openPage('page-2');
+
+    expect(workspace.canNavigateBack).toBe(true);
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+  });
+
+  it('records across mixed resource types (page, folder, filtered view)', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openFolder('folder-1');
+    workspace.openFilteredView({ kind: 'favorites' });
+
+    expect(workspace.peekBack()).toEqual({ type: 'folder', id: 'folder-1' });
+    workspace.popBackForReplay();
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+  });
+
+  it('navigating to the already-active view does not push a duplicate entry', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openPage('page-2');
+
+    workspace.openPage('page-2');
+
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+  });
+
+  it('popBackForReplay pops backStack and pushes the current view onto forwardStack', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openPage('page-2');
+
+    workspace.popBackForReplay();
+
+    expect(workspace.canNavigateBack).toBe(false);
+    expect(workspace.canNavigateForward).toBe(true);
+    expect(workspace.peekForward()).toEqual({ type: 'page', id: 'page-2' });
+  });
+
+  it('popForwardForReplay pops forwardStack and pushes the current view onto backStack', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openPage('page-2');
+    workspace.popBackForReplay();
+    // Caller (NavigationRouter) would now commit page-1 with recordHistory:false.
+    workspace.openPage('page-1', { recordHistory: false });
+
+    workspace.popForwardForReplay();
+
+    expect(workspace.canNavigateForward).toBe(false);
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+  });
+
+  it('discardBackEntry drops the top backStack entry without touching forwardStack', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openPage('page-2');
+    workspace.openPage('page-3');
+
+    workspace.discardBackEntry(); // drops page-2 (stale)
+
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+    expect(workspace.canNavigateForward).toBe(false);
+  });
+
+  it('discardForwardEntry drops the top forwardStack entry', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openPage('page-2');
+    workspace.popBackForReplay();
+
+    workspace.discardForwardEntry();
+
+    expect(workspace.canNavigateForward).toBe(false);
+  });
+
+  it('recordHistory: false suppresses recording entirely — no push, no forwardStack clear', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openPage('page-2');
+    workspace.popBackForReplay(); // backStack: [], forwardStack: [page-2]
+
+    workspace.openPage('page-1', { recordHistory: false });
+
+    expect(workspace.canNavigateBack).toBe(false);
+    expect(workspace.canNavigateForward).toBe(true);
+    expect(workspace.activeView).toEqual({ type: 'page', id: 'page-1' });
+  });
+
+  it('browser-style branching: a new recorded navigation after going back discards the forward stack', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-a');
+    workspace.openPage('page-b');
+    workspace.openPage('page-c');
+    workspace.popBackForReplay();
+    workspace.openPage('page-b', { recordHistory: false }); // simulate NavigationRouter.back() landing on B
+
+    workspace.openPage('page-d'); // a genuinely new user navigation
+
+    expect(workspace.canNavigateForward).toBe(false);
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-b' });
+  });
+
+  it('closePage never touches the history stacks (tab-lifecycle, not navigation)', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openPage('page-2');
+
+    workspace.closePage('page-2');
+
+    expect(workspace.canNavigateForward).toBe(false);
+    // backStack is unaffected by the close — still holds page-1 from the
+    // page-1 -> page-2 navigation recorded earlier.
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+  });
+
+  it('closeFolder never touches the history stacks', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openFolder('folder-1');
+
+    workspace.closeFolder('folder-1');
+
+    expect(workspace.canNavigateForward).toBe(false);
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+  });
+});
+
 describe('Workspace.isSidebarVisible (ADR-021, M4)', () => {
   it('defaults to visible', () => {
     const workspace = new Workspace();
