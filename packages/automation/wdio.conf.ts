@@ -25,17 +25,19 @@
  * Object / AutomationDriver architecture lands once this confirms the
  * underlying tooling works reliably.
  *
- * PERFORMANCE: every spec file's own `before()` must call
- * helpers/suppressFocusRecoveryOverhead.ts's exported function before any
- * findElement/findElements/$/$$/elementClick/getTitle command. Without it,
- * every one of those commands pays a blocking ~10-20s tax — see that
- * file's doc comment and AUTOMATION.md's Performance section for the full
- * explanation and benchmark. (A config-level `before` hook here was tried
- * first; wdio.conf.ts's own `before` fires before `browser.tauri` is
- * attached, so it can't call this — must be spec-level.)
+ * PERFORMANCE: bootstrap/session.ts is registered as a service below,
+ * after @wdio/tauri-service, so every scenario gets its one-time
+ * focus-recovery-suppression call automatically — no spec file needs to
+ * know this exists or call anything itself. See that file's doc comment
+ * and AUTOMATION.md's Performance section for the full explanation,
+ * measurements, and the two approaches that didn't work first (a
+ * config-level `before` here — fires before `browser.tauri` is attached
+ * — and a mocha `mochaOpts.require` root-hooks file — silently never
+ * loaded, wrong loader).
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import AutomationSessionBootstrap from './bootstrap/session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const appBinaryPath = path.resolve(
@@ -58,6 +60,7 @@ export const config: WebdriverIO.Config = {
         },
       },
     ],
+    [AutomationSessionBootstrap, {}],
   ],
 
   capabilities: [

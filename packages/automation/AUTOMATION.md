@@ -90,29 +90,47 @@ anything in this package).
 
 ## Performance
 
-**Every spec file's `describe()` must call
-`before(suppressFocusRecoveryOverhead)`** (from
-`helpers/suppressFocusRecoveryOverhead.ts`). Without it, every
-`findElement`/`findElements`/`$`/`$$`/`elementClick`/`getTitle` command
-pays a blocking ~10-20s tax. This isn't an inherent limit of the embedded
-provider, macOS, or our selector strategy — it's a specific, fixable gap:
-`@wdio/tauri-service`'s `ensureActiveWindowFocus` check runs before those
-six command types and calls `browser.tauri.execute()` to read window
-focus state; that call needs `window.__wdio_original_core__`, which is
-injected by the frontend companion package `@wdio/tauri-plugin` — which
-this app has never installed. So the call always fails after its own
-internal 5000ms timeout (observed 2-3x per interaction, since a chained
-`$(sel).click()` triggers the check separately for the element lookup and
-the click), then gives up and the real command runs fine anyway over the
-raw WebDriver protocol, which was never the slow part.
+**`bootstrap/session.ts` handles this automatically — no spec file needs
+to know it exists.** It's a WDIO *service* (not a spec-level helper),
+registered in `wdio.conf.ts`'s `services` array after `@wdio/tauri-service`.
+Services run their `before()` hooks in registration order, so by the time
+ours fires, `@wdio/tauri-service`'s own `before()` has already attached
+`browser.tauri` — verified empirically (`typeof browser.tauri` logs
+`'object'` at that point), not assumed.
 
-Calling `browser.tauri.switchWindow('main')` once per session (not a real
-switch — we have one window) makes `@wdio/tauri-service` treat focus as
-already explicitly handled and skip the check for the rest of that
-session (`userSwitchedWindowCache`, keyed by session id). That call itself
-still pays the same ~5s tax once (it needs the same missing bridge to
-validate the window label) — an unavoidable one-time cost with the
-current setup, not a per-command one.
+Without it, every `findElement`/`findElements`/`$`/`$$`/`elementClick`/
+`getTitle` command pays a blocking ~10-20s tax. This isn't an inherent
+limit of the embedded provider, macOS, or our selector strategy — it's a
+specific, fixable gap: `@wdio/tauri-service`'s `ensureActiveWindowFocus`
+check runs before those six command types and calls
+`browser.tauri.execute()` to read window focus state; that call needs
+`window.__wdio_original_core__`, which is injected by the frontend
+companion package `@wdio/tauri-plugin` — which this app has never
+installed. So the call always fails after its own internal 5000ms
+timeout (observed 2-3x per interaction, since a chained `$(sel).click()`
+triggers the check separately for the element lookup and the click), then
+gives up and the real command runs fine anyway over the raw WebDriver
+protocol, which was never the slow part.
+
+`bootstrap/session.ts` calls `browser.tauri.switchWindow('main')` once
+per session (not a real switch — we have one window). This makes
+`@wdio/tauri-service` treat focus as already explicitly handled and skip
+the check for the rest of that session (`userSwitchedWindowCache`, keyed
+by session id). That call itself still pays the same ~5s tax once (it
+needs the same missing bridge to validate the window label) — an
+unavoidable one-time cost with the current setup, not a per-command one.
+
+Two other approaches were tried and rejected before this one:
+- A `before` function directly on the `wdio.conf.ts` config object — fires
+  *before* `browser.tauri` is attached (confirmed:
+  `TypeError: Cannot read properties of undefined (reading 'switchWindow')`),
+  so it can't call this at all.
+- A mocha root-hooks file loaded via `mochaOpts.require` — silently never
+  ran. `mochaOpts.require` goes through mocha's own file loader, not
+  WDIO's TypeScript-aware spec loader that `.spec.ts` files get, so a
+  `.ts` file registered that way never actually loads with this project's
+  setup. No error, no log line — just never executed. Caught only by
+  checking for the expected `switchWindow` log output and not finding it.
 
 **Measured** (`packages/automation/scenarios`, single MacBook, embedded
 provider, three consecutive runs per configuration):
@@ -137,14 +155,41 @@ logs) were consistently 2-15ms even *before* the fix — the 10-20s was
 entirely the focus-check's own dead time in front of each command, never
 the command itself.
 
-**Further optimization not done**: installing the actual `@wdio/tauri-plugin`
-frontend package would let the focus check (and any future
-`browser.tauri.execute()`/mocking use) succeed immediately instead of
-timing out, eliminating even the one-time ~5s/session cost. Not done here
-— it's a frontend dependency in `apps/app` (dev-only, but still a real
-change to the app package we just spent effort keeping free of automation
-deps) for a ~5s/file win we can live without for now. Revisit if
-`browser.tauri.execute()` or command mocking is ever actually needed.
+**`@wdio/tauri-plugin` (the frontend companion package): investigated, not
+adopted.** Confirmed via WebdriverIO's own docs: it's the *officially
+intended* way to get full `@wdio/tauri-service` functionality —
+`browser.tauri.execute()`, command mocking, log forwarding — and would
+also make `ensureActiveWindowFocus` succeed immediately instead of
+timing out (it internally depends on `execute()`), eliminating even the
+one-time ~5s/session cost. But basic automation (find/click/screenshot —
+everything we actually use) is explicitly documented as working *without*
+it; it's additive, not a prerequisite.
+
+Trade-off: installing it means a real, new dependency in `apps/app`'s own
+`package.json` plus a frontend import (`import '@wdio/tauri-plugin'` in
+`main.tsx` or `index.html`) — and there is **no officially documented way
+to gate that import to dev-only**. We'd have to invent and maintain our
+own guard (e.g. a dynamic `import()` behind `import.meta.env.DEV`,
+mirroring `devtools/index.ts`'s pattern) and then independently verify it
+tree-shakes out of `vite build` output, the same way we verified
+`devtools/`'s code does — nontrivial ongoing verification burden for a
+capability (`execute()`/mocking) we don't currently use.
+
+**Recommendation: keep the `switchWindow()` bootstrap.** It keeps
+`apps/app` at zero automation dependencies — the single goal this whole
+restructuring optimized for — and already captures effectively the whole
+win (10-20s → single-digit ms per command; the remaining cost is a flat
+~5s *per spec file*, not per command, so it doesn't compound as the
+number of commands in the suite grows, only as the number of spec files
+does). The one real risk: `browser.tauri.switchWindow()` itself is a
+public, documented API, but the specific side effect we depend on —
+permanently suppressing the focus check for the rest of the session via
+`userSwitchedWindowCache` — is an implementation detail of
+`@wdio/tauri-service`, not a documented contract. A future major version
+could change it. Worth re-verifying this benchmark after any
+`@wdio/tauri-service` upgrade. Revisit installing the plugin only if we
+end up genuinely needing `browser.tauri.execute()` or command mocking —
+not preemptively.
 
 **Test design**: prefer one WebDriver command over several whenever
 possible (e.g. a single `waitUntil` polling loop over repeated manual

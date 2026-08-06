@@ -5,11 +5,8 @@
  * See AUTOMATION.md.
  */
 import { testIds } from '../../../apps/app/src/shared/testing/selectors';
-import { suppressFocusRecoveryOverhead } from '../helpers/suppressFocusRecoveryOverhead';
 
 describe('automation proof of concept', () => {
-  before(suppressFocusRecoveryOverhead);
-
   it('launches the app, finds the sidebar, and takes a screenshot', async () => {
     const sidebar = await $(`[data-testid="${testIds.sidebar.root}"]`);
     await sidebar.waitForExist({ timeout: 15000 });

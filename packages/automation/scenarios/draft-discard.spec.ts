@@ -10,11 +10,8 @@
  * UI/save pipeline, not just PageOperations in isolation.
  */
 import { testIds } from '../../../apps/app/src/shared/testing/selectors';
-import { suppressFocusRecoveryOverhead } from '../helpers/suppressFocusRecoveryOverhead';
 
 describe('draft discard', () => {
-  before(suppressFocusRecoveryOverhead);
-
   it('removes an empty draft from the sidebar once navigation away from it settles', async () => {
     const notesTab = await $(`[data-testid="${testIds.sidebar.tab('notes')}"]`);
     await notesTab.waitForExist({ timeout: 15000 });
