@@ -1,4 +1,3 @@
-import { Button } from '@components/button/Button';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { EditableText } from '@components/editable-text/EditableText';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
@@ -47,11 +46,16 @@ export function Note({
   menuOpen = false,
   onMenuOpenChange,
   onMenuSelect,
+  active = false,
   ...entryProps
 }: NoteProps) {
   return (
     <Entry
       {...entryProps}
+      // Reuses Entry's existing hover appearance (.entry-active shares the
+      // same CSS rule as :hover) rather than inventing a new "menu open"
+      // visual state — the row stays visibly the owner of its open menu.
+      active={active || menuOpen}
       leading={
         <AppIcon
           className="note__icon"
