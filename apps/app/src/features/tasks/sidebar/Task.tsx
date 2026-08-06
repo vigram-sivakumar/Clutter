@@ -1,7 +1,6 @@
 import { Entry, EntryProps } from '@components/entry/Entry';
 import { Checkbox } from '@components/checkbox/Checkbox';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
-import { AppIcon } from '@shared/icon';
 import './Task.css';
 
 interface TaskProps extends Omit<EntryProps, 'children'> {
