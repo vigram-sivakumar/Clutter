@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { FolderTree, type SidebarRowActions } from './FolderTree';
@@ -237,13 +237,50 @@ function overflowButtonFor(rowTitle: string): HTMLElement {
   if (!row) {
     throw new Error(`expected an entry row for "${rowTitle}"`);
   }
-  const buttons = within(row as HTMLElement).getAllByRole('button');
-  const overflow = buttons[buttons.length - 1];
+  // OverflowMenu's trigger is the one button with aria-haspopup="menu" — a
+  // stable selector regardless of a row's other action buttons (e.g. a
+  // folder's "+") or their relative order.
+  const overflow = (row as HTMLElement).querySelector('button[aria-haspopup="menu"]');
   if (!overflow) {
     throw new Error(`expected an overflow button on the "${rowTitle}" row`);
   }
-  return overflow;
+  return overflow as HTMLElement;
 }
+
+describe('FolderTree row overflow menu: the owning row stays highlighted while its menu is open', () => {
+  it('a note row gets entry-active (Entry\'s existing hover-appearance class) while its menu is open', () => {
+    const page = buildPersistedPage(`${ROOT}/Note.md`);
+    const { query, workspace, membershipSelector } = setup([page]);
+    const { actions } = buildRowActions({ openMenuId: page.id });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const row = screen.getByText('Note').closest('.entry');
+    expect(row).toHaveClass('entry-active');
+  });
+
+  it('a note row has no entry-active class when its menu is closed', () => {
+    const page = buildPersistedPage(`${ROOT}/Note.md`);
+    const { query, workspace, membershipSelector } = setup([page]);
+    const { actions } = buildRowActions({ openMenuId: null });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const row = screen.getByText('Note').closest('.entry');
+    expect(row).not.toHaveClass('entry-active');
+  });
+
+  it('a folder row gets entry-active while its menu is open', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { actions } = buildRowActions({ openMenuId: 'folder-1' });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const row = screen.getByText('Projects').closest('.entry');
+    expect(row).toHaveClass('entry-active');
+  });
+});
 
 describe('FolderTree row overflow menu: open/close', () => {
   it('clicking the overflow button opens a menu anchored to that row', () => {
@@ -450,8 +487,8 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
   });
 });
 
-describe('FolderTree row overflow menu: draft note rename uses updateDraftTitle, not commitTitle', () => {
-  it('Rename is not disabled for a draft, and archive/delete are', async () => {
+describe('FolderTree row overflow menu: a draft note has no menu at all', () => {
+  it('a draft offers no menu items — nothing is available yet (no Vault entry to rename/archive/delete)', async () => {
     const { query, workspace, membershipSelector, pageOperations } = setup();
     await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
 
@@ -459,13 +496,23 @@ describe('FolderTree row overflow menu: draft note rename uses updateDraftTitle,
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    const archiveItem = screen.getByText('Archive').closest('[role="menuitem"]');
-    const deleteItem = screen.getByText('Delete').closest('[role="menuitem"]');
-    const renameItem = screen.getByText('Rename').closest('[role="menuitem"]');
+    expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    expect(screen.queryByText('Archive')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+  });
 
-    expect(archiveItem).toHaveAttribute('aria-disabled', 'true');
-    expect(deleteItem).toHaveAttribute('aria-disabled', 'true');
-    expect(renameItem).not.toHaveAttribute('aria-disabled', 'true');
+  it('a draft row renders no overflow button (OverflowMenu renders nothing for an empty item list)', async () => {
+    const { query, workspace, membershipSelector, pageOperations } = setup();
+    await pageOperations.openDraft({ folderId: null, title: 'My Draft' });
+
+    const { actions } = buildRowActions();
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const row = screen.getByText('My Draft').closest('.entry');
+    if (!row) {
+      throw new Error('expected an entry row for "My Draft"');
+    }
+    expect((row as HTMLElement).querySelectorAll('button')).toHaveLength(0);
   });
 });
 

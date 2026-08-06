@@ -14,6 +14,7 @@ import {
 } from '@core/presentation/getPageDisplayLabel';
 
 import { DailyNote } from './DailyNote';
+import { buildDailyNoteSidebarMenu } from './dailyNoteSidebarMenu.config';
 
 interface RealMonthSection {
   monthFolder: Folder;
@@ -29,6 +30,22 @@ interface RenderedMonthSection {
   monthFolder: Folder | null;
   monthIsoDate: ISODate;
   pages: EffectivePage[];
+}
+
+/**
+ * Single owner of "which Daily Note row's overflow menu is open," supplied
+ * by Sidebar.DailyNotes.tsx — the same ownership pattern as FolderTree's
+ * SidebarRowActions, narrowed to what a Daily Note row actually supports:
+ * no rename at all (draft or persisted — see dailyNoteSidebarMenu.config.ts),
+ * no folder actions (month/year folders aren't user-managed here).
+ */
+export interface DailyNoteRowActions {
+  openMenuId: string | null;
+  onOpenMenu(id: string): void;
+  onCloseMenu(): void;
+
+  onArchiveNote(pageId: string): void;
+  onDeleteNote(pageId: string): void;
 }
 
 interface DailyNotesListProps {
@@ -51,6 +68,8 @@ interface DailyNotesListProps {
    */
   onOpenDraft(pageId: string): void;
   onOpenFolder(folderId: string): void;
+  /** Overflow-menu/rename wiring — see DailyNoteRowActions. */
+  rowActions?: DailyNoteRowActions;
 }
 
 function collectRealMonthSections(vault: Vault, query: VaultQuery): RealMonthSection[] {
@@ -106,6 +125,7 @@ export function DailyNotesList({
   onOpen,
   onOpenDraft,
   onOpenFolder,
+  rowActions,
 }: DailyNotesListProps) {
   const sectionsByMonth = new Map<ISODate, RenderedMonthSection>();
 
@@ -202,6 +222,24 @@ export function DailyNotesList({
               selected={workspace.activePageId === entry.id}
               onClick={() =>
                 entry.isDraft ? onOpenDraft(entry.id) : onOpen(entry.id)
+              }
+              menuItems={rowActions ? buildDailyNoteSidebarMenu(entry.isDraft) : undefined}
+              menuOpen={rowActions?.openMenuId === entry.id}
+              onMenuOpenChange={
+                rowActions
+                  ? (open) => (open ? rowActions.onOpenMenu(entry.id) : rowActions.onCloseMenu())
+                  : undefined
+              }
+              onMenuSelect={
+                rowActions
+                  ? (id) => {
+                      if (id === 'archive') {
+                        rowActions.onArchiveNote(entry.id);
+                      } else if (id === 'delete') {
+                        rowActions.onDeleteNote(entry.id);
+                      }
+                    }
+                  : undefined
               }
             />
           );

@@ -63,6 +63,24 @@ describe('OverflowMenu', () => {
     expect(screen.getByText('Rename')).toBeInTheDocument();
   });
 
+  it('the trigger exposes aria-haspopup/aria-expanded — a stable selector independent of a row\'s other buttons', () => {
+    render(<Harness onSelect={vi.fn()} />);
+    const trigger = screen.getByRole('button');
+
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(trigger);
+
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('renders nothing at all for an empty item list (no trigger button)', () => {
+    render(<Harness onSelect={vi.fn()} itemsOverride={[]} />);
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
   it('anchors the menu to the trigger button', () => {
     render(<Harness onSelect={vi.fn()} />);
     const trigger = screen.getByRole('button');

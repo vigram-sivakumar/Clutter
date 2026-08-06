@@ -158,8 +158,10 @@ function overflowButtonFor(rowTitle: string): HTMLElement {
   if (!row) {
     throw new Error(`expected an entry row for "${rowTitle}"`);
   }
-  const buttons = row.querySelectorAll('button');
-  const overflow = buttons[buttons.length - 1];
+  // OverflowMenu's trigger is the one button with aria-haspopup="menu" — a
+  // stable selector regardless of a row's other action buttons (e.g. a
+  // folder's "+") or their relative order.
+  const overflow = row.querySelector('button[aria-haspopup="menu"]');
   if (!overflow) {
     throw new Error(`expected an overflow button on the "${rowTitle}" row`);
   }

@@ -46,11 +46,16 @@ export function OverflowMenu({
   side = 'bottom',
   alignment = 'end',
 }: OverflowMenuProps) {
+  // Called unconditionally, before the items.length early return below —
+  // a component instance can transition between an empty and non-empty
+  // item list across renders (e.g. a draft note's row, once persisted,
+  // goes from no capabilities to a real menu without unmounting), and a
+  // hook called only on some renders violates the Rules of Hooks.
+  const anchorRef = useRef<HTMLButtonElement>(null);
+
   if (items.length === 0) {
     return null;
   }
-
-  const anchorRef = useRef<HTMLButtonElement>(null);
 
   return (
     <>
@@ -60,6 +65,8 @@ export function OverflowMenu({
         interaction="subtle"
         isIconOnly
         ref={anchorRef}
+        aria-haspopup="menu"
+        aria-expanded={open}
         onClick={(event) => {
           event.stopPropagation();
           onOpenChange(!open);

@@ -1,7 +1,7 @@
 import { DateLabel } from '@components/date-label/DateLabel';
 import { Entry, type EntryProps } from '@components/entry/Entry';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
-import { AppIcon } from '@shared/icon';
+import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { formatDate } from '@shared/helpers/time';
 import './DailyNote.css';
 
@@ -10,6 +10,11 @@ interface DailyNoteProps extends Omit<EntryProps, 'children'> {
   isToday?: boolean;
   date?: string;
   titleStyle?: 'default' | 'placeholder';
+
+  menuItems?: readonly OverflowMenuItemConfig[];
+  menuOpen?: boolean;
+  onMenuOpenChange?(open: boolean): void;
+  onMenuSelect?(id: string): void;
 }
 
 export function DailyNote({
@@ -17,6 +22,11 @@ export function DailyNote({
   isToday,
   date,
   titleStyle = 'default',
+  menuItems,
+  menuOpen = false,
+  onMenuOpenChange,
+  onMenuSelect,
+  active = false,
   ...entryProps
 }: DailyNoteProps) {
   const day = date ? Number(formatDate(date, 'date')) : undefined;
@@ -24,13 +34,17 @@ export function DailyNote({
   return (
     <Entry
       {...entryProps}
+      // Reuses Entry's existing hover appearance (.entry-active shares the
+      // same CSS rule as :hover) rather than inventing a new "menu open"
+      // visual state — the row stays visibly the owner of its open menu.
+      active={active || menuOpen}
       leading={<DateLabel isToday={isToday} date={day} />}
       actions={
         <OverflowMenu
-          items={[]}
-          open={false}
-          onOpenChange={() => {}}
-          onSelect={() => {}}
+          items={menuItems ?? []}
+          open={menuOpen}
+          onOpenChange={onMenuOpenChange ?? (() => {})}
+          onSelect={onMenuSelect ?? (() => {})}
           size="small"
         />
       }
