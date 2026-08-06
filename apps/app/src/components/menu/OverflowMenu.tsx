@@ -2,6 +2,7 @@ import { useRef } from 'react';
 
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
+import type { OverlaySide, OverlayAlignment } from '@components/overlay/Overlay.types';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
@@ -22,6 +23,8 @@ export interface OverflowMenuProps {
   onOpenChange(open: boolean): void;
   onSelect(id: string): void;
   size?: 'medium' | 'small';
+  side?: OverlaySide;
+  alignment?: OverlayAlignment;
 }
 
 /**
@@ -37,6 +40,8 @@ export function OverflowMenu({
   onOpenChange,
   onSelect,
   size = 'medium',
+  side = 'bottom',
+  alignment = 'end',
 }: OverflowMenuProps) {
   const anchorRef = useRef<HTMLButtonElement>(null);
 
@@ -59,8 +64,8 @@ export function OverflowMenu({
         open={open}
         onClose={() => onOpenChange(false)}
         anchorRef={anchorRef}
-        side="bottom"
-        alignment="end"
+        side={side}
+        alignment={alignment}
       >
         <Menu size={size}>
           {items.map((item) => (
