@@ -82,7 +82,7 @@ export function Folder({
           >
             <AppIcon icon={'plus'} />
           </Button>
-          {menuItems ? (
+          {menuItems && (
             <OverflowMenu
               items={menuItems}
               open={menuOpen}
@@ -90,10 +90,6 @@ export function Folder({
               onSelect={onMenuSelect ?? (() => {})}
               size="small"
             />
-          ) : (
-            <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
-              <AppIcon icon={'moreHorizontal'} />
-            </Button>
           )}
         </>
       }
