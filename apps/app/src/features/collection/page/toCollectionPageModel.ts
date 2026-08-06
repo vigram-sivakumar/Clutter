@@ -5,7 +5,7 @@ import type { FilteredView, Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { buildEntryPresentation } from '@core/presentation/buildEntryPresentation';
-import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
+import { isFolderUntitled } from '@core/presentation/isFolderUntitled';
 import {
   getSystemLocationForFolder,
   getSystemLocationPresentation,
@@ -168,10 +168,24 @@ function toFolderCollectionPageModel(
   // directly gets its canonical system-location label instead of the raw
   // Vault folder name — same helper buildBreadcrumbs' ancestor handling
   // uses, so the two surfaces can't drift.
+  //
+  // This title feeds Page's editable header (Category B, an identity/
+  // editing surface — PageHost passes it straight to <Page title={...}>),
+  // not a browse-only display label — so an ordinary untitled folder gets
+  // the same treatment toResourcePageModel gives an untitled Note's
+  // header: empty, not the literal placeholder text, so Page's own
+  // titlePlaceholder/EditableText placeholder mechanism renders it and the
+  // field autofocuses exactly like a fresh untitled Note's does.
+  // getFolderDisplayLabel (text-or-placeholder, no styling channel out of
+  // this model) is the browse-surface function for folder *rows* (sidebar,
+  // Collection body entries via buildEntryPresentation) — deliberately not
+  // used here.
   const systemLocation = getSystemLocationForFolder(folder, membershipSelector);
   const title = systemLocation
     ? getSystemLocationPresentation(systemLocation).label
-    : getFolderDisplayLabel(folder).text;
+    : isFolderUntitled(folder)
+      ? ''
+      : folder.name;
 
   return {
     title,

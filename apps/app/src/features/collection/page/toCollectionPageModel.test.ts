@@ -382,6 +382,28 @@ describe('toCollectionPageModel — a reserved folder viewed directly uses its c
 
     expect(model.title).toBe('Projects');
   });
+
+  it("blanks an untitled folder's header title instead of showing the generated name, mirroring toResourcePageModel's Note handling", () => {
+    const active = makeFolder({ id: 'folder-1', name: 'Untitled 2' });
+    const { vault, query, effectivePageState, membershipSelector, workspace } =
+      setup([active], []);
+
+    const model = toCollectionPageModel(
+      active,
+      vault,
+      query,
+      effectivePageState,
+      membershipSelector,
+      workspace,
+      {
+        onOpenFolder: vi.fn(),
+        onOpenNote: vi.fn(),
+        onOpenDraftNote: vi.fn(),
+      }
+    );
+
+    expect(model.title).toBe('');
+  });
 });
 
 describe('toCollectionPageModel — filtered views (ADR-022), reusing the same membership the sidebar uses', () => {

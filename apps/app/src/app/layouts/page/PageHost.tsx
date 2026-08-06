@@ -5,7 +5,10 @@ import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { buildBreadcrumbs, buildBreadcrumbsForDraft } from '@core/presentation/buildBreadcrumbs';
-import { getPageTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
+import {
+  getPageTitlePlaceholder,
+  getFolderTitlePlaceholder,
+} from '@core/presentation/PageDisplayPlaceholders';
 import {
   buildTopBarActions,
   buildDraftTopBarActions,
@@ -195,6 +198,7 @@ export function PageHost({ application }: PageHostProps) {
         title={model.title}
         description={model.description}
         titleEditable={isRenameable}
+        titlePlaceholder={getFolderTitlePlaceholder()}
         onTitleEdit={isRenameable ? (name) => onEditFolderName(folder.id, name) : undefined}
         onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
         onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
