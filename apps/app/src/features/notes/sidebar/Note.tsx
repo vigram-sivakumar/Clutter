@@ -60,27 +60,13 @@ export function Note({
         />
       }
       actions={
-        menuItems ? (
-          <OverflowMenu
-            items={menuItems}
-            open={menuOpen}
-            onOpenChange={onMenuOpenChange ?? (() => {})}
-            onSelect={onMenuSelect ?? (() => {})}
-            size="small"
-          />
-        ) : (
-          <Button
-            isIconOnly
-            size="small"
-            variant="ghost"
-            interaction="subtle"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-          >
-            <AppIcon icon={'moreHorizontal'} />
-          </Button>
-        )
+        <OverflowMenu
+          items={menuItems ?? []}
+          open={menuOpen}
+          onOpenChange={onMenuOpenChange ?? (() => {})}
+          onSelect={onMenuSelect ?? (() => {})}
+          size="small"
+        />
       }
     >
       {isEditing ? (

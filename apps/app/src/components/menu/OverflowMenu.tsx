@@ -2,7 +2,10 @@ import { useRef } from 'react';
 
 import { Button } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
-import type { OverlaySide, OverlayAlignment } from '@components/overlay/Overlay.types';
+import type {
+  OverlaySide,
+  OverlayAlignment,
+} from '@components/overlay/Overlay.types';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 
@@ -43,6 +46,10 @@ export function OverflowMenu({
   side = 'bottom',
   alignment = 'end',
 }: OverflowMenuProps) {
+  if (items.length === 0) {
+    return null;
+  }
+
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   return (
