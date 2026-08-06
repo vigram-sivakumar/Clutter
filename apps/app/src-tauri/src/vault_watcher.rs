@@ -1,7 +1,10 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
     thread,
     time::Duration,
 };
@@ -167,9 +170,29 @@ impl RenamePairing {
 
 type PendingRenameSlot = Arc<Mutex<RenamePairing>>;
 
+/// Pure ownership decision: does a `stop` request carrying `requested_token`
+/// actually get to clear the watcher currently recorded as `current`?
+///
+/// Decoupled from `Mutex`/`AppHandle`/`State` so it's directly unit-testable,
+/// the same pattern `classify_event_kind`/`RenamePairing` already use above.
+/// A caller's stop request only ever tears down the watcher *that same
+/// caller's own start request installed* — a stale caller (whose watcher was
+/// already superseded by a later `start_vault_watcher` call) gets a safe
+/// no-op instead of tearing down whichever newer watcher is now active. This
+/// is what makes watcher ownership independent of call ordering: it no
+/// longer matters whether a superseded caller's belated `stop` arrives before
+/// or after the new owner's `start`, only whether the tokens match.
+fn should_stop(current: Option<u64>, requested_token: u64) -> bool {
+    current == Some(requested_token)
+}
+
 pub struct VaultWatcherState {
-    pub watcher: Mutex<Option<RecommendedWatcher>>,
+    // The active watcher and the token identifying which start_vault_watcher
+    // call installed it, updated together under one lock so a reader never
+    // observes a watcher paired with a stale or missing token.
+    pub watcher: Mutex<Option<(RecommendedWatcher, u64)>>,
     pub root_path: Mutex<Option<PathBuf>>,
+    next_token: AtomicU64,
 }
 
 impl Default for VaultWatcherState {
@@ -177,6 +200,7 @@ impl Default for VaultWatcherState {
         Self {
             watcher: Mutex::new(None),
             root_path: Mutex::new(None),
+            next_token: AtomicU64::new(0),
         }
     }
 }
@@ -186,13 +210,20 @@ pub fn start_vault_watcher(
     app: AppHandle,
     path: String,
     state: State<'_, VaultWatcherState>,
-) -> Result<(), String> {
+) -> Result<u64, String> {
     let mut watcher_guard = state
         .watcher
         .lock()
         .map_err(|_| "Failed to lock watcher state".to_string())?;
 
+    // A new start always supersedes whatever watcher is currently active,
+    // same as before this token existed — only one OS-level watcher is ever
+    // meaningful for one vault root. What's new is that the caller who
+    // installed the superseded watcher can no longer tear down *this* one
+    // via a belated stop_vault_watcher call (see should_stop/stop_vault_watcher).
     *watcher_guard = None;
+
+    let token = state.next_token.fetch_add(1, Ordering::SeqCst);
 
     let root_path = PathBuf::from(&path);
 
@@ -242,19 +273,35 @@ pub fn start_vault_watcher(
         .watch(std::path::Path::new(&path), RecursiveMode::Recursive)
         .map_err(|error| error.to_string())?;
 
-    *watcher_guard = Some(watcher);
+    *watcher_guard = Some((watcher, token));
 
-    Ok(())
+    Ok(token)
 }
 
+/// Stops the watcher identified by `token`, i.e. the one installed by the
+/// matching `start_vault_watcher` call — never whichever watcher merely
+/// happens to be active. A `token` that doesn't match the currently active
+/// watcher (already superseded by a newer start, or this caller never
+/// actually started one) is a safe no-op: only the instance that created a
+/// watcher can stop it, regardless of what order start/stop calls from other
+/// instances arrive in.
 #[tauri::command]
-pub fn stop_vault_watcher(state: State<'_, VaultWatcherState>) -> Result<(), String> {
+pub fn stop_vault_watcher(
+    state: State<'_, VaultWatcherState>,
+    token: Option<u64>,
+) -> Result<(), String> {
     let mut watcher_guard = state
         .watcher
         .lock()
         .map_err(|_| "Failed to lock watcher state".to_string())?;
 
-    *watcher_guard = None;
+    let current_token = watcher_guard.as_ref().map(|(_, token)| *token);
+
+    if let Some(token) = token {
+        if should_stop(current_token, token) {
+            *watcher_guard = None;
+        }
+    }
 
     Ok(())
 }
@@ -359,6 +406,23 @@ fn emit_moved(app_handle: &AppHandle, root_path: &Path, from_path: &Path, to_pat
 mod tests {
     use super::*;
     use notify::event::{AccessKind, AccessMode, CreateKind, MetadataKind, RemoveKind};
+
+    #[test]
+    fn stop_with_the_matching_token_is_allowed() {
+        assert!(should_stop(Some(5), 5));
+    }
+
+    #[test]
+    fn stop_with_a_stale_token_is_a_no_op() {
+        // The caller's own watcher was superseded by a later start_vault_watcher
+        // call (now token 7); its belated stop must not tear that one down.
+        assert!(!should_stop(Some(7), 5));
+    }
+
+    #[test]
+    fn stop_when_no_watcher_is_active_is_a_no_op() {
+        assert!(!should_stop(None, 5));
+    }
 
     #[test]
     fn classifies_create_as_direct_created() {
