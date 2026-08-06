@@ -30,9 +30,9 @@ exercise the real native webview at all.
 
 ## How the automation-only WebDriver surface is gated
 
-Three independent layers, all required simultaneously, all living in
+Two independent layers, both required simultaneously, both living in
 `apps/app/src-tauri` (the plugin has to be part of the binary being
-compiled — this package can't inject it from outside) — removing any one
+compiled — this package can't inject it from outside) — removing either
 disables it:
 
 1. **Cargo feature (`automation`)** — `tauri-plugin-wdio-webdriver` is
@@ -58,15 +58,26 @@ disables it:
    developer who builds with the feature enabled by hand and runs the app
    normally still gets no WebDriver server.
 
-3. **Tauri capability opt-in (`capabilities/automation.json`)** — the
-   `wdio-webdriver:default` permission lives in its own capability file in
-   `apps/app/src-tauri/capabilities/`, not in `capabilities/default.json`.
-   `tauri.conf.json`'s `app.security.capabilities` explicitly lists only
-   `["default"]`, which disables Tauri's directory-auto-discovery — so
-   `automation.json` is never applied unless a build explicitly merges
-   `"automation"` into that array (not currently needed for the PoC's
-   needs — kept in place for when `browser.tauri.execute()` / command
-   mocking are added).
+A third layer — an explicit Tauri capability file
+(`capabilities/automation.json`) granting `wdio-webdriver:default`, kept
+out of `capabilities/default.json` — was tried and removed. It broke every
+ordinary build, automation or not: Tauri's build-time permission validator
+checks every file under `capabilities/` against the currently-linked
+plugins' permissions regardless of whether that capability is in
+`tauri.conf.json`'s active `security.capabilities` list, so a plain
+`cargo build` (no `automation` feature, hence no
+`tauri-plugin-wdio-webdriver` linked) failed to build at all — `Permission
+wdio-webdriver:default not found`. Confirmed by removing the file: default
+`cargo build` and `cargo build --features automation` both succeed cleanly
+without it. It was also never actually consumed — the embedded WebDriver
+server is a raw HTTP server the plugin binds directly, not something
+reached through Tauri's IPC/command-permission system, so nothing needed
+that permission grant in the first place. Re-add a capability file only
+once something genuinely needs a Tauri-IPC-gated command (e.g.
+`tauri-plugin-wdio`'s `browser.tauri.execute()`/mocking surface), and at
+that point solve the "don't break ordinary builds" problem explicitly
+(e.g. the automation build step generates the file transiently, rather
+than committing a permission the ordinary build can't resolve).
 
 ## The application's automation contract
 
