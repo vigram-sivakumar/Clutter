@@ -11,3 +11,14 @@ import type { PageType } from '../vault/models/Page';
 export function getPageTitlePlaceholder(type: PageType): string {
   return type === 'daily-note' ? 'Start typing...' : 'New Note';
 }
+
+/**
+ * The folder-side counterpart to getPageTitlePlaceholder — the one owner
+ * of placeholder copy for an untitled folder. Folders have no type
+ * variation the way pages do (no daily-note-equivalent), so this is a
+ * constant rather than a lookup, kept alongside getPageTitlePlaceholder so
+ * both placeholder strings live in one file rather than two.
+ */
+export function getFolderTitlePlaceholder(): string {
+  return 'New Folder';
+}
