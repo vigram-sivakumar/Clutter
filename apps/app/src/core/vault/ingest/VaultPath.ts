@@ -37,4 +37,18 @@ export class VaultPath {
     const fileName = this.filename(path);
     return fileName.endsWith('.md') ? fileName.slice(0, -3) : fileName;
   }
+
+  /**
+   * Whether a filesystem entry is hidden by name alone (dot-prefixed —
+   * `.git`, `.obsidian`, `.clutter`, `notes/.archive.md`'s `.archive.md`,
+   * etc.), independent of where it sits in the tree. The single rule
+   * `VaultScanner` applies to exclude such entries from the workspace,
+   * replacing what used to be `.clutter`-specific handling. Future home for
+   * a user-facing "show hidden files" preference: that setting would gate
+   * this check (`showHiddenFiles || !VaultPath.isHidden(name)`), not add a
+   * second predicate elsewhere.
+   */
+  static isHidden(name: string): boolean {
+    return name.startsWith('.');
+  }
 }

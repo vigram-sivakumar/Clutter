@@ -72,3 +72,25 @@ describe('VaultPath.pageName', () => {
     expect(VaultPath.pageName('/vault/Notes/my.md.backup')).toBe('my.md.backup');
   });
 });
+
+describe('VaultPath.isHidden', () => {
+  it('returns true for a dot-prefixed folder name', () => {
+    expect(VaultPath.isHidden('.git')).toBe(true);
+  });
+
+  it('returns true for a dot-prefixed file name', () => {
+    expect(VaultPath.isHidden('.archive.md')).toBe(true);
+  });
+
+  it('returns true for the reserved .clutter folder name', () => {
+    expect(VaultPath.isHidden('.clutter')).toBe(true);
+  });
+
+  it('returns false for an ordinary name', () => {
+    expect(VaultPath.isHidden('Notes')).toBe(false);
+  });
+
+  it('returns false for a name that merely contains a dot', () => {
+    expect(VaultPath.isHidden('Idea.md')).toBe(false);
+  });
+});
