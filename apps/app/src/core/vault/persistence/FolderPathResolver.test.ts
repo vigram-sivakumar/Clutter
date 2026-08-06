@@ -68,16 +68,16 @@ describe('FolderPathResolver.createFolderPath', () => {
     );
   });
 
-  it('falls back to "Untitled Folder" for a blank or whitespace-only name', () => {
+  it('falls back to the generated default name for a blank or whitespace-only name', () => {
     const vault = makeVault();
     const resolver = new FolderPathResolver(vault);
 
     expect(resolver.createFolderPath(null, '')).toEqual({
-      path: `${ROOT}/Untitled Folder`,
+      path: `${ROOT}/Untitled`,
       parentId: null,
     });
     expect(resolver.createFolderPath(null, '   ')).toEqual({
-      path: `${ROOT}/Untitled Folder`,
+      path: `${ROOT}/Untitled`,
       parentId: null,
     });
   });
@@ -104,5 +104,62 @@ describe('FolderPathResolver.createFolderPath', () => {
     const result = resolver.createFolderPath(null, 'Projects');
 
     expect(result).toEqual({ path: `${ROOT}/Projects 4`, parentId: null });
+  });
+});
+
+describe('FolderPathResolver.resolveRenamePath', () => {
+  it('resolves a new path under the same parent', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([folder]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveRenamePath('folder-1', 'Renamed');
+
+    expect(result).toEqual({ path: `${ROOT}/Renamed`, parentId: null });
+  });
+
+  it('resolving to the current name is a no-op, not a self-collision', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([folder]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveRenamePath('folder-1', 'Projects');
+
+    expect(result.path).toBe(`${ROOT}/Projects`);
+  });
+
+  it('regenerates a fresh default name for a blank or whitespace-only name, never keeping the old name', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([folder]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(resolver.resolveRenamePath('folder-1', '')).toEqual({
+      path: `${ROOT}/Untitled`,
+      parentId: null,
+    });
+    expect(resolver.resolveRenamePath('folder-1', '   ')).toEqual({
+      path: `${ROOT}/Untitled`,
+      parentId: null,
+    });
+  });
+
+  it('appends a numeric suffix when the generated default collides with a sibling folder', () => {
+    const renaming = makeFolder('folder-1', `${ROOT}/Projects`);
+    const occupant = makeFolder('folder-2', `${ROOT}/Untitled`);
+    const vault = makeVault([renaming, occupant]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveRenamePath('folder-1', '');
+
+    expect(result.path).toBe(`${ROOT}/Untitled 2`);
+  });
+
+  it('throws for an unknown folderId', () => {
+    const vault = makeVault();
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveRenamePath('does-not-exist', 'Renamed')).toThrow(
+      /Folder not found: does-not-exist/
+    );
   });
 });

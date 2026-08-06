@@ -151,4 +151,13 @@ describe('MoveService.resolveRenameDestination', () => {
 
     expect(destination.path).toBe(`${ROOT}/Other 2.md`);
   });
+
+  it('regenerates a fresh default name for a blank or whitespace-only title, never keeping the old name', () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const vault = makeVault([page], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(moveService.resolveRenameDestination(page, '').path).toBe(`${ROOT}/Untitled.md`);
+    expect(moveService.resolveRenameDestination(page, '   ').path).toBe(`${ROOT}/Untitled.md`);
+  });
 });
