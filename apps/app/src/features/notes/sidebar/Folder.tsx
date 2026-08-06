@@ -10,6 +10,8 @@ import './Folder.css';
 interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
   titleStyle?: 'default' | 'placeholder';
+  /** Shown by EditableText during rename when the title buffer is empty. */
+  titlePlaceholder?: string;
   emoji?: string | null;
 
   isEmpty?: boolean;
@@ -44,6 +46,7 @@ interface FolderProps extends Omit<EntryProps, 'children'> {
 export function Folder({
   title,
   titleStyle = 'default',
+  titlePlaceholder,
   emoji,
   isEmpty = false,
   hasCaret = true,
@@ -105,6 +108,7 @@ export function Folder({
       {isEditing ? (
         <EditableText
           value={title ?? ''}
+          placeholder={titlePlaceholder}
           autoFocus
           onCommit={() => {}}
           onEdit={onTitleEdit}

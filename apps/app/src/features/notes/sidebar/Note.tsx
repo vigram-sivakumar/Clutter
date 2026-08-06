@@ -10,6 +10,8 @@ import './Note.css';
 interface NoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
   titleStyle?: 'default' | 'placeholder';
+  /** Shown by EditableText during rename when the title buffer is empty. */
+  titlePlaceholder?: string;
   emoji?: string | null;
 
   /** Renders the title as an EditableText field instead of static text. */
@@ -35,6 +37,7 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
 export function Note({
   title,
   titleStyle = 'default',
+  titlePlaceholder,
   emoji,
   isEditing = false,
   onTitleCommit,
@@ -79,6 +82,7 @@ export function Note({
       {isEditing ? (
         <EditableText
           value={title ?? ''}
+          placeholder={titlePlaceholder}
           autoFocus
           onCommit={onTitleCommit ?? (() => {})}
           onEdit={onTitleEdit}

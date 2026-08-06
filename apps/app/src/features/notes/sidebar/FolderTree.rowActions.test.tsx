@@ -32,6 +32,10 @@ import { FolderCreator } from '@core/application/folder/FolderCreator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+import {
+  getFolderTitlePlaceholder,
+  getPageTitlePlaceholder,
+} from '@core/presentation/PageDisplayPlaceholders';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -581,5 +585,55 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     fireEvent.input(field, { target: { textContent: 'Renamed Folder' } });
 
     expect(commitNameSpy).toHaveBeenCalledWith('folder-1', 'Renamed Folder');
+  });
+});
+
+describe('FolderTree rename edit buffer seeding', () => {
+  it('opens rename with an empty buffer and New Note placeholder for an auto-generated note name', () => {
+    const page = buildPersistedPage(`${ROOT}/Untitled.md`);
+    const { query, workspace, membershipSelector } = setup([page]);
+    const { actions } = buildRowActions({ editingId: page.id });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const field = screen.getByRole('textbox');
+    expect(field.textContent).toBe('');
+    expect(field).toHaveAttribute('data-placeholder', getPageTitlePlaceholder('note'));
+  });
+
+  it('opens rename with the actual name and no placeholder for a user-defined note name', () => {
+    const page = buildPersistedPage(`${ROOT}/Note.md`);
+    const { query, workspace, membershipSelector } = setup([page]);
+    const { actions } = buildRowActions({ editingId: page.id });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const field = screen.getByRole('textbox');
+    expect(field.textContent).toBe('Note');
+    expect(field).not.toHaveAttribute('data-placeholder');
+  });
+
+  it('opens rename with an empty buffer and New Folder placeholder for an auto-generated folder name', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Untitled`, null);
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { actions } = buildRowActions({ editingId: 'folder-1' });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const field = screen.getByRole('textbox');
+    expect(field.textContent).toBe('');
+    expect(field).toHaveAttribute('data-placeholder', getFolderTitlePlaceholder());
+  });
+
+  it('opens rename with the actual name and no placeholder for a user-defined folder name', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { actions } = buildRowActions({ editingId: 'folder-1' });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const field = screen.getByRole('textbox');
+    expect(field.textContent).toBe('Projects');
+    expect(field).not.toHaveAttribute('data-placeholder');
   });
 });
