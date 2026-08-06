@@ -245,6 +245,26 @@ describe('Overlay', () => {
     expect(screen.queryByText('Overlay action')).toBeNull();
   });
 
+  it('a backdrop click does not bubble into an ancestor click handler (React bubbles portaled events through the component tree, not the DOM tree)', () => {
+    const onClose = vi.fn();
+    const onAncestorClick = vi.fn();
+
+    render(
+      <div onClick={onAncestorClick}>
+        <Harness onClose={onClose} />
+      </div>
+    );
+
+    const backdrop = document.body.querySelector(
+      '.overlay__backdrop'
+    ) as HTMLDivElement;
+
+    fireEvent.click(backdrop);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onAncestorClick).not.toHaveBeenCalled();
+  });
+
   it('does not render a backdrop when backdrop is disabled', () => {
     render(<Harness backdrop={false} />);
 

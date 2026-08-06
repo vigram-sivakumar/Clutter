@@ -57,7 +57,17 @@ export function Overlay({
       {backdrop !== false && (
         <div
           className={`overlay__backdrop overlay__backdrop--${backdrop}`}
-          onClick={onClose}
+          // React bubbles a portaled event through the *component* tree,
+          // not the DOM tree — this backdrop is a DOM sibling of whatever
+          // rendered the Overlay (e.g. a sidebar row), but a React-tree
+          // descendant of it (via the anchor's actions prop). Without
+          // stopping propagation here, closing the menu on an outside
+          // click lets the same click event continue bubbling up into
+          // that ancestor's own onClick (e.g. the row's "open" handler).
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
         />
       )}
 
