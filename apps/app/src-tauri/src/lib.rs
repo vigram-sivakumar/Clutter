@@ -14,11 +14,11 @@ pub fn run() {
             // Automation/testing only — never reachable in an ordinary build:
             // the crate itself doesn't exist in the dependency graph unless
             // Cargo's `automation` feature is explicitly enabled (see
-            // Cargo.toml), which nothing but devtools/automation's own build
+            // Cargo.toml), which nothing but packages/automation's own build
             // invocation does. Even then, this only starts if the harness
             // opts in via TAURI_AUTOMATION, so an ordinary `npm run desktop`
             // session never runs a WebDriver server. See
-            // devtools/automation/AUTOMATION.md.
+            // packages/automation/AUTOMATION.md.
             #[cfg(feature = "automation")]
             if std::env::var("TAURI_AUTOMATION").is_ok() {
                 app.handle().plugin(tauri_plugin_wdio_webdriver::init())?;

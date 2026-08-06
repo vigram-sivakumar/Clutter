@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "automation",
-  "description": "Grants the embedded WebDriver plugin's command surface. Never enabled by default — only applied when devtools/automation explicitly merges it in via `tauri build/dev --config`. See devtools/automation/AUTOMATION.md.",
+  "description": "Grants the embedded WebDriver plugin's command surface. Never enabled by default — only applied when packages/automation explicitly merges it in via `tauri build/dev --config`. See packages/automation/AUTOMATION.md.",
   "windows": ["main"],
   "permissions": ["wdio-webdriver:default"]
 }

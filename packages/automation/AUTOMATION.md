@@ -79,7 +79,17 @@ anything in this package).
 
 ## Running the PoC locally
 
-From the repo root:
+**Prerequisite: the app's Vite dev server must already be running.** The
+debug binary this builds loads its frontend from `tauri.conf.json`'s
+`devUrl` (`http://localhost:5173`), not from bundled assets — that's true
+of any debug build, automation or not. Start it first, in a separate
+terminal, and leave it running:
+
+```bash
+npm run dev   # from the repo root, or `cd apps/app && npm run dev`
+```
+
+Then, from the repo root:
 
 ```bash
 npm run automation:build   # cargo build --features automation

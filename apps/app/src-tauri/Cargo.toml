@@ -31,8 +31,8 @@ notify = "6"
 # is NOT a real Cargo target-cfg predicate, it only covers platform/arch, so
 # an earlier attempt to gate this that way silently did nothing and the
 # crate ended up in release builds too). The `automation` feature below is
-# the actual gate: nothing enables it except devtools/automation's own build
-# invocation. See devtools/automation/AUTOMATION.md.
+# the actual gate: nothing enables it except packages/automation's own build
+# invocation. See packages/automation/AUTOMATION.md.
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 
 [features]
