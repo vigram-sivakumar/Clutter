@@ -39,7 +39,7 @@ import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
 import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher';
-import { attachDevTools } from '../../devtools';
+import { attachDevTools } from '@devtools/index';
 
 /**
  * Composition root for the application layer.

@@ -1,11 +1,13 @@
 /**
- * Centralized test ID constants.
+ * The application's public automation contract — stable `data-testid`
+ * selectors that components annotate and packages/automation locates
+ * elements by.
  *
- * Components use these constants to annotate interactive elements with data-testid.
- * Tests import the same constants to locate elements reliably.
- *
- * This approach ensures test IDs are stable across design changes and gives us
- * one place to refactor selector strings if needed.
+ * This is not developer tooling (see ../../../devtools/ for that): it's
+ * owned by the application itself, deliberately outside devtools/, so the
+ * dependency direction stays one-way — packages/automation imports this
+ * file, never the reverse, and production code never imports anything
+ * from packages/automation.
  *
  * Naming convention: {surface}.{element} (e.g., sidebar.createFolderButton)
  * where "surface" is the logical UI area (sidebar, editor, navigation).

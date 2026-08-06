@@ -1,11 +1,14 @@
 /**
  * Proof of concept: confirms the embedded-WebDriver setup can actually
- * drive the real Tauri binary on this machine before any of the existing
- * Playwright-based e2e/ suite is ported. See AUTOMATION.md.
+ * drive the real Tauri binary on this machine. The old Playwright-based
+ * e2e/ suite has been removed — this is now the one automation system.
+ * See AUTOMATION.md.
  */
+import { testIds } from '../../../apps/app/src/shared/testing/selectors';
+
 describe('automation proof of concept', () => {
   it('launches the app, finds the sidebar, and takes a screenshot', async () => {
-    const sidebar = await $('[data-testid="sidebar"]');
+    const sidebar = await $(`[data-testid="${testIds.sidebar.root}"]`);
     await sidebar.waitForExist({ timeout: 15000 });
 
     expect(await sidebar.isExisting()).toBe(true);

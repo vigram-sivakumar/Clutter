@@ -15,7 +15,7 @@
  * - Phase 3: Browser DevTools extension
  */
 
-import type { Application } from '../core/application/Application';
+import type { Application } from '@core/application/Application';
 import { resetWorkspace } from './workspace/reset';
 
 interface ClutterDevTools {

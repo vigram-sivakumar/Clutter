@@ -15,6 +15,7 @@ export default defineConfig({
       '@design-system': path.resolve(__dirname, 'src/design-system'),
       '@styles': path.resolve(__dirname, 'src/design-system/styles'),
       '@shared': path.resolve(__dirname, 'src/shared'),
+      '@devtools': path.resolve(__dirname, 'devtools'),
     },
   },
 

@@ -16,7 +16,7 @@ import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
-import { testIds } from '../../../devtools/testIds';
+import { testIds } from '@shared/testing/selectors';
 
 interface SidebarProps {
   application: Application;

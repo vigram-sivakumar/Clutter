@@ -28,9 +28,10 @@
       "@design-system/*": ["./src/design-system/*"],
       "@styles/*": ["./src/design-system/styles/*"],
       "@core/*": ["./src/core/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@devtools/*": ["./devtools/*"]
     }
   },
-  "include": ["src", "../../packages/engine/editor"],
+  "include": ["src", "devtools", "../../packages/engine/editor"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

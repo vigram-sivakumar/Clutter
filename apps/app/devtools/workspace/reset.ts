@@ -12,7 +12,7 @@
  * deeper integration with the Application class).
  */
 
-import type { Workspace } from '../../core/workspace/Workspace';
+import type { Workspace } from '@core/workspace/Workspace';
 
 /**
  * Reset workspace to a clean state.
