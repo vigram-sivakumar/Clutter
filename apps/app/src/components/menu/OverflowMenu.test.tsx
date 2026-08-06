@@ -114,6 +114,19 @@ describe('OverflowMenu', () => {
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
   });
 
+  it('ArrowDown then Enter selects the first item — same useMenuKeyboard the page topbar menu uses', () => {
+    const onSelect = vi.fn();
+    render(<Harness onSelect={onSelect} />);
+
+    fireEvent.click(screen.getByRole('button'));
+    const menu = screen.getByRole('menu');
+
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    fireEvent.keyDown(menu, { key: 'Enter' });
+
+    expect(onSelect).toHaveBeenCalledWith('rename');
+  });
+
   it('a disabled item never invokes onSelect', () => {
     const onSelect = vi.fn();
     render(
