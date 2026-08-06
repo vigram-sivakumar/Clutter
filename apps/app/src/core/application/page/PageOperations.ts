@@ -207,7 +207,7 @@ export class PageOperations {
       // stays fire-and-forget (doc comment above), this is just what runs
       // once the forgotten fire resolves.
       void Promise.all([bodySave, titleSave]).then(() =>
-        this.discardIfAbandonedDraft(activePageId)
+        this.discardAbandonedDraft(activePageId)
       );
     }
 
@@ -238,7 +238,7 @@ export class PageOperations {
    *   session, unpersisted; discarding it here would silently destroy
    *   unsaved work instead of surfacing the failure.
    */
-  private discardIfAbandonedDraft(pageId: string): void {
+  private discardAbandonedDraft(pageId: string): void {
     if (this.workspace.activePageId === pageId || !this.drafts.has(pageId)) {
       return;
     }
