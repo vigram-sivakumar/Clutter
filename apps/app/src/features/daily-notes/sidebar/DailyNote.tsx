@@ -26,7 +26,6 @@ export function DailyNote({
   menuOpen = false,
   onMenuOpenChange,
   onMenuSelect,
-  active = false,
   ...entryProps
 }: DailyNoteProps) {
   const day = date ? Number(formatDate(date, 'date')) : undefined;
@@ -34,10 +33,12 @@ export function DailyNote({
   return (
     <Entry
       {...entryProps}
-      // Reuses Entry's existing hover appearance (.entry-active shares the
-      // same CSS rule as :hover) rather than inventing a new "menu open"
-      // visual state — the row stays visibly the owner of its open menu.
-      active={active || menuOpen}
+      // Forces every hover-driven affordance (background, revealed
+      // actions) to stay visible while this row's menu is open — the
+      // trigger button that controls the menu lives in .entry__actions,
+      // which is itself hover-gated, so without this, moving the mouse
+      // away mid-menu would hide the button needed to close it.
+      forceHover={menuOpen}
       leading={<DateLabel isToday={isToday} date={day} />}
       actions={
         <OverflowMenu

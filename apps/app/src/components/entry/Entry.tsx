@@ -9,7 +9,18 @@ export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
   actions?: React.ReactNode;
 
   selected?: boolean;
-  active?: boolean;
+  /**
+   * Forces every hover-driven affordance (background, revealed actions —
+   * anything Entry.css gates on :hover/:focus-visible) to render as if the
+   * row were hovered, even when the pointer isn't over it. For a row whose
+   * overflow menu is open: the trigger button that controls the menu lives
+   * inside .entry__actions, which is itself only visible on hover — without
+   * this, moving the mouse away while the menu is open would hide the very
+   * button needed to close it. A parent sets this from whatever state it
+   * already owns (e.g. "is this row's menu open"); Entry doesn't know or
+   * care why.
+   */
+  forceHover?: boolean;
   disabled?: boolean;
 
   level?: number;
@@ -25,7 +36,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     actions,
 
     selected = false,
-    active = false,
+    forceHover = false,
     disabled = false,
 
     level = 0,
@@ -96,7 +107,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
         'entry',
         className,
         onClick && 'entry-interactive',
-        active && 'entry-active',
+        forceHover && 'entry-force-hover',
         selected && 'entry-selected',
         disabled && 'entry-disabled',
       ]

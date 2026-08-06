@@ -7,12 +7,15 @@ export interface MenuItemProps extends EntryProps {}
 export function MenuItem(props: MenuItemProps) {
   const id = useId();
   const { activeId, setActiveId } = useMenuContext();
-  const active = activeId === id;
+  const isKeyboardActive = activeId === id;
   return (
     <Entry
       id={id}
       role="menuitem"
-      active={active}
+      // The keyboard-navigated item should look hovered, the same
+      // mechanism a sidebar row's open menu uses to stay visibly hovered —
+      // one "force the hover appearance" concept, not two.
+      forceHover={isKeyboardActive}
       {...props}
       onMouseEnter={(event) => {
         setActiveId(id);

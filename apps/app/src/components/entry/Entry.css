@@ -25,7 +25,7 @@
 }
 
 .entry-interactive:not(.entry-disabled):not(.entry-selected):hover,
-.entry-active:not(.entry-disabled):not(.entry-selected) {
+.entry-force-hover:not(.entry-disabled):not(.entry-selected) {
   background: var(--state-hover);
 }
 
@@ -90,7 +90,8 @@
   overflow: hidden;
 }
 .entry:hover:has(.entry__actions) .entry__actions,
-.entry:focus-visible:has(.entry__actions) .entry__actions {
+.entry:focus-visible:has(.entry__actions) .entry__actions,
+.entry-force-hover:has(.entry__actions) .entry__actions {
   width: auto;
   opacity: 1;
   visibility: visible;
@@ -98,7 +99,8 @@
 }
 
 .entry:hover:has(.entry__actions) .entry__meta,
-.entry:focus-visible:has(.entry__actions) .entry__meta {
+.entry:focus-visible:has(.entry__actions) .entry__meta,
+.entry-force-hover:has(.entry__actions) .entry__meta {
   width: 0;
   opacity: 0;
   visibility: hidden;

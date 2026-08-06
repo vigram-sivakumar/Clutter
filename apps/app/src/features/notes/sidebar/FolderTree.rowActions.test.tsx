@@ -247,8 +247,8 @@ function overflowButtonFor(rowTitle: string): HTMLElement {
   return overflow as HTMLElement;
 }
 
-describe('FolderTree row overflow menu: the owning row stays highlighted while its menu is open', () => {
-  it('a note row gets entry-active (Entry\'s existing hover-appearance class) while its menu is open', () => {
+describe('FolderTree row overflow menu: the owning row stays fully hover-styled while its menu is open', () => {
+  it('a note row gets entry-force-hover — Entry\'s class for forcing every hover-driven affordance — while its menu is open', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
     const { query, workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ openMenuId: page.id });
@@ -256,10 +256,10 @@ describe('FolderTree row overflow menu: the owning row stays highlighted while i
     renderTree(query, membershipSelector, workspace, actions);
 
     const row = screen.getByText('Note').closest('.entry');
-    expect(row).toHaveClass('entry-active');
+    expect(row).toHaveClass('entry-force-hover');
   });
 
-  it('a note row has no entry-active class when its menu is closed', () => {
+  it('a note row has no entry-force-hover class when its menu is closed', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
     const { query, workspace, membershipSelector } = setup([page]);
     const { actions } = buildRowActions({ openMenuId: null });
@@ -267,10 +267,10 @@ describe('FolderTree row overflow menu: the owning row stays highlighted while i
     renderTree(query, membershipSelector, workspace, actions);
 
     const row = screen.getByText('Note').closest('.entry');
-    expect(row).not.toHaveClass('entry-active');
+    expect(row).not.toHaveClass('entry-force-hover');
   });
 
-  it('a folder row gets entry-active while its menu is open', () => {
+  it('a folder row gets entry-force-hover while its menu is open', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
     const { query, workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ openMenuId: 'folder-1' });
@@ -278,7 +278,20 @@ describe('FolderTree row overflow menu: the owning row stays highlighted while i
     renderTree(query, membershipSelector, workspace, actions);
 
     const row = screen.getByText('Projects').closest('.entry');
-    expect(row).toHaveClass('entry-active');
+    expect(row).toHaveClass('entry-force-hover');
+  });
+
+  it('a note row\'s .entry__actions are visible (not hover-gated hidden) while its menu is open, even without the mouse over it', () => {
+    const page = buildPersistedPage(`${ROOT}/Note.md`);
+    const { query, workspace, membershipSelector } = setup([page]);
+    const { actions } = buildRowActions({ openMenuId: page.id });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    const row = screen.getByText('Note').closest('.entry') as HTMLElement;
+    const actionsEl = row.querySelector('.entry__actions') as HTMLElement;
+    expect(getComputedStyle(actionsEl).opacity).toBe('1');
+    expect(getComputedStyle(actionsEl).visibility).toBe('visible');
   });
 });
 
