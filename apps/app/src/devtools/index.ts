@@ -55,15 +55,34 @@ interface ClutterDevTools {
   };
 }
 
+declare global {
+  interface Window {
+    __clutter_devtools?: ClutterDevTools;
+  }
+}
+
 /**
  * Attach devtools to the window object (only in dev mode).
  *
  * Called from Application.ts's Composition Root if VITE_DEVTOOLS is set.
  * Never called in production.
+ *
+ * import.meta.env.DEV is Vite's own dev/production flag (false in any
+ * `vite build` output, regardless of what env vars happen to be set) —
+ * checking it, not just VITE_DEVTOOLS, means this can never activate in a
+ * shipped build even if VITE_DEVTOOLS leaks into that environment somehow.
  */
 export function attachDevTools(app: Application): void {
-  // Only expose in development
-  if (process.env.NODE_ENV !== 'development' || !process.env.VITE_DEVTOOLS) {
+  if (!import.meta.env.DEV || import.meta.env.VITE_DEVTOOLS !== 'true') {
+    return;
+  }
+
+  // Idempotent: React StrictMode double-invokes effects in dev, so
+  // Application.bootstrap() (and this call, from the end of attachVault())
+  // can run twice. A second Object.defineProperty on a non-configurable
+  // property throws ("Attempting to change value of a readonly property"
+  // in WebKit), which crashed the whole render tree until this guard.
+  if (window.__clutter_devtools) {
     return;
   }
 

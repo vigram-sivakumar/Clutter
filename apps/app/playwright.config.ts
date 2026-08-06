@@ -7,7 +7,7 @@ export default defineConfig({
   retries: 0,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5174',
+    baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
     actionTimeout: 5000,
     launchOptions: {
@@ -22,8 +22,11 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5174',
+    url: 'http://localhost:5173',
     reuseExistingServer: true,
     timeout: 15000,
+    env: {
+      VITE_DEVTOOLS: 'true',
+    },
   },
 });

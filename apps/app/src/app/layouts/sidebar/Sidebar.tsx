@@ -16,6 +16,7 @@ import { Tags } from '@features/tags/sidebar/Sidebar.Tags';
 import { SearchPanel } from '@features/search/SearchPanel';
 import { Controls } from '@app/layouts/sidebar/controls/Controls';
 import { Footer } from './footer/Footer';
+import { testIds } from '../../../devtools/testIds';
 
 interface SidebarProps {
   application: Application;
@@ -113,7 +114,7 @@ export function Sidebar({ application }: SidebarProps) {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" data-testid={testIds.sidebar.root}>
       {/* Controls (including the sidebar-toggle button itself) stays
           rendered regardless of isSidebarVisible — hiding it alongside
           the rest of the sidebar would remove the only way to show the

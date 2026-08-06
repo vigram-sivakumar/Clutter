@@ -25,3 +25,15 @@ tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-fs = "2"
 notify = "6"
+
+# Automation/testing only, and `optional = true`: excluded from every
+# ordinary build's dependency graph (debug or release — `cfg(debug_assertions)`
+# is NOT a real Cargo target-cfg predicate, it only covers platform/arch, so
+# an earlier attempt to gate this that way silently did nothing and the
+# crate ended up in release builds too). The `automation` feature below is
+# the actual gate: nothing enables it except devtools/automation's own build
+# invocation. See devtools/automation/AUTOMATION.md.
+tauri-plugin-wdio-webdriver = { version = "1", optional = true }
+
+[features]
+automation = ["dep:tauri-plugin-wdio-webdriver"]

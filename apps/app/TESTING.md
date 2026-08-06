@@ -1,5 +1,23 @@
 # Clutter Testing Guide
 
+> **⚠️ Superseded.** This document describes the original Playwright-based
+> `e2e/` suite, which drove the frontend in a plain browser against
+> `npm run dev`. That approach has been abandoned — a Tauri app can't be
+> meaningfully driven by Playwright (no CDP access to the native webview),
+> and testing it that way would have required a fake in-memory filesystem
+> standing in for the real one, exercising a parallel, fictional runtime
+> instead of what users actually run.
+>
+> Automated testing now drives the **real Tauri binary** via WebdriverIO.
+> See [`devtools/automation/AUTOMATION.md`](devtools/automation/AUTOMATION.md)
+> for the current (proof-of-concept stage) setup. The `e2e/` directory below
+> is unmodified and not runnable — kept only until the migration to the new
+> suite is complete, at which point it should be deleted rather than kept
+> alongside the replacement. The rest of this document is retained for
+> historical reference (the Surface Object / Test ID / Workspace Builder
+> *concepts* below carry over to the new suite even though the Playwright
+> implementation doesn't).
+
 This document establishes conventions for Clutter's test infrastructure. Follow these patterns as the test suite grows.
 
 ## Quick Start
