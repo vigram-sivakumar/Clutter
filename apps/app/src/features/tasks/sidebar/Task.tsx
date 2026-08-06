@@ -39,6 +39,8 @@ export function Task({
           open={false}
           onOpenChange={() => {}}
           onSelect={() => {}}
+          side="bottom"
+          alignment="start"
           size="small"
         />
       }

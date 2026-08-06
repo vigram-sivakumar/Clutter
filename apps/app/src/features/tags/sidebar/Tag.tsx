@@ -31,6 +31,8 @@ export function Tag({
           open={false}
           onOpenChange={() => {}}
           onSelect={() => {}}
+          side="bottom"
+          alignment="start"
           size="small"
         />
       }

@@ -45,6 +45,8 @@ export function DailyNote({
           open={menuOpen}
           onOpenChange={onMenuOpenChange ?? (() => {})}
           onSelect={onMenuSelect ?? (() => {})}
+          side="bottom"
+          alignment="start"
           size="small"
         />
       }
