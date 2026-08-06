@@ -4,12 +4,25 @@
 /* actions */
 .section-header__caret {
   opacity: 0;
-  pointer-events: none;
   transition: opacity 150ms ease;
 }
 
 .entry:hover .section-header__caret,
 .entry:focus-visible .section-header__caret {
   opacity: 1;
-  pointer-events: auto;
 }
+
+.section-header__toggle {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.section-header__toggle:hover .section-header__title,
+.section-header__toggle:hover .section-header__caret {
+  color: var(--text-secondary);
+}
+
+/* .section--expanded:hover .section-header__caret {
+  opacity: 1;
+} */

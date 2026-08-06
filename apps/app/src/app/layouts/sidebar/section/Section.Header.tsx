@@ -8,8 +8,8 @@ export interface HeaderProps extends Omit<EntryProps, 'children'> {
 
   isCollapsible?: boolean;
   isExpanded?: boolean;
-
   onExpandToggle?: () => void;
+  isTitleToggle?: boolean;
 }
 
 export function Header({
@@ -18,19 +18,35 @@ export function Header({
   isCollapsible = false,
   isExpanded = false,
   onExpandToggle,
+  isTitleToggle = false,
   ...entryProps
 }: HeaderProps) {
+  // Treat the title as a button only when it toggles the section.
+  const titleProps =
+    isTitleToggle && onExpandToggle
+      ? {
+          role: 'button' as const,
+          tabIndex: 0,
+          onClick: onExpandToggle,
+        }
+      : {};
+
   return (
     <Entry className="section-header" {...entryProps} actions={actions}>
-      {title}
-      {isCollapsible && (
-        <Caret
-          className="section-header__caret"
-          variant="dropdown"
-          isExpanded={isExpanded}
-          onClick={onExpandToggle}
-        />
-      )}
+      <div className="section-header__toggle">
+        <span className="section-header__title" {...titleProps}>
+          {title}
+        </span>
+
+        {isCollapsible && (
+          <Caret
+            className="section-header__caret"
+            variant="dropdown"
+            isExpanded={isExpanded}
+            onClick={onExpandToggle}
+          />
+        )}
+      </div>
     </Entry>
   );
 }
