@@ -1,7 +1,7 @@
 import { CountBadge } from '@components/count-badge/CountBadge';
 import { Entry, EntryProps } from '@components/entry/Entry';
 // import { Badge, badgeColor } from '@components/badge/Badge';
-import { Button } from '@components/button/Button';
+import { OverflowMenu } from '@components/menu/OverflowMenu';
 import { AppIcon } from '@shared/icon';
 import './Tag.css';
 
@@ -26,9 +26,13 @@ export function Tag({
       leading={<AppIcon className="tag__icon" icon="tag" emoji={emoji} />}
       trailing={<CountBadge count={count} />}
       actions={
-        <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
-          <AppIcon icon="moreHorizontal" />
-        </Button>
+        <OverflowMenu
+          items={[]}
+          open={false}
+          onOpenChange={() => {}}
+          onSelect={() => {}}
+          size="small"
+        />
       }
     >
       {/* {<Badge label={title} color={color} />} */}

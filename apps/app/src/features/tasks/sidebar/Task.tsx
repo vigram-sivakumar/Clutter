@@ -1,6 +1,6 @@
 import { Entry, EntryProps } from '@components/entry/Entry';
 import { Checkbox } from '@components/checkbox/Checkbox';
-import { Button } from '@components/button/Button';
+import { OverflowMenu } from '@components/menu/OverflowMenu';
 import { AppIcon } from '@shared/icon';
 import './Task.css';
 
@@ -35,9 +35,13 @@ export function Task({
       }
 
       actions={
-        <Button size="small" variant="ghost" interaction="subtle" isIconOnly>
-          <AppIcon icon="moreHorizontal" />
-        </Button>
+        <OverflowMenu
+          items={[]}
+          open={false}
+          onOpenChange={() => {}}
+          onSelect={() => {}}
+          size="small"
+        />
       }
     >
       <span className={`task-title ${isChecked ? 'is-completed' : ''}`}>
