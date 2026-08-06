@@ -6,7 +6,8 @@ import { isToday } from '@shared/helpers/time';
 
 import type { Breadcrumb } from './Breadcrumb';
 import { isNoteUntitled } from './isNoteUntitled';
-import { getPageTitlePlaceholder } from './PageDisplayPlaceholders';
+import { isFolderUntitled } from './isFolderUntitled';
+import { getPageTitlePlaceholder, getFolderTitlePlaceholder } from './PageDisplayPlaceholders';
 import { getPageIcon } from './getPageIcon';
 import {
   getSystemLocationForFolder,
@@ -19,16 +20,16 @@ function isPage(entry: Page | Folder): entry is Page {
 
 // Breadcrumb is a static label with no native "empty value" placeholder
 // mechanism (unlike the page header's EditableText) — so, unlike the
-// header, an untitled Note's crumb needs the literal placeholder text,
-// not an empty string. Folders always have a real, deliberate name; a
-// Daily Note's crumb is always its real date (isNoteUntitled — Category
-// B's predicate — is deliberately always false for daily-note).
+// header, an untitled Note's or Folder's crumb needs the literal
+// placeholder text, not an empty string. A Daily Note's crumb is always
+// its real date (isNoteUntitled — Category B's predicate — is
+// deliberately always false for daily-note).
 function entryBreadcrumbTitle(entry: Page | Folder): string {
-  if (isPage(entry) && isNoteUntitled(entry)) {
-    return getPageTitlePlaceholder(entry.type);
+  if (isPage(entry)) {
+    return isNoteUntitled(entry) ? getPageTitlePlaceholder(entry.type) : entry.name;
   }
 
-  return entry.name;
+  return isFolderUntitled(entry) ? getFolderTitlePlaceholder() : entry.name;
 }
 
 /**
@@ -76,7 +77,7 @@ function ancestorBreadcrumbs(
 
     ancestors.unshift({
       id: folder.id,
-      title: presentation ? presentation.label : folder.name,
+      title: presentation ? presentation.label : entryBreadcrumbTitle(folder),
       // collectionIcon (falling back to icon) — an ancestor crumb
       // represents the collection/domain, not a specific document, and
       // for Daily Notes that's a different icon than its sidebar tab uses.

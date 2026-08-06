@@ -5,6 +5,7 @@ import {
   getPageDisplayLabelStyle,
   type PageDisplayLabelInput,
 } from './getPageDisplayLabel';
+import { getFolderDisplayLabel } from './getFolderDisplayLabel';
 import { getPageIcon } from './getPageIcon';
 
 /**
@@ -37,9 +38,11 @@ function isFolder(
  */
 export function buildEntryPresentation(entry: Folder | EntryPresentationPageInput) {
   if (isFolder(entry)) {
+    const label = getFolderDisplayLabel(entry);
+
     return {
-      title: entry.name,
-      titleStyle: 'default' as const,
+      title: label.text,
+      titleStyle: getPageDisplayLabelStyle(label),
       icon: getPageIcon('folder'),
       emoji: entry.metadata.icon,
     };

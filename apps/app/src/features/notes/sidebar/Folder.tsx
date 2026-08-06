@@ -9,6 +9,7 @@ import './Folder.css';
 
 interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
+  titleStyle?: 'default' | 'placeholder';
   emoji?: string | null;
 
   isEmpty?: boolean;
@@ -42,6 +43,7 @@ interface FolderProps extends Omit<EntryProps, 'children'> {
 
 export function Folder({
   title,
+  titleStyle = 'default',
   emoji,
   isEmpty = false,
   hasCaret = true,
@@ -111,7 +113,15 @@ export function Folder({
           onEditingEnd={onTitleEditingEnd}
         />
       ) : (
-        title
+        <span
+          className={
+            titleStyle === 'placeholder'
+              ? 'folder__title folder__title--placeholder'
+              : 'folder__title'
+          }
+        >
+          {title}
+        </span>
       )}
     </Entry>
   );

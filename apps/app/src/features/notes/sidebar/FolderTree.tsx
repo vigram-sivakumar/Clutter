@@ -14,6 +14,8 @@ import {
   getPageDisplayLabel,
   getPageDisplayLabelStyle,
 } from '@core/presentation/getPageDisplayLabel';
+import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
+import { isFolderUntitled } from '@core/presentation/isFolderUntitled';
 // Queries
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
@@ -263,12 +265,20 @@ export function FolderTree({
         // expanded-by-default state, since there's nothing to reveal.
         const isExpanded = isEmpty ? false : workspace.isFolderExpanded(folder.id);
         const isEditingFolder = rowActions?.editingId === folder.id;
+        const folderLabel = getFolderDisplayLabel(folder);
+        // Same "blank, not the literal generated string" rule the page
+        // header (toResourcePageModel) applies to Notes — an untitled
+        // folder's rename session starts from an empty field so
+        // EditableText's own placeholder renders, rather than seeding the
+        // input with "Untitled".
+        const folderEditingValue = isFolderUntitled(folder) ? '' : folder.name;
 
         return (
           <Fragment key={folder.id}>
             {/* Render the current folder */}
             <FolderEntry
-              title={folder.name}
+              title={isEditingFolder ? folderEditingValue : folderLabel.text}
+              titleStyle={getPageDisplayLabelStyle(folderLabel)}
               emoji={folder.metadata.icon}
               level={level}
               isEmpty={isEmpty}

@@ -5,6 +5,7 @@ import type { FilteredView, Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage, EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { buildEntryPresentation } from '@core/presentation/buildEntryPresentation';
+import { getFolderDisplayLabel } from '@core/presentation/getFolderDisplayLabel';
 import {
   getSystemLocationForFolder,
   getSystemLocationPresentation,
@@ -170,7 +171,7 @@ function toFolderCollectionPageModel(
   const systemLocation = getSystemLocationForFolder(folder, membershipSelector);
   const title = systemLocation
     ? getSystemLocationPresentation(systemLocation).label
-    : folder.name;
+    : getFolderDisplayLabel(folder).text;
 
   return {
     title,

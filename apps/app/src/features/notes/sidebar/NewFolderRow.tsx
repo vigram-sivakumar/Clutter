@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { Entry } from '@components/entry/Entry';
 import { EditableText } from '@components/editable-text/EditableText';
+import { getFolderTitlePlaceholder } from '@core/presentation/PageDisplayPlaceholders';
 import { FolderLeading } from './FolderLeading';
 
 interface NewFolderRowProps {
@@ -35,7 +36,7 @@ export function NewFolderRow({ level, onCommit, onCancel }: NewFolderRowProps) {
     >
       <EditableText
         value=""
-        placeholder="Untitled Folder"
+        placeholder={getFolderTitlePlaceholder()}
         autoFocus
         onCommit={(name) => {
           const trimmed = name.trim();
