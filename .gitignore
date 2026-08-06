@@ -44,7 +44,8 @@ test-results/
 **/test-results/
 playwright-report/
 **/playwright-report/
-**/devtools/automation/screenshots/*.png
+packages/automation/screenshots/*.png
+packages/automation/reports/
 
 # Misc
 .cache/
