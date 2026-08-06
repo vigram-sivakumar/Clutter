@@ -6,6 +6,7 @@ import { Note as NoteEntry } from './Note';
 import { NewFolderRow } from './NewFolderRow';
 import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
 import { folderSidebarMenu } from './folderSidebarMenu.config';
+import { testIds } from '@shared/testing/selectors';
 // Models
 import type { Folder } from '@core/vault/models';
 // Presentation
@@ -133,6 +134,7 @@ function PageEntry({
 
   return (
     <NoteEntry
+      data-testid={testIds.sidebar.noteItem(entry.id)}
       title={label.text}
       titleStyle={getPageDisplayLabelStyle(label)}
       emoji={entry.icon}

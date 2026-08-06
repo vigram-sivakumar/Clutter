@@ -4,6 +4,7 @@ import { Navigation } from '@app/layouts/sidebar/navigation/Navigation';
 import type { NavigationItem } from '@app/layouts/sidebar/navigation/NavigationItem';
 
 import { notesShortcuts, type NotesShortcutId } from './notesShortcuts.config';
+import { testIds } from '@shared/testing/selectors';
 
 interface NotesShortcutsProps {
   onShortcut: (id: NotesShortcutId) => void;
@@ -21,6 +22,9 @@ export function NotesShortcuts({ onShortcut }: NotesShortcutsProps) {
       {items.map((shortcut) => (
         <Navigation
           key={shortcut.id}
+          data-testid={
+            shortcut.id === 'new-note' ? testIds.sidebar.createNoteButton : undefined
+          }
           title={shortcut.title}
           leading={<AppIcon icon={shortcut.icon} />}
           disabled={shortcut.disabled}

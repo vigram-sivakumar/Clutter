@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PageOperations } from './PageOperations';
+import { DocumentState } from '../../engine/DocumentState';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { Workspace } from '../../workspace/Workspace';
 import { DocumentRegistry } from '../../engine/DocumentRegistry';
@@ -147,6 +148,55 @@ describe('PageOperations.flushActivePage', () => {
 
     const persisted = await inner.readFile(`${ROOT}/A.md`);
     expect(persisted).toContain('Edited A');
+  });
+});
+
+describe('PageOperations.flushActivePage: discards an abandoned draft', () => {
+  it('discards an empty draft once navigation away from it settles', async () => {
+    const { workspace, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const draftId = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.open('page-a');
+    await vi.waitFor(() => {
+      expect(pageOperations.getDraft(draftId)).toBeUndefined();
+    });
+
+    expect(workspace.openPages).not.toContain(draftId);
+  });
+
+  it('promotes, rather than discards, a draft with real unsaved content', async () => {
+    const { vault, workspace, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const draftId = await pageOperations.openDraft({ folderId: null });
+    pageOperations.commitEdit(draftId, 'Real draft content');
+
+    await pageOperations.open('page-a');
+    await vi.waitFor(() => {
+      expect(vault.getPage(draftId)).toBeDefined();
+    });
+
+    // Promoted, not discarded: still a real, open page under its own id.
+    expect(pageOperations.getDraft(draftId)).toBeUndefined();
+    expect(workspace.openPages).toContain(draftId);
+  });
+
+  it('does not discard a draft whose save attempt failed — its content would be lost', async () => {
+    const { inner, documentRegistry, pageOperations } = setup([
+      buildPage('page-a', 'A'),
+    ]);
+    const draftId = await pageOperations.openDraft({ folderId: null });
+    pageOperations.commitEdit(draftId, 'Content that fails to persist');
+    vi.spyOn(inner, 'writeFile').mockRejectedValue(new Error('disk full'));
+
+    await pageOperations.open('page-a');
+    await vi.waitFor(() => {
+      expect(documentRegistry.get(draftId)!.state).toBe(DocumentState.SaveError);
+    });
+
+    // Still a draft, still holding its unsaved content — not silently wiped.
+    expect(pageOperations.getDraft(draftId)).toBeDefined();
+    expect(documentRegistry.get(draftId)!.currentRevision.markdown).toBe(
+      'Content that fails to persist'
+    );
   });
 });
 

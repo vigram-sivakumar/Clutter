@@ -26,6 +26,9 @@ export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
   level?: number;
 
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
+
+  /** Stable selector for packages/automation — see src/shared/testing/selectors.ts. */
+  'data-testid'?: string;
 }
 
 export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(

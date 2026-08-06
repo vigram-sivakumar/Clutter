@@ -192,13 +192,23 @@ export class PageOperations {
     const activePageId = this.workspace.activePageId;
 
     if (activePageId) {
-      void this.requestSave(activePageId);
+      const bodySave = this.requestSave(activePageId);
       // Navigation-away is a "nothing dirty may survive this moment"
       // boundary for the whole page, not just its body — an uncommitted,
       // still-debouncing title rename must not be silently dropped here
       // any more than an unsaved body edit is. A no-op if this page has no
       // title-editing activity (requestTitleSave()'s own guard).
-      void this.requestTitleSave(activePageId);
+      const titleSave = this.requestTitleSave(activePageId);
+
+      // Once both channels have settled — after promotion would have
+      // happened, if this flush's content was enough to trigger one — an
+      // unpersisted draft that's still sitting unpromoted has nothing left
+      // to keep it alive. Chained, not awaited: flushActivePage() itself
+      // stays fire-and-forget (doc comment above), this is just what runs
+      // once the forgotten fire resolves.
+      void Promise.all([bodySave, titleSave]).then(() =>
+        this.discardIfAbandonedDraft(activePageId)
+      );
     }
 
     // This is the same pre-navigation flush boundary FolderOperations.open()
@@ -208,6 +218,36 @@ export class PageOperations {
     // folders already does. A no-op if no folder is active or it has no
     // name-editing activity (flushActiveFolder()'s own guards).
     this.folderOperations.flushActiveFolder();
+  }
+
+  /**
+   * The other half of flushActivePage()'s navigation-away contract: a
+   * draft that was never promoted (persistDraft() deletes it from
+   * `drafts` the moment it is — ADR-017) has nothing left to keep it
+   * alive once its owning flush has settled and the user has actually
+   * moved on. Three guards, each necessary:
+   *
+   * - `activePageId !== pageId` — the user may have navigated straight
+   *   back to this exact draft before this callback ran; still-active
+   *   drafts are never discarded out from under the person looking at
+   *   them.
+   * - `drafts.has(pageId)` — promotion (a real save) already deleted the
+   *   entry; nothing to discard, this is now a real page.
+   * - not `SaveError` — a draft that had real content but whose save
+   *   attempt genuinely failed still has that content sitting in its
+   *   session, unpersisted; discarding it here would silently destroy
+   *   unsaved work instead of surfacing the failure.
+   */
+  private discardIfAbandonedDraft(pageId: string): void {
+    if (this.workspace.activePageId === pageId || !this.drafts.has(pageId)) {
+      return;
+    }
+
+    if (this.documentRegistry.get(pageId)?.state === DocumentState.SaveError) {
+      return;
+    }
+
+    this.close(pageId);
   }
 
   /**

@@ -8,8 +8,8 @@
  * over the WebDriver protocol against a compiled binary, and is never a
  * dependency of apps/app itself. See AUTOMATION.md.
  *
- * The automation-only WebDriver surface is enabled on the app side by
- * three independent gates that only this config trips together:
+ * The automation-only WebDriver surface is enabled on the app side by two
+ * gates that only this config trips together:
  *   1. apps/app/src-tauri/Cargo.toml's `automation` feature — an optional
  *      dependency, absent from the build graph of any ordinary build
  *      (debug or release). Only `npm run build:app` in this package passes
@@ -18,13 +18,21 @@
  *      TAURI_AUTOMATION env var is present — set below, in `env`, so an
  *      ordinary `npm run desktop` session never starts a WebDriver server
  *      even if built with the feature enabled by hand.
- *   3. The `wdio-webdriver:default` permission lives in its own capability
- *      file (apps/app/src-tauri/capabilities/automation.json), never
- *      applied by default.
+ * (A third gate, a capability file, was tried and removed — see
+ * AUTOMATION.md for why.)
  *
  * This is a proof of concept only (see AUTOMATION.md) — the full Surface
  * Object / AutomationDriver architecture lands once this confirms the
  * underlying tooling works reliably.
+ *
+ * PERFORMANCE: every spec file's own `before()` must call
+ * helpers/suppressFocusRecoveryOverhead.ts's exported function before any
+ * findElement/findElements/$/$$/elementClick/getTitle command. Without it,
+ * every one of those commands pays a blocking ~10-20s tax — see that
+ * file's doc comment and AUTOMATION.md's Performance section for the full
+ * explanation and benchmark. (A config-level `before` hook here was tried
+ * first; wdio.conf.ts's own `before` fires before `browser.tauri` is
+ * attached, so it can't call this — must be spec-level.)
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

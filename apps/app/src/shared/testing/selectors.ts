@@ -24,6 +24,7 @@ export const testIds = {
     folderContextMenu: (folderId: string) => `sidebar.folderContextMenu.${folderId}`,
     noteContextMenu: (pageId: string) => `sidebar.noteContextMenu.${pageId}`,
     expandFolder: (folderId: string) => `sidebar.expandFolder.${folderId}`,
+    tab: (tabId: string) => `sidebar.tab.${tabId}`,
   },
 
   // Editor

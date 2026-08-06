@@ -88,6 +88,75 @@ rather than duplicated — one source of truth, and a deliberate one-way
 dependency (this package depends on that file; `apps/app` never depends on
 anything in this package).
 
+## Performance
+
+**Every spec file's `describe()` must call
+`before(suppressFocusRecoveryOverhead)`** (from
+`helpers/suppressFocusRecoveryOverhead.ts`). Without it, every
+`findElement`/`findElements`/`$`/`$$`/`elementClick`/`getTitle` command
+pays a blocking ~10-20s tax. This isn't an inherent limit of the embedded
+provider, macOS, or our selector strategy — it's a specific, fixable gap:
+`@wdio/tauri-service`'s `ensureActiveWindowFocus` check runs before those
+six command types and calls `browser.tauri.execute()` to read window
+focus state; that call needs `window.__wdio_original_core__`, which is
+injected by the frontend companion package `@wdio/tauri-plugin` — which
+this app has never installed. So the call always fails after its own
+internal 5000ms timeout (observed 2-3x per interaction, since a chained
+`$(sel).click()` triggers the check separately for the element lookup and
+the click), then gives up and the real command runs fine anyway over the
+raw WebDriver protocol, which was never the slow part.
+
+Calling `browser.tauri.switchWindow('main')` once per session (not a real
+switch — we have one window) makes `@wdio/tauri-service` treat focus as
+already explicitly handled and skip the check for the rest of that
+session (`userSwitchedWindowCache`, keyed by session id). That call itself
+still pays the same ~5s tax once (it needs the same missing bridge to
+validate the window label) — an unavoidable one-time cost with the
+current setup, not a per-command one.
+
+**Measured** (`packages/automation/scenarios`, single MacBook, embedded
+provider, three consecutive runs per configuration):
+
+| Stage | Without the fix | With the fix |
+|---|---|---|
+| App process spawn → embedded server ready | ~1.5s (fixed, paid once per `wdio run`, not per spec file) | same |
+| Embedded server ready → WebDriver session established | ~1.3s | same |
+| One-time per-session `switchWindow` suppression call | n/a (not called) | ~5.0s (once per spec file) |
+| `findElement` | ~10-20s | ~3-6ms |
+| `findElements` | ~10-20s | ~3-6ms |
+| `elementClick` | ~10-20s | ~5-10ms |
+| `getAttribute`/`getText` (not focus-gated, always fast) | ~2-3ms | ~2-3ms |
+| `deleteSession` (shutdown) | ~10-15ms | same |
+| Process teardown after last spec | ~250ms | same |
+| **`poc.spec.ts` (1 command)** | ~30-35s | **~5.1s** |
+| **`draft-discard.spec.ts` (~9 commands, was written pre-fix with a manual 15s `browser.pause` to work around the false negative this caused)** | 2min+ (routinely hit mocha's 60-120s timeout before completing) | **~5.3s** |
+
+Root cause confirmed empirically, not assumed: raw command round-trips
+(POST/GET straight to the embedded server, visible in `webdriver` debug
+logs) were consistently 2-15ms even *before* the fix — the 10-20s was
+entirely the focus-check's own dead time in front of each command, never
+the command itself.
+
+**Further optimization not done**: installing the actual `@wdio/tauri-plugin`
+frontend package would let the focus check (and any future
+`browser.tauri.execute()`/mocking use) succeed immediately instead of
+timing out, eliminating even the one-time ~5s/session cost. Not done here
+— it's a frontend dependency in `apps/app` (dev-only, but still a real
+change to the app package we just spent effort keeping free of automation
+deps) for a ~5s/file win we can live without for now. Revisit if
+`browser.tauri.execute()` or command mocking is ever actually needed.
+
+**Test design**: prefer one WebDriver command over several whenever
+possible (e.g. a single `waitUntil` polling loop over repeated manual
+`browser.pause()` + check). Polling itself is now cheap (`waitUntil`'s
+default 500ms interval costs ~5-10ms of actual work per poll, not
+500ms+per-check like it would have pre-fix) — favor short `waitUntil`
+timeouts (we use 5000ms) over long fixed sleeps. A regression suite should
+not need to navigate through incidental UI to reach the state under test;
+none of our scenarios do this yet only because there's no workspace-builder/
+vault-seeding layer yet (tracked below) — once one exists, prefer seeding
+state directly over clicking through the UI to build it.
+
 ## Running the PoC locally
 
 **Prerequisite: the app's Vite dev server must already be running.** The

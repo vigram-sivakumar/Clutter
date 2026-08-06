@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
+import { testIds } from '@shared/testing/selectors';
 import './Tabs.css';
 
 type TabsProps = {
@@ -56,7 +57,12 @@ export function Tab({ children, value }: TabProps) {
     .join(' ');
 
   return (
-    <button type="button" className={className} onClick={handleClick}>
+    <button
+      type="button"
+      className={className}
+      onClick={handleClick}
+      data-testid={testIds.sidebar.tab(value)}
+    >
       {children}
     </button>
   );
