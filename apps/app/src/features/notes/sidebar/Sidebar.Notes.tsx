@@ -13,7 +13,11 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
-import { FolderTree, type PendingNewFolder, type SidebarRowActions } from './FolderTree';
+import {
+  FolderTree,
+  type PendingNewFolder,
+  type SidebarRowActions,
+} from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
 import { deleteFolderWithConfirmation } from '../helpers/deleteFolderWithConfirmation';
@@ -76,19 +80,28 @@ export function Notes({
     },
     onRenameEnd: () => setEditingId(null),
 
-    onNoteTitleEdit: (pageId, value) => pageOperations.commitTitle(pageId, value),
+    onNoteTitleEdit: (pageId, value) =>
+      pageOperations.commitTitle(pageId, value),
     onNoteTitleFlush: (pageId) => void pageOperations.requestTitleSave(pageId),
     onNoteTitleCancel: (pageId) => pageOperations.cancelTitleEdit(pageId),
-    onDraftTitleCommit: (pageId, value) => void pageOperations.updateDraftTitle(pageId, value),
+    onDraftTitleCommit: (pageId, value) =>
+      void pageOperations.updateDraftTitle(pageId, value),
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
 
-    onFolderTitleEdit: (folderId, value) => folderOperations.commitName(folderId, value),
-    onFolderTitleFlush: (folderId) => void folderOperations.requestNameSave(folderId),
-    onFolderTitleCancel: (folderId) => folderOperations.cancelNameEdit(folderId),
+    onFolderTitleEdit: (folderId, value) =>
+      folderOperations.commitName(folderId, value),
+    onFolderTitleFlush: (folderId) =>
+      void folderOperations.requestNameSave(folderId),
+    onFolderTitleCancel: (folderId) =>
+      folderOperations.cancelNameEdit(folderId),
     onDeleteFolder: (folderId) => {
       void (async () => {
-        const deleted = await deleteFolderWithConfirmation(vault, folderOperations, folderId);
+        const deleted = await deleteFolderWithConfirmation(
+          vault,
+          folderOperations,
+          folderId
+        );
 
         // Mirrors PageHost's onDeleteFolder: the just-deleted folder can no
         // longer be the active target if it was one.
@@ -149,10 +162,15 @@ export function Notes({
         hasHeader
         title={getSystemLocationPresentation('workspace').label}
         isCollapsible
+        isTitleToggle
         isEmpty={isFoldersEmpty}
         isExpanded={workspace.isSectionExpanded('folders')}
-        onExpandedChange={(expanded) => workspace.setSectionExpanded('folders', expanded)}
-        onClick={() => navigation.openWorkspace()}
+        onExpandedChange={(expanded) =>
+          workspace.setSectionExpanded('folders', expanded)
+        }
+        // Clicking the row toggles collapse, same as its caret — it no
+        // longer navigates to the Workspace collection view.
+        // onClick={() => workspace.toggleSectionExpanded('folders')}
         actions={
           <Button
             size="small"

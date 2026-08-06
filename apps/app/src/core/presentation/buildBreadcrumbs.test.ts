@@ -495,6 +495,32 @@ describe('buildBreadcrumbs — reserved-folder ancestors use their canonical sys
     expect(crumbs[0]!.icon).toBe(getSystemLocationPresentation('inbox').icon);
   });
 
+  it('uses the plain calendar icon (not the calendar-with-date .icon its sidebar tab uses) for a Daily Notes ancestor crumb', () => {
+    const dailyNotes = makeFolder({
+      id: 'daily-notes-folder',
+      name: 'Daily Notes',
+      path: `${ROOT}/Daily Notes`,
+      parentId: null,
+    });
+    const page = makePage({ parentId: 'daily-notes-folder' });
+    const crumbs = buildBreadcrumbs(
+      page,
+      makeVault([dailyNotes]),
+      makeMembershipSelector(makeVault([dailyNotes])),
+      vi.fn()
+    );
+
+    const dailyNotesCrumb = crumbs[0]!;
+    const presentation = getSystemLocationPresentation('daily-notes');
+    expect(dailyNotesCrumb.title).toBe(presentation.label);
+    expect(dailyNotesCrumb.icon).toBe('calendar');
+    // The collection/ancestor icon is deliberately different from the
+    // sidebar tab's icon — a Daily Notes ancestor represents the whole
+    // collection, not one specific day.
+    expect(dailyNotesCrumb.icon).not.toBe(presentation.icon);
+    expect(presentation.icon).toBe('calendarToday');
+  });
+
   it('does not apply system-location presentation to an ordinary folder that merely shares a reserved name at a non-root path', () => {
     // "Archive" only counts as reserved when it is a real top-level Vault
     // folder (Vault.isReservedFolder checks parentId === null AND the

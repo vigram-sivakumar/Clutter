@@ -6,7 +6,7 @@ import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { Section } from '@app/layouts/sidebar/section/Section';
-import { formatDate, isCurrentYear, isToday } from '@shared/helpers/time';
+import { formatDate, isCurrentMonth, isCurrentYear, isToday } from '@shared/helpers/time';
 import type { ISODate } from '@shared/helpers/time/types';
 import {
   getPageDisplayLabel,
@@ -111,6 +111,11 @@ function sortRenderedSections(sections: RenderedMonthSection[]): RenderedMonthSe
   return sections.sort((a, b) => b.monthIsoDate.localeCompare(a.monthIsoDate));
 }
 
+// A month in the current year needs no year suffix (the calendar already
+// establishes it); any other year — past or future — carries its own year
+// right in the heading (e.g. "March 2027", "November 2025") instead of a
+// separate year-level heading, which would add a hierarchy level this list
+// deliberately stays flat without.
 function formatMonthSectionTitle(monthIsoDate: ISODate): string {
   return isCurrentYear(monthIsoDate)
     ? formatDate(monthIsoDate, 'monthLong')
@@ -164,7 +169,32 @@ export function DailyNotesList({
     // DailyNoteService.ensureFolderChain — ADR-019).
     .filter(({ pages }) => pages.length > 0);
 
-  return sections.map((section) => {
+  // Three consecutive sections, concatenated — not one global date sort.
+  // A single descending sort across every month would put any future
+  // year's month (e.g. March 2027) above the current year's own remaining
+  // months (e.g. July 2026), which is wrong: the current year must stay
+  // together, directly under the current month, regardless of how many
+  // future years exist. sortRenderedSections' descending order is still
+  // what each partition individually needs (newest-first within the
+  // current year, then newest-year-first across the rest) — filtering it
+  // into three groups and concatenating preserves that relative order
+  // within each group without re-sorting.
+  const currentMonthSection = sections.find((section) =>
+    isCurrentMonth(section.monthIsoDate)
+  );
+  const currentYearRest = sections.filter(
+    (section) =>
+      section !== currentMonthSection && isCurrentYear(section.monthIsoDate)
+  );
+  const otherYears = sections.filter(
+    (section) => !isCurrentYear(section.monthIsoDate)
+  );
+  const remainingSections = [...currentYearRest, ...otherYears];
+
+  const renderMonthSection = (
+    section: RenderedMonthSection,
+    hasHeader: boolean
+  ) => {
     const monthFolder = section.monthFolder;
     const key = monthFolder?.id ?? `unplaced:${section.monthIsoDate}`;
     // Interactivity is content-driven, not folder-existence-driven — every
@@ -201,7 +231,7 @@ export function DailyNotesList({
     return (
       <Section
         key={key}
-        hasHeader
+        hasHeader={hasHeader}
         title={formatMonthSectionTitle(section.monthIsoDate)}
         isCollapsible={section.pages.length > 0}
         isExpanded={isExpanded}
@@ -246,5 +276,12 @@ export function DailyNotesList({
         })}
       </Section>
     );
-  });
+  };
+
+  return (
+    <>
+      {currentMonthSection && renderMonthSection(currentMonthSection, false)}
+      {remainingSections.map((section) => renderMonthSection(section, true))}
+    </>
+  );
 }

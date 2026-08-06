@@ -16,6 +16,7 @@ import { resolvePageMetadata } from '../../vault/ingest/resolvePageMetadata';
 import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontmatter';
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { DailyNoteService } from '../daily-notes/DailyNoteService';
+import { DailyNotePath } from '../daily-notes/DailyNotePath';
 
 /**
  * How long PageOperations.flushAll() (the shutdown flush) waits for
@@ -237,9 +238,19 @@ export class PageOperations {
    *   attempt genuinely failed still has that content sitting in its
    *   session, unpersisted; discarding it here would silently destroy
    *   unsaved work instead of surfacing the failure.
+   * - `canAutoDiscardDraft(descriptor)` — today's Daily Note draft is a
+   *   product-level exception (not an ordinary abandoned draft): it acts
+   *   as a persistent scratchpad for the current day, so it must survive
+   *   navigating away empty. See canAutoDiscardDraft/shouldRetainDraft.
    */
   private discardAbandonedDraft(pageId: string): void {
-    if (this.workspace.activePageId === pageId || !this.drafts.has(pageId)) {
+    if (this.workspace.activePageId === pageId) {
+      return;
+    }
+
+    const descriptor = this.drafts.get(pageId);
+
+    if (!descriptor) {
       return;
     }
 
@@ -247,7 +258,57 @@ export class PageOperations {
       return;
     }
 
+    if (!this.canAutoDiscardDraft(descriptor)) {
+      return;
+    }
+
     this.close(pageId);
+  }
+
+  /**
+   * The one place that decides whether a draft is fair game for *any*
+   * automatic lifecycle transition — not just discardAbandonedDraft's
+   * "close it," but findReusableDraftId's "silently repurpose it for a
+   * different target" too. Both are the same underlying question (may the
+   * system make this draft disappear without the user asking it to?), so
+   * both consult this single predicate rather than each carrying their own
+   * copy of the Today's-Daily-Note exception. A future automatic
+   * transition should do the same — never re-derive "is this protected"
+   * locally.
+   *
+   * Ordinary drafts (Notes, and any Daily Note draft other than today's)
+   * are fair game — see the ADR-017 reasoning discardAbandonedDraft's own
+   * doc comment already gives. Today's Daily Note is the sole named
+   * exception: a product rule, not an implementation detail, kept here as
+   * its own predicate (rather than inlined into each call site) so a
+   * future draft type that earns persistence semantics has exactly one
+   * place to extend, per this method's counterpart shouldRetainDraft.
+   */
+  private canAutoDiscardDraft(descriptor: DraftDescriptor): boolean {
+    return !this.shouldRetainDraft(descriptor);
+  }
+
+  /**
+   * True only for a draft targeting today's Daily Note path — the single
+   * source of truth both canAutoDiscardDraft (discardAbandonedDraft's
+   * guard) and findReusableDraftId (openDraft's/openAtPath's reuse guard)
+   * consult. Compared against a freshly computed path (not cached) so the
+   * exception tracks the actual calendar day rather than whatever day the
+   * draft was opened on — a Daily Note draft opened just before midnight
+   * and abandoned just after is "yesterday's" by the time this runs, and
+   * yesterday's Daily Note is an ordinary draft (see canAutoDiscardDraft),
+   * not today's.
+   */
+  private shouldRetainDraft(descriptor: DraftDescriptor): boolean {
+    if (!descriptor.deterministicPath) {
+      return false;
+    }
+
+    return descriptor.deterministicPath === this.todayDailyNotePath();
+  }
+
+  private todayDailyNotePath(): string {
+    return DailyNotePath.absoluteFrom(this.vault.root, new Date());
   }
 
   /**
@@ -424,17 +485,29 @@ export class PageOperations {
   }
 
   /**
-   * A draft is reusable when it exists, has a live session, and is still
-   * empty — the business-intent question openDraft()/openAtPath() ask;
-   * callers don't need to know *why* a draft qualifies, only whether one
-   * does. "Empty" is body-only (see isEmptyDraft): anything still in
-   * `drafts` is, by construction, guaranteed to have no committed title
-   * or metadata already — updateDraftTitle()/updateMetadata() promote
-   * (and remove the descriptor) the instant either commits, for every
-   * type except Daily Notes, whose title is derived from its date and
-   * never user-committed in the first place. So body content is the only
-   * thing left that can make a still-open draft non-empty, for both
-   * Notes and Daily Notes alike.
+   * A draft is reusable when it exists, has a live session, is still
+   * empty, and isn't protected by the retention policy — the business-
+   * intent question openDraft()/openAtPath() ask; callers don't need to
+   * know *why* a draft qualifies, only whether one does. "Empty" is
+   * body-only (see isEmptyDraft): anything still in `drafts` is, by
+   * construction, guaranteed to have no committed title or metadata
+   * already — updateDraftTitle()/updateMetadata() promote (and remove the
+   * descriptor) the instant either commits, for every type except Daily
+   * Notes, whose title is derived from its date and never user-committed
+   * in the first place. So body content is the only thing left that can
+   * make a still-open draft non-empty, for both Notes and Daily Notes
+   * alike.
+   *
+   * The retention check (shouldRetainDraft) matters specifically for
+   * Daily Notes: without it, an empty today's-note draft is otherwise
+   * indistinguishable from any other empty daily-note draft, so opening a
+   * *different* date here would silently repurpose today's draft in place
+   * (openAtPath's retarget branch mutates the existing descriptor rather
+   * than minting a new one) — an automatic loss discardAbandonedDraft's
+   * own guard can't see, since reuse never calls close(). Same policy,
+   * same predicate as that guard (canAutoDiscardDraft/shouldRetainDraft) —
+   * every automatic transition that can make a draft disappear consults
+   * it, rather than each carrying its own copy of the exception.
    */
   private findReusableDraftId(type: PageType): string | undefined {
     for (const [id, descriptor] of this.drafts) {
@@ -443,6 +516,10 @@ export class PageOperations {
       }
 
       if (!this.documentRegistry.get(id)) {
+        continue;
+      }
+
+      if (!this.canAutoDiscardDraft(descriptor)) {
         continue;
       }
 

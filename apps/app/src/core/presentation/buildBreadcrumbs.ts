@@ -77,7 +77,12 @@ function ancestorBreadcrumbs(
     ancestors.unshift({
       id: folder.id,
       title: presentation ? presentation.label : folder.name,
-      icon: presentation ? presentation.icon : getPageIcon('folder'),
+      // collectionIcon (falling back to icon) — an ancestor crumb
+      // represents the collection/domain, not a specific document, and
+      // for Daily Notes that's a different icon than its sidebar tab uses.
+      icon: presentation
+        ? (presentation.collectionIcon ?? presentation.icon)
+        : getPageIcon('folder'),
       emoji: presentation ? undefined : (folder.metadata.icon ?? undefined),
       onClick: () => onOpenFolder(folder.id),
     });

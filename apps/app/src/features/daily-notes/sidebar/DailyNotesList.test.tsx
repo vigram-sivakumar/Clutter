@@ -82,12 +82,17 @@ function makeFolder(id: string, path: string, parentId: string | null): Folder {
   };
 }
 
-function makeDailyNote(id: string, name: string, parentId: string): Page {
+function makeDailyNote(
+  id: string,
+  name: string,
+  parentId: string,
+  monthName = 'August'
+): Page {
   return {
     id,
     type: 'daily-note',
     name,
-    path: `${ROOT}/Daily Notes/2026/August/${name}.md`,
+    path: `${ROOT}/Daily Notes/2026/${monthName}/${name}.md`,
     parentId,
     metadata: defaultPageMetadata,
     source: { markdown: '' },
@@ -224,7 +229,11 @@ describe('DailyNotesList — empty month sections', () => {
       />
     );
 
-    expect(screen.queryByText(/August/)).not.toBeNull();
+    // August is the current month here (see makeDailyNote/currentDate), so
+    // its heading is intentionally hidden (see the "current month heading"
+    // describe block below) — assert the section still renders its content
+    // instead.
+    expect(screen.getByText('Start typing...')).toBeInTheDocument();
   });
 });
 
@@ -257,8 +266,8 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
 
     // A synthetic, folder-less month section renders the draft — no crash,
     // no silent omission, and (per FolderTree's own new test) it no longer
-    // also renders in Notes.
-    expect(screen.queryByText(/August/)).not.toBeNull();
+    // also renders in Notes. August is the current month here, so its
+    // heading is intentionally absent — the row itself is what's under test.
     expect(screen.getByText('Start typing...')).toBeInTheDocument();
   });
 
@@ -286,7 +295,7 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
       }
     );
 
-    render(
+    const { container } = render(
       <DailyNotesList
         vault={vault}
         query={query}
@@ -298,15 +307,23 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
       />
     );
 
-    expect(screen.getAllByText(/August/)).toHaveLength(1);
+    // August is the current month, so its heading is hidden regardless of
+    // fold behavior — assert the fold itself structurally instead: exactly
+    // one section rendered (not two, one per date), holding both rows.
+    expect(container.querySelectorAll('.section')).toHaveLength(1);
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
   });
 
   it('an unplaced (folder-less) month section is clickable — it opens its one draft, since there is no Folder to open a collection for', async () => {
     const { pageOperations, vault, query, membershipSelector, workspace } =
       setup([], []);
 
+    // July, not August — August is the current month here, and its header
+    // (carrying this click-to-open handler) is intentionally hidden by the
+    // current-month heading rule. A past month keeps its normal, clickable
+    // header, which is what this test is actually about.
     await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      `${ROOT}/Daily Notes/2026/July/2026-07-20.md`,
       {
         type: 'daily-note',
       }
@@ -327,7 +344,7 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
       />
     );
 
-    fireEvent.click(screen.getByText(/August/));
+    fireEvent.click(screen.getByText(/July/));
 
     expect(onOpenDraft).toHaveBeenCalledTimes(1);
     expect(onOpen).not.toHaveBeenCalled();
@@ -337,14 +354,16 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
     const { pageOperations, vault, query, membershipSelector, workspace } =
       setup([], []);
 
+    // Same reasoning as the clickable test above — use a past month so the
+    // header (and its collapse caret) actually renders.
     await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
+      `${ROOT}/Daily Notes/2026/July/2026-07-20.md`,
       {
         type: 'daily-note',
       }
     );
 
-    const { container, queryByText } = render(
+    const { queryByText } = render(
       <DailyNotesList
         vault={vault}
         query={query}
@@ -358,12 +377,11 @@ describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this pha
 
     expect(queryByText('Start typing...')).not.toBeNull();
 
-    const caret = container.querySelector(
-      '.section-header__caret'
-    ) as HTMLElement;
+    const julyHeader = screen.getByText(/July/).closest('.section-header') as HTMLElement;
+    const caret = julyHeader.querySelector('.section-header__caret') as HTMLElement;
     fireEvent.click(caret);
 
-    expect(workspace.isSectionExpanded('unplaced:2026-08-01')).toBe(false);
+    expect(workspace.isSectionExpanded('unplaced:2026-07-01')).toBe(false);
   });
 });
 
@@ -404,8 +422,8 @@ describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 
     // rule — the date is redundant next to the day badge), and it has no
     // description/body yet, so it falls all the way to the shared
     // placeholder — "the draft appeared" is what's under test, not its
-    // exact label text.
-    expect(screen.queryByText(/August/)).not.toBeNull();
+    // exact label text. (August is the current month, so its own heading
+    // is intentionally hidden — see the dedicated describe block below.)
     expect(screen.getByText('Start typing...')).toBeInTheDocument();
   });
 
@@ -519,10 +537,330 @@ describe('DailyNotesList — today has no dedicated section', () => {
       />
     );
 
-    // No dedicated "Today" heading — only the month heading exists, and
-    // both notes render once each, purely as members of that one section.
+    // No dedicated "Today" heading — and no month heading either, since
+    // August is the current month here (hidden per the current-month
+    // heading rule); both notes render once each, purely as members of
+    // that one section.
     expect(screen.queryByText('Today')).toBeNull();
-    expect(screen.getAllByText(/August/)).toHaveLength(1);
+    expect(screen.queryByText(/August/)).toBeNull();
     expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+  });
+});
+
+describe('DailyNotesList — current month heading is hidden and pinned to the top', () => {
+  it('hides only the current month\'s heading — a past month alongside it still gets one', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const august = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const july = makeFolder(
+      'month-july',
+      `${ROOT}/Daily Notes/2026/July`,
+      'year-2026'
+    );
+    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
+    const pastMonthNote = makeDailyNote(
+      'daily-jul',
+      '2026-07-31',
+      'month-july',
+      'July'
+    );
+    const { vault, query, membershipSelector, workspace } = setup(
+      [currentMonthNote, pastMonthNote],
+      [dailyNotesRoot, year, august, july]
+    );
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText(/August/)).toBeNull();
+    expect(screen.queryByText(/July/)).not.toBeNull();
+  });
+
+  it('pins the current month first even when a future Daily Note would otherwise sort above it', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const august = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const september = makeFolder(
+      'month-september',
+      `${ROOT}/Daily Notes/2026/September`,
+      'year-2026'
+    );
+    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
+    const futureMonthNote = makeDailyNote(
+      'daily-sep',
+      '2026-09-01',
+      'month-september',
+      'September'
+    );
+    const { vault, query, membershipSelector, workspace } = setup(
+      [currentMonthNote, futureMonthNote],
+      [dailyNotesRoot, year, august, september]
+    );
+
+    const { container } = render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // The plain chronological sort (sortRenderedSections alone) would put
+    // September first — splitting the current month out and rendering it
+    // directly under the calendar must override that.
+    expect(screen.queryByText(/August/)).toBeNull();
+    expect(screen.queryByText(/September/)).not.toBeNull();
+
+    const dayNumbers = Array.from(
+      container.querySelectorAll('.date-label__date')
+    ).map((el) => el.textContent);
+
+    expect(dayNumbers).toEqual(['15', '1']);
+  });
+
+  it('orders current, future, then past — matching the product mockup', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const august = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const september = makeFolder(
+      'month-september',
+      `${ROOT}/Daily Notes/2026/September`,
+      'year-2026'
+    );
+    const july = makeFolder(
+      'month-july',
+      `${ROOT}/Daily Notes/2026/July`,
+      'year-2026'
+    );
+    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
+    const futureMonthNote = makeDailyNote(
+      'daily-sep',
+      '2026-09-01',
+      'month-september',
+      'September'
+    );
+    const pastMonthNote = makeDailyNote(
+      'daily-jul',
+      '2026-07-31',
+      'month-july',
+      'July'
+    );
+    const { vault, query, membershipSelector, workspace } = setup(
+      [currentMonthNote, futureMonthNote, pastMonthNote],
+      [dailyNotesRoot, year, august, september, july]
+    );
+
+    const { container } = render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // Only August (the current month) has no heading — September (future)
+    // and July (past) both keep theirs, in their original relative order.
+    expect(screen.queryByText(/August/)).toBeNull();
+
+    const headerTitles = Array.from(
+      container.querySelectorAll('.section-header')
+    ).map((el) => el.textContent);
+    expect(headerTitles[0]).toMatch(/September/);
+    expect(headerTitles[1]).toMatch(/July/);
+
+    const dayNumbers = Array.from(
+      container.querySelectorAll('.date-label__date')
+    ).map((el) => el.textContent);
+    expect(dayNumbers).toEqual(['15', '1', '31']);
+  });
+
+  it('a past year\'s months carry the year right in their own heading — no separate, standalone year heading', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year2026 = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const august = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const july2026 = makeFolder(
+      'month-july-2026',
+      `${ROOT}/Daily Notes/2026/July`,
+      'year-2026'
+    );
+    const year2025 = makeFolder('year-2025', `${ROOT}/Daily Notes/2025`, 'root');
+    const november2025 = makeFolder(
+      'month-november-2025',
+      `${ROOT}/Daily Notes/2025/November`,
+      'year-2025'
+    );
+    const july2025 = makeFolder(
+      'month-july-2025',
+      `${ROOT}/Daily Notes/2025/July`,
+      'year-2025'
+    );
+
+    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
+    const currentYearPastMonthNote = makeDailyNote(
+      'daily-jul-2026',
+      '2026-07-31',
+      'month-july-2026',
+      'July'
+    );
+    const november2025Note = {
+      ...makeDailyNote('daily-nov-2025', '2025-11-30', 'month-november-2025', 'November'),
+      path: `${ROOT}/Daily Notes/2025/November/2025-11-30.md`,
+    };
+    const july2025Note = {
+      ...makeDailyNote('daily-jul-2025', '2025-07-15', 'month-july-2025', 'July'),
+      path: `${ROOT}/Daily Notes/2025/July/2025-07-15.md`,
+    };
+
+    const { vault, query, membershipSelector, workspace } = setup(
+      [currentMonthNote, currentYearPastMonthNote, november2025Note, july2025Note],
+      [
+        dailyNotesRoot,
+        year2026,
+        august,
+        july2026,
+        year2025,
+        november2025,
+        july2025,
+      ]
+    );
+
+    const { container } = render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // No standalone "2025" (or "2026") heading anywhere — 2026 is the
+    // current year, so its month needs no year at all; 2025's months carry
+    // "2025" as part of their own heading text instead of a separate row.
+    expect(screen.queryByText('2026', { exact: true })).toBeNull();
+    expect(screen.queryByText('2025', { exact: true })).toBeNull();
+
+    const headerTitles = Array.from(
+      container.querySelectorAll('.section-header')
+    ).map((el) => el.textContent);
+    expect(headerTitles).toEqual(['July', 'Nov 2025', 'Jul 2025']);
+  });
+
+  it('keeps the current year together, directly after the current month, even when a future year exists — not a single global date sort', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year2026 = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const august = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const july2026 = makeFolder(
+      'month-july-2026',
+      `${ROOT}/Daily Notes/2026/July`,
+      'year-2026'
+    );
+    const year2027 = makeFolder('year-2027', `${ROOT}/Daily Notes/2027`, 'root');
+    const march2027 = makeFolder(
+      'month-march-2027',
+      `${ROOT}/Daily Notes/2027/March`,
+      'year-2027'
+    );
+    const year2025 = makeFolder('year-2025', `${ROOT}/Daily Notes/2025`, 'root');
+    const november2025 = makeFolder(
+      'month-november-2025',
+      `${ROOT}/Daily Notes/2025/November`,
+      'year-2025'
+    );
+
+    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
+    const currentYearPastMonthNote = makeDailyNote(
+      'daily-jul-2026',
+      '2026-07-31',
+      'month-july-2026',
+      'July'
+    );
+    const march2027Note = {
+      ...makeDailyNote('daily-mar-2027', '2027-03-10', 'month-march-2027', 'March'),
+      path: `${ROOT}/Daily Notes/2027/March/2027-03-10.md`,
+    };
+    const november2025Note = {
+      ...makeDailyNote('daily-nov-2025', '2025-11-30', 'month-november-2025', 'November'),
+      path: `${ROOT}/Daily Notes/2025/November/2025-11-30.md`,
+    };
+
+    const { vault, query, membershipSelector, workspace } = setup(
+      [currentMonthNote, currentYearPastMonthNote, march2027Note, november2025Note],
+      [
+        dailyNotesRoot,
+        year2026,
+        august,
+        july2026,
+        year2027,
+        march2027,
+        year2025,
+        november2025,
+      ]
+    );
+
+    const { container } = render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // A plain global descending date sort would put March 2027 (a later
+    // date) above July (2026, the current year's remaining month) — the
+    // current year must stay together right after the current month
+    // regardless of any later year existing.
+    const headerTitles = Array.from(
+      container.querySelectorAll('.section-header')
+    ).map((el) => el.textContent);
+    expect(headerTitles).toEqual(['July', 'Mar 2027', 'Nov 2025']);
+
+    const dayNumbers = Array.from(
+      container.querySelectorAll('.date-label__date')
+    ).map((el) => el.textContent);
+    expect(dayNumbers).toEqual(['15', '31', '10', '30']);
   });
 });

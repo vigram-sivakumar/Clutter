@@ -22,6 +22,7 @@ import { FolderOperations } from '../folder/FolderOperations';
 import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from '../folder/FolderCreator';
 import { DailyNoteService } from '../daily-notes/DailyNoteService';
+import { DailyNotePath } from '../daily-notes/DailyNotePath';
 import type { Page } from '../../vault/models/Page';
 
 const ROOT = '/vault';
@@ -197,6 +198,76 @@ describe('PageOperations.flushActivePage: discards an abandoned draft', () => {
     expect(documentRegistry.get(draftId)!.currentRevision.markdown).toBe(
       'Content that fails to persist'
     );
+  });
+
+  it('retains an empty draft for today\'s Daily Note — the one auto-discard exception', async () => {
+    const { workspace, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const todayPath = DailyNotePath.absoluteFrom(ROOT, new Date());
+    const draftId = await pageOperations.openAtPath(todayPath, { type: 'daily-note' });
+
+    await pageOperations.open('page-a');
+    // Give flushActivePage's chained discardAbandonedDraft a turn to run
+    // before asserting it did *not* discard — there's no positive signal
+    // to wait on for "this stayed the same."
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(pageOperations.getDraft(draftId)).toBeDefined();
+    expect(workspace.openPages).toContain(draftId);
+  });
+
+  it('discards an empty draft for a past Daily Note — normal discard policy applies', async () => {
+    const { pageOperations } = setup([buildPage('page-a', 'A')]);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayPath = DailyNotePath.absoluteFrom(ROOT, yesterday);
+    const draftId = await pageOperations.openAtPath(yesterdayPath, { type: 'daily-note' });
+
+    await pageOperations.open('page-a');
+    await vi.waitFor(() => {
+      expect(pageOperations.getDraft(draftId)).toBeUndefined();
+    });
+  });
+
+  it('never repurposes today\'s empty Daily Note draft when opening a different empty Daily Note — the full product scenario', async () => {
+    const { pageOperations } = setup([buildPage('page-a', 'A')]);
+
+    // 1. Today's Daily Note exists as an empty draft.
+    const todayPath = DailyNotePath.absoluteFrom(ROOT, new Date());
+    const todayDraftId = await pageOperations.openAtPath(todayPath, {
+      type: 'daily-note',
+    });
+
+    // 2. User opens another Daily Note that doesn't yet exist.
+    const otherDate = new Date();
+    otherDate.setDate(otherDate.getDate() - 3);
+    const otherPath = DailyNotePath.absoluteFrom(ROOT, otherDate);
+    const otherDraftId = await pageOperations.openAtPath(otherPath, {
+      type: 'daily-note',
+    });
+
+    // 3. Today's Daily Note draft remains — not silently retargeted onto
+    //    the new date's descriptor.
+    expect(pageOperations.getDraft(todayDraftId)).toEqual({
+      folderId: null,
+      type: 'daily-note',
+      title: expect.any(String),
+      deterministicPath: todayPath,
+    });
+
+    // 4. The new date received its own, separate draft.
+    expect(otherDraftId).not.toBe(todayDraftId);
+    expect(pageOperations.getDraft(otherDraftId)).toBeDefined();
+
+    // 5. Navigating away from the new draft (to a real, unrelated page —
+    //    not another Daily Note, which would exercise reuse rather than
+    //    discard) discards it normally, via discardAbandonedDraft.
+    await pageOperations.open('page-a');
+    await vi.waitFor(() => {
+      expect(pageOperations.getDraft(otherDraftId)).toBeUndefined();
+    });
+
+    // 6. Today's Daily Note draft is still present throughout.
+    expect(pageOperations.getDraft(todayDraftId)).toBeDefined();
   });
 });
 

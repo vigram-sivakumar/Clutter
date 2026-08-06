@@ -135,8 +135,8 @@ function setup(folders: Folder[]) {
   };
 }
 
-function renderNotes(deps: ReturnType<typeof setup>) {
-  return render(
+function notesElement(deps: ReturnType<typeof setup>) {
+  return (
     <Notes
       vault={deps.vault}
       query={deps.query}
@@ -151,6 +151,10 @@ function renderNotes(deps: ReturnType<typeof setup>) {
       onOpenDraft={vi.fn()}
     />
   );
+}
+
+function renderNotes(deps: ReturnType<typeof setup>) {
+  return render(notesElement(deps));
 }
 
 function overflowButtonFor(rowTitle: string): HTMLElement {
@@ -197,6 +201,45 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
 
     fireEvent.click(overflowButtonFor('Alpha'));
     expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+  });
+});
+
+describe('Sidebar Notes: clicking the "Workspace" section header toggles collapse, not navigation', () => {
+  it('does not call navigation.openWorkspace()', () => {
+    const deps = setup([]);
+
+    renderNotes(deps);
+
+    fireEvent.click(screen.getByText('Workspace'));
+
+    expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
+  });
+
+  it('toggles the folders section\'s expanded state, same as its caret', () => {
+    // A non-empty folder list, deliberately — with none, Section's own
+    // isEmpty-default-collapsed behavior (Section.test.tsx) makes the first
+    // click *expand* the visually-collapsed section rather than flip the
+    // already-true stored value, which isn't what this test is checking.
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
+
+    // Production always re-renders Notes on a workspace change via
+    // Sidebar.tsx's useWorkspace() subscription (not exercised here, since
+    // this test renders Notes in isolation) — rerender() after each click
+    // stands in for that, so Section sees the updated isExpanded prop it'd
+    // get in the real app, same idiom Section.test.tsx uses for itself.
+    const { rerender } = renderNotes(deps);
+
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
+
+    fireEvent.click(screen.getByText('Workspace'));
+    rerender(notesElement(deps));
+
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(false);
+
+    fireEvent.click(screen.getByText('Workspace'));
+    rerender(notesElement(deps));
+
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
   });
 });
 

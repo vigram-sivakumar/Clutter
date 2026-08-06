@@ -49,6 +49,19 @@ export interface SystemLocationPresentation {
   readonly id: SystemLocationId;
   readonly label: string;
   readonly icon: SystemIcon;
+  /**
+   * Icon to use when this location is presented as a breadcrumb ancestor /
+   * collection context, if it differs from `icon` (the tab/shortcut icon
+   * used everywhere else). Only Daily Notes needs this: its tab icon is
+   * the calendar-with-date, matching what an individual Daily Note page
+   * itself uses (getPageIcon), but as a breadcrumb ancestor it represents
+   * the whole collection, not one specific day — a plain calendar
+   * communicates that distinction (collection vs. document) the same way
+   * every other reserved folder's ancestor icon already does implicitly
+   * (their tab and ancestor icons happen to already be the same icon).
+   * Falls back to `icon` when unset — most locations need no override.
+   */
+  readonly collectionIcon?: SystemIcon;
 }
 
 export const SYSTEM_LOCATION_PRESENTATION: Readonly<
@@ -59,6 +72,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
     id: 'daily-notes',
     label: 'Daily Notes',
     icon: 'calendarToday',
+    collectionIcon: 'calendar',
   },
   tasks: { id: 'tasks', label: 'Tasks', icon: 'squareCheckOutline' },
   'tasks-today': {

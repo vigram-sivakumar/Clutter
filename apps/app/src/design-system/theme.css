@@ -21,7 +21,7 @@ html.theme-transitioning [data-themeable] *::after {
   color-scheme: dark;
 
   /* Surface */
-  --surface-root: var(--neutral-900);
+  --surface-root: var(--neutral-800);
   --surface-primary: var(--neutral-900);
   --surface-secondary: var(--neutral-800);
   --surface-tertiary: var(--neutral-700);
@@ -143,7 +143,7 @@ html.theme-transitioning [data-themeable] *::after {
   color-scheme: light;
 
   /* Surface */
-  --surface-root: var(--neutral-0);
+  --surface-root: var(--neutral-50);
   --surface-primary: var(--neutral-0);
   --surface-secondary: var(--neutral-50);
   --surface-tertiary: var(--neutral-200);
