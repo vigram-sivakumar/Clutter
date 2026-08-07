@@ -182,19 +182,21 @@ export function renderTasksByDate({
           onOpenCompleted: () => navigation.openTasksCompleted(),
         })}
       </Section>
-      <Section
-        hasHeader
-        title="Everything else"
-        isCollapsible
-        isEmpty={upcoming.length === 0}
-        isExpanded={workspace.isSectionExpanded('tasks-upcoming')}
-        onExpandedChange={(expanded) =>
-          workspace.setSectionExpanded('tasks-upcoming', expanded)
-        }
-        onClick={() => navigation.openTasksUpcoming()}
-      >
-        {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask })}
-      </Section>
+      {upcoming.length > 0 && (
+        <Section
+          hasHeader
+          title="Everything else"
+          isCollapsible
+          isEmpty={upcoming.length === 0}
+          isExpanded={workspace.isSectionExpanded('tasks-upcoming')}
+          onExpandedChange={(expanded) =>
+            workspace.setSectionExpanded('tasks-upcoming', expanded)
+          }
+          onClick={() => navigation.openTasksUpcoming()}
+        >
+          {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask })}
+        </Section>
+      )}
     </Fragment>
   );
 }
