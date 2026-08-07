@@ -10,5 +10,5 @@
 
   font-size: var(--text-caption);
   line-height: var(--line-height-caption);
-  color: var(--text-tertiary);
+  color: var(--foreground-tertiary);
 }

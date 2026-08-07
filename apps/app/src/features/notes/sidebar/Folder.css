@@ -3,11 +3,11 @@
 }
 
 .folder__title--placeholder {
-  color: var(--text-placeholder);
+  color: var(--foreground-placeholder);
 }
 
 .folder__icon {
-  color: var(--icon-tertiary);
+  color: var(--foreground-tertiary);
   /* Purely decorative — shares .folder__caret's grid cell and sits above
      it in paint order (later in Folder.tsx's DOM). opacity: 0 alone does
      not remove an element from hit-testing, so without this the icon

@@ -9,7 +9,7 @@
   justify-content: center;
   width: 12px;
   height: 100%;
-  color: var(--text-placeholder);
+  color: var(--foreground-placeholder);
 }
 .breadcrumb__slash svg {
   flex-shrink: 0;

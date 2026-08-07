@@ -17,7 +17,7 @@ body {
   line-height: var(--lh-body);
   letter-spacing: var(--ls-body);
   font-weight: var(--fw-regular);
-  color: var(--text-primary);
+  color: var(--foreground-primary);
   background: var(--surface-root);
 }
 

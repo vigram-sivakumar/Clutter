@@ -4,7 +4,7 @@
   justify-content: start;
   gap: var(--space-6);
 
-  color: var(--text-secondary);
+  color: var(--foreground-secondary);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
@@ -30,7 +30,7 @@
 
 .breadcrumb-item:hover {
   background: var(--state-hover);
-  color: var(--text-primary);
+  color: var(--foreground-primary);
 }
 
 .breadcrumb-item--icon {

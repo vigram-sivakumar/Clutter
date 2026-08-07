@@ -16,5 +16,5 @@
 
 .topbar--trailing {
   gap: 0px;
-  color: var(--text-tertiary);
+  color: var(--foreground-tertiary);
 }

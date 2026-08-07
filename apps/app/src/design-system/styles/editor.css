@@ -52,7 +52,7 @@
 }
 
 .clutter-node__chevron {
-  color: var(--text-secondary);
+  color: var(--foreground-secondary);
   flex-shrink: 0;
   transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: center;

@@ -29,7 +29,7 @@
 .calendar-toggle--bar {
   width: 40px;
   height: 6px;
-  background: var(--text-placeholder);
+  background: var(--foreground-placeholder);
   border-radius: 999px;
   opacity: var(--opacity-strong);
 

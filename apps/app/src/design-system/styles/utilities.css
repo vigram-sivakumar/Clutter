@@ -1,12 +1,12 @@
 .primary {
-  color: var(--text-primary);
+  color: var(--foreground-primary);
 }
 .secondary {
-  color: var(--text-secondary);
+  color: var(--foreground-secondary);
 }
 .tertiary {
-  color: var(--text-tertiary);
+  color: var(--foreground-tertiary);
 }
 .placeholder {
-  color: var(--text-placeholder);
+  color: var(--foreground-placeholder);
 }

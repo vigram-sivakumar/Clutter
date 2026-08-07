@@ -22,7 +22,7 @@
   width: 100%;
   padding: 0;
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--foreground-tertiary);
   border-radius: var(--radius-md);
   border: 0px solid transparent;
 
@@ -35,7 +35,7 @@
 }
 
 .tab:hover {
-  color: var(--text-primary);
+  color: var(--foreground-primary);
 }
 /* .tab:active {
   background: var(--surface);
@@ -43,6 +43,6 @@
 
 .tab--active {
   background: var(--tab-active);
-  color: var(--text-primary);
+  color: var(--foreground-primary);
   box-shadow: var(--shadow-border-strong), var(--shadow-sm);
 }

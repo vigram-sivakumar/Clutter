@@ -13,7 +13,7 @@
   inset: 0;
 
   content: attr(data-placeholder);
-  color: var(--text-placeholder);
+  color: var(--foreground-placeholder);
 
   pointer-events: none;
   user-select: none;

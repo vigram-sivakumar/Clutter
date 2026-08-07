@@ -91,5 +91,5 @@
 .adge--outlined {
   background-color: transparent;
   border-color: var(--border-strong);
-  color: var(--text-secondary);
+  color: var(--foreground-secondary);
 }

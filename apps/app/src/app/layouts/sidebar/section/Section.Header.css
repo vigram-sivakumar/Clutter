@@ -20,7 +20,7 @@
 
 .section-header__toggle:hover .section-header__title,
 .section-header__toggle:hover .section-header__caret {
-  color: var(--text-secondary);
+  color: var(--foreground-secondary);
 }
 
 /* .section--expanded:hover .section-header__caret {

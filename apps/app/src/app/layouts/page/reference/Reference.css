@@ -21,10 +21,10 @@
   align-items: center;
 
   font: var(--text-label);
-  color: var(--text-secondary);
+  color: var(--foreground-secondary);
 }
 
 .references__summary--disabled {
-  color: var(--text-tertiary);
+  color: var(--foreground-tertiary);
   opacity: var(--state-disabled);
 }

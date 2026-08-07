@@ -5,7 +5,7 @@
 }
 .task__due-date {
   font-size: var(--text-label);
-  color: var(--text-tertiary);
+  color: var(--foreground-tertiary);
 
   min-width: 40px;
   text-align: right;

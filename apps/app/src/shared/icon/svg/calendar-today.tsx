@@ -8,7 +8,7 @@ export type CalendarTodayIconProps = SVGProps<SVGSVGElement> & {
 
 /**
  * Figma “Calendar with date” (node 2086:36932): reuses `calendar-blank.svg` frame + live day `<text>`.
- * Stroke and digit use `currentColor` — set `style={{ color: 'var(--icon-secondary)' }}` when you need Figma’s muted treatment.
+ * Stroke and digit use `currentColor` — set `style={{ color: 'var(--foreground-secondary)' }}` when you need Figma’s muted treatment.
  */
 export const CalendarTodayIcon: FC<CalendarTodayIconProps> = ({
   date,

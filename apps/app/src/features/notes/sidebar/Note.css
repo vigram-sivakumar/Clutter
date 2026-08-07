@@ -3,10 +3,10 @@
 }
 
 .note__title--placeholder {
-  color: var(--text-placeholder);
+  color: var(--foreground-placeholder);
 }
 .note__icon {
-  color: var(--icon-tertiary);
+  color: var(--foreground-tertiary);
 }
 /* .entry-selected .note__icon,
 .entry-active .note__icon {

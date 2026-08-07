@@ -7,7 +7,7 @@
 
   height: var(--height-md);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--foreground-secondary);
 
   border: 0;
   border-radius: var(--radius-lg);
@@ -27,11 +27,11 @@
   color: var(--calendar-accent);
 }
 .calendar-cell--outside-month {
-  color: var(--text-placeholder);
+  color: var(--foreground-placeholder);
 }
 .calendar-cell--selected {
   background: var(--tab-active);
-  color: var(--text-primary);
+  color: var(--foreground-primary);
 }
 
 .calendar-cell--today.calendar-cell--selected {
@@ -59,6 +59,6 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--text-tertiary);
+  background: var(--foreground-tertiary);
   opacity: var(--opacity-medium);
 }
