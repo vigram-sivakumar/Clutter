@@ -36,7 +36,10 @@ export interface ResourceTopBarActionsProps {
  * still render but only close the menu when clicked, exactly as every
  * currently-unwired item already behaves today.
  */
-export function ResourceTopBarActions({ menu, handlers }: ResourceTopBarActionsProps) {
+export function ResourceTopBarActions({
+  menu,
+  handlers,
+}: ResourceTopBarActionsProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -52,6 +55,9 @@ export function ResourceTopBarActions({ menu, handlers }: ResourceTopBarActionsP
         open={open}
         onOpenChange={setOpen}
         onSelect={(id) => handlers?.[id]?.()}
+        buttonProps={{
+          interaction: 'default',
+        }}
       />
     </>
   );

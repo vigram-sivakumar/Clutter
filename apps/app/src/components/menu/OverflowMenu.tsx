@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 
 import { Button } from '@components/button/Button';
+import { ButtonProps } from '@components/button/Button';
 import { Overlay } from '@components/overlay/Overlay';
 import type {
   OverlaySide,
@@ -28,6 +29,16 @@ export interface OverflowMenuProps {
   size?: 'medium' | 'small';
   side?: OverlaySide;
   alignment?: OverlayAlignment;
+
+  buttonProps?: Omit<
+    ButtonProps,
+    | 'children'
+    | 'ref'
+    | 'onClick'
+    | 'aria-haspopup'
+    | 'aria-expanded'
+    | 'isIconOnly'
+  >;
 }
 
 /**
@@ -45,6 +56,7 @@ export function OverflowMenu({
   size = 'medium',
   side = 'bottom',
   alignment = 'end',
+  buttonProps,
 }: OverflowMenuProps) {
   // Called unconditionally, before the items.length early return below —
   // a component instance can transition between an empty and non-empty
@@ -64,6 +76,7 @@ export function OverflowMenu({
         variant="ghost"
         interaction="subtle"
         isIconOnly
+        {...buttonProps}
         ref={anchorRef}
         aria-haspopup="menu"
         aria-expanded={open}

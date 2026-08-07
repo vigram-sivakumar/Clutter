@@ -18,3 +18,9 @@
   gap: 0px;
   color: var(--foreground-tertiary);
 }
+
+.button-group {
+  background-color: var(--surface-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+}
