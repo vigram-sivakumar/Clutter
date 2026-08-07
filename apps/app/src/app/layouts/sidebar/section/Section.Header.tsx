@@ -33,7 +33,9 @@ export function Header({
 
   return (
     <Entry className="section-header" {...entryProps} actions={actions}>
-      <div className="section-header__toggle">
+      <div
+        className={`section-header__content${isTitleToggle ? ' section-header__content--toggle' : ''}`}
+      >
         <span className="section-header__title" {...titleProps}>
           {title}
         </span>

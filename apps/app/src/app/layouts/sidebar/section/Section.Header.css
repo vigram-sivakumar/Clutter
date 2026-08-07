@@ -12,6 +12,7 @@
   opacity: 1;
 }
 
+.section-header__content,
 .section-header__toggle {
   display: flex;
   align-items: center;
