@@ -129,18 +129,24 @@ export function Sidebar({ application }: SidebarProps) {
       />
       {workspace.isSidebarVisible && (
         <>
-          <Tabs
-            value={workspace.activeSidebarTab}
-            onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
-          >
-            {tabs.map((tab) => (
-              <Tab key={tab.value} value={tab.value}>
-                <AppIcon icon={tab.icon} emoji={tab.emoji} />
-              </Tab>
-            ))}
-          </Tabs>
+          <div className="sidebar--tabs">
+            <Tabs
+              value={workspace.activeSidebarTab}
+              onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
+            >
+              {tabs.map((tab) => (
+                <Tab key={tab.value} value={tab.value}>
+                  <AppIcon icon={tab.icon} emoji={tab.emoji} />
+                </Tab>
+              ))}
+            </Tabs>
+          </div>
+
           <div className="sidebar--content">
-            {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
+            {
+              tabs.find((tab) => tab.value === workspace.activeSidebarTab)
+                ?.panel
+            }
           </div>
           <Footer onOpenArchive={() => navigation.openArchive()} />
         </>

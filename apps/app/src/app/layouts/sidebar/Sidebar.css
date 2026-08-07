@@ -1,3 +1,7 @@
+:root {
+  --sidebar-padding-inline: var(--space-12);
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -6,7 +10,9 @@
   height: 100%;
 
   padding-block: var(--space-16);
-  padding-inline: var(--space-12);
+}
+.sidebar--tabs {
+  padding-inline: var(--sidebar-padding-inline);
 }
 .sidebar--content {
   display: flex;

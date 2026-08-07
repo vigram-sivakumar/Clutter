@@ -1,7 +1,8 @@
 .footer {
   display: flex;
   justify-content: right;
-  color: var(--text-tertiary);
+  color: var(--foreground-tertiary);
+  padding-inline: var(--sidebar-padding-inline);
 }
 .footer__actions {
   display: flex;
