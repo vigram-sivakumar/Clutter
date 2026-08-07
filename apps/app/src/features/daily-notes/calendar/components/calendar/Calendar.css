@@ -28,7 +28,7 @@
   cursor: pointer;
 }
 .calendar-toggle--bar {
-  width: 40px;
+  width: 48px;
   height: 6px;
   background: var(--foreground-placeholder);
   opacity: var(--opacity-strong);
@@ -39,6 +39,6 @@
     width 300ms ease;
 }
 .calendar-toggle--button:hover .calendar-toggle--bar {
-  opacity: 100%;
-  width: 48px;
+  /* opacity: 100%; */
+  width: 40px;
 }
