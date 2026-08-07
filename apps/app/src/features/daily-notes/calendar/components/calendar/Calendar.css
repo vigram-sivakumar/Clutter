@@ -13,16 +13,17 @@
   display: flex;
   align-items: start;
   justify-content: center;
-  height: var(--height-sm);
-  padding: var(--space-2);
+  height: var(--height-xs);
 }
 .calendar-toggle--button {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 64px;
+  height: var(--height-xs);
+
   border: 0;
   background: transparent;
-  padding-inline: 12px;
 
   cursor: pointer;
 }
@@ -30,11 +31,14 @@
   width: 40px;
   height: 6px;
   background: var(--foreground-placeholder);
-  border-radius: 999px;
   opacity: var(--opacity-strong);
 
-  transition: opacity 120ms ease;
+  border-radius: 999px;
+  transition:
+    opacity 300ms ease,
+    width 300ms ease;
 }
 .calendar-toggle--button:hover .calendar-toggle--bar {
   opacity: 100%;
+  width: 48px;
 }
