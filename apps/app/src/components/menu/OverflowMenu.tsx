@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import type { RefObject } from 'react';
 
 import { Button } from '@components/button/Button';
 import { ButtonProps } from '@components/button/Button';
@@ -29,6 +30,7 @@ export interface OverflowMenuProps {
   size?: 'medium' | 'small';
   side?: OverlaySide;
   alignment?: OverlayAlignment;
+  triggerRef?: RefObject<HTMLButtonElement>;
 
   buttonProps?: Omit<
     ButtonProps,
@@ -57,13 +59,15 @@ export function OverflowMenu({
   side = 'bottom',
   alignment = 'end',
   buttonProps,
+  triggerRef,
 }: OverflowMenuProps) {
   // Called unconditionally, before the items.length early return below —
   // a component instance can transition between an empty and non-empty
   // item list across renders (e.g. a draft note's row, once persisted,
   // goes from no capabilities to a real menu without unmounting), and a
   // hook called only on some renders violates the Rules of Hooks.
-  const anchorRef = useRef<HTMLButtonElement>(null);
+  const internalAnchorRef = useRef<HTMLButtonElement>(null);
+  const anchorRef: RefObject<HTMLButtonElement> = triggerRef ?? internalAnchorRef;
 
   if (items.length === 0) {
     return null;

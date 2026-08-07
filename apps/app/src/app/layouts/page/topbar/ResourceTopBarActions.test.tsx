@@ -32,9 +32,20 @@ const menu: TopBarMenuItemConfig[] = [
   { id: 'add-a-description', label: 'Add a description', icon: 'description' },
 ];
 
+const menuWithDelete: TopBarMenuItemConfig[] = [
+  ...menu,
+  { id: 'delete', label: 'Delete', icon: 'trash' },
+];
+
 function openMenu() {
   const buttons = screen.getAllByRole('button');
   fireEvent.click(buttons[2]!);
+}
+
+function openDeleteConfirmation() {
+  render(<ResourceTopBarActions menu={menuWithDelete} />);
+  openMenu();
+  fireEvent.click(screen.getByText('Delete'));
 }
 
 describe('ResourceTopBarActions', () => {
@@ -85,5 +96,80 @@ describe('ResourceTopBarActions', () => {
     fireEvent.click(screen.getByText('Archive'));
 
     expect(onArchive).not.toHaveBeenCalled();
+  });
+
+  it('selecting Delete closes the menu and opens a confirmation popover', () => {
+    render(<ResourceTopBarActions menu={menuWithDelete} />);
+    openMenu();
+
+    expect(screen.getByText('Delete')).toBeDefined();
+    fireEvent.click(screen.getByText('Delete'));
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(screen.getByText('Delete this item?')).toBeDefined();
+  });
+
+  it('Cancel closes the confirmation popover', () => {
+    render(<ResourceTopBarActions menu={menuWithDelete} />);
+    openMenu();
+    fireEvent.click(screen.getByText('Delete'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByText('Delete this item?')).toBeNull();
+  });
+
+  it('Confirm logs and closes the confirmation popover', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    render(<ResourceTopBarActions menu={menuWithDelete} />);
+    openMenu();
+    fireEvent.click(screen.getByText('Delete'));
+
+    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    expect(logSpy).toHaveBeenCalledWith('Delete confirmed');
+    expect(screen.queryByText('Delete this item?')).toBeNull();
+    logSpy.mockRestore();
+  });
+
+  it('does not open confirmation for Delete when the item is disabled', () => {
+    const disabledDeleteMenu: TopBarMenuItemConfig[] = [
+      { id: 'delete', label: 'Delete', icon: 'trash', disabled: true },
+    ];
+    render(<ResourceTopBarActions menu={disabledDeleteMenu} />);
+    openMenu();
+
+    fireEvent.click(screen.getByText('Delete'));
+
+    expect(screen.queryByText('Delete this item?')).toBeNull();
+  });
+
+  it('focuses Cancel when the confirmation popover opens', () => {
+    openDeleteConfirmation();
+
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Cancel' })
+    );
+  });
+
+  it('Escape closes the confirmation popover', () => {
+    openDeleteConfirmation();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.queryByText('Delete this item?')).toBeNull();
+  });
+
+  it('outside click closes the confirmation popover', () => {
+    openDeleteConfirmation();
+
+    const backdrop = document.querySelector('.overlay__backdrop');
+    if (!backdrop) {
+      throw new Error('expected a backdrop element for outside-click handling');
+    }
+    fireEvent.click(backdrop);
+
+    expect(screen.queryByText('Delete this item?')).toBeNull();
   });
 });

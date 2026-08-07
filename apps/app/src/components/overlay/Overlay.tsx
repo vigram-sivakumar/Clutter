@@ -18,6 +18,7 @@ export function Overlay({
   children,
   backdrop = 'transparent',
   animate = true,
+  className,
 }: OverlayProps) {
   // Used to measure and position the overlay.
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -84,6 +85,7 @@ export function Overlay({
         <div
           className={[
             'overlay__content',
+            className,
             animate && 'overlay__content--animated',
             animate && `overlay__content--${overlayPosition.side}`,
           ]

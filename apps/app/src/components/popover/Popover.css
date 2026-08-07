@@ -1,0 +1,11 @@
+.popover--small {
+  width: 240px;
+}
+
+.popover--medium {
+  width: 320px;
+}
+
+.popover--large {
+  width: 420px;
+}

@@ -1,6 +1,7 @@
 import { useMenuContext } from './Menu.context';
 import { Entry, EntryProps } from '@components/entry/Entry';
 import { useId } from 'react';
+import './MenuItem.css';
 
 export interface MenuItemProps extends EntryProps {}
 
@@ -10,6 +11,7 @@ export function MenuItem(props: MenuItemProps) {
   const isKeyboardActive = activeId === id;
   return (
     <Entry
+      className="menu__item"
       id={id}
       role="menuitem"
       // The keyboard-navigated item should look hovered, the same

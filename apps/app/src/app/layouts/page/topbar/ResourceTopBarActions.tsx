@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button } from '@components/button/Button';
+import { Confirmation } from '@components/confirmation/Confirmation';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import type {
+  OverlayAlignment,
+  OverlaySide,
+} from '@components/overlay/Overlay.types';
+import { Popover } from '@components/popover/Popover';
 import { AppIcon } from '@shared/icon';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
@@ -24,6 +30,12 @@ export type TopBarPageState = PageStatus | 'draft';
  */
 export type TopBarMenuItemConfig = OverflowMenuItemConfig;
 
+type ActiveSurface =
+  null | { kind: 'menu' } | { kind: 'confirmation'; action: 'delete' };
+
+const OVERFLOW_SIDE: OverlaySide = 'bottom';
+const OVERFLOW_ALIGNMENT: OverlayAlignment = 'end';
+
 export interface ResourceTopBarActionsProps {
   menu: readonly TopBarMenuItemConfig[];
   handlers?: Partial<Record<string, () => void>>;
@@ -40,7 +52,38 @@ export function ResourceTopBarActions({
   menu,
   handlers,
 }: ResourceTopBarActionsProps) {
-  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [surface, setSurface] = useState<ActiveSurface>(null);
+
+  function closeSurface() {
+    setSurface(null);
+  }
+
+  function handleMenuOpenChange(open: boolean) {
+    if (open) {
+      setSurface({ kind: 'menu' });
+      return;
+    }
+
+    // OverflowMenu closes after every item select — only clear when the
+    // menu itself is still the active surface so a batched confirmation
+    // transition (onSelect then onOpenChange(false)) is preserved.
+    setSurface((current) => (current?.kind === 'menu' ? null : current));
+  }
+
+  function handleMenuSelect(id: string) {
+    if (id === 'delete') {
+      setSurface({ kind: 'confirmation', action: 'delete' });
+      return;
+    }
+
+    handlers?.[id]?.();
+  }
+
+  function handleDeleteConfirm() {
+    console.log('Delete confirmed');
+    closeSurface();
+  }
 
   return (
     <>
@@ -52,13 +95,34 @@ export function ResourceTopBarActions({
       </Button>
       <OverflowMenu
         items={menu}
-        open={open}
-        onOpenChange={setOpen}
-        onSelect={(id) => handlers?.[id]?.()}
+        triggerRef={triggerRef}
+        open={surface?.kind === 'menu'}
+        onOpenChange={handleMenuOpenChange}
+        onSelect={handleMenuSelect}
+        side={OVERFLOW_SIDE}
+        alignment={OVERFLOW_ALIGNMENT}
         buttonProps={{
           interaction: 'default',
         }}
       />
+      <Popover
+        anchorRef={triggerRef}
+        open={surface?.kind === 'confirmation'}
+        onClose={closeSurface}
+        side={OVERFLOW_SIDE}
+        alignment={OVERFLOW_ALIGNMENT}
+        size="small"
+      >
+        {surface?.kind === 'confirmation' && surface.action === 'delete' && (
+          <Confirmation
+            title="Delete this item?"
+            description="This action cannot be undone."
+            confirmLabel="Delete"
+            onConfirm={handleDeleteConfirm}
+            onCancel={closeSurface}
+          />
+        )}
+      </Popover>
     </>
   );
 }

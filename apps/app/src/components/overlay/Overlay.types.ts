@@ -23,4 +23,7 @@ export interface OverlayProps {
 
   // Content
   children: ReactNode;
+
+  // className
+  className?: string;
 }
