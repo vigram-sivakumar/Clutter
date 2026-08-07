@@ -80,10 +80,6 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Checkbox */
   --checkbox-bg-checked: #007aff;
-  --checkbox-bg-checked-hover: #008acc;
-  --checkbox-border: var(--foreground-tertiary);
-  --checkbox-border-hover: var(--foreground-secondary);
-  --checkbox-check: var(--neutral-50);
   --strikethrough-color: #595757;
 
   /* Tag / Colors */
@@ -198,10 +194,6 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Checkbox */
   --checkbox-bg-checked: #00acff;
-  --checkbox-bg-checked-hover: #008acc;
-  --checkbox-border: var(--foreground-tertiary);
-  --checkbox-border-hover: var(--foreground-primary);
-  --checkbox-check: var(--neutral-50);
   --strikethrough-color: var(--neutral-600);
 
   /* Tag / Colors */
