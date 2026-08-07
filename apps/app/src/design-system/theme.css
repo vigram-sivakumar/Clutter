@@ -29,19 +29,19 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-overlay: rgba(31, 31, 31, 0.7);
   --surface-inverse: var(--neutral-50);
 
-  /* Text */
-  --foreground-primary: rgba(255, 255, 255, 0.82);
-  --foreground-secondary: rgba(255, 255, 255, 0.65);
-  --foreground-tertiary: rgba(255, 255, 255, 0.35);
-  --foreground-placeholder: rgba(255, 255, 255, 0.15);
-  --foreground-inverse: rgba(0, 0, 0, 0.8);
-  --foreground-emoji: rgba(255, 255, 255, 1);
+  /* Text & icons */
+  --foreground-primary: #d6d6d6;
+  --foreground-secondary: #a8a8a8;
+  --foreground-tertiary: #787878;
+  --foreground-placeholder: #565656;
+  --foreground-inverse: var(--neutral-700);
+  --foreground-emoji: #ffffff;
 
   /* Border */
   --border-subtle: rgba(255, 255, 255, 0.04);
   --border-default: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.1);
-  --border-focus: var(--accent-dark);
+  --ring-focus: var(--accent-dark);
 
   /* Border shadows */
   --shadow-border-default: inset 0 0 0 1px var(--border-default);
@@ -62,7 +62,7 @@ html.theme-transitioning [data-themeable] *::after {
   --state-hover: rgba(255, 255, 255, 0.03);
   --state-pressed: rgba(255, 255, 255, 0.02);
   --state-active: rgba(255, 255, 255, 0.07);
-  --state-disabled: var(--opacity-medium);
+  --state-disabled: var(--opacity-strong);
   --tab-active: var(var(--state-active));
 
   /* Secondary button */
@@ -140,19 +140,19 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-overlay: rgba(233, 233, 233, 0.6);
   --surface-inverse: var(--neutral-900);
 
-  /* Text */
-  --foreground-primary: rgba(0, 0, 0, 0.8);
-  --foreground-secondary: rgba(0, 0, 0, 0.6);
-  --foreground-tertiary: rgba(0, 0, 0, 0.45);
-  --foreground-placeholder: rgba(0, 0, 0, 0.2);
-  --foreground-inverse: rgba(255, 255, 255, 0.82);
-  --foreground-emoji: rgba(0, 0, 0, 1);
+  /* Text & icons */
+  --foreground-primary: #333333; /* ≈ black @ 80% */
+  --foreground-secondary: #666666; /* ≈ black @ 60% */
+  --foreground-tertiary: #8c8c8c; /* ≈ black @ 45% */
+  --foreground-placeholder: #cccccc; /* ≈ black @ 20% */
+  --foreground-inverse: #d4d4d4;
+  --foreground-emoji: #000000;
 
   /* Border */
   --border-subtle: rgba(0, 0, 0, 0.04);
   --border-default: rgba(0, 0, 0, 0.06);
   --border-strong: rgba(0, 0, 0, 0.12);
-  --border-focus: var(--accent-light);
+  --ring-focus: var(--accent-light);
 
   /* Border shadows */
   --shadow-border-default: inset 0 0 0 1px var(--border-default);
