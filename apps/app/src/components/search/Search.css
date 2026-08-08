@@ -1,0 +1,11 @@
+.input__field[type='search'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.input__field[type='search']::-webkit-search-decoration,
+.input__field[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}

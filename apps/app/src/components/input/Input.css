@@ -1,0 +1,57 @@
+.input {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+
+  height: var(--height-lg);
+  border-radius: var(--radius-lg);
+  gap: var(--btn-gap-md);
+  padding-inline: var(--space-6);
+
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.input--background {
+  background: var(--surface-secondary);
+}
+.input--border {
+  box-shadow: var(--shadow-border-default);
+}
+
+.input__leading,
+.input__trailing {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  color: var(--foreground-secondary);
+}
+
+.input__field {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+}
+
+.input__field::placeholder {
+  color: var(--foreground-placeholder);
+}
+
+.input__field:disabled {
+  cursor: not-allowed;
+}
+
+.input .button {
+  height: 20px;
+  aspect-ratio: 1;
+}
