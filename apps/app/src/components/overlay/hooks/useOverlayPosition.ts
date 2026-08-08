@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import type { RefObject } from 'react';
 
-import type { OverlayAlignment, OverlaySide } from '../Overlay.types';
-
-export interface OverlayPosition {
-  top: number;
-  left: number;
-  transformOrigin: string;
-  side: OverlaySide;
-}
+import type { OverlayAlignment, OverlayLayout, OverlaySide } from '../Overlay.types';
 
 interface UseOverlayPositionOptions {
   open: boolean;
@@ -21,11 +14,11 @@ interface UseOverlayPositionOptions {
 
 type AvailableSpace = Record<OverlaySide, number>;
 
-const INITIAL_POSITION: OverlayPosition = {
+const INITIAL_POSITION: OverlayLayout = {
   top: 0,
   left: 0,
   transformOrigin: 'top left',
-  side: 'bottom',
+  placement: 'bottom',
 };
 
 // Keep a small gap between the overlay and the viewport edges.
@@ -79,10 +72,10 @@ export function useOverlayPosition({
   side,
   alignment,
   offset,
-}: UseOverlayPositionOptions): OverlayPosition {
-  const [position, setPosition] = useState<OverlayPosition>(() => ({
+}: UseOverlayPositionOptions): OverlayLayout {
+  const [position, setPosition] = useState<OverlayLayout>(() => ({
     ...INITIAL_POSITION,
-    side,
+    placement: side,
   }));
 
   // Measure both elements and calculate the overlay position.
@@ -168,11 +161,11 @@ export function useOverlayPosition({
       viewportHeight - overlayRect.height - COLLISION_PADDING
     );
 
-    const nextPosition: OverlayPosition = {
+    const nextPosition: OverlayLayout = {
       top: clamp(top, COLLISION_PADDING, maxTop),
       left: clamp(left, COLLISION_PADDING, maxLeft),
       transformOrigin,
-      side: resolvedSide,
+      placement: resolvedSide,
     };
 
     setPosition((currentPosition) => {
@@ -180,7 +173,7 @@ export function useOverlayPosition({
         currentPosition.top !== nextPosition.top ||
         currentPosition.left !== nextPosition.left ||
         currentPosition.transformOrigin !== nextPosition.transformOrigin ||
-        currentPosition.side !== nextPosition.side;
+        currentPosition.placement !== nextPosition.placement;
 
       return positionHasChanged ? nextPosition : currentPosition;
     });

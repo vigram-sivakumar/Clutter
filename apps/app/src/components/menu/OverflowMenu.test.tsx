@@ -172,4 +172,12 @@ describe('OverflowMenu', () => {
 
     expect(onRowClick).not.toHaveBeenCalled();
   });
+
+  it('focuses the menu container when the menu opens', () => {
+    render(<Harness onSelect={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(document.activeElement).toBe(screen.getByRole('menu'));
+  });
 });

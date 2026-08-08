@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { HTMLAttributes, ReactNode } from 'react';
 
 import { MenuContext } from './Menu.context';
@@ -15,6 +15,10 @@ export function Menu({ children, size = 'medium', ...props }: MenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const keyboard = useMenuKeyboard(menuRef);
+
+  useEffect(() => {
+    menuRef.current?.focus();
+  }, []);
 
   return (
     <MenuContext.Provider value={keyboard}>

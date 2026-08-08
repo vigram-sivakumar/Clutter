@@ -1,0 +1,11 @@
+.dialog--small {
+  width: 240px;
+}
+
+.dialog--medium {
+  width: 320px;
+}
+
+.dialog--large {
+  width: 420px;
+}

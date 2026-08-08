@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
 import { Overlay } from '../overlay/Overlay';
-import type { OverlayProps } from '@components/overlay/Overlay.types';
+import type { AnchoredOverlayProps } from '@components/overlay/Overlay.types';
 import './Popover.css';
 
 export interface PopoverProps extends Pick<
-  OverlayProps,
+  AnchoredOverlayProps,
   'anchorRef' | 'open' | 'onClose' | 'side' | 'alignment' | 'offset'
 > {
   size?: 'small' | 'medium' | 'large';

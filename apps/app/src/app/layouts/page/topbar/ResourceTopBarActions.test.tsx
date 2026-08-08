@@ -98,7 +98,7 @@ describe('ResourceTopBarActions', () => {
     expect(onArchive).not.toHaveBeenCalled();
   });
 
-  it('selecting Delete closes the menu and opens a confirmation popover', () => {
+  it('selecting Delete closes the menu and opens a confirmation dialog', () => {
     render(<ResourceTopBarActions menu={menuWithDelete} />);
     openMenu();
 
@@ -109,7 +109,7 @@ describe('ResourceTopBarActions', () => {
     expect(screen.getByText('Delete this item?')).toBeDefined();
   });
 
-  it('Cancel closes the confirmation popover', () => {
+  it('Cancel closes the confirmation dialog', () => {
     render(<ResourceTopBarActions menu={menuWithDelete} />);
     openMenu();
     fireEvent.click(screen.getByText('Delete'));
@@ -119,7 +119,7 @@ describe('ResourceTopBarActions', () => {
     expect(screen.queryByText('Delete this item?')).toBeNull();
   });
 
-  it('Confirm logs and closes the confirmation popover', () => {
+  it('Confirm logs and closes the confirmation dialog', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     render(<ResourceTopBarActions menu={menuWithDelete} />);
     openMenu();
@@ -145,7 +145,7 @@ describe('ResourceTopBarActions', () => {
     expect(screen.queryByText('Delete this item?')).toBeNull();
   });
 
-  it('focuses Cancel when the confirmation popover opens', () => {
+  it('focuses Cancel when the confirmation dialog opens', () => {
     openDeleteConfirmation();
 
     expect(document.activeElement).toBe(
@@ -153,7 +153,7 @@ describe('ResourceTopBarActions', () => {
     );
   });
 
-  it('Escape closes the confirmation popover', () => {
+  it('Escape closes the confirmation dialog', () => {
     openDeleteConfirmation();
 
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -161,7 +161,7 @@ describe('ResourceTopBarActions', () => {
     expect(screen.queryByText('Delete this item?')).toBeNull();
   });
 
-  it('outside click closes the confirmation popover', () => {
+  it('outside click closes the confirmation dialog', () => {
     openDeleteConfirmation();
 
     const backdrop = document.querySelector('.overlay__backdrop');

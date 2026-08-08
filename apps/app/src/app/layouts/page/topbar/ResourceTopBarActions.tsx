@@ -8,7 +8,7 @@ import type {
   OverlayAlignment,
   OverlaySide,
 } from '@components/overlay/Overlay.types';
-import { Popover } from '@components/popover/Popover';
+import { Dialog } from '@components/dialog/Dialog';
 import { AppIcon } from '@shared/icon';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
@@ -105,13 +105,11 @@ export function ResourceTopBarActions({
           interaction: 'default',
         }}
       />
-      <Popover
-        anchorRef={triggerRef}
+      <Dialog
         open={surface?.kind === 'confirmation'}
         onClose={closeSurface}
-        side={OVERFLOW_SIDE}
-        alignment={OVERFLOW_ALIGNMENT}
-        size="small"
+        returnFocusRef={triggerRef}
+        size="medium"
       >
         {surface?.kind === 'confirmation' && surface.action === 'delete' && (
           <Confirmation
@@ -122,7 +120,7 @@ export function ResourceTopBarActions({
             onCancel={closeSurface}
           />
         )}
-      </Popover>
+      </Dialog>
     </>
   );
 }

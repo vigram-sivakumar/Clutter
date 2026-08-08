@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { useRef, useState } from 'react';
-import type { RefObject } from 'react';
 import {
   cleanup,
   fireEvent,
@@ -85,7 +84,7 @@ function Harness({
 
       <Overlay
         open={open}
-        anchorRef={anchorRef as RefObject<HTMLElement>}
+        anchorRef={anchorRef}
         side={side}
         alignment={alignment}
         offset={offset}
@@ -97,6 +96,40 @@ function Harness({
         }}
       >
         <button type="button">Overlay action</button>
+      </Overlay>
+    </>
+  );
+}
+
+type CenteredHarnessProps = {
+  initialOpen?: boolean;
+  onClose?: () => void;
+};
+
+function CenteredHarness({ initialOpen = true, onClose }: CenteredHarnessProps) {
+  const [open, setOpen] = useState(initialOpen);
+  const returnFocusRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <>
+      <button
+        ref={returnFocusRef}
+        type="button"
+        data-testid="return-focus-target"
+      >
+        Open centered overlay
+      </button>
+
+      <Overlay
+        position="centered"
+        open={open}
+        returnFocusRef={returnFocusRef}
+        onClose={() => {
+          onClose?.();
+          setOpen(false);
+        }}
+      >
+        <button type="button">Centered action</button>
       </Overlay>
     </>
   );
@@ -466,6 +499,108 @@ describe('Overlay', () => {
     await waitFor(() => {
       expect(surface.style.top).toBe('186px');
       expect(surface.style.left).toBe('260px');
+    });
+  });
+});
+
+describe('Overlay centered positioning', () => {
+  it('centers the surface in the viewport without an anchor', async () => {
+    render(<CenteredHarness />);
+
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+    const content = document.body.querySelector(
+      '.overlay__content'
+    ) as HTMLDivElement;
+
+    await waitFor(() => {
+      expect(surface.style.top).toBe('324px');
+      expect(surface.style.left).toBe('432px');
+    });
+
+    expect(content.style.transformOrigin).toBe('center center');
+    expect(content.classList.contains('overlay__content--center')).toBe(true);
+  });
+
+  it('uses a scale-only centered entrance animation', () => {
+    render(<CenteredHarness />);
+
+    const content = document.body.querySelector(
+      '.overlay__content'
+    ) as HTMLDivElement;
+
+    expect(content.classList.contains('overlay__content--animated')).toBe(true);
+    expect(content.classList.contains('overlay__content--center')).toBe(true);
+  });
+
+  it('restores focus to returnFocusRef when a centered overlay closes', async () => {
+    render(<CenteredHarness />);
+
+    const trigger = screen.getByTestId('return-focus-target');
+    const centeredAction = screen.getByText('Centered action');
+
+    centeredAction.focus();
+    expect(document.activeElement).toBe(centeredAction);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger);
+    });
+  });
+
+  it('does not reposition centered overlays when the window scrolls', async () => {
+    render(<CenteredHarness />);
+
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+
+    await waitFor(() => {
+      expect(surface.style.top).toBe('324px');
+      expect(surface.style.left).toBe('432px');
+    });
+
+    fireEvent.scroll(document);
+
+    expect(surface.style.top).toBe('324px');
+    expect(surface.style.left).toBe('432px');
+  });
+
+  it('repositions centered overlays when the window is resized', async () => {
+    render(<CenteredHarness />);
+
+    const surface = document.body.querySelector(
+      '.overlay__surface'
+    ) as HTMLDivElement;
+
+    await waitFor(() => {
+      expect(surface.style.left).toBe('432px');
+    });
+
+    surfaceRect = createRect({
+      top: 0,
+      left: 0,
+      width: 200,
+      height: 100,
+    });
+
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 800,
+    });
+
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: 600,
+    });
+
+    fireEvent(window, new Event('resize'));
+
+    await waitFor(() => {
+      expect(surface.style.top).toBe('250px');
+      expect(surface.style.left).toBe('300px');
     });
   });
 });
