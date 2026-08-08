@@ -7,7 +7,7 @@ import { AppIcon } from '@shared/icon';
 import { FolderLeading } from './FolderLeading';
 import './Folder.css';
 
-interface FolderProps extends Omit<EntryProps, 'children'> {
+export interface FolderProps extends Omit<EntryProps, 'children'> {
   title?: string;
   titleStyle?: 'default' | 'placeholder';
   /** Shown by EditableText during rename when the title buffer is empty. */
