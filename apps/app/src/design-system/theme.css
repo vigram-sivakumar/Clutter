@@ -26,7 +26,7 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-secondary: var(--neutral-800);
   --surface-tertiary: var(--neutral-700);
   --surface-subtle: rgba(255, 255, 255, 0.02);
-  --surface-overlay: rgba(31, 31, 31, 0.7);
+  --surface-overlay: rgba(20, 20, 20, 0.55);
   --surface-inverse: var(--neutral-50);
 
   /* Text & icons */
@@ -137,7 +137,7 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-secondary: var(--neutral-50);
   --surface-tertiary: var(--neutral-200);
   --surface-subtle: rgba(0, 0, 0, 0.03);
-  --surface-overlay: rgba(233, 233, 233, 0.6);
+  --surface-overlay: rgba(80, 80, 80, 0.25);
   --surface-inverse: var(--neutral-900);
 
   /* Text & icons */
