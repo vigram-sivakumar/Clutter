@@ -84,24 +84,28 @@ export function Folder({
       }
       actions={
         <>
-          <Button
-            size="small"
-            variant="ghost"
-            interaction="subtle"
-            isIconOnly
-            onClick={onAddClick}
-          >
-            <AppIcon icon={'plus'} />
-          </Button>
-          <OverflowMenu
-            items={menuItems ?? []}
-            open={menuOpen}
-            onOpenChange={onMenuOpenChange ?? (() => {})}
-            onSelect={onMenuSelect ?? (() => {})}
-            side="bottom"
-            alignment="start"
-            size="small"
-          />
+          {onAddClick && (
+            <Button
+              size="small"
+              variant="ghost"
+              interaction="subtle"
+              isIconOnly
+              onClick={onAddClick}
+            >
+              <AppIcon icon={'plus'} />
+            </Button>
+          )}
+          {menuItems && menuItems.length > 0 && (
+            <OverflowMenu
+              items={menuItems ?? []}
+              open={menuOpen}
+              onOpenChange={onMenuOpenChange ?? (() => {})}
+              onSelect={onMenuSelect ?? (() => {})}
+              side="bottom"
+              alignment="start"
+              size="small"
+            />
+          )}
         </>
       }
     >
