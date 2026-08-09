@@ -17,7 +17,7 @@
     color 120ms ease;
 }
 .input--background {
-  background: var(--surface-secondary);
+  background: var(--surface-subtle);
 }
 .input--border {
   box-shadow: var(--shadow-border-default);
