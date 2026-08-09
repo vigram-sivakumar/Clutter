@@ -1,0 +1,16 @@
+.folder-picker {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-secondary);
+  border-radius: var(--radius-xxl);
+  padding: var(--space-12);
+
+  box-shadow: var(--shadow-border-default), var(--shadow-md);
+  gap: var(--space-12);
+}
+
+.folder-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
