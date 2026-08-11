@@ -1154,9 +1154,17 @@ export class PageOperations {
    * storage provider) returns — this method never computes, inspects, or
    * validates that string (ADR-029): naming a duplicate is provider
    * policy, not an Application concern. Resolves once the Vault reflects
-   * the new page at that path, then selects it (mirrors create()'s
-   * "select the new item" behavior) — never opens a second draft or calls
-   * the Gate itself.
+   * the new page at that path, returning its id — never opens a second
+   * draft or calls the Gate itself.
+   *
+   * Performs the duplication only. It never selects or opens the result
+   * and never touches `Workspace` — whether (and how) to navigate to a
+   * duplicate is the calling entry point's decision, not this method's:
+   * the topbar's Duplicate opens the result (see
+   * duplicateAndOpenPage.ts), the sidebar row overflow menu's Duplicate
+   * leaves the current selection untouched (Sidebar.Notes.tsx). Two
+   * different entry points, one operation, no duplicated policy about
+   * "should this open" baked into the operation itself.
    *
    * Only valid for a real Vault page; there is nothing to duplicate for a
    * still-open, unpersisted draft.
@@ -1173,11 +1181,8 @@ export class PageOperations {
     }
 
     const destinationPath = await this.duplicator.duplicateFile(page.path);
-    const newPageId = await this.waitForPageAtPath(destinationPath);
 
-    this.workspace.openPage(newPageId);
-
-    return newPageId;
+    return this.waitForPageAtPath(destinationPath);
   }
 
   /**

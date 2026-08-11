@@ -137,8 +137,14 @@ function setup() {
 }
 
 describe('PageOperations.duplicate', () => {
-  it('duplicates a note into a new page with a fresh id, selected once the vault reflects it, with no caller-triggered refresh', async () => {
+  it('duplicates a note into a new page with a fresh id, discoverable in the Vault with no caller-triggered refresh, without selecting or opening it', async () => {
     const { vault, fileSystem, watcher, workspace, pageOperations } = setup();
+
+    // A concrete "current selection" so we can prove duplicate() leaves it
+    // alone — post-duplication navigation is the entry point's decision,
+    // not this method's. See duplicateAndOpenPage.ts (topbar) and
+    // Sidebar.Notes.tsx's onDuplicateNote (sidebar, deliberately unchanged).
+    workspace.openPage('page-1');
 
     const duplicatePromise = pageOperations.duplicate('page-1');
     await flush();
@@ -163,8 +169,9 @@ describe('PageOperations.duplicate', () => {
     expect(vault.getPage('page-1')?.path).toBe(`${ROOT}/Idea.md`);
     expect(await fileSystem.readFile(`${ROOT}/Idea.md`)).toBe(pageDocument('page-1'));
 
-    // Selected without the caller having to force any refresh.
-    expect(workspace.activePageId).toBe(newPageId);
+    // duplicate() itself never selects or opens the result — the current
+    // selection is untouched.
+    expect(workspace.activePageId).toBe('page-1');
   });
 
   it('reassigns the frontmatter id when the copy collides with the source id, and persists the fix to disk', async () => {

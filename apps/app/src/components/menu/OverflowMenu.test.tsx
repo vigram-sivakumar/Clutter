@@ -173,6 +173,30 @@ describe('OverflowMenu', () => {
     expect(onRowClick).not.toHaveBeenCalled();
   });
 
+  it('selecting a menu item does not bubble to an ancestor click handler, even though the menu renders through a DOM portal', () => {
+    // Overlay renders the menu via createPortal(document.body) — not a
+    // descendant in the DOM, but still one in the React tree, so React
+    // still bubbles a click on a menu item up through this wrapping div
+    // unless the item itself stops propagation. Regression test for
+    // exactly that: a sidebar row's own click handler (Entry) was
+    // incorrectly firing whenever any overflow-menu item was selected,
+    // since Entry's nested-interactive-element guard walks the real DOM
+    // and can never see a portaled element as its own descendant.
+    const onRowClick = vi.fn();
+    const onSelect = vi.fn();
+    render(
+      <div onClick={onRowClick}>
+        <Harness onSelect={onSelect} />
+      </div>
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByText('Rename'));
+
+    expect(onSelect).toHaveBeenCalledWith('rename');
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
   it('focuses the menu container when the menu opens', () => {
     render(<Harness onSelect={vi.fn()} />);
 

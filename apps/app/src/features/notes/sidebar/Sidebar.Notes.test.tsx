@@ -31,6 +31,8 @@ import { FolderCreator } from '@core/application/folder/FolderCreator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { Folder } from '@core/vault/models/Folder';
+import type { Page } from '@core/vault/models/Page';
+import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -71,10 +73,31 @@ function makeFolder(id: string, path: string): Folder {
   };
 }
 
-function setup(folders: Folder[]) {
+function makePage(id: string, path: string): Page {
+  return new PageBuilder().build({
+    parentId: null,
+    page: {
+      path,
+      directoryPath: path.slice(0, path.lastIndexOf('/')),
+      frontmatter: { id },
+      frontmatterAnalysis: { aliases: [] },
+      content: 'Body',
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [],
+        links: [],
+        embeds: [],
+      },
+    },
+  });
+}
+
+function setup(folders: Folder[], pages: Page[] = []) {
   const vault = new Vault(
     ROOT,
-    [],
+    pages,
     folders,
     [],
     [],
@@ -135,7 +158,13 @@ function setup(folders: Folder[]) {
   };
 }
 
-function notesElement(deps: ReturnType<typeof setup>) {
+function notesElement(
+  deps: ReturnType<typeof setup>,
+  overrides?: {
+    onOpen?(pageId: string): void;
+    onOpenFolder?(folderId: string): void;
+  }
+) {
   return (
     <Notes
       vault={deps.vault}
@@ -146,15 +175,18 @@ function notesElement(deps: ReturnType<typeof setup>) {
       folderOperations={deps.folderOperations}
       effectivePageState={deps.effectivePageState}
       membershipSelector={deps.membershipSelector}
-      onOpen={vi.fn()}
-      onOpenFolder={vi.fn()}
+      onOpen={overrides?.onOpen ?? vi.fn()}
+      onOpenFolder={overrides?.onOpenFolder ?? vi.fn()}
       onOpenDraft={vi.fn()}
     />
   );
 }
 
-function renderNotes(deps: ReturnType<typeof setup>) {
-  return render(notesElement(deps));
+function renderNotes(
+  deps: ReturnType<typeof setup>,
+  overrides?: Parameters<typeof notesElement>[1]
+) {
+  return render(notesElement(deps, overrides));
 }
 
 function overflowButtonFor(rowTitle: string): HTMLElement {
@@ -260,5 +292,86 @@ describe('Sidebar Notes: folder delete wiring', () => {
 
     expect(deleteSpy).toHaveBeenCalledWith('folder-a');
     expect(confirmSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Sidebar Notes: Duplicate leaves the current selection untouched', () => {
+  it('a note row\'s Duplicate calls PageOperations.duplicate but never opens or selects the result', async () => {
+    const page = makePage('page-a', `${ROOT}/Idea.md`);
+    const deps = setup([], [page]);
+    const duplicateSpy = vi
+      .spyOn(deps.pageOperations, 'duplicate')
+      .mockResolvedValue('page-copy');
+    const openSpy = vi.spyOn(deps.pageOperations, 'open');
+    const onOpen = vi.fn();
+
+    renderNotes(deps, { onOpen });
+
+    fireEvent.click(overflowButtonFor('Idea'));
+    fireEvent.click(screen.getByText('Duplicate'));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(duplicateSpy).toHaveBeenCalledWith('page-a');
+    expect(openSpy).not.toHaveBeenCalled();
+    // The row's own click handler must not have fired either — clicking a
+    // menu item bubbling into the row's onClick was the actual bug (see
+    // OverflowMenu.test.tsx's matching regression test).
+    expect(onOpen).not.toHaveBeenCalled();
+    // Nothing was ever selected — the sidebar's Duplicate never navigates.
+    expect(deps.workspace.activePageId).toBeNull();
+  });
+
+  it('a folder row\'s Duplicate calls FolderOperations.duplicate but never opens or selects the result', async () => {
+    const folder = makeFolder('folder-a', `${ROOT}/Alpha`);
+    const deps = setup([folder]);
+    const duplicateSpy = vi
+      .spyOn(deps.folderOperations, 'duplicate')
+      .mockResolvedValue('folder-copy');
+    const openSpy = vi.spyOn(deps.folderOperations, 'open');
+    const onOpenFolder = vi.fn();
+
+    renderNotes(deps, { onOpenFolder });
+
+    fireEvent.click(overflowButtonFor('Alpha'));
+    fireEvent.click(screen.getByText('Duplicate'));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(duplicateSpy).toHaveBeenCalledWith('folder-a');
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(onOpenFolder).not.toHaveBeenCalled();
+    // Nothing was ever selected — the sidebar's Duplicate never navigates.
+    expect(deps.workspace.activeFolderId).toBeNull();
+  });
+
+  it('regression: Note A open, sidebar-duplicating Note B leaves Note A open (the reported bug — Note B\'s own row was incorrectly opening)', async () => {
+    const noteA = makePage('page-a', `${ROOT}/Note A.md`);
+    const noteB = makePage('page-b', `${ROOT}/Note B.md`);
+    const deps = setup([], [noteA, noteB]);
+    vi.spyOn(deps.pageOperations, 'duplicate').mockResolvedValue('page-b-copy');
+    const onOpen = vi.fn((pageId: string) => {
+      // Mirrors production's real wiring (Sidebar.tsx: onOpen={(id) =>
+      // pageOperations.open(id)}) closely enough to prove the row's
+      // onClick never fires for a menu selection: if it did, this would
+      // switch the active page away from Note A.
+      deps.workspace.openPage(pageId);
+    });
+
+    // Note A is the currently open page — the state the bug clobbered.
+    deps.workspace.openPage('page-a');
+
+    renderNotes(deps, { onOpen });
+
+    fireEvent.click(overflowButtonFor('Note B'));
+    fireEvent.click(screen.getByText('Duplicate'));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(deps.workspace.activePageId).toBe('page-a');
   });
 });

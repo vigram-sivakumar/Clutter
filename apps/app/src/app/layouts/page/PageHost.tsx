@@ -14,6 +14,8 @@ import {
   buildDraftTopBarActions,
 } from '@app/layouts/page/topbar/buildTopBarActions';
 import { deleteFolderWithConfirmation } from '@features/notes/helpers/deleteFolderWithConfirmation';
+import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
+import { duplicateAndOpenFolder } from '@features/notes/helpers/duplicateAndOpenFolder';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
@@ -120,11 +122,11 @@ export function PageHost({ application }: PageHostProps) {
       return;
     }
 
-    void application.pageOperations.duplicate(activePageId);
+    void duplicateAndOpenPage(application.pageOperations, activePageId);
   };
 
   const onDuplicateFolder = (folderId: string): void => {
-    void application.folderOperations.duplicate(folderId);
+    void duplicateAndOpenFolder(application.folderOperations, folderId);
   };
 
   const onDeleteFolder = async (folderId: string): Promise<void> => {

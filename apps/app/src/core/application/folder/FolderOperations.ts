@@ -253,7 +253,12 @@ export class FolderOperations {
    * The destination path is whatever `duplicator` returns — this method
    * never computes, inspects, or validates that string (ADR-029): naming
    * a duplicate is provider policy, not an Application concern. Resolves
-   * once the Vault reflects the new folder at that path, then selects it.
+   * once the Vault reflects the new folder at that path, returning its id.
+   *
+   * Performs the duplication only. It never selects or opens the result
+   * and never touches `Workspace` — see PageOperations.duplicate()'s
+   * matching doc comment: the calling entry point decides whether (and
+   * how) to navigate to the duplicate, not this method.
    */
   public async duplicate(folderId: string): Promise<string> {
     if (!this.duplicator) {
@@ -267,11 +272,8 @@ export class FolderOperations {
     }
 
     const destinationPath = await this.duplicator.duplicateDirectory(folder.path);
-    const newFolderId = await this.waitForFolderAtPath(destinationPath);
 
-    this.workspace.openFolder(newFolderId);
-
-    return newFolderId;
+    return this.waitForFolderAtPath(destinationPath);
   }
 
   /**

@@ -103,7 +103,21 @@ export function OverflowMenu({
             <MenuItem
               key={item.id}
               disabled={item.disabled}
-              onClick={() => {
+              onClick={(event) => {
+                // Overlay renders this menu through a DOM portal (to
+                // document.body), but React still bubbles the click event
+                // through the *React* tree — up through this OverflowMenu
+                // into whatever row rendered it (e.g. a sidebar Note/
+                // Folder row's own Entry). That row's Entry.handleClick
+                // guards against a nested interactive element using a real
+                // DOM `closest()` walk, which can never find the row's own
+                // DOM node as an ancestor of a portaled element, so it
+                // never catches this case. Without stopping propagation
+                // here, selecting any menu item (Rename, Duplicate,
+                // Delete, ...) would also fire the row's own onClick and
+                // open/select it — exactly the trigger button beside this
+                // menu already guards against for opening the menu itself.
+                event.stopPropagation();
                 onSelect(item.id);
                 onOpenChange(false);
               }}

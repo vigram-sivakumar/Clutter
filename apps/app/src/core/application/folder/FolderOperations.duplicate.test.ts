@@ -154,11 +154,18 @@ function setup() {
 }
 
 describe('FolderOperations.duplicate', () => {
-  it('duplicates an empty folder into a new folder with a fresh id, selecting it once the vault reflects it', async () => {
+  it('duplicates an empty folder into a new folder with a fresh id, discoverable in the Vault with no caller-triggered refresh, without selecting or opening it', async () => {
     const { vault, fileSystem, watcher, workspace, folderOperations } = setup();
 
     await fileSystem.createDirectory(`${ROOT}/Projects`);
     vault.addFolder(makeFolder('folder-projects', `${ROOT}/Projects`));
+
+    // A concrete "current selection" so we can prove duplicate() leaves it
+    // alone — post-duplication navigation is the entry point's decision,
+    // not this method's. See duplicateAndOpenFolder.ts (topbar) and
+    // Sidebar.Notes.tsx's onDuplicateFolder (sidebar, deliberately
+    // unchanged).
+    workspace.openFolder('folder-projects');
 
     const duplicatePromise = folderOperations.duplicate('folder-projects');
     await flush();
@@ -179,8 +186,9 @@ describe('FolderOperations.duplicate', () => {
     // The original is unchanged.
     expect(vault.getFolder('folder-projects')?.path).toBe(`${ROOT}/Projects`);
 
-    // Selected without the caller having to force any refresh.
-    expect(workspace.activeFolderId).toBe(newFolderId);
+    // duplicate() itself never selects or opens the result — the current
+    // selection is untouched.
+    expect(workspace.activeFolderId).toBe('folder-projects');
   });
 
   it('duplicates a folder containing nested folders and notes, assigning every duplicated entity a unique id', async () => {
