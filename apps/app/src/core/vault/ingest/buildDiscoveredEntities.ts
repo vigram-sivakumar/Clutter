@@ -1,12 +1,22 @@
 import type { Folder, Page } from '../models';
-import type { VaultScanResult } from './VaultScanResult';
+import type { IdGenerator } from '../../shared/identity/IdGenerator';
+import type { ScannedDirectory, ScannedPage, VaultScanResult } from './VaultScanResult';
 import { FolderBuilder } from './FolderBuilder';
 import { PageBuilder } from './PageBuilder';
 import { IdentityResolver } from './identity/IdentityResolver';
+import { resolveDuplicateId } from './identity/resolveDuplicateId';
 
 export interface DiscoveredEntities {
   readonly folders: readonly Folder[];
   readonly pages: readonly Page[];
+  /**
+   * Paths whose frontmatter `id` collided with an id already claimed by a
+   * different path — a genuine duplicate (see resolveDuplicateId) — and
+   * were built with a freshly generated id instead. The caller is
+   * responsible for repairing the persisted frontmatter to match (mirrors
+   * archive-metadata repair, spec §4); this function never writes to disk.
+   */
+  readonly reassignedPagePaths: ReadonlySet<string>;
 }
 
 export interface DiscoveredEntitiesOptions {
@@ -27,11 +37,25 @@ export interface DiscoveredEntitiesOptions {
    * never looked up from a Folder that doesn't exist).
    */
   readonly rootParentId: string | null;
+  /** Used to mint a fresh id when a genuine duplicate id is discovered. */
+  readonly idGenerator: IdGenerator;
+  /**
+   * Ids already claimed outside this scan's own batch — the live Vault's
+   * current folder/page ids, for the incremental-sync caller. Omitted (or
+   * empty) for a full vault scan, where nothing is claimed yet and
+   * duplicates can only occur within the batch itself.
+   */
+  readonly existingFolderIds?: ReadonlySet<string>;
+  readonly existingPageIds?: ReadonlySet<string>;
 }
 
 /**
  * Builds every Folder/Page discovered by a VaultScanner.scan() result,
- * resolving parentId links from the scan's own directory tree.
+ * resolving parentId links from the scan's own directory tree and
+ * reassigning a fresh id to any entry whose frontmatter id collides with
+ * one already claimed (see resolveDuplicateId) — the original keeps its
+ * id, the newcomer gets a new one, exactly as required for a genuinely
+ * duplicated file/folder.
  *
  * The one implementation both VaultBuilder (initial scan, scoped to the
  * whole vault) and VaultSyncService (incremental scan, scoped to a subtree
@@ -48,14 +72,29 @@ export function buildDiscoveredEntities(
   const identityResolver = new IdentityResolver();
   const { rootPath } = scanResult;
   const folderIdsByPath = new Map<string, string>();
+  const resolvedDirectoriesByPath = new Map<string, ScannedDirectory>();
+  const claimedFolderIds = new Set<string>(options.existingFolderIds ?? []);
 
   for (const directory of scanResult.directories) {
     const identity = identityResolver.resolveFolder(
       directory.frontmatter?.id,
       directory.path
     );
+    const resolved = resolveDuplicateId(
+      identity.id,
+      (id) => claimedFolderIds.has(id),
+      options.idGenerator
+    );
 
-    folderIdsByPath.set(directory.path, identity.id);
+    claimedFolderIds.add(resolved.id);
+    folderIdsByPath.set(directory.path, resolved.id);
+
+    resolvedDirectoriesByPath.set(
+      directory.path,
+      resolved.wasReassigned
+        ? { ...directory, frontmatter: { ...directory.frontmatter, id: resolved.id } }
+        : directory
+    );
   }
 
   const resolveParentId = (parentPath: string | null): string | null => {
@@ -80,17 +119,37 @@ export function buildDiscoveredEntities(
     .filter((directory) => options.rootIsFolder || directory.path !== rootPath)
     .map((directory) =>
       builders.folderBuilder.build({
-        directory,
+        directory: resolvedDirectoriesByPath.get(directory.path)!,
         parentId: resolveParentId(directory.parentPath),
       })
     );
 
-  const pages: Page[] = scanResult.pages.map((page) =>
-    builders.pageBuilder.build({
-      parentId: resolveParentId(page.directoryPath),
-      page,
-    })
-  );
+  const claimedPageIds = new Set<string>(options.existingPageIds ?? []);
+  const reassignedPagePaths = new Set<string>();
 
-  return { folders, pages };
+  const pages: Page[] = scanResult.pages.map((page) => {
+    const identity = identityResolver.resolvePage(page.frontmatter.id, page.path);
+    const resolved = resolveDuplicateId(
+      identity.id,
+      (id) => claimedPageIds.has(id),
+      options.idGenerator
+    );
+
+    claimedPageIds.add(resolved.id);
+
+    const resolvedPage: ScannedPage = resolved.wasReassigned
+      ? { ...page, frontmatter: { ...page.frontmatter, id: resolved.id } }
+      : page;
+
+    if (resolved.wasReassigned) {
+      reassignedPagePaths.add(page.path);
+    }
+
+    return builders.pageBuilder.build({
+      parentId: resolveParentId(page.directoryPath),
+      page: resolvedPage,
+    });
+  });
+
+  return { folders, pages, reassignedPagePaths };
 }

@@ -8,14 +8,17 @@ import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
 import { VaultScanner } from '../ingest/VaultScanner';
 import { buildDiscoveredEntities } from '../ingest/buildDiscoveredEntities';
+import { resolveDuplicateId } from '../ingest/identity/resolveDuplicateId';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultPath } from '../ingest/VaultPath';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
+import type { IdGenerator } from '../../shared/identity/IdGenerator';
 import { VaultSyncCoordinator, type SyncKey } from './VaultSyncCoordinator';
 import { reconcilePageArchiveMetadata } from './reconcileArchiveMetadata';
+import { persistSyncedPageDocument } from './persistSyncedPageDocument';
 
 export class VaultSyncService {
   private readonly unsubscribe: () => void;
@@ -28,6 +31,7 @@ export class VaultSyncService {
   private readonly documentRegistry: DocumentRegistry;
   private readonly frontmatterParser: FrontmatterParser;
   private readonly frontmatterSerializer: FrontmatterSerializer;
+  private readonly idGenerator: IdGenerator;
   private readonly coordinator: VaultSyncCoordinator;
 
   constructor(
@@ -35,7 +39,8 @@ export class VaultSyncService {
     fileSystem: VaultFileSystem,
     watcher: VaultFileSystemWatcher,
     documentRegistry: DocumentRegistry,
-    frontmatterSerializer: FrontmatterSerializer
+    frontmatterSerializer: FrontmatterSerializer,
+    idGenerator: IdGenerator
   ) {
     this.vault = vault;
     this.fileSystem = fileSystem;
@@ -46,6 +51,7 @@ export class VaultSyncService {
     this.documentRegistry = documentRegistry;
     this.frontmatterParser = new FrontmatterParser();
     this.frontmatterSerializer = frontmatterSerializer;
+    this.idGenerator = idGenerator;
     this.coordinator = new VaultSyncCoordinator();
     this.unsubscribe = watcher.subscribe((change) => {
       this.handleChange(change);
@@ -174,19 +180,51 @@ export class VaultSyncService {
     const fileContent = await this.fileSystem.readFile(absolutePath);
     const parsedMarkdown = this.frontmatterParser.parse(fileContent);
 
-    const page = this.pageBuilder.build({
-      parentId,
-      page: {
-        path: absolutePath,
-        directoryPath,
-        frontmatter: parsedMarkdown.frontmatter,
-        frontmatterAnalysis: parsedMarkdown.frontmatterAnalysis,
-        content: parsedMarkdown.body,
-        analysis: parsedMarkdown.analysis,
-      },
-    });
+    const buildPage = (frontmatter: typeof parsedMarkdown.frontmatter) =>
+      this.pageBuilder.build({
+        parentId,
+        page: {
+          path: absolutePath,
+          directoryPath,
+          frontmatter,
+          frontmatterAnalysis: parsedMarkdown.frontmatterAnalysis,
+          content: parsedMarkdown.body,
+          analysis: parsedMarkdown.analysis,
+        },
+      });
+
+    let page = buildPage(parsedMarkdown.frontmatter);
+
+    // A genuine duplicate: this path is new to the Vault (checked above),
+    // so an id collision here can only mean the frontmatter was copied
+    // from another file (see resolveDuplicateId) — never a rename/move,
+    // which reconciles through updatePagePath/moveFolder instead.
+    const resolved = resolveDuplicateId(
+      page.id,
+      (id) => this.vault.getPage(id) !== undefined,
+      this.idGenerator
+    );
+
+    if (resolved.wasReassigned) {
+      page = buildPage({ ...parsedMarkdown.frontmatter, id: resolved.id });
+    }
 
     this.vault.addPage(page);
+
+    if (resolved.wasReassigned) {
+      await persistSyncedPageDocument(
+        {
+          vault: this.vault,
+          fileSystem: this.fileSystem,
+          serializer: this.frontmatterSerializer,
+          parser: this.frontmatterParser,
+          rebuilder: this.pageRebuilder,
+        },
+        page,
+        parsedMarkdown.body
+      );
+    }
+
     await this.reconcileArchiveMetadataForPage(page.id);
   }
 
@@ -224,16 +262,23 @@ export class VaultSyncService {
     }
 
     const scanResult = await this.vaultScanner.scan(absolutePath);
-    const { folders, pages } = buildDiscoveredEntities(
+    const { folders, pages, reassignedPagePaths } = buildDiscoveredEntities(
       scanResult,
-      { rootIsFolder: true, rootParentId: parentId },
+      {
+        rootIsFolder: true,
+        rootParentId: parentId,
+        idGenerator: this.idGenerator,
+        existingFolderIds: new Set(Array.from(this.vault.folders(), (f) => f.id)),
+        existingPageIds: new Set(Array.from(this.vault.pages(), (p) => p.id)),
+      },
       { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
     );
 
     for (const folder of folders) {
-      // A genuine duplicate id (or a folder some other event already added
-      // mid-scan) is skipped rather than thrown — one bad entry must never
-      // abort ingestion of the rest of the subtree.
+      // A folder some other event already added mid-scan is skipped rather
+      // than thrown — one bad entry must never abort ingestion of the rest
+      // of the subtree. Genuine duplicate folder ids were already resolved
+      // above (existingFolderIds), so this is purely a race guard.
       if (this.vault.getFolder(folder.id) || this.vault.getFolderByPath(folder.path)) {
         continue;
       }
@@ -247,6 +292,30 @@ export class VaultSyncService {
       }
 
       this.vault.addPage(page);
+    }
+
+    // A genuine duplicate page id within the subtree was already built
+    // with a fresh id above; repair its persisted frontmatter to match, the
+    // same shared write-parse-rebuild-replace helper archive-metadata
+    // repair uses (Ingest itself stays read-only w.r.t. disk).
+    for (const path of reassignedPagePaths) {
+      const page = this.vault.getPageByPath(path);
+
+      if (!page) {
+        continue;
+      }
+
+      await persistSyncedPageDocument(
+        {
+          vault: this.vault,
+          fileSystem: this.fileSystem,
+          serializer: this.frontmatterSerializer,
+          parser: this.frontmatterParser,
+          rebuilder: this.pageRebuilder,
+        },
+        page,
+        page.source.markdown
+      );
     }
   }
 

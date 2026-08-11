@@ -35,6 +35,7 @@ import { MoveService } from '../vault/persistence/MoveService';
 import { LocalFileSystemWatcher } from '../vault/providers/LocalFileSystemWatcher';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
 import { reconcileVaultArchiveMetadata } from '../vault/sync/reconcileArchiveMetadata';
+import { persistSyncedPageDocument } from '../vault/sync/persistSyncedPageDocument';
 import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
@@ -136,8 +137,32 @@ export class Application {
       ])
     );
 
-    const builder = new VaultBuilder();
-    const vault = builder.build(scanResult, tagMetadata);
+    const builder = new VaultBuilder(new UuidGenerator());
+    const { vault, reassignedPagePaths } = builder.build(scanResult, tagMetadata);
+
+    // A genuine duplicate id discovered during the initial scan was already
+    // given a fresh id in-memory (VaultBuilder); repair the duplicate
+    // file's own persisted frontmatter to match, the same way archive
+    // metadata is repaired below — Ingest itself never writes to disk.
+    for (const path of reassignedPagePaths) {
+      const page = vault.getPageByPath(path);
+
+      if (!page) {
+        continue;
+      }
+
+      await persistSyncedPageDocument(
+        {
+          vault,
+          fileSystem,
+          serializer: new FrontmatterSerializer(),
+          parser: new FrontmatterParser(),
+          rebuilder: new PageRebuilder(),
+        },
+        page,
+        page.source.markdown
+      );
+    }
 
     await reconcileVaultArchiveMetadata({
       vault,
@@ -311,7 +336,8 @@ export class Application {
       this.fileSystem,
       syncWatcher,
       this.documentRegistry,
-      frontmatterSerializer
+      frontmatterSerializer,
+      new UuidGenerator()
     );
 
     // Optional, dev-only: exposes window.__clutter_devtools for e2e tests.

@@ -8,6 +8,7 @@ import { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
 import { FakeVaultFileSystemWatcher } from '../testing/FakeVaultFileSystemWatcher';
+import { FakeIdGenerator } from '../testing/FakeIdGenerator';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultQuery } from '../queries/VaultQuery';
 import type { Page } from '../models/Page';
@@ -135,7 +136,8 @@ function setup(pages: Page[] = [], folders: Folder[] = []) {
     fileSystem,
     watcher,
     documentRegistry,
-    new FrontmatterSerializer()
+    new FrontmatterSerializer(),
+    new FakeIdGenerator()
   );
 
   return { vault, fileSystem, watcher, documentRegistry, service };
@@ -153,6 +155,36 @@ describe('VaultSyncService', () => {
     expect(page).toBeDefined();
     expect(page!.id).toBe('new-page');
     expect(page!.source.markdown).toBe('Hello');
+  });
+
+  it('created: a duplicated file (Finder "copy" carrying the original\'s frontmatter id) is assigned a fresh id, and the original keeps its own', async () => {
+    const original = buildPage('Note.md', 'Original content', 'note-1');
+    const { vault, fileSystem, watcher } = setup([original]);
+
+    // Finder's "Note copy.md" duplicates the file's content byte-for-byte,
+    // including the frontmatter id.
+    fileSystem.seedFile(
+      `${ROOT}/Note copy.md`,
+      '---\nid: note-1\n---\nOriginal content'
+    );
+
+    watcher.emit({ type: 'created', path: 'Note copy.md', isDirectory: false });
+    await flush();
+
+    const originalStill = vault.getPage('note-1');
+    const copy = vault.getPageByPath(`${ROOT}/Note copy.md`);
+
+    expect(originalStill).toBeDefined();
+    expect(originalStill!.path).toBe(`${ROOT}/Note.md`);
+    expect(copy).toBeDefined();
+    expect(copy!.id).not.toBe('note-1');
+    expect(vault.pageCount).toBe(2);
+
+    // The duplicate's persisted frontmatter is repaired to match its new
+    // id, so a later rescan derives the same id again (identity stays
+    // deterministic — spec §2).
+    const onDisk = await fileSystem.readFile(`${ROOT}/Note copy.md`);
+    expect(onDisk).toContain(`id: ${copy!.id}`);
   });
 
   it('created: a new page inside an unknown/unresolvable parent folder is safely ignored', async () => {
@@ -444,6 +476,34 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
     expect(vault.pageCount).toBe(2);
   });
 
+  it('created: a duplicated folder subtree (Finder "copy" carrying every note\'s original frontmatter id) gets fresh ids for the copies, leaving originals untouched', async () => {
+    const original = buildPage('Projects/Roadmap.md', 'Roadmap content', 'page-roadmap');
+    const { vault, fileSystem, watcher } = setup([original]);
+
+    // "Projects copy" duplicates the whole subtree, including every note's
+    // frontmatter id.
+    await fileSystem.createDirectory(`${ROOT}/Projects copy`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects copy/Roadmap.md`,
+      '---\nid: page-roadmap\n---\nRoadmap content'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects copy', isDirectory: true });
+    await flush();
+
+    const originalStill = vault.getPage('page-roadmap');
+    const copy = vault.getPageByPath(`${ROOT}/Projects copy/Roadmap.md`);
+
+    expect(originalStill).toBeDefined();
+    expect(originalStill!.path).toBe(`${ROOT}/Projects/Roadmap.md`);
+    expect(copy).toBeDefined();
+    expect(copy!.id).not.toBe('page-roadmap');
+    expect(vault.pageCount).toBe(2);
+
+    const onDisk = await fileSystem.readFile(`${ROOT}/Projects copy/Roadmap.md`);
+    expect(onDisk).toContain(`id: ${copy!.id}`);
+  });
+
   it('created: a nested directory inside an unresolvable parent is safely ignored, same as a page would be', async () => {
     const { vault, fileSystem, watcher } = setup();
     await fileSystem.createDirectory(`${ROOT}/unknown-parent/Nested`);
@@ -649,7 +709,8 @@ describe('VaultSyncService: sync correctness', () => {
       fileSystem,
       watcher,
       documentRegistry,
-      new FrontmatterSerializer()
+      new FrontmatterSerializer(),
+      new FakeIdGenerator()
     );
 
     // Event 1: file changes to "First update".
@@ -745,7 +806,8 @@ describe('VaultSyncService: sync correctness', () => {
       fileSystem,
       watcher,
       documentRegistry,
-      new FrontmatterSerializer()
+      new FrontmatterSerializer(),
+      new FakeIdGenerator()
     );
 
     watcher.emit({ type: 'created', path: 'New.md', isDirectory: false });

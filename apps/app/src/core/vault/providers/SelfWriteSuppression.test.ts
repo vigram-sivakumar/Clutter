@@ -4,6 +4,7 @@ import { SelfWriteAwareFileSystem } from './SelfWriteAwareFileSystem';
 import { SelfWriteAwareWatcher } from './SelfWriteAwareWatcher';
 import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
 import { FakeVaultFileSystemWatcher } from '../testing/FakeVaultFileSystemWatcher';
+import { FakeIdGenerator } from '../testing/FakeIdGenerator';
 import { Vault } from '../models/Vault';
 import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../models/graph/KnowledgeGraph';
@@ -91,7 +92,8 @@ function setup(page: Page) {
     fileSystem,
     watcher,
     documentRegistry,
-    new FrontmatterSerializer()
+    new FrontmatterSerializer(),
+    new FakeIdGenerator()
   );
 
   let notificationCount = 0;
@@ -230,7 +232,8 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
       fileSystem,
       watcher,
       new DocumentRegistry(),
-      new FrontmatterSerializer()
+      new FrontmatterSerializer(),
+      new FakeIdGenerator()
     );
 
     let notificationCount = 0;
@@ -308,7 +311,8 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
       fileSystem,
       watcher,
       new DocumentRegistry(),
-      new FrontmatterSerializer()
+      new FrontmatterSerializer(),
+      new FakeIdGenerator()
     );
 
     let notificationCount = 0;
@@ -372,7 +376,8 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
       fileSystem,
       watcher,
       new DocumentRegistry(),
-      new FrontmatterSerializer()
+      new FrontmatterSerializer(),
+      new FakeIdGenerator()
     );
 
     let notificationCount = 0;

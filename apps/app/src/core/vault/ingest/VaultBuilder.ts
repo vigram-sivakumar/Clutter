@@ -11,6 +11,19 @@ import {
   VaultProjectionBuilder,
 } from '../knowledge';
 import type { TagMetadataEntry } from '../models';
+import type { IdGenerator } from '../../shared/identity/IdGenerator';
+
+export interface VaultBuildResult {
+  readonly vault: Vault;
+  /**
+   * Paths whose frontmatter `id` collided with another page's during this
+   * scan (a genuine duplicate) and were built with a freshly generated id
+   * instead. The caller is responsible for repairing the persisted
+   * frontmatter to match — VaultBuilder stays read-only w.r.t. disk, per
+   * Ingest's invariant (docs/architecture-specification.md §2).
+   */
+  readonly reassignedPagePaths: ReadonlySet<string>;
+}
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
@@ -21,16 +34,18 @@ export class VaultBuilder {
   private readonly knowledgeGraphBuilder = new KnowledgeGraphBuilder();
   private readonly projectionBuilder = new VaultProjectionBuilder();
 
+  constructor(private readonly idGenerator: IdGenerator) {}
+
   build(
     scanResult: VaultScanResult,
     tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map()
-  ): Vault {
+  ): VaultBuildResult {
     // The vault root itself is scanned as a directory (parentPath === null)
     // so its id can be resolved for its children's parentId, but it is not
     // a navigable Folder in the domain model — rootIsFolder: false.
-    const { folders, pages } = buildDiscoveredEntities(
+    const { folders, pages, reassignedPagePaths } = buildDiscoveredEntities(
       scanResult,
-      { rootIsFolder: false, rootParentId: null },
+      { rootIsFolder: false, rootParentId: null, idGenerator: this.idGenerator },
       { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
     );
 
@@ -48,7 +63,7 @@ export class VaultBuilder {
     // Construct the immutable in-memory Vault model.
     // Runtime services (Workspace, DocumentRegistry) are owned by the
     // Application and are created separately.
-    return new Vault(
+    const vault = new Vault(
       scanResult.rootPath,
       pages,
       folders,
@@ -59,5 +74,7 @@ export class VaultBuilder {
       this.projectionBuilder,
       tagMetadata,
     );
+
+    return { vault, reassignedPagePaths };
   }
 }
