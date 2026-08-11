@@ -1402,3 +1402,274 @@ describe('VaultSyncService: external archive reconciliation', () => {
     expect(disk).toMatch(/status:\s*active/);
   });
 });
+
+// ADR-026's Sync amendment: an archived folder moved out of Archive/
+// externally must be unarchived immediately, live — mirroring the page
+// coverage above one aggregate over.
+function makeArchivedProjectsFolder(): Folder {
+  return {
+    ...makeProjectsFolder(),
+    id: 'folder-archived-projects',
+    metadata: {
+      ...defaultFolderMetadata,
+      status: 'archived',
+      archivedAt: '2024-01-01T00:00:00.000Z',
+      originalPath: `${ROOT}/Inbox`,
+      originalParentId: null,
+    },
+  };
+}
+
+describe('VaultSyncService: external folder archive reconciliation (ADR-026 Sync amendment)', () => {
+  it('archived folder moved Archive → Projects clears archive metadata, persists .folder.md, and appears in normal queries', async () => {
+    const archivedFolder: Folder = {
+      ...makeArchivedProjectsFolder(),
+      path: `${ROOT}/Archive/Projects`,
+      parentId: 'folder-archive',
+    };
+    const { vault, fileSystem, watcher } = setup([], [makeArchiveFolder(), archivedFolder]);
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Archive/Projects',
+      toPath: 'Projects',
+    });
+    await flush();
+
+    const restored = vault.getFolder('folder-archived-projects')!;
+    expect(restored.path).toBe(`${ROOT}/Projects`);
+    expect(restored.parentId).toBeNull();
+    expect(restored.metadata.status).toBe('active');
+    expect(restored.metadata.archivedAt).toBeNull();
+    expect(restored.metadata.originalPath).toBeNull();
+    expect(restored.metadata.originalParentId).toBeNull();
+
+    const disk = fileSystem.getFileSync(`${ROOT}/Projects/.folder.md`)!;
+    expect(disk).toMatch(/status:\s*active/);
+    expect(disk).not.toMatch(/status:\s*archived/);
+
+    const query = new VaultQuery(vault);
+    expect(query.getRootFolders().map((folder) => folder.id)).toContain(
+      'folder-archived-projects'
+    );
+  });
+
+  it('archived folder moved out of Archive publishes exactly one consistent notification (no intermediate archived-at-new-path state)', async () => {
+    const archivedFolder: Folder = {
+      ...makeArchivedProjectsFolder(),
+      path: `${ROOT}/Archive/Projects`,
+      parentId: 'folder-archive',
+    };
+    const { vault, watcher } = setup([], [makeArchiveFolder(), archivedFolder]);
+
+    const observedStates: Array<{ path: string; status: string }> = [];
+    vault.subscribe(() => {
+      const folder = vault.getFolder('folder-archived-projects')!;
+      observedStates.push({ path: folder.path, status: folder.metadata.status });
+    });
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Archive/Projects',
+      toPath: 'Projects',
+    });
+    await flush();
+
+    expect(observedStates).toHaveLength(1);
+    expect(observedStates[0]).toEqual({ path: `${ROOT}/Projects`, status: 'active' });
+  });
+
+  it('active folder moved into Archive externally stays active and is not auto-archived', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, fileSystem, watcher } = setup([], [makeArchiveFolder(), projects]);
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Projects',
+      toPath: 'Archive/Projects',
+    });
+    await flush();
+
+    const moved = vault.getFolder('folder-projects')!;
+    expect(moved.path).toBe(`${ROOT}/Archive/Projects`);
+    expect(moved.parentId).toBe('folder-archive');
+    expect(moved.metadata.status).toBe('active');
+    expect(moved.metadata.archivedAt).toBeNull();
+
+    // No reconciliation write occurred — an active folder moving into
+    // Archive/ needs no repair, so nothing is written to its .folder.md.
+    expect(fileSystem.getFileSync(`${ROOT}/Archive/Projects/.folder.md`)).toBeUndefined();
+
+    const query = new VaultQuery(vault);
+    expect(query.getChildFolders('folder-archive').map((f) => f.id)).toContain(
+      'folder-projects'
+    );
+  });
+
+  it('archived folder moved within Archive leaves metadata untouched', async () => {
+    const archivedSubfolder: Folder = {
+      ...makeArchiveSubfolder('folder-archived-old', 'Old'),
+      metadata: {
+        ...defaultFolderMetadata,
+        status: 'archived',
+        archivedAt: '2024-01-01T00:00:00.000Z',
+        originalPath: `${ROOT}/Inbox`,
+        originalParentId: null,
+      },
+    };
+    const { vault, watcher } = setup([], [makeArchiveFolder(), archivedSubfolder]);
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Archive/Old',
+      toPath: 'Archive/New',
+    });
+    await flush();
+
+    const moved = vault.getFolder('folder-archived-old')!;
+    expect(moved.path).toBe(`${ROOT}/Archive/New`);
+    expect(moved.metadata.status).toBe('archived');
+    expect(moved.metadata.archivedAt).toBe('2024-01-01T00:00:00.000Z');
+    expect(moved.metadata.originalPath).toBe(`${ROOT}/Inbox`);
+  });
+
+  it('unarchiving a folder never touches descendant folders/pages — only the moved folder\'s own metadata is repaired', async () => {
+    const archivedFolder: Folder = {
+      ...makeArchivedProjectsFolder(),
+      path: `${ROOT}/Archive/Projects`,
+      parentId: 'folder-archive',
+    };
+    const nestedFolder: Folder = {
+      id: 'folder-design',
+      name: 'Design',
+      path: `${ROOT}/Archive/Projects/Design`,
+      parentId: 'folder-archived-projects',
+      metadata: defaultFolderMetadata,
+    };
+    const nestedPage = buildPage('Archive/Projects/Design/Notes.md', 'content', 'page-notes');
+    const nestedPageInDesign: Page = { ...nestedPage, parentId: 'folder-design' };
+    const { vault, watcher } = setup(
+      [nestedPageInDesign],
+      [makeArchiveFolder(), archivedFolder, nestedFolder]
+    );
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Archive/Projects',
+      toPath: 'Projects',
+    });
+    await flush();
+
+    expect(vault.getFolder('folder-archived-projects')!.metadata.status).toBe('active');
+
+    // Descendants relocate (path/parentId cascade) but their own metadata
+    // — never individually archived by the parent's archival — is
+    // byte-for-byte unchanged.
+    const design = vault.getFolder('folder-design')!;
+    expect(design.path).toBe(`${ROOT}/Projects/Design`);
+    expect(design.parentId).toBe('folder-archived-projects');
+    expect(design.metadata).toEqual(defaultFolderMetadata);
+
+    const notes = vault.getPage('page-notes')!;
+    expect(notes.path).toBe(`${ROOT}/Projects/Design/Notes.md`);
+    expect(notes.parentId).toBe('folder-design');
+    expect(notes.metadata.status).toBe('active');
+  });
+
+  it('normal folder move (no archive repair needed) still publishes exactly one notification with no extra read/write', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, fileSystem, watcher } = setup([], [projects]);
+
+    let notificationCount = 0;
+    vault.subscribe(() => {
+      notificationCount += 1;
+    });
+
+    watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Work' });
+    await flush();
+
+    expect(notificationCount).toBe(1);
+    expect(vault.getFolder('folder-projects')!.path).toBe(`${ROOT}/Work`);
+    expect(fileSystem.getFileSync(`${ROOT}/Work/.folder.md`)).toBeUndefined();
+  });
+});
+
+describe('VaultSyncService: external .folder.md edit reconciliation', () => {
+  it('status hand-edited to archived in place clears the stray status without moving the folder', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, fileSystem, watcher } = setup([], [projects]);
+
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      ['---', 'id: folder-projects', 'status: archived', '---', ''].join('\n')
+    );
+
+    watcher.emit({ type: 'changed', path: 'Projects/.folder.md' });
+    await flush();
+
+    const reconciled = vault.getFolder('folder-projects')!;
+    expect(reconciled.path).toBe(`${ROOT}/Projects`);
+    expect(reconciled.metadata.status).toBe('active');
+    expect(reconciled.metadata.archivedAt).toBeNull();
+
+    const disk = fileSystem.getFileSync(`${ROOT}/Projects/.folder.md`)!;
+    expect(disk).toMatch(/status:\s*active/);
+    expect(disk).not.toMatch(/status:\s*archived/);
+  });
+
+  it('unrelated field edited in place with status unchanged performs no reconciliation write', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, fileSystem, watcher } = setup([], [projects]);
+
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      ['---', 'id: folder-projects', 'status: active', 'icon: 📁', '---', ''].join('\n')
+    );
+
+    let notificationCount = 0;
+    vault.subscribe(() => {
+      notificationCount += 1;
+    });
+
+    watcher.emit({ type: 'changed', path: 'Projects/.folder.md' });
+    await flush();
+
+    expect(notificationCount).toBe(0);
+    expect(vault.getFolder('folder-projects')!.metadata.status).toBe('active');
+  });
+
+  it('archived folder edited in place while still inside Archive/ is left untouched (repair is one-directional)', async () => {
+    const archivedFolder: Folder = {
+      ...makeArchivedProjectsFolder(),
+      path: `${ROOT}/Archive/Projects`,
+      parentId: 'folder-archive',
+    };
+    const { vault, fileSystem, watcher } = setup([], [makeArchiveFolder(), archivedFolder]);
+
+    await fileSystem.writeFile(
+      `${ROOT}/Archive/Projects/.folder.md`,
+      [
+        '---',
+        'id: folder-archived-projects',
+        'status: archived',
+        'archivedAt: 2024-01-01T00:00:00.000Z',
+        '---',
+        '',
+      ].join('\n')
+    );
+
+    watcher.emit({ type: 'changed', path: 'Archive/Projects/.folder.md' });
+    await flush();
+
+    expect(vault.getFolder('folder-archived-projects')!.metadata.status).toBe('archived');
+  });
+
+  it('changed event for a .folder.md whose folder is not yet tracked is a no-op', async () => {
+    const { vault, watcher } = setup([], []);
+
+    watcher.emit({ type: 'changed', path: 'Unknown/.folder.md' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+  });
+});

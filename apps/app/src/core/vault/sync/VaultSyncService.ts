@@ -1,5 +1,6 @@
 import type { Vault } from '../models/Vault';
 import type { Page } from '../models/Page';
+import type { Folder } from '../models/Folder';
 import type { VaultFileSystemWatcher } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileChange } from '../providers/VaultFileSystemWatcher';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
@@ -18,7 +19,10 @@ import { VaultPath } from '../ingest/VaultPath';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
 import type { IdGenerator } from '../../shared/identity/IdGenerator';
 import { VaultSyncCoordinator, type SyncKey } from './VaultSyncCoordinator';
-import { reconcilePageArchiveMetadata } from './reconcileArchiveMetadata';
+import {
+  reconcilePageArchiveMetadata,
+  reconcileFolderArchiveMetadata,
+} from './reconcileArchiveMetadata';
 import { persistSyncedPageDocument } from './persistSyncedPageDocument';
 
 export class VaultSyncService {
@@ -340,8 +344,56 @@ export class VaultSyncService {
     }
   }
 
+  /**
+   * A `.folder.md` changed in place (path unchanged) — e.g. its `status`
+   * field was hand-edited to `archived` without the folder actually moving
+   * into Archive/. handleMoved's folder branch already reconciles this
+   * invariant when the path changes; this mirrors it for the no-move case,
+   * which was previously dropped entirely (handleChanged had no folder
+   * branch at all). Only `status` needs to come from the fresh read —
+   * evaluateArchiveMetadataRepair only ever inspects `path`/`metadata.status`,
+   * and reconcileFolderArchiveMetadata/correctFolderArchiveMetadata compute
+   * the rest of the correction (archivedAt/originalPath/originalParentId)
+   * themselves.
+   */
+  private async handleFolderMetadataChanged(absolutePath: string): Promise<void> {
+    const folder = this.vault.getFolderByPath(this.directoryOf(absolutePath));
+
+    if (!folder) {
+      return;
+    }
+
+    const fileContent = await this.fileSystem.readFile(absolutePath);
+    const { frontmatter } = this.frontmatterParser.parse(fileContent);
+    const status = frontmatter.status === 'archived' ? 'archived' : 'active';
+
+    if (status === folder.metadata.status) {
+      return;
+    }
+
+    const candidateFolder: Folder = {
+      ...folder,
+      metadata: { ...folder.metadata, status },
+    };
+
+    await reconcileFolderArchiveMetadata(
+      {
+        vault: this.vault,
+        fileSystem: this.fileSystem,
+        serializer: this.frontmatterSerializer,
+      },
+      candidateFolder
+    );
+  }
+
   private async handleChanged(path: string): Promise<void> {
     const absolutePath = this.resolvePath(path);
+
+    if (VaultPath.filename(absolutePath) === '.folder.md') {
+      await this.handleFolderMetadataChanged(absolutePath);
+      return;
+    }
+
     const page = this.vault.getPageByPath(absolutePath);
 
     if (!page) {
@@ -433,9 +485,22 @@ export class VaultSyncService {
     // same event (the OS/notify-crate reports one `moved` event for a
     // directory regardless of whether its parent changed — confirmed in
     // the ADR's Phase 1 review) and Vault.moveFolder() doesn't distinguish
-    // them either, so this one branch reconciles both. No archive-metadata
-    // repair applies to folders. moveFolder()'s own cascade updates every
-    // descendant folder/page path — this handler never enumerates them.
+    // them either, so this one branch reconciles both.
+    //
+    // ADR-026's Sync amendment: archive-metadata repair now applies to
+    // folders too (an archived folder dragged out of Archive/ externally
+    // must clear its own status immediately, mirroring the page branch
+    // below exactly) — evaluated against the *candidate* destination
+    // folder before any Vault commit, same single-mutation guarantee the
+    // page branch already has, for the same reason (a subscriber must
+    // never observe a "moved but still archived" intermediate state). A
+    // move that doesn't need repair (the common case — an active folder,
+    // or an already-archived folder moved within Archive/) falls through
+    // to the original, cheaper single-notify moveFolder() path. Only the
+    // moved folder's own metadata is ever touched — moveFolder()'s/
+    // correctFolderArchiveMetadata()'s shared cascade updates every
+    // descendant folder/page path but never their metadata; this handler
+    // never enumerates them.
     const folder = this.vault.getFolderByPath(absoluteFrom);
 
     if (folder) {
@@ -443,7 +508,25 @@ export class VaultSyncService {
       const resolvedFolderParentId =
         folderDestinationParentId === undefined ? folder.parentId : folderDestinationParentId;
 
-      this.vault.moveFolder(folder.id, absoluteTo, resolvedFolderParentId);
+      const candidateFolder: Folder = {
+        ...folder,
+        path: absoluteTo,
+        parentId: resolvedFolderParentId,
+      };
+
+      const reconciledFolder = await reconcileFolderArchiveMetadata(
+        {
+          vault: this.vault,
+          fileSystem: this.fileSystem,
+          serializer: this.frontmatterSerializer,
+        },
+        candidateFolder
+      );
+
+      if (!reconciledFolder) {
+        this.vault.moveFolder(folder.id, absoluteTo, resolvedFolderParentId);
+      }
+
       return;
     }
 
