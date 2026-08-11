@@ -108,6 +108,20 @@ export function reservedFolderIdForName(name: string): ReservedFolderId | undefi
 }
 
 /**
+ * Whether `path` is `.clutter` itself or something nested inside it —
+ * Clutter's own application-infrastructure directory, never user content.
+ * This is the one path the vault/filesystem discovery pipeline (initial
+ * scan and incremental sync alike) excludes by name; every other
+ * dot-prefixed file or folder (`.git`, `.obsidian`, a user's own
+ * `.Project`, etc.) is ordinary vault content and must be discovered like
+ * anything else — the vault stays a normal, portable Markdown filesystem.
+ */
+export function isClutterInternalPath(vaultRoot: string, path: string): boolean {
+  const clutterPath = `${vaultRoot}/${RESERVED_FOLDER_IDS.clutter}`;
+  return path === clutterPath || path.startsWith(`${clutterPath}/`);
+}
+
+/**
  * Top-level folder names owned by Clutter as application infrastructure.
  * These are real Folder entities in the vault, but they are not generic
  * user content and should not surface in generic folder navigation

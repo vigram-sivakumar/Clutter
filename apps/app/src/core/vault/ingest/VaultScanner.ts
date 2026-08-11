@@ -2,7 +2,7 @@ import type { FolderFrontmatter } from './frontmatter';
 import type { VaultScanResult } from './VaultScanResult';
 import type { VaultFileSystem } from '../providers';
 import { DocumentLoader } from './DocumentLoader';
-import { VaultPath } from './VaultPath';
+import { isClutterInternalPath } from '../initialize/ReservedResources';
 
 export class VaultScanner {
   private readonly documentLoader: DocumentLoader;
@@ -44,12 +44,12 @@ export class VaultScanner {
       (entry) =>
         !entry.isDirectory &&
         entry.name.endsWith('.md') &&
-        entry.name !== '.folder.md' &&
-        !VaultPath.isHidden(entry.name)
+        entry.name !== '.folder.md'
     );
 
     const childDirectories = entries.filter(
-      (entry) => entry.isDirectory && !VaultPath.isHidden(entry.name)
+      (entry) =>
+        entry.isDirectory && !isClutterInternalPath(result.rootPath, entry.path)
     );
 
     let frontmatter: FolderFrontmatter | null = null;

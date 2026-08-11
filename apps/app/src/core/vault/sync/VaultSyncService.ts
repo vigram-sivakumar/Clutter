@@ -11,6 +11,7 @@ import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FrontmatterParser, type ParsedMarkdown } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultPath } from '../ingest/VaultPath';
+import { isClutterInternalPath } from '../initialize/ReservedResources';
 import { VaultSyncCoordinator, type SyncKey } from './VaultSyncCoordinator';
 import { reconcilePageArchiveMetadata } from './reconcileArchiveMetadata';
 
@@ -124,6 +125,13 @@ export class VaultSyncService {
 
   private async handleCreated(path: string, isDirectory: boolean): Promise<void> {
     const absolutePath = this.resolvePath(path);
+
+    // Same exclusion VaultScanner applies at startup (ReservedResources'
+    // isClutterInternalPath) — Clutter's own application data, never
+    // discovered as vault content by either path.
+    if (isClutterInternalPath(this.vault.root, absolutePath)) {
+      return;
+    }
 
     if (isDirectory) {
       await this.handleFolderCreated(absolutePath);
