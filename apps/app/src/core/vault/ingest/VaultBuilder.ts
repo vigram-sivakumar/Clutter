@@ -2,6 +2,7 @@ import { Vault } from '../models';
 import type { VaultScanResult } from './VaultScanResult';
 import { PageBuilder } from './PageBuilder';
 import { FolderBuilder } from './FolderBuilder';
+import { buildDiscoveredEntities } from './buildDiscoveredEntities';
 import {
   TagBuilder,
   TaskBuilder,
@@ -9,8 +10,7 @@ import {
   KnowledgeGraphBuilder,
   VaultProjectionBuilder,
 } from '../knowledge';
-import type { Folder, TagMetadataEntry } from '../models';
-import { IdentityResolver } from './identity/IdentityResolver';
+import type { TagMetadataEntry } from '../models';
 
 export class VaultBuilder {
   private readonly pageBuilder = new PageBuilder();
@@ -19,60 +19,20 @@ export class VaultBuilder {
   private readonly taskBuilder = new TaskBuilder();
   private readonly embedBuilder = new EmbedBuilder();
   private readonly knowledgeGraphBuilder = new KnowledgeGraphBuilder();
-  private readonly identityResolver = new IdentityResolver();
   private readonly projectionBuilder = new VaultProjectionBuilder();
 
   build(
     scanResult: VaultScanResult,
     tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map()
   ): Vault {
-    const rootPath = scanResult.rootPath;
-    const folderIdsByPath = new Map<string, string>();
-
-    for (const directory of scanResult.directories) {
-      const identity = this.identityResolver.resolveFolder(
-        directory.frontmatter?.id,
-        directory.path
-      );
-
-      folderIdsByPath.set(directory.path, identity.id);
-    }
-
-    // Entries whose parent is the vault root are top-level: the root itself
-    // is not a navigable Folder in the domain model, so its children's
-    // parentId is null rather than the root's id.
-    const resolveParentId = (parentPath: string | null): string | null => {
-      if (parentPath === null || parentPath === rootPath) {
-        return null;
-      }
-
-      const parentId = folderIdsByPath.get(parentPath);
-
-      if (!parentId) {
-        throw new Error(`Missing parent folder "${parentPath}".`);
-      }
-
-      return parentId;
-    };
-
     // The vault root itself is scanned as a directory (parentPath === null)
     // so its id can be resolved for its children's parentId, but it is not
-    // a navigable Folder in the domain model.
-    const folders: Folder[] = scanResult.directories
-      .filter((directory) => directory.parentPath !== null)
-      .map((directory) =>
-        this.folderBuilder.build({
-          directory,
-          parentId: resolveParentId(directory.parentPath),
-        })
-      );
-
-    const pages = scanResult.pages.map((page) => {
-      return this.pageBuilder.build({
-        parentId: resolveParentId(page.directoryPath),
-        page,
-      });
-    });
+    // a navigable Folder in the domain model — rootIsFolder: false.
+    const { folders, pages } = buildDiscoveredEntities(
+      scanResult,
+      { rootIsFolder: false, rootParentId: null },
+      { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
+    );
 
     // Pass 4:
     // Build vault-wide projections from page analysis.

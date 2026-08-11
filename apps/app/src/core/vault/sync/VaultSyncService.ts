@@ -6,9 +6,11 @@ import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { PageBuilder } from '../ingest/PageBuilder';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
+import { VaultScanner } from '../ingest/VaultScanner';
+import { buildDiscoveredEntities } from '../ingest/buildDiscoveredEntities';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
-import { FrontmatterParser, type ParsedMarkdown } from '../ingest/FrontmatterParser';
+import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultPath } from '../ingest/VaultPath';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
@@ -22,6 +24,7 @@ export class VaultSyncService {
   private readonly pageBuilder: PageBuilder;
   private readonly pageRebuilder: PageRebuilder;
   private readonly folderBuilder: FolderBuilder;
+  private readonly vaultScanner: VaultScanner;
   private readonly documentRegistry: DocumentRegistry;
   private readonly frontmatterParser: FrontmatterParser;
   private readonly frontmatterSerializer: FrontmatterSerializer;
@@ -39,6 +42,7 @@ export class VaultSyncService {
     this.pageBuilder = new PageBuilder();
     this.pageRebuilder = new PageRebuilder();
     this.folderBuilder = new FolderBuilder();
+    this.vaultScanner = new VaultScanner(fileSystem);
     this.documentRegistry = documentRegistry;
     this.frontmatterParser = new FrontmatterParser();
     this.frontmatterSerializer = frontmatterSerializer;
@@ -187,12 +191,26 @@ export class VaultSyncService {
   }
 
   /**
-   * ADR-024: an externally-created directory becomes a Folder the same
-   * way VaultScanner treats one at startup — .folder.md supplies optional
-   * frontmatter if present, never required for the directory to count
-   * (confirmed: every directory is a Folder regardless of whether it has
-   * one). Skips (rather than guesses) when the parent folder isn't yet
+   * ADR-024: an externally-created directory becomes a Folder the same way
+   * VaultScanner treats one at startup — .folder.md supplies optional
+   * frontmatter if present, never required for the directory to count.
+   * Skips (rather than guesses) when the parent folder isn't yet
    * resolvable, same reasoning handleCreated's page branch already uses.
+   *
+   * Scans the directory's entire subtree (VaultScanner.scan), not just the
+   * directory itself — a directory arriving via a single `created` event
+   * (e.g. a folder moved or dragged into the vault from outside) means its
+   * whole contents just entered the vault at once, and any `created`
+   * events for files already inside it may have already arrived and been
+   * dropped (their parent folder wasn't resolvable yet) or may never
+   * arrive at all, depending on how the OS/editor reports the operation.
+   * Reading the actual current disk state here — the same discovery rules
+   * VaultBuilder's initial scan uses, via the shared
+   * buildDiscoveredEntities helper — is what makes this reconciliation
+   * correct regardless of which events did or didn't fire for its
+   * descendants (see docs/architecture-specification.md §4: Sync reacts to
+   * "something changed here," the actual resulting state is determined by
+   * reading disk, not by trusting one event to mean one entity).
    */
   private async handleFolderCreated(absolutePath: string): Promise<void> {
     if (this.vault.getFolderByPath(absolutePath)) {
@@ -205,24 +223,31 @@ export class VaultSyncService {
       return;
     }
 
-    const folderMetadataPath = `${absolutePath}/.folder.md`;
-    let frontmatter: ParsedMarkdown['frontmatter'] | null = null;
+    const scanResult = await this.vaultScanner.scan(absolutePath);
+    const { folders, pages } = buildDiscoveredEntities(
+      scanResult,
+      { rootIsFolder: true, rootParentId: parentId },
+      { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
+    );
 
-    if (await this.fileSystem.exists(folderMetadataPath)) {
-      const raw = await this.fileSystem.readFile(folderMetadataPath);
-      frontmatter = this.frontmatterParser.parse(raw).frontmatter;
+    for (const folder of folders) {
+      // A genuine duplicate id (or a folder some other event already added
+      // mid-scan) is skipped rather than thrown — one bad entry must never
+      // abort ingestion of the rest of the subtree.
+      if (this.vault.getFolder(folder.id) || this.vault.getFolderByPath(folder.path)) {
+        continue;
+      }
+
+      this.vault.addFolder(folder);
     }
 
-    const folder = this.folderBuilder.build({
-      parentId,
-      directory: {
-        path: absolutePath,
-        parentPath: null,
-        frontmatter,
-      },
-    });
+    for (const page of pages) {
+      if (this.vault.getPage(page.id) || this.vault.getPageByPath(page.path)) {
+        continue;
+      }
 
-    this.vault.addFolder(folder);
+      this.vault.addPage(page);
+    }
   }
 
   private async handleChanged(path: string): Promise<void> {

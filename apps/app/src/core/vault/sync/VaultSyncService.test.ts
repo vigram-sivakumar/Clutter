@@ -341,6 +341,67 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
     expect(vault.getPageByPath(`${ROOT}/Projects/.folder.md`)).toBeUndefined();
   });
 
+  it('created: a directory moved into the vault with existing notes and subfolders is ingested as a full subtree, not just the empty directory', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    await fileSystem.createDirectory(`${ROOT}/Projects/Design`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/Roadmap.md`,
+      '---\nid: page-roadmap\n---\ncontent'
+    );
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/Design/Mockup.md`,
+      '---\nid: page-mockup\n---\ncontent'
+    );
+
+    // A single 'created' event for the top-level directory is all the OS
+    // guarantees when a folder is dragged/moved in from outside the vault
+    // — events for its pre-existing descendants may or may not fire.
+    watcher.emit({ type: 'created', path: 'Projects', isDirectory: true });
+    await flush();
+
+    const projects = vault.getFolderByPath(`${ROOT}/Projects`);
+    const design = vault.getFolderByPath(`${ROOT}/Projects/Design`);
+    const roadmap = vault.getPageByPath(`${ROOT}/Projects/Roadmap.md`);
+    const mockup = vault.getPageByPath(`${ROOT}/Projects/Design/Mockup.md`);
+
+    expect(projects).toBeDefined();
+    expect(projects!.parentId).toBeNull();
+    expect(design).toBeDefined();
+    expect(design!.parentId).toBe(projects!.id);
+    expect(roadmap).toBeDefined();
+    expect(roadmap!.parentId).toBe(projects!.id);
+    expect(mockup).toBeDefined();
+    expect(mockup!.parentId).toBe(design!.id);
+  });
+
+  it('created: a note added (via Finder) inside a directory right after that directory was itself just moved in is still discovered', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/First.md`,
+      '---\nid: page-first\n---\ncontent'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects', isDirectory: true });
+    await flush();
+
+    // A file created inside the folder arrives as its own event; even if
+    // it raced ahead of (or was already covered by) the subtree scan, the
+    // page must end up known exactly once.
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/Second.md`,
+      '---\nid: page-second\n---\ncontent'
+    );
+    watcher.emit({ type: 'created', path: 'Projects/Second.md', isDirectory: false });
+    await flush();
+
+    const projects = vault.getFolderByPath(`${ROOT}/Projects`);
+    expect(vault.getPageByPath(`${ROOT}/Projects/First.md`)!.parentId).toBe(projects!.id);
+    expect(vault.getPageByPath(`${ROOT}/Projects/Second.md`)!.parentId).toBe(projects!.id);
+    expect(vault.pageCount).toBe(2);
+  });
+
   it('created: a nested directory inside an unresolvable parent is safely ignored, same as a page would be', async () => {
     const { vault, fileSystem, watcher } = setup();
     await fileSystem.createDirectory(`${ROOT}/unknown-parent/Nested`);
