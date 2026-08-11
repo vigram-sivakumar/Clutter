@@ -64,7 +64,7 @@ export class MembershipSelector {
   public getNotesChildPages(folderId: string | null): EffectivePage[] {
     return this.effectivePageState
       .getChildPages(folderId)
-      .filter((page) => this.isNotesPage(page));
+      .filter((page) => this.isNotesPage(page) && this.isVisiblePage(page));
   }
 
   /**
@@ -77,7 +77,7 @@ export class MembershipSelector {
   public getDailyNoteChildPages(folderId: string | null): EffectivePage[] {
     return this.effectivePageState
       .getChildPages(folderId)
-      .filter((page) => this.isDailyNotePage(page));
+      .filter((page) => this.isDailyNotePage(page) && this.isVisiblePage(page));
   }
 
   /**
@@ -119,11 +119,65 @@ export class MembershipSelector {
    * ADR-022's amendment recording this correction.
    */
   public isWorkspaceFolder(folder: Folder): boolean {
-    return folder.parentId === null && !this.isSystemFolder(folder);
+    return folder.parentId === null && !this.isSystemFolder(folder) && this.isVisibleFolder(folder);
   }
 
   /** Every root folder that belongs to Workspace — see isWorkspaceFolder. */
   public getWorkspaceFolders(): Folder[] {
     return this.query.getRootFolders().filter((folder) => this.isWorkspaceFolder(folder));
+  }
+
+  /**
+   * Presentation-only visibility: a name starting with `.` is hidden from
+   * Clutter's UI, at every tree depth — not just system/reserved folders.
+   * This is deliberately separate from isSystemFolder/isWorkspaceFolder:
+   * `.clutter` is hidden for both reasons at once (system AND dot-prefixed),
+   * but `.obsidian`/`.Untitled`/a user's own `.Project` are hidden by this
+   * rule alone — they are ordinary, fully-synced vault content, never
+   * excluded from scanning or sync (VaultScanner/VaultSyncService only ever
+   * exclude `.clutter` itself, via isClutterInternalPath — see
+   * docs/architecture-specification.md and ReservedResources.ts). Renaming
+   * `Project` -> `.Project` externally still updates the Vault (Sync's
+   * job); this predicate only decides whether the *already-synced* result
+   * renders, which is why it lives here and not in VaultScanner/Sync.
+   */
+  public isHiddenName(name: string): boolean {
+    return name.startsWith('.');
+  }
+
+  public isVisibleFolder(folder: Folder): boolean {
+    return !this.isHiddenName(folder.name);
+  }
+
+  public isVisiblePage(page: Pick<EffectivePage | Page, 'name'>): boolean {
+    return !this.isHiddenName(page.name);
+  }
+
+  /**
+   * Every child folder of parentId that should render — the nested-level
+   * counterpart to getWorkspaceFolders' root-level dot-hiding. Nested
+   * folders have no Workspace/system-folder membership question (only the
+   * root does — see isWorkspaceFolder's doc comment and FolderTree.tsx),
+   * but they still need this one presentation filter applied, so this
+   * wraps VaultQuery.getChildFolders() the same way getWorkspaceFolders
+   * wraps getRootFolders() rather than leaving nested callers to reapply
+   * isVisibleFolder themselves.
+   */
+  public getVisibleChildFolders(parentId: string): Folder[] {
+    return this.query
+      .getChildFolders(parentId)
+      .filter((folder) => this.isVisibleFolder(folder));
+  }
+
+  /**
+   * Every child page of parentId that should render, regardless of type —
+   * the un-narrowed counterpart to getNotesChildPages/getDailyNoteChildPages
+   * for surfaces (a folder's own Collection page) that show every page a
+   * folder contains, not just one type's.
+   */
+  public getVisibleChildPages(parentId: string | null): EffectivePage[] {
+    return this.effectivePageState
+      .getChildPages(parentId)
+      .filter((page) => this.isVisiblePage(page));
   }
 }

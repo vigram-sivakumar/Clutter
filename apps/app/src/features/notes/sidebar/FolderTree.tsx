@@ -70,16 +70,16 @@ export interface SidebarRowActions {
 
 interface FolderTreeProps {
   // Folders only — folders have no draft concept (ADR-017 is scoped to
-  // pages), so query remains their sole, correct source for structural
-  // reads (a folder's children). Root-level Workspace membership goes
-  // through membershipSelector instead — see below.
+  // pages). Still threaded through (not read directly by this component
+  // beyond passing it to the recursive call below) because the recursive
+  // <FolderTree> instance needs it.
   query: VaultQuery;
   // ADR-023: the single owner of "is this folder part of Workspace" — used
-  // only for the true root's folder list (getWorkspaceFolders()); nested
-  // folders keep reading structurally through query.getChildFolders(),
-  // which has no membership question to answer (a folder already inside a
-  // non-reserved folder is never itself a reserved folder, so nothing to
-  // classify one layer down).
+  // for the true root's folder list (getWorkspaceFolders()) and, one layer
+  // down, for dot-prefixed-name hiding via getVisibleChildFolders() — a
+  // folder already inside a non-reserved folder is never itself a
+  // reserved folder (nothing to classify one layer down for *that*
+  // question), but a dot-prefixed name still needs hiding at every depth.
   membershipSelector: MembershipSelector;
   workspace: Workspace;
   // The folder whose children we're currently rendering.
@@ -222,13 +222,16 @@ export function FolderTree({
   // Workspace" (formerly query.getVisibleRootFolders() here, and
   // independently query.getRootFolders() unfiltered in
   // toCollectionPageModel's Workspace branch — the two-definition bug
-  // ADR-023 exists to close). Nested: query.getChildFolders() remains the
-  // correct structural source — no membership question applies one layer
-  // below the root.
+  // ADR-023 exists to close). Nested: no Workspace/system-folder membership
+  // question applies one layer below the root, but dot-prefixed names are
+  // still hidden from the UI at every depth — MembershipSelector.
+  // getVisibleChildFolders() is the nested-level counterpart to
+  // getWorkspaceFolders' root-level dot-hiding, wrapping the same
+  // query.getChildFolders() structural source.
   const rootFolders =
     parentId === null
       ? membershipSelector.getWorkspaceFolders()
-      : query.getChildFolders(parentId);
+      : membershipSelector.getVisibleChildFolders(parentId);
 
   // Only meaningful at the true root — a nested folder's own pages are
   // already rendered via getNotesChildPages(folder.id) below, per folder.
@@ -267,7 +270,7 @@ export function FolderTree({
         // both why draft accumulation isn't a concern here and why the
         // narrowing is necessary.
         const childPages = membershipSelector.getNotesChildPages(folder.id);
-        const subFolders = query.getChildFolders(folder.id);
+        const subFolders = membershipSelector.getVisibleChildFolders(folder.id);
         // Checks if the folder is empty
         const isEmpty = subFolders.length === 0 && childPages.length === 0;
         // Empty folders default to collapsed rather than Workspace's normal

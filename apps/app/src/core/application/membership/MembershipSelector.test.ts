@@ -230,6 +230,96 @@ describe('MembershipSelector.isSystemFolder', () => {
   });
 });
 
+describe('MembershipSelector dot-prefixed name hiding (UI presentation only, not sync)', () => {
+  it('a dot-prefixed root folder (.Project) is discoverable via VaultQuery but hidden from getWorkspaceFolders', () => {
+    const visible = makeFolder({ id: 'folder-visible', name: 'Project', path: `${ROOT}/Project` });
+    const hidden = makeFolder({ id: 'folder-hidden', name: '.Project', path: `${ROOT}/.Project` });
+    const { membershipSelector, query } = setup([visible, hidden]);
+
+    // The underlying vault/query layer still knows about it — nothing
+    // about scanning/sync is affected by this UI-only rule.
+    expect(query.getRootFolders().map((f) => f.id)).toEqual(
+      expect.arrayContaining(['folder-visible', 'folder-hidden'])
+    );
+
+    // Only the presentation layer hides it.
+    expect(membershipSelector.isWorkspaceFolder(hidden)).toBe(false);
+    expect(membershipSelector.isWorkspaceFolder(visible)).toBe(true);
+    expect(membershipSelector.getWorkspaceFolders().map((f) => f.id)).toEqual([
+      'folder-visible',
+    ]);
+  });
+
+  it('a well-known dotfolder from another application (.obsidian) is hidden the same way an ordinary dot-prefixed folder is — no app-specific handling', () => {
+    const obsidian = makeFolder({ id: 'folder-obsidian', name: '.obsidian', path: `${ROOT}/.obsidian` });
+    const { membershipSelector } = setup([obsidian]);
+
+    expect(membershipSelector.isVisibleFolder(obsidian)).toBe(false);
+    expect(membershipSelector.getWorkspaceFolders()).toHaveLength(0);
+  });
+
+  it('a nested dot-prefixed folder (Project/.Untitled) is hidden one layer below the root, where isWorkspaceFolder does not even apply', () => {
+    const parent = makeFolder({ id: 'folder-parent', name: 'Project', path: `${ROOT}/Project` });
+    const visibleChild = makeFolder({
+      id: 'folder-child-visible',
+      name: 'Notes',
+      path: `${ROOT}/Project/Notes`,
+      parentId: 'folder-parent',
+    });
+    const hiddenChild = makeFolder({
+      id: 'folder-child-hidden',
+      name: '.Untitled',
+      path: `${ROOT}/Project/.Untitled`,
+      parentId: 'folder-parent',
+    });
+    const { membershipSelector, query } = setup([parent, visibleChild, hiddenChild]);
+
+    // Still fully present structurally.
+    expect(query.getChildFolders('folder-parent').map((f) => f.id)).toEqual(
+      expect.arrayContaining(['folder-child-visible', 'folder-child-hidden'])
+    );
+
+    expect(membershipSelector.getVisibleChildFolders('folder-parent').map((f) => f.id)).toEqual([
+      'folder-child-visible',
+    ]);
+  });
+
+  it('a dot-prefixed page (.Untitled.md) is discoverable via EffectivePageState but hidden from getNotesChildPages/getVisibleChildPages', () => {
+    const visible = makePage({ id: 'page-visible', name: 'Note', path: `${ROOT}/Note.md`, parentId: null });
+    const hidden = makePage({ id: 'page-hidden', name: '.Untitled', path: `${ROOT}/.Untitled.md`, parentId: null });
+    const { membershipSelector, effectivePageState } = setup([], [visible, hidden]);
+
+    expect(effectivePageState.getChildPages(null).map((p) => p.id)).toEqual(
+      expect.arrayContaining(['page-visible', 'page-hidden'])
+    );
+
+    expect(membershipSelector.getNotesChildPages(null).map((p) => p.id)).toEqual([
+      'page-visible',
+    ]);
+    expect(membershipSelector.getVisibleChildPages(null).map((p) => p.id)).toEqual([
+      'page-visible',
+    ]);
+  });
+
+  it('renaming Project -> .Project flips visibility immediately (the reconciled Vault state is the only input; no separate hidden flag to fall out of sync)', () => {
+    const folder = makeFolder({ id: 'folder-1', name: 'Project', path: `${ROOT}/Project` });
+    const { membershipSelector, vault } = setup([folder]);
+
+    expect(membershipSelector.getWorkspaceFolders().map((f) => f.id)).toEqual(['folder-1']);
+
+    // Simulates what VaultSyncService.handleMoved does on an external
+    // rename: it mutates the Vault directly, never touches this
+    // presentation layer.
+    vault.moveFolder('folder-1', `${ROOT}/.Project`, null);
+
+    expect(membershipSelector.getWorkspaceFolders()).toHaveLength(0);
+
+    // And back again — visibility recovers immediately, no stale state.
+    vault.moveFolder('folder-1', `${ROOT}/Project`, null);
+    expect(membershipSelector.getWorkspaceFolders().map((f) => f.id)).toEqual(['folder-1']);
+  });
+});
+
 describe('MembershipSelector Notes/Daily Notes classification (ADR-023 §4)', () => {
   it('isNotesPage/isDailyNotePage are identity-driven (page.type), independent of folderId', () => {
     const { membershipSelector, effectivePageState } = setup(

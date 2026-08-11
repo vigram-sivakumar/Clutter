@@ -146,20 +146,23 @@ function toFilteredCollectionPageModel(
 
 function toFolderCollectionPageModel(
   folder: Folder,
-  query: VaultQuery,
-  effectivePageState: EffectivePageState,
   membershipSelector: MembershipSelector,
   workspace: Workspace,
   actions: CollectionPageActions
 ): CollectionPageModel {
-  const folders = query
-    .getChildFolders(folder.id)
+  // Dot-prefixed names are hidden from the UI at every depth (not just
+  // Workspace root) — MembershipSelector's getVisibleChildFolders/
+  // getVisibleChildPages apply that one presentation filter without
+  // narrowing by page type, since a folder's own Collection page shows
+  // every child it has, not just Notes.
+  const folders = membershipSelector
+    .getVisibleChildFolders(folder.id)
     .map((child) =>
       toCollectionEntry(child, actions, workspace.activeFolderId === child.id)
     );
 
-  const notes = effectivePageState
-    .getChildPages(folder.id)
+  const notes = membershipSelector
+    .getVisibleChildPages(folder.id)
     .map((child) =>
       toCollectionEntry(child, actions, workspace.activePageId === child.id)
     );
@@ -206,14 +209,7 @@ export function toCollectionPageModel(
   actions: CollectionPageActions
 ): CollectionPageModel {
   if (isFolderSource(source)) {
-    return toFolderCollectionPageModel(
-      source,
-      query,
-      effectivePageState,
-      membershipSelector,
-      workspace,
-      actions
-    );
+    return toFolderCollectionPageModel(source, membershipSelector, workspace, actions);
   }
 
   return toFilteredCollectionPageModel(
