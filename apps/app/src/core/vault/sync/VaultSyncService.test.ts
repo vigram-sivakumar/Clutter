@@ -833,6 +833,38 @@ describe('VaultSyncService: sync correctness', () => {
     // body content without ever telling the user it existed.
   });
 
+  it('repeated external changes to the same open page: every one of several consecutive external edits updates the open session, not just the first', async () => {
+    // Regression test: DocumentSession.isDirty is `currentRevision !==
+    // savedRevision`. Committing an externally-synced revision without
+    // also marking it saved left isDirty permanently true after the very
+    // first external change, which made every handler's `!session.isDirty`
+    // guard block every subsequent external change to that same open page
+    // — the note effectively stopped syncing after one update.
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { fileSystem, watcher, documentRegistry } = setup([existing]);
+
+    const session = documentRegistry.open(existing.id, existing.source.markdown);
+    expect(session.isDirty).toBe(false);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nExternal edit 1');
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+    expect(session.currentRevision.markdown).toBe('External edit 1');
+    expect(session.isDirty).toBe(false);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nExternal edit 2');
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+    expect(session.currentRevision.markdown).toBe('External edit 2');
+    expect(session.isDirty).toBe(false);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nExternal edit 3');
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+    expect(session.currentRevision.markdown).toBe('External edit 3');
+    expect(session.isDirty).toBe(false);
+  });
+
   it('duplicate events: three identical changed events for the same content do not corrupt vault state', async () => {
     const existing = buildPage('Note.md', 'Original body', 'note-1');
     const { vault, fileSystem, watcher } = setup([existing]);

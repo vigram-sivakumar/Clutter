@@ -10,6 +10,7 @@ import { VaultScanner } from '../ingest/VaultScanner';
 import { buildDiscoveredEntities } from '../ingest/buildDiscoveredEntities';
 import { resolveDuplicateId } from '../ingest/identity/resolveDuplicateId';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
+import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
 import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
@@ -360,10 +361,27 @@ export class VaultSyncService {
     const session = this.documentRegistry.get(rebuiltPage.id);
 
     if (session && !session.isDirty) {
-      session.commit(new DocumentTransaction(parsedMarkdown.body));
+      this.applyExternalRevision(session, parsedMarkdown.body);
     }
 
     await this.reconcileArchiveMetadataForPage(rebuiltPage.id);
+  }
+
+  /**
+   * Commits an externally-synced revision into an open session and
+   * immediately marks it saved, since it already reflects what's on disk
+   * — there is nothing pending to persist. Without this, DocumentSession's
+   * isDirty (`currentRevision !== savedRevision`) flips true after the
+   * first external commit and never resets on its own, so the `!isDirty`
+   * guard every one of this file's three commit call sites uses would
+   * then block every subsequent external change to the same open page
+   * until an unrelated local save happened to run. This is the one place
+   * that pairing happens, shared by all three call sites rather than
+   * repeated at each.
+   */
+  private applyExternalRevision(session: DocumentSession, markdown: string): void {
+    const revision = session.commit(new DocumentTransaction(markdown));
+    session.markSaved(revision);
   }
 
   /**
@@ -488,7 +506,7 @@ export class VaultSyncService {
     const session = this.documentRegistry.get(reconciled.id);
 
     if (session && !session.isDirty) {
-      session.commit(new DocumentTransaction(reconciled.source.markdown));
+      this.applyExternalRevision(session, reconciled.source.markdown);
     }
   }
 
@@ -517,7 +535,7 @@ export class VaultSyncService {
     const session = this.documentRegistry.get(rebuiltPage.id);
 
     if (session && !session.isDirty) {
-      session.commit(new DocumentTransaction(rebuiltPage.source.markdown));
+      this.applyExternalRevision(session, rebuiltPage.source.markdown);
     }
   }
 
