@@ -291,4 +291,34 @@ describe('FolderOperations.duplicate', () => {
     // The pre-existing "copy" folder is untouched.
     expect(vault.getFolder('folder-existing-copy')?.path).toBe(`${ROOT}/Projects copy`);
   });
+
+  it('duplicating a duplicate produces "copy 2", never "copy copy"', async () => {
+    const { vault, fileSystem, watcher, folderOperations } = setup();
+
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    vault.addFolder(makeFolder('folder-projects', `${ROOT}/Projects`));
+
+    const firstDuplicatePromise = folderOperations.duplicate('folder-projects');
+    await flush();
+    watcher.emit({
+      type: 'created',
+      path: relativePath(`${ROOT}/Projects copy`),
+      isDirectory: true,
+    });
+    await flush();
+    const firstCopyId = await firstDuplicatePromise;
+    expect(vault.getFolder(firstCopyId)?.path).toBe(`${ROOT}/Projects copy`);
+
+    const secondDuplicatePromise = folderOperations.duplicate(firstCopyId);
+    await flush();
+    watcher.emit({
+      type: 'created',
+      path: relativePath(`${ROOT}/Projects copy 2`),
+      isDirectory: true,
+    });
+    await flush();
+    const secondCopyId = await secondDuplicatePromise;
+
+    expect(vault.getFolder(secondCopyId)?.path).toBe(`${ROOT}/Projects copy 2`);
+  });
 });

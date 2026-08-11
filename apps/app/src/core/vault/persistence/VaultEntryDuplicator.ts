@@ -13,29 +13,49 @@ import type { VaultFileSystem } from '../providers/VaultFileSystem';
  * non-self-write-suppressed VaultFileSystem for exactly this reason — see
  * ADR-028.
  *
- * Composes VaultFileSystem's existing primitives rather than adding a
- * copyFile/copyDirectory method to that interface, per its own doc
- * comment ("CRUD operations should compose these primitives rather than
- * expanding this interface for every feature").
+ * Never constructs or inspects a destination name (ADR-029): the source
+ * path is the only thing this class supplies to `fileSystem.duplicate()`
+ * — the provider decides the collision-safe name and returns the actual
+ * resulting path, which this class treats as opaque.
  */
 export class VaultEntryDuplicator {
   constructor(private readonly fileSystem: VaultFileSystem) {}
 
-  async duplicateFile(sourcePath: string, destinationPath: string): Promise<void> {
-    const contents = await this.fileSystem.readFile(sourcePath);
-    await this.fileSystem.writeFile(destinationPath, contents);
+  async duplicateFile(sourcePath: string): Promise<string> {
+    return this.providerDuplicate(sourcePath, 'file');
   }
 
   /**
-   * Copies a directory and everything nested inside it, verbatim —
-   * including a `.folder.md` if one exists, and manufacturing nothing if
-   * one doesn't. Structural copy only; duplicate-id resolution for the
-   * copied pages/folders happens later, in VaultSyncService, once the
-   * watcher observes these writes.
+   * Duplicates a folder and everything nested inside it. Only the
+   * top-level destination name is a provider decision (ADR-029) — nested
+   * paths inside a brand-new folder can never collide with anything, so
+   * copying them is a plain structural walk using the existing
+   * createDirectory/readDirectory/readFile/writeFile primitives, exactly
+   * as before ADR-029. Never manufactures a `.folder.md` the original
+   * didn't have — the copy is structural only, whatever exists on disk.
    */
-  async duplicateDirectory(sourcePath: string, destinationPath: string): Promise<void> {
-    await this.fileSystem.createDirectory(destinationPath);
+  async duplicateDirectory(sourcePath: string): Promise<string> {
+    const destinationPath = await this.providerDuplicate(sourcePath, 'directory');
 
+    await this.copyContents(sourcePath, destinationPath);
+
+    return destinationPath;
+  }
+
+  private async providerDuplicate(
+    sourcePath: string,
+    kind: 'file' | 'directory'
+  ): Promise<string> {
+    if (!this.fileSystem.duplicate) {
+      throw new Error(
+        'VaultEntryDuplicator: this VaultFileSystem does not implement duplicate() (ADR-029)'
+      );
+    }
+
+    return this.fileSystem.duplicate(sourcePath, kind);
+  }
+
+  private async copyContents(sourcePath: string, destinationPath: string): Promise<void> {
     const entries = await this.fileSystem.readDirectory(sourcePath);
 
     for (const entry of entries) {
@@ -43,9 +63,11 @@ export class VaultEntryDuplicator {
       const to = `${destinationPath}/${entry.name}`;
 
       if (entry.isDirectory) {
-        await this.duplicateDirectory(from, to);
+        await this.fileSystem.createDirectory(to);
+        await this.copyContents(from, to);
       } else {
-        await this.duplicateFile(from, to);
+        const contents = await this.fileSystem.readFile(from);
+        await this.fileSystem.writeFile(to, contents);
       }
     }
   }

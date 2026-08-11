@@ -217,4 +217,31 @@ describe('PageOperations.duplicate', () => {
     // The pre-existing "copy" page is untouched.
     expect(vault.getPage('page-existing-copy')?.path).toBe(`${ROOT}/Idea copy.md`);
   });
+
+  it('duplicating a duplicate produces "copy 2", never "copy copy"', async () => {
+    const { vault, watcher, pageOperations } = setup();
+
+    const firstDuplicatePromise = pageOperations.duplicate('page-1');
+    await flush();
+    watcher.emit({
+      type: 'created',
+      path: relativePath(`${ROOT}/Idea copy.md`),
+      isDirectory: false,
+    });
+    await flush();
+    const firstCopyId = await firstDuplicatePromise;
+    expect(vault.getPage(firstCopyId)?.path).toBe(`${ROOT}/Idea copy.md`);
+
+    const secondDuplicatePromise = pageOperations.duplicate(firstCopyId);
+    await flush();
+    watcher.emit({
+      type: 'created',
+      path: relativePath(`${ROOT}/Idea copy 2.md`),
+      isDirectory: false,
+    });
+    await flush();
+    const secondCopyId = await secondDuplicatePromise;
+
+    expect(vault.getPage(secondCopyId)?.path).toBe(`${ROOT}/Idea copy 2.md`);
+  });
 });

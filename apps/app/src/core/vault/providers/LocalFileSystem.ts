@@ -6,8 +6,10 @@ import {
   writeTextFile,
   remove,
   rename,
+  copyFile,
 } from '@tauri-apps/plugin-fs';
 import type { VaultEntry, VaultFileSystem } from './VaultFileSystem';
+import { resolveLocalDuplicatePath } from './localDuplicateNaming';
 
 export class LocalVaultProvider implements VaultFileSystem {
   constructor(private readonly rootPath: string) {}
@@ -50,5 +52,25 @@ export class LocalVaultProvider implements VaultFileSystem {
       this.resolvePath(sourcePath),
       this.resolvePath(destinationPath)
     );
+  }
+
+  /**
+   * Local-disk's implementation of the provider-owned duplicate contract
+   * (ADR-029). Tauri's fs plugin has no "pick a non-colliding name"
+   * primitive (nor does any OS filesystem API), so this falls back to
+   * resolveLocalDuplicatePath's "name copy"/"name copy 2" convention —
+   * provider-internal policy, never seen by Application.
+   */
+  async duplicate(sourcePath: string, kind: 'file' | 'directory'): Promise<string> {
+    const resolvedSource = this.resolvePath(sourcePath);
+    const destinationPath = await resolveLocalDuplicatePath(this, resolvedSource, kind);
+
+    if (kind === 'directory') {
+      await mkdir(destinationPath, { recursive: true });
+    } else {
+      await copyFile(resolvedSource, destinationPath);
+    }
+
+    return destinationPath;
   }
 }

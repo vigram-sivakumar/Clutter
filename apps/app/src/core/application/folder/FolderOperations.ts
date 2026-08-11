@@ -248,8 +248,12 @@ export class FolderOperations {
    * duplicate-id resolution then assign the folder itself and every
    * descendant page/folder a fresh id, persisting each to disk. Never
    * manufactures a `.folder.md` the original didn't have — the copy is
-   * structural only (VaultEntryDuplicator.duplicateDirectory). Resolves
-   * once the Vault reflects the new folder, then selects it.
+   * structural only (VaultEntryDuplicator.duplicateDirectory).
+   *
+   * The destination path is whatever `duplicator` returns — this method
+   * never computes, inspects, or validates that string (ADR-029): naming
+   * a duplicate is provider policy, not an Application concern. Resolves
+   * once the Vault reflects the new folder at that path, then selects it.
    */
   public async duplicate(folderId: string): Promise<string> {
     if (!this.duplicator) {
@@ -262,12 +266,8 @@ export class FolderOperations {
       throw new Error(`Folder not found: ${folderId}`);
     }
 
-    const destinationPath = this.pathResolver.duplicateFolderPath(folder.path);
-    const duplicateAppeared = this.waitForFolderAtPath(destinationPath);
-
-    await this.duplicator.duplicateDirectory(folder.path, destinationPath);
-
-    const newFolderId = await duplicateAppeared;
+    const destinationPath = await this.duplicator.duplicateDirectory(folder.path);
+    const newFolderId = await this.waitForFolderAtPath(destinationPath);
 
     this.workspace.openFolder(newFolderId);
 

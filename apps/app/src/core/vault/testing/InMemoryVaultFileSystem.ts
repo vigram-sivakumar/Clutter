@@ -1,4 +1,5 @@
 import type { VaultEntry, VaultFileSystem } from '../providers/VaultFileSystem';
+import { resolveLocalDuplicatePath } from '../providers/localDuplicateNaming';
 
 /**
  * In-memory implementation of VaultFileSystem for tests.
@@ -139,6 +140,25 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     }
 
     throw new Error(`InMemoryVaultFileSystem: path not found: ${sourcePath}`);
+  }
+
+  /**
+   * Mirrors LocalFileSystem.duplicate() exactly (ADR-029): the same shared
+   * fallback naming decision (resolveLocalDuplicatePath), then a plain
+   * structural copy — a file's bytes, or an empty directory — at the
+   * resolved path.
+   */
+  async duplicate(sourcePath: string, kind: 'file' | 'directory'): Promise<string> {
+    const destinationPath = await resolveLocalDuplicatePath(this, sourcePath, kind);
+
+    if (kind === 'directory') {
+      await this.createDirectory(destinationPath);
+    } else {
+      const contents = await this.readFile(sourcePath);
+      await this.writeFile(destinationPath, contents);
+    }
+
+    return destinationPath;
   }
 
   /**

@@ -1148,9 +1148,15 @@ export class PageOperations {
    * it would an externally copied file; VaultSyncService.handleCreated's
    * existing duplicate-id resolution then assigns the copy a fresh id and
    * persists it to frontmatter, the same path an external duplicate
-   * already takes. Resolves once the Vault reflects the new page, then
-   * selects it (mirrors create()'s "select the new item" behavior) —
-   * never opens a second draft or calls the Gate itself.
+   * already takes.
+   *
+   * The destination path is whatever `duplicator` (ultimately, the
+   * storage provider) returns — this method never computes, inspects, or
+   * validates that string (ADR-029): naming a duplicate is provider
+   * policy, not an Application concern. Resolves once the Vault reflects
+   * the new page at that path, then selects it (mirrors create()'s
+   * "select the new item" behavior) — never opens a second draft or calls
+   * the Gate itself.
    *
    * Only valid for a real Vault page; there is nothing to duplicate for a
    * still-open, unpersisted draft.
@@ -1166,12 +1172,8 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
-    const destinationPath = this.pathResolver.duplicateNotePath(page.path);
-    const duplicateAppeared = this.waitForPageAtPath(destinationPath);
-
-    await this.duplicator.duplicateFile(page.path, destinationPath);
-
-    const newPageId = await duplicateAppeared;
+    const destinationPath = await this.duplicator.duplicateFile(page.path);
+    const newPageId = await this.waitForPageAtPath(destinationPath);
 
     this.workspace.openPage(newPageId);
 
