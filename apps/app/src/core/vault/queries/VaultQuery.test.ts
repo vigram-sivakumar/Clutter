@@ -150,6 +150,40 @@ describe('VaultQuery folder ordering', () => {
       'Zebra',
     ]);
   });
+
+  it('sorts numeric suffixes naturally, not lexicographically', () => {
+    // Plain string comparison would put "Project 10" before "Project 2"
+    // (lexicographic: '1' < '2'). Natural sort must not.
+    const folders = [
+      makeFolder('folder-10', 'Project 10'),
+      makeFolder('folder-1', 'Project'),
+      makeFolder('folder-2', 'Project 2'),
+    ];
+    const query = new VaultQuery(makeVault(folders));
+
+    expect(query.getRootFolders().map((f) => f.name)).toEqual([
+      'Project',
+      'Project 2',
+      'Project 10',
+    ]);
+  });
+
+  it('sorts duplicate "copy" names naturally, grouped with their source', () => {
+    const folders = [
+      makeFolder('folder-copy10', 'Project copy 10'),
+      makeFolder('folder-base', 'Project'),
+      makeFolder('folder-copy2', 'Project copy 2'),
+      makeFolder('folder-copy', 'Project copy'),
+    ];
+    const query = new VaultQuery(makeVault(folders));
+
+    expect(query.getRootFolders().map((f) => f.name)).toEqual([
+      'Project',
+      'Project copy',
+      'Project copy 2',
+      'Project copy 10',
+    ]);
+  });
 });
 
 describe('VaultQuery.getRootPages', () => {
@@ -168,11 +202,10 @@ describe('VaultQuery.getRootPages', () => {
     expect(query.getRootPages()).toEqual([]);
   });
 
-  it('applies no ordering — mirrors getChildPages exactly, deliberately unsorted', () => {
-    // Insertion order deliberately not alphabetical. Unlike
-    // getRootFolders, this is NOT expected to come out sorted — page
-    // ordering (root or nested) is an unresolved product decision, not
-    // something to define for root pages ahead of nested ones.
+  it('returns pages sorted by name, independent of insertion order', () => {
+    // Insertion order deliberately not alphabetical, mirroring how a scan
+    // or a mid-session Vault.addPage (startup scan order / fs-watcher
+    // arrival order, respectively) might hand pages over.
     const pages = [
       makePage('page-z', 'Zebra', null),
       makePage('page-a', 'Apple', null),
@@ -181,9 +214,82 @@ describe('VaultQuery.getRootPages', () => {
     const query = new VaultQuery(makeVault([], pages));
 
     expect(query.getRootPages().map((p) => p.name)).toEqual([
-      'Zebra',
       'Apple',
       'Mango',
+      'Zebra',
+    ]);
+  });
+
+  it('sorts numeric suffixes naturally, not lexicographically', () => {
+    const pages = [
+      makePage('page-10', 'Project 10', null),
+      makePage('page-1', 'Project', null),
+      makePage('page-2', 'Project 2', null),
+    ];
+    const query = new VaultQuery(makeVault([], pages));
+
+    expect(query.getRootPages().map((p) => p.name)).toEqual([
+      'Project',
+      'Project 2',
+      'Project 10',
+    ]);
+  });
+
+  it('sorts duplicate "copy" names naturally, grouped with their source', () => {
+    const pages = [
+      makePage('page-copy10', 'Project copy 10', null),
+      makePage('page-base', 'Project', null),
+      makePage('page-copy2', 'Project copy 2', null),
+      makePage('page-copy', 'Project copy', null),
+    ];
+    const query = new VaultQuery(makeVault([], pages));
+
+    expect(query.getRootPages().map((p) => p.name)).toEqual([
+      'Project',
+      'Project copy',
+      'Project copy 2',
+      'Project copy 10',
+    ]);
+  });
+});
+
+describe('VaultQuery.getChildPages', () => {
+  it('returns pages sorted by name, independent of insertion order', () => {
+    const folder = makeFolder('folder-1', 'Projects');
+    const pages = [
+      makePage('page-z', 'Zebra', 'folder-1'),
+      makePage('page-a', 'Apple', 'folder-1'),
+      makePage('page-m', 'Mango', 'folder-1'),
+    ];
+    const query = new VaultQuery(makeVault([folder], pages));
+
+    expect(query.getChildPages('folder-1').map((p) => p.name)).toEqual([
+      'Apple',
+      'Mango',
+      'Zebra',
+    ]);
+  });
+
+  it('sorts a page added mid-session (Vault.addPage, which always appends) identically to a scanned one', () => {
+    const folder = makeFolder('folder-1', 'Projects');
+    const vault = makeVault(
+      [folder],
+      [
+        makePage('page-z', 'Zebra', 'folder-1'),
+        makePage('page-a', 'Apple', 'folder-1'),
+      ]
+    );
+    const query = new VaultQuery(vault);
+
+    // Simulates the fs-watcher's create-event handler (VaultSyncService)
+    // appending a newly discovered/duplicated page — always an append,
+    // never insertion-sorted.
+    vault.addPage(makePage('page-m', 'Mango', 'folder-1'));
+
+    expect(query.getChildPages('folder-1').map((p) => p.name)).toEqual([
+      'Apple',
+      'Mango',
+      'Zebra',
     ]);
   });
 });

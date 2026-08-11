@@ -2,30 +2,51 @@ import type { Folder } from '../models/Folder';
 import type { Page } from '../models/Page';
 import type { Vault } from '../models/Vault';
 
-// Vault.foldersById (a Map) iterates in insertion order, which reflects
-// startup scan order for scanned folders and creation order for anything
-// added mid-session (Vault.addFolder always appends) — neither is a
-// meaningful display order. VaultQuery is the one place order is defined,
-// applied uniformly regardless of how or when a folder entered the Vault.
+// Vault.foldersById/pagesById (Maps) iterate in insertion order, which
+// reflects startup scan order (raw OS readdir order) for scanned entries
+// and arrival order (creation, or fs-watcher discovery for anything
+// reconciled in — e.g. Duplicate's filesystem copy) for anything added
+// mid-session — none of that is a meaningful display order. VaultQuery is
+// the one place order is defined, applied uniformly regardless of how or
+// when a folder/page entered the Vault.
 //
-// 'title' is today's only mode — the prior alphabetical behavior, now
-// named and swappable rather than inlined, so a future mode (e.g. a
-// planned "Type: folders first, then notes" mode, driven by a Sort
-// control) is an additive entry here plus a new FolderSortMode member,
-// not a rewrite of these methods. Which mode is active is caller-owned
-// (eventually Workspace, as user-facing view state) — VaultQuery only
-// owns how each named mode compares two folders.
+// 'title' is today's only mode — natural/alphanumeric-by-name, now named
+// and swappable rather than inlined, so a future mode (e.g. a planned
+// "Type: folders first, then notes" mode, driven by a Sort control) is an
+// additive entry here plus a new FolderSortMode member, not a rewrite of
+// these methods. Which mode is active is caller-owned (eventually
+// Workspace, as user-facing view state) — VaultQuery only owns how each
+// named mode compares two entries.
 export type FolderSortMode = 'title';
+
+// Natural/alphanumeric compare: embedded digit runs compare by numeric
+// value, not lexicographically, so "Project 2" sorts before "Project 10"
+// and "Project copy 2" before "Project copy 10" — matching Finder, unlike
+// plain localeCompare.
+function compareByName(a: { name: string }, b: { name: string }): number {
+  return a.name.localeCompare(b.name, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  });
+}
 
 const FOLDER_SORT_COMPARATORS: Record<
   FolderSortMode,
   (a: Folder, b: Folder) => number
 > = {
-  title: (a, b) => a.name.localeCompare(b.name),
+  title: compareByName,
 };
 
 function sortFolders(folders: Folder[], sortMode: FolderSortMode): Folder[] {
   return folders.sort(FOLDER_SORT_COMPARATORS[sortMode]);
+}
+
+// Pages have no sort-mode concept yet (unlike folders) — 'title' natural
+// order is the only defined behavior, applied unconditionally. When a Sort
+// control is introduced, this becomes a PageSortMode-driven lookup mirroring
+// FOLDER_SORT_COMPARATORS, not a new comparator implementation.
+function sortPages(pages: Page[]): Page[] {
+  return pages.sort(compareByName);
 }
 
 export class VaultQuery {
@@ -53,20 +74,18 @@ export class VaultQuery {
   }
 
   public getChildPages(parentId: string): Page[] {
-    return Array.from(this.vault.pages()).filter(
-      (page) => page.parentId === parentId
+    return sortPages(
+      Array.from(this.vault.pages()).filter(
+        (page) => page.parentId === parentId
+      )
     );
   }
 
-  // Deliberately unsorted, mirroring getChildPages exactly — page
-  // ordering (root and nested alike) is an unresolved product decision,
-  // not something to define one entity-location at a time. See
-  // getChildPages' own lack of a sort for the same reasoning. When
-  // ordering is defined, it should apply to both together, likely
-  // through the same upcoming sort-menu mechanism, not added here first.
+  // Same natural-by-name ordering as getChildFolders, applied to root
+  // pages — see sortPages/compareByName above.
   public getRootPages(): Page[] {
-    return Array.from(this.vault.pages()).filter(
-      (page) => page.parentId === null
+    return sortPages(
+      Array.from(this.vault.pages()).filter((page) => page.parentId === null)
     );
   }
 
