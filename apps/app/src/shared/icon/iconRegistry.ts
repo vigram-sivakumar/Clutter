@@ -25,6 +25,7 @@ import ChevronRight from './svg/chevron-right.svg?react';
 import ChevronSquareRight from './svg/chevron-square-right.svg?react';
 import ChevronSquareRightLight from './svg/chevron-square-right-light.svg?react';
 import ChevronUp from './svg/chevron-up.svg?react';
+import Check from './svg/check.svg?react';
 import Copy from './svg/copy.svg?react';
 import CircleDashed from './svg/circle-dashed.svg?react';
 import Clock from './svg/clock.svg?react';
@@ -38,7 +39,9 @@ import KeyEsc from './svg/key-esc.svg?react';
 import Keyboard from './svg/keyboard.svg?react';
 import MagnifyingGlass from './svg/magnifying-glass.svg?react';
 import MoreHorizontal from './svg/more-horizontal.svg?react';
+import MultiLine from './svg/multi-line.svg?react';
 import Note from './svg/note.svg?react';
+import Link from './svg/link.svg?react';
 import NotePencil from './svg/note-pencil.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
@@ -88,6 +91,7 @@ export const iconRegistry = {
   chevronSquareRight: ChevronSquareRight,
   chevronSquareRightLight: ChevronSquareRightLight,
   chevronUp: ChevronUp,
+  check: Check,
   copy: Copy,
   circleDashed: CircleDashed,
   clock: Clock,
@@ -101,8 +105,10 @@ export const iconRegistry = {
   keyboard: Keyboard,
   magnifyingGlass: MagnifyingGlass,
   moreHorizontal: MoreHorizontal,
+  multiLine: MultiLine,
   note: Note,
   notePencil: NotePencil,
+  link: Link,
   pin: Pin,
   plus: Plus,
   question: Question,

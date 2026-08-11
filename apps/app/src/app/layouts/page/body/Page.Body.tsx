@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-
+import { PropertyList } from '@components/property-list/PropertyList';
 import './Page.Body.css';
 
 interface PageBodyProps {
@@ -21,6 +21,15 @@ interface PageBodyProps {
 export function PageBody({ children, className }: PageBodyProps) {
   return (
     <div className={['page-content', className].filter(Boolean).join(' ')}>
+      <PropertyList
+        items={[
+          { name: 'Title', type: 'text', value: 'Example note' },
+          { name: 'Published', type: 'boolean', value: true },
+          { name: 'Website', type: 'url', value: 'https://example.com' },
+          { name: 'Tags', type: 'multi-select', value: 'Design, UX' },
+          { name: 'Tags', type: 'multi-select', value: '' },
+        ]}
+      />
       {children}
     </div>
   );

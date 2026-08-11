@@ -15,15 +15,11 @@
 
   transition:
     opacity 150ms ease,
-    color 150ms ease,
-    scale 150ms ease;
+    color 150ms ease;
 }
 
 .checkbox--checked {
   color: var(--checkbox-bg-checked);
-}
-.checkbox:active:not(:disabled) {
-  scale: 0.95;
 }
 
 /* .checkbox:not(.checkbox--checked):active:not(:disabled) {
