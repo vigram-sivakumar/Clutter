@@ -115,6 +115,18 @@ export function PageHost({ application }: PageHostProps) {
     void application.pageOperations.delete(activePageId);
   };
 
+  const onDuplicate = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.duplicate(activePageId);
+  };
+
+  const onDuplicateFolder = (folderId: string): void => {
+    void application.folderOperations.duplicate(folderId);
+  };
+
   const onDeleteFolder = async (folderId: string): Promise<void> => {
     const deleted = await deleteFolderWithConfirmation(
       vault,
@@ -185,6 +197,7 @@ export function PageHost({ application }: PageHostProps) {
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
       onDelete: () => void onDeleteFolder(folder.id),
+      onDuplicate: () => onDuplicateFolder(folder.id),
     });
     // A reserved folder (Archive, Inbox, Templates, Daily Notes) can't be
     // renamed or deleted — buildTopBarActions already dispatches it to
@@ -363,6 +376,7 @@ export function PageHost({ application }: PageHostProps) {
     onArchive,
     onRestore,
     onDelete,
+    onDuplicate,
   });
   // A Daily Note's title is derived from its date and is its permanent
   // calendar identity (toResourcePageModel's own title comment) — renaming

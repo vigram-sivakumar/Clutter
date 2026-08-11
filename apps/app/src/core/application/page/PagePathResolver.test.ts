@@ -129,3 +129,33 @@ describe('PagePathResolver.createNotePath', () => {
     expect(result).toEqual({ path: `${ROOT}/Untitled 4.md`, parentId: null });
   });
 });
+
+describe('PagePathResolver.duplicateNotePath', () => {
+  it('appends " copy" in the same folder', () => {
+    const page = makePage('page-1', `${ROOT}/Idea.md`);
+    const vault = makeVault([page]);
+    const resolver = new PagePathResolver(vault);
+
+    expect(resolver.duplicateNotePath(`${ROOT}/Idea.md`)).toBe(`${ROOT}/Idea copy.md`);
+  });
+
+  it('appends a numeric suffix when "<name> copy" already exists', () => {
+    const page = makePage('page-1', `${ROOT}/Idea.md`);
+    const existingCopy = makePage('page-2', `${ROOT}/Idea copy.md`);
+    const vault = makeVault([page, existingCopy]);
+    const resolver = new PagePathResolver(vault);
+
+    expect(resolver.duplicateNotePath(`${ROOT}/Idea.md`)).toBe(`${ROOT}/Idea copy 2.md`);
+  });
+
+  it('resolves inside the source page\'s own folder, not the vault root', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const page = makePage('page-1', `${ROOT}/Projects/Idea.md`);
+    const vault = makeVault([page], [folder]);
+    const resolver = new PagePathResolver(vault);
+
+    expect(resolver.duplicateNotePath(`${ROOT}/Projects/Idea.md`)).toBe(
+      `${ROOT}/Projects/Idea copy.md`
+    );
+  });
+});

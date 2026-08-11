@@ -163,3 +163,31 @@ describe('FolderPathResolver.resolveRenamePath', () => {
     );
   });
 });
+
+describe('FolderPathResolver.duplicateFolderPath', () => {
+  it('appends " copy" in the same parent', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([folder]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(resolver.duplicateFolderPath(`${ROOT}/Projects`)).toBe(`${ROOT}/Projects copy`);
+  });
+
+  it('appends a numeric suffix when "<name> copy" already exists', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const existingCopy = makeFolder('folder-2', `${ROOT}/Projects copy`);
+    const vault = makeVault([folder, existingCopy]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(resolver.duplicateFolderPath(`${ROOT}/Projects`)).toBe(`${ROOT}/Projects copy 2`);
+  });
+
+  it('resolves under a nested parent, not the vault root', () => {
+    const parent = makeFolder('folder-1', `${ROOT}/Projects`);
+    const child = makeFolder('folder-2', `${ROOT}/Projects/Q1`, 'folder-1');
+    const vault = makeVault([parent, child]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(resolver.duplicateFolderPath(`${ROOT}/Projects/Q1`)).toBe(`${ROOT}/Projects/Q1 copy`);
+  });
+});

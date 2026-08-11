@@ -12,6 +12,7 @@ export interface TopBarActionsOptions {
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
+  onDuplicate?: () => void;
 }
 
 type TopBarActionsRenderer = (options?: TopBarActionsOptions) => ReactNode;
@@ -29,6 +30,7 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       archive: options?.onArchive,
       restore: options?.onRestore,
       delete: options?.onDelete,
+      duplicate: options?.onDuplicate,
     }}
   />
 );
@@ -37,11 +39,13 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
 // `options` entirely since there was nothing to wire yet. Rename isn't a
 // menu item; it reuses the same inline title-edit mechanism pages already
 // have (Page's titleEditable/onTitleCommit), wired in PageHost.tsx.
+// ADR-028 adds duplicate the same way.
 const renderFolderActions: TopBarActionsRenderer = (options) => (
   <ResourceTopBarActions
     menu={folderTopBarMenu}
     handlers={{
       delete: options?.onDelete,
+      duplicate: options?.onDuplicate,
     }}
   />
 );

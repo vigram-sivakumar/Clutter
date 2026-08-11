@@ -88,6 +88,7 @@ export function Notes({
       void pageOperations.updateDraftTitle(pageId, value),
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
+    onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
 
     onFolderTitleEdit: (folderId, value) =>
       folderOperations.commitName(folderId, value),
@@ -110,6 +111,7 @@ export function Notes({
         }
       })();
     },
+    onDuplicateFolder: (folderId) => void folderOperations.duplicate(folderId),
   };
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
   const favoriteItems = getFavoriteItems(query, effectivePageState);

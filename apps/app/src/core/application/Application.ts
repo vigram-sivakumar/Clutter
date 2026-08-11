@@ -32,6 +32,7 @@ import { FrontmatterSerializer } from '../vault/ingest/FrontmatterSerializer';
 import { FrontmatterParser } from '../vault/ingest/FrontmatterParser';
 import { PageRebuilder } from '../vault/ingest/PageRebuilder';
 import { MoveService } from '../vault/persistence/MoveService';
+import { VaultEntryDuplicator } from '../vault/persistence/VaultEntryDuplicator';
 import { LocalFileSystemWatcher } from '../vault/providers/LocalFileSystemWatcher';
 import { VaultSyncService } from '../vault/sync/VaultSyncService';
 import { reconcileVaultArchiveMetadata } from '../vault/sync/reconcileArchiveMetadata';
@@ -200,7 +201,7 @@ export class Application {
 
     const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
 
-    application.attachVault(vault, pageCreator, dailyNotes);
+    application.attachVault(vault, pageCreator, dailyNotes, rawFileSystem);
 
     // ADR-017/ADR-019: today's note is no longer created through the Gate,
     // and no directory is scaffolded for it, here. open() below resolves
@@ -241,9 +242,18 @@ export class Application {
   public attachVault(
     vault: Vault,
     pageCreator: PageCreator,
-    dailyNoteService: DailyNoteService
+    dailyNoteService: DailyNoteService,
+    // ADR-028: Duplicate's raw filesystem copy must be observed by the
+    // watcher, not suppressed as a self-write, so it needs the raw
+    // VaultFileSystem — never `this.fileSystem` (the self-write-aware
+    // wrapper every other collaborator here writes through). Defaults to
+    // `this.fileSystem` only so existing attachVault() call sites in
+    // tests, which don't exercise duplicate() and construct Application
+    // with a single unwrapped fake, are unaffected.
+    rawFileSystem: VaultFileSystem = this.fileSystem
   ): void {
     const moveService = new MoveService(vault, this.fileSystem);
+    const duplicator = new VaultEntryDuplicator(rawFileSystem);
 
     // Single instance shared by PageOperations for both edit-save and
     // structural mutations, so every write to a given page is serialized
@@ -285,7 +295,8 @@ export class Application {
       // second implementation of "what's the fallback page."
       () => {
         void this.openFallbackPage();
-      }
+      },
+      duplicator
     );
     this.pageOperations = new PageOperations(
       vault,
@@ -304,7 +315,8 @@ export class Application {
       // fallback-page policy lives entirely in openFallbackPage() below).
       () => {
         void this.openFallbackPage();
-      }
+      },
+      duplicator
     );
     this.navigation = new NavigationRouter(
       this.folderOperations,

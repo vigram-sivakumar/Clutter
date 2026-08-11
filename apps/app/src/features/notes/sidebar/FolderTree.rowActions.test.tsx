@@ -178,10 +178,12 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onDraftTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveNote: ReturnType<typeof vi.fn>;
     onDeleteNote: ReturnType<typeof vi.fn>;
+    onDuplicateNote: ReturnType<typeof vi.fn>;
     onFolderTitleEdit: ReturnType<typeof vi.fn>;
     onFolderTitleFlush: ReturnType<typeof vi.fn>;
     onFolderTitleCancel: ReturnType<typeof vi.fn>;
     onDeleteFolder: ReturnType<typeof vi.fn>;
+    onDuplicateFolder: ReturnType<typeof vi.fn>;
   };
 } {
   const spies = {
@@ -195,10 +197,12 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onDraftTitleCommit: vi.fn(),
     onArchiveNote: vi.fn(),
     onDeleteNote: vi.fn(),
+    onDuplicateNote: vi.fn(),
     onFolderTitleEdit: vi.fn(),
     onFolderTitleFlush: vi.fn(),
     onFolderTitleCancel: vi.fn(),
     onDeleteFolder: vi.fn(),
+    onDuplicateFolder: vi.fn(),
   };
 
   const actions: SidebarRowActions = {
@@ -426,6 +430,24 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     expect(deleteSpy).toHaveBeenCalledWith(page.id);
   });
 
+  it('Duplicate calls pageOperations.duplicate for a persisted note (ADR-028)', () => {
+    const page = buildPersistedPage(`${ROOT}/Note.md`);
+    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const duplicateSpy = vi
+      .spyOn(pageOperations, 'duplicate')
+      .mockResolvedValue('page-duplicate');
+    const { actions } = buildRowActions({ openMenuId: page.id });
+    const rowActions: SidebarRowActions = {
+      ...actions,
+      onDuplicateNote: (id) => void pageOperations.duplicate(id),
+    };
+
+    renderTree(query, membershipSelector, workspace, rowActions);
+    fireEvent.click(screen.getByText('Duplicate'));
+
+    expect(duplicateSpy).toHaveBeenCalledWith(page.id);
+  });
+
   it('Rename calls onStartRename, then switches the row into edit mode and drives commitTitle/requestTitleSave', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
     const { query, workspace, membershipSelector, pageOperations } = setup([page]);
@@ -555,6 +577,24 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
     expect(deleteSpy).toHaveBeenCalledWith('folder-1');
     expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('Duplicate calls folderOperations.duplicate (ADR-028)', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector, folderOperations } = setup([], [folder]);
+    const duplicateSpy = vi
+      .spyOn(folderOperations, 'duplicate')
+      .mockResolvedValue('folder-duplicate');
+
+    const { actions } = buildRowActions({
+      openMenuId: 'folder-1',
+      onDuplicateFolder: (id) => void folderOperations.duplicate(id),
+    });
+
+    renderTree(query, membershipSelector, workspace, actions);
+    fireEvent.click(screen.getByText('Duplicate'));
+
+    expect(duplicateSpy).toHaveBeenCalledWith('folder-1');
   });
 
   it('folder menu has no Archive item (no backend capability exists — ADR-024)', () => {

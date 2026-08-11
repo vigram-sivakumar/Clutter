@@ -12,12 +12,18 @@ import type { TopBarMenuItemConfig } from '@app/layouts/page/topbar/ResourceTopB
 // ReservedFolderTopBarActions instead, per MembershipSelector.isSystemFolder),
 // so no disabled/reserved-folder guard is needed here. Rename isn't a menu
 // item — it reuses the folder title's inline edit affordance directly,
-// the same mechanism a page's title already has.
+// the same mechanism a page's title already has. 'duplicate' (ADR-028)
+// mirrors noteTopBarMenu.config.ts's item of the same id.
 export const folderTopBarMenu: TopBarMenuItemConfig[] = [
   {
     id: 'add-a-description',
     label: 'Add a description',
     icon: 'description',
+  },
+  {
+    id: 'duplicate',
+    label: 'Duplicate',
+    icon: 'copy',
   },
   {
     id: 'add-to-favorite',

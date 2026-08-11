@@ -60,12 +60,16 @@ export interface SidebarRowActions {
   onDraftTitleCommit(pageId: string, value: string): void;
   onArchiveNote(pageId: string): void;
   onDeleteNote(pageId: string): void;
+  /** ADR-028 — a raw filesystem copy, see PageOperations.duplicate(). */
+  onDuplicateNote(pageId: string): void;
 
   /** Continuous-commit channel (FolderOperations.commitName), same shape as a persisted note's title. */
   onFolderTitleEdit(folderId: string, value: string): void;
   onFolderTitleFlush(folderId: string): void;
   onFolderTitleCancel(folderId: string): void;
   onDeleteFolder(folderId: string): void;
+  /** ADR-028 — a raw filesystem copy, see FolderOperations.duplicate(). */
+  onDuplicateFolder(folderId: string): void;
 }
 
 interface FolderTreeProps {
@@ -190,6 +194,8 @@ function PageEntry({
           ? (id) => {
               if (id === 'rename') {
                 rowActions.onStartRename(entry.id);
+              } else if (id === 'duplicate') {
+                rowActions.onDuplicateNote(entry.id);
               } else if (id === 'archive') {
                 rowActions.onArchiveNote(entry.id);
               } else if (id === 'delete') {
@@ -329,6 +335,8 @@ export function FolderTree({
                   ? (id) => {
                       if (id === 'rename') {
                         rowActions.onStartRename(folder.id);
+                      } else if (id === 'duplicate') {
+                        rowActions.onDuplicateFolder(folder.id);
                       } else if (id === 'delete') {
                         rowActions.onDeleteFolder(folder.id);
                       }

@@ -17,6 +17,7 @@ import type { PageFrontmatter } from '../../vault/ingest/frontmatter/PageFrontma
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { DailyNoteService } from '../daily-notes/DailyNoteService';
 import { DailyNotePath } from '../daily-notes/DailyNotePath';
+import type { VaultEntryDuplicator } from '../../vault/persistence/VaultEntryDuplicator';
 
 /**
  * How long PageOperations.flushAll() (the shutdown flush) waits for
@@ -151,7 +152,20 @@ export class PageOperations {
      * application-policy concern (Composition Root, per ADR-019's own
      * framing of that decision) rather than duplicating it here.
      */
-    private readonly openFallbackPage: () => void
+    private readonly openFallbackPage: () => void,
+    /**
+     * Backs duplicate() only (ADR-028). Holds the raw, non-self-write-
+     * suppressed VaultFileSystem — every other collaborator here writes
+     * through `coordinator` (the Persistence Gate) instead. Injected
+     * rather than constructed here so PageOperations still never calls
+     * VaultFileSystem directly, matching every other collaborator that
+     * holds a filesystem reference on this class's behalf. Optional so
+     * the many existing unit-test call sites that never exercise
+     * duplicate() don't need an unrelated update just to keep
+     * constructing this class — Application always supplies a real one
+     * (see attachVault()); duplicate() itself throws if it's missing.
+     */
+    private readonly duplicator?: VaultEntryDuplicator
   ) {}
 
   /**
@@ -1125,6 +1139,70 @@ export class PageOperations {
     if (result.status === 'abandoned') {
       throw new Error(`Page not found: ${pageId}`);
     }
+  }
+
+  /**
+   * Duplicates a persisted page (ADR-028) — a raw filesystem copy, not a
+   * Gate `create`. The copy is written through `duplicator`'s raw,
+   * unsuppressed VaultFileSystem so the filesystem watcher observes it as
+   * it would an externally copied file; VaultSyncService.handleCreated's
+   * existing duplicate-id resolution then assigns the copy a fresh id and
+   * persists it to frontmatter, the same path an external duplicate
+   * already takes. Resolves once the Vault reflects the new page, then
+   * selects it (mirrors create()'s "select the new item" behavior) —
+   * never opens a second draft or calls the Gate itself.
+   *
+   * Only valid for a real Vault page; there is nothing to duplicate for a
+   * still-open, unpersisted draft.
+   */
+  public async duplicate(pageId: string): Promise<string> {
+    if (!this.duplicator) {
+      throw new Error('PageOperations.duplicate: no VaultEntryDuplicator configured');
+    }
+
+    const page = this.vault.getPage(pageId);
+
+    if (!page) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    const destinationPath = this.pathResolver.duplicateNotePath(page.path);
+    const duplicateAppeared = this.waitForPageAtPath(destinationPath);
+
+    await this.duplicator.duplicateFile(page.path, destinationPath);
+
+    const newPageId = await duplicateAppeared;
+
+    this.workspace.openPage(newPageId);
+
+    return newPageId;
+  }
+
+  /**
+   * Resolves once a page exists in the Vault at `path` — duplicate()'s
+   * only caller, since a raw filesystem copy has no synchronous return
+   * value the way a Gate `create` does. Vault.subscribe's listener carries
+   * no path, so every event re-checks getPageByPath directly rather than
+   * inspecting the event's own shape (cheap: this only runs while a
+   * duplicate is in flight, and unsubscribes on its first hit).
+   */
+  private waitForPageAtPath(path: string): Promise<string> {
+    const existing = this.vault.getPageByPath(path);
+
+    if (existing) {
+      return Promise.resolve(existing.id);
+    }
+
+    return new Promise((resolve) => {
+      const unsubscribe = this.vault.subscribe(() => {
+        const page = this.vault.getPageByPath(path);
+
+        if (page) {
+          unsubscribe();
+          resolve(page.id);
+        }
+      });
+    });
   }
 
   /**

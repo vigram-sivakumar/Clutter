@@ -63,6 +63,7 @@ export interface BuildTopBarActionsOptions {
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
+  onDuplicate?: () => void;
 }
 
 /**
@@ -83,6 +84,7 @@ export function buildTopBarActions(
       onArchive: options.onArchive,
       onRestore: options.onRestore,
       onDelete: options.onDelete,
+      onDuplicate: options.onDuplicate,
     }),
   };
 }
