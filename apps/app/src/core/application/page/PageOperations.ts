@@ -1125,6 +1125,16 @@ export class PageOperations {
     await this.persistDraft(pageId, body, patch);
   }
 
+  /**
+   * Archiving is soft — the page still exists, just relocated and
+   * restatused — so unlike delete() this never touches Workspace, whether
+   * or not `pageId` is the active page: there is nothing to close and no
+   * fallback is ever needed. Workspace tracks the active view by page id,
+   * and the Gate's `archive` dispatch already updates that same page in
+   * Vault in place, so an open active page simply keeps rendering itself
+   * at its new Archive/ location — the same id-keyed reactivity that
+   * already makes rename-driven path changes transparent to the open view.
+   */
   public async archive(pageId: string): Promise<void> {
     const result = await this.coordinator.enqueue(pageId, { kind: 'archive' });
 

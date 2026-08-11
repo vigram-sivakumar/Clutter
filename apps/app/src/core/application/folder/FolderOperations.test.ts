@@ -438,3 +438,150 @@ describe('FolderOperations.rename() (ADR-024, interim same-parent-only kind)', (
     await expect(folderOperations.rename('does-not-exist', 'Anything')).resolves.toBeUndefined();
   });
 });
+
+describe('FolderOperations.archive() (ADR-026)', () => {
+  it('archives an empty folder into the reserved Archive folder', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([archiveFolder, folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.archive('folder-1');
+
+    const archived = vault.getFolder('folder-1')!;
+    expect(archived.path).toBe(`${ROOT}/Archive/Projects`);
+    expect(archived.parentId).toBe('folder-archive');
+    expect(archived.metadata.status).toBe('archived');
+  });
+
+  it('archives a folder with nested folders and pages as one operation, preserving every id', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const design = makeFolder('folder-design', `${ROOT}/Projects/Design`, 'folder-projects');
+    const notes = makePage('page-notes', `${ROOT}/Projects/Design/Notes.md`, 'folder-design');
+    const { vault, fileSystem, folderOperations } = setup(
+      [archiveFolder, projects, design],
+      undefined,
+      undefined,
+      [notes]
+    );
+    await fileSystem.createDirectory(design.path);
+    await fileSystem.writeFile(notes.path, '# Notes');
+
+    await folderOperations.archive('folder-projects');
+
+    expect(vault.getFolder('folder-projects')!.metadata.status).toBe('archived');
+    expect(vault.getFolder('folder-design')!.id).toBe('folder-design');
+    expect(vault.getFolder('folder-design')!.path).toBe(`${ROOT}/Archive/Projects/Design`);
+    expect(vault.getFolder('folder-design')!.parentId).toBe('folder-projects');
+    expect(vault.getPage('page-notes')!.id).toBe('page-notes');
+    expect(vault.getPage('page-notes')!.path).toBe(
+      `${ROOT}/Archive/Projects/Design/Notes.md`
+    );
+  });
+
+  it('does nothing (no throw) for an unknown folder id — the Gate abandons harmlessly', async () => {
+    const { folderOperations } = setup();
+
+    await expect(folderOperations.archive('does-not-exist')).resolves.toBeUndefined();
+  });
+
+  it('rejects archiving an already-archived folder', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const folder: Folder = {
+      ...makeFolder('folder-1', `${ROOT}/Archive/Projects`, 'folder-archive'),
+      metadata: {
+        icon: null,
+        favorite: false,
+        description: '',
+        cover: null,
+        status: 'archived',
+        archivedAt: '2026-01-01T00:00:00.000Z',
+        originalPath: `${ROOT}/Projects`,
+        originalParentId: null,
+      },
+    };
+    const { fileSystem, folderOperations } = setup([archiveFolder, folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await expect(folderOperations.archive('folder-1')).rejects.toThrow(
+      /Folder is already archived/
+    );
+  });
+});
+
+// Consistency fix: archive() previously performed no navigation at all —
+// any fallback was ad hoc, duplicated glue in the UI layer (PageHost.tsx/
+// Archive ≠ Delete: archive is a soft-delete — the folder and its subtree
+// still exist, only relocated into Archive/ and restatused. It must never
+// touch Workspace, whether or not the archived folder is the active view.
+// Workspace tracks the active view by folder id, and the Gate's
+// 'archive-folder' dispatch updates that same folder in Vault in place, so
+// an open active folder simply keeps rendering itself at its new Archive/
+// location — no close, no fallback.
+describe('FolderOperations.archive() navigation (Archive ≠ Delete)', () => {
+  it('keeps the active folder open after archiving it', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const openFallbackPage = vi.fn();
+    const { fileSystem, folderOperations, workspace, vault } = setup(
+      [archiveFolder, folder],
+      undefined,
+      undefined,
+      [],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(folder.path);
+    workspace.openFolder('folder-1');
+
+    await folderOperations.archive('folder-1');
+
+    expect(workspace.activeFolderId).toBe('folder-1');
+    expect(openFallbackPage).not.toHaveBeenCalled();
+    expect(vault.getFolder('folder-1')!.metadata.status).toBe('archived');
+  });
+
+  it('does not ask for a fallback, and does not touch the active view, when archiving a folder that is not active', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const active = makeFolder('folder-active', `${ROOT}/Active`);
+    const toArchive = makeFolder('folder-1', `${ROOT}/Projects`);
+    const openFallbackPage = vi.fn();
+    const { fileSystem, folderOperations, workspace } = setup(
+      [archiveFolder, active, toArchive],
+      undefined,
+      undefined,
+      [],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(active.path);
+    await fileSystem.createDirectory(toArchive.path);
+    workspace.openFolder('folder-active');
+
+    await folderOperations.archive('folder-1');
+
+    expect(workspace.activeFolderId).toBe('folder-active');
+    expect(openFallbackPage).not.toHaveBeenCalled();
+  });
+
+  it('does not touch an open descendant page\'s tab — archive is soft, unlike delete', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const page = makePage('page-1', `${ROOT}/Projects/Notes.md`, 'folder-1');
+    const openFallbackPage = vi.fn();
+    const { fileSystem, folderOperations, workspace } = setup(
+      [archiveFolder, folder],
+      undefined,
+      undefined,
+      [page],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.writeFile(page.path, '# Notes');
+    workspace.openPage('page-1');
+
+    await folderOperations.archive('folder-1');
+
+    expect(workspace.isPageOpen('page-1')).toBe(true);
+    expect(openFallbackPage).not.toHaveBeenCalled();
+  });
+});

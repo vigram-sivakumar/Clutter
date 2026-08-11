@@ -335,6 +335,35 @@ export class FolderOperations {
     }
   }
 
+  /**
+   * Archives a folder and its entire subtree as one operation (ADR-026):
+   * relocates the whole directory into Archive/ via the Gate's
+   * 'archive-folder' kind, same unconditional-cascade shape as delete() —
+   * no existence check of its own, relies on the Gate's dequeue-time guard.
+   * The UI-layer decision of whether a non-empty folder needs confirmation
+   * before calling this lives at the call site (mirrors ADR-024's resolved
+   * product decision #1 for delete()), not here.
+   *
+   * Unlike delete(), archive never touches Workspace — the folder still
+   * exists, only relocated and restatused, so there is nothing to close
+   * and no fallback is ever needed, whether or not `folderId` is the
+   * active view. `Workspace` tracks the active view by folder id, and the
+   * Gate's `archive-folder` dispatch already updates that same folder in
+   * Vault in place (path + metadata only), so a currently open folder
+   * simply keeps rendering itself at its new Archive/ location — the same
+   * id-keyed reactivity that already makes rename/move-driven path changes
+   * transparent to the open view. Descendant pages/sessions are untouched
+   * for the same reason delete() cascades and archive() doesn't: archive
+   * is soft, the subtree still exists.
+   */
+  public async archive(folderId: string): Promise<void> {
+    const result = await this.coordinator.enqueue(folderId, { kind: 'archive-folder' });
+
+    if (result.status !== 'folder-archived' && result.status !== 'abandoned') {
+      throw new Error(`Failed to archive folder ${folderId}: ${result.status}`);
+    }
+  }
+
   /** The name channel's SaveCoordinator key — distinct from `folderId` so it can never collide with any other channel keyed by the same id. */
   private nameChannelKey(folderId: string): string {
     return `${folderId}:name`;

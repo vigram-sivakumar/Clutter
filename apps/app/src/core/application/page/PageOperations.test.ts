@@ -900,6 +900,98 @@ describe('PageOperations.delete()', () => {
   });
 });
 
+// Archive ≠ Delete: archive is a soft-delete — the page still exists, only
+// relocated into Archive/ and restatused. It must never touch Workspace,
+// whether or not the archived page is the active one. Workspace tracks the
+// active view by page id, and the Gate's `archive` dispatch updates that
+// same page in Vault in place, so an open active page simply keeps
+// rendering itself at its new Archive/ location — no close, no fallback.
+describe('PageOperations.archive() navigation (Archive ≠ Delete)', () => {
+  it('keeps the active page open after archiving it', async () => {
+    const page = buildPage();
+    const openFallbackPage = vi.fn();
+    const { workspace, vault, pageOperations } = setup(
+      page,
+      undefined,
+      undefined,
+      openFallbackPage
+    );
+
+    await pageOperations.open(page.id);
+    expect(workspace.activePageId).toBe(page.id);
+
+    await pageOperations.archive(page.id);
+
+    expect(workspace.activePageId).toBe(page.id);
+    expect(workspace.isPageOpen(page.id)).toBe(true);
+    expect(openFallbackPage).not.toHaveBeenCalled();
+    expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
+  });
+
+  it('does not navigate at all when archiving a page that is not the active one — the soft-archive/non-active case', async () => {
+    const activePage = buildNamedPage('page-active', `${ROOT}/Active.md`);
+    const backgroundPage = buildNamedPage('page-background', `${ROOT}/Background.md`);
+    const openFallbackPage = vi.fn();
+    const vault = makeVault([activePage, backgroundPage]);
+    const fileSystem = new InMemoryVaultFileSystem();
+    fileSystem.seedFile(
+      activePage.path,
+      new FrontmatterSerializer().serializeDocument(activePage, activePage.source.markdown)
+    );
+    fileSystem.seedFile(
+      backgroundPage.path,
+      new FrontmatterSerializer().serializeDocument(backgroundPage, backgroundPage.source.markdown)
+    );
+    const workspace = new Workspace();
+    const documentRegistry = new DocumentRegistry();
+    const saveCoordinator = new SaveCoordinator();
+    const moveService = new MoveService(vault, fileSystem);
+    const coordinator = new PagePersistenceCoordinator(
+      fileSystem,
+      vault,
+      new FrontmatterSerializer(),
+      new FrontmatterParser(),
+      new PageRebuilder(),
+      moveService
+    );
+    const pageOperations = new PageOperations(
+      vault,
+      workspace,
+      documentRegistry,
+      saveCoordinator,
+      coordinator,
+      new PagePathResolver(vault),
+      new PageCreator(new UuidGenerator(), new PageFactory()),
+      makeFolderOperations(vault, workspace, coordinator),
+      new DailyNoteService(),
+      openFallbackPage
+    );
+
+    await pageOperations.open(backgroundPage.id);
+    await pageOperations.open(activePage.id);
+
+    await pageOperations.archive(backgroundPage.id);
+
+    // The still-active page is untouched, the background page stays open
+    // (its tab is not force-closed — archive is soft, unlike delete) and
+    // no fallback is ever consulted.
+    expect(workspace.activePageId).toBe(activePage.id);
+    expect(workspace.isPageOpen(backgroundPage.id)).toBe(true);
+    expect(openFallbackPage).not.toHaveBeenCalled();
+  });
+
+  it('archiving a page that is not open at all triggers no navigation', async () => {
+    const page = buildPage();
+    const openFallbackPage = vi.fn();
+    const { workspace, pageOperations } = setup(page, undefined, undefined, openFallbackPage);
+
+    await pageOperations.archive(page.id);
+
+    expect(workspace.activeView).toBeNull();
+    expect(openFallbackPage).not.toHaveBeenCalled();
+  });
+});
+
 describe('PageOperations: create/save concurrency', () => {
   it('create immediately followed by save on the same freshly-created id applies both writes in order', async () => {
     const existing = buildPage();
