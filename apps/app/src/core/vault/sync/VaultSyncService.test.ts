@@ -157,12 +157,12 @@ describe('VaultSyncService', () => {
     expect(page!.source.markdown).toBe('Hello');
   });
 
-  it('created: a duplicated file (Finder "copy" carrying the original\'s frontmatter id) is assigned a fresh id, and the original keeps its own', async () => {
+  it('created: a copied file carrying the original\'s frontmatter id is assigned a fresh id, and the original keeps its own', async () => {
     const original = buildPage('Note.md', 'Original content', 'note-1');
     const { vault, fileSystem, watcher } = setup([original]);
 
-    // Finder's "Note copy.md" duplicates the file's content byte-for-byte,
-    // including the frontmatter id.
+    // A file copy (by any means — Finder, cp, a script) duplicates the
+    // file's content byte-for-byte, including the frontmatter id.
     fileSystem.seedFile(
       `${ROOT}/Note copy.md`,
       '---\nid: note-1\n---\nOriginal content'
@@ -275,9 +275,10 @@ describe('VaultSyncService', () => {
   });
 
   it('moved (atomic save, replace): a temp-file-renamed-over-the-original save is reconciled as a content change, not dropped', async () => {
-    // VS Code (and many editors) save atomically: write a temp file, then
-    // rename it over the real path. The watcher's rename pairing reports
-    // this as a single 'moved' event whose fromPath (the temp file) was
+    // An atomic save (write a fresh file, then rename it over the real
+    // path — one common way to implement "save," regardless of which
+    // application does it) produces a single 'moved' event via the
+    // watcher's rename pairing, whose fromPath (the temporary file) was
     // never tracked as vault content.
     const existing = buildPage('Note.md', 'Original body', 'note-1');
     const { vault, fileSystem, watcher } = setup([existing]);
@@ -314,6 +315,45 @@ describe('VaultSyncService', () => {
     expect(page).toBeDefined();
     expect(page!.id).toBe('page-new');
     expect(page!.source.markdown).toBe('Brand new content');
+  });
+
+  it('delete-then-create (a separate save pattern equivalent to atomic rename-over): the resulting page keeps its original id regardless of how much of the delete has settled before create arrives', async () => {
+    // Some editors/tools save by deleting the file and writing a fresh one
+    // at the same path, rather than a rename. Two independent events, no
+    // 'moved' pairing — the reconciliation must still converge on the same
+    // page identity a rename-over or a plain 'changed' event would produce.
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    watcher.emit({ type: 'deleted', path: 'Note.md' });
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nEdited body');
+    watcher.emit({ type: 'created', path: 'Note.md', isDirectory: false });
+    await flush();
+
+    const page = vault.getPageByPath(`${ROOT}/Note.md`);
+    expect(page).toBeDefined();
+    expect(page!.id).toBe('note-1');
+    expect(page!.source.markdown).toBe('Edited body');
+    expect(vault.pageCount).toBe(1);
+  });
+
+  it('delete-then-create: still correct even when the delete fully settles before the create event is even received (a larger event-delivery gap)', async () => {
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    watcher.emit({ type: 'deleted', path: 'Note.md' });
+    await flush();
+    expect(vault.getPageByPath(`${ROOT}/Note.md`)).toBeUndefined();
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nEdited body');
+    watcher.emit({ type: 'created', path: 'Note.md', isDirectory: false });
+    await flush();
+
+    const page = vault.getPageByPath(`${ROOT}/Note.md`);
+    expect(page).toBeDefined();
+    expect(page!.id).toBe('note-1');
+    expect(page!.source.markdown).toBe('Edited body');
+    expect(vault.pageCount).toBe(1);
   });
 
   it('changed: page id is unchanged and analysis is recomputed (PageRebuilder actually ran)', async () => {
@@ -449,7 +489,7 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
     expect(mockup!.parentId).toBe(design!.id);
   });
 
-  it('created: a note added (via Finder) inside a directory right after that directory was itself just moved in is still discovered', async () => {
+  it('created: a note added inside a directory right after that directory was itself just moved in is still discovered', async () => {
     const { vault, fileSystem, watcher } = setup();
     await fileSystem.createDirectory(`${ROOT}/Projects`);
     await fileSystem.writeFile(
@@ -476,12 +516,12 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
     expect(vault.pageCount).toBe(2);
   });
 
-  it('created: a duplicated folder subtree (Finder "copy" carrying every note\'s original frontmatter id) gets fresh ids for the copies, leaving originals untouched', async () => {
+  it('created: a duplicated folder subtree (every note carrying its original\'s frontmatter id) gets fresh ids for the copies, leaving originals untouched', async () => {
     const original = buildPage('Projects/Roadmap.md', 'Roadmap content', 'page-roadmap');
     const { vault, fileSystem, watcher } = setup([original]);
 
-    // "Projects copy" duplicates the whole subtree, including every note's
-    // frontmatter id.
+    // Copying the whole subtree duplicates every note's frontmatter,
+    // including its id.
     await fileSystem.createDirectory(`${ROOT}/Projects copy`);
     await fileSystem.writeFile(
       `${ROOT}/Projects copy/Roadmap.md`,

@@ -412,19 +412,22 @@ export class VaultSyncService {
     const page = this.vault.getPageByPath(absoluteFrom);
 
     if (!page) {
-      // The 'from' half never resolved to a tracked page. Editors that
-      // save atomically — write a temp file, then rename it over the real
-      // path (VS Code, and many others) — produce exactly this shape: the
-      // Rust watcher's rename pairing correlates the temp file's
-      // disappearance with the real path's (re)appearance into one
-      // `moved` event, but the temp file itself was never vault content,
-      // so `page` above is never found. Previously this fell through and
-      // the event was silently dropped — an external content or
-      // frontmatter edit made through such an editor would never reach
-      // the Vault. Reconcile the destination directly instead, the same
-      // way an ordinary event would: a tracked page already at that path
-      // means this was an in-place content replace; otherwise it's new
-      // content arriving under a name Sync hasn't seen yet.
+      // The 'from' half never resolved to a tracked page. An atomic save
+      // (write a fresh file, then rename it over the real path — one of
+      // several equivalent event patterns a save can produce, alongside a
+      // plain 'changed' or a delete-then-create pair) produces exactly
+      // this shape: the Rust watcher's rename pairing correlates the
+      // temporary path's disappearance with the real path's
+      // (re)appearance into one `moved` event, but that temporary path was
+      // never vault content, so `page` above is never found. Previously
+      // this fell through and the event was silently dropped — an
+      // external content or frontmatter edit saved this way would never
+      // reach the Vault. Reconcile the destination directly instead, the
+      // same way an ordinary event would: a tracked page already at that
+      // path means this was an in-place content replace; otherwise it's
+      // new content arriving under a name Sync hasn't seen yet. Neither
+      // branch depends on what produced the event — only on the Vault's
+      // and disk's current state at the two paths involved.
       if (this.vault.getPageByPath(absoluteTo)) {
         await this.handleChanged(toPath);
       } else {
