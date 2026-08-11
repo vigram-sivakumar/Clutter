@@ -17,6 +17,8 @@ export interface DiscoveredEntities {
    * archive-metadata repair, spec §4); this function never writes to disk.
    */
   readonly reassignedPagePaths: ReadonlySet<string>;
+  /** Same as reassignedPagePaths, for folders (their `.folder.md`). */
+  readonly reassignedFolderPaths: ReadonlySet<string>;
 }
 
 export interface DiscoveredEntitiesOptions {
@@ -74,6 +76,7 @@ export function buildDiscoveredEntities(
   const folderIdsByPath = new Map<string, string>();
   const resolvedDirectoriesByPath = new Map<string, ScannedDirectory>();
   const claimedFolderIds = new Set<string>(options.existingFolderIds ?? []);
+  const reassignedFolderPaths = new Set<string>();
 
   for (const directory of scanResult.directories) {
     const identity = identityResolver.resolveFolder(
@@ -95,6 +98,14 @@ export function buildDiscoveredEntities(
         ? { ...directory, frontmatter: { ...directory.frontmatter, id: resolved.id } }
         : directory
     );
+
+    // The scan root itself is never a navigable Folder when rootIsFolder is
+    // false (VaultBuilder's vault-root convention) — nothing is ever built
+    // or persisted for it, so a collision there (there won't be one in
+    // practice; see resolveDuplicateId) isn't reported as reassigned.
+    if (resolved.wasReassigned && (options.rootIsFolder || directory.path !== rootPath)) {
+      reassignedFolderPaths.add(directory.path);
+    }
   }
 
   const resolveParentId = (parentPath: string | null): string | null => {
@@ -151,5 +162,5 @@ export function buildDiscoveredEntities(
     });
   });
 
-  return { folders, pages, reassignedPagePaths };
+  return { folders, pages, reassignedPagePaths, reassignedFolderPaths };
 }

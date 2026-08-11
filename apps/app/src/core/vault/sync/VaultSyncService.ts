@@ -262,7 +262,7 @@ export class VaultSyncService {
     }
 
     const scanResult = await this.vaultScanner.scan(absolutePath);
-    const { folders, pages, reassignedPagePaths } = buildDiscoveredEntities(
+    const { folders, pages, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
       scanResult,
       {
         rootIsFolder: true,
@@ -315,6 +315,26 @@ export class VaultSyncService {
         },
         page,
         page.source.markdown
+      );
+    }
+
+    // A genuine duplicate folder id: repair its .folder.md the same way —
+    // one physical folder, one unique id, surviving a future rescan. Only
+    // written when a .folder.md already exists (the collision is only
+    // possible when one does — see resolveDuplicateId's doc comment: a
+    // path-derived id can't collide with anything); never manufactures a
+    // .folder.md for a folder that never had one.
+    for (const path of reassignedFolderPaths) {
+      const folder = this.vault.getFolderByPath(path);
+      const folderMetadataPath = `${path}/.folder.md`;
+
+      if (!folder || !(await this.fileSystem.exists(folderMetadataPath))) {
+        continue;
+      }
+
+      await this.fileSystem.writeFile(
+        folderMetadataPath,
+        this.frontmatterSerializer.serializeFolderDocument(folder)
       );
     }
   }

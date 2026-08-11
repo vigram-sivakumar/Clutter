@@ -138,7 +138,10 @@ export class Application {
     );
 
     const builder = new VaultBuilder(new UuidGenerator());
-    const { vault, reassignedPagePaths } = builder.build(scanResult, tagMetadata);
+    const { vault, reassignedPagePaths, reassignedFolderPaths } = builder.build(
+      scanResult,
+      tagMetadata
+    );
 
     // A genuine duplicate id discovered during the initial scan was already
     // given a fresh id in-memory (VaultBuilder); repair the duplicate
@@ -161,6 +164,25 @@ export class Application {
         },
         page,
         page.source.markdown
+      );
+    }
+
+    // Same repair, for a genuine duplicate folder id — written only when a
+    // .folder.md already exists (see VaultSyncService's identical guard);
+    // never manufactures one for a folder that never had it.
+    const folderFrontmatterSerializer = new FrontmatterSerializer();
+
+    for (const path of reassignedFolderPaths) {
+      const folder = vault.getFolderByPath(path);
+      const folderMetadataPath = `${path}/.folder.md`;
+
+      if (!folder || !(await fileSystem.exists(folderMetadataPath))) {
+        continue;
+      }
+
+      await fileSystem.writeFile(
+        folderMetadataPath,
+        folderFrontmatterSerializer.serializeFolderDocument(folder)
       );
     }
 

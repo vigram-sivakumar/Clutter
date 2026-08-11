@@ -10,6 +10,8 @@ import { InMemoryVaultFileSystem } from '../testing/InMemoryVaultFileSystem';
 import { FakeVaultFileSystemWatcher } from '../testing/FakeVaultFileSystemWatcher';
 import { FakeIdGenerator } from '../testing/FakeIdGenerator';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
+import { VaultScanner } from '../ingest/VaultScanner';
+import { VaultBuilder } from '../ingest/VaultBuilder';
 import { VaultQuery } from '../queries/VaultQuery';
 import type { Page } from '../models/Page';
 import type { Folder } from '../models/Folder';
@@ -542,6 +544,173 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
 
     const onDisk = await fileSystem.readFile(`${ROOT}/Projects copy/Roadmap.md`);
     expect(onDisk).toContain(`id: ${copy!.id}`);
+  });
+
+  it('created: a duplicated folder (its own .folder.md carrying the original\'s frontmatter id) is assigned a fresh id, persisted to its own .folder.md, and the original is untouched', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, fileSystem, watcher } = setup([], [projects]);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      '---\nid: folder-projects\nicon: 📁\nfavorite: true\n---\n'
+    );
+
+    // "Projects copy" duplicates the folder's own .folder.md verbatim,
+    // including its id.
+    await fileSystem.createDirectory(`${ROOT}/Projects copy`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects copy/.folder.md`,
+      '---\nid: folder-projects\nicon: 📁\nfavorite: true\n---\n'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects copy', isDirectory: true });
+    await flush();
+
+    const originalStill = vault.getFolder('folder-projects');
+    const copy = vault.getFolderByPath(`${ROOT}/Projects copy`);
+
+    expect(originalStill).toBeDefined();
+    expect(originalStill!.path).toBe(`${ROOT}/Projects`);
+    expect(copy).toBeDefined();
+    expect(copy!.id).not.toBe('folder-projects');
+    // Metadata besides the id survives the repair, not just the id itself.
+    expect(copy!.metadata.icon).toBe('📁');
+    expect(copy!.metadata.favorite).toBe(true);
+
+    // The new id is written back to the duplicate's own .folder.md — a
+    // future rescan must not encounter the same collision again.
+    const onDisk = await fileSystem.readFile(`${ROOT}/Projects copy/.folder.md`);
+    expect(onDisk).toContain(`id: ${copy!.id}`);
+
+    // The original's own .folder.md is never touched.
+    const originalOnDisk = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(originalOnDisk).toContain('id: folder-projects');
+  });
+
+  it('created: a duplicated folder subtree with BOTH the folder\'s own id and its notes\' ids colliding gets every collision resolved and persisted independently', async () => {
+    const projects = makeProjectsFolder();
+    const original = buildPage('Projects/Roadmap.md', 'Roadmap content', 'page-roadmap');
+    const { vault, fileSystem, watcher } = setup([original], [projects]);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      '---\nid: folder-projects\n---\n'
+    );
+
+    await fileSystem.createDirectory(`${ROOT}/Projects copy`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects copy/.folder.md`,
+      '---\nid: folder-projects\n---\n'
+    );
+    await fileSystem.writeFile(
+      `${ROOT}/Projects copy/Roadmap.md`,
+      '---\nid: page-roadmap\n---\nRoadmap content'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects copy', isDirectory: true });
+    await flush();
+
+    const originalFolder = vault.getFolder('folder-projects')!;
+    const copyFolder = vault.getFolderByPath(`${ROOT}/Projects copy`)!;
+    const originalPage = vault.getPage('page-roadmap')!;
+    const copyPage = vault.getPageByPath(`${ROOT}/Projects copy/Roadmap.md`)!;
+
+    expect(originalFolder.path).toBe(`${ROOT}/Projects`);
+    expect(copyFolder.id).not.toBe('folder-projects');
+    expect(originalPage.path).toBe(`${ROOT}/Projects/Roadmap.md`);
+    expect(copyPage.id).not.toBe('page-roadmap');
+    // The two independent collisions must not be resolved to the same id.
+    expect(copyFolder.id).not.toBe(copyPage.id);
+    expect(vault.folderCount).toBe(2);
+    expect(vault.pageCount).toBe(2);
+
+    const folderOnDisk = await fileSystem.readFile(`${ROOT}/Projects copy/.folder.md`);
+    expect(folderOnDisk).toContain(`id: ${copyFolder.id}`);
+    const pageOnDisk = await fileSystem.readFile(`${ROOT}/Projects copy/Roadmap.md`);
+    expect(pageOnDisk).toContain(`id: ${copyPage.id}`);
+  });
+
+  it('created: a duplicate folder id resolved by sync survives a fresh full scan/reload — the repaired id is stable, not re-collided', async () => {
+    const projects = makeProjectsFolder();
+    const original = buildPage('Projects/Roadmap.md', 'Roadmap content', 'page-roadmap');
+    const { vault, fileSystem, watcher } = setup([original], [projects]);
+    // The original folder must also exist on disk (not just in the
+    // pre-seeded Vault) so the later rescan can discover it too.
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      '---\nid: folder-projects\n---\n'
+    );
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/Roadmap.md`,
+      '---\nid: page-roadmap\n---\nRoadmap content'
+    );
+
+    await fileSystem.createDirectory(`${ROOT}/Projects copy`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects copy/.folder.md`,
+      '---\nid: folder-projects\n---\n'
+    );
+    await fileSystem.writeFile(
+      `${ROOT}/Projects copy/Roadmap.md`,
+      '---\nid: page-roadmap\n---\nRoadmap content'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects copy', isDirectory: true });
+    await flush();
+
+    const repairedFolderId = vault.getFolderByPath(`${ROOT}/Projects copy`)!.id;
+    const repairedPageId = vault.getPageByPath(`${ROOT}/Projects copy/Roadmap.md`)!.id;
+
+    // Simulate an app restart: scan the same on-disk state from scratch and
+    // rebuild a brand-new Vault, exactly like VaultBuilder does at startup.
+    const scanner = new VaultScanner(fileSystem);
+    const scanResult = await scanner.scan(ROOT);
+    const builder = new VaultBuilder(new FakeIdGenerator());
+    const { vault: reloadedVault, reassignedFolderPaths, reassignedPagePaths } =
+      builder.build(scanResult);
+
+    // No collision is rediscovered — the repaired ids round-trip exactly.
+    expect(reassignedFolderPaths.size).toBe(0);
+    expect(reassignedPagePaths.size).toBe(0);
+    expect(reloadedVault.getFolderByPath(`${ROOT}/Projects`)!.id).toBe('folder-projects');
+    expect(reloadedVault.getFolderByPath(`${ROOT}/Projects copy`)!.id).toBe(repairedFolderId);
+    expect(reloadedVault.getPageByPath(`${ROOT}/Projects/Roadmap.md`)!.id).toBe('page-roadmap');
+    expect(reloadedVault.getPageByPath(`${ROOT}/Projects copy/Roadmap.md`)!.id).toBe(repairedPageId);
+  });
+
+  it('created: a folder with no .folder.md at all never gets one manufactured by duplicate-id repair', async () => {
+    // A path-derived (frontmatter-less) folder id can never collide with
+    // anything (see resolveDuplicateId) — this proves the repair pass
+    // still never writes a .folder.md for a folder that never had one,
+    // even when the subtree also contains an unrelated real collision.
+    const original = buildPage('Projects/Roadmap.md', 'Roadmap content', 'page-roadmap');
+    const { vault, fileSystem, watcher } = setup([original]);
+
+    await fileSystem.createDirectory(`${ROOT}/Projects copy`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects copy/Roadmap.md`,
+      '---\nid: page-roadmap\n---\nRoadmap content'
+    );
+
+    watcher.emit({ type: 'created', path: 'Projects copy', isDirectory: true });
+    await flush();
+
+    expect(vault.getFolderByPath(`${ROOT}/Projects copy`)).toBeDefined();
+    expect(await fileSystem.exists(`${ROOT}/Projects copy/.folder.md`)).toBe(false);
+  });
+
+  it("created: Clutter's own reserved .clutter directory at the vault root is never treated as a folder to build, duplicate-check, or repair", async () => {
+    const { vault, fileSystem, watcher } = setup();
+    // .clutter already exists (VaultInitializer's job at real startup) —
+    // simulate an external tool touching it, which must still never
+    // surface as vault content.
+    await fileSystem.createDirectory(`${ROOT}/.clutter`);
+    await fileSystem.writeFile(`${ROOT}/.clutter/workspace.json`, '{}');
+
+    watcher.emit({ type: 'created', path: '.clutter', isDirectory: true });
+    await flush();
+
+    expect(vault.getFolderByPath(`${ROOT}/.clutter`)).toBeUndefined();
+    expect(await fileSystem.exists(`${ROOT}/.clutter/.folder.md`)).toBe(false);
   });
 
   it('created: a nested directory inside an unresolvable parent is safely ignored, same as a page would be', async () => {

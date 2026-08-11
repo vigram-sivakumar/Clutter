@@ -91,4 +91,27 @@ describe('VaultBuilder duplicate ids', () => {
     expect(reassignedPagePaths.has('/vault/Original.md')).toBe(false);
     expect(vault.pageCount).toBe(2);
   });
+
+  it('assigns a fresh id to a genuine duplicate folder discovered during the initial scan, keeping the first folder\'s id intact', () => {
+    const builder = new VaultBuilder(makeIdGenerator('folder-fresh'));
+
+    const { vault, reassignedFolderPaths } = builder.build({
+      rootPath: '/vault',
+      pages: [],
+      directories: [
+        { path: '/vault/Original', parentPath: '/vault', frontmatter: { id: 'dup-folder' } },
+        { path: '/vault/Copy', parentPath: '/vault', frontmatter: { id: 'dup-folder' } },
+      ],
+    });
+
+    const original = vault.getFolderByPath('/vault/Original')!;
+    const copy = vault.getFolderByPath('/vault/Copy')!;
+
+    expect(original.id).toBe('dup-folder');
+    expect(copy.id).toBe('folder-fresh');
+    expect(copy.id).not.toBe(original.id);
+    expect(reassignedFolderPaths.has('/vault/Copy')).toBe(true);
+    expect(reassignedFolderPaths.has('/vault/Original')).toBe(false);
+    expect(vault.folderCount).toBe(2);
+  });
 });

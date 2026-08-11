@@ -1,4 +1,5 @@
 import type { Page } from '../models/Page';
+import type { Folder } from '../models/Folder';
 import type { PageFrontmatter } from './frontmatter';
 
 /**
@@ -81,5 +82,52 @@ export class FrontmatterSerializer {
    */
   serializeDocument(page: Page, markdown: string): string {
     return `${this.serializePage(page)}\n${markdown}`;
+  }
+
+  /**
+   * Serializes only defined values from the provided folder, mirroring
+   * serializePage's shape and field-ordering determinism — a folder's
+   * `.folder.md` is a persisted-identity file, not a page, but the same
+   * "id is authoritative, everything else optional and defaulted by
+   * FolderBuilder when absent" contract applies (see FolderCreator's own
+   * use of the plain `serialize()` for a freshly created folder's minimal
+   * `{ id }` frontmatter — this is the same serialization path extended to
+   * a full Folder so an existing folder's other metadata survives a
+   * repair write, not a parallel implementation of it).
+   */
+  serializeFolder(folder: Folder): string {
+    const lines = ['---'];
+
+    const entries: [string, any][] = [
+      ['id', folder.id],
+      ['icon', folder.metadata.icon],
+      ['favorite', folder.metadata.favorite],
+      ['description', folder.metadata.description],
+      ['cover', folder.metadata.cover],
+      ['status', folder.metadata.status],
+      ['archivedAt', folder.metadata.archivedAt],
+      ['originalPath', folder.metadata.originalPath],
+      ['originalParentId', folder.metadata.originalParentId],
+    ];
+
+    for (const [key, value] of entries) {
+      if (value !== undefined) {
+        lines.push(`${key}: ${value}`);
+      }
+    }
+
+    lines.push('---');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Serializes a folder's `.folder.md` document — frontmatter only, no
+   * Markdown body (a folder has none), mirroring FolderCreator.buildContent's
+   * exact trailing-newline convention so a repaired file is
+   * indistinguishable in shape from one Clutter created outright.
+   */
+  serializeFolderDocument(folder: Folder): string {
+    return `${this.serializeFolder(folder)}\n`;
   }
 }

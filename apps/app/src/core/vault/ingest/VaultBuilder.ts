@@ -23,6 +23,8 @@ export interface VaultBuildResult {
    * Ingest's invariant (docs/architecture-specification.md §2).
    */
   readonly reassignedPagePaths: ReadonlySet<string>;
+  /** Same as reassignedPagePaths, for folders (their `.folder.md`). */
+  readonly reassignedFolderPaths: ReadonlySet<string>;
 }
 
 export class VaultBuilder {
@@ -43,7 +45,7 @@ export class VaultBuilder {
     // The vault root itself is scanned as a directory (parentPath === null)
     // so its id can be resolved for its children's parentId, but it is not
     // a navigable Folder in the domain model — rootIsFolder: false.
-    const { folders, pages, reassignedPagePaths } = buildDiscoveredEntities(
+    const { folders, pages, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
       scanResult,
       { rootIsFolder: false, rootParentId: null, idGenerator: this.idGenerator },
       { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
@@ -75,6 +77,6 @@ export class VaultBuilder {
       tagMetadata,
     );
 
-    return { vault, reassignedPagePaths };
+    return { vault, reassignedPagePaths, reassignedFolderPaths };
   }
 }
