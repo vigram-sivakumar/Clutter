@@ -242,6 +242,48 @@ describe('VaultSyncService', () => {
     expect(moved.metadata.icon).toBe('📌');
   });
 
+  it('moved (atomic save, replace): a temp-file-renamed-over-the-original save is reconciled as a content change, not dropped', async () => {
+    // VS Code (and many editors) save atomically: write a temp file, then
+    // rename it over the real path. The watcher's rename pairing reports
+    // this as a single 'moved' event whose fromPath (the temp file) was
+    // never tracked as vault content.
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nEdited externally');
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: '.Note.md.tmp',
+      toPath: 'Note.md',
+    });
+    await flush();
+
+    const page = vault.getPage('note-1');
+    expect(page).toBeDefined();
+    expect(page!.path).toBe(`${ROOT}/Note.md`);
+    expect(page!.source.markdown).toBe('Edited externally');
+    expect(vault.pageCount).toBe(1);
+  });
+
+  it('moved (atomic save, new file): a temp-file-renamed-into-place file that was never tracked is discovered as a new page', async () => {
+    const { vault, fileSystem, watcher } = setup();
+
+    fileSystem.seedFile(`${ROOT}/New.md`, '---\nid: page-new\n---\nBrand new content');
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: '.New.md.tmp',
+      toPath: 'New.md',
+    });
+    await flush();
+
+    const page = vault.getPageByPath(`${ROOT}/New.md`);
+    expect(page).toBeDefined();
+    expect(page!.id).toBe('page-new');
+    expect(page!.source.markdown).toBe('Brand new content');
+  });
+
   it('changed: page id is unchanged and analysis is recomputed (PageRebuilder actually ran)', async () => {
     const existing = buildPage('Note.md', 'Original body', 'note-1');
     const { vault, fileSystem, watcher } = setup([existing]);

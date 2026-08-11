@@ -343,6 +343,25 @@ export class VaultSyncService {
     const page = this.vault.getPageByPath(absoluteFrom);
 
     if (!page) {
+      // The 'from' half never resolved to a tracked page. Editors that
+      // save atomically — write a temp file, then rename it over the real
+      // path (VS Code, and many others) — produce exactly this shape: the
+      // Rust watcher's rename pairing correlates the temp file's
+      // disappearance with the real path's (re)appearance into one
+      // `moved` event, but the temp file itself was never vault content,
+      // so `page` above is never found. Previously this fell through and
+      // the event was silently dropped — an external content or
+      // frontmatter edit made through such an editor would never reach
+      // the Vault. Reconcile the destination directly instead, the same
+      // way an ordinary event would: a tracked page already at that path
+      // means this was an in-place content replace; otherwise it's new
+      // content arriving under a name Sync hasn't seen yet.
+      if (this.vault.getPageByPath(absoluteTo)) {
+        await this.handleChanged(toPath);
+      } else {
+        await this.handleCreated(toPath, false);
+      }
+
       return;
     }
 
