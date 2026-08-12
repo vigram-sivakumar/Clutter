@@ -1,5 +1,6 @@
 import type { Page } from './Page';
 import type { Folder } from './Folder';
+import type { FolderMetadata } from './FolderMetadata';
 import type { Tag, TagMetadataEntry } from './Tag';
 import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Embed } from './Embed';
@@ -8,6 +9,7 @@ import type { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder
 import {
   RESERVED_FOLDER_NAMES,
   reservedFolderRelativePath,
+  isDailyNotePath,
   type ReservedFolderId,
 } from '../initialize/ReservedResources';
 import { VaultPath } from '../ingest/VaultPath';
@@ -360,7 +362,13 @@ export class Vault {
    * Replaces an existing page with a newer immutable instance.
    *
    * Used after successful persistence so the in-memory Vault reflects the
-   * latest committed document without rebuilding the entire Vault.
+   * latest committed document without rebuilding the entire Vault. Reused
+   * for both a pure content save (path unchanged — save, external content
+   * edit) and a cross-path operation whose caller already decided the
+   * final path (archive, restore) — `type` is recomputed from `page.path`
+   * either way (resolvePageType), a no-op for the former, correct for the
+   * latter. Callers (PageRebuilder) no longer need to get this right
+   * themselves.
    */
   replacePage(page: Page): void {
     const existing = this.pagesById.get(page.id);
@@ -373,13 +381,15 @@ export class Vault {
       this.assertPathAvailable(page.path);
     }
 
-    this.pagesById.set(page.id, page);
+    const resolved: Page = { ...page, type: this.resolvePageType(page.path) };
 
-    if (existing.path !== page.path) {
+    this.pagesById.set(resolved.id, resolved);
+
+    if (existing.path !== resolved.path) {
       this.pagesByPath.delete(existing.path);
     }
 
-    this.pagesByPath.set(page.path, page);
+    this.pagesByPath.set(resolved.path, resolved);
     this.refreshProjections();
 
     if (existing.path === page.path) {
@@ -437,7 +447,13 @@ export class Vault {
    * same method. `name` is recomputed from the new path every time (mirrors
    * moveFolder's `name: VaultPath.filename(path)` recompute for folders) —
    * a no-op for a plain move, since the filename doesn't change; correct
-   * for a rename, since it does.
+   * for a rename, since it does. `type` is recomputed the same way: a
+   * page's Daily Note vs. Note role is a pure function of its current path
+   * (resolvePageType), never persisted frontmatter — this is the one Vault
+   * mutation both app-initiated move/rename/restore (MoveService.movePage)
+   * and an external filesystem move (VaultSyncService.handleMoved's common
+   * case) share, so enforcing the invariant here covers both without
+   * duplicating the rule in either caller.
    */
   updatePagePath(
     pageId: string,
@@ -461,6 +477,7 @@ export class Vault {
     const updatedPage: Page = {
       ...page,
       name: VaultPath.pageName(path),
+      type: this.resolvePageType(path),
       path,
       parentId,
     };
@@ -522,6 +539,149 @@ export class Vault {
       return;
     }
 
+    const { pagesInSubtree } = this.relocateFolderSubtree(folderId, path, parentId);
+
+    if (pagesInSubtree.length > 0) {
+      this.refreshProjections();
+    }
+
+    this.notify({
+      type: 'folder-moved',
+      folderId,
+      path,
+    });
+  }
+
+  /**
+   * ADR-026 §2: archives a folder by relocating its entire subtree as a
+   * single directory move (reusing relocateFolderSubtree — the exact same
+   * cascade moveFolder() uses, one aggregate over) into the vault's
+   * reserved `Archive/` folder, then patching only the target folder's own
+   * metadata. Descendant folders/pages get new paths but their own
+   * `status`/`archivedAt`/etc. are left untouched — mirroring
+   * ArchiveMetadataReconciler's existing principle that location inside
+   * `Archive/` never by itself implies archived status, now applied to
+   * folders (visibility for these untouched descendants is handled on the
+   * read side by MembershipSelector.isEffectivelyArchived(), not here).
+   *
+   * `path`/`parentId` are the caller-resolved Archive/ destination
+   * (FolderPathResolver.resolveArchiveDestination) — this method performs
+   * no path resolution of its own, mirroring moveFolder()'s existing
+   * division of responsibility.
+   */
+  archiveFolder(
+    folderId: string,
+    path: string,
+    parentId: string,
+    metadata: Pick<FolderMetadata, 'status' | 'archivedAt' | 'originalPath' | 'originalParentId'>
+  ): void {
+    const folder = this.foldersById.get(folderId);
+
+    if (!folder) {
+      throw new Error(`Unknown folder: ${folderId}`);
+    }
+
+    const { pagesInSubtree } = this.relocateFolderSubtree(folderId, path, parentId);
+
+    const relocated = this.foldersById.get(folderId)!;
+    const archived: Folder = {
+      ...relocated,
+      metadata: { ...relocated.metadata, ...metadata },
+    };
+
+    this.foldersById.set(folderId, archived);
+    this.foldersByPath.set(archived.path, archived);
+
+    if (pagesInSubtree.length > 0) {
+      this.refreshProjections();
+    }
+
+    this.notify({
+      type: 'folder-moved',
+      folderId,
+      path,
+    });
+  }
+
+  /**
+   * ADR-026's Sync amendment (external folder unarchive reconciliation):
+   * Sync-only repair primitive, mirroring how `persistSyncedPageDocument`
+   * reuses `replacePage()` for the page-side equivalent. Relocates the
+   * folder (reusing the exact same `relocateFolderSubtree` cascade
+   * `moveFolder()`/`archiveFolder()` already share) and applies an
+   * arbitrary metadata correction to only the target folder's own
+   * metadata — descendants are untouched, per the same principle
+   * `archiveFolder()` already established for the archive-write direction.
+   *
+   * Mechanically near-identical to `archiveFolder()`, deliberately kept as
+   * a separate, narrowly-named method rather than a second call site for
+   * it: `archiveFolder()` is the app-initiated "become archived" write
+   * (Gate-only caller); this is Sync's "external move revealed stale
+   * metadata" repair (Sync-only caller, per this file's rule-3 restriction
+   * — callable only from vault/persistence/ and vault/sync/). Two
+   * different owners for two different conceptual operations, the same
+   * reasoning ADR-026 §0/Alternative C already applied to Gate kind-naming
+   * (`'archive'`/`'restore'` vs. `'archive-folder'`/`'restore-folder'`).
+   *
+   * A no-op relocation (path/parentId unchanged) is a valid, idempotent
+   * call here — the startup reconciliation pass calls this against a
+   * folder's already-current path (nothing moved, only metadata is stale),
+   * unlike the live-sync caller, which always passes a genuinely new path.
+   */
+  correctFolderArchiveMetadata(
+    folderId: string,
+    path: string,
+    parentId: string | null,
+    metadata: Pick<FolderMetadata, 'status' | 'archivedAt' | 'originalPath' | 'originalParentId'>
+  ): void {
+    const folder = this.foldersById.get(folderId);
+
+    if (!folder) {
+      throw new Error(`Unknown folder: ${folderId}`);
+    }
+
+    const { pagesInSubtree } = this.relocateFolderSubtree(folderId, path, parentId);
+
+    const relocated = this.foldersById.get(folderId)!;
+    const corrected: Folder = {
+      ...relocated,
+      metadata: { ...relocated.metadata, ...metadata },
+    };
+
+    this.foldersById.set(folderId, corrected);
+    this.foldersByPath.set(corrected.path, corrected);
+
+    if (pagesInSubtree.length > 0) {
+      this.refreshProjections();
+    }
+
+    this.notify({
+      type: 'folder-moved',
+      folderId,
+      path,
+    });
+  }
+
+  /**
+   * The one implementation of "relocate a folder and its entire subtree to
+   * a new path/parentId" — moveFolder() and archiveFolder() both call this,
+   * differing only in what (if anything) they do to the target folder's own
+   * metadata afterward. Collision checks, path-map updates, and id
+   * stability for every descendant folder/page are identical for a plain
+   * move and an archive-relocation (ADR-026 §0: "the persistence...
+   * exactly what Vault.moveFolder()'s cascade already does").
+   *
+   * Unlike moveFolder(), this performs no same-destination no-op check —
+   * callers that need one (moveFolder()) perform it themselves before
+   * calling in, since archiveFolder() always expects a genuine relocation
+   * into Archive/.
+   */
+  private relocateFolderSubtree(
+    folderId: string,
+    path: string,
+    parentId: string | null
+  ): { readonly descendantFolders: readonly Folder[]; readonly pagesInSubtree: readonly Page[] } {
+    const folder = this.foldersById.get(folderId)!;
     const oldPrefix = folder.path;
 
     if (
@@ -626,15 +786,7 @@ export class Vault {
       this.pagesByPath.set(nextPath, updatedPage);
     }
 
-    if (pagesInSubtree.length > 0) {
-      this.refreshProjections();
-    }
-
-    this.notify({
-      type: 'folder-moved',
-      folderId,
-      path,
-    });
+    return { descendantFolders, pagesInSubtree };
   }
 
   /**
@@ -700,6 +852,19 @@ export class Vault {
     if (occupant && occupant.id !== exceptPageId) {
       throw new Error(`Path already in use by another page: ${path}`);
     }
+  }
+
+  /**
+   * The single source of truth for a page's Daily Note vs. Note role: a
+   * pure function of its current path, never persisted frontmatter. Called
+   * by every Vault mutation that changes a page's identity/location after
+   * construction (replacePage, updatePagePath) — not by addPage, whose
+   * only production callers already pass a Page PageBuilder just built
+   * with the correct type, and not by the constructor's initial
+   * population, which is exactly that same PageBuilder output.
+   */
+  private resolvePageType(path: string): Page['type'] {
+    return isDailyNotePath(this.root, path) ? 'daily-note' : 'note';
   }
 
   /**

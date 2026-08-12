@@ -1,6 +1,6 @@
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
 import { DailyNoteService } from './daily-notes/DailyNoteService';
-import { DailyNotePath } from './daily-notes/DailyNotePath';
+import { DailyNotePath } from '../vault/ingest/DailyNotePath';
 import { PageCreator } from './page/PageCreator';
 import { PageFactory } from './page/PageFactory';
 import { PagePathResolver } from './page/PagePathResolver';

@@ -1,5 +1,5 @@
 import type { Folder } from '@core/vault/models';
-import { DailyNotePath } from '@core/application/daily-notes/DailyNotePath';
+import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Vault } from '@core/vault/models';
 import type { Workspace } from '@core/workspace/Workspace';
@@ -83,13 +83,24 @@ function collectRealMonthSections(vault: Vault, query: VaultQuery): RealMonthSec
 
   for (const yearFolder of query.getChildFolders(root.id)) {
     for (const monthFolder of query.getChildFolders(yearFolder.id)) {
-      sections.push({
-        monthFolder,
-        monthIsoDate: DailyNotePath.monthIsoFromFolderNames(
+      // A year/month folder pair that doesn't match the Daily Notes
+      // naming convention (e.g. a user-created "08" instead of "August")
+      // has no month section to render — skip it rather than letting
+      // monthIsoFromFolderNames' throw crash the whole sidebar. The
+      // Markdown files underneath are untouched; they're just not
+      // eligible for month-section grouping under an unrecognized name.
+      let monthIsoDate: RealMonthSection['monthIsoDate'];
+
+      try {
+        monthIsoDate = DailyNotePath.monthIsoFromFolderNames(
           yearFolder.name,
           monthFolder.name
-        ),
-      });
+        );
+      } catch {
+        continue;
+      }
+
+      sections.push({ monthFolder, monthIsoDate });
     }
   }
 

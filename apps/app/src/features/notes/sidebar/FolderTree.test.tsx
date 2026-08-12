@@ -458,6 +458,80 @@ describe('FolderTree: Daily Note membership (ADR-023) — the bug this phase fix
 
     expect(screen.getByText('My Draft')).toBeInTheDocument();
   });
+
+  // Empirical check requested alongside the classification-hardening work:
+  // a persisted, type: 'note' page whose path physically sits inside a
+  // real Daily Notes month folder (e.g. an external file dropped next to a
+  // real Daily Note) is invisible here — NOT because getNotesChildPages
+  // filters it out by page.type (it wouldn't; see the folderId:null test
+  // above), but because FolderTree's root-level traversal starts from
+  // membershipSelector.getWorkspaceFolders(), which excludes Daily Notes
+  // itself (a reserved folder, isWorkspaceFolder) before recursion ever
+  // begins — so the tree never reaches "Daily Notes/2026/August" as a
+  // folder to call getNotesChildPages(folder.id) on in the first place.
+  // This is a location-based folder-tree exclusion, orthogonal to the
+  // type-based page filter — no new membership logic is added by this
+  // test, it only documents the existing outcome.
+  it('a persisted Note physically located inside a Daily Notes month folder does NOT appear in Notes — FolderTree never descends into Daily Notes at all', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const dailyNote: Page = {
+      id: 'daily-1',
+      type: 'daily-note',
+      name: '2026-08-12',
+      path: `${ROOT}/Daily Notes/2026/August/2026-08-12.md`,
+      parentId: 'month-august',
+      metadata: {
+        icon: null,
+        cover: null,
+        description: null,
+        favorite: false,
+        status: 'active',
+        archivedAt: null,
+        originalParentId: null,
+        originalPath: null,
+        createdAt: null,
+        updatedAt: null,
+      },
+      source: { markdown: '' },
+      analysis: {
+        headings: [],
+        aliases: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [],
+        links: [],
+        embeds: [],
+      },
+    };
+    const strayNote: Page = {
+      ...dailyNote,
+      id: 'note-1',
+      type: 'note',
+      name: 'Test file',
+      path: `${ROOT}/Daily Notes/2026/August/Test file.md`,
+    };
+    const { query, workspace, membershipSelector } = setup(
+      [dailyNote, strayNote],
+      [dailyNotesRoot, year, month]
+    );
+
+    renderTree(query, membershipSelector, workspace);
+
+    // Neither page renders in Notes — the Daily Note correctly doesn't
+    // (it never did), but the stray Note doesn't either, despite
+    // page.type === 'note' being exactly what getNotesChildPages filters
+    // for. There is simply no folder row in this tree whose id is
+    // "month-august" to call getNotesChildPages on.
+    expect(screen.queryByText('Test file')).not.toBeInTheDocument();
+    expect(screen.queryByText('2026-08-12')).not.toBeInTheDocument();
+    expect(screen.queryByText('August')).not.toBeInTheDocument();
+  });
 });
 
 describe('FolderTree: draft promotion', () => {

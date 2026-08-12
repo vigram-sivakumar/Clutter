@@ -11,7 +11,7 @@ function buildPage(overrides: {
   cover?: string;
   content?: string;
 } = {}): Page {
-  return new PageBuilder().build({
+  return new PageBuilder('/vault').build({
     parentId: null,
     page: {
       path: overrides.path ?? '/vault/Note.md',
@@ -94,24 +94,42 @@ describe('toResourcePageModel', () => {
   });
 
   it('always shows the real filename for a daily note, even one with an auto-generated-looking name — its identity is always the date, never a placeholder', () => {
-    const page = new PageBuilder().build({
+    // Built as a Page literal, not via PageBuilder: a real Daily Note's
+    // name is always the canonical Daily Note date (DailyNotePath's
+    // convention is now enforced at classification time — see
+    // PageBuilder's "type is derived from canonical path" tests), so this
+    // specific name/type combination can no longer occur through normal
+    // ingest. toResourcePageModel's own type-aware fallback rule is what's
+    // under test here, independent of how the Page came to exist.
+    const page: Page = {
+      id: 'daily-1',
+      type: 'daily-note',
+      name: 'Untitled',
+      path: '/vault/Daily Notes/2026/August/Untitled.md',
       parentId: null,
-      page: {
-        path: '/vault/Daily Notes/2026/08/Untitled.md',
-        directoryPath: '/vault/Daily Notes/2026/08',
-        frontmatter: { id: 'daily-1', type: 'daily-note' },
-        frontmatterAnalysis: { aliases: [] },
-        content: 'Hello world I am here',
-        analysis: {
-          headings: [],
-          blockReferences: [],
-          tasks: [],
-          tags: [],
-          links: [],
-          embeds: [],
-        },
+      metadata: {
+        icon: null,
+        cover: null,
+        description: null,
+        favorite: false,
+        status: 'active',
+        archivedAt: null,
+        originalParentId: null,
+        originalPath: null,
+        createdAt: null,
+        updatedAt: null,
       },
-    });
+      source: { markdown: 'Hello world I am here' },
+      analysis: {
+        headings: [],
+        aliases: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [],
+        links: [],
+        embeds: [],
+      },
+    };
     const session = new DocumentSession(page.id, page.source.markdown);
 
     const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());

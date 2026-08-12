@@ -48,9 +48,15 @@ export class FrontmatterSerializer {
     // always produce identical persisted output.
     // Future iterations may replace this formatter with a full YAML serializer
     // while preserving the same canonical field ordering.
+    // No `type` field: a page's Daily Note vs. Note role is derived from
+    // its current path at runtime (Vault.resolvePageType/PageBuilder),
+    // never persisted — see the Page.type investigation. Any `type:` line
+    // already present in an existing file on disk is inert legacy data,
+    // never read back (FrontmatterParser still parses it as an arbitrary
+    // field; nothing consumes it for classification) and naturally drops
+    // out of this list the next time that file is saved.
     const entries: [string, any][] = [
       ['id', page.id],
-      ['type', page.type],
       ['created', page.metadata.createdAt],
       ['modified', page.metadata.updatedAt],
       ['favorite', page.metadata.favorite],

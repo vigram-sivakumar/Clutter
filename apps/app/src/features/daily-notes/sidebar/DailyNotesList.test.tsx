@@ -237,6 +237,134 @@ describe('DailyNotesList — empty month sections', () => {
   });
 });
 
+describe('DailyNotesList — a Note nested inside a valid month folder is not rendered as a Daily Note', () => {
+  it('a persisted type: "note" page sitting alongside a real Daily Note in the same month folder is excluded from the section, while the real Daily Note still renders', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const month = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    const dailyNote = makeDailyNote('daily-1', '2026-08-12', 'month-august');
+    // Same folder, same shape, but type: 'note' — e.g. an external file
+    // dropped next to a real Daily Note (PageBuilder/Vault classify it as
+    // 'note' since its filename isn't the canonical Daily Note date).
+    const strayNote: Page = {
+      ...dailyNote,
+      id: 'note-1',
+      type: 'note',
+      name: 'Test file',
+      path: `${ROOT}/Daily Notes/2026/August/Test file.md`,
+    };
+    const { vault, query, membershipSelector, workspace } = setup(
+      [dailyNote, strayNote],
+      [dailyNotesRoot, year, month]
+    );
+
+    render(
+      <DailyNotesList
+        vault={vault}
+        query={query}
+        membershipSelector={membershipSelector}
+        workspace={workspace}
+        onOpen={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenFolder={vi.fn()}
+      />
+    );
+
+    // getDailyNoteChildPages filters strictly by page.type === 'daily-note'
+    // — the stray Note is excluded here regardless of sharing the same
+    // month folder as a real Daily Note. Only one row renders.
+    expect(screen.getAllByText('Start typing...')).toHaveLength(1);
+    expect(screen.queryByText('Test file')).not.toBeInTheDocument();
+  });
+});
+
+describe('DailyNotesList — malformed month folders do not crash discovery', () => {
+  it('a year folder whose child folder name is not a recognized month is skipped, not thrown', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    // "08" instead of "August" — not a recognized month folder name.
+    const malformedMonth = makeFolder(
+      'month-08',
+      `${ROOT}/Daily Notes/2026/08`,
+      'year-2026'
+    );
+    const { vault, query, membershipSelector, workspace } = setup(
+      [],
+      [dailyNotesRoot, year, malformedMonth]
+    );
+
+    expect(() =>
+      render(
+        <DailyNotesList
+          vault={vault}
+          query={query}
+          membershipSelector={membershipSelector}
+          workspace={workspace}
+          onOpen={vi.fn()}
+          onOpenDraft={vi.fn()}
+          onOpenFolder={vi.fn()}
+        />
+      )
+    ).not.toThrow();
+  });
+
+  it('a malformed month folder containing a Markdown file is skipped, and a valid sibling month still renders', () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const malformedMonth = makeFolder(
+      'month-08',
+      `${ROOT}/Daily Notes/2026/08`,
+      'year-2026'
+    );
+    const validMonth = makeFolder(
+      'month-august',
+      `${ROOT}/Daily Notes/2026/August`,
+      'year-2026'
+    );
+    // A file inside the malformed folder — its path is not the canonical
+    // Daily Note path either (folder name is "08", not "August"), so
+    // classification already makes it a plain Note; parentId points at the
+    // malformed folder, which the month-section walk must still not throw
+    // on when enumerating.
+    const noteInMalformedFolder: Page = {
+      id: 'note-in-malformed',
+      type: 'note',
+      name: '2026-08-12',
+      path: `${ROOT}/Daily Notes/2026/08/2026-08-12.md`,
+      parentId: 'month-08',
+      metadata: defaultPageMetadata,
+      source: { markdown: '' },
+      analysis: defaultAnalysis,
+    };
+    const validNote = makeDailyNote('daily-1', '2026-08-15', 'month-august');
+    const { vault, query, membershipSelector, workspace } = setup(
+      [noteInMalformedFolder, validNote],
+      [dailyNotesRoot, year, malformedMonth, validMonth]
+    );
+
+    expect(() =>
+      render(
+        <DailyNotesList
+          vault={vault}
+          query={query}
+          membershipSelector={membershipSelector}
+          workspace={workspace}
+          onOpen={vi.fn()}
+          onOpenDraft={vi.fn()}
+          onOpenFolder={vi.fn()}
+        />
+      )
+    ).not.toThrow();
+
+    // The valid month's Daily Note still renders normally.
+    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+  });
+});
+
 describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this phase fixes', () => {
   it("today's draft appears here even with NO Daily Notes folder chain on disk yet (fresh-vault boot)", async () => {
     // No Daily Notes/Archive/etc. folders seeded at all — mirrors a

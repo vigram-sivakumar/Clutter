@@ -1458,7 +1458,7 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
 
   it('openAtPath opens a draft when nothing exists at that path yet, and a second call for the same path reuses it', async () => {
     const { vault, pageOperations } = setupEmpty();
-    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
 
     const firstId = await pageOperations.openAtPath(path, {
       type: 'daily-note',
@@ -1473,7 +1473,7 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
 
   it('openAtPath defaults the draft title to the filename (minus .md) when no title is given, matching PageBuilder', async () => {
     const { pageOperations } = setupEmpty();
-    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
 
     const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
 
@@ -1485,7 +1485,7 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
       makeArchiveFolder(),
       makeDailyNotesFolder(),
     ]);
-    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
 
     const id = await pageOperations.openAtPath(path, {
       type: 'daily-note',
@@ -1584,7 +1584,7 @@ describe('PageOperations.updateDraftTitle()', () => {
       makeArchiveFolder(),
       makeDailyNotesFolder(),
     ]);
-    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
     const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
 
     await pageOperations.updateDraftTitle(id, 'Something else entirely');
@@ -1598,7 +1598,7 @@ describe('PageOperations.updateDraftTitle()', () => {
       makeArchiveFolder(),
       makeDailyNotesFolder(),
     ]);
-    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
     const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
     const listener = vi.fn();
     workspace.subscribe(listener);
@@ -1680,7 +1680,7 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
       makeArchiveFolder(),
       makeDailyNotesFolder(),
     ]);
-    const path = `${ROOT}/Daily Notes/2026/08/2026-08-01.md`;
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
     const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
 
     await expect(

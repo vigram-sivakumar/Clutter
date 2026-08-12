@@ -42,14 +42,13 @@ describe('FrontmatterSerializer round-trip', () => {
   const serializer = new FrontmatterSerializer();
   const parser = new FrontmatterParser();
 
-  it('preserves id, type, favorite, icon, status, createdAt, updatedAt through serialize -> parse', () => {
+  it('preserves id, favorite, icon, status, createdAt, updatedAt through serialize -> parse', () => {
     const page = makePage();
 
     const frontmatterBlock = serializer.serializePage(page);
     const parsed = parser.parse(`${frontmatterBlock}\n`);
 
     expect(parsed.frontmatter.id).toBe(page.id);
-    expect(parsed.frontmatter.type).toBe(page.type);
     expect(parsed.frontmatter.favorite).toBe(page.metadata.favorite);
     expect(parsed.frontmatter.icon).toBe(page.metadata.icon);
     // FrontmatterSerializer.serializePage does not emit a "status" key by
@@ -58,6 +57,17 @@ describe('FrontmatterSerializer round-trip', () => {
     expect(parsed.frontmatter.status).toBe(page.metadata.status);
     expect(parsed.frontmatter.created).toBe(page.metadata.createdAt);
     expect(parsed.frontmatter.modified).toBe(page.metadata.updatedAt);
+  });
+
+  // A page's Daily Note vs. Note role is derived from its current path at
+  // runtime, never persisted — serializing `type` would be redundant,
+  // stale-prone metadata (see the Page.type investigation).
+  it('never writes a "type" field, regardless of the page\'s current type', () => {
+    const notePage = makePage();
+    const dailyNotePage = makePage({ type: 'daily-note' });
+
+    expect(serializer.serializePage(notePage)).not.toContain('type:');
+    expect(serializer.serializePage(dailyNotePage)).not.toContain('type:');
   });
 
   it('produces deterministic output for identical Page models', () => {

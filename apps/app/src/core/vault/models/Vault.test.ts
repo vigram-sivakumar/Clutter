@@ -372,6 +372,87 @@ describe('updatePagePath', () => {
       vault.updatePagePath('page-a', '/vault/B.md', null);
     }).toThrow('Path already in use by another page: /vault/B.md');
   });
+
+  // A page's Daily Note vs. Note role is a pure function of its current
+  // path, recomputed on every path change — this is the one Vault
+  // mutation both app-initiated move/rename/restore (MoveService.movePage)
+  // and an external filesystem move (VaultSyncService.handleMoved's
+  // common case) share, so this covers both without either caller
+  // needing its own classification logic.
+  it('reclassifies a Daily Note as a Note the moment it moves outside the Daily Notes folder', () => {
+    const page = makePage({
+      id: 'page-1',
+      type: 'daily-note',
+      path: '/vault/Daily Notes/2026/August/2026-08-12.md',
+    });
+    const vault = makeVault([page]);
+
+    vault.updatePagePath('page-1', '/vault/Projects/Moved.md', null);
+
+    expect(vault.getPage('page-1')!.type).toBe('note');
+  });
+
+  it('reclassifies a Note as a Daily Note the moment it moves inside the Daily Notes folder', () => {
+    const page = makePage({ id: 'page-1', type: 'note', path: '/vault/Note.md' });
+    const vault = makeVault([page]);
+
+    vault.updatePagePath(
+      'page-1',
+      '/vault/Daily Notes/2026/August/2026-08-12.md',
+      null
+    );
+
+    expect(vault.getPage('page-1')!.type).toBe('daily-note');
+  });
+
+  it('a Note moved into Daily Notes under a non-canonical filename stays a Note', () => {
+    const page = makePage({ id: 'page-1', type: 'note', path: '/vault/Note.md' });
+    const vault = makeVault([page]);
+
+    vault.updatePagePath('page-1', '/vault/Daily Notes/Random Note.md', null);
+
+    expect(vault.getPage('page-1')!.type).toBe('note');
+  });
+});
+
+describe('Vault.replacePage: type is recomputed from the final path', () => {
+  it('recomputes type for a cross-path replace (archive/restore shape) — a Daily Note archived out of the folder becomes a Note', () => {
+    const page = makePage({
+      id: 'page-1',
+      type: 'daily-note',
+      path: '/vault/Daily Notes/2026/August/2026-08-12.md',
+    });
+    const vault = makeVault([page]);
+
+    vault.replacePage({ ...page, path: '/vault/Archive/2026-08-12.md' });
+
+    expect(vault.getPage('page-1')!.type).toBe('note');
+  });
+
+  it('a same-path replace (a plain content save) leaves type unchanged either way', () => {
+    const dailyNote = makePage({
+      id: 'page-1',
+      type: 'daily-note',
+      path: '/vault/Daily Notes/2026/August/2026-08-12.md',
+    });
+    const vault = makeVault([dailyNote]);
+
+    vault.replacePage({ ...dailyNote, source: { markdown: 'edited' } });
+
+    expect(vault.getPage('page-1')!.type).toBe('daily-note');
+    expect(vault.getPage('page-1')!.source.markdown).toBe('edited');
+  });
+
+  it('ignores whatever type the argument itself claims — only the final path decides', () => {
+    const page = makePage({ id: 'page-1', type: 'note', path: '/vault/Note.md' });
+    const vault = makeVault([page]);
+
+    // Even if some caller passed type: 'daily-note' explicitly, the path
+    // (outside Daily Notes) still wins.
+    vault.replacePage({ ...page, type: 'daily-note' });
+
+    expect(vault.getPage('page-1')!.type).toBe('note');
+  });
 });
 
 describe('moveFolder cascade', () => {
@@ -438,6 +519,234 @@ describe('moveFolder cascade', () => {
     expect(vault.getFolderByPath('/vault/Work')?.id).toBe('folder-projects');
     expect(vault.getFolderByPath('/vault/Work/Design')?.id).toBe('folder-design');
     expect(vault.getPageByPath('/vault/Work/Design/Notes.md')?.id).toBe('page-notes');
+  });
+});
+
+describe('Vault.archiveFolder (ADR-026)', () => {
+  it('relocates an empty folder into Archive/ and patches only its own metadata', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects', parentId: null });
+    const archive = makeFolder({ id: 'folder-archive', path: '/vault/Archive', parentId: null });
+    const vault = makeVault([], [folder, archive]);
+
+    vault.archiveFolder('folder-1', '/vault/Archive/Projects', 'folder-archive', {
+      status: 'archived',
+      archivedAt: '2026-01-01T00:00:00.000Z',
+      originalPath: '/vault/Projects',
+      originalParentId: null,
+    });
+
+    const archived = vault.getFolder('folder-1')!;
+    expect(archived.path).toBe('/vault/Archive/Projects');
+    expect(archived.parentId).toBe('folder-archive');
+    expect(archived.metadata.status).toBe('archived');
+    expect(archived.metadata.archivedAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(archived.metadata.originalPath).toBe('/vault/Projects');
+    expect(archived.metadata.originalParentId).toBeNull();
+  });
+
+  it('archives a non-empty subtree as one directory move, preserving every descendant id/path structure and leaving descendant metadata untouched', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const archive = makeFolder({ id: 'folder-archive', path: '/vault/Archive', parentId: null });
+    const vault = makeVault([notes], [projects, design, archive]);
+
+    vault.archiveFolder('folder-projects', '/vault/Archive/Projects', 'folder-archive', {
+      status: 'archived',
+      archivedAt: '2026-01-01T00:00:00.000Z',
+      originalPath: '/vault/Projects',
+      originalParentId: null,
+    });
+
+    const archivedProjects = vault.getFolder('folder-projects')!;
+    const movedDesign = vault.getFolder('folder-design')!;
+    const movedNotes = vault.getPage('page-notes')!;
+
+    // The target folder itself is archived.
+    expect(archivedProjects.path).toBe('/vault/Archive/Projects');
+    expect(archivedProjects.parentId).toBe('folder-archive');
+    expect(archivedProjects.metadata.status).toBe('archived');
+
+    // Descendants keep their ids, their relative nesting (parentId chain),
+    // and their own (untouched) status — only their path moved.
+    expect(movedDesign.path).toBe('/vault/Archive/Projects/Design');
+    expect(movedDesign.parentId).toBe('folder-projects');
+    expect(movedDesign.metadata.status).toBe('active');
+
+    expect(movedNotes.path).toBe('/vault/Archive/Projects/Design/Notes.md');
+    expect(movedNotes.parentId).toBe('folder-design');
+    expect(movedNotes.metadata.status).toBe('active');
+  });
+
+  it('emits exactly one folder-moved event for an archive', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects', parentId: null });
+    const archive = makeFolder({ id: 'folder-archive', path: '/vault/Archive', parentId: null });
+    const vault = makeVault([], [folder, archive]);
+    const events: unknown[] = [];
+
+    vault.subscribe((event) => events.push(event));
+
+    vault.archiveFolder('folder-1', '/vault/Archive/Projects', 'folder-archive', {
+      status: 'archived',
+      archivedAt: '2026-01-01T00:00:00.000Z',
+      originalPath: '/vault/Projects',
+      originalParentId: null,
+    });
+
+    expect(events).toEqual([
+      { type: 'folder-moved', folderId: 'folder-1', path: '/vault/Archive/Projects' },
+    ]);
+  });
+
+  it('throws for an unknown folder id', () => {
+    const vault = makeVault([], []);
+
+    expect(() =>
+      vault.archiveFolder('does-not-exist', '/vault/Archive/X', 'folder-archive', {
+        status: 'archived',
+        archivedAt: '2026-01-01T00:00:00.000Z',
+        originalPath: '/vault/X',
+        originalParentId: null,
+      })
+    ).toThrow(/Unknown folder: does-not-exist/);
+  });
+});
+
+describe('Vault.correctFolderArchiveMetadata (ADR-026 Sync amendment)', () => {
+  it('relocates the folder and clears archive metadata, in one commit', () => {
+    const archive = makeFolder({ id: 'folder-archive', path: '/vault/Archive', parentId: null });
+    const folder = makeFolder({
+      id: 'folder-1',
+      path: '/vault/Archive/Projects',
+      parentId: 'folder-archive',
+      metadata: {
+        ...defaultFolderMetadata,
+        status: 'archived',
+        archivedAt: '2026-01-01T00:00:00.000Z',
+        originalPath: '/vault/Projects',
+        originalParentId: null,
+      },
+    });
+    const vault = makeVault([], [archive, folder]);
+
+    vault.correctFolderArchiveMetadata('folder-1', '/vault/Projects', null, {
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    });
+
+    const corrected = vault.getFolder('folder-1')!;
+    expect(corrected.path).toBe('/vault/Projects');
+    expect(corrected.parentId).toBeNull();
+    expect(corrected.metadata.status).toBe('active');
+    expect(corrected.metadata.archivedAt).toBeNull();
+    expect(corrected.metadata.originalPath).toBeNull();
+    expect(corrected.metadata.originalParentId).toBeNull();
+  });
+
+  it('relocates a non-empty subtree, leaving descendant ids/paths/metadata correct and untouched', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const archivedProjects: Folder = {
+      ...projects,
+      path: '/vault/Archive/Projects',
+      parentId: 'folder-archive',
+      metadata: {
+        ...defaultFolderMetadata,
+        status: 'archived',
+        archivedAt: '2026-01-01T00:00:00.000Z',
+        originalPath: '/vault/Projects',
+        originalParentId: null,
+      },
+    };
+    const nestedDesign: Folder = { ...design, path: '/vault/Archive/Projects/Design' };
+    const nestedNotes: Page = { ...notes, path: '/vault/Archive/Projects/Design/Notes.md' };
+    const archive = makeFolder({ id: 'folder-archive', path: '/vault/Archive', parentId: null });
+    const vault = makeVault([nestedNotes], [archive, archivedProjects, nestedDesign]);
+
+    vault.correctFolderArchiveMetadata('folder-projects', '/vault/Projects', null, {
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    });
+
+    const corrected = vault.getFolder('folder-projects')!;
+    expect(corrected.path).toBe('/vault/Projects');
+    expect(corrected.metadata.status).toBe('active');
+
+    const movedDesign = vault.getFolder('folder-design')!;
+    expect(movedDesign.id).toBe('folder-design');
+    expect(movedDesign.path).toBe('/vault/Projects/Design');
+    expect(movedDesign.parentId).toBe('folder-projects');
+    expect(movedDesign.metadata.status).toBe('active');
+
+    const movedNotes = vault.getPage('page-notes')!;
+    expect(movedNotes.id).toBe('page-notes');
+    expect(movedNotes.path).toBe('/vault/Projects/Design/Notes.md');
+    expect(movedNotes.parentId).toBe('folder-design');
+  });
+
+  it('is idempotent for an unchanged path/parentId (the boot-reconciliation case — metadata is stale but nothing physically moved)', () => {
+    const folder = makeFolder({
+      id: 'folder-1',
+      path: '/vault/Projects',
+      parentId: null,
+      metadata: {
+        ...defaultFolderMetadata,
+        status: 'archived',
+        archivedAt: '2026-01-01T00:00:00.000Z',
+        originalPath: '/vault/Elsewhere',
+        originalParentId: null,
+      },
+    });
+    const vault = makeVault([], [folder]);
+
+    vault.correctFolderArchiveMetadata('folder-1', '/vault/Projects', null, {
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    });
+
+    const corrected = vault.getFolder('folder-1')!;
+    expect(corrected.path).toBe('/vault/Projects');
+    expect(corrected.metadata.status).toBe('active');
+    expect(vault.getFolderByPath('/vault/Projects')?.id).toBe('folder-1');
+  });
+
+  it('emits exactly one folder-moved event', () => {
+    const folder = makeFolder({
+      id: 'folder-1',
+      path: '/vault/Archive/Projects',
+      parentId: 'folder-archive',
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const vault = makeVault([], [folder]);
+    const events: unknown[] = [];
+    vault.subscribe((event) => events.push(event));
+
+    vault.correctFolderArchiveMetadata('folder-1', '/vault/Projects', null, {
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    });
+
+    expect(events).toEqual([
+      { type: 'folder-moved', folderId: 'folder-1', path: '/vault/Projects' },
+    ]);
+  });
+
+  it('throws for an unknown folder id', () => {
+    const vault = makeVault([], []);
+
+    expect(() =>
+      vault.correctFolderArchiveMetadata('does-not-exist', '/vault/X', null, {
+        status: 'active',
+        archivedAt: null,
+        originalPath: null,
+        originalParentId: null,
+      })
+    ).toThrow(/Unknown folder: does-not-exist/);
   });
 });
 

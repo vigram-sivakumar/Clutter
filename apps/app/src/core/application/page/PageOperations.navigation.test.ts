@@ -22,7 +22,7 @@ import { FolderOperations } from '../folder/FolderOperations';
 import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from '../folder/FolderCreator';
 import { DailyNoteService } from '../daily-notes/DailyNoteService';
-import { DailyNotePath } from '../daily-notes/DailyNotePath';
+import { DailyNotePath } from '../../vault/ingest/DailyNotePath';
 import type { Page } from '../../vault/models/Page';
 
 const ROOT = '/vault';

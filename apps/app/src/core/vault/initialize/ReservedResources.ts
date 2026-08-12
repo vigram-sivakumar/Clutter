@@ -11,6 +11,9 @@
  * Reserved resources are owned and managed by Clutter. They represent application infrastructure rather than user-created organizational structure and provide stable locations for system features.
  */
 
+import { VaultPath } from '../ingest/VaultPath';
+import { DailyNotePath } from '../ingest/DailyNotePath';
+
 export interface ReservedFolder {
   readonly type: 'folder';
   readonly path: string;
@@ -105,6 +108,46 @@ export function reservedFolderIdForName(name: string): ReservedFolderId | undefi
   return (Object.entries(RESERVED_FOLDER_IDS) as [ReservedFolderId, string][]).find(
     ([, folderName]) => folderName === name
   )?.[0];
+}
+
+/**
+ * Whether `path` is a descendant of the reserved Daily Notes folder.
+ * Location only — does not imply a valid Daily Note filename. Any depth
+ * counts, same descendant semantics used for Archive membership elsewhere
+ * (VaultPath.isDescendantOf). String-only (vaultRoot, not a Vault
+ * instance) so this can be called before a Vault exists yet, during the
+ * initial scan.
+ *
+ * Not the classification rule by itself — see isDailyNotePath(), which
+ * additionally requires the canonical filename convention. Exported
+ * separately because it's still useful on its own (e.g. Archive
+ * reconciliation asking "did this used to live under Daily Notes" without
+ * caring whether the name was ever valid).
+ */
+export function isInsideDailyNotesFolder(vaultRoot: string, path: string): boolean {
+  return VaultPath.isDescendantOf(
+    path,
+    `${vaultRoot}/${RESERVED_FOLDER_IDS['daily-notes']}`
+  );
+}
+
+/**
+ * The sole classification rule for a page's Daily Note vs. Note role (that
+ * role is derived from the current path, never persisted frontmatter —
+ * frontmatter.type, if present on disk, is inert legacy data, see
+ * FrontmatterSerializer). A page is a Daily Note only if it is both
+ * located under Daily Notes/ AND its path is the exact canonical Daily
+ * Note path for some date (DailyNotePath.matchesCanonicalPath) — a
+ * malformed/external Markdown file placed inside Daily Notes (wrong
+ * filename, non-canonical folder names, extra nesting) classifies as an
+ * ordinary Note instead, so no Daily Note consumer ever has to guard
+ * against treating a non-date string as a date.
+ */
+export function isDailyNotePath(vaultRoot: string, path: string): boolean {
+  return (
+    isInsideDailyNotesFolder(vaultRoot, path) &&
+    DailyNotePath.matchesCanonicalPath(vaultRoot, path)
+  );
 }
 
 /**

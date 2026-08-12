@@ -26,7 +26,12 @@ export class PageRebuilder {
 
     return {
       id: page.id,
-      type: frontmatter.type ?? page.type,
+      // Not derived from frontmatter.type (inert legacy data, never
+      // authoritative) or recomputed here from path — Vault.replacePage(),
+      // this method's one production consumer, already recomputes the
+      // correct value from the final path for every caller; this is a
+      // passthrough, not a second implementation of that rule.
+      type: page.type,
       name: page.name,
       path: page.path,
       parentId: page.parentId,

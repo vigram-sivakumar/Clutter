@@ -196,14 +196,18 @@ describe('TaskOperations', () => {
   });
 
   it('extracts and mutates a task the same way regardless of page type (Note vs Daily Note)', async () => {
-    const builder = new PageBuilder();
+    // type is now derived from path (inside the reserved Daily Notes
+    // folder), not frontmatter — the path itself must be a real Daily
+    // Notes path for this fixture to build as a Daily Note.
+    const builder = new PageBuilder(ROOT);
     const body = '- [ ] Log today';
+    const dailyNotePath = `${ROOT}/Daily Notes/2026/August/2026-08-04.md`;
     const dailyNotePage = builder.build({
       parentId: null,
       page: {
-        path: `${ROOT}/2026-08-04.md`,
-        directoryPath: ROOT,
-        frontmatter: { id: 'daily-1', type: 'daily-note' },
+        path: dailyNotePath,
+        directoryPath: `${ROOT}/Daily Notes/2026/August`,
+        frontmatter: { id: 'daily-1' },
         frontmatterAnalysis: { aliases: [] },
         content: body,
         analysis: {

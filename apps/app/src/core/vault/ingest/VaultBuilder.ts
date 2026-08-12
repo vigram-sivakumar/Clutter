@@ -28,7 +28,6 @@ export interface VaultBuildResult {
 }
 
 export class VaultBuilder {
-  private readonly pageBuilder = new PageBuilder();
   private readonly folderBuilder = new FolderBuilder();
   private readonly tagBuilder = new TagBuilder();
   private readonly taskBuilder = new TaskBuilder();
@@ -45,10 +44,16 @@ export class VaultBuilder {
     // The vault root itself is scanned as a directory (parentPath === null)
     // so its id can be resolved for its children's parentId, but it is not
     // a navigable Folder in the domain model — rootIsFolder: false.
+    //
+    // PageBuilder needs vaultRoot (to classify Daily Note vs. Note by
+    // path), only known once scanResult arrives — constructed here rather
+    // than as a field for that reason, unlike the other builders above,
+    // none of which need vault-root-relative path classification.
+    const pageBuilder = new PageBuilder(scanResult.rootPath);
     const { folders, pages, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
       scanResult,
       { rootIsFolder: false, rootParentId: null, idGenerator: this.idGenerator },
-      { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
+      { folderBuilder: this.folderBuilder, pageBuilder }
     );
 
     // Pass 4:

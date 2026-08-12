@@ -49,7 +49,7 @@ export class VaultSyncService {
   ) {
     this.vault = vault;
     this.fileSystem = fileSystem;
-    this.pageBuilder = new PageBuilder();
+    this.pageBuilder = new PageBuilder(vault.root);
     this.pageRebuilder = new PageRebuilder();
     this.folderBuilder = new FolderBuilder();
     this.vaultScanner = new VaultScanner(fileSystem);

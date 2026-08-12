@@ -276,6 +276,41 @@ describe('VaultSyncService', () => {
     expect(moved.metadata.icon).toBe('📌');
   });
 
+  // A page's Daily Note vs. Note role is derived from its current path,
+  // never persisted frontmatter — an external move (e.g. dragging a file
+  // in Finder) is the case that most needed this: handleMoved's common
+  // (no-archive-repair) branch calls vault.updatePagePath() directly, with
+  // no builder/rebuilder involved, so the reclassification has to happen
+  // inside that one shared Vault primitive to cover this path at all.
+  it('moved: a Daily Note dragged externally out of the Daily Notes folder is reclassified as a Note', async () => {
+    const existing = buildPage('Daily Notes/2026/August/2026-08-12.md', 'content', 'daily-1');
+    const dailyNote: Page = { ...existing, type: 'daily-note' };
+    const { vault, watcher } = setup([dailyNote]);
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Daily Notes/2026/August/2026-08-12.md',
+      toPath: 'Projects/2026-08-12.md',
+    });
+    await flush();
+
+    expect(vault.getPage('daily-1')!.type).toBe('note');
+  });
+
+  it('moved: an ordinary Note dragged externally into the Daily Notes folder is reclassified as a Daily Note', async () => {
+    const existing = buildPage('Projects/Note.md', 'content', 'note-1');
+    const { vault, watcher } = setup([existing]);
+
+    watcher.emit({
+      type: 'moved',
+      fromPath: 'Projects/Note.md',
+      toPath: 'Daily Notes/2026/August/2026-08-12.md',
+    });
+    await flush();
+
+    expect(vault.getPage('note-1')!.type).toBe('daily-note');
+  });
+
   it('moved (atomic save, replace): a temp-file-renamed-over-the-original save is reconciled as a content change, not dropped', async () => {
     // An atomic save (write a fresh file, then rename it over the real
     // path — one common way to implement "save," regardless of which

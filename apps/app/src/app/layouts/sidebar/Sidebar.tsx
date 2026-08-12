@@ -1,7 +1,7 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import type { ReactNode } from 'react';
-import { DailyNotePath } from '@core/application/daily-notes/DailyNotePath';
+import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
 import './Sidebar.css';
 import { Tabs, Tab } from '@components/tabs/Tabs';

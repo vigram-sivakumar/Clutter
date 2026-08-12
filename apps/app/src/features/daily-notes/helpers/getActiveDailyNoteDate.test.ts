@@ -88,4 +88,22 @@ describe('getActiveDailyNoteDate', () => {
       getActiveDailyNoteDate(vaultWith(undefined), 'unknown-id', pageOperationsWith(undefined))
     ).toBeUndefined();
   });
+
+  // Regression anchor for the intentional edge-case boundary: a
+  // non-canonical Markdown file manually placed inside Daily Notes
+  // classifies as type: 'note' (PageBuilder/Vault), so opening it never
+  // reaches the Calendar with a non-date string as its selectedDate —
+  // closing the crash this helper previously enabled (formatDate calling
+  // Intl.DateTimeFormat().format() on an unparseable "date").
+  it('returns undefined for a Note whose path happens to be physically inside the Daily Notes folder', () => {
+    const page = makePage({
+      type: 'note',
+      name: 'Test file',
+      path: '/vault/Daily Notes/2026/August/Test file.md',
+    });
+
+    expect(
+      getActiveDailyNoteDate(vaultWith(page), page.id, pageOperationsWith(undefined))
+    ).toBeUndefined();
+  });
 });
