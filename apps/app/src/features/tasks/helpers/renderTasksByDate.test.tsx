@@ -124,7 +124,12 @@ describe('renderTasksByDate', () => {
       </>
     );
 
-    expect(getByText('1 Completed')).not.toBeNull();
+    // "Completed" (the accordion row's own label) and the count (a
+    // separate CountBadge in its trailing slot) are two distinct DOM
+    // nodes, not one "1 Completed" text node — assert both independently
+    // within the same row rather than a single combined-text query.
+    const header = getByText('Completed').closest('.entry') as HTMLElement;
+    expect(within(header).getByText('1')).not.toBeNull();
   });
 
   it('shows the due date for a completed-today task whose due date is not today', () => {
@@ -215,11 +220,15 @@ describe('renderTasksByDate', () => {
 
   it('navigates to Upcoming when the Upcoming section header is clicked', () => {
     const navigation = fakeNavigation();
+    // The Upcoming section (renderTasksByDate's `upcoming.length > 0` guard)
+    // only renders at all once there's an upcoming task — an empty tasks
+    // list never produces an "Everything else" header to click.
+    const dueSoon = task({ text: 'Book flights', dueDate: '2026-08-05' });
 
     const { getByText } = render(
       <>
         {renderTasksByDate({
-          tasks: [],
+          tasks: [dueSoon],
           workspace: new Workspace(),
           onToggleComplete: vi.fn(),
           onOpenTask: vi.fn(),
@@ -254,7 +263,10 @@ describe('renderTasksByDate', () => {
       </>
     );
 
-    fireEvent.click(getByText('1 Completed'));
+    // See the "shows the completed-today accordion header with a count"
+    // test above — "Completed" and its count are separate DOM nodes.
+    const header = getByText('Completed').closest('.entry') as HTMLElement;
+    fireEvent.click(header);
 
     expect(navigation.openTasksCompleted).toHaveBeenCalled();
     expect(workspace.isSectionExpanded('tasks-today-completed')).toBe(true);
@@ -281,7 +293,9 @@ describe('renderTasksByDate', () => {
       </>
     );
 
-    const header = getByText('1 Completed').closest('.entry') as HTMLElement;
+    // See the "shows the completed-today accordion header with a count"
+    // test above — "Completed" and its count are separate DOM nodes.
+    const header = getByText('Completed').closest('.entry') as HTMLElement;
     fireEvent.click(within(header).getByRole('button'));
 
     expect(navigation.openTasksCompleted).not.toHaveBeenCalled();
