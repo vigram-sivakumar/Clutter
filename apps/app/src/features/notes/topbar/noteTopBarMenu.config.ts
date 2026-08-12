@@ -2,6 +2,7 @@ import type {
   TopBarMenuItemConfig,
   TopBarPageState,
 } from '@app/layouts/page/topbar/ResourceTopBarActions';
+import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 /**
  * Archive/Restore is a status-dependent toggle, not two statically-present
@@ -37,10 +38,10 @@ export function buildNoteTopBarMenu(state: TopBarPageState): TopBarMenuItemConfi
     },
     state === 'archived'
       ? { id: 'restore', label: 'Restore', icon: 'restore', disabled: !persisted }
-      : { id: 'archive', label: 'Archive', icon: 'archive', disabled: !persisted },
+      : { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive', disabled: !persisted },
     {
       id: 'delete',
-      label: 'Delete',
+      label: DELETE_ACTION_LABEL,
       icon: 'trash',
       disabled: !persisted,
     },

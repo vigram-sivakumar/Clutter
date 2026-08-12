@@ -1,4 +1,5 @@
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 /**
  * Same action-building pattern as noteSidebarMenu.config.ts's
@@ -17,7 +18,7 @@ export function buildDailyNoteSidebarMenu(isDraft: boolean): OverflowMenuItemCon
   }
 
   return [
-    { id: 'archive', label: 'Archive', icon: 'archive' },
-    { id: 'delete', label: 'Delete', icon: 'trash' },
+    { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },
+    { id: 'delete', label: DELETE_ACTION_LABEL, icon: 'trash' },
   ];
 }

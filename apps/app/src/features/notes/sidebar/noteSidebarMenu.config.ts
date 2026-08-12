@@ -1,4 +1,5 @@
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
+import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 /**
  * The sidebar row's overflow menu is deliberately narrower than
@@ -23,7 +24,7 @@ export function buildNoteSidebarMenu(isDraft: boolean): OverflowMenuItemConfig[]
   return [
     { id: 'rename', label: 'Rename', icon: 'notePencil' },
     { id: 'duplicate', label: 'Duplicate', icon: 'copy' },
-    { id: 'archive', label: 'Archive', icon: 'archive' },
-    { id: 'delete', label: 'Delete', icon: 'trash' },
+    { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },
+    { id: 'delete', label: DELETE_ACTION_LABEL, icon: 'trash' },
   ];
 }

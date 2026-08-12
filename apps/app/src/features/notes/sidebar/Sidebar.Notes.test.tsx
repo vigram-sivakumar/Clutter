@@ -33,6 +33,7 @@ import type { NavigationRouter } from '@core/application/navigation/NavigationRo
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
+import { DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -213,13 +214,13 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.getAllByText('Delete')).toHaveLength(1);
+    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
 
     fireEvent.click(overflowButtonFor('Beta'));
 
     // Still exactly one Delete item rendered — Alpha's menu closed when
     // Beta's opened, rather than both being open simultaneously.
-    expect(screen.getAllByText('Delete')).toHaveLength(1);
+    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
   });
 
   it('clicking the same row\'s overflow button again closes its own menu', () => {
@@ -229,10 +230,10 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.queryByText('Delete')).toBeInTheDocument();
+    expect(screen.queryByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
 });
 
@@ -285,7 +286,7 @@ describe('Sidebar Notes: folder delete wiring', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
 
     await Promise.resolve();
     await Promise.resolve();
@@ -377,7 +378,7 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Note'));
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
 
     expect(deleteSpy).toHaveBeenCalledWith('page-1');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -403,7 +404,7 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
 
     expect(deleteSpy).toHaveBeenCalledWith('folder-1');
     expect(screen.queryByText(/Delete this folder/)).toBeNull();
@@ -452,7 +453,7 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
 
     expect(deleteSpy).not.toHaveBeenCalled();
     expect(screen.getByText('Delete this folder?')).toBeInTheDocument();
@@ -461,7 +462,7 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
     expect(deleteSpy).not.toHaveBeenCalled();
 
     fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
     const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 

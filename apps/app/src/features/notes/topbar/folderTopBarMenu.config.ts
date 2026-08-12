@@ -1,5 +1,6 @@
 import type { TopBarMenuItemConfig } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import type { FolderMetadata } from '@core/vault/models/FolderMetadata';
+import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 // 'move-to' is deliberately absent: folder-move has no destination-picker
 // UI yet (the same deferred, not-impossible status as page 'move-to',
@@ -32,7 +33,7 @@ export function buildFolderTopBarMenu(
     },
     status === 'archived'
       ? { id: 'restore', label: 'Restore', icon: 'restore' }
-      : { id: 'archive', label: 'Archive', icon: 'archive' },
-    { id: 'delete', label: 'Delete', icon: 'trash' },
+      : { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },
+    { id: 'delete', label: DELETE_ACTION_LABEL, icon: 'trash' },
   ];
 }

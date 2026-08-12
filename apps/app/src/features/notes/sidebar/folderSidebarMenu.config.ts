@@ -1,5 +1,6 @@
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import type { FolderMetadata } from '@core/vault/models/FolderMetadata';
+import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 /**
  * 'archive' is status-dependent (ADR-026): shown for an active folder,
@@ -26,10 +27,10 @@ export function buildFolderSidebarMenu(
   ];
 
   if (status !== 'archived') {
-    items.push({ id: 'archive', label: 'Archive', icon: 'archive' });
+    items.push({ id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' });
   }
 
-  items.push({ id: 'delete', label: 'Delete', icon: 'trash' });
+  items.push({ id: 'delete', label: DELETE_ACTION_LABEL, icon: 'trash' });
 
   return items;
 }

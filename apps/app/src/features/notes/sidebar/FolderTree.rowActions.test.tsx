@@ -36,6 +36,7 @@ import {
   getFolderTitlePlaceholder,
   getPageTitlePlaceholder,
 } from '@core/presentation/PageDisplayPlaceholders';
+import { DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -313,7 +314,7 @@ describe('FolderTree row overflow menu: open/close', () => {
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.getByText('Delete')).toBeInTheDocument();
+    expect(screen.getByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
   });
 
   it('clicking the overflow button calls onOpenMenu with the row id, not onFolderClick/onPageClick', () => {
@@ -399,7 +400,7 @@ describe('FolderTree row overflow menu: rendering is driven purely by openMenuId
     // querying each row's own overlay/menu presence via its DOM subtree —
     // simplest reliable signal here is that exactly one "Delete" menuitem
     // exists (folder-b's Overlay renders null while its open is false).
-    expect(screen.getAllByText('Delete')).toHaveLength(1);
+    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
   });
 });
 
@@ -425,7 +426,7 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     const rowActions: SidebarRowActions = { ...actions, onDeleteNote: (id) => void pageOperations.delete(id) };
 
     renderTree(query, membershipSelector, workspace, rowActions);
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
 
     expect(deleteSpy).toHaveBeenCalledWith(page.id);
   });
@@ -537,7 +538,7 @@ describe('FolderTree row overflow menu: a draft note has no menu at all', () => 
 
     expect(screen.queryByText('Rename')).not.toBeInTheDocument();
     expect(screen.queryByText('Archive')).not.toBeInTheDocument();
-    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
 
   it('a draft row renders no overflow button (OverflowMenu renders nothing for an empty item list)', async () => {
@@ -573,7 +574,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     });
 
     renderTree(query, membershipSelector, workspace, actions);
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
 
     expect(deleteSpy).toHaveBeenCalledWith('folder-1');
     expect(confirmSpy).not.toHaveBeenCalled();
@@ -588,7 +589,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.getByText('Delete')).toBeInTheDocument();
+    expect(screen.getByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
   });
 
   it('folder menu omits Archive for an already-archived folder (no Restore capability yet — ADR-026 sequencing amendment)', () => {
