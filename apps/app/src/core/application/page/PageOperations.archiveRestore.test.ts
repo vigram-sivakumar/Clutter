@@ -665,6 +665,53 @@ describe('PageOperations.restore()', () => {
     ).toBe(true);
   });
 
+  // Regression: an externally/manually created archive can have
+  // status: 'archived' with no originalPath at all — no app-initiated
+  // archive ever produces this (computeArchiveMetadataPatch always sets
+  // originalPath), so there is no reliable original filename to recover.
+  // Per the agreed contract, restore goes straight to the vault root using
+  // the current (possibly timestamped) filename — never Inbox, never
+  // derived from originalParentId, and no new fallback mechanism.
+  it('originalPath is null (malformed/external archive): restores to vault root using the current filename, never Inbox', async () => {
+    const malformedArchive = new PageBuilder().build({
+      parentId: ARCHIVE_FOLDER_ID,
+      page: {
+        path: `${ROOT}/Archive/Test 2026-08-12 16.43.01.md`,
+        directoryPath: `${ROOT}/Archive`,
+        frontmatter: {
+          id: 'page-1',
+          status: 'archived',
+          // originalPath deliberately omitted -> resolvePageMetadata
+          // defaults it to null.
+        },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Content that must survive restoring.',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+    expect(malformedArchive.metadata.originalPath).toBeNull();
+
+    const vault = makeVault([malformedArchive], [makeArchiveFolder(), makeInboxFolder()]);
+    const { fileSystem, pageOperations } = setup(malformedArchive, vault);
+
+    await pageOperations.restore(malformedArchive.id);
+
+    const restored = vault.getPage(malformedArchive.id)!;
+    expect(restored.path).toBe(`${ROOT}/Test 2026-08-12 16.43.01.md`);
+    expect(restored.parentId).toBeNull();
+    expect(restored.metadata.status).toBe('active');
+    expect(fileSystem.hasFileSync(`${ROOT}/Test 2026-08-12 16.43.01.md`)).toBe(true);
+    // Never Inbox, even though Inbox exists in the vault.
+    expect(fileSystem.hasFileSync(`${ROOT}/Inbox/Test 2026-08-12 16.43.01.md`)).toBe(false);
+  });
+
   it('throws when the restore destination path is already occupied', async () => {
     const design = makeDesignFolder();
     const page = buildActivePage({

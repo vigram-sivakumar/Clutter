@@ -162,6 +162,99 @@ describe('MoveService.resolveRenameDestination', () => {
   });
 });
 
+describe('MoveService.resolveRestoreDestination', () => {
+  it('restores to the exact originalPath when its parent folder still exists', () => {
+    const projects = makeFolder('folder-1', `${ROOT}/Projects`);
+    const archived = new PageBuilder().build({
+      parentId: 'folder-archive',
+      page: {
+        path: `${ROOT}/Archive/Test.md`,
+        directoryPath: `${ROOT}/Archive`,
+        frontmatter: {
+          id: 'page-1',
+          status: 'archived',
+          originalPath: `${ROOT}/Projects/Test.md`,
+        },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Body',
+        analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      },
+    });
+    const vault = makeVault([archived], [projects]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(moveService.resolveRestoreDestination(archived)).toEqual({
+      path: `${ROOT}/Projects/Test.md`,
+      parentId: 'folder-1',
+    });
+  });
+
+  it("originalPath's parent no longer exists: falls back to vault root using the current filename, never Inbox", () => {
+    const archived = new PageBuilder().build({
+      parentId: 'folder-archive',
+      page: {
+        path: `${ROOT}/Archive/Test.md`,
+        directoryPath: `${ROOT}/Archive`,
+        frontmatter: {
+          id: 'page-1',
+          status: 'archived',
+          originalPath: `${ROOT}/Projects/Test.md`,
+        },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Body',
+        analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      },
+    });
+    // No 'Projects' folder in the vault — the original parent is gone.
+    const vault = makeVault([archived], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(moveService.resolveRestoreDestination(archived)).toEqual({
+      path: `${ROOT}/Test.md`,
+      parentId: null,
+    });
+  });
+
+  // Regression: an externally/manually crafted archive can have
+  // status: 'archived' with no originalPath at all (no app-initiated
+  // archive ever produces this — computeArchiveMetadataPatch always sets
+  // originalPath — this is a malformed/hand-edited state Sync doesn't
+  // repair either, since the item legitimately sits inside Archive/).
+  // Per the agreed contract: restore directly to the vault root using the
+  // CURRENT filename (the archive's own disambiguated name, if any,
+  // is kept as-is — there is no reliable original name to recover),
+  // never Inbox, never derived from originalParentId.
+  it('originalPath is null (malformed/external archive): restores to vault root using the current (possibly timestamped) filename, never Inbox', () => {
+    const archived = new PageBuilder().build({
+      parentId: 'folder-archive',
+      page: {
+        path: `${ROOT}/Archive/Test 2026-08-12 16.43.01.md`,
+        directoryPath: `${ROOT}/Archive`,
+        frontmatter: {
+          id: 'page-1',
+          status: 'archived',
+          // originalPath deliberately omitted -> defaults to null.
+        },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Body',
+        analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      },
+    });
+    expect(archived.metadata.originalPath).toBeNull();
+
+    const vault = makeVault([archived], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveRestoreDestination(archived);
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Test 2026-08-12 16.43.01.md`,
+      parentId: null,
+    });
+    expect(destination.path).not.toContain('Inbox');
+  });
+});
+
 describe('MoveService.resolveArchiveDestination', () => {
   beforeEach(() => {
     vi.useFakeTimers();
