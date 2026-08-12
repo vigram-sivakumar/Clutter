@@ -54,17 +54,18 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
 // menu item; it reuses the same inline title-edit mechanism pages already
 // have (Page's titleEditable/onTitleCommit), wired in PageHost.tsx. No
 // 'duplicate' handler: folders are never duplicable — Duplicate is a
-// Note-only capability (renderPageActions below). ADR-026 adds archive —
-// the menu is forwarded from options (computed upstream in
-// buildTopBarActions.tsx via buildFolderTopBarMenu, mirroring how
+// Note-only capability (renderPageActions below). ADR-026 adds
+// archive/restore — the menu is forwarded from options (computed upstream
+// in buildTopBarActions.tsx via buildFolderTopBarMenu, mirroring how
 // renderPageActions already forwards its own status-aware menu) instead
-// of a single hardcoded constant, since the menu's 'archive' item is
+// of a single hardcoded constant, since the menu's archive/restore item is
 // status-dependent.
 const renderFolderActions: TopBarActionsRenderer = (options) => (
   <ResourceTopBarActions
     menu={options?.menu ?? []}
     handlers={{
       archive: options?.onArchive,
+      restore: options?.onRestore,
       delete: options?.onDelete,
     }}
     archiveConfirmationMessage={options?.archiveConfirmationMessage}

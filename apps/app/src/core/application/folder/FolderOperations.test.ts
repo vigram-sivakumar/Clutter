@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FolderOperations } from './FolderOperations';
 import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './FolderCreator';
@@ -508,6 +508,66 @@ describe('FolderOperations.archive() (ADR-026)', () => {
       /Folder is already archived/
     );
   });
+
+  // Collision handling (same agreed design as MoveService.resolveArchiveDestination
+  // for pages — see MoveService.test.ts and PageOperations.archiveRestore.test.ts):
+  // flattening every archived folder into Archive/<name> means two
+  // same-named folders from different locations (e.g. `Project/` and
+  // `OldProject/Project/`) collide once both are archived. Falls back to a
+  // local-time timestamp suffix instead of throwing — the exact folder-shaped
+  // instance of the page-side fix, going through the same
+  // resolveArchiveCollisionFreeName helper via FolderPathResolver.
+  describe('collision at the Archive destination', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 7, 12, 16, 43, 1)); // local time, 2026-08-12 16:43:01
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('falls back to a timestamp suffix instead of colliding when Archive/<name> already exists', async () => {
+      const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+      // Already occupies the flattened destination — an earlier archive of
+      // a different, same-named folder.
+      const alreadyArchived = makeFolder(
+        'folder-archived',
+        `${ROOT}/Archive/Project`,
+        'folder-archive'
+      );
+      const folder = makeFolder('folder-1', `${ROOT}/OldProject/Project`);
+      const { vault, fileSystem, folderOperations } = setup([
+        archiveFolder,
+        alreadyArchived,
+        folder,
+      ]);
+      await fileSystem.createDirectory(folder.path);
+      await fileSystem.createDirectory(alreadyArchived.path);
+
+      await folderOperations.archive('folder-1');
+
+      const archived = vault.getFolder('folder-1')!;
+      expect(archived.path).toBe(`${ROOT}/Archive/Project 2026-08-12 16.43.01`);
+      expect(archived.metadata.status).toBe('archived');
+      // The logical name is unaffected — only the filesystem path carries
+      // the disambiguating timestamp.
+      expect(archived.name).toBe('Project 2026-08-12 16.43.01');
+      // The occupant that caused the collision is untouched.
+      expect(vault.getFolder('folder-archived')!.path).toBe(`${ROOT}/Archive/Project`);
+    });
+
+    it('archives to Archive/Project unchanged when the destination is free', async () => {
+      const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+      const folder = makeFolder('folder-1', `${ROOT}/Project`);
+      const { vault, fileSystem, folderOperations } = setup([archiveFolder, folder]);
+      await fileSystem.createDirectory(folder.path);
+
+      await folderOperations.archive('folder-1');
+
+      expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Archive/Project`);
+    });
+  });
 });
 
 // Consistency fix: archive() previously performed no navigation at all —
@@ -582,6 +642,176 @@ describe('FolderOperations.archive() navigation (Archive ≠ Delete)', () => {
     await folderOperations.archive('folder-1');
 
     expect(workspace.isPageOpen('page-1')).toBe(true);
+    expect(openFallbackPage).not.toHaveBeenCalled();
+  });
+});
+
+function makeArchivedFolder(options: {
+  id: string;
+  archivePath: string;
+  originalPath: string;
+  originalParentId: string | null;
+}): Folder {
+  return {
+    id: options.id,
+    name: options.archivePath.slice(options.archivePath.lastIndexOf('/') + 1),
+    path: options.archivePath,
+    parentId: 'folder-archive',
+    metadata: {
+      icon: null,
+      favorite: false,
+      description: '',
+      cover: null,
+      status: 'archived',
+      archivedAt: '2026-07-29T00:00:00.000Z',
+      originalPath: options.originalPath,
+      originalParentId: options.originalParentId,
+    },
+  };
+}
+
+describe('FolderOperations.restore() (ADR-026 follow-up)', () => {
+  it('restores the folder to its exact original path and reactivates it', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const archived = makeArchivedFolder({
+      id: 'folder-design',
+      archivePath: `${ROOT}/Archive/Design`,
+      originalPath: `${ROOT}/Projects/Design`,
+      originalParentId: 'folder-projects',
+    });
+    const { vault, fileSystem, folderOperations } = setup([
+      archiveFolder,
+      projects,
+      archived,
+    ]);
+    await fileSystem.createDirectory(archived.path);
+
+    await folderOperations.restore('folder-design');
+
+    const restored = vault.getFolder('folder-design')!;
+    expect(restored.path).toBe(`${ROOT}/Projects/Design`);
+    expect(restored.parentId).toBe('folder-projects');
+    expect(restored.metadata.status).toBe('active');
+    expect(restored.metadata.archivedAt).toBeNull();
+    expect(restored.metadata.originalPath).toBeNull();
+    expect(restored.metadata.originalParentId).toBeNull();
+  });
+
+  it('original parent folder no longer exists: restores at vault root, never Inbox', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const archived = makeArchivedFolder({
+      id: 'folder-design',
+      archivePath: `${ROOT}/Archive/Design`,
+      originalPath: `${ROOT}/Projects/Design`,
+      originalParentId: 'folder-projects',
+    });
+    const { vault, fileSystem, folderOperations } = setup([archiveFolder, archived]);
+    await fileSystem.createDirectory(archived.path);
+
+    await folderOperations.restore('folder-design');
+
+    const restored = vault.getFolder('folder-design')!;
+    expect(restored.path).toBe(`${ROOT}/Design`);
+    expect(restored.parentId).toBeNull();
+  });
+
+  it('restores nested descendants along with the folder, preserving every id', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const archived = makeArchivedFolder({
+      id: 'folder-projects',
+      archivePath: `${ROOT}/Archive/Projects`,
+      originalPath: `${ROOT}/Projects`,
+      originalParentId: null,
+    });
+    const design = makeFolder(
+      'folder-design',
+      `${ROOT}/Archive/Projects/Design`,
+      'folder-projects'
+    );
+    const notes = makePage(
+      'page-notes',
+      `${ROOT}/Archive/Projects/Design/Notes.md`,
+      'folder-design'
+    );
+    const { vault, fileSystem, folderOperations } = setup(
+      [archiveFolder, archived, design],
+      undefined,
+      undefined,
+      [notes]
+    );
+    await fileSystem.createDirectory(design.path);
+    await fileSystem.writeFile(notes.path, '# Notes');
+
+    await folderOperations.restore('folder-projects');
+
+    expect(vault.getFolder('folder-projects')!.path).toBe(`${ROOT}/Projects`);
+    expect(vault.getFolder('folder-design')!.id).toBe('folder-design');
+    expect(vault.getFolder('folder-design')!.path).toBe(`${ROOT}/Projects/Design`);
+    expect(vault.getPage('page-notes')!.id).toBe('page-notes');
+    expect(vault.getPage('page-notes')!.path).toBe(`${ROOT}/Projects/Design/Notes.md`);
+  });
+
+  it('throws when the restore destination is already occupied', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const occupant = makeFolder('folder-occupant', `${ROOT}/Design`);
+    const archived = makeArchivedFolder({
+      id: 'folder-design',
+      archivePath: `${ROOT}/Archive/Design`,
+      originalPath: `${ROOT}/Design`,
+      originalParentId: null,
+    });
+    const { fileSystem, folderOperations, vault } = setup([
+      archiveFolder,
+      occupant,
+      archived,
+    ]);
+    await fileSystem.createDirectory(occupant.path);
+    await fileSystem.createDirectory(archived.path);
+
+    await expect(folderOperations.restore('folder-design')).rejects.toThrow(
+      /Folder path already in use/
+    );
+    expect(vault.getFolder('folder-design')!.metadata.status).toBe('archived');
+  });
+
+  it('throws when the folder is not archived', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { folderOperations } = setup([folder]);
+
+    await expect(folderOperations.restore('folder-1')).rejects.toThrow(
+      /Folder is not archived/
+    );
+  });
+
+  it('does nothing (no throw) for an unknown folder id — the Gate abandons harmlessly', async () => {
+    const { folderOperations } = setup();
+
+    await expect(folderOperations.restore('does-not-exist')).resolves.toBeUndefined();
+  });
+
+  it('never touches Workspace — restore is soft, same as archive', async () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const archived = makeArchivedFolder({
+      id: 'folder-design',
+      archivePath: `${ROOT}/Archive/Design`,
+      originalPath: `${ROOT}/Design`,
+      originalParentId: null,
+    });
+    const openFallbackPage = vi.fn();
+    const { fileSystem, folderOperations, workspace } = setup(
+      [archiveFolder, archived],
+      undefined,
+      undefined,
+      [],
+      openFallbackPage
+    );
+    await fileSystem.createDirectory(archived.path);
+    workspace.openFolder('folder-design');
+
+    await folderOperations.restore('folder-design');
+
+    expect(workspace.activeFolderId).toBe('folder-design');
     expect(openFallbackPage).not.toHaveBeenCalled();
   });
 });

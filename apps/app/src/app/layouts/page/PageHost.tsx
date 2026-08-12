@@ -188,6 +188,7 @@ export function PageHost({ application }: PageHostProps) {
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
       onArchive: () => void application.folderOperations.archive(folder.id),
+      onRestore: () => void application.folderOperations.restore(folder.id),
       onDelete: () => void application.folderOperations.delete(folder.id),
       archiveConfirmationMessage: archiveConfirmation.hasDescendants
         ? archiveConfirmation.message

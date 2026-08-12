@@ -520,6 +520,45 @@ describe('moveFolder cascade', () => {
     expect(vault.getFolderByPath('/vault/Work/Design')?.id).toBe('folder-design');
     expect(vault.getPageByPath('/vault/Work/Design/Notes.md')?.id).toBe('page-notes');
   });
+
+  // Regression: relocateFolderSubtree (this cascade's shared implementation
+  // — also used by archiveFolder/restoreFolder below) previously carried a
+  // descendant page's `type` over unchanged, unlike replacePage()/
+  // updatePagePath()'s direct-move path, which already recomputes it from
+  // the final path (see the 'reclassifies a Daily Note...' tests above).
+  it('recomputes a descendant page\'s type when its ancestor folder move carries it out of Daily Notes/', () => {
+    const dailyNotesMonth = makeFolder({
+      id: 'folder-month',
+      path: '/vault/Daily Notes/2026/August',
+      parentId: null,
+    });
+    const dailyNote = makePage({
+      id: 'page-1',
+      type: 'daily-note',
+      path: '/vault/Daily Notes/2026/August/2026-08-12.md',
+      parentId: 'folder-month',
+    });
+    const vault = makeVault([dailyNote], [dailyNotesMonth]);
+
+    vault.moveFolder('folder-month', '/vault/Archive/August', null);
+
+    expect(vault.getPage('page-1')!.type).toBe('note');
+  });
+
+  it('recomputes a descendant page\'s type when its ancestor folder move carries it into Daily Notes/', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects', parentId: null });
+    const note = makePage({
+      id: 'page-1',
+      type: 'note',
+      path: '/vault/Projects/2026-08-12.md',
+      parentId: 'folder-1',
+    });
+    const vault = makeVault([note], [folder]);
+
+    vault.moveFolder('folder-1', '/vault/Daily Notes/2026/August', null);
+
+    expect(vault.getPage('page-1')!.type).toBe('daily-note');
+  });
 });
 
 describe('Vault.archiveFolder (ADR-026)', () => {
@@ -607,6 +646,37 @@ describe('Vault.archiveFolder (ADR-026)', () => {
         originalParentId: null,
       })
     ).toThrow(/Unknown folder: does-not-exist/);
+  });
+
+  // Regression, same shared relocateFolderSubtree cascade fix proven above
+  // for moveFolder — a Daily Note whose parent month folder gets archived
+  // must lose its 'daily-note' type immediately (it's no longer at the
+  // canonical path), the same way a directly-archived Daily Note page
+  // already does via runArchive/writeParseRebuildReplace/replacePage.
+  it('recomputes a descendant Daily Note\'s type to note when its ancestor folder is archived', () => {
+    const archive = makeFolder({ id: 'folder-archive', path: '/vault/Archive', parentId: null });
+    const dailyNotesMonth = makeFolder({
+      id: 'folder-month',
+      path: '/vault/Daily Notes/2026/August',
+      parentId: null,
+    });
+    const dailyNote = makePage({
+      id: 'page-1',
+      type: 'daily-note',
+      path: '/vault/Daily Notes/2026/August/2026-08-12.md',
+      parentId: 'folder-month',
+    });
+    const vault = makeVault([dailyNote], [dailyNotesMonth, archive]);
+
+    vault.archiveFolder('folder-month', '/vault/Archive/August', 'folder-archive', {
+      status: 'archived',
+      archivedAt: '2026-01-01T00:00:00.000Z',
+      originalPath: '/vault/Daily Notes/2026/August',
+      originalParentId: null,
+    });
+
+    expect(vault.getPage('page-1')!.type).toBe('note');
+    expect(vault.getPage('page-1')!.path).toBe('/vault/Archive/August/2026-08-12.md');
   });
 });
 

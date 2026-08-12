@@ -2,6 +2,7 @@ import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
 import type { PageFrontmatter } from '../ingest/frontmatter/PageFrontmatter';
 import type { Folder } from '../models/Folder';
+import type { FolderMetadata } from '../models/FolderMetadata';
 import { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
@@ -61,15 +62,15 @@ export type PersistenceOperation =
   // ships with its Folder Picker UI; see the ADR's implementation-sequencing
   // amendment.
   | { readonly kind: 'rename-folder'; readonly name: string }
-  // ADR-026 §0/§3: deliberately not the page-scoped 'archive' kind — a
-  // folder id can never reach a page-scoped kind name without an early
-  // branch (runOperation() resolves vault.getPage(id) before its general
-  // switch), and a folder's directory-preserving relocation is a different
-  // operation from a page's flatten-to-Archive/ move, not a parameterization
-  // of the same one (same reasoning 'delete-folder'/'rename-folder' already
-  // established). Restore ('restore-folder') is not implemented yet — see
-  // the ADR's implementation-sequencing amendment.
-  | { readonly kind: 'archive-folder' };
+  // ADR-026 §0/§3: deliberately not the page-scoped 'archive'/'restore'
+  // kinds — a folder id can never reach a page-scoped kind name without an
+  // early branch (runOperation() resolves vault.getPage(id) before its
+  // general switch), and a folder's directory-preserving relocation is a
+  // different operation from a page's flatten-to-Archive/ move, not a
+  // parameterization of the same one (same reasoning
+  // 'delete-folder'/'rename-folder' already established).
+  | { readonly kind: 'archive-folder' }
+  | { readonly kind: 'restore-folder' };
 
 export type PersistenceResult =
   | {
@@ -96,6 +97,10 @@ export type PersistenceResult =
     }
   | {
       readonly status: 'folder-archived';
+      readonly folder: Folder;
+    }
+  | {
+      readonly status: 'folder-restored';
       readonly folder: Folder;
     };
 
@@ -202,6 +207,10 @@ export class PagePersistenceCoordinator {
 
     if (operation.kind === 'archive-folder') {
       return this.runArchiveFolder(id);
+    }
+
+    if (operation.kind === 'restore-folder') {
+      return this.runRestoreFolder(id);
     }
 
     const current = this.vault.getPage(id);
@@ -764,6 +773,95 @@ export class PagePersistenceCoordinator {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * ADR-026 §2/§3 (implemented per the amendment's follow-up milestone):
+   * symmetric counterpart to runArchiveFolder — relocates the folder's
+   * whole subtree back to the caller-resolved restore destination
+   * (FolderPathResolver.resolveRestoreDestination, mirroring
+   * MoveService.resolveRestoreDestination's page-side contract exactly:
+   * keyed on the folder's own `originalPath` alone, parent-exists → exact
+   * originalPath, else vault root, no Inbox, no originalParentId lookup),
+   * then persists the target folder's own cleared archive metadata.
+   * Descendant folders'/pages' own metadata is untouched, for the same
+   * reason runArchiveFolder leaves them untouched — their new location is
+   * handled entirely by the one directory move.
+   *
+   * Same disk-before-Vault ordering and idempotent-on-retry shape as
+   * runArchiveFolder: the final `.folder.md` is built from already-known,
+   * pre-mutation data and written to disk before `vault.restoreFolder()`
+   * runs, and a retry after a partial failure recognizes (via
+   * fileSystem.exists() + destinationMatchesArchivedFolder) that the
+   * directory already moved, redoing only the `.folder.md` write and the
+   * Vault commit.
+   */
+  private async runRestoreFolder(folderId: string): Promise<PersistenceResult> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return {
+        status: 'abandoned',
+        reason: `Folder no longer exists in the vault: ${folderId}`,
+      };
+    }
+
+    if (folder.metadata.status !== 'archived') {
+      throw new Error(`Folder is not archived: ${folderId}`);
+    }
+
+    // Mirrors runRestore's own inline metadata clear exactly (kept inline
+    // there too, per rule — no new shared restore abstraction introduced
+    // just to avoid two parallel four-field literals).
+    const restorePatch: Pick<
+      FolderMetadata,
+      'status' | 'archivedAt' | 'originalPath' | 'originalParentId'
+    > = {
+      status: 'active',
+      archivedAt: null,
+      originalPath: null,
+      originalParentId: null,
+    };
+    const destination = new FolderPathResolver(this.vault).resolveRestoreDestination(folderId);
+
+    // Same collision guard runArchiveFolder applies at its own destination —
+    // checked before any write, since this method calls fileSystem.moveFile()
+    // directly rather than a shared move helper.
+    const occupant = this.vault.getFolderByPath(destination.path);
+
+    if (occupant && occupant.id !== folder.id) {
+      throw new Error(`Folder path already in use: ${destination.path}`);
+    }
+
+    const finalFolder: Folder = {
+      ...folder,
+      name: VaultPath.filename(destination.path),
+      path: destination.path,
+      parentId: destination.parentId,
+      metadata: { ...folder.metadata, ...restorePatch },
+    };
+
+    const candidateAlreadyMoved =
+      folder.path !== destination.path &&
+      !(await this.fileSystem.exists(folder.path)) &&
+      (await this.fileSystem.exists(destination.path));
+
+    const alreadyMoved =
+      candidateAlreadyMoved &&
+      (await this.destinationMatchesArchivedFolder(destination.path, folderId));
+
+    if (!alreadyMoved) {
+      await this.fileSystem.moveFile(folder.path, destination.path);
+    }
+
+    await this.fileSystem.writeFile(
+      `${finalFolder.path}/.folder.md`,
+      this.serializer.serializeFolderDocument(finalFolder)
+    );
+
+    this.vault.restoreFolder(folderId, destination.path, destination.parentId, restorePatch);
+
+    return { status: 'folder-restored', folder: this.vault.getFolder(folderId)! };
   }
 
   private async runRestore(current: Page): Promise<PersistenceResult> {

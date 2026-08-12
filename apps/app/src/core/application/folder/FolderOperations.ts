@@ -290,6 +290,22 @@ export class FolderOperations {
     }
   }
 
+  /**
+   * Restores a folder and its entire subtree as one operation (ADR-026's
+   * follow-up milestone), mirroring archive()'s exact shape: unconditional
+   * cascade, no existence check of its own, relies on the Gate's
+   * dequeue-time guard. Same as archive(), never touches Workspace — the
+   * folder still exists, only relocated and restatused, so a currently
+   * open folder simply keeps rendering itself at its restored location.
+   */
+  public async restore(folderId: string): Promise<void> {
+    const result = await this.coordinator.enqueue(folderId, { kind: 'restore-folder' });
+
+    if (result.status !== 'folder-restored' && result.status !== 'abandoned') {
+      throw new Error(`Failed to restore folder ${folderId}: ${result.status}`);
+    }
+  }
+
   /** The name channel's SaveCoordinator key — distinct from `folderId` so it can never collide with any other channel keyed by the same id. */
   private nameChannelKey(folderId: string): string {
     return `${folderId}:name`;

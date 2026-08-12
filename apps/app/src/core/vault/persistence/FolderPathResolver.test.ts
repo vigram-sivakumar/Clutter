@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FolderPathResolver } from './FolderPathResolver';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
@@ -137,6 +137,54 @@ describe('FolderPathResolver.resolveArchiveDestination (ADR-026)', () => {
     expect(() => resolver.resolveArchiveDestination('folder-1')).toThrow(
       /Archive folder not found/
     );
+  });
+
+  describe('collision fallback', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 7, 12, 16, 43, 1)); // local time, 2026-08-12 16:43:01
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('falls back to a local-time timestamp suffix when Archive/<name> is already taken by a different folder', () => {
+      const archive = makeFolder('folder-archive', `${ROOT}/Archive`);
+      // Already occupies the flattened destination — a different folder
+      // (e.g. an earlier archive of some other `Project/`).
+      const alreadyArchived = makeFolder('folder-archived', `${ROOT}/Archive/Project`, 'folder-archive');
+      const folder = makeFolder('folder-1', `${ROOT}/OldProject/Project`);
+      const vault = makeVault([archive, alreadyArchived, folder]);
+      const resolver = new FolderPathResolver(vault);
+
+      const result = resolver.resolveArchiveDestination('folder-1');
+
+      expect(result).toEqual({
+        path: `${ROOT}/Archive/Project 2026-08-12 16.43.01`,
+        parentId: 'folder-archive',
+      });
+    });
+
+    it('falls back to a deterministic .01 suffix when even the timestamped name is taken', () => {
+      const archive = makeFolder('folder-archive', `${ROOT}/Archive`);
+      const alreadyArchived = makeFolder('folder-archived', `${ROOT}/Archive/Project`, 'folder-archive');
+      const alreadyTimestamped = makeFolder(
+        'folder-archived-2',
+        `${ROOT}/Archive/Project 2026-08-12 16.43.01`,
+        'folder-archive'
+      );
+      const folder = makeFolder('folder-1', `${ROOT}/OldProject/Project`);
+      const vault = makeVault([archive, alreadyArchived, alreadyTimestamped, folder]);
+      const resolver = new FolderPathResolver(vault);
+
+      const result = resolver.resolveArchiveDestination('folder-1');
+
+      expect(result).toEqual({
+        path: `${ROOT}/Archive/Project 2026-08-12 16.43.01.01`,
+        parentId: 'folder-archive',
+      });
+    });
   });
 });
 

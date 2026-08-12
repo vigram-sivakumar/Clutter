@@ -604,6 +604,48 @@ export class Vault {
   }
 
   /**
+   * Symmetric counterpart to archiveFolder(): relocates the folder's whole
+   * subtree back to `path`/`parentId` (the caller-resolved restore
+   * destination — FolderPathResolver.resolveRestoreDestination) via the
+   * same relocateFolderSubtree() cascade, then clears the target folder's
+   * own archive metadata. Descendant folders/pages are relocated but their
+   * own metadata is untouched, mirroring archiveFolder()'s identical rule.
+   */
+  restoreFolder(
+    folderId: string,
+    path: string,
+    parentId: string | null,
+    metadata: Pick<FolderMetadata, 'status' | 'archivedAt' | 'originalPath' | 'originalParentId'>
+  ): void {
+    const folder = this.foldersById.get(folderId);
+
+    if (!folder) {
+      throw new Error(`Unknown folder: ${folderId}`);
+    }
+
+    const { pagesInSubtree } = this.relocateFolderSubtree(folderId, path, parentId);
+
+    const relocated = this.foldersById.get(folderId)!;
+    const restored: Folder = {
+      ...relocated,
+      metadata: { ...relocated.metadata, ...metadata },
+    };
+
+    this.foldersById.set(folderId, restored);
+    this.foldersByPath.set(restored.path, restored);
+
+    if (pagesInSubtree.length > 0) {
+      this.refreshProjections();
+    }
+
+    this.notify({
+      type: 'folder-moved',
+      folderId,
+      path,
+    });
+  }
+
+  /**
    * ADR-026's Sync amendment (external folder unarchive reconciliation):
    * Sync-only repair primitive, mirroring how `persistSyncedPageDocument`
    * reuses `replacePage()` for the page-side equivalent. Relocates the
@@ -777,9 +819,16 @@ export class Vault {
 
     for (const page of pagesInSubtree) {
       const nextPath = pagePathUpdates.get(page.id)!;
+      // Same rule replacePage()/updatePagePath() already apply to a
+      // directly-moved page: type is derived from the final path
+      // (resolvePageType), never carried over from the pre-move value.
+      // Without this, a Daily Note dragged out of Daily Notes/ only via
+      // its ancestor folder moving (moveFolder/archiveFolder/restoreFolder
+      // all share this cascade) would keep stale type: 'daily-note'.
       const updatedPage: Page = {
         ...page,
         path: nextPath,
+        type: this.resolvePageType(nextPath),
       };
 
       this.pagesById.set(page.id, updatedPage);

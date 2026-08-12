@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MoveService } from './MoveService';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
@@ -159,5 +159,109 @@ describe('MoveService.resolveRenameDestination', () => {
 
     expect(moveService.resolveRenameDestination(page, '').path).toBe(`${ROOT}/Untitled.md`);
     expect(moveService.resolveRenameDestination(page, '   ').path).toBe(`${ROOT}/Untitled.md`);
+  });
+});
+
+describe('MoveService.resolveArchiveDestination', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 12, 16, 43, 1)); // local time, 2026-08-12 16:43:01
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('archives to Archive/<name>.md unchanged when the destination is free', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const projectFolder = makeFolder('folder-1', `${ROOT}/Project`);
+    const page = buildPage(`${ROOT}/Project/Test.md`, 'folder-1', 'page-1');
+    const vault = makeVault([page], [archiveFolder, projectFolder]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveArchiveDestination(page);
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Archive/Test.md`,
+      parentId: 'archive',
+    });
+  });
+
+  it('falls back to a local-time timestamp suffix when Archive/<name>.md is already taken', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const projectFolder = makeFolder('folder-1', `${ROOT}/Project`);
+    // Already occupies the flattened destination — a different page.
+    const alreadyArchived = buildPage(`${ROOT}/Archive/Test.md`, 'archive', 'page-archived');
+    const page = buildPage(`${ROOT}/Project/Test.md`, 'folder-1', 'page-2');
+    const vault = makeVault([alreadyArchived, page], [archiveFolder, projectFolder]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveArchiveDestination(page);
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Archive/Test 2026-08-12 16.43.01.md`,
+      parentId: 'archive',
+    });
+  });
+
+  it('falls back to a deterministic .01 suffix when even the timestamped name is taken', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const projectFolder = makeFolder('folder-1', `${ROOT}/Project`);
+    const alreadyArchived = buildPage(`${ROOT}/Archive/Test.md`, 'archive', 'page-archived');
+    const alreadyTimestamped = buildPage(
+      `${ROOT}/Archive/Test 2026-08-12 16.43.01.md`,
+      'archive',
+      'page-archived-2'
+    );
+    const page = buildPage(`${ROOT}/Project/Test.md`, 'folder-1', 'page-3');
+    const vault = makeVault(
+      [alreadyArchived, alreadyTimestamped, page],
+      [archiveFolder, projectFolder]
+    );
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveArchiveDestination(page);
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Archive/Test 2026-08-12 16.43.01.01.md`,
+      parentId: 'archive',
+    });
+  });
+
+  it('archiving a Daily Note only gets a timestamp once its flattened destination is already taken', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const monthFolder = makeFolder('month-1', `${ROOT}/Daily Notes/2026/August`);
+    const dailyNote = buildPage(
+      `${ROOT}/Daily Notes/2026/August/2026-08-12.md`,
+      'month-1',
+      'daily-note-1'
+    );
+    const vault = makeVault([dailyNote], [archiveFolder, monthFolder]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(moveService.resolveArchiveDestination(dailyNote)).toEqual({
+      path: `${ROOT}/Archive/2026-08-12.md`,
+      parentId: 'archive',
+    });
+
+    const alreadyArchived = buildPage(`${ROOT}/Archive/2026-08-12.md`, 'archive', 'other-day');
+    const vaultWithCollision = makeVault(
+      [alreadyArchived, dailyNote],
+      [archiveFolder, monthFolder]
+    );
+    const collidingMoveService = new MoveService(vaultWithCollision, new InMemoryVaultFileSystem());
+
+    expect(collidingMoveService.resolveArchiveDestination(dailyNote)).toEqual({
+      path: `${ROOT}/Archive/2026-08-12 2026-08-12 16.43.01.md`,
+      parentId: 'archive',
+    });
+  });
+
+  it('throws when the vault has no reserved Archive folder', () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const vault = makeVault([page], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(() => moveService.resolveArchiveDestination(page)).toThrow(/Archive folder not found/);
   });
 });

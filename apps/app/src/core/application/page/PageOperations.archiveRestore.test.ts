@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PageOperations } from './PageOperations';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { Workspace } from '../../workspace/Workspace';
@@ -330,46 +330,176 @@ describe('PageOperations.archive()', () => {
     expect(reloaded.metadata.icon).toBe('📌');
   });
 
-  it('throws when Archive/Note.md already exists', async () => {
-    const page = buildActivePage();
-    const occupant = new PageBuilder().build({
-      parentId: ARCHIVE_FOLDER_ID,
-      page: {
-        path: `${ROOT}/Archive/Note.md`,
-        directoryPath: `${ROOT}/Archive`,
-        frontmatter: { id: 'page-occupant' },
-        frontmatterAnalysis: { aliases: [] },
-        content: 'Existing archive occupant.',
-        analysis: {
-          headings: [],
-          blockReferences: [],
-          tasks: [],
-          tags: [],
-          links: [],
-          embeds: [],
-        },
-      },
+  // Collision handling (agreed design, see the Archive-destination-collision
+  // ADR follow-up): archiving no longer throws when Archive/Note.md is
+  // already occupied by a different page — it falls back to a local-time
+  // timestamp suffix, computed by the same MoveService.resolveArchiveDestination
+  // this facade already delegates to (MoveService.test.ts covers the naming
+  // rule itself in isolation; this is the end-to-end PageOperations.archive()
+  // path). This replaces the prior "throws when Archive/Note.md already
+  // exists" expectation — that throw was the actual bug this change fixes,
+  // not behavior to preserve.
+  describe('collision at the Archive destination', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 7, 12, 16, 43, 1)); // local time, 2026-08-12 16:43:01
     });
 
-    const vault = makeVault([page, occupant]);
-    const fileSystem = new InMemoryVaultFileSystem();
-    const serializer = new FrontmatterSerializer();
-    fileSystem.seedFile(
-      page.path,
-      serializer.serializeDocument(page, page.source.markdown)
-    );
-    fileSystem.seedFile(
-      occupant.path,
-      serializer.serializeDocument(occupant, occupant.source.markdown)
-    );
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
-    const pageOperations = buildPageOperations(vault, fileSystem);
+    function seedOccupant(vault: Vault, fileSystem: InMemoryVaultFileSystem, path: string, id: string) {
+      const occupant = new PageBuilder().build({
+        parentId: ARCHIVE_FOLDER_ID,
+        page: {
+          path,
+          directoryPath: `${ROOT}/Archive`,
+          frontmatter: { id },
+          frontmatterAnalysis: { aliases: [] },
+          content: 'Existing archive occupant.',
+          analysis: {
+            headings: [],
+            blockReferences: [],
+            tasks: [],
+            tags: [],
+            links: [],
+            embeds: [],
+          },
+        },
+      });
 
-    await expect(pageOperations.archive(page.id)).rejects.toThrow(
-      /Path already in use/
-    );
-    expect(fileSystem.hasFileSync(page.path)).toBe(true);
-    expect(vault.getPage(page.id)!.metadata.status).toBe('active');
+      vault.addPage(occupant);
+      fileSystem.seedFile(
+        occupant.path,
+        new FrontmatterSerializer().serializeDocument(occupant, occupant.source.markdown)
+      );
+
+      return occupant;
+    }
+
+    it('archives to Archive/Note.md unchanged when the destination is free', async () => {
+      const page = buildActivePage();
+      const { vault, fileSystem, pageOperations } = setup(page);
+
+      await pageOperations.archive(page.id);
+
+      expect(fileSystem.hasFileSync(`${ROOT}/Archive/Note.md`)).toBe(true);
+      expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Archive/Note.md`);
+    });
+
+    it('falls back to a timestamp suffix instead of throwing when Archive/Note.md already exists', async () => {
+      const page = buildActivePage();
+      const vault = makeVault([page]);
+      const fileSystem = new InMemoryVaultFileSystem();
+      fileSystem.seedFile(
+        page.path,
+        new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
+      );
+      seedOccupant(vault, fileSystem, `${ROOT}/Archive/Note.md`, 'page-occupant');
+
+      const pageOperations = buildPageOperations(vault, fileSystem);
+
+      await pageOperations.archive(page.id);
+
+      expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Archive/Note 2026-08-12 16.43.01.md`);
+      expect(fileSystem.hasFileSync(`${ROOT}/Archive/Note 2026-08-12 16.43.01.md`)).toBe(true);
+      // The occupant that caused the collision is untouched.
+      expect(fileSystem.hasFileSync(`${ROOT}/Archive/Note.md`)).toBe(true);
+      // The logical name is unaffected — only the filesystem path carries
+      // the disambiguating timestamp (rule 4: preserve the logical name).
+      expect(vault.getPage(page.id)!.name).toBe('Note');
+    });
+
+    it('restoring a timestamp-suffixed archive returns to the original path, never derived from the archive filename', async () => {
+      const design = makeDesignFolder();
+      const page = buildActivePage({
+        parentId: DESIGN_FOLDER_ID,
+        path: `${ROOT}/Projects/Design/Note.md`,
+      });
+      const vault = makeVault([page], [makeArchiveFolder(), design]);
+      const fileSystem = new InMemoryVaultFileSystem();
+      fileSystem.seedFile(
+        page.path,
+        new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
+      );
+      seedOccupant(vault, fileSystem, `${ROOT}/Archive/Note.md`, 'page-occupant');
+
+      const pageOperations = buildPageOperations(vault, fileSystem);
+
+      await pageOperations.archive(page.id);
+      expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Archive/Note 2026-08-12 16.43.01.md`);
+
+      await pageOperations.restore(page.id);
+
+      const restored = vault.getPage(page.id)!;
+      expect(restored.path).toBe(`${ROOT}/Projects/Design/Note.md`);
+      expect(restored.metadata.status).toBe('active');
+      expect(fileSystem.hasFileSync(`${ROOT}/Projects/Design/Note.md`)).toBe(true);
+    });
+
+    it('archives a Daily Note to Archive/<date>.md unchanged when free — the same rule, no type-specific branch', async () => {
+      const dailyNotePath = `${ROOT}/Daily Notes/2026/August/2026-08-12.md`;
+      const dailyNote = new PageBuilder(ROOT).build({
+        parentId: null,
+        page: {
+          path: dailyNotePath,
+          directoryPath: `${ROOT}/Daily Notes/2026/August`,
+          frontmatter: { id: 'daily-note-1' },
+          frontmatterAnalysis: { aliases: [] },
+          content: 'Today.',
+          analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+        },
+      });
+      expect(dailyNote.type).toBe('daily-note');
+
+      const vault = makeVault([dailyNote]);
+      const fileSystem = new InMemoryVaultFileSystem();
+      fileSystem.seedFile(
+        dailyNotePath,
+        new FrontmatterSerializer().serializeDocument(dailyNote, dailyNote.source.markdown)
+      );
+      const pageOperations = buildPageOperations(vault, fileSystem);
+
+      await pageOperations.archive(dailyNote.id);
+
+      expect(vault.getPage(dailyNote.id)!.path).toBe(`${ROOT}/Archive/2026-08-12.md`);
+    });
+
+    it('only timestamps a Daily Note archive once Archive/<date>.md is already taken', async () => {
+      const dailyNotePath = `${ROOT}/Daily Notes/2026/August/2026-08-12.md`;
+      const dailyNote = new PageBuilder(ROOT).build({
+        parentId: null,
+        page: {
+          path: dailyNotePath,
+          directoryPath: `${ROOT}/Daily Notes/2026/August`,
+          frontmatter: { id: 'daily-note-1' },
+          frontmatterAnalysis: { aliases: [] },
+          content: 'Today.',
+          analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+        },
+      });
+
+      const vault = makeVault([dailyNote]);
+      const fileSystem = new InMemoryVaultFileSystem();
+      fileSystem.seedFile(
+        dailyNotePath,
+        new FrontmatterSerializer().serializeDocument(dailyNote, dailyNote.source.markdown)
+      );
+      // A prior day's daily note that already happens to occupy the exact
+      // filename this one would flatten to (only realistic via a naming
+      // edge case, but the rule must not special-case Daily Notes either
+      // way — same fallback as any other type).
+      seedOccupant(vault, fileSystem, `${ROOT}/Archive/2026-08-12.md`, 'other-day');
+
+      const pageOperations = buildPageOperations(vault, fileSystem);
+
+      await pageOperations.archive(dailyNote.id);
+
+      expect(vault.getPage(dailyNote.id)!.path).toBe(
+        `${ROOT}/Archive/2026-08-12 2026-08-12 16.43.01.md`
+      );
+    });
   });
 
   it('throws when the page is already archived', async () => {
@@ -650,5 +780,34 @@ describe('PageOperations.restore()', () => {
     await expect(pageOperations.restore('does-not-exist')).rejects.toThrow(
       /Page not found/
     );
+  });
+
+  it('re-archiving a restored page works cleanly: fresh originalPath, no stale metadata, not tied to the previous archive path', async () => {
+    const design = makeDesignFolder();
+    const page = buildActivePage({
+      parentId: DESIGN_FOLDER_ID,
+      path: `${ROOT}/Projects/Design/Note.md`,
+    });
+    const { vault, fileSystem, pageOperations } = await archivePage(page, [
+      makeArchiveFolder(),
+      makeInboxFolder(),
+      makeProjectsFolder(),
+      design,
+    ]);
+
+    await pageOperations.restore(page.id);
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Projects/Design/Note.md`);
+
+    await pageOperations.archive(page.id);
+
+    const reArchived = vault.getPage(page.id)!;
+    // Not tied to the previous archive path — recomputed fresh, and free
+    // (no collision, since the first archive's file already moved away).
+    expect(reArchived.path).toBe(archivePathFor(page));
+    expect(reArchived.metadata.status).toBe('archived');
+    // originalPath reflects the most recent pre-archive location, not the
+    // very first one — no stale data survives a restore/re-archive cycle.
+    expect(reArchived.metadata.originalPath).toBe(`${ROOT}/Projects/Design/Note.md`);
+    expect(fileSystem.hasFileSync(archivePathFor(page))).toBe(true);
   });
 });
