@@ -94,6 +94,7 @@ export class Application {
   private fileSystemWatcher!: LocalFileSystemWatcher;
   private rootPath!: string;
   private closed = false;
+  private workspaceVaultReconciliationUnsubscribe!: () => void;
 
   static async bootstrap(rootPath: string): Promise<Application> {
     // Shared between the write side (SelfWriteAwareFileSystem) and the read
@@ -374,6 +375,34 @@ export class Application {
       new UuidGenerator()
     );
 
+    // Recovers from an external deletion (Sync's handleDeleted, or any
+    // other Vault mutation) removing the page/folder Workspace currently
+    // has active — e.g. deleting the open Archive folder, or any other
+    // folder/note, out from under the app in Finder. VaultSyncService
+    // stays filesystem->Vault only (no Workspace/navigation knowledge) and
+    // Workspace stays Vault-oblivious (no Vault dependency); this is the
+    // one Application-owned seam that already holds both, reusing the
+    // same close()-then-fallback-if-empty shape PageOperations.delete()/
+    // FolderOperations.delete() already use, verbatim, keyed only on "does
+    // the active id still exist" — no per-folder or Archive-specific
+    // branch. Registered last, after every Vault mutation that happens
+    // during boot/scan has already settled and before Workspace has any
+    // active id (open() runs after attachVault() returns), so it cannot
+    // observe a stale id and redirect before a real selection exists.
+    this.workspaceVaultReconciliationUnsubscribe = vault.subscribe(() => {
+      const { activePageId, activeFolderId } = this.workspace;
+
+      if (activePageId && !vault.getPage(activePageId)) {
+        this.workspace.closePage(activePageId);
+      } else if (activeFolderId && !vault.getFolder(activeFolderId)) {
+        this.workspace.closeFolder(activeFolderId);
+      }
+
+      if (!this.workspace.activeView) {
+        void this.openFallbackPage();
+      }
+    });
+
     // Optional, dev-only: exposes window.__clutter_devtools for e2e tests.
     // No-op unless import.meta.env.DEV && VITE_DEVTOOLS=true (see attachDevTools).
     attachDevTools(this);
@@ -472,6 +501,7 @@ export class Application {
     // is inert. Same ordering constraint flushAll() documents for itself
     // above, applied to a second consumer of the same resource.
     this.effectivePageState.dispose();
+    this.workspaceVaultReconciliationUnsubscribe();
     this.documentRegistry.clear();
   }
 }

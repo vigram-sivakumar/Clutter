@@ -16,6 +16,9 @@ import { VaultProjectionBuilder } from '../vault/knowledge/VaultProjectionBuilde
 import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
 import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
+import { PageBuilder } from '../vault/ingest/PageBuilder';
+import type { Page } from '../vault/models/Page';
+import type { Folder } from '../vault/models/Folder';
 
 // close() reaches LocalFileSystemWatcher.stop(), which calls Tauri's
 // invoke('stop_vault_watcher') — real Platform IPC with no runtime to
@@ -133,5 +136,230 @@ describe('Application.close — EffectivePageState disposal (ADR-020, M2)', () =
 
     await expect(application.close()).resolves.toBeUndefined();
     await expect(application.close()).resolves.toBeUndefined();
+  });
+});
+
+const defaultFolderMetadata = {
+  icon: null,
+  favorite: false,
+  description: '',
+  cover: null,
+  status: 'active' as const,
+  archivedAt: null,
+  originalPath: null,
+  originalParentId: null,
+};
+
+function makeFolder(id: string, path: string, parentId: string | null = null): Folder {
+  return {
+    id,
+    name: path.slice(path.lastIndexOf('/') + 1),
+    path,
+    parentId,
+    metadata: defaultFolderMetadata,
+  };
+}
+
+function buildPage(path: string, id: string, parentId: string | null = null): Page {
+  return new PageBuilder().build({
+    parentId,
+    page: {
+      path: `/vault/${path}`,
+      directoryPath: '/vault',
+      frontmatter: { id },
+      frontmatterAnalysis: { aliases: [] },
+      content: 'Body',
+      analysis: {
+        headings: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [],
+        links: [],
+        embeds: [],
+      },
+    },
+  });
+}
+
+/**
+ * Whether the app-recovers-to-a-valid-view mechanism (Application-level
+ * Vault subscription, added alongside PageOperations.delete()/
+ * FolderOperations.delete()'s existing close()-then-fallback-if-empty
+ * shape) covers external deletion — a Vault mutation nobody routed through
+ * PageOperations/FolderOperations, the same shape VaultSyncService.
+ * handleDeleted actually produces. Exercised here by mutating the Vault
+ * directly (vault.removePage/removeFolder), the same primitive
+ * handleDeleted itself calls — deliberately below Sync, since the
+ * reconciliation this covers is keyed only on Vault state, not on how it
+ * changed.
+ */
+describe('Application: recovers when the active Vault resource disappears (external deletion)', () => {
+  function attachWith(pages: Page[], folders: Folder[]) {
+    const vault = new Vault(
+      '/vault',
+      pages,
+      folders,
+      [],
+      [],
+      [],
+      new KnowledgeGraph([]),
+      new VaultProjectionBuilder()
+    );
+    const fileSystem = new InMemoryVaultFileSystem();
+    const selfWriteRegistry = new SelfWriteRegistry();
+    const pageCreator = new PageCreator(new UuidGenerator(), new PageFactory());
+
+    const application = new Application(vault, fileSystem, selfWriteRegistry);
+    application.attachVault(vault, pageCreator, new DailyNoteService());
+
+    return { application, vault, fileSystem };
+  }
+
+  it('active note deleted externally: workspace recovers to a valid view, not the deleted id', async () => {
+    const note = buildPage('Note.md', 'page-note');
+    const { application, vault } = attachWith([note], []);
+
+    await application.pageOperations.open('page-note');
+    expect(application.workspace.activePageId).toBe('page-note');
+
+    vault.removePage('page-note');
+
+    expect(application.workspace.activePageId).not.toBe('page-note');
+    expect(application.workspace.activeView).not.toBeNull();
+  });
+
+  it('active folder deleted externally: workspace recovers to a valid view, not the deleted id', async () => {
+    const folder = makeFolder('folder-projects', '/vault/Projects');
+    const { application, vault } = attachWith([], [folder]);
+
+    await application.folderOperations.open('folder-projects');
+    expect(application.workspace.activeFolderId).toBe('folder-projects');
+
+    vault.removeFolder('folder-projects');
+
+    expect(application.workspace.activeFolderId).not.toBe('folder-projects');
+    expect(application.workspace.activeView).not.toBeNull();
+  });
+
+  it('active note removed because its containing folder is deleted externally: workspace recovers', async () => {
+    const folder = makeFolder('folder-projects', '/vault/Projects');
+    const note = buildPage('Projects/Note.md', 'page-note', 'folder-projects');
+    const { application, vault } = attachWith([note], [folder]);
+
+    await application.pageOperations.open('page-note');
+    expect(application.workspace.activePageId).toBe('page-note');
+
+    // Vault.removeFolder's own cascade removes the descendant page too —
+    // the same cascade VaultSyncService.handleDeleted relies on for a
+    // real external folder delete.
+    vault.removeFolder('folder-projects');
+
+    expect(application.workspace.activePageId).not.toBe('page-note');
+    expect(application.workspace.activeView).not.toBeNull();
+  });
+
+  it('active Archive folder deleted externally: recovers via the same general mechanism, no Archive-specific branch', async () => {
+    const archiveFolder = makeFolder('folder-archive', '/vault/Archive');
+    const { application, vault } = attachWith([], [archiveFolder]);
+
+    await application.folderOperations.open('folder-archive');
+    expect(application.workspace.activeFolderId).toBe('folder-archive');
+
+    vault.removeFolder('folder-archive');
+
+    expect(application.workspace.activeFolderId).not.toBe('folder-archive');
+    expect(application.workspace.activeView).not.toBeNull();
+  });
+
+  it('non-active resource deleted externally: no navigation change', async () => {
+    const noteA = buildPage('A.md', 'page-a');
+    const noteB = buildPage('B.md', 'page-b');
+    const { application, vault } = attachWith([noteA, noteB], []);
+
+    await application.pageOperations.open('page-a');
+    expect(application.workspace.activePageId).toBe('page-a');
+
+    vault.removePage('page-b');
+
+    expect(application.workspace.activePageId).toBe('page-a');
+  });
+
+  it('restores the previously-open note instead of the fallback when the active note is externally deleted', async () => {
+    const noteA = buildPage('A.md', 'page-a');
+    const noteB = buildPage('B.md', 'page-b');
+    const { application, vault } = attachWith([noteA, noteB], []);
+
+    await application.pageOperations.open('page-b');
+    await application.pageOperations.open('page-a');
+    expect(application.workspace.activePageId).toBe('page-a');
+
+    vault.removePage('page-a');
+
+    // Workspace's own openPageIds history restores page-b — the fallback
+    // page is never consulted because activeView was never actually empty.
+    expect(application.workspace.activePageId).toBe('page-b');
+  });
+
+  it('falls back only when genuinely no valid active view remains, not merely on any deletion', async () => {
+    const noteA = buildPage('A.md', 'page-a');
+    const noteB = buildPage('B.md', 'page-b');
+    const { application, vault } = attachWith([noteA, noteB], []);
+
+    await application.pageOperations.open('page-b');
+    await application.pageOperations.open('page-a');
+
+    vault.removePage('page-a');
+
+    // A previous view existed, so the fallback page was never opened —
+    // the restored view is exactly the previously-open note, not a fresh
+    // Daily Note draft.
+    expect(application.workspace.activePageId).toBe('page-b');
+    expect(application.workspace.openPages).not.toContain('page-a');
+  });
+
+  // Verifies the new subscription cannot double-fire alongside
+  // PageOperations.delete()'s/FolderOperations.delete()'s own existing
+  // close()-then-fallback-if-empty sequence. vault.removePage()/
+  // removeFolder() (called from inside the Gate operation these methods
+  // await) already fires notify() synchronously, before either method
+  // reaches its own workspace.closePage()/closeFolder() lines — so the new
+  // subscription's own fallback (also fully synchronous: PageOperations.
+  // open()/openAtPath() set workspace.activeView with no `await` before
+  // doing so) always lands first. By the time delete()'s own post-enqueue
+  // check runs, activeView is already non-null, so its own fallback call is
+  // a no-op, and its own closePage()/closeFolder() call is a no-op too
+  // (Workspace.closePage/closeFolder's own existing "already not open"
+  // guard). Spying on PageOperations.open/openAtPath — openFallbackPage's
+  // only two possible targets — makes this a count, not an inference.
+  it('app-initiated PageOperations.delete() of the sole active page opens the fallback exactly once', async () => {
+    const note = buildPage('Note.md', 'page-note');
+    const { application, fileSystem } = attachWith([note], []);
+    await fileSystem.writeFile('/vault/Note.md', '---\nid: page-note\n---\nBody');
+
+    await application.pageOperations.open('page-note');
+
+    const openSpy = vi.spyOn(application.pageOperations, 'open');
+    const openAtPathSpy = vi.spyOn(application.pageOperations, 'openAtPath');
+
+    await application.pageOperations.delete('page-note');
+
+    expect(openSpy.mock.calls.length + openAtPathSpy.mock.calls.length).toBe(1);
+    expect(application.workspace.activeView).not.toBeNull();
+  });
+
+  it('app-initiated FolderOperations.delete() of the sole active folder opens the fallback exactly once', async () => {
+    const folder = makeFolder('folder-projects', '/vault/Projects');
+    const { application, fileSystem } = attachWith([], [folder]);
+    await fileSystem.createDirectory('/vault/Projects');
+
+    await application.folderOperations.open('folder-projects');
+
+    const openSpy = vi.spyOn(application.pageOperations, 'open');
+    const openAtPathSpy = vi.spyOn(application.pageOperations, 'openAtPath');
+
+    await application.folderOperations.delete('folder-projects');
+
+    expect(openSpy.mock.calls.length + openAtPathSpy.mock.calls.length).toBe(1);
+    expect(application.workspace.activeView).not.toBeNull();
   });
 });
