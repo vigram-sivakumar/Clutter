@@ -46,6 +46,7 @@ import NotePencil from './svg/note-pencil.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
 import Question from './svg/question.svg?react';
+import Restore from './svg/restore.svg?react';
 import Settings from './svg/settings.svg?react';
 import Sidebar from './svg/sidebar.svg?react';
 import Slash from './svg/slash.svg?react';
@@ -112,6 +113,7 @@ export const iconRegistry = {
   pin: Pin,
   plus: Plus,
   question: Question,
+  restore: Restore,
   settings: Settings,
   sidebar: Sidebar,
   slash: Slash,
