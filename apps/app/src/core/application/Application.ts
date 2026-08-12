@@ -296,8 +296,7 @@ export class Application {
       // second implementation of "what's the fallback page."
       () => {
         void this.openFallbackPage();
-      },
-      duplicator
+      }
     );
     this.pageOperations = new PageOperations(
       vault,

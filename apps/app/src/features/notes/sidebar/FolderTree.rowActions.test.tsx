@@ -182,8 +182,8 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onFolderTitleEdit: ReturnType<typeof vi.fn>;
     onFolderTitleFlush: ReturnType<typeof vi.fn>;
     onFolderTitleCancel: ReturnType<typeof vi.fn>;
+    onArchiveFolder: ReturnType<typeof vi.fn>;
     onDeleteFolder: ReturnType<typeof vi.fn>;
-    onDuplicateFolder: ReturnType<typeof vi.fn>;
   };
 } {
   const spies = {
@@ -201,8 +201,8 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onFolderTitleEdit: vi.fn(),
     onFolderTitleFlush: vi.fn(),
     onFolderTitleCancel: vi.fn(),
+    onArchiveFolder: vi.fn(),
     onDeleteFolder: vi.fn(),
-    onDuplicateFolder: vi.fn(),
   };
 
   const actions: SidebarRowActions = {
@@ -579,25 +579,7 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 
-  it('Duplicate calls folderOperations.duplicate (ADR-028)', () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector, folderOperations } = setup([], [folder]);
-    const duplicateSpy = vi
-      .spyOn(folderOperations, 'duplicate')
-      .mockResolvedValue('folder-duplicate');
-
-    const { actions } = buildRowActions({
-      openMenuId: 'folder-1',
-      onDuplicateFolder: (id) => void folderOperations.duplicate(id),
-    });
-
-    renderTree(query, membershipSelector, workspace, actions);
-    fireEvent.click(screen.getByText('Duplicate'));
-
-    expect(duplicateSpy).toHaveBeenCalledWith('folder-1');
-  });
-
-  it('folder menu has no Archive item (no backend capability exists — ADR-024)', () => {
+  it('folder menu has an Archive item for an active folder (ADR-026)', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
     const { query, workspace, membershipSelector } = setup([], [folder]);
     const { actions } = buildRowActions({ openMenuId: 'folder-1' });
@@ -605,8 +587,41 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     renderTree(query, membershipSelector, workspace, actions);
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
+    expect(screen.getByText('Archive')).toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  it('folder menu omits Archive for an already-archived folder (no Restore capability yet — ADR-026 sequencing amendment)', () => {
+    const folder: Folder = {
+      ...makeFolder('folder-1', `${ROOT}/Archive/Projects`, 'folder-archive'),
+      metadata: {
+        icon: null,
+        favorite: false,
+        description: '',
+        cover: null,
+        status: 'archived',
+        archivedAt: '2026-01-01T00:00:00.000Z',
+        originalPath: `${ROOT}/Projects`,
+        originalParentId: null,
+      },
+    };
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { actions } = buildRowActions({ openMenuId: 'folder-1' });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
     expect(screen.queryByText('Archive')).not.toBeInTheDocument();
+  });
+
+  it('Archive calls onArchiveFolder', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
+
+    renderTree(query, membershipSelector, workspace, actions);
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(spies.onArchiveFolder).toHaveBeenCalledWith('folder-1');
   });
 
   it('Rename calls onFolderTitleEdit through FolderOperations.commitName while editing', () => {

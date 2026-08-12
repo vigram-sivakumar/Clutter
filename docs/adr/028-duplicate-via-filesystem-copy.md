@@ -42,3 +42,7 @@ Since a raw copy has no synchronous return value the way a Gate operation does, 
 ## Why the chosen approach is preferred
 
 It keeps "who resolves a duplicate id" a single-owner capability (`VaultSyncService`), matches the user-visible mental model this feature was explicitly specified against ("equivalent to duplicating it externally"), and adds the smallest possible new surface — one collaborator, two facade methods, two path-resolver methods — with no changes to the Gate, `Vault`, or `VaultFileSystem`'s public contracts.
+
+## Amendment: Folder Duplicate removed (Note-only capability)
+
+Subsequent product decision: Folders are never duplicable. `FolderOperations.duplicate()`, its sidebar/topbar menu entries, and its dedicated wiring (`duplicateAndOpenFolder`) have been removed. `PageOperations.duplicate()` is unaffected and remains this ADR's sole live consumer. The shared mechanism this ADR established — `VaultEntryDuplicator`, the raw-copy-observed-by-Sync approach, and the provider-owned naming contract (ADR-029) — remains exactly as designed and continues to back Note Duplicate; only the folder-specific facade method and its UI surface were removed, not the underlying mechanism.

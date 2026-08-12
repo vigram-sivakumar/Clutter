@@ -323,30 +323,6 @@ describe('Sidebar Notes: Duplicate leaves the current selection untouched', () =
     expect(deps.workspace.activePageId).toBeNull();
   });
 
-  it('a folder row\'s Duplicate calls FolderOperations.duplicate but never opens or selects the result', async () => {
-    const folder = makeFolder('folder-a', `${ROOT}/Alpha`);
-    const deps = setup([folder]);
-    const duplicateSpy = vi
-      .spyOn(deps.folderOperations, 'duplicate')
-      .mockResolvedValue('folder-copy');
-    const openSpy = vi.spyOn(deps.folderOperations, 'open');
-    const onOpenFolder = vi.fn();
-
-    renderNotes(deps, { onOpenFolder });
-
-    fireEvent.click(overflowButtonFor('Alpha'));
-    fireEvent.click(screen.getByText('Duplicate'));
-
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(duplicateSpy).toHaveBeenCalledWith('folder-a');
-    expect(openSpy).not.toHaveBeenCalled();
-    expect(onOpenFolder).not.toHaveBeenCalled();
-    // Nothing was ever selected — the sidebar's Duplicate never navigates.
-    expect(deps.workspace.activeFolderId).toBeNull();
-  });
-
   it('regression: Note A open, sidebar-duplicating Note B leaves Note A open (the reported bug — Note B\'s own row was incorrectly opening)', async () => {
     const noteA = makePage('page-a', `${ROOT}/Note A.md`);
     const noteB = makePage('page-b', `${ROOT}/Note B.md`);
@@ -373,5 +349,137 @@ describe('Sidebar Notes: Duplicate leaves the current selection untouched', () =
 
     expect(onOpen).not.toHaveBeenCalled();
     expect(deps.workspace.activePageId).toBe('page-a');
+  });
+});
+
+// Consistency fix: one confirmation mechanism (the shared Confirmation/
+// Dialog surface, never window.confirm()), one domain operation regardless
+// of entry point, and no resurrection of navigation.openWorkspace() as a
+// destructive-action fallback.
+describe('Sidebar Notes: archive/delete confirmation consistency', () => {
+  it('note archive calls PageOperations.archive() directly, with no confirmation dialog', () => {
+    const page = makePage('page-1', `${ROOT}/Note.md`);
+    const deps = setup([], [page]);
+    const archiveSpy = vi.spyOn(deps.pageOperations, 'archive').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Note'));
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(archiveSpy).toHaveBeenCalledWith('page-1');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('note delete calls PageOperations.delete() directly, with no confirmation dialog', () => {
+    const page = makePage('page-1', `${ROOT}/Note.md`);
+    const deps = setup([], [page]);
+    const deleteSpy = vi.spyOn(deps.pageOperations, 'delete').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Note'));
+    fireEvent.click(screen.getByText('Delete'));
+
+    expect(deleteSpy).toHaveBeenCalledWith('page-1');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('empty folder archive calls FolderOperations.archive() directly, with no confirmation dialog', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const deps = setup([folder]);
+    const archiveSpy = vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(archiveSpy).toHaveBeenCalledWith('folder-1');
+    expect(screen.queryByText(/Archive this folder/)).toBeNull();
+  });
+
+  it('empty folder delete calls FolderOperations.delete() directly, with no confirmation dialog', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const deps = setup([folder]);
+    const deleteSpy = vi.spyOn(deps.folderOperations, 'delete').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Delete'));
+
+    expect(deleteSpy).toHaveBeenCalledWith('folder-1');
+    expect(screen.queryByText(/Delete this folder/)).toBeNull();
+  });
+
+  it('non-empty folder archive: shows the shared Confirmation dialog, Cancel does not archive', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
+    const deps = setup([folder], [note]);
+    const archiveSpy = vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(archiveSpy).not.toHaveBeenCalled();
+    expect(screen.getByText('Archive this folder?')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(archiveSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText('Archive this folder?')).not.toBeInTheDocument();
+  });
+
+  it('non-empty folder archive: Confirm invokes FolderOperations.archive()', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
+    const deps = setup([folder], [note]);
+    const archiveSpy = vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Archive'));
+    const confirmButtons = screen.getAllByRole('button', { name: 'Archive' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    expect(archiveSpy).toHaveBeenCalledWith('folder-1');
+    expect(screen.queryByText('Archive this folder?')).not.toBeInTheDocument();
+  });
+
+  it('non-empty folder delete: shows the shared Confirmation dialog, Cancel does not delete, Confirm does', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
+    const deps = setup([folder], [note]);
+    const deleteSpy = vi.spyOn(deps.folderOperations, 'delete').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Delete'));
+
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(screen.getByText('Delete this folder?')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(deleteSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Delete'));
+    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    expect(deleteSpy).toHaveBeenCalledWith('folder-1');
+  });
+
+  it('never calls navigation.openWorkspace() for any archive/delete flow — the deprecated fallback must not resurface', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
+    const deps = setup([folder], [note]);
+    vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
+    vi.spyOn(deps.folderOperations, 'delete').mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Archive'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Archive' }).at(-1)!);
+
+    expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
   });
 });

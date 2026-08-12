@@ -106,8 +106,7 @@ function setup() {
     () => {},
     documentRegistry,
     new SaveCoordinator(),
-    () => {},
-    duplicator
+    () => {}
   );
 
   const pageOperations = new PageOperations(

@@ -20,10 +20,16 @@ import {
 } from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
-import { deleteFolderWithConfirmation } from '../helpers/deleteFolderWithConfirmation';
+import {
+  getFolderArchiveConfirmation,
+  getFolderDeleteConfirmation,
+} from '../helpers/folderActionConfirmation';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
+import { Dialog } from '@components/dialog/Dialog';
+import { Confirmation } from '@components/confirmation/Confirmation';
+import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 
 interface NotesProps {
   vault: Vault;
@@ -67,6 +73,13 @@ export function Notes({
   // that starting a rename elsewhere closes any other in-progress one.
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The sidebar's confirmation surface — same shared primitive
+  // (useConfirmationSurface) and same Confirmation/Dialog components the
+  // topbar's ResourceTopBarActions uses, so folder archive/delete show
+  // identically regardless of entry point. Replaces the previous
+  // window.confirm()-based helpers, which did not reliably render in the
+  // Tauri desktop shell.
+  const confirmation = useConfirmationSurface();
 
   const rowActions: SidebarRowActions = {
     openMenuId,
@@ -96,22 +109,42 @@ export function Notes({
       void folderOperations.requestNameSave(folderId),
     onFolderTitleCancel: (folderId) =>
       folderOperations.cancelNameEdit(folderId),
-    onDeleteFolder: (folderId) => {
-      void (async () => {
-        const deleted = await deleteFolderWithConfirmation(
-          vault,
-          folderOperations,
-          folderId
-        );
+    // Same predicate, same message, same Confirmation/Dialog surface the
+    // topbar uses (buildTopBarActions.tsx's identical getFolderArchiveConfirmation
+    // call) — an empty folder archives directly; a non-empty one is gated
+    // behind confirmation first. FolderOperations.archive() itself owns
+    // post-archive navigation (ADR-025's fallback-page pattern) — nothing
+    // here decides what happens to the active view.
+    onArchiveFolder: (folderId) => {
+      const { hasDescendants, message } = getFolderArchiveConfirmation(vault, folderId);
 
-        // Mirrors PageHost's onDeleteFolder: the just-deleted folder can no
-        // longer be the active target if it was one.
-        if (deleted && workspace.activeFolderId === folderId) {
-          navigation.openWorkspace();
-        }
-      })();
+      if (hasDescendants) {
+        confirmation.request({
+          title: 'Archive this folder?',
+          message,
+          confirmLabel: 'Archive',
+          onConfirm: () => void folderOperations.archive(folderId),
+        });
+        return;
+      }
+
+      void folderOperations.archive(folderId);
     },
-    onDuplicateFolder: (folderId) => void folderOperations.duplicate(folderId),
+    onDeleteFolder: (folderId) => {
+      const { hasDescendants, message } = getFolderDeleteConfirmation(vault, folderId);
+
+      if (hasDescendants) {
+        confirmation.request({
+          title: 'Delete this folder?',
+          message,
+          confirmLabel: 'Delete',
+          onConfirm: () => void folderOperations.delete(folderId),
+        });
+        return;
+      }
+
+      void folderOperations.delete(folderId);
+    },
   };
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
   const favoriteItems = getFavoriteItems(query, effectivePageState);
@@ -214,6 +247,17 @@ export function Notes({
           }}
         />
       </Section>
+      <Dialog open={confirmation.pending !== null} onClose={confirmation.cancel} size="medium">
+        {confirmation.pending && (
+          <Confirmation
+            title={confirmation.pending.title}
+            description={confirmation.pending.message}
+            confirmLabel={confirmation.pending.confirmLabel}
+            onConfirm={confirmation.confirm}
+            onCancel={confirmation.cancel}
+          />
+        )}
+      </Dialog>
     </View>
   );
 }

@@ -5,7 +5,7 @@ import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
 import { NewFolderRow } from './NewFolderRow';
 import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
-import { folderSidebarMenu } from './folderSidebarMenu.config';
+import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
 import { testIds } from '@shared/testing/selectors';
 // Models
 import type { Folder } from '@core/vault/models';
@@ -67,9 +67,8 @@ export interface SidebarRowActions {
   onFolderTitleEdit(folderId: string, value: string): void;
   onFolderTitleFlush(folderId: string): void;
   onFolderTitleCancel(folderId: string): void;
+  onArchiveFolder(folderId: string): void;
   onDeleteFolder(folderId: string): void;
-  /** ADR-028 — a raw filesystem copy, see FolderOperations.duplicate(). */
-  onDuplicateFolder(folderId: string): void;
 }
 
 interface FolderTreeProps {
@@ -323,7 +322,9 @@ export function FolderTree({
                 rowActions ? () => rowActions.onFolderTitleCancel(folder.id) : undefined
               }
               onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
-              menuItems={rowActions ? folderSidebarMenu : undefined}
+              menuItems={
+                rowActions ? buildFolderSidebarMenu(folder.metadata.status) : undefined
+              }
               menuOpen={rowActions?.openMenuId === folder.id}
               onMenuOpenChange={
                 rowActions
@@ -335,8 +336,8 @@ export function FolderTree({
                   ? (id) => {
                       if (id === 'rename') {
                         rowActions.onStartRename(folder.id);
-                      } else if (id === 'duplicate') {
-                        rowActions.onDuplicateFolder(folder.id);
+                      } else if (id === 'archive') {
+                        rowActions.onArchiveFolder(folder.id);
                       } else if (id === 'delete') {
                         rowActions.onDeleteFolder(folder.id);
                       }

@@ -128,8 +128,7 @@ describe('duplicateAndOpenPage: end-to-end topbar scenario', () => {
       () => {},
       documentRegistry,
       new SaveCoordinator(),
-      () => {},
-      duplicator
+      () => {}
     );
     const pageOperations = new PageOperations(
       vault,

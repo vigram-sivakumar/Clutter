@@ -3,7 +3,6 @@ import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from './FolderCreator';
-import type { VaultEntryDuplicator } from '../../vault/persistence/VaultEntryDuplicator';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import type { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { FieldEditState } from '../../engine/FieldEditState';
@@ -92,17 +91,7 @@ export class FolderOperations {
      * descendant page's), Workspace is left with no active page/folder at
      * all. FolderOperations still doesn't know what the fallback page is.
      */
-    private readonly openFallbackPage: () => void,
-    /**
-     * Backs duplicate() only (ADR-028) — same shape and rationale as
-     * PageOperations' constructor-injected `duplicator`: the raw,
-     * non-self-write-suppressed VaultFileSystem this facade must never
-     * touch directly. Optional for the same reason PageOperations'
-     * equivalent is: existing unit tests that never exercise duplicate()
-     * shouldn't need an unrelated update. Application always supplies a
-     * real one (see attachVault()); duplicate() throws if it's missing.
-     */
-    private readonly duplicator?: VaultEntryDuplicator
+    private readonly openFallbackPage: () => void
   ) {}
 
   /**
@@ -236,69 +225,6 @@ export class FolderOperations {
     if (!this.workspace.activeView) {
       this.openFallbackPage();
     }
-  }
-
-  /**
-   * Duplicates a folder and everything nested inside it (ADR-028) — a raw,
-   * recursive filesystem copy, not a Gate `create-folder`. Mirrors
-   * PageOperations.duplicate() exactly: the copy is written through
-   * `duplicator`'s raw, unsuppressed VaultFileSystem so the filesystem
-   * watcher observes it as it would an externally copied folder;
-   * VaultSyncService.handleFolderCreated's existing subtree scan and
-   * duplicate-id resolution then assign the folder itself and every
-   * descendant page/folder a fresh id, persisting each to disk. Never
-   * manufactures a `.folder.md` the original didn't have — the copy is
-   * structural only (VaultEntryDuplicator.duplicateDirectory).
-   *
-   * The destination path is whatever `duplicator` returns — this method
-   * never computes, inspects, or validates that string (ADR-029): naming
-   * a duplicate is provider policy, not an Application concern. Resolves
-   * once the Vault reflects the new folder at that path, returning its id.
-   *
-   * Performs the duplication only. It never selects or opens the result
-   * and never touches `Workspace` — see PageOperations.duplicate()'s
-   * matching doc comment: the calling entry point decides whether (and
-   * how) to navigate to the duplicate, not this method.
-   */
-  public async duplicate(folderId: string): Promise<string> {
-    if (!this.duplicator) {
-      throw new Error('FolderOperations.duplicate: no VaultEntryDuplicator configured');
-    }
-
-    const folder = this.vault.getFolder(folderId);
-
-    if (!folder) {
-      throw new Error(`Folder not found: ${folderId}`);
-    }
-
-    const destinationPath = await this.duplicator.duplicateDirectory(folder.path);
-
-    return this.waitForFolderAtPath(destinationPath);
-  }
-
-  /**
-   * Resolves once a folder exists in the Vault at `path` — the
-   * folder-scoped counterpart to PageOperations.waitForPageAtPath(), same
-   * rationale: duplicate()'s raw filesystem copy has no synchronous
-   * return value the way a Gate `create-folder` does.
-   */
-  private waitForFolderAtPath(path: string): Promise<string> {
-    const existing = this.vault.getFolderByPath(path);
-
-    if (existing) {
-      return Promise.resolve(existing.id);
-    }
-
-    return new Promise((resolve) => {
-      const unsubscribe = this.vault.subscribe(() => {
-        const folder = this.vault.getFolderByPath(path);
-
-        if (folder) {
-          unsubscribe();
-          resolve(folder.id);
-        }
-      });
-    });
   }
 
   /**

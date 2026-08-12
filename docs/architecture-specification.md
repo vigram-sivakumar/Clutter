@@ -401,8 +401,13 @@ The same lifecycle ownership as `PageOperations`, scoped to folders.
     create(name: string, parentId: string | null): Promise<string>;
     move(folderId: string, destinationFolderId: string): Promise<void>;
     rename(folderId: string, name: string): Promise<void>;
+    delete(folderId: string): Promise<void>;
+    archive(folderId: string): Promise<void>;
+    restore(folderId: string): Promise<void>;
   }
 ```
+
+`delete()` (ADR-024) is implemented, mirroring `PageOperations`'s equivalent one aggregate over. Folders have no `duplicate()` — unlike Notes, a Folder is never duplicable (product decision); `PageOperations.duplicate()` and the shared `VaultEntryDuplicator`/`VaultFileSystem.duplicate()` provider primitive remain Note-only consumers of ADR-028/ADR-029's duplicate mechanism. `archive()` (ADR-026) is implemented as of the folder-archive milestone: relocates the folder's entire subtree as a single directory move into the vault's reserved `Archive/` folder, mirroring `PageOperations.archive()`'s metadata-patch shape (`status`/`archivedAt`/`originalPath`/`originalParentId`) but reusing `Vault.moveFolder()`'s cascade instead of flattening, since a folder is a container, not a leaf (ADR-026 §2). Only the archived folder's own metadata changes; descendant folders/pages keep their own `status` untouched but become invisible to ordinary views via `MembershipSelector.isEffectivelyArchived()` (§ below), the same way `ArchiveMetadataReconciler` already treats `Archive/` location as never by itself implying archived status for pages. `restore()` is specified by ADR-026 but **not yet implemented** — its Gate kind, `Vault.restoreFolder()`, and `FolderPathResolver.resolveRestoreDestination` do not exist yet (ADR-026's implementation-sequencing amendment defers it to a follow-up milestone, mirroring how `move()` itself was deferred by ADR-024 until its own prerequisite UI existed).
 
 `create()`'s `parentId` is nullable (null means the vault root), matching `Folder.parentId`'s own type (§3) and `PageOperations.create()`'s equivalent `folderId: string | null` (§6) — a folder facade that couldn't create at the root would be unable to express a state the domain model already allows. This was corrected here after implementation (see the `architecture-migration` branch's folder-creation work) found the original text disagreed with the domain model; a documentation correction, not a design change — no alternative was considered or rejected.
 

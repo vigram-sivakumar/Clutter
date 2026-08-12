@@ -13,9 +13,11 @@ import {
   buildTopBarActions,
   buildDraftTopBarActions,
 } from '@app/layouts/page/topbar/buildTopBarActions';
-import { deleteFolderWithConfirmation } from '@features/notes/helpers/deleteFolderWithConfirmation';
+import {
+  getFolderArchiveConfirmation,
+  getFolderDeleteConfirmation,
+} from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
-import { duplicateAndOpenFolder } from '@features/notes/helpers/duplicateAndOpenFolder';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
@@ -125,29 +127,6 @@ export function PageHost({ application }: PageHostProps) {
     void duplicateAndOpenPage(application.pageOperations, activePageId);
   };
 
-  const onDuplicateFolder = (folderId: string): void => {
-    void duplicateAndOpenFolder(application.folderOperations, folderId);
-  };
-
-  const onDeleteFolder = async (folderId: string): Promise<void> => {
-    const deleted = await deleteFolderWithConfirmation(
-      vault,
-      application.folderOperations,
-      folderId
-    );
-
-    if (!deleted) {
-      return;
-    }
-
-    // The just-deleted folder can no longer be the active target — without
-    // this, the next render's vault.getFolder(activeFolderId) below would
-    // throw. Workspace is the closest existing fallback with no
-    // folder-specific "restore a valid target" logic yet (unlike pages,
-    // ADR-025) — a real gap, named as such, not silently worked around.
-    application.navigation.openWorkspace();
-  };
-
   // Both a persisted Note's title and a folder's name use the same
   // continuous-commit/debounced-autosave channel model (SaveCoordinator's
   // channel primitives + a FieldEditState<string>), not a single
@@ -196,10 +175,26 @@ export function PageHost({ application }: PageHostProps) {
     );
 
     const breadcrumbs = buildBreadcrumbs(folder, vault, application.membershipSelector, onOpenFolder);
+    // Confirmation copy is computed here (one predicate, shared with the
+    // sidebar's identical computation in Sidebar.Notes.tsx) and handed to
+    // ResourceTopBarActions as a message — that component owns showing the
+    // Confirmation surface and gating dispatch on it, so onArchive/onDelete
+    // below are plain, unconditional calls straight to the domain
+    // operation; navigation after a successful archive/delete is owned by
+    // FolderOperations itself (ADR-025's fallback-page pattern), not by
+    // this component.
+    const archiveConfirmation = getFolderArchiveConfirmation(vault, folder.id);
+    const deleteConfirmation = getFolderDeleteConfirmation(vault, folder.id);
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
-      onDelete: () => void onDeleteFolder(folder.id),
-      onDuplicate: () => onDuplicateFolder(folder.id),
+      onArchive: () => void application.folderOperations.archive(folder.id),
+      onDelete: () => void application.folderOperations.delete(folder.id),
+      archiveConfirmationMessage: archiveConfirmation.hasDescendants
+        ? archiveConfirmation.message
+        : undefined,
+      deleteConfirmationMessage: deleteConfirmation.hasDescendants
+        ? deleteConfirmation.message
+        : undefined,
     });
     // A reserved folder (Archive, Inbox, Templates, Daily Notes) can't be
     // renamed or deleted — buildTopBarActions already dispatches it to
