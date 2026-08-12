@@ -7,6 +7,16 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { renderTopBarActions } from './topBarRegistry';
+import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
+
+// ADR-026: renderFolderActions now forwards options.menu (mirroring
+// renderPageActions) instead of a hardcoded constant, since the folder
+// menu's 'archive' item is status-dependent (buildFolderTopBarMenu, called
+// upstream in buildTopBarActions.tsx — not exercised by this file, which
+// tests topBarRegistry's dispatch/forwarding in isolation).
+const folderMenu: TopBarMenuItemConfig[] = [
+  { id: 'delete', label: 'Delete', icon: 'trash' },
+];
 
 // Overlay's positioning logic observes anchor/surface size via
 // ResizeObserver, which jsdom doesn't implement — stubbed the same way
@@ -38,7 +48,7 @@ describe('topBarRegistry — folder resource type (ADR-024)', () => {
   it("wires onDelete to the folder menu's Delete item", () => {
     const onDelete = vi.fn();
 
-    render(<>{renderTopBarActions('folder', { onDelete })}</>);
+    render(<>{renderTopBarActions('folder', { menu: folderMenu, onDelete })}</>);
     openOverflowMenu();
 
     fireEvent.click(screen.getByText('Delete'));
@@ -47,10 +57,66 @@ describe('topBarRegistry — folder resource type (ADR-024)', () => {
   });
 
   it('renders Delete even when onDelete is not supplied — it stays present, just inert (matching every other unwired menu item)', () => {
-    render(<>{renderTopBarActions('folder')}</>);
+    render(<>{renderTopBarActions('folder', { menu: folderMenu })}</>);
     openOverflowMenu();
 
     expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  it("wires onArchive to the folder menu's Archive item, gated by confirmation when archiveConfirmationMessage is set (ADR-026)", () => {
+    const onArchive = vi.fn();
+    const menuWithArchive: TopBarMenuItemConfig[] = [
+      { id: 'archive', label: 'Archive', icon: 'archive' },
+      ...folderMenu,
+    ];
+
+    render(
+      <>
+        {renderTopBarActions('folder', {
+          menu: menuWithArchive,
+          onArchive,
+          archiveConfirmationMessage: 'Archive this folder and everything inside it?',
+        })}
+      </>
+    );
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Archive'));
+
+    // Gated: confirmation shown first, handler not yet called.
+    expect(onArchive).not.toHaveBeenCalled();
+    expect(screen.getByText('Archive this folder and everything inside it?')).toBeInTheDocument();
+
+    const confirmButtons = screen.getAllByRole('button', { name: 'Archive' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    expect(onArchive).toHaveBeenCalledTimes(1);
+  });
+
+  it("wires onDelete to the folder menu's Delete item, gated by confirmation when deleteConfirmationMessage is set", () => {
+    const onDelete = vi.fn();
+
+    render(
+      <>
+        {renderTopBarActions('folder', {
+          menu: folderMenu,
+          onDelete,
+          deleteConfirmationMessage: 'Delete this folder and everything inside it?',
+        })}
+      </>
+    );
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Delete'));
+
+    // Gated: confirmation shown first, handler not yet called — this is
+    // the fix for the previous stub (the dialog used to show but Confirm
+    // never called the real onDelete).
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.getByText('Delete this folder and everything inside it?')).toBeInTheDocument();
+
+    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
   it("a reserved folder renders ReservedFolderTopBarActions instead, with no Delete option", () => {

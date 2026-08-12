@@ -4,6 +4,7 @@ import type { Folder } from '@core/vault/models/Folder';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { buildNoteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
+import { buildFolderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
 
 import { renderTopBarActions } from './topBarRegistry';
 import type { TopBarMenuItemConfig, TopBarPageState } from './ResourceTopBarActions';
@@ -64,6 +65,14 @@ export interface BuildTopBarActionsOptions {
   onRestore?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  /**
+   * ADR-026: set only when archiving `resource` (a folder) needs
+   * confirmation first — i.e. it has descendants. Ignored for a page.
+   * See ResourceTopBarActions' matching prop for how this gates dispatch.
+   */
+  archiveConfirmationMessage?: string;
+  /** Same shape as archiveConfirmationMessage, for 'delete'. */
+  deleteConfirmationMessage?: string;
 }
 
 /**
@@ -76,7 +85,7 @@ export function buildTopBarActions(
   const resourceType = getTopBarResourceType(resource, options.membershipSelector);
   const menu = isPage(resource)
     ? buildMenuForType(resource.type, resource.metadata.status)
-    : undefined;
+    : buildFolderTopBarMenu(resource.metadata.status);
 
   return {
     actions: renderTopBarActions(resourceType, {
@@ -85,6 +94,8 @@ export function buildTopBarActions(
       onRestore: options.onRestore,
       onDelete: options.onDelete,
       onDuplicate: options.onDuplicate,
+      archiveConfirmationMessage: options.archiveConfirmationMessage,
+      deleteConfirmationMessage: options.deleteConfirmationMessage,
     }),
   };
 }

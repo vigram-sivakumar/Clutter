@@ -380,3 +380,107 @@ describe('MembershipSelector.isArchivedPage', () => {
     expect(membershipSelector.isArchivedPage(active)).toBe(false);
   });
 });
+
+describe('MembershipSelector.isEffectivelyArchived (ADR-026 §5)', () => {
+  it('is false for the vault root (null)', () => {
+    const { membershipSelector } = setup();
+
+    expect(membershipSelector.isEffectivelyArchived(null)).toBe(false);
+  });
+
+  it('is true for an archived folder itself', () => {
+    const archived = makeFolder({
+      id: 'folder-1',
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const { membershipSelector } = setup([archived]);
+
+    expect(membershipSelector.isEffectivelyArchived('folder-1')).toBe(true);
+  });
+
+  it('is true for a folder nested under an archived ancestor, even though its own status is untouched', () => {
+    const archivedParent = makeFolder({
+      id: 'folder-parent',
+      path: `${ROOT}/Archive/Parent`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const activeChild = makeFolder({
+      id: 'folder-child',
+      path: `${ROOT}/Archive/Parent/Child`,
+      parentId: 'folder-parent',
+    });
+    const { membershipSelector } = setup([archivedParent, activeChild]);
+
+    expect(membershipSelector.isEffectivelyArchived('folder-child')).toBe(true);
+  });
+
+  it('is false for an active folder with no archived ancestor', () => {
+    const folder = makeFolder({ id: 'folder-1' });
+    const { membershipSelector } = setup([folder]);
+
+    expect(membershipSelector.isEffectivelyArchived('folder-1')).toBe(false);
+  });
+});
+
+describe('MembershipSelector normal-view filtering after folder archive (ADR-026 §5)', () => {
+  it('getVisibleChildFolders/getNotesChildPages return nothing for a folder nested inside an archived ancestor, even though their own status is untouched', () => {
+    const archivedParent = makeFolder({
+      id: 'folder-parent',
+      path: `${ROOT}/Archive/Parent`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const activeChild = makeFolder({
+      id: 'folder-child',
+      path: `${ROOT}/Archive/Parent/Child`,
+      parentId: 'folder-parent',
+    });
+    const nestedPage = makePage({
+      id: 'page-1',
+      path: `${ROOT}/Archive/Parent/Note.md`,
+      parentId: 'folder-parent',
+    });
+    const { membershipSelector } = setup([archivedParent, activeChild], [nestedPage]);
+
+    expect(membershipSelector.getVisibleChildFolders('folder-parent')).toEqual([]);
+    expect(membershipSelector.getNotesChildPages('folder-parent')).toEqual([]);
+    expect(membershipSelector.getVisibleChildPages('folder-parent')).toEqual([]);
+  });
+
+  it('an archived folder itself no longer appears as a child of its former parent — structural exclusion, no predicate needed', () => {
+    const root = makeFolder({ id: 'folder-root', path: `${ROOT}/Root` });
+    // Simulates the post-archive state: parentId now points at Archive,
+    // not folder-root, exactly what Vault.archiveFolder() produces.
+    const archived = makeFolder({
+      id: 'folder-child',
+      path: `${ROOT}/Archive/Child`,
+      parentId: 'folder-archive',
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const { membershipSelector } = setup([root, archived]);
+
+    expect(
+      membershipSelector.getVisibleChildFolders('folder-root').map((f) => f.id)
+    ).toEqual([]);
+  });
+
+  it('a sibling folder unaffected by the archived ancestor still renders normally', () => {
+    const archivedParent = makeFolder({
+      id: 'folder-parent',
+      path: `${ROOT}/Archive/Parent`,
+      // Mirrors what Vault.archiveFolder() actually produces — the
+      // archived folder's own parentId moves to Archive/, it never stays
+      // at the root with only its status flipped.
+      parentId: 'folder-archive',
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const unrelated = makeFolder({
+      id: 'folder-unrelated',
+      path: `${ROOT}/Unrelated`,
+    });
+    const { membershipSelector } = setup([archivedParent, unrelated]);
+
+    expect(
+      membershipSelector.getWorkspaceFolders().map((f) => f.id)
+    ).toEqual(['folder-unrelated']);
+  });
+});

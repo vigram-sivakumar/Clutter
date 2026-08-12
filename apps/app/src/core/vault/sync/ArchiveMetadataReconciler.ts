@@ -1,16 +1,33 @@
-import type { Page } from '../models/Page';
 import type { PageMetadata } from '../models/PageMetadata';
 import { VaultPath } from '../ingest/VaultPath';
 import { reservedFolderRelativePath } from '../initialize/ReservedResources';
 
 /**
  * Metadata fields cleared when stale archive state is repaired after an
- * external change moved a page out of Archive/ without updating frontmatter.
+ * external change moved a page (or, per ADR-026's Sync amendment, a
+ * folder) out of Archive/ without updating frontmatter. FolderMetadata
+ * carries the identical four fields with identical types (confirmed by
+ * direct inspection, per ADR-026 §0/§2), so this one type already covers
+ * both aggregates — no folder-specific twin.
  */
 export type ArchiveMetadataCorrection = Pick<
   PageMetadata,
   'status' | 'archivedAt' | 'originalPath' | 'originalParentId'
 >;
+
+/**
+ * The minimal shape evaluateArchiveMetadataRepair/applyArchiveMetadataCorrection
+ * actually need — both `Page` and `Folder` satisfy this structurally, so one
+ * implementation serves both aggregates (ADR-026 §0's "fully shareable, not
+ * just similarly-shaped" business logic, now realized for the Sync-repair
+ * direction the same way it already was for the archive-write direction).
+ */
+export interface ArchivableEntity {
+  readonly path: string;
+  readonly metadata: {
+    readonly status: 'active' | 'archived';
+  };
+}
 
 export function isInsideArchiveFolder(
   absolutePath: string,
@@ -29,19 +46,21 @@ export function isInsideArchiveFolder(
 }
 
 /**
- * Repairs stale archive metadata after external filesystem changes.
+ * Repairs stale archive metadata after external filesystem changes — for a
+ * page or, per ADR-026's Sync amendment, a folder; the check only ever
+ * reads `path`/`metadata.status`, identical for either aggregate.
  *
  * Lifecycle state lives in frontmatter; Archive/ is a storage convention.
  * Folder location alone never implies archived status, and entering Archive/
  * externally never auto-archives. The only automatic repair clears archive
- * metadata when a page with status archived lives outside Archive/.
+ * metadata when an entity with status archived lives outside Archive/.
  */
-export function evaluateArchiveMetadataRepair(
-  page: Page,
+export function evaluateArchiveMetadataRepair<T extends ArchivableEntity>(
+  entity: T,
   vaultRoot: string
 ): ArchiveMetadataCorrection | null {
-  const outsideArchive = !isInsideArchiveFolder(page.path, vaultRoot);
-  const hasStaleArchiveMetadata = page.metadata.status === 'archived';
+  const outsideArchive = !isInsideArchiveFolder(entity.path, vaultRoot);
+  const hasStaleArchiveMetadata = entity.metadata.status === 'archived';
 
   if (outsideArchive && hasStaleArchiveMetadata) {
     return {
@@ -55,15 +74,15 @@ export function evaluateArchiveMetadataRepair(
   return null;
 }
 
-export function applyArchiveMetadataCorrection(
-  page: Page,
+export function applyArchiveMetadataCorrection<T extends ArchivableEntity>(
+  entity: T,
   correction: ArchiveMetadataCorrection
-): Page {
+): T {
   return {
-    ...page,
+    ...entity,
     metadata: {
-      ...page.metadata,
+      ...entity.metadata,
       ...correction,
     },
-  };
+  } as T;
 }

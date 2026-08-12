@@ -40,37 +40,38 @@ export class MoveService {
   }
 
   /**
-   * Computes where an archived page should return to: its original folder
-   * if it still exists, else the vault's Inbox, else the vault root.
+   * Computes where an archived page should return to: its exact original
+   * path if that path's containing folder still exists, else the vault
+   * root. `metadata.originalPath` (stored verbatim at archive time) is the
+   * sole source of truth — deliberately not `originalParentId`, so this
+   * survives the original folder being deleted and a new one later
+   * recreated at the same path (a new id, but the same path), and
+   * deliberately does not survive the original folder merely being
+   * renamed (its id unchanged, but nothing exists at the old path
+   * anymore) — that trade-off is the approved contract, not an oversight.
+   * No Inbox fallback: exactly two outcomes, original path or vault root.
    */
   resolveRestoreDestination(current: Page): {
     path: string;
     parentId: string | null;
   } {
-    const filename = VaultPath.filename(current.path);
-    const originalParentId = current.metadata.originalParentId;
+    const originalPath = current.metadata.originalPath;
 
-    if (originalParentId !== null) {
-      const originalFolder = this.vault.getFolder(originalParentId);
+    if (originalPath !== null) {
+      const parentDirectory = VaultPath.parentDirectory(originalPath);
+
+      if (parentDirectory === this.vault.root) {
+        return { path: originalPath, parentId: null };
+      }
+
+      const originalFolder = this.vault.getFolderByPath(parentDirectory);
 
       if (originalFolder) {
-        return {
-          path: `${originalFolder.path}/${filename}`,
-          parentId: originalFolder.id,
-        };
+        return { path: originalPath, parentId: originalFolder.id };
       }
     }
 
-    // Same rationale as resolveArchiveDestination above — Vault.getReservedFolder
-    // is the single source, no hardcoded "Inbox" path literal.
-    const inboxFolder = this.vault.getReservedFolder('inbox');
-
-    if (inboxFolder) {
-      return {
-        path: `${inboxFolder.path}/${filename}`,
-        parentId: inboxFolder.id,
-      };
-    }
+    const filename = VaultPath.filename(current.path);
 
     return {
       path: `${this.vault.root}/${filename}`,

@@ -23,7 +23,7 @@ export function buildDailyNoteTopBarMenu(state: TopBarPageState): TopBarMenuItem
       icon: 'clock',
     },
     state === 'archived'
-      ? { id: 'restore', label: 'Restore', icon: 'archive', disabled: !persisted }
+      ? { id: 'restore', label: 'Restore', icon: 'restore', disabled: !persisted }
       : { id: 'archive', label: 'Archive', icon: 'archive', disabled: !persisted },
     {
       id: 'delete',

@@ -10,7 +10,10 @@ import { FrontmatterParser } from '../ingest/FrontmatterParser';
 import { VaultQuery } from '../queries/VaultQuery';
 import type { Page } from '../models/Page';
 import type { Folder } from '../models/Folder';
-import { reconcileVaultArchiveMetadata } from './reconcileArchiveMetadata';
+import {
+  reconcileFolderArchiveMetadata,
+  reconcileVaultArchiveMetadata,
+} from './reconcileArchiveMetadata';
 
 const ROOT = '/vault';
 
@@ -221,5 +224,164 @@ describe('reconcileVaultArchiveMetadata', () => {
     expect(fileSystem.getFileSync(`${ROOT}/Archive/Note.md`)).toBe(
       archivedDiskDocument('page-archived-2', 'Still archived')
     );
+  });
+});
+
+// ADR-026's Sync amendment: folders get the same startup repair pages
+// already had — a folder left `status: archived` after being moved out of
+// Archive/ while Clutter was closed must be corrected on next boot, not
+// just live.
+function makeArchivedFolder(path: string, id: string, parentId: string | null): Folder {
+  return {
+    id,
+    name: path.split('/').pop()!,
+    path: `${ROOT}/${path}`,
+    parentId,
+    metadata: {
+      ...defaultFolderMetadata,
+      status: 'archived',
+      archivedAt: '2024-01-01T00:00:00.000Z',
+      originalPath: `${ROOT}/Projects`,
+      originalParentId: null,
+    },
+  };
+}
+
+describe('reconcileFolderArchiveMetadata (ADR-026 Sync amendment)', () => {
+  it('clears archive metadata for an archived folder found outside Archive/, and persists the correction', async () => {
+    const folder = makeArchivedFolder('Projects', 'folder-archived-1', null);
+    const vault = makeVault([], [folder]);
+    const fileSystem = new InMemoryVaultFileSystem();
+
+    const reconciled = await reconcileFolderArchiveMetadata(
+      { vault, fileSystem, serializer: new FrontmatterSerializer() },
+      folder
+    );
+
+    expect(reconciled).not.toBeNull();
+    expect(reconciled!.metadata.status).toBe('active');
+    expect(reconciled!.metadata.archivedAt).toBeNull();
+    expect(reconciled!.metadata.originalPath).toBeNull();
+    expect(reconciled!.metadata.originalParentId).toBeNull();
+
+    const disk = fileSystem.getFileSync(`${ROOT}/Projects/.folder.md`)!;
+    expect(disk).toMatch(/status:\s*active/);
+    expect(disk).not.toMatch(/status:\s*archived/);
+
+    const vaultFolder = vault.getFolder('folder-archived-1')!;
+    expect(vaultFolder.metadata.status).toBe('active');
+  });
+
+  it('leaves an archived folder inside Archive/ untouched (no correction, no write)', async () => {
+    const folder = makeArchivedFolder('Archive/Projects', 'folder-archived-2', 'folder-archive');
+    const vault = makeVault([], [folder]);
+    const fileSystem = new InMemoryVaultFileSystem();
+
+    const reconciled = await reconcileFolderArchiveMetadata(
+      { vault, fileSystem, serializer: new FrontmatterSerializer() },
+      folder
+    );
+
+    expect(reconciled).toBeNull();
+    expect(fileSystem.getFileSync(`${ROOT}/Archive/Projects/.folder.md`)).toBeUndefined();
+  });
+
+  it('leaves an active folder inside Archive/ untouched — entering Archive/ externally never auto-archives', async () => {
+    const folder: Folder = {
+      id: 'folder-active-in-archive',
+      name: 'Reference',
+      path: `${ROOT}/Archive/Reference`,
+      parentId: 'folder-archive',
+      metadata: defaultFolderMetadata,
+    };
+    const vault = makeVault([], [folder]);
+    const fileSystem = new InMemoryVaultFileSystem();
+
+    const reconciled = await reconcileFolderArchiveMetadata(
+      { vault, fileSystem, serializer: new FrontmatterSerializer() },
+      folder
+    );
+
+    expect(reconciled).toBeNull();
+    expect(vault.getFolder('folder-active-in-archive')!.metadata.status).toBe('active');
+  });
+});
+
+describe('reconcileVaultArchiveMetadata folder startup pass (ADR-026 Sync amendment)', () => {
+  it('repairs a folder left status: archived after being moved out of Archive/ while the app was closed', async () => {
+    const stalePage = buildPage('Projects/Note.md', 'A note', 'page-1');
+    const staleFolder = makeArchivedFolder('Projects', 'folder-archived-3', null);
+    const vault = makeVault([stalePage], [staleFolder]);
+    const fileSystem = new InMemoryVaultFileSystem();
+
+    await reconcileVaultArchiveMetadata({
+      vault,
+      fileSystem,
+      serializer: new FrontmatterSerializer(),
+      parser: new FrontmatterParser(),
+      rebuilder: new PageRebuilder(),
+    });
+
+    const repaired = vault.getFolder('folder-archived-3')!;
+    expect(repaired.path).toBe(`${ROOT}/Projects`);
+    expect(repaired.metadata.status).toBe('active');
+    expect(repaired.metadata.archivedAt).toBeNull();
+    expect(repaired.metadata.originalPath).toBeNull();
+    expect(repaired.metadata.originalParentId).toBeNull();
+
+    const disk = fileSystem.getFileSync(`${ROOT}/Projects/.folder.md`)!;
+    expect(disk).toMatch(/status:\s*active/);
+
+    // The startup pass touches pages and folders independently — an
+    // unrelated page in the same vault is untouched.
+    expect(vault.getPage('page-1')!.metadata.status).toBe('active');
+  });
+
+  it('leaves a correctly-archived folder inside Archive/ untouched on startup', async () => {
+    const archivedFolder = makeArchivedFolder('Archive/Projects', 'folder-archived-4', 'folder-archive');
+    const vault = makeVault([], [archivedFolder]);
+    const fileSystem = new InMemoryVaultFileSystem();
+
+    await reconcileVaultArchiveMetadata({
+      vault,
+      fileSystem,
+      serializer: new FrontmatterSerializer(),
+      parser: new FrontmatterParser(),
+      rebuilder: new PageRebuilder(),
+    });
+
+    const folder = vault.getFolder('folder-archived-4')!;
+    expect(folder.metadata.status).toBe('archived');
+    expect(fileSystem.getFileSync(`${ROOT}/Archive/Projects/.folder.md`)).toBeUndefined();
+  });
+
+  it('does not touch descendant folders/pages metadata when repairing the ancestor', async () => {
+    const staleFolder = makeArchivedFolder('Projects', 'folder-archived-5', null);
+    const nestedFolder: Folder = {
+      id: 'folder-nested',
+      name: 'Design',
+      path: `${ROOT}/Projects/Design`,
+      parentId: 'folder-archived-5',
+      metadata: defaultFolderMetadata,
+    };
+    const nestedPage = buildPage('Projects/Design/Notes.md', 'Nested note', 'page-nested');
+    const nestedPageWithParent: Page = { ...nestedPage, parentId: 'folder-nested' };
+    const vault = makeVault([nestedPageWithParent], [staleFolder, nestedFolder]);
+    const fileSystem = new InMemoryVaultFileSystem();
+
+    await reconcileVaultArchiveMetadata({
+      vault,
+      fileSystem,
+      serializer: new FrontmatterSerializer(),
+      parser: new FrontmatterParser(),
+      rebuilder: new PageRebuilder(),
+    });
+
+    expect(vault.getFolder('folder-archived-5')!.metadata.status).toBe('active');
+    // Descendants were never archived themselves, so nothing to repair —
+    // their own metadata is byte-for-byte what it started as.
+    expect(vault.getFolder('folder-nested')!.metadata).toEqual(defaultFolderMetadata);
+    expect(vault.getPage('page-nested')!.metadata.status).toBe('active');
+    expect(vault.getPage('page-nested')!.metadata.archivedAt).toBeNull();
   });
 });

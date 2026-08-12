@@ -60,7 +60,16 @@ export type PersistenceOperation =
   // originally-specified unified 'move-folder' kind once FolderOperations.move()
   // ships with its Folder Picker UI; see the ADR's implementation-sequencing
   // amendment.
-  | { readonly kind: 'rename-folder'; readonly name: string };
+  | { readonly kind: 'rename-folder'; readonly name: string }
+  // ADR-026 §0/§3: deliberately not the page-scoped 'archive' kind — a
+  // folder id can never reach a page-scoped kind name without an early
+  // branch (runOperation() resolves vault.getPage(id) before its general
+  // switch), and a folder's directory-preserving relocation is a different
+  // operation from a page's flatten-to-Archive/ move, not a parameterization
+  // of the same one (same reasoning 'delete-folder'/'rename-folder' already
+  // established). Restore ('restore-folder') is not implemented yet — see
+  // the ADR's implementation-sequencing amendment.
+  | { readonly kind: 'archive-folder' };
 
 export type PersistenceResult =
   | {
@@ -83,6 +92,10 @@ export type PersistenceResult =
     }
   | {
       readonly status: 'folder-renamed';
+      readonly folder: Folder;
+    }
+  | {
+      readonly status: 'folder-archived';
       readonly folder: Folder;
     };
 
@@ -109,7 +122,9 @@ export class PagePersistenceCoordinator {
   // stateless PageBuilder instance from the one VaultBuilder owns for the
   // initial scan, since the two serve genuinely different lifecycles (see
   // ADR-011). Not a duplicate construction of the same long-lived purpose.
-  private readonly pageBuilder = new PageBuilder();
+  // Assigned in the constructor body (not a field initializer) since it
+  // needs `vault.root`, only available once the `vault` parameter binds.
+  private readonly pageBuilder: PageBuilder;
   // Same reasoning as pageBuilder above, for folders.
   private readonly folderBuilder = new FolderBuilder();
 
@@ -120,7 +135,9 @@ export class PagePersistenceCoordinator {
     private readonly parser: FrontmatterParser,
     private readonly rebuilder: PageRebuilder,
     private readonly moveService: MoveService
-  ) {}
+  ) {
+    this.pageBuilder = new PageBuilder(vault.root);
+  }
 
   /**
    * Enqueues a persistence operation for the given page or folder id.
@@ -181,6 +198,10 @@ export class PagePersistenceCoordinator {
 
     if (operation.kind === 'rename-folder') {
       return this.runRenameFolder(id, operation.name);
+    }
+
+    if (operation.kind === 'archive-folder') {
+      return this.runArchiveFolder(id);
     }
 
     const current = this.vault.getPage(id);
@@ -495,13 +516,72 @@ export class PagePersistenceCoordinator {
     return { status: 'folder-renamed', folder: this.vault.getFolder(folderId)! };
   }
 
+  /**
+   * ADR-026 §0: the archive metadata-patch computation is fully shared
+   * business logic between a page's archive and a folder's — only the
+   * persistence (flatten-move vs. directory-relocate) differs. `Page`'s
+   * `updatedAt` is folded in by runArchive's own caller, since
+   * `FolderMetadata` has no `updatedAt` field to carry it.
+   */
+  private computeArchiveMetadataPatch(
+    currentPath: string,
+    currentParentId: string | null
+  ): Pick<PageMetadata, 'status' | 'archivedAt' | 'originalPath' | 'originalParentId'> {
+    return {
+      status: 'archived',
+      archivedAt: new Date().toISOString(),
+      originalPath: currentPath,
+      originalParentId: currentParentId,
+    };
+  }
+
+  /**
+   * Archiving both relocates the page and rewrites its metadata, so unlike
+   * a pure move/rename (movePage()) or a pure content/metadata save
+   * (writeParseRebuildReplace()), it needs both — but composing those two
+   * existing primitives in sequence (movePage() then
+   * writeParseRebuildReplace()) commits two separate Vault mutations,
+   * exposing a real intermediate state (path already under Archive/,
+   * status still 'active') between them.
+   *
+   * Relocates via a single atomic fileSystem.moveFile() — the same
+   * primitive MoveService.movePage() itself uses for every other
+   * cross-path change (rename/move/restore) — rather than a write-then-
+   * delete pair: moveFile is wrapped by SelfWriteAwareFileSystem (the
+   * watcher's echo of it is suppressed) and, being one OS-level rename,
+   * has no window where both the old and new files exist. The corrected
+   * frontmatter is then written in place at the (already-relocated)
+   * destination path — a same-path write, with none of a cross-path
+   * write's duplicate-file risk — and only then is the fully-archived Page
+   * committed via replacePage() (already the correct primitive for "path
+   * and metadata change together," mirroring Vault.archiveFolder()'s
+   * folder-side equivalent) as the single Vault mutation/notify.
+   *
+   * Idempotent on retry: if an earlier attempt already completed the move
+   * but failed before the frontmatter write or the Vault commit, the
+   * source no longer exists and the file already sits at the destination.
+   * Detected via fileSystem.exists() (an existing primitive, no new
+   * mechanism) so a retry skips the now-impossible move instead of
+   * throwing "source not found" and getting permanently stuck — the same
+   * failure shape identified for Folder Archive, closed here the same way.
+   */
   private async runArchive(current: Page): Promise<PersistenceResult> {
     if (current.metadata.status === 'archived') {
       throw new Error(`Page is already archived: ${current.id}`);
     }
 
-    const now = new Date().toISOString();
+    const archivePatch = this.computeArchiveMetadataPatch(current.path, current.parentId);
     const destination = this.moveService.resolveArchiveDestination(current);
+
+    // Same collision guard MoveService.movePage() applies for every other
+    // structural change (rule: never silently overwrite another tracked
+    // page's file) — checked before any write, since this method calls
+    // fileSystem.moveFile() directly rather than movePage().
+    const occupant = this.vault.getPageByPath(destination.path);
+
+    if (occupant && occupant.id !== current.id) {
+      throw new Error(`Path already in use by another page: ${destination.path}`);
+    }
 
     const page: Page = {
       ...current,
@@ -509,17 +589,181 @@ export class PagePersistenceCoordinator {
       parentId: destination.parentId,
       metadata: {
         ...current.metadata,
-        status: 'archived',
-        archivedAt: now,
-        updatedAt: now,
-        originalPath: current.path,
-        originalParentId: current.parentId,
+        ...archivePatch,
+        updatedAt: archivePatch.archivedAt,
       },
     };
 
-    await this.moveService.movePage(current, page);
+    if (current.path !== page.path) {
+      const candidateAlreadyMoved =
+        !(await this.fileSystem.exists(current.path)) &&
+        (await this.fileSystem.exists(page.path));
 
-    return this.writeParseRebuildReplace(page, current.source.markdown);
+      // Bare path existence is not proof this is our own prior partial
+      // attempt — an untracked orphan, a stale Vault path, or an external
+      // race could produce the same shape. Only a matching persisted id
+      // proves it; anything else falls through to the normal move, which
+      // fails loudly on a genuine unexpected collision instead of
+      // silently overwriting it.
+      const alreadyMoved =
+        candidateAlreadyMoved &&
+        (await this.destinationMatchesArchivedPage(page.path, current.id));
+
+      if (!alreadyMoved) {
+        await this.fileSystem.moveFile(current.path, page.path);
+      }
+    }
+
+    const document = this.serializer.serializeDocument(page, current.source.markdown);
+
+    await this.fileSystem.writeFile(page.path, document);
+
+    const parsed = this.parser.parse(document);
+    const rebuilt = this.rebuilder.rebuild(page, parsed);
+
+    this.vault.replacePage(rebuilt);
+
+    return { status: 'saved', page: rebuilt };
+  }
+
+  /**
+   * Confirms the file already sitting at a would-be archive destination is
+   * genuinely the page being archived, not merely something present at the
+   * deterministic Archive/<name> path. Reuses the same FrontmatterParser
+   * every other read in this class already uses — no new identity system.
+   * Any failure to confirm (missing, unreadable, malformed, or a different
+   * id) returns false, never true — the caller treats that identically to
+   * "not our prior move."
+   */
+  private async destinationMatchesArchivedPage(
+    path: string,
+    expectedId: string
+  ): Promise<boolean> {
+    try {
+      const content = await this.fileSystem.readFile(path);
+      return this.parser.parse(content).frontmatter.id === expectedId;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * ADR-026 §2/§3: archives a folder by relocating its entire subtree as
+   * one directory move into Archive/ (Vault.archiveFolder's cascade —
+   * mirrors runDeleteFolder/runRenameFolder's existing directory-safe
+   * extension of the page-scoped pattern), then persists the target
+   * folder's own new frontmatter to disk — the folder-scoped counterpart
+   * to runArchive's write, since a folder's archived
+   * status/archivedAt/originalPath/originalParentId live in its
+   * `.folder.md`, not just in memory. Descendant folders'/pages' own files
+   * are untouched (ADR-026 §2 — only the target folder's own metadata
+   * changes); their new location is handled entirely by the one directory
+   * move.
+   *
+   * The final `.folder.md` is built from `folder`/`archivePatch`/
+   * `destination` — already-known, pre-mutation data — and written to disk
+   * before `vault.archiveFolder()` runs, so disk fully reflects the final
+   * archived state before the single Vault mutation commits and notifies.
+   * Never reads the Vault back merely to construct that document (the
+   * previous shape did, reading `vault.getFolder(folderId)` only after
+   * already mutating it, which put the disk write after the Vault commit —
+   * the one write in this file that inverted the Gate's otherwise
+   * consistent disk-before-Vault ordering).
+   *
+   * Idempotent on retry: a directory move is a single atomic OS rename, so
+   * there is no rollback to perform if the subsequent `.folder.md` write
+   * fails — the move already fully happened, correctly, and cannot be
+   * undone or repeated. What made a retry fail permanently before this fix
+   * is that the *next* call still asked "does folder.path exist?" using
+   * the Vault's stale (pre-move) belief and tried to move a source that no
+   * longer existed. Detected via fileSystem.exists() (an existing
+   * primitive — no rollback/transaction framework introduced) so a retry
+   * recognizes the folder is already at its destination and only redoes
+   * the `.folder.md` write and the Vault commit.
+   */
+  private async runArchiveFolder(folderId: string): Promise<PersistenceResult> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return {
+        status: 'abandoned',
+        reason: `Folder no longer exists in the vault: ${folderId}`,
+      };
+    }
+
+    if (folder.metadata.status === 'archived') {
+      throw new Error(`Folder is already archived: ${folderId}`);
+    }
+
+    const archivePatch = this.computeArchiveMetadataPatch(folder.path, folder.parentId);
+    const destination = new FolderPathResolver(this.vault).resolveArchiveDestination(folderId);
+
+    const finalFolder: Folder = {
+      ...folder,
+      name: VaultPath.filename(destination.path),
+      path: destination.path,
+      parentId: destination.parentId,
+      metadata: { ...folder.metadata, ...archivePatch },
+    };
+
+    const candidateAlreadyMoved =
+      folder.path !== destination.path &&
+      !(await this.fileSystem.exists(folder.path)) &&
+      (await this.fileSystem.exists(destination.path));
+
+    // A directory being present proves nothing about its contents — never
+    // treat bare directory existence as proof this is our own prior
+    // partial move. Only a matching persisted `.folder.md` id proves it.
+    // No `.folder.md` (or one with no id, or a different id) means
+    // identity cannot be established; fall through to the normal move,
+    // which fails loudly on a genuine unexpected collision instead of
+    // silently annexing someone else's directory. Deliberately no
+    // empty-directory or other heuristic fallback.
+    const alreadyMoved =
+      candidateAlreadyMoved &&
+      (await this.destinationMatchesArchivedFolder(destination.path, folderId));
+
+    if (!alreadyMoved) {
+      await this.fileSystem.moveFile(folder.path, destination.path);
+    }
+
+    await this.fileSystem.writeFile(
+      `${finalFolder.path}/.folder.md`,
+      this.serializer.serializeFolderDocument(finalFolder)
+    );
+
+    this.vault.archiveFolder(folderId, destination.path, destination.parentId, archivePatch);
+
+    return { status: 'folder-archived', folder: this.vault.getFolder(folderId)! };
+  }
+
+  /**
+   * Confirms a directory already sitting at a would-be archive destination
+   * is genuinely the folder being archived. Only a persisted `.folder.md`
+   * id proves this — the same source of truth IdentityResolver already
+   * treats as authoritative for folder identity elsewhere. A folder with
+   * no persisted id has no stable, path-independent identity to verify by
+   * design (IdentityResolver falls back to a path-derived id, which can
+   * never match a real destination's own persisted id) — not a gap this
+   * method needs to special-case. Any failure to confirm (no `.folder.md`,
+   * unreadable, no id, or a different id) returns false, never true.
+   */
+  private async destinationMatchesArchivedFolder(
+    destinationPath: string,
+    expectedId: string
+  ): Promise<boolean> {
+    const metadataPath = `${destinationPath}/.folder.md`;
+
+    try {
+      if (!(await this.fileSystem.exists(metadataPath))) {
+        return false;
+      }
+
+      const content = await this.fileSystem.readFile(metadataPath);
+      return this.parser.parse(content).frontmatter.id === expectedId;
+    } catch {
+      return false;
+    }
   }
 
   private async runRestore(current: Page): Promise<PersistenceResult> {

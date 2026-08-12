@@ -54,6 +54,34 @@ export class FolderPathResolver {
    * editing must immediately receive a real generated name internally, not
    * silently keep its old one.
    */
+  /**
+   * ADR-026 §3: the folder-scoped equivalent of
+   * MoveService.resolveArchiveDestination — same reserved-folder lookup, no
+   * hardcoded path literal. Unlike a page's archive (which flattens to
+   * `Archive/<filename>`), a folder can't flatten (it's a container, not a
+   * leaf, ADR-026 §0) — the destination keeps the folder's own basename, so
+   * `Vault.moveFolder`'s cascade (invoked by archiveFolder()) relocates the
+   * whole subtree under it with internal structure intact.
+   */
+  resolveArchiveDestination(folderId: string): { path: string; parentId: string } {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      throw new Error(`Folder not found: ${folderId}`);
+    }
+
+    const archiveFolder = this.vault.getReservedFolder('archive');
+
+    if (!archiveFolder) {
+      throw new Error(`Archive folder not found: ${this.vault.root}/Archive`);
+    }
+
+    return {
+      path: `${archiveFolder.path}/${folder.name}`,
+      parentId: archiveFolder.id,
+    };
+  }
+
   resolveRenamePath(folderId: string, name: string): ResolvedRenamePath {
     const folder = this.vault.getFolder(folderId);
 

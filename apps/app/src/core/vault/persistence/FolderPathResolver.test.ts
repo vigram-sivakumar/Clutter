@@ -107,6 +107,39 @@ describe('FolderPathResolver.createFolderPath', () => {
   });
 });
 
+describe('FolderPathResolver.resolveArchiveDestination (ADR-026)', () => {
+  it('resolves the folder into the reserved Archive folder, keeping its own basename', () => {
+    const archive = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([archive, folder]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveArchiveDestination('folder-1');
+
+    expect(result).toEqual({ path: `${ROOT}/Archive/Projects`, parentId: 'folder-archive' });
+  });
+
+  it('throws for an unknown folderId', () => {
+    const archive = makeFolder('folder-archive', `${ROOT}/Archive`);
+    const vault = makeVault([archive]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveArchiveDestination('does-not-exist')).toThrow(
+      /Folder not found: does-not-exist/
+    );
+  });
+
+  it('throws when the vault has no reserved Archive folder', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([folder]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveArchiveDestination('folder-1')).toThrow(
+      /Archive folder not found/
+    );
+  });
+});
+
 describe('FolderPathResolver.resolveRenamePath', () => {
   it('resolves a new path under the same parent', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);

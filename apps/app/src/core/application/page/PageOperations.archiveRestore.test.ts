@@ -445,7 +445,14 @@ describe('PageOperations.restore()', () => {
     );
   });
 
-  it('uses the current folder path when the original folder was renamed', async () => {
+  // Restore is keyed on the exact stored originalPath string, not on
+  // originalParentId — a renamed folder keeps its id but nothing exists at
+  // the old path anymore, so this no longer follows the rename (the
+  // approved trade-off: survive delete+recreate at the same path, not
+  // survive a rename). No Inbox involved anywhere in this file: Inbox
+  // still exists in the vault in every test below, and is never the
+  // result.
+  it('original folder was renamed while archived: old original path no longer exists, restores to vault root', async () => {
     const renamedDesign = makeDesignFolder(`${ROOT}/Projects/Product Design`);
     const archivedPage = buildArchivedPage({
       originalParentId: DESIGN_FOLDER_ID,
@@ -465,15 +472,12 @@ describe('PageOperations.restore()', () => {
     await pageOperations.restore(archivedPage.id);
 
     const restored = vault.getPage(archivedPage.id)!;
-    expect(restored.path).toBe(`${ROOT}/Projects/Product Design/Note.md`);
-    expect(restored.parentId).toBe(DESIGN_FOLDER_ID);
-    expect(restored.metadata.originalPath).toBeNull();
-    expect(
-      fileSystem.hasFileSync(`${ROOT}/Projects/Product Design/Note.md`)
-    ).toBe(true);
+    expect(restored.path).toBe(`${ROOT}/Note.md`);
+    expect(restored.parentId).toBeNull();
+    expect(fileSystem.hasFileSync(`${ROOT}/Note.md`)).toBe(true);
   });
 
-  it('falls back to Inbox when the original folder no longer exists', async () => {
+  it('original folder was deleted: restores directly at vault root, never Inbox', async () => {
     const archivedPage = buildArchivedPage({
       originalParentId: DESIGN_FOLDER_ID,
       originalPath: `${ROOT}/Projects/Design/Note.md`,
@@ -487,27 +491,48 @@ describe('PageOperations.restore()', () => {
     await pageOperations.restore(archivedPage.id);
 
     const restored = vault.getPage(archivedPage.id)!;
-    expect(restored.path).toBe(`${ROOT}/Inbox/Note.md`);
-    expect(restored.parentId).toBe(INBOX_FOLDER_ID);
-    expect(fileSystem.hasFileSync(`${ROOT}/Inbox/Note.md`)).toBe(true);
+    expect(restored.path).toBe(`${ROOT}/Note.md`);
+    expect(restored.parentId).toBeNull();
+    expect(fileSystem.hasFileSync(`${ROOT}/Note.md`)).toBe(true);
     expect(fileSystem.hasFileSync(archivedPage.path)).toBe(false);
+    // No Inbox involvement, even though Inbox exists in the vault.
+    expect(fileSystem.hasFileSync(`${ROOT}/Inbox/Note.md`)).toBe(false);
   });
 
-  it('falls back to vault root when the original folder and Inbox are unavailable', async () => {
+  it('original folder was deleted and a new folder was later created at the same original path: restores there, using the new folder id', async () => {
     const archivedPage = buildArchivedPage({
       originalParentId: DESIGN_FOLDER_ID,
       originalPath: `${ROOT}/Projects/Design/Note.md`,
     });
-    const vault = makeVault([archivedPage], [makeArchiveFolder()]);
+    // A brand-new folder, deliberately a different id than the original
+    // DESIGN_FOLDER_ID, sitting at the exact original path.
+    const recreatedDesign: Folder = {
+      id: 'folder-design-recreated',
+      name: 'Design',
+      path: `${ROOT}/Projects/Design`,
+      parentId: PROJECTS_FOLDER_ID,
+      metadata: defaultFolderMetadata,
+    };
+    const vault = makeVault(
+      [archivedPage],
+      [
+        makeArchiveFolder(),
+        makeInboxFolder(),
+        makeProjectsFolder(),
+        recreatedDesign,
+      ]
+    );
     const { fileSystem, pageOperations } = setup(archivedPage, vault);
 
     await pageOperations.restore(archivedPage.id);
 
     const restored = vault.getPage(archivedPage.id)!;
-    expect(restored.path).toBe(`${ROOT}/Note.md`);
-    expect(restored.parentId).toBeNull();
-    expect(fileSystem.hasFileSync(`${ROOT}/Note.md`)).toBe(true);
-    expect(fileSystem.hasFileSync(archivedPage.path)).toBe(false);
+    expect(restored.path).toBe(`${ROOT}/Projects/Design/Note.md`);
+    expect(restored.parentId).toBe('folder-design-recreated');
+    expect(restored.parentId).not.toBe(DESIGN_FOLDER_ID);
+    expect(
+      fileSystem.hasFileSync(`${ROOT}/Projects/Design/Note.md`)
+    ).toBe(true);
   });
 
   it('throws when the restore destination path is already occupied', async () => {

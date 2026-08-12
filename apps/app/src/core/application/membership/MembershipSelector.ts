@@ -62,6 +62,10 @@ export class MembershipSelector {
    * topology-driven").
    */
   public getNotesChildPages(folderId: string | null): EffectivePage[] {
+    if (this.isEffectivelyArchived(folderId)) {
+      return [];
+    }
+
     return this.effectivePageState
       .getChildPages(folderId)
       .filter((page) => this.isNotesPage(page) && this.isVisiblePage(page));
@@ -75,6 +79,10 @@ export class MembershipSelector {
    * year/month folder chain leaves with no real folder to be a child of.
    */
   public getDailyNoteChildPages(folderId: string | null): EffectivePage[] {
+    if (this.isEffectivelyArchived(folderId)) {
+      return [];
+    }
+
     return this.effectivePageState
       .getChildPages(folderId)
       .filter((page) => this.isDailyNotePage(page) && this.isVisiblePage(page));
@@ -104,6 +112,43 @@ export class MembershipSelector {
    */
   public isArchivedPage(page: Page): boolean {
     return page.metadata.status === 'archived';
+  }
+
+  /**
+   * ADR-026 §5: a page or folder nested inside an archived folder must not
+   * appear in ordinary workspace views even though its own `status` is
+   * left untouched by folder archive (ADR-026 §2 — only the archived
+   * folder's own metadata changes). Structural exclusion already handles
+   * the common case for free (an archived item's own `parentId` moves to
+   * Archive/, so it no longer appears as a child of its old parent at
+   * all) — this predicate exists for the case that isn't already
+   * structural: a still-reachable-by-id folder (e.g. a stale breadcrumb or
+   * a directly-opened nested folder) whose *ancestor*, not itself, was
+   * archived. Takes the containing folder id (null = vault root, never
+   * archived) rather than a Folder/Page item, so both getVisibleChildFolders
+   * and getVisibleChildPages/getNotesChildPages/getDailyNoteChildPages —
+   * which already know the parent id they're querying — can guard with one
+   * call instead of re-deriving an item's own status here (already handled
+   * structurally, see above).
+   */
+  public isEffectivelyArchived(folderId: string | null): boolean {
+    let currentId = folderId;
+
+    while (currentId !== null) {
+      const folder = this.vault.getFolder(currentId);
+
+      if (!folder) {
+        return false;
+      }
+
+      if (folder.metadata.status === 'archived') {
+        return true;
+      }
+
+      currentId = folder.parentId;
+    }
+
+    return false;
   }
 
   /**
@@ -164,6 +209,10 @@ export class MembershipSelector {
    * isVisibleFolder themselves.
    */
   public getVisibleChildFolders(parentId: string): Folder[] {
+    if (this.isEffectivelyArchived(parentId)) {
+      return [];
+    }
+
     return this.query
       .getChildFolders(parentId)
       .filter((folder) => this.isVisibleFolder(folder));
@@ -176,6 +225,10 @@ export class MembershipSelector {
    * folder contains, not just one type's.
    */
   public getVisibleChildPages(parentId: string | null): EffectivePage[] {
+    if (this.isEffectivelyArchived(parentId)) {
+      return [];
+    }
+
     return this.effectivePageState
       .getChildPages(parentId)
       .filter((page) => this.isVisiblePage(page));

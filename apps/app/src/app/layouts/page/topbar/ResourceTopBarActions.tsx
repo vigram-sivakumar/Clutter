@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 
 import { Button } from '@components/button/Button';
 import { Confirmation } from '@components/confirmation/Confirmation';
+import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import type {
@@ -30,15 +31,32 @@ export type TopBarPageState = PageStatus | 'draft';
  */
 export type TopBarMenuItemConfig = OverflowMenuItemConfig;
 
-type ActiveSurface =
-  null | { kind: 'menu' } | { kind: 'confirmation'; action: 'delete' };
-
 const OVERFLOW_SIDE: OverlaySide = 'bottom';
 const OVERFLOW_ALIGNMENT: OverlayAlignment = 'end';
 
 export interface ResourceTopBarActionsProps {
   menu: readonly TopBarMenuItemConfig[];
   handlers?: Partial<Record<string, () => void>>;
+  /**
+   * When present, selecting 'archive' shows the shared Confirmation
+   * surface (this message) before invoking handlers.archive, instead of
+   * firing it immediately. Absent for every resource type/case that
+   * doesn't need one (notes — ADR-024's page-delete-no-confirmation
+   * decision extends to archive; an empty folder) — 'archive' fires
+   * directly via handlers.archive.
+   */
+  archiveConfirmationMessage?: string;
+  /**
+   * Same shape as archiveConfirmationMessage, for 'delete'. Absent for
+   * notes (ADR-024's resolved product decision #1: "unlike Page.delete()
+   * — no confirmation") and an empty folder; present only for a non-empty
+   * folder. This replaces the previous unconditional "always confirm
+   * delete" behavior, which showed a dialog for every resource type but
+   * whose confirm button never invoked the real delete — fixing that stub
+   * is this prop's reason for existing, not a decision to require
+   * confirmation for notes.
+   */
+  deleteConfirmationMessage?: string;
 }
 
 /**
@@ -47,42 +65,45 @@ export interface ResourceTopBarActionsProps {
  * handlers map keyed by menu item id — items with no matching handler
  * still render but only close the menu when clicked, exactly as every
  * currently-unwired item already behaves today.
+ *
+ * The confirmation surface (useConfirmationSurface) is the same primitive
+ * the sidebar's folder row actions use (Sidebar.Notes.tsx) — one
+ * mechanism, one component, shared by every entry point, replacing the
+ * divergent window.confirm()/broken-stub behavior both surfaces used to
+ * have independently.
  */
 export function ResourceTopBarActions({
   menu,
   handlers,
+  archiveConfirmationMessage,
+  deleteConfirmationMessage,
 }: ResourceTopBarActionsProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [surface, setSurface] = useState<ActiveSurface>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const confirmation = useConfirmationSurface();
 
-  function closeSurface() {
-    setSurface(null);
-  }
-
-  function handleMenuOpenChange(open: boolean) {
-    if (open) {
-      setSurface({ kind: 'menu' });
+  function handleMenuSelect(id: string) {
+    if (id === 'delete' && deleteConfirmationMessage !== undefined) {
+      confirmation.request({
+        title: 'Delete this folder?',
+        message: deleteConfirmationMessage,
+        confirmLabel: 'Delete',
+        onConfirm: () => handlers?.['delete']?.(),
+      });
       return;
     }
 
-    // OverflowMenu closes after every item select — only clear when the
-    // menu itself is still the active surface so a batched confirmation
-    // transition (onSelect then onOpenChange(false)) is preserved.
-    setSurface((current) => (current?.kind === 'menu' ? null : current));
-  }
-
-  function handleMenuSelect(id: string) {
-    if (id === 'delete') {
-      setSurface({ kind: 'confirmation', action: 'delete' });
+    if (id === 'archive' && archiveConfirmationMessage !== undefined) {
+      confirmation.request({
+        title: 'Archive this folder?',
+        message: archiveConfirmationMessage,
+        confirmLabel: 'Archive',
+        onConfirm: () => handlers?.['archive']?.(),
+      });
       return;
     }
 
     handlers?.[id]?.();
-  }
-
-  function handleDeleteConfirm() {
-    console.log('Delete confirmed');
-    closeSurface();
   }
 
   return (
@@ -96,8 +117,8 @@ export function ResourceTopBarActions({
       <OverflowMenu
         items={menu}
         triggerRef={triggerRef}
-        open={surface?.kind === 'menu'}
-        onOpenChange={handleMenuOpenChange}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
         onSelect={handleMenuSelect}
         side={OVERFLOW_SIDE}
         alignment={OVERFLOW_ALIGNMENT}
@@ -106,18 +127,18 @@ export function ResourceTopBarActions({
         }}
       />
       <Dialog
-        open={surface?.kind === 'confirmation'}
-        onClose={closeSurface}
+        open={confirmation.pending !== null}
+        onClose={confirmation.cancel}
         returnFocusRef={triggerRef}
         size="medium"
       >
-        {surface?.kind === 'confirmation' && surface.action === 'delete' && (
+        {confirmation.pending && (
           <Confirmation
-            title="Delete this item?"
-            description="This action cannot be undone."
-            confirmLabel="Delete"
-            onConfirm={handleDeleteConfirm}
-            onCancel={closeSurface}
+            title={confirmation.pending.title}
+            description={confirmation.pending.message}
+            confirmLabel={confirmation.pending.confirmLabel}
+            onConfirm={confirmation.confirm}
+            onCancel={confirmation.cancel}
           />
         )}
       </Dialog>
