@@ -1,24 +1,151 @@
 .app-layout {
-  display: flex;
+  /* Single tunable source for the collapse/expand motion — every element
+     that moves as part of this layout change (sidepanel, page, topbar in
+     Page.TopBar.css) reads these instead of hardcoding its own
+     duration/easing/offset, so they settle together as one layout move
+     rather than as separately-timed animations. Adjust these to retune
+     the feel; nothing else needs to change.
+     --sidebar-transition-easing is a "back ease-out" (overshoot past the
+     target, then settle) — a real spring curve isn't expressible in CSS
+     transitions (no physical mass/stiffness model, just a bezier over a
+     fixed duration), so this is the closest static approximation: cubic-
+     bezier control points >1 make the curve briefly overshoot 100%
+     progress before easing back, which is what reads as "settle" rather
+     than a hard stop. 1.28 (vs. the common 1.56 "easeOutBack") keeps the
+     overshoot subtle rather than a pronounced bounce. Used for expand
+     only — overshooting on the way to a fully-collapsed (0-width, faded
+     out) sidebar reads as a glitch, not a settle, so collapse uses
+     --sidebar-collapse-easing, a plain standard-decel curve with no
+     overshoot, instead. Both share the same duration/offset variables:
+     only the curve differs by direction. */
+  --sidebar-transition-duration: 340ms;
+  --sidebar-transition-easing: cubic-bezier(0.34, 1.28, 0.64, 1);
+  --sidebar-collapse-easing: cubic-bezier(0.4, 0, 0.2, 1);
+  --sidebar-collapse-translate-x: -16px;
+
+  display: grid;
+  grid-template-columns: var(--app-sidebar-width) 1fr;
   height: 100vh;
   width: 100%;
 
   background: var(--surface-secondary);
   position: relative;
+
+  /* interpolate-size/calc-size() would let the collapsed track size
+     itself off intrinsic content, but neither is supported by WebKit
+     (Tauri's macOS/iOS webview) as of this writing, so they'd break on
+     our primary target. Grid track sizes are natively interpolable
+     across engines, so an explicit px-to-px transition here is the
+     reliable cross-engine equivalent: the "1fr" content column
+     recomputes on every animation frame as a side effect of this one
+     property changing, with no transition of its own (main content gets
+     no separate motion of its own — it only shares this timing/easing so
+     its padding settles in sync, see .app-layout__page below). */
+  transition: grid-template-columns var(--sidebar-transition-duration)
+    var(--sidebar-transition-easing);
 }
 
 .app-layout__sidepanel {
-  width: 280px;
-  flex-shrink: 0;
   position: relative;
   z-index: 1;
+  min-width: 0;
+  overflow: hidden;
+
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity var(--sidebar-transition-duration) var(--sidebar-transition-easing),
+    transform var(--sidebar-transition-duration)
+      var(--sidebar-transition-easing);
 }
 
 .app-layout__page {
-  flex: 1;
   min-width: 0;
   padding: var(--space-8);
   padding-left: 0;
   position: relative;
   z-index: 1;
+  transition: padding-left var(--sidebar-transition-duration)
+    var(--sidebar-transition-easing);
+}
+
+/* Workspace.isSidebarVisible (ADR-021) is the single source of truth for
+   manual show/hide — both the Controls and Page.TopBar toggle buttons only
+   ever flip that one boolean, never touch layout. AppLayout mirrors it here
+   as data-sidebar-collapsed, reusing the exact grid/opacity mechanism the
+   width-based @media query below already animates with, rather than a
+   second, different collapse technique. These rules govern manual
+   show/hide above the ~700px breakpoint; the @media query below
+   deliberately matches this same (0,2,0/0,3,0) specificity via its own
+   `[data-sidebar-collapsed]` selectors so that, at or under 700px, the
+   sidebar always collapses regardless of isSidebarVisible — see that
+   block's own comment for why. */
+.app-layout[data-sidebar-collapsed='true'] {
+  grid-template-columns: 0px 1fr;
+  transition-timing-function: var(--sidebar-collapse-easing);
+}
+.app-layout[data-sidebar-collapsed='false'] {
+  grid-template-columns: var(--app-sidebar-width) 1fr;
+  transition-timing-function: var(--sidebar-transition-easing);
+}
+
+.app-layout[data-sidebar-collapsed='true'] .app-layout__page {
+  padding-left: var(--space-8);
+  transition-timing-function: var(--sidebar-collapse-easing);
+}
+.app-layout[data-sidebar-collapsed='false'] .app-layout__page {
+  padding-left: 0;
+  transition-timing-function: var(--sidebar-transition-easing);
+}
+
+.app-layout[data-sidebar-collapsed='true'] .app-layout__sidepanel {
+  opacity: 0;
+  transform: translateX(var(--sidebar-collapse-translate-x));
+  pointer-events: none;
+  transition-timing-function: var(--sidebar-collapse-easing);
+}
+.app-layout[data-sidebar-collapsed='false'] .app-layout__sidepanel {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  transition-timing-function: var(--sidebar-transition-easing);
+}
+
+/* Below ~700px of application width there isn't room for both the
+   sidebar and the page; the sidebar (including Controls/its toggle)
+   collapses to zero width unconditionally — regardless of
+   Workspace.isSidebarVisible/data-sidebar-collapsed above. Deliberately
+   CSS-only (driven by the grid track size, not display:none, so both
+   directions animate) and independent of the page cover's own fluid
+   sizing.
+
+   Selectors here deliberately repeat the `[data-sidebar-collapsed]`
+   attribute (matching either 'true' or 'false') to match the specificity
+   of the data-sidebar-collapsed rules above (0,2,0 / 0,3,0) rather than
+   the bare `.app-layout`/`.app-layout__page`/`.app-layout__sidepanel`
+   selectors' lower specificity (0,1,0 / 0,2,0) — otherwise the
+   higher-specificity manual-toggle rule would win even under this media
+   query and an explicitly reopened sidebar would never actually collapse
+   on mobile. Equal specificity to the rules above is resolved by source
+   order (this block is last), which is what makes "always collapse under
+   700px" the final word, not a coincidence of selector choice. */
+@media (max-width: 700px) {
+  .app-layout,
+  .app-layout[data-sidebar-collapsed] {
+    grid-template-columns: 0px 1fr;
+    transition-timing-function: var(--sidebar-collapse-easing);
+  }
+  .app-layout__page,
+  .app-layout[data-sidebar-collapsed] .app-layout__page {
+    padding-left: var(--space-8);
+    transition-timing-function: var(--sidebar-collapse-easing);
+  }
+
+  .app-layout__sidepanel,
+  .app-layout[data-sidebar-collapsed] .app-layout__sidepanel {
+    opacity: 0;
+    transform: translateX(var(--sidebar-collapse-translate-x));
+    pointer-events: none;
+    transition-timing-function: var(--sidebar-collapse-easing);
+  }
 }

@@ -172,8 +172,19 @@ describe('PageOperations.openDraft(): reuse an existing empty draft (Notes)', ()
   });
 });
 
-describe('PageOperations.openAtPath(): retarget an existing empty draft (Daily Notes)', () => {
-  it('clicking a second date while the first is still empty retargets the same draft (same id, same session) instead of creating a new one', async () => {
+describe('PageOperations.openAtPath(): each Daily Note date has its own stable draft identity', () => {
+  // Superseded deliberately: an earlier design reused a still-empty Daily
+  // Note draft across different dates by retargeting its descriptor in
+  // place. That collapsed distinct, individually-navigable destinations
+  // onto one shared identity, which broke Back/Forward's ability to visit
+  // each date on its own (a live draft referenced by navigation history —
+  // Workspace.isReferencedInHistory() — must resolve to the exact date it
+  // represents). openAtPath() no longer calls findReusableDraftId() at
+  // all; the only reuse left is `draftIdByDeterministicPath`'s exact-path
+  // lookup, unchanged. openDraft()'s empty-draft reuse for plain Notes
+  // (above) is unaffected — Notes have no date identity to preserve.
+
+  it('opening a second, different date while the first is still empty creates a separate draft — no retargeting', async () => {
     const { pageOperations, documentRegistry } = setup();
     const aug9 = `${ROOT}/Daily Notes/2026/August/2026-08-09.md`;
     const aug15 = `${ROOT}/Daily Notes/2026/August/2026-08-15.md`;
@@ -185,11 +196,11 @@ describe('PageOperations.openAtPath(): retarget an existing empty draft (Daily N
       type: 'daily-note',
     });
 
-    expect(secondId).toBe(firstId);
-    expect(documentRegistry.getAll()).toHaveLength(1);
+    expect(secondId).not.toBe(firstId);
+    expect(documentRegistry.getAll()).toHaveLength(2);
   });
 
-  it('the retargeted draft descriptor reflects the new date, not the old one', async () => {
+  it('each draft keeps its own date in its descriptor — opening a later date does not rewrite an earlier one', async () => {
     const { pageOperations } = setup();
     const aug9 = `${ROOT}/Daily Notes/2026/August/2026-08-09.md`;
     const aug15 = `${ROOT}/Daily Notes/2026/August/2026-08-15.md`;
@@ -197,28 +208,29 @@ describe('PageOperations.openAtPath(): retarget an existing empty draft (Daily N
     const id = await pageOperations.openAtPath(aug9, { type: 'daily-note' });
     await pageOperations.openAtPath(aug15, { type: 'daily-note' });
 
-    expect(pageOperations.getDraft(id)?.title).toBe('2026-08-15');
+    expect(pageOperations.getDraft(id)?.title).toBe('2026-08-09');
   });
 
-  it('after retargeting, the getActiveDailyNoteDate helper (breadcrumbs/title/sidebar all key off this) reports the new date, not the old one', async () => {
+  it('the getActiveDailyNoteDate helper (breadcrumbs/title/sidebar all key off this) reports each draft\'s own date', async () => {
     const { pageOperations, vault, workspace } = setup();
     const aug9 = `${ROOT}/Daily Notes/2026/August/2026-08-09.md`;
     const aug15 = `${ROOT}/Daily Notes/2026/August/2026-08-15.md`;
 
-    const id = await pageOperations.openAtPath(aug9, { type: 'daily-note' });
+    const id9 = await pageOperations.openAtPath(aug9, { type: 'daily-note' });
     expect(
       getActiveDailyNoteDate(vault, workspace.activePageId, pageOperations)
     ).toBe('2026-08-09');
 
-    await pageOperations.openAtPath(aug15, { type: 'daily-note' });
+    const id15 = await pageOperations.openAtPath(aug15, { type: 'daily-note' });
 
-    expect(id).toBe(workspace.activePageId);
+    expect(id15).not.toBe(id9);
+    expect(id15).toBe(workspace.activePageId);
     expect(
       getActiveDailyNoteDate(vault, workspace.activePageId, pageOperations)
     ).toBe('2026-08-15');
   });
 
-  it('after retargeting, EffectivePageState reflects the new date under the new month folder, and the draft is gone from the old one', async () => {
+  it('EffectivePageState lists each date as its own child of its own month folder', async () => {
     const root = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
     const august = makeFolder(
@@ -241,23 +253,24 @@ describe('PageOperations.openAtPath(): retarget an existing empty draft (Daily N
     const aug9 = `${ROOT}/Daily Notes/2026/August/2026-08-09.md`;
     const sep1 = `${ROOT}/Daily Notes/2026/September/2026-09-01.md`;
 
-    const id = await pageOperations.openAtPath(aug9, { type: 'daily-note' });
+    const augId = await pageOperations.openAtPath(aug9, { type: 'daily-note' });
     expect(
       effectivePageState.getChildPages(august.id).map((p) => p.id)
-    ).toContain(id);
+    ).toContain(augId);
 
-    await pageOperations.openAtPath(sep1, { type: 'daily-note' });
+    const sepId = await pageOperations.openAtPath(sep1, { type: 'daily-note' });
 
+    // The August draft is still there, under August — never moved.
     expect(
       effectivePageState.getChildPages(august.id).map((p) => p.id)
-    ).not.toContain(id);
+    ).toContain(augId);
     expect(
       effectivePageState.getChildPages(september.id).map((p) => p.id)
-    ).toContain(id);
-    expect(effectivePageState.getPage(id)?.name).toBe('2026-09-01');
+    ).toContain(sepId);
+    expect(effectivePageState.getPage(sepId)?.name).toBe('2026-09-01');
   });
 
-  it('retargeting cleans up the old path mapping — reopening the abandoned date creates a fresh draft, not a stale reference to the retargeted one', async () => {
+  it('reopening an earlier date resolves back to its own draft, unaffected by later dates opened in between', async () => {
     const { pageOperations, documentRegistry } = setup();
     const aug9 = `${ROOT}/Daily Notes/2026/August/2026-08-09.md`;
     const aug15 = `${ROOT}/Daily Notes/2026/August/2026-08-15.md`;
@@ -267,19 +280,16 @@ describe('PageOperations.openAtPath(): retarget an existing empty draft (Daily N
     });
     await pageOperations.openAtPath(aug15, { type: 'daily-note' });
 
-    // firstId now represents Aug 15. Reopening Aug 9 must not resolve
-    // back to it (that would silently reinterpret Aug 15's session as
-    // Aug 9 again) — it retargets the same still-empty draft once more.
     const reopenedAug9 = await pageOperations.openAtPath(aug9, {
       type: 'daily-note',
     });
 
     expect(reopenedAug9).toBe(firstId);
     expect(pageOperations.getDraft(firstId)?.title).toBe('2026-08-09');
-    expect(documentRegistry.getAll()).toHaveLength(1);
+    expect(documentRegistry.getAll()).toHaveLength(2);
   });
 
-  it('does not retarget a draft that already has committed body content — keeps it, opens the new date as its own draft', async () => {
+  it('a draft with committed body content is likewise left alone — the new date opens as its own, separate draft', async () => {
     const { pageOperations, documentRegistry } = setup();
     const aug9 = `${ROOT}/Daily Notes/2026/August/2026-08-09.md`;
     const aug15 = `${ROOT}/Daily Notes/2026/August/2026-08-15.md`;

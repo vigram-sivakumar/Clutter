@@ -64,6 +64,14 @@ export interface SidebarRowActions {
   /** ADR-028 — a raw filesystem copy, see PageOperations.duplicate(). */
   onDuplicateNote(pageId: string): void;
   /**
+   * Same PageOperations.updateMetadata({ favorite }) call the topbar's
+   * favorite control and the Daily Notes sidebar's onToggleFavoriteNote
+   * both dispatch to — one operation, shared across every entry point.
+   * Takes the row's current favorite state (from its EffectivePage entry)
+   * rather than looking it up separately.
+   */
+  onToggleFavoriteNote(pageId: string, isFavorite: boolean): void;
+  /**
    * Same Move flow as ResourceTopBarActions' (buildMoveDestinationItems.ts
    * + PageOperations.move) — a single destination list, since which
    * folders a note may move into doesn't depend on the note itself,
@@ -86,6 +94,13 @@ export interface SidebarRowActions {
   onFolderTitleCancel(folderId: string): void;
   onArchiveFolder(folderId: string): void;
   onDeleteFolder(folderId: string): void;
+  /**
+   * FolderOperations.updateMetadata({ favorite }) — the folder-scoped
+   * counterpart to onToggleFavoriteNote above, same shared-call shape.
+   * Takes the row's current favorite state (from `folder.metadata.favorite`)
+   * rather than looking it up separately.
+   */
+  onToggleFavoriteFolder(folderId: string, isFavorite: boolean): void;
   /**
    * Per-folder — excludes that folder (and its own descendants) from its
    * own destination list, same as buildMoveDestinationItems.ts's
@@ -205,7 +220,9 @@ function PageEntry({
           : undefined
       }
       onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
-      menuItems={rowActions ? buildNoteSidebarMenu(entry.isDraft) : undefined}
+      menuItems={
+        rowActions ? buildNoteSidebarMenu(entry.isDraft, entry.favorite) : undefined
+      }
       menuOpen={rowActions?.openMenuId === entry.id}
       onMenuOpenChange={
         rowActions
@@ -219,6 +236,8 @@ function PageEntry({
                 rowActions.onStartRename(entry.id);
               } else if (id === 'duplicate') {
                 rowActions.onDuplicateNote(entry.id);
+              } else if (id === 'toggle-favorite') {
+                rowActions.onToggleFavoriteNote(entry.id, entry.favorite);
               } else if (id === 'archive') {
                 rowActions.onArchiveNote(entry.id);
               } else if (id === 'delete') {
@@ -358,7 +377,9 @@ export function FolderTree({
               }
               onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
               menuItems={
-                rowActions ? buildFolderSidebarMenu(folder.metadata.status) : undefined
+                rowActions
+                  ? buildFolderSidebarMenu(folder.metadata.status, folder.metadata.favorite)
+                  : undefined
               }
               menuOpen={rowActions?.openMenuId === folder.id}
               onMenuOpenChange={
@@ -371,6 +392,11 @@ export function FolderTree({
                   ? (id) => {
                       if (id === 'rename') {
                         rowActions.onStartRename(folder.id);
+                      } else if (id === 'toggle-favorite') {
+                        rowActions.onToggleFavoriteFolder(
+                          folder.id,
+                          folder.metadata.favorite
+                        );
                       } else if (id === 'archive') {
                         rowActions.onArchiveFolder(folder.id);
                       } else if (id === 'delete') {

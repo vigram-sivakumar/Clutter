@@ -9,3 +9,5 @@
  */
 export const ARCHIVE_ACTION_LABEL = 'Archive';
 export const DELETE_ACTION_LABEL = 'Delete permanently';
+export const FAVORITE_ACTION_LABEL = 'Add to Favorites';
+export const UNFAVORITE_ACTION_LABEL = 'Remove from Favorites';

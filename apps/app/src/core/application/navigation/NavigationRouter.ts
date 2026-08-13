@@ -98,10 +98,18 @@ export class NavigationRouter {
    * path/title, archive changes status/folder, neither removes the Vault
    * entry, so back()/forward() reopen them showing their current state,
    * same as opening them from anywhere else would.
+   *
+   * A page entry is also not stale if it's a live draft (ADR-017) — a
+   * draft has no Vault entry by design, so the Vault check alone would
+   * always discard it. Folders have no draft concept, so they stay
+   * Vault-only.
    */
   private stillExists(entry: ActiveView): boolean {
     if (entry.type === 'page') {
-      return this.vault.getPage(entry.id) !== undefined;
+      return (
+        this.vault.getPage(entry.id) !== undefined ||
+        this.pageOperations.getDraft(entry.id) !== undefined
+      );
     }
 
     if (entry.type === 'folder') {

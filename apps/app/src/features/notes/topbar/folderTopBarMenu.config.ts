@@ -1,6 +1,11 @@
 import type { TopBarMenuItemConfig } from '@app/layouts/page/topbar/ResourceTopBarActions';
 import type { FolderMetadata } from '@core/vault/models/FolderMetadata';
-import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
+import {
+  ARCHIVE_ACTION_LABEL,
+  DELETE_ACTION_LABEL,
+  FAVORITE_ACTION_LABEL,
+  UNFAVORITE_ACTION_LABEL,
+} from '@core/presentation/resourceActionLabels';
 
 // 'move-to' (re-added — FolderOperations.move() and its Folder Picker UI
 // now exist; ADR-013/ADR-024's implementation-sequencing amendment
@@ -20,7 +25,8 @@ import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/re
 // already has. No 'duplicate' item: folders are never duplicable —
 // Duplicate is a Note-only capability.
 export function buildFolderTopBarMenu(
-  status: FolderMetadata['status']
+  status: FolderMetadata['status'],
+  isFavorite: boolean = false
 ): TopBarMenuItemConfig[] {
   return [
     {
@@ -35,9 +41,9 @@ export function buildFolderTopBarMenu(
       disabled: status === 'archived',
     },
     {
-      id: 'add-to-favorite',
-      label: 'Add to favorite',
-      icon: 'favouriteOutline',
+      id: 'toggle-favorite',
+      label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
+      icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
     status === 'archived'
       ? { id: 'restore', label: 'Restore', icon: 'restore' }

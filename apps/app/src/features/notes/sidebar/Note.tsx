@@ -80,74 +80,75 @@ export function Note({
 
   return (
     <>
-    <Entry
-      {...entryProps}
-      // Forces every hover-driven affordance (background, revealed
-      // actions) to stay visible while this row's menu is open — the
-      // trigger button that controls the menu lives in .entry__actions,
-      // which is itself hover-gated, so without this, moving the mouse
-      // away mid-menu would hide the button needed to close it. Also
-      // forced while the Move picker is open, or when a caller asks for
-      // it explicitly.
-      forceHover={externalForceHover || menuOpen || moveTrigger.open}
-      leading={
-        <AppIcon
-          className="note__icon"
-          icon={getPageIcon('note')}
-          emoji={emoji}
-        />
-      }
-      actions={
-        <OverflowMenu
-          items={menuItems ?? []}
-          triggerRef={moveTrigger.triggerRef}
-          open={menuOpen}
-          onOpenChange={onMenuOpenChange ?? (() => {})}
-          onSelect={(id) => moveTrigger.handleSelect(id, onMenuSelect ?? (() => {}))}
+      <Entry
+        {...entryProps}
+        // Forces every hover-driven affordance (background, revealed
+        // actions) to stay visible while this row's menu is open — the
+        // trigger button that controls the menu lives in .entry__actions,
+        // which is itself hover-gated, so without this, moving the mouse
+        // away mid-menu would hide the button needed to close it. Also
+        // forced while the Move picker is open, or when a caller asks for
+        // it explicitly.
+        forceHover={externalForceHover || menuOpen || moveTrigger.open}
+        leading={
+          <AppIcon
+            className="note__icon"
+            icon={getPageIcon('note')}
+            emoji={emoji}
+          />
+        }
+        actions={
+          <OverflowMenu
+            items={menuItems ?? []}
+            triggerRef={moveTrigger.triggerRef}
+            open={menuOpen}
+            onOpenChange={onMenuOpenChange ?? (() => {})}
+            onSelect={(id) =>
+              moveTrigger.handleSelect(id, onMenuSelect ?? (() => {}))
+            }
+            side="bottom"
+            alignment="start"
+          />
+        }
+      >
+        {isEditing ? (
+          <EditableText
+            value={title ?? ''}
+            placeholder={titlePlaceholder}
+            autoFocus
+            onCommit={onTitleCommit ?? (() => {})}
+            onEdit={onTitleEdit}
+            onFlush={onTitleFlush}
+            onCancel={onTitleCancel}
+            onEditingEnd={onTitleEditingEnd}
+          />
+        ) : (
+          <span
+            className={
+              titleStyle === 'placeholder'
+                ? 'note__title note__title--placeholder'
+                : 'note__title'
+            }
+          >
+            {title}
+          </span>
+        )}
+      </Entry>
+      {moveDestinations !== undefined && (
+        <MoveDestinationPicker
+          anchorRef={moveTrigger.triggerRef}
+          open={moveTrigger.open}
+          onClose={moveTrigger.close}
+          items={moveDestinations}
+          onSelect={(destinationFolderId) => {
+            moveTrigger.close();
+            onMove?.(destinationFolderId);
+          }}
+          onCreateFolder={onCreateFolder}
           side="bottom"
           alignment="start"
-          size="small"
         />
-      }
-    >
-      {isEditing ? (
-        <EditableText
-          value={title ?? ''}
-          placeholder={titlePlaceholder}
-          autoFocus
-          onCommit={onTitleCommit ?? (() => {})}
-          onEdit={onTitleEdit}
-          onFlush={onTitleFlush}
-          onCancel={onTitleCancel}
-          onEditingEnd={onTitleEditingEnd}
-        />
-      ) : (
-        <span
-          className={
-            titleStyle === 'placeholder'
-              ? 'note__title note__title--placeholder'
-              : 'note__title'
-          }
-        >
-          {title}
-        </span>
       )}
-    </Entry>
-    {moveDestinations !== undefined && (
-      <MoveDestinationPicker
-        anchorRef={moveTrigger.triggerRef}
-        open={moveTrigger.open}
-        onClose={moveTrigger.close}
-        items={moveDestinations}
-        onSelect={(destinationFolderId) => {
-          moveTrigger.close();
-          onMove?.(destinationFolderId);
-        }}
-        onCreateFolder={onCreateFolder}
-        side="bottom"
-        alignment="start"
-      />
-    )}
     </>
   );
 }

@@ -291,6 +291,65 @@ describe('ResourceTopBarActions', () => {
     expect(screen.queryByText('Delete this folder?')).toBeNull();
   });
 
+  describe('favorite toggle', () => {
+    it('renders "Add to Favorites" and calls onToggleFavorite when isFavorite is false', () => {
+      const onToggleFavorite = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menu}
+          isFavorite={false}
+          onToggleFavorite={onToggleFavorite}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Add to Favorites' }));
+
+      expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders "Remove from Favorites" and calls onToggleFavorite when isFavorite is true', () => {
+      const onToggleFavorite = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menu}
+          isFavorite={true}
+          onToggleFavorite={onToggleFavorite}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove from Favorites' }));
+
+      expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+    });
+
+    it('the favorite button is unwired (no crash on click) when onToggleFavorite is absent — same as every other unwired item', () => {
+      render(<ResourceTopBarActions menu={menu} />);
+
+      expect(() =>
+        fireEvent.click(screen.getByRole('button', { name: 'Add to Favorites' }))
+      ).not.toThrow();
+    });
+
+    it('selecting the overflow menu\'s toggle-favorite item calls the same onToggleFavorite handler', () => {
+      const onToggleFavorite = vi.fn();
+      const menuWithFavorite: TopBarMenuItemConfig[] = [
+        ...menu,
+        { id: 'toggle-favorite', label: 'Add to Favorites', icon: 'favouriteOutline' },
+      ];
+      render(
+        <ResourceTopBarActions
+          menu={menuWithFavorite}
+          handlers={{ 'toggle-favorite': onToggleFavorite }}
+        />
+      );
+      openMenu();
+
+      fireEvent.click(screen.getByText('Add to Favorites'));
+
+      expect(onToggleFavorite).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('move-to', () => {
     const menuWithMove: TopBarMenuItemConfig[] = [
       ...menu,

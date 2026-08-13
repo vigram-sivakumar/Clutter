@@ -6,12 +6,23 @@
 
   padding-inline: var(--space-8);
   padding-block: var(--space-8);
+
+  /* --sidebar-transition-duration/-easing are defined once, on
+     .app-layout (AppLayout.css), and inherit down to here as CSS custom
+     properties — using them (rather than hardcoding a duration/easing of
+     our own) is what makes the topbar's padding-left settle in step with
+     the sidebar/main-content collapse instead of as its own, separately-
+     timed animation. */
+  transition: padding-left var(--sidebar-transition-duration) var(--sidebar-transition-easing);
 }
 .topbar--leading,
 .topbar--trailing {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.topbar--leading {
+  gap: var(--space-12);
 }
 
 .topbar--trailing {
@@ -23,4 +34,47 @@
   background-color: var(--surface-subtle);
   border-radius: var(--radius-lg);
   padding: var(--space-2);
+}
+.topbar__sidebar-toggle {
+  display: none;
+}
+
+/* Reserves room for the traffic-light/drag-strip area the collapsed
+   sidebar would otherwise have covered, and surfaces the one remaining
+   way to reopen it — Controls' own toggle button collapses along with
+   the rest of the sidepanel (opacity/pointer-events, AppLayout.css), so
+   it stops being reachable the moment the sidebar collapses. Keyed off
+   the same data-sidebar-collapsed attribute AppLayout.css drives
+   (mirroring Workspace.isSidebarVisible, ADR-021), so a manual collapse
+   at a wide viewport gets this too, not just <=700px. */
+.app-layout[data-sidebar-collapsed='true'] .topbar {
+  padding-left: 76px;
+  /* Collapse uses the calm, no-overshoot curve — see AppLayout.css'
+     --sidebar-collapse-easing comment; .topbar's base rule above defaults
+     to the spring curve, which is what expand (the unscoped/'false'
+     state) keeps. */
+  transition-timing-function: var(--sidebar-collapse-easing);
+}
+.app-layout[data-sidebar-collapsed='true'] .topbar__sidebar-toggle {
+  display: block;
+}
+
+/* Below ~700px the sidebar collapses unconditionally (AppLayout.css'
+   own @media block, "regardless of Workspace.isSidebarVisible"), even
+   when isSidebarVisible/data-sidebar-collapsed is still 'false' because
+   nobody has manually toggled it. The rules above alone would then never
+   fire — matching that: the attribute selector here (any value) repeats
+   to tie specificity with the 'true'-scoped rules above, and this block
+   being last in source order is what wins the tie, the same technique
+   AppLayout.css uses for the same reason. */
+@media (max-width: 700px) {
+  .topbar,
+  .app-layout[data-sidebar-collapsed] .topbar {
+    padding-left: 76px;
+    transition-timing-function: var(--sidebar-collapse-easing);
+  }
+  .topbar__sidebar-toggle,
+  .app-layout[data-sidebar-collapsed] .topbar__sidebar-toggle {
+    display: block;
+  }
 }

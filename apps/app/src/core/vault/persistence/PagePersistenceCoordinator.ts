@@ -81,6 +81,13 @@ export type PersistenceOperation =
   // 'delete-folder'/'move-folder' already established).
   | { readonly kind: 'archive-folder' }
   | { readonly kind: 'restore-folder' }
+  // Metadata-only folder patch (e.g. favorite) — the folder-scoped
+  // counterpart to 'save's optional `metadata`, but its own kind rather
+  // than piggybacking on 'save': a folder has no body `content` to write,
+  // and 'save' is dispatched only after the page-existence guard below,
+  // which a folder id never passes. Backed by Vault.updateFolderMetadata()
+  // (no path/parentId change), not archiveFolder/moveFolder.
+  | { readonly kind: 'update-folder-metadata'; readonly metadata: Partial<FolderMetadata> }
   // The shared lazy system-folder lifecycle: the one Gate kind every
   // reserved Vault folder (Daily Notes, Archive, and any future one) is
   // ensured through, immediately before the operation that needs it —
@@ -124,6 +131,10 @@ export type PersistenceResult =
     }
   | {
       readonly status: 'folder-restored';
+      readonly folder: Folder;
+    }
+  | {
+      readonly status: 'folder-metadata-updated';
       readonly folder: Folder;
     };
 
@@ -234,6 +245,10 @@ export class PagePersistenceCoordinator {
 
     if (operation.kind === 'restore-folder') {
       return this.runRestoreFolder(id);
+    }
+
+    if (operation.kind === 'update-folder-metadata') {
+      return this.runUpdateFolderMetadata(id, operation.metadata);
     }
 
     if (operation.kind === 'ensure-reserved-folder') {
@@ -1034,6 +1049,41 @@ export class PagePersistenceCoordinator {
     this.vault.restoreFolder(folderId, destination.path, destination.parentId, restorePatch);
 
     return { status: 'folder-restored', folder: this.vault.getFolder(folderId)! };
+  }
+
+  /**
+   * Metadata-only folder patch (favorite, ...) — no path/parentId change,
+   * so unlike runArchiveFolder/runRestoreFolder there is no directory move:
+   * only the target's own `.folder.md` is rewritten, mirroring runOperation's
+   * 'save' branch (metadata-only, disk-before-Vault) but via
+   * Vault.updateFolderMetadata() instead of replacePage().
+   */
+  private async runUpdateFolderMetadata(
+    folderId: string,
+    metadata: Partial<FolderMetadata>
+  ): Promise<PersistenceResult> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return {
+        status: 'abandoned',
+        reason: `Folder no longer exists in the vault: ${folderId}`,
+      };
+    }
+
+    const finalFolder: Folder = {
+      ...folder,
+      metadata: { ...folder.metadata, ...metadata },
+    };
+
+    await this.fileSystem.writeFile(
+      `${finalFolder.path}/.folder.md`,
+      this.serializer.serializeFolderDocument(finalFolder)
+    );
+
+    this.vault.updateFolderMetadata(folderId, metadata);
+
+    return { status: 'folder-metadata-updated', folder: this.vault.getFolder(folderId)! };
   }
 
   private async runRestore(current: Page): Promise<PersistenceResult> {

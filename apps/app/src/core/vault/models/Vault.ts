@@ -38,6 +38,14 @@ export type VaultChangeEvent =
       path: string;
     }
   | {
+      // A folder's metadata changed in place — no path/parentId change,
+      // the folder-scoped counterpart to 'page-changed'. Emitted by
+      // updateFolderMetadata() only; archive/restore/move always change
+      // path too, so they keep emitting 'folder-moved'.
+      type: 'folder-changed';
+      folderId: string;
+    }
+  | {
       type: 'folder-added';
       folderId: string;
     }
@@ -549,6 +557,31 @@ export class Vault {
       type: 'folder-moved',
       folderId,
       path,
+    });
+  }
+
+  /**
+   * In-place metadata patch for a folder (e.g. favorite) — path/parentId
+   * and everything else about identity are untouched, the folder-scoped
+   * counterpart to replacePage() for a metadata-only page save. No
+   * projections refresh: unlike page content, a folder's metadata carries
+   * no tags/links the knowledge graph derives from.
+   */
+  updateFolderMetadata(folderId: string, patch: Partial<FolderMetadata>): void {
+    const folder = this.foldersById.get(folderId);
+
+    if (!folder) {
+      throw new Error(`Unknown folder: ${folderId}`);
+    }
+
+    const updated: Folder = { ...folder, metadata: { ...folder.metadata, ...patch } };
+
+    this.foldersById.set(folderId, updated);
+    this.foldersByPath.set(updated.path, updated);
+
+    this.notify({
+      type: 'folder-changed',
+      folderId,
     });
   }
 

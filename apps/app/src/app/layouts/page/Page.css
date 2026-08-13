@@ -14,7 +14,8 @@
 .page__document {
   display: flex;
   flex-direction: column;
-  flex: 1;
+
+  flex: 1 1 720px;
   min-width: 0;
 
   position: relative;

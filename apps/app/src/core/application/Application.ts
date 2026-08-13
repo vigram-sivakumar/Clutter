@@ -410,11 +410,22 @@ export class Application {
     // loop settles on a genuinely valid (or empty) activeView does it fall
     // through to openFallbackPage(), so PageHost never renders an id this
     // reconciliation pass already knows is gone.
+    //
+    // A page "exists" here if it's either a real Vault page or a live
+    // draft (ADR-017) — a draft has no Vault entry by design, so an
+    // unrelated Vault mutation (any other page's save, any folder change)
+    // must not be read as "the active draft is gone." Folders have no
+    // draft concept (spec §7), so activeFolderId is checked against Vault
+    // alone.
     this.workspaceVaultReconciliationUnsubscribe = vault.subscribe(() => {
       for (;;) {
         const { activePageId, activeFolderId } = this.workspace;
 
-        if (activePageId && !vault.getPage(activePageId)) {
+        if (
+          activePageId &&
+          !vault.getPage(activePageId) &&
+          !this.pageOperations.getDraft(activePageId)
+        ) {
           this.workspace.closePage(activePageId);
           continue;
         }

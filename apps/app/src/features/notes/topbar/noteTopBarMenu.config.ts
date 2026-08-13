@@ -2,7 +2,12 @@ import type {
   TopBarMenuItemConfig,
   TopBarPageState,
 } from '@app/layouts/page/topbar/ResourceTopBarActions';
-import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
+import {
+  ARCHIVE_ACTION_LABEL,
+  DELETE_ACTION_LABEL,
+  FAVORITE_ACTION_LABEL,
+  UNFAVORITE_ACTION_LABEL,
+} from '@core/presentation/resourceActionLabels';
 
 /**
  * Archive/Restore is a status-dependent toggle, not two statically-present
@@ -18,8 +23,16 @@ import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/re
  * page — Move's approved contract excludes archived pages as a source,
  * enforced again at the Gate (PagePersistenceCoordinator.runMove) so this
  * disabled state is a UX convenience, not the only guard.
+ *
+ * `isFavorite` (default false, matching a draft's always-false state)
+ * picks the `toggle-favorite` item's label/icon — the same id and
+ * PageOperations.updateMetadata({ favorite }) call the standalone topbar
+ * favorite button and every sidebar row's favorite item dispatch to.
  */
-export function buildNoteTopBarMenu(state: TopBarPageState): TopBarMenuItemConfig[] {
+export function buildNoteTopBarMenu(
+  state: TopBarPageState,
+  isFavorite: boolean = false
+): TopBarMenuItemConfig[] {
   const persisted = state !== 'draft';
 
   return [
@@ -40,9 +53,9 @@ export function buildNoteTopBarMenu(state: TopBarPageState): TopBarMenuItemConfi
       disabled: !persisted || state === 'archived',
     },
     {
-      id: 'add-to-favorite',
-      label: 'Add to favorite',
-      icon: 'favouriteOutline',
+      id: 'toggle-favorite',
+      label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
+      icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
     {
       id: 'version-history',

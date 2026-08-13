@@ -44,13 +44,14 @@ function getTopBarResourceType(
  */
 function buildMenuForType(
   type: PageType,
-  state: TopBarPageState
+  state: TopBarPageState,
+  isFavorite: boolean
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
-      return buildNoteTopBarMenu(state);
+      return buildNoteTopBarMenu(state, isFavorite);
     case 'daily-note':
-      return buildDailyNoteTopBarMenu(state);
+      return buildDailyNoteTopBarMenu(state, isFavorite);
     default:
       return [];
   }
@@ -79,6 +80,16 @@ export interface BuildTopBarActionsOptions {
   onMove?: (destinationFolderId: string | null) => void;
   /** Present alongside moveDestinations — see ResourceTopBarActions' matching prop. */
   onCreateFolder?: (name: string) => Promise<string>;
+  /**
+   * PageHost.tsx's onToggleFavorite — a plain
+   * PageOperations.updateMetadata({ favorite: !current })/
+   * FolderOperations.updateMetadata({ favorite: !current }) call, same
+   * shape as onArchive/onDelete/etc. above, for whichever resource type
+   * `buildTopBarActions` was called for. `isFavorite` itself needs no
+   * caller-supplied counterpart since buildTopBarActions already has
+   * `resource` and reads `resource.metadata.favorite` directly.
+   */
+  onToggleFavorite?: () => void;
 }
 
 /**
@@ -89,9 +100,10 @@ export function buildTopBarActions(
   options: BuildTopBarActionsOptions
 ): TopBarParts {
   const resourceType = getTopBarResourceType(resource, options.membershipSelector);
+  const isFavorite = resource.metadata.favorite;
   const menu = isPage(resource)
-    ? buildMenuForType(resource.type, resource.metadata.status)
-    : buildFolderTopBarMenu(resource.metadata.status);
+    ? buildMenuForType(resource.type, resource.metadata.status, isFavorite)
+    : buildFolderTopBarMenu(resource.metadata.status, isFavorite);
 
   return {
     actions: renderTopBarActions(resourceType, {
@@ -105,6 +117,8 @@ export function buildTopBarActions(
       moveDestinations: options.moveDestinations,
       onMove: options.onMove,
       onCreateFolder: options.onCreateFolder,
+      isFavorite,
+      onToggleFavorite: options.onToggleFavorite,
     }),
   };
 }
@@ -120,7 +134,9 @@ export function buildTopBarActions(
 export function buildDraftTopBarActions(type: PageType): TopBarParts {
   return {
     actions: renderTopBarActions(type, {
-      menu: buildMenuForType(type, 'draft'),
+      // A draft has no persisted PageMetadata (ADR-017) — favorite is
+      // always false pre-promotion, same as EffectivePage's draft case.
+      menu: buildMenuForType(type, 'draft', false),
     }),
   };
 }

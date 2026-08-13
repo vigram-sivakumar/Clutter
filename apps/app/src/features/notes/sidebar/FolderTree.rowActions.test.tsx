@@ -58,14 +58,18 @@ afterEach(() => {
 
 const ROOT = '/vault';
 
-function buildPersistedPage(path: string, parentId: string | null = null): Page {
+function buildPersistedPage(
+  path: string,
+  parentId: string | null = null,
+  extraFrontmatter: Record<string, unknown> = {}
+): Page {
   const builder = new PageBuilder();
   return builder.build({
     parentId,
     page: {
       path,
       directoryPath: ROOT,
-      frontmatter: { id: 'persisted-page' },
+      frontmatter: { id: 'persisted-page', ...extraFrontmatter },
       frontmatterAnalysis: { aliases: [] },
       content: 'Original body',
       analysis: { headings: [], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
@@ -180,11 +184,13 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onArchiveNote: ReturnType<typeof vi.fn>;
     onDeleteNote: ReturnType<typeof vi.fn>;
     onDuplicateNote: ReturnType<typeof vi.fn>;
+    onToggleFavoriteNote: ReturnType<typeof vi.fn>;
     onFolderTitleEdit: ReturnType<typeof vi.fn>;
     onFolderTitleFlush: ReturnType<typeof vi.fn>;
     onFolderTitleCancel: ReturnType<typeof vi.fn>;
     onArchiveFolder: ReturnType<typeof vi.fn>;
     onDeleteFolder: ReturnType<typeof vi.fn>;
+    onToggleFavoriteFolder: ReturnType<typeof vi.fn>;
   };
 } {
   const spies = {
@@ -199,12 +205,14 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onArchiveNote: vi.fn(),
     onDeleteNote: vi.fn(),
     onDuplicateNote: vi.fn(),
+    onToggleFavoriteNote: vi.fn(),
     onMoveNote: vi.fn(),
     onFolderTitleEdit: vi.fn(),
     onFolderTitleFlush: vi.fn(),
     onFolderTitleCancel: vi.fn(),
     onArchiveFolder: vi.fn(),
     onDeleteFolder: vi.fn(),
+    onToggleFavoriteFolder: vi.fn(),
     onMoveFolder: vi.fn(),
     getFolderMoveDestinations: vi.fn(() => []),
     onCreateFolder: vi.fn(async () => 'folder-created'),
@@ -454,6 +462,46 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     expect(duplicateSpy).toHaveBeenCalledWith(page.id);
   });
 
+  it("shows 'Add to Favorites' for a non-favorited note and dispatches updateMetadata({ favorite: true }) on click", () => {
+    const page = buildPersistedPage(`${ROOT}/Note.md`);
+    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const updateMetadataSpy = vi
+      .spyOn(pageOperations, 'updateMetadata')
+      .mockResolvedValue(undefined);
+    const { actions } = buildRowActions({
+      openMenuId: page.id,
+      onToggleFavoriteNote: (id, isFavorite) =>
+        void pageOperations.updateMetadata(id, { favorite: !isFavorite }),
+    });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    expect(screen.getByText('Add to Favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Add to Favorites'));
+
+    expect(updateMetadataSpy).toHaveBeenCalledWith(page.id, { favorite: true });
+  });
+
+  it("shows 'Remove from Favorites' for an already-favorited note and dispatches updateMetadata({ favorite: false }) on click", () => {
+    const page = buildPersistedPage(`${ROOT}/Note.md`, null, { favorite: true });
+    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
+    const updateMetadataSpy = vi
+      .spyOn(pageOperations, 'updateMetadata')
+      .mockResolvedValue(undefined);
+    const { actions } = buildRowActions({
+      openMenuId: page.id,
+      onToggleFavoriteNote: (id, isFavorite) =>
+        void pageOperations.updateMetadata(id, { favorite: !isFavorite }),
+    });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    expect(screen.getByText('Remove from Favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Remove from Favorites'));
+
+    expect(updateMetadataSpy).toHaveBeenCalledWith(page.id, { favorite: false });
+  });
+
   it('Rename calls onStartRename, then switches the row into edit mode and drives commitTitle/requestTitleSave', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
     const { query, workspace, membershipSelector, pageOperations } = setup([page]);
@@ -628,6 +676,44 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
     fireEvent.click(screen.getByText('Archive'));
 
     expect(spies.onArchiveFolder).toHaveBeenCalledWith('folder-1');
+  });
+
+  it("shows 'Add to Favorites' for a non-favorited folder and calls onToggleFavoriteFolder(id, false)", () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    expect(screen.getByText('Add to Favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Add to Favorites'));
+
+    expect(spies.onToggleFavoriteFolder).toHaveBeenCalledWith('folder-1', false);
+  });
+
+  it("shows 'Remove from Favorites' for an already-favorited folder and calls onToggleFavoriteFolder(id, true)", () => {
+    const folder: Folder = {
+      ...makeFolder('folder-1', `${ROOT}/Projects`, null),
+      metadata: {
+        icon: null,
+        favorite: true,
+        description: '',
+        cover: null,
+        status: 'active',
+        archivedAt: null,
+        originalPath: null,
+        originalParentId: null,
+      },
+    };
+    const { query, workspace, membershipSelector } = setup([], [folder]);
+    const { actions, spies } = buildRowActions({ openMenuId: 'folder-1' });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    expect(screen.getByText('Remove from Favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Remove from Favorites'));
+
+    expect(spies.onToggleFavoriteFolder).toHaveBeenCalledWith('folder-1', true);
   });
 
   it('Rename calls onFolderTitleEdit through FolderOperations.commitName while editing', () => {

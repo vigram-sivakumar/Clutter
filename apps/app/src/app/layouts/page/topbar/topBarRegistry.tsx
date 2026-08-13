@@ -18,6 +18,10 @@ export interface TopBarActionsOptions {
   onMove?: (destinationFolderId: string | null) => void;
   /** Present alongside moveDestinations — see ResourceTopBarActions' matching prop. */
   onCreateFolder?: (name: string) => Promise<string>;
+  /** Forwarded straight to ResourceTopBarActions — see its matching prop. */
+  isFavorite?: boolean;
+  /** Forwarded straight to ResourceTopBarActions — see its matching prop. */
+  onToggleFavorite?: () => void;
   /**
    * ADR-026: set only for a folder with descendants — gates 'archive'
    * behind ResourceTopBarActions' Confirmation surface instead of firing
@@ -51,10 +55,13 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       restore: options?.onRestore,
       delete: options?.onDelete,
       duplicate: options?.onDuplicate,
+      'toggle-favorite': options?.onToggleFavorite,
     }}
     moveDestinations={options?.moveDestinations}
     onMove={options?.onMove}
     onCreateFolder={options?.onCreateFolder}
+    isFavorite={options?.isFavorite}
+    onToggleFavorite={options?.onToggleFavorite}
   />
 );
 
@@ -76,12 +83,15 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
       archive: options?.onArchive,
       restore: options?.onRestore,
       delete: options?.onDelete,
+      'toggle-favorite': options?.onToggleFavorite,
     }}
     archiveConfirmationMessage={options?.archiveConfirmationMessage}
     deleteConfirmationMessage={options?.deleteConfirmationMessage}
     moveDestinations={options?.moveDestinations}
     onMove={options?.onMove}
     onCreateFolder={options?.onCreateFolder}
+    isFavorite={options?.isFavorite}
+    onToggleFavorite={options?.onToggleFavorite}
   />
 );
 

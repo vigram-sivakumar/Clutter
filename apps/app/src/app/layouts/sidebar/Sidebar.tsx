@@ -59,7 +59,6 @@ export function Sidebar({ application }: SidebarProps) {
           activeDate={activeDailyNoteDate}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
-          onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onOpenDate={(date) =>
             pageOperations.openAtPath(
               DailyNotePath.absoluteFrom(vault.root, new Date(date)),
@@ -115,10 +114,11 @@ export function Sidebar({ application }: SidebarProps) {
 
   return (
     <aside className="sidebar" data-testid={testIds.sidebar.root}>
-      {/* Controls (including the sidebar-toggle button itself) stays
-          rendered regardless of isSidebarVisible — hiding it alongside
-          the rest of the sidebar would remove the only way to show the
-          sidebar again (ADR-021, M4). */}
+      {/* Sidebar content always stays mounted — AppLayout is the single
+          place isSidebarVisible drives layout, via its CSS Grid collapse
+          (data-sidebar-collapsed), not a React unmount here. Two different
+          collapse techniques for the same state would defeat the point of
+          having one source of truth (ADR-021, M4). */}
       <Controls
         isSidebarVisible={workspace.isSidebarVisible}
         onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
@@ -127,30 +127,23 @@ export function Sidebar({ application }: SidebarProps) {
         onNavigateBack={() => navigation.back()}
         onNavigateForward={() => navigation.forward()}
       />
-      {workspace.isSidebarVisible && (
-        <>
-          <div className="sidebar--tabs">
-            <Tabs
-              value={workspace.activeSidebarTab}
-              onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
-            >
-              {tabs.map((tab) => (
-                <Tab key={tab.value} value={tab.value}>
-                  <AppIcon icon={tab.icon} emoji={tab.emoji} />
-                </Tab>
-              ))}
-            </Tabs>
-          </div>
+      <div className="sidebar--tabs">
+        <Tabs
+          value={workspace.activeSidebarTab}
+          onValueChange={(tab) => workspace.setActiveSidebarTab(tab)}
+        >
+          {tabs.map((tab) => (
+            <Tab key={tab.value} value={tab.value}>
+              <AppIcon icon={tab.icon} emoji={tab.emoji} />
+            </Tab>
+          ))}
+        </Tabs>
+      </div>
 
-          <div className="sidebar--content">
-            {
-              tabs.find((tab) => tab.value === workspace.activeSidebarTab)
-                ?.panel
-            }
-          </div>
-          <Footer onOpenArchive={() => navigation.openArchive()} />
-        </>
-      )}
+      <div className="sidebar--content">
+        {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
+      </div>
+      <Footer onOpenArchive={() => navigation.openArchive()} />
     </aside>
   );
 }

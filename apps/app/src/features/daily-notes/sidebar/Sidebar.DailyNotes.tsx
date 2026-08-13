@@ -18,7 +18,6 @@ interface DailyNotesPanelProps {
   activeDate: string | undefined;
   onOpen(pageId: string): void;
   onOpenDraft(pageId: string): void;
-  onOpenFolder(folderId: string): void;
   onOpenDate(date: string): void;
 }
 
@@ -31,7 +30,6 @@ export function DailyNotes({
   activeDate,
   onOpen,
   onOpenDraft,
-  onOpenFolder,
   onOpenDate,
 }: DailyNotesPanelProps) {
   // Single owner of "which row's overflow menu is open" — same pattern and
@@ -46,6 +44,8 @@ export function DailyNotes({
 
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
+    onToggleFavoriteNote: (pageId, isFavorite) =>
+      void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
   };
 
   return (
@@ -61,7 +61,7 @@ export function DailyNotes({
         workspace={workspace}
         onOpen={onOpen}
         onOpenDraft={onOpenDraft}
-        onOpenFolder={onOpenFolder}
+        onOpenDate={onOpenDate}
         rowActions={rowActions}
       />
     </View>

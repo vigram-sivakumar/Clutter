@@ -21,13 +21,16 @@ type WorkspaceHistoryMethods =
 
 function createNavigationRouter(options: {
   folderOperations?: Partial<Pick<FolderOperations, 'open' | 'ensureReservedFolder'>>;
-  pageOperations?: Pick<PageOperations, 'open'>;
+  pageOperations?: Partial<Pick<PageOperations, 'open' | 'getDraft'>>;
   vault?: Partial<Pick<Vault, 'getReservedFolder' | 'getPage' | 'getFolder'>>;
   workspace?: Partial<Pick<Workspace, WorkspaceHistoryMethods>>;
 }): NavigationRouter {
   return new NavigationRouter(
     options.folderOperations as FolderOperations,
-    options.pageOperations as PageOperations,
+    {
+      getDraft: () => undefined,
+      ...options.pageOperations,
+    } as PageOperations,
     options.vault as Vault,
     options.workspace as Workspace
   );
@@ -347,6 +350,26 @@ describe('NavigationRouter.back/forward (ADR-027)', () => {
 
     expect(openPage).toHaveBeenCalledTimes(1);
     expect(openPage).toHaveBeenCalledWith('page-a', { recordHistory: false });
+    expect(history.canNavigateBack).toBe(false);
+  });
+
+  it('a live draft (ADR-017, no Vault entry) is not treated as stale — back() returns to it', () => {
+    const openPage = vi.fn();
+    const getPage = vi.fn(() => undefined); // drafts are never in Vault
+    const getDraft = vi.fn((id: string) =>
+      id === 'draft-1' ? ({ folderId: null, type: 'note' } as ReturnType<PageOperations['getDraft']>) : undefined
+    );
+    const history = createFakeHistory([{ type: 'page', id: 'draft-1' }]);
+    const navigation = createNavigationRouter({
+      pageOperations: { open: openPage, getDraft },
+      vault: { getPage },
+      workspace: history as unknown as Workspace,
+    });
+
+    navigation.back();
+
+    expect(openPage).toHaveBeenCalledTimes(1);
+    expect(openPage).toHaveBeenCalledWith('draft-1', { recordHistory: false });
     expect(history.canNavigateBack).toBe(false);
   });
 

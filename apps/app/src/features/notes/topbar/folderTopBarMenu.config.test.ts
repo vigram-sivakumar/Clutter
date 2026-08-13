@@ -35,4 +35,19 @@ describe('buildFolderTopBarMenu', () => {
   it('never includes a duplicate item — folders are never duplicable', () => {
     expect(buildFolderTopBarMenu('active').map((i) => i.id)).not.toContain('duplicate');
   });
+
+  it("labels 'toggle-favorite' as 'Add to Favorites' when isFavorite is false (or omitted)", () => {
+    expect(
+      buildFolderTopBarMenu('active', false).find((i) => i.id === 'toggle-favorite')?.label
+    ).toBe('Add to Favorites');
+    expect(buildFolderTopBarMenu('active').find((i) => i.id === 'toggle-favorite')?.label).toBe(
+      'Add to Favorites'
+    );
+  });
+
+  it("labels 'toggle-favorite' as 'Remove from Favorites' when isFavorite is true", () => {
+    expect(
+      buildFolderTopBarMenu('active', true).find((i) => i.id === 'toggle-favorite')?.label
+    ).toBe('Remove from Favorites');
+  });
 });

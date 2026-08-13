@@ -57,4 +57,19 @@ describe('buildNoteTopBarMenu', () => {
 
     expect(menu.find((i) => i.id === 'move-to')?.disabled).toBe(true);
   });
+
+  it("labels 'toggle-favorite' as 'Add to Favorites' when isFavorite is false (or omitted)", () => {
+    const menu = buildNoteTopBarMenu('active', false);
+
+    expect(menu.find((i) => i.id === 'toggle-favorite')?.label).toBe('Add to Favorites');
+    expect(buildNoteTopBarMenu('active').find((i) => i.id === 'toggle-favorite')?.label).toBe(
+      'Add to Favorites'
+    );
+  });
+
+  it("labels 'toggle-favorite' as 'Remove from Favorites' when isFavorite is true", () => {
+    const menu = buildNoteTopBarMenu('active', true);
+
+    expect(menu.find((i) => i.id === 'toggle-favorite')?.label).toBe('Remove from Favorites');
+  });
 });

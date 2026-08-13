@@ -2,9 +2,10 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
+import { useWorkspace } from '@app/hooks/useWorkspace';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { PageOperations } from '@core/application/page/PageOperations';
@@ -29,14 +30,79 @@ import { VaultQuery } from '@core/vault/queries/VaultQuery';
 import { VaultProjectionBuilder } from '@core/vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import { Workspace } from '@core/workspace/Workspace';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+
+// Overlay's positioning logic observes anchor/surface size via
+// ResizeObserver, which jsdom doesn't implement — stubbed the same way
+// ResourceTopBarActions.test.tsx/FolderTree.rowActions.test.tsx already do.
+// Only needed once this file actually opens a row's overflow menu (the
+// favorite-toggle tests below), not by any pre-existing test here.
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 afterEach(() => {
   cleanup();
 });
 
 const ROOT = '/vault';
+
+// Every fixture below is anchored to the real wall-clock "today" (same
+// convention DailyNotesShortcuts.test.tsx uses) rather than a hardcoded
+// date, since "which month is the current month" and the virtual Today
+// entry are both wall-clock-driven.
+const TODAY = toISODate(new Date());
+const TODAY_YEAR = TODAY.slice(0, 4);
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const TODAY_MONTH_NAME = MONTH_NAMES[new Date().getMonth()]!;
+
+function addMonths(iso: string, delta: number): string {
+  const [y, m] = iso.split('-').map(Number);
+  const date = new Date(y!, m! - 1 + delta, 1);
+  return toISODate(date);
+}
+
+function monthNameOf(iso: string): string {
+  return MONTH_NAMES[Number(iso.slice(5, 7)) - 1]!;
+}
+
+function yearOf(iso: string): string {
+  return iso.slice(0, 4);
+}
+
+// A day within `monthIso`'s month that is never TODAY itself — every
+// structural fixture uses this so it never accidentally collides with the
+// virtual Today entry (which is exercised by its own dedicated tests).
+function dayInMonth(monthIso: string, day: number): string {
+  const candidate = `${yearOf(monthIso)}-${monthIso.slice(5, 7)}-${String(day).padStart(2, '0')}`;
+
+  return candidate === TODAY ? dayInMonth(monthIso, day === 28 ? 1 : day + 1) : candidate;
+}
 
 const defaultFolderMetadata: Folder['metadata'] = {
   icon: null,
@@ -82,17 +148,20 @@ function makeFolder(id: string, path: string, parentId: string | null): Folder {
   };
 }
 
-function makeDailyNote(
-  id: string,
-  name: string,
-  parentId: string,
-  monthName = 'August'
-): Page {
+function makeMonthFolder(id: string, monthIso: string, parentId: string): Folder {
+  return makeFolder(
+    id,
+    `${ROOT}/Daily Notes/${yearOf(monthIso)}/${monthNameOf(monthIso)}`,
+    parentId
+  );
+}
+
+function makeDailyNote(id: string, name: string, parentId: string): Page {
   return {
     id,
     type: 'daily-note',
     name,
-    path: `${ROOT}/Daily Notes/2026/${monthName}/${name}.md`,
+    path: `${ROOT}/Daily Notes/${yearOf(name)}/${monthNameOf(name)}/${name}.md`,
     parentId,
     metadata: defaultPageMetadata,
     source: { markdown: '' },
@@ -155,98 +224,150 @@ function setup(pages: Page[], folders: Folder[]) {
     new DailyNoteService(),
     () => {}
   );
-  const effectivePageState = new EffectivePageState(
-    vault,
-    query,
-    pageOperations,
-    workspace
-  );
-  const membershipSelector = new MembershipSelector(
-    vault,
-    query,
-    effectivePageState
-  );
+  const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
+  const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
 
   return { vault, query, workspace, pageOperations, membershipSelector };
 }
 
+// Sidebar.tsx subscribes to Workspace via useWorkspace before passing it
+// down (that subscription is what makes a workspace.notify() — e.g. from
+// toggleSectionExpanded — actually re-render the tree); this wrapper
+// mirrors that so DOM assertions after a caret click behave like the real
+// app instead of reading a stale render.
+function DailyNotesListHarness(
+  props: Parameters<typeof DailyNotesList>[0]
+) {
+  const workspace = useWorkspace(props.workspace);
+
+  return <DailyNotesList {...props} workspace={workspace} />;
+}
+
+function renderList(
+  props: Partial<Parameters<typeof DailyNotesList>[0]> &
+    Pick<Parameters<typeof DailyNotesList>[0], 'vault' | 'query' | 'membershipSelector' | 'workspace'>
+) {
+  return render(
+    <DailyNotesListHarness onOpen={vi.fn()} onOpenDraft={vi.fn()} onOpenDate={vi.fn()} {...props} />
+  );
+}
+
+// "All Daily Notes" is collapsed by default (Workspace seeds it that way) —
+// tests that need to look inside it expand it via its caret first, the
+// only way a user can.
+function expandAllDailyNotes() {
+  const header = screen.getByText('All Daily Notes').closest('.section-header') as HTMLElement;
+  const caret = header.querySelector('.section-header__caret') as HTMLElement;
+  fireEvent.click(caret);
+}
+
 describe('DailyNotesList — empty month sections', () => {
   it('does not render a month section with no Daily Notes in it', () => {
+    const pastMonthIso = addMonths(TODAY, -3);
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${yearOf(pastMonthIso)}`, 'root');
     // A month folder with zero Daily Notes inside — the empty-section case.
-    const emptyMonth = makeFolder(
-      'month-july',
-      `${ROOT}/Daily Notes/2026/July`,
-      'year-2026'
-    );
+    const emptyMonth = makeMonthFolder('month-empty', pastMonthIso, 'year');
     const { vault, query, membershipSelector, workspace } = setup(
       [],
       [dailyNotesRoot, year, emptyMonth]
     );
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
 
-    // Regex (not an exact string) so this doesn't depend on whether
-    // formatMonthSectionTitle renders "July" or "July 2026" (isCurrentYear
-    // is wall-clock-dependent, not something this test should assume).
-    expect(screen.queryByText(/July/)).toBeNull();
+    // Nothing else is populated (besides the virtual Today entry, in the
+    // current month) — "All Daily Notes" has nothing to hold, so it
+    // doesn't render at all.
+    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
+    expect(screen.queryByText('All Daily Notes')).toBeNull();
   });
 
-  it('renders a month section that has at least one Daily Note', () => {
+  it('renders the current month\'s Daily Notes with no month heading', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
-    const note = makeDailyNote('daily-1', '2026-08-15', 'month-august');
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const note = makeDailyNote('daily-1', dayInMonth(TODAY, 15), 'month');
     const { vault, query, membershipSelector, workspace } = setup(
       [note],
       [dailyNotesRoot, year, month]
     );
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
 
-    // August is the current month here (see makeDailyNote/currentDate), so
-    // its heading is intentionally hidden (see the "current month heading"
-    // describe block below) — assert the section still renders its content
-    // instead.
-    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+    // The calendar above the list already identifies the current month —
+    // no heading renders for it. Two rows: the persisted note and the
+    // virtual Today entry (no real page/draft exists for today here).
+    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+  });
+});
+
+describe('DailyNotesList — favorite toggle', () => {
+  it("shows 'Add to Favorites' for a non-favorited daily note and dispatches onToggleFavoriteNote(id, false) on click", () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const note = makeDailyNote('daily-1', dayInMonth(TODAY, 15), 'month');
+    const { vault, query, membershipSelector, workspace } = setup(
+      [note],
+      [dailyNotesRoot, year, month]
+    );
+    const onToggleFavoriteNote = vi.fn();
+    const rowActions = {
+      openMenuId: 'daily-1',
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      onArchiveNote: vi.fn(),
+      onDeleteNote: vi.fn(),
+      onToggleFavoriteNote,
+    };
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+
+    expect(screen.getByText('Add to Favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Add to Favorites'));
+
+    expect(onToggleFavoriteNote).toHaveBeenCalledWith('daily-1', false);
+  });
+
+  it("shows 'Remove from Favorites' for an already-favorited daily note and dispatches onToggleFavoriteNote(id, true) on click", () => {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const note: Page = {
+      ...makeDailyNote('daily-1', dayInMonth(TODAY, 15), 'month'),
+      metadata: { ...defaultPageMetadata, favorite: true },
+    };
+    const { vault, query, membershipSelector, workspace } = setup(
+      [note],
+      [dailyNotesRoot, year, month]
+    );
+    const onToggleFavoriteNote = vi.fn();
+    const rowActions = {
+      openMenuId: 'daily-1',
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      onArchiveNote: vi.fn(),
+      onDeleteNote: vi.fn(),
+      onToggleFavoriteNote,
+    };
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+
+    expect(screen.getByText('Remove from Favorites')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Remove from Favorites'));
+
+    expect(onToggleFavoriteNote).toHaveBeenCalledWith('daily-1', true);
   });
 });
 
 describe('DailyNotesList — a Note nested inside a valid month folder is not rendered as a Daily Note', () => {
   it('a persisted type: "note" page sitting alongside a real Daily Note in the same month folder is excluded from the section, while the real Daily Note still renders', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
-    const dailyNote = makeDailyNote('daily-1', '2026-08-12', 'month-august');
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const dailyNoteDate = dayInMonth(TODAY, 12);
+    const dailyNote = makeDailyNote('daily-1', dailyNoteDate, 'month');
     // Same folder, same shape, but type: 'note' — e.g. an external file
     // dropped next to a real Daily Note (PageBuilder/Vault classify it as
     // 'note' since its filename isn't the canonical Daily Note date).
@@ -255,29 +376,20 @@ describe('DailyNotesList — a Note nested inside a valid month folder is not re
       id: 'note-1',
       type: 'note',
       name: 'Test file',
-      path: `${ROOT}/Daily Notes/2026/August/Test file.md`,
+      path: `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/Test file.md`,
     };
     const { vault, query, membershipSelector, workspace } = setup(
       [dailyNote, strayNote],
       [dailyNotesRoot, year, month]
     );
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
 
     // getDailyNoteChildPages filters strictly by page.type === 'daily-note'
     // — the stray Note is excluded here regardless of sharing the same
-    // month folder as a real Daily Note. Only one row renders.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(1);
+    // month folder as a real Daily Note. Two rows render: the real Daily
+    // Note plus the virtual Today entry.
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
     expect(screen.queryByText('Test file')).not.toBeInTheDocument();
   });
 });
@@ -285,710 +397,464 @@ describe('DailyNotesList — a Note nested inside a valid month folder is not re
 describe('DailyNotesList — malformed month folders do not crash discovery', () => {
   it('a year folder whose child folder name is not a recognized month is skipped, not thrown', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    // "08" instead of "August" — not a recognized month folder name.
-    const malformedMonth = makeFolder(
-      'month-08',
-      `${ROOT}/Daily Notes/2026/08`,
-      'year-2026'
-    );
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    // "08" instead of a recognized month name.
+    const malformedMonth = makeFolder('month-08', `${ROOT}/Daily Notes/${TODAY_YEAR}/08`, 'year');
     const { vault, query, membershipSelector, workspace } = setup(
       [],
       [dailyNotesRoot, year, malformedMonth]
     );
 
-    expect(() =>
-      render(
-        <DailyNotesList
-          vault={vault}
-          query={query}
-          membershipSelector={membershipSelector}
-          workspace={workspace}
-          onOpen={vi.fn()}
-          onOpenDraft={vi.fn()}
-          onOpenFolder={vi.fn()}
-        />
-      )
-    ).not.toThrow();
+    expect(() => renderList({ vault, query, membershipSelector, workspace })).not.toThrow();
   });
 
   it('a malformed month folder containing a Markdown file is skipped, and a valid sibling month still renders', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const malformedMonth = makeFolder(
-      'month-08',
-      `${ROOT}/Daily Notes/2026/08`,
-      'year-2026'
-    );
-    const validMonth = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const malformedMonth = makeFolder('month-08', `${ROOT}/Daily Notes/${TODAY_YEAR}/08`, 'year');
+    const validMonth = makeMonthFolder('month-valid', TODAY, 'year');
     // A file inside the malformed folder — its path is not the canonical
-    // Daily Note path either (folder name is "08", not "August"), so
+    // Daily Note path either (folder name isn't a real month name), so
     // classification already makes it a plain Note; parentId points at the
     // malformed folder, which the month-section walk must still not throw
     // on when enumerating.
+    const noteDate = dayInMonth(TODAY, 12);
     const noteInMalformedFolder: Page = {
       id: 'note-in-malformed',
       type: 'note',
-      name: '2026-08-12',
-      path: `${ROOT}/Daily Notes/2026/08/2026-08-12.md`,
+      name: noteDate,
+      path: `${ROOT}/Daily Notes/${TODAY_YEAR}/08/${noteDate}.md`,
       parentId: 'month-08',
       metadata: defaultPageMetadata,
       source: { markdown: '' },
       analysis: defaultAnalysis,
     };
-    const validNote = makeDailyNote('daily-1', '2026-08-15', 'month-august');
+    const validNote = makeDailyNote('daily-1', dayInMonth(TODAY, 15), 'month-valid');
     const { vault, query, membershipSelector, workspace } = setup(
       [noteInMalformedFolder, validNote],
       [dailyNotesRoot, year, malformedMonth, validMonth]
     );
 
-    expect(() =>
-      render(
-        <DailyNotesList
-          vault={vault}
-          query={query}
-          membershipSelector={membershipSelector}
-          workspace={workspace}
-          onOpen={vi.fn()}
-          onOpenDraft={vi.fn()}
-          onOpenFolder={vi.fn()}
-        />
-      )
-    ).not.toThrow();
+    expect(() => renderList({ vault, query, membershipSelector, workspace })).not.toThrow();
 
-    // The valid month's Daily Note still renders normally.
-    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+    // The valid month's Daily Note still renders normally, alongside the
+    // virtual Today entry.
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
   });
 });
 
-describe('DailyNotesList — unplaced Daily Notes (ADR-023) — the bug this phase fixes', () => {
+describe('DailyNotesList — unplaced Daily Notes (ADR-023)', () => {
   it("today's draft appears here even with NO Daily Notes folder chain on disk yet (fresh-vault boot)", async () => {
     // No Daily Notes/Archive/etc. folders seeded at all — mirrors a
     // freshly-deleted vault's first boot, where Application.open()
     // resolves today's note via openAtPath with nothing on disk yet.
-    const { pageOperations, vault, query, membershipSelector, workspace } =
-      setup([], []);
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
 
     await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
-      {
-        type: 'daily-note',
-      }
+      `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/${dayInMonth(TODAY, 20)}.md`,
+      { type: 'daily-note' }
     );
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
 
-    // A synthetic, folder-less month section renders the draft — no crash,
-    // no silent omission, and (per FolderTree's own new test) it no longer
-    // also renders in Notes. August is the current month here, so its
-    // heading is intentionally absent — the row itself is what's under test.
-    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+    // A folder-less draft in the current month renders directly (no
+    // heading), alongside the virtual Today entry (this draft isn't dated
+    // today).
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
   });
 
   it('an unplaced draft folds into an existing month section covering the same date, rather than rendering a duplicate header', async () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const persisted = makeDailyNote('daily-1', dayInMonth(TODAY, 5), 'month');
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
+      [persisted],
+      [dailyNotesRoot, year, month]
     );
-    const persisted = makeDailyNote('daily-1', '2026-08-05', 'month-august');
-    const { pageOperations, vault, query, membershipSelector, workspace } =
-      setup([persisted], [dailyNotesRoot, year, month]);
 
-    // A second August date, opened via a path whose month folder happens
-    // to already exist — resolveDraftTarget resolves a real folderId here,
-    // so this is the "placed" case, included only to prove the "unplaced"
-    // test above is exercising the genuinely different (folderId: null)
-    // path, not something every openAtPath call would pass anyway.
+    // A second same-month date, opened via a path whose month folder
+    // happens to already exist — resolveDraftTarget resolves a real
+    // folderId here, so this is the "placed" case, included only to prove
+    // the "unplaced" test above is exercising the genuinely different
+    // (folderId: null) path, not something every openAtPath call would
+    // pass anyway.
     await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
-      {
-        type: 'daily-note',
-      }
+      `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/${dayInMonth(TODAY, 20)}.md`,
+      { type: 'daily-note' }
     );
 
-    const { container } = render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
 
-    // August is the current month, so its heading is hidden regardless of
-    // fold behavior — assert the fold itself structurally instead: exactly
-    // one section rendered (not two, one per date), holding both rows.
-    expect(container.querySelectorAll('.section')).toHaveLength(1);
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    // No heading, no duplicate rendering — the persisted note, the draft,
+    // and the virtual Today entry all render as three plain rows.
+    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
+    expect(screen.getAllByText('Start typing...')).toHaveLength(3);
   });
 
-  it('an unplaced (folder-less) month section is clickable — it opens its one draft, since there is no Folder to open a collection for', async () => {
-    const { pageOperations, vault, query, membershipSelector, workspace } =
-      setup([], []);
+  it('an unplaced (folder-less) past month renders inside "All Daily Notes" with a plain, non-interactive heading', async () => {
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
 
-    // July, not August — August is the current month here, and its header
-    // (carrying this click-to-open handler) is intentionally hidden by the
-    // current-month heading rule. A past month keeps its normal, clickable
-    // header, which is what this test is actually about.
+    const pastMonthIso = addMonths(TODAY, -1);
+    const pastDate = dayInMonth(pastMonthIso, 20);
+
     await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/July/2026-07-20.md`,
-      {
-        type: 'daily-note',
-      }
+      `${ROOT}/Daily Notes/${yearOf(pastMonthIso)}/${monthNameOf(pastMonthIso)}/${pastDate}.md`,
+      { type: 'daily-note' }
     );
 
     const onOpenDraft = vi.fn();
     const onOpen = vi.fn();
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={onOpen}
-        onOpenDraft={onOpenDraft}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace, onOpen, onOpenDraft });
 
-    fireEvent.click(screen.getByText(/July/));
+    expandAllDailyNotes();
 
-    expect(onOpenDraft).toHaveBeenCalledTimes(1);
+    const pastHeader = screen
+      .getByText(monthNameOf(pastMonthIso), { exact: false })
+      .closest('.section-header') as HTMLElement;
+
+    // No collapse caret, and the header itself isn't an interactive row —
+    // per-month collapse/click-to-open was removed; only "All Daily Notes"
+    // itself is collapsible.
+    expect(pastHeader.querySelector('.section-header__caret')).toBeNull();
+    expect(pastHeader.closest('.entry-interactive')).toBeNull();
+
+    fireEvent.click(pastHeader);
+
+    expect(onOpenDraft).not.toHaveBeenCalled();
     expect(onOpen).not.toHaveBeenCalled();
-  });
-
-  it('an unplaced (folder-less) month section is collapsible, tracked via Workspace section state rather than a Folder id', async () => {
-    const { pageOperations, vault, query, membershipSelector, workspace } =
-      setup([], []);
-
-    // Same reasoning as the clickable test above — use a past month so the
-    // header (and its collapse caret) actually renders.
-    await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/July/2026-07-20.md`,
-      {
-        type: 'daily-note',
-      }
-    );
-
-    const { queryByText } = render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
-
-    expect(queryByText('Start typing...')).not.toBeNull();
-
-    const julyHeader = screen.getByText(/July/).closest('.section-header') as HTMLElement;
-    const caret = julyHeader.querySelector('.section-header__caret') as HTMLElement;
-    fireEvent.click(caret);
-
-    expect(workspace.isSectionExpanded('unplaced:2026-07-01')).toBe(false);
   });
 });
 
 describe('DailyNotesList — draft Daily Notes appear immediately (ADR-020 rule 13 adoption)', () => {
   it('a Daily Note draft opened via openAtPath, targeting an existing month folder, appears before any save', async () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
+      [],
+      [dailyNotesRoot, year, month]
     );
-    const { pageOperations, vault, query, membershipSelector, workspace } =
-      setup([], [dailyNotesRoot, year, month]);
 
     await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-20.md`,
-      {
-        type: 'daily-note',
-      }
+      `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/${dayInMonth(TODAY, 20)}.md`,
+      { type: 'daily-note' }
     );
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
 
-    // The month section now exists (it did before too, since the folder
-    // was pre-seeded) and renders one row for the draft. A daily-note's
+    // The draft renders, alongside the virtual Today entry. A daily-note's
     // filename is never shown as its title (getPageDisplayLabel's own
-    // rule — the date is redundant next to the day badge), and it has no
-    // description/body yet, so it falls all the way to the shared
-    // placeholder — "the draft appeared" is what's under test, not its
-    // exact label text. (August is the current month, so its own heading
-    // is intentionally hidden — see the dedicated describe block below.)
-    expect(screen.getByText('Start typing...')).toBeInTheDocument();
+    // rule), and it has no description/body yet, so both fall to the
+    // shared placeholder.
+    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
   });
 
   it('clicking a draft Daily Note invokes onOpenDraft, not onOpen', async () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
+      [],
+      [dailyNotesRoot, year, month]
     );
-    const { pageOperations, vault, query, membershipSelector, workspace } =
-      setup([], [dailyNotesRoot, year, month]);
+
+    const draftDate = dayInMonth(TODAY, 21);
 
     await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-21.md`,
-      {
-        type: 'daily-note',
-      }
+      `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/${draftDate}.md`,
+      { type: 'daily-note' }
     );
 
     const onOpen = vi.fn();
     const onOpenDraft = vi.fn();
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={onOpen}
-        onOpenDraft={onOpenDraft}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace, onOpen, onOpenDraft });
 
-    screen.getByText('Start typing...').click();
+    // Two placeholder rows exist (the draft + the virtual Today entry);
+    // click by date label to target the draft exactly.
+    const day = Number(draftDate.slice(8, 10));
+    fireEvent.click(screen.getByText(String(day)));
 
     expect(onOpenDraft).toHaveBeenCalledWith(expect.any(String));
     expect(onOpen).not.toHaveBeenCalled();
   });
 });
 
-describe('DailyNotesList — reusable-draft policy (PageOperations.findReusableDraftId) surfaces correctly here', () => {
-  it('clicking a second date while the first is still empty shows only the new date — the old one disappears, retargeted rather than duplicated', async () => {
+describe('DailyNotesList — each Daily Note date keeps its own stable draft (PageOperations.openAtPath)', () => {
+  it('clicking a second date while the first is still empty shows both dates — neither is retargeted or dropped', async () => {
+    // Superseded deliberately: openAtPath() no longer retargets a
+    // still-empty draft across dates (see PageOperations.reusableDrafts
+    // .test.ts) — each date a live draft references stays visible on its
+    // own, since it may also be a live navigation-history destination
+    // (Workspace.isReferencedInHistory()).
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
-    const { pageOperations, vault, query, membershipSelector, workspace } =
-      setup([], [dailyNotesRoot, year, month]);
-
-    await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-09.md`,
-      {
-        type: 'daily-note',
-      }
-    );
-    await pageOperations.openAtPath(
-      `${ROOT}/Daily Notes/2026/August/2026-08-15.md`,
-      {
-        type: 'daily-note',
-      }
-    );
-
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
-
-    // Exactly one unsaved-daily-note row exists — same draft, retargeted.
-    expect(screen.getAllByText('Start typing...')).toHaveLength(1);
-  });
-});
-
-describe('DailyNotesList — today has no dedicated section', () => {
-  it("renders today's note inside its month section, not as a separate heading or row", () => {
-    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const month = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
-    const today = makeDailyNote('daily-today', '2026-08-15', 'month-august');
-    const other = makeDailyNote('daily-other', '2026-08-10', 'month-august');
-    const { vault, query, membershipSelector, workspace } = setup(
-      [today, other],
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup(
+      [],
       [dailyNotesRoot, year, month]
     );
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/${dayInMonth(TODAY, 9)}.md`,
+      { type: 'daily-note' }
+    );
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/${dayInMonth(TODAY, 15)}.md`,
+      { type: 'daily-note' }
     );
 
-    // No dedicated "Today" heading — and no month heading either, since
-    // August is the current month here (hidden per the current-month
-    // heading rule); both notes render once each, purely as members of
-    // that one section.
-    expect(screen.queryByText('Today')).toBeNull();
-    expect(screen.queryByText(/August/)).toBeNull();
-    expect(screen.getAllByText('Start typing...')).toHaveLength(2);
+    renderList({ vault, query, membershipSelector, workspace });
+
+    // Both dates' drafts, plus the virtual Today entry — three rows.
+    expect(screen.getAllByText('Start typing...')).toHaveLength(3);
   });
 });
 
-describe('DailyNotesList — current month heading is hidden and pinned to the top', () => {
-  it('hides only the current month\'s heading — a past month alongside it still gets one', () => {
+describe('DailyNotesList — current month vs. All Daily Notes (no partitioning logic)', () => {
+  it('the current month renders with no heading, directly under the calendar', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const august = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
-    const july = makeFolder(
-      'month-july',
-      `${ROOT}/Daily Notes/2026/July`,
-      'year-2026'
-    );
-    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
-    const pastMonthNote = makeDailyNote(
-      'daily-jul',
-      '2026-07-31',
-      'month-july',
-      'July'
-    );
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const note = makeDailyNote('daily-1', dayInMonth(TODAY, 15), 'month');
     const { vault, query, membershipSelector, workspace } = setup(
-      [currentMonthNote, pastMonthNote],
-      [dailyNotesRoot, year, august, july]
+      [note],
+      [dailyNotesRoot, year, month]
     );
 
-    render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.queryByText(/August/)).toBeNull();
-    expect(screen.queryByText(/July/)).not.toBeNull();
+    expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
   });
 
-  it('pins the current month first even when a future Daily Note would otherwise sort above it', () => {
+  it('orders rows within the current month oldest to newest, top to bottom', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const august = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
-    const september = makeFolder(
-      'month-september',
-      `${ROOT}/Daily Notes/2026/September`,
-      'year-2026'
-    );
-    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
-    const futureMonthNote = makeDailyNote(
-      'daily-sep',
-      '2026-09-01',
-      'month-september',
-      'September'
-    );
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const early = makeDailyNote('daily-early', dayInMonth(TODAY, 2), 'month');
+    const late = makeDailyNote('daily-late', dayInMonth(TODAY, 27), 'month');
     const { vault, query, membershipSelector, workspace } = setup(
-      [currentMonthNote, futureMonthNote],
-      [dailyNotesRoot, year, august, september]
+      [early, late],
+      [dailyNotesRoot, year, month]
     );
 
-    const { container } = render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
+    const { container } = renderList({ vault, query, membershipSelector, workspace });
+
+    const dayNumbers = Array.from(container.querySelectorAll('.date-label__date')).map(
+      (el) => el.textContent
     );
 
-    // The plain chronological sort (sortRenderedSections alone) would put
-    // September first — splitting the current month out and rendering it
-    // directly under the calendar must override that.
-    expect(screen.queryByText(/August/)).toBeNull();
-    expect(screen.queryByText(/September/)).not.toBeNull();
-
-    const dayNumbers = Array.from(
-      container.querySelectorAll('.date-label__date')
-    ).map((el) => el.textContent);
-
-    expect(dayNumbers).toEqual(['15', '1']);
+    expect(dayNumbers).toEqual([2, 27].sort((a, b) => a - b).map((n) => String(n)));
   });
 
-  it('orders current, future, then past — matching the product mockup', () => {
+  it('groups every other month under "All Daily Notes", oldest to newest, once expanded', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const august = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
+
+    const pastMonthIso = addMonths(TODAY, -1);
+    const futureMonthIso = addMonths(TODAY, 1);
+
+    const pastYear = makeFolder('year-past', `${ROOT}/Daily Notes/${yearOf(pastMonthIso)}`, 'root');
+    const currentYear = makeFolder('year-current', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const futureYear = makeFolder(
+      'year-future',
+      `${ROOT}/Daily Notes/${yearOf(futureMonthIso)}`,
+      'root'
     );
-    const september = makeFolder(
-      'month-september',
-      `${ROOT}/Daily Notes/2026/September`,
-      'year-2026'
-    );
-    const july = makeFolder(
-      'month-july',
-      `${ROOT}/Daily Notes/2026/July`,
-      'year-2026'
-    );
-    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
-    const futureMonthNote = makeDailyNote(
-      'daily-sep',
-      '2026-09-01',
-      'month-september',
-      'September'
-    );
-    const pastMonthNote = makeDailyNote(
-      'daily-jul',
-      '2026-07-31',
-      'month-july',
-      'July'
-    );
+
+    const pastMonth = makeMonthFolder('month-past', pastMonthIso, 'year-past');
+    const currentMonth = makeMonthFolder('month-current', TODAY, 'year-current');
+    const futureMonth = makeMonthFolder('month-future', futureMonthIso, 'year-future');
+
+    const pastNote = makeDailyNote('daily-past', dayInMonth(pastMonthIso, 28), 'month-past');
+    const currentNote = makeDailyNote('daily-current', dayInMonth(TODAY, 15), 'month-current');
+    const futureNote = makeDailyNote('daily-future', dayInMonth(futureMonthIso, 2), 'month-future');
+
     const { vault, query, membershipSelector, workspace } = setup(
-      [currentMonthNote, futureMonthNote, pastMonthNote],
-      [dailyNotesRoot, year, august, september, july]
+      [pastNote, currentNote, futureNote],
+      [dailyNotesRoot, pastYear, currentYear, futureYear, pastMonth, currentMonth, futureMonth]
     );
 
-    const { container } = render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
+    const { container } = renderList({ vault, query, membershipSelector, workspace });
+
+    // Only the current month's rows are visible initially; the other two
+    // months are inside the collapsed "All Daily Notes".
+    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
+    expect(screen.queryByText(monthNameOf(futureMonthIso), { exact: false })).toBeNull();
+    expect(screen.getByText('All Daily Notes')).toBeInTheDocument();
+
+    expandAllDailyNotes();
+
+    const headerTitles = Array.from(container.querySelectorAll('.section-header')).map(
+      (el) => el.textContent
     );
 
-    // Only August (the current month) has no heading — September (future)
-    // and July (past) both keep theirs, in their original relative order.
-    expect(screen.queryByText(/August/)).toBeNull();
-
-    const headerTitles = Array.from(
-      container.querySelectorAll('.section-header')
-    ).map((el) => el.textContent);
-    expect(headerTitles[0]).toMatch(/September/);
-    expect(headerTitles[1]).toMatch(/July/);
-
-    const dayNumbers = Array.from(
-      container.querySelectorAll('.date-label__date')
-    ).map((el) => el.textContent);
-    expect(dayNumbers).toEqual(['15', '1', '31']);
+    // "All Daily Notes" itself, then its two month sub-headings, oldest to
+    // newest — no current/future/past partitioning.
+    expect(headerTitles).toEqual([
+      'All Daily Notes',
+      expect.stringContaining(monthNameOf(pastMonthIso)),
+      expect.stringContaining(monthNameOf(futureMonthIso)),
+    ]);
   });
 
-  it('a past year\'s months carry the year right in their own heading — no separate, standalone year heading', () => {
+  it("a month in a different year than today carries its own year in the heading — no separate, standalone year heading", () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year2026 = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const august = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
+    const pastYearMonthIso = addMonths(TODAY, -14); // guaranteed a different calendar year
+    const pastYear = makeFolder(
+      'year-past',
+      `${ROOT}/Daily Notes/${yearOf(pastYearMonthIso)}`,
+      'root'
     );
-    const july2026 = makeFolder(
-      'month-july-2026',
-      `${ROOT}/Daily Notes/2026/July`,
-      'year-2026'
-    );
-    const year2025 = makeFolder('year-2025', `${ROOT}/Daily Notes/2025`, 'root');
-    const november2025 = makeFolder(
-      'month-november-2025',
-      `${ROOT}/Daily Notes/2025/November`,
-      'year-2025'
-    );
-    const july2025 = makeFolder(
-      'month-july-2025',
-      `${ROOT}/Daily Notes/2025/July`,
-      'year-2025'
-    );
+    const currentYear = makeFolder('year-current', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const currentMonth = makeMonthFolder('month-current', TODAY, 'year-current');
+    const pastYearMonth = makeMonthFolder('month-past-year', pastYearMonthIso, 'year-past');
 
-    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
-    const currentYearPastMonthNote = makeDailyNote(
-      'daily-jul-2026',
-      '2026-07-31',
-      'month-july-2026',
-      'July'
+    const currentNote = makeDailyNote('daily-current', dayInMonth(TODAY, 15), 'month-current');
+    const pastYearNote = makeDailyNote(
+      'daily-past-year',
+      dayInMonth(pastYearMonthIso, 10),
+      'month-past-year'
     );
-    const november2025Note = {
-      ...makeDailyNote('daily-nov-2025', '2025-11-30', 'month-november-2025', 'November'),
-      path: `${ROOT}/Daily Notes/2025/November/2025-11-30.md`,
-    };
-    const july2025Note = {
-      ...makeDailyNote('daily-jul-2025', '2025-07-15', 'month-july-2025', 'July'),
-      path: `${ROOT}/Daily Notes/2025/July/2025-07-15.md`,
-    };
 
     const { vault, query, membershipSelector, workspace } = setup(
-      [currentMonthNote, currentYearPastMonthNote, november2025Note, july2025Note],
-      [
-        dailyNotesRoot,
-        year2026,
-        august,
-        july2026,
-        year2025,
-        november2025,
-        july2025,
-      ]
+      [currentNote, pastYearNote],
+      [dailyNotesRoot, pastYear, currentYear, currentMonth, pastYearMonth]
     );
 
-    const { container } = render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    renderList({ vault, query, membershipSelector, workspace });
+    expandAllDailyNotes();
 
-    // No standalone "2025" (or "2026") heading anywhere — 2026 is the
-    // current year, so its month needs no year at all; 2025's months carry
-    // "2025" as part of their own heading text instead of a separate row.
-    expect(screen.queryByText('2026', { exact: true })).toBeNull();
-    expect(screen.queryByText('2025', { exact: true })).toBeNull();
+    expect(screen.queryByText(yearOf(pastYearMonthIso), { exact: true })).toBeNull();
+    expect(screen.getByText(new RegExp(yearOf(pastYearMonthIso)))).toBeInTheDocument();
+  });
+});
 
-    const headerTitles = Array.from(
-      container.querySelectorAll('.section-header')
-    ).map((el) => el.textContent);
-    expect(headerTitles).toEqual(['July', 'Nov 2025', 'Jul 2025']);
+describe('DailyNotesList — virtual Today entry (Today is always represented)', () => {
+  it('renders a placeholder-styled row for today when no real page or draft exists for it yet', () => {
+    const { vault, query, membershipSelector, workspace } = setup([], []);
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText('Start typing...')).toBeInTheDocument();
   });
 
-  it('keeps the current year together, directly after the current month, even when a future year exists — not a single global date sort', () => {
+  it('does not duplicate today when a real draft for today already exists', async () => {
+    const { pageOperations, vault, query, membershipSelector, workspace } = setup([], []);
+
+    await pageOperations.openAtPath(
+      `${ROOT}/Daily Notes/${TODAY_YEAR}/${TODAY_MONTH_NAME}/${TODAY}.md`,
+      { type: 'daily-note' }
+    );
+
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getAllByText('Start typing...')).toHaveLength(1);
+  });
+
+  it("clicking the virtual Today row calls onOpenDate with today's date, not onOpen/onOpenDraft", () => {
+    const { vault, query, membershipSelector, workspace } = setup([], []);
+
+    const onOpen = vi.fn();
+    const onOpenDraft = vi.fn();
+    const onOpenDate = vi.fn();
+
+    renderList({ vault, query, membershipSelector, workspace, onOpen, onOpenDraft, onOpenDate });
+
+    fireEvent.click(screen.getByText('Start typing...'));
+
+    expect(onOpenDate).toHaveBeenCalledWith(TODAY);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(onOpenDraft).not.toHaveBeenCalled();
+  });
+
+  it('the virtual Today row has no overflow menu', () => {
+    const { vault, query, membershipSelector, workspace } = setup([], []);
+
+    const rowActions = {
+      openMenuId: null,
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      onArchiveNote: vi.fn(),
+      onDeleteNote: vi.fn(),
+      onToggleFavoriteNote: vi.fn(),
+    };
+
+    const { container } = renderList({ vault, query, membershipSelector, workspace, rowActions });
+
+    expect(container.querySelector('[data-testid*="overflow"]')).toBeNull();
+  });
+});
+
+describe('DailyNotesList — "All Daily Notes" collapsed state (session-scoped via Workspace)', () => {
+  function setupWithPastMonth() {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year2026 = makeFolder('year-2026', `${ROOT}/Daily Notes/2026`, 'root');
-    const august = makeFolder(
-      'month-august',
-      `${ROOT}/Daily Notes/2026/August`,
-      'year-2026'
-    );
-    const july2026 = makeFolder(
-      'month-july-2026',
-      `${ROOT}/Daily Notes/2026/July`,
-      'year-2026'
-    );
-    const year2027 = makeFolder('year-2027', `${ROOT}/Daily Notes/2027`, 'root');
-    const march2027 = makeFolder(
-      'month-march-2027',
-      `${ROOT}/Daily Notes/2027/March`,
-      'year-2027'
-    );
-    const year2025 = makeFolder('year-2025', `${ROOT}/Daily Notes/2025`, 'root');
-    const november2025 = makeFolder(
-      'month-november-2025',
-      `${ROOT}/Daily Notes/2025/November`,
-      'year-2025'
-    );
+    const currentYear = makeFolder('year-current', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const currentMonth = makeMonthFolder('month-current', TODAY, 'year-current');
+    const currentNote = makeDailyNote('daily-current', dayInMonth(TODAY, 15), 'month-current');
 
-    const currentMonthNote = makeDailyNote('daily-aug', '2026-08-15', 'month-august');
-    const currentYearPastMonthNote = makeDailyNote(
-      'daily-jul-2026',
-      '2026-07-31',
-      'month-july-2026',
-      'July'
-    );
-    const march2027Note = {
-      ...makeDailyNote('daily-mar-2027', '2027-03-10', 'month-march-2027', 'March'),
-      path: `${ROOT}/Daily Notes/2027/March/2027-03-10.md`,
-    };
-    const november2025Note = {
-      ...makeDailyNote('daily-nov-2025', '2025-11-30', 'month-november-2025', 'November'),
-      path: `${ROOT}/Daily Notes/2025/November/2025-11-30.md`,
-    };
+    const pastMonthIso = addMonths(TODAY, -1);
+    const pastYearId = yearOf(pastMonthIso) === TODAY_YEAR ? 'year-current' : 'year-past';
+    const pastYear = makeFolder('year-past', `${ROOT}/Daily Notes/${yearOf(pastMonthIso)}`, 'root');
+    const pastMonth = makeMonthFolder('month-past', pastMonthIso, pastYearId);
+    const pastNote = makeDailyNote('daily-past', dayInMonth(pastMonthIso, 10), 'month-past');
 
-    const { vault, query, membershipSelector, workspace } = setup(
-      [currentMonthNote, currentYearPastMonthNote, march2027Note, november2025Note],
-      [
-        dailyNotesRoot,
-        year2026,
-        august,
-        july2026,
-        year2027,
-        march2027,
-        year2025,
-        november2025,
-      ]
-    );
+    const folders = [dailyNotesRoot, currentYear, currentMonth, pastMonth];
+    if (pastYearId === 'year-past') {
+      folders.push(pastYear);
+    }
 
-    const { container } = render(
-      <DailyNotesList
-        vault={vault}
-        query={query}
-        membershipSelector={membershipSelector}
-        workspace={workspace}
-        onOpen={vi.fn()}
-        onOpenDraft={vi.fn()}
-        onOpenFolder={vi.fn()}
-      />
-    );
+    return { ...setup([currentNote, pastNote], folders), pastMonthIso };
+  }
 
-    // A plain global descending date sort would put March 2027 (a later
-    // date) above July (2026, the current year's remaining month) — the
-    // current year must stay together right after the current month
-    // regardless of any later year existing.
-    const headerTitles = Array.from(
-      container.querySelectorAll('.section-header')
-    ).map((el) => el.textContent);
-    expect(headerTitles).toEqual(['July', 'Mar 2027', 'Nov 2025']);
+  it('starts collapsed on first render — only the current month is visible', () => {
+    const { vault, query, membershipSelector, workspace, pastMonthIso } = setupWithPastMonth();
 
-    const dayNumbers = Array.from(
-      container.querySelectorAll('.date-label__date')
-    ).map((el) => el.textContent);
-    expect(dayNumbers).toEqual(['15', '31', '10', '30']);
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText('All Daily Notes')).toBeInTheDocument();
+    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
+  });
+
+  it('expanding reveals the grouped months', () => {
+    const { vault, query, membershipSelector, workspace, pastMonthIso } = setupWithPastMonth();
+
+    renderList({ vault, query, membershipSelector, workspace });
+    expandAllDailyNotes();
+
+    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+  });
+
+  it('stays expanded across a remount that reuses the same Workspace (e.g. switching sidebar tabs and back)', () => {
+    const { vault, query, membershipSelector, workspace, pastMonthIso } = setupWithPastMonth();
+
+    const { unmount } = renderList({ vault, query, membershipSelector, workspace });
+    expandAllDailyNotes();
+    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+
+    // Simulate a sidebar tab switch: DailyNotesList unmounts entirely
+    // (Sidebar.tsx renders only the active tab's panel), then remounts
+    // with the same, still-live Workspace instance.
+    unmount();
+    renderList({ vault, query, membershipSelector, workspace });
+
+    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+  });
+
+  it('resets to collapsed only when a new Workspace is constructed (app restart)', () => {
+    const { vault, query, membershipSelector, workspace, pastMonthIso } = setupWithPastMonth();
+
+    const { unmount } = renderList({ vault, query, membershipSelector, workspace });
+    expandAllDailyNotes();
+    expect(screen.getByText(monthNameOf(pastMonthIso), { exact: false })).toBeInTheDocument();
+    unmount();
+
+    // A fresh Workspace — same as Application constructing `new Workspace()`
+    // at boot — has no memory of the prior session's expand action.
+    const freshWorkspace = new Workspace();
+    renderList({ vault, query, membershipSelector, workspace: freshWorkspace });
+
+    expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
   });
 });

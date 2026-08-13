@@ -11,11 +11,17 @@ type Unsubscribe = () => void;
  * with what's Durable (a Vault page) — ADR-020's merge contract, Categories
  * 1-4. The complete, deliberately minimal read model for page-list
  * rendering (ADR-020's M3 amendment) — a presentation read model, not a
- * second domain model: `description`/`icon` are the only Category 2/4
- * fields included, because they're the only ones a page-list row needs to
- * render without a second Vault read. `Page`'s `analysis`, timestamps,
- * `path`, `favorite`, and `status` are deliberately excluded; add a field
+ * second domain model: `description`/`icon`/`favorite` are the only
+ * Category 2/4 fields included, because they're the only ones a page-list
+ * row needs to render without a second Vault read. `Page`'s `analysis`,
+ * timestamps, `path`, and `status` are deliberately excluded; add a field
  * only when a shipped consumer demonstrably needs it, never speculatively.
+ * `favorite` was added for the sidebar's per-row Favorite/Unfavorite menu
+ * item, which needs current state to pick its label — same exception
+ * ARCHITECTURE_RULES.md rule 13 already documents for getFavoritePages():
+ * a draft never has a persisted `favorite` (PageMetadata field, no
+ * DraftDescriptor equivalent), so it always resolves to `false`
+ * pre-promotion.
  */
 export interface EffectivePage {
   readonly id: string;
@@ -26,6 +32,7 @@ export interface EffectivePage {
   readonly description: string | null;
   readonly markdown: string;
   readonly icon: string | null;
+  readonly favorite: boolean;
 }
 
 /**
@@ -211,6 +218,7 @@ export class EffectivePageState {
       description: page ? page.metadata.description : null,
       markdown: session ? session.currentRevision.markdown : (page ? page.source.markdown : ''),
       icon: page ? page.metadata.icon : null,
+      favorite: page ? page.metadata.favorite : false,
     };
   }
 

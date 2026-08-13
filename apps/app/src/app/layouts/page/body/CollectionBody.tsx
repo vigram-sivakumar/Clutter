@@ -27,7 +27,7 @@ export function CollectionBody({
   notes = [],
 }: CollectionBodyProps) {
   return (
-    <PageBody>
+    <PageBody className="collection__content">
       {folders.map(renderEntry)}
       {notes.map(renderEntry)}
     </PageBody>

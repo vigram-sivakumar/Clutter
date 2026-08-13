@@ -1,6 +1,11 @@
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import type { FolderMetadata } from '@core/vault/models/FolderMetadata';
-import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
+import {
+  ARCHIVE_ACTION_LABEL,
+  DELETE_ACTION_LABEL,
+  FAVORITE_ACTION_LABEL,
+  UNFAVORITE_ACTION_LABEL,
+} from '@core/presentation/resourceActionLabels';
 
 /**
  * 'archive' is status-dependent (ADR-026): shown for an active folder,
@@ -22,13 +27,25 @@ import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/re
  * conditionally omitted rather than disabled — an archived folder is
  * never reachable through this menu at all, so 'move-to' needs no
  * archived-guard here beyond the Gate's own.
+ *
+ * 'toggle-favorite' now backs FolderOperations.updateMetadata({ favorite }),
+ * the same id and shared-operation pattern the topbar's folder favorite
+ * control and every Note/Daily Note favorite entry point use — one
+ * capability, one Gate kind ('update-folder-metadata'), several UI entry
+ * points into the same call.
  */
 export function buildFolderSidebarMenu(
-  status: FolderMetadata['status']
+  status: FolderMetadata['status'],
+  isFavorite: boolean = false
 ): OverflowMenuItemConfig[] {
   const items: OverflowMenuItemConfig[] = [
     { id: 'rename', label: 'Rename', icon: 'notePencil' },
     { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
+    {
+      id: 'toggle-favorite',
+      label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
+      icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
+    },
   ];
 
   if (status !== 'archived') {

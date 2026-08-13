@@ -8,6 +8,7 @@ import type { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { FieldEditState } from '../../engine/FieldEditState';
 import { DocumentState } from '../../engine/DocumentState';
 import type { Folder } from '../../vault/models/Folder';
+import type { FolderMetadata } from '../../vault/models/FolderMetadata';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
 
 /**
@@ -364,6 +365,31 @@ export class FolderOperations {
 
     if (result.status !== 'folder-restored' && result.status !== 'abandoned') {
       throw new Error(`Failed to restore folder ${folderId}: ${result.status}`);
+    }
+  }
+
+  /**
+   * Metadata-only patch, backed by the Gate's 'update-folder-metadata'
+   * kind — the folder-scoped counterpart to
+   * PageOperations.updateMetadata(). Scoped to `favorite` only (not
+   * PageOperations' full description/icon/cover/favorite set): that's the
+   * only folder metadata field with a shipped writer today; widen the
+   * patch type when a real caller needs another field, not speculatively.
+   * No existence check of its own, same reasoning as archive()/restore()
+   * above — the Gate's own dequeue-time guard abandons it if the folder is
+   * gone by the time this dequeues.
+   */
+  public async updateMetadata(
+    folderId: string,
+    patch: Partial<Pick<FolderMetadata, 'favorite'>>
+  ): Promise<void> {
+    const result = await this.coordinator.enqueue(folderId, {
+      kind: 'update-folder-metadata',
+      metadata: patch,
+    });
+
+    if (result.status !== 'folder-metadata-updated' && result.status !== 'abandoned') {
+      throw new Error(`Failed to update folder ${folderId}: ${result.status}`);
     }
   }
 

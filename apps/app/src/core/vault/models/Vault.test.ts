@@ -455,6 +455,62 @@ describe('Vault.replacePage: type is recomputed from the final path', () => {
   });
 });
 
+describe('Vault.updateFolderMetadata', () => {
+  it('patches the given fields, leaving the rest of metadata untouched', () => {
+    const folder = makeFolder({
+      id: 'folder-1',
+      path: '/vault/Projects',
+      metadata: { ...defaultFolderMetadata, icon: 'star' },
+    });
+    const vault = makeVault([], [folder]);
+
+    vault.updateFolderMetadata('folder-1', { favorite: true });
+
+    const updated = vault.getFolder('folder-1')!;
+    expect(updated.metadata.favorite).toBe(true);
+    expect(updated.metadata.icon).toBe('star');
+  });
+
+  it('does not change path or parentId', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects', parentId: null });
+    const vault = makeVault([], [folder]);
+
+    vault.updateFolderMetadata('folder-1', { favorite: true });
+
+    const updated = vault.getFolder('folder-1')!;
+    expect(updated.path).toBe('/vault/Projects');
+    expect(updated.parentId).toBeNull();
+  });
+
+  it('emits a folder-changed event, not folder-moved', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+    const vault = makeVault([], [folder]);
+    const events: unknown[] = [];
+    vault.subscribe((event) => events.push(event));
+
+    vault.updateFolderMetadata('folder-1', { favorite: true });
+
+    expect(events).toEqual([{ type: 'folder-changed', folderId: 'folder-1' }]);
+  });
+
+  it('remains reachable by path after the patch (foldersByPath index stays consistent)', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+    const vault = makeVault([], [folder]);
+
+    vault.updateFolderMetadata('folder-1', { favorite: true });
+
+    expect(vault.getFolderByPath('/vault/Projects')?.id).toBe('folder-1');
+  });
+
+  it('throws for an unknown folder id', () => {
+    const vault = makeVault([], []);
+
+    expect(() => vault.updateFolderMetadata('does-not-exist', { favorite: true })).toThrow(
+      /Unknown folder/
+    );
+  });
+});
+
 describe('moveFolder cascade', () => {
   it('updates folder path, child folder path, page path, and page parentId', () => {
     const { projects, design, notes } = makeProjectsHierarchy();

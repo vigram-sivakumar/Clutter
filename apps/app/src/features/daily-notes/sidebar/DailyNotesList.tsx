@@ -6,7 +6,8 @@ import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { Section } from '@app/layouts/sidebar/section/Section';
-import { formatDate, isCurrentMonth, isCurrentYear, isToday } from '@shared/helpers/time';
+import { formatDate, isCurrentYear, isToday } from '@shared/helpers/time';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { ISODate } from '@shared/helpers/time/types';
 import {
   getPageDisplayLabel,
@@ -15,6 +16,14 @@ import {
 
 import { DailyNote } from './DailyNote';
 import { buildDailyNoteSidebarMenu } from './dailyNoteSidebarMenu.config';
+import { Entry } from '@components/entry/Entry';
+import { AppIcon } from '@shared/icon';
+
+// The Workspace session-state id for the "All Daily Notes" collapsible
+// section (see Workspace.collapsedSectionIds) — seeded collapsed there by
+// default, unlike every other section id, so Daily Notes shows only the
+// current month on first render each session.
+const ALL_DAILY_NOTES_SECTION_ID = 'daily-notes-all';
 
 interface RealMonthSection {
   monthFolder: Folder;
@@ -29,8 +38,14 @@ interface RealMonthSection {
 interface RenderedMonthSection {
   monthFolder: Folder | null;
   monthIsoDate: ISODate;
-  pages: EffectivePage[];
+  pages: TimelineEntry[];
 }
+
+// A page-shaped timeline row. Real and draft entries come straight from
+// MembershipSelector; isVirtual marks the one synthetic exception built by
+// buildVirtualTodayEntry, so click routing can tell the two apart without
+// a second, parallel entry type.
+type TimelineEntry = EffectivePage & { isVirtual?: boolean };
 
 /**
  * Single owner of "which Daily Note row's overflow menu is open," supplied
@@ -46,6 +61,14 @@ export interface DailyNoteRowActions {
 
   onArchiveNote(pageId: string): void;
   onDeleteNote(pageId: string): void;
+  /**
+   * Same PageOperations.updateMetadata({ favorite }) call the sidebar
+   * Notes tree's onToggleFavoriteNote and the topbar's favorite control
+   * all dispatch to — one operation, three entry points. Takes the row's
+   * current favorite state (rather than looking it up itself) since the
+   * caller already has it from the EffectivePage entry being rendered.
+   */
+  onToggleFavoriteNote(pageId: string, isFavorite: boolean): void;
 }
 
 interface DailyNotesListProps {
@@ -67,12 +90,22 @@ interface DailyNotesListProps {
    * Same reasoning as FolderTree's onDraftPageClick.
    */
   onOpenDraft(pageId: string): void;
-  onOpenFolder(folderId: string): void;
+  /**
+   * Opens (creating a draft if needed) the Daily Note for an arbitrary
+   * date — the same call Application.openFallbackPage() makes for today
+   * at boot (via Sidebar.tsx). Used only for the virtual Today row's
+   * click, since it has no real page/draft id yet to route through
+   * onOpen/onOpenDraft.
+   */
+  onOpenDate(date: string): void;
   /** Overflow-menu/rename wiring — see DailyNoteRowActions. */
   rowActions?: DailyNoteRowActions;
 }
 
-function collectRealMonthSections(vault: Vault, query: VaultQuery): RealMonthSection[] {
+function collectRealMonthSections(
+  vault: Vault,
+  query: VaultQuery
+): RealMonthSection[] {
   const root = vault.getReservedFolder('daily-notes');
 
   if (!root) {
@@ -118,8 +151,40 @@ function monthIsoDateFromDailyNoteName(name: string): ISODate {
   return `${name.slice(0, 7)}-01`;
 }
 
-function sortRenderedSections(sections: RenderedMonthSection[]): RenderedMonthSection[] {
-  return sections.sort((a, b) => b.monthIsoDate.localeCompare(a.monthIsoDate));
+// Ascending — the whole list is one chronological timeline, oldest first;
+// a month heading is only a visual marker inserted where the timeline
+// crosses into a new month, never an independently ordered container.
+function sortRenderedSections(
+  sections: RenderedMonthSection[]
+): RenderedMonthSection[] {
+  return sections.sort((a, b) => a.monthIsoDate.localeCompare(b.monthIsoDate));
+}
+
+// Application.openFallbackPage() unconditionally opens/reuses a draft for
+// today at boot, which is how today's row already appears in the common
+// case (it flows through membershipSelector.getDailyNoteChildPages like
+// any other draft) — but that call is fire-and-forget, so there's a real
+// window where DailyNotesList can render before it resolves. This
+// synthetic, render-only entry closes that gap without touching
+// PageOperations/Vault/drafts: it never gets a real id, is never
+// persisted, and simply stops being built once a real page/draft for
+// today exists.
+function buildVirtualTodayEntry(
+  todayIso: ISODate,
+  folderId: string | null
+): TimelineEntry {
+  return {
+    id: `virtual-today:${todayIso}`,
+    type: 'daily-note',
+    folderId,
+    isDraft: true,
+    name: todayIso,
+    description: null,
+    markdown: '',
+    icon: null,
+    favorite: false,
+    isVirtual: true,
+  };
 }
 
 // A month in the current year needs no year suffix (the calendar already
@@ -140,12 +205,15 @@ export function DailyNotesList({
   workspace,
   onOpen,
   onOpenDraft,
-  onOpenFolder,
+  onOpenDate,
   rowActions,
 }: DailyNotesListProps) {
   const sectionsByMonth = new Map<ISODate, RenderedMonthSection>();
 
-  for (const { monthFolder, monthIsoDate } of collectRealMonthSections(vault, query)) {
+  for (const { monthFolder, monthIsoDate } of collectRealMonthSections(
+    vault,
+    query
+  )) {
     sectionsByMonth.set(monthIsoDate, {
       monthFolder,
       monthIsoDate,
@@ -165,14 +233,51 @@ export function DailyNotesList({
     if (existing) {
       existing.pages = [...existing.pages, page];
     } else {
-      sectionsByMonth.set(monthIsoDate, { monthFolder: null, monthIsoDate, pages: [page] });
+      sectionsByMonth.set(monthIsoDate, {
+        monthFolder: null,
+        monthIsoDate,
+        pages: [page],
+      });
     }
   }
 
+  // Today must always be represented (existing behavior — see
+  // Application.openFallbackPage). Fold in the virtual entry here, before
+  // sorting/filtering, so it's indistinguishable from a real entry to
+  // every step that follows.
+  const todayIso = toISODate(new Date());
+  const currentMonthIso = monthIsoDateFromDailyNoteName(todayIso);
+  const currentMonthDraftSection = sectionsByMonth.get(currentMonthIso);
+  const hasTodayEntry =
+    currentMonthDraftSection?.pages.some((page) => isToday(page.name)) ?? false;
+
+  if (!hasTodayEntry) {
+    const virtualToday = buildVirtualTodayEntry(
+      todayIso,
+      currentMonthDraftSection?.monthFolder?.id ?? null
+    );
+
+    if (currentMonthDraftSection) {
+      currentMonthDraftSection.pages = [
+        ...currentMonthDraftSection.pages,
+        virtualToday,
+      ];
+    } else {
+      sectionsByMonth.set(currentMonthIso, {
+        monthFolder: null,
+        monthIsoDate: currentMonthIso,
+        pages: [virtualToday],
+      });
+    }
+  }
+
+  // One chronological timeline, oldest to newest — a month heading is only
+  // a visual marker at each month boundary, never an independent ordering
+  // container. No current-month/current-year/other-years partitioning.
   const sections = sortRenderedSections(Array.from(sectionsByMonth.values()))
     .map((section) => ({
       ...section,
-      pages: section.pages.sort((a, b) => b.name.localeCompare(a.name)),
+      pages: section.pages.sort((a, b) => a.name.localeCompare(b.name)),
     }))
     // A month section with no Daily Notes in it has nothing to show — a
     // permanent presentation rule, independent of how the month folder
@@ -180,119 +285,109 @@ export function DailyNotesList({
     // DailyNoteService.ensureFolderChain — ADR-019).
     .filter(({ pages }) => pages.length > 0);
 
-  // Three consecutive sections, concatenated — not one global date sort.
-  // A single descending sort across every month would put any future
-  // year's month (e.g. March 2027) above the current year's own remaining
-  // months (e.g. July 2026), which is wrong: the current year must stay
-  // together, directly under the current month, regardless of how many
-  // future years exist. sortRenderedSections' descending order is still
-  // what each partition individually needs (newest-first within the
-  // current year, then newest-year-first across the rest) — filtering it
-  // into three groups and concatenating preserves that relative order
-  // within each group without re-sorting.
-  const currentMonthSection = sections.find((section) =>
-    isCurrentMonth(section.monthIsoDate)
+  // The calendar above this list already identifies the current month, so
+  // its rows render directly, unheaded — "current" is a lookup against the
+  // chronological timeline, not a sorting rule. Every other month goes
+  // under "All Daily Notes", in the same chronological order the timeline
+  // already produced (a plain filter, not a second sort/partition).
+  const currentMonthSection = sections.find(
+    (section) => section.monthIsoDate === currentMonthIso
   );
-  const currentYearRest = sections.filter(
-    (section) =>
-      section !== currentMonthSection && isCurrentYear(section.monthIsoDate)
+  const otherSections = sections.filter(
+    (section) => section !== currentMonthSection
   );
-  const otherYears = sections.filter(
-    (section) => !isCurrentYear(section.monthIsoDate)
-  );
-  const remainingSections = [...currentYearRest, ...otherYears];
 
-  const renderMonthSection = (
-    section: RenderedMonthSection,
-    hasHeader: boolean
-  ) => {
-    const monthFolder = section.monthFolder;
-    const key = monthFolder?.id ?? `unplaced:${section.monthIsoDate}`;
-    // Interactivity is content-driven, not folder-existence-driven — every
-    // rendered section already has at least one page by this point (the
-    // .filter above guarantees it), whether persisted or an in-memory draft
-    // (ADR-023). A missing Folder changes *how* expand state is tracked and
-    // where a click navigates, never *whether* the section is interactive:
-    // a folder-less section falls back to Workspace's generic, string-keyed
-    // section state (same mechanism renderTasksByDate.tsx uses for
-    // 'tasks-today'/'tasks-upcoming') using the same synthetic key used
-    // above, and to opening its one page directly (mirroring each row's own
-    // onClick just below) since there's no Folder to open a collection for.
-    const isExpanded = monthFolder
-      ? workspace.isFolderExpanded(monthFolder.id)
-      : workspace.isSectionExpanded(key);
+  const renderPages = (pages: TimelineEntry[]) =>
+    pages.map((entry) => {
+      const label = getPageDisplayLabel(entry);
 
-    const handleExpandedChange = monthFolder
-      ? () => workspace.toggleFolderExpanded(monthFolder.id)
-      : () => workspace.toggleSectionExpanded(key);
+      return (
+        <DailyNote
+          key={entry.id}
+          title={label.text}
+          titleStyle={getPageDisplayLabelStyle(label)}
+          date={entry.name}
+          isToday={isToday(entry.name)}
+          selected={workspace.activePageId === entry.id}
+          onClick={() => {
+            if (entry.isVirtual) {
+              return onOpenDate(entry.name);
+            }
 
-    const handleClick = monthFolder
-      ? () => onOpenFolder(monthFolder.id)
-      : () => {
-          // ADR-023: "at most one [unplaced] entry exists at a time" — see
-          // the comment above where these sections are built — so the
-          // section's own single page is the click target. section.pages
-          // is non-empty here (the .filter above guarantees every rendered
-          // section has at least one page), TypeScript just can't see that
-          // through the array index.
-          const onlyPage = section.pages[0]!;
-          return onlyPage.isDraft ? onOpenDraft(onlyPage.id) : onOpen(onlyPage.id);
-        };
-
-    return (
-      <Section
-        key={key}
-        hasHeader={hasHeader}
-        title={formatMonthSectionTitle(section.monthIsoDate)}
-        isCollapsible={section.pages.length > 0}
-        isExpanded={isExpanded}
-        onExpandedChange={handleExpandedChange}
-        // selected={workspace.activeFolderId === monthFolder?.id}
-        onClick={handleClick}
-      >
-        {section.pages.map((entry) => {
-          const label = getPageDisplayLabel(entry);
-
-          return (
-            <DailyNote
-              key={entry.id}
-              title={label.text}
-              titleStyle={getPageDisplayLabelStyle(label)}
-              date={entry.name}
-              isToday={isToday(entry.name)}
-              selected={workspace.activePageId === entry.id}
-              onClick={() =>
-                entry.isDraft ? onOpenDraft(entry.id) : onOpen(entry.id)
-              }
-              menuItems={rowActions ? buildDailyNoteSidebarMenu(entry.isDraft) : undefined}
-              menuOpen={rowActions?.openMenuId === entry.id}
-              onMenuOpenChange={
-                rowActions
-                  ? (open) => (open ? rowActions.onOpenMenu(entry.id) : rowActions.onCloseMenu())
-                  : undefined
-              }
-              onMenuSelect={
-                rowActions
-                  ? (id) => {
-                      if (id === 'archive') {
-                        rowActions.onArchiveNote(entry.id);
-                      } else if (id === 'delete') {
-                        rowActions.onDeleteNote(entry.id);
-                      }
-                    }
-                  : undefined
-              }
-            />
-          );
-        })}
-      </Section>
-    );
-  };
+            return entry.isDraft ? onOpenDraft(entry.id) : onOpen(entry.id);
+          }}
+          menuItems={
+            rowActions && !entry.isVirtual
+              ? buildDailyNoteSidebarMenu(entry.isDraft, entry.favorite)
+              : undefined
+          }
+          menuOpen={rowActions?.openMenuId === entry.id}
+          onMenuOpenChange={
+            rowActions && !entry.isVirtual
+              ? (open) =>
+                  open
+                    ? rowActions.onOpenMenu(entry.id)
+                    : rowActions.onCloseMenu()
+              : undefined
+          }
+          onMenuSelect={
+            rowActions && !entry.isVirtual
+              ? (id) => {
+                  if (id === 'archive') {
+                    rowActions.onArchiveNote(entry.id);
+                  } else if (id === 'delete') {
+                    rowActions.onDeleteNote(entry.id);
+                  } else if (id === 'toggle-favorite') {
+                    rowActions.onToggleFavoriteNote(entry.id, entry.favorite);
+                  }
+                }
+              : undefined
+          }
+        />
+      );
+    });
 
   return (
     <>
-      {currentMonthSection && renderMonthSection(currentMonthSection, false)}
-      {remainingSections.map((section) => renderMonthSection(section, true))}
+      {currentMonthSection && (
+        <Section>
+          {renderPages(currentMonthSection.pages)}
+
+          {otherSections.length > 0 && (
+            <Entry
+              className="tertiary"
+              leading={<AppIcon icon="moreHorizontal" />}
+              onClick={() =>
+                workspace.toggleSectionExpanded(ALL_DAILY_NOTES_SECTION_ID)
+              }
+            >
+              {workspace.isSectionExpanded(ALL_DAILY_NOTES_SECTION_ID)
+                ? 'See less'
+                : 'See more'}
+            </Entry>
+          )}
+        </Section>
+      )}
+
+      {otherSections.length > 0 &&
+        workspace.isSectionExpanded(ALL_DAILY_NOTES_SECTION_ID) && (
+          <Section>
+            {otherSections.map((section) => {
+              const key =
+                section.monthFolder?.id ?? `unplaced:${section.monthIsoDate}`;
+
+              return (
+                <Section
+                  key={key}
+                  hasHeader
+                  title={formatMonthSectionTitle(section.monthIsoDate)}
+                >
+                  {renderPages(section.pages)}
+                </Section>
+              );
+            })}
+          </Section>
+        )}
     </>
   );
 }

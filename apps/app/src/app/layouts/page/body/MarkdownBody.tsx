@@ -6,5 +6,5 @@ export interface MarkdownBodyProps {
 }
 
 export function MarkdownBody({ children }: MarkdownBodyProps) {
-  return <PageBody>{children}</PageBody>;
+  return <PageBody className="markdown__editor">{children}</PageBody>;
 }

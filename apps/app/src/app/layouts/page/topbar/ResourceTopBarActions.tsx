@@ -77,6 +77,22 @@ export interface ResourceTopBarActionsProps {
    * to MoveDestinationPicker, see its own doc comment for the full flow.
    */
   onCreateFolder?: (name: string) => Promise<string>;
+  /**
+   * Current favorite state for the standalone favorite icon button
+   * (below) — absent (undefined) renders the button unwired, exactly as
+   * every currently-unwired item already behaves (a reserved folder never
+   * reaches this component at all — ReservedFolderTopBarActions is a
+   * separate renderer).
+   */
+  isFavorite?: boolean;
+  /**
+   * Invoked by both the standalone favorite icon button and the overflow
+   * menu's `toggle-favorite` item (routed generically through `handlers`
+   * below, keyed by that same id) — one PageOperations.updateMetadata /
+   * FolderOperations.updateMetadata call (per resource type), two entry
+   * points into it, never two implementations.
+   */
+  onToggleFavorite?: () => void;
 }
 
 /**
@@ -103,6 +119,8 @@ export function ResourceTopBarActions({
   moveDestinations,
   onMove,
   onCreateFolder,
+  isFavorite,
+  onToggleFavorite,
 }: ResourceTopBarActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const confirmation = useConfirmationSurface();
@@ -136,8 +154,13 @@ export function ResourceTopBarActions({
 
   return (
     <>
-      <Button size="medium" isIconOnly>
-        <AppIcon icon={'favouriteOutline'} />
+      <Button
+        size="medium"
+        isIconOnly
+        onClick={onToggleFavorite}
+        aria-label={isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+      >
+        <AppIcon icon={isFavorite ? 'favouriteFilled' : 'favouriteOutline'} />
       </Button>
       <Button size="medium" isIconOnly>
         <AppIcon icon={'widthFill'} />

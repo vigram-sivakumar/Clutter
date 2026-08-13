@@ -128,6 +128,16 @@ export function PageHost({ application }: PageHostProps) {
     void duplicateAndOpenPage(application.pageOperations, activePageId);
   };
 
+  const onToggleFavorite = (): void => {
+    if (!activePageId || !page) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, {
+      favorite: !page.metadata.favorite,
+    });
+  };
+
   const onMoveNote = (destinationFolderId: string | null): void => {
     if (!activePageId) {
       return;
@@ -203,6 +213,10 @@ export function PageHost({ application }: PageHostProps) {
       onArchive: () => void application.folderOperations.archive(folder.id),
       onRestore: () => void application.folderOperations.restore(folder.id),
       onDelete: () => void application.folderOperations.delete(folder.id),
+      onToggleFavorite: () =>
+        void application.folderOperations.updateMetadata(folder.id, {
+          favorite: !folder.metadata.favorite,
+        }),
       archiveConfirmationMessage: archiveConfirmation.hasDescendants
         ? archiveConfirmation.message
         : undefined,
@@ -227,6 +241,8 @@ export function PageHost({ application }: PageHostProps) {
 
     return (
       <Page
+        isSidebarVisible={workspace.isSidebarVisible}
+        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         title={model.title}
         description={model.description}
         titleEditable={isRenameable}
@@ -256,6 +272,8 @@ export function PageHost({ application }: PageHostProps) {
 
     return (
       <Page
+        isSidebarVisible={workspace.isSidebarVisible}
+        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         title={getSystemLocationPresentation(view).label}
         titleEditable={false}
         breadcrumbs={<Breadcrumbs items={[]} />}
@@ -295,6 +313,8 @@ export function PageHost({ application }: PageHostProps) {
 
     return (
       <Page
+        isSidebarVisible={workspace.isSidebarVisible}
+        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         title={model.title}
         description={model.description}
         titleEditable={false}
@@ -342,7 +362,9 @@ export function PageHost({ application }: PageHostProps) {
 
     return (
       <Page
-        key={activePageId}
+        titleKey={activePageId}
+        isSidebarVisible={workspace.isSidebarVisible}
+        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
         title={model.title}
         description={model.description}
         titleEditable
@@ -359,6 +381,7 @@ export function PageHost({ application }: PageHostProps) {
         body={
           <MarkdownBody>
             <MarkdownEditor
+              key={activePageId}
               ref={editorRef}
               markdown={model.markdown}
               onEdit={(markdown) => model.updateMarkdown(markdown)}
@@ -400,6 +423,7 @@ export function PageHost({ application }: PageHostProps) {
     onRestore,
     onDelete,
     onDuplicate,
+    onToggleFavorite,
     moveDestinations:
       page.type === 'note'
         ? buildMoveDestinationItems(application.membershipSelector)
@@ -420,7 +444,9 @@ export function PageHost({ application }: PageHostProps) {
 
   return (
     <Page
-      key={activePageId}
+      titleKey={activePageId}
+      isSidebarVisible={workspace.isSidebarVisible}
+      onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
       title={model.title}
       description={model.description}
       titleEditable
@@ -434,6 +460,7 @@ export function PageHost({ application }: PageHostProps) {
       body={
         <MarkdownBody>
           <MarkdownEditor
+            key={activePageId}
             ref={editorRef}
             markdown={model.markdown}
             onEdit={(markdown) => model.updateMarkdown(markdown)}

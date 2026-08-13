@@ -54,6 +54,10 @@
   transform: translateX(-50%);
 }
 
+.calendar-cell--today.calendar-cell--selected .calendar-cell__dot {
+  background: var(--calendar-active-text);
+  opacity: var(--opacity-strong);
+}
 .calendar-cell__dot {
   display: block;
   width: 4px;

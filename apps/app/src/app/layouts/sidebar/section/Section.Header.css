@@ -4,7 +4,7 @@
 /* actions */
 .section-header__caret {
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: opacity 300ms ease;
 }
 
 .entry:hover .section-header__caret,
@@ -12,18 +12,11 @@
   opacity: 1;
 }
 
-.section-header__content,
-.section-header__toggle {
+.section-header__content {
   display: flex;
   align-items: center;
+}
+.section-header__content-toggle {
   cursor: pointer;
+  transition: color 300ms ease;
 }
-
-.section-header__toggle:hover .section-header__title,
-.section-header__toggle:hover .section-header__caret {
-  color: var(--foreground-secondary);
-}
-
-/* .section--expanded:hover .section-header__caret {
-  opacity: 1;
-} */

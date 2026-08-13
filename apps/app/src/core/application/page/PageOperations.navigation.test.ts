@@ -23,6 +23,7 @@ import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
 import { FolderCreator } from '../folder/FolderCreator';
 import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import { DailyNotePath } from '../../vault/ingest/DailyNotePath';
+import { NavigationRouter } from '../navigation/NavigationRouter';
 import type { Page } from '../../vault/models/Page';
 
 const ROOT = '/vault';
@@ -215,17 +216,28 @@ describe('PageOperations.flushActivePage: discards an abandoned draft', () => {
     expect(workspace.openPages).toContain(draftId);
   });
 
-  it('discards an empty draft for a past Daily Note — normal discard policy applies', async () => {
-    const { pageOperations } = setup([buildPage('page-a', 'A')]);
+  it('a past Daily Note draft is retained, not discarded, once leaving it makes it a Back-target', async () => {
+    // Superseded expectation, updated deliberately: opening 'page-a' from
+    // the draft is an ordinary recorded navigation (ADR-027) — it pushes
+    // the draft onto backStack exactly like leaving any other recordable
+    // view does. Once that happens the draft is referenced by navigation
+    // history, so PageOperations.discardAbandonedDraft()'s new
+    // isReferencedInHistory() guard must keep it alive for Back/Forward,
+    // the same way today's-date retention already does for a different
+    // reason. This is no longer "normal discard policy applies" — a past
+    // Daily Note draft is discarded only once it stops being referenced by
+    // either history stack.
+    const { workspace, pageOperations } = setup([buildPage('page-a', 'A')]);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayPath = DailyNotePath.absoluteFrom(ROOT, yesterday);
     const draftId = await pageOperations.openAtPath(yesterdayPath, { type: 'daily-note' });
 
     await pageOperations.open('page-a');
-    await vi.waitFor(() => {
-      expect(pageOperations.getDraft(draftId)).toBeUndefined();
-    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(workspace.isReferencedInHistory(draftId)).toBe(true);
+    expect(pageOperations.getDraft(draftId)).toBeDefined();
   });
 
   it('never repurposes today\'s empty Daily Note draft when opening a different empty Daily Note — the full product scenario', async () => {
@@ -260,11 +272,12 @@ describe('PageOperations.flushActivePage: discards an abandoned draft', () => {
 
     // 5. Navigating away from the new draft (to a real, unrelated page —
     //    not another Daily Note, which would exercise reuse rather than
-    //    discard) discards it normally, via discardAbandonedDraft.
+    //    discard) is itself a recorded navigation, so `otherDraftId` is now
+    //    a Back-target and must be retained — updated deliberately, same
+    //    reasoning as the "past Daily Note draft is retained" test above.
     await pageOperations.open('page-a');
-    await vi.waitFor(() => {
-      expect(pageOperations.getDraft(otherDraftId)).toBeUndefined();
-    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pageOperations.getDraft(otherDraftId)).toBeDefined();
 
     // 6. Today's Daily Note draft is still present throughout.
     expect(pageOperations.getDraft(todayDraftId)).toBeDefined();
@@ -410,5 +423,275 @@ describe('FolderOperations.open: recordHistory pass-through (ADR-027)', () => {
 
     expect(workspace.canNavigateBack).toBe(false);
     expect(workspace.activeFolderId).toBe(vault.getFolderByPath(`${ROOT}/Projects`)!.id);
+  });
+});
+
+describe('PageOperations.open: reactivates a live draft (ADR-017)', () => {
+  it('reopens a live Daily Note draft that has no Vault entry, without throwing', async () => {
+    const { vault, workspace, pageOperations } = setup([buildPage('page-a', 'A')]);
+    const path = DailyNotePath.absoluteFrom(ROOT, new Date());
+    const draftId = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    // Navigate away, then reopen the draft directly by id — the exact
+    // shape NavigationRouter.commit() uses for a history replay.
+    await pageOperations.open('page-a');
+    expect(vault.getPage(draftId)).toBeUndefined(); // still unpersisted
+
+    await expect(pageOperations.open(draftId)).resolves.toBeUndefined();
+
+    expect(workspace.activePageId).toBe(draftId);
+  });
+
+  it('still throws "Page not found" for an id that is neither a Vault page nor a live draft', async () => {
+    const { pageOperations } = setup([buildPage('page-a', 'A')]);
+
+    await expect(pageOperations.open('genuinely-unknown-id')).rejects.toThrow(
+      'Page not found: genuinely-unknown-id'
+    );
+  });
+});
+
+describe('Navigation history: plain Note drafts are excluded, Daily Note drafts are not (product rule)', () => {
+  function setupWithRouter(pages: Page[]) {
+    const rest = setup(pages);
+    const navigation = new NavigationRouter(
+      rest.folderOperations,
+      rest.pageOperations,
+      rest.vault,
+      rest.workspace
+    );
+    return { ...rest, navigation };
+  }
+
+  it('a plain Note draft is never a history stop — Back skips straight past it and does not consume a Forward step', async () => {
+    const { workspace, pageOperations, navigation } = setupWithRouter([
+      buildPage('page-a', 'A'),
+      buildPage('page-b', 'B'),
+    ]);
+
+    await pageOperations.open('page-a');
+    const draftId = await pageOperations.openDraft({ folderId: null });
+    expect(workspace.activePageId).toBe(draftId);
+    await pageOperations.open('page-b');
+
+    navigation.back();
+
+    // Lands directly on 'page-a', not the Note draft — and nothing was
+    // ever pushed for the draft, so there's exactly one entry to consume.
+    expect(workspace.activePageId).toBe('page-a');
+    expect(workspace.canNavigateBack).toBe(false);
+
+    navigation.forward();
+
+    // Forward returns to 'page-b' — the draft was never a stop in either
+    // direction, so it never appears and never silently "does nothing".
+    expect(workspace.activePageId).toBe('page-b');
+  });
+
+  it('Today → draft Daily Note → draft Daily Note: Back/Forward travel through both drafts via the real PageOperations.open(), not a fake', async () => {
+    const { workspace, pageOperations, navigation } = setupWithRouter([
+      buildPage('page-today', 'Today'),
+    ]);
+
+    await pageOperations.open('page-today');
+
+    const path13 = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-13'));
+    const draft13 = await pageOperations.openAtPath(path13, { type: 'daily-note' });
+    // Non-empty, so opening the next Daily Note draft doesn't silently
+    // retarget this one onto the new date (findReusableDraftId only
+    // reuses an *empty* draft — real product behavior, unrelated to this
+    // test's concern) — two genuinely distinct drafts is the point here.
+    pageOperations.commitEdit(draft13, 'Notes for the 13th');
+
+    const path17 = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-17'));
+    const draft17 = await pageOperations.openAtPath(path17, { type: 'daily-note' });
+    pageOperations.commitEdit(draft17, 'Notes for the 17th');
+
+    expect(workspace.activePageId).toBe(draft17);
+
+    // 17 -> 13
+    navigation.back();
+    expect(workspace.activePageId).toBe(draft13);
+
+    // 13 -> Today
+    navigation.back();
+    expect(workspace.activePageId).toBe('page-today');
+    expect(workspace.canNavigateBack).toBe(false);
+
+    // Today -> 13
+    navigation.forward();
+    expect(workspace.activePageId).toBe(draft13);
+
+    // 13 -> 17
+    navigation.forward();
+    expect(workspace.activePageId).toBe(draft17);
+    expect(workspace.canNavigateForward).toBe(false);
+  });
+
+  it('a persisted Note continues to participate in Back/Forward normally', async () => {
+    const { workspace, pageOperations, navigation } = setupWithRouter([
+      buildPage('page-a', 'A'),
+      buildPage('page-b', 'B'),
+    ]);
+
+    await pageOperations.open('page-a');
+    await pageOperations.open('page-b');
+
+    navigation.back();
+    expect(workspace.activePageId).toBe('page-a');
+
+    navigation.forward();
+    expect(workspace.activePageId).toBe('page-b');
+  });
+
+  it('a stale (externally removed) history entry is still skipped — unchanged existing behavior', async () => {
+    const { vault, workspace, pageOperations, navigation } = setupWithRouter([
+      buildPage('page-a', 'A'),
+      buildPage('page-b', 'B'),
+      buildPage('page-c', 'C'),
+    ]);
+
+    await pageOperations.open('page-a');
+    await pageOperations.open('page-b');
+    await pageOperations.open('page-c');
+
+    vault.removePage('page-b');
+
+    navigation.back();
+
+    expect(workspace.activePageId).toBe('page-a');
+    expect(workspace.canNavigateBack).toBe(false);
+  });
+
+  it('12 (persisted) -> 13,14,15,16,17 (empty Daily Note drafts): each date keeps its own stable identity, so Back/Forward visits every one individually', async () => {
+    const { workspace, pageOperations, navigation } = setupWithRouter([
+      buildPage('page-12', '12'),
+    ]);
+
+    await pageOperations.open('page-12');
+
+    const dates = [13, 14, 15, 16, 17];
+    const draftIds: string[] = [];
+    for (const day of dates) {
+      const path = DailyNotePath.absoluteFrom(ROOT, new Date(`2024-01-${day}`));
+      draftIds.push(await pageOperations.openAtPath(path, { type: 'daily-note' }));
+    }
+
+    // Each date minted its own draft — none of them collapsed onto a
+    // shared identity via the empty-draft reuse path.
+    expect(new Set(draftIds).size).toBe(5);
+    expect(workspace.activePageId).toBe(draftIds[4]); // 17
+
+    // Back: 17 -> 16 -> 15 -> 14 -> 13 -> 12 (5 hops off the current '17')
+    for (let i = dates.length - 2; i >= 0; i--) {
+      navigation.back();
+      expect(workspace.activePageId).toBe(draftIds[i]);
+    }
+    navigation.back();
+    expect(workspace.activePageId).toBe('page-12');
+    expect(workspace.canNavigateBack).toBe(false);
+
+    // Forward: 12 -> 13 -> 14 -> 15 -> 16 -> 17
+    for (let i = 0; i < dates.length; i++) {
+      navigation.forward();
+      expect(workspace.activePageId).toBe(draftIds[i]);
+    }
+    expect(workspace.canNavigateForward).toBe(false);
+  });
+
+  it('reopening the same Daily Note date reuses its existing draft instead of minting another one', async () => {
+    const { workspace, pageOperations } = setupWithRouter([buildPage('page-12', '12')]);
+    await pageOperations.open('page-12');
+
+    const path13 = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-13'));
+    const firstOpen = await pageOperations.openAtPath(path13, { type: 'daily-note' });
+
+    const path14 = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-14'));
+    await pageOperations.openAtPath(path14, { type: 'daily-note' });
+
+    const secondOpen = await pageOperations.openAtPath(path13, { type: 'daily-note' });
+
+    expect(secondOpen).toBe(firstOpen);
+    expect(workspace.activePageId).toBe(firstOpen);
+  });
+});
+
+describe('An empty Daily Note draft referenced by navigation history is not auto-discarded', () => {
+  function setupWithRouter(pages: Page[]) {
+    const rest = setup(pages);
+    const navigation = new NavigationRouter(
+      rest.folderOperations,
+      rest.pageOperations,
+      rest.vault,
+      rest.workspace
+    );
+    return { ...rest, navigation };
+  }
+
+  it('Today -> empty Daily Note draft -> Back -> Forward returns to the same draft/session', async () => {
+    const { workspace, documentRegistry, pageOperations, navigation } = setupWithRouter([
+      buildPage('page-today', 'Today'),
+    ]);
+
+    await pageOperations.open('page-today');
+    const path = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-13'));
+    const draftId = await pageOperations.openAtPath(path, { type: 'daily-note' });
+    const sessionBeforeBack = documentRegistry.get(draftId);
+
+    navigation.back();
+    expect(workspace.activePageId).toBe('page-today');
+
+    // Give flushActivePage's chained discardAbandonedDraft a turn to run —
+    // this is the exact async window the bug used to lose the draft in.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pageOperations.getDraft(draftId)).toBeDefined();
+
+    navigation.forward();
+
+    expect(workspace.activePageId).toBe(draftId);
+    expect(documentRegistry.get(draftId)).toBe(sessionBeforeBack); // same instance, not recreated
+  });
+
+  it('the draft survives the async abandonment check while referenced by history', async () => {
+    const { workspace, pageOperations, navigation } = setupWithRouter([
+      buildPage('page-today', 'Today'),
+    ]);
+
+    await pageOperations.open('page-today');
+    const path = DailyNotePath.absoluteFrom(ROOT, new Date('2024-01-13'));
+    const draftId = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    navigation.back();
+    await vi.waitFor(() => {
+      // A no-op wait: asserts this stays true across several event-loop
+      // turns rather than only checking once, immediately after back().
+      expect(pageOperations.getDraft(draftId)).toBeDefined();
+    });
+    expect(workspace.isReferencedInHistory(draftId)).toBe(true);
+  });
+
+  it('a plain Note draft is still auto-discarded on navigate-away — never retained merely for navigation', async () => {
+    const { pageOperations } = setupWithRouter([buildPage('page-a', 'A')]);
+
+    await pageOperations.open('page-a');
+    const draftId = await pageOperations.openDraft({ folderId: null });
+
+    await pageOperations.open('page-a');
+
+    await vi.waitFor(() => {
+      expect(pageOperations.getDraft(draftId)).toBeUndefined();
+    });
+  });
+
+  it("today's Daily Note draft retention is unchanged by this fix", async () => {
+    const { workspace, pageOperations } = setupWithRouter([buildPage('page-a', 'A')]);
+    const todayPath = DailyNotePath.absoluteFrom(ROOT, new Date());
+    const draftId = await pageOperations.openAtPath(todayPath, { type: 'daily-note' });
+
+    await pageOperations.open('page-a');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(pageOperations.getDraft(draftId)).toBeDefined();
+    expect(workspace.openPages).toContain(draftId);
   });
 });

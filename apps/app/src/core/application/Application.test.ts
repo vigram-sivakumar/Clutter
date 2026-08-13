@@ -284,6 +284,22 @@ describe('Application: recovers when the active Vault resource disappears (exter
     expect(application.workspace.activePageId).toBe('page-a');
   });
 
+  it('active view is a live draft (ADR-017, no Vault entry): an unrelated Vault mutation must not evict it', async () => {
+    const noteA = buildPage('A.md', 'page-a');
+    const { application, vault } = attachWith([noteA], []);
+
+    const draftId = await application.pageOperations.openDraft({ folderId: null });
+    expect(application.workspace.activePageId).toBe(draftId);
+
+    // Unrelated Vault mutation — some other page changing has nothing to
+    // do with the draft, which by design has no Vault entry at all.
+    vault.replacePage(noteA);
+
+    expect(application.workspace.activePageId).toBe(draftId);
+    expect(application.pageOperations.getDraft(draftId)).toBeDefined();
+    expect(application.pageOperations.getSession(draftId)).toBeDefined();
+  });
+
   it('restores the previously-open note instead of the fallback when the active note is externally deleted', async () => {
     const noteA = buildPage('A.md', 'page-a');
     const noteB = buildPage('B.md', 'page-b');

@@ -9,4 +9,19 @@ describe('buildNoteSidebarMenu', () => {
   it('returns no items at all for a draft (move-to included in that omission)', () => {
     expect(buildNoteSidebarMenu(true)).toEqual([]);
   });
+
+  it("labels 'toggle-favorite' as 'Add to Favorites' when isFavorite is false (or omitted)", () => {
+    expect(
+      buildNoteSidebarMenu(false, false).find((i) => i.id === 'toggle-favorite')?.label
+    ).toBe('Add to Favorites');
+    expect(buildNoteSidebarMenu(false).find((i) => i.id === 'toggle-favorite')?.label).toBe(
+      'Add to Favorites'
+    );
+  });
+
+  it("labels 'toggle-favorite' as 'Remove from Favorites' when isFavorite is true", () => {
+    expect(
+      buildNoteSidebarMenu(false, true).find((i) => i.id === 'toggle-favorite')?.label
+    ).toBe('Remove from Favorites');
+  });
 });

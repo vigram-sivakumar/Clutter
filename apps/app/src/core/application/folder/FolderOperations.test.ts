@@ -912,3 +912,46 @@ describe('FolderOperations.restore() (ADR-026 follow-up)', () => {
     expect(openFallbackPage).not.toHaveBeenCalled();
   });
 });
+
+describe('FolderOperations.updateMetadata() (favorite)', () => {
+  it('sets favorite=true in the vault and persists it to the .folder.md on disk', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { favorite: true });
+
+    expect(vault.getFolder('folder-1')!.metadata.favorite).toBe(true);
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).toContain('favorite: true');
+  });
+
+  it('toggles favorite back to false', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, folderOperations } = setup([folder]);
+
+    await folderOperations.updateMetadata('folder-1', { favorite: true });
+    await folderOperations.updateMetadata('folder-1', { favorite: false });
+
+    expect(vault.getFolder('folder-1')!.metadata.favorite).toBe(false);
+  });
+
+  it('does not change path/parentId — a pure metadata patch, not a move', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, folderOperations } = setup([folder]);
+
+    await folderOperations.updateMetadata('folder-1', { favorite: true });
+
+    const updated = vault.getFolder('folder-1')!;
+    expect(updated.path).toBe(folder.path);
+    expect(updated.parentId).toBe(folder.parentId);
+  });
+
+  it('does nothing (no throw) for an unknown folder id — the Gate abandons harmlessly', async () => {
+    const { folderOperations } = setup();
+
+    await expect(
+      folderOperations.updateMetadata('does-not-exist', { favorite: true })
+    ).resolves.toBeUndefined();
+  });
+});

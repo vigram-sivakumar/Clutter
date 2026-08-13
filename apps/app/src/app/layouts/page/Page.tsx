@@ -36,6 +36,20 @@ type PageProps = {
   onTitleFlush?(): void;
   /** See PageTitle.onCancel — the Escape entry point for a channel-backed title, reverting its pending value. */
   onTitleCancel?(): void;
+  /** Forwarded to PageTopBar's sidebar-toggle button — see PageTopBarProps. */
+  isSidebarVisible?: boolean;
+  onToggleSidebarVisible?(): void;
+  /**
+   * React key for the title's EditableText, not for Page itself — PageHost
+   * used to key the whole <Page> by activePageId so a fresh PageTitle
+   * remounts per page (EditableText's autoFocus is deliberately mount-once,
+   * per the commit that introduced this: "without it, navigating between
+   * two persisted pages ... would silently stop the autofocus-on-missing-
+   * title behavior from re-firing"). Scoping the key to just PageTitle
+   * keeps that autofocus behavior without remounting the rest of Page on
+   * every navigation.
+   */
+  titleKey?: string;
 };
 
 export function Page({
@@ -53,6 +67,9 @@ export function Page({
   onTitleEdit,
   onTitleFlush,
   onTitleCancel,
+  isSidebarVisible,
+  onToggleSidebarVisible,
+  titleKey,
 }: PageProps) {
   // The one place "is this entity missing its title" is decided for the
   // editing/identity surface — driven entirely by the title string the
@@ -65,11 +82,18 @@ export function Page({
   return (
     <div className="page">
       <div className="page__document">
-        <PageTopBar breadcrumbs={breadcrumbs} menu={menu} actions={actions} />
+        <PageTopBar
+          breadcrumbs={breadcrumbs}
+          menu={menu}
+          actions={actions}
+          isSidebarVisible={isSidebarVisible}
+          onToggleSidebarVisible={onToggleSidebarVisible}
+        />
         <div className="page__content">
           <header className="page__header">
             <PageTitleSection>
               <PageTitle
+                key={titleKey}
                 editable={titleEditable}
                 placeholder={titlePlaceholder}
                 autoFocus={shouldAutoFocusTitle}

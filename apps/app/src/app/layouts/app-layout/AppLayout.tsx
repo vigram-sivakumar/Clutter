@@ -4,6 +4,7 @@ import { PageHost } from '../page/PageHost';
 import type { Application } from '@core/application/Application';
 import { useVault } from '@app/hooks/useVault';
 import { useEffectivePageState } from '@app/hooks/useEffectivePageState';
+import { useWorkspace } from '@app/hooks/useWorkspace';
 import { TauriDragStrip } from '@components/tauri-drag-strip/TauriDragStrip';
 
 interface AppLayoutProps {
@@ -18,9 +19,18 @@ export function AppLayout({ application }: AppLayoutProps) {
   // (drafts are deliberately outside Vault, ADR-017). Sidebar is the only
   // consumer today; PageHost doesn't read this projection.
   useEffectivePageState(application.effectivePageState);
+  const workspace = useWorkspace(application.workspace);
 
   return (
-    <div className="app-layout">
+    <div
+      className="app-layout"
+      // Single mechanism, single source of truth (ADR-021): this attribute
+      // and the width-driven @media query in AppLayout.css are the only two
+      // things that ever set the sidebar's grid-template-columns/opacity —
+      // both toggle buttons (Controls, Page.TopBar) only ever flip
+      // Workspace.isSidebarVisible, never touch layout directly.
+      data-sidebar-collapsed={!workspace.isSidebarVisible}
+    >
       <aside className="app-layout__sidepanel">
         <TauriDragStrip />
         {<Sidebar application={application} />}

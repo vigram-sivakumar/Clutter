@@ -33,7 +33,6 @@ export function Tag({
           onSelect={() => {}}
           side="bottom"
           alignment="start"
-          size="small"
         />
       }
     >

@@ -103,6 +103,8 @@ export function Notes({
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
     onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
+    onToggleFavoriteNote: (pageId, isFavorite) =>
+      void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
     // Same flow as the topbar's Move (PageHost.tsx): same
     // buildMoveDestinationItems helper, same PageOperations.move() call —
     // nothing about Move is reimplemented for the sidebar.
@@ -126,6 +128,8 @@ export function Notes({
     // behind confirmation first. FolderOperations.archive() itself owns
     // post-archive navigation (ADR-025's fallback-page pattern) — nothing
     // here decides what happens to the active view.
+    onToggleFavoriteFolder: (folderId, isFavorite) =>
+      void folderOperations.updateMetadata(folderId, { favorite: !isFavorite }),
     onArchiveFolder: (folderId) => {
       const { hasDescendants, message } = getFolderArchiveConfirmation(vault, folderId);
 

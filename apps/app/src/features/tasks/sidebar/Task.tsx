@@ -24,7 +24,9 @@ export function Task({
   return (
     <Entry
       {...entryProps}
-      leading={<Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />}
+      leading={
+        <Checkbox isChecked={isChecked} onCheckedChange={onCheckedChange} />
+      }
       trailing={
         dueDate && (
           <span className={`task__due-date ${isOverdue ? 'is-overdue' : ''}`}>
@@ -41,7 +43,6 @@ export function Task({
           onSelect={() => {}}
           side="bottom"
           alignment="start"
-          size="small"
         />
       }
     >

@@ -256,6 +256,16 @@ export class PageOperations {
    *   product-level exception (not an ordinary abandoned draft): it acts
    *   as a persistent scratchpad for the current day, so it must survive
    *   navigating away empty. See canAutoDiscardDraft/shouldRetainDraft.
+   * - `workspace.isReferencedInHistory(pageId)` — a draft Back/Forward can
+   *   still return to (any Daily Note draft the user navigated through)
+   *   is not abandoned merely because it isn't the active view right now;
+   *   discarding it here would silently strand that history entry (see
+   *   the bug this guard closes: Back off an empty Daily Note draft used
+   *   to auto-discard it before Forward could ever replay it). Independent
+   *   of, and does not alter, canAutoDiscardDraft/shouldRetainDraft/
+   *   findReusableDraftId — a plain Note draft is never recordable (see
+   *   PageOperations.openDraft()), so it can never match this check and
+   *   keeps its existing abandonment behavior unchanged.
    */
   private discardAbandonedDraft(pageId: string): void {
     if (this.workspace.activePageId === pageId) {
@@ -269,6 +279,10 @@ export class PageOperations {
     }
 
     if (this.documentRegistry.get(pageId)?.state === DocumentState.SaveError) {
+      return;
+    }
+
+    if (this.workspace.isReferencedInHistory(pageId)) {
       return;
     }
 
@@ -332,6 +346,14 @@ export class PageOperations {
    * history entry through the normal open path (so session creation and
    * outgoing-page flush still happen exactly as they do for any other
    * open) without re-recording the replay as a new navigation.
+   *
+   * Destination-agnostic by id (ADR-017): `pageId` may resolve to a
+   * persisted Vault page, or to a still-unpersisted draft this class
+   * already tracks (`this.drafts` — the same map save()'s own
+   * `!page && this.drafts.has(pageId)` check reads). A draft's
+   * DocumentSession is already open (created by openDraft()/openAtPath())
+   * — there's nothing to (re)build, it's simply reactivated as the active
+   * view. Only an id that resolves to neither is unknown.
    */
   public async open(
     pageId: string,
@@ -339,7 +361,7 @@ export class PageOperations {
   ): Promise<void> {
     const page = this.vault.getPage(pageId);
 
-    if (!page) {
+    if (!page && !this.drafts.has(pageId)) {
       throw new Error(`Page not found: ${pageId}`);
     }
 
@@ -347,7 +369,11 @@ export class PageOperations {
     // existence check above — a failed open() (unknown id) never switches
     // the active page, so it shouldn't trigger a flush either.
     this.flushActivePage();
-    this.documentRegistry.open(page.id, page.source.markdown);
+
+    if (page) {
+      this.documentRegistry.open(page.id, page.source.markdown);
+    }
+
     this.workspace.openPage(pageId, options);
   }
 
@@ -379,6 +405,15 @@ export class PageOperations {
    * wins" rule openAtPath's retarget branch follows — so a caller that
    * does pass a folderId/title isn't silently ignored just because an
    * existing empty draft happened to be reusable.
+   *
+   * Opened with `recordable: false` (Workspace) — a plain Note draft is a
+   * valid destination to look at, but never a navigation-history stop,
+   * unlike a Daily Note draft (openAtPath(), unchanged). This is a
+   * product rule about which destinations are worth returning to via
+   * Back/Forward, not a page-existence question, so it belongs here at
+   * the one place a plain Note draft is ever opened — Workspace and
+   * NavigationRouter stay unaware of *why*, only that this view isn't
+   * recordable.
    */
   public async openDraft(
     options: CreatePageOptions & { readonly type?: PageType }
@@ -389,7 +424,7 @@ export class PageOperations {
     if (reusableId) {
       this.drafts.set(reusableId, { folderId: options.folderId, type, title: options.title });
       this.flushActivePage();
-      this.workspace.openPage(reusableId);
+      this.workspace.openPage(reusableId, { recordable: false });
       return reusableId;
     }
 
@@ -398,7 +433,7 @@ export class PageOperations {
     this.drafts.set(id, { folderId: options.folderId, type, title: options.title });
     this.flushActivePage();
     this.documentRegistry.open(id, '');
-    this.workspace.openPage(id);
+    this.workspace.openPage(id, { recordable: false });
 
     return id;
   }
@@ -407,8 +442,21 @@ export class PageOperations {
    * Resolve-or-draft for an entry point with a known target path before
    * any content exists (Daily Notes' "Today", a future Calendar date).
    * Never calls the Gate itself — either opens the real page, reopens an
-   * already-open draft for this exact path, retargets a reusable draft
-   * (still empty, different path) onto this one, or opens a fresh one.
+   * already-open draft for this exact path, or opens a fresh one.
+   *
+   * Each deterministic path gets its own stable draft identity —
+   * `draftIdByDeterministicPath` is the only reuse this method performs,
+   * and it only ever reuses a draft already targeting this *exact* path.
+   * A different path always mints a fresh draft, even if an existing,
+   * still-empty draft for another date could technically be repurposed:
+   * a Daily Note draft's date is part of its identity (navigation history
+   * can hold a reference to any of them — see Workspace.
+   * isReferencedInHistory()), so silently retargeting one draft across
+   * dates would collapse two distinct, independently-navigable
+   * destinations into one, breaking Back/Forward's ability to visit each
+   * date individually. `findReusableDraftId()`'s empty-draft-reuse policy
+   * remains exactly as-is for `openDraft()` (plain Notes have no date
+   * identity to preserve) — this method simply no longer calls it.
    *
    * Resolves the parent folder from `path` itself (same lookup
    * DailyNoteService.ensurePage() used to do inline before ADR-017
@@ -436,30 +484,6 @@ export class PageOperations {
     }
 
     const target = this.resolveDraftTarget(path, options);
-    const reusableId = this.findReusableDraftId(options.type);
-
-    if (reusableId) {
-      // Retarget in place — same session, same id, only the descriptor
-      // (and the reverse path lookup) changes. DocumentSession/
-      // DocumentRegistry carry no path/date identity to update (ADR-018),
-      // and EffectivePageState re-derives from the descriptor on every
-      // call (ADR-020 §7), so nothing else needs to be told. This is the
-      // same in-place descriptor mutation updateDraftTitle() already
-      // performs for one field, generalized to all of them.
-      const staleDescriptor = this.drafts.get(reusableId);
-
-      if (staleDescriptor?.deterministicPath) {
-        this.draftIdByDeterministicPath.delete(staleDescriptor.deterministicPath);
-      }
-
-      this.drafts.set(reusableId, target);
-      this.draftIdByDeterministicPath.set(path, reusableId);
-      this.flushActivePage();
-      this.workspace.openPage(reusableId);
-
-      return reusableId;
-    }
-
     const id = this.pageCreator.generateId();
 
     this.drafts.set(id, target);

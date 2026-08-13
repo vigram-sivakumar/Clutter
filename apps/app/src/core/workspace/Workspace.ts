@@ -120,8 +120,18 @@ export class Workspace implements Observable {
    * node kinds, and merging them risks an id collision (e.g. a folder
    * literally named "favorites") for no benefit. Same shape and default
    * (expanded unless explicitly collapsed) as collapsedFolderIds.
+   *
+   * "daily-notes-all" (the Daily Notes sidebar's "All Daily Notes" section)
+   * is seeded here collapsed by default, unlike every other id this class
+   * tracks — Daily Notes should show only the current month on first
+   * render each session. Toggling it is a normal collapsedSectionIds
+   * mutation from there on: it stays however the user left it for the rest
+   * of this session (surviving sidebar tab switches, since Workspace
+   * outlives DailyNotesList's mount), and resets to collapsed only when a
+   * new Workspace is constructed (app restart) — this class is never
+   * persisted to disk.
    */
-  private readonly collapsedSectionIds = new Set<string>();
+  private readonly collapsedSectionIds = new Set<string>(['daily-notes-all']);
 
   /**
    * Which sidebar tab (Daily Notes/Notes/Tasks/Tags/Search) is currently
@@ -158,6 +168,22 @@ export class Workspace implements Observable {
   private readonly forwardStack: ActiveView[] = [];
 
   /**
+   * Whether the *current* `_activeView` may itself become a backStack/
+   * forwardStack entry once something else replaces it. Mechanical,
+   * Workspace-owned bookkeeping only — set whenever `_activeView` changes,
+   * from the `recordable` option the caller passed (default true, so every
+   * existing caller is unaffected). Distinct from `recordHistory`: that
+   * flag controls whether *this* transition pushes the outgoing view;
+   * `recordable` controls whether the *incoming* view is eligible to be
+   * pushed by some later transition that leaves it. A page whose caller
+   * marks it non-recordable (PageOperations.openDraft(), for a plain Note
+   * draft — ADR-017) is a valid destination to look at, just never a
+   * history stop: entering it can still record whatever was active before
+   * it (ordinary recordHistory:true), but leaving it never pushes it.
+   */
+  private _activeViewRecordable = true;
+
+  /**
    * Opens a page within the workspace.
    *
    * `recordHistory` (default true) is the sole mechanism (ADR-027) by
@@ -169,22 +195,33 @@ export class Workspace implements Observable {
    * still null (see recordNavigation() below), not because they pass the
    * flag — a future internal-recovery caller that could run with a
    * non-null activeView must pass `recordHistory: false` explicitly.
+   *
+   * `recordable` (default true) marks whether *this* page, once active,
+   * may later be pushed onto a history stack when something else replaces
+   * it. See `_activeViewRecordable`'s doc comment.
    */
-  public openPage(pageId: string, options?: { readonly recordHistory?: boolean }): void {
+  public openPage(
+    pageId: string,
+    options?: { readonly recordHistory?: boolean; readonly recordable?: boolean }
+  ): void {
     if (!this.openPageIds.includes(pageId)) {
       this.openPageIds.push(pageId);
     }
     this.recordNavigation({ type: 'page', id: pageId }, options?.recordHistory);
     this._activeView = { type: 'page', id: pageId };
+    this._activeViewRecordable = options?.recordable ?? true;
     this.notify();
   }
 
   /**
    * Opens a folder within the workspace. See openPage() for `recordHistory`.
+   * Folders have no draft concept (ADR-017 §7), so they're always
+   * recordable.
    */
   public openFolder(folderId: string, options?: { readonly recordHistory?: boolean }): void {
     this.recordNavigation({ type: 'folder', id: folderId }, options?.recordHistory);
     this._activeView = { type: 'folder', id: folderId };
+    this._activeViewRecordable = true;
     this.notify();
   }
 
@@ -192,7 +229,8 @@ export class Workspace implements Observable {
    * Shows a filtered, non-folder view in the main content pane (ADR-022)
    * — the entry point NavigationRouter's view-level intents (openWorkspace,
    * openFavorites) use, the same way openFolder is FolderOperations.open's.
-   * See openPage() for `recordHistory`.
+   * See openPage() for `recordHistory`. Always recordable — filtered views
+   * have no draft concept either.
    */
   public openFilteredView(
     view: FilteredView,
@@ -200,19 +238,22 @@ export class Workspace implements Observable {
   ): void {
     this.recordNavigation({ type: 'filtered-view', view }, options?.recordHistory);
     this._activeView = { type: 'filtered-view', view };
+    this._activeViewRecordable = true;
     this.notify();
   }
 
   /**
    * ADR-027's recording branch, shared by all three open*() methods above.
    * Pushes the *current* (about-to-be-replaced) activeView onto backStack
-   * and clears forwardStack (browser-style branching invariant) — but only
-   * when: recording wasn't explicitly suppressed (`recordHistory !== false`
-   * — the history-replay path), there is a current view to remember (a
-   * null activeView, as at boot or right after everything is closed, has
-   * nothing worth recording), and the new target isn't the same view
-   * already active (clicking the same page again shouldn't create a junk
-   * entry).
+   * — only if it's recordable (see `_activeViewRecordable`) — and clears
+   * forwardStack (browser-style branching invariant, unconditional: even a
+   * non-recordable current view doesn't stop this from being a genuinely
+   * new navigation) — but only when: recording wasn't explicitly
+   * suppressed (`recordHistory !== false` — the history-replay path),
+   * there is a current view to remember (a null activeView, as at boot or
+   * right after everything is closed, has nothing worth recording), and
+   * the new target isn't the same view already active (clicking the same
+   * page again shouldn't create a junk entry).
    */
   private recordNavigation(next: ActiveView, recordHistory: boolean | undefined): void {
     if (recordHistory === false) {
@@ -225,8 +266,24 @@ export class Workspace implements Observable {
       return;
     }
 
-    this.backStack.push(current);
+    if (this._activeViewRecordable) {
+      this.backStack.push(current);
+    }
     this.forwardStack.length = 0;
+  }
+
+  /**
+   * Whether `pageId` currently sits in either history stack — the read
+   * PageOperations.discardAbandonedDraft() uses to decide whether a draft
+   * (a Daily Note draft, specifically — plain Note drafts are never
+   * recordable, so they can never match here) is still a valid Back/
+   * Forward target and therefore must not be auto-discarded. A pure read
+   * over Workspace's own arrays, the same shape as isPageOpen()/peekBack()
+   * — no new dependency, no change to recording/traversal.
+   */
+  public isReferencedInHistory(pageId: string): boolean {
+    const matches = (entry: ActiveView) => entry.type === 'page' && entry.id === pageId;
+    return this.backStack.some(matches) || this.forwardStack.some(matches);
   }
 
   /**
@@ -291,7 +348,7 @@ export class Workspace implements Observable {
   public popBackForReplay(): void {
     this.backStack.pop();
 
-    if (this._activeView) {
+    if (this._activeView && this._activeViewRecordable) {
       this.forwardStack.push(this._activeView);
     }
   }
@@ -302,7 +359,7 @@ export class Workspace implements Observable {
   public popForwardForReplay(): void {
     this.forwardStack.pop();
 
-    if (this._activeView) {
+    if (this._activeView && this._activeViewRecordable) {
       this.backStack.push(this._activeView);
     }
   }
@@ -322,6 +379,12 @@ export class Workspace implements Observable {
     if (this.activePageId === pageId) {
       const nextId = this.openPageIds.at(-1) ?? null;
       this._activeView = nextId ? { type: 'page', id: nextId } : null;
+      // Restoring a fallback tab is tab lifecycle, not a recorded
+      // navigation (ADR-025), and never itself pushes anything — but it
+      // does become the new "current" for whatever transition comes next,
+      // so it defaults back to recordable, matching every entry point
+      // other than openDraft()'s own non-recordable Note-draft case.
+      this._activeViewRecordable = true;
     }
     this.notify();
   }
@@ -344,6 +407,7 @@ export class Workspace implements Observable {
     }
 
     this._activeView = null;
+    this._activeViewRecordable = true;
     this.notify();
   }
 
