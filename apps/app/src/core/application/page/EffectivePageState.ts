@@ -95,7 +95,9 @@ export class EffectivePageState {
    */
   public getChildPages(folderId: string | null): EffectivePage[] {
     const durablePages =
-      folderId === null ? this.query.getRootPages() : this.query.getChildPages(folderId);
+      folderId === null
+        ? this.query.getRootPages()
+        : this.query.getChildPages(folderId);
 
     const durableIds = durablePages.map((page) => page.id);
 
@@ -128,7 +130,10 @@ export class EffectivePageState {
     return this.query
       .getFavoritePages()
       .map((page) => this.resolve(page.id))
-      .filter((entry): entry is EffectivePage => entry !== undefined);
+      .filter(
+        (entry): entry is EffectivePage =>
+          entry !== undefined && entry.type === 'note'
+      );
   }
 
   /**
@@ -212,11 +217,19 @@ export class EffectivePageState {
     return {
       id,
       type: page ? page.type : (draft as NonNullable<typeof draft>).type,
-      folderId: page ? page.parentId : (draft as NonNullable<typeof draft>).folderId,
+      folderId: page
+        ? page.parentId
+        : (draft as NonNullable<typeof draft>).folderId,
       isDraft: !page,
-      name: page ? page.name : ((draft as NonNullable<typeof draft>).title ?? ''),
+      name: page
+        ? page.name
+        : ((draft as NonNullable<typeof draft>).title ?? ''),
       description: page ? page.metadata.description : null,
-      markdown: session ? session.currentRevision.markdown : (page ? page.source.markdown : ''),
+      markdown: session
+        ? session.currentRevision.markdown
+        : page
+          ? page.source.markdown
+          : '',
       icon: page ? page.metadata.icon : null,
       favorite: page ? page.metadata.favorite : false,
     };

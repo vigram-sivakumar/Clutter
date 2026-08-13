@@ -309,6 +309,7 @@ export function DailyNotesList({
           date={entry.name}
           isToday={isToday(entry.name)}
           selected={workspace.activePageId === entry.id}
+          isFavorite={entry.favorite}
           onClick={() => {
             if (entry.isVirtual) {
               return onOpenDate(entry.name);

@@ -45,6 +45,9 @@
 
   overflow: hidden;
 }
+.entry__trailing {
+  margin-left: -4px;
+}
 
 .entry__meta {
   display: flex;
@@ -91,6 +94,15 @@
 
   overflow: hidden;
 }
+.entry__trailing:has(.entry__actions):not(:has(.entry__meta)) {
+  display: none;
+}
+.entry:hover:has(.entry__actions) .entry__trailing,
+.entry:focus-visible:has(.entry__actions) .entry__trailing,
+.entry-force-hover:has(.entry__actions) .entry__trailing {
+  display: flex;
+}
+
 .entry:hover:has(.entry__actions) .entry__actions,
 .entry:focus-visible:has(.entry__actions) .entry__actions,
 .entry-force-hover:has(.entry__actions) .entry__actions {
