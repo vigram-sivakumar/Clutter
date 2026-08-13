@@ -317,6 +317,79 @@ describe('Application: recovers when the active Vault resource disappears (exter
     expect(application.workspace.openPages).not.toContain('page-a');
   });
 
+  it('active page deleted, and the previous open page was also independently deleted earlier: reconciliation keeps checking until it finds a valid open page', async () => {
+    const noteA = buildPage('A.md', 'page-a');
+    const noteB = buildPage('B.md', 'page-b');
+    const noteC = buildPage('C.md', 'page-c');
+    const { application, vault } = attachWith([noteA, noteB, noteC], []);
+
+    // openPageIds ends up [page-a, page-c, page-b] — page-b active.
+    await application.pageOperations.open('page-a');
+    await application.pageOperations.open('page-c');
+    await application.pageOperations.open('page-b');
+    expect(application.workspace.activePageId).toBe('page-b');
+
+    // page-c is deleted while it's a background tab — Workspace stays
+    // Vault-oblivious, so nothing prunes it from openPageIds yet; it's
+    // still sitting there as the next fallback candidate.
+    vault.removePage('page-c');
+    expect(application.workspace.activePageId).toBe('page-b');
+
+    // Deleting the active page (page-b) makes closePage() fall back to
+    // openPageIds' new tail, page-c — which is already gone. A single
+    // check-and-fix pass would land there and PageHost would crash on it;
+    // the loop must keep going until it reaches the genuinely valid page-a.
+    vault.removePage('page-b');
+
+    expect(application.workspace.activePageId).toBe('page-a');
+    expect(vault.getPage(application.workspace.activePageId!)).toBeDefined();
+  });
+
+  it('multiple open pages deleted together by one folder cascade: no invalid activeView remains, falls back to a still-valid open page', async () => {
+    const folder = makeFolder('folder-projects', '/vault/Projects');
+    const noteA = buildPage('Projects/A.md', 'page-a', 'folder-projects');
+    const noteB = buildPage('Projects/B.md', 'page-b', 'folder-projects');
+    const noteSafe = buildPage('Safe.md', 'page-safe');
+    const { application, vault } = attachWith([noteA, noteB, noteSafe], [folder]);
+
+    // openPageIds ends up [page-safe, page-a, page-b] — page-b active.
+    await application.pageOperations.open('page-safe');
+    await application.pageOperations.open('page-a');
+    await application.pageOperations.open('page-b');
+    expect(application.workspace.activePageId).toBe('page-b');
+
+    // One Vault mutation removes both open tabs (page-a and page-b) in a
+    // single notify() — closePage()'s naive fallback would land on
+    // page-a, itself also just removed by this same cascade.
+    vault.removeFolder('folder-projects');
+
+    expect(application.workspace.activePageId).toBe('page-safe');
+    expect(vault.getPage(application.workspace.activePageId!)).toBeDefined();
+  });
+
+  it('multiple open pages deleted together with no valid open page left: falls back to today\'s Daily Note', async () => {
+    const folder = makeFolder('folder-projects', '/vault/Projects');
+    const noteA = buildPage('Projects/A.md', 'page-a', 'folder-projects');
+    const noteB = buildPage('Projects/B.md', 'page-b', 'folder-projects');
+    const { application, vault } = attachWith([noteA, noteB], [folder]);
+
+    await application.pageOperations.open('page-a');
+    await application.pageOperations.open('page-b');
+    expect(application.workspace.activePageId).toBe('page-b');
+
+    const openSpy = vi.spyOn(application.pageOperations, 'open');
+    const openAtPathSpy = vi.spyOn(application.pageOperations, 'openAtPath');
+
+    vault.removeFolder('folder-projects');
+
+    // No open page survives, so the loop settles on an empty activeView
+    // and openFallbackPage() (today's Daily Note) runs exactly once.
+    expect(openSpy.mock.calls.length + openAtPathSpy.mock.calls.length).toBe(1);
+    expect(application.workspace.activeView).not.toBeNull();
+    expect(application.workspace.activePageId).not.toBe('page-a');
+    expect(application.workspace.activePageId).not.toBe('page-b');
+  });
+
   // Verifies the new subscription cannot double-fire alongside
   // PageOperations.delete()'s/FolderOperations.delete()'s own existing
   // close()-then-fallback-if-empty sequence. vault.removePage()/

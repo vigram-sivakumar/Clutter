@@ -398,13 +398,33 @@ export class Application {
     // during boot/scan has already settled and before Workspace has any
     // active id (open() runs after attachVault() returns), so it cannot
     // observe a stale id and redirect before a real selection exists.
+    //
+    // Loops rather than checking once: Workspace.closePage()'s own
+    // fallback selects the previous open tab from openPageIds without any
+    // Vault knowledge (Workspace stays Vault-oblivious by design), so that
+    // selection can itself be a page the very same Vault mutation/cascade
+    // also removed (e.g. two open tabs deleted together by one external
+    // folder delete). Each iteration either closes a dangling page/folder
+    // — which strictly shrinks openPageIds, guaranteeing termination — or
+    // finds the current activeView already valid and stops. Only once the
+    // loop settles on a genuinely valid (or empty) activeView does it fall
+    // through to openFallbackPage(), so PageHost never renders an id this
+    // reconciliation pass already knows is gone.
     this.workspaceVaultReconciliationUnsubscribe = vault.subscribe(() => {
-      const { activePageId, activeFolderId } = this.workspace;
+      for (;;) {
+        const { activePageId, activeFolderId } = this.workspace;
 
-      if (activePageId && !vault.getPage(activePageId)) {
-        this.workspace.closePage(activePageId);
-      } else if (activeFolderId && !vault.getFolder(activeFolderId)) {
-        this.workspace.closeFolder(activeFolderId);
+        if (activePageId && !vault.getPage(activePageId)) {
+          this.workspace.closePage(activePageId);
+          continue;
+        }
+
+        if (activeFolderId && !vault.getFolder(activeFolderId)) {
+          this.workspace.closeFolder(activeFolderId);
+          continue;
+        }
+
+        break;
       }
 
       if (!this.workspace.activeView) {
