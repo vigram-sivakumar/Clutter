@@ -699,13 +699,15 @@ Each sequence lists the exact call chain implementers should produce. `Gate` = P
 > Further amended by [ADR-017](./adr/017-draft-page-lifecycle.md): `DailyNoteService.ensurePage()` (the step that created today's note through the Gate during `bootstrap()`) is retired. Navigation must never create durable knowledge — not even at boot — so resolving today's note moves entirely into `open()`, as a resolve-or-draft call.
 >
 > Further amended by [ADR-019](./adr/019-retire-boot-time-daily-note-scaffolding.md): `DailyNoteService.ensureDirectoryForToday()` (the disclosed, temporary directory-scaffolding step ADR-017 §9 retained) is retired now that Daily Note folder materialization happens entirely at persist time (`DailyNoteService.ensureFolderChain`, called from `PageOperations.persistDraft` — see §6). `bootstrap()` no longer does anything Daily-Notes-specific, and `open()` computes today's deterministic path itself at call time instead of reading a `todayNotePath` field `bootstrap()` used to precompute.
+>
+> Further amended by [ADR-030](./adr/030-lazy-reserved-resource-materialization.md): the `VaultInitializer.initialize(rootPath) [ensure reserved folders]` step this sequence previously listed here is removed — no file named `VaultInitializer` exists, and no reserved resource (any entry in `RESERVED_RESOURCES`: `.clutter`, `Daily Notes`, `Archive`, `Inbox`, `Templates`, or the two reserved files) is ever materialized eagerly at boot. This generalizes ADR-019's Daily-Notes-specific finding to a standing rule: **defined ≠ materialized** — a reserved resource being declared in `RESERVED_RESOURCES` never implies it exists on disk or in `Vault`. `bootstrap()`'s scan simply discovers whichever reserved resources happen to already exist, exactly like any other vault content; a missing one is an ordinary, unremarkable state, not an error condition to correct at boot. Each reserved resource is materialized only at the moment some feature actually requires it, through exactly one of two sanctioned primitives: `FolderOperations.ensureReservedFolder(id)` (Vault-domain reserved folders — Daily Notes, Archive, Inbox, Templates) or `ensureClutterDirectory` (`.clutter`, which is filesystem-only and never a Vault `Folder`). No other reserved-resource creation path is permitted anywhere in the codebase.
 
 ```
 AppShell
   → Application.bootstrap(rootPath)
       → Platform: construct LocalFileSystem, wrap in SelfWriteAwareFileSystem
-      → Platform: VaultInitializer.initialize(rootPath)   [ensure reserved folders]
       → Ingest: VaultScanner.scan(rootPath) → VaultBuilder.build(scanResult) → Vault
+          [no reserved-resource materialization step — see ADR-030 above]
       → Application.attachVault(vault)   [called internally here, not by AppShell —
         open() needs pageOperations constructed before its resolve-or-draft call]
           → construct full Gate, PageOperations, FolderOperations, NavigationRouter,

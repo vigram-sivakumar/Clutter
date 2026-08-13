@@ -29,3 +29,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [023](./023-membership-selector-layer.md) | Membership Selector — the missing read-side classification layer | Accepted |
 | [024](./024-folder-aggregate-lifecycle.md) | Complete the Folder Aggregate Lifecycle — Delete, Rename, Move, and Their Sync Counterparts | Proposed |
 | [025](./025-fallback-page-on-delete.md) | Fallback Page — deleting the active page must never leave the app without one | Accepted |
+| [030](./030-lazy-reserved-resource-materialization.md) | Reserved/system resources are lazily materialized — generalizing ADR-019 beyond Daily Notes | Accepted |

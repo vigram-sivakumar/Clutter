@@ -130,15 +130,15 @@ export class NavigationRouter {
   }
 
   public openArchive(): void {
-    this.openReservedFolder('archive');
+    void this.openReservedFolder('archive');
   }
 
   public openInbox(): void {
-    this.openReservedFolder('inbox');
+    void this.openReservedFolder('inbox');
   }
 
   public openTemplates(): void {
-    this.openReservedFolder('templates');
+    void this.openReservedFolder('templates');
   }
 
   /**
@@ -226,13 +226,18 @@ export class NavigationRouter {
     throw new Error('NavigationRouter.createTag() is not implemented.');
   }
 
-  private openReservedFolder(id: ReservedFolderId): void {
-    const folder = this.vault.getReservedFolder(id);
-
-    if (!folder) {
-      throw new Error(`Reserved ${id} folder not found in vault`);
-    }
-
-    void this.folderOperations.open(folder.id);
+  /**
+   * required → ensure → use: reserved folders (Archive, Inbox, Templates)
+   * are definitions, not guaranteed-to-exist state (see
+   * ReservedResources.ts's own header comment). Opening one is the point
+   * at which the feature actually requires it, so this ensures it via the
+   * existing FolderOperations.ensureReservedFolder() primitive — recreating
+   * it on disk and in Vault if it was deleted externally — before opening
+   * it. ensureReservedFolder() is idempotent, so an already-present folder
+   * is returned as-is with no duplicate write.
+   */
+  private async openReservedFolder(id: ReservedFolderId): Promise<void> {
+    const folder = await this.folderOperations.ensureReservedFolder(id);
+    await this.folderOperations.open(folder.id);
   }
 }

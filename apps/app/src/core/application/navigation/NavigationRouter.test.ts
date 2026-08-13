@@ -6,6 +6,7 @@ import type { FolderOperations } from '../folder/FolderOperations';
 import type { PageOperations } from '../page/PageOperations';
 import type { Vault } from '../../vault/models/Vault';
 import type { ActiveView, Workspace } from '../../workspace/Workspace';
+import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
 
 type WorkspaceHistoryMethods =
   | 'canNavigateBack'
@@ -19,7 +20,7 @@ type WorkspaceHistoryMethods =
   | 'openFilteredView';
 
 function createNavigationRouter(options: {
-  folderOperations?: Pick<FolderOperations, 'open'>;
+  folderOperations?: Partial<Pick<FolderOperations, 'open' | 'ensureReservedFolder'>>;
   pageOperations?: Pick<PageOperations, 'open'>;
   vault?: Partial<Pick<Vault, 'getReservedFolder' | 'getPage' | 'getFolder'>>;
   workspace?: Partial<Pick<Workspace, WorkspaceHistoryMethods>>;
@@ -78,75 +79,116 @@ function createFakeHistory(
   };
 }
 
+/**
+ * A fake FolderOperations.ensureReservedFolder that mimics the real
+ * primitive's idempotency contract (PagePersistenceCoordinator's
+ * runEnsureReservedFolder, exercised directly in
+ * PagePersistenceCoordinator.ensureReservedFolder.test.ts): missing →
+ * create once and remember it; already-present → return the same Folder
+ * with no new creation. Lets these router-level tests assert the
+ * required → ensure → use lifecycle (ensure happens, then open receives
+ * exactly what ensure resolved to) without re-testing recreation
+ * mechanics that already have dedicated Gate-level coverage.
+ */
+function createEnsureReservedFolderFake(initiallyPresent: ReservedFolderId[] = []) {
+  const store = new Map<string, Folder>(
+    initiallyPresent.map((id) => [id, { id: `folder-${id}` } as Folder])
+  );
+  let createCount = 0;
+
+  const ensureReservedFolder = vi.fn(async (id: ReservedFolderId) => {
+    const existing = store.get(id);
+    if (existing) {
+      return existing;
+    }
+    createCount += 1;
+    const created = { id: `folder-${id}` } as Folder;
+    store.set(id, created);
+    return created;
+  });
+
+  return {
+    ensureReservedFolder,
+    deleteExternally: (id: ReservedFolderId) => store.delete(id),
+    getCreateCount: () => createCount,
+  };
+}
+
+const flushMicrotasks = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe('NavigationRouter', () => {
-  it('openArchive resolves the archive reserved folder and opens it', () => {
+  it.each([
+    ['openArchive', 'archive'] as const,
+    ['openInbox', 'inbox'] as const,
+    ['openTemplates', 'templates'] as const,
+  ])('%s ensures the missing %s reserved folder, then opens it', async (method, id) => {
     const openFolder = vi.fn();
-    const getReservedFolder = vi.fn((id: string) =>
-      id === 'archive' ? ({ id: 'folder-archive' } as Folder) : undefined
-    );
+    const fake = createEnsureReservedFolderFake();
     const navigation = createNavigationRouter({
-      folderOperations: { open: openFolder },
-      vault: { getReservedFolder },
+      folderOperations: { open: openFolder, ensureReservedFolder: fake.ensureReservedFolder },
+    });
+
+    navigation[method]();
+    await flushMicrotasks();
+
+    expect(fake.ensureReservedFolder).toHaveBeenCalledWith(id);
+    expect(fake.getCreateCount()).toBe(1);
+    expect(openFolder).toHaveBeenCalledWith(`folder-${id}`);
+  });
+
+  it('opens an already-existing reserved folder without creating a duplicate', async () => {
+    const openFolder = vi.fn();
+    const fake = createEnsureReservedFolderFake(['archive']);
+    const navigation = createNavigationRouter({
+      folderOperations: { open: openFolder, ensureReservedFolder: fake.ensureReservedFolder },
     });
 
     navigation.openArchive();
+    await flushMicrotasks();
 
-    expect(getReservedFolder).toHaveBeenCalledWith('archive');
+    expect(fake.getCreateCount()).toBe(0);
     expect(openFolder).toHaveBeenCalledWith('folder-archive');
   });
 
-  it('openArchive throws when the archive reserved folder is missing', () => {
-    const navigation = createNavigationRouter({
-      folderOperations: { open: vi.fn() },
-      vault: { getReservedFolder: vi.fn(() => undefined) },
-    });
-
-    expect(() => navigation.openArchive()).toThrow(
-      /Reserved archive folder not found in vault/
-    );
-  });
-
-  it('openInbox resolves the inbox reserved folder and opens it', () => {
+  it('repeated opens of the same reserved folder remain idempotent', async () => {
     const openFolder = vi.fn();
-    const getReservedFolder = vi.fn((id: string) =>
-      id === 'inbox' ? ({ id: 'folder-inbox' } as Folder) : undefined
-    );
+    const fake = createEnsureReservedFolderFake();
     const navigation = createNavigationRouter({
-      folderOperations: { open: openFolder },
-      vault: { getReservedFolder },
+      folderOperations: { open: openFolder, ensureReservedFolder: fake.ensureReservedFolder },
     });
 
     navigation.openInbox();
+    await flushMicrotasks();
+    navigation.openInbox();
+    await flushMicrotasks();
+    navigation.openInbox();
+    await flushMicrotasks();
 
-    expect(getReservedFolder).toHaveBeenCalledWith('inbox');
-    expect(openFolder).toHaveBeenCalledWith('folder-inbox');
+    expect(fake.getCreateCount()).toBe(1);
+    expect(openFolder).toHaveBeenCalledTimes(3);
+    expect(openFolder).toHaveBeenNthCalledWith(1, 'folder-inbox');
+    expect(openFolder).toHaveBeenNthCalledWith(2, 'folder-inbox');
+    expect(openFolder).toHaveBeenNthCalledWith(3, 'folder-inbox');
   });
 
-  it('openInbox throws when the inbox reserved folder is missing', () => {
-    const navigation = createNavigationRouter({
-      folderOperations: { open: vi.fn() },
-      vault: { getReservedFolder: vi.fn(() => undefined) },
-    });
-
-    expect(() => navigation.openInbox()).toThrow(
-      /Reserved inbox folder not found in vault/
-    );
-  });
-
-  it('openTemplates resolves the templates reserved folder and opens it', () => {
+  it('recreates a reserved folder that was deleted externally while the app was running, then opens it', async () => {
     const openFolder = vi.fn();
-    const getReservedFolder = vi.fn((id: string) =>
-      id === 'templates' ? ({ id: 'folder-templates' } as Folder) : undefined
-    );
+    const fake = createEnsureReservedFolderFake(['templates']);
     const navigation = createNavigationRouter({
-      folderOperations: { open: openFolder },
-      vault: { getReservedFolder },
+      folderOperations: { open: openFolder, ensureReservedFolder: fake.ensureReservedFolder },
     });
 
     navigation.openTemplates();
+    await flushMicrotasks();
+    expect(fake.getCreateCount()).toBe(0); // present on disk/Vault, no recreation needed yet
 
-    expect(getReservedFolder).toHaveBeenCalledWith('templates');
-    expect(openFolder).toHaveBeenCalledWith('folder-templates');
+    fake.deleteExternally('templates'); // simulates VaultSyncService reconciling an external delete
+    navigation.openTemplates();
+    await flushMicrotasks();
+
+    expect(fake.getCreateCount()).toBe(1); // recreated exactly once, on demand
+    expect(openFolder).toHaveBeenCalledTimes(2);
+    expect(openFolder).toHaveBeenNthCalledWith(2, 'folder-templates');
   });
 
   it('openWorkspace shows the workspace filtered view directly, without touching FolderOperations', () => {
