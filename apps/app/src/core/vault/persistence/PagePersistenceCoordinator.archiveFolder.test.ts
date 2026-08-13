@@ -421,3 +421,28 @@ describe('PagePersistenceCoordinator: folder archive is disk-before-Vault, singl
     ).rejects.toThrow(/path not found/i);
   });
 });
+
+// Lazy system-folder lifecycle: same self-healing shape the page-side
+// archive test asserts, one aggregate over — Archive is never eagerly
+// created at startup, so a missing Archive folder is ordinary, recovered
+// via the same shared ensureReservedFolderForOperation helper.
+describe('PagePersistenceCoordinator: archive-folder recovers a missing Archive folder', () => {
+  it('recreates Archive on disk and in Vault, then archives the folder successfully', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, coordinator } = setup([], [folder]); // no Archive folder fixture
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.writeFile(`${folder.path}/.folder.md`, '---\nid: folder-1\n---\n');
+    expect(vault.getReservedFolder('archive')).toBeUndefined();
+
+    const result = await coordinator.enqueue('folder-1', { kind: 'archive-folder' });
+
+    expect(result.status).toBe('folder-archived');
+    const recreated = vault.getReservedFolder('archive');
+    expect(recreated).toBeDefined();
+    expect(await fileSystem.exists(`${ROOT}/Archive`)).toBe(true);
+    const archived = vault.getFolder('folder-1')!;
+    expect(archived.path).toBe(`${ROOT}/Archive/Projects`);
+    expect(archived.parentId).toBe(recreated!.id);
+    expect(archived.metadata.status).toBe('archived');
+  });
+});

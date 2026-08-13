@@ -1,9 +1,20 @@
 /**
  * Reserved resources owned by Clutter.
  *
- * These resources define the minimum filesystem structure required for a
- * valid Clutter vault. The VaultInitializer reconciles the user's vault
- * against this specification during startup.
+ * These resources define the filesystem structure Clutter's own features
+ * use — but definition is not existence. Nothing eagerly materializes
+ * these on disk at startup; a missing reserved folder is a valid, ordinary
+ * state (deleted externally, or simply never needed yet). Each feature
+ * that actually requires a given reserved Vault folder ensures it,
+ * immediately before the operation that needs it, via
+ * FolderOperations.ensureReservedFolder() (Daily Notes, Archive today) or
+ * PagePersistenceCoordinator.ensureReservedFolderForOperation() (the same
+ * mechanism, called directly by Gate-layer code that can't depend upward
+ * on FolderOperations). `.clutter` is the one exception: it is never a
+ * Vault Folder (VaultScanner excludes it from every scan — see
+ * isClutterInternalPath below), so it follows the same lazy-ensure
+ * principle through a separate, filesystem-only primitive instead
+ * (ensureClutterDirectory.ts).
  *
  * User content belongs in the vault.
  * Application infrastructure belongs in reserved resources.
@@ -128,6 +139,22 @@ export function isInsideDailyNotesFolder(vaultRoot: string, path: string): boole
   return VaultPath.isDescendantOf(
     path,
     `${vaultRoot}/${RESERVED_FOLDER_IDS['daily-notes']}`
+  );
+}
+
+/**
+ * Whether `path` is the reserved Daily Notes folder itself, or anything
+ * inside it. Move's entire contract for Daily Notes ("the subtree is
+ * opaque to Move, in both directions") is expressed through this one
+ * predicate — MoveService.resolveMoveDestination and
+ * FolderPathResolver.resolveMoveDestination both call it rather than each
+ * reimplementing "is this Daily Notes or a descendant" against
+ * isInsideDailyNotesFolder plus their own equality check.
+ */
+export function isDailyNotesFolderOrDescendant(vaultRoot: string, path: string): boolean {
+  return (
+    path === `${vaultRoot}/${RESERVED_FOLDER_IDS['daily-notes']}` ||
+    isInsideDailyNotesFolder(vaultRoot, path)
   );
 }
 

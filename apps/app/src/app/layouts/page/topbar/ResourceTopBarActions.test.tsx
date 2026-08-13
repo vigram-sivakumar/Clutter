@@ -290,4 +290,94 @@ describe('ResourceTopBarActions', () => {
     expect(screen.getByText('Archive this folder?')).toBeDefined();
     expect(screen.queryByText('Delete this folder?')).toBeNull();
   });
+
+  describe('move-to', () => {
+    const menuWithMove: TopBarMenuItemConfig[] = [
+      ...menu,
+      { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
+    ];
+
+    it('selecting Move to… opens the destination picker instead of invoking a handler', () => {
+      const onMove = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithMove}
+          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+          onMove={onMove}
+        />
+      );
+      openMenu();
+
+      fireEvent.click(screen.getByText('Move to…'));
+
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(screen.getByText('Projects')).toBeDefined();
+      expect(onMove).not.toHaveBeenCalled();
+    });
+
+    it('selecting a destination folder invokes onMove with its id and closes the picker', () => {
+      const onMove = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithMove}
+          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+          onMove={onMove}
+        />
+      );
+      openMenu();
+      fireEvent.click(screen.getByText('Move to…'));
+
+      fireEvent.click(screen.getByText('Projects'));
+
+      expect(onMove).toHaveBeenCalledWith('folder-1');
+      expect(screen.queryByText('Projects')).toBeNull();
+    });
+
+    it('renders no root affordance of any kind — only real folders', () => {
+      const onMove = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithMove}
+          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+          onMove={onMove}
+        />
+      );
+      openMenu();
+      fireEvent.click(screen.getByText('Move to…'));
+
+      expect(screen.queryByText('Vault root')).toBeNull();
+      expect(screen.queryByText('Move to vault root')).toBeNull();
+      expect(screen.queryByText('Root')).toBeNull();
+      expect(screen.getByText('Projects')).toBeDefined();
+    });
+
+    it('renders no picker at all when moveDestinations is absent — falls through to a plain handler', () => {
+      const onMoveHandler = vi.fn();
+      render(
+        <ResourceTopBarActions menu={menuWithMove} handlers={{ 'move-to': onMoveHandler }} />
+      );
+      openMenu();
+
+      fireEvent.click(screen.getByText('Move to…'));
+
+      expect(onMoveHandler).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not open the picker for a disabled Move to… item', () => {
+      const disabledMoveMenu: TopBarMenuItemConfig[] = [
+        { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight', disabled: true },
+      ];
+      render(
+        <ResourceTopBarActions
+          menu={disabledMoveMenu}
+          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+        />
+      );
+      openMenu();
+
+      fireEvent.click(screen.getByText('Move to…'));
+
+      expect(screen.queryByText('Projects')).toBeNull();
+    });
+  });
 });

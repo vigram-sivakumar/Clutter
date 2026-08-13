@@ -18,6 +18,7 @@ import {
   getFolderDeleteConfirmation,
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
+import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
@@ -127,6 +128,18 @@ export function PageHost({ application }: PageHostProps) {
     void duplicateAndOpenPage(application.pageOperations, activePageId);
   };
 
+  const onMoveNote = (destinationFolderId: string | null): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.move(activePageId, destinationFolderId);
+  };
+
+  const onMoveFolder = (folderId: string, destinationFolderId: string | null): void => {
+    void application.folderOperations.move(folderId, destinationFolderId);
+  };
+
   // Both a persisted Note's title and a folder's name use the same
   // continuous-commit/debounced-autosave channel model (SaveCoordinator's
   // channel primitives + a FieldEditState<string>), not a single
@@ -196,6 +209,14 @@ export function PageHost({ application }: PageHostProps) {
       deleteConfirmationMessage: deleteConfirmation.hasDescendants
         ? deleteConfirmation.message
         : undefined,
+      // A reserved folder never reaches this branch's menu (buildFolderTopBarMenu
+      // only renders for an ordinary folder — see topBar's own dispatch), so
+      // excluding `folder.id` (and its descendants, via
+      // buildMoveDestinationItems' own walk) is always excluding a real,
+      // movable folder here, never a reserved one.
+      moveDestinations: buildMoveDestinationItems(application.membershipSelector, folder.id),
+      onMove: (destinationFolderId) => onMoveFolder(folder.id, destinationFolderId),
+      onCreateFolder: (name) => application.folderOperations.create(name, null),
     });
     // A reserved folder (Archive, Inbox, Templates, Daily Notes) can't be
     // renamed or deleted — buildTopBarActions already dispatches it to
@@ -369,12 +390,25 @@ export function PageHost({ application }: PageHostProps) {
     onRequestSave,
     onUpdateDescription
   );
+  // Move applies only to Notes and Folders (approved contract) — a Daily
+  // Note's menu never includes a `move-to` item (dailyNoteTopBarMenu.config.ts),
+  // so moveDestinations/onMove are only ever computed and passed for a
+  // real Note, never for a Daily Note.
   const topBar = buildTopBarActions(page, {
     membershipSelector: application.membershipSelector,
     onArchive,
     onRestore,
     onDelete,
     onDuplicate,
+    moveDestinations:
+      page.type === 'note'
+        ? buildMoveDestinationItems(application.membershipSelector)
+        : undefined,
+    onMove: page.type === 'note' ? onMoveNote : undefined,
+    onCreateFolder:
+      page.type === 'note'
+        ? (name) => application.folderOperations.create(name, null)
+        : undefined,
   });
   // A Daily Note's title is derived from its date and is its permanent
   // calendar identity (toResourcePageModel's own title comment) — renaming

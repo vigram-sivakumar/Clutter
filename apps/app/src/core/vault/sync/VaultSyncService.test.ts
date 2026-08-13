@@ -735,9 +735,9 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
 
   it("created: Clutter's own reserved .clutter directory at the vault root is never treated as a folder to build, duplicate-check, or repair", async () => {
     const { vault, fileSystem, watcher } = setup();
-    // .clutter already exists (VaultInitializer's job at real startup) —
-    // simulate an external tool touching it, which must still never
-    // surface as vault content.
+    // Simulate .clutter already existing (e.g. lazily materialized by an
+    // earlier tag-metadata write, or created by an external tool) — must
+    // still never surface as vault content regardless of how it got there.
     await fileSystem.createDirectory(`${ROOT}/.clutter`);
     await fileSystem.writeFile(`${ROOT}/.clutter/workspace.json`, '{}');
 

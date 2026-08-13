@@ -14,6 +14,14 @@ import type { FolderOperations } from '../folder/FolderOperations';
  *
  * Responsibilities:
  * - Ensure the required year/month folder hierarchy exists, at persist time.
+ * - Ensure the Daily Notes reserved root itself exists at that same
+ *   moment, via FolderOperations.ensureReservedFolder() — the shared lazy
+ *   system-folder lifecycle every reserved Vault folder now follows
+ *   (nothing eagerly materializes a reserved folder at startup; each
+ *   feature ensures the one it needs, immediately before the operation
+ *   that requires it). This must never depend on the reserved folder
+ *   already existing in Vault; if it's missing, that's this method's job
+ *   to fix, not a precondition to fail loudly against.
  *
  * Does NOT:
  * - Scan the vault.
@@ -54,13 +62,16 @@ export class DailyNoteService {
     folderOperations: FolderOperations,
     dailyNotePath: string
   ): Promise<string> {
-    const dailyNotesRoot = vault.getReservedFolder('daily-notes');
-
-    if (!dailyNotesRoot) {
-      throw new Error(
-        'Daily Notes root folder is missing — VaultInitializer should have created it.'
-      );
-    }
+    // Reserved folder definition ≠ physical existence: a missing Daily
+    // Notes root is a valid, ordinary state (deleted externally, or never
+    // materialized because nothing has needed it yet), never a
+    // precondition to assume. Ensuring it here — the same "check, then
+    // create via FolderOperations" shape ensureChildFolder below already
+    // uses one level down — closes the gap without a second write path or
+    // a broader "recreate every reserved folder" sweep.
+    const dailyNotesRoot =
+      vault.getReservedFolder('daily-notes') ??
+      (await folderOperations.ensureReservedFolder('daily-notes'));
 
     const relative = dailyNotePath.slice(dailyNotesRoot.path.length + 1);
     const [yearName, monthName] = relative.split('/');

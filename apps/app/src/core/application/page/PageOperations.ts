@@ -1360,7 +1360,7 @@ export class PageOperations {
     return result;
   }
 
-  public async move(pageId: string, destinationFolderId: string): Promise<void> {
+  public async move(pageId: string, destinationFolderId: string | null): Promise<void> {
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'move',
       destinationFolderId,

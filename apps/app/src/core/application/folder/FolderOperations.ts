@@ -7,6 +7,8 @@ import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import type { SaveCoordinator } from '../../engine/SaveCoordinator';
 import { FieldEditState } from '../../engine/FieldEditState';
 import { DocumentState } from '../../engine/DocumentState';
+import type { Folder } from '../../vault/models/Folder';
+import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
 
 /**
  * The folder-name channel's own debounce/ceiling — mirrors
@@ -29,11 +31,12 @@ export const FOLDER_NAME_AUTOSAVE_CEILING_MS = 60000;
  * "New Folder" inline-rename row); this method receives confirmed intent,
  * not a name-in-progress, and persists on the very first call.
  *
- * delete()/rename() added by ADR-024. rename() is an interim, explicitly
- * time-boxed capability (same-parent only — see the ADR's implementation-
- * sequencing amendment); move() remains absent until the Folder Picker UI
- * exists to drive it, the same "no backing capability without a caller
- * that can exercise it" reasoning ADR-012 already applied to page rename.
+ * delete()/rename() added by ADR-024; rename() shipped first as an
+ * interim, explicitly time-boxed capability (same-parent only). move()
+ * added once the Folder Picker UI existed to drive it, per the ADR's
+ * implementation-sequencing amendment — both now share the Gate's unified
+ * 'move-folder' kind, since Vault.moveFolder() was already one method for
+ * both.
  *
  * delete()'s post-delete navigation (post-delete-navigation consistency
  * fix) mirrors PageOperations.delete()'s ADR-025 shape exactly — closes
@@ -170,6 +173,41 @@ export class FolderOperations {
   }
 
   /**
+   * Ensures a reserved folder (Daily Notes, Archive, Inbox, Templates,
+   * .clutter) exists — recreating it, on disk and in Vault, if it was
+   * deleted externally while the app kept running and Vault has already
+   * reconciled the deletion away (VaultSyncService.handleDeleted). Not a
+   * general "recreate any missing system folder on every operation"
+   * sweep — callers ask for the one specific reserved folder their
+   * capability actually needs (DailyNoteService.ensureFolderChain is the
+   * first caller), when they've already found it missing.
+   *
+   * Idempotent — a no-op that returns the existing Folder if it's already
+   * there — so a caller never needs its own existence check first.
+   * Deliberately not the 'create-folder' kind create() above uses: this
+   * enqueues 'ensure-reserved-folder', which writes no `.folder.md` (a
+   * reserved folder never carries one — see runEnsureReservedFolder's own
+   * doc comment) and resolves to the fixed reserved path, never a
+   * collision-free user-chosen name.
+   */
+  public async ensureReservedFolder(reservedFolderId: ReservedFolderId): Promise<Folder> {
+    const result = await this.coordinator.enqueue(reservedFolderId, {
+      kind: 'ensure-reserved-folder',
+      reservedFolderId,
+    });
+
+    if (result.status !== 'folder-created') {
+      throw new Error(
+        `Failed to ensure reserved folder ${reservedFolderId}: ${
+          result.status === 'abandoned' ? result.reason : result.status
+        }`
+      );
+    }
+
+    return result.folder;
+  }
+
+  /**
    * Deletes a folder and everything nested inside it (ADR-024). No
    * existence check of its own — relies on the Gate's dequeue-time guard
    * (runDeleteFolder abandons harmlessly for an unknown id), the same
@@ -245,19 +283,42 @@ export class FolderOperations {
   }
 
   /**
-   * Renames a folder in place (ADR-024's interim 'rename-folder' kind —
-   * same parent only; see the class docstring and the ADR's
-   * implementation-sequencing amendment). No existence check of its own,
-   * same reasoning as delete() above.
+   * Renames a folder in place — same parent only. Backed by the Gate's
+   * unified 'move-folder' kind (ADR-024 §4's target shape): supplies the
+   * folder's own current parentId as destinationFolderId, so the Gate's
+   * dequeue-time resolution reparents it to exactly where it already is.
+   * No existence check of its own, same reasoning as delete() above — if
+   * the folder is gone by the time this dequeues, the Gate's own guard
+   * abandons it regardless of what parentId was captured here.
    */
   public async rename(folderId: string, name: string): Promise<void> {
     const result = await this.coordinator.enqueue(folderId, {
-      kind: 'rename-folder',
+      kind: 'move-folder',
+      destinationFolderId: this.vault.getFolder(folderId)?.parentId ?? null,
       name,
     });
 
     if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
       throw new Error(`Failed to rename folder ${folderId}: ${result.status}`);
+    }
+  }
+
+  /**
+   * Reparents a folder into an arbitrary destination folder (or the vault
+   * root, via `null`), preserving its name. Backed by the same unified
+   * 'move-folder' kind rename() uses — the Folder Picker UI calls this one
+   * directly, with no `name`, one facade method mirroring
+   * PageOperations.move()'s shape exactly. No existence check of its own,
+   * same reasoning as delete()/rename() above.
+   */
+  public async move(folderId: string, destinationFolderId: string | null): Promise<void> {
+    const result = await this.coordinator.enqueue(folderId, {
+      kind: 'move-folder',
+      destinationFolderId,
+    });
+
+    if (result.status !== 'folder-renamed' && result.status !== 'abandoned') {
+      throw new Error(`Failed to move folder ${folderId}: ${result.status}`);
     }
   }
 

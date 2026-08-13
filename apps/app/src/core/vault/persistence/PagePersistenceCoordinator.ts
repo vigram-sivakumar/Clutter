@@ -14,6 +14,11 @@ import { FolderPathResolver } from './FolderPathResolver';
 import type { ScannedPage, ScannedDirectory } from '../ingest/VaultScanResult';
 import { VaultPath } from '../ingest/VaultPath';
 import { MoveService } from './MoveService';
+import {
+  isDailyNotesFolderOrDescendant,
+  reservedFolderRelativePath,
+  type ReservedFolderId,
+} from '../initialize/ReservedResources';
 
 /**
  * Every disk write for a page — save, create, archive, restore, delete,
@@ -46,7 +51,7 @@ export type PersistenceOperation =
   | { readonly kind: 'archive' }
   | { readonly kind: 'restore' }
   | { readonly kind: 'delete' }
-  | { readonly kind: 'move'; readonly destinationFolderId: string }
+  | { readonly kind: 'move'; readonly destinationFolderId: string | null }
   | { readonly kind: 'rename'; readonly title: string }
   | {
       readonly kind: 'create-folder';
@@ -55,22 +60,40 @@ export type PersistenceOperation =
       readonly content: string;
     }
   | { readonly kind: 'delete-folder' }
-  // ADR-024 amendment: interim, explicitly time-boxed kind — same-parent
-  // path change only (no destinationFolderId in its shape, so it cannot
-  // express a move even by caller error). Retired and merged into the
-  // originally-specified unified 'move-folder' kind once FolderOperations.move()
-  // ships with its Folder Picker UI; see the ADR's implementation-sequencing
-  // amendment.
-  | { readonly kind: 'rename-folder'; readonly name: string }
+  // ADR-024 §4's originally-specified unified kind, reached here per the
+  // ADR's own implementation-sequencing amendment: 'rename-folder' shipped
+  // first as an interim, explicitly time-boxed kind, then was retired and
+  // merged into this one once FolderOperations.move() shipped with its
+  // Folder Picker UI — Vault.moveFolder() was already one method for both
+  // move and rename, so this is one Gate kind for it, not two.
+  // `destinationFolderId: null` means the vault root, matching
+  // Folder.parentId's own type; `name` is present only for a rename or a
+  // combined move+rename — FolderOperations.move() omits it,
+  // FolderOperations.rename() supplies the folder's own current parentId
+  // as destinationFolderId plus the new name.
+  | { readonly kind: 'move-folder'; readonly destinationFolderId: string | null; readonly name?: string }
   // ADR-026 §0/§3: deliberately not the page-scoped 'archive'/'restore'
   // kinds — a folder id can never reach a page-scoped kind name without an
   // early branch (runOperation() resolves vault.getPage(id) before its
   // general switch), and a folder's directory-preserving relocation is a
   // different operation from a page's flatten-to-Archive/ move, not a
   // parameterization of the same one (same reasoning
-  // 'delete-folder'/'rename-folder' already established).
+  // 'delete-folder'/'move-folder' already established).
   | { readonly kind: 'archive-folder' }
-  | { readonly kind: 'restore-folder' };
+  | { readonly kind: 'restore-folder' }
+  // The shared lazy system-folder lifecycle: the one Gate kind every
+  // reserved Vault folder (Daily Notes, Archive, and any future one) is
+  // ensured through, immediately before the operation that needs it —
+  // nothing eagerly materializes a reserved folder at startup anymore, so
+  // "missing" is this kind's ordinary starting state, not an exceptional
+  // one. Deliberately a distinct kind from 'create-folder': it writes no
+  // .folder.md (a reserved folder never carries an identity file, see
+  // ReservedResources.RESERVED_RESOURCES) and always resolves to the
+  // fixed, well-known reserved path, never a user-chosen, collision-free
+  // name. Keyed by `reservedFolderId` in the queue (not a page/folder id —
+  // there isn't one yet), so two concurrent callers recovering the same
+  // reserved folder serialize instead of racing.
+  | { readonly kind: 'ensure-reserved-folder'; readonly reservedFolderId: ReservedFolderId };
 
 export type PersistenceResult =
   | {
@@ -201,8 +224,8 @@ export class PagePersistenceCoordinator {
       return this.runDeleteFolder(id);
     }
 
-    if (operation.kind === 'rename-folder') {
-      return this.runRenameFolder(id, operation.name);
+    if (operation.kind === 'move-folder') {
+      return this.runMoveFolder(id, operation.destinationFolderId, operation.name);
     }
 
     if (operation.kind === 'archive-folder') {
@@ -211,6 +234,10 @@ export class PagePersistenceCoordinator {
 
     if (operation.kind === 'restore-folder') {
       return this.runRestoreFolder(id);
+    }
+
+    if (operation.kind === 'ensure-reserved-folder') {
+      return this.runEnsureReservedFolder(operation.reservedFolderId);
     }
 
     const current = this.vault.getPage(id);
@@ -247,11 +274,29 @@ export class PagePersistenceCoordinator {
    * nor frontmatter — there is nothing to re-serialize or re-parse, so this
    * does not go through writeParseRebuildReplace. movePage already updates
    * the Vault's path index internally.
+   *
+   * Move applies only to Notes and Folders (approved contract) — a Daily
+   * Note has no Move action and cannot be a Move source, checked here
+   * (not only by the UI's menu omission) so no caller can bypass it. An
+   * archived page may not be moved either, mirroring runArchive's `already
+   * archived` guard — Archive is a status-driven pseudo-location, not a
+   * normal Move source. The destination-side half of the Daily Notes
+   * contract ("nothing moves in") lives in
+   * MoveService.resolveMoveDestination, the one place every destination
+   * for this kind is computed.
    */
   private async runMove(
     current: Page,
-    destinationFolderId: string
+    destinationFolderId: string | null
   ): Promise<PersistenceResult> {
+    if (current.type === 'daily-note') {
+      throw new Error(`Cannot move a Daily Note: ${current.id}`);
+    }
+
+    if (current.metadata.status === 'archived') {
+      throw new Error(`Cannot move an archived page: ${current.id}`);
+    }
+
     const destination = this.moveService.resolveMoveDestination(
       current,
       destinationFolderId
@@ -441,6 +486,101 @@ export class PagePersistenceCoordinator {
   }
 
   /**
+   * Materializes a reserved folder (Daily Notes, Archive, ...) on demand —
+   * the shared lazy system-folder lifecycle: nothing creates these
+   * eagerly at startup anymore, so "missing" covers both "deleted
+   * externally, reconciled away by VaultSyncService.handleDeleted()" and
+   * "never materialized because nothing has needed it yet" — this method
+   * doesn't distinguish the two, and doesn't need to.
+   *
+   * Idempotent: if the folder is already in Vault (this check re-run at
+   * dequeue time, same reasoning as every other kind's own guard), returns
+   * it unchanged rather than creating a second one — this is what makes it
+   * safe for two concurrent callers to both call this for the same
+   * reserved folder id (they serialize through this kind's own per-id
+   * queue slot; the second one to run finds the first's result already in
+   * Vault).
+   *
+   * Deliberately a bare `createDirectory()`, no `.folder.md` — unlike
+   * runCreateFolder's shape. A reserved folder never carries an identity file (see
+   * ReservedResources.RESERVED_RESOURCES: every reserved folder entry is a
+   * bare `{type: 'folder', path}`, no paired file), so a reserved folder
+   * recreated mid-session must come out identical to one created at boot —
+   * writing a `.folder.md` here would make it observably different from
+   * every other reserved folder, and would be reusing 'create-folder''s
+   * user-folder shape for something that isn't one (ARCHITECTURE_RULES.md
+   * rule 5: never blur an aggregate's ownership boundary as a side effect
+   * of a nearby fix). `frontmatter: null` (not `{}`) is what tells
+   * FolderBuilder/IdentityResolver there is no identity file to read from
+   * — the same path-derived-id fallback a fresh boot scan would produce
+   * for this exact folder.
+   */
+  private async runEnsureReservedFolder(
+    reservedFolderId: ReservedFolderId
+  ): Promise<PersistenceResult> {
+    const existing = this.vault.getReservedFolder(reservedFolderId);
+
+    if (existing) {
+      return { status: 'folder-created', folder: existing };
+    }
+
+    const path = `${this.vault.root}/${reservedFolderRelativePath(reservedFolderId)}`;
+
+    await this.fileSystem.createDirectory(path);
+
+    const built = this.folderBuilder.build({
+      parentId: null,
+      directory: { path, parentPath: null, frontmatter: null },
+    });
+
+    try {
+      this.vault.addFolder(built);
+    } catch (error) {
+      return {
+        status: 'abandoned',
+        reason: `Vault rejected the recreated reserved folder after a successful write: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return { status: 'folder-created', folder: built };
+  }
+
+  /**
+   * The one call every Gate-layer operation that depends on a reserved
+   * folder makes before proceeding — Archive today (runArchive/
+   * runArchiveFolder), the same shape any future Gate-layer reserved-
+   * folder dependency would use. Routes through the public `enqueue()`
+   * entry point (not a direct call to runEnsureReservedFolder) so it
+   * serializes against every other caller of 'ensure-reserved-folder' for
+   * the same reservedFolderId — including FolderOperations.
+   * ensureReservedFolder()'s own callers (e.g. DailyNoteService) — through
+   * the one shared per-id queue, rather than racing a second, unserialized
+   * path to the same result. Safe to call reentrantly from inside an
+   * already-dispatching runOperation(): 'archive'/'daily-notes'/etc. are
+   * queue keys distinct from the page/folder id currently being
+   * processed, so this awaits an independent queue chain, never the one
+   * this call itself is running inside.
+   */
+  private async ensureReservedFolderForOperation(
+    reservedFolderId: ReservedFolderId
+  ): Promise<void> {
+    const result = await this.enqueue(reservedFolderId, {
+      kind: 'ensure-reserved-folder',
+      reservedFolderId,
+    });
+
+    if (result.status !== 'folder-created') {
+      throw new Error(
+        `Failed to ensure reserved folder ${reservedFolderId}: ${
+          result.status === 'abandoned' ? result.reason : result.status
+        }`
+      );
+    }
+  }
+
+  /**
    * Cascade-deletes a folder and everything nested inside it (ADR-024 §5).
    * Reuses Vault.getDescendantFoldersAndPages() — the one implementation of
    * this subtree walk — for both the disk-deletion order and, ultimately,
@@ -494,17 +634,33 @@ export class PagePersistenceCoordinator {
   }
 
   /**
-   * Renames a folder in place (ADR-024's interim 'rename-folder' kind —
-   * never reparents; see the ADR's implementation-sequencing amendment).
-   * moveFile() already cascades a directory move to every nested path
-   * (LocalFileSystem — a thin wrapper over the Tauri fs plugin's generic
-   * rename(); InMemoryVaultFileSystem — fixed to match), so one call moves
-   * the folder and everything inside it; Vault.moveFolder() then applies
-   * the identical cascade to the in-memory model.
+   * Moves and/or renames a folder in place (ADR-024 §4's unified
+   * 'move-folder' kind — one Gate kind backs both FolderOperations.move()
+   * and FolderOperations.rename(), since Vault.moveFolder() is already one
+   * method for both). moveFile() already cascades a directory move to
+   * every nested path (LocalFileSystem — a thin wrapper over the Tauri fs
+   * plugin's generic rename(); InMemoryVaultFileSystem — fixed to match),
+   * so one call moves the folder and everything inside it;
+   * Vault.moveFolder() then applies the identical cascade to the
+   * in-memory model.
+   *
+   * Daily Notes is opaque to Move in both directions (approved contract):
+   * a folder that is the reserved Daily Notes folder, or lives inside it,
+   * may never be relocated by this operation, regardless of destination —
+   * checked here (not only in the resolver) so a same-parent rename of a
+   * Daily-Notes-resident folder is rejected too, not just a reparenting
+   * move. The destination-side half of the same contract lives in
+   * FolderPathResolver.resolveMoveDestination, the one place every
+   * destination for this kind is computed.
+   *
+   * An archived folder may not be moved — Archive is a status-driven
+   * pseudo-location, not a normal destination or source for Move; mirrors
+   * runArchive's `already archived` guard, one aggregate over.
    */
-  private async runRenameFolder(
+  private async runMoveFolder(
     folderId: string,
-    name: string
+    destinationFolderId: string | null,
+    name?: string
   ): Promise<PersistenceResult> {
     const folder = this.vault.getFolder(folderId);
 
@@ -515,7 +671,19 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    const destination = new FolderPathResolver(this.vault).resolveRenamePath(folderId, name);
+    if (folder.metadata.status === 'archived') {
+      throw new Error(`Cannot move an archived folder: ${folderId}`);
+    }
+
+    if (isDailyNotesFolderOrDescendant(this.vault.root, folder.path)) {
+      throw new Error(`Cannot move a folder out of Daily Notes: ${folderId}`);
+    }
+
+    const destination = new FolderPathResolver(this.vault).resolveMoveDestination(
+      folderId,
+      destinationFolderId,
+      name
+    );
 
     if (destination.path !== folder.path) {
       await this.fileSystem.moveFile(folder.path, destination.path);
@@ -578,6 +746,8 @@ export class PagePersistenceCoordinator {
     if (current.metadata.status === 'archived') {
       throw new Error(`Page is already archived: ${current.id}`);
     }
+
+    await this.ensureReservedFolderForOperation('archive');
 
     const archivePatch = this.computeArchiveMetadataPatch(current.path, current.parentId);
     const destination = this.moveService.resolveArchiveDestination(current);
@@ -703,6 +873,8 @@ export class PagePersistenceCoordinator {
     if (folder.metadata.status === 'archived') {
       throw new Error(`Folder is already archived: ${folderId}`);
     }
+
+    await this.ensureReservedFolderForOperation('archive');
 
     const archivePatch = this.computeArchiveMetadataPatch(folder.path, folder.parentId);
     const destination = new FolderPathResolver(this.vault).resolveArchiveDestination(folderId);

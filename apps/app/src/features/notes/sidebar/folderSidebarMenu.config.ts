@@ -18,12 +18,17 @@ import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/re
  * FolderTree renders is already non-reserved
  * (MembershipSelector.getWorkspaceFolders/query.getChildFolders never
  * surface a system folder here), so no reserved-folder guard is needed.
+ * 'move-to' is unconditional for the same reason 'archive' is only
+ * conditionally omitted rather than disabled — an archived folder is
+ * never reachable through this menu at all, so 'move-to' needs no
+ * archived-guard here beyond the Gate's own.
  */
 export function buildFolderSidebarMenu(
   status: FolderMetadata['status']
 ): OverflowMenuItemConfig[] {
   const items: OverflowMenuItemConfig[] = [
     { id: 'rename', label: 'Rename', icon: 'notePencil' },
+    { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
   ];
 
   if (status !== 'archived') {

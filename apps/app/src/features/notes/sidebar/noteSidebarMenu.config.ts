@@ -14,7 +14,13 @@ import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/re
  * sidebar surface). OverflowMenu itself renders nothing when given an
  * empty item list, so a draft row's overflow button simply doesn't
  * appear. Duplicate is unavailable for a draft for the same reason —
- * there is nothing on disk yet to copy.
+ * there is nothing on disk yet to copy. 'move-to' is unavailable for the
+ * same reason too — the draft-omitted branch already covers it, so no
+ * separate disabled state is needed the way the topbar menu needs one
+ * (this sidebar row never renders for an archived Note either — an
+ * archived page is relocated into Archive/ at archive time, outside the
+ * Workspace tree FolderTree renders, so 'move-to' needs no archived-guard
+ * here beyond the Gate's own).
  */
 export function buildNoteSidebarMenu(isDraft: boolean): OverflowMenuItemConfig[] {
   if (isDraft) {
@@ -24,6 +30,7 @@ export function buildNoteSidebarMenu(isDraft: boolean): OverflowMenuItemConfig[]
   return [
     { id: 'rename', label: 'Rename', icon: 'notePencil' },
     { id: 'duplicate', label: 'Duplicate', icon: 'copy' },
+    { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
     { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },
     { id: 'delete', label: DELETE_ACTION_LABEL, icon: 'trash' },
   ];

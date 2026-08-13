@@ -20,6 +20,7 @@ import {
 } from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
+import { buildMoveDestinationItems } from '../helpers/buildMoveDestinationItems';
 import {
   getFolderArchiveConfirmation,
   getFolderDeleteConfirmation,
@@ -102,6 +103,16 @@ export function Notes({
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
     onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
+    // Same flow as the topbar's Move (PageHost.tsx): same
+    // buildMoveDestinationItems helper, same PageOperations.move() call —
+    // nothing about Move is reimplemented for the sidebar.
+    noteMoveDestinations: buildMoveDestinationItems(membershipSelector),
+    onMoveNote: (pageId, destinationFolderId) =>
+      void pageOperations.move(pageId, destinationFolderId),
+    // Same flow as the topbar's Move (PageHost.tsx): root-level creation
+    // via the existing FolderOperations.create(), the same operation the
+    // "+" button (handleCommitNewFolder above) already uses.
+    onCreateFolder: (name) => folderOperations.create(name, null),
 
     onFolderTitleEdit: (folderId, value) =>
       folderOperations.commitName(folderId, value),
@@ -145,6 +156,13 @@ export function Notes({
 
       void folderOperations.delete(folderId);
     },
+    // Same flow as the topbar's Move (PageHost.tsx): same
+    // buildMoveDestinationItems helper (excludeFolderId keeps a folder out
+    // of its own destination list), same FolderOperations.move() call.
+    getFolderMoveDestinations: (folderId) =>
+      buildMoveDestinationItems(membershipSelector, folderId),
+    onMoveFolder: (folderId, destinationFolderId) =>
+      void folderOperations.move(folderId, destinationFolderId),
   };
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
   const favoriteItems = getFavoriteItems(query, effectivePageState);

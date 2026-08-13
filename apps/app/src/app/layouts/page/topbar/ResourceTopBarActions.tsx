@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { Button } from '@components/button/Button';
 import { Confirmation } from '@components/confirmation/Confirmation';
@@ -10,6 +10,9 @@ import type {
   OverlaySide,
 } from '@components/overlay/Overlay.types';
 import { Dialog } from '@components/dialog/Dialog';
+import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
+import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
+import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 import { AppIcon } from '@shared/icon';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
@@ -57,6 +60,23 @@ export interface ResourceTopBarActionsProps {
    * confirmation for notes.
    */
   deleteConfirmationMessage?: string;
+  /**
+   * The Move destination picker's folder list — present only when the
+   * caller's menu includes a `move-to` item (buildMoveDestinationItems.ts
+   * is the one place this list is built, from MembershipSelector, which
+   * already excludes Archive/Daily Notes/reserved folders and — for a
+   * folder being moved — itself and its own descendants). Absent for a
+   * resource type that never gets a `move-to` item at all (Daily Note).
+   */
+  moveDestinations?: FolderPickerItem[];
+  /** Invoked with the chosen destination (`null` = vault root) when a Move destination is selected. */
+  onMove?: (destinationFolderId: string | null) => void;
+  /**
+   * Present alongside moveDestinations when the Move picker should offer
+   * creating a new folder for a non-matching search — forwarded straight
+   * to MoveDestinationPicker, see its own doc comment for the full flow.
+   */
+  onCreateFolder?: (name: string) => Promise<string>;
 }
 
 /**
@@ -70,40 +90,48 @@ export interface ResourceTopBarActionsProps {
  * the sidebar's folder row actions use (Sidebar.Notes.tsx) — one
  * mechanism, one component, shared by every entry point, replacing the
  * divergent window.confirm()/broken-stub behavior both surfaces used to
- * have independently.
+ * have independently. The Move destination picker (useMoveDestinationTrigger
+ * + MoveDestinationPicker) is the same shared-primitive shape, reused by
+ * the sidebar's own row components (Folder.tsx/Note.tsx) so Move has
+ * exactly one flow regardless of entry point.
  */
 export function ResourceTopBarActions({
   menu,
   handlers,
   archiveConfirmationMessage,
   deleteConfirmationMessage,
+  moveDestinations,
+  onMove,
+  onCreateFolder,
 }: ResourceTopBarActionsProps) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const confirmation = useConfirmationSurface();
+  const moveTrigger = useMoveDestinationTrigger(moveDestinations);
 
   function handleMenuSelect(id: string) {
-    if (id === 'delete' && deleteConfirmationMessage !== undefined) {
-      confirmation.request({
-        title: 'Delete this folder?',
-        message: deleteConfirmationMessage,
-        confirmLabel: 'Delete',
-        onConfirm: () => handlers?.['delete']?.(),
-      });
-      return;
-    }
+    moveTrigger.handleSelect(id, (id) => {
+      if (id === 'delete' && deleteConfirmationMessage !== undefined) {
+        confirmation.request({
+          title: 'Delete this folder?',
+          message: deleteConfirmationMessage,
+          confirmLabel: 'Delete',
+          onConfirm: () => handlers?.['delete']?.(),
+        });
+        return;
+      }
 
-    if (id === 'archive' && archiveConfirmationMessage !== undefined) {
-      confirmation.request({
-        title: 'Archive this folder?',
-        message: archiveConfirmationMessage,
-        confirmLabel: 'Archive',
-        onConfirm: () => handlers?.['archive']?.(),
-      });
-      return;
-    }
+      if (id === 'archive' && archiveConfirmationMessage !== undefined) {
+        confirmation.request({
+          title: 'Archive this folder?',
+          message: archiveConfirmationMessage,
+          confirmLabel: 'Archive',
+          onConfirm: () => handlers?.['archive']?.(),
+        });
+        return;
+      }
 
-    handlers?.[id]?.();
+      handlers?.[id]?.();
+    });
   }
 
   return (
@@ -116,7 +144,7 @@ export function ResourceTopBarActions({
       </Button>
       <OverflowMenu
         items={menu}
-        triggerRef={triggerRef}
+        triggerRef={moveTrigger.triggerRef}
         open={menuOpen}
         onOpenChange={setMenuOpen}
         onSelect={handleMenuSelect}
@@ -126,10 +154,25 @@ export function ResourceTopBarActions({
           interaction: 'default',
         }}
       />
+      {moveDestinations !== undefined && (
+        <MoveDestinationPicker
+          anchorRef={moveTrigger.triggerRef}
+          open={moveTrigger.open}
+          onClose={moveTrigger.close}
+          items={moveDestinations}
+          onSelect={(destinationFolderId) => {
+            moveTrigger.close();
+            onMove?.(destinationFolderId);
+          }}
+          onCreateFolder={onCreateFolder}
+          side={OVERFLOW_SIDE}
+          alignment={OVERFLOW_ALIGNMENT}
+        />
+      )}
       <Dialog
         open={confirmation.pending !== null}
         onClose={confirmation.cancel}
-        returnFocusRef={triggerRef}
+        returnFocusRef={moveTrigger.triggerRef}
         size="medium"
       >
         {confirmation.pending && (

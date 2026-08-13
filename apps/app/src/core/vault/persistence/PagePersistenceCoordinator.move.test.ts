@@ -156,6 +156,61 @@ describe('PagePersistenceCoordinator move kind', () => {
     });
   });
 
+  it('rejects moving a Daily Note', async () => {
+    const dailyNote = new PageBuilder(ROOT).build({
+      parentId: 'folder-daily-notes',
+      page: {
+        path: `${ROOT}/Daily Notes/2026/August/2026-08-12.md`,
+        directoryPath: `${ROOT}/Daily Notes/2026/August`,
+        frontmatter: { id: 'page-daily' },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Body',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { fileSystem, coordinator } = setup([dailyNote], [folder]);
+
+    expect(dailyNote.type).toBe('daily-note');
+
+    await expect(
+      coordinator.enqueue(dailyNote.id, { kind: 'move', destinationFolderId: 'folder-1' })
+    ).rejects.toThrow(/Cannot move a Daily Note/);
+
+    expect(fileSystem.hasFileSync(dailyNote.path)).toBe(true);
+  });
+
+  it('rejects moving an archived page', async () => {
+    const page = { ...buildPage(), metadata: { ...buildPage().metadata, status: 'archived' as const } };
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { fileSystem, coordinator } = setup([page], [folder]);
+
+    await expect(
+      coordinator.enqueue(page.id, { kind: 'move', destinationFolderId: 'folder-1' })
+    ).rejects.toThrow(/Cannot move an archived page/);
+
+    expect(fileSystem.hasFileSync(page.path)).toBe(true);
+  });
+
+  it('rejects a destination inside the reserved Daily Notes folder', async () => {
+    const page = buildPage();
+    const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const { fileSystem, coordinator } = setup([page], [dailyNotes]);
+
+    await expect(
+      coordinator.enqueue(page.id, { kind: 'move', destinationFolderId: 'folder-daily-notes' })
+    ).rejects.toThrow(/Cannot move into Daily Notes/);
+
+    expect(fileSystem.hasFileSync(page.path)).toBe(true);
+  });
+
   it('a move for one page and a save for another do not block each other', async () => {
     const movedPage = buildPage('page-1', `${ROOT}/Note.md`);
     const savedPage = buildPage('page-2', `${ROOT}/Other.md`);

@@ -247,6 +247,33 @@ describe('FolderOperations.create()', () => {
   });
 });
 
+describe('FolderOperations.ensureReservedFolder()', () => {
+  it('recreates a missing reserved folder on disk and in the vault, with no .folder.md', async () => {
+    const { vault, fileSystem, folderOperations } = setup();
+    expect(vault.getReservedFolder('daily-notes')).toBeUndefined();
+
+    const folder = await folderOperations.ensureReservedFolder('daily-notes');
+
+    expect(folder.path).toBe(`${ROOT}/Daily Notes`);
+    expect(folder.parentId).toBeNull();
+    expect(await fileSystem.exists(`${ROOT}/Daily Notes`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Daily Notes/.folder.md`)).toBe(false);
+    expect(vault.getReservedFolder('daily-notes')).toBeDefined();
+  });
+
+  it('returns the existing folder unchanged when already present — no duplicate', async () => {
+    const existing = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const { vault, folderOperations } = setup([existing]);
+
+    const folder = await folderOperations.ensureReservedFolder('daily-notes');
+
+    expect(folder.id).toBe('folder-daily-notes');
+    expect(
+      Array.from(vault.folders()).filter((f) => f.path === `${ROOT}/Daily Notes`)
+    ).toHaveLength(1);
+  });
+});
+
 describe('FolderOperations.delete() (ADR-024)', () => {
   it('deletes the folder from the vault and disk', async () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
@@ -419,7 +446,7 @@ describe('FolderOperations.delete() post-delete navigation (consistency fix)', (
   });
 });
 
-describe('FolderOperations.rename() (ADR-024, interim same-parent-only kind)', () => {
+describe('FolderOperations.rename() (ADR-024, unified move-folder kind)', () => {
   it('renames the folder in place', async () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const { vault, fileSystem, folderOperations } = setup([folder]);
@@ -432,10 +459,80 @@ describe('FolderOperations.rename() (ADR-024, interim same-parent-only kind)', (
     expect(renamed!.name).toBe('Work');
   });
 
+  it('never reparents — a rename under a non-root parent keeps its current parentId', async () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const child = makeFolder('folder-child', `${ROOT}/Parent/Child`, 'folder-parent');
+    const { vault, fileSystem, folderOperations } = setup([parent, child]);
+    await fileSystem.createDirectory(child.path);
+
+    await folderOperations.rename('folder-child', 'Renamed');
+
+    const renamed = vault.getFolder('folder-child');
+    expect(renamed!.parentId).toBe('folder-parent');
+    expect(renamed!.path).toBe(`${ROOT}/Parent/Renamed`);
+  });
+
   it('does nothing (no throw) for an unknown folder id — the Gate abandons harmlessly', async () => {
     const { folderOperations } = setup();
 
     await expect(folderOperations.rename('does-not-exist', 'Anything')).resolves.toBeUndefined();
+  });
+});
+
+describe('FolderOperations.move()', () => {
+  it('reparents the folder into an arbitrary destination, preserving its name', async () => {
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const destination = makeFolder('folder-2', `${ROOT}/Elsewhere`);
+    const { vault, fileSystem, folderOperations } = setup([source, destination]);
+    await fileSystem.createDirectory(source.path);
+    await fileSystem.createDirectory(destination.path);
+
+    await folderOperations.move('folder-1', 'folder-2');
+
+    const moved = vault.getFolder('folder-1');
+    expect(moved!.path).toBe(`${ROOT}/Elsewhere/Projects`);
+    expect(moved!.parentId).toBe('folder-2');
+  });
+
+  it('moves a folder to the vault root when destinationFolderId is null', async () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const source = makeFolder('folder-1', `${ROOT}/Parent/Projects`, 'folder-parent');
+    const { vault, fileSystem, folderOperations } = setup([parent, source]);
+    await fileSystem.createDirectory(source.path);
+
+    await folderOperations.move('folder-1', null);
+
+    const moved = vault.getFolder('folder-1');
+    expect(moved!.path).toBe(`${ROOT}/Projects`);
+    expect(moved!.parentId).toBeNull();
+  });
+
+  it('rejects moving a folder into itself or a descendant', async () => {
+    const parent = makeFolder('folder-1', `${ROOT}/Projects`);
+    const child = makeFolder('folder-2', `${ROOT}/Projects/Sub`, 'folder-1');
+    const { fileSystem, folderOperations } = setup([parent, child]);
+    await fileSystem.createDirectory(child.path);
+
+    await expect(folderOperations.move('folder-1', 'folder-2')).rejects.toThrow(
+      /Cannot move folder into itself or a descendant/
+    );
+  });
+
+  it('rejects moving into the reserved Daily Notes folder', async () => {
+    const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { fileSystem, folderOperations } = setup([dailyNotes, source]);
+    await fileSystem.createDirectory(source.path);
+
+    await expect(folderOperations.move('folder-1', 'folder-daily-notes')).rejects.toThrow(
+      /Cannot move into Daily Notes/
+    );
+  });
+
+  it('does nothing (no throw) for an unknown folder id — the Gate abandons harmlessly', async () => {
+    const { folderOperations } = setup();
+
+    await expect(folderOperations.move('does-not-exist', null)).resolves.toBeUndefined();
   });
 });
 

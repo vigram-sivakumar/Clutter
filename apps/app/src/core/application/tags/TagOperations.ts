@@ -4,6 +4,7 @@ import {
   TAG_METADATA_RELATIVE_PATH,
   EMPTY_TAG_METADATA_FILE_CONTENTS,
 } from '../../vault/initialize/ReservedResources';
+import { ensureClutterDirectory } from '../../vault/initialize/ensureClutterDirectory';
 import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
 
 /**
@@ -15,13 +16,16 @@ import type { VaultFileSystem } from '../../vault/providers/VaultFileSystem';
  * Vault domain content, so it is never routed through the Persistence
  * Gate (ARCHITECTURE_RULES.md rule 2's .clutter/* scope carve-out).
  * TagOperations reads and writes .clutter/tags.json directly via
- * VaultFileSystem, the same relationship VaultInitializer already has with
- * .clutter/workspace.json — no store, no loader, no queue, no
- * serialization module. The JSON shape is trivial enough that the small
- * "raw object -> normalized Map" transform below is duplicated (not
- * shared) with application bootstrap's equivalent startup-time read; if
- * the format ever grows real structure, that's the trigger to factor out
- * a shared primitive, not before.
+ * VaultFileSystem — no store, no loader, no queue, no serialization
+ * module. `.clutter` itself is lazily ensured (ensureClutterDirectory)
+ * immediately before every write, never assumed to already exist — the
+ * same lazy system-folder lifecycle every reserved Vault folder now
+ * follows, applied to the one reserved resource that isn't a Vault Folder
+ * at all. The JSON shape is trivial enough that the small "raw object ->
+ * normalized Map" transform below is duplicated (not shared) with
+ * application bootstrap's equivalent startup-time read; if the format
+ * ever grows real structure, that's the trigger to factor out a shared
+ * primitive, not before.
  *
  * PagePersistenceCoordinator and VaultSyncService never call this class
  * and never reference tags.json — Save and Sync are completely unaware
@@ -54,6 +58,8 @@ export class TagOperations {
     } else {
       next.set(normalized, merged);
     }
+
+    await ensureClutterDirectory(this.fileSystem, this.rootPath);
 
     await this.fileSystem.writeFile(
       path,

@@ -515,7 +515,12 @@ describe('PageOperations.archive()', () => {
     expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
   });
 
-  it('throws when the Archive folder is missing from the vault', async () => {
+  // Lazy system-folder lifecycle: Archive is no longer eagerly created at
+  // startup, so a missing Archive folder is an ordinary state, not a
+  // precondition failure — archiving recreates it (via
+  // PagePersistenceCoordinator.ensureReservedFolderForOperation) and
+  // succeeds, the same self-healing shape Daily Notes already has.
+  it('recreates the Archive folder and archives successfully when it is missing from the vault', async () => {
     const page = buildActivePage();
     const vault = makeVault([page], []);
     const fileSystem = new InMemoryVaultFileSystem();
@@ -525,10 +530,12 @@ describe('PageOperations.archive()', () => {
     );
     const pageOperations = buildPageOperations(vault, fileSystem);
 
-    await expect(pageOperations.archive(page.id)).rejects.toThrow(
-      /Archive folder not found/
-    );
-    expect(fileSystem.hasFileSync(page.path)).toBe(true);
+    await pageOperations.archive(page.id);
+
+    expect(vault.getReservedFolder('archive')).toBeDefined();
+    expect(await fileSystem.exists(`${ROOT}/Archive`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Archive/.folder.md`)).toBe(false);
+    expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
   });
 
   it('throws for an unknown page id and does not write to disk', async () => {

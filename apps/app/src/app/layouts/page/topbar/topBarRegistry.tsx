@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import type { PageType } from '@core/vault/models/Page';
+import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 
 import { ResourceTopBarActions } from './ResourceTopBarActions';
 import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
@@ -12,6 +13,11 @@ export interface TopBarActionsOptions {
   onRestore?: () => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  /** Present only when `menu` includes a `move-to` item — see ResourceTopBarActions' matching props. */
+  moveDestinations?: FolderPickerItem[];
+  onMove?: (destinationFolderId: string | null) => void;
+  /** Present alongside moveDestinations — see ResourceTopBarActions' matching prop. */
+  onCreateFolder?: (name: string) => Promise<string>;
   /**
    * ADR-026: set only for a folder with descendants — gates 'archive'
    * behind ResourceTopBarActions' Confirmation surface instead of firing
@@ -46,6 +52,9 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       delete: options?.onDelete,
       duplicate: options?.onDuplicate,
     }}
+    moveDestinations={options?.moveDestinations}
+    onMove={options?.onMove}
+    onCreateFolder={options?.onCreateFolder}
   />
 );
 
@@ -70,6 +79,9 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
     }}
     archiveConfirmationMessage={options?.archiveConfirmationMessage}
     deleteConfirmationMessage={options?.deleteConfirmationMessage}
+    moveDestinations={options?.moveDestinations}
+    onMove={options?.onMove}
+    onCreateFolder={options?.onCreateFolder}
   />
 );
 

@@ -188,13 +188,13 @@ describe('FolderPathResolver.resolveArchiveDestination (ADR-026)', () => {
   });
 });
 
-describe('FolderPathResolver.resolveRenamePath', () => {
+describe('FolderPathResolver.resolveMoveDestination — same-parent (rename)', () => {
   it('resolves a new path under the same parent', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const vault = makeVault([folder]);
     const resolver = new FolderPathResolver(vault);
 
-    const result = resolver.resolveRenamePath('folder-1', 'Renamed');
+    const result = resolver.resolveMoveDestination('folder-1', null, 'Renamed');
 
     expect(result).toEqual({ path: `${ROOT}/Renamed`, parentId: null });
   });
@@ -204,7 +204,7 @@ describe('FolderPathResolver.resolveRenamePath', () => {
     const vault = makeVault([folder]);
     const resolver = new FolderPathResolver(vault);
 
-    const result = resolver.resolveRenamePath('folder-1', 'Projects');
+    const result = resolver.resolveMoveDestination('folder-1', null, 'Projects');
 
     expect(result.path).toBe(`${ROOT}/Projects`);
   });
@@ -214,11 +214,11 @@ describe('FolderPathResolver.resolveRenamePath', () => {
     const vault = makeVault([folder]);
     const resolver = new FolderPathResolver(vault);
 
-    expect(resolver.resolveRenamePath('folder-1', '')).toEqual({
+    expect(resolver.resolveMoveDestination('folder-1', null, '')).toEqual({
       path: `${ROOT}/Untitled`,
       parentId: null,
     });
-    expect(resolver.resolveRenamePath('folder-1', '   ')).toEqual({
+    expect(resolver.resolveMoveDestination('folder-1', null, '   ')).toEqual({
       path: `${ROOT}/Untitled`,
       parentId: null,
     });
@@ -230,7 +230,7 @@ describe('FolderPathResolver.resolveRenamePath', () => {
     const vault = makeVault([renaming, occupant]);
     const resolver = new FolderPathResolver(vault);
 
-    const result = resolver.resolveRenamePath('folder-1', '');
+    const result = resolver.resolveMoveDestination('folder-1', null, '');
 
     expect(result.path).toBe(`${ROOT}/Untitled 2`);
   });
@@ -239,8 +239,86 @@ describe('FolderPathResolver.resolveRenamePath', () => {
     const vault = makeVault();
     const resolver = new FolderPathResolver(vault);
 
-    expect(() => resolver.resolveRenamePath('does-not-exist', 'Renamed')).toThrow(
+    expect(() => resolver.resolveMoveDestination('does-not-exist', null, 'Renamed')).toThrow(
       /Folder not found: does-not-exist/
+    );
+  });
+});
+
+describe('FolderPathResolver.resolveMoveDestination — reparenting (move)', () => {
+  it('reparents into an arbitrary destination folder, preserving the folder name by default', () => {
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const destination = makeFolder('folder-2', `${ROOT}/Archive-Not`);
+    const vault = makeVault([source, destination]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveMoveDestination('folder-1', 'folder-2');
+
+    expect(result).toEqual({ path: `${ROOT}/Archive-Not/Projects`, parentId: 'folder-2' });
+  });
+
+  it('resolves to the vault root when destinationFolderId is null', () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const source = makeFolder('folder-1', `${ROOT}/Parent/Projects`, 'folder-parent');
+    const vault = makeVault([parent, source]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveMoveDestination('folder-1', null);
+
+    expect(result).toEqual({ path: `${ROOT}/Projects`, parentId: null });
+  });
+
+  it('throws for an unknown destinationFolderId', () => {
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([source]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveMoveDestination('folder-1', 'does-not-exist')).toThrow(
+      /Folder not found: does-not-exist/
+    );
+  });
+
+  it('rejects moving a folder into itself', () => {
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([source]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveMoveDestination('folder-1', 'folder-1')).toThrow(
+      /Cannot move folder into itself or a descendant/
+    );
+  });
+
+  it('rejects moving a folder into its own descendant', () => {
+    const parent = makeFolder('folder-1', `${ROOT}/Projects`);
+    const child = makeFolder('folder-2', `${ROOT}/Projects/Sub`, 'folder-1');
+    const vault = makeVault([parent, child]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveMoveDestination('folder-1', 'folder-2')).toThrow(
+      /Cannot move folder into itself or a descendant/
+    );
+  });
+
+  it('rejects a destination inside the reserved Daily Notes folder', () => {
+    const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const nested = makeFolder('folder-nested', `${ROOT}/Daily Notes/2026`, 'folder-daily-notes');
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([dailyNotes, nested, source]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveMoveDestination('folder-1', 'folder-nested')).toThrow(
+      /Cannot move into Daily Notes/
+    );
+  });
+
+  it('rejects the reserved Daily Notes folder itself as a destination', () => {
+    const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const source = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([dailyNotes, source]);
+    const resolver = new FolderPathResolver(vault);
+
+    expect(() => resolver.resolveMoveDestination('folder-1', 'folder-daily-notes')).toThrow(
+      /Cannot move into Daily Notes/
     );
   });
 });

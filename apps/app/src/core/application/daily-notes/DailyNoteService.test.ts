@@ -46,7 +46,12 @@ function makeSequentialIdGenerator(ids: string[]): IdGenerator {
   return { generate: () => ids[index++] ?? `id-${index}` };
 }
 
-function setup(folders: Folder[] = [], ids: string[] = []) {
+function setup(
+  folders: Folder[] = [],
+  ids: string[] = [],
+  options: { includeDailyNotesRoot?: boolean } = {}
+) {
+  const { includeDailyNotesRoot = true } = options;
   const dailyNotesRoot = makeFolder(
     'daily-notes-root',
     `${ROOT}/Daily Notes`,
@@ -55,7 +60,7 @@ function setup(folders: Folder[] = [], ids: string[] = []) {
   const vault = new Vault(
     ROOT,
     [],
-    [dailyNotesRoot, ...folders],
+    includeDailyNotesRoot ? [dailyNotesRoot, ...folders] : folders,
     [],
     [],
     [],
@@ -84,7 +89,7 @@ function setup(folders: Folder[] = [], ids: string[] = []) {
     () => {}
   );
 
-  return { vault, folderOperations };
+  return { vault, folderOperations, fileSystem };
 }
 
 describe('DailyNoteService.ensureFolderChain', () => {
@@ -168,6 +173,100 @@ describe('DailyNoteService.ensureFolderChain', () => {
         `${ROOT}/Daily Notes/2026.md`
       )
     ).rejects.toThrow(/Malformed Daily Note path/);
+  });
+});
+
+// Recovery for the reserved Daily Notes root itself, missing from Vault —
+// e.g. deleted externally while the app kept running and reconciled away
+// by VaultSyncService.handleDeleted, or simply never materialized yet
+// (lazy system-folder lifecycle — nothing creates it eagerly at startup
+// anymore). ensureFolderChain recovers it the same check-then-create way
+// it already recovers a missing year/month level.
+describe('DailyNoteService.ensureFolderChain — recovering a missing Daily Notes root', () => {
+  it('never throws when the reserved Daily Notes folder is missing from Vault — recreates it instead', async () => {
+    const { vault, folderOperations } = setup([], ['daily-notes-recovered', 'year-2026', 'month-august'], {
+      includeDailyNotesRoot: false,
+    });
+    expect(vault.getReservedFolder('daily-notes')).toBeUndefined();
+    const service = new DailyNoteService();
+
+    const monthFolderId = await service.ensureFolderChain(
+      vault,
+      folderOperations,
+      `${ROOT}/Daily Notes/2026/August/2026-08-15.md`
+    );
+
+    const recoveredRoot = vault.getReservedFolder('daily-notes');
+    expect(recoveredRoot).toBeDefined();
+    expect(recoveredRoot!.parentId).toBeNull();
+    const month = vault.getFolder(monthFolderId);
+    expect(month).toBeDefined();
+    const year = vault.getFolder(month!.parentId!);
+    expect(year!.parentId).toBe(recoveredRoot!.id);
+  });
+
+  it('creates the Daily Notes directory on disk without a .folder.md — a reserved folder never carries an identity file', async () => {
+    const { vault, folderOperations, fileSystem } = setup(
+      [],
+      ['year-2026', 'month-august'],
+      { includeDailyNotesRoot: false }
+    );
+    const service = new DailyNoteService();
+
+    await service.ensureFolderChain(
+      vault,
+      folderOperations,
+      `${ROOT}/Daily Notes/2026/August/2026-08-15.md`
+    );
+
+    expect(await fileSystem.exists(`${ROOT}/Daily Notes`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Daily Notes/.folder.md`)).toBe(false);
+    // The year/month levels are ordinary user-shaped folders (created via
+    // FolderOperations.create(), same as every other folder), so they DO
+    // get one — only the reserved root itself is exempt.
+    expect(await fileSystem.exists(`${ROOT}/Daily Notes/2026/.folder.md`)).toBe(true);
+  });
+
+  it('never creates a second Daily Notes folder across repeated recovery + creation', async () => {
+    const { vault, folderOperations } = setup(
+      [],
+      ['year-2026', 'month-august', 'year-2027', 'month-september'],
+      { includeDailyNotesRoot: false }
+    );
+    const service = new DailyNoteService();
+
+    await service.ensureFolderChain(
+      vault,
+      folderOperations,
+      `${ROOT}/Daily Notes/2026/August/2026-08-15.md`
+    );
+    const firstRootId = vault.getReservedFolder('daily-notes')!.id;
+
+    await service.ensureFolderChain(
+      vault,
+      folderOperations,
+      `${ROOT}/Daily Notes/2027/September/2027-09-01.md`
+    );
+    const secondRootId = vault.getReservedFolder('daily-notes')!.id;
+
+    expect(secondRootId).toBe(firstRootId);
+    expect(
+      Array.from(vault.folders()).filter((folder) => folder.path === `${ROOT}/Daily Notes`)
+    ).toHaveLength(1);
+  });
+
+  it('does nothing (no recreation) when the Daily Notes folder is already present', async () => {
+    const { vault, folderOperations } = setup([], ['year-2026', 'month-august']);
+    const existingRootId = vault.getReservedFolder('daily-notes')!.id;
+    const service = new DailyNoteService();
+
+    await service.ensureFolderChain(
+      vault,
+      folderOperations,
+      `${ROOT}/Daily Notes/2026/August/2026-08-15.md`
+    );
+
+    expect(vault.getReservedFolder('daily-notes')!.id).toBe(existingRootId);
   });
 });
 

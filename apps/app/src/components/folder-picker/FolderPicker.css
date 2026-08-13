@@ -14,3 +14,19 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+.folder-picker__item {
+  padding-block: var(--space-6);
+  align-items: start;
+  height: fit-content;
+}
+
+.folder__content {
+  display: flex;
+  flex-direction: column;
+  justify-content: start;
+}
+.folder__path {
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+  color: var(--foreground-tertiary);
+}

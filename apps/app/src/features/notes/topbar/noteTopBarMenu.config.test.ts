@@ -39,4 +39,22 @@ describe('buildNoteTopBarMenu', () => {
     expect(menu.find((i) => i.id === 'archive')?.disabled).toBe(true);
     expect(menu.find((i) => i.id === 'delete')?.disabled).toBe(true);
   });
+
+  it("includes an enabled 'move-to' for a persisted, active page", () => {
+    const menu = buildNoteTopBarMenu('active');
+
+    expect(menu.find((i) => i.id === 'move-to')?.disabled).toBeFalsy();
+  });
+
+  it("disables 'move-to' for a draft", () => {
+    const menu = buildNoteTopBarMenu('draft');
+
+    expect(menu.find((i) => i.id === 'move-to')?.disabled).toBe(true);
+  });
+
+  it("disables 'move-to' for an archived page", () => {
+    const menu = buildNoteTopBarMenu('archived');
+
+    expect(menu.find((i) => i.id === 'move-to')?.disabled).toBe(true);
+  });
 });

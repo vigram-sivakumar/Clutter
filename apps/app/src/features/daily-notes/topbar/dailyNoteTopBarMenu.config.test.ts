@@ -39,4 +39,10 @@ describe('buildDailyNoteTopBarMenu', () => {
     expect(menu.find((i) => i.id === 'archive')?.disabled).toBe(true);
     expect(menu.find((i) => i.id === 'delete')?.disabled).toBe(true);
   });
+
+  it("never includes 'move-to' — Daily Notes are entirely outside the Move feature", () => {
+    expect(buildDailyNoteTopBarMenu('active').map((i) => i.id)).not.toContain('move-to');
+    expect(buildDailyNoteTopBarMenu('archived').map((i) => i.id)).not.toContain('move-to');
+    expect(buildDailyNoteTopBarMenu('draft').map((i) => i.id)).not.toContain('move-to');
+  });
 });

@@ -1750,3 +1750,112 @@ describe("Draft promotion race: a losing create attempt must not lose the other 
     expect(persisted.metadata.favorite).toBe(true);
   });
 });
+
+describe('PageOperations.move()', () => {
+  it('moves a note into an arbitrary destination folder, preserving its filename', async () => {
+    const page = buildPage();
+    const destination: Folder = {
+      id: 'folder-1',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      parentId: null,
+      metadata: defaultFolderMetadata,
+    };
+    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), destination]);
+
+    await pageOperations.move(page.id, 'folder-1');
+
+    const moved = vault.getPage(page.id)!;
+    expect(moved.path).toBe(`${ROOT}/Projects/Note.md`);
+    expect(moved.parentId).toBe('folder-1');
+  });
+
+  it('moves a note to the vault root when destinationFolderId is null', async () => {
+    const nested = buildNamedPage('page-1', `${ROOT}/Projects/Note.md`);
+    const destination: Folder = {
+      id: 'folder-1',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      parentId: null,
+      metadata: defaultFolderMetadata,
+    };
+    const { vault, pageOperations } = setup(nested, undefined, [makeArchiveFolder(), destination]);
+
+    await pageOperations.move(nested.id, null);
+
+    const moved = vault.getPage(nested.id)!;
+    expect(moved.path).toBe(`${ROOT}/Note.md`);
+    expect(moved.parentId).toBeNull();
+  });
+
+  it('throws for an unknown page id', async () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    await expect(pageOperations.move('does-not-exist', ARCHIVE_FOLDER_ID)).rejects.toThrow(
+      /Page not found/
+    );
+  });
+
+  it('rejects moving an archived page', async () => {
+    const page = buildPage();
+    const destination: Folder = {
+      id: 'folder-1',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      parentId: null,
+      metadata: defaultFolderMetadata,
+    };
+    const { coordinator, pageOperations } = setup(page, undefined, [makeArchiveFolder(), destination]);
+    await archiveDirectly(coordinator, page.id);
+
+    await expect(pageOperations.move(page.id, 'folder-1')).rejects.toThrow(
+      /Cannot move an archived page/
+    );
+  });
+
+  it('rejects moving into the reserved Daily Notes folder', async () => {
+    const page = buildPage();
+    const dailyNotes = makeDailyNotesFolder();
+    const { pageOperations } = setup(page, undefined, [makeArchiveFolder(), dailyNotes]);
+
+    await expect(pageOperations.move(page.id, dailyNotes.id)).rejects.toThrow(
+      /Cannot move into Daily Notes/
+    );
+  });
+
+  it('rejects moving a Daily Note', async () => {
+    const dailyNotes = makeDailyNotesFolder();
+    const dailyNote = new PageBuilder(ROOT).build({
+      parentId: dailyNotes.id,
+      page: {
+        path: `${ROOT}/Daily Notes/2026/August/2026-08-12.md`,
+        directoryPath: `${ROOT}/Daily Notes/2026/August`,
+        frontmatter: { id: 'page-daily' },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Body',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+    const destination: Folder = {
+      id: 'folder-1',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      parentId: null,
+      metadata: defaultFolderMetadata,
+    };
+    expect(dailyNote.type).toBe('daily-note');
+    const { pageOperations } = setup(dailyNote, undefined, [makeArchiveFolder(), destination]);
+
+    await expect(pageOperations.move(dailyNote.id, 'folder-1')).rejects.toThrow(
+      /Cannot move a Daily Note/
+    );
+  });
+});

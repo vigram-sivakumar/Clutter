@@ -442,3 +442,62 @@ describe('PagePersistenceCoordinator: archive is a single atomic Vault mutation'
     expect(archived.metadata.originalParentId).toBeNull();
   });
 });
+
+// Lazy system-folder lifecycle: Archive is never eagerly created at
+// startup anymore, so a missing Archive folder is an ordinary state (never
+// materialized, or deleted externally) — the same self-healing shape
+// Daily Notes already has, via the shared ensureReservedFolderForOperation
+// helper, not an Archive-specific mechanism.
+describe('PagePersistenceCoordinator: archive recovers a missing Archive folder', () => {
+  it('recreates Archive on disk and in Vault, then archives the page successfully', async () => {
+    const page = buildPage();
+    const { vault, fileSystem, coordinator } = setup(page); // no Archive folder fixture
+    expect(vault.getReservedFolder('archive')).toBeUndefined();
+
+    const result = await coordinator.enqueue(page.id, { kind: 'archive' });
+
+    expect(result.status).toBe('saved');
+    const recreated = vault.getReservedFolder('archive');
+    expect(recreated).toBeDefined();
+    expect(recreated!.parentId).toBeNull();
+    expect(await fileSystem.exists(`${ROOT}/Archive`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Archive/.folder.md`)).toBe(false);
+    expect(vault.getPage(page.id)!.metadata.status).toBe('archived');
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Archive/A.md`);
+  });
+
+  it('never creates a second Archive folder across two pages archived in sequence', async () => {
+    const pageA = buildPage();
+    const pageB: Page = { ...buildPage(), id: 'page-2', path: `${ROOT}/B.md`, name: 'B' };
+    const vault = makeVault([pageA, pageB]);
+    const fileSystem = new InMemoryVaultFileSystem();
+    fileSystem.seedFile(
+      pageA.path,
+      new FrontmatterSerializer().serializeDocument(pageA, pageA.source.markdown)
+    );
+    fileSystem.seedFile(
+      pageB.path,
+      new FrontmatterSerializer().serializeDocument(pageB, pageB.source.markdown)
+    );
+    const moveService = new MoveService(vault, fileSystem);
+    const coordinator = new PagePersistenceCoordinator(
+      fileSystem,
+      vault,
+      new FrontmatterSerializer(),
+      new FrontmatterParser(),
+      new PageRebuilder(),
+      moveService
+    );
+
+    await coordinator.enqueue(pageA.id, { kind: 'archive' });
+    const firstArchiveId = vault.getReservedFolder('archive')!.id;
+
+    await coordinator.enqueue(pageB.id, { kind: 'archive' });
+    const secondArchiveId = vault.getReservedFolder('archive')!.id;
+
+    expect(secondArchiveId).toBe(firstArchiveId);
+    expect(
+      Array.from(vault.folders()).filter((folder) => folder.path === `${ROOT}/Archive`)
+    ).toHaveLength(1);
+  });
+});

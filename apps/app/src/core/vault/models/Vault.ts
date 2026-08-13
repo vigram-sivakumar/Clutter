@@ -793,9 +793,9 @@ export class Vault {
     // method was only ever exercised by FolderOperations.create() (which
     // never changes an existing folder's basename), so a change to the
     // trailing path segment (a rename) never had a live caller to surface
-    // this. moveFolder() covers both move and rename (only the interim
-    // 'rename-folder' Gate kind calls it with a changed basename today,
-    // per the ADR's implementation-sequencing amendment).
+    // this. moveFolder() covers both move and rename — the unified
+    // 'move-folder' Gate kind calls it with a changed basename for a
+    // rename, an unchanged one for a pure move, or both at once.
     const movedFolder: Folder = {
       ...folder,
       path,

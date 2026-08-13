@@ -19,6 +19,36 @@ function makeVault(): Vault {
 }
 
 describe('TagOperations.updateMetadata', () => {
+  // Lazy system-folder lifecycle, applied to `.clutter`: it is never
+  // eagerly created at startup (there is no VaultInitializer anymore), so
+  // every writer ensures it exists immediately before writing —
+  // TagOperations is the current one. InMemoryVaultFileSystem.writeFile()
+  // doesn't itself require a parent directory to exist (unlike the real
+  // Tauri filesystem), so this test asserts the directory was actually
+  // created, not just that the write happened to succeed regardless.
+  it('ensures .clutter exists before writing tags.json when it was missing', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const vault = makeVault();
+    expect(await fileSystem.exists('/vault/.clutter')).toBe(false);
+    const operations = new TagOperations(vault, fileSystem, '/vault');
+
+    await operations.updateMetadata('Project', { icon: '📦' });
+
+    expect(await fileSystem.exists('/vault/.clutter')).toBe(true);
+  });
+
+  it('does nothing extra when .clutter already exists', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    await fileSystem.createDirectory('/vault/.clutter');
+    const vault = makeVault();
+    const operations = new TagOperations(vault, fileSystem, '/vault');
+
+    await expect(
+      operations.updateMetadata('Project', { icon: '📦' })
+    ).resolves.toBeUndefined();
+    expect(await fileSystem.exists('/vault/.clutter')).toBe(true);
+  });
+
   it('creates .clutter/tags.json with a normalized key on first assignment', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     const vault = makeVault();

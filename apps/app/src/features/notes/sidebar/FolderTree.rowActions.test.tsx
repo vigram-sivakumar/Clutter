@@ -199,16 +199,21 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onArchiveNote: vi.fn(),
     onDeleteNote: vi.fn(),
     onDuplicateNote: vi.fn(),
+    onMoveNote: vi.fn(),
     onFolderTitleEdit: vi.fn(),
     onFolderTitleFlush: vi.fn(),
     onFolderTitleCancel: vi.fn(),
     onArchiveFolder: vi.fn(),
     onDeleteFolder: vi.fn(),
+    onMoveFolder: vi.fn(),
+    getFolderMoveDestinations: vi.fn(() => []),
+    onCreateFolder: vi.fn(async () => 'folder-created'),
   };
 
   const actions: SidebarRowActions = {
     openMenuId: null,
     editingId: null,
+    noteMoveDestinations: [],
     ...spies,
     ...overrides,
   };

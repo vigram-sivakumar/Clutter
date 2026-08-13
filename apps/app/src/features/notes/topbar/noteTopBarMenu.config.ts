@@ -11,6 +11,13 @@ import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/re
  * status. For a draft (`state === 'draft'`, ADR-017), neither has
  * happened yet — 'archive' is shown, alongside 'delete', but both
  * `disabled` (ADR-017 Decision item 9), never omitted.
+ *
+ * 'move-to' (re-added — ADR-013 deferred it pending a destination-picker
+ * UI, now built) is `disabled` under the same rule as archive/delete for a
+ * draft (nothing on disk yet to move), and additionally for an archived
+ * page — Move's approved contract excludes archived pages as a source,
+ * enforced again at the Gate (PagePersistenceCoordinator.runMove) so this
+ * disabled state is a UX convenience, not the only guard.
  */
 export function buildNoteTopBarMenu(state: TopBarPageState): TopBarMenuItemConfig[] {
   const persisted = state !== 'draft';
@@ -25,6 +32,12 @@ export function buildNoteTopBarMenu(state: TopBarPageState): TopBarMenuItemConfi
       id: 'duplicate',
       label: 'Duplicate',
       icon: 'copy',
+    },
+    {
+      id: 'move-to',
+      label: 'Move to…',
+      icon: 'arrowDownRight',
+      disabled: !persisted || state === 'archived',
     },
     {
       id: 'add-to-favorite',

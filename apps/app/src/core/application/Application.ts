@@ -7,7 +7,6 @@ import { PagePathResolver } from './page/PagePathResolver';
 import { UuidGenerator } from '../shared/identity/UuidGenerator';
 import { VaultBuilder } from '../vault/ingest';
 import { VaultScanner } from '../vault/ingest';
-import { VaultInitializer } from '../vault/initialize/VaultInitializer';
 import { Workspace } from '../workspace/Workspace';
 import { Vault } from '../vault/models/Vault';
 import { VaultQuery } from '../vault/queries/VaultQuery';
@@ -109,21 +108,29 @@ export class Application {
       rootPath
     );
 
-    const initializer = new VaultInitializer(fileSystem);
-    await initializer.initialize(rootPath);
-
     const dailyNotes = new DailyNoteService();
 
+    // No eager reserved-folder/file materialization here — the lazy
+    // system-folder lifecycle (Reserved resource definition ≠ physical
+    // existence): a missing reserved folder is a valid, ordinary state at
+    // boot, discovered as absent by the scan below like any other empty
+    // vault region. Each feature that actually needs one materializes it
+    // immediately before the operation that requires it
+    // (PagePersistenceCoordinator.ensureReservedFolderForOperation for
+    // Archive, FolderOperations.ensureReservedFolder for Daily Notes,
+    // ensureClutterDirectory for .clutter) — never a blanket startup pass.
     const scanner = new VaultScanner(fileSystem);
     const scanResult = await scanner.scan(rootPath);
 
     // Tag presentation metadata (icon today, color later) is read directly
-    // here, once, the same way VaultInitializer already reads/writes
-    // .clutter/workspace.json — not through VaultScanner (this isn't Page/
-    // Folder content) and not through a dedicated loader (one reader, one
-    // writer, plain JSON: see TagOperations for why that doesn't warrant
-    // its own module). TagBuilder never sees the JSON shape — it only ever
-    // receives this already-parsed, already-normalized Map.
+    // here, once — not through VaultScanner (this isn't Page/Folder
+    // content) and not through a dedicated loader (one reader, one writer,
+    // plain JSON: see TagOperations for why that doesn't warrant its own
+    // module). Tolerates a missing file/directory the same lazy way every
+    // other reserved resource does: falls back to the empty shape rather
+    // than requiring `.clutter` to already exist. TagBuilder never sees
+    // the JSON shape — it only ever receives this already-parsed,
+    // already-normalized Map.
     const tagsMetadataPath = `${rootPath}/${TAG_METADATA_RELATIVE_PATH}`;
     const rawTagMetadata = (
       JSON.parse(
@@ -330,8 +337,11 @@ export class Application {
     // Not Gate-backed, deliberately — tag metadata is presentation
     // configuration (.clutter/tags.json), not Vault domain content, so it
     // is outside the Persistence Gate's scope (ARCHITECTURE_RULES.md rule
-    // 2). TagOperations talks to VaultFileSystem directly, same as
-    // VaultInitializer already does for .clutter/workspace.json.
+    // 2). TagOperations talks to VaultFileSystem directly, ensuring
+    // `.clutter` itself (via ensureClutterDirectory) before every write —
+    // `.clutter` is never a Vault Folder (VaultScanner excludes it from
+    // every scan), so it follows its own small filesystem-only lazy-ensure
+    // primitive, not FolderOperations.ensureReservedFolder().
     this.tagOperations = new TagOperations(vault, this.fileSystem, this.rootPath);
     // ADR-020: constructed after query/workspace/pageOperations all exist
     // above — the projection reconciling Vault (Durable) with

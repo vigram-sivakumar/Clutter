@@ -101,6 +101,40 @@ describe('MoveService.resolveMoveDestination', () => {
       parentId: 'folder-1',
     });
   });
+
+  it('rejects a destination inside the reserved Daily Notes folder', () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const nested = { ...makeFolder('folder-nested', `${ROOT}/Daily Notes/2026`), parentId: 'folder-daily-notes' };
+    const vault = makeVault([page], [dailyNotes, nested]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(() => moveService.resolveMoveDestination(page, 'folder-nested')).toThrow(
+      /Cannot move into Daily Notes/
+    );
+  });
+
+  it('rejects the reserved Daily Notes folder itself as a destination', () => {
+    const page = buildPage(`${ROOT}/Note.md`);
+    const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const vault = makeVault([page], [dailyNotes]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(() => moveService.resolveMoveDestination(page, 'folder-daily-notes')).toThrow(
+      /Cannot move into Daily Notes/
+    );
+  });
+
+  it('resolves to the vault root when destinationFolderId is null', () => {
+    const page = buildPage(`${ROOT}/Projects/Note.md`, 'folder-1');
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([page], [folder]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveMoveDestination(page, null);
+
+    expect(destination).toEqual({ path: `${ROOT}/Note.md`, parentId: null });
+  });
 });
 
 describe('MoveService.resolveRenameDestination', () => {

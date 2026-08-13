@@ -2,8 +2,8 @@
  * Abstract filesystem operations required by the vault pipeline.
  *
  * Reading and writing are intentionally exposed through a minimal set of
- * primitives so higher-level services (VaultScanner, VaultInitializer)
- * remain platform independent.
+ * primitives so higher-level services (VaultScanner, PagePersistenceCoordinator,
+ * ensureClutterDirectory) remain platform independent.
  *
  * VaultFileSystem is the only abstraction through which the application performs filesystem I/O.
  * Higher layers (Application Services, SaveCoordinator, VaultScanner, etc.) must never depend on platform-specific APIs directly.
