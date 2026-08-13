@@ -13,7 +13,7 @@ import { resolveDuplicateId } from '../ingest/identity/resolveDuplicateId';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
 import type { DocumentSession } from '../../engine/DocumentSession';
 import { DocumentTransaction } from '../../engine/DocumentTransaction';
-import { FrontmatterParser } from '../ingest/FrontmatterParser';
+import { FrontmatterParser, type ParsedMarkdown } from '../ingest/FrontmatterParser';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
 import { VaultPath } from '../ingest/VaultPath';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
@@ -149,7 +149,7 @@ export class VaultSyncService {
     }
 
     if (isDirectory) {
-      await this.handleFolderCreated(absolutePath);
+      await this.reconcileDirectorySubtree(absolutePath);
       return;
     }
 
@@ -157,18 +157,124 @@ export class VaultSyncService {
       return;
     }
 
-    // A folder's own identity file — handleFolderCreated() (or the
-    // startup scan) already captures its frontmatter directly. Without
-    // this guard, a `.folder.md` arriving as its own filesystem event
-    // (e.g. copying a folder in from outside the watched root, alongside
-    // its own directory-created event) would be built as a bogus Page
-    // once its parent folder is resolvable (ADR-024).
+    await this.reconcileFileEntity(absolutePath);
+  }
+
+  /**
+   * The one place any code path answers "given that something changed at
+   * this filesystem path, what should Vault (and any open DocumentSession)
+   * look like now?" — never trusting which event kind reported it.
+   *
+   * The filesystem event is treated purely as a signal that a path may have
+   * changed, not as authoritative information about what happened: this
+   * method always re-derives the answer from current disk state and current
+   * Vault state, which is what makes it safe to call redundantly, out of
+   * order, or in response to a coalesced/ambiguous event — every caller
+   * converges on the same actual-disk-state outcome regardless of how it
+   * got here.
+   */
+  private async reconcilePath(absolutePath: string): Promise<void> {
+    if (isClutterInternalPath(this.vault.root, absolutePath)) {
+      return;
+    }
+
+    const diskExists = await this.fileSystem.exists(absolutePath);
+
+    if (!diskExists) {
+      const folder = this.vault.getFolderByPath(absolutePath);
+
+      if (folder) {
+        this.vault.removeFolder(folder.id);
+        return;
+      }
+
+      const page = this.vault.getPageByPath(absolutePath);
+
+      if (page) {
+        this.vault.removePage(page.id);
+      }
+
+      // Nothing on disk, nothing tracked — already converged.
+      return;
+    }
+
+    const isDirectory = await this.isDirectoryOnDisk(absolutePath);
+
+    if (isDirectory) {
+      // A file path became a directory externally (rare edge case) — the
+      // stale Page can't coexist with the subtree reconciliation below.
+      const stalePage = this.vault.getPageByPath(absolutePath);
+
+      if (stalePage) {
+        this.vault.removePage(stalePage.id);
+      }
+
+      await this.reconcileDirectorySubtree(absolutePath);
+      return;
+    }
+
+    // A directory path became a file externally (rare edge case) — the
+    // stale Folder (and its cascade) can't coexist with the file below.
+    const staleFolder = this.vault.getFolderByPath(absolutePath);
+
+    if (staleFolder) {
+      this.vault.removeFolder(staleFolder.id);
+    }
+
+    await this.reconcileFileEntity(absolutePath);
+  }
+
+  /**
+   * Determines file-vs-directory purely from current disk state — never
+   * from which event kind reported the change — by listing the path's
+   * parent, the same signal the Rust watcher already stats for `created`
+   * events (ADR-024), just derived here for event kinds that don't carry
+   * it (`changed`, `deleted`, and reconciliation triggered indirectly via
+   * `moved`'s fallback path).
+   */
+  private async isDirectoryOnDisk(absolutePath: string): Promise<boolean> {
+    const parentPath = this.directoryOf(absolutePath);
+    const entries = await this.fileSystem.readDirectory(parentPath);
+    const entry = entries.find((candidate) => candidate.path === absolutePath);
+
+    return entry?.isDirectory ?? false;
+  }
+
+  /**
+   * Reconciles a single file path against disk: rereads it, and either
+   * rebuilds the already-tracked Page in place or resolves identity for a
+   * page new to this path (the same rules `resolveDuplicateId` has always
+   * used — a genuine frontmatter-id collision gets a fresh id, everything
+   * else preserves the id on disk). Converges any open, non-dirty
+   * DocumentSession for the resulting page as part of the same operation
+   * (§4/§10 of the reconciliation model) — this is what makes an external
+   * edit reach an open editor regardless of whether the watcher reported it
+   * as a plain `changed`, or as an unpaired `deleted` followed later by a
+   * `created` at the same path.
+   */
+  private async reconcileFileEntity(absolutePath: string): Promise<void> {
+    // A folder's own identity file — reconcileDirectorySubtree() (or the
+    // startup scan) already captures its frontmatter directly; it is never
+    // itself treated as a Page.
     if (VaultPath.filename(absolutePath) === '.folder.md') {
       return;
     }
 
-    // A duplicate or out-of-order event for a page we already know about.
-    if (this.vault.getPageByPath(absolutePath)) {
+    if (!absolutePath.endsWith('.md')) {
+      return;
+    }
+
+    const fileContent = await this.fileSystem.readFile(absolutePath);
+    const parsedMarkdown = this.frontmatterParser.parse(fileContent);
+
+    const existingPage = this.vault.getPageByPath(absolutePath);
+
+    if (existingPage) {
+      const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown);
+
+      this.vault.replacePage(rebuiltPage);
+      this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
+      await this.reconcileArchiveMetadataForPage(rebuiltPage.id);
       return;
     }
 
@@ -181,9 +287,6 @@ export class VaultSyncService {
     if (parentId === undefined) {
       return;
     }
-
-    const fileContent = await this.fileSystem.readFile(absolutePath);
-    const parsedMarkdown = this.frontmatterParser.parse(fileContent);
 
     const buildPage = (frontmatter: typeof parsedMarkdown.frontmatter) =>
       this.pageBuilder.build({
@@ -230,60 +333,94 @@ export class VaultSyncService {
       );
     }
 
+    this.convergeOpenSession(page.id, page.source.markdown);
     await this.reconcileArchiveMetadataForPage(page.id);
   }
 
   /**
-   * ADR-024: an externally-created directory becomes a Folder the same way
-   * VaultScanner treats one at startup — .folder.md supplies optional
-   * frontmatter if present, never required for the directory to count.
-   * Skips (rather than guesses) when the parent folder isn't yet
-   * resolvable, same reasoning handleCreated's page branch already uses.
+   * Reconciles an entire directory subtree against disk: the shared
+   * mechanism behind both "a brand-new folder appeared" (ADR-024) and "a
+   * coalesced/ambiguous event landed on a directory that may have gained
+   * or lost descendants" (this is the generalization that fixes bulk
+   * external deletion — see docs/adr and the Sync architecture notes).
    *
-   * Scans the directory's entire subtree (VaultScanner.scan), not just the
-   * directory itself — a directory arriving via a single `created` event
-   * (e.g. a folder moved or dragged into the vault from outside) means its
-   * whole contents just entered the vault at once, and any `created`
-   * events for files already inside it may have already arrived and been
-   * dropped (their parent folder wasn't resolvable yet) or may never
-   * arrive at all, depending on how the OS/editor reports the operation.
-   * Reading the actual current disk state here — the same discovery rules
-   * VaultBuilder's initial scan uses, via the shared
+   * Scans the directory's entire subtree (VaultScanner.scan) rather than
+   * trusting any single event to describe it — a directory arriving via
+   * one `created`/`changed` event (a folder dragged in, a bulk delete
+   * coalesced by the OS watcher into one directory-level signal) means its
+   * whole contents changed at once, and individual events for its
+   * descendants may have already arrived and been dropped, may never
+   * arrive at all, or may be redundant with what this scan already
+   * discovers. Reading the actual current disk state — the same discovery
+   * rules VaultBuilder's initial scan uses, via the shared
    * buildDiscoveredEntities helper — is what makes this reconciliation
-   * correct regardless of which events did or didn't fire for its
-   * descendants (see docs/architecture-specification.md §4: Sync reacts to
-   * "something changed here," the actual resulting state is determined by
-   * reading disk, not by trusting one event to mean one entity).
+   * correct regardless of which events did or didn't fire for descendants
+   * (docs/architecture-specification.md §4: Sync reacts to "something
+   * changed here," the resulting state is determined by reading disk, not
+   * by trusting one event to mean one entity).
+   *
+   * Always performs both halves of the diff: entities on disk but not yet
+   * in Vault are added (or, if already tracked at that exact path, have
+   * their content reconciled in place); entities Vault still tracks under
+   * this subtree but no longer present on disk are removed. Idempotent by
+   * construction — calling this twice in a row against unchanged disk
+   * state is a no-op the second time, since both halves of the diff find
+   * nothing left to do.
    */
-  private async handleFolderCreated(absolutePath: string): Promise<void> {
-    if (this.vault.getFolderByPath(absolutePath)) {
-      return;
-    }
-
-    const parentId = this.resolveParentId(this.directoryOf(absolutePath));
+  private async reconcileDirectorySubtree(absolutePath: string): Promise<void> {
+    const trackedFolder = this.vault.getFolderByPath(absolutePath);
+    const parentId = trackedFolder
+      ? trackedFolder.parentId
+      : this.resolveParentId(this.directoryOf(absolutePath));
 
     if (parentId === undefined) {
       return;
     }
 
     const scanResult = await this.vaultScanner.scan(absolutePath);
+
+    const scannedFolderPaths = new Set(scanResult.directories.map((directory) => directory.path));
+    const scannedPagePaths = new Set(scanResult.pages.map((page) => page.path));
+    const scannedPagesByPath = new Map(scanResult.pages.map((page) => [page.path, page]));
+
+    // Ids already claimed by a path this scan itself will rediscover are
+    // excluded from "claimed" — otherwise an unchanged, already-tracked
+    // entry would be seen as colliding with itself and be handed a fresh
+    // id purely for being rescanned (the identity trap: buildDiscoveredEntities
+    // has no notion of "this is the same entity being seen again," only
+    // "is this id already claimed by someone").
+    const existingFolderIds = new Set<string>();
+
+    for (const folder of this.vault.folders()) {
+      if (!scannedFolderPaths.has(folder.path)) {
+        existingFolderIds.add(folder.id);
+      }
+    }
+
+    const existingPageIds = new Set<string>();
+
+    for (const page of this.vault.pages()) {
+      if (!scannedPagePaths.has(page.path)) {
+        existingPageIds.add(page.id);
+      }
+    }
+
     const { folders, pages, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
       scanResult,
       {
         rootIsFolder: true,
         rootParentId: parentId,
         idGenerator: this.idGenerator,
-        existingFolderIds: new Set(Array.from(this.vault.folders(), (f) => f.id)),
-        existingPageIds: new Set(Array.from(this.vault.pages(), (p) => p.id)),
+        existingFolderIds,
+        existingPageIds,
       },
       { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
     );
 
     for (const folder of folders) {
-      // A folder some other event already added mid-scan is skipped rather
-      // than thrown — one bad entry must never abort ingestion of the rest
-      // of the subtree. Genuine duplicate folder ids were already resolved
-      // above (existingFolderIds), so this is purely a race guard.
+      // Already tracked (the common case for an already-known folder being
+      // rescanned) — nothing to add. A folder some other event already
+      // added mid-scan is skipped the same way, as a race guard.
       if (this.vault.getFolder(folder.id) || this.vault.getFolderByPath(folder.path)) {
         continue;
       }
@@ -292,11 +429,34 @@ export class VaultSyncService {
     }
 
     for (const page of pages) {
-      if (this.vault.getPage(page.id) || this.vault.getPageByPath(page.path)) {
+      const existingPage = this.vault.getPageByPath(page.path);
+
+      if (existingPage) {
+        // Already tracked at this exact path — reconcile its content in
+        // place from the same scan data, rather than re-adding it (which
+        // would also be where the identity trap above would otherwise
+        // bite). Picks up an in-place content edit discovered incidentally
+        // by a subtree scan, and converges any open session for it.
+        const scannedPage = scannedPagesByPath.get(page.path)!;
+        const parsedMarkdown: ParsedMarkdown = {
+          frontmatter: scannedPage.frontmatter as ParsedMarkdown['frontmatter'],
+          frontmatterAnalysis: scannedPage.frontmatterAnalysis,
+          body: scannedPage.content,
+          analysis: scannedPage.analysis,
+        };
+        const rebuiltPage = this.pageRebuilder.rebuild(existingPage, parsedMarkdown);
+
+        this.vault.replacePage(rebuiltPage);
+        this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
+        continue;
+      }
+
+      if (this.vault.getPage(page.id)) {
         continue;
       }
 
       this.vault.addPage(page);
+      this.convergeOpenSession(page.id, page.source.markdown);
     }
 
     // A genuine duplicate page id within the subtree was already built
@@ -341,6 +501,39 @@ export class VaultSyncService {
         folderMetadataPath,
         this.frontmatterSerializer.serializeFolderDocument(folder)
       );
+    }
+
+    // Removal half of the diff: anything Vault still tracks under this
+    // subtree that the scan didn't rediscover no longer exists on disk.
+    // Folders are removed first — Vault.removeFolder() cascades its own
+    // descendants, so many stale pages are already gone by the time the
+    // page loop below reaches them (guarded, not assumed).
+    const subtreeFolders = [...this.vault.folders()].filter(
+      (folder) => folder.path === absolutePath || VaultPath.isDescendantOf(folder.path, absolutePath)
+    );
+
+    for (const folder of subtreeFolders) {
+      if (!this.vault.getFolder(folder.id)) {
+        continue;
+      }
+
+      if (!scannedFolderPaths.has(folder.path)) {
+        this.vault.removeFolder(folder.id);
+      }
+    }
+
+    const subtreePages = [...this.vault.pages()].filter((page) =>
+      VaultPath.isDescendantOf(page.path, absolutePath)
+    );
+
+    for (const page of subtreePages) {
+      if (!this.vault.getPage(page.id)) {
+        continue;
+      }
+
+      if (!scannedPagePaths.has(page.path)) {
+        this.vault.removePage(page.id);
+      }
     }
   }
 
@@ -394,29 +587,7 @@ export class VaultSyncService {
       return;
     }
 
-    const page = this.vault.getPageByPath(absolutePath);
-
-    if (!page) {
-      return;
-    }
-
-    const fileContent = await this.fileSystem.readFile(absolutePath);
-    const parsedMarkdown = this.frontmatterParser.parse(fileContent);
-    const rebuiltPage = this.pageRebuilder.rebuild(page, parsedMarkdown);
-
-    this.vault.replacePage(rebuiltPage);
-
-    // Keep the open editor's live revision in sync with external changes.
-    // Vault.replacePage() only updates the immutable Vault snapshot; the
-    // page's rendered content comes from the DocumentSession's revision.
-    // Skip when the session has unsaved local edits to avoid clobbering them.
-    const session = this.documentRegistry.get(rebuiltPage.id);
-
-    if (session && !session.isDirty) {
-      this.applyExternalRevision(session, parsedMarkdown.body);
-    }
-
-    await this.reconcileArchiveMetadataForPage(rebuiltPage.id);
+    await this.reconcilePath(absolutePath);
   }
 
   /**
@@ -437,31 +608,40 @@ export class VaultSyncService {
   }
 
   /**
-   * ADR-024: an externally-deleted folder is reconciled the same way an
-   * externally-deleted page always has been — resolve by path, mutate
-   * Vault directly, no disk write (the deletion already happened). No
-   * archive-metadata repair applies to folders (that's a page-status
-   * concept). Vault.removeFolder()'s own cascade (descendant folders and
-   * pages) handles everything nested inside — this handler never needs to
-   * enumerate descendants itself.
+   * DocumentSession convergence as part of reconciliation, not a per-caller
+   * afterthought: every place in this file that determines a page's
+   * effective external content (a plain edit, a subtree scan picking up a
+   * changed file, or a page rebuilt from a delete-then-create sequence)
+   * calls this one method instead of separately looking up the session and
+   * re-deriving the dirty guard. This is what makes session convergence
+   * happen regardless of which watcher event sequence produced the new
+   * content — a `changed`, an unpaired `deleted` followed by `created`, or
+   * a directory-level rescan all end up here the same way.
    */
-  private handleDeleted(path: string): void {
+  private convergeOpenSession(pageId: string, markdown: string): void {
+    const session = this.documentRegistry.get(pageId);
+
+    if (session && !session.isDirty) {
+      this.applyExternalRevision(session, markdown);
+    }
+  }
+
+  /**
+   * A `deleted` event is only a signal that this path may no longer exist —
+   * reconcilePath() re-checks disk itself rather than assuming the event is
+   * complete or accurate. This is what makes a directory-level `changed`
+   * event that actually represents a deletion (a coalesced/ambiguous
+   * watcher signal — see docs/architecture-specification.md §4) converge to
+   * the same correct outcome as an ordinary per-path `deleted` event:
+   * either way, reconcilePath finds nothing on disk and removes whatever
+   * Vault still tracks there, cascading through Vault.removeFolder() for a
+   * folder without this handler ever needing to enumerate descendants
+   * itself.
+   */
+  private async handleDeleted(path: string): Promise<void> {
     const absolutePath = this.resolvePath(path);
 
-    const folder = this.vault.getFolderByPath(absolutePath);
-
-    if (folder) {
-      this.vault.removeFolder(folder.id);
-      return;
-    }
-
-    const page = this.vault.getPageByPath(absolutePath);
-
-    if (!page) {
-      return;
-    }
-
-    this.vault.removePage(page.id);
+    await this.reconcilePath(absolutePath);
   }
 
   /**
@@ -548,12 +728,9 @@ export class VaultSyncService {
       // path means this was an in-place content replace; otherwise it's
       // new content arriving under a name Sync hasn't seen yet. Neither
       // branch depends on what produced the event — only on the Vault's
-      // and disk's current state at the two paths involved.
-      if (this.vault.getPageByPath(absoluteTo)) {
-        await this.handleChanged(toPath);
-      } else {
-        await this.handleCreated(toPath, false);
-      }
+      // and disk's current state at the two paths involved, which is
+      // exactly reconcilePath()'s contract.
+      await this.reconcilePath(absoluteTo);
 
       return;
     }
@@ -586,11 +763,7 @@ export class VaultSyncService {
       return;
     }
 
-    const session = this.documentRegistry.get(reconciled.id);
-
-    if (session && !session.isDirty) {
-      this.applyExternalRevision(session, reconciled.source.markdown);
-    }
+    this.convergeOpenSession(reconciled.id, reconciled.source.markdown);
   }
 
   private async reconcileArchiveMetadataForPage(pageId: string): Promise<void> {
@@ -615,11 +788,7 @@ export class VaultSyncService {
       return;
     }
 
-    const session = this.documentRegistry.get(rebuiltPage.id);
-
-    if (session && !session.isDirty) {
-      this.applyExternalRevision(session, rebuiltPage.source.markdown);
-    }
+    this.convergeOpenSession(rebuiltPage.id, rebuiltPage.source.markdown);
   }
 
   private resolveParentId(directoryPath: string): string | null | undefined {

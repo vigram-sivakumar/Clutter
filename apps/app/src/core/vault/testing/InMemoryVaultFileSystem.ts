@@ -169,6 +169,33 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     this.files.set(path, contents);
   }
 
+  /**
+   * Test-only helper simulating a bulk external deletion: removes a file or
+   * an entire directory subtree from the fake filesystem synchronously, in
+   * one call, so a test can set up "disk state after everything under this
+   * path vanished" before emitting whatever single watcher event shape
+   * (an individual `deleted`, or a single directory-level `changed`) is
+   * under test — without needing one deleteFile() call per descendant.
+   */
+  removeRecursively(path: string): void {
+    this.files.delete(path);
+    this.directories.delete(path);
+
+    const prefix = `${path}/`;
+
+    for (const filePath of [...this.files.keys()]) {
+      if (filePath.startsWith(prefix)) {
+        this.files.delete(filePath);
+      }
+    }
+
+    for (const dirPath of [...this.directories]) {
+      if (dirPath.startsWith(prefix)) {
+        this.directories.delete(dirPath);
+      }
+    }
+  }
+
   getFileSync(path: string): string | undefined {
     return this.files.get(path);
   }

@@ -1708,3 +1708,250 @@ describe('VaultSyncService: external .folder.md edit reconciliation', () => {
     expect(vault.getFolder('folder-projects')).toBeUndefined();
   });
 });
+
+describe('VaultSyncService: Sync reconciliation model', () => {
+  // These tests prove the shared reconcilePath() mechanism, not individual
+  // event handlers: every assertion is about final Vault/DocumentSession
+  // state, never about which internal method ran.
+
+  it('external edit while the note is open (A: changed) — Vault and DocumentSession both converge to the new disk content', async () => {
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher, documentRegistry } = setup([existing]);
+    const session = documentRegistry.open(existing.id, existing.source.markdown);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nNew disk content');
+    watcher.emit({ type: 'changed', path: 'Note.md' });
+    await flush();
+
+    expect(vault.getPage('note-1')!.source.markdown).toBe('New disk content');
+    expect(session.currentRevision.markdown).toBe('New disk content');
+    expect(session.isDirty).toBe(false);
+  });
+
+  it('external edit while the note is open (B: deleted -> created at the same path) — Vault AND the open DocumentSession both converge; proves the fix, not just the Vault-state half of it', async () => {
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher, documentRegistry } = setup([existing]);
+    const session = documentRegistry.open(existing.id, existing.source.markdown);
+
+    watcher.emit({ type: 'deleted', path: 'Note.md' });
+    await flush();
+
+    // Confirms the intermediate state actually happened: this is a genuine
+    // delete-then-create save pattern, not a plain in-place edit.
+    expect(vault.getPageByPath(`${ROOT}/Note.md`)).toBeUndefined();
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nNew disk content');
+    watcher.emit({ type: 'created', path: 'Note.md', isDirectory: false });
+    await flush();
+
+    expect(vault.getPage('note-1')).toBeDefined();
+    expect(vault.getPage('note-1')!.source.markdown).toBe('New disk content');
+
+    // This is the assertion that failed before this change: Vault was
+    // already correct, but nothing ever told the open session.
+    expect(session.currentRevision.markdown).toBe('New disk content');
+    expect(session.isDirty).toBe(false);
+  });
+
+  it('dirty-session protection still holds under the new reconciliation model: an unsaved local edit survives a delete -> create sequence', async () => {
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher, documentRegistry } = setup([existing]);
+    const session = documentRegistry.open(existing.id, existing.source.markdown);
+    session.commit(new DocumentTransaction('My unsaved local edit'));
+    expect(session.isDirty).toBe(true);
+
+    watcher.emit({ type: 'deleted', path: 'Note.md' });
+    await flush();
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nExternal content');
+    watcher.emit({ type: 'created', path: 'Note.md', isDirectory: false });
+    await flush();
+
+    expect(vault.getPage('note-1')!.source.markdown).toBe('External content');
+    expect(session.currentRevision.markdown).toBe('My unsaved local edit');
+    expect(session.isDirty).toBe(true);
+  });
+
+  it('relative watcher path resolves through resolvePath() to the correct absolute Vault path', async () => {
+    const notesFolder: Folder = {
+      id: 'folder-notes',
+      name: 'Notes',
+      path: `${ROOT}/Notes`,
+      parentId: null,
+      metadata: defaultFolderMetadata,
+    };
+    const deepFolder: Folder = {
+      id: 'folder-deep',
+      name: 'Deep',
+      path: `${ROOT}/Notes/Deep`,
+      parentId: 'folder-notes',
+      metadata: defaultFolderMetadata,
+    };
+    const nested = buildPage('Notes/Deep/Nested.md', 'Original body', 'note-nested');
+    const nestedInDeep: Page = { ...nested, parentId: 'folder-deep' };
+    const { vault, fileSystem, watcher } = setup([nestedInDeep], [notesFolder, deepFolder]);
+
+    fileSystem.seedFile(
+      `${ROOT}/Notes/Deep/Nested.md`,
+      '---\nid: note-nested\n---\nUpdated via relative path'
+    );
+
+    // Emitted exactly as the Rust layer sends it: bare, vault-relative, no
+    // absolute prefix anywhere in this event.
+    watcher.emit({ type: 'changed', path: 'Notes/Deep/Nested.md' });
+    await flush();
+
+    const page = vault.getPageByPath(`${ROOT}/Notes/Deep/Nested.md`);
+    expect(page).toBeDefined();
+    expect(page!.source.markdown).toBe('Updated via relative path');
+  });
+
+  it('a directory-level changed event representing a full subtree deletion removes the folder and every descendant', async () => {
+    const projects = makeProjectsFolder();
+    const design = {
+      ...makeArchiveSubfolder('folder-design', 'Design'),
+      parentId: 'folder-projects',
+      path: `${ROOT}/Projects/Design`,
+    };
+    const notes = buildPage('Projects/Design/Notes.md', 'content', 'page-notes');
+    const notesInDesign: Page = { ...notes, parentId: 'folder-design' };
+    const { vault, fileSystem, watcher } = setup([notesInDesign], [projects, design]);
+
+    // Simulate the actual disk state after an external bulk delete, rather
+    // than relying on the watcher having reported individual deletions.
+    fileSystem.removeRecursively(`${ROOT}/Projects`);
+
+    // Reported as a single directory-level `changed` event — the
+    // coalesced/ambiguous shape FSEvents can produce for a bulk delete —
+    // not as a `deleted`.
+    watcher.emit({ type: 'changed', path: 'Projects' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getFolder('folder-design')).toBeUndefined();
+    expect(vault.getPage('page-notes')).toBeUndefined();
+  });
+
+  it('a directory-level changed event where the folder still exists but only some descendants were deleted removes just the missing ones', async () => {
+    const projects = makeProjectsFolder();
+    const keep = buildPage('Projects/Keep.md', 'kept', 'page-keep');
+    const gone = buildPage('Projects/Gone.md', 'gone', 'page-gone');
+    const keepInProjects: Page = { ...keep, parentId: 'folder-projects' };
+    const goneInProjects: Page = { ...gone, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([keepInProjects, goneInProjects], [projects]);
+
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    fileSystem.seedFile(`${ROOT}/Projects/Keep.md`, '---\nid: page-keep\n---\nkept');
+    // Gone.md is deliberately never seeded — it exists in Vault only,
+    // matching a file that was externally deleted.
+
+    watcher.emit({ type: 'changed', path: 'Projects' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeDefined();
+    expect(vault.getPage('page-keep')).toBeDefined();
+    expect(vault.getPage('page-gone')).toBeUndefined();
+  });
+
+  it('bulk deletion of multiple folders/pages: Vault becomes empty once the filesystem is empty', async () => {
+    const projects = makeProjectsFolder();
+    const archive = makeArchiveFolder();
+    const projectsNote = buildPage('Projects/Note.md', 'a', 'page-a');
+    const archiveNote = buildPage('Archive/Note.md', 'b', 'page-b');
+    const projectsNoteInProjects: Page = { ...projectsNote, parentId: 'folder-projects' };
+    const archiveNoteInArchive: Page = { ...archiveNote, parentId: 'folder-archive' };
+    const { vault, fileSystem, watcher } = setup(
+      [projectsNoteInProjects, archiveNoteInArchive],
+      [projects, archive]
+    );
+
+    fileSystem.removeRecursively(`${ROOT}/Projects`);
+    fileSystem.removeRecursively(`${ROOT}/Archive`);
+
+    watcher.emit({ type: 'deleted', path: 'Projects' });
+    watcher.emit({ type: 'deleted', path: 'Archive' });
+    await flush();
+
+    expect(vault.folderCount).toBe(0);
+    expect(vault.pageCount).toBe(0);
+  });
+
+  it('parent-before-child and child-before-parent deletion events converge to the same final state', async () => {
+    const buildScenario = () => {
+      const projects = makeProjectsFolder();
+      const design = {
+        ...makeArchiveSubfolder('folder-design', 'Design'),
+        parentId: 'folder-projects',
+        path: `${ROOT}/Projects/Design`,
+      };
+      const notes = buildPage('Projects/Design/Notes.md', 'content', 'page-notes');
+      const notesInDesign: Page = { ...notes, parentId: 'folder-design' };
+      return setup([notesInDesign], [projects, design]);
+    };
+
+    const parentFirst = buildScenario();
+    parentFirst.watcher.emit({ type: 'deleted', path: 'Projects' });
+    await flush();
+    parentFirst.watcher.emit({ type: 'deleted', path: 'Projects/Design/Notes.md' });
+    await flush();
+
+    const childFirst = buildScenario();
+    childFirst.watcher.emit({ type: 'deleted', path: 'Projects/Design/Notes.md' });
+    await flush();
+    childFirst.watcher.emit({ type: 'deleted', path: 'Projects' });
+    await flush();
+
+    for (const { vault } of [parentFirst, childFirst]) {
+      expect(vault.getFolder('folder-projects')).toBeUndefined();
+      expect(vault.getFolder('folder-design')).toBeUndefined();
+      expect(vault.getPage('page-notes')).toBeUndefined();
+    }
+  });
+
+  it('duplicate deleted events for the same path are idempotent', async () => {
+    const existing = buildPage('Gone.md', 'content', 'gone-1');
+    const { vault, watcher } = setup([existing]);
+
+    watcher.emit({ type: 'deleted', path: 'Gone.md' });
+    await flush();
+    expect(vault.getPage('gone-1')).toBeUndefined();
+
+    watcher.emit({ type: 'deleted', path: 'Gone.md' });
+    await flush();
+
+    expect(vault.getPage('gone-1')).toBeUndefined();
+    expect(vault.pageCount).toBe(0);
+  });
+
+  it('duplicate directory-level changed events after a bulk delete are idempotent', async () => {
+    const projects = makeProjectsFolder();
+    const notes = buildPage('Projects/Note.md', 'content', 'page-note');
+    const notesInProjects: Page = { ...notes, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([notesInProjects], [projects]);
+
+    fileSystem.removeRecursively(`${ROOT}/Projects`);
+
+    watcher.emit({ type: 'changed', path: 'Projects' });
+    await flush();
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+
+    watcher.emit({ type: 'changed', path: 'Projects' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getPage('page-note')).toBeUndefined();
+    expect(vault.folderCount).toBe(0);
+    expect(vault.pageCount).toBe(0);
+  });
+
+  it('a created event for an already-tracked path reconciles content instead of throwing or duplicating', async () => {
+    const existing = buildPage('Note.md', 'Original body', 'note-1');
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    fileSystem.seedFile(`${ROOT}/Note.md`, '---\nid: note-1\n---\nOriginal body');
+    watcher.emit({ type: 'created', path: 'Note.md', isDirectory: false });
+    await flush();
+
+    expect(vault.pageCount).toBe(1);
+    expect(vault.getPage('note-1')!.source.markdown).toBe('Original body');
+  });
+});
