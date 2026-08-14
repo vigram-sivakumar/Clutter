@@ -44,8 +44,6 @@ export function DailyNotes({
 
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
-    onToggleFavoriteNote: (pageId, isFavorite) =>
-      void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
   };
 
   return (

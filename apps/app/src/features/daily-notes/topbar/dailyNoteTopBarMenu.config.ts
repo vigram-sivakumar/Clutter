@@ -2,23 +2,18 @@ import type {
   TopBarMenuItemConfig,
   TopBarPageState,
 } from '@app/layouts/page/topbar/ResourceTopBarActions';
-import {
-  ARCHIVE_ACTION_LABEL,
-  DELETE_ACTION_LABEL,
-  FAVORITE_ACTION_LABEL,
-  UNFAVORITE_ACTION_LABEL,
-} from '@core/presentation/resourceActionLabels';
+import { ARCHIVE_ACTION_LABEL, DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 /**
  * Archive/Restore is a status-dependent toggle, not two statically-present
  * items — see noteTopBarMenu.config.ts for the same pattern, including the
- * `'draft'` state's disabled-not-omitted treatment (ADR-017 Decision item 9)
- * and the `toggle-favorite` item's shared id/PageOperations.updateMetadata
- * call.
+ * `'draft'` state's disabled-not-omitted treatment (ADR-017 Decision item 9).
+ * No favorite item: Daily Notes deliberately do not support favoriting
+ * (unlike Note/Folder) — see noteTopBarMenu.config.ts/folderTopBarMenu.config.ts
+ * for that capability.
  */
 export function buildDailyNoteTopBarMenu(
-  state: TopBarPageState,
-  isFavorite: boolean = false
+  state: TopBarPageState
 ): TopBarMenuItemConfig[] {
   const persisted = state !== 'draft';
 
@@ -27,11 +22,6 @@ export function buildDailyNoteTopBarMenu(
       id: 'add-a-description',
       label: 'Add a description',
       icon: 'description',
-    },
-    {
-      id: 'toggle-favorite',
-      label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
-      icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
     {
       id: 'version-history',

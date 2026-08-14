@@ -166,6 +166,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
         titleStyle: 'default',
         type: 'folder',
         emoji: null,
+        status: 'active',
       },
     ]);
   });

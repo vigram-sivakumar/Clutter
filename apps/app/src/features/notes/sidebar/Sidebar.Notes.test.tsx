@@ -74,13 +74,13 @@ function makeFolder(id: string, path: string): Folder {
   };
 }
 
-function makePage(id: string, path: string): Page {
+function makePage(id: string, path: string, overrides?: { favorite?: boolean }): Page {
   return new PageBuilder().build({
     parentId: null,
     page: {
       path,
       directoryPath: path.slice(0, path.lastIndexOf('/')),
-      frontmatter: { id },
+      frontmatter: { id, favorite: overrides?.favorite },
       frontmatterAnalysis: { aliases: [] },
       content: 'Body',
       analysis: {
@@ -205,6 +205,21 @@ function overflowButtonFor(rowTitle: string): HTMLElement {
   return overflow as HTMLElement;
 }
 
+/** Same lookup as overflowButtonFor, but scoped to a specific row title
+ *  element rather than found via text (needed when the same title renders
+ *  more than once, e.g. a favorited page's Favorites row and Workspace row). */
+function overflowButtonForEntry(rowTitleElement: HTMLElement): HTMLElement {
+  const row = rowTitleElement.closest('.entry');
+  if (!row) {
+    throw new Error('expected an entry row for the given title element');
+  }
+  const overflow = row.querySelector('button[aria-haspopup="menu"]');
+  if (!overflow) {
+    throw new Error('expected an overflow button on the given row');
+  }
+  return overflow as HTMLElement;
+}
+
 describe('Sidebar Notes: only one row menu is open at a time', () => {
   it('opening a second row\'s menu closes the first', () => {
     const folderA = makeFolder('folder-a', `${ROOT}/Alpha`);
@@ -234,6 +249,37 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
 
     fireEvent.click(overflowButtonFor('Alpha'));
     expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
+  });
+});
+
+describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row have independent menu state', () => {
+  it('opening the Favorites row\'s overflow menu does not also open the Workspace row\'s menu for the same page ID', () => {
+    // A favorited root-level page renders twice — once under Favorites,
+    // once under Workspace — both referencing the same page ID. Each is
+    // still its own Entry instance and must own its own menu state.
+    const page = makePage('page-a', `${ROOT}/Idea.md`, { favorite: true });
+    const deps = setup([], [page]);
+
+    renderNotes(deps);
+
+    const rows = screen.getAllByText('Idea');
+    expect(rows).toHaveLength(2);
+    const [favoritesRow, workspaceRow] = rows as [HTMLElement, HTMLElement];
+
+    fireEvent.click(overflowButtonForEntry(favoritesRow));
+
+    // Only the Favorites row's menu opened — a single Delete item, not two
+    // (two would mean the Workspace row for the same page ID opened too).
+    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
+
+    // The Workspace row's own overflow button opens its own menu on top of
+    // the still-open Favorites one — proving the two are independently
+    // owned, not just coincidentally closed a moment ago. (If both were
+    // still driven by one shared "which id is open" boolean, this second
+    // click would have no visible effect beyond what the first already
+    // caused.)
+    fireEvent.click(overflowButtonForEntry(workspaceRow));
+    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(2);
   });
 });
 

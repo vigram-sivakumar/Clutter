@@ -74,6 +74,15 @@ export function Notes({
   // that starting a rename elsewhere closes any other in-progress one.
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // FavoriteList renders its own Entry instances for the same page/folder
+  // IDs FolderTree renders under Workspace — a favorited page's Favorites
+  // row and its Workspace row are two separate rendered rows that happen
+  // to share a page ID, not one row. Menu-open state must therefore be
+  // scoped per rendered list, not shared: reusing `openMenuId` above (keyed
+  // only by id) would open both rows' menus together whenever the shared
+  // id matched. This state, and the favoriteRowActions override below, are
+  // FavoriteList's own independent instance of "which row's menu is open."
+  const [favoriteOpenMenuId, setFavoriteOpenMenuId] = useState<string | null>(null);
   // The sidebar's confirmation surface — same shared primitive
   // (useConfirmationSurface) and same Confirmation/Dialog components the
   // topbar's ResourceTopBarActions uses, so folder archive/delete show
@@ -168,6 +177,19 @@ export function Notes({
     onMoveFolder: (folderId, destinationFolderId) =>
       void folderOperations.move(folderId, destinationFolderId),
   };
+  // Everything but "which row's menu is open" is still the shared
+  // rowActions object above — archive/delete/duplicate/move/toggle-favorite
+  // all dispatch through the same PageOperations/FolderOperations calls
+  // regardless of which list triggered them. Only openMenuId/onOpenMenu/
+  // onCloseMenu are overridden, to this list's own state, so a Favorites
+  // row's menu opening never toggles open the Workspace row for the same
+  // page ID (see favoriteOpenMenuId above).
+  const favoriteRowActions: SidebarRowActions = {
+    ...rowActions,
+    openMenuId: favoriteOpenMenuId,
+    onOpenMenu: (id) => setFavoriteOpenMenuId(id),
+    onCloseMenu: () => setFavoriteOpenMenuId(null),
+  };
   const onShortcut = buildNotesShortcutHandler(navigation, pageOperations);
   const favoriteItems = getFavoriteItems(query, effectivePageState);
   // A pending (not-yet-persisted) root-level folder counts as non-empty too
@@ -213,6 +235,7 @@ export function Notes({
           onOpenFolder={(id) => {
             onOpenFolder(id);
           }}
+          rowActions={favoriteRowActions}
         />
       </FavoritesSection>
       <Section

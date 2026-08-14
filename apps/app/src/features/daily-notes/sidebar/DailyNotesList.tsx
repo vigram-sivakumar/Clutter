@@ -61,14 +61,6 @@ export interface DailyNoteRowActions {
 
   onArchiveNote(pageId: string): void;
   onDeleteNote(pageId: string): void;
-  /**
-   * Same PageOperations.updateMetadata({ favorite }) call the sidebar
-   * Notes tree's onToggleFavoriteNote and the topbar's favorite control
-   * all dispatch to — one operation, three entry points. Takes the row's
-   * current favorite state (rather than looking it up itself) since the
-   * caller already has it from the EffectivePage entry being rendered.
-   */
-  onToggleFavoriteNote(pageId: string, isFavorite: boolean): void;
 }
 
 interface DailyNotesListProps {
@@ -309,7 +301,6 @@ export function DailyNotesList({
           date={entry.name}
           isToday={isToday(entry.name)}
           selected={workspace.activePageId === entry.id}
-          isFavorite={entry.favorite}
           onClick={() => {
             if (entry.isVirtual) {
               return onOpenDate(entry.name);
@@ -319,7 +310,7 @@ export function DailyNotesList({
           }}
           menuItems={
             rowActions && !entry.isVirtual
-              ? buildDailyNoteSidebarMenu(entry.isDraft, entry.favorite)
+              ? buildDailyNoteSidebarMenu(entry.isDraft)
               : undefined
           }
           menuOpen={rowActions?.openMenuId === entry.id}
@@ -338,8 +329,6 @@ export function DailyNotesList({
                     rowActions.onArchiveNote(entry.id);
                   } else if (id === 'delete') {
                     rowActions.onDeleteNote(entry.id);
-                  } else if (id === 'toggle-favorite') {
-                    rowActions.onToggleFavoriteNote(entry.id, entry.favorite);
                   }
                 }
               : undefined

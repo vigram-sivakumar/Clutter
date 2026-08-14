@@ -4,13 +4,11 @@ import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { formatDate } from '@shared/helpers/time';
 import './DailyNote.css';
-import { AppIcon } from '@shared/icon';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {
   title?: string;
   isToday?: boolean;
   date?: string;
-  isFavorite?: boolean;
   titleStyle?: 'default' | 'placeholder';
 
   menuItems?: readonly OverflowMenuItemConfig[];
@@ -23,7 +21,6 @@ export function DailyNote({
   title,
   isToday,
   date,
-  isFavorite = false,
   titleStyle = 'default',
   menuItems,
   menuOpen = false,
@@ -43,7 +40,6 @@ export function DailyNote({
       // away mid-menu would hide the button needed to close it.
       forceHover={menuOpen}
       leading={<DateLabel isToday={isToday} date={day} />}
-      trailing={isFavorite ? <AppIcon icon="favouriteFilled" /> : undefined}
       actions={
         <OverflowMenu
           items={menuItems ?? []}

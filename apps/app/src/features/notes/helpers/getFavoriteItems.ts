@@ -9,7 +9,14 @@ function toFavoriteItem(entry: Folder | EffectivePage): FavoriteItem {
   const isPage = 'type' in entry;
   const { title, titleStyle, emoji } = buildEntryPresentation(entry);
 
-  return { id: entry.id, title, titleStyle, emoji, type: isPage ? 'note' : 'folder' };
+  return {
+    id: entry.id,
+    title,
+    titleStyle,
+    emoji,
+    type: isPage ? 'note' : 'folder',
+    status: isPage ? undefined : entry.metadata.status,
+  };
 }
 
 export function toFavoriteItems(

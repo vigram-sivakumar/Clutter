@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
 import { useWorkspace } from '@app/hooks/useWorkspace';
@@ -33,25 +33,6 @@ import { Workspace } from '@core/workspace/Workspace';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
-
-// Overlay's positioning logic observes anchor/surface size via
-// ResizeObserver, which jsdom doesn't implement — stubbed the same way
-// ResourceTopBarActions.test.tsx/FolderTree.rowActions.test.tsx already do.
-// Only needed once this file actually opens a row's overflow menu (the
-// favorite-toggle tests below), not by any pre-existing test here.
-class ResizeObserverMock {
-  observe = vi.fn();
-  unobserve = vi.fn();
-  disconnect = vi.fn();
-}
-
-beforeAll(() => {
-  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
-});
-
-afterAll(() => {
-  vi.unstubAllGlobals();
-});
 
 afterEach(() => {
   cleanup();
@@ -299,65 +280,6 @@ describe('DailyNotesList — empty month sections', () => {
     // virtual Today entry (no real page/draft exists for today here).
     expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
     expect(screen.getAllByText('Start typing...')).toHaveLength(2);
-  });
-});
-
-describe('DailyNotesList — favorite toggle', () => {
-  it("shows 'Add to Favorites' for a non-favorited daily note and dispatches onToggleFavoriteNote(id, false) on click", () => {
-    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
-    const month = makeMonthFolder('month', TODAY, 'year');
-    const note = makeDailyNote('daily-1', dayInMonth(TODAY, 15), 'month');
-    const { vault, query, membershipSelector, workspace } = setup(
-      [note],
-      [dailyNotesRoot, year, month]
-    );
-    const onToggleFavoriteNote = vi.fn();
-    const rowActions = {
-      openMenuId: 'daily-1',
-      onOpenMenu: vi.fn(),
-      onCloseMenu: vi.fn(),
-      onArchiveNote: vi.fn(),
-      onDeleteNote: vi.fn(),
-      onToggleFavoriteNote,
-    };
-
-    renderList({ vault, query, membershipSelector, workspace, rowActions });
-
-    expect(screen.getByText('Add to Favorites')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Add to Favorites'));
-
-    expect(onToggleFavoriteNote).toHaveBeenCalledWith('daily-1', false);
-  });
-
-  it("shows 'Remove from Favorites' for an already-favorited daily note and dispatches onToggleFavoriteNote(id, true) on click", () => {
-    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
-    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
-    const month = makeMonthFolder('month', TODAY, 'year');
-    const note: Page = {
-      ...makeDailyNote('daily-1', dayInMonth(TODAY, 15), 'month'),
-      metadata: { ...defaultPageMetadata, favorite: true },
-    };
-    const { vault, query, membershipSelector, workspace } = setup(
-      [note],
-      [dailyNotesRoot, year, month]
-    );
-    const onToggleFavoriteNote = vi.fn();
-    const rowActions = {
-      openMenuId: 'daily-1',
-      onOpenMenu: vi.fn(),
-      onCloseMenu: vi.fn(),
-      onArchiveNote: vi.fn(),
-      onDeleteNote: vi.fn(),
-      onToggleFavoriteNote,
-    };
-
-    renderList({ vault, query, membershipSelector, workspace, rowActions });
-
-    expect(screen.getByText('Remove from Favorites')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Remove from Favorites'));
-
-    expect(onToggleFavoriteNote).toHaveBeenCalledWith('daily-1', true);
   });
 });
 
@@ -778,7 +700,6 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
       onCloseMenu: vi.fn(),
       onArchiveNote: vi.fn(),
       onDeleteNote: vi.fn(),
-      onToggleFavoriteNote: vi.fn(),
     };
 
     const { container } = renderList({ vault, query, membershipSelector, workspace, rowActions });

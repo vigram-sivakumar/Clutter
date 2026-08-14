@@ -50,8 +50,10 @@ function buildMenuForType(
   switch (type) {
     case 'note':
       return buildNoteTopBarMenu(state, isFavorite);
+    // Daily Notes deliberately do not support favoriting (unlike Note/
+    // Folder) — buildDailyNoteTopBarMenu takes no isFavorite param.
     case 'daily-note':
-      return buildDailyNoteTopBarMenu(state, isFavorite);
+      return buildDailyNoteTopBarMenu(state);
     default:
       return [];
   }
@@ -87,7 +89,9 @@ export interface BuildTopBarActionsOptions {
    * shape as onArchive/onDelete/etc. above, for whichever resource type
    * `buildTopBarActions` was called for. `isFavorite` itself needs no
    * caller-supplied counterpart since buildTopBarActions already has
-   * `resource` and reads `resource.metadata.favorite` directly.
+   * `resource` and reads `resource.metadata.favorite` directly. Ignored
+   * (never forwarded) for a Daily Note — see buildTopBarActions'
+   * `isFavoritable` check; Daily Notes do not support favoriting.
    */
   onToggleFavorite?: () => void;
 }
@@ -100,7 +104,13 @@ export function buildTopBarActions(
   options: BuildTopBarActionsOptions
 ): TopBarParts {
   const resourceType = getTopBarResourceType(resource, options.membershipSelector);
-  const isFavorite = resource.metadata.favorite;
+  // Daily Notes deliberately do not support favoriting (unlike Note/
+  // Folder) — isFavorite/onToggleFavorite are never forwarded for one, so
+  // its standalone favorite button (ResourceTopBarActions is shared across
+  // all three resource types) renders inert, the same "unwired" shape any
+  // unsupported item already has elsewhere.
+  const isFavoritable = !isPage(resource) || resource.type === 'note';
+  const isFavorite = isFavoritable ? resource.metadata.favorite : false;
   const menu = isPage(resource)
     ? buildMenuForType(resource.type, resource.metadata.status, isFavorite)
     : buildFolderTopBarMenu(resource.metadata.status, isFavorite);
@@ -118,7 +128,7 @@ export function buildTopBarActions(
       onMove: options.onMove,
       onCreateFolder: options.onCreateFolder,
       isFavorite,
-      onToggleFavorite: options.onToggleFavorite,
+      onToggleFavorite: isFavoritable ? options.onToggleFavorite : undefined,
     }),
   };
 }

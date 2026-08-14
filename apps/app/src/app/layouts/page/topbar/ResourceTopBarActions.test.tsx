@@ -41,8 +41,12 @@ const DELETE_MESSAGE = 'Delete this folder and everything inside it?';
 const ARCHIVE_MESSAGE = 'Archive this folder and everything inside it?';
 
 function openMenu() {
-  const buttons = screen.getAllByRole('button');
-  fireEvent.click(buttons[2]!);
+  // The overflow trigger, found by its stable aria-haspopup attribute
+  // rather than a positional index — the favorite button before it only
+  // renders when onToggleFavorite is passed, so its presence shifts
+  // button order across tests.
+  const trigger = document.querySelector('button[aria-haspopup="menu"]');
+  fireEvent.click(trigger!);
 }
 
 function openDeleteConfirmation(onDelete?: () => void) {
@@ -322,12 +326,11 @@ describe('ResourceTopBarActions', () => {
       expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     });
 
-    it('the favorite button is unwired (no crash on click) when onToggleFavorite is absent — same as every other unwired item', () => {
+    it('omits the favorite button entirely when onToggleFavorite is absent (e.g. a Daily Note, a draft)', () => {
       render(<ResourceTopBarActions menu={menu} />);
 
-      expect(() =>
-        fireEvent.click(screen.getByRole('button', { name: 'Add to Favorites' }))
-      ).not.toThrow();
+      expect(screen.queryByRole('button', { name: 'Add to Favorites' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Remove from Favorites' })).toBeNull();
     });
 
     it('selecting the overflow menu\'s toggle-favorite item calls the same onToggleFavorite handler', () => {
