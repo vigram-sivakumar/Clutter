@@ -82,7 +82,9 @@ export function Notes({
   // only by id) would open both rows' menus together whenever the shared
   // id matched. This state, and the favoriteRowActions override below, are
   // FavoriteList's own independent instance of "which row's menu is open."
-  const [favoriteOpenMenuId, setFavoriteOpenMenuId] = useState<string | null>(null);
+  const [favoriteOpenMenuId, setFavoriteOpenMenuId] = useState<string | null>(
+    null
+  );
   // The sidebar's confirmation surface — same shared primitive
   // (useConfirmationSurface) and same Confirmation/Dialog components the
   // topbar's ResourceTopBarActions uses, so folder archive/delete show
@@ -140,7 +142,10 @@ export function Notes({
     onToggleFavoriteFolder: (folderId, isFavorite) =>
       void folderOperations.updateMetadata(folderId, { favorite: !isFavorite }),
     onArchiveFolder: (folderId) => {
-      const { hasDescendants, message } = getFolderArchiveConfirmation(vault, folderId);
+      const { hasDescendants, message } = getFolderArchiveConfirmation(
+        vault,
+        folderId
+      );
 
       if (hasDescendants) {
         confirmation.request({
@@ -155,7 +160,10 @@ export function Notes({
       void folderOperations.archive(folderId);
     },
     onDeleteFolder: (folderId) => {
-      const { hasDescendants, message } = getFolderDeleteConfirmation(vault, folderId);
+      const { hasDescendants, message } = getFolderDeleteConfirmation(
+        vault,
+        folderId
+      );
 
       if (hasDescendants) {
         confirmation.request({
@@ -242,15 +250,13 @@ export function Notes({
         hasHeader
         title={getSystemLocationPresentation('workspace').label}
         isCollapsible
-        isTitleToggle
+        // isTitleToggle
         isEmpty={isFoldersEmpty}
         isExpanded={workspace.isSectionExpanded('folders')}
         onExpandedChange={(expanded) =>
           workspace.setSectionExpanded('folders', expanded)
         }
-        // Clicking the row toggles collapse, same as its caret — it no
-        // longer navigates to the Workspace collection view.
-        // onClick={() => workspace.toggleSectionExpanded('folders')}
+        onClick={() => navigation.openWorkspace()}
         actions={
           <Button
             size="small"
@@ -292,7 +298,11 @@ export function Notes({
           }}
         />
       </Section>
-      <Dialog open={confirmation.pending !== null} onClose={confirmation.cancel} size="medium">
+      <Dialog
+        open={confirmation.pending !== null}
+        onClose={confirmation.cancel}
+        size="medium"
+      >
         {confirmation.pending && (
           <Confirmation
             title={confirmation.pending.title}

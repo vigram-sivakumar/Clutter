@@ -6,6 +6,7 @@ export interface EntryProps extends HTMLAttributes<HTMLDivElement> {
 
   leading?: React.ReactNode;
   trailing?: React.ReactNode;
+  hideTrailingOnHover?: boolean;
   actions?: React.ReactNode;
 
   selected?: boolean;
@@ -36,6 +37,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
     leading,
     children,
     trailing,
+    hideTrailingOnHover = true,
     actions,
 
     selected = false,
@@ -111,6 +113,7 @@ export const Entry = forwardRef<HTMLDivElement, EntryProps>(function Entry(
         className,
         onClick && 'entry-interactive',
         forceHover && 'entry-force-hover',
+        hideTrailingOnHover && 'entry-hide-trailing-on-hover',
         selected && 'entry-selected',
         disabled && 'entry-disabled',
       ]

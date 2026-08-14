@@ -91,7 +91,8 @@ export class VaultQuery {
 
   public getFavoriteFolders(): Folder[] {
     return Array.from(this.vault.folders()).filter(
-      (folder) => folder.metadata.favorite
+      (folder) =>
+        folder.metadata.favorite && folder.metadata.status !== 'archived'
     );
   }
 

@@ -112,9 +112,10 @@
   pointer-events: auto;
 }
 
-.entry:hover:has(.entry__actions) .entry__meta,
-.entry:focus-visible:has(.entry__actions) .entry__meta,
-.entry-force-hover:has(.entry__actions) .entry__meta {
+.entry-hide-trailing-on-hover:hover:has(.entry__actions) .entry__meta,
+.entry-hide-trailing-on-hover:focus-visible:has(.entry__actions) .entry__meta,
+.entry-hide-trailing-on-hover.entry-force-hover:has(.entry__actions)
+  .entry__meta {
   width: 0;
   opacity: 0;
   visibility: hidden;

@@ -71,6 +71,10 @@
     --space-30
   ); /* Default for most of the interactive elements */
 
+  /* Content width */
+  --content-width: calc(100% - 96px);
+  --content-max-width: 720px;
+
   /* icon size */
   --icon-md: var(--space-16);
   --icon-sm: var(--space-6);
