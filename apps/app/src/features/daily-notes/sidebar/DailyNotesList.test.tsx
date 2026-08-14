@@ -233,13 +233,15 @@ function renderList(
   );
 }
 
-// "All Daily Notes" is collapsed by default (Workspace seeds it that way) —
-// tests that need to look inside it expand it via its caret first, the
-// only way a user can.
+// The "other months" group is collapsed by default (Workspace seeds it
+// that way) — tests that need to look inside it expand it via the "See
+// more" row first, the only way a user can. This replaced an earlier
+// design with its own "All Daily Notes" collapsible section header +
+// caret; the current UI (responsive-sidebar work) is a flat chronological
+// timeline with a single "See more"/"See less" toggle row instead — no
+// wrapping header, no caret, one plain click target.
 function expandAllDailyNotes() {
-  const header = screen.getByText('All Daily Notes').closest('.section-header') as HTMLElement;
-  const caret = header.querySelector('.section-header__caret') as HTMLElement;
-  fireEvent.click(caret);
+  fireEvent.click(screen.getByText('See more'));
 }
 
 describe('DailyNotesList — empty month sections', () => {
@@ -257,10 +259,10 @@ describe('DailyNotesList — empty month sections', () => {
     renderList({ vault, query, membershipSelector, workspace });
 
     // Nothing else is populated (besides the virtual Today entry, in the
-    // current month) — "All Daily Notes" has nothing to hold, so it
-    // doesn't render at all.
+    // current month) — there are no other months to group, so the "See
+    // more" toggle row itself doesn't render at all.
     expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
-    expect(screen.queryByText('All Daily Notes')).toBeNull();
+    expect(screen.queryByText('See more')).toBeNull();
   });
 
   it('renders the current month\'s Daily Notes with no month heading', () => {
@@ -601,10 +603,10 @@ describe('DailyNotesList — current month vs. All Daily Notes (no partitioning 
     const { container } = renderList({ vault, query, membershipSelector, workspace });
 
     // Only the current month's rows are visible initially; the other two
-    // months are inside the collapsed "All Daily Notes".
+    // months are behind the collapsed "See more" toggle.
     expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
     expect(screen.queryByText(monthNameOf(futureMonthIso), { exact: false })).toBeNull();
-    expect(screen.getByText('All Daily Notes')).toBeInTheDocument();
+    expect(screen.getByText('See more')).toBeInTheDocument();
 
     expandAllDailyNotes();
 
@@ -612,13 +614,14 @@ describe('DailyNotesList — current month vs. All Daily Notes (no partitioning 
       (el) => el.textContent
     );
 
-    // "All Daily Notes" itself, then its two month sub-headings, oldest to
-    // newest — no current/future/past partitioning.
+    // Its two month sub-headings, oldest to newest — no wrapping "All Daily
+    // Notes" header anymore (just the flat "See more"/"See less" toggle
+    // row, not a .section-header), and no current/future/past partitioning.
     expect(headerTitles).toEqual([
-      'All Daily Notes',
       expect.stringContaining(monthNameOf(pastMonthIso)),
       expect.stringContaining(monthNameOf(futureMonthIso)),
     ]);
+    expect(screen.getByText('See less')).toBeInTheDocument();
   });
 
   it("a month in a different year than today carries its own year in the heading — no separate, standalone year heading", () => {
@@ -734,7 +737,7 @@ describe('DailyNotesList — "All Daily Notes" collapsed state (session-scoped v
 
     renderList({ vault, query, membershipSelector, workspace });
 
-    expect(screen.getByText('All Daily Notes')).toBeInTheDocument();
+    expect(screen.getByText('See more')).toBeInTheDocument();
     expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
   });
 

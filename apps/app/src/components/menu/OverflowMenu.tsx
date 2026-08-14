@@ -67,7 +67,8 @@ export function OverflowMenu({
   // goes from no capabilities to a real menu without unmounting), and a
   // hook called only on some renders violates the Rules of Hooks.
   const internalAnchorRef = useRef<HTMLButtonElement>(null);
-  const anchorRef: RefObject<HTMLButtonElement> = triggerRef ?? internalAnchorRef;
+  const anchorRef: RefObject<HTMLButtonElement> =
+    triggerRef ?? internalAnchorRef;
 
   if (items.length === 0) {
     return null;
@@ -89,7 +90,7 @@ export function OverflowMenu({
           onOpenChange(!open);
         }}
       >
-        <AppIcon icon={'moreHorizontal'} />
+        <AppIcon icon={'moreVertical'} />
       </Button>
       <Overlay
         open={open}

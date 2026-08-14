@@ -13,6 +13,8 @@ import { Dialog } from '@components/dialog/Dialog';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import { Popover } from '@components/popover/Popover';
+import { ImagePicker } from '@app/layouts/page/cover/image-picker/ImagePicker';
 import { AppIcon } from '@shared/icon';
 import type { PageStatus } from '@core/vault/models/PageMetadata';
 
@@ -94,6 +96,18 @@ export interface ResourceTopBarActionsProps {
    * ReservedFolderTopBarActions is a separate renderer).
    */
   onToggleFavorite?: () => void;
+  /**
+   * Present only when the caller's menu includes an `add-cover-image`
+   * item — mirrors moveDestinations/onMove's shape exactly (a capability-
+   * gating prop, not a plain callback): its presence is what makes
+   * `add-cover-image` open the cover popover instead of falling through to
+   * `handlers`, the same way `moveDestinations !== undefined` gates
+   * `move-to`. Invoked with the submitted URL; the caller is responsible
+   * for persisting it (PageOperations.updateMetadata/FolderOperations.
+   * updateMetadata, both of which already accept a `cover` patch) — this
+   * component never persists anything itself.
+   */
+  onSetCoverImage?: (url: string) => void;
 }
 
 /**
@@ -122,13 +136,27 @@ export function ResourceTopBarActions({
   onCreateFolder,
   isFavorite,
   onToggleFavorite,
+  onSetCoverImage,
 }: ResourceTopBarActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Same "does this row's own trigger button anchor a second popover"
+  // shape as moveTrigger below, just a plain boolean instead of a
+  // destination-list-driven hook — the cover picker has no list to
+  // manage, only an open/closed state. Anchored on the exact same
+  // moveTrigger.triggerRef (the overflow button itself), same as
+  // MoveDestinationPicker already does, since both popovers open off the
+  // one trigger button this menu has.
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const confirmation = useConfirmationSurface();
   const moveTrigger = useMoveDestinationTrigger(moveDestinations);
 
   function handleMenuSelect(id: string) {
     moveTrigger.handleSelect(id, (id) => {
+      if (id === 'add-cover-image' && onSetCoverImage) {
+        setCoverPickerOpen(true);
+        return;
+      }
+
       if (id === 'delete' && deleteConfirmationMessage !== undefined) {
         confirmation.request({
           title: 'Delete this folder?',
@@ -194,6 +222,22 @@ export function ResourceTopBarActions({
           side={OVERFLOW_SIDE}
           alignment={OVERFLOW_ALIGNMENT}
         />
+      )}
+      {onSetCoverImage && (
+        <Popover
+          anchorRef={moveTrigger.triggerRef}
+          open={coverPickerOpen}
+          onClose={() => setCoverPickerOpen(false)}
+          side={OVERFLOW_SIDE}
+          alignment={OVERFLOW_ALIGNMENT}
+        >
+          <ImagePicker
+            onLinkSubmit={(url) => {
+              setCoverPickerOpen(false);
+              onSetCoverImage(url);
+            }}
+          />
+        </Popover>
       )}
       <Dialog
         open={confirmation.pending !== null}

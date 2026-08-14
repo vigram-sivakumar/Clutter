@@ -5,7 +5,7 @@ import './Button.css';
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children?: ReactNode;
 
-  variant?: 'filled' | 'outlined' | 'ghost' | 'outline-fill';
+  variant?: 'filled' | 'outlined' | 'ghost' | 'outline-fill' | 'primary';
   size?: 'large' | 'medium' | 'small';
   interaction?: 'default' | 'subtle';
 

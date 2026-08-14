@@ -92,7 +92,7 @@
   --z-overlay: 1000;
 
   /* Typography */
-  --font-family: Inter, system-ui, -apple-system, sans-serif;
+  --font-family: Helvatica, system-ui, -apple-system, sans-serif;
   --font-sans: var(--font-family);
 
   /* Font size */

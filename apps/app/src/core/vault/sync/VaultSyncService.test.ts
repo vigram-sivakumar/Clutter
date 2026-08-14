@@ -1954,4 +1954,122 @@ describe('VaultSyncService: Sync reconciliation model', () => {
     expect(vault.pageCount).toBe(1);
     expect(vault.getPage('note-1')!.source.markdown).toBe('Original body');
   });
+
+  it('an empty relative watcher path (the vault root) resolves to the root itself, not a trailing-slash path', async () => {
+    const projects = makeProjectsFolder();
+    const note = buildPage('Projects/Note.md', 'content', 'page-note');
+    const noteInProjects: Page = { ...note, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([noteInProjects], [projects]);
+
+    // The vault root itself still exists on disk (just empty) — the shape
+    // a coalesced watcher event for a bulk external delete arrives as:
+    // Rust's relative_path() strips the root prefix, leaving ''.
+    fileSystem.removeRecursively(`${ROOT}/Projects`);
+    await fileSystem.createDirectory(ROOT);
+
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    // Reaching reconcileDirectorySubtree() at all (rather than silently
+    // no-opping as a misclassified file) is what this test proves.
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getPage('page-note')).toBeUndefined();
+  });
+
+  it('deleting everything under the vault (root-level coalesced event) removes every Vault page and folder', async () => {
+    const projects = makeProjectsFolder();
+    const archive = makeArchiveFolder();
+    const design = {
+      ...makeArchiveSubfolder('folder-design', 'Design'),
+      parentId: 'folder-projects',
+      path: `${ROOT}/Projects/Design`,
+    };
+    const projectsNote = buildPage('Projects/Note.md', 'a', 'page-a');
+    const designNote = buildPage('Projects/Design/Nested.md', 'b', 'page-b');
+    const archiveNote = buildPage('Archive/Note.md', 'c', 'page-c');
+    const projectsNoteInProjects: Page = { ...projectsNote, parentId: 'folder-projects' };
+    const designNoteInDesign: Page = { ...designNote, parentId: 'folder-design' };
+    const archiveNoteInArchive: Page = { ...archiveNote, parentId: 'folder-archive' };
+    const { vault, fileSystem, watcher, documentRegistry } = setup(
+      [projectsNoteInProjects, designNoteInDesign, archiveNoteInArchive],
+      [projects, archive, design]
+    );
+
+    const session = documentRegistry.open('page-a', projectsNote.source.markdown);
+
+    let notificationCount = 0;
+    vault.subscribe(() => {
+      notificationCount += 1;
+    });
+
+    fileSystem.removeRecursively(`${ROOT}/Projects`);
+    fileSystem.removeRecursively(`${ROOT}/Archive`);
+    await fileSystem.createDirectory(ROOT);
+
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    expect(vault.folderCount).toBe(0);
+    expect(vault.pageCount).toBe(0);
+
+    // The Vault notified (this is the "application state converges" half —
+    // Application's own workspace-reconciliation subscriber, covered in
+    // Application.test.ts, reacts to exactly this notification; Sync's own
+    // contract ends at "Vault matches disk and announces it").
+    expect(notificationCount).toBeGreaterThan(0);
+
+    // A page whose backing Vault entry disappeared is untouched by Sync
+    // (closing/reassigning open sessions is Application's job, not
+    // Sync's) — asserting this here pins that boundary rather than
+    // assuming it.
+    expect(session.currentRevision.markdown).toBe(projectsNote.source.markdown);
+  });
+
+  it('a concrete top-level directory deletion (non-empty relative path) still works exactly as before', async () => {
+    const projects = makeProjectsFolder();
+    const notes = buildPage('Projects/Note.md', 'content', 'page-note');
+    const notesInProjects: Page = { ...notes, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([notesInProjects], [projects]);
+
+    fileSystem.removeRecursively(`${ROOT}/Projects`);
+
+    watcher.emit({ type: 'changed', path: 'Projects' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getPage('page-note')).toBeUndefined();
+  });
+
+  it('a root-level coalesced event on an empty vault does not create or track reserved resources — they stay lazy', async () => {
+    // No reserved folders (Archive, Inbox, Templates, Daily Notes,
+    // .clutter) have ever been materialized — the lazy-ensure default
+    // (ReservedResources.ts) both on disk and in Vault.
+    const { vault, fileSystem, watcher } = setup([], []);
+    await fileSystem.createDirectory(ROOT);
+
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    expect(vault.folderCount).toBe(0);
+    expect(vault.pageCount).toBe(0);
+    expect(await fileSystem.exists(`${ROOT}/Archive`)).toBe(false);
+    expect(await fileSystem.exists(`${ROOT}/Daily Notes`)).toBe(false);
+    expect(await fileSystem.exists(`${ROOT}/.clutter`)).toBe(false);
+  });
+
+  it('a root-level coalesced event on a vault with an existing (already-created) reserved folder reconciles it like any other folder, without recreating it if genuinely deleted', async () => {
+    const archive = makeArchiveFolder();
+    const { vault, fileSystem, watcher } = setup([], [archive]);
+
+    // Archive/ was created at some point (fileSystem has it) and survives
+    // this bulk delete untouched.
+    await fileSystem.createDirectory(`${ROOT}/Archive`);
+    await fileSystem.createDirectory(ROOT);
+
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    expect(vault.getFolder('folder-archive')).toBeDefined();
+    expect(vault.folderCount).toBe(1);
+  });
 });

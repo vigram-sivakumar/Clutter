@@ -422,7 +422,11 @@ export class PageOperations {
     const reusableId = this.findReusableDraftId(type);
 
     if (reusableId) {
-      this.drafts.set(reusableId, { folderId: options.folderId, type, title: options.title });
+      this.drafts.set(reusableId, {
+        folderId: options.folderId,
+        type,
+        title: options.title,
+      });
       this.flushActivePage();
       this.workspace.openPage(reusableId, { recordable: false });
       return reusableId;
@@ -430,7 +434,11 @@ export class PageOperations {
 
     const id = this.pageCreator.generateId();
 
-    this.drafts.set(id, { folderId: options.folderId, type, title: options.title });
+    this.drafts.set(id, {
+      folderId: options.folderId,
+      type,
+      title: options.title,
+    });
     this.flushActivePage();
     this.documentRegistry.open(id, '');
     this.workspace.openPage(id, { recordable: false });
@@ -635,7 +643,8 @@ export class PageOperations {
       return;
     }
 
-    const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
+    const body =
+      this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
     await this.persistDraft(pageId, body);
   }
@@ -794,7 +803,10 @@ export class PageOperations {
     }
 
     for (;;) {
-      const decision = this.saveCoordinator.evaluate(session.state, session.isDirty);
+      const decision = this.saveCoordinator.evaluate(
+        session.state,
+        session.isDirty
+      );
 
       if (decision === 'suppress') {
         return;
@@ -855,7 +867,8 @@ export class PageOperations {
       throw new Error(`Page not found: ${pageId}`);
     }
 
-    const titleState = this.titleStates.get(pageId) ?? new FieldEditState(page.name);
+    const titleState =
+      this.titleStates.get(pageId) ?? new FieldEditState(page.name);
 
     this.titleStates.set(pageId, titleState);
     titleState.commit(title);
@@ -865,7 +878,10 @@ export class PageOperations {
       () => {
         void this.requestTitleSave(pageId);
       },
-      { debounceMs: TITLE_AUTOSAVE_DEBOUNCE_MS, ceilingMs: TITLE_AUTOSAVE_CEILING_MS }
+      {
+        debounceMs: TITLE_AUTOSAVE_DEBOUNCE_MS,
+        ceilingMs: TITLE_AUTOSAVE_CEILING_MS,
+      }
     );
   }
 
@@ -911,7 +927,10 @@ export class PageOperations {
     const key = this.titleChannelKey(pageId);
 
     for (;;) {
-      const decision = this.saveCoordinator.evaluate(titleState.state, titleState.isDirty);
+      const decision = this.saveCoordinator.evaluate(
+        titleState.state,
+        titleState.isDirty
+      );
 
       if (decision === 'suppress') {
         return;
@@ -973,7 +992,9 @@ export class PageOperations {
   public async flushAll(timeoutMs: number): Promise<void> {
     const dirtyOrSaving = this.documentRegistry
       .getAll()
-      .filter((session) => session.isDirty || session.state === DocumentState.Saving);
+      .filter(
+        (session) => session.isDirty || session.state === DocumentState.Saving
+      );
 
     // Shutdown is the same "nothing dirty may survive this moment"
     // boundary flushActivePage() already applies to navigation, extended
@@ -991,7 +1012,9 @@ export class PageOperations {
 
     const flushes = Promise.allSettled([
       ...dirtyOrSaving.map((session) => this.requestSave(session.id)),
-      ...dirtyOrSavingTitlePageIds.map((pageId) => this.requestTitleSave(pageId)),
+      ...dirtyOrSavingTitlePageIds.map((pageId) =>
+        this.requestTitleSave(pageId)
+      ),
     ]);
 
     await Promise.race([
@@ -1096,13 +1119,19 @@ export class PageOperations {
    * check is enforced here, not assumed from the caller, so a future
    * caller that isn't today's UI cannot trigger a spurious promotion.
    *
-   * Daily Notes (descriptor.deterministicPath set) do not participate —
-   * same exclusion as updateDraftTitle, and for the same reason: nothing
-   * about interacting with a Daily Note's not-yet-meaningful pre-promotion
-   * state should make today's note real. Metadata has no in-memory home on
-   * a draft the way title does (DraftDescriptor carries no metadata
-   * field — no entry point sets any before promotion), so a Daily Note
-   * draft is treated the same as any id with nowhere to persist metadata.
+   * Daily Notes (descriptor.deterministicPath set) DO participate, per
+   * ADR-017's second amendment (Cover Image milestone) — a genuine
+   * committed metadata change (e.g. "Cover image") is the same kind of
+   * explicit, affirmative user action as a body edit, not incidental
+   * interaction with an unopened draft, so it promotes exactly like
+   * save()'s body trigger already does for one. `persistDraft` already
+   * resolves a deterministicPath draft's destination/folder chain
+   * correctly (that's how body-triggered promotion already works for a
+   * Daily Note), so no change was needed there — only this method's own
+   * exclusion, which predated that reasoning being applied to metadata,
+   * is removed. updateDraftTitle() remains excluded: a Daily Note's title
+   * is derived from its date and is never user-committed, so there is no
+   * affirmative action for it to represent.
    */
   public async updateMetadata(
     pageId: string,
@@ -1132,7 +1161,7 @@ export class PageOperations {
 
     const descriptor = this.drafts.get(pageId);
 
-    if (!descriptor || descriptor.deterministicPath) {
+    if (!descriptor) {
       throw new Error(`Page not found: ${pageId}`);
     }
 
@@ -1144,7 +1173,8 @@ export class PageOperations {
       return;
     }
 
-    const body = this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
+    const body =
+      this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
     await this.persistDraft(pageId, body, patch);
   }
@@ -1205,7 +1235,9 @@ export class PageOperations {
    */
   public async duplicate(pageId: string): Promise<string> {
     if (!this.duplicator) {
-      throw new Error('PageOperations.duplicate: no VaultEntryDuplicator configured');
+      throw new Error(
+        'PageOperations.duplicate: no VaultEntryDuplicator configured'
+      );
     }
 
     const page = this.vault.getPage(pageId);
@@ -1257,7 +1289,11 @@ export class PageOperations {
   public async create(options: CreatePageOptions): Promise<string> {
     const id = this.pageCreator.generateId();
 
-    this.drafts.set(id, { folderId: options.folderId, type: 'note', title: options.title });
+    this.drafts.set(id, {
+      folderId: options.folderId,
+      type: 'note',
+      title: options.title,
+    });
 
     await this.persistDraft(id, '');
     this.flushActivePage();
@@ -1363,7 +1399,9 @@ export class PageOperations {
    */
   private toFrontmatterMetadataPatch(
     patch: Partial<EditablePageMetadata>
-  ): Partial<Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite'>> {
+  ): Partial<
+    Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite'>
+  > {
     const result: Partial<
       Pick<PageFrontmatter, 'description' | 'icon' | 'cover' | 'favorite'>
     > = {};
@@ -1384,7 +1422,10 @@ export class PageOperations {
     return result;
   }
 
-  public async move(pageId: string, destinationFolderId: string | null): Promise<void> {
+  public async move(
+    pageId: string,
+    destinationFolderId: string | null
+  ): Promise<void> {
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'move',
       destinationFolderId,

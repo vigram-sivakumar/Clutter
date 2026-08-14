@@ -47,6 +47,11 @@ export function buildNoteTopBarMenu(
       icon: 'copy',
     },
     {
+      id: 'add-cover-image',
+      label: 'Cover image',
+      icon: 'image',
+    },
+    {
       id: 'move-to',
       label: 'Move to…',
       icon: 'arrowDownRight',
@@ -63,8 +68,18 @@ export function buildNoteTopBarMenu(
       icon: 'clock',
     },
     state === 'archived'
-      ? { id: 'restore', label: 'Restore', icon: 'restore', disabled: !persisted }
-      : { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive', disabled: !persisted },
+      ? {
+          id: 'restore',
+          label: 'Restore',
+          icon: 'restore',
+          disabled: !persisted,
+        }
+      : {
+          id: 'archive',
+          label: ARCHIVE_ACTION_LABEL,
+          icon: 'archive',
+          disabled: !persisted,
+        },
     {
       id: 'delete',
       label: DELETE_ACTION_LABEL,

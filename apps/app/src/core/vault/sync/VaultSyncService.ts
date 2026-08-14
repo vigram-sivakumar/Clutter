@@ -368,10 +368,20 @@ export class VaultSyncService {
    * nothing left to do.
    */
   private async reconcileDirectorySubtree(absolutePath: string): Promise<void> {
-    const trackedFolder = this.vault.getFolderByPath(absolutePath);
-    const parentId = trackedFolder
-      ? trackedFolder.parentId
-      : this.resolveParentId(this.directoryOf(absolutePath));
+    // The vault root itself is never a tracked Folder (VaultBuilder's
+    // convention for a full scan: rootIsFolder: false, rootParentId:
+    // null) — it has no parent *within* the vault to resolve, unlike a
+    // real subfolder. A root-level/coalesced watcher event (resolvePath('')
+    // — see that method's doc comment) reconciles here the same way, not
+    // through a second mechanism.
+    const isVaultRoot = absolutePath === this.vault.root;
+
+    const trackedFolder = isVaultRoot ? undefined : this.vault.getFolderByPath(absolutePath);
+    const parentId = isVaultRoot
+      ? null
+      : trackedFolder
+        ? trackedFolder.parentId
+        : this.resolveParentId(this.directoryOf(absolutePath));
 
     if (parentId === undefined) {
       return;
@@ -408,7 +418,7 @@ export class VaultSyncService {
     const { folders, pages, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
       scanResult,
       {
-        rootIsFolder: true,
+        rootIsFolder: !isVaultRoot,
         rootParentId: parentId,
         idGenerator: this.idGenerator,
         existingFolderIds,
@@ -809,7 +819,19 @@ export class VaultSyncService {
     return VaultPath.parentDirectory(absolutePath);
   }
 
+  /**
+   * The one relative -> absolute conversion boundary every event handler
+   * goes through (§4 of the reconciliation model). An empty relative path
+   * is the vault root itself — the shape a coalesced watcher event for the
+   * whole vault arrives as (Rust's relative_path() strips the root prefix,
+   * leaving nothing). Without this guard, `${vault.root}/${''}` produces a
+   * trailing slash that never equals any real directory entry's path (they
+   * are built as `${dir}/${name}`, never with a trailing slash) — silently
+   * misclassifying the root as a file and stopping reconciliation before
+   * reconcileDirectorySubtree() ever runs. Every non-empty relative path
+   * behaves exactly as before.
+   */
   private resolvePath(relativePath: string): string {
-    return `${this.vault.root}/${relativePath}`;
+    return relativePath === '' ? this.vault.root : `${this.vault.root}/${relativePath}`;
   }
 }

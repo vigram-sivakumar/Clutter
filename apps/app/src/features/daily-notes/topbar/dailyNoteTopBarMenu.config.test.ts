@@ -45,4 +45,18 @@ describe('buildDailyNoteTopBarMenu', () => {
     expect(buildDailyNoteTopBarMenu('archived').map((i) => i.id)).not.toContain('move-to');
     expect(buildDailyNoteTopBarMenu('draft').map((i) => i.id)).not.toContain('move-to');
   });
+
+  // ADR-017's second amendment (Cover Image milestone): unlike archive/
+  // delete, 'add-cover-image' is never disabled for a draft — a genuine
+  // cover commit promotes a Daily Note draft the same way a body commit
+  // already does (PageOperations.updateMetadata()).
+  it("includes 'add-cover-image', enabled, for every state including a draft", () => {
+    for (const state of ['active', 'archived', 'draft'] as const) {
+      const item = buildDailyNoteTopBarMenu(state).find(
+        (i) => i.id === 'add-cover-image'
+      );
+      expect(item).toBeDefined();
+      expect(item?.disabled).toBeFalsy();
+    }
+  });
 });

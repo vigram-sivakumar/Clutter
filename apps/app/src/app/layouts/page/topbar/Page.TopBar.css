@@ -13,7 +13,8 @@
      our own) is what makes the topbar's padding-left settle in step with
      the sidebar/main-content collapse instead of as its own, separately-
      timed animation. */
-  transition: padding-left var(--sidebar-transition-duration) var(--sidebar-transition-easing);
+  transition: padding-left var(--sidebar-transition-duration)
+    var(--sidebar-transition-easing);
 }
 .topbar--leading,
 .topbar--trailing {

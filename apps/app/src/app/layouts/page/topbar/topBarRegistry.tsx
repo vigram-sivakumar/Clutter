@@ -22,6 +22,8 @@ export interface TopBarActionsOptions {
   isFavorite?: boolean;
   /** Forwarded straight to ResourceTopBarActions — see its matching prop. */
   onToggleFavorite?: () => void;
+  /** Forwarded straight to ResourceTopBarActions — see its matching prop. */
+  onSetCoverImage?: (url: string) => void;
   /**
    * ADR-026: set only for a folder with descendants — gates 'archive'
    * behind ResourceTopBarActions' Confirmation surface instead of firing
@@ -62,6 +64,7 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
     onCreateFolder={options?.onCreateFolder}
     isFavorite={options?.isFavorite}
     onToggleFavorite={options?.onToggleFavorite}
+    onSetCoverImage={options?.onSetCoverImage}
   />
 );
 
@@ -92,6 +95,7 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
     onCreateFolder={options?.onCreateFolder}
     isFavorite={options?.isFavorite}
     onToggleFavorite={options?.onToggleFavorite}
+    onSetCoverImage={options?.onSetCoverImage}
   />
 );
 

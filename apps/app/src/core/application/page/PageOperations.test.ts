@@ -930,17 +930,26 @@ describe('PageOperations.archive() navigation (Archive ≠ Delete)', () => {
 
   it('does not navigate at all when archiving a page that is not the active one — the soft-archive/non-active case', async () => {
     const activePage = buildNamedPage('page-active', `${ROOT}/Active.md`);
-    const backgroundPage = buildNamedPage('page-background', `${ROOT}/Background.md`);
+    const backgroundPage = buildNamedPage(
+      'page-background',
+      `${ROOT}/Background.md`
+    );
     const openFallbackPage = vi.fn();
     const vault = makeVault([activePage, backgroundPage]);
     const fileSystem = new InMemoryVaultFileSystem();
     fileSystem.seedFile(
       activePage.path,
-      new FrontmatterSerializer().serializeDocument(activePage, activePage.source.markdown)
+      new FrontmatterSerializer().serializeDocument(
+        activePage,
+        activePage.source.markdown
+      )
     );
     fileSystem.seedFile(
       backgroundPage.path,
-      new FrontmatterSerializer().serializeDocument(backgroundPage, backgroundPage.source.markdown)
+      new FrontmatterSerializer().serializeDocument(
+        backgroundPage,
+        backgroundPage.source.markdown
+      )
     );
     const workspace = new Workspace();
     const documentRegistry = new DocumentRegistry();
@@ -983,7 +992,12 @@ describe('PageOperations.archive() navigation (Archive ≠ Delete)', () => {
   it('archiving a page that is not open at all triggers no navigation', async () => {
     const page = buildPage();
     const openFallbackPage = vi.fn();
-    const { workspace, pageOperations } = setup(page, undefined, undefined, openFallbackPage);
+    const { workspace, pageOperations } = setup(
+      page,
+      undefined,
+      undefined,
+      openFallbackPage
+    );
 
     await pageOperations.archive(page.id);
 
@@ -1382,7 +1396,10 @@ describe('PageOperations: drafts (ADR-017)', () => {
 
 describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', () => {
   it('openDraft({ folderId }) scopes the draft to that folder with no Vault entry and no disk write', async () => {
-    const folder = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const folder = {
+      ...makeFolder('folder-1', `${ROOT}/Projects`),
+      parentId: null,
+    };
     const { vault, fileSystem, workspace, documentRegistry, pageOperations } =
       setupEmpty([folder]);
 
@@ -1397,7 +1414,10 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
   });
 
   it('openDraft({ folderId }) works for a nested folder', async () => {
-    const parent = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const parent = {
+      ...makeFolder('folder-1', `${ROOT}/Projects`),
+      parentId: null,
+    };
     const child = {
       ...makeFolder('folder-2', `${ROOT}/Projects/Q1`),
       parentId: 'folder-1',
@@ -1428,7 +1448,10 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
   });
 
   it('first save() persists the folder-scoped draft as a markdown file inside that folder', async () => {
-    const folder = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const folder = {
+      ...makeFolder('folder-1', `${ROOT}/Projects`),
+      parentId: null,
+    };
     const { vault, fileSystem, pageOperations } = setupEmpty([folder]);
 
     const id = await pageOperations.openDraft({
@@ -1444,7 +1467,10 @@ describe('PageOperations: create note from folder ("+" button, ADR-017 reuse)', 
   });
 
   it('deleting the folder-scoped draft before any save is a no-op that closes the session, per the existing draft-deletion lifecycle', async () => {
-    const folder = { ...makeFolder('folder-1', `${ROOT}/Projects`), parentId: null };
+    const folder = {
+      ...makeFolder('folder-1', `${ROOT}/Projects`),
+      parentId: null,
+    };
     const { fileSystem, workspace, documentRegistry, pageOperations } =
       setupEmpty([folder]);
 
@@ -1675,18 +1701,28 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
     expect(vault.getPage(draft)!.path).toBe(`${ROOT}/My favorite note.md`);
   });
 
-  it('does not promote a Daily Note draft on a metadata commit', async () => {
-    const { vault, pageOperations } = setupEmpty([
+  // ADR-017's second amendment (Cover Image milestone): a Daily Note
+  // draft now promotes on a genuine committed metadata change, the same
+  // way an ordinary Note draft already does and the same way save()'s
+  // body trigger already promoted one — reversing the prior amendment's
+  // exclusion, which this test previously asserted as intended behavior
+  // (see the ADR for why: setting a cover/favorite/etc. from a real menu
+  // action is an explicit user action, not incidental draft interaction).
+  it('promotes a Daily Note draft on a metadata commit, same as an ordinary Note draft', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty([
       makeArchiveFolder(),
       makeDailyNotesFolder(),
     ]);
     const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
     const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
 
-    await expect(
-      pageOperations.updateMetadata(id, { favorite: true })
-    ).rejects.toThrow(/Page not found/);
-    expect(vault.getPage(id)).toBeUndefined();
+    await pageOperations.updateMetadata(id, { favorite: true });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.metadata.favorite).toBe(true);
+    expect(persisted.path).toBe(path);
+    expect(fileSystem.hasFileSync(path)).toBe(true);
+    expect(pageOperations.getDraft(id)).toBeUndefined();
   });
 
   it('rejects for a truly unknown id', async () => {
@@ -1695,6 +1731,82 @@ describe('PageOperations.updateMetadata(): draft promotion', () => {
     await expect(
       pageOperations.updateMetadata('does-not-exist', { favorite: true })
     ).rejects.toThrow(/Page not found/);
+  });
+});
+
+// Regression coverage for the "Cover image" feature's draft-promotion
+// flow (Draft → Add cover → persist/promote draft → save cover → persisted
+// page), scoped specifically to the `cover` field and the guarantees the
+// feature depends on: same id across promotion, no duplicate page, and
+// existing (already-persisted) resources are unaffected by the widened
+// draft-promotion trigger.
+describe('PageOperations.updateMetadata(): "Cover image" draft-promotion flow', () => {
+  it('a Note draft + cover promotes to a persisted Note with the cover in frontmatter, same id', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty();
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    expect(pageOperations.getDraft(id)).toBeDefined();
+    expect(vault.getPage(id)).toBeUndefined();
+
+    await pageOperations.updateMetadata(id, {
+      cover: 'https://example.com/cover.png',
+    });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.id).toBe(id);
+    expect(persisted.metadata.cover).toBe('https://example.com/cover.png');
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+    const content = await fileSystem.readFile(`${ROOT}/Untitled.md`);
+    expect(content).toContain('https://example.com/cover.png');
+  });
+
+  it('a Daily Note draft + cover promotes to a persisted Daily Note with the cover in frontmatter, same id, no duplicate page', async () => {
+    const { vault, fileSystem, pageOperations } = setupEmpty([
+      makeArchiveFolder(),
+      makeDailyNotesFolder(),
+    ]);
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    expect(pageOperations.getDraft(id)).toBeDefined();
+    expect(vault.getPage(id)).toBeUndefined();
+
+    await pageOperations.updateMetadata(id, {
+      cover: 'https://example.com/daily-cover.png',
+    });
+
+    const persisted = vault.getPage(id)!;
+    expect(persisted.id).toBe(id);
+    expect(persisted.path).toBe(path);
+    expect(persisted.metadata.cover).toBe(
+      'https://example.com/daily-cover.png'
+    );
+    expect(pageOperations.getDraft(id)).toBeUndefined();
+    const content = await fileSystem.readFile(path);
+    expect(content).toContain('https://example.com/daily-cover.png');
+
+    // No duplicate page: exactly one Vault page exists after promotion,
+    // and re-opening "today" resolves to the same real page, not a second
+    // draft (openAtPath's existing-page branch).
+    expect(vault.pageCount).toBe(1);
+    const reopenedId = await pageOperations.openAtPath(path, {
+      type: 'daily-note',
+    });
+    expect(reopenedId).toBe(id);
+    expect(vault.pageCount).toBe(1);
+  });
+
+  it('existing persisted pages continue to accept cover updates unchanged after this widening', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.updateMetadata(page.id, {
+      cover: 'https://example.com/existing.png',
+    });
+
+    expect(vault.getPage(page.id)!.metadata.cover).toBe(
+      'https://example.com/existing.png'
+    );
   });
 });
 
@@ -1761,7 +1873,10 @@ describe('PageOperations.move()', () => {
       parentId: null,
       metadata: defaultFolderMetadata,
     };
-    const { vault, pageOperations } = setup(page, undefined, [makeArchiveFolder(), destination]);
+    const { vault, pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      destination,
+    ]);
 
     await pageOperations.move(page.id, 'folder-1');
 
@@ -1779,7 +1894,10 @@ describe('PageOperations.move()', () => {
       parentId: null,
       metadata: defaultFolderMetadata,
     };
-    const { vault, pageOperations } = setup(nested, undefined, [makeArchiveFolder(), destination]);
+    const { vault, pageOperations } = setup(nested, undefined, [
+      makeArchiveFolder(),
+      destination,
+    ]);
 
     await pageOperations.move(nested.id, null);
 
@@ -1792,9 +1910,9 @@ describe('PageOperations.move()', () => {
     const page = buildPage();
     const { pageOperations } = setup(page);
 
-    await expect(pageOperations.move('does-not-exist', ARCHIVE_FOLDER_ID)).rejects.toThrow(
-      /Page not found/
-    );
+    await expect(
+      pageOperations.move('does-not-exist', ARCHIVE_FOLDER_ID)
+    ).rejects.toThrow(/Page not found/);
   });
 
   it('rejects moving an archived page', async () => {
@@ -1806,7 +1924,10 @@ describe('PageOperations.move()', () => {
       parentId: null,
       metadata: defaultFolderMetadata,
     };
-    const { coordinator, pageOperations } = setup(page, undefined, [makeArchiveFolder(), destination]);
+    const { coordinator, pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      destination,
+    ]);
     await archiveDirectly(coordinator, page.id);
 
     await expect(pageOperations.move(page.id, 'folder-1')).rejects.toThrow(
@@ -1817,7 +1938,10 @@ describe('PageOperations.move()', () => {
   it('rejects moving into the reserved Daily Notes folder', async () => {
     const page = buildPage();
     const dailyNotes = makeDailyNotesFolder();
-    const { pageOperations } = setup(page, undefined, [makeArchiveFolder(), dailyNotes]);
+    const { pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      dailyNotes,
+    ]);
 
     await expect(pageOperations.move(page.id, dailyNotes.id)).rejects.toThrow(
       /Cannot move into Daily Notes/
@@ -1852,7 +1976,10 @@ describe('PageOperations.move()', () => {
       metadata: defaultFolderMetadata,
     };
     expect(dailyNote.type).toBe('daily-note');
-    const { pageOperations } = setup(dailyNote, undefined, [makeArchiveFolder(), destination]);
+    const { pageOperations } = setup(dailyNote, undefined, [
+      makeArchiveFolder(),
+      destination,
+    ]);
 
     await expect(pageOperations.move(dailyNote.id, 'folder-1')).rejects.toThrow(
       /Cannot move a Daily Note/

@@ -346,7 +346,7 @@ export function DailyNotesList({
           {otherSections.length > 0 && (
             <Entry
               className="tertiary"
-              leading={<AppIcon icon="moreHorizontal" />}
+              leading={<AppIcon icon="moreVertical" />}
               onClick={() =>
                 workspace.toggleSectionExpanded(ALL_DAILY_NOTES_SECTION_ID)
               }

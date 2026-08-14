@@ -94,6 +94,13 @@ export interface BuildTopBarActionsOptions {
    * `isFavoritable` check; Daily Notes do not support favoriting.
    */
   onToggleFavorite?: () => void;
+  /**
+   * Forwarded to ResourceTopBarActions — see its matching prop. Invoked
+   * with the submitted cover URL; the Composition Root's caller (PageHost)
+   * supplies a closure over PageOperations.updateMetadata/FolderOperations.
+   * updateMetadata for whichever resource type this call was made for.
+   */
+  onSetCoverImage?: (url: string) => void;
 }
 
 /**
@@ -129,6 +136,7 @@ export function buildTopBarActions(
       onCreateFolder: options.onCreateFolder,
       isFavorite,
       onToggleFavorite: isFavoritable ? options.onToggleFavorite : undefined,
+      onSetCoverImage: options.onSetCoverImage,
     }),
   };
 }
@@ -141,12 +149,23 @@ export function buildTopBarActions(
  * (ADR-017 Decision item 9) — no handlers are passed because a disabled
  * MenuItem never invokes onClick (Entry's own disabled guard).
  */
-export function buildDraftTopBarActions(type: PageType): TopBarParts {
+export function buildDraftTopBarActions(
+  type: PageType,
+  options?: { onSetCoverImage?: (url: string) => void }
+): TopBarParts {
   return {
     actions: renderTopBarActions(type, {
       // A draft has no persisted PageMetadata (ADR-017) — favorite is
       // always false pre-promotion, same as EffectivePage's draft case.
       menu: buildMenuForType(type, 'draft', false),
+      // A plain Note draft's add-cover-image item is never disabled
+      // (buildNoteTopBarMenu) — PageOperations.updateMetadata() already
+      // promotes a draft on a committed cover patch (persistDraft), the
+      // same mechanism title/body commits already use, so this closure
+      // works unchanged whether the draft is a Note or already a real
+      // page. A Daily Note draft's item is disabled instead
+      // (buildDailyNoteTopBarMenu), so this is never invoked for one.
+      onSetCoverImage: options?.onSetCoverImage,
     }),
   };
 }

@@ -138,6 +138,19 @@ export function PageHost({ application }: PageHostProps) {
     });
   };
 
+  // Shared by both the persisted-page and draft render branches below —
+  // PageOperations.updateMetadata() already handles both cases itself
+  // (a draft's committed cover patch promotes it via the same persistDraft
+  // helper title/body commits already use), so there is no separate
+  // draft-specific persistence path to wire here.
+  const onSetCoverImage = (url: string): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, { cover: url });
+  };
+
   const onMoveNote = (destinationFolderId: string | null): void => {
     if (!activePageId) {
       return;
@@ -217,6 +230,8 @@ export function PageHost({ application }: PageHostProps) {
         void application.folderOperations.updateMetadata(folder.id, {
           favorite: !folder.metadata.favorite,
         }),
+      onSetCoverImage: (url) =>
+        void application.folderOperations.updateMetadata(folder.id, { cover: url }),
       archiveConfirmationMessage: archiveConfirmation.hasDescendants
         ? archiveConfirmation.message
         : undefined,
@@ -358,7 +373,7 @@ export function PageHost({ application }: PageHostProps) {
       onUpdateMarkdown,
       onRequestSave
     );
-    const draftTopBar = buildDraftTopBarActions(draft.type);
+    const draftTopBar = buildDraftTopBarActions(draft.type, { onSetCoverImage });
 
     return (
       <Page
@@ -424,6 +439,7 @@ export function PageHost({ application }: PageHostProps) {
     onDelete,
     onDuplicate,
     onToggleFavorite,
+    onSetCoverImage,
     moveDestinations:
       page.type === 'note'
         ? buildMoveDestinationItems(application.membershipSelector)

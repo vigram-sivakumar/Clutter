@@ -35,10 +35,12 @@ import FavouriteFilled from './svg/favourite-filled.svg?react';
 import FavouriteOutline from './svg/favourite-outline.svg?react';
 import Folder from './svg/folder.svg?react';
 import FolderAdd from './svg/folder-add.svg?react';
+import Image from './svg/image.svg?react';
 import KeyEsc from './svg/key-esc.svg?react';
 import Keyboard from './svg/keyboard.svg?react';
 import MagnifyingGlass from './svg/magnifying-glass.svg?react';
 import MoreHorizontal from './svg/more-horizontal.svg?react';
+import MoreVertical from './svg/more-vertical.svg?react';
 import MultiLine from './svg/multi-line.svg?react';
 import Note from './svg/note.svg?react';
 import Link from './svg/link.svg?react';
@@ -102,10 +104,12 @@ export const iconRegistry = {
   favouriteOutline: FavouriteOutline,
   folder: Folder,
   folderAdd: FolderAdd,
+  image: Image,
   keyEsc: KeyEsc,
   keyboard: Keyboard,
   magnifyingGlass: MagnifyingGlass,
   moreHorizontal: MoreHorizontal,
+  moreVertical: MoreVertical,
   multiLine: MultiLine,
   note: Note,
   notePencil: NotePencil,

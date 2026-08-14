@@ -191,7 +191,9 @@ export class FolderOperations {
    * doc comment) and resolves to the fixed reserved path, never a
    * collision-free user-chosen name.
    */
-  public async ensureReservedFolder(reservedFolderId: ReservedFolderId): Promise<Folder> {
+  public async ensureReservedFolder(
+    reservedFolderId: ReservedFolderId
+  ): Promise<Folder> {
     const result = await this.coordinator.enqueue(reservedFolderId, {
       kind: 'ensure-reserved-folder',
       reservedFolderId,
@@ -312,7 +314,10 @@ export class FolderOperations {
    * PageOperations.move()'s shape exactly. No existence check of its own,
    * same reasoning as delete()/rename() above.
    */
-  public async move(folderId: string, destinationFolderId: string | null): Promise<void> {
+  public async move(
+    folderId: string,
+    destinationFolderId: string | null
+  ): Promise<void> {
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'move-folder',
       destinationFolderId,
@@ -345,7 +350,9 @@ export class FolderOperations {
    * is soft, the subtree still exists.
    */
   public async archive(folderId: string): Promise<void> {
-    const result = await this.coordinator.enqueue(folderId, { kind: 'archive-folder' });
+    const result = await this.coordinator.enqueue(folderId, {
+      kind: 'archive-folder',
+    });
 
     if (result.status !== 'folder-archived' && result.status !== 'abandoned') {
       throw new Error(`Failed to archive folder ${folderId}: ${result.status}`);
@@ -361,7 +368,9 @@ export class FolderOperations {
    * open folder simply keeps rendering itself at its restored location.
    */
   public async restore(folderId: string): Promise<void> {
-    const result = await this.coordinator.enqueue(folderId, { kind: 'restore-folder' });
+    const result = await this.coordinator.enqueue(folderId, {
+      kind: 'restore-folder',
+    });
 
     if (result.status !== 'folder-restored' && result.status !== 'abandoned') {
       throw new Error(`Failed to restore folder ${folderId}: ${result.status}`);
@@ -371,24 +380,31 @@ export class FolderOperations {
   /**
    * Metadata-only patch, backed by the Gate's 'update-folder-metadata'
    * kind — the folder-scoped counterpart to
-   * PageOperations.updateMetadata(). Scoped to `favorite` only (not
-   * PageOperations' full description/icon/cover/favorite set): that's the
-   * only folder metadata field with a shipped writer today; widen the
-   * patch type when a real caller needs another field, not speculatively.
-   * No existence check of its own, same reasoning as archive()/restore()
+   * PageOperations.updateMetadata(). Scoped to `favorite`/`cover` (not
+   * PageOperations' full description/icon/cover/favorite set): those are
+   * the only folder metadata fields with a shipped writer today (cover
+   * added for the folder "Cover image" topbar action — FolderMetadata/
+   * FolderFrontmatter already carried `cover`, only this facade's patch
+   * type was still narrower than what the Gate's 'update-folder-metadata'
+   * operation already accepts, `Partial<FolderMetadata>`); widen further
+   * when a real caller needs another field, not speculatively. No
+   * existence check of its own, same reasoning as archive()/restore()
    * above — the Gate's own dequeue-time guard abandons it if the folder is
    * gone by the time this dequeues.
    */
   public async updateMetadata(
     folderId: string,
-    patch: Partial<Pick<FolderMetadata, 'favorite'>>
+    patch: Partial<Pick<FolderMetadata, 'favorite' | 'cover'>>
   ): Promise<void> {
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'update-folder-metadata',
       metadata: patch,
     });
 
-    if (result.status !== 'folder-metadata-updated' && result.status !== 'abandoned') {
+    if (
+      result.status !== 'folder-metadata-updated' &&
+      result.status !== 'abandoned'
+    ) {
       throw new Error(`Failed to update folder ${folderId}: ${result.status}`);
     }
   }
@@ -411,7 +427,8 @@ export class FolderOperations {
       throw new Error(`Folder not found: ${folderId}`);
     }
 
-    const nameState = this.nameStates.get(folderId) ?? new FieldEditState(folder.name);
+    const nameState =
+      this.nameStates.get(folderId) ?? new FieldEditState(folder.name);
 
     this.nameStates.set(folderId, nameState);
     nameState.commit(name);
@@ -421,7 +438,10 @@ export class FolderOperations {
       () => {
         void this.requestNameSave(folderId);
       },
-      { debounceMs: FOLDER_NAME_AUTOSAVE_DEBOUNCE_MS, ceilingMs: FOLDER_NAME_AUTOSAVE_CEILING_MS }
+      {
+        debounceMs: FOLDER_NAME_AUTOSAVE_DEBOUNCE_MS,
+        ceilingMs: FOLDER_NAME_AUTOSAVE_CEILING_MS,
+      }
     );
   }
 
@@ -459,7 +479,10 @@ export class FolderOperations {
     const key = this.nameChannelKey(folderId);
 
     for (;;) {
-      const decision = this.saveCoordinator.evaluate(nameState.state, nameState.isDirty);
+      const decision = this.saveCoordinator.evaluate(
+        nameState.state,
+        nameState.isDirty
+      );
 
       if (decision === 'suppress') {
         return;
@@ -513,7 +536,8 @@ export class FolderOperations {
   public async flushAll(timeoutMs: number): Promise<void> {
     const dirtyOrSavingFolderIds = [...this.nameStates.entries()]
       .filter(
-        ([, nameState]) => nameState.isDirty || nameState.state === DocumentState.Saving
+        ([, nameState]) =>
+          nameState.isDirty || nameState.state === DocumentState.Saving
       )
       .map(([folderId]) => folderId);
 

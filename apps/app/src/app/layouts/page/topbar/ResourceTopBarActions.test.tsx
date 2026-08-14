@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { ResourceTopBarActions } from './ResourceTopBarActions';
 import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
@@ -72,7 +80,9 @@ describe('ResourceTopBarActions', () => {
 
   it('calls the handler matching the clicked item id', () => {
     const onArchive = vi.fn();
-    render(<ResourceTopBarActions menu={menu} handlers={{ archive: onArchive }} />);
+    render(
+      <ResourceTopBarActions menu={menu} handlers={{ archive: onArchive }} />
+    );
     openMenu();
 
     fireEvent.click(screen.getByText('Archive'));
@@ -82,7 +92,9 @@ describe('ResourceTopBarActions', () => {
 
   it('does nothing but close the menu for an item with no matching handler', () => {
     const onArchive = vi.fn();
-    render(<ResourceTopBarActions menu={menu} handlers={{ archive: onArchive }} />);
+    render(
+      <ResourceTopBarActions menu={menu} handlers={{ archive: onArchive }} />
+    );
     openMenu();
 
     fireEvent.click(screen.getByText('Add a description'));
@@ -102,7 +114,12 @@ describe('ResourceTopBarActions', () => {
     const disabledMenu: TopBarMenuItemConfig[] = [
       { id: 'archive', label: 'Archive', icon: 'archive', disabled: true },
     ];
-    render(<ResourceTopBarActions menu={disabledMenu} handlers={{ archive: onArchive }} />);
+    render(
+      <ResourceTopBarActions
+        menu={disabledMenu}
+        handlers={{ archive: onArchive }}
+      />
+    );
     openMenu();
 
     expect(screen.getByText('Archive')).toBeDefined();
@@ -118,7 +135,12 @@ describe('ResourceTopBarActions', () => {
   describe('delete/archive with no confirmation message (notes; an empty folder)', () => {
     it('delete fires directly with no confirmation dialog when deleteConfirmationMessage is absent', () => {
       const onDelete = vi.fn();
-      render(<ResourceTopBarActions menu={menuWithDelete} handlers={{ delete: onDelete }} />);
+      render(
+        <ResourceTopBarActions
+          menu={menuWithDelete}
+          handlers={{ delete: onDelete }}
+        />
+      );
       openMenu();
 
       fireEvent.click(screen.getByText('Delete'));
@@ -129,7 +151,9 @@ describe('ResourceTopBarActions', () => {
 
     it('archive fires directly with no confirmation dialog when archiveConfirmationMessage is absent', () => {
       const onArchive = vi.fn();
-      render(<ResourceTopBarActions menu={menu} handlers={{ archive: onArchive }} />);
+      render(
+        <ResourceTopBarActions menu={menu} handlers={{ archive: onArchive }} />
+      );
       openMenu();
 
       fireEvent.click(screen.getByText('Archive'));
@@ -203,7 +227,9 @@ describe('ResourceTopBarActions', () => {
     it('focuses Cancel when the confirmation dialog opens', () => {
       openDeleteConfirmation();
 
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Cancel' })
+      );
     });
 
     it('Escape closes the confirmation dialog', () => {
@@ -219,7 +245,9 @@ describe('ResourceTopBarActions', () => {
 
       const backdrop = document.querySelector('.overlay__backdrop');
       if (!backdrop) {
-        throw new Error('expected a backdrop element for outside-click handling');
+        throw new Error(
+          'expected a backdrop element for outside-click handling'
+        );
       }
       fireEvent.click(backdrop);
 
@@ -321,7 +349,9 @@ describe('ResourceTopBarActions', () => {
         />
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'Remove from Favorites' }));
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Remove from Favorites' })
+      );
 
       expect(onToggleFavorite).toHaveBeenCalledTimes(1);
     });
@@ -329,15 +359,23 @@ describe('ResourceTopBarActions', () => {
     it('omits the favorite button entirely when onToggleFavorite is absent (e.g. a Daily Note, a draft)', () => {
       render(<ResourceTopBarActions menu={menu} />);
 
-      expect(screen.queryByRole('button', { name: 'Add to Favorites' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'Remove from Favorites' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Add to Favorites' })
+      ).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Remove from Favorites' })
+      ).toBeNull();
     });
 
-    it('selecting the overflow menu\'s toggle-favorite item calls the same onToggleFavorite handler', () => {
+    it("selecting the overflow menu's toggle-favorite item calls the same onToggleFavorite handler", () => {
       const onToggleFavorite = vi.fn();
       const menuWithFavorite: TopBarMenuItemConfig[] = [
         ...menu,
-        { id: 'toggle-favorite', label: 'Add to Favorites', icon: 'favouriteOutline' },
+        {
+          id: 'toggle-favorite',
+          label: 'Add to Favorites',
+          icon: 'favouriteOutline',
+        },
       ];
       render(
         <ResourceTopBarActions
@@ -364,7 +402,9 @@ describe('ResourceTopBarActions', () => {
       render(
         <ResourceTopBarActions
           menu={menuWithMove}
-          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+          moveDestinations={[
+            { id: 'folder-1', title: 'Projects', level: 0, parentId: null },
+          ]}
           onMove={onMove}
         />
       );
@@ -382,7 +422,9 @@ describe('ResourceTopBarActions', () => {
       render(
         <ResourceTopBarActions
           menu={menuWithMove}
-          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+          moveDestinations={[
+            { id: 'folder-1', title: 'Projects', level: 0, parentId: null },
+          ]}
           onMove={onMove}
         />
       );
@@ -400,7 +442,9 @@ describe('ResourceTopBarActions', () => {
       render(
         <ResourceTopBarActions
           menu={menuWithMove}
-          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+          moveDestinations={[
+            { id: 'folder-1', title: 'Projects', level: 0, parentId: null },
+          ]}
           onMove={onMove}
         />
       );
@@ -416,7 +460,10 @@ describe('ResourceTopBarActions', () => {
     it('renders no picker at all when moveDestinations is absent — falls through to a plain handler', () => {
       const onMoveHandler = vi.fn();
       render(
-        <ResourceTopBarActions menu={menuWithMove} handlers={{ 'move-to': onMoveHandler }} />
+        <ResourceTopBarActions
+          menu={menuWithMove}
+          handlers={{ 'move-to': onMoveHandler }}
+        />
       );
       openMenu();
 
@@ -427,12 +474,19 @@ describe('ResourceTopBarActions', () => {
 
     it('does not open the picker for a disabled Move to… item', () => {
       const disabledMoveMenu: TopBarMenuItemConfig[] = [
-        { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight', disabled: true },
+        {
+          id: 'move-to',
+          label: 'Move to…',
+          icon: 'arrowDownRight',
+          disabled: true,
+        },
       ];
       render(
         <ResourceTopBarActions
           menu={disabledMoveMenu}
-          moveDestinations={[{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }]}
+          moveDestinations={[
+            { id: 'folder-1', title: 'Projects', level: 0, parentId: null },
+          ]}
         />
       );
       openMenu();
@@ -440,6 +494,67 @@ describe('ResourceTopBarActions', () => {
       fireEvent.click(screen.getByText('Move to…'));
 
       expect(screen.queryByText('Projects')).toBeNull();
+    });
+  });
+
+  describe('add-cover-image', () => {
+    const menuWithCover: TopBarMenuItemConfig[] = [
+      ...menu,
+      { id: 'add-cover-image', label: 'Cover image', icon: 'image' },
+    ];
+
+    it('selecting Cover image closes the overflow menu and opens the cover picker instead of invoking a handler', () => {
+      const onSetCoverImage = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithCover}
+          onSetCoverImage={onSetCoverImage}
+        />
+      );
+      openMenu();
+
+      fireEvent.click(screen.getByText('Cover image'));
+
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(screen.getByPlaceholderText('Paste image URL')).toBeDefined();
+      expect(onSetCoverImage).not.toHaveBeenCalled();
+    });
+
+    it('submitting a URL invokes onSetCoverImage and closes the picker', () => {
+      const onSetCoverImage = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithCover}
+          onSetCoverImage={onSetCoverImage}
+        />
+      );
+      openMenu();
+      fireEvent.click(screen.getByText('Cover image'));
+
+      fireEvent.change(screen.getByPlaceholderText('Paste image URL'), {
+        target: { value: 'https://example.com/cover.png' },
+      });
+      fireEvent.click(screen.getByText('Add'));
+
+      expect(onSetCoverImage).toHaveBeenCalledWith(
+        'https://example.com/cover.png'
+      );
+      expect(screen.queryByPlaceholderText('Paste image URL')).toBeNull();
+    });
+
+    it('renders no picker at all when onSetCoverImage is absent — falls through to a plain handler', () => {
+      const onCoverHandler = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithCover}
+          handlers={{ 'add-cover-image': onCoverHandler }}
+        />
+      );
+      openMenu();
+
+      fireEvent.click(screen.getByText('Cover image'));
+
+      expect(onCoverHandler).toHaveBeenCalledTimes(1);
     });
   });
 });

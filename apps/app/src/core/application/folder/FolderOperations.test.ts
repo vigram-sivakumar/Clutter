@@ -955,3 +955,21 @@ describe('FolderOperations.updateMetadata() (favorite)', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe('FolderOperations.updateMetadata() (cover)', () => {
+  it('sets cover in the vault and persists it to the .folder.md on disk', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', {
+      cover: 'https://example.com/cover.png',
+    });
+
+    expect(vault.getFolder('folder-1')!.metadata.cover).toBe(
+      'https://example.com/cover.png'
+    );
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).toContain('https://example.com/cover.png');
+  });
+});

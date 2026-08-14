@@ -283,18 +283,30 @@ describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row hav
   });
 });
 
-describe('Sidebar Notes: clicking the "Workspace" section header toggles collapse, not navigation', () => {
-  it('does not call navigation.openWorkspace()', () => {
-    const deps = setup([]);
+// Section's title/caret split (Section.Header.tsx): the title text is a
+// navigation trigger (Section's own onClick, wired here to
+// navigation.openWorkspace() — the same "clicking a section header
+// navigates there" pattern Favorites already has), while the caret is the
+// sole expand/collapse control (Entry's nested-interactive-element guard
+// stops the caret's click from also bubbling into the row's onClick). This
+// replaced an earlier isTitleToggle-based design where the title itself
+// toggled collapse — see the commented-out `isTitleToggle` prop still
+// sitting next to this Section in Sidebar.Notes.tsx.
+describe('Sidebar Notes: clicking the "Workspace" section header title navigates, the caret toggles collapse', () => {
+  it('clicking the title text calls navigation.openWorkspace() and does not toggle collapse', () => {
+    const deps = setup([makeFolder('folder-a', `${ROOT}/Alpha`)]);
 
     renderNotes(deps);
 
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
+
     fireEvent.click(screen.getByText('Workspace'));
 
-    expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
+    expect(deps.navigation.openWorkspace).toHaveBeenCalledTimes(1);
+    expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
   });
 
-  it('toggles the folders section\'s expanded state, same as its caret', () => {
+  it("toggles the folders section's expanded state via its caret, without navigating", () => {
     // A non-empty folder list, deliberately — with none, Section's own
     // isEmpty-default-collapsed behavior (Section.test.tsx) makes the first
     // click *expand* the visually-collapsed section rather than flip the
@@ -310,15 +322,23 @@ describe('Sidebar Notes: clicking the "Workspace" section header toggles collaps
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
 
-    fireEvent.click(screen.getByText('Workspace'));
+    function clickWorkspaceCaret() {
+      const header = screen.getByText('Workspace').closest('.section-header') as HTMLElement;
+      const caret = header.querySelector('.section-header__caret') as HTMLElement;
+      fireEvent.click(caret);
+    }
+
+    clickWorkspaceCaret();
     rerender(notesElement(deps));
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(false);
+    expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByText('Workspace'));
+    clickWorkspaceCaret();
     rerender(notesElement(deps));
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
+    expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
   });
 });
 
