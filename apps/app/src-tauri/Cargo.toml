@@ -35,6 +35,7 @@ notify = "6"
 # the actual gate: nothing enables it except packages/automation's own build
 # invocation. See packages/automation/AUTOMATION.md.
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
+tauri-plugin-opener = "2"
 
 [features]
 automation = ["dep:tauri-plugin-wdio-webdriver"]

@@ -1,0 +1,7 @@
+<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M10 9V0h12v9H10zm12 5h10v18H0V14h10v9h12v-9z"
+    transform="translate(1.6 1.6) scale(0.4)"
+    fill="currentColor"
+  />
+</svg>

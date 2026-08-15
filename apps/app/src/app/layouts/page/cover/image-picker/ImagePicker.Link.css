@@ -1,0 +1,10 @@
+.image-picker-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  padding-inline: var(--space-12);
+}
+.image-picker-link .button {
+  width: 100%;
+}

@@ -36,6 +36,7 @@ afterAll(() => {
 });
 
 afterEach(() => {
+  localStorage.removeItem('clutter-cover-picker-source');
   cleanup();
 });
 
@@ -513,6 +514,7 @@ describe('ResourceTopBarActions', () => {
         <ResourceTopBarActions
           menu={menuWithCover}
           onSetCoverImage={onSetCoverImage}
+          hasCoverImage={false}
         />
       );
       openMenu();
@@ -520,8 +522,27 @@ describe('ResourceTopBarActions', () => {
       fireEvent.click(screen.getByText('Cover image'));
 
       expect(screen.queryByRole('menu')).toBeNull();
-      expect(screen.getByPlaceholderText('Paste image URL')).toBeDefined();
+      expect(screen.getByTestId('sidebar.tab.hide').className).toContain(
+        'tab--active',
+      );
       expect(onSetCoverImage).not.toHaveBeenCalled();
+    });
+
+    it('opens on the image tab when the resource already has a cover', () => {
+      render(
+        <ResourceTopBarActions
+          menu={menuWithCover}
+          onSetCoverImage={vi.fn()}
+          hasCoverImage
+        />
+      );
+      openMenu();
+      fireEvent.click(screen.getByText('Cover image'));
+
+      expect(screen.getByTestId('sidebar.tab.image').className).toContain(
+        'tab--active',
+      );
+      expect(screen.getByText('Choose image')).toBeDefined();
     });
 
     it('submitting a URL invokes onSetCoverImage and closes the picker', () => {
@@ -530,10 +551,12 @@ describe('ResourceTopBarActions', () => {
         <ResourceTopBarActions
           menu={menuWithCover}
           onSetCoverImage={onSetCoverImage}
+          hasCoverImage
         />
       );
       openMenu();
       fireEvent.click(screen.getByText('Cover image'));
+      fireEvent.click(screen.getByText('Link'));
 
       fireEvent.change(screen.getByPlaceholderText('Paste image URL'), {
         target: { value: 'https://example.com/cover.png' },
@@ -553,6 +576,7 @@ describe('ResourceTopBarActions', () => {
           menu={menuWithCover}
           onSetCoverImage={vi.fn()}
           onSetCoverImageFromUpload={onSetCoverImageFromUpload}
+          hasCoverImage
         />
       );
       openMenu();
@@ -565,22 +589,26 @@ describe('ResourceTopBarActions', () => {
       });
     });
 
-    it('selecting the none tab invokes onRemoveCoverImage and closes the picker', () => {
+    it('selecting the hide tab invokes onRemoveCoverImage and keeps the picker open', () => {
       const onRemoveCoverImage = vi.fn();
       render(
         <ResourceTopBarActions
           menu={menuWithCover}
           onSetCoverImage={vi.fn()}
           onRemoveCoverImage={onRemoveCoverImage}
+          hasCoverImage
         />
       );
       openMenu();
       fireEvent.click(screen.getByText('Cover image'));
 
-      fireEvent.click(screen.getByTestId('sidebar.tab.none'));
+      fireEvent.click(screen.getByTestId('sidebar.tab.hide'));
 
       expect(onRemoveCoverImage).toHaveBeenCalledTimes(1);
-      expect(screen.queryByPlaceholderText('Paste image URL')).toBeNull();
+      expect(screen.getByText('Cover')).toBeDefined();
+      expect(screen.getByTestId('sidebar.tab.hide').className).toContain(
+        'tab--active',
+      );
     });
 
     it('renders no picker at all when onSetCoverImage is absent — falls through to a plain handler', () => {

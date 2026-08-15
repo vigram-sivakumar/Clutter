@@ -12,6 +12,7 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Automation/testing only — never reachable in an ordinary build:
             // the crate itself doesn't exist in the dependency graph unless

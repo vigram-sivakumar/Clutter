@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Input } from '@components/input/Input';
 import { Button } from '@components/button/Button';
+import './ImagePicker.Link.css';
 
 interface ImagePickerLinkProps {
   onSubmit: (url: string) => void;
@@ -11,7 +12,6 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
 
   const handleSubmit = () => {
     const url = link.trim();
-
     if (url) {
       onSubmit(url);
     }

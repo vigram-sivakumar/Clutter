@@ -1,5 +1,6 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { Button } from '@components/button/Button';
+import './ImagePicker.Upload.css';
 
 interface ImagePickerUploadProps {
   onSubmit: (filePath: string) => void;

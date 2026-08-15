@@ -121,6 +121,12 @@ export interface ResourceTopBarActionsProps {
    * but for removal.
    */
   onRemoveCoverImage?: () => void;
+  /**
+   * Whether the resource currently has a cover — drives which top-level
+   * picker tab is selected on open (image vs hide), without persisting
+   * tab choice in localStorage.
+   */
+  hasCoverImage?: boolean;
 }
 
 /**
@@ -152,6 +158,7 @@ export function ResourceTopBarActions({
   onSetCoverImage,
   onSetCoverImageFromUpload,
   onRemoveCoverImage,
+  hasCoverImage = false,
 }: ResourceTopBarActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Same "does this row's own trigger button anchor a second popover"
@@ -248,9 +255,9 @@ export function ResourceTopBarActions({
           size="medium"
         >
           <ImagePicker
+            hasCoverImage={hasCoverImage}
             onClose={() => setCoverPickerOpen(false)}
             onRemove={() => {
-              setCoverPickerOpen(false);
               onRemoveCoverImage?.();
             }}
             onLinkSubmit={(url) => {

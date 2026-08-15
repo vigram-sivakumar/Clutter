@@ -36,6 +36,7 @@ import FavouriteOutline from './svg/favourite-outline.svg?react';
 import Folder from './svg/folder.svg?react';
 import FolderAdd from './svg/folder-add.svg?react';
 import Image from './svg/image.svg?react';
+import Info from './svg/info.svg?react';
 import KeyEsc from './svg/key-esc.svg?react';
 import Keyboard from './svg/keyboard.svg?react';
 import MagnifyingGlass from './svg/magnifying-glass.svg?react';
@@ -44,7 +45,7 @@ import MoreVertical from './svg/more-vertical.svg?react';
 import MultiLine from './svg/multi-line.svg?react';
 import Note from './svg/note.svg?react';
 import Link from './svg/link.svg?react';
-import None from './svg/none.svg?react';
+import Hide from './svg/hide.svg?react';
 import NotePencil from './svg/note-pencil.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
@@ -66,6 +67,7 @@ import Tag from './svg/tag.svg?react';
 import Template from './svg/template.svg?react';
 import Tick from './svg/tick.svg?react';
 import Tray from './svg/tray.svg?react';
+import Unsplash from './svg/unsplash.svg?react';
 import UploadImage from './svg/upload-image.svg?react';
 import Trash from './svg/trash.svg?react';
 import WidthFill from './svg/width-fill.svg?react';
@@ -107,13 +109,14 @@ export const iconRegistry = {
   folder: Folder,
   folderAdd: FolderAdd,
   image: Image,
+  info: Info,
   keyEsc: KeyEsc,
   keyboard: Keyboard,
   magnifyingGlass: MagnifyingGlass,
   moreHorizontal: MoreHorizontal,
   moreVertical: MoreVertical,
   multiLine: MultiLine,
-  none: None,
+  hide: Hide,
   notePencil: NotePencil,
   note: Note,
   link: Link,
@@ -137,6 +140,7 @@ export const iconRegistry = {
   template: Template,
   tick: Tick,
   tray: Tray,
+  unsplash: Unsplash,
   uploadImage: UploadImage,
   trash: Trash,
   widthFill: WidthFill,

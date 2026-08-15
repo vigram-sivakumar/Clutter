@@ -120,6 +120,7 @@ export function buildTopBarActions(
   // unsupported item already has elsewhere.
   const isFavoritable = !isPage(resource) || resource.type === 'note';
   const isFavorite = isFavoritable ? resource.metadata.favorite : false;
+  const hasCoverImage = resource.metadata.cover !== null;
   const menu = isPage(resource)
     ? buildMenuForType(resource.type, resource.metadata.status, isFavorite)
     : buildFolderTopBarMenu(resource.metadata.status, isFavorite);
@@ -141,6 +142,7 @@ export function buildTopBarActions(
       onSetCoverImage: options.onSetCoverImage,
       onSetCoverImageFromUpload: options.onSetCoverImageFromUpload,
       onRemoveCoverImage: options.onRemoveCoverImage,
+      hasCoverImage,
     }),
   };
 }
@@ -176,6 +178,7 @@ export function buildDraftTopBarActions(
       onSetCoverImage: options?.onSetCoverImage,
       onSetCoverImageFromUpload: options?.onSetCoverImageFromUpload,
       onRemoveCoverImage: options?.onRemoveCoverImage,
+      hasCoverImage: false,
     }),
   };
 }

@@ -12,6 +12,7 @@
     "fs:allow-exists",
     "fs:allow-rename",
     "dialog:default",
+    "opener:default",
     {
       "identifier": "fs:scope",
       "allow": ["$HOME/**"]

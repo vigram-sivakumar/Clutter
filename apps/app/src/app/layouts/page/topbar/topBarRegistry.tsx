@@ -28,6 +28,8 @@ export interface TopBarActionsOptions {
   onSetCoverImageFromUpload?: (sourcePath: string) => void;
   /** Forwarded straight to ResourceTopBarActions — see its matching prop. */
   onRemoveCoverImage?: () => void;
+  /** Forwarded straight to ResourceTopBarActions — see its matching prop. */
+  hasCoverImage?: boolean;
   /**
    * ADR-026: set only for a folder with descendants — gates 'archive'
    * behind ResourceTopBarActions' Confirmation surface instead of firing
@@ -71,6 +73,7 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
     onSetCoverImage={options?.onSetCoverImage}
     onSetCoverImageFromUpload={options?.onSetCoverImageFromUpload}
     onRemoveCoverImage={options?.onRemoveCoverImage}
+    hasCoverImage={options?.hasCoverImage}
   />
 );
 
@@ -104,6 +107,7 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
     onSetCoverImage={options?.onSetCoverImage}
     onSetCoverImageFromUpload={options?.onSetCoverImageFromUpload}
     onRemoveCoverImage={options?.onRemoveCoverImage}
+    hasCoverImage={options?.hasCoverImage}
   />
 );
 

@@ -8,53 +8,77 @@ import { AppIcon } from '@shared/icon';
 import { Button } from '@components/button/Button';
 
 interface ImagePickerProps {
+  hasCoverImage: boolean;
   onRemove: () => void;
   onClose: () => void;
   onLinkSubmit: (url: string) => void;
   onUploadSubmit: (filePath: string) => void;
 }
 
-type ImagePickerTab = 'none' | 'image';
+type ImagePickerTab = 'hide' | 'image';
 type ImageSource = 'upload' | 'link' | 'unsplash';
 
+const IMAGE_SOURCE_STORAGE_KEY = 'clutter-cover-picker-source';
+
+function readStoredImageSource(): ImageSource {
+  const stored = localStorage.getItem(IMAGE_SOURCE_STORAGE_KEY);
+
+  if (stored === 'upload' || stored === 'link' || stored === 'unsplash') {
+    return stored;
+  }
+
+  return 'upload';
+}
+
 export function ImagePicker({
+  hasCoverImage,
   onRemove,
   onClose,
   onLinkSubmit,
   onUploadSubmit,
 }: ImagePickerProps) {
-  const [activeTab, setActiveTab] = useState<ImagePickerTab>('image');
+  const [activeTab, setActiveTab] = useState<ImagePickerTab>(
+    hasCoverImage ? 'image' : 'hide'
+  );
 
-  const [imageSource, setImageSource] = useState<ImageSource>('upload');
+  const [imageSource, setImageSource] = useState<ImageSource>(
+    readStoredImageSource
+  );
+
+  const handleImageSourceChange = (source: ImageSource) => {
+    localStorage.setItem(IMAGE_SOURCE_STORAGE_KEY, source);
+    setImageSource(source);
+  };
 
   const handleTabChange = (tab: string) => {
     const nextTab = tab as ImagePickerTab;
 
     setActiveTab(nextTab);
 
-    if (nextTab === 'none') {
+    if (nextTab === 'hide') {
       onRemove();
     }
   };
 
   return (
     <div className="image-picker">
-      <span className="image-picker__title">
+      <span className="image-picker__header">
         Cover
         <Button isIconOnly size="small" interaction="subtle" onClick={onClose}>
           <AppIcon icon="dismiss" />
         </Button>
       </span>
+      <div className="image-picker__tabs">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <Tab value="hide">
+            <AppIcon icon="hide" />
+          </Tab>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <Tab value="none">
-          <AppIcon icon="none" />
-        </Tab>
-
-        <Tab value="image">
-          <AppIcon icon="image" />
-        </Tab>
-      </Tabs>
+          <Tab value="image">
+            <AppIcon icon="image" />
+          </Tab>
+        </Tabs>
+      </div>
 
       {activeTab === 'image' && (
         <>
@@ -64,10 +88,10 @@ export function ImagePicker({
                 imageSource === 'upload' ? 'image-picker__button--selected' : ''
               }`}
               type="button"
-              onClick={() => setImageSource('upload')}
+              onClick={() => handleImageSourceChange('upload')}
             >
               <AppIcon icon="uploadImage" />
-              Upload
+              <span>Upload</span>
             </button>
 
             <button
@@ -76,10 +100,10 @@ export function ImagePicker({
               }`}
               type="button"
               value="link"
-              onClick={() => setImageSource('link')}
+              onClick={() => handleImageSourceChange('link')}
             >
               <AppIcon icon="link" />
-              Link
+              <span>Link</span>
             </button>
 
             <button
@@ -89,10 +113,10 @@ export function ImagePicker({
                   : ''
               }`}
               type="button"
-              onClick={() => setImageSource('unsplash')}
+              onClick={() => handleImageSourceChange('unsplash')}
             >
-              <AppIcon icon="image" />
-              Unsplash
+              <AppIcon icon="unsplash" />
+              <span>Unsplash</span>
             </button>
           </div>
 
