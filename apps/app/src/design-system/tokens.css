@@ -125,6 +125,7 @@
   --ls-caption: 0.01em;
 
   /* Font weight */
+  --fw-thin: 300;
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600; /* Use it for label & caption */

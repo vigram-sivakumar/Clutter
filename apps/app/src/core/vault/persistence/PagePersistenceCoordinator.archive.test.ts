@@ -122,6 +122,9 @@ class RecordingFileSystem implements VaultFileSystem {
     this.calls.push(`moveFile:${sourcePath}->${destinationPath}`);
     return this.delegate.moveFile(sourcePath, destinationPath);
   }
+  copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+    return this.delegate.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+  }
 }
 
 describe('PagePersistenceCoordinator: archive moves the page on disk and in Vault', () => {
@@ -205,6 +208,9 @@ describe('PagePersistenceCoordinator: archive moves the page on disk and in Vaul
       async moveFile(): Promise<void> {
         throw new Error('move failed');
       }
+      copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+        return this.delegate.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+      }
     }
 
     const fileSystem = new FailingMoveFileSystem(inner);
@@ -265,6 +271,9 @@ describe('PagePersistenceCoordinator: archive moves the page on disk and in Vaul
       }
       moveFile(sourcePath: string, destinationPath: string) {
         return this.delegate.moveFile(sourcePath, destinationPath);
+      }
+      copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+        return this.delegate.copyFile(sourceAbsolutePath, destinationAbsolutePath);
       }
     }
 

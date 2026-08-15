@@ -108,6 +108,19 @@ export interface ResourceTopBarActionsProps {
    * component never persists anything itself.
    */
   onSetCoverImage?: (url: string) => void;
+  /**
+   * Present alongside onSetCoverImage when the cover picker supports upload.
+   * Invoked with the absolute source path from the native file picker;
+   * the caller imports into the vault and persists the vault-relative
+   * reference via updateMetadata.
+   */
+  onSetCoverImageFromUpload?: (sourcePath: string) => void;
+  /**
+   * Invoked when the cover picker's "none" tab is selected — the caller
+   * clears cover via updateMetadata({ cover: null }), same as onSetCoverImage
+   * but for removal.
+   */
+  onRemoveCoverImage?: () => void;
 }
 
 /**
@@ -137,6 +150,8 @@ export function ResourceTopBarActions({
   isFavorite,
   onToggleFavorite,
   onSetCoverImage,
+  onSetCoverImageFromUpload,
+  onRemoveCoverImage,
 }: ResourceTopBarActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Same "does this row's own trigger button anchor a second popover"
@@ -230,11 +245,21 @@ export function ResourceTopBarActions({
           onClose={() => setCoverPickerOpen(false)}
           side={OVERFLOW_SIDE}
           alignment={OVERFLOW_ALIGNMENT}
+          size="medium"
         >
           <ImagePicker
+            onClose={() => setCoverPickerOpen(false)}
+            onRemove={() => {
+              setCoverPickerOpen(false);
+              onRemoveCoverImage?.();
+            }}
             onLinkSubmit={(url) => {
               setCoverPickerOpen(false);
               onSetCoverImage(url);
+            }}
+            onUploadSubmit={(sourcePath) => {
+              setCoverPickerOpen(false);
+              onSetCoverImageFromUpload?.(sourcePath);
             }}
           />
         </Popover>

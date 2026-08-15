@@ -30,6 +30,7 @@ describe('VaultEntryDuplicator.duplicateFile', () => {
       writeFile: async () => {},
       deleteFile: async () => {},
       moveFile: async () => {},
+      copyFile: async () => {},
       duplicate: async (sourcePath, kind) => {
         calledWith = [sourcePath, kind];
         return '/provider-chosen/Arbitrary Name.md';
@@ -52,6 +53,7 @@ describe('VaultEntryDuplicator.duplicateFile', () => {
       writeFile: async () => {},
       deleteFile: async () => {},
       moveFile: async () => {},
+      copyFile: async () => {},
     };
     const duplicator = new VaultEntryDuplicator(fileSystem);
 

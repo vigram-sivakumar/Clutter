@@ -29,6 +29,7 @@ class FakeFileSystem implements VaultFileSystem {
   async writeFile(): Promise<void> {}
   async deleteFile(): Promise<void> {}
   async moveFile(): Promise<void> {}
+  async copyFile(): Promise<void> {}
 }
 
 function entry(name: string, path: string, isDirectory: boolean): VaultEntry {

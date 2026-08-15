@@ -8,10 +8,10 @@ import './Menu.css';
 
 interface MenuProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
-  size?: 'medium' | 'small';
+  size?: 'small' | 'medium' | 'large';
 }
 
-export function Menu({ children, size = 'medium', ...props }: MenuProps) {
+export function Menu({ children, size = 'small', ...props }: MenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const keyboard = useMenuKeyboard(menuRef);

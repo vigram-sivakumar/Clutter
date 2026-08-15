@@ -965,6 +965,9 @@ describe('VaultSyncService: sync correctness', () => {
       moveFile(sourcePath: string, destinationPath: string) {
         return this.innerFs.moveFile(sourcePath, destinationPath);
       }
+      copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+        return this.innerFs.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+      }
       async readFile(path: string): Promise<string> {
         const snapshot = await this.innerFs.readFile(path);
         const delay = this.delays.shift() ?? 0;
@@ -1060,6 +1063,9 @@ describe('VaultSyncService: sync correctness', () => {
       }
       moveFile(sourcePath: string, destinationPath: string) {
         return this.innerFs.moveFile(sourcePath, destinationPath);
+      }
+      copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+        return this.innerFs.copyFile(sourceAbsolutePath, destinationAbsolutePath);
       }
       async readFile(path: string): Promise<string> {
         if (!this.usedDelay) {

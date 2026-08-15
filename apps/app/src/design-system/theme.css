@@ -174,7 +174,7 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Interactive states */
   --state-hover: rgba(0, 0, 0, 0.03);
-  --state-pressed: rgba(0, 0, 0, 0.02);
+  --state-pressed: rgba(0, 0, 0, 0.06);
   --state-active: rgba(0, 0, 0, 0.06);
   --state-disabled: var(--opacity-medium);
   --tab-active: var(var(--surface-primary));

@@ -69,6 +69,26 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
     }
   }
 
+  async copyFile(
+    sourceAbsolutePath: string,
+    destinationAbsolutePath: string
+  ): Promise<void> {
+    const relativeDest = this.toRelativePath(destinationAbsolutePath);
+
+    this.registry.markPending(relativeDest);
+
+    try {
+      await this.inner.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+    } catch (error) {
+      this.registry.consumePending(relativeDest);
+      throw error;
+    }
+  }
+
+  duplicate?(sourcePath: string, kind: 'file' | 'directory'): Promise<string> {
+    return this.inner.duplicate?.(sourcePath, kind) as Promise<string>;
+  }
+
   private toRelativePath(path: string): string {
     const prefix = `${this.rootPath}/`;
     return path.startsWith(prefix) ? path.slice(prefix.length) : path;

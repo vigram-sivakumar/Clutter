@@ -25,10 +25,10 @@ export function ImagePickerLink({ onSubmit }: ImagePickerLinkProps) {
         value={link}
         onChange={(event) => setLink(event.target.value)}
       />
-
       <Button variant="primary" onClick={handleSubmit}>
         Add
       </Button>
+      <span className="input__hint">You can add any image from the web.</span>
     </div>
   );
 }

@@ -36,7 +36,7 @@
 
 /* Variant */
 .button--filled {
-  background: var(--button-secondary-surface);
+  background: var(--surface-subtle);
 }
 .button--outlined {
   background: transparent;
@@ -46,7 +46,7 @@
   background: transparent;
 }
 .button--outline-fill {
-  background: var(--button-secondary-surface);
+  background: var(--surface-subtle);
   box-shadow: var(--shadow-border-default);
 }
 .button--subtle {

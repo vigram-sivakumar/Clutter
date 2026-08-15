@@ -41,6 +41,9 @@ class SlowWriteFileSystem implements VaultFileSystem {
   moveFile(sourcePath: string, destinationPath: string) {
     return this.inner.moveFile(sourcePath, destinationPath);
   }
+  copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+    return this.inner.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+  }
 
   async writeFile(path: string, contents: string): Promise<void> {
     this.writeCallOrder.push(path);

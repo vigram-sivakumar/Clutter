@@ -54,6 +54,13 @@ export class LocalVaultProvider implements VaultFileSystem {
     );
   }
 
+  async copyFile(
+    sourceAbsolutePath: string,
+    destinationAbsolutePath: string
+  ): Promise<void> {
+    await copyFile(sourceAbsolutePath, destinationAbsolutePath);
+  }
+
   /**
    * Local-disk's implementation of the provider-owned duplicate contract
    * (ADR-029). Tauri's fs plugin has no "pick a non-colliding name"

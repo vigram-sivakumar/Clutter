@@ -28,7 +28,16 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": {
+        "default-src": "'self' 'unsafe-inline' 'unsafe-eval' ipc: http://ipc.localhost http://asset.localhost",
+        "img-src": "'self' asset: http://asset.localhost https: data: blob:",
+        "connect-src": "'self' ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173",
+        "style-src": "'self' 'unsafe-inline'"
+      },
+      "assetProtocol": {
+        "enable": true,
+        "scope": []
+      },
       "capabilities": ["default"]
     }
   },

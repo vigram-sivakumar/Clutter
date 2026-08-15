@@ -151,6 +151,27 @@ export function PageHost({ application }: PageHostProps) {
     void application.pageOperations.updateMetadata(activePageId, { cover: url });
   };
 
+  const onSetCoverImageFromUpload = (sourcePath: string): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void (async () => {
+      const relativePath = await application.importCoverAsset(sourcePath);
+      await application.pageOperations.updateMetadata(activePageId, {
+        cover: relativePath,
+      });
+    })();
+  };
+
+  const onRemoveCoverImage = (): void => {
+    if (!activePageId) {
+      return;
+    }
+
+    void application.pageOperations.updateMetadata(activePageId, { cover: null });
+  };
+
   const onMoveNote = (destinationFolderId: string | null): void => {
     if (!activePageId) {
       return;
@@ -232,6 +253,18 @@ export function PageHost({ application }: PageHostProps) {
         }),
       onSetCoverImage: (url) =>
         void application.folderOperations.updateMetadata(folder.id, { cover: url }),
+      onSetCoverImageFromUpload: (sourcePath) => {
+        void (async () => {
+          const relativePath = await application.importCoverAsset(sourcePath);
+          await application.folderOperations.updateMetadata(folder.id, {
+            cover: relativePath,
+          });
+        })();
+      },
+      onRemoveCoverImage: () =>
+        void application.folderOperations.updateMetadata(folder.id, {
+          cover: null,
+        }),
       archiveConfirmationMessage: archiveConfirmation.hasDescendants
         ? archiveConfirmation.message
         : undefined,
@@ -267,7 +300,9 @@ export function PageHost({ application }: PageHostProps) {
         onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
         breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
         actions={topBar.actions}
-        coverImage={model.coverImage ?? undefined}
+        coverImage={
+          application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
+        }
         body={<CollectionBody folders={model.folders} notes={model.notes} />}
       />
     );
@@ -373,7 +408,11 @@ export function PageHost({ application }: PageHostProps) {
       onUpdateMarkdown,
       onRequestSave
     );
-    const draftTopBar = buildDraftTopBarActions(draft.type, { onSetCoverImage });
+    const draftTopBar = buildDraftTopBarActions(draft.type, {
+      onSetCoverImage,
+      onSetCoverImageFromUpload,
+      onRemoveCoverImage,
+    });
 
     return (
       <Page
@@ -440,6 +479,8 @@ export function PageHost({ application }: PageHostProps) {
     onDuplicate,
     onToggleFavorite,
     onSetCoverImage,
+    onSetCoverImageFromUpload,
+    onRemoveCoverImage,
     moveDestinations:
       page.type === 'note'
         ? buildMoveDestinationItems(application.membershipSelector)
@@ -471,7 +512,9 @@ export function PageHost({ application }: PageHostProps) {
       onTitleCancel={isRenameable ? () => onCancelPageTitle(page.id) : undefined}
       breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
       actions={topBar.actions}
-      coverImage={model.coverImage ?? undefined}
+      coverImage={
+        application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
+      }
       bodyFocusRef={editorRef}
       body={
         <MarkdownBody>

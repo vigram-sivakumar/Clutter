@@ -150,6 +150,9 @@ describe('PagePersistenceCoordinator delete vertical slice', () => {
         }
         return this.delegate.deleteFile(path);
       }
+      copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+        return this.delegate.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+      }
     }
 
     const fileSystem = new FailOnceDeleteFileSystem(inner);

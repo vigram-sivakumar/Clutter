@@ -142,6 +142,21 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     throw new Error(`InMemoryVaultFileSystem: path not found: ${sourcePath}`);
   }
 
+  async copyFile(
+    sourceAbsolutePath: string,
+    destinationAbsolutePath: string
+  ): Promise<void> {
+    const contents = this.files.get(sourceAbsolutePath);
+
+    if (contents === undefined) {
+      throw new Error(
+        `InMemoryVaultFileSystem: source file not found: ${sourceAbsolutePath}`
+      );
+    }
+
+    this.files.set(destinationAbsolutePath, contents);
+  }
+
   /**
    * Mirrors LocalFileSystem.duplicate() exactly (ADR-029): the same shared
    * fallback naming decision (resolveLocalDuplicatePath), then a plain

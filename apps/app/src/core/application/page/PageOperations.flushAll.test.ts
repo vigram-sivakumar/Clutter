@@ -109,6 +109,9 @@ class GatedVaultFileSystem implements VaultFileSystem {
   moveFile(sourcePath: string, destinationPath: string) {
     return this.inner.moveFile(sourcePath, destinationPath);
   }
+  copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+    return this.inner.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+  }
 }
 
 function setup(pages: Page[], fileSystem?: VaultFileSystem) {

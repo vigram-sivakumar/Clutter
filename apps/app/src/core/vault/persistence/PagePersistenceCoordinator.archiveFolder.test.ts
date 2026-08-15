@@ -232,6 +232,9 @@ describe('PagePersistenceCoordinator: folder archive is disk-before-Vault, singl
       moveFile(sourcePath: string, destinationPath: string) {
         return this.delegate.moveFile(sourcePath, destinationPath);
       }
+      copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+        return this.delegate.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+      }
     }
 
     const fileSystem = new FailingMetadataWriteFileSystem(inner);
@@ -303,6 +306,9 @@ describe('PagePersistenceCoordinator: folder archive is disk-before-Vault, singl
       async moveFile(sourcePath: string, destinationPath: string): Promise<void> {
         this.moveCalls.push(`${sourcePath}->${destinationPath}`);
         return this.delegate.moveFile(sourcePath, destinationPath);
+      }
+      copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+        return this.delegate.copyFile(sourceAbsolutePath, destinationAbsolutePath);
       }
     }
 

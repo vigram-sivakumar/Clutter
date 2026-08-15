@@ -37,6 +37,11 @@ import { VaultSyncService } from '../vault/sync/VaultSyncService';
 import { reconcileVaultArchiveMetadata } from '../vault/sync/reconcileArchiveMetadata';
 import { persistSyncedPageDocument } from '../vault/sync/persistSyncedPageDocument';
 import type { VaultFileSystem } from '../vault/providers/VaultFileSystem';
+import type { CoverImageUrlResolver } from '../vault/providers/CoverImageUrlResolver';
+import { localCoverImageUrlResolver } from '../vault/providers/LocalCoverImageUrlResolver';
+import { registerVaultAssetScope } from '../vault/providers/registerVaultAssetScope';
+import { ASSETS_DIRECTORY_NAME } from '../vault/initialize/ensureAssetsDirectory';
+import { importCoverAsset } from '../vault/importCoverAsset';
 import { SelfWriteRegistry } from '../vault/providers/SelfWriteRegistry';
 import { SelfWriteAwareFileSystem } from '../vault/providers/SelfWriteAwareFileSystem';
 import { SelfWriteAwareWatcher } from '../vault/providers/SelfWriteAwareWatcher';
@@ -89,6 +94,7 @@ export class Application {
   public effectivePageState!: EffectivePageState;
   public membershipSelector!: MembershipSelector;
   private readonly fileSystem: VaultFileSystem;
+  private readonly coverImageUrlResolver: CoverImageUrlResolver;
   private readonly selfWriteRegistry: SelfWriteRegistry;
   private fileSystemWatcher!: LocalFileSystemWatcher;
   private rootPath!: string;
@@ -225,7 +231,8 @@ export class Application {
   constructor(
     vault: Vault,
     fileSystem: VaultFileSystem,
-    selfWriteRegistry: SelfWriteRegistry
+    selfWriteRegistry: SelfWriteRegistry,
+    coverImageUrlResolver: CoverImageUrlResolver = localCoverImageUrlResolver
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -233,6 +240,7 @@ export class Application {
     // own VaultQuery(vault) locally.
     this.query = new VaultQuery(vault);
     this.fileSystem = fileSystem;
+    this.coverImageUrlResolver = coverImageUrlResolver;
     this.selfWriteRegistry = selfWriteRegistry;
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
@@ -453,6 +461,7 @@ export class Application {
    * what shows at boot (see openFallbackPage() below).
    */
   public async open(): Promise<void> {
+    await registerVaultAssetScope(this.rootPath);
     await this.fileSystemWatcher.start(this.rootPath);
 
     void this.openFallbackPage();
@@ -491,6 +500,36 @@ export class Application {
     void this.pageOperations.openAtPath(todayNotePath, {
       type: 'daily-note',
     });
+  }
+
+  /**
+   * Copies an external image into `{vaultRoot}/Assets/` and returns the
+   * vault-relative reference for frontmatter storage. Non-Gate write —
+   * same carve-out as TagOperations' `.clutter/*` writes.
+   */
+  public async importCoverAsset(sourceAbsolutePath: string): Promise<string> {
+    return importCoverAsset(this.fileSystem, this.rootPath, sourceAbsolutePath);
+  }
+
+  /**
+   * Turns a persisted cover reference into a value suitable for `<img src>`.
+   * External URLs pass through unchanged; vault-local `Assets/…` references
+   * are resolved through the injected platform CoverImageUrlResolver.
+   */
+  public resolveCoverImageForDisplay(cover: string | null): string | null {
+    if (cover === null) {
+      return null;
+    }
+
+    if (cover.startsWith('http://') || cover.startsWith('https://')) {
+      return cover;
+    }
+
+    if (cover.startsWith(`${ASSETS_DIRECTORY_NAME}/`)) {
+      return this.coverImageUrlResolver.toLoadableUrl(`${this.rootPath}/${cover}`);
+    }
+
+    return cover;
   }
 
   /**

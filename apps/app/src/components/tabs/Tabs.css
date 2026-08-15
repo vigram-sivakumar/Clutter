@@ -21,10 +21,13 @@
   min-width: var(--height-lg);
   width: 100%;
   padding: 0;
+  gap: var(--space-6);
   background: transparent;
   color: var(--foreground-tertiary);
   border-radius: var(--radius-md);
   border: 0px solid transparent;
+
+  font-size: var(--text-body-small);
 
   cursor: pointer;
 

@@ -13,7 +13,7 @@ body {
 
 body {
   font-family: var(--font-sans);
-  font-size: var(--text-body);
+  font-size: var(--text-body-small);
   line-height: var(--lh-body);
   letter-spacing: var(--ls-body);
   font-weight: var(--fw-regular);

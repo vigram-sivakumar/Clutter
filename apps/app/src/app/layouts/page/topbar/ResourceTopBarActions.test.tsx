@@ -14,6 +14,10 @@ import {
 import { ResourceTopBarActions } from './ResourceTopBarActions';
 import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
 
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  open: vi.fn().mockResolvedValue('/tmp/photo.png'),
+}));
+
 // Overlay's positioning logic observes anchor/surface size via
 // ResizeObserver, which jsdom doesn't implement — stubbed the same way
 // Overlay's own test suite already does.
@@ -539,6 +543,43 @@ describe('ResourceTopBarActions', () => {
       expect(onSetCoverImage).toHaveBeenCalledWith(
         'https://example.com/cover.png'
       );
+      expect(screen.queryByPlaceholderText('Paste image URL')).toBeNull();
+    });
+
+    it('submitting an uploaded file invokes onSetCoverImageFromUpload and closes the picker', async () => {
+      const onSetCoverImageFromUpload = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithCover}
+          onSetCoverImage={vi.fn()}
+          onSetCoverImageFromUpload={onSetCoverImageFromUpload}
+        />
+      );
+      openMenu();
+      fireEvent.click(screen.getByText('Cover image'));
+      fireEvent.click(screen.getByText('Upload'));
+      fireEvent.click(screen.getByText('Choose image'));
+
+      await vi.waitFor(() => {
+        expect(onSetCoverImageFromUpload).toHaveBeenCalledWith('/tmp/photo.png');
+      });
+    });
+
+    it('selecting the none tab invokes onRemoveCoverImage and closes the picker', () => {
+      const onRemoveCoverImage = vi.fn();
+      render(
+        <ResourceTopBarActions
+          menu={menuWithCover}
+          onSetCoverImage={vi.fn()}
+          onRemoveCoverImage={onRemoveCoverImage}
+        />
+      );
+      openMenu();
+      fireEvent.click(screen.getByText('Cover image'));
+
+      fireEvent.click(screen.getByTestId('sidebar.tab.none'));
+
+      expect(onRemoveCoverImage).toHaveBeenCalledTimes(1);
       expect(screen.queryByPlaceholderText('Paste image URL')).toBeNull();
     });
 

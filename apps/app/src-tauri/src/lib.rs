@@ -1,3 +1,4 @@
+mod vault_asset_scope;
 mod vault_watcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -5,10 +6,12 @@ pub fn run() {
     tauri::Builder::default()
         .manage(vault_watcher::VaultWatcherState::default())
         .invoke_handler(tauri::generate_handler![
+            vault_asset_scope::allow_vault_asset_scope,
             vault_watcher::start_vault_watcher,
             vault_watcher::stop_vault_watcher,
         ])
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // Automation/testing only — never reachable in an ordinary build:
             // the crate itself doesn't exist in the dependency graph unless

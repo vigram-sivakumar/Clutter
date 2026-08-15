@@ -44,6 +44,7 @@ import MoreVertical from './svg/more-vertical.svg?react';
 import MultiLine from './svg/multi-line.svg?react';
 import Note from './svg/note.svg?react';
 import Link from './svg/link.svg?react';
+import None from './svg/none.svg?react';
 import NotePencil from './svg/note-pencil.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
@@ -65,6 +66,7 @@ import Tag from './svg/tag.svg?react';
 import Template from './svg/template.svg?react';
 import Tick from './svg/tick.svg?react';
 import Tray from './svg/tray.svg?react';
+import UploadImage from './svg/upload-image.svg?react';
 import Trash from './svg/trash.svg?react';
 import WidthFill from './svg/width-fill.svg?react';
 import WidthHug from './svg/width-hug.svg?react';
@@ -111,8 +113,9 @@ export const iconRegistry = {
   moreHorizontal: MoreHorizontal,
   moreVertical: MoreVertical,
   multiLine: MultiLine,
-  note: Note,
+  none: None,
   notePencil: NotePencil,
+  note: Note,
   link: Link,
   pin: Pin,
   plus: Plus,
@@ -134,6 +137,7 @@ export const iconRegistry = {
   template: Template,
   tick: Tick,
   tray: Tray,
+  uploadImage: UploadImage,
   trash: Trash,
   widthFill: WidthFill,
   widthHug: WidthHug,

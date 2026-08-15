@@ -101,6 +101,8 @@ export interface BuildTopBarActionsOptions {
    * updateMetadata for whichever resource type this call was made for.
    */
   onSetCoverImage?: (url: string) => void;
+  onSetCoverImageFromUpload?: (sourcePath: string) => void;
+  onRemoveCoverImage?: () => void;
 }
 
 /**
@@ -137,6 +139,8 @@ export function buildTopBarActions(
       isFavorite,
       onToggleFavorite: isFavoritable ? options.onToggleFavorite : undefined,
       onSetCoverImage: options.onSetCoverImage,
+      onSetCoverImageFromUpload: options.onSetCoverImageFromUpload,
+      onRemoveCoverImage: options.onRemoveCoverImage,
     }),
   };
 }
@@ -151,7 +155,11 @@ export function buildTopBarActions(
  */
 export function buildDraftTopBarActions(
   type: PageType,
-  options?: { onSetCoverImage?: (url: string) => void }
+  options?: {
+    onSetCoverImage?: (url: string) => void;
+    onSetCoverImageFromUpload?: (sourcePath: string) => void;
+    onRemoveCoverImage?: () => void;
+  }
 ): TopBarParts {
   return {
     actions: renderTopBarActions(type, {
@@ -166,6 +174,8 @@ export function buildDraftTopBarActions(
       // page. A Daily Note draft's item is disabled instead
       // (buildDailyNoteTopBarMenu), so this is never invoked for one.
       onSetCoverImage: options?.onSetCoverImage,
+      onSetCoverImageFromUpload: options?.onSetCoverImageFromUpload,
+      onRemoveCoverImage: options?.onRemoveCoverImage,
     }),
   };
 }

@@ -37,6 +37,14 @@ export interface VaultFileSystem {
   moveFile(sourcePath: string, destinationPath: string): Promise<void>;
 
   /**
+   * Copies a file from an absolute source path to an absolute destination
+   * path. Used for importing external files into the vault (e.g. cover
+   * images). The source path is never vault-relative — it comes from a
+   * native file picker outside the vault root.
+   */
+  copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string): Promise<void>;
+
+  /**
    * Duplicates a file or directory within its own parent, returning the
    * actual resulting path (ADR-029). The provider — not any caller —
    * decides the collision-safe destination name: a local-disk provider

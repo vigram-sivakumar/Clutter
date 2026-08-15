@@ -129,6 +129,9 @@ class GatedVaultFileSystem implements VaultFileSystem {
   moveFile(sourcePath: string, destinationPath: string) {
     return this.inner.moveFile(sourcePath, destinationPath);
   }
+  copyFile(sourceAbsolutePath: string, destinationAbsolutePath: string) {
+    return this.inner.copyFile(sourceAbsolutePath, destinationAbsolutePath);
+  }
 }
 
 function setup(page: Page, fileSystem?: VaultFileSystem) {
@@ -439,6 +442,7 @@ describe('PageOperations.requestSave: failure handling (never an unhandled rejec
       readFile: inner.readFile.bind(inner),
       deleteFile: inner.deleteFile.bind(inner),
       moveFile: inner.moveFile.bind(inner),
+      copyFile: inner.copyFile.bind(inner),
       writeFile: vi.fn().mockRejectedValue(new Error('disk full')),
     };
     inner.seedFile(
