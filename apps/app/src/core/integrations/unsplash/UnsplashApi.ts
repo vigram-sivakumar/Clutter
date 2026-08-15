@@ -1,27 +1,46 @@
 import type { UnsplashPhoto } from './UnsplashPhoto';
 
 const UNSPLASH_API_URL = 'https://api.unsplash.com';
-const PAGE = '1';
 const PER_PAGE = '30';
 const ORIENTATION = 'portrait';
+/** Upper bound for shuffle-with-search — avoids unbounded page requests. */
+export const UNSPLASH_SHUFFLE_MAX_PAGE = 10;
 
 const DEFAULT_SEARCH_QUERIES = [
+  'classical architecture',
+  'old european architecture',
+  'ornate architecture',
+  'classical sculpture',
+  'library interior',
+  'vintage library',
+  'antique books',
+  'vintage flowers',
+  'gradient background',
+  'dark academia',
+  'old newspaper',
+  'classical still life',
+  'fine art painting',
+  'art museum interior',
   'art wallpaper',
-  'nature',
-  'landscape',
-  'mountains',
-  'ocean',
-  'movies',
-  'books',
-  'architecture',
-  'minimal',
-  'sunset',
-  'forest',
-  'flowers',
+  'antique interior',
+  'vintage european street',
+  'historic european town',
+  'antique clock',
+  'vintage ceramics',
+  'antique pottery',
+  'gradient',
 ] as const;
 
+let lastDefaultPickIndex = -1;
+
 function pickDefaultSearchQuery(): string {
-  const index = Math.floor(Math.random() * DEFAULT_SEARCH_QUERIES.length);
+  let index = Math.floor(Math.random() * DEFAULT_SEARCH_QUERIES.length);
+
+  if (DEFAULT_SEARCH_QUERIES.length > 1 && index === lastDefaultPickIndex) {
+    index = (index + 1) % DEFAULT_SEARCH_QUERIES.length;
+  }
+
+  lastDefaultPickIndex = index;
 
   return DEFAULT_SEARCH_QUERIES[index] ?? DEFAULT_SEARCH_QUERIES[0];
 }
@@ -89,13 +108,16 @@ async function unsplashFetch(url: URL): Promise<Response> {
   });
 }
 
-export async function searchPhotos(query: string): Promise<UnsplashPhoto[]> {
+export async function searchPhotos(
+  query: string,
+  page = 1
+): Promise<UnsplashPhoto[]> {
   const trimmed = query.trim() || pickDefaultSearchQuery();
 
   const url = new URL(`${UNSPLASH_API_URL}/search/photos`);
 
   url.searchParams.set('query', trimmed);
-  url.searchParams.set('page', PAGE);
+  url.searchParams.set('page', String(page));
   url.searchParams.set('per_page', PER_PAGE);
   url.searchParams.set('orientation', ORIENTATION);
 

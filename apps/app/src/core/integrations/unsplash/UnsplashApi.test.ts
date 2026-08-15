@@ -49,7 +49,7 @@ describe('UnsplashApi', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        href: 'https://api.unsplash.com/search/photos?query=art+wallpaper&page=1&per_page=30&orientation=portrait',
+        href: 'https://api.unsplash.com/search/photos?query=classical+architecture&page=1&per_page=30&orientation=portrait',
       }),
       {
         headers: unsplashHeaders,
@@ -72,6 +72,14 @@ describe('UnsplashApi', () => {
         },
       },
     ]);
+
+    await searchPhotos('');
+
+    expect(fetchMock.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        href: 'https://api.unsplash.com/search/photos?query=old+european+architecture&page=1&per_page=30&orientation=portrait',
+      }),
+    );
   });
 
   it('searchPhotos() with whitespace only uses a default search term', async () => {
@@ -87,7 +95,26 @@ describe('UnsplashApi', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        href: 'https://api.unsplash.com/search/photos?query=flowers&page=1&per_page=30&orientation=portrait',
+        href: 'https://api.unsplash.com/search/photos?query=architectural+detail&page=1&per_page=30&orientation=portrait',
+      }),
+      {
+        headers: unsplashHeaders,
+      },
+    );
+  });
+
+  it('searchPhotos() accepts a page for shuffling manual search results', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ results: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await searchPhotos('mountains', 3);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        href: 'https://api.unsplash.com/search/photos?query=mountains&page=3&per_page=30&orientation=portrait',
       }),
       {
         headers: unsplashHeaders,

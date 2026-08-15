@@ -545,7 +545,7 @@ describe('ResourceTopBarActions', () => {
       expect(screen.getByText('Choose image')).toBeDefined();
     });
 
-    it('submitting a URL invokes onSetCoverImage and closes the picker', () => {
+    it('submitting a URL invokes onSetCoverImage and keeps the picker open', () => {
       const onSetCoverImage = vi.fn();
       render(
         <ResourceTopBarActions
@@ -566,7 +566,7 @@ describe('ResourceTopBarActions', () => {
       expect(onSetCoverImage).toHaveBeenCalledWith(
         'https://example.com/cover.png'
       );
-      expect(screen.queryByPlaceholderText('Paste image URL')).toBeNull();
+      expect(screen.getByPlaceholderText('Paste image URL')).toBeDefined();
     });
 
     it('submitting an uploaded file invokes onSetCoverImageFromUpload and closes the picker', async () => {

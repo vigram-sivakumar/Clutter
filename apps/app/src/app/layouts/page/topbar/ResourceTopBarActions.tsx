@@ -261,7 +261,6 @@ export function ResourceTopBarActions({
               onRemoveCoverImage?.();
             }}
             onLinkSubmit={(url) => {
-              setCoverPickerOpen(false);
               onSetCoverImage(url);
             }}
             onUploadSubmit={(sourcePath) => {

@@ -3,9 +3,11 @@ import { Input } from '@components/input/Input';
 import {
   searchPhotos,
   trackPhotoDownload,
+  UNSPLASH_SHUFFLE_MAX_PAGE,
 } from '@core/integrations/unsplash/UnsplashApi';
 import type { UnsplashPhoto } from '@core/integrations/unsplash/UnsplashPhoto';
 import { openExternalUrl } from '@shared/helpers/openExternalUrl';
+import { AppIcon } from '@shared/icon';
 import './ImagePicker.Unsplash.css';
 
 interface ImagePickerUnsplashProps {
@@ -35,9 +37,15 @@ function unsplashErrorMessage(error: unknown): string {
 
 export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
   const [query, setQuery] = useState('');
+  const [shuffleKey, setShuffleKey] = useState(0);
+  const [searchPage, setSearchPage] = useState(1);
   const [photos, setPhotos] = useState<UnsplashPhoto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSearchPage(1);
+  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +57,11 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
       setError(null);
 
       try {
-        const results = await searchPhotos(query);
+        const page = trimmedQuery
+          ? searchPage
+          : Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1;
+
+        const results = await searchPhotos(query, page);
 
         if (!cancelled) {
           setPhotos(results);
@@ -74,7 +86,17 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, shuffleKey, searchPage]);
+
+  const handleShuffle = () => {
+    if (query.trim() !== '') {
+      setSearchPage(
+        Math.floor(Math.random() * UNSPLASH_SHUFFLE_MAX_PAGE) + 1,
+      );
+    }
+
+    setShuffleKey((key) => key + 1);
+  };
 
   const handleSelect = (photo: UnsplashPhoto) => {
     void trackPhotoDownload(photo.links.downloadLocation);
@@ -116,6 +138,17 @@ export function ImagePickerUnsplash({ onSelect }: ImagePickerUnsplashProps) {
       {!isLoading && !error && photos.length > 0 && (
         <>
           <div className="image-picker-unsplash__grid">
+            <div className="image-picker-unsplash__card">
+              <button
+                type="button"
+                className="image-picker-unsplash__item image-picker-unsplash__item--shuffle"
+                onClick={handleShuffle}
+                aria-label="Shuffle"
+              >
+                <AppIcon icon="shuffle" />
+                <span className="image-picker-unsplash__credit">Shuffle</span>
+              </button>
+            </div>
             {photos.map((photo) => (
               <div key={photo.id} className="image-picker-unsplash__card">
                 <button
