@@ -27,6 +27,7 @@ export interface OverflowMenuProps {
   open: boolean;
   onOpenChange(open: boolean): void;
   onSelect(id: string): void;
+  buttonSize?: 'small' | 'medium' | 'large';
   size?: 'medium' | 'small';
   side?: OverlaySide;
   alignment?: OverlayAlignment;
@@ -55,6 +56,7 @@ export function OverflowMenu({
   open,
   onOpenChange,
   onSelect,
+  buttonSize = 'small',
   size = 'medium',
   side = 'bottom',
   alignment = 'end',
@@ -77,7 +79,7 @@ export function OverflowMenu({
   return (
     <>
       <Button
-        size={size}
+        size={buttonSize}
         variant="ghost"
         interaction="subtle"
         isIconOnly

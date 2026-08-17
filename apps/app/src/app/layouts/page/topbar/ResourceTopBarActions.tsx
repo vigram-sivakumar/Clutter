@@ -226,6 +226,7 @@ export function ResourceTopBarActions({
         onSelect={handleMenuSelect}
         side={OVERFLOW_SIDE}
         alignment={OVERFLOW_ALIGNMENT}
+        buttonSize="medium"
         buttonProps={{
           interaction: 'default',
         }}
