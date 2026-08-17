@@ -70,7 +70,7 @@ export class FrontmatterSerializer {
     ];
 
     for (const [key, value] of entries) {
-      if (value !== undefined) {
+      if (value !== undefined && value !== null) {
         lines.push(`${key}: ${value}`);
       }
     }
@@ -117,7 +117,7 @@ export class FrontmatterSerializer {
     ];
 
     for (const [key, value] of entries) {
-      if (value !== undefined) {
+      if (value !== undefined && value !== null) {
         lines.push(`${key}: ${value}`);
       }
     }

@@ -116,6 +116,8 @@ export function Notes({
     onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
     onToggleFavoriteNote: (pageId, isFavorite) =>
       void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
+    onChangeNoteIcon: (pageId, emoji) =>
+      void pageOperations.updateMetadata(pageId, { icon: emoji }),
     // Same flow as the topbar's Move (PageHost.tsx): same
     // buildMoveDestinationItems helper, same PageOperations.move() call —
     // nothing about Move is reimplemented for the sidebar.
@@ -141,6 +143,8 @@ export function Notes({
     // here decides what happens to the active view.
     onToggleFavoriteFolder: (folderId, isFavorite) =>
       void folderOperations.updateMetadata(folderId, { favorite: !isFavorite }),
+    onChangeFolderIcon: (folderId, emoji) =>
+      void folderOperations.updateMetadata(folderId, { icon: emoji }),
     onArchiveFolder: (folderId) => {
       const { hasDescendants, message } = getFolderArchiveConfirmation(
         vault,

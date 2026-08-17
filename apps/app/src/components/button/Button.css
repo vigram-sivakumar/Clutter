@@ -40,14 +40,14 @@
 }
 .button--outlined {
   background: transparent;
-  box-shadow: var(--shadow-border-default);
+  box-shadow: var(--shadow-inset-default);
 }
 .button--ghost {
   background: transparent;
 }
 .button--outline-fill {
   background: var(--surface-subtle);
-  box-shadow: var(--shadow-border-default);
+  box-shadow: var(--shadow-inset-default);
 }
 .button--subtle {
   background: transparent;
@@ -70,10 +70,10 @@
   background: var(--state-pressed);
 }
 .button--active {
-  background: var(--state-active);
+  background: var(--state-selected);
 }
 .button:disabled {
-  opacity: var(--state-disabled);
+  opacity: var(--opacity-disabled);
   cursor: default;
 }
 .button--ghost.button--subtle:not(:disabled):hover {

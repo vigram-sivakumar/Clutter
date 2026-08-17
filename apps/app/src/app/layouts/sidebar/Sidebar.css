@@ -1,5 +1,13 @@
 :root {
   --sidebar-padding-inline: var(--space-12);
+  --sidebar-item-foreground: var(--foreground-secondary);
+  --sidebar-icon-foreground: var(--foreground-tertiary);
+  --sidebar-item-placeholder-foreground: var(--foreground-placeholder);
+
+  --sidebar-item-hover-surface: var(--state-hover);
+  --sidebar-item-pressed-surface: var(--state-pressed);
+  --sidebar-item-selected-surface: var(--state-selected);
+  --sidebar-item-selected-foreground: var(--foreground-primary);
 }
 
 .sidebar {
@@ -20,4 +28,13 @@
   gap: var(--space-12);
   flex: 1;
   min-height: 0;
+}
+
+.sidebar {
+  --entry-foreground: var(--sidebar-item-foreground);
+  --entry-selected-foreground: var(--sidebar-item-selected-foreground);
+
+  --entry-hover-surface: var(--sidebar-item-hover-surface);
+  --entry-pressed-surface: var(--sidebar-item-pressed-surface);
+  --entry-selected-surface: var(--sidebar-item-selected-surface);
 }

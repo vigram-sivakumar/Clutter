@@ -11,7 +11,7 @@
   width: 100%;
   height: var(--height-md);
   border-radius: var(--radius-sm);
-  color: var(--foreground-tertiary);
+  color: var(--calendar-weekday-foreground);
   font-size: var(--text-caption);
   letter-spacing: var(--ls-caption);
   font-weight: var(--fw-regular);

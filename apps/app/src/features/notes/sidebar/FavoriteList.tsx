@@ -79,6 +79,11 @@ export function FavoriteList({
               : undefined
           }
           onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}
+          onChangeIcon={
+            rowActions
+              ? (emoji) => rowActions.onChangeNoteIcon(item.id, emoji)
+              : undefined
+          }
         />
       );
     }
@@ -126,6 +131,11 @@ export function FavoriteList({
             : undefined
         }
         onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}
+        onChangeIcon={
+          rowActions
+            ? (emoji) => rowActions.onChangeFolderIcon(item.id, emoji)
+            : undefined
+        }
       />
     );
   });

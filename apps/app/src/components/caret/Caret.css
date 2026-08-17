@@ -11,7 +11,7 @@
 }
 
 .caret-slot:disabled {
-  opacity: var(--state-disabled);
+  opacity: var(--opacity-disabled);
   cursor: default;
 }
 

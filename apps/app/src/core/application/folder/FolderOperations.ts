@@ -380,8 +380,8 @@ export class FolderOperations {
   /**
    * Metadata-only patch, backed by the Gate's 'update-folder-metadata'
    * kind — the folder-scoped counterpart to
-   * PageOperations.updateMetadata(). Scoped to `favorite`/`cover` (not
-   * PageOperations' full description/icon/cover/favorite set): those are
+   * PageOperations.updateMetadata(). Scoped to `favorite`/`cover`/`icon`
+   * (not PageOperations' full description/cover/favorite set): those are
    * the only folder metadata fields with a shipped writer today (cover
    * added for the folder "Cover image" topbar action — FolderMetadata/
    * FolderFrontmatter already carried `cover`, only this facade's patch
@@ -394,7 +394,7 @@ export class FolderOperations {
    */
   public async updateMetadata(
     folderId: string,
-    patch: Partial<Pick<FolderMetadata, 'favorite' | 'cover'>>
+    patch: Partial<Pick<FolderMetadata, 'favorite' | 'cover' | 'icon'>>
   ): Promise<void> {
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'update-folder-metadata',

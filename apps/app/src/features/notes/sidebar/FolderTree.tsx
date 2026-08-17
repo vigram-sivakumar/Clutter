@@ -71,6 +71,8 @@ export interface SidebarRowActions {
    * rather than looking it up separately.
    */
   onToggleFavoriteNote(pageId: string, isFavorite: boolean): void;
+  /** PageOperations.updateMetadata({ icon }) — sidebar Change icon action. */
+  onChangeNoteIcon(pageId: string, emoji: string | null): void;
   /**
    * Same Move flow as ResourceTopBarActions' (buildMoveDestinationItems.ts
    * + PageOperations.move) — a single destination list, since which
@@ -101,6 +103,8 @@ export interface SidebarRowActions {
    * rather than looking it up separately.
    */
   onToggleFavoriteFolder(folderId: string, isFavorite: boolean): void;
+  /** FolderOperations.updateMetadata({ icon }) — sidebar Change icon action. */
+  onChangeFolderIcon(folderId: string, emoji: string | null): void;
   /**
    * Per-folder — excludes that folder (and its own descendants) from its
    * own destination list, same as buildMoveDestinationItems.ts's
@@ -256,6 +260,11 @@ function PageEntry({
       }
       onCreateFolder={
         rowActions && !entry.isDraft ? rowActions.onCreateFolder : undefined
+      }
+      onChangeIcon={
+        rowActions && !entry.isDraft
+          ? (emoji) => rowActions.onChangeNoteIcon(entry.id, emoji)
+          : undefined
       }
     />
   );
@@ -414,6 +423,11 @@ export function FolderTree({
                   : undefined
               }
               onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}
+              onChangeIcon={
+                rowActions
+                  ? (emoji) => rowActions.onChangeFolderIcon(folder.id, emoji)
+                  : undefined
+              }
             />
             {/* Completes the existing Workspace.isFolderExpanded capability
                 (ADR-021) — a collapsed folder's pages and subfolders render

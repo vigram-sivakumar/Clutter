@@ -20,7 +20,7 @@
   background: var(--surface-subtle);
 }
 .input--border {
-  box-shadow: var(--shadow-border-default);
+  box-shadow: var(--shadow-inset-default);
 }
 
 .input__leading,

@@ -26,5 +26,5 @@
 
 .references__summary--disabled {
   color: var(--foreground-tertiary);
-  opacity: var(--state-disabled);
+  opacity: var(--opacity-disabled);
 }

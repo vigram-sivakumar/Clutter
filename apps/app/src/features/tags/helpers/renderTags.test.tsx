@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderTags } from './renderTags';
 
 const noop = () => {};
+const renderOptions = { onOpenTag: noop };
 
 afterEach(() => {
   cleanup();
@@ -15,7 +16,7 @@ afterEach(() => {
 describe('renderTags', () => {
   it('renders the assigned icon for a tag that has one', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'project', icon: '📦', favorite: false, usageCount: 0 }], noop)}</>
+      <>{renderTags([{ name: 'project', icon: '📦', favorite: false, usageCount: 0 }], renderOptions)}</>
     );
 
     expect(screen.getAllByText('📦').length).toBeGreaterThan(0);
@@ -24,7 +25,7 @@ describe('renderTags', () => {
 
   it('falls back to the default tag icon when icon is absent', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'design', favorite: false, usageCount: 0 }], noop)}</>
+      <>{renderTags([{ name: 'design', favorite: false, usageCount: 0 }], renderOptions)}</>
     );
 
     // No emoji span rendered anywhere for this tag — AppIcon falls back to
@@ -35,21 +36,21 @@ describe('renderTags', () => {
 
   it('displays usageCount as the trailing value', () => {
     render(
-      <>{renderTags([{ name: 'project', favorite: false, usageCount: 3 }], noop)}</>
+      <>{renderTags([{ name: 'project', favorite: false, usageCount: 3 }], renderOptions)}</>
     );
 
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
   it('a tag with favorite: false renders only in the remaining section, never in Favorites', () => {
-    render(<>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }], noop)}</>);
+    render(<>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }], renderOptions)}</>);
 
     expect(screen.getAllByText('project')).toHaveLength(1);
     expect(screen.queryByText('Favorites')).toBeNull();
   });
 
   it('a tag with favorite: true renders only in Favorites, never in the remaining section', () => {
-    render(<>{renderTags([{ name: 'project', favorite: true, usageCount: 0 }], noop)}</>);
+    render(<>{renderTags([{ name: 'project', favorite: true, usageCount: 0 }], renderOptions)}</>);
 
     expect(screen.getAllByText('project')).toHaveLength(1);
     expect(screen.getByText('Favorites')).toBeInTheDocument();
@@ -61,7 +62,7 @@ describe('renderTags', () => {
         {renderTags([
           { name: 'project', favorite: false, usageCount: 0 },
           { name: 'design', favorite: false, usageCount: 0 },
-        ], noop)}
+        ], renderOptions)}
       </>
     );
 
@@ -70,7 +71,7 @@ describe('renderTags', () => {
 
   it('renders the remaining section without a header when it is the only visible section', () => {
     const { container } = render(
-      <>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }], noop)}</>
+      <>{renderTags([{ name: 'project', favorite: false, usageCount: 0 }], renderOptions)}</>
     );
 
     expect(container.querySelectorAll('.section-header')).toHaveLength(0);
@@ -82,7 +83,7 @@ describe('renderTags', () => {
         {renderTags([
           { name: 'project', favorite: true, usageCount: 0 },
           { name: 'design', favorite: false, usageCount: 0 },
-        ], noop)}
+        ], renderOptions)}
       </>
     );
 
@@ -96,7 +97,7 @@ describe('renderTags', () => {
         {renderTags([
           { name: 'project', favorite: true, usageCount: 0 },
           { name: 'design', favorite: false, usageCount: 0 },
-        ], noop)}
+        ], renderOptions)}
       </>
     );
 
@@ -106,7 +107,7 @@ describe('renderTags', () => {
 
   it('invokes onOpenTag with the tag name when a row is clicked', () => {
     const onOpenTag = vi.fn();
-    render(<>{renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], onOpenTag)}</>);
+    render(<>{renderTags([{ name: 'Project', favorite: false, usageCount: 0 }], { onOpenTag })}</>);
 
     fireEvent.click(screen.getByText('Project'));
 

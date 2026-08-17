@@ -4,6 +4,8 @@ import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { MoveDestinationPicker } from '@components/move-destination-picker/MoveDestinationPicker';
 import { useMoveDestinationTrigger } from '@components/move-destination-picker/useMoveDestinationTrigger';
+import { ChangeIconPicker } from '@components/change-icon-picker/ChangeIconPicker';
+import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIconTrigger';
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 import { AppIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
@@ -49,6 +51,13 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
   onMove?: (destinationFolderId: string | null) => void;
   /** Present alongside moveDestinations — see MoveDestinationPicker's matching prop. */
   onCreateFolder?: (name: string) => Promise<string>;
+
+  /**
+   * Present when `menuItems` includes a `change-icon` item — selecting it
+   * from this row's overflow menu opens ChangeIconPicker anchored on this
+   * row's own trigger button, instead of forwarding to onMenuSelect.
+   */
+  onChangeIcon?: (emoji: string | null) => void;
 }
 
 export function Note({
@@ -69,6 +78,7 @@ export function Note({
   moveDestinations,
   onMove,
   onCreateFolder,
+  onChangeIcon,
   // Pulled out (not left in ...entryProps) so it can be combined with
   // this row's own hover-forcing reasons below, rather than one silently
   // overwriting the other via the {...entryProps} spread order — same
@@ -77,6 +87,7 @@ export function Note({
   ...entryProps
 }: NoteProps) {
   const moveTrigger = useMoveDestinationTrigger(moveDestinations);
+  const changeIconTrigger = useChangeIconTrigger(onChangeIcon !== undefined);
 
   return (
     <>
@@ -89,7 +100,7 @@ export function Note({
         // away mid-menu would hide the button needed to close it. Also
         // forced while the Move picker is open, or when a caller asks for
         // it explicitly.
-        forceHover={externalForceHover || menuOpen || moveTrigger.open}
+        forceHover={externalForceHover || menuOpen || moveTrigger.open || changeIconTrigger.open}
         leading={
           <AppIcon
             className="note__icon"
@@ -104,7 +115,9 @@ export function Note({
             open={menuOpen}
             onOpenChange={onMenuOpenChange ?? (() => {})}
             onSelect={(id) =>
-              moveTrigger.handleSelect(id, onMenuSelect ?? (() => {}))
+              changeIconTrigger.handleSelect(id, (id) =>
+                moveTrigger.handleSelect(id, onMenuSelect ?? (() => {}))
+              )
             }
             side="bottom"
             alignment="start"
@@ -145,6 +158,18 @@ export function Note({
             onMove?.(destinationFolderId);
           }}
           onCreateFolder={onCreateFolder}
+          side="bottom"
+          alignment="start"
+        />
+      )}
+      {onChangeIcon !== undefined && (
+        <ChangeIconPicker
+          anchorRef={moveTrigger.triggerRef}
+          open={changeIconTrigger.open}
+          onClose={changeIconTrigger.close}
+          hasIcon={emoji != null && emoji !== ''}
+          onSelect={onChangeIcon}
+          onRemove={() => onChangeIcon(null)}
           side="bottom"
           alignment="start"
         />

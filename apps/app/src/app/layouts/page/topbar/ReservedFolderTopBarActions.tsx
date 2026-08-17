@@ -4,7 +4,7 @@ import { AppIcon } from '@shared/icon';
 export function ReservedFolderTopBarActions() {
   return (
     <Button size="medium" isIconOnly>
-      <AppIcon icon={'widthFill'} />
+      <AppIcon icon={'rightSidebar'} />
     </Button>
   );
 }

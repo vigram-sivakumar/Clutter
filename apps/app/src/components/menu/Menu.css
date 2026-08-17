@@ -10,7 +10,7 @@
 
   padding: var(--space-4);
 
-  box-shadow: var(--shadow-border-default), var(--shadow-md);
+  box-shadow: var(--shadow-inset-default), var(--shadow-md);
 }
 
 .menu--small {

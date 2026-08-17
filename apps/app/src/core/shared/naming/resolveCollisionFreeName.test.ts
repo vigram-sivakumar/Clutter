@@ -21,4 +21,42 @@ describe('resolveCollisionFreeName', () => {
       'Untitled 4'
     );
   });
+
+  describe('with { firstSuffix: 1 }', () => {
+    it('returns the base name when nothing is taken', () => {
+      expect(
+        resolveCollisionFreeName('Note', () => false, { firstSuffix: 1 })
+      ).toBe('Note');
+    });
+
+    it('appends " 1" when the base name alone is taken', () => {
+      const taken = new Set(['Note']);
+
+      expect(
+        resolveCollisionFreeName('Note', (name) => taken.has(name), {
+          firstSuffix: 1,
+        })
+      ).toBe('Note 1');
+    });
+
+    it('appends " 2" when the base name and " 1" are taken', () => {
+      const taken = new Set(['Note', 'Note 1']);
+
+      expect(
+        resolveCollisionFreeName('Note', (name) => taken.has(name), {
+          firstSuffix: 1,
+        })
+      ).toBe('Note 2');
+    });
+
+    it('fills gaps by returning the first available suffix', () => {
+      const taken = new Set(['Note', 'Note 2']);
+
+      expect(
+        resolveCollisionFreeName('Note', (name) => taken.has(name), {
+          firstSuffix: 1,
+        })
+      ).toBe('Note 1');
+    });
+  });
 });

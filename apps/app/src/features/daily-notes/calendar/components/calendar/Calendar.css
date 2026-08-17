@@ -1,3 +1,17 @@
+:root {
+  --calendar-surface: var(--surface-subtle);
+  --calendar-foreground: var(--foreground-secondary);
+  --calendar-muted-foreground: var(--foreground-placeholder);
+  --calendar-today-foreground: var(--calendar-accent);
+  --calendar-weekday-foreground: var(--foreground-tertiary);
+
+  --calendar-hover-surface: var(--state-hover);
+  --calendar-selected-surface: var(--state-selected);
+  --calendar-selected-foreground: var(--foreground-primary);
+  --calendar-today-selected-surface: var(--calendar-accent);
+  --calendar-today-selected-foreground: var(--calendar-on-accent-foreground);
+}
+
 .calendar {
   display: flex;
   flex-direction: column;
@@ -30,15 +44,11 @@
 .calendar-toggle--bar {
   width: 48px;
   height: 6px;
-  background: var(--foreground-placeholder);
-  opacity: var(--opacity-strong);
+  background: var(--calendar-surface);
 
   border-radius: 999px;
-  transition:
-    opacity 300ms ease,
-    width 300ms ease;
+  transition: width 300ms ease;
 }
 .calendar-toggle--button:hover .calendar-toggle--bar {
-  /* opacity: 100%; */
   width: 40px;
 }

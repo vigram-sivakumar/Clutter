@@ -11,14 +11,17 @@ import ArrowLeftSmallHead from './svg/arrow-left-small-head.svg?react';
 import ArrowRight from './svg/arrow-right.svg?react';
 import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import BookshelfBox from './svg/bookshelf-box.svg?react';
+import Butterfly from './svg/butterfly.svg?react';
 import CalendarBlank from './svg/calendar-blank.svg?react';
 import CalendarDot from './svg/calendar-dot.svg?react';
+import Car from './svg/car.svg?react';
 import CaretDown from './svg/caret-down.svg?react';
 import CaretLeft from './svg/caret-left.svg?react';
 import CaretRight from './svg/caret-right.svg?react';
 import CaretUp from './svg/caret-up.svg?react';
 import CheckboxChecked from './svg/checkbox-checked.svg?react';
 import CheckboxUnchecked from './svg/checkbox-unchecked.svg?react';
+import Cherry from './svg/cherry.svg?react';
 import ChevronDown from './svg/chevron-down.svg?react';
 import ChevronLeft from './svg/chevron-left.svg?react';
 import ChevronRight from './svg/chevron-right.svg?react';
@@ -33,8 +36,11 @@ import Dismiss from './svg/dismiss.svg?react';
 import Description from './svg/description.svg?react';
 import FavouriteFilled from './svg/favourite-filled.svg?react';
 import FavouriteOutline from './svg/favourite-outline.svg?react';
-import Folder from './svg/folder.svg?react';
+import Flag from './svg/flag.svg?react';
 import FolderAdd from './svg/folder-add.svg?react';
+import Folder from './svg/folder.svg?react';
+import GiftBox from './svg/gift-box.svg?react';
+import Heart from './svg/heart.svg?react';
 import Image from './svg/image.svg?react';
 import Info from './svg/info.svg?react';
 import KeyEsc from './svg/key-esc.svg?react';
@@ -51,10 +57,12 @@ import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
 import Question from './svg/question.svg?react';
 import Restore from './svg/restore.svg?react';
+import RightSidebar from './svg/right-sidebar.svg?react';
 import Settings from './svg/settings.svg?react';
 import Shuffle from './svg/shuffle.svg?react';
 import Sidebar from './svg/sidebar.svg?react';
 import Slash from './svg/slash.svg?react';
+import Smile from './svg/Smile.svg?react';
 import Square from './svg/square.svg?react';
 import SquareCheckOutline from './svg/square-check-outline.svg?react';
 import SquareDashed from './svg/square-dashed.svg?react';
@@ -65,6 +73,7 @@ import SquiggleLine from './svg/squiggle-line.svg?react';
 import Tabs from './svg/tabs.svg?react';
 import TabsFlat from './svg/tabs-flat.svg?react';
 import Tag from './svg/tag.svg?react';
+import TeaCup from './svg/tea-cup.svg?react';
 import Template from './svg/template.svg?react';
 import Tick from './svg/tick.svg?react';
 import Tray from './svg/tray.svg?react';
@@ -84,15 +93,18 @@ export const iconRegistry = {
   arrowRight: ArrowRight,
   arrowRightSmallHead: ArrowRightSmallHead,
   bookshelfBox: BookshelfBox,
+  butterfly: Butterfly,
   calendar: CalendarBlank,
   calendarDot: CalendarDot,
   calendarToday: CalendarTodayIcon,
+  car: Car,
   caretDown: CaretDown,
   caretLeft: CaretLeft,
   caretRight: CaretRight,
   caretUp: CaretUp,
   checkboxChecked: CheckboxChecked,
   checkboxUnchecked: CheckboxUnchecked,
+  cherry: Cherry,
   chevronDown: ChevronDown,
   chevronLeft: ChevronLeft,
   chevronRight: ChevronRight,
@@ -107,8 +119,11 @@ export const iconRegistry = {
   description: Description,
   favouriteFilled: FavouriteFilled,
   favouriteOutline: FavouriteOutline,
-  folder: Folder,
+  flag: Flag,
   folderAdd: FolderAdd,
+  folder: Folder,
+  giftBox: GiftBox,
+  heart: Heart,
   image: Image,
   info: Info,
   keyEsc: KeyEsc,
@@ -125,10 +140,12 @@ export const iconRegistry = {
   plus: Plus,
   question: Question,
   restore: Restore,
+  rightSidebar: RightSidebar,
   settings: Settings,
   shuffle: Shuffle,
   sidebar: Sidebar,
   slash: Slash,
+  smile: Smile,
   square: Square,
   squareCheckOutline: SquareCheckOutline,
   squareDashed: SquareDashed,
@@ -139,6 +156,7 @@ export const iconRegistry = {
   tabs: Tabs,
   tabsFlat: TabsFlat,
   tag: Tag,
+  teaCup: TeaCup,
   template: Template,
   tick: Tick,
   tray: Tray,

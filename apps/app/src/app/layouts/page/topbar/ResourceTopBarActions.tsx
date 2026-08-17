@@ -216,7 +216,7 @@ export function ResourceTopBarActions({
         </Button>
       )}
       <Button size="medium" isIconOnly>
-        <AppIcon icon={'widthFill'} />
+        <AppIcon icon={'rightSidebar'} />
       </Button>
       <OverflowMenu
         items={menu}
@@ -230,6 +230,7 @@ export function ResourceTopBarActions({
           interaction: 'default',
         }}
       />
+
       {moveDestinations !== undefined && (
         <MoveDestinationPicker
           anchorRef={moveTrigger.triggerRef}

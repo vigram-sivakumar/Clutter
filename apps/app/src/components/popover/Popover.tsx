@@ -7,7 +7,7 @@ export interface PopoverProps extends Pick<
   AnchoredOverlayProps,
   'anchorRef' | 'open' | 'onClose' | 'side' | 'alignment' | 'offset'
 > {
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'fit-content';
 
   className?: string;
   children: ReactNode;

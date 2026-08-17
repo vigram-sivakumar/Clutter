@@ -21,7 +21,7 @@
 }
 
 .overlay__backdrop--tinted {
-  background: var(--surface-overlay);
+  background: var(--overlay-scrim);
 }
 
 .overlay__content {

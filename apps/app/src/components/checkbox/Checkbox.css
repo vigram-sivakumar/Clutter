@@ -19,7 +19,7 @@
 }
 
 .checkbox--checked {
-  color: var(--checkbox-bg-checked);
+  color: var(--checkbox-accent);
 }
 
 /* .checkbox:not(.checkbox--checked):active:not(:disabled) {
@@ -27,11 +27,12 @@
 
 .checkbox:disabled,
 .checkbox--disabled {
-  opacity: var(--state-disabled);
+  opacity: var(--opacity-disabled);
   cursor: default;
 }
 
-.checkbox:focus-visible {
-  outline: 2px solid var(--border-strong);
+/* .checkbox:focus-visible {
+  box-shadow: var(--shadow-inset-strong);
   outline-offset: 2px;
-}
+  border-radius: var(--radius-md);
+} */

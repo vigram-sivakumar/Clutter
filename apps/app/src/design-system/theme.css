@@ -25,8 +25,8 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-primary: var(--neutral-900);
   --surface-secondary: var(--neutral-800);
   --surface-tertiary: var(--neutral-700);
-  --surface-subtle: rgba(255, 255, 255, 0.02);
-  --surface-overlay: rgba(20, 20, 20, 0.55);
+  --surface-subtle: rgba(255, 255, 255, 0.035);
+  --overlay-scrim: rgba(20, 20, 20, 0.55);
   --surface-inverse: var(--neutral-50);
 
   /* Text & icons */
@@ -35,19 +35,37 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-tertiary: #787878;
   --foreground-placeholder: #565656;
   --foreground-inverse: var(--neutral-700);
-  --foreground-emoji: #ffffff;
 
-  /* Border */
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-default: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --ring-focus: var(--accent-dark);
+  /* Interactive states */
+  --state-base: 255 255 255;
 
-  /* Border shadows */
-  --shadow-border-default: inset 0 0 0 1px var(--border-default);
-  --shadow-border-subtle: inset 0 0 0 1px var(--border-subtle);
-  --shadow-border-strong: inset 0 0 0 1px var(--border-strong);
-  --shadow-border-focus: inset 0 0 0 1px var(--border-focus);
+  --state-hover: rgb(var(--state-base) / 3.5%);
+  --state-pressed: rgb(var(--state-base) / 3.5%);
+  --state-selected: rgb(var(--state-base) / 7%);
+  --opacity-disabled: var(--opacity-strong);
+
+  /* Secondary button */
+  --button-secondary-surface: rgba(255, 255, 255, 0.055);
+
+  /* Selected tab */
+  --tab-selected-surface: var(--state-selected);
+
+  /* Calendar */
+  --calendar-accent: #e03200;
+  --calendar-on-accent-foreground: rgba(255, 255, 255, 0.82);
+
+  /* Checkbox */
+  --checkbox-accent: #007aff;
+
+  /* Text decoration */
+  --strikethrough-color: #595757;
+
+  /* Inset borders */
+  --shadow-inset-default: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-inset-subtle: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-inset-strong: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --shadow-inset-focus: inset 0 0 0 1px var(--accent-dark);
+  --shadow-inset-thin: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
 
   /* Shadows */
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.06);
@@ -57,73 +75,6 @@ html.theme-transitioning [data-themeable] *::after {
     0 16px 32px -8px rgba(0, 0, 0, 0.16), 0 4px 8px -4px rgba(0, 0, 0, 0.08);
   --shadow-xl:
     0 24px 48px -12px rgba(0, 0, 0, 0.22), 0 8px 16px -8px rgba(0, 0, 0, 0.12);
-
-  /* Interactive states */
-  --state-hover: rgba(255, 255, 255, 0.03);
-  --state-pressed: rgba(255, 255, 255, 0.02);
-  --state-active: rgba(255, 255, 255, 0.07);
-  --state-disabled: var(--opacity-strong);
-  --tab-active: var(var(--state-active));
-
-  /* Secondary button */
-  --button-secondary-surface: rgba(255, 255, 255, 0.055);
-
-  /* Use only for the tabs active state */
-  --tab-active: var(--state-active);
-  --tab-active-border: var(--border-default);
-
-  /* Calendar */
-  --calendar-accent: #e03200;
-  --calendar-active-bg: #e03200;
-  --calendar-active-text: rgba(255, 255, 255, 0.82);
-  --calendar-hover: var(--state-hover);
-
-  /* Checkbox */
-  --checkbox-bg-checked: #007aff;
-  --strikethrough-color: #595757;
-
-  /* Tag / Colors */
-  --tag-blue-bg: rgba(59, 130, 246, 0.22);
-  --tag-blue-border: rgba(59, 130, 246, 0.35);
-  --tag-blue-text: rgba(255, 255, 255, 0.82);
-  --tag-yellow-bg: rgba(255, 210, 0, 0.22);
-  --tag-yellow-border: rgba(255, 210, 0, 0.35);
-  --tag-yellow-text: rgba(255, 255, 255, 0.82);
-  --tag-red-bg: rgba(239, 68, 68, 0.22);
-  --tag-red-border: rgba(239, 68, 68, 0.35);
-  --tag-red-text: rgba(255, 255, 255, 0.82);
-  --tag-green-bg: rgba(34, 197, 94, 0.22);
-  --tag-green-border: rgba(34, 197, 94, 0.35);
-  --tag-green-text: rgba(255, 255, 255, 0.82);
-  --tag-purple-bg: rgba(168, 85, 247, 0.22);
-  --tag-purple-border: rgba(168, 85, 247, 0.35);
-  --tag-purple-text: rgba(255, 255, 255, 0.82);
-  --tag-orange-bg: rgba(240, 115, 22, 0.22);
-  --tag-orange-border: rgba(240, 115, 22, 0.35);
-  --tag-orange-text: rgba(255, 255, 255, 0.82);
-  --tag-indigo-bg: rgba(99, 102, 241, 0.22);
-  --tag-indigo-border: rgba(99, 102, 241, 0.35);
-  --tag-indigo-text: rgba(255, 255, 255, 0.82);
-  --tag-grey-bg: rgba(255, 255, 255, 0.22);
-  --tag-grey-border: rgba(255, 255, 255, 0.35);
-  --tag-grey-text: rgba(255, 255, 255, 0.82);
-  --tag-dark-grey-bg: rgba(255, 255, 255, 0.05);
-  --tag-dark-grey-border: rgba(255, 255, 255, 0.12);
-  --tag-dark-grey-text: var(--foreground-secondary);
-
-  /* Feedback */
-  --feedback-info-bg: rgba(59, 130, 246, 0.22);
-  --feedback-info-text: rgba(255, 255, 255, 0.82);
-  --feedback-warning-bg: rgba(255, 210, 0, 0.22);
-  --feedback-warning-text: rgba(255, 255, 255, 0.82);
-  --feedback-error-bg: rgba(239, 68, 68, 0.22);
-  --feedback-error-text: rgba(255, 255, 255, 0.82);
-  --feedback-success-bg: rgba(34, 197, 94, 0.22);
-  --feedback-success-text: rgba(255, 255, 255, 0.82);
-
-  /* Editor — selection */
-  --selection-bg: rgba(99, 102, 241, 0.18);
-  --selection-block-bg: rgba(99, 102, 241, 0.12);
 }
 
 /* ─── Light mode ───────────────────────────────────────────────────────── */
@@ -137,7 +88,7 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-secondary: var(--neutral-50);
   --surface-tertiary: var(--neutral-200);
   --surface-subtle: rgba(0, 0, 0, 0.03);
-  --surface-overlay: rgba(80, 80, 80, 0.25);
+  --overlay-scrim: rgba(80, 80, 80, 0.25);
   --surface-inverse: var(--neutral-900);
 
   /* Text & icons */
@@ -146,19 +97,37 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-tertiary: #8c8c8c; /* ≈ black @ 45% */
   --foreground-placeholder: #cccccc; /* ≈ black @ 20% */
   --foreground-inverse: #d4d4d4;
-  --foreground-emoji: #000000;
 
-  /* Border */
-  --border-subtle: rgba(0, 0, 0, 0.04);
-  --border-default: rgba(0, 0, 0, 0.06);
-  --border-strong: rgba(0, 0, 0, 0.12);
-  --ring-focus: var(--accent-light);
+  /* Interactive states */
+  --state-base: 0 0 0;
 
-  /* Border shadows */
-  --shadow-border-default: inset 0 0 0 1px var(--border-default);
-  --shadow-border-subtle: inset 0 0 0 1px var(--border-subtle);
-  --shadow-border-strong: inset 0 0 0 1px var(--border-strong);
-  --shadow-border-focus: inset 0 0 0 1px var(--border-focus);
+  --state-hover: rgb(var(--state-base) / 3.5%);
+  --state-pressed: rgb(var(--state-base) / 3.5%);
+  --state-selected: rgb(var(--state-base) / 7%);
+  --opacity-disabled: var(--opacity-medium);
+
+  /* Secondary button */
+  --button-secondary-surface: rgba(0, 0, 0, 0.055);
+
+  /* Selected tab */
+  --tab-selected-surface: var(--surface-primary);
+
+  /* Calendar */
+  --calendar-accent: #d93800;
+  --calendar-on-accent-foreground: rgba(255, 255, 255, 0.82);
+
+  /* Checkbox */
+  --checkbox-accent: #00acff;
+
+  /* Text decoration */
+  --strikethrough-color: var(--neutral-600);
+
+  /* Inset borders */
+  --shadow-inset-default: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-inset-subtle: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-inset-strong: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  --shadow-inset-focus: inset 0 0 0 1px var(--accent-light);
+  --shadow-inset-thin: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
 
   /* Shadows */
   --shadow-sm: 0 2px 6px rgba(25, 25, 25, 0.04);
@@ -171,71 +140,4 @@ html.theme-transitioning [data-themeable] *::after {
   --shadow-xl:
     0 24px 48px -12px rgba(25, 25, 25, 0.1),
     0 8px 16px -8px rgba(25, 25, 25, 0.05);
-
-  /* Interactive states */
-  --state-hover: rgba(0, 0, 0, 0.03);
-  --state-pressed: rgba(0, 0, 0, 0.06);
-  --state-active: rgba(0, 0, 0, 0.06);
-  --state-disabled: var(--opacity-medium);
-  --tab-active: var(var(--surface-primary));
-
-  /* Secondary button */
-  --button-secondary-surface: rgba(0, 0, 0, 0.055);
-
-  /* Use only for the tabs active state */
-  --tab-active: var(--surface-primary);
-  --tab-active-border: var(--border-strong);
-
-  /* Calendar */
-  --calendar-accent: #d93800;
-  --calendar-active-bg: #d93800;
-  --calendar-active-text: rgba(255, 255, 255, 0.82);
-  --calendar-hover: var(--state-hover);
-
-  /* Checkbox */
-  --checkbox-bg-checked: #00acff;
-  --strikethrough-color: var(--neutral-600);
-
-  /* Tag / Colors */
-  --tag-blue-bg: rgb(192, 222, 241);
-  --tag-blue-border: rgba(36, 63, 92, 0.2);
-  --tag-blue-text: rgb(36, 63, 92);
-  --tag-yellow-bg: rgb(249, 238, 206);
-  --tag-yellow-border: rgba(92, 74, 0, 0.2);
-  --tag-yellow-text: rgb(92, 74, 0);
-  --tag-red-bg: rgb(252, 210, 204);
-  --tag-red-border: rgba(127, 29, 29, 0.2);
-  --tag-red-text: rgb(127, 29, 29);
-  --tag-green-bg: rgb(212, 238, 216);
-  --tag-green-border: rgba(30, 86, 49, 0.2);
-  --tag-green-text: rgb(30, 86, 49);
-  --tag-purple-bg: rgb(231, 221, 238);
-  --tag-purple-border: rgba(55, 37, 66, 0.2);
-  --tag-purple-text: rgb(55, 37, 66);
-  --tag-orange-bg: rgb(255, 231, 204);
-  --tag-orange-border: rgba(138, 75, 20, 0.2);
-  --tag-orange-text: rgb(138, 75, 20);
-  --tag-indigo-bg: rgb(224, 228, 255);
-  --tag-indigo-border: rgba(47, 58, 143, 0.2);
-  --tag-indigo-text: rgb(47, 58, 143);
-  --tag-grey-bg: rgb(233, 233, 233);
-  --tag-grey-border: rgba(82, 82, 82, 0.2);
-  --tag-grey-text: rgb(82, 82, 82);
-  --tag-dark-grey-bg: rgba(0, 0, 0, 0.05);
-  --tag-dark-grey-border: rgba(0, 0, 0, 0.12);
-  --tag-dark-grey-text: var(--foreground-secondary);
-
-  /* Feedback */
-  --feedback-info-bg: rgb(192, 222, 241);
-  --feedback-info-text: rgb(36, 63, 92);
-  --feedback-warning-bg: rgb(249, 238, 206);
-  --feedback-warning-text: rgb(92, 74, 0);
-  --feedback-error-bg: rgb(252, 210, 204);
-  --feedback-error-text: rgb(127, 29, 29);
-  --feedback-success-bg: rgb(212, 238, 216);
-  --feedback-success-text: rgb(30, 86, 49);
-
-  /* Editor — selection */
-  --selection-bg: rgba(99, 102, 241, 0.18);
-  --selection-block-bg: rgba(99, 102, 241, 0.12);
 }

@@ -9,3 +9,6 @@
 .popover--large {
   width: 420px;
 }
+.popover--fit-content {
+  width: fit-content;
+}

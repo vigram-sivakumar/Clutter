@@ -3,13 +3,17 @@ import {
   useImperativeHandle,
   useLayoutEffect,
   useRef,
+  type ClipboardEvent,
   type CompositionEvent,
   type FocusEvent,
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
 
-import type { EditableTextHandle, EditableTextProps } from './EditableText.types';
+import type {
+  EditableTextHandle,
+  EditableTextProps,
+} from './EditableText.types';
 
 import './EditableText.css';
 
@@ -104,6 +108,14 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
       onEdit?.(event.currentTarget.textContent ?? '');
     }
 
+    function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+      event.preventDefault();
+
+      const text = event.clipboardData.getData('text/plain');
+
+      document.execCommand('insertText', false, text);
+    }
+
     function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
       if (isComposingRef.current || event.nativeEvent.isComposing) {
         return;
@@ -114,10 +126,6 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
       }
 
       if (event.key === 'Escape') {
-        // Escape always discards the draft, even valid, changed text —
-        // revert the visible content now so handleBlur has nothing left to
-        // compare against value, and so a consumer that keeps the element
-        // mounted after a cancel doesn't show stale typed text.
         isEscapingRef.current = true;
         syncTextContent(event.currentTarget, value);
       } else {
@@ -128,12 +136,6 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
       event.currentTarget.blur();
     }
 
-    // Blur represents the end-of-session boundary for the current editing
-    // session. EditableText only emits the proposed value (via onCommit),
-    // the fact that the session ended (via onEditingEnd), and — only for
-    // Enter specifically — onSubmit. It does not mutate application state
-    // itself, and it does not know what "cancel" or "advance focus" means
-    // to any particular consumer.
     function handleBlur(event: FocusEvent<HTMLDivElement>) {
       const committedValue = event.currentTarget.textContent ?? '';
       const wasEscaped = isEscapingRef.current;
@@ -143,20 +145,10 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
 
       updateEmptyState(event.currentTarget);
 
-      // Emit the proposed value only when this wasn't an Escape, and the
-      // committed text differs from the last value accepted by the parent.
       if (!wasEscaped && committedValue !== value) {
         onCommit(committedValue);
       }
 
-      // A continuous-commit consumer's onFlush must not fire on an escaped
-      // blur — an escaped session already committed nothing via onCommit,
-      // but a consumer using onEdit (continuous commit, per keystroke) has
-      // already been advancing its own pending state independent of this
-      // blur; firing onFlush here would force-persist that pending state
-      // despite the user explicitly cancelling. onCancel is the signal
-      // such a consumer needs instead, to revert whatever it already
-      // committed via onEdit back to its last-known-good value.
       if (wasEscaped) {
         onCancel?.();
       } else {
@@ -190,6 +182,7 @@ export const EditableText = forwardRef<EditableTextHandle, EditableTextProps>(
         data-placeholder={placeholder}
         tabIndex={isDisabled ? -1 : 0}
         onInput={handleInput}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         onCompositionStart={handleCompositionStart}

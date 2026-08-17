@@ -8,21 +8,21 @@
   width: 100%;
 
   border-radius: var(--border-radius);
-  box-shadow: var(--shadow-border-default);
+  box-shadow: var(--shadow-inset-default);
 }
 
 .page__document {
   display: flex;
   flex-direction: column;
 
-  flex: 1 1 720px;
+  flex: 1 1 840px;
   min-width: 0;
 
   position: relative;
   z-index: 2;
 
   background: var(--surface-primary);
-  box-shadow: inset 0 0 0 1px var(--border-default);
+  box-shadow: var(--shadow-inset-default);
   border-radius: var(--border-radius);
 }
 

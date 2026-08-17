@@ -1,7 +1,7 @@
 .page__cover {
-  flex: 3 5 240px;
-  min-width: 40px;
-  max-width: calc(var(--app-sidebar-width) + 40px);
+  flex: 1 5 240px;
+  min-width: 64px;
+  max-width: var(--app-sidebar-width);
 
   position: relative;
   z-index: 1;

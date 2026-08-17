@@ -973,3 +973,36 @@ describe('FolderOperations.updateMetadata() (cover)', () => {
     expect(content).toContain('https://example.com/cover.png');
   });
 });
+
+describe('FolderOperations.updateMetadata() (icon)', () => {
+  it('sets icon in the vault and persists it to the .folder.md on disk', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.updateMetadata('folder-1', { icon: '📁' });
+
+    expect(vault.getFolder('folder-1')!.metadata.icon).toBe('📁');
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).toContain('icon: 📁');
+  });
+
+  it('clears icon from the vault and omits it from .folder.md on disk', async () => {
+    const folder: Folder = {
+      ...makeFolder('folder-1', `${ROOT}/Projects`),
+      metadata: { ...makeFolder('folder-1', `${ROOT}/Projects`).metadata, icon: '📁' },
+    };
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/.folder.md`,
+      ['---', 'id: folder-1', 'icon: 📁', '---', ''].join('\n')
+    );
+
+    await folderOperations.updateMetadata('folder-1', { icon: null });
+
+    expect(vault.getFolder('folder-1')!.metadata.icon).toBeNull();
+    const content = await fileSystem.readFile(`${ROOT}/Projects/.folder.md`);
+    expect(content).not.toContain('icon:');
+  });
+});

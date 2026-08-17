@@ -3,5 +3,5 @@
 }
 
 .daily-note__title--placeholder {
-  color: var(--foreground-placeholder);
+  color: var(--sidebar-item-placeholder-foreground);
 }

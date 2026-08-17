@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -28,6 +29,7 @@ afterEach(() => {
 
 const menuWithMove: OverflowMenuItemConfig[] = [
   { id: 'rename', label: 'Rename', icon: 'notePencil' },
+  { id: 'change-icon', label: 'Change icon', icon: 'notePencil' },
   { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
 ];
 
@@ -39,22 +41,28 @@ function FolderHarness({
   onMenuSelect,
   moveDestinations,
   onMove,
+  onChangeIcon,
+  emoji,
 }: {
   onMenuSelect: (id: string) => void;
   moveDestinations?: FolderPickerItem[];
   onMove?: (destinationFolderId: string | null) => void;
+  onChangeIcon?: (emoji: string | null) => void;
+  emoji?: string | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <Folder
       title="Projects"
+      emoji={emoji}
       menuItems={menuWithMove}
       menuOpen={menuOpen}
       onMenuOpenChange={setMenuOpen}
       onMenuSelect={onMenuSelect}
       moveDestinations={moveDestinations}
       onMove={onMove}
+      onChangeIcon={onChangeIcon}
     />
   );
 }
@@ -89,5 +97,53 @@ describe('Folder — sidebar Move wiring', () => {
     fireEvent.click(screen.getByText('Move to…'));
 
     expect(onMenuSelect).toHaveBeenCalledWith('move-to');
+  });
+});
+
+describe('Folder — sidebar Change icon wiring', () => {
+  it("selecting 'Change icon' opens ChangeIconPicker, not a plain menu handler", () => {
+    const onMenuSelect = vi.fn();
+    const onChangeIcon = vi.fn();
+    render(<FolderHarness onMenuSelect={onMenuSelect} onChangeIcon={onChangeIcon} />);
+
+    openMenu();
+    fireEvent.click(screen.getByText('Change icon'));
+
+    expect(onMenuSelect).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Search emoji')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'grinning face' }));
+
+    expect(onChangeIcon).toHaveBeenCalledWith('😀');
+  });
+
+  it('renders no picker when onChangeIcon is absent — change-icon falls through to onMenuSelect', () => {
+    const onMenuSelect = vi.fn();
+    render(<FolderHarness onMenuSelect={onMenuSelect} />);
+
+    openMenu();
+    fireEvent.click(screen.getByText('Change icon'));
+
+    expect(onMenuSelect).toHaveBeenCalledWith('change-icon');
+  });
+
+  it('disables the remove button when the folder has no icon', () => {
+    render(<FolderHarness onMenuSelect={vi.fn()} onChangeIcon={vi.fn()} />);
+
+    openMenu();
+    fireEvent.click(screen.getByText('Change icon'));
+
+    expect(screen.getByRole('button', { name: 'Remove icon' })).toBeDisabled();
+  });
+
+  it('removes the icon when the remove button is clicked', () => {
+    const onChangeIcon = vi.fn();
+    render(<FolderHarness onMenuSelect={vi.fn()} onChangeIcon={onChangeIcon} emoji="📁" />);
+
+    openMenu();
+    fireEvent.click(screen.getByText('Change icon'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove icon' }));
+
+    expect(onChangeIcon).toHaveBeenCalledWith(null);
   });
 });

@@ -1,0 +1,75 @@
+.emoji-tray {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+
+  width: fit-content;
+  padding-block: var(--space-12);
+  border-radius: var(--radius-xl);
+
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-inset-default), var(--shadow-lg);
+}
+
+.emoji-tray__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding-inline: var(--space-12);
+}
+
+.emoji-tray__categories {
+  display: flex;
+  gap: var(--space-2);
+  padding-inline: var(--space-12);
+}
+.emoji-tray__categories {
+  display: flex;
+  gap: var(--space-2);
+  padding-inline: var(--space-12);
+}
+
+.emoji-tray__grid {
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+
+  height: calc((var(--height-md) * 8) + (var(--space-8) * 2));
+  overflow-y: auto;
+
+  padding-inline: var(--space-12);
+}
+
+.emoji-tray__item,
+.emoji-tray__skin-tone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  height: var(--height-md);
+  aspect-ratio: 1;
+
+  border: 0;
+  border-radius: var(--radius-md);
+
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.emoji-tray__item:hover {
+  background: var(--state-hover);
+}
+
+.emoji-tray__skin-tones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  width: fit-content;
+  padding: var(--space-8);
+  border-radius: var(--radius-xl);
+
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-inset-default), var(--shadow-lg);
+}

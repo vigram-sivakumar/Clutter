@@ -17,6 +17,6 @@ export type TagColors = {
 export function tagColorsFromPalette(palette: TagPaletteId): TagColors {
   return {
     background: `var(--tag-${palette}-bg)`,
-    border: 'var(--border-strong)',
+    border: 'red',
   };
 }

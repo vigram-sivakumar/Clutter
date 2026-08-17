@@ -103,7 +103,7 @@ export function Sidebar({ application }: SidebarProps) {
     {
       value: 'tags',
       icon: getSystemLocationPresentation('tags').icon,
-      panel: <Tags vault={vault} navigation={navigation} />,
+      panel: <Tags vault={vault} navigation={navigation} tagOperations={application.tagOperations} />,
     },
     {
       value: 'search',

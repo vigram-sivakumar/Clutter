@@ -6,5 +6,5 @@
   border-radius: var(--radius-lg);
 }
 .current-week {
-  background: var(--surface-tertiary);
+  background: var(--calendar-surface);
 }

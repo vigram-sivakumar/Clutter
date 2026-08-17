@@ -72,7 +72,7 @@
 }
 
 .image-picker-unsplash__item--shuffle:hover {
-  background: var(--state-active);
+  background: var(--state-selected);
   color: var(--foreground-primary);
 }
 

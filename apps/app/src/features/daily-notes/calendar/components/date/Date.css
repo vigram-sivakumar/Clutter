@@ -7,13 +7,13 @@
 
   height: var(--height-md);
   background: transparent;
-  color: var(--foreground-secondary);
+  color: var(--calendar-foreground);
 
   border: 0;
   border-radius: var(--radius-lg);
 
   font-size: var(--text-label);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-regular);
 
   width: 100%;
 
@@ -24,27 +24,28 @@
 }
 .calendar-cell--today,
 .calendar-cell--today.calendar-cell--outside-month {
-  color: var(--calendar-accent);
+  color: var(--calendar-today-foreground);
 }
 .calendar-cell--outside-month {
-  color: var(--foreground-placeholder);
+  color: var(--calendar-muted-foreground);
 }
 .calendar-cell--selected {
-  background: var(--tab-active);
-  color: var(--foreground-primary);
+  background: var(--calendar-selected-surface);
+  color: var(--calendar-selected-foreground);
+  font-weight: var(--fw-medium);
 }
 
 .calendar-cell--today.calendar-cell--selected {
-  background: var(--calendar-accent);
-  color: var(--calendar-active-text);
+  background: var(--calendar-today-selected-surface);
+  color: var(--calendar-today-selected-foreground);
 }
 
 .calendar-cell:hover:not(:disabled):not(.calendar-cell--selected) {
-  background: var(--calendar-hover);
+  background: var(--calendar-hover-surface);
 }
 
 .calendar-cell:active:not(:disabled) {
-  background: var(--state-active);
+  background: var(--calendar-selected-surface);
 }
 
 .calendar-cell__indicator {
@@ -55,7 +56,7 @@
 }
 
 .calendar-cell--today.calendar-cell--selected .calendar-cell__dot {
-  background: var(--calendar-active-text);
+  background: var(--calendar-today-selected-foreground);
   opacity: var(--opacity-strong);
 }
 .calendar-cell__dot {
@@ -63,5 +64,5 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--foreground-placeholder);
+  background: var(--calendar-muted-foreground);
 }

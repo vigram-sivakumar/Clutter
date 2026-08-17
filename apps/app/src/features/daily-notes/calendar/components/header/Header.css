@@ -13,15 +13,12 @@
 
 .calendar-month,
 .calendar-year {
-  color: var(--foreground-secondary);
+  color: var(--calendar-foreground);
   font-size: var(--text-body-small);
 }
-/* .calendar-year {
-  opacity: var(--opacity-strong);
-} */
 
 .calendar-year {
-  color: var(--foreground-placeholder);
+  color: var(--calendar-muted-foreground);
 }
 .calendar-actions {
   display: flex;

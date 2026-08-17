@@ -1,7 +1,7 @@
 .tag__icon {
-  color: var(--foreground-tertiary);
+  color: var(--sidebar-icon-foreground);
 }
 .tag__favorite-icon {
-  color: var(--foreground-placeholder);
+  color: var(--sidebar-icon-foreground);
   opacity: var(--opacity-strong);
 }

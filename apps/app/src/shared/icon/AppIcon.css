@@ -1,7 +1,6 @@
 .emoji-icon {
   font-size: var(--text-body);
   line-height: 1;
-  color: var(--foreground-emoji);
   image-rendering: pixelated;
 }
 

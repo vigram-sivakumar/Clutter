@@ -6,7 +6,7 @@
 .tabs--filled {
   border-radius: var(--radius-lg);
   border: 0;
-  background: var(--surface-tertiary);
+  background: var(--surface-subtle);
   padding: var(--space-2);
 }
 .tabs--ghost {
@@ -40,14 +40,9 @@
 .tab:hover {
   color: var(--foreground-primary);
 }
-/* .tab:active {
-  background: var(--surface);
-} */
 
 .tab--active {
-  background: var(--tab-active);
+  background: var(--tab-selected-surface);
   color: var(--foreground-primary);
-  box-shadow:
-    inset 0 0 0 0.5px var(--border-strong),
-    var(--shadow-md);
+  box-shadow: var(--shadow-inset-thin), var(--shadow-md);
 }

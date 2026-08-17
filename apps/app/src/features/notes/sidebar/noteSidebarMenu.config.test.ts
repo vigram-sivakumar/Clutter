@@ -12,16 +12,24 @@ describe('buildNoteSidebarMenu', () => {
 
   it("labels 'toggle-favorite' as 'Add to Favorites' when isFavorite is false (or omitted)", () => {
     expect(
-      buildNoteSidebarMenu(false, false).find((i) => i.id === 'toggle-favorite')?.label
+      buildNoteSidebarMenu(false, false).find((i) => i.id === 'toggle-favorite')
+        ?.label
     ).toBe('Add to Favorites');
-    expect(buildNoteSidebarMenu(false).find((i) => i.id === 'toggle-favorite')?.label).toBe(
-      'Add to Favorites'
+    expect(
+      buildNoteSidebarMenu(false).find((i) => i.id === 'toggle-favorite')?.label
+    ).toBe('Add to Favorites');
+  });
+
+  it("includes 'change-icon' for a persisted note", () => {
+    expect(buildNoteSidebarMenu(false).map((i) => i.id)).toContain(
+      'change-icon'
     );
   });
 
   it("labels 'toggle-favorite' as 'Remove from Favorites' when isFavorite is true", () => {
     expect(
-      buildNoteSidebarMenu(false, true).find((i) => i.id === 'toggle-favorite')?.label
+      buildNoteSidebarMenu(false, true).find((i) => i.id === 'toggle-favorite')
+        ?.label
     ).toBe('Remove from Favorites');
   });
 });
