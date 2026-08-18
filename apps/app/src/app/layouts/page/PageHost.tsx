@@ -72,7 +72,11 @@ export function PageHost({ application }: PageHostProps) {
 
   // Composed once per render from the currently-attached Vault/PageOperations
   // — cheap, stateless glue (resolveWikiLink.ts), not worth memoizing.
-  const resolveWikiLink = createWikiLinkResolver(vault, application.pageOperations);
+  const resolveWikiLink = createWikiLinkResolver(
+    vault,
+    application.pageOperations,
+    application.folderOperations
+  );
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
