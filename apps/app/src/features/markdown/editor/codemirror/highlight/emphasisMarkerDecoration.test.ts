@@ -64,6 +64,17 @@ describe('emphasisMarkerDecoration', () => {
     expect(view.dom.textContent).toContain('italic');
   });
 
+  it('_italic_: markers collapse at rest and reveal when engaged, same as *italic*', () => {
+    const text = 'Text before _italic_ after';
+    const view = mountView(text);
+
+    expect(view.dom.textContent).not.toContain('_');
+
+    const nodeStart = 'Text before '.length;
+    view.dispatch({ selection: { anchor: nodeStart + 3 } });
+    expect(view.dom.textContent).toContain('_italic_');
+  });
+
   it('__bold__: markers collapse at rest and reveal when engaged, same as *italic*', () => {
     const text = 'Text before __bold__ after';
     const view = mountView(text);
@@ -84,6 +95,17 @@ describe('emphasisMarkerDecoration', () => {
 
     view.dispatch({ selection: { anchor: nodeStart + 4 } }); // inside "bi"
     expect(view.dom.textContent).toContain('***bi***');
+  });
+
+  it('___bold italic___: same composition as ***bold italic*** with underscores', () => {
+    const text = 'Text before ___bi___ after';
+    const view = mountView(text);
+    const nodeStart = 'Text before '.length;
+
+    expect(view.dom.textContent).not.toContain('_');
+
+    view.dispatch({ selection: { anchor: nodeStart + 4 } }); // inside "bi"
+    expect(view.dom.textContent).toContain('___bi___');
   });
 
   describe('core invariant: the document is always authoritative', () => {
