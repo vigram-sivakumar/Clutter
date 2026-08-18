@@ -3,11 +3,12 @@ import { WidgetType } from '@codemirror/view';
 import type { WikiLinkResolution } from './wikiLinkResolution';
 
 /**
- * The at-rest rendered form of a WikiLink. No visual styling here — colors,
- * borders, pill/chip treatment are explicitly deferred. `status` is
- * exposed as a single `data-` attribute, the only style hook, so a
- * resolved/unresolved/ambiguous reference stays structurally identical
- * and only differs by that one hook once visual design happens.
+ * The at-rest rendered form of a WikiLink. `tok-wikilink` is the class hook
+ * for styling it; `status` is additionally exposed as its own `data-`
+ * attribute, so a resolved/unresolved/ambiguous reference stays
+ * structurally identical and can still be styled per-status (e.g.
+ * `.tok-wikilink[data-wikilink-status="unresolved"]`) without a separate
+ * class per status.
  *
  * Click/Alt-click/keyboard activation are wired elsewhere —
  * `EditorView.domEventHandlers` (`wikiLinkMouseHandlers.ts`) and a keymap
@@ -36,6 +37,7 @@ export class WikiLinkWidget extends WidgetType {
   override toDOM(): HTMLElement {
     const span = document.createElement('span');
     span.textContent = this.resolution.displayLabel;
+    span.classList.add('tok-wikilink');
     // Baseline accessibility hook (§6) — not a final ARIA design. Whether
     // "link" is the right role for every status, and the exact wording of
     // the accessible name, is a deferred, deliberately unresolved question
