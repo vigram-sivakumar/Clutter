@@ -109,79 +109,28 @@
 }
 
 /*
- * Live Preview marker hiding (heading markers only, for now). `tok-mark`
- * (markdownHighlightStyle.ts, tags.processingInstruction) covers every
- * Markdown punctuation-mark node — HeaderMark today, others later — but
- * this rule intentionally only *applies* it to headings, one selector at
- * a time, to keep this change scoped to the heading slice, not to every
- * construct that already happens to share the same underlying class.
- * `.cm-activeLine` is CM6's own built-in extension (highlightActiveLine(),
- * createEditorView.ts), applied directly to the `.cm-line` containing the
- * cursor — reveal is therefore line-granularity, not per-node engagement,
- * matching the accepted behavior for this slice.
+ * Live Preview marker hiding — heading, WikiLink, and emphasis markers are
+ * all hidden at rest via `Decoration.replace({})` in their respective
+ * decoration layers (`headingMarkerDecoration.ts`, `wikiLinkDecorations.ts`,
+ * `emphasisMarkerDecoration.ts`; the shared mechanism behind the first and
+ * last is `highlight/liveMarkDecoration.ts`), not CSS. An unengaged marker
+ * has no DOM node at all to style — deliberately: styling it invisible
+ * with `display: none` was tried first and confirmed, by direct browser
+ * reproduction, to corrupt native click hit-testing and word-selection
+ * right at the hidden/visible boundary (see `liveMarkDecoration.ts`'s doc
+ * comment for the full reproduction). The rules below only ever apply to
+ * a marker that *is* currently rendered — i.e. its construct is engaged —
+ * and exist purely to color it, at uniform node-level granularity for
+ * every construct, no `.cm-activeLine` special-casing needed anymore.
  */
-.cm-editor .cm-line:not(.cm-activeLine) .tok-heading1.tok-mark,
-.cm-editor .cm-line:not(.cm-activeLine) .tok-heading2.tok-mark,
-.cm-editor .cm-line:not(.cm-activeLine) .tok-heading3.tok-mark,
-.cm-editor .cm-line:not(.cm-activeLine) .tok-heading4.tok-mark,
-.cm-editor .cm-line:not(.cm-activeLine) .tok-heading5.tok-mark,
-.cm-editor .cm-line:not(.cm-activeLine) .tok-heading6.tok-mark {
-  display: none;
-}
-
-/*
- * Visible (active-line) heading marker gets the tertiary text color
- * instead of the heading's own color — `.tok-headingN.tok-mark` (two
- * classes) outweighs the plain `.tok-headingN` color rule above by
- * specificity regardless of source order, so this doesn't depend on
- * being declared after it. Scoped to heading markers only, not a bare
- * `.tok-mark` rule — `tags.processingInstruction` (markdownHighlightStyle.ts)
- * also covers QuoteMark/ListMark/LinkMark/EmphasisMark/CodeMark, none of
- * which are implemented yet and must not be affected by this rule.
- */
-.cm-editor .cm-line.cm-activeLine .tok-heading1.tok-mark,
-.cm-editor .cm-line.cm-activeLine .tok-heading2.tok-mark,
-.cm-editor .cm-line.cm-activeLine .tok-heading3.tok-mark,
-.cm-editor .cm-line.cm-activeLine .tok-heading4.tok-mark,
-.cm-editor .cm-line.cm-activeLine .tok-heading5.tok-mark,
-.cm-editor .cm-line.cm-activeLine .tok-heading6.tok-mark {
-  color: var(--marker-foreground);
-}
-
-/*
- * WikiLink `[[`/`]]` markers (wikiLinkMarkerDecorations.ts). At rest the
- * whole node — brackets included — is replaced by the WikiLinkWidget, so
- * there's nothing to hide here (unlike headings, no `display: none` rule
- * exists for this construct); this only ever applies once engaged, since
- * that decoration layer only marks bracket ranges on engaged nodes. Scoped
- * via the compound `.tok-wikilink-mark.tok-mark` selector, not bare
- * `.tok-mark`, for the same reason as the heading rules above — other
- * `tags.processingInstruction` constructs share `tok-mark` and must stay
- * unaffected. The path/alias text between the brackets receives no
- * decoration at all, so it keeps its normal text color with no extra rule
- * needed.
- */
-.cm-editor .tok-wikilink-mark.tok-mark {
-  color: var(--marker-foreground);
-}
-
-/*
- * Emphasis `*`/`_`/`**`/`__` markers (emphasisMarkerDecoration.ts). Unlike
- * headings, granularity here is per-node, not per-line — `tok-mark-hidden`
- * is added by that decoration layer only to the delimiter pair of an
- * emphasis construct the selection isn't currently in or adjacent to, so
- * this is a plain hide rule with no `.cm-activeLine` condition to check.
- * The visible (engaged) case reuses the same `var(--marker-foreground)`
- * marker color the heading and WikiLink marks already use — scoped to
- * `.tok-emphasis.tok-mark`/`.tok-strong.tok-mark`, not bare `.tok-mark`,
- * for the same reason as those rules: other `tags.processingInstruction`
- * constructs share the class and must stay unaffected.
- */
-.cm-editor .tok-mark-hidden {
-  display: none;
-}
-
+.cm-editor .tok-heading1.tok-mark,
+.cm-editor .tok-heading2.tok-mark,
+.cm-editor .tok-heading3.tok-mark,
+.cm-editor .tok-heading4.tok-mark,
+.cm-editor .tok-heading5.tok-mark,
+.cm-editor .tok-heading6.tok-mark,
 .cm-editor .tok-emphasis.tok-mark,
-.cm-editor .tok-strong.tok-mark {
+.cm-editor .tok-strong.tok-mark,
+.cm-editor .tok-wikilink-mark.tok-mark {
   color: var(--marker-foreground);
 }

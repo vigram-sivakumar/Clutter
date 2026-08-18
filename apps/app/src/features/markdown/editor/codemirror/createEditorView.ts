@@ -3,7 +3,7 @@ import { Annotation, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, highlightActiveLine, keymap } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
-import { headingSeparatorDecoration } from './highlight/headingSeparatorDecoration';
+import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
 import { markdownHighlighting } from './highlight/markdownHighlightStyle';
 
 /**
@@ -32,15 +32,12 @@ export interface CreateEditorViewOptions {
  * of which Markdown grammar extensions (`markdownLanguageExtension()` et
  * al.) a caller passes in via `extensions`, not feature behavior of
  * their own. `highlightActiveLine()` is CM6's own built-in extension
- * (`@codemirror/view`) — it only ever adds a `cm-activeLine` class to
- * the line containing the cursor; the actual Live Preview hide/reveal
- * behavior is pure CSS keyed on that class plus `markdownHighlighting()`'s
- * `tok-mark` class (`MarkdownEditor.css`), not additional logic here.
- * `headingSeparatorDecoration()` is the one exception that isn't pure
- * CSS-consuming — it's a small, tree-driven decoration covering the one
- * range `HighlightStyle` structurally cannot reach (the ATX heading
- * separator space; see its own doc comment), reusing the exact same
- * `tok-headingN tok-mark` classes so no additional CSS is needed for it.
+ * (`@codemirror/view`) — it only adds a `cm-activeLine` class for the
+ * active-line background highlight (`editorTheme.ts`); heading Live
+ * Preview hide/reveal no longer depends on it (`headingMarkerDecoration()`
+ * uses selection-containment engagement instead, matching every other
+ * Markdown construct — see `highlight/liveMarkDecoration.ts`'s doc
+ * comment for why line-granularity CSS hiding was replaced).
  */
 export function createEditorView(options: CreateEditorViewOptions): EditorView {
   const { doc, parent, extensions = [], onDocChange, onBlur } = options;
@@ -77,7 +74,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       blurHandler,
       editorTheme(),
       markdownHighlighting(),
-      headingSeparatorDecoration(),
+      headingMarkerDecoration(),
       highlightActiveLine(),
       EditorView.lineWrapping,
       ...extensions,
