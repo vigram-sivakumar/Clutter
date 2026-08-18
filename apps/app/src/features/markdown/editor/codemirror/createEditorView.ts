@@ -1,6 +1,8 @@
 import { Annotation, EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import { editorTheme } from './editorTheme';
+
 /**
  * Marks a dispatched transaction as an external prop sync rather than user
  * input, so the update listener below can skip firing `onDocChange` for it
@@ -46,7 +48,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
 
   const state = EditorState.create({
     doc,
-    extensions: [updateListener, blurHandler, ...extensions],
+    extensions: [updateListener, blurHandler, editorTheme(), ...extensions],
   });
 
   return new EditorView({ state, parent });
