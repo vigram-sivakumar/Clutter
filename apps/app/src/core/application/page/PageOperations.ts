@@ -41,6 +41,24 @@ export const SHUTDOWN_FLUSH_TIMEOUT_MS = 5000;
 export const TITLE_AUTOSAVE_DEBOUNCE_MS = 4000;
 export const TITLE_AUTOSAVE_CEILING_MS = 60000;
 
+/**
+ * Thrown by mutateBody() when the Gate abandons the no-session-branch
+ * write (PersistenceOperation's 'abandoned' status — e.g. the page was
+ * deleted out from under the mutation between dispatch and dequeue).
+ * A distinct, catchable type rather than a plain Error so a caller with
+ * its own historical error phrasing for this one failure mode (e.g.
+ * TaskOperations) can rewrap it without string-matching a message.
+ */
+export class MutateBodyAbandonedError extends Error {
+  constructor(
+    public readonly pageId: string,
+    public readonly reason: string
+  ) {
+    super(`Failed to persist mutation for page ${pageId}: ${reason}`);
+    this.name = 'MutateBodyAbandonedError';
+  }
+}
+
 export interface CreatePageOptions {
   readonly folderId: string | null;
   readonly title?: string;
@@ -704,6 +722,68 @@ export class PageOperations {
 
   public getSession(pageId: string): DocumentSession | undefined {
     return this.documentRegistry.get(pageId);
+  }
+
+  /**
+   * The canonical entry point for every app-initiated body mutation — task
+   * completion/reopening, and any future formatting command, template
+   * insertion, bulk transform, or AI-assisted edit (ADR-031). `transform`
+   * is a pure function from the page's current Markdown to its next
+   * Markdown; callers never read Vault/DocumentSession content themselves
+   * to compute it.
+   *
+   * Dispatch: if a DocumentSession is open for pageId, it is the exclusive
+   * owner of "current content" (ADR-031) — transform() runs against
+   * session.currentRevision.markdown (which reflects any unsaved, dirty
+   * edits already committed to it, not just the last-saved content), and
+   * the result is committed via commitEdit(), never session.commit()
+   * directly. commitEdit() is what arms the existing SaveCoordinator
+   * autosave timer (see its own doc comment) — calling session.commit()
+   * here instead would silently strand the mutation in the session with no
+   * scheduled persistence. No Gate call happens in this branch.
+   *
+   * If no session is open, transform() runs against the Vault's durable
+   * page.source.markdown and the result is enqueued through the Gate's
+   * existing 'save' kind — the same call TaskOperations.mutate() made
+   * directly before this method existed, just relocated here so every
+   * body-mutating feature facade shares one broker instead of
+   * reimplementing this dispatch.
+   *
+   * Page-not-found and archived-page checks are evaluated before either
+   * branch runs, mirroring save()'s own ordering (§ its doc comment) —
+   * archived status is a Vault-domain fact, checked regardless of whether
+   * a session happens to be open.
+   */
+  public async mutateBody(
+    pageId: string,
+    transform: (markdown: string) => string
+  ): Promise<void> {
+    const page = this.vault.getPage(pageId);
+    const session = this.documentRegistry.get(pageId);
+
+    if (!page && !session) {
+      throw new Error(`Page not found: ${pageId}`);
+    }
+
+    if (page && page.metadata.status === 'archived') {
+      throw new Error(
+        `Cannot edit archived page: ${pageId}. Restore it before editing.`
+      );
+    }
+
+    if (session) {
+      this.commitEdit(pageId, transform(session.currentRevision.markdown));
+      return;
+    }
+
+    const result = await this.coordinator.enqueue(pageId, {
+      kind: 'save',
+      content: transform(page!.source.markdown),
+    });
+
+    if (result.status === 'abandoned') {
+      throw new MutateBodyAbandonedError(pageId, result.reason);
+    }
   }
 
   /**

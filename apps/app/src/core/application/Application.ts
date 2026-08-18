@@ -339,9 +339,11 @@ export class Application {
       vault,
       this.workspace
     );
-    // Same Gate instance every other facade writes through — a task
-    // mutation is just another 'save' kind, never a second write path.
-    this.taskOperations = new TaskOperations(vault, persistenceCoordinator);
+    // ADR-031: task mutation routes through PageOperations.mutateBody(),
+    // which is what decides (per-page) whether the write targets an open
+    // DocumentSession or the Gate's existing 'save' kind — TaskOperations
+    // itself no longer touches Vault or the Gate directly.
+    this.taskOperations = new TaskOperations(this.pageOperations);
     // Not Gate-backed, deliberately — tag metadata is presentation
     // configuration (.clutter/tags.json), not Vault domain content, so it
     // is outside the Persistence Gate's scope (ARCHITECTURE_RULES.md rule

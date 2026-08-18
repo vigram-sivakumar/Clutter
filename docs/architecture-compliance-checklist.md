@@ -42,6 +42,7 @@ If a PR touches multiple subsystems, run every relevant section separately for e
 - [ ] Does this PR call `VaultFileSystem` or `Vault` mutation methods directly from `PageOperations`/`FolderOperations` instead of going through the Persistence Gate?
 - [ ] Does this PR leave a stub method (`throw new Error('not implemented')`) wired to a live UI entry point (keyboard shortcut, button, menu item) that a user can actually trigger?
 - [ ] Does this PR duplicate `DocumentSession`/`DocumentRegistry`/`SaveCoordinator` logic instead of reusing the existing editing collaborators?
+- [ ] Does this PR add or modify an app-initiated Markdown body mutation (task state, a formatting command, template insertion, a bulk transform, an AI-assisted edit, or any future capability with the same shape) that reads `Vault`/`DocumentRegistry`/`DocumentSession` directly from a feature facade (e.g. `TaskOperations`), instead of routing through `PageOperations.mutateBody()` ([ADR-031](./adr/031-app-initiated-body-mutation-routing.md))?
 
 ## UI Rules
 

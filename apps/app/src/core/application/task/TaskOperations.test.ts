@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaskOperations } from './TaskOperations';
+import { PageOperations } from '../page/PageOperations';
 import { Vault } from '../../vault/models/Vault';
 import { VaultProjectionBuilder } from '../../vault/knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
@@ -7,6 +8,9 @@ import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer'
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { PageBuilder } from '../../vault/ingest/PageBuilder';
+import { PageCreator } from '../page/PageCreator';
+import { PageFactory } from '../page/PageFactory';
+import { PagePathResolver } from '../page/PagePathResolver';
 import { MoveService } from '../../vault/persistence/MoveService';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
@@ -16,6 +20,14 @@ import { LinkExtractor } from '../../vault/ingest/extractors/LinkExtractor';
 import { EmbedExtractor } from '../../vault/ingest/extractors/EmbedExtractor';
 import { BlockReferenceExtractor } from '../../vault/ingest/extractors/BlockReferenceExtractor';
 import { HeadingExtractor } from '../../vault/ingest/extractors/HeadingExtractor';
+import { Workspace } from '../../workspace/Workspace';
+import { DocumentRegistry } from '../../engine/DocumentRegistry';
+import { SaveCoordinator } from '../../engine/SaveCoordinator';
+import { FolderOperations } from '../folder/FolderOperations';
+import { FolderPathResolver } from '../../vault/persistence/FolderPathResolver';
+import { FolderCreator } from '../folder/FolderCreator';
+import { DailyNoteService } from '../daily-notes/DailyNoteService';
+import { UuidGenerator } from '../../shared/identity/UuidGenerator';
 import type { Page } from '../../vault/models/Page';
 import type { TaskOccurrence } from '../../vault/models/occurrences';
 
@@ -62,6 +74,9 @@ function setup(page: Page) {
     new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
   );
 
+  const workspace = new Workspace();
+  const documentRegistry = new DocumentRegistry();
+  const saveCoordinator = new SaveCoordinator();
   const coordinator = new PagePersistenceCoordinator(
     fileSystem,
     vault,
@@ -70,14 +85,49 @@ function setup(page: Page) {
     new PageRebuilder(),
     new MoveService(vault, fileSystem)
   );
+  const folderOperations = new FolderOperations(
+    vault,
+    workspace,
+    coordinator,
+    new FolderPathResolver(vault),
+    new FolderCreator(new UuidGenerator()),
+    () => {},
+    new DocumentRegistry(),
+    new SaveCoordinator(),
+    () => {}
+  );
+  const pageOperations = new PageOperations(
+    vault,
+    workspace,
+    documentRegistry,
+    saveCoordinator,
+    coordinator,
+    new PagePathResolver(vault),
+    new PageCreator(new UuidGenerator(), new PageFactory()),
+    folderOperations,
+    new DailyNoteService(),
+    () => {}
+  );
 
-  return { vault, fileSystem, coordinator, taskOperations: new TaskOperations(vault, coordinator) };
+  return {
+    vault,
+    fileSystem,
+    coordinator,
+    documentRegistry,
+    pageOperations,
+    taskOperations: new TaskOperations(pageOperations),
+  };
 }
 
 function firstTask(page: Page): TaskOccurrence {
   const task = page.analysis.tasks[0];
   if (!task) throw new Error('Fixture page has no task');
   return task;
+}
+
+/** Archives a page directly through the coordinator, bypassing PageOperations.archive(). */
+async function archiveDirectly(coordinator: PagePersistenceCoordinator, pageId: string) {
+  await coordinator.enqueue(pageId, { kind: 'archive' });
 }
 
 describe('TaskOperations', () => {
@@ -195,6 +245,16 @@ describe('TaskOperations', () => {
     );
   });
 
+  it('throws for a task on an archived page', async () => {
+    const page = buildPage('p1', '- [ ] Collect the bill');
+    const { coordinator, taskOperations } = setup(page);
+    await archiveDirectly(coordinator, page.id);
+
+    await expect(taskOperations.toggleComplete(firstTask(page))).rejects.toThrow(
+      /Cannot edit archived page/
+    );
+  });
+
   it('extracts and mutates a task the same way regardless of page type (Note vs Daily Note)', async () => {
     // type is now derived from path (inside the reserved Daily Notes
     // folder), not frontmatter — the path itself must be a real Daily
@@ -276,5 +336,97 @@ describe('TaskOperations', () => {
     expect(persisted).toContain('- [ ] Collect the bill');
     expect(persisted).not.toContain('@due:');
     expect(persisted).not.toContain('@completed:');
+  });
+
+  it('throws the historical, task-specific message when the Gate abandons the write (no open session)', async () => {
+    const page = buildPage('p1', '- [ ] Collect the bill');
+    const { coordinator, taskOperations } = setup(page);
+    const enqueueSpy = vi.spyOn(coordinator, 'enqueue').mockResolvedValueOnce({
+      status: 'abandoned',
+      reason: 'Page no longer exists in the vault: p1',
+    });
+
+    await expect(taskOperations.setDueDate(firstTask(page), '2026-08-05')).rejects.toThrow(
+      'Failed to update task "Collect the bill": Page no longer exists in the vault: p1'
+    );
+
+    enqueueSpy.mockRestore();
+  });
+});
+
+describe('TaskOperations — routing through an open DocumentSession (ADR-031)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 4)); // 2026-08-04
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('a task mutation against a clean open page updates the session, not the Vault, synchronously', async () => {
+    const page = buildPage('p1', '- [ ] Collect the bill');
+    const { vault, documentRegistry, pageOperations, taskOperations } = setup(page);
+    await pageOperations.open(page.id);
+
+    await taskOperations.toggleComplete(firstTask(page));
+
+    expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
+      '- [x] Collect the bill @completed:2026-08-04'
+    );
+    // Not yet durable — the mutation joined the session's own save
+    // lifecycle instead of writing straight to the Gate.
+    expect(vault.getPage(page.id)!.source.markdown).toBe('- [ ] Collect the bill');
+  });
+
+  it(
+    'the regression case: prose edits + a task toggle on a dirty session both survive the next autosave ' +
+      '(fails against the old TaskOperations, which wrote page.source.markdown directly and would have been reverted)',
+    async () => {
+      const page = buildPage('p1', '- [ ] Collect the bill\nSome existing prose.');
+      const { vault, documentRegistry, pageOperations, taskOperations } = setup(page);
+      await pageOperations.open(page.id);
+
+      // 1. User edits prose elsewhere in the same document — session becomes dirty.
+      pageOperations.commitEdit(
+        page.id,
+        '- [ ] Collect the bill\nSome existing prose, now extended by the user.'
+      );
+      expect(documentRegistry.get(page.id)!.isDirty).toBe(true);
+
+      // 2. Task toggled from the sidebar while that edit is still unsaved.
+      const task = { ...firstTask(page), sourcePageId: page.id };
+      await taskOperations.toggleComplete(task);
+
+      // 3. The session now contains BOTH changes.
+      expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
+        '- [x] Collect the bill @completed:2026-08-04\nSome existing prose, now extended by the user.'
+      );
+
+      // 4. Autosave (a later requestSave, exactly as the debounce/blur path
+      // would trigger) persists the session's current content.
+      await pageOperations.requestSave(page.id);
+
+      // 5. Vault/disk contain BOTH changes.
+      expect(vault.getPage(page.id)!.source.markdown).toBe(
+        '- [x] Collect the bill @completed:2026-08-04\nSome existing prose, now extended by the user.'
+      );
+    }
+  );
+
+  it('locates the task line against the session’s current content, not stale Vault content', async () => {
+    // The task's rawText only exists after the user's own edit shifted it —
+    // proves the lookup runs inside the transform against mutateBody()'s
+    // supplied markdown, not a value captured before the session diverged.
+    const page = buildPage('p1', '- [ ] Collect the bill');
+    const { documentRegistry, pageOperations, taskOperations } = setup(page);
+    await pageOperations.open(page.id);
+    pageOperations.commitEdit(page.id, 'Preamble.\n- [ ] Collect the bill');
+
+    await taskOperations.toggleComplete(firstTask(page));
+
+    expect(documentRegistry.get(page.id)!.currentRevision.markdown).toBe(
+      'Preamble.\n- [x] Collect the bill @completed:2026-08-04'
+    );
   });
 });

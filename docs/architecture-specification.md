@@ -309,6 +309,8 @@ Owns *how* a write happens safely. Must never own *whether* a write should happe
 ### Extension points
 A new operation kind (e.g., `duplicate`) is a new variant on `PersistenceOperation` plus a new `case` in the internal dispatcher — the queue mechanism itself doesn't change.
 
+[ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `PageOperations.mutateBody()`'s no-open-session branch (§6) is an ordinary caller of this queue via the existing `'save'` kind — routing an app-initiated body mutation (task completion, formatting commands, bulk transforms, etc.) through the Gate when no `DocumentSession` is open requires no new `PersistenceOperation` kind and no change to this class.
+
 ### Testing strategy
 This is the subsystem where concurrency tests matter most: enqueue a `save` and a `delete` for the same page back-to-back and assert they resolve in order with a consistent final Vault state; enqueue operations for two different pages and assert they don't block each other (timing-based test or explicit instrumentation).
 
@@ -343,8 +345,11 @@ Own the entire lifecycle of a page as a single capability surface: the one file 
     move(pageId: string, destinationFolderId: string): Promise<void>;
     rename(pageId: string, title: string): Promise<void>;
     getSession(pageId: string): DocumentSession | undefined;
+    mutateBody(pageId: string, transform: (markdown: string) => string): Promise<void>;
   }
 ```
+
+[ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `mutateBody()` is the one canonical, sanctioned entry point for **every** app-initiated body mutation — task completion/reopening, formatting commands, template insertion, bulk transforms, AI-assisted edits, and any future capability with the same shape. Page-not-found and archived-page checks run first, before either branch below, mirroring `save()`'s own check ordering and message text exactly — archived status is a `Vault`-domain fact, checked regardless of whether a session happens to be open. Dispatch then proceeds on whether a `DocumentSession` is currently open for `pageId`: if `documentRegistry.get(pageId)` returns a session, `transform` is applied to `session.currentRevision.markdown` and the result is committed via **`this.commitEdit(pageId, result)`** — never `session.commit()` directly. `commitEdit()` both commits the transaction and arms the existing `SaveCoordinator` autosave timer; calling `session.commit()` directly would commit the mutation but schedule no persistence for it, silently stranding it until an unrelated trigger happened to save the session later. `Vault`/the Gate are not touched by this branch — persistence follows the session's own existing save lifecycle (autosave or explicit save) from that point on, exactly as a keystroke-originated `commitEdit()` call already does. If no session is open, `transform` is applied to `vault.getPage(pageId).source.markdown` and the result is enqueued through the Gate's existing `'save'` kind directly (`PageOperations.save()` itself cannot be reused here — it requires an open session) — the same pattern this replaces at its one current call site (`TaskOperations.mutate()`). No feature facade (`TaskOperations`, or any future body-mutating facade) may read `Vault`/`DocumentRegistry`/`DocumentSession` directly to perform a body mutation — all such mutations go through this method.
 
 `rename()` is implemented (post-delete-navigation/rename consistency milestone), backed by the Gate's `'rename'` kind — same-parent path change only, mirroring `FolderOperations.rename()`'s shape exactly (ADR-024's interim `'rename-folder'` kind). Destination resolution lives in `MoveService.resolveRenameDestination` (Persistence Gate layer), not `PagePathResolver` (application layer) — the Gate must never depend upward on the application layer (rule 7), and every other page-destination resolver it already uses (`resolveArchiveDestination`, `resolveRestoreDestination`, `resolveMoveDestination`) lives in `MoveService` for the same reason.
 
@@ -361,12 +366,13 @@ Constructed once at the Composition Root. No internal state of its own beyond it
 - `delete()`/`close()` have no existence check of their own ([ADR-017](./adr/017-draft-page-lifecycle.md) §5/§7): `delete()` enqueues `{kind:'delete'}` unconditionally, relying on the Gate's own abandon-if-missing guard, so a delete for a draft that was never persisted resolves harmlessly instead of racing an in-flight, not-yet-executed `create` for the same id.
 - `delete()` and `close()` on the same page never race — `delete()` closes the session (via `DocumentRegistry`) before enqueuing the disk delete, so no save can complete against a page mid-deletion.
 - No method here ever calls `VaultFileSystem` directly.
+- [ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `mutateBody()` never writes to `Vault`/the Gate when a `DocumentSession` is open for `pageId` — a `DocumentSession`, while open, is the exclusive owner of that page's current content, and every app-initiated body mutation must resolve through it rather than around it.
 
 ### Concurrency model
-`PageOperations` itself holds no locks — all serialization is delegated to the Persistence Gate. Calling `save(id, a)` and `move(id, b)` concurrently from the UI is safe *because* both end up enqueued on the same per-page queue, not because `PageOperations` does anything special.
+`PageOperations` itself holds no locks — all serialization is delegated to the Persistence Gate. Calling `save(id, a)` and `move(id, b)` concurrently from the UI is safe *because* both end up enqueued on the same per-page queue, not because `PageOperations` does anything special. `mutateBody()`'s session branch inherits `DocumentSession.commit()`'s own concurrency guarantees (§9) rather than the Gate's — no new concurrency primitive is introduced.
 
 ### Ownership
-Owns page-lifecycle business rules (draft promotion, validation, session cleanup on delete). Must never own write-ordering (Gate), parsing (Ingest), or vault-wide state (`Vault`).
+Owns page-lifecycle business rules (draft promotion, validation, session cleanup on delete). Must never own write-ordering (Gate), parsing (Ingest), or vault-wide state (`Vault`). [ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `PageOperations` is also the sole owning broker for app-initiated body mutations — the decision of whether a given mutation targets the open `DocumentSession` or `Vault`/the Gate belongs here, in the same way every other "whether and how" decision for a page already does, and nowhere else (not `TaskOperations`, not any future body-mutating facade).
 
 ### Extension points
 A new page-level capability (e.g., `duplicate`) is a new method here plus a new `PersistenceOperation` kind in the Gate — never a new standalone service file.
@@ -504,10 +510,14 @@ Own the live edit buffer, revision tracking, and save-lifecycle state for pages 
     markSaveFailed(): void;
     subscribe(listener: () => void): Unsubscribe;
     get id(): string;
+    get currentRevision(): DocumentRevision;
+    get isDirty(): boolean;
   }
 ```
 
-[ADR-018](./adr/018-document-editing-identity-decoupling.md): `open`'s first parameter and `DocumentSession`'s own identity are a bare `id`, not a `Page` — `DocumentEditing` has no reference to `Page` or `Vault` anywhere. This was already this section's literal text; the shipped code had drifted from it (`open(page: Page)`) until ADR-018 corrected the code to match, rather than the reverse.
+[ADR-018](./adr/018-document-editing-identity-decoupling.md): `open`'s first parameter and `DocumentSession`'s own identity are a bare `id`, not a `Page` — `DocumentEditing` has no reference to `Page` or `Vault` anywhere. This was already this section's literal text; the shipped code had drifted from it (`open(page: Page)`) until ADR-018 corrected the code to match, rather than the reverse. `currentRevision`/`isDirty` are likewise a correction toward already-shipped code (`DocumentSession.ts`), added to this listing by [ADR-031](./adr/031-app-initiated-body-mutation-routing.md) because that ADR's dispatch rule depends on both being part of `DocumentEditing`'s stated public contract, not merely present in the implementation.
+
+[ADR-031](./adr/031-app-initiated-body-mutation-routing.md): `DocumentSession` is the exclusive owner of a page's current content for as long as a session is open for it. `commit(transaction)` is the canonical target for **every** app-initiated body mutation while a session is open — not only editor keystrokes — but it is never called directly for this purpose: `PageOperations.mutateBody()` (§6) reaches it exclusively through `PageOperations.commitEdit()`, the same method a keystroke-originated edit already uses, because `commitEdit()` is what also arms `SaveCoordinator`'s autosave timer — a bare `session.commit()` call would leave a non-editor-originated mutation committed but with no scheduled persistence. `DocumentEditing` itself remains unaware of any of this — `commit()` has no notion of "editor-originated" versus not, since a commit is a commit regardless of what produced the `DocumentTransaction` — this preserves ADR-018's identity-free boundary exactly, pushing all session-vs-`Vault` routing logic, and the choice of `commitEdit()` over `commit()`, up into `PageOperations`.
 
 ### Internal collaborators
 `- DocumentRevision`, `- DocumentTransaction`, `- DocumentState`, `- SaveCoordinator`.
@@ -526,7 +536,7 @@ One `SaveCoordinator` entry per page id, tracking the currently in-flight save's
 Owns in-memory edit state only. Must never own persisted state (that's `Vault`) or the actual write (that's the Gate).
 
 ### Extension points
-This is the seam a future richer editor (structured blocks, concurrent cursors, undo/redo) extends — `DocumentTransaction` is deliberately already shaped as a discrete, replayable unit for that reason. No redesign needed to grow into that; it's sized for today and shaped for tomorrow.
+This is the seam a future richer editor (structured blocks, concurrent cursors, undo/redo) extends — `DocumentTransaction` is deliberately already shaped as a discrete, replayable unit for that reason. No redesign needed to grow into that; it's sized for today and shaped for tomorrow. [ADR-031](./adr/031-app-initiated-body-mutation-routing.md) is the first concrete case of this seam being used by something other than the editor itself — task mutation, and every future body-mutating feature, propose a `DocumentTransaction` against an `id` exactly the way a keystroke does, with no change to `DocumentEditing` required.
 
 ### Testing strategy
 State-machine tests: verify every legal transition (Loading→Clean→Saving→Clean, Saving→SaveError, stale-completion rejection) and that illegal transitions are impossible to construct.
