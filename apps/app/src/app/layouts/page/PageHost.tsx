@@ -24,6 +24,7 @@ import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResou
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
+import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
 import {
@@ -68,6 +69,10 @@ export function PageHost({ application }: PageHostProps) {
   // Enter (Page's bodyFocusRef) move focus into the editor without Page
   // needing to know what body actually is.
   const editorRef = useRef<MarkdownEditorHandle>(null);
+
+  // Composed once per render from the currently-attached Vault/PageOperations
+  // — cheap, stateless glue (resolveWikiLink.ts), not worth memoizing.
+  const resolveWikiLink = createWikiLinkResolver(vault, application.pageOperations);
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
@@ -440,6 +445,7 @@ export function PageHost({ application }: PageHostProps) {
               markdown={model.markdown}
               onEdit={(markdown) => model.updateMarkdown(markdown)}
               onFlush={() => model.requestSave()}
+              resolveWikiLink={resolveWikiLink}
             />
           </MarkdownBody>
         }
@@ -524,6 +530,7 @@ export function PageHost({ application }: PageHostProps) {
             markdown={model.markdown}
             onEdit={(markdown) => model.updateMarkdown(markdown)}
             onFlush={() => model.requestSave()}
+            resolveWikiLink={resolveWikiLink}
           />
         </MarkdownBody>
       }
