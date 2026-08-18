@@ -14,9 +14,20 @@ import { tags } from '@lezer/highlight';
  * types, no decorations beyond CM6's own built-in tree-highlighting
  * ViewPlugin (`syntaxHighlighting`'s internal `TreeHighlighter`).
  *
- * PoC scope: headings only. Emphasis/code/quote/list styling are later,
+ * PoC scope: headings and emphasis. Code/quote/list styling are later,
  * additive entries in this same style definition — not a reason to add a
  * second HighlightStyle.
+ *
+ * Emphasis: `@lezer/markdown`'s `markdownHighlighting` tags `Emphasis`
+ * with `tags.emphasis` and `StrongEmphasis` with `tags.strong` (confirmed
+ * against the installed `@lezer/markdown` source, same as the heading
+ * tags above). `***bold italic***`/`___bold italic___` parse as one
+ * construct nested inside the other (confirmed empirically: `Emphasis >
+ * [EmphasisMark, StrongEmphasis, EmphasisMark]`) — CM6's tree highlighter
+ * already accumulates classes from enclosing tagged ancestors onto nested
+ * spans (the same mechanism that lets `tok-heading1` and `tok-mark` both
+ * land on `HeaderMark`), so the inner span gets both `tok-emphasis` and
+ * `tok-strong` with no extra entry needed here.
  *
  * `tags.processingInstruction` (the `HeaderMark`/`QuoteMark`/`ListMark`/
  * `LinkMark`/`EmphasisMark`/`CodeMark` group, per `@lezer/markdown`'s own
@@ -31,13 +42,15 @@ import { tags } from '@lezer/highlight';
  * Preview hiding extends beyond headings — one selector, not one per
  * construct.
  */
-const markdownHighlightStyle = HighlightStyle.define([
+export const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.heading1, class: 'tok-heading1' },
   { tag: tags.heading2, class: 'tok-heading2' },
   { tag: tags.heading3, class: 'tok-heading3' },
   { tag: tags.heading4, class: 'tok-heading4' },
   { tag: tags.heading5, class: 'tok-heading5' },
   { tag: tags.heading6, class: 'tok-heading6' },
+  { tag: tags.emphasis, class: 'tok-emphasis' },
+  { tag: tags.strong, class: 'tok-strong' },
   { tag: tags.processingInstruction, class: 'tok-mark' },
 ]);
 

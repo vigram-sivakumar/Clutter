@@ -84,6 +84,21 @@
   font-weight: 500;
 }
 
+/*
+ * Emphasis highlighting (markdownHighlightStyle.ts, tags.emphasis/
+ * tags.strong). `***bold italic***` nests one construct's node inside the
+ * other's, so both classes land on the innermost span via CM6's own
+ * ancestor-class accumulation — no combined `.tok-emphasis.tok-strong`
+ * selector needed, `font-style` and `font-weight` apply independently.
+ */
+.cm-editor .tok-emphasis {
+  font-style: italic;
+}
+
+.cm-editor .tok-strong {
+  font-weight: 700;
+}
+
 .cm-editor .tok-wikilink {
   color: var(--link-foreground);
   text-decoration: underline;
