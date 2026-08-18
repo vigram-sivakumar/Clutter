@@ -164,3 +164,24 @@
 .cm-editor .tok-wikilink-mark.tok-mark {
   color: var(--marker-foreground);
 }
+
+/*
+ * Emphasis `*`/`_`/`**`/`__` markers (emphasisMarkerDecoration.ts). Unlike
+ * headings, granularity here is per-node, not per-line — `tok-mark-hidden`
+ * is added by that decoration layer only to the delimiter pair of an
+ * emphasis construct the selection isn't currently in or adjacent to, so
+ * this is a plain hide rule with no `.cm-activeLine` condition to check.
+ * The visible (engaged) case reuses the same `var(--marker-foreground)`
+ * marker color the heading and WikiLink marks already use — scoped to
+ * `.tok-emphasis.tok-mark`/`.tok-strong.tok-mark`, not bare `.tok-mark`,
+ * for the same reason as those rules: other `tags.processingInstruction`
+ * constructs share the class and must stay unaffected.
+ */
+.cm-editor .tok-mark-hidden {
+  display: none;
+}
+
+.cm-editor .tok-emphasis.tok-mark,
+.cm-editor .tok-strong.tok-mark {
+  color: var(--marker-foreground);
+}

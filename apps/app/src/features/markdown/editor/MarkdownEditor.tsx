@@ -5,6 +5,7 @@ import {
   createEditorView,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
+import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
 import { wikiLinkKeymap } from './codemirror/wikilink/wikiLinkKeymap';
@@ -82,6 +83,7 @@ export const MarkdownEditor = forwardRef<
       parent: container,
       extensions: [
         markdownLanguageExtension(),
+        emphasisMarkerDecoration(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
         wikiLinkMarkerDecorations(),
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
