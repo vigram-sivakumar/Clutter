@@ -26,10 +26,10 @@
   border-radius: var(--border-radius);
 }
 
-.page__document::after {
+.page-content::after {
   content: '';
   display: block;
-  height: 128px;
+  height: 30vh;
   flex-shrink: 0;
 }
 

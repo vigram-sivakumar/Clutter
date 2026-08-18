@@ -3,6 +3,7 @@
 import { createRef } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { EditorView } from '@codemirror/view';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
 
@@ -79,26 +80,34 @@ describe('MarkdownEditor: DOM sync from the markdown prop', () => {
 });
 
 describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
-  it('calls onEdit with the current content on every input event', () => {
+  // CM6 owns its own model and does not read arbitrary DOM mutations via a
+  // generic native 'input' event the way the previous contentEditable +
+  // React onInput implementation did — confirmed empirically: mutating
+  // .cm-content's textContent and firing a synthetic InputEvent (including
+  // 'beforeinput' with inputType/data set) never reaches CM6's update
+  // listener under jsdom. Driving a real transaction via view.dispatch is
+  // CM6's actual, documented mechanism for state changes, and is exactly
+  // what a genuine keystroke becomes internally regardless of how it was
+  // produced — so these tests exercise that mechanism directly via
+  // EditorView.findFromDOM, a public CM6 lookup API, rather than faking a
+  // browser input event jsdom can't fully emulate for a CM6 editor.
+  it('calls onEdit with the current content on every document-changing transaction', () => {
     const onEdit = vi.fn();
     const { container } = render(<MarkdownEditor markdown="Hello" onEdit={onEdit} />);
-    const editor = container.querySelector('[contenteditable]') as HTMLElement;
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
-    editor.textContent = 'Hello, edited';
-    fireEvent.input(editor);
+    view.dispatch({ changes: { from: 5, insert: ', edited' } });
 
     expect(onEdit).toHaveBeenCalledWith('Hello, edited');
   });
 
-  it('calls onEdit again for a second input event, unconditionally (no local diffing)', () => {
+  it('calls onEdit again for a second change, unconditionally (no local diffing)', () => {
     const onEdit = vi.fn();
-    const { container } = render(<MarkdownEditor markdown="Hello" onEdit={onEdit} />);
-    const editor = container.querySelector('[contenteditable]') as HTMLElement;
+    const { container } = render(<MarkdownEditor markdown="" onEdit={onEdit} />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
-    editor.textContent = 'H';
-    fireEvent.input(editor);
-    editor.textContent = 'He';
-    fireEvent.input(editor);
+    view.dispatch({ changes: { from: 0, insert: 'H' } });
+    view.dispatch({ changes: { from: 1, insert: 'e' } });
 
     expect(onEdit).toHaveBeenNthCalledWith(1, 'H');
     expect(onEdit).toHaveBeenNthCalledWith(2, 'He');
@@ -106,10 +115,9 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
 
   it('does not throw when onEdit is not provided', () => {
     const { container } = render(<MarkdownEditor markdown="Hello" />);
-    const editor = container.querySelector('[contenteditable]') as HTMLElement;
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
-    editor.textContent = 'Edited';
-    expect(() => fireEvent.input(editor)).not.toThrow();
+    expect(() => view.dispatch({ changes: { from: 5, insert: '!' } })).not.toThrow();
   });
 });
 
@@ -146,4 +154,46 @@ describe('MarkdownEditor: onFlush (blur — a payload-free save request)', () =>
 
     expect(() => fireEvent.blur(editor)).not.toThrow();
   });
+});
+
+describe('MarkdownEditor: resolveWikiLink (§5 boundary, §6 decoration wiring)', () => {
+  it('renders without throwing when resolveWikiLink is provided', () => {
+    const resolveWikiLink = vi.fn(() => ({
+      status: 'resolved' as const,
+      displayLabel: 'x',
+      activate: vi.fn(),
+    }));
+
+    expect(() =>
+      render(<MarkdownEditor markdown="[[Page]]" resolveWikiLink={resolveWikiLink} />)
+    ).not.toThrow();
+  });
+
+  it('renders without throwing when resolveWikiLink is not provided, even with WikiLink syntax present', () => {
+    expect(() => render(<MarkdownEditor markdown="[[Page]]" />)).not.toThrow();
+  });
+
+  it('calls resolveWikiLink for a WikiLink present in the initial markdown (§6 — decoration layer now consumes it)', () => {
+    // Prefixed with leading text deliberately: CM6's default mount
+    // selection is a zero-width caret at position 0, which the
+    // engagement rule ("selection strictly within the node's range,
+    // including exactly at either boundary") correctly treats as engaged
+    // if the WikiLink itself starts at position 0 — the resolver is never
+    // called for an engaged node, since engaged tokens render as plain
+    // text. Leading text keeps this test about resolver wiring, not about
+    // that (real, separately-tested) boundary behavior.
+    const resolveWikiLink = vi.fn(() => ({
+      status: 'resolved' as const,
+      displayLabel: 'x',
+      activate: vi.fn(),
+    }));
+    render(<MarkdownEditor markdown="See [[Page]]" resolveWikiLink={resolveWikiLink} />);
+
+    expect(resolveWikiLink).toHaveBeenCalledWith('Page', null);
+  });
+
+  // Decoration correctness beyond this thin integration check — resolved
+  // vs. fallback display labels, engaged/at-rest transitions, atomicRanges
+  // — is covered in codemirror/wikilink/wikiLinkDecorations.test.ts, not
+  // duplicated here.
 });

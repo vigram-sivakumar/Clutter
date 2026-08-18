@@ -1,39 +1,20 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import type { EditorView } from '@codemirror/view';
 
-export interface MarkdownEditorProps {
-  readonly markdown: string;
-  /**
-   * Fires on every content change (typing, paste, deletion) — commits into
-   * the document session's Committed stage only, no persistence
-   * (autosave-execution-model.md §3.1). Called unconditionally on every
-   * native input event; the session's own no-op guard is what filters out
-   * anything that isn't a real change, so this component doesn't need its
-   * own diffing.
-   */
-  readonly onEdit?: (markdown: string) => void;
-  /**
-   * Fires on blur — a save request, not a payload (autosave-execution-model.md
-   * §0): asks the system to make this session durable if it isn't already,
-   * never carries content itself. The content to persist is always
-   * whatever the session's own current revision holds by the time this
-   * fires, per onEdit's own already-committed calls.
-   */
-  readonly onFlush?: () => void;
-}
+import { createEditorView, syncMarkdownIntoView } from './codemirror/createEditorView';
+import { markdownLanguageExtension } from './codemirror/markdownLanguage';
+import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
+import { wikiLinkKeymap } from './codemirror/wikilink/wikiLinkKeymap';
+import { wikiLinkMouseHandlers } from './codemirror/wikilink/wikiLinkMouseHandlers';
+import { wikiLinkSelectionSnap } from './codemirror/wikilink/wikiLinkSelectionSnap';
+import type { MarkdownEditorHandle, MarkdownEditorProps } from './MarkdownEditor.types';
+
+export type { MarkdownEditorHandle, MarkdownEditorProps } from './MarkdownEditor.types';
+export type { ResolveWikiLink, WikiLinkResolution } from './codemirror/wikilink/wikiLinkResolution';
 
 /**
- * Imperative handle for callers that need to move focus into an
- * already-mounted editor from outside — e.g. the page title's Enter key
- * advancing focus here. Mirrors EditableTextHandle's shape but is kept as
- * its own, separate type: MarkdownEditor isn't an EditableText, and a
- * one-method interface isn't worth cross-importing for.
- */
-export interface MarkdownEditorHandle {
-  focus(): void;
-}
-
-/**
- * Feature-level Markdown editing surface.
+ * Feature-level Markdown editing surface, backed by a CodeMirror 6
+ * EditorView.
  *
  * Responsibilities:
  * - Present editable Markdown content.
@@ -41,73 +22,93 @@ export interface MarkdownEditorHandle {
  * - Raise editing events to the application layer.
  * - Expose a stable editing API to feature components.
  *
- * This initial implementation is intentionally read-only. Editing,
- * keyboard handling, selection management, and save orchestration will be
- * introduced incrementally.
+ * Plain-text CM6 foundation (§2) + Markdown/GFM/WikiLink parsing (§3–§4) +
+ * the injected WikiLink resolution boundary (§5) + at-rest WikiLink
+ * rendering and atomic-range wiring (§6) + engagement/selection behavior
+ * (§7, this step: mouse handlers, keyboard hop/activation, selection
+ * snapping) are in place.
  */
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
-  function MarkdownEditor({ markdown, onEdit, onFlush }, ref) {
-    const editorRef = useRef<HTMLDivElement | null>(null);
+  function MarkdownEditor({ markdown, onEdit, onFlush, resolveWikiLink }, ref) {
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const viewRef = useRef<EditorView | null>(null);
+
+    // The view's listeners are wired once at mount (below); these refs let
+    // them always call whatever onEdit/onFlush is current on a given
+    // render, the same freshness React's own onInput/onBlur props gave the
+    // previous contentEditable implementation for free.
+    const onEditRef = useRef(onEdit);
+    onEditRef.current = onEdit;
+    const onFlushRef = useRef(onFlush);
+    onFlushRef.current = onFlush;
+
+    // Read by the decoration layer's ViewPlugin on every rebuild via the
+    // accessor passed below — same freshness pattern as onEdit/onFlush,
+    // now with an actual reader.
+    const resolveWikiLinkRef = useRef(resolveWikiLink);
+    resolveWikiLinkRef.current = resolveWikiLink;
 
     useImperativeHandle(ref, () => ({
       focus() {
-        editorRef.current?.focus();
+        viewRef.current?.focus();
       },
     }));
 
     useEffect(() => {
-      const editor = editorRef.current;
+      const container = containerRef.current;
 
-      if (!editor) {
+      if (!container) {
         return;
       }
 
-      // While this editor has focus, its own DOM is authoritative over
-      // itself — a markdown prop update here is this same editor's own
-      // committed content round-tripping back through
-      // commit()->notify()->re-render (see onInput below), not an
-      // external change. Overwriting the DOM in that case would clobber
-      // in-progress typing/cursor position and reset native undo (found
-      // during M6's pre-implementation behavior audit). Only sync from
-      // the prop while genuinely unfocused — an external change (a
-      // different view of the same document, a future Sync-reconciled
-      // edit) is the only thing this branch exists to handle.
-      if (document.activeElement === editor) {
+      const view = createEditorView({
+        doc: markdown,
+        parent: container,
+        extensions: [
+          markdownLanguageExtension(),
+          wikiLinkDecorations(() => resolveWikiLinkRef.current),
+          wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
+          wikiLinkKeymap(() => resolveWikiLinkRef.current),
+          wikiLinkSelectionSnap(),
+        ],
+        onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
+        onBlur: () => onFlushRef.current?.(),
+      });
+      viewRef.current = view;
+
+      return () => {
+        view.destroy();
+        viewRef.current = null;
+      };
+      // Mounted once; the markdown prop's initial value seeds the view
+      // here, later changes are handled by the sync effect below — matches
+      // the previous implementation, where the DOM node was likewise
+      // created once by JSX and only ever updated via a separate effect.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+      const view = viewRef.current;
+
+      if (!view) {
         return;
       }
 
-      if (editor.textContent !== markdown) {
-        editor.textContent = markdown;
+      // While this editor has focus, its own document is authoritative
+      // over itself — a markdown prop update here is this same editor's
+      // own committed content round-tripping back through
+      // onDocChange->commit()->notify()->re-render, not an external
+      // change. Overwriting it in that case would clobber in-progress
+      // typing and reset CM6's own undo history. Only sync from the prop
+      // while genuinely unfocused, exactly as the previous contentEditable
+      // implementation did via document.activeElement.
+      if (view.hasFocus) {
+        return;
       }
+
+      syncMarkdownIntoView(view, markdown);
     }, [markdown]);
 
-    function handleInput() {
-      const editor = editorRef.current;
-
-      if (!editor || !onEdit) {
-        return;
-      }
-
-      onEdit(editor.textContent ?? '');
-    }
-
-    function handleBlur() {
-      // Blur is a persistence event only — it asks the system to flush
-      // whatever the document model already holds. It does not also
-      // mutate that model: onEdit (native input events) is the only
-      // source of content changes, keeping the contract unambiguous
-      // rather than making blur do double duty.
-      onFlush?.();
-    }
-
-    return (
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onBlur={handleBlur}
-      />
-    );
+    return <div ref={containerRef} />;
   }
 );
