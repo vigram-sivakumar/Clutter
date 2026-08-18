@@ -60,7 +60,28 @@ export function createWikiLinkResolver(vault: Vault, pageOperations: PageOperati
       return { status: 'ambiguous', displayLabel: localAlias ?? path, activate: () => {} };
     }
 
-    return { status: 'unresolved', displayLabel: localAlias ?? path, activate: () => {} };
+    return {
+      status: 'unresolved',
+      displayLabel: localAlias ?? path,
+      // Clicking an unresolved reference creates the referenced page
+      // through the existing PageOperations.create() flow (which already
+      // opens what it creates — see PageOperations.create's own
+      // implementation) rather than inventing a second creation or
+      // navigation path. The WikiLink's own path, not the local alias, is
+      // what's preserved: `title` is the path's last segment, `folderId`
+      // resolves to an already-existing folder matching the path's
+      // directory portion when there is one (never auto-created — that's
+      // FolderOperations' capability, out of scope here), else root.
+      activate: () => {
+        const title = VaultPath.filename(path);
+        const parentPath = VaultPath.parentDirectory(path);
+        const folderId = parentPath
+          ? (vault.getFolderByPath(`${vault.root}/${parentPath}`)?.id ?? null)
+          : null;
+
+        void pageOperations.create({ folderId, title });
+      },
+    };
   };
 }
 
