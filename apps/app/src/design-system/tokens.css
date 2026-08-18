@@ -106,9 +106,10 @@
   --text-caption: 10px;
 
   /* Line height */
-  --lh-heading-1: 40px;
-  --lh-heading-2: 36;
-  --lh-heading-3: 32;
+  --lh-heading-0: 40px;
+  --lh-heading-1: 36px;
+  --lh-heading-2: 36px;
+  --lh-heading-3: 32px;
   --lh-body: 20px;
   --lh-body-small: 20px;
   --lh-label: 16px;

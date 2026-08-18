@@ -241,6 +241,11 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
       notificationCount += 1;
     });
 
+    // A real external move leaves the file present at its destination —
+    // handleMoved() now verifies this before committing the move, the same
+    // as it would against a real filesystem.
+    await rawFileSystem.moveFile(movedPage.path, `${ROOT}/new/path.md`);
+
     rawWatcher.emit({
       type: 'moved',
       fromPath: 'old/path.md',
@@ -337,6 +342,11 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
     // consume the internal Projects/A → Archive/A mark.
     expect(registry.consumePendingMove('Inbox/B.md', 'Archive/A.md')).toBe(false);
 
+    // The genuinely external move actually happens on disk too — mirrors a
+    // real external move the same way the internal one above does, so
+    // handleMoved()'s destination-exists check finds real content there.
+    await rawFileSystem.moveFile(`${ROOT}/Inbox/B.md`, `${ROOT}/Archive/B.md`);
+
     rawWatcher.emit({
       type: 'moved',
       fromPath: 'Inbox/B.md',
@@ -350,11 +360,6 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
 
   it('rolls back a pending move mark when the filesystem move fails', async () => {
     const page = buildPage();
-    const rawFileSystem = new InMemoryVaultFileSystem();
-    rawFileSystem.seedFile(
-      page.path,
-      new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
-    );
 
     class FailingMoveFileSystem extends InMemoryVaultFileSystem {
       async moveFile(): Promise<void> {
@@ -362,12 +367,18 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
       }
     }
 
-    const registry = new SelfWriteRegistry();
-    const fileSystem = new SelfWriteAwareFileSystem(
-      new FailingMoveFileSystem(),
-      registry,
-      ROOT
+    // Seeded on the actual backing instance `fileSystem` wraps (previously
+    // this seeded an unused, separate InMemoryVaultFileSystem instance, so
+    // the real backing store had no file at all — harmless before
+    // handleMoved() checked disk state, but it must reflect the page now).
+    const rawFileSystem = new FailingMoveFileSystem();
+    rawFileSystem.seedFile(
+      page.path,
+      new FrontmatterSerializer().serializeDocument(page, page.source.markdown)
     );
+
+    const registry = new SelfWriteRegistry();
+    const fileSystem = new SelfWriteAwareFileSystem(rawFileSystem, registry, ROOT);
     const rawWatcher = new FakeVaultFileSystemWatcher();
     const watcher = new SelfWriteAwareWatcher(rawWatcher, registry);
     const vault = makeVault([page]);
@@ -396,7 +407,17 @@ describe('Internal move vs. filesystem watcher: duplicate-notification suppressi
     });
     await flush();
 
+    // The mark rollback means this event isn't suppressed as our own echo
+    // — it reaches VaultSyncService as a (spurious) external move. Since
+    // the underlying filesystem move actually failed, `Archive/Note.md`
+    // was never created: handleMoved()'s destination-exists check catches
+    // this and falls back to reconciling both endpoints against real disk
+    // state, rather than trusting the event and committing a move to a
+    // path that was never real (the desync this fallback exists to
+    // prevent). The page is correctly reconciled as still being at its
+    // original path — reconcileFileEntity() re-reads and replaces it in
+    // place, which is the one notification below.
     expect(notificationCount).toBe(1);
-    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Archive/Note.md`);
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Note.md`);
   });
 });

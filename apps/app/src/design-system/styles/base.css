@@ -101,7 +101,7 @@ a::after {
 }
 
 ::selection {
-  background: var(--selection-bg);
+  background: var(--selection-surface);
 }
 
 /* Opt-in hover / pressed / focus ring for buttons (see sidebar controls). */

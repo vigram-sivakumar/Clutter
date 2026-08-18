@@ -63,7 +63,7 @@ html.theme-transitioning [data-themeable] *::after {
   --editor-caret-color: var(--foreground-primary);
 
   /* Selection */
-  --selection-bg: rgba(0, 172, 255, 0.35);
+  --selection-surface: rgba(99, 102, 241, 0.18);
 
   /* Text decoration */
   --strikethrough-color: #595757;
@@ -133,7 +133,7 @@ html.theme-transitioning [data-themeable] *::after {
   --editor-caret-color: var(--foreground-primary);
 
   /* Selection */
-  --selection-bg: rgba(0, 172, 255, 0.2);
+  --selection-surface: rgba(99, 102, 241, 0.18);
 
   /* Text decoration */
   --strikethrough-color: var(--neutral-600);

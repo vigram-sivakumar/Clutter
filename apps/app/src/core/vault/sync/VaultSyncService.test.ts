@@ -239,7 +239,13 @@ describe('VaultSyncService', () => {
 
   it('moved: a renamed/moved file preserves page id and updates its path', async () => {
     const existing = buildPage('old/path.md', 'content', 'moved-1');
-    const { vault, watcher } = setup([existing]);
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    // A real external move leaves the file present at its destination — the
+    // "did the destination actually land" check handleMoved() now performs
+    // before committing needs this to hold, the same as it would on a real
+    // filesystem.
+    fileSystem.seedFile(`${ROOT}/new/path.md`, '---\nid: moved-1\n---\ncontent');
 
     watcher.emit({
       type: 'moved',
@@ -261,7 +267,9 @@ describe('VaultSyncService', () => {
       ...existing,
       metadata: { ...existing.metadata, favorite: true, icon: '📌' },
     };
-    const { vault, watcher } = setup([existingWithMetadata]);
+    const { vault, fileSystem, watcher } = setup([existingWithMetadata]);
+
+    fileSystem.seedFile(`${ROOT}/new/path.md`, '---\nid: moved-2\n---\nUntouched content');
 
     watcher.emit({
       type: 'moved',
@@ -285,7 +293,9 @@ describe('VaultSyncService', () => {
   it('moved: a Daily Note dragged externally out of the Daily Notes folder is reclassified as a Note', async () => {
     const existing = buildPage('Daily Notes/2026/August/2026-08-12.md', 'content', 'daily-1');
     const dailyNote: Page = { ...existing, type: 'daily-note' };
-    const { vault, watcher } = setup([dailyNote]);
+    const { vault, fileSystem, watcher } = setup([dailyNote]);
+
+    fileSystem.seedFile(`${ROOT}/Projects/2026-08-12.md`, '---\nid: daily-1\n---\ncontent');
 
     watcher.emit({
       type: 'moved',
@@ -299,7 +309,12 @@ describe('VaultSyncService', () => {
 
   it('moved: an ordinary Note dragged externally into the Daily Notes folder is reclassified as a Daily Note', async () => {
     const existing = buildPage('Projects/Note.md', 'content', 'note-1');
-    const { vault, watcher } = setup([existing]);
+    const { vault, fileSystem, watcher } = setup([existing]);
+
+    fileSystem.seedFile(
+      `${ROOT}/Daily Notes/2026/August/2026-08-12.md`,
+      '---\nid: note-1\n---\ncontent'
+    );
 
     watcher.emit({
       type: 'moved',
@@ -786,7 +801,12 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
 
   it('moved: an externally renamed folder keeps its id and updates its path — the folder-rename case', async () => {
     const projects = makeProjectsFolder();
-    const { vault, watcher } = setup([], [projects]);
+    const { vault, fileSystem, watcher } = setup([], [projects]);
+
+    // A real external rename leaves the directory present at its new
+    // location — the destination-exists check handleMoved() now performs
+    // before committing a folder move needs this to hold.
+    await fileSystem.createDirectory(`${ROOT}/Work`);
 
     watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Work' });
     await flush();
@@ -801,7 +821,9 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
   it('moved: an externally moved folder (reparented) updates path and parentId — the folder-move case, same event shape as rename', async () => {
     const projects = makeProjectsFolder();
     const archive = makeArchiveFolder();
-    const { vault, watcher } = setup([], [projects, archive]);
+    const { vault, fileSystem, watcher } = setup([], [projects, archive]);
+
+    await fileSystem.createDirectory(`${ROOT}/Archive/Projects`);
 
     watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Archive/Projects' });
     await flush();
@@ -817,7 +839,9 @@ describe('VaultSyncService: folder lifecycle (ADR-024)', () => {
     const design = { ...makeArchiveSubfolder('folder-design', 'Design'), parentId: 'folder-projects', path: `${ROOT}/Projects/Design` };
     const notes = buildPage('Projects/Design/Notes.md', 'content', 'page-notes');
     const notesInDesign: Page = { ...notes, parentId: 'folder-design' };
-    const { vault, watcher } = setup([notesInDesign], [projects, design]);
+    const { vault, fileSystem, watcher } = setup([notesInDesign], [projects, design]);
+
+    await fileSystem.createDirectory(`${ROOT}/Work`);
 
     watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Work' });
     await flush();
@@ -1119,6 +1143,8 @@ describe('VaultSyncService: sync correctness', () => {
     const existing = buildPage('old/Note.md', 'Original body', 'note-1');
     const { vault, fileSystem, watcher } = setup([existing]);
 
+    fileSystem.seedFile(`${ROOT}/new/Note.md`, '---\nid: note-1\n---\nOriginal body');
+
     watcher.emit({
       type: 'moved',
       fromPath: 'old/Note.md',
@@ -1280,6 +1306,12 @@ describe('VaultSyncService: external archive reconciliation', () => {
       [makeProjectsFolder()]
     );
 
+    // The destination the real external move already produced on disk —
+    // handleMoved()'s destination-exists check needs this to hold before
+    // it will commit the move at all.
+    const destinationContent = '---\nid: page-plain-1\n---\nPlain body';
+    fileSystem.seedFile(`${ROOT}/Projects/Renamed-Plain.md`, destinationContent);
+
     let notificationCount = 0;
     vault.subscribe(() => {
       notificationCount += 1;
@@ -1298,11 +1330,11 @@ describe('VaultSyncService: external archive reconciliation', () => {
     expect(moved.path).toBe(`${ROOT}/Projects/Renamed-Plain.md`);
     expect(moved.metadata.status).toBe('active');
 
-    // No reconciliation write occurred: the file at the destination was
-    // never seeded/written by sync, since the original file only ever
-    // "existed" via the in-memory move (there's nothing to read/rewrite
-    // for a page that doesn't need archive-metadata repair).
-    expect(fileSystem.getFileSync(`${ROOT}/Projects/Renamed-Plain.md`)).toBeUndefined();
+    // No reconciliation write occurred: the destination content is exactly
+    // what the external move already produced, untouched by sync (there's
+    // nothing to read/rewrite for a page that doesn't need archive-metadata
+    // repair).
+    expect(fileSystem.getFileSync(`${ROOT}/Projects/Renamed-Plain.md`)).toBe(destinationContent);
   });
 
   it('archived page moved within Archive leaves metadata untouched', async () => {
@@ -1470,6 +1502,8 @@ describe('VaultSyncService: external folder archive reconciliation (ADR-026 Sync
     };
     const { vault, fileSystem, watcher } = setup([], [makeArchiveFolder(), archivedFolder]);
 
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+
     watcher.emit({
       type: 'moved',
       fromPath: 'Archive/Projects',
@@ -1501,7 +1535,9 @@ describe('VaultSyncService: external folder archive reconciliation (ADR-026 Sync
       path: `${ROOT}/Archive/Projects`,
       parentId: 'folder-archive',
     };
-    const { vault, watcher } = setup([], [makeArchiveFolder(), archivedFolder]);
+    const { vault, fileSystem, watcher } = setup([], [makeArchiveFolder(), archivedFolder]);
+
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
 
     const observedStates: Array<{ path: string; status: string }> = [];
     vault.subscribe(() => {
@@ -1523,6 +1559,8 @@ describe('VaultSyncService: external folder archive reconciliation (ADR-026 Sync
   it('active folder moved into Archive externally stays active and is not auto-archived', async () => {
     const projects = makeProjectsFolder();
     const { vault, fileSystem, watcher } = setup([], [makeArchiveFolder(), projects]);
+
+    await fileSystem.createDirectory(`${ROOT}/Archive/Projects`);
 
     watcher.emit({
       type: 'moved',
@@ -1558,7 +1596,9 @@ describe('VaultSyncService: external folder archive reconciliation (ADR-026 Sync
         originalParentId: null,
       },
     };
-    const { vault, watcher } = setup([], [makeArchiveFolder(), archivedSubfolder]);
+    const { vault, fileSystem, watcher } = setup([], [makeArchiveFolder(), archivedSubfolder]);
+
+    await fileSystem.createDirectory(`${ROOT}/Archive/New`);
 
     watcher.emit({
       type: 'moved',
@@ -1589,10 +1629,12 @@ describe('VaultSyncService: external folder archive reconciliation (ADR-026 Sync
     };
     const nestedPage = buildPage('Archive/Projects/Design/Notes.md', 'content', 'page-notes');
     const nestedPageInDesign: Page = { ...nestedPage, parentId: 'folder-design' };
-    const { vault, watcher } = setup(
+    const { vault, fileSystem, watcher } = setup(
       [nestedPageInDesign],
       [makeArchiveFolder(), archivedFolder, nestedFolder]
     );
+
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
 
     watcher.emit({
       type: 'moved',
@@ -1620,6 +1662,8 @@ describe('VaultSyncService: external folder archive reconciliation (ADR-026 Sync
   it('normal folder move (no archive repair needed) still publishes exactly one notification with no extra read/write', async () => {
     const projects = makeProjectsFolder();
     const { vault, fileSystem, watcher } = setup([], [projects]);
+
+    await fileSystem.createDirectory(`${ROOT}/Work`);
 
     let notificationCount = 0;
     vault.subscribe(() => {
@@ -2077,5 +2121,326 @@ describe('VaultSyncService: Sync reconciliation model', () => {
 
     expect(vault.getFolder('folder-archive')).toBeDefined();
     expect(vault.folderCount).toBe(1);
+  });
+
+  it('deleted: the entire vault root disappearing (not just emptying) removes every tracked folder and page', async () => {
+    const projects = makeProjectsFolder();
+    const archive = makeArchiveFolder();
+    const design = {
+      ...makeArchiveSubfolder('folder-design', 'Design'),
+      parentId: 'folder-projects',
+      path: `${ROOT}/Projects/Design`,
+    };
+    const projectsNote = buildPage('Projects/Note.md', 'a', 'page-a');
+    const designNote = buildPage('Projects/Design/Nested.md', 'b', 'page-b');
+    const archiveNote = buildPage('Archive/Note.md', 'c', 'page-c');
+    const projectsNoteInProjects: Page = { ...projectsNote, parentId: 'folder-projects' };
+    const designNoteInDesign: Page = { ...designNote, parentId: 'folder-design' };
+    const archiveNoteInArchive: Page = { ...archiveNote, parentId: 'folder-archive' };
+    const { vault, fileSystem, watcher } = setup(
+      [projectsNoteInProjects, designNoteInDesign, archiveNoteInArchive],
+      [projects, archive, design]
+    );
+
+    // Unlike the "coalesced changed, root still exists but empty" tests
+    // above, the root itself is never (re)created here — this is the shape
+    // Finder's "delete the whole vault folder" produces: the watched
+    // directory itself is gone, not merely emptied.
+    fileSystem.removeRecursively(ROOT);
+    expect(await fileSystem.exists(ROOT)).toBe(false);
+
+    watcher.emit({ type: 'deleted', path: '' });
+    await flush();
+
+    expect(vault.folderCount).toBe(0);
+    expect(vault.pageCount).toBe(0);
+  });
+
+  it('changed: a coalesced event on a permanently-gone vault root also removes every tracked folder and page', async () => {
+    const projects = makeProjectsFolder();
+    const notes = buildPage('Projects/Note.md', 'content', 'page-note');
+    const notesInProjects: Page = { ...notes, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([notesInProjects], [projects]);
+
+    fileSystem.removeRecursively(ROOT);
+    expect(await fileSystem.exists(ROOT)).toBe(false);
+
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getPage('page-note')).toBeUndefined();
+    expect(vault.folderCount).toBe(0);
+    expect(vault.pageCount).toBe(0);
+  });
+
+  it('a descendant delete queued alongside the root-level delete still converges to an empty vault', async () => {
+    const projects = makeProjectsFolder();
+    const archive = makeArchiveFolder();
+    const projectsNote = buildPage('Projects/Note.md', 'a', 'page-a');
+    const archiveNote = buildPage('Archive/Note.md', 'b', 'page-b');
+    const projectsNoteInProjects: Page = { ...projectsNote, parentId: 'folder-projects' };
+    const archiveNoteInArchive: Page = { ...archiveNote, parentId: 'folder-archive' };
+    const { vault, fileSystem, watcher } = setup(
+      [projectsNoteInProjects, archiveNoteInArchive],
+      [projects, archive]
+    );
+
+    fileSystem.removeRecursively(ROOT);
+    expect(await fileSystem.exists(ROOT)).toBe(false);
+
+    // A bulk external delete can surface as several events landing close
+    // together: a per-descendant event (its own SyncKey, so it runs
+    // independently of the root-level one — VaultSyncCoordinator only
+    // serializes same-key events) alongside the root-level coalesced
+    // event. Neither ordering nor the extra descendant event should stop
+    // the Vault from converging to empty.
+    watcher.emit({ type: 'deleted', path: 'Projects/Note.md' });
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    expect(vault.folderCount).toBe(0);
+    expect(vault.pageCount).toBe(0);
+  });
+});
+
+// This describe block exercises the structural invariant behind
+// reconcileDirectorySubtree()'s existence-tolerance (VaultSyncService.ts):
+// after any filesystem event settles, Vault's tracked folders/pages must
+// match whatever the filesystem actually holds — never a hand-rolled
+// approximation of "what mutation must have happened." Every test below
+// asserts against a fresh scan of the fake filesystem, not against
+// hard-coded expectations, so a new edge case that breaks convergence fails
+// here rather than needing its own bespoke repro next time.
+describe('VaultSyncService: filesystem convergence invariant', () => {
+  async function scanVaultShape(
+    fileSystem: InMemoryVaultFileSystem,
+    root: string
+  ): Promise<{ folderPaths: string[]; pagePaths: string[] }> {
+    const scanner = new VaultScanner(fileSystem);
+    const result = await scanner.scan(root);
+
+    return {
+      folderPaths: result.directories
+        .map((directory) => directory.path)
+        .filter((path) => path !== root)
+        .sort(),
+      pagePaths: result.pages.map((page) => page.path).sort(),
+    };
+  }
+
+  function vaultShape(vault: Vault): { folderPaths: string[]; pagePaths: string[] } {
+    return {
+      folderPaths: [...vault.folders()].map((folder) => folder.path).sort(),
+      pagePaths: [...vault.pages()].map((page) => page.path).sort(),
+    };
+  }
+
+  it('invariant: root exists — reconciling the root against an arbitrary disk tree converges Vault to exactly that tree', async () => {
+    // Vault starts with content unrelated to what's actually on disk (as if
+    // it had drifted, or was never told about several external changes).
+    const stalePage = buildPage('Ghost/Old.md', 'stale', 'ghost-page');
+    const staleFolder: Folder = {
+      id: 'ghost-folder',
+      name: 'Ghost',
+      path: `${ROOT}/Ghost`,
+      parentId: null,
+      metadata: defaultFolderMetadata,
+    };
+    const { vault, fileSystem, watcher } = setup([stalePage], [staleFolder]);
+
+    // The actual, arbitrary current disk state — none of this overlaps
+    // with what Vault currently tracks. createDirectory() must run before
+    // seedFile() for nested paths: InMemoryVaultFileSystem only discovers a
+    // file during a scan if every ancestor directory was itself registered
+    // (mirrors readDirectory() needing a real parent to list from).
+    await fileSystem.createDirectory(`${ROOT}/Projects/Nested`);
+    await fileSystem.createDirectory(`${ROOT}/Empty`);
+    fileSystem.seedFile(`${ROOT}/Root.md`, '---\nid: root-page\n---\nRoot content');
+    fileSystem.seedFile(
+      `${ROOT}/Projects/Note.md`,
+      '---\nid: projects-note\n---\nProjects content'
+    );
+    fileSystem.seedFile(
+      `${ROOT}/Projects/Nested/Deep.md`,
+      '---\nid: deep-note\n---\nDeep content'
+    );
+
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    const onDisk = await scanVaultShape(fileSystem, ROOT);
+    const inVault = vaultShape(vault);
+
+    expect(inVault.folderPaths).toEqual(onDisk.folderPaths);
+    expect(inVault.pagePaths).toEqual(onDisk.pagePaths);
+    expect(vault.getPage('ghost-page')).toBeUndefined();
+    expect(vault.getFolder('ghost-folder')).toBeUndefined();
+    expect(vault.getPage('root-page')).toBeDefined();
+    expect(vault.getPage('projects-note')).toBeDefined();
+    expect(vault.getPage('deep-note')).toBeDefined();
+  });
+
+  it('invariant: root deleted — Vault converges to empty, matching an empty disk', async () => {
+    const projects = makeProjectsFolder();
+    const note = buildPage('Projects/Note.md', 'content', 'page-note');
+    const noteInProjects: Page = { ...note, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([noteInProjects], [projects]);
+
+    fileSystem.removeRecursively(ROOT);
+
+    watcher.emit({ type: 'deleted', path: '' });
+    await flush();
+
+    expect(vaultShape(vault)).toEqual({ folderPaths: [], pagePaths: [] });
+  });
+
+  it('invariant: root deleted then recreated with different contents — Vault converges to the recreated tree, not the old one and not empty', async () => {
+    const projects = makeProjectsFolder();
+    const note = buildPage('Projects/Note.md', 'content', 'page-note');
+    const noteInProjects: Page = { ...note, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([noteInProjects], [projects]);
+
+    // The whole vault folder is deleted...
+    fileSystem.removeRecursively(ROOT);
+    watcher.emit({ type: 'deleted', path: '' });
+    await flush();
+
+    expect(vaultShape(vault)).toEqual({ folderPaths: [], pagePaths: [] });
+
+    // ...and a different folder is dragged back into the same location —
+    // same root path, unrelated contents.
+    await fileSystem.createDirectory(ROOT);
+    fileSystem.seedFile(`${ROOT}/Fresh.md`, '---\nid: fresh-page\n---\nFresh content');
+    await fileSystem.createDirectory(`${ROOT}/NewFolder`);
+
+    watcher.emit({ type: 'created', path: '', isDirectory: true });
+    await flush();
+
+    const onDisk = await scanVaultShape(fileSystem, ROOT);
+    expect(vaultShape(vault)).toEqual(onDisk);
+    expect(vault.getPage('page-note')).toBeUndefined();
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getPage('fresh-page')).toBeDefined();
+    expect(vault.getFolderByPath(`${ROOT}/NewFolder`)).toBeDefined();
+  });
+
+  it('invariant: multiple files deleted directly at the root level (siblings of root-level folders) — only the deleted ones disappear', async () => {
+    const projects = makeProjectsFolder();
+    const rootNoteA = buildPage('A.md', 'a', 'root-a');
+    const rootNoteB = buildPage('B.md', 'b', 'root-b');
+    const rootNoteC = buildPage('C.md', 'c', 'root-c');
+    const { vault, fileSystem, watcher } = setup(
+      [rootNoteA, rootNoteB, rootNoteC],
+      [projects]
+    );
+
+    // "Projects" itself must be a real, registered directory on disk (not
+    // just a Vault-tracked Folder) for the scan below to rediscover it and
+    // leave it alone — mirrors an actual folder that's untouched by this
+    // particular external change. A.md/C.md are deliberately never seeded —
+    // they exist in Vault only, matching files deleted externally; B.md is
+    // seeded to prove it survives.
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    fileSystem.seedFile(`${ROOT}/B.md`, '---\nid: root-b\n---\nb');
+
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    expect(vault.getPage('root-a')).toBeUndefined();
+    expect(vault.getPage('root-c')).toBeUndefined();
+    expect(vault.getPage('root-b')).toBeDefined();
+    expect(vault.getFolder('folder-projects')).toBeDefined();
+  });
+
+  it('created event where the file disappears before reconciliation converges to "not tracked", not a thrown error', async () => {
+    const { vault, fileSystem, watcher } = setup();
+
+    fileSystem.seedFile(`${ROOT}/Fleeting.md`, '---\nid: fleeting-page\n---\nHere then gone');
+
+    // The event fires, but the file is deleted again before the handler
+    // gets to read it — the same race a created-then-immediately-deleted
+    // file produces in practice.
+    watcher.emit({ type: 'created', path: 'Fleeting.md', isDirectory: false });
+    fileSystem.deleteFile(`${ROOT}/Fleeting.md`);
+    await flush();
+
+    expect(vault.getPage('fleeting-page')).toBeUndefined();
+    expect(vault.getPageByPath(`${ROOT}/Fleeting.md`)).toBeUndefined();
+  });
+
+  it('changed event for a directory whose contents have already moved on by the time it is handled still converges to current disk', async () => {
+    const projects = makeProjectsFolder();
+    const note = buildPage('Projects/Note.md', 'content', 'page-note');
+    const noteInProjects: Page = { ...note, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([noteInProjects], [projects]);
+
+    // The event describes "something changed in Projects/" at the moment
+    // it fired, but by the time this handler actually runs, the folder has
+    // been deleted entirely and a new one exists in its place.
+    // Not awaited: createDirectory()'s own body runs synchronously (only
+    // its returned Promise resolves on a later microtask), and the handler
+    // itself is scheduled via VaultSyncCoordinator as a `.then()` callback
+    // — deferred until this synchronous block finishes. Awaiting here would
+    // yield to that already-queued handler before these mutations land,
+    // defeating the "changed again before we got to it" scenario.
+    watcher.emit({ type: 'changed', path: 'Projects' });
+    fileSystem.removeRecursively(`${ROOT}/Projects`);
+    fileSystem.seedFile(`${ROOT}/Projects/Later.md`, '---\nid: later-page\n---\nLater content');
+    void fileSystem.createDirectory(`${ROOT}/Projects`);
+    await flush();
+
+    const onDisk = await scanVaultShape(fileSystem, ROOT);
+    expect(vaultShape(vault)).toEqual(onDisk);
+    expect(vault.getPage('page-note')).toBeUndefined();
+    expect(vault.getPage('later-page')).toBeDefined();
+  });
+
+  it('moved event whose destination no longer exists by the time it is handled falls back to reconciling both endpoints instead of committing a stale move', async () => {
+    const existing = buildPage('old/Note.md', 'Original body', 'note-1');
+    const { vault, watcher } = setup([existing]);
+
+    // The watcher paired a rename, but the destination is gone again by the
+    // time handleMoved() actually runs (a further rapid move, or a delete,
+    // landed first) — the 'from' path is also already gone, since that's
+    // what made this look like a move in the first place.
+    watcher.emit({ type: 'moved', fromPath: 'old/Note.md', toPath: 'new/Note.md' });
+    await flush();
+
+    // Neither endpoint holds real content: the page must not survive at
+    // either the stale source or the stale destination, and Vault must not
+    // have committed a move to a path that was never actually real.
+    expect(vault.getPage('note-1')).toBeUndefined();
+    expect(vault.getPageByPath(`${ROOT}/old/Note.md`)).toBeUndefined();
+    expect(vault.getPageByPath(`${ROOT}/new/Note.md`)).toBeUndefined();
+  });
+
+  it('moved event for a folder whose destination no longer exists falls back to reconciliation instead of moveFolder()', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, watcher } = setup([], [projects]);
+
+    // No directory was ever created at 'Work' — the destination the
+    // watcher's rename pairing reported isn't actually there.
+    watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Work' });
+    await flush();
+
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(vault.getFolderByPath(`${ROOT}/Work`)).toBeUndefined();
+  });
+
+  it('duplicate/coalesced events for the same converged state are idempotent under the invariant', async () => {
+    const projects = makeProjectsFolder();
+    const note = buildPage('Projects/Note.md', 'content', 'page-note');
+    const noteInProjects: Page = { ...note, parentId: 'folder-projects' };
+    const { vault, fileSystem, watcher } = setup([noteInProjects], [projects]);
+
+    fileSystem.removeRecursively(ROOT);
+
+    watcher.emit({ type: 'deleted', path: '' });
+    watcher.emit({ type: 'deleted', path: '' });
+    watcher.emit({ type: 'changed', path: '' });
+    await flush();
+
+    expect(vaultShape(vault)).toEqual({ folderPaths: [], pagePaths: [] });
   });
 });

@@ -8,6 +8,7 @@ import { PageBuilder } from '../ingest/PageBuilder';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
 import { VaultScanner } from '../ingest/VaultScanner';
+import type { VaultScanResult } from '../ingest/VaultScanResult';
 import { buildDiscoveredEntities } from '../ingest/buildDiscoveredEntities';
 import { resolveDuplicateId } from '../ingest/identity/resolveDuplicateId';
 import type { DocumentRegistry } from '../../engine/DocumentRegistry';
@@ -178,16 +179,46 @@ export class VaultSyncService {
       return;
     }
 
-    const diskExists = await this.fileSystem.exists(absolutePath);
+    // The vault root is directory-shaped by definition — unlike an
+    // ordinary folder (see the trackedFolder branch below), there is no
+    // meaningful "the root became a file" edge case to guard against, so
+    // it always routes straight to reconcileDirectorySubtree(). That
+    // function is existence-tolerant (a missing target reconciles as an
+    // empty subtree — see its own doc comment), so "root still there" and
+    // "root gone entirely" (a full external vault deletion, or a
+    // coalesced event that lands on the root path) converge through this
+    // one call, with no separate root-deletion code path to keep in sync.
+    if (absolutePath === this.vault.root) {
+      await this.reconcileDirectorySubtree(absolutePath);
+      return;
+    }
 
-    if (!diskExists) {
-      const folder = this.vault.getFolderByPath(absolutePath);
+    const trackedFolder = this.vault.getFolderByPath(absolutePath);
 
-      if (folder) {
-        this.vault.removeFolder(folder.id);
+    if (trackedFolder) {
+      const diskExists = await this.fileSystem.exists(absolutePath);
+
+      // Same existence-tolerant convergence as the root case: "still a
+      // directory" and "gone" (an ordinary folder deletion, a bulk
+      // deletion of everything inside it, or this exact folder itself)
+      // both go through reconcileDirectorySubtree() — one mechanism, not
+      // a manual removeFolder() call that has to be kept in sync with it.
+      if (!diskExists || (await this.isDirectoryOnDisk(absolutePath))) {
+        await this.reconcileDirectorySubtree(absolutePath);
         return;
       }
 
+      // Rare edge case: a tracked directory was externally replaced by a
+      // file at the same path — the stale Folder (and its cascade) can't
+      // coexist with the file reconciled below.
+      this.vault.removeFolder(trackedFolder.id);
+      await this.reconcileFileEntity(absolutePath);
+      return;
+    }
+
+    const diskExists = await this.fileSystem.exists(absolutePath);
+
+    if (!diskExists) {
       const page = this.vault.getPageByPath(absolutePath);
 
       if (page) {
@@ -201,8 +232,10 @@ export class VaultSyncService {
     const isDirectory = await this.isDirectoryOnDisk(absolutePath);
 
     if (isDirectory) {
-      // A file path became a directory externally (rare edge case) — the
-      // stale Page can't coexist with the subtree reconciliation below.
+      // A file path became a directory externally (rare edge case) — not
+      // yet tracked as a Folder (the branch above already handles that
+      // case), so this is its first appearance as a directory. The stale
+      // Page can't coexist with the subtree reconciliation below.
       const stalePage = this.vault.getPageByPath(absolutePath);
 
       if (stalePage) {
@@ -211,14 +244,6 @@ export class VaultSyncService {
 
       await this.reconcileDirectorySubtree(absolutePath);
       return;
-    }
-
-    // A directory path became a file externally (rare edge case) — the
-    // stale Folder (and its cascade) can't coexist with the file below.
-    const staleFolder = this.vault.getFolderByPath(absolutePath);
-
-    if (staleFolder) {
-      this.vault.removeFolder(staleFolder.id);
     }
 
     await this.reconcileFileEntity(absolutePath);
@@ -261,6 +286,24 @@ export class VaultSyncService {
     }
 
     if (!absolutePath.endsWith('.md')) {
+      return;
+    }
+
+    // Existence-tolerant, the same way reconcileDirectorySubtree() is: the
+    // file can have disappeared again between whatever caller decided to
+    // reconcile this path and this read (a created-then-immediately-deleted
+    // race, or a concurrent external edit-then-delete). Converge exactly
+    // as an ordinary deletion would — remove whatever Vault still tracks
+    // here, add nothing for content that no longer exists — instead of
+    // letting fileSystem.readFile() throw and leaving Vault's state
+    // whatever it happened to be when the exception cut this short.
+    if (!(await this.fileSystem.exists(absolutePath))) {
+      const goneAgainPage = this.vault.getPageByPath(absolutePath);
+
+      if (goneAgainPage) {
+        this.vault.removePage(goneAgainPage.id);
+      }
+
       return;
     }
 
@@ -387,7 +430,23 @@ export class VaultSyncService {
       return;
     }
 
-    const scanResult = await this.vaultScanner.scan(absolutePath);
+    // Existence-tolerant: VaultScanner.scan() throws for a target that
+    // doesn't exist (correct for VaultBuilder's startup scan, where a
+    // missing vault root is a genuine error), but here a missing target
+    // just means "this subtree is gone" — an external deletion of this
+    // folder, a bulk deletion of everything inside it, or the entire vault
+    // root disappearing. Substituting an empty scan result lets the same
+    // add/remove diff below do the right thing either way: nothing is
+    // (re)discovered to add, and every folder/page still tracked at or
+    // under `absolutePath` (computed further down from live Vault state,
+    // not from this scan) is removed as no longer present on disk. This is
+    // what makes this one function the sole convergence mechanism for
+    // every directory-shaped path — reconcilePath() never needs its own
+    // parallel "manually remove what used to be here" logic.
+    const diskExists = await this.fileSystem.exists(absolutePath);
+    const scanResult: VaultScanResult = diskExists
+      ? await this.vaultScanner.scan(absolutePath)
+      : { rootPath: absolutePath, directories: [], pages: [] };
 
     const scannedFolderPaths = new Set(scanResult.directories.map((directory) => directory.path));
     const scannedPagePaths = new Set(scanResult.pages.map((page) => page.path));
@@ -694,6 +753,21 @@ export class VaultSyncService {
     const folder = this.vault.getFolderByPath(absoluteFrom);
 
     if (folder) {
+      // The rename pairing only tells us a move was reported — it doesn't
+      // guarantee the destination still holds what it did when the OS
+      // paired the event (a further rapid move, or a delete, can land
+      // before this handler runs). Committing moveFolder() against a
+      // destination that isn't real would desync Vault from disk with no
+      // event left to correct it. Fall back to reconciling both endpoints
+      // against current disk/Vault state instead of trusting the stale
+      // pairing — the same convergence mechanism an ordinary deleted/
+      // changed event for either path would use.
+      if (!(await this.fileSystem.exists(absoluteTo))) {
+        await this.reconcilePath(absoluteFrom);
+        await this.reconcilePath(absoluteTo);
+        return;
+      }
+
       const folderDestinationParentId = this.resolveParentId(this.directoryOf(absoluteTo));
       const resolvedFolderParentId =
         folderDestinationParentId === undefined ? folder.parentId : folderDestinationParentId;
@@ -742,6 +816,16 @@ export class VaultSyncService {
       // exactly reconcilePath()'s contract.
       await this.reconcilePath(absoluteTo);
 
+      return;
+    }
+
+    // Same fallback as the folder branch above: don't commit
+    // updatePagePath() (or an archive-metadata repair, which would read
+    // the destination file) against a path that no longer holds what the
+    // watcher's rename pairing reported.
+    if (!(await this.fileSystem.exists(absoluteTo))) {
+      await this.reconcilePath(absoluteFrom);
+      await this.reconcilePath(absoluteTo);
       return;
     }
 

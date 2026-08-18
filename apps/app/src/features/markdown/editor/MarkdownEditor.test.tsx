@@ -79,6 +79,36 @@ describe('MarkdownEditor: DOM sync from the markdown prop', () => {
   });
 });
 
+describe('MarkdownEditor: initial cursor position', () => {
+  it('places the cursor at the end of the document on open, not position 0', () => {
+    const { container } = render(<MarkdownEditor markdown="Hello, world" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+    expect(view.state.selection.main.empty).toBe(true);
+  });
+
+  it('reflects the end-of-document cursor once focused via the imperative handle', () => {
+    const ref = createRef<MarkdownEditorHandle>();
+    const { container } = render(<MarkdownEditor ref={ref} markdown="Hello, world" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    ref.current?.focus();
+
+    expect(document.activeElement).toBe(view.contentDOM);
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it('does not fight a subsequent user selection — a later click/selection change is preserved', () => {
+    const { container } = render(<MarkdownEditor markdown="Hello, world" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+
+    view.dispatch({ selection: { anchor: 0 } });
+
+    expect(view.state.selection.main.head).toBe(0);
+  });
+});
+
 describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
   // CM6 owns its own model and does not read arbitrary DOM mutations via a
   // generic native 'input' event the way the previous contentEditable +
@@ -174,20 +204,22 @@ describe('MarkdownEditor: resolveWikiLink (§5 boundary, §6 decoration wiring)'
   });
 
   it('calls resolveWikiLink for a WikiLink present in the initial markdown (§6 — decoration layer now consumes it)', () => {
-    // Prefixed with leading text deliberately: CM6's default mount
-    // selection is a zero-width caret at position 0, which the
-    // engagement rule ("selection strictly within the node's range,
-    // including exactly at either boundary") correctly treats as engaged
-    // if the WikiLink itself starts at position 0 — the resolver is never
-    // called for an engaged node, since engaged tokens render as plain
-    // text. Leading text keeps this test about resolver wiring, not about
-    // that (real, separately-tested) boundary behavior.
+    // Surrounded by leading and trailing text deliberately: the editor's
+    // own mount selection lands a zero-width caret at doc.length (end of
+    // document — see createEditorView.ts), which the engagement rule
+    // ("selection strictly within the node's range, including exactly at
+    // either boundary") correctly treats as engaged if the WikiLink itself
+    // ends at doc.length — the resolver is never called for an engaged
+    // node, since engaged tokens render as plain text. Trailing (and
+    // leading) text keeps the mount caret away from both of the
+    // WikiLink's boundaries, so this test stays about resolver wiring,
+    // not that (real, separately-tested) boundary behavior.
     const resolveWikiLink = vi.fn(() => ({
       status: 'resolved' as const,
       displayLabel: 'x',
       activate: vi.fn(),
     }));
-    render(<MarkdownEditor markdown="See [[Page]]" resolveWikiLink={resolveWikiLink} />);
+    render(<MarkdownEditor markdown="See [[Page]] here" resolveWikiLink={resolveWikiLink} />);
 
     expect(resolveWikiLink).toHaveBeenCalledWith('Page', null);
   });

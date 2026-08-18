@@ -65,6 +65,12 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
 
   const state = EditorState.create({
     doc,
+    // Opening a page should land the cursor at the end of its content, not
+    // CM6's own default (position 0) — matches how a document is resumed,
+    // not started. Set once at initial-state construction, so it's just
+    // this view's starting selection: any later click/selection dispatches
+    // through the normal transaction path untouched.
+    selection: { anchor: doc.length },
     extensions: [
       updateListener,
       blurHandler,
@@ -72,6 +78,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       markdownHighlighting(),
       headingSeparatorDecoration(),
       highlightActiveLine(),
+      EditorView.lineWrapping,
       ...extensions,
     ],
   });

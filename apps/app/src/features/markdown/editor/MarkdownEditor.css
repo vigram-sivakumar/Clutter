@@ -1,30 +1,40 @@
-.markdown-editor {
-  width: 100%;
-  height: 100%;
+.markdown__editor {
+  width: var(--content-width);
+  max-width: var(--content-max-width);
+  height: fit-content;
+  padding-bottom: 30vh;
 }
 
-.markdown-editor .cm-editor {
+.markdown__editor .cm-editor {
   height: 100%;
   background: transparent;
 }
 
-.markdown-editor .cm-scroller {
+.markdown__editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.markdown__editor .cm-scroller {
   overflow: auto;
 }
 
-.markdown-editor .cm-content {
+.markdown__editor .cm-content {
   padding: 0;
-  font-family: inherit;
-  font-size: 16px;
-  line-height: 1.6;
+  /* Not `inherit`: CM6's own baseTheme() sets `.cm-scroller { font-family:
+   * monospace }` via a StyleModule injected at EditorView construction
+   * time, which wins over this statically-bundled stylesheet regardless of
+   * source order (see editorTheme.ts's doc comment for the same finding
+   * against .cm-activeLine) — `.cm-content` is a child of `.cm-scroller`,
+   * so `inherit` here resolved to that forced monospace, not the app's
+   * font. Setting the token directly bypasses the inherited value. */
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  font-weight: var(--fw-regular);
 }
 
-.markdown-editor .cm-line {
+.markdown__editor .cm-line {
   padding: 0;
-}
-
-.markdown-editor h1 {
-  font-size: 32px;
 }
 
 /*
@@ -42,14 +52,17 @@
 
 .cm-editor .tok-heading1 {
   font-size: var(--text-heading-1);
+  line-height: var(--lh-heading-1);
 }
 
 .cm-editor .tok-heading2 {
   font-size: var(--text-heading-2);
+  line-height: var(--lh-heading-2);
 }
 
 .cm-editor .tok-heading3 {
   font-size: var(--text-heading-3);
+  line-height: var(--lh-heading-3);
 }
 
 .cm-editor .tok-heading4,
@@ -69,6 +82,15 @@
 
 .cm-editor .tok-heading6 {
   font-weight: 500;
+}
+
+.cm-editor .tok-wikilink {
+  color: var(--link-foreground);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.tok-wikilink[data-wikilink-status='unresolved'] {
+  opacity: var(--opacity-medium);
 }
 
 /*
