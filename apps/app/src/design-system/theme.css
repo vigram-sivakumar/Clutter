@@ -36,6 +36,7 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-placeholder: #565656;
   --foreground-inverse: var(--neutral-700);
   --marker-foreground: var(--foreground-placeholder);
+  --link-foreground: orange;
 
   /* Interactive states */
   --state-base: 255 255 255;
@@ -60,6 +61,9 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Editor */
   --editor-caret-color: var(--foreground-primary);
+
+  /* Selection */
+  --selection-bg: rgba(0, 172, 255, 0.35);
 
   /* Text decoration */
   --strikethrough-color: #595757;
@@ -100,8 +104,9 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-secondary: #666666; /* ≈ black @ 60% */
   --foreground-tertiary: #8c8c8c; /* ≈ black @ 45% */
   --foreground-placeholder: #cccccc; /* ≈ black @ 20% */
-  --marker-foreground: var(--foreground-placeholder);
   --foreground-inverse: #d4d4d4;
+  --marker-foreground: var(--foreground-placeholder);
+  --link-foreground: orange;
 
   /* Interactive states */
   --state-base: 0 0 0;
@@ -126,6 +131,9 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Editor */
   --editor-caret-color: var(--foreground-primary);
+
+  /* Selection */
+  --selection-bg: rgba(0, 172, 255, 0.2);
 
   /* Text decoration */
   --strikethrough-color: var(--neutral-600);
