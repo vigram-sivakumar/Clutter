@@ -38,6 +38,17 @@
   flex-direction: column;
   flex: 1;
   min-width: 0;
+  /* Without this, a flex item's height along its container's main axis
+     defaults to the "automatic minimum size" (its content's intrinsic
+     min-content height), which overrides `flex: 1` the moment content is
+     taller than the space available — the item blows out past
+     `.page__document` instead of being clamped to its flex-computed
+     share, so `overflow-y: auto` below never has anything to act on. This
+     is the actual scroll container: PageTopBar (a `.page__document`
+     sibling, above) and its own trailing spacer (`.page__document::after`,
+     below) stay outside it and never scroll. */
+  min-height: 0;
+  overflow-y: auto;
 
   position: relative;
 

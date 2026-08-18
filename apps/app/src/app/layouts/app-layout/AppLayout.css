@@ -25,6 +25,17 @@
 
   display: grid;
   grid-template-columns: var(--app-sidebar-width) 1fr;
+  /* Without this, the single implicit row sizes to its content's
+     max-content height (grid's default for an 'auto' row), not to this
+     container's own explicit `height: 100vh` — so `.app-layout__page`
+     (and `.app-layout__sidepanel`) never actually get a bounded height
+     via the default `align-items: stretch`; they just grow with content
+     instead, silently defeating every `height: 100%`/overflow rule
+     further down the tree (Page.css's scroll container included).
+     Explicit `1fr`, matching the column track syntax already used above,
+     gives the row the container's full height so stretch has a real
+     value to stretch descendants to. */
+  grid-template-rows: 1fr;
   height: 100vh;
   width: 100%;
 
@@ -61,6 +72,14 @@
 
 .app-layout__page {
   min-width: 0;
+  /* Grid items get the same "automatic minimum size" treatment flex items
+     do: `min-height: auto` computes to the item's min-content size by
+     default, which — since both grid items share one row track — was
+     forcing the whole row (and, via stretch, `.app-layout__sidepanel`
+     too) to grow to match this item's tall content instead of honoring
+     `grid-template-rows: 1fr` above. Without this, the row/track height
+     fix alone has no effect. */
+  min-height: 0;
   padding: var(--space-8);
   padding-left: 0;
   position: relative;
