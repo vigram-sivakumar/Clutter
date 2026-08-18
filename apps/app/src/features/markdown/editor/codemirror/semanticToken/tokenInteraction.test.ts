@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { semanticTokenDecorations } from './tokenDecorations';
 import { activateAdjacentToken, hopLeft, hopRight } from './tokenKeymap';
-import { handleTokenClick } from './tokenMouseHandlers';
+import { handleTokenClick, isWithinTokenBounds } from './tokenMouseHandlers';
 import { tokenSelectionSnap } from './tokenSelectionSnap';
 
 /**
@@ -65,6 +65,51 @@ describe('handleTokenClick — generic', () => {
     const view = mountView('x [[Projects/Page]] y', 0);
 
     expect(handleTokenClick(view, 0, false, isFixtureToken, () => activate)).toBe(false);
+  });
+});
+
+/**
+ * Reproduces and fixes the reported bug: a token that is the last thing
+ * on its line makes the rest of that line's empty trailing space
+ * activate it. Root cause, confirmed directly (not assumed): posAtCoords
+ * resolves any click to the *nearest* character position — a click past
+ * the last rendered character on a line has nothing closer to resolve
+ * to than the line's own end, which for a line-ending token is exactly
+ * its own `to` boundary. `findAtRestTokenAt`'s inclusive `pos <= node.to`
+ * then correctly treats that shared position as a hit — a pure
+ * document-position check cannot tell "clicked exactly at the boundary"
+ * apart from "clicked far past all content, snapped there for lack of
+ * anything closer," since both produce the identical position.
+ * `isWithinTokenBounds` closes this by checking actual pixel coordinates
+ * against the token's real rendered rect.
+ */
+function fakeRect(left: number, right: number): DOMRect {
+  return { left, right, top: 0, bottom: 20, width: right - left, height: 20, x: left, y: 0 } as DOMRect;
+}
+
+describe('isWithinTokenBounds — generic', () => {
+  it('a click within the token\'s rendered rect is within bounds', () => {
+    const view = mountView('x [[Projects/Page]] y', 0);
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue(fakeRect(130, 190));
+
+    expect(isWithinTokenBounds(view, { from: 2, to: 19 }, 150, 10)).toBe(true);
+  });
+
+  it('a click far past the token\'s rendered rect (same resolved document position) is rejected', () => {
+    const view = mountView('x [[Projects/Page]] y', 0);
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue(fakeRect(130, 190));
+
+    // e.g. a click at x=600 in empty trailing line space, where
+    // posAtCoords nonetheless resolved to a position inside/at the token
+    // (nothing else on the line for it to snap to).
+    expect(isWithinTokenBounds(view, { from: 2, to: 19 }, 600, 10)).toBe(false);
+  });
+
+  it('falls back to true when geometry is unavailable, rather than blocking activation', () => {
+    const view = mountView('x [[Projects/Page]] y', 0);
+    vi.spyOn(view, 'coordsAtPos').mockReturnValue(null);
+
+    expect(isWithinTokenBounds(view, { from: 2, to: 19 }, 999, 999)).toBe(true);
   });
 });
 

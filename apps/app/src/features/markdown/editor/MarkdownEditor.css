@@ -1,0 +1,112 @@
+.markdown-editor {
+  width: 100%;
+  height: 100%;
+}
+
+.markdown-editor .cm-editor {
+  height: 100%;
+  background: transparent;
+}
+
+.markdown-editor .cm-scroller {
+  overflow: auto;
+}
+
+.markdown-editor .cm-content {
+  padding: 0;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.markdown-editor .cm-line {
+  padding: 0;
+}
+
+.markdown-editor h1 {
+  font-size: 32px;
+}
+
+/*
+ * Heading highlighting PoC (markdownHighlightStyle.ts). Scoped to
+ * `.cm-editor` — CM6's own always-present root class — rather than
+ * `.markdown-editor` above, since nothing in the DOM currently applies
+ * that class; not fixed here as out of scope for this change.
+ */
+.cm-editor .tok-heading1,
+.cm-editor .tok-heading2,
+.cm-editor .tok-heading3 {
+  font-weight: 700;
+  color: var(--foreground-primary);
+}
+
+.cm-editor .tok-heading1 {
+  font-size: var(--text-heading-1);
+}
+
+.cm-editor .tok-heading2 {
+  font-size: var(--text-heading-2);
+}
+
+.cm-editor .tok-heading3 {
+  font-size: var(--text-heading-3);
+}
+
+.cm-editor .tok-heading4,
+.cm-editor .tok-heading5,
+.cm-editor .tok-heading6 {
+  font-size: var(--text-body);
+  color: var(--foreground-primary);
+}
+
+.cm-editor .tok-heading4 {
+  font-weight: 700;
+}
+
+.cm-editor .tok-heading5 {
+  font-weight: 600;
+}
+
+.cm-editor .tok-heading6 {
+  font-weight: 500;
+}
+
+/*
+ * Live Preview marker hiding (heading markers only, for now). `tok-mark`
+ * (markdownHighlightStyle.ts, tags.processingInstruction) covers every
+ * Markdown punctuation-mark node — HeaderMark today, others later — but
+ * this rule intentionally only *applies* it to headings, one selector at
+ * a time, to keep this change scoped to the heading slice, not to every
+ * construct that already happens to share the same underlying class.
+ * `.cm-activeLine` is CM6's own built-in extension (highlightActiveLine(),
+ * createEditorView.ts), applied directly to the `.cm-line` containing the
+ * cursor — reveal is therefore line-granularity, not per-node engagement,
+ * matching the accepted behavior for this slice.
+ */
+.cm-editor .cm-line:not(.cm-activeLine) .tok-heading1.tok-mark,
+.cm-editor .cm-line:not(.cm-activeLine) .tok-heading2.tok-mark,
+.cm-editor .cm-line:not(.cm-activeLine) .tok-heading3.tok-mark,
+.cm-editor .cm-line:not(.cm-activeLine) .tok-heading4.tok-mark,
+.cm-editor .cm-line:not(.cm-activeLine) .tok-heading5.tok-mark,
+.cm-editor .cm-line:not(.cm-activeLine) .tok-heading6.tok-mark {
+  display: none;
+}
+
+/*
+ * Visible (active-line) heading marker gets the tertiary text color
+ * instead of the heading's own color — `.tok-headingN.tok-mark` (two
+ * classes) outweighs the plain `.tok-headingN` color rule above by
+ * specificity regardless of source order, so this doesn't depend on
+ * being declared after it. Scoped to heading markers only, not a bare
+ * `.tok-mark` rule — `tags.processingInstruction` (markdownHighlightStyle.ts)
+ * also covers QuoteMark/ListMark/LinkMark/EmphasisMark/CodeMark, none of
+ * which are implemented yet and must not be affected by this rule.
+ */
+.cm-editor .cm-line.cm-activeLine .tok-heading1.tok-mark,
+.cm-editor .cm-line.cm-activeLine .tok-heading2.tok-mark,
+.cm-editor .cm-line.cm-activeLine .tok-heading3.tok-mark,
+.cm-editor .cm-line.cm-activeLine .tok-heading4.tok-mark,
+.cm-editor .cm-line.cm-activeLine .tok-heading5.tok-mark,
+.cm-editor .cm-line.cm-activeLine .tok-heading6.tok-mark {
+  color: var(--marker-foreground);
+}

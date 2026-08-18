@@ -1,7 +1,9 @@
 import { Annotation, EditorState, type Extension } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, highlightActiveLine } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
+import { headingSeparatorDecoration } from './highlight/headingSeparatorDecoration';
+import { markdownHighlighting } from './highlight/markdownHighlightStyle';
 
 /**
  * Marks a dispatched transaction as an external prop sync rather than user
@@ -20,9 +22,24 @@ export interface CreateEditorViewOptions {
 }
 
 /**
- * Constructs and mounts a CM6 `EditorView`. No Markdown language,
- * decorations, or semantic-token behavior — this is the plain-text CM6
- * foundation other modules build on incrementally.
+ * Constructs and mounts a CM6 `EditorView`. No Markdown language or
+ * semantic-token behavior — this is the plain-text CM6 foundation other
+ * modules build on incrementally. `markdownHighlighting()` and
+ * `highlightActiveLine()` are the exceptions, wired here rather than
+ * left to each caller's own extension list, matching `editorTheme()`'s
+ * precedent: all three are baseline visual wiring applicable regardless
+ * of which Markdown grammar extensions (`markdownLanguageExtension()` et
+ * al.) a caller passes in via `extensions`, not feature behavior of
+ * their own. `highlightActiveLine()` is CM6's own built-in extension
+ * (`@codemirror/view`) — it only ever adds a `cm-activeLine` class to
+ * the line containing the cursor; the actual Live Preview hide/reveal
+ * behavior is pure CSS keyed on that class plus `markdownHighlighting()`'s
+ * `tok-mark` class (`MarkdownEditor.css`), not additional logic here.
+ * `headingSeparatorDecoration()` is the one exception that isn't pure
+ * CSS-consuming — it's a small, tree-driven decoration covering the one
+ * range `HighlightStyle` structurally cannot reach (the ATX heading
+ * separator space; see its own doc comment), reusing the exact same
+ * `tok-headingN tok-mark` classes so no additional CSS is needed for it.
  */
 export function createEditorView(options: CreateEditorViewOptions): EditorView {
   const { doc, parent, extensions = [], onDocChange, onBlur } = options;
@@ -48,7 +65,15 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
 
   const state = EditorState.create({
     doc,
-    extensions: [updateListener, blurHandler, editorTheme(), ...extensions],
+    extensions: [
+      updateListener,
+      blurHandler,
+      editorTheme(),
+      markdownHighlighting(),
+      headingSeparatorDecoration(),
+      highlightActiveLine(),
+      ...extensions,
+    ],
   });
 
   return new EditorView({ state, parent });

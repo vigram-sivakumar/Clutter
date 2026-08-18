@@ -96,7 +96,8 @@
   --font-sans: var(--font-family);
 
   /* Font size */
-  --text-heading-1: 32px;
+  --text-heading-0: 32px;
+  --text-heading-1: 28px;
   --text-heading-2: 24px;
   --text-heading-3: 20px;
   --text-body: 14px; /* Default */
