@@ -8,6 +8,7 @@ import {
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
 import { wikiLinkKeymap } from './codemirror/wikilink/wikiLinkKeymap';
+import { wikiLinkMarkerDecorations } from './codemirror/wikilink/wikiLinkMarkerDecorations';
 import { wikiLinkMouseHandlers } from './codemirror/wikilink/wikiLinkMouseHandlers';
 import { wikiLinkSelectionSnap } from './codemirror/wikilink/wikiLinkSelectionSnap';
 import type {
@@ -82,6 +83,7 @@ export const MarkdownEditor = forwardRef<
       extensions: [
         markdownLanguageExtension(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
+        wikiLinkMarkerDecorations(),
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
         wikiLinkKeymap(() => resolveWikiLinkRef.current),
         wikiLinkSelectionSnap(),

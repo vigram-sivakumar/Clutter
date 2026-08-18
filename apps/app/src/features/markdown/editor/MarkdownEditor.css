@@ -110,3 +110,20 @@
 .cm-editor .cm-line.cm-activeLine .tok-heading6.tok-mark {
   color: var(--marker-foreground);
 }
+
+/*
+ * WikiLink `[[`/`]]` markers (wikiLinkMarkerDecorations.ts). At rest the
+ * whole node — brackets included — is replaced by the WikiLinkWidget, so
+ * there's nothing to hide here (unlike headings, no `display: none` rule
+ * exists for this construct); this only ever applies once engaged, since
+ * that decoration layer only marks bracket ranges on engaged nodes. Scoped
+ * via the compound `.tok-wikilink-mark.tok-mark` selector, not bare
+ * `.tok-mark`, for the same reason as the heading rules above — other
+ * `tags.processingInstruction` constructs share `tok-mark` and must stay
+ * unaffected. The path/alias text between the brackets receives no
+ * decoration at all, so it keeps its normal text color with no extra rule
+ * needed.
+ */
+.cm-editor .tok-wikilink-mark.tok-mark {
+  color: var(--marker-foreground);
+}
