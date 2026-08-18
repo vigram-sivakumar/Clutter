@@ -1,5 +1,6 @@
+import { defaultKeymap } from '@codemirror/commands';
 import { Annotation, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, highlightActiveLine } from '@codemirror/view';
+import { EditorView, highlightActiveLine, keymap } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
 import { headingSeparatorDecoration } from './highlight/headingSeparatorDecoration';
@@ -80,6 +81,14 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       highlightActiveLine(),
       EditorView.lineWrapping,
       ...extensions,
+      // Lowest-priority keymap (added last), so e.g. wikiLinkKeymap's own
+      // Enter binding above still wins when it applies. Without this,
+      // Enter had no CM6-level binding at all and fell through to the
+      // browser's native contentEditable paragraph-split behavior, which
+      // CM6 then had to reconcile via DOM-mutation observation — the
+      // actual source of the double-newline and stuck-until-refocus
+      // symptoms, not a CSS or focus-handling issue.
+      keymap.of(defaultKeymap),
     ],
   });
 
