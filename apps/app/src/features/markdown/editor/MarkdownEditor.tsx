@@ -6,6 +6,8 @@ import {
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
+import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
+import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { tagDecorations } from './codemirror/tag/tagDecorations';
 import { tagKeymap } from './codemirror/tag/tagKeymap';
@@ -107,6 +109,8 @@ export const MarkdownEditor = forwardRef<
       extensions: [
         markdownLanguageExtension(),
         emphasisMarkerDecoration(),
+        strikethroughMarkerDecoration(),
+        inlineCodeMarkerDecoration(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
         wikiLinkMarkerDecorations(),
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),

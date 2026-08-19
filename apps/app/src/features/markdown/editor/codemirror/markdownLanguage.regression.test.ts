@@ -37,11 +37,41 @@ describe('Markdown/GFM baseline — unaffected by our configuration', () => {
   it('parses an inline code span as InlineCode', () => {
     expect(nodeNames('`code`')).toContain('InlineCode');
   });
+
+  it('InlineCode has exactly two CodeMark children — the shape strikethroughMarkerDecoration/inlineCodeMarkerDecoration depend on', () => {
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse('`code`');
+    const inlineCode = tree.topNode.getChild('Paragraph')?.getChild('InlineCode');
+    expect(inlineCode?.firstChild?.name).toBe('CodeMark');
+    expect(inlineCode?.lastChild?.name).toBe('CodeMark');
+    expect(inlineCode?.firstChild).not.toBe(inlineCode?.lastChild);
+  });
 });
 
 describe('Enabled GFM subset', () => {
   it('parses ~~strike~~ as Strikethrough', () => {
     expect(nodeNames('~~strike~~')).toContain('Strikethrough');
+  });
+
+  it('Strikethrough has exactly two StrikethroughMark children — the shape strikethroughMarkerDecoration depends on', () => {
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse('~~strike~~');
+    const strikethrough = tree.topNode.getChild('Paragraph')?.getChild('Strikethrough');
+    expect(strikethrough?.firstChild?.name).toBe('StrikethroughMark');
+    expect(strikethrough?.lastChild?.name).toBe('StrikethroughMark');
+    expect(strikethrough?.firstChild).not.toBe(strikethrough?.lastChild);
+  });
+
+  it('~~**bold**~~ composes correctly: Strikethrough and StrongEmphasis nest without disturbing each other’s mark shape', () => {
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse('~~**bold**~~');
+    const paragraph = tree.topNode.getChild('Paragraph');
+    const strikethrough = paragraph?.getChild('Strikethrough');
+    const strongEmphasis = strikethrough?.getChild('StrongEmphasis');
+    expect(strikethrough?.firstChild?.name).toBe('StrikethroughMark');
+    expect(strikethrough?.lastChild?.name).toBe('StrikethroughMark');
+    expect(strongEmphasis?.firstChild?.name).toBe('EmphasisMark');
+    expect(strongEmphasis?.lastChild?.name).toBe('EmphasisMark');
   });
 
   it('parses a task list item with a TaskMarker', () => {

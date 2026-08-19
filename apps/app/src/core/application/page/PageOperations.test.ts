@@ -1205,7 +1205,19 @@ describe('PageOperations.move()', () => {
     ).rejects.toThrow(/Folder not found/);
   });
 
-  it('throws when the destination path is already occupied', async () => {
+  // MoveService.resolveMoveDestination (persistence/MoveService.ts) is
+  // called by the Gate's own 'move' handler before movePage() ever runs
+  // (PagePersistenceCoordinator.ts) — it always picks a collision-free
+  // name via resolveCollisionFreeName({ firstSuffix: 1 }), the same
+  // Finder-style numbering FolderPathResolver's own move destination uses.
+  // movePage()'s own "Path already in use" throw exists as a defensive
+  // guard against a resolve-time/execute-time race, not as the normal-path
+  // collision contract — a plain, non-racing collision like this one is
+  // expected to resolve to "Note 1.md", not reject. This test previously
+  // asserted the opposite (a throw) — that assertion predates
+  // resolveMoveDestination's collision-avoidance and no longer matches the
+  // documented, intentional behavior.
+  it('resolves a collision at the destination path by appending a numeric suffix, never throwing', async () => {
     const page = buildPage();
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const occupant = new PageBuilder().build({
@@ -1239,9 +1251,13 @@ describe('PageOperations.move()', () => {
       )
     );
 
-    await expect(pageOperations.move(page.id, 'folder-1')).rejects.toThrow(
-      /Path already in use/
-    );
+    await pageOperations.move(page.id, 'folder-1');
+
+    const moved = vault.getPage(page.id)!;
+    expect(moved.path).toBe(`${ROOT}/Projects/Note 1.md`);
+    expect(moved.parentId).toBe('folder-1');
+    // The pre-existing occupant is completely untouched.
+    expect(vault.getPage('page-occupant')?.path).toBe(`${ROOT}/Projects/Note.md`);
   });
 
   it('throws for an unknown page id', async () => {

@@ -99,6 +99,24 @@
   font-weight: 700;
 }
 
+/*
+ * Strikethrough (strikethroughMarkerDecoration.ts, tags.strikethrough) and
+ * inline code (inlineCodeMarkerDecoration.ts, tags.monospace) — same
+ * pattern as emphasis/strong above: the HighlightStyle class styles the
+ * always-visible content, marker hiding/reveal is handled entirely by the
+ * decoration layer, not CSS.
+ */
+.cm-editor .tok-strike {
+  text-decoration: line-through;
+}
+
+.cm-editor .tok-code {
+  font-family: ui-monospace, monospace;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 0.2em;
+}
+
 .cm-editor .tok-wikilink {
   color: var(--link-foreground);
   text-decoration: underline;
@@ -117,11 +135,13 @@
 }
 
 /*
- * Live Preview marker hiding — heading, WikiLink, and emphasis markers are
- * all hidden at rest via `Decoration.replace({})` in their respective
- * decoration layers (`headingMarkerDecoration.ts`, `wikiLinkDecorations.ts`,
- * `emphasisMarkerDecoration.ts`; the shared mechanism behind the first and
- * last is `highlight/liveMarkDecoration.ts`), not CSS. An unengaged marker
+ * Live Preview marker hiding — heading, WikiLink, emphasis, strikethrough,
+ * and inline-code markers are all hidden at rest via `Decoration.replace({})`
+ * in their respective decoration layers (`headingMarkerDecoration.ts`,
+ * `wikiLinkDecorations.ts`, `emphasisMarkerDecoration.ts`,
+ * `strikethroughMarkerDecoration.ts`, `inlineCodeMarkerDecoration.ts`; the
+ * shared mechanism behind all but WikiLink is `highlight/liveMarkDecoration.ts`),
+ * not CSS. An unengaged marker
  * has no DOM node at all to style — deliberately: styling it invisible
  * with `display: none` was tried first and confirmed, by direct browser
  * reproduction, to corrupt native click hit-testing and word-selection
@@ -139,6 +159,8 @@
 .cm-editor .tok-heading6.tok-mark,
 .cm-editor .tok-emphasis.tok-mark,
 .cm-editor .tok-strong.tok-mark,
+.cm-editor .tok-strike.tok-mark,
+.cm-editor .tok-code.tok-mark,
 .cm-editor .tok-wikilink-mark.tok-mark {
   color: var(--marker-foreground);
 }

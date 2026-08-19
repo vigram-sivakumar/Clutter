@@ -14,9 +14,9 @@ import { tags } from '@lezer/highlight';
  * types, no decorations beyond CM6's own built-in tree-highlighting
  * ViewPlugin (`syntaxHighlighting`'s internal `TreeHighlighter`).
  *
- * PoC scope: headings and emphasis. Code/quote/list styling are later,
- * additive entries in this same style definition — not a reason to add a
- * second HighlightStyle.
+ * PoC scope: headings, emphasis, strikethrough, and inline code. Quote/list
+ * styling is later, additive entries in this same style definition — not a
+ * reason to add a second HighlightStyle.
  *
  * Emphasis: `@lezer/markdown`'s `markdownHighlighting` tags `Emphasis`
  * with `tags.emphasis` and `StrongEmphasis` with `tags.strong` (confirmed
@@ -51,6 +51,8 @@ export const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.heading6, class: 'tok-heading6' },
   { tag: tags.emphasis, class: 'tok-emphasis' },
   { tag: tags.strong, class: 'tok-strong' },
+  { tag: tags.strikethrough, class: 'tok-strike' },
+  { tag: tags.monospace, class: 'tok-code' },
   { tag: tags.processingInstruction, class: 'tok-mark' },
 ]);
 
