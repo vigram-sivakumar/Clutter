@@ -15,6 +15,7 @@ import {
   type TokenNodePredicate,
   type TokenNodeRange,
 } from '../semanticToken/tokenEngagement';
+import { liveMarkSelectionSnap } from './liveMarkSelectionSnap';
 
 /**
  * Shared "ordinary Live-Preview mark" hide-on-rest mechanism, generalized
@@ -111,7 +112,7 @@ export function liveMarkDecoration(
   isConstructNode: TokenNodePredicate,
   getMarkRanges: MarkRangeSelector
 ): Extension {
-  return ViewPlugin.fromClass<LiveMarkPlugin>(
+  const decorations = ViewPlugin.fromClass<LiveMarkPlugin>(
     class implements LiveMarkPlugin {
       decorations: DecorationSet;
 
@@ -129,4 +130,10 @@ export function liveMarkDecoration(
       decorations: (p) => p.decorations,
     }
   );
+
+  // Every construct routed through this shared mechanism gets the click
+  // boundary fix (liveMarkSelectionSnap.ts) for free, from the exact same
+  // (isConstructNode, getMarkRanges) it already supplies for hiding the
+  // markers in the first place — no construct-specific wiring anywhere.
+  return [decorations, liveMarkSelectionSnap(isConstructNode, getMarkRanges)];
 }

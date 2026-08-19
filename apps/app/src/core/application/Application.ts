@@ -1,4 +1,8 @@
+import { isTauri } from '@tauri-apps/api/core';
 import { LocalVaultProvider } from '../vault/providers/LocalFileSystem';
+import { InMemoryVaultFileSystem } from '../vault/testing/InMemoryVaultFileSystem';
+import { BrowserFileSystemWatcher } from '../vault/providers/BrowserFileSystemWatcher';
+import { browserCoverImageUrlResolver } from '../vault/providers/BrowserCoverImageUrlResolver';
 import { DailyNoteService } from './daily-notes/DailyNoteService';
 import { DailyNotePath } from '../vault/ingest/DailyNotePath';
 import { PageCreator } from './page/PageCreator';
@@ -96,7 +100,7 @@ export class Application {
   private readonly fileSystem: VaultFileSystem;
   private readonly coverImageUrlResolver: CoverImageUrlResolver;
   private readonly selfWriteRegistry: SelfWriteRegistry;
-  private fileSystemWatcher!: LocalFileSystemWatcher;
+  private fileSystemWatcher!: LocalFileSystemWatcher | BrowserFileSystemWatcher;
   private rootPath!: string;
   private closed = false;
   private workspaceVaultReconciliationUnsubscribe!: () => void;
@@ -107,7 +111,26 @@ export class Application {
     // and drop its own echo of a write this app just made, instead of
     // VaultSyncService re-processing it as a second, duplicate change.
     const selfWriteRegistry = new SelfWriteRegistry();
-    const rawFileSystem = new LocalVaultProvider(rootPath);
+    // Platform's documented extension point (spec §1): a second backend is
+    // a new VaultFileSystem/VaultFileSystemWatcher pair, wired here and
+    // only here — no other subsystem's code changes. InMemoryVaultFileSystem
+    // already exists as the canonical non-Tauri VaultFileSystem
+    // implementation (spec §1's testing strategy), so the web runtime reuses
+    // it directly rather than duplicating its logic (implementation-rules.md
+    // §2 rule 4) — a fresh, disposable in-memory vault, never the real
+    // Tauri-backed one.
+    const runningInTauri = isTauri();
+    const rawFileSystem = runningInTauri
+      ? new LocalVaultProvider(rootPath)
+      : new InMemoryVaultFileSystem();
+
+    if (!runningInTauri) {
+      // The in-memory backend starts with no tracked paths at all; the scan
+      // below requires the root to "exist" the same way a real vault
+      // directory always does.
+      await rawFileSystem.createDirectory(rootPath);
+    }
+
     const fileSystem = new SelfWriteAwareFileSystem(
       rawFileSystem,
       selfWriteRegistry,
@@ -209,7 +232,12 @@ export class Application {
       rebuilder: new PageRebuilder(),
     });
 
-    const application = new Application(vault, fileSystem, selfWriteRegistry);
+    const application = new Application(
+      vault,
+      fileSystem,
+      selfWriteRegistry,
+      runningInTauri ? localCoverImageUrlResolver : browserCoverImageUrlResolver
+    );
 
     application.rootPath = rootPath;
 
@@ -374,7 +402,9 @@ export class Application {
       this.query,
       this.effectivePageState
     );
-    this.fileSystemWatcher = new LocalFileSystemWatcher();
+    this.fileSystemWatcher = isTauri()
+      ? new LocalFileSystemWatcher()
+      : new BrowserFileSystemWatcher();
 
     // VaultSyncService subscribes to the self-write-aware wrapper, not the
     // raw watcher, so it never sees an echo of a write PagePersistenceCoordinator

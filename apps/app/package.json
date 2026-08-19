@@ -6,6 +6,7 @@
   "description": "Clutter 2.0 - Core editor implementation with segmented architecture",
   "scripts": {
     "dev": "vite",
+    "dev:web": "vite",
     "build": "tsc && vite build",
     "tauri": "tauri",
     "desktop": "tauri dev",

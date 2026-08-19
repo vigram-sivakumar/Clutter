@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=apps/app",
+    "dev:web": "npm run dev:web --workspace=apps/app",
     "test": "npm test --workspace=apps/app",
     "test:run": "npm test --workspace=apps/app -- --run",
     "automation:build": "npm run build:app --workspace=packages/automation",

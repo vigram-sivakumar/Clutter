@@ -1,0 +1,119 @@
+import { syntaxTree } from '@codemirror/language';
+import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
+import type { SyntaxNode } from '@lezer/common';
+
+import {
+  isTokenEngaged,
+  type TokenNodePredicate,
+  type TokenNodeRange,
+} from '../semanticToken/tokenEngagement';
+import type { MarkRangeSelector } from './liveMarkDecoration';
+
+/**
+ * Fixes the one gap `liveMarkDecoration.ts`'s empty `Decoration.replace({})`
+ * genuinely leaves: a real mouse click at the pixel boundary between an
+ * at-rest collapsed marker run and the construct's visible text is
+ * ambiguous DOM hit-testing, not an application bug — confirmed by direct
+ * browser reproduction (mounting the production `MarkdownEditor`, clicking,
+ * and reading `window.getSelection()`, not merely `posAtCoords()` theory).
+ * The collapsed marker range renders zero pixels, so a click aimed at "just
+ * past the last visible character" and a click aimed at "the invisible
+ * marker that used to sit there" land on the exact same pixel; the browser's
+ * native `caretPositionFromPoint` breaks the tie by always resolving to
+ * whichever side has real, rendered DOM content — i.e. the *near* edge of
+ * the collapsed range, never the far one. `posAtCoords` then hands CM6 that
+ * near-edge position verbatim, and `isTokenEngaged`
+ * (`semanticToken/tokenEngagement.ts`) correctly-but-unhelpfully treats it
+ * as "inside the construct," revealing markers CM6 had no reason to reveal.
+ *
+ * This is a pure DOM hit-testing artifact of zero-width `Decoration.replace`
+ * ranges specifically — WikiLink doesn't share it (confirmed by the same
+ * direct-click reproduction): its at-rest widget renders real, non-zero
+ * pixels, so a click at its edge is an ordinary unambiguous DOM boundary.
+ * That's also why this is a *sibling* to `semanticToken/tokenSelectionSnap.ts`
+ * rather than a reuse of it — `tokenSelectionSnap` treats an entire at-rest
+ * node as one opaque, snap-anywhere-inside atomic unit (correct for a
+ * single-glyph widget with no meaningful "middle"), which would wrongly
+ * snap an ordinary click landing in the *middle of real visible text*
+ * (`Bo|ld`) to one of the construct's edges. This mechanism only snaps a
+ * position that falls within a *marker* sub-range specifically — the exact
+ * same `MarkRangeSelector` each construct already supplies to
+ * `liveMarkDecoration` for hiding those markers in the first place. No
+ * construct-specific code lives here or anywhere that calls this: emphasis,
+ * headings, and any future marker-hiding construct get this fix for free
+ * simply by going through `liveMarkDecoration`, which wires this extension
+ * in alongside its decoration `ViewPlugin` (see that module).
+ *
+ * Scoped to `Transaction.userEvent === 'select.pointer'` — the exact tag
+ * CM6's own mouse click/drag selection handling applies (confirmed against
+ * `@codemirror/view`'s installed source, not assumed) — so this:
+ *  - never touches keyboard-driven cursor motion (tagged `select.keyboard`),
+ *    which must keep stepping through marker positions one character at a
+ *    time as a user arrows into an engaged construct;
+ *  - never touches a directly-dispatched programmatic selection with no
+ *    `userEvent` at all, matching the pre-existing, deliberately-asserted
+ *    behavior in `emphasisMarkerDecoration.test.ts` that a bare
+ *    `{selection: {anchor: n}}` lands exactly at `n`, unmoved, even inside
+ *    a collapsed marker range.
+ *
+ * `getMarkRanges` is checked against every `isConstructNode` ancestor of
+ * the position, not just the innermost — this is what makes nested markup
+ * (`***bold italic***`) resolve outward through both delimiter layers in
+ * one click rather than stopping at the inner one.
+ */
+export function liveMarkSelectionSnap(
+  isConstructNode: TokenNodePredicate,
+  getMarkRanges: MarkRangeSelector
+): Extension {
+  return EditorState.transactionFilter.of((tr) => {
+    if (tr.docChanged || !tr.selection || !tr.isUserEvent('select.pointer')) {
+      return tr;
+    }
+
+    const range = tr.selection.main;
+    const anchor = snapPosition(tr.startState, range.anchor, isConstructNode, getMarkRanges);
+    const head = snapPosition(tr.startState, range.head, isConstructNode, getMarkRanges);
+
+    if (anchor === range.anchor && head === range.head) {
+      return tr;
+    }
+
+    return { selection: EditorSelection.single(anchor, head), scrollIntoView: tr.scrollIntoView };
+  });
+}
+
+function snapPosition(
+  state: EditorState,
+  pos: number,
+  isConstructNode: TokenNodePredicate,
+  getMarkRanges: MarkRangeSelector
+): number {
+  let candidate = pos;
+
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1);
+    node;
+    node = node.parent
+  ) {
+    if (!isConstructNode(node.name)) {
+      continue;
+    }
+
+    const range: TokenNodeRange = { from: node.from, to: node.to };
+    if (isTokenEngaged(state, range)) {
+      continue;
+    }
+
+    for (const mark of getMarkRanges(node, state)) {
+      if (candidate < mark.from || candidate > mark.to) {
+        continue;
+      }
+
+      const leadingDistance = mark.from - range.from;
+      const trailingDistance = range.to - mark.to;
+      candidate = leadingDistance <= trailingDistance ? range.from : range.to;
+    }
+  }
+
+  return candidate;
+}

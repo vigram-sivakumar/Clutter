@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 import { Application } from '../core/application/Application';
@@ -7,7 +8,12 @@ import { AppLayout } from './layouts/app-layout/AppLayout';
 
 export function AppShell() {
   // TODO: Replace with the folder picker.
-  const vaultPath = '/Users/sivakuv3/Documents/Personal/Vault';
+  // Outside Tauri (npm run dev:web), this is just a namespace string for an
+  // in-memory vault (Application.bootstrap() picks InMemoryVaultFileSystem
+  // when !isTauri()) — never the real desktop vault path.
+  const vaultPath = isTauri()
+    ? '/Users/sivakuv3/Documents/Personal/Vault'
+    : '/web-dev-vault';
 
   const [application, setApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,14 +45,19 @@ export function AppShell() {
         // Application itself stays unaware of the Tauri window API by
         // design (M8's audit) — this handler's only job is triggering the
         // already-existing, already-orderly close() at the right moment,
-        // then letting the window actually finish closing.
-        unlistenCloseRequested = await getCurrentWindow().onCloseRequested(
-          async (event) => {
-            event.preventDefault();
-            await application.close();
-            await getCurrentWindow().destroy();
-          }
-        );
+        // then letting the window actually finish closing. There is no
+        // native window to intercept in the web runtime (a browser tab
+        // close can't be gated the same way, and the in-memory web vault
+        // has nothing durable to protect on close anyway).
+        if (isTauri()) {
+          unlistenCloseRequested = await getCurrentWindow().onCloseRequested(
+            async (event) => {
+              event.preventDefault();
+              await application.close();
+              await getCurrentWindow().destroy();
+            }
+          );
+        }
       } catch (error) {
         console.error('Failed to open vault:', error);
         if (!cancelled) {
