@@ -24,6 +24,7 @@ import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResou
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
+import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
@@ -84,6 +85,8 @@ export function PageHost({ application }: PageHostProps) {
     application.pageOperations,
     application.folderOperations
   );
+  // Same per-render, stateless-glue composition as resolveWikiLink above.
+  const resolveTag = createTagResolver(application.navigation);
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
@@ -458,6 +461,7 @@ export function PageHost({ application }: PageHostProps) {
               onFlush={() => model.requestSave()}
               resolveWikiLink={resolveWikiLink}
               getWikiLinkSuggestions={getWikiLinkSuggestions}
+              resolveTag={resolveTag}
             />
           </MarkdownBody>
         }
@@ -544,6 +548,7 @@ export function PageHost({ application }: PageHostProps) {
             onFlush={() => model.requestSave()}
             resolveWikiLink={resolveWikiLink}
             getWikiLinkSuggestions={getWikiLinkSuggestions}
+            resolveTag={resolveTag}
           />
         </MarkdownBody>
       }

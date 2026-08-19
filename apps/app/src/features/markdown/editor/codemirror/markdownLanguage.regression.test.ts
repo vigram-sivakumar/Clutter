@@ -147,3 +147,112 @@ describe('WikiLink — native Markdown coexistence (§4 load-bearing safety net)
     expect(names).not.toContain('WikiLink');
   });
 });
+
+describe('Tag — heading disambiguation and coexistence (§11 second-kind proof)', () => {
+  it('# Heading remains an ATXHeading1, not a Tag', () => {
+    const names = nodeNames('# Heading');
+    expect(names).toContain('ATXHeading1');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('## Heading remains an ATXHeading2, not a Tag', () => {
+    const names = nodeNames('## Heading');
+    expect(names).toContain('ATXHeading2');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('### Heading remains an ATXHeading3, not a Tag', () => {
+    const names = nodeNames('### Heading');
+    expect(names).toContain('ATXHeading3');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('# tag (with a space) is a heading, not a Tag — the space is what matters, not the word', () => {
+    const names = nodeNames('# tag');
+    expect(names).toContain('ATXHeading1');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('#tag (no space) produces a Tag node, not a heading', () => {
+    const names = nodeNames('#tag');
+    expect(names).toContain('Tag');
+    expect(names).not.toContain('ATXHeading1');
+  });
+
+  it('#tag-name is a single Tag node — hyphen is a valid identifier character', () => {
+    const names = nodeNames('#tag-name');
+    expect(names).toContain('Tag');
+  });
+
+  it('#tag_name is a single Tag node — underscore is a valid identifier character', () => {
+    const names = nodeNames('#tag_name');
+    expect(names).toContain('Tag');
+  });
+
+  it('#tag123 is a single Tag node — digits are valid identifier characters', () => {
+    const names = nodeNames('#tag123');
+    expect(names).toContain('Tag');
+  });
+
+  it('foo#tag does NOT produce a Tag node — not preceded by whitespace or start, matching TagExtractor.ts', () => {
+    const names = nodeNames('foo#tag');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('foo #tag DOES produce a Tag node — preceded by whitespace', () => {
+    const names = nodeNames('foo #tag');
+    expect(names).toContain('Tag');
+  });
+
+  it('`#tag` inside a code span produces no Tag node — code-span content is never re-offered to later inline parsers', () => {
+    const names = nodeNames('`#tag`');
+    expect(names).toContain('InlineCode');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('Tag has no children of its own — a single indivisible node, unlike WikiLink/Emphasis/Strikethrough', () => {
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse('#tag');
+    const paragraph = tree.topNode.getChild('Paragraph');
+    const tag = paragraph?.getChild('Tag');
+    expect(tag).not.toBeNull();
+    expect(tag?.firstChild).toBeNull();
+  });
+
+  it('a bare # with no identifier characters after it produces no Tag node', () => {
+    const names = nodeNames('# ');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('a tag at the very start of the second line of a paragraph is recognized — newline counts as whitespace, matching TagExtractor’s \\s', () => {
+    const names = nodeNames('line one\n#tag');
+    expect(names).toContain('Tag');
+  });
+
+  it('a tag at the start of a second (non-first) paragraph is recognized', () => {
+    const names = nodeNames('First paragraph.\n\n#tag second paragraph.');
+    expect(names).toContain('Tag');
+  });
+
+  it('adjacent Tag and WikiLink tokens with no separating whitespace both parse as distinct nodes', () => {
+    const names = nodeNames('#tag[[Page]]');
+    expect(names).toContain('Tag');
+    expect(names).toContain('WikiLink');
+  });
+
+  it('[[Page]]#tag — WikiLink immediately followed by a tag both parse as distinct nodes', () => {
+    // Not preceded by whitespace ("]" before "#"), so per the same
+    // foo#tag rule this must NOT produce a Tag node.
+    const names = nodeNames('[[Page]]#tag');
+    expect(names).toContain('WikiLink');
+    expect(names).not.toContain('Tag');
+  });
+
+  it('a representative plain-prose document with a tag round-trips correctly alongside every other construct', () => {
+    const text = '# Notes\n\nSome prose with a #project tag and a [[Reference]].\n';
+    const names = nodeNames(text);
+    expect(names).toContain('ATXHeading1');
+    expect(names).toContain('Tag');
+    expect(names).toContain('WikiLink');
+  });
+});

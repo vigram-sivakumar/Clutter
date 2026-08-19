@@ -108,6 +108,14 @@
   opacity: var(--opacity-medium);
 }
 
+.cm-editor .tok-tag {
+  color: var(--link-foreground);
+  cursor: pointer;
+}
+.tok-tag[data-tag-status='unresolved'] {
+  opacity: var(--opacity-medium);
+}
+
 /*
  * Live Preview marker hiding — heading, WikiLink, and emphasis markers are
  * all hidden at rest via `Decoration.replace({})` in their respective

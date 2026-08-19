@@ -7,6 +7,10 @@ import {
 } from './codemirror/createEditorView';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
+import { tagDecorations } from './codemirror/tag/tagDecorations';
+import { tagKeymap } from './codemirror/tag/tagKeymap';
+import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
+import { tagSelectionSnap } from './codemirror/tag/tagSelectionSnap';
 import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
 import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
 import { wikiLinkKeymap } from './codemirror/wikilink/wikiLinkKeymap';
@@ -22,6 +26,7 @@ export type {
   MarkdownEditorHandle,
   MarkdownEditorProps,
 } from './MarkdownEditor.types';
+export type { ResolveTag, TagResolution } from './codemirror/tag/tagResolution';
 export type {
   ResolveWikiLink,
   WikiLinkResolution,
@@ -53,7 +58,10 @@ import './MarkdownEditor.css';
 export const MarkdownEditor = forwardRef<
   MarkdownEditorHandle,
   MarkdownEditorProps
->(function MarkdownEditor({ markdown, onEdit, onFlush, resolveWikiLink, getWikiLinkSuggestions }, ref) {
+>(function MarkdownEditor(
+  { markdown, onEdit, onFlush, resolveWikiLink, getWikiLinkSuggestions, resolveTag },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -75,6 +83,10 @@ export const MarkdownEditor = forwardRef<
   // Same freshness pattern, for the completion source's accessor below.
   const getWikiLinkSuggestionsRef = useRef(getWikiLinkSuggestions);
   getWikiLinkSuggestionsRef.current = getWikiLinkSuggestions;
+
+  // Same freshness pattern as resolveWikiLinkRef above, for Tag's decoration/mouse/keymap accessor.
+  const resolveTagRef = useRef(resolveTag);
+  resolveTagRef.current = resolveTag;
 
   useImperativeHandle(ref, () => ({
     focus() {
@@ -101,6 +113,10 @@ export const MarkdownEditor = forwardRef<
         wikiLinkKeymap(() => resolveWikiLinkRef.current),
         wikiLinkSelectionSnap(),
         wikiLinkAutocomplete(() => getWikiLinkSuggestionsRef.current),
+        tagDecorations(() => resolveTagRef.current),
+        tagMouseHandlers(() => resolveTagRef.current),
+        tagKeymap(() => resolveTagRef.current),
+        tagSelectionSnap(),
       ],
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onBlur: () => onFlushRef.current?.(),

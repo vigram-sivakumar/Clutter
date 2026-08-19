@@ -1,3 +1,4 @@
+import type { ResolveTag } from './codemirror/tag/tagResolution';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
 import type { GetWikiLinkSuggestions } from './codemirror/wikilink/wikiLinkSuggestion';
 
@@ -36,6 +37,14 @@ export interface MarkdownEditorProps {
    * extension list.
    */
   readonly getWikiLinkSuggestions?: GetWikiLinkSuggestions;
+  /**
+   * Resolves a Tag's identifier into a status and activation behavior —
+   * supplied entirely by the feature/app layer, same injected-boundary
+   * shape as `resolveWikiLink` above. Unlike `resolveWikiLink`, there is
+   * no display label to resolve (a tag's raw and at-rest forms are the
+   * same text — see `tagResolution.ts`).
+   */
+  readonly resolveTag?: ResolveTag;
 }
 
 /**
