@@ -4,7 +4,7 @@
   text-decoration-thickness: 0.09em;
 }
 .task__due-date {
-  font-size: var(--text-label);
+  font-size: var(--text-label-small);
   min-width: 40px;
   text-align: right;
 }

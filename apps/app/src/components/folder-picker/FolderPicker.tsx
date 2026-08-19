@@ -209,8 +209,8 @@ export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
             id={CREATE_ITEM_ID}
             role="menuitem"
             tabIndex={-1}
-            className="tertiary"
-            leading={<AppIcon icon="plus" />}
+            className="folder__title-create"
+            leading={<AppIcon className="create__icon" icon="plus" />}
             forceHover={keyboard.activeId === CREATE_ITEM_ID}
             onMouseEnter={() => keyboard.setActiveId(CREATE_ITEM_ID)}
             onClick={() => onCreate(query.trim())}

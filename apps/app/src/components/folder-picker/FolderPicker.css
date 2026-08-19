@@ -25,6 +25,12 @@
   flex-direction: column;
   justify-content: start;
 }
+.folder__title-create {
+  color: var(--foreground-secondary);
+}
+.create__icon {
+  color: var(--sidebar-icon-foreground);
+}
 .folder__path {
   font-size: var(--text-caption);
   line-height: var(--lh-caption);

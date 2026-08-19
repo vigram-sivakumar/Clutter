@@ -12,7 +12,7 @@
   border: 0;
   border-radius: var(--radius-lg);
 
-  font-size: var(--text-label);
+  font-size: var(--text-label-small);
   font-weight: var(--fw-regular);
 
   width: 100%;

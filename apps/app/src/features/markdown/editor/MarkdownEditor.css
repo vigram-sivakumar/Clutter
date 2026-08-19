@@ -30,7 +30,7 @@
   font-family: var(--font-sans);
   font-size: var(--text-body);
   line-height: var(--lh-body);
-  font-weight: var(--fw-regular);
+  font-weight: var(--fw-thin);
 }
 
 .markdown__editor .cm-line {

@@ -93,7 +93,7 @@
 .image-picker-unsplash__attribution {
   margin: 0;
   color: var(--foreground-tertiary);
-  font-size: var(--text-label);
+  font-size: var(--text-label-small);
   line-height: var(--lh-label);
   font-weight: var(--fw-thin);
   text-align: center;

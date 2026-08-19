@@ -20,7 +20,7 @@
   display: inline-flex;
   align-items: center;
 
-  font: var(--text-label);
+  font: var(--text-label-small);
   color: var(--foreground-secondary);
 }
 

@@ -145,7 +145,7 @@
 
 /* Object type specific classes */
 .section-header {
-  font-size: var(--text-label);
+  font-size: var(--text-label-small);
   line-height: var(--lh-label);
   color: var(--entry-muted-foreground);
 }

@@ -29,6 +29,6 @@
 }
 
 .date-label__date {
-  font-size: var(--text-label);
+  font-size: var(--text-label-small);
   color: var(--foreground-tertiary);
 }
