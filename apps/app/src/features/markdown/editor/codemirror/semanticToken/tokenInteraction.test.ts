@@ -114,16 +114,16 @@ describe('isWithinTokenBounds — generic', () => {
 });
 
 describe('hopRight / hopLeft — generic', () => {
-  it('hops to the far boundary from one position before an at-rest node', () => {
+  it('hops in from the left (near) boundary from one position before an at-rest node', () => {
     const view = mountView('x [[Projects/Page]] y', 1);
     expect(hopRight(view, isFixtureToken)).toBe(true);
-    expect(view.state.selection.main.head).toBe(19);
+    expect(view.state.selection.main.head).toBe(2);
   });
 
-  it('hops to the near boundary from one position after an at-rest node', () => {
+  it('hops in from the right (near) boundary from one position after an at-rest node', () => {
     const view = mountView('x [[Projects/Page]] y', 20);
     expect(hopLeft(view, isFixtureToken)).toBe(true);
-    expect(view.state.selection.main.head).toBe(2);
+    expect(view.state.selection.main.head).toBe(19);
   });
 
   it('does nothing when not adjacent to a token', () => {

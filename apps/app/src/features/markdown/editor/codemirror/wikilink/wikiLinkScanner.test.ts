@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { scanWikiLink } from './wikiLinkScanner';
+import { lastUnescapedSlashOffset, scanWikiLink } from './wikiLinkScanner';
 
 /**
  * Pure scanner tests — no CM6/Lezer runtime involved. Every case is a
@@ -127,5 +127,40 @@ describe('scanWikiLink — rejects non-WikiLink input outright', () => {
 
   it('returns null when startIndex does not point at [[', () => {
     expect(scanWikiLink('x[[foo]]', 0)).toBeNull();
+  });
+});
+
+describe('lastUnescapedSlashOffset', () => {
+  it('returns null for a reference with no folder component', () => {
+    expect(lastUnescapedSlashOffset('Note')).toBeNull();
+  });
+
+  it('returns null for an empty reference', () => {
+    expect(lastUnescapedSlashOffset('')).toBeNull();
+  });
+
+  it('finds the single slash in a one-level path', () => {
+    expect(lastUnescapedSlashOffset('Projects/Note')).toBe(8);
+  });
+
+  it('finds the LAST slash in a nested path, not the first', () => {
+    const text = 'Projects/Project A/Note';
+    expect(lastUnescapedSlashOffset(text)).toBe(text.lastIndexOf('/'));
+  });
+
+  it('does not count an escaped slash as a separator', () => {
+    // "A\/B" — one literal "A/B" filename, no real folder component.
+    expect(lastUnescapedSlashOffset('A\\/B')).toBeNull();
+  });
+
+  it('finds a real slash that follows an escaped one', () => {
+    // "A\/B/Note" — literal "A/B" is the folder, "Note" the filename; the
+    // real (unescaped) separator is the second "/".
+    const text = 'A\\/B/Note';
+    expect(lastUnescapedSlashOffset(text)).toBe(text.lastIndexOf('/'));
+  });
+
+  it('does not throw on a trailing backslash with nothing after it', () => {
+    expect(lastUnescapedSlashOffset('Note\\')).toBeNull();
   });
 });

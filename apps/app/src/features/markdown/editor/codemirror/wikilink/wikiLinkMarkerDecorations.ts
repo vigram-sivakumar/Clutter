@@ -10,7 +10,9 @@ import {
 } from '@codemirror/view';
 
 import { isTokenEngaged } from '../semanticToken/tokenEngagement';
+import { referenceZoneAt } from './wikiLinkCompletionSource';
 import { isWikiLinkNode, type WikiLinkNodeRange } from './wikiLinkEngagement';
+import { lastUnescapedSlashOffset } from './wikiLinkScanner';
 
 /** Length of the `[[`/`]]` bracket pair — scanWikiLink guarantees both are present and exactly two characters (wikiLinkScanner.ts). */
 const BRACKET_LENGTH = 2;
@@ -25,14 +27,31 @@ const BRACKET_LENGTH = 2;
 const bracketMark = Decoration.mark({ class: 'tok-mark tok-wikilink-mark' });
 
 /**
+ * Hides the folder-prefix portion of an engaged WikiLink's reference —
+ * `Decoration.replace({})`, no widget, same primitive `liveMarkDecoration.ts`
+ * already uses to hide ordinary formatting markers, just applied to a
+ * WikiLink-specific sub-range instead of a marker. Deliberately **not**
+ * registered in `EditorView.atomicRanges`: that would make Backspace/Delete
+ * remove the entire hidden prefix in one keystroke, which this editor can't
+ * safely offer since it has no undo. Cursor motion across this range is
+ * instead handled by `wikiLinkKeymap.ts`'s own `hopOverConcealedLeft`/
+ * `Right` commands — a custom keymap, not native atomicity — so navigation
+ * stays predictable without any destructive deletion side effect.
+ */
+const concealedFolder = Decoration.replace({});
+
+/**
  * At rest, a WikiLink's `[[`/`]]` never render at all — the whole node,
  * brackets included, is replaced wholesale by a `WikiLinkWidget`
- * (wikiLinkDecorations.ts). Only once engaged does the raw `[[path|alias]]`
- * text become visible, as plain unstyled text (see WikiLinkWidget.ts's
- * "no visual styling" note) — so this only ever needs to run for engaged
- * nodes, marking the two bracket ranges and nothing else. The path/alias
- * text between them is left completely undecorated, keeping its normal
- * text color.
+ * (wikiLinkDecorations.ts). Once engaged, the raw `[[path|alias]]` text
+ * becomes visible — except the folder-prefix portion of the path, which
+ * stays concealed (`concealedFolder` above): the canonical full path
+ * remains in the buffer and resolves normally, but the editing UI never
+ * exposes it, only the filename (and alias, if any) — the same
+ * canonical-path/editing-representation split
+ * `docs/editor-architecture-decisions.md` records. Brackets are marked
+ * for coloring as before; the path/alias text between them is otherwise
+ * left completely undecorated, keeping its normal text color.
  */
 function buildMarkerDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
@@ -52,6 +71,16 @@ function buildMarkerDecorations(view: EditorView): DecorationSet {
         }
 
         builder.add(range.from, range.from + BRACKET_LENGTH, bracketMark);
+
+        const zone = referenceZoneAt(view.state, range.from + BRACKET_LENGTH);
+        if (zone) {
+          const refText = view.state.sliceDoc(zone.from, zone.to);
+          const slashOffset = lastUnescapedSlashOffset(refText);
+          if (slashOffset !== null) {
+            builder.add(zone.from, zone.from + slashOffset + 1, concealedFolder);
+          }
+        }
+
         builder.add(range.to - BRACKET_LENGTH, range.to, bracketMark);
       },
     });

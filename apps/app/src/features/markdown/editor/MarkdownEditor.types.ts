@@ -1,4 +1,5 @@
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
+import type { GetWikiLinkSuggestions } from './codemirror/wikilink/wikiLinkSuggestion';
 
 export interface MarkdownEditorProps {
   readonly markdown: string;
@@ -27,6 +28,14 @@ export interface MarkdownEditorProps {
    * introduced in §6.
    */
   readonly resolveWikiLink?: ResolveWikiLink;
+  /**
+   * Supplies WikiLink autocomplete candidates for a given in-progress
+   * `[[query` — supplied entirely by the feature/app layer, same
+   * injected-boundary shape as `resolveWikiLink` above. Accepted here but
+   * only consumed once `wikiLinkAutocomplete()` is wired into the
+   * extension list.
+   */
+  readonly getWikiLinkSuggestions?: GetWikiLinkSuggestions;
 }
 
 /**

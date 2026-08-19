@@ -23,10 +23,13 @@ import type { GetTokenActivation } from './tokenMouseHandlers';
  * instant they reach the near boundary, failing the locked "atomic,
  * doesn't disrupt fast navigation" requirement. The fix: when the caret
  * sits one position before an at-rest token and the user presses further
- * in that direction, jump straight to the far boundary instead of taking
- * a single step. Landing there is immediately engaged (same
- * inclusive-boundary rule), which is what gives keyboard-only users an
- * entry path.
+ * in that direction, jump straight to the token's near boundary (the one
+ * facing the direction of approach) instead of taking a single step.
+ * Landing there is immediately engaged (same inclusive-boundary rule),
+ * which is what gives keyboard-only users an entry path — and crucially,
+ * entry happens from whichever side the caret approached from, never the
+ * opposite side (product decision: the caret must never appear to have
+ * "passed through" the token to its far side in one press).
  */
 export function hopRight(view: EditorView, isTokenNode: TokenNodePredicate): boolean {
   const { state } = view;
@@ -40,7 +43,7 @@ export function hopRight(view: EditorView, isTokenNode: TokenNodePredicate): boo
     return false;
   }
 
-  view.dispatch({ selection: { anchor: node.to } });
+  view.dispatch({ selection: { anchor: node.from } });
   return true;
 }
 
@@ -56,16 +59,20 @@ export function hopLeft(view: EditorView, isTokenNode: TokenNodePredicate): bool
     return false;
   }
 
-  view.dispatch({ selection: { anchor: node.from } });
+  view.dispatch({ selection: { anchor: node.to } });
   return true;
 }
 
 /**
- * Enter, when the caret is one position before or after (i.e. structurally
- * adjacent to, per the note above) an at-rest token: activates it, the
- * same action a click would perform — the keyboard-only path to
- * activation, since the hop gestures above only ever get a keyboard user
- * *into* editing, never invoke activation on their own.
+ * Activates a token as if it had been clicked, given the caret is one
+ * position before or after (i.e. structurally adjacent to, per the note
+ * above) an at-rest token.
+ *
+ * NOT wired to any key by `tokenKeymap` below (deliberately — see that
+ * function's own comment): kept as a plain, directly-callable function
+ * rather than deleted, since the underlying "is the caret adjacent to
+ * this token" logic has its own value independent of how — or whether —
+ * a caller chooses to trigger activation from it.
  */
 export function activateAdjacentToken(
   view: EditorView,
@@ -103,14 +110,26 @@ export function activateAdjacentToken(
  * Key bindings only — mouse interaction is a separate mechanism
  * (`tokenMouseHandlers.ts`), since `keymap` has no path to mouse events at
  * all. Shared by every semantic inline construct kind.
+ *
+ * No `Enter` binding: an earlier version bound Enter (adjacent to an
+ * at-rest token) to `activateAdjacentToken`, matching
+ * docs/editor-architecture-decisions.md's "keyboard-only activation gap"
+ * entry — but that collided with the far more common case of a user
+ * simply pressing Enter to start a new line, whose caret happens to land
+ * one position past a token (e.g. a trailing space, or an existing blank
+ * line right after it): Enter would silently activate/navigate instead of
+ * inserting a newline. Per explicit product decision, activation is
+ * mouse-only — `getActivation` is still accepted here (part of this
+ * function's stable signature) but is intentionally unused; deliberately
+ * NOT reintroduced under a different key (e.g. Mod-Enter) either. This is
+ * a known, deliberate divergence from that ADR entry, not an oversight.
  */
 export function tokenKeymap(
   isTokenNode: TokenNodePredicate,
-  getActivation: GetTokenActivation
+  _getActivation: GetTokenActivation
 ): Extension {
   return keymap.of([
     { key: 'ArrowRight', run: (view) => hopRight(view, isTokenNode) },
     { key: 'ArrowLeft', run: (view) => hopLeft(view, isTokenNode) },
-    { key: 'Enter', run: (view) => activateAdjacentToken(view, isTokenNode, getActivation) },
   ]);
 }

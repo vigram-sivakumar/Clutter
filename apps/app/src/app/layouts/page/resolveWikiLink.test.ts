@@ -278,7 +278,7 @@ describe('createWikiLinkResolver', () => {
       await flushAsync();
 
       expect(createFolder).not.toHaveBeenCalled();
-      expect(createPage).toHaveBeenCalledWith({ folderId: null, title: 'Does Not Exist' });
+      expect(createPage).toHaveBeenCalledWith({ folderId: null, title: 'Does Not Exist', activate: true });
       expect(vault.getPageByPath('/vault/Does Not Exist.md')).toBeDefined();
     });
 
@@ -298,7 +298,7 @@ describe('createWikiLinkResolver', () => {
       await flushAsync();
 
       expect(createFolder).not.toHaveBeenCalled();
-      expect(createPage).toHaveBeenCalledWith({ folderId: 'folder-projects', title: 'New Page' });
+      expect(createPage).toHaveBeenCalledWith({ folderId: 'folder-projects', title: 'New Page', activate: true });
     });
 
     // 3. Missing one intermediate folder.
@@ -320,7 +320,7 @@ describe('createWikiLinkResolver', () => {
 
       const createdFolder = vault.getFolderByPath('/vault/Projects');
       expect(createdFolder).toBeDefined();
-      expect(createPage).toHaveBeenCalledWith({ folderId: createdFolder?.id, title: 'New Page' });
+      expect(createPage).toHaveBeenCalledWith({ folderId: createdFolder?.id, title: 'New Page', activate: true });
       expect(vault.getPageByPath('/vault/Projects/New Page.md')).toBeDefined();
     });
 
@@ -347,7 +347,7 @@ describe('createWikiLinkResolver', () => {
 
       const projectBFolder = vault.getFolderByPath('/vault/Projects/Project B');
       expect(projectBFolder).toBeDefined();
-      expect(createPage).toHaveBeenCalledWith({ folderId: projectBFolder?.id, title: 'Note' });
+      expect(createPage).toHaveBeenCalledWith({ folderId: projectBFolder?.id, title: 'Note', activate: true });
       expect(vault.getPageByPath('/vault/Projects/Project B/Note.md')).toBeDefined();
     });
 
@@ -420,7 +420,7 @@ describe('createWikiLinkResolver', () => {
       resolve('Does Not Exist', 'A Friendly Alias').activate();
       await flushAsync();
 
-      expect(createPage).toHaveBeenCalledWith({ folderId: null, title: 'Does Not Exist' });
+      expect(createPage).toHaveBeenCalledWith({ folderId: null, title: 'Does Not Exist', activate: true });
     });
   });
 });

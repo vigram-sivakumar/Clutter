@@ -29,11 +29,17 @@ interface SegmentScan {
 /**
  * Scans literal content from `start`, honoring single-character backslash
  * escapes throughout. Stops at the first unescaped `|` (only when
- * `stopOnPipe` is true) or the first unescaped `]]`. Returns `null` if the
- * input ends before either stop condition is reached — this function never
- * returns a partial result.
+ * `stopOnPipe` is true) or the first unescaped `]]`. When `requireStop` is
+ * true (the default — every existing call site relies on this), returns
+ * `null` if the input ends before either stop condition is reached, so
+ * `scanWikiLink`'s all-or-nothing contract is unchanged: a closed WikiLink
+ * that never finds its terminator is genuinely invalid, not a partial
+ * result. When `requireStop` is false, running off the end of `text`
+ * without finding a stop is a valid outcome (used for in-progress,
+ * not-yet-closed text, which has no `]]` to find) — the fully-decoded text
+ * scanned so far is still returned rather than discarded.
  */
-function scanSegment(text: string, start: number, stopOnPipe: boolean): SegmentScan | null {
+function scanSegment(text: string, start: number, stopOnPipe: boolean, requireStop = true): SegmentScan | null {
   let out = '';
   let i = start;
 
@@ -69,7 +75,68 @@ function scanSegment(text: string, start: number, stopOnPipe: boolean): SegmentS
     i += 1;
   }
 
-  return null;
+  return requireStop ? null : { text: out, stoppedAt: i, stoppedOnPipe: false };
+}
+
+export interface WikiLinkQuerySplit {
+  /** Decoded (escapes resolved) text before the first unescaped `|`, or the whole (decoded) input if it has none. */
+  readonly reference: string;
+  /** Index of the first unescaped `|` within the original (raw, undecoded) `text` passed in, or `null` if there is none. */
+  readonly pipeIndex: number | null;
+}
+
+/**
+ * For in-progress (not-yet-closed) `[[...` text — i.e. everything between
+ * the opening `[[` and the cursor, with no `]]` yet — splits it at the
+ * first unescaped `|`, if any, reusing {@link scanSegment}'s own escaping
+ * rules rather than a second, separate notion of "unescaped pipe" (the
+ * same escaping semantics {@link scanWikiLink} already applies once the
+ * link closes). `requireStop: false` is what makes this valid for
+ * in-progress text specifically: there is no closing `]]` for it to stop
+ * on, so running off the end of `text` (no `|` typed yet) is an expected
+ * outcome here, not the "invalid/incomplete" case `scanWikiLink` itself
+ * still treats as `null`.
+ */
+export function splitAtFirstUnescapedPipe(text: string): WikiLinkQuerySplit {
+  // requireStop: false — see the doc comment above and on scanSegment
+  // itself — so this is never null.
+  const scan = scanSegment(text, 0, true, false) as SegmentScan;
+  return { reference: scan.text, pipeIndex: scan.stoppedOnPipe ? scan.stoppedAt : null };
+}
+
+/**
+ * Raw-buffer offset (not decoded) of the last unescaped `/` within a
+ * WikiLink's reference text (e.g. `"Projects/Project A/Note"`), or `null`
+ * if it has no folder component. Used to find the boundary between the
+ * folder prefix — concealed while the WikiLink is engaged, per the
+ * editing-representation UX — and the filename, which always stays
+ * visible; a raw offset because it feeds directly into a
+ * `Decoration.replace` range, not a decoded display string.
+ *
+ * Deliberately narrower than {@link scanSegment}'s general escape
+ * handling: it only needs to skip a backslash-escaped pair so an escaped
+ * `\/` is never mistaken for a real path separator, not to validate which
+ * character was escaped or to decode the result — the caller only needs
+ * *where* the last separator is. Callers pass the already-isolated
+ * reference text (e.g. `referenceZoneAt`'s own `[from, to)` slice), which
+ * never contains the alias or the closing `]]`.
+ */
+export function lastUnescapedSlashOffset(referenceText: string): number | null {
+  let last: number | null = null;
+  let i = 0;
+
+  while (i < referenceText.length) {
+    if (referenceText[i] === '\\' && i + 1 < referenceText.length) {
+      i += 2;
+      continue;
+    }
+    if (referenceText[i] === '/') {
+      last = i;
+    }
+    i += 1;
+  }
+
+  return last;
 }
 
 /**

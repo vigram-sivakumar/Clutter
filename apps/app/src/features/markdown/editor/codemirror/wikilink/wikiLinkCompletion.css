@@ -1,0 +1,65 @@
+/**
+ * Internal layout only — classes CM6's own baseTheme never defines, so a
+ * plain stylesheet is safe here. Anything that overrides a class CM6
+ * itself styles (`.cm-tooltip-autocomplete`, `.cm-completionLabel`, the
+ * `<li>` CM6 creates) belongs in wikiLinkAutocompleteTheme.ts's
+ * `EditorView.theme()` instead — a plain external stylesheet does not
+ * reliably win against CM6's dynamically-injected baseTheme (verified in
+ * editorTheme.ts's own doc comment, for the same reason).
+ *
+ * Every color/spacing token below is the same one `Entry`/`FolderPicker`
+ * already use (`entry.css`'s own custom properties), reused directly for
+ * visual consistency rather than redefined.
+ */
+.wikilink-completion {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  min-height: var(--height-lg);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
+
+  padding-block: var(--space-6);
+  padding-inline: var(--space-6);
+  gap: var(--space-6);
+}
+
+.wikilink-completion__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  height: var(--height-xs);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  color: var(--foreground-tertiary);
+}
+
+.wikilink-completion__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.wikilink-completion__content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.wikilink-completion__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--foreground-secondary);
+}
+
+.wikilink-completion__path {
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+  color: var(--foreground-tertiary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

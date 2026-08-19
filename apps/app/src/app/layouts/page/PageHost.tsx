@@ -25,6 +25,7 @@ import { toCollectionPageModel } from '@features/collection/page/toCollectionPag
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
 import {
@@ -73,6 +74,12 @@ export function PageHost({ application }: PageHostProps) {
   // Composed once per render from the currently-attached Vault/PageOperations
   // — cheap, stateless glue (resolveWikiLink.ts), not worth memoizing.
   const resolveWikiLink = createWikiLinkResolver(
+    vault,
+    application.pageOperations,
+    application.folderOperations
+  );
+  // Same per-render, stateless-glue composition as resolveWikiLink above.
+  const getWikiLinkSuggestions = createWikiLinkSuggester(
     vault,
     application.pageOperations,
     application.folderOperations
@@ -450,6 +457,7 @@ export function PageHost({ application }: PageHostProps) {
               onEdit={(markdown) => model.updateMarkdown(markdown)}
               onFlush={() => model.requestSave()}
               resolveWikiLink={resolveWikiLink}
+              getWikiLinkSuggestions={getWikiLinkSuggestions}
             />
           </MarkdownBody>
         }
@@ -535,6 +543,7 @@ export function PageHost({ application }: PageHostProps) {
             onEdit={(markdown) => model.updateMarkdown(markdown)}
             onFlush={() => model.requestSave()}
             resolveWikiLink={resolveWikiLink}
+            getWikiLinkSuggestions={getWikiLinkSuggestions}
           />
         </MarkdownBody>
       }

@@ -62,6 +62,16 @@ export class MutateBodyAbandonedError extends Error {
 export interface CreatePageOptions {
   readonly folderId: string | null;
   readonly title?: string;
+  /**
+   * Whether create() also makes the new page the active view (default
+   * `true` — every existing caller's behavior, unchanged). Pass `false`
+   * for a caller that only needs the page to exist without switching the
+   * user away from whatever they're currently looking at — e.g. WikiLink
+   * autocomplete's "+ Create" acceptance, where accepting a completion
+   * must only insert text, never navigate (docs/editor-architecture-
+   * decisions.md's autocomplete-is-insertion-only invariant).
+   */
+  readonly activate?: boolean;
 }
 
 /**
@@ -1375,9 +1385,21 @@ export class PageOperations {
       title: options.title,
     });
 
-    await this.persistDraft(id, '');
-    this.flushActivePage();
-    this.workspace.openPage(id);
+    const page = await this.persistDraft(id, '');
+
+    if (options.activate ?? true) {
+      // Mirrors open()'s own documentRegistry.open() call: PageHost requires
+      // a DocumentSession to exist before it will render anything (session
+      // gate precedes the draft/page branch), and workspace.openPage() below
+      // is about to make this page the active view — without this, the page
+      // exists in Vault and is the active view but is unrenderable until
+      // something else happens to open a session for it. Skipped entirely
+      // when `activate: false` — the page is persisted but never becomes
+      // the active view, so neither step is needed.
+      this.documentRegistry.open(page.id, page.source.markdown);
+      this.flushActivePage();
+      this.workspace.openPage(id);
+    }
 
     return id;
   }

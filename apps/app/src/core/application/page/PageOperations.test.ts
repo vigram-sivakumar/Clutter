@@ -688,6 +688,76 @@ describe('PageOperations.create()', () => {
     const created = vault.getPage(newId)!;
     expect(created.id).toBe(newId);
   });
+
+  // Regression: create() persisted the page and made it the active view
+  // (workspace.openPage()) but never opened its DocumentSession — unlike
+  // open(), which calls documentRegistry.open() before workspace.openPage().
+  // PageHost's render logic (PageHost.tsx) requires a session to exist
+  // before it renders anything at all — `if (!session || !activePageId)
+  // return null;` runs before the draft/real-page branch — so the created
+  // page was the active view yet had nothing to render: a blank main pane,
+  // with no thrown error, immediately after create(). Discovered via the
+  // pre-existing unresolved-WikiLink-click-creates-a-page flow
+  // (resolveWikiLink.ts's createReferencedPage), the only production
+  // caller of create() at all.
+  it('opens a DocumentSession for the created page, not just Vault registration and workspace activation', async () => {
+    const existing = buildPage();
+    const { vault, workspace, documentRegistry, pageOperations } = setup(existing);
+
+    const newId = await pageOperations.create({
+      folderId: null,
+      title: 'Idea',
+    });
+
+    // The three facts PageHost's render path actually depends on, all
+    // simultaneously true the instant create() resolves — this is the
+    // "immediately renderable through the normal PageHost lifecycle"
+    // contract: Vault registration (structural presentation), workspace
+    // activation (which view is active), and DocumentSession (the gate
+    // PageHost's own render checks first, before it even looks at whether
+    // the active id resolves to a draft or a real Vault page).
+    expect(vault.getPage(newId)).toBeDefined();
+    expect(workspace.activePageId).toBe(newId);
+    expect(documentRegistry.get(newId)).toBeDefined();
+  });
+
+  it("the opened session's initial content matches the persisted page's own markdown", async () => {
+    const existing = buildPage();
+    const { vault, documentRegistry, pageOperations } = setup(existing);
+
+    const newId = await pageOperations.create({
+      folderId: null,
+      title: 'Idea',
+    });
+
+    const created = vault.getPage(newId)!;
+    const session = documentRegistry.get(newId)!;
+    expect(session.currentRevision.markdown).toBe(created.source.markdown);
+  });
+
+  // Regression: WikiLink autocomplete's "+ Create" acceptance must only
+  // insert/create a page, never switch the user away from the page they're
+  // currently editing (docs/editor-architecture-decisions.md's
+  // "autocomplete acceptance is insertion-only" invariant). `activate:
+  // false` is the option that lets a caller opt out of create()'s default
+  // "also make this the active view" behavior.
+  it('with activate: false, persists the page without opening a session or changing the active view', async () => {
+    const existing = buildPage();
+    const { vault, workspace, documentRegistry, pageOperations } = setup(existing);
+    await pageOperations.open(existing.id);
+    expect(workspace.activePageId).toBe(existing.id);
+
+    const newId = await pageOperations.create({
+      folderId: null,
+      title: 'Idea',
+      activate: false,
+    });
+
+    expect(vault.getPage(newId)).toBeDefined();
+    expect(workspace.activePageId).toBe(existing.id);
+    expect(workspace.isPageOpen(newId)).toBe(false);
+    expect(documentRegistry.get(newId)).toBeUndefined();
+  });
 });
 
 describe('PageOperations.delete()', () => {

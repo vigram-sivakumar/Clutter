@@ -7,6 +7,7 @@ import {
 } from './codemirror/createEditorView';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
+import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
 import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
 import { wikiLinkKeymap } from './codemirror/wikilink/wikiLinkKeymap';
 import { wikiLinkMarkerDecorations } from './codemirror/wikilink/wikiLinkMarkerDecorations';
@@ -25,6 +26,12 @@ export type {
   ResolveWikiLink,
   WikiLinkResolution,
 } from './codemirror/wikilink/wikiLinkResolution';
+export type {
+  GetWikiLinkSuggestions,
+  WikiLinkSuggestion,
+  WikiLinkPageSuggestion,
+  WikiLinkCreateSuggestion,
+} from './codemirror/wikilink/wikiLinkSuggestion';
 import './MarkdownEditor.css';
 
 /**
@@ -46,7 +53,7 @@ import './MarkdownEditor.css';
 export const MarkdownEditor = forwardRef<
   MarkdownEditorHandle,
   MarkdownEditorProps
->(function MarkdownEditor({ markdown, onEdit, onFlush, resolveWikiLink }, ref) {
+>(function MarkdownEditor({ markdown, onEdit, onFlush, resolveWikiLink, getWikiLinkSuggestions }, ref) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -64,6 +71,10 @@ export const MarkdownEditor = forwardRef<
   // now with an actual reader.
   const resolveWikiLinkRef = useRef(resolveWikiLink);
   resolveWikiLinkRef.current = resolveWikiLink;
+
+  // Same freshness pattern, for the completion source's accessor below.
+  const getWikiLinkSuggestionsRef = useRef(getWikiLinkSuggestions);
+  getWikiLinkSuggestionsRef.current = getWikiLinkSuggestions;
 
   useImperativeHandle(ref, () => ({
     focus() {
@@ -89,6 +100,7 @@ export const MarkdownEditor = forwardRef<
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
         wikiLinkKeymap(() => resolveWikiLinkRef.current),
         wikiLinkSelectionSnap(),
+        wikiLinkAutocomplete(() => getWikiLinkSuggestionsRef.current),
       ],
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onBlur: () => onFlushRef.current?.(),

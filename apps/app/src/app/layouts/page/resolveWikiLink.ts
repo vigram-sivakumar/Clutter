@@ -116,18 +116,36 @@ function findPagesByAlias(vault: Vault, alias: string): Page[] {
  * something, appending a collision suffix if the name is taken — see
  * `FolderOperations.create`'s own doc comment), so skipping this check
  * would create a duplicate on every repeated activation.
+ *
+ * Exported so `wikiLinkSuggestions.ts`'s "Create page" autocomplete option
+ * can call this exact same implementation — one
+ * page-creation-from-a-WikiLink-path mechanism, not two
+ * (docs/implementation-rules.md rule 4).
+ *
+ * `activate` (default `true`) gates every navigation this function would
+ * otherwise perform — both the "already exists, just open it" early
+ * returns and the terminal `pageOperations.create()` call. Callers that
+ * reach this from an explicit user activation of a WikiLink (an
+ * unresolved reference's own `activate()`, below) want the historical
+ * create-and-open behavior; `wikiLinkSuggestions.ts`'s autocomplete
+ * acceptance passes `false`, since accepting a completion must only
+ * insert/create, never navigate (docs/editor-architecture-decisions.md's
+ * "autocomplete acceptance is insertion-only" invariant).
  */
-async function createReferencedPage(
+export async function createReferencedPage(
   vault: Vault,
   folderOperations: FolderOperations,
   pageOperations: PageOperations,
-  path: string
+  path: string,
+  activate = true
 ): Promise<void> {
   const targetPath = `${vault.root}/${path}.md`;
 
   const existing = vault.getPageByPath(targetPath);
   if (existing) {
-    void pageOperations.open(existing.id);
+    if (activate) {
+      void pageOperations.open(existing.id);
+    }
     return;
   }
 
@@ -143,11 +161,13 @@ async function createReferencedPage(
   // above.
   const createdMeanwhile = vault.getPageByPath(targetPath);
   if (createdMeanwhile) {
-    void pageOperations.open(createdMeanwhile.id);
+    if (activate) {
+      void pageOperations.open(createdMeanwhile.id);
+    }
     return;
   }
 
-  void pageOperations.create({ folderId, title });
+  void pageOperations.create({ folderId, title, activate });
 }
 
 /**
