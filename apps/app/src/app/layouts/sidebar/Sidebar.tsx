@@ -99,6 +99,7 @@ export function Sidebar({ application }: SidebarProps) {
           workspace={workspace}
           taskOperations={taskOperations}
           pageOperations={pageOperations}
+          folderOperations={folderOperations}
         />
       ),
     },

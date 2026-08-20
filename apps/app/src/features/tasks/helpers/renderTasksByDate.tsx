@@ -10,6 +10,7 @@ import { Caret } from '@components/caret/Caret';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 
 // Helpers
 import { groupTasks } from './groupTasks';
@@ -23,6 +24,12 @@ interface TaskRowCallbacks {
   readonly onOpenTask: (task: TaskOccurrence) => void;
 }
 
+/** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
+interface TaskRowResolvers {
+  readonly resolveWikiLink?: ResolveWikiLink;
+  readonly resolveTag?: ResolveTag;
+}
+
 // A due date is never worth showing when it's today — whichever section a
 // row is in (the incomplete Today list, or a completed-today task) already
 // conveys "today" by construction, so the label would just repeat it. Any
@@ -30,7 +37,7 @@ interface TaskRowCallbacks {
 // shown normally.
 export function renderTaskRow(
   task: TaskOccurrence,
-  { onToggleComplete, onOpenTask }: TaskRowCallbacks
+  { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag }: TaskRowCallbacks & TaskRowResolvers
 ) {
   const dueDate = task.dueDate;
   const isDueToday = dueDate != null && isToday(dueDate);
@@ -45,11 +52,13 @@ export function renderTaskRow(
       isChecked={task.completed}
       onCheckedChange={() => onToggleComplete(task)}
       onClick={() => onOpenTask(task)}
+      resolveWikiLink={resolveWikiLink}
+      resolveTag={resolveTag}
     />
   );
 }
 
-export interface RenderTodayContentProps extends TaskRowCallbacks {
+export interface RenderTodayContentProps extends TaskRowCallbacks, TaskRowResolvers {
   // Pre-grouped, not raw tasks — the outer Section (renderTasksByDate) and
   // the Today collection page (TasksCollectionBody) both need these same
   // counts to decide their own default-expansion/emptiness, so grouping
@@ -74,6 +83,8 @@ export function renderTodayContent({
   onToggleComplete,
   onOpenTask,
   onOpenCompleted,
+  resolveWikiLink,
+  resolveTag,
 }: RenderTodayContentProps) {
   const toggleCompleted = () =>
     workspace.toggleSectionExpanded('tasks-today-completed');
@@ -81,7 +92,7 @@ export function renderTodayContent({
   return (
     <Fragment>
       {today.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask })
+        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag })
       )}
 
       {todayCompleted.length > 0 && (
@@ -110,7 +121,7 @@ export function renderTodayContent({
 
           {workspace.isSectionExpanded('tasks-today-completed') &&
             todayCompleted.map((task) =>
-              renderTaskRow(task, { onToggleComplete, onOpenTask })
+              renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag })
             )}
         </Fragment>
       )}
@@ -118,7 +129,7 @@ export function renderTodayContent({
   );
 }
 
-export interface RenderUpcomingContentProps extends TaskRowCallbacks {
+export interface RenderUpcomingContentProps extends TaskRowCallbacks, TaskRowResolvers {
   // Pre-grouped, not raw tasks — see RenderTodayContentProps.today.
   readonly upcoming: readonly TaskOccurrence[];
 }
@@ -132,17 +143,19 @@ export function renderUpcomingContent({
   upcoming,
   onToggleComplete,
   onOpenTask,
+  resolveWikiLink,
+  resolveTag,
 }: RenderUpcomingContentProps) {
   return (
     <Fragment>
       {upcoming.map((task) =>
-        renderTaskRow(task, { onToggleComplete, onOpenTask })
+        renderTaskRow(task, { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag })
       )}
     </Fragment>
   );
 }
 
-interface RenderTasksByDateProps extends TaskRowCallbacks {
+interface RenderTasksByDateProps extends TaskRowCallbacks, TaskRowResolvers {
   readonly tasks: readonly TaskOccurrence[];
   readonly workspace: Workspace;
   readonly navigation: NavigationRouter;
@@ -154,6 +167,8 @@ export function renderTasksByDate({
   onToggleComplete,
   onOpenTask,
   navigation,
+  resolveWikiLink,
+  resolveTag,
 }: RenderTasksByDateProps) {
   // Grouped once here — both Sections need these counts to know whether
   // they're empty (for default expansion) as well as what to render, and
@@ -181,6 +196,8 @@ export function renderTasksByDate({
           onToggleComplete,
           onOpenTask,
           onOpenCompleted: () => navigation.openTasksCompleted(),
+          resolveWikiLink,
+          resolveTag,
         })}
       </Section>
       {upcoming.length > 0 && (
@@ -195,7 +212,13 @@ export function renderTasksByDate({
           }
           onClick={() => navigation.openTasksUpcoming()}
         >
-          {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask })}
+          {renderUpcomingContent({
+            upcoming,
+            onToggleComplete,
+            onOpenTask,
+            resolveWikiLink,
+            resolveTag,
+          })}
         </Section>
       )}
     </Fragment>

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
 import { cleanup, render, fireEvent, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -275,7 +276,7 @@ describe('renderTasksByDate', () => {
         dueDate: '2026-08-21',
       });
 
-      const { getByText } = render(
+      const { container } = render(
         <>
           {renderTasksByDate({
             tasks: [task1],
@@ -288,9 +289,16 @@ describe('renderTasksByDate', () => {
       );
 
       // System time is faked to 2026-08-04 — @2026-08-01 is outside the
-      // current week, so it renders as "@1 August" (compact mode, same
-      // formatter the editor's at-rest DateWidget uses).
-      expect(getByText('Moved from @1 August to')).not.toBeNull();
+      // current week, so it renders via 'compact' mode's full-date
+      // fallback, day + full month + year (dateDisplay.ts: only
+      // 'condensed' mode ever drops the year) — same formatter the
+      // editor's at-rest DateWidget uses — now via renderCompactMarkdown's
+      // own <span class="compact-markdown-date">, not a plain string
+      // formatTaskTitle produces itself, so this reads the title's
+      // combined text content rather than querying one exact text node.
+      const title = container.querySelector('.task-title')!;
+      expect(title).toHaveTextContent('Moved from @1 August 2026 to');
+      expect(title.querySelector('.compact-markdown-date')).toHaveTextContent('@1 August 2026');
     });
 
     it('formats two tasks with different bare dates independently in the same render, without cross-contamination', () => {
@@ -304,7 +312,7 @@ describe('renderTasksByDate', () => {
         dueDate: '2026-08-05',
       });
 
-      const { getByText } = render(
+      const { container } = render(
         <>
           {renderTasksByDate({
             tasks: [taskA, taskB],
@@ -316,13 +324,18 @@ describe('renderTasksByDate', () => {
         </>
       );
 
+      const titles = Array.from(container.querySelectorAll('.task-title'));
+      const titleA = titles.find((el) => el.textContent?.startsWith('Review'))!;
+      const titleB = titles.find((el) => el.textContent?.startsWith('Prepare'))!;
+
       // Task A: its own due date (@2026-08-20) is hidden from the title;
-      // its other bare date (@2026-08-22, outside the current week, same
-      // year) is reformatted via the shared compact formatter; the
-      // trailing badge (condensed mode) still shows its due date.
-      const rowA = getByText(
-        'Review and compare with @22 August'
-      ).closest('.entry') as HTMLElement;
+      // its other bare date (@2026-08-22, outside the current week) is
+      // reformatted via the shared compact formatter — full month + year,
+      // per dateDisplay.ts's 'compact' mode (rendered as its own <span>,
+      // hence the combined-text-content assertion); the trailing badge
+      // (condensed mode) still shows its due date.
+      expect(titleA).toHaveTextContent('Review and compare with @22 August 2026');
+      const rowA = titleA.closest('.entry') as HTMLElement;
       expect(within(rowA).getByText('20 Aug')).not.toBeNull();
 
       // Task B: its own due date (@2026-08-05) is hidden from the title;
@@ -330,9 +343,8 @@ describe('renderTasksByDate', () => {
       // week) is reformatted as its weekday name; the trailing badge
       // still shows its own (different) due date — neither task's title
       // or badge leaks into the other's.
-      const rowB = getByText('Prepare slides before @Friday').closest(
-        '.entry'
-      ) as HTMLElement;
+      expect(titleB).toHaveTextContent('Prepare slides before @Friday');
+      const rowB = titleB.closest('.entry') as HTMLElement;
       expect(within(rowB).getByText('Tomorrow')).not.toBeNull();
     });
 
