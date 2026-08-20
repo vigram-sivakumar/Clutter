@@ -243,6 +243,121 @@ describe('renderTasksByDate', () => {
     });
   });
 
+  describe('inline bare-date deduplication in the title, through the full render path', () => {
+    it('removes the bare date matching dueDate from the title, leaving the trailing label as the only date shown', () => {
+      const task1 = task({
+        text: 'Clean the Trash @2026-08-21',
+        dueDate: '2026-08-21',
+      });
+
+      const { getByText, queryByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [task1],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      expect(getByText('Clean the Trash')).not.toBeNull();
+      expect(queryByText(/@2026-08-21/)).toBeNull();
+
+      const row = getByText('Clean the Trash').closest('.entry') as HTMLElement;
+      expect(within(row).getByText('21 Aug')).not.toBeNull();
+    });
+
+    it('only removes the bare date matching dueDate when the title has multiple dates, formatting the other one semantically', () => {
+      const task1 = task({
+        text: 'Moved from @2026-08-01 to @2026-08-21',
+        dueDate: '2026-08-21',
+      });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [task1],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      // System time is faked to 2026-08-04 — @2026-08-01 is outside the
+      // current week, so it renders as "@1 August" (compact mode, same
+      // formatter the editor's at-rest DateWidget uses).
+      expect(getByText('Moved from @1 August to')).not.toBeNull();
+    });
+
+    it('formats two tasks with different bare dates independently in the same render, without cross-contamination', () => {
+      // System time is faked to 2026-08-04 (Tuesday).
+      const taskA = task({
+        text: 'Review @2026-08-20 and compare with @2026-08-22',
+        dueDate: '2026-08-20',
+      });
+      const taskB = task({
+        text: 'Prepare slides @2026-08-05 before @2026-08-07',
+        dueDate: '2026-08-05',
+      });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [taskA, taskB],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      // Task A: its own due date (@2026-08-20) is hidden from the title;
+      // its other bare date (@2026-08-22, outside the current week, same
+      // year) is reformatted via the shared compact formatter; the
+      // trailing badge (condensed mode) still shows its due date.
+      const rowA = getByText(
+        'Review and compare with @22 August'
+      ).closest('.entry') as HTMLElement;
+      expect(within(rowA).getByText('20 Aug')).not.toBeNull();
+
+      // Task B: its own due date (@2026-08-05) is hidden from the title;
+      // its other bare date (@2026-08-07, a weekday within the current
+      // week) is reformatted as its weekday name; the trailing badge
+      // still shows its own (different) due date — neither task's title
+      // or badge leaks into the other's.
+      const rowB = getByText('Prepare slides before @Friday').closest(
+        '.entry'
+      ) as HTMLElement;
+      expect(within(rowB).getByText('Tomorrow')).not.toBeNull();
+    });
+
+    it('leaves the title unchanged when there is no inline bare date to remove', () => {
+      const task1 = task({
+        text: 'Clean the Trash',
+        dueDate: '2026-08-21',
+      });
+
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [task1],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      expect(getByText('Clean the Trash')).not.toBeNull();
+    });
+  });
+
   it('navigates to Today when the Today section header is clicked', () => {
     const navigation = fakeNavigation();
 

@@ -14,6 +14,7 @@ import type { NavigationRouter } from '@core/application/navigation/NavigationRo
 // Helpers
 import { groupTasks } from './groupTasks';
 import { formatTaskDueDate } from './formatTaskDueDate';
+import { formatTaskTitle } from './formatTaskTitle';
 import { isPast, isToday } from '@shared/helpers/time';
 import { CountBadge } from '@components/count-badge/CountBadge';
 
@@ -38,7 +39,7 @@ export function renderTaskRow(
   return (
     <Task
       key={task.text}
-      title={task.text}
+      title={formatTaskTitle(task.text, dueDate)}
       dueDate={dueDate && !isDueToday ? formatTaskDueDate(dueDate) : undefined}
       isOverdue={isOverdue}
       isChecked={task.completed}
