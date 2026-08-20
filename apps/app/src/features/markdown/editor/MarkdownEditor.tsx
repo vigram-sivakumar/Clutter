@@ -17,6 +17,9 @@ import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMar
 import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
+import { taskCheckboxDecorations } from './codemirror/task/taskCheckboxDecorations';
+import { taskCheckboxKeymap } from './codemirror/task/taskCheckboxKeymap';
+import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
 import { tagDecorations } from './codemirror/tag/tagDecorations';
 import { tagKeymap } from './codemirror/tag/tagKeymap';
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
@@ -141,6 +144,9 @@ export const MarkdownEditor = forwardRef<
         inlineCodeMarkerDecoration(),
         listMarkerDecoration(),
         blockquoteMarkerDecoration(),
+        taskCheckboxDecorations(),
+        taskCheckboxMouseHandlers(),
+        taskCheckboxKeymap(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
         wikiLinkMarkerDecorations(),
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
