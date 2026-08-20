@@ -1,0 +1,48 @@
+/*
+ * Compact (sidebar-row) presentation of CompactSpan output. Deliberately
+ * minimal — reuses the same semantic CSS custom properties the page
+ * editor's `.tok-*` styles use (MarkdownEditor.css) so a WikiLink/Tag/Date
+ * reads consistently between the page and the sidebar, without depending
+ * on the editor's own selectors (which are scoped to `.cm-editor`, so a
+ * shared class name alone wouldn't have applied outside it anyway).
+ * No hover/click affordance here — token-level activation is out of scope
+ * for v1 (see renderCompactMarkdown.tsx's own doc comment).
+ */
+
+.compact-markdown-code {
+  font-family: ui-monospace, monospace;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 0.2em;
+}
+
+.compact-markdown-wikilink {
+  text-decoration: underline;
+  text-decoration-thickness: 0.05em;
+  text-decoration-color: var(--link-underline);
+  text-underline-offset: 10%;
+}
+
+.compact-markdown-wikilink[data-wikilink-status='unresolved'] {
+  opacity: var(--opacity-medium);
+}
+
+.compact-markdown-tag {
+  color: var(--link-foreground);
+}
+
+.compact-markdown-tag[data-tag-status='unresolved'] {
+  opacity: var(--opacity-medium);
+}
+
+.compact-markdown-date {
+  color: var(--date-foreground);
+}
+
+.compact-markdown-date .compact-markdown-date-prefix {
+  opacity: var(--opacity-medium);
+}
+
+.compact-markdown-date[data-date-status='invalid'] {
+  opacity: var(--opacity-medium);
+}
