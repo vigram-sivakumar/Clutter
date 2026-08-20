@@ -10,9 +10,11 @@ import { dateDecorations } from './codemirror/date/dateDecorations';
 import { dateKeymap } from './codemirror/date/dateKeymap';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
+import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
 import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
+import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { tagDecorations } from './codemirror/tag/tagDecorations';
@@ -137,6 +139,8 @@ export const MarkdownEditor = forwardRef<
         strikethroughMarkerDecoration(),
         highlightMarkerDecoration(),
         inlineCodeMarkerDecoration(),
+        listMarkerDecoration(),
+        blockquoteMarkerDecoration(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
         wikiLinkMarkerDecorations(),
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
