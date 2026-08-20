@@ -1,9 +1,6 @@
 import { markdown } from '@codemirror/lang-markdown';
-import { Autolink, Strikethrough, TaskList } from '@lezer/markdown';
 
-import { dateSyntax } from './date/dateSyntax';
-import { tagSyntax } from './tag/tagSyntax';
-import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
+import { markdownGrammarExtensions } from './markdownGrammarExtensions';
 
 /**
  * Markdown language support, scoped to a deliberate GFM subset plus the
@@ -41,6 +38,6 @@ import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
  */
 export function markdownLanguageExtension() {
   return markdown({
-    extensions: [Autolink, Strikethrough, TaskList, wikiLinkSyntax, tagSyntax, dateSyntax],
+    extensions: markdownGrammarExtensions,
   });
 }
