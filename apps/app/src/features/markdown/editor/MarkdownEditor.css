@@ -30,7 +30,6 @@
   font-family: var(--font-sans);
   font-size: var(--text-body);
   line-height: var(--lh-body);
-  font-weight: var(--fw-thin);
 }
 
 .markdown__editor .cm-line {
@@ -110,6 +109,11 @@
   text-decoration: line-through;
 }
 
+.cm-editor .tok-highlight {
+  background: var(--highlight-background);
+  color: var(--highlight-foreground);
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   background: var(--surface-subtle);
@@ -118,8 +122,11 @@
 }
 
 .cm-editor .tok-wikilink {
-  color: var(--link-foreground);
+  /* color: var(--link-foreground); */
   text-decoration: underline;
+  text-decoration-thickness: 0.05em;
+  text-decoration-color: var(--link-underline);
+  text-underline-offset: 10%;
   cursor: pointer;
 }
 .tok-wikilink[data-wikilink-status='unresolved'] {
@@ -130,6 +137,9 @@
   color: var(--link-foreground);
   cursor: pointer;
 }
+/* .cm-editor .tok-tag .tok-tag-prefix {
+  opacity: var(--opacity-medium);
+} */
 .tok-tag[data-tag-status='unresolved'] {
   opacity: var(--opacity-medium);
 }
@@ -143,7 +153,6 @@
 }
 .tok-date[data-date-status='invalid'] {
   opacity: var(--opacity-medium);
-  text-decoration: line-through;
   cursor: default;
 }
 

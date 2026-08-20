@@ -25,6 +25,10 @@ describe('tokenizeCompactMarkdown', () => {
     expect(tokenizeCompactMarkdown('~~Ship it~~')).toEqual([{ kind: 'strikethrough', value: 'Ship it' }]);
   });
 
+  it('tokenizes highlighted text, stripping the == markers', () => {
+    expect(tokenizeCompactMarkdown('==Ship it==')).toEqual([{ kind: 'highlight', value: 'Ship it' }]);
+  });
+
   it('tokenizes inline code, stripping the backtick markers', () => {
     expect(tokenizeCompactMarkdown('`npm run build`')).toEqual([{ kind: 'code', value: 'npm run build' }]);
   });

@@ -36,6 +36,13 @@ describe('renderCompactMarkdown', () => {
     expect(s).toHaveTextContent('Ship it');
   });
 
+  it('renders highlighted text as a <mark> element', () => {
+    const { container } = render(<>{renderCompactMarkdown('==Ship it==')}</>);
+    const mark = container.querySelector('mark');
+    expect(mark).not.toBeNull();
+    expect(mark).toHaveTextContent('Ship it');
+  });
+
   it('renders inline code as a <code> element', () => {
     const { container } = render(<>{renderCompactMarkdown('`npm run build`')}</>);
     const code = container.querySelector('code');

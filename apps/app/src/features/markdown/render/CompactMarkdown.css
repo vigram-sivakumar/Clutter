@@ -35,6 +35,13 @@
   opacity: var(--opacity-medium);
 }
 
+.compact-markdown-highlight {
+  background: var(--highlight-background);
+  color: var(--highlight-foreground);
+  border-radius: var(--radius-sm);
+  padding: 0 0.15em;
+}
+
 .compact-markdown-date {
   color: var(--date-foreground);
 }

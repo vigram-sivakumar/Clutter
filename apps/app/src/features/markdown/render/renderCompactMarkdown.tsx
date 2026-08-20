@@ -74,6 +74,12 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
       return <em key={key}>{span.value}</em>;
     case 'strikethrough':
       return <s key={key}>{span.value}</s>;
+    case 'highlight':
+      return (
+        <mark key={key} className="compact-markdown-highlight">
+          {span.value}
+        </mark>
+      );
     case 'code':
       return (
         <code key={key} className="compact-markdown-code">

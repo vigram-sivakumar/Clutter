@@ -8,7 +8,7 @@ import { scanWikiLink } from '../editor/codemirror/wikilink/wikiLinkScanner';
 
 export type CompactSpan =
   | { readonly kind: 'text'; readonly value: string }
-  | { readonly kind: 'bold' | 'italic' | 'strikethrough' | 'code'; readonly value: string }
+  | { readonly kind: 'bold' | 'italic' | 'strikethrough' | 'code' | 'highlight'; readonly value: string }
   | { readonly kind: 'wikilink'; readonly path: string; readonly alias: string | null }
   | { readonly kind: 'tag'; readonly name: string }
   | { readonly kind: 'date'; readonly isoDate: string }
@@ -36,11 +36,14 @@ const compactMarkdownParser = baseMarkdownParser.configure(markdownGrammarExtens
  * stays as literal raw text inside the outer span's `value`, one flat
  * style per span, matching the smallest-scope compact-rendering plan.
  */
-const EMPHASIS_NODES: Readonly<Record<string, { kind: 'bold' | 'italic' | 'strikethrough' | 'code'; markName: string }>> = {
+const EMPHASIS_NODES: Readonly<
+  Record<string, { kind: 'bold' | 'italic' | 'strikethrough' | 'code' | 'highlight'; markName: string }>
+> = {
   Emphasis: { kind: 'italic', markName: 'EmphasisMark' },
   StrongEmphasis: { kind: 'bold', markName: 'EmphasisMark' },
   Strikethrough: { kind: 'strikethrough', markName: 'StrikethroughMark' },
   InlineCode: { kind: 'code', markName: 'CodeMark' },
+  Highlight: { kind: 'highlight', markName: 'HighlightMark' },
 };
 
 function markedInnerText(node: SyntaxNode, text: string, markName: string): string {

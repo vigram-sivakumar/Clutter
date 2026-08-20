@@ -11,6 +11,7 @@ import { dateKeymap } from './codemirror/date/dateKeymap';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
+import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
 import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
@@ -134,6 +135,7 @@ export const MarkdownEditor = forwardRef<
         markdownLanguageExtension(),
         emphasisMarkerDecoration(),
         strikethroughMarkerDecoration(),
+        highlightMarkerDecoration(),
         inlineCodeMarkerDecoration(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
         wikiLinkMarkerDecorations(),

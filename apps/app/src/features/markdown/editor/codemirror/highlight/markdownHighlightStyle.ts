@@ -2,6 +2,8 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
 import { tags } from '@lezer/highlight';
 
+import { highlightContentTag } from './highlightSyntax';
+
 /**
  * Purely visual Markdown styling, distinct from the reveal-on-engagement
  * semantic-token mechanism (`../semanticToken/`) — this file only ever
@@ -52,6 +54,7 @@ export const markdownHighlightStyle = HighlightStyle.define([
   { tag: tags.emphasis, class: 'tok-emphasis' },
   { tag: tags.strong, class: 'tok-strong' },
   { tag: tags.strikethrough, class: 'tok-strike' },
+  { tag: highlightContentTag, class: 'tok-highlight' },
   { tag: tags.monospace, class: 'tok-code' },
   { tag: tags.processingInstruction, class: 'tok-mark' },
 ]);
