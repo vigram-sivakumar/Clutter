@@ -126,6 +126,27 @@
   color: var(--highlight-foreground);
 }
 
+/*
+ * Task line hanging indent (taskLineIndent.ts). A block-level concern,
+ * not something the inline TaskCheckboxWidget/TaskMarker decoration can
+ * solve: `text-indent` only ever applies to a block's own first rendered
+ * row (CSS spec), so pairing it with an equal-and-opposite `padding-left`
+ * pulls just that first row back to the checkbox's own position while
+ * every browser-soft-wrapped continuation row keeps the full
+ * `padding-left` — i.e. it reserves the checkbox's column across wraps
+ * without needing to know anything about where the wraps land. The value
+ * matches the checkbox's own rendered footprint, measured directly in
+ * the editor (not assumed from the sidebar's layout, which uses a
+ * flexbox gap rather than this inline-widget-plus-literal-space
+ * footprint): `--height-xs` is `.checkbox`'s own width
+ * (`components/checkbox/Checkbox.css`), `--space-4` matches the ~4px a
+ * rendered space character occupies immediately after it.
+ */
+.cm-editor .cm-task-line {
+  padding-left: calc(var(--height-xs) + var(--space-4));
+  text-indent: calc(-1 * (var(--height-xs) + var(--space-4)));
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-body-small);

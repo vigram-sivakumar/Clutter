@@ -20,6 +20,7 @@ import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { taskCheckboxDecorations } from './codemirror/task/taskCheckboxDecorations';
 import { taskCheckboxKeymap } from './codemirror/task/taskCheckboxKeymap';
 import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
+import { taskLineIndent } from './codemirror/task/taskLineIndent';
 import { tagDecorations } from './codemirror/tag/tagDecorations';
 import { tagKeymap } from './codemirror/tag/tagKeymap';
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
@@ -147,6 +148,7 @@ export const MarkdownEditor = forwardRef<
         taskCheckboxDecorations(),
         taskCheckboxMouseHandlers(),
         taskCheckboxKeymap(),
+        taskLineIndent(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
         wikiLinkMarkerDecorations(),
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
