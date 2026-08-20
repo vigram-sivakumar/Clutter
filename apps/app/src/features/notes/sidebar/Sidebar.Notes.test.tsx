@@ -550,3 +550,44 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
     expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
   });
 });
+
+describe('Sidebar Notes: overflow → Rename focus transition', () => {
+  // Regression: the overflow menu's own "return focus to trigger on
+  // close" accessibility behavior (useOverlayFocus) used to run *after*
+  // the newly-mounted EditableText's autoFocus (React always finishes
+  // every layout effect before any passive effect in the same commit),
+  // silently stealing focus back and ending the rename session before the
+  // user could type anything. Fixed generically in OverflowMenu/Overlay
+  // (opensInlineEdit + suppressReturnFocusRef) — these confirm both a
+  // Note and a Folder row (the two existing "Rename" consumers besides
+  // Tag) actually benefit from it, not just Tag.
+  it('a Note row: clicking Rename leaves the EditableText mounted and focused, caret at the end', () => {
+    const note = makePage('page-1', `${ROOT}/Meeting notes.md`);
+    const deps = setup([], [note]);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Meeting notes'));
+    fireEvent.click(screen.getByText('Rename'));
+
+    const field = screen.getByRole('textbox');
+    expect(field).toBe(document.activeElement);
+    const selection = window.getSelection();
+    expect(selection?.isCollapsed).toBe(true);
+    expect(selection?.anchorOffset).toBe('Meeting notes'.length);
+  });
+
+  it('a Folder row: clicking Rename leaves the EditableText mounted and focused, caret at the end', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const deps = setup([folder]);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('Projects'));
+    fireEvent.click(screen.getByText('Rename'));
+
+    const field = screen.getByRole('textbox');
+    expect(field).toBe(document.activeElement);
+    const selection = window.getSelection();
+    expect(selection?.isCollapsed).toBe(true);
+    expect(selection?.anchorOffset).toBe('Projects'.length);
+  });
+});

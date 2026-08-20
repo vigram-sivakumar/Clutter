@@ -771,7 +771,7 @@ export class PagePersistenceCoordinator {
     // structural change (rule: never silently overwrite another tracked
     // page's file) — checked before any write, since this method calls
     // fileSystem.moveFile() directly rather than movePage().
-    const occupant = this.vault.getPageByPath(destination.path);
+    const occupant = this.vault.getPageByPathCaseInsensitive(destination.path);
 
     if (occupant && occupant.id !== current.id) {
       throw new Error(`Path already in use by another page: ${destination.path}`);
@@ -1014,7 +1014,7 @@ export class PagePersistenceCoordinator {
     // Same collision guard runArchiveFolder applies at its own destination —
     // checked before any write, since this method calls fileSystem.moveFile()
     // directly rather than a shared move helper.
-    const occupant = this.vault.getFolderByPath(destination.path);
+    const occupant = this.vault.getFolderByPathCaseInsensitive(destination.path);
 
     if (occupant && occupant.id !== folder.id) {
       throw new Error(`Folder path already in use: ${destination.path}`);

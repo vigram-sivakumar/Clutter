@@ -18,7 +18,7 @@ function mountView(doc: string, resolver?: ResolveTag): EditorView {
   return new EditorView({ state, parent });
 }
 
-const resolvedTag = (): ResolveTag => () => ({ status: 'resolved', activate: vi.fn() });
+const resolvedTag = (): ResolveTag => () => ({ status: 'resolved', displayLabel: 'project', activate: vi.fn() });
 
 describe('tagSelectionSnap — the one gap native atomicRanges genuinely leaves', () => {
   it('a selection endpoint landing strictly inside an at-rest Tag snaps to the nearer boundary', () => {

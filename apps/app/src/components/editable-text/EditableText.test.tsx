@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { createRef } from 'react';
+import { act, createRef } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -126,6 +126,25 @@ describe('EditableText commit/cancel lifecycle', () => {
 
     expect(document.activeElement).not.toBe(getEditable());
   });
+
+  it('autoFocus with an existing (non-empty) value places the caret at the END, not the start — every rename flow reuses this', () => {
+    const value = 'Project name';
+    render(<EditableText value={value} onCommit={vi.fn()} autoFocus />);
+
+    const selection = window.getSelection();
+    expect(selection?.isCollapsed).toBe(true);
+    expect(selection?.anchorOffset).toBe(value.length);
+    expect(selection?.focusOffset).toBe(value.length);
+    expect(selection?.anchorNode?.textContent).toBe(value);
+  });
+
+  it('autoFocus with an empty value is unaffected (start and end coincide) — the new-item-naming case stays exactly as before', () => {
+    render(<EditableText value="" onCommit={vi.fn()} autoFocus />);
+
+    const selection = window.getSelection();
+    expect(document.activeElement).toBe(getEditable());
+    expect(selection?.anchorOffset).toBe(0);
+  });
 });
 
 describe('EditableText onEdit/onFlush (continuous-commit channel)', () => {
@@ -219,7 +238,9 @@ describe('EditableText onEdit/onFlush (continuous-commit channel)', () => {
 describe('EditableText onSubmit', () => {
   it('fires on Enter, after onCommit/onEditingEnd', () => {
     const calls: string[] = [];
-    const onCommit = vi.fn(() => calls.push('commit'));
+    const onCommit = vi.fn(() => {
+      calls.push('commit');
+    });
     const onEditingEnd = vi.fn(() => calls.push('editingEnd'));
     const onSubmit = vi.fn(() => calls.push('submit'));
     render(
@@ -269,6 +290,156 @@ describe('EditableText onSubmit', () => {
     fireEvent.blur(getEditable());
 
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe('EditableText invalid commit (onCommit returning false)', () => {
+  it('an invalid Enter submit does not commit — the field keeps the typed value, not the original', () => {
+    const onCommit = vi.fn(() => false);
+    render(<EditableText value="Original" onCommit={onCommit} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'bad value');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(onCommit).toHaveBeenCalledWith('bad value');
+    expect(editable.textContent).toBe('bad value');
+  });
+
+  it('an invalid Enter submit keeps editing active — refocuses, does not fire onEditingEnd/onFlush/onSubmit', () => {
+    const onCommit = vi.fn(() => false);
+    const onEditingEnd = vi.fn();
+    const onFlush = vi.fn();
+    const onSubmit = vi.fn();
+    render(
+      <EditableText
+        value="Original"
+        onCommit={onCommit}
+        onEditingEnd={onEditingEnd}
+        onFlush={onFlush}
+        onSubmit={onSubmit}
+      />
+    );
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'bad value');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(document.activeElement).toBe(editable);
+    expect(onEditingEnd).not.toHaveBeenCalled();
+    expect(onFlush).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('an invalid Enter submit places the caret at the end, with no text selected', () => {
+    const onCommit = vi.fn(() => false);
+    render(<EditableText value="Original" onCommit={onCommit} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'bad value');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    const selection = window.getSelection();
+    expect(selection?.isCollapsed).toBe(true);
+    expect(selection?.anchorOffset).toBe('bad value'.length);
+  });
+
+  it('an invalid Enter submit triggers the shake state (data-shake / editable-text--shake)', () => {
+    const onCommit = vi.fn(() => false);
+    render(<EditableText value="Original" onCommit={onCommit} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'bad value');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(editable.dataset.shake).toBe('true');
+    expect(editable.className).toContain('editable-text--shake');
+  });
+
+  it('the shake clears itself after its own duration', () => {
+    // @testing-library/react's own render()/fireEvent() calls set this
+    // automatically; a manually-invoked act() (needed here to flush the
+    // fake-timer-driven state update) doesn't otherwise pick it up in
+    // this environment, producing a spurious (harmless) act() warning.
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.useFakeTimers();
+    const onCommit = vi.fn(() => false);
+    render(<EditableText value="Original" onCommit={onCommit} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'bad value');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+    expect(editable.dataset.shake).toBe('true');
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(editable.dataset.shake).toBeUndefined();
+
+    vi.useRealTimers();
+  });
+
+  it('a valid submit still commits normally once the value is fixed', () => {
+    const onCommit = vi.fn((value: string) => value !== 'bad value');
+    const onEditingEnd = vi.fn();
+    render(<EditableText value="Original" onCommit={onCommit} onEditingEnd={onEditingEnd} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'bad value');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+    expect(onEditingEnd).not.toHaveBeenCalled();
+
+    typeText(editable, 'good value');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(onCommit).toHaveBeenLastCalledWith('good value');
+    expect(onEditingEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('an invalid value still present at blur (focus genuinely moved away) reverts to the original value and ends the session', () => {
+    const onCommit = vi.fn(() => false);
+    const onCancel = vi.fn();
+    const onEditingEnd = vi.fn();
+    const onFlush = vi.fn();
+    render(
+      <EditableText
+        value="Original"
+        onCommit={onCommit}
+        onCancel={onCancel}
+        onEditingEnd={onEditingEnd}
+        onFlush={onFlush}
+      />
+    );
+
+    const editable = getEditable();
+    typeText(editable, 'bad value');
+    fireEvent.blur(editable);
+
+    expect(editable.textContent).toBe('Original');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onEditingEnd).toHaveBeenCalledTimes(1);
+    expect(onFlush).not.toHaveBeenCalled();
+  });
+
+  it('Escape still reverts to the original value regardless of validity — unaffected by the invalid-commit path', () => {
+    const onCommit = vi.fn(() => false);
+    const onCancel = vi.fn();
+    render(<EditableText value="Original" onCommit={onCommit} onCancel={onCancel} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'bad value');
+    fireEvent.keyDown(editable, { key: 'Escape' });
+
+    expect(editable.textContent).toBe('Original');
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });
 

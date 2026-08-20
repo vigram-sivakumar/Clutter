@@ -69,7 +69,7 @@ function pressKey(view: EditorView, key: string): void {
 
 describe('Tag + WikiLink — cross-kind keyboard interaction', () => {
   it('ArrowRight one position before the Tag hops into the Tag, never touches the WikiLink', () => {
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: vi.fn() });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'X',
@@ -84,7 +84,7 @@ describe('Tag + WikiLink — cross-kind keyboard interaction', () => {
   });
 
   it('ArrowRight one position before the WikiLink hops into the WikiLink, never touches the Tag', () => {
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: vi.fn() });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'X',
@@ -99,7 +99,7 @@ describe('Tag + WikiLink — cross-kind keyboard interaction', () => {
   });
 
   it('ArrowLeft one position after the Tag hops back into the Tag, never touches the WikiLink', () => {
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: vi.fn() });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'X',
@@ -114,7 +114,7 @@ describe('Tag + WikiLink — cross-kind keyboard interaction', () => {
   });
 
   it('ArrowLeft one position after the WikiLink hops back into the WikiLink, never touches the Tag', () => {
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: vi.fn() });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'X',
@@ -133,7 +133,7 @@ describe('Tag + WikiLink — cross-kind mouse interaction', () => {
   it('clicking the Tag activates only the Tag resolver, never the WikiLink resolver', () => {
     const tagActivate = vi.fn();
     const wikiLinkActivate = vi.fn();
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: tagActivate });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: tagActivate });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'X',
@@ -152,7 +152,7 @@ describe('Tag + WikiLink — cross-kind mouse interaction', () => {
   it('clicking the WikiLink activates only the WikiLink resolver, never the Tag resolver', () => {
     const tagActivate = vi.fn();
     const wikiLinkActivate = vi.fn();
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: tagActivate });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: tagActivate });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'X',
@@ -169,7 +169,7 @@ describe('Tag + WikiLink — cross-kind mouse interaction', () => {
   });
 
   it('a click on the Tag is never handled by handleWikiLinkClick, and vice versa', () => {
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: vi.fn() });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'X',
@@ -188,7 +188,7 @@ describe('Tag + WikiLink — adjacent with no separating whitespace', () => {
   // Tag "#tag" = [0, 4); WikiLink "[[Page]]" = [4, 12).
 
   it('both a Tag and a WikiLink render as distinct at-rest widgets with no separator', () => {
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'tag', activate: vi.fn() });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'Page',
@@ -216,7 +216,7 @@ describe('Tag + WikiLink — adjacent with no separating whitespace', () => {
   });
 
   it('ArrowRight approaching the Tag from before it engages the Tag, not the adjacent WikiLink', () => {
-    const tagResolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const tagResolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'X', activate: vi.fn() });
     const wikiLinkResolver: ResolveWikiLink = () => ({
       status: 'resolved',
       displayLabel: 'Page',

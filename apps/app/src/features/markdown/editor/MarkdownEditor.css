@@ -135,8 +135,11 @@
 }
 
 .cm-editor .tok-date {
-  color: var(--link-foreground);
+  color: var(--date-foreground);
   cursor: pointer;
+}
+.cm-editor .tok-date .tok-date-prefix {
+  opacity: var(--opacity-medium);
 }
 .tok-date[data-date-status='invalid'] {
   opacity: var(--opacity-medium);

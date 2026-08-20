@@ -57,8 +57,19 @@ export interface SidebarRowActions {
   onNoteTitleEdit(pageId: string, value: string): void;
   onNoteTitleFlush(pageId: string): void;
   onNoteTitleCancel(pageId: string): void;
+  /**
+   * Discrete Enter/blur-changed commit for a persisted note — a
+   * synchronous canRename() pre-check only (PageOperations.canRename()),
+   * returning false to reject a colliding title. Unlike a draft's commit,
+   * this never itself persists: the continuous channel above already does
+   * that, and PageOperations.rename() (which the continuous channel calls)
+   * re-validates the same collision internally, so a duplicate can never
+   * actually be written even if this pre-check and the continuous save
+   * race each other.
+   */
+  onNoteTitleCommit(pageId: string, value: string): void | boolean;
   /** Discrete commit (PageOperations.updateDraftTitle), draft notes only. */
-  onDraftTitleCommit(pageId: string, value: string): void;
+  onDraftTitleCommit(pageId: string, value: string): void | boolean;
   onArchiveNote(pageId: string): void;
   onDeleteNote(pageId: string): void;
   /** ADR-028 — a raw filesystem copy, see PageOperations.duplicate(). */
@@ -90,6 +101,13 @@ export interface SidebarRowActions {
    */
   onCreateFolder(name: string): Promise<string>;
 
+  /**
+   * Discrete Enter/blur-changed commit for a folder — a synchronous
+   * canRename() pre-check only (FolderOperations.canRename()), same shape
+   * and reasoning as onNoteTitleCommit above: the continuous channel below
+   * still does the actual persisting.
+   */
+  onFolderTitleCommit(folderId: string, value: string): void | boolean;
   /** Continuous-commit channel (FolderOperations.commitName), same shape as a persisted note's title. */
   onFolderTitleEdit(folderId: string, value: string): void;
   onFolderTitleFlush(folderId: string): void;
@@ -160,7 +178,7 @@ interface FolderTreeProps {
    * same mechanism rather than the root being special-cased.
    */
   pendingNewFolder: PendingNewFolder | null;
-  onCommitNewFolder(name: string, parentId: string | null): void;
+  onCommitNewFolder(name: string, parentId: string | null): void | boolean;
   onCancelNewFolder(): void;
   /** Overflow-menu/rename wiring — see SidebarRowActions. */
   rowActions?: SidebarRowActions;
@@ -219,8 +237,11 @@ function PageEntry({
         !entry.isDraft && rowActions ? () => rowActions.onNoteTitleCancel(entry.id) : undefined
       }
       onTitleCommit={
-        entry.isDraft && rowActions
-          ? (value) => rowActions.onDraftTitleCommit(entry.id, value)
+        rowActions
+          ? (value) =>
+              entry.isDraft
+                ? rowActions.onDraftTitleCommit(entry.id, value)
+                : rowActions.onNoteTitleCommit(entry.id, value)
           : undefined
       }
       onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
@@ -375,6 +396,11 @@ export function FolderTree({
               onClick={isEditingFolder ? undefined : () => onFolderClick(folder)}
               onAddClick={() => onCreateNote(folder.id)}
               isEditing={isEditingFolder}
+              onTitleCommit={
+                rowActions
+                  ? (value) => rowActions.onFolderTitleCommit(folder.id, value)
+                  : undefined
+              }
               onTitleEdit={
                 rowActions ? (value) => rowActions.onFolderTitleEdit(folder.id, value) : undefined
               }

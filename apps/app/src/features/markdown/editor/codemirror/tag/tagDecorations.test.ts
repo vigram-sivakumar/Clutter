@@ -22,26 +22,45 @@ function mountAtRest(tagText: string, resolver?: ResolveTag): EditorView {
   return mountView(`Text before ${tagText}`, resolver);
 }
 
-const resolvedTag = (): ResolveTag => () => ({ status: 'resolved', activate: vi.fn() });
-const unresolvedTag = (): ResolveTag => () => ({ status: 'unresolved', activate: vi.fn() });
+const resolvedTag = (): ResolveTag => (name) => ({ status: 'resolved', displayLabel: name, activate: vi.fn() });
+const unresolvedTag = (): ResolveTag => (name) => ({ status: 'unresolved', displayLabel: name, activate: vi.fn() });
 
 describe('tagDecorations — at-rest rendering', () => {
-  it('renders an at-rest Tag as a widget showing the raw text verbatim, not a computed display label', () => {
+  it('renders an at-rest Tag as a widget showing the resolution\'s displayLabel — identical to the raw text when the tag has no separator', () => {
     const view = mountAtRest('#project', resolvedTag());
 
     const widget = view.dom.querySelector('[data-tag-status="resolved"]');
     expect(widget?.textContent).toBe('#project');
   });
 
-  it('falls back to unresolved when no resolver is provided, raw text still shown', () => {
+  it('renders the injected resolution\'s displayLabel, not the raw matched text, when they differ (separator normalization)', () => {
+    const resolver: ResolveTag = () => ({
+      status: 'resolved',
+      displayLabel: 'Product design',
+      activate: vi.fn(),
+    });
+    const view = mountAtRest('#Product-design', resolver);
+
+    const widget = view.dom.querySelector('[data-tag-status="resolved"]');
+    expect(widget?.textContent).toBe('#Product design');
+  });
+
+  it('falls back to unresolved when no resolver is provided, with a locally-formatted (separator-to-space) display label', () => {
     const view = mountAtRest('#project');
 
     const widget = view.dom.querySelector('[data-tag-status="unresolved"]');
     expect(widget?.textContent).toBe('#project');
   });
 
+  it('falls back to a separator-normalized display label with no resolver injected at all', () => {
+    const view = mountAtRest('#Product_design');
+
+    const widget = view.dom.querySelector('[data-tag-status="unresolved"]');
+    expect(widget?.textContent).toBe('#Product design');
+  });
+
   it('calls the resolver with the identifier only, without the leading #', () => {
-    const resolver = vi.fn(() => ({ status: 'resolved' as const, activate: vi.fn() }));
+    const resolver = vi.fn(() => ({ status: 'resolved' as const, displayLabel: 'project', activate: vi.fn() }));
     mountAtRest('#project', resolver);
 
     expect(resolver).toHaveBeenCalledWith('project');

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { OverflowMenu } from './OverflowMenu';
@@ -203,5 +203,74 @@ describe('OverflowMenu', () => {
     fireEvent.click(screen.getByRole('button'));
 
     expect(document.activeElement).toBe(screen.getByRole('menu'));
+  });
+
+  describe('focus after closing', () => {
+    it('selecting an ordinary item (no opensInlineEdit) restores focus to the trigger — unchanged default behavior', async () => {
+      render(<Harness onSelect={vi.fn()} />);
+      const trigger = screen.getByRole('button');
+
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(trigger);
+      });
+    });
+
+    it('Escape still restores focus to the trigger — unaffected by opensInlineEdit items existing in the menu', async () => {
+      render(<Harness onSelect={vi.fn()} />);
+      const trigger = screen.getByRole('button');
+
+      fireEvent.click(trigger);
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(trigger);
+      });
+    });
+
+    it('an outside click still restores focus to the trigger', async () => {
+      render(
+        <div>
+          <Harness onSelect={vi.fn()} />
+        </div>
+      );
+      const trigger = screen.getByRole('button');
+
+      fireEvent.click(trigger);
+      const backdrop = document.querySelector('.overlay__backdrop');
+      if (!backdrop) {
+        throw new Error('expected a backdrop element for outside-click handling');
+      }
+      fireEvent.click(backdrop);
+
+      await waitFor(() => {
+        expect(document.activeElement).toBe(trigger);
+      });
+    });
+
+    it('selecting an opensInlineEdit item does NOT restore focus to the trigger — the caller\'s own element keeps it', () => {
+      // No EditableText involved here — this isolates OverflowMenu's own
+      // contract (does it skip the restore?) from the full Note/Folder/Tag
+      // row behavior, which has its own dedicated tests
+      // (Sidebar.Notes.test.tsx, Sidebar.Tags.test.tsx).
+      const onSelect = vi.fn();
+      render(
+        <Harness
+          onSelect={onSelect}
+          itemsOverride={[{ id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true }]}
+        />
+      );
+      const trigger = screen.getByRole('button');
+
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByText('Rename'));
+
+      // Focus moved off the (now-removed) menu and did NOT return to the
+      // trigger — the suppression held. Exactly where it lands next is the
+      // caller's own concern (e.g. EditableText's autoFocus).
+      expect(document.activeElement).not.toBe(trigger);
+    });
   });
 });

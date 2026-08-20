@@ -25,7 +25,7 @@ export class PagePathResolver {
     const folderPath = resolveFolderPathOrRoot(this.vault, folderId);
 
     const candidateName = resolveEntityName(title, (name) =>
-      this.vault.getPageByPath(`${folderPath}/${name}.md`) !== undefined
+      this.vault.getPageByPathCaseInsensitive(`${folderPath}/${name}.md`) !== undefined
     );
 
     return {

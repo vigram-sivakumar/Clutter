@@ -39,7 +39,44 @@ export interface TagMetadataEntry {
  * (TagExtractor), the metadata file (TagOperations, application bootstrap),
  * and the join between them (TagBuilder) — so "Project"/"project"/"PROJECT"
  * can never end up as distinct entries on either side.
+ *
+ * Also folds `-`/`_` to the same identity: "product-design",
+ * "product_design", and "PRODUCT-DESIGN" are one logical tag, per the
+ * product decision that Clutter's two supported separator characters are
+ * interchangeable for identity purposes even though neither is rewritten
+ * in the source (see `formatTagDisplayLabel`/`serializeTagName` below for
+ * the two places that separator distinction still matters: display and
+ * new-tag serialization, never identity).
  */
 export function normalizeTagName(name: string): string {
-  return name.toLowerCase();
+  return name.toLowerCase().replace(/[-_]+/g, ' ');
+}
+
+/**
+ * The single separator-to-space display rule, shared by every surface
+ * that shows a tag to a user (the editor's at-rest `TagWidget`, the
+ * autocomplete popup) — "product-design"/"product_design" both display as
+ * "product design", casing preserved from whatever's passed in (the
+ * caller is responsible for passing the vault's *preferred* casing, e.g.
+ * via `Vault.getTagByName`, not just whatever one occurrence happens to
+ * spell it — see `resolveTag.ts`/`tagSuggestions.ts`). Pure and
+ * presentation-only: never applied to what's read from or written back to
+ * Markdown, only to what's rendered on screen.
+ */
+export function formatTagDisplayLabel(name: string): string {
+  return name.replace(/[-_]+/g, ' ');
+}
+
+/**
+ * The inverse of `formatTagDisplayLabel`, for the one place Clutter itself
+ * generates new tag Markdown (autocomplete insertion, both a brand-new tag
+ * and one built from an existing suggestion's display label): spaces
+ * become `-`, the canonical serialized separator. Never applied to
+ * existing source text — Clutter reads `-`/`_` leniently but only ever
+ * writes `-` for tags it creates itself (`docs/editor-architecture-
+ * decisions.md`'s "lenient reader, strict writer" rule, same convention
+ * already governing WikiLink path/alias serialization).
+ */
+export function serializeTagName(displayLabel: string): string {
+  return displayLabel.replace(/\s+/g, '-');
 }

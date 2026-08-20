@@ -245,6 +245,111 @@ describe('FolderOperations.create()', () => {
 
     expect(await fileSystem.exists(`${ROOT}/Q1`)).toBe(false);
   });
+
+  // Regression test for the "test" / "Test" / "Test 2" ghost-duplicate bug:
+  // macOS (APFS) and Windows (NTFS) are case-insensitive-but-case-preserving
+  // — `mkdir`/`writeFile` for a path differing only in case from an
+  // existing one silently resolves to the *same* file/directory rather than
+  // creating a second one (see VaultPath.equalsCaseInsensitive's doc
+  // comment; empirically confirmed against a real disk during this
+  // investigation). Before the fix, FolderPathResolver.createFolderPath's
+  // isTaken callback did an exact (case-sensitive) vault.getFolderByPath
+  // lookup, so creating "Test" while "test" already existed passed the
+  // isTaken check, silently no-op'd the mkdir, and the create-folder Gate
+  // write's own .folder.md write (with the new folder's freshly-minted id)
+  // clobbered the *existing* test/.folder.md file — while Vault, keyed by
+  // a case-sensitive Map, ended up with two separate in-memory Folder
+  // records for what was physically one directory. InMemoryVaultFileSystem
+  // now models the same case-collapsing mkdir/writeFile behavior a real
+  // disk has (see its own doc comments), so this test can catch a
+  // regression against the real corruption mechanism, not just Vault's own
+  // in-memory bookkeeping.
+  it('creating "Test" when "test" already exists on disk does not corrupt the existing folder or fork the Vault projection (case-insensitive filesystem)', async () => {
+    const existing = makeFolder('folder-existing', `${ROOT}/test`);
+    const { vault, fileSystem, folderOperations } = setup([existing]);
+    await fileSystem.createDirectory(`${ROOT}/test`);
+    await fileSystem.writeFile(`${ROOT}/test/.folder.md`, '---\nid: folder-existing\n---\n');
+
+    const newId = await folderOperations.create('Test', null);
+
+    // The auto-suffix resolver correctly recognized "Test" as colliding
+    // with "test" (case-insensitively) and picked a genuinely free name —
+    // it never attempted to create at the colliding path in the first
+    // place, so no mkdir/writeFile ever touched the original folder.
+    expect(newId).not.toBe('folder-existing');
+    const created = vault.getFolder(newId)!;
+    expect(created.path).toBe(`${ROOT}/Test 2`);
+
+    // The pre-existing folder's own metadata file is untouched — not
+    // overwritten with the new folder's id/frontmatter.
+    expect(fileSystem.getFileSync(`${ROOT}/test/.folder.md`)).toBe(
+      '---\nid: folder-existing\n---\n'
+    );
+
+    // Vault and the fake filesystem agree, with no refresh/rescan: exactly
+    // two folders, at exactly the two paths that really exist on disk.
+    expect(vault.folderCount).toBe(2);
+    expect(vault.getFolder('folder-existing')!.path).toBe(`${ROOT}/test`);
+    expect(await fileSystem.exists(`${ROOT}/test`)).toBe(true);
+    expect(await fileSystem.exists(`${ROOT}/Test 2`)).toBe(true);
+    // No ghost "Test" (unsuffixed) was ever created, in Vault or on disk.
+    expect(vault.getFolderByPath(`${ROOT}/Test`)).toBeUndefined();
+  });
+
+  it('canCreate() rejects a case-variant of an existing sibling folder name', () => {
+    const existing = makeFolder('folder-existing', `${ROOT}/test`);
+    const { folderOperations } = setup([existing]);
+
+    expect(folderOperations.canCreate('Test', null)).toBe(false);
+  });
+});
+
+describe('FolderOperations.canCreate() (interactive "New Folder" row pre-check)', () => {
+  it('returns false for a name that already exists at the vault root', () => {
+    const existing = makeFolder('folder-existing', `${ROOT}/Projects`);
+    const { folderOperations } = setup([existing]);
+
+    expect(folderOperations.canCreate('Projects', null)).toBe(false);
+  });
+
+  it('returns true for a free name at the vault root', () => {
+    const existing = makeFolder('folder-existing', `${ROOT}/Projects`);
+    const { folderOperations } = setup([existing]);
+
+    expect(folderOperations.canCreate('Roadmap', null)).toBe(true);
+  });
+
+  it('returns false for a name that already exists under the same parent', () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const existing = makeFolder('folder-existing', `${ROOT}/Parent/Q1`, 'folder-parent');
+    const { folderOperations } = setup([parent, existing]);
+
+    expect(folderOperations.canCreate('Q1', 'folder-parent')).toBe(false);
+  });
+
+  it('does not reject a same name under a different parent', () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const existingAtRoot = makeFolder('folder-existing', `${ROOT}/Q1`);
+    const { folderOperations } = setup([parent, existingAtRoot]);
+
+    expect(folderOperations.canCreate('Q1', 'folder-parent')).toBe(true);
+  });
+
+  it('returns true for an empty/whitespace name (falls through to auto-generated naming on actual create, unchanged)', () => {
+    const { folderOperations } = setup();
+
+    expect(folderOperations.canCreate('', null)).toBe(true);
+    expect(folderOperations.canCreate('   ', null)).toBe(true);
+  });
+
+  it('does not itself call create() or write anything', async () => {
+    const existing = makeFolder('folder-existing', `${ROOT}/Projects`);
+    const { fileSystem, folderOperations } = setup([existing]);
+
+    folderOperations.canCreate('Roadmap', null);
+
+    expect(await fileSystem.exists(`${ROOT}/Roadmap`)).toBe(false);
+  });
 });
 
 describe('FolderOperations.ensureReservedFolder()', () => {
@@ -476,6 +581,89 @@ describe('FolderOperations.rename() (ADR-024, unified move-folder kind)', () => 
     const { folderOperations } = setup();
 
     await expect(folderOperations.rename('does-not-exist', 'Anything')).resolves.toBeUndefined();
+  });
+
+  it('rejects a rename to an existing sibling name instead of auto-suffixing', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const sibling = makeFolder('folder-2', `${ROOT}/Existing`);
+    const { vault, fileSystem, folderOperations } = setup([folder, sibling]);
+    await fileSystem.createDirectory(folder.path);
+    await fileSystem.createDirectory(sibling.path);
+
+    await expect(folderOperations.rename('folder-1', 'Existing')).rejects.toThrow(
+      /already exists/
+    );
+
+    expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Projects`);
+  });
+
+  it('does not reject a rename that collides only with itself (a no-op name)', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { vault, fileSystem, folderOperations } = setup([folder]);
+    await fileSystem.createDirectory(folder.path);
+
+    await folderOperations.rename('folder-1', 'Projects');
+
+    expect(vault.getFolder('folder-1')!.path).toBe(`${ROOT}/Projects`);
+  });
+
+  it('does not reject a same-name collision against a sibling under a different parent', async () => {
+    const parent = makeFolder('folder-parent', `${ROOT}/Parent`);
+    const child = makeFolder('folder-child', `${ROOT}/Parent/Child`, 'folder-parent');
+    const existingAtRoot = makeFolder('folder-existing', `${ROOT}/Existing`);
+    const { vault, fileSystem, folderOperations } = setup([parent, child, existingAtRoot]);
+    await fileSystem.createDirectory(child.path);
+
+    await folderOperations.rename('folder-child', 'Existing');
+
+    expect(vault.getFolder('folder-child')!.path).toBe(`${ROOT}/Parent/Existing`);
+  });
+});
+
+describe('FolderOperations.canRename()', () => {
+  it('returns false for an existing sibling name', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const sibling = makeFolder('folder-2', `${ROOT}/Existing`);
+    const { folderOperations } = setup([folder, sibling]);
+
+    expect(folderOperations.canRename('folder-1', 'Existing')).toBe(false);
+  });
+
+  it('returns true for a free name', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { folderOperations } = setup([folder]);
+
+    expect(folderOperations.canRename('folder-1', 'Free Name')).toBe(true);
+  });
+
+  it('returns true for a no-op (same-name) rename', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { folderOperations } = setup([folder]);
+
+    expect(folderOperations.canRename('folder-1', 'Projects')).toBe(true);
+  });
+
+  it('returns true for an empty name (falls through to auto-generated naming, unchanged)', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { folderOperations } = setup([folder]);
+
+    expect(folderOperations.canRename('folder-1', '')).toBe(true);
+    expect(folderOperations.canRename('folder-1', '   ')).toBe(true);
+  });
+
+  it('returns false for an unknown folder id', () => {
+    const { folderOperations } = setup();
+
+    expect(folderOperations.canRename('does-not-exist', 'Anything')).toBe(false);
+  });
+
+  it('returns false for a case-variant of an existing sibling name (macOS/Windows are case-insensitive on disk)', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const sibling = makeFolder('folder-2', `${ROOT}/Existing`);
+    const { folderOperations } = setup([folder, sibling]);
+
+    expect(folderOperations.canRename('folder-1', 'EXISTING')).toBe(false);
+    expect(folderOperations.canRename('folder-1', 'existing')).toBe(false);
   });
 });
 

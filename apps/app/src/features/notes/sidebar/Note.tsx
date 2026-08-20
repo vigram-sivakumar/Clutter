@@ -21,8 +21,15 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
 
   /** Renders the title as an EditableText field instead of static text. */
   isEditing?: boolean;
-  /** See PageTitle.onCommit — discrete-commit entry point (a draft's title). */
-  onTitleCommit?(value: string): void;
+  /**
+   * See PageTitle.onCommit — discrete-commit entry point. A draft's title
+   * commit persists directly; a persisted note's is a synchronous
+   * canRename() pre-check only (the continuous channel below still does
+   * the actual persisting). Either way, returning `false` rejects the
+   * submitted value (EditableText stays open, shakes, preserves the typed
+   * value).
+   */
+  onTitleCommit?(value: string): void | boolean;
   /** See PageTitle.onEdit — continuous-commit entry point (a persisted Note's title channel). */
   onTitleEdit?(value: string): void;
   /** See PageTitle.onFlush. */

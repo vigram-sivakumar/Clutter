@@ -26,6 +26,6 @@ export function getTagActivation(
   }
 
   const resolver = getResolver();
-  const resolution = resolver?.(match.name) ?? fallbackTagResolution();
+  const resolution = resolver?.(match.name) ?? fallbackTagResolution(match.name);
   return () => resolution.activate();
 }

@@ -9,6 +9,7 @@ import type { Page, PageType } from '../../vault/models/Page';
 import type { PageMetadata } from '../../vault/models/PageMetadata';
 import { Workspace } from '../../workspace/Workspace';
 import { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
+import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 import { PagePathResolver } from './PagePathResolver';
 import { PageCreator } from './PageCreator';
 import { VaultPath } from '../../vault/ingest/VaultPath';
@@ -664,6 +665,16 @@ export class PageOperations {
       return;
     }
 
+    if (!descriptor.deterministicPath) {
+      const collision = this.findDraftRenameCollision(descriptor, title.trim());
+
+      if (collision) {
+        throw new Error(
+          `A note named "${VaultPath.pageName(collision.path)}" already exists in this folder.`
+        );
+      }
+    }
+
     this.drafts.set(pageId, { ...descriptor, title });
     this.workspace.refresh();
 
@@ -675,6 +686,84 @@ export class PageOperations {
       this.documentRegistry.get(pageId)?.currentRevision.markdown ?? '';
 
     await this.persistDraft(pageId, body);
+  }
+
+  /**
+   * Synchronous pre-check for an explicit in-place rename — a real,
+   * persisted page or a still-open draft, dispatched the same way
+   * updateDraftTitle()/rename() themselves already distinguish the two
+   * (`vault.getPage(pageId)` present vs. `drafts.has(pageId)`, the same
+   * idiom this file already uses elsewhere, e.g. the `isDraft` check near
+   * openAtPath). Mirrors TagOperations.canRename()'s role exactly: lets an
+   * EditableText onCommit reject a colliding submitted title immediately,
+   * without waiting on the async rename()/updateDraftTitle() call — both
+   * of which still re-check internally rather than trusting a caller
+   * already did. An empty/whitespace title is never a collision here (it
+   * resolves through the existing "Untitled" auto-generation instead,
+   * unchanged) — this only rejects an exact, non-empty sibling-name match,
+   * per the approved product decision: explicit rename rejects a
+   * duplicate, it does not auto-suffix like create/duplicate/move do.
+   */
+  public canRename(pageId: string, title: string): boolean {
+    const page = this.vault.getPage(pageId);
+
+    if (page) {
+      return !this.findRenameCollision(page, title.trim());
+    }
+
+    const descriptor = this.drafts.get(pageId);
+
+    if (!descriptor) {
+      return false;
+    }
+
+    if (descriptor.deterministicPath) {
+      return true;
+    }
+
+    return !this.findDraftRenameCollision(descriptor, title.trim());
+  }
+
+  /**
+   * The one exact-collision check shared by canRename() and rename() for a
+   * persisted page — same folder scope, same "own current path is not a
+   * collision with itself" exclusion MoveService.resolveRenameDestination
+   * already uses, but never auto-suffixing: an occupied exact name is
+   * simply rejected. Deliberately not reusing resolveRenameDestination
+   * itself (that resolver's whole job is the auto-suffix behavior, which
+   * must stay unchanged for every other caller — see PagePersistenceCoordinator's
+   * runRename) — this is a distinct, narrower check.
+   */
+  private findRenameCollision(page: Page, trimmedTitle: string): Page | undefined {
+    if (!trimmedTitle) {
+      return undefined;
+    }
+
+    const folderPath = VaultPath.parentDirectory(page.path);
+    const occupant = this.vault.getPageByPathCaseInsensitive(`${folderPath}/${trimmedTitle}.md`);
+
+    return occupant && occupant.id !== page.id ? occupant : undefined;
+  }
+
+  /**
+   * Same exact-collision check as findRenameCollision(), for a still-open
+   * draft — scoped by the draft's own folderId (resolved to a path via
+   * resolveFolderPathOrRoot, the same root-or-folder resolution
+   * PagePathResolver.createNotePath() uses) rather than an existing page's
+   * own path, since a draft has no Vault entry of its own yet (ADR-017) —
+   * no self-exclusion is needed for the same reason.
+   */
+  private findDraftRenameCollision(
+    descriptor: DraftDescriptor,
+    trimmedTitle: string
+  ): Page | undefined {
+    if (!trimmedTitle) {
+      return undefined;
+    }
+
+    const folderPath = resolveFolderPathOrRoot(this.vault, descriptor.folderId);
+
+    return this.vault.getPageByPathCaseInsensitive(`${folderPath}/${trimmedTitle}.md`);
   }
 
   public close(pageId: string): void {
@@ -1540,13 +1629,38 @@ export class PageOperations {
 
   /**
    * Renames a persisted page in place — same-parent path change only,
-   * mirroring FolderOperations.rename()'s shape exactly. No existence check
-   * of its own, same reasoning as move()/delete(): relies on the Gate's
-   * dequeue-time guard. Only valid for a real Vault page; a still-open
-   * draft's title goes through updateDraftTitle() instead, which has no
-   * Gate call to make until the draft is otherwise promoted.
+   * mirroring FolderOperations.rename()'s shape exactly. Only valid for a
+   * real Vault page; a still-open draft's title goes through
+   * updateDraftTitle() instead, which has no Gate call to make until the
+   * draft is otherwise promoted.
+   *
+   * Rejects an exact sibling-name collision synchronously, before ever
+   * enqueueing to the Gate — the Gate's own resolveRenameDestination()
+   * still auto-suffixes (unchanged, still the correct behavior for a
+   * race between this check and dequeue), but this method is now the one
+   * place a caller-visible duplicate is refused rather than silently
+   * renamed to "Title 2". This check is what makes the continuous,
+   * debounced title-autosave channel (runRequestTitleSave, below) reject a
+   * duplicate too, with no changes needed there: it already treats any
+   * throw from this call as a save failure (titleState.markSaveFailed()),
+   * so a collision now simply becomes one more reason this can throw — no
+   * duplicate title is ever a debounced write's silent outcome, and the
+   * user's typed value is preserved either way (FieldEditState's
+   * currentValue is independent of what actually got persisted).
    */
   public async rename(pageId: string, title: string): Promise<void> {
+    const page = this.vault.getPage(pageId);
+
+    if (page) {
+      const collision = this.findRenameCollision(page, title.trim());
+
+      if (collision) {
+        throw new Error(
+          `A note named "${VaultPath.pageName(collision.path)}" already exists in this folder.`
+        );
+      }
+    }
+
     const result = await this.coordinator.enqueue(pageId, {
       kind: 'rename',
       title,

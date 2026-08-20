@@ -144,6 +144,57 @@ describe('TagBuilder', () => {
       expect(tags[0]!.name).toBe('Project');
       expect(tags[0]!.icon).toBe('📦');
     });
+
+    it('merges hyphen- and underscore-separated occurrences of the same tag into one — separators are equivalent identity', () => {
+      const builder = new TagBuilder();
+      const tags = builder.build([
+        makePage('a', ['product-design']),
+        makePage('b', ['product_design']),
+      ]);
+
+      expect(tags).toHaveLength(1);
+      expect(tags[0]!.usageCount).toBe(2);
+    });
+
+    it('merges every case AND separator variant of a logical tag into exactly one Tag, no duplicates', () => {
+      const builder = new TagBuilder();
+      const tags = builder.build([
+        makePage('a', ['Product-design']),
+        makePage('b', ['product_design']),
+        makePage('c', ['PRODUCT-DESIGN']),
+        makePage('d', ['product-Design']),
+      ]);
+
+      expect(tags).toHaveLength(1);
+      expect(tags[0]!.usageCount).toBe(4);
+    });
+
+    it('the first-processed occurrence establishes the preferred casing AND separator — later variants (differing in both) never overwrite it', () => {
+      const builder = new TagBuilder();
+      // Page "a" (processed first) types "Product-design" — that exact
+      // spelling, hyphen included, is what's preserved as the Tag's own
+      // `name`, even though later pages use a completely different
+      // separator and casing for the same logical tag.
+      const tags = builder.build([
+        makePage('a', ['Product-design']),
+        makePage('b', ['product_design']),
+        makePage('c', ['PRODUCT-DESIGN']),
+      ]);
+
+      expect(tags).toHaveLength(1);
+      expect(tags[0]!.name).toBe('Product-design');
+    });
+
+    it('a tag with no separator is unaffected by separator-folding — existing single-word behavior is unchanged', () => {
+      const builder = new TagBuilder();
+      const tags = builder.build([
+        makePage('a', ['project']),
+        makePage('b', ['design']),
+      ]);
+
+      expect(tags).toHaveLength(2);
+      expect(tags.map((tag) => tag.name).sort()).toEqual(['design', 'project']);
+    });
   });
 
   describe('usageCount', () => {

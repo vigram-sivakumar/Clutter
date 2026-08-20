@@ -26,8 +26,27 @@ export interface EditableTextProps {
    *
    * Only Enter or a blur with changed text trigger this — Escape never
    * does, regardless of what was typed (see onEditingEnd).
+   *
+   * Returning `false` explicitly rejects the value as invalid — the
+   * smallest possible way to represent "invalid" without a second,
+   * parallel validation system: reuses this same commit call rather than
+   * adding a separate `validate()` prop. Any other return value (`true`,
+   * `undefined`/no return — every existing consumer's shape, unaffected)
+   * is treated as accepted, exactly as before. On rejection:
+   * - An Enter/submit attempt keeps the session open — the typed (still
+   *   invalid) text is left as-is, the field is refocused with the caret
+   *   at the end (no selection), and a brief shake plays. None of
+   *   onFlush/onEditingEnd/onSubmit fire — this is not a session end.
+   * - An ordinary blur (focus genuinely moved away) while still invalid
+   *   instead reverts to `value` and ends the session, via onCancel/
+   *   onEditingEnd — the same outcome as Escape, since the session can't
+   *   be forced to stay open once focus has left.
+   *
+   * No error message/tooltip is shown by EditableText itself — that's a
+   * deliberately separate, not-yet-built concern; this only decides
+   * commit/reject/stay-open, never how a reason is communicated.
    */
-  onCommit(value: string): void;
+  onCommit(value: string): void | boolean;
 
   /**
    * Called on every input event with the live, uncommitted draft text —

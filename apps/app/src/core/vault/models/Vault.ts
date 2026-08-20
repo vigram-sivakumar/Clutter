@@ -157,6 +157,30 @@ export class Vault {
   }
 
   /**
+   * Case-insensitive counterpart to getFolderByPath() — the real
+   * filesystem LocalVaultProvider writes to (macOS/Windows, both
+   * case-insensitive by default) treats "Test" and "test" as the same
+   * directory, but foldersByPath's Map key does not. Every *collision*
+   * check (an isTaken callback deciding a create/move/rename candidate,
+   * assertFolderPathAvailable below, FolderOperations.canCreate/canRename)
+   * must ask this question, not the exact one — see VaultPath.
+   * equalsCaseInsensitive's own doc comment for what goes wrong otherwise.
+   * Not a replacement for getFolderByPath(): a lookup resolving a path
+   * that is already known-correct (from a disk scan/watcher event, or a
+   * deterministic target like Daily Notes) should stay exact, since the
+   * scan/watcher already reports the real on-disk casing.
+   */
+  getFolderByPathCaseInsensitive(path: string): Folder | undefined {
+    for (const folder of this.foldersByPath.values()) {
+      if (VaultPath.equalsCaseInsensitive(folder.path, path)) {
+        return folder;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * Resolves a reserved top-level folder by stable identifier.
    *
    * Reserved folder paths are defined in ReservedResources — callers should
@@ -529,7 +553,7 @@ export class Vault {
    * assertPathAvailable's page equivalent.
    */
   private assertFolderPathAvailable(path: string): void {
-    const occupant = this.foldersByPath.get(path);
+    const occupant = this.getFolderByPathCaseInsensitive(path);
 
     if (occupant) {
       throw new Error(`Folder path already in use: ${path}`);
@@ -759,10 +783,9 @@ export class Vault {
     const folder = this.foldersById.get(folderId)!;
     const oldPrefix = folder.path;
 
-    if (
-      this.foldersByPath.has(path) &&
-      this.foldersByPath.get(path)?.id !== folderId
-    ) {
+    const selfOccupant = this.getFolderByPathCaseInsensitive(path);
+
+    if (selfOccupant && selfOccupant.id !== folderId) {
       throw new Error(`Folder path already in use: ${path}`);
     }
 
@@ -783,7 +806,7 @@ export class Vault {
     }
 
     for (const [id, nextPath] of folderPathUpdates) {
-      const occupant = this.foldersByPath.get(nextPath);
+      const occupant = this.getFolderByPathCaseInsensitive(nextPath);
 
       if (occupant && occupant.id !== id && !folderPathUpdates.has(occupant.id)) {
         throw new Error(`Folder path already in use: ${nextPath}`);
@@ -805,7 +828,7 @@ export class Vault {
     }
 
     for (const [id, nextPath] of pagePathUpdates) {
-      const occupant = this.pagesByPath.get(nextPath);
+      const occupant = this.getPageByPathCaseInsensitive(nextPath);
 
       if (occupant && occupant.id !== id && !pagePathUpdates.has(occupant.id)) {
         throw new Error(`Path already in use by another page: ${nextPath}`);
@@ -929,7 +952,7 @@ export class Vault {
    * path — it would remain in pagesById but become unreachable by path.
    */
   private assertPathAvailable(path: string, exceptPageId?: string): void {
-    const occupant = this.pagesByPath.get(path);
+    const occupant = this.getPageByPathCaseInsensitive(path);
 
     if (occupant && occupant.id !== exceptPageId) {
       throw new Error(`Path already in use by another page: ${path}`);
@@ -957,6 +980,22 @@ export class Vault {
    */
   getPageByPath(path: string): Page | undefined {
     return this.pagesByPath.get(path);
+  }
+
+  /**
+   * Case-insensitive counterpart to getPageByPath() — same reasoning as
+   * getFolderByPathCaseInsensitive() above, for a page's own collision
+   * checks (PagePathResolver.createNotePath, MoveService's resolvers,
+   * PageOperations.canRename).
+   */
+  getPageByPathCaseInsensitive(path: string): Page | undefined {
+    for (const page of this.pagesByPath.values()) {
+      if (VaultPath.equalsCaseInsensitive(page.path, path)) {
+        return page;
+      }
+    }
+
+    return undefined;
   }
 
   *pages(): IterableIterator<Page> {

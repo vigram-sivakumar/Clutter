@@ -20,6 +20,15 @@ export interface OverflowMenuItemConfig {
   icon: SystemIcon;
   /** Rendered but non-interactive — never omitted from the menu. */
   disabled?: boolean;
+  /**
+   * This item's own selection immediately mounts and focuses a different
+   * element (e.g. an inline `EditableText` for a "Rename" action) — the
+   * menu closing must NOT then restore focus back to the trigger button
+   * the way it normally would, or the just-focused element gets blurred
+   * out from under it a moment later. See `useOverlayFocus`'s doc comment
+   * for the full mechanism this flag drives.
+   */
+  opensInlineEdit?: boolean;
 }
 
 export interface OverflowMenuProps {
@@ -71,6 +80,10 @@ export function OverflowMenu({
   const internalAnchorRef = useRef<HTMLButtonElement>(null);
   const anchorRef: RefObject<HTMLButtonElement> =
     triggerRef ?? internalAnchorRef;
+  // See useOverlayFocus's own doc comment — set true for exactly the one
+  // closing transition triggered by an `opensInlineEdit` item, consumed
+  // (reset) by that hook the moment it observes it.
+  const suppressReturnFocusRef = useRef(false);
 
   if (items.length === 0) {
     return null;
@@ -100,6 +113,7 @@ export function OverflowMenu({
         anchorRef={anchorRef}
         side={side}
         alignment={alignment}
+        suppressReturnFocusRef={suppressReturnFocusRef}
       >
         <Menu size={size}>
           {items.map((item) => (
@@ -121,6 +135,11 @@ export function OverflowMenu({
                 // open/select it — exactly the trigger button beside this
                 // menu already guards against for opening the menu itself.
                 event.stopPropagation();
+
+                if (item.opensInlineEdit) {
+                  suppressReturnFocusRef.current = true;
+                }
+
                 onSelect(item.id);
                 onOpenChange(false);
               }}

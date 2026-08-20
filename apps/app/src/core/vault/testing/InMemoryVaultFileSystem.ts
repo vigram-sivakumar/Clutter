@@ -1,5 +1,6 @@
 import type { VaultEntry, VaultFileSystem } from '../providers/VaultFileSystem';
 import { resolveLocalDuplicatePath } from '../providers/localDuplicateNaming';
+import { VaultPath } from '../ingest/VaultPath';
 
 /**
  * In-memory implementation of VaultFileSystem for tests.
@@ -26,6 +27,15 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
    * creates every intermediate ancestor, so a scan starting from a shared
    * root can walk down into it via readDirectory the same way it would on
    * a real filesystem.
+   *
+   * Also mirrors real `mkdir`'s case-insensitive-but-case-preserving
+   * behavior on macOS/Windows (empirically confirmed against APFS: `mkdir
+   * Test` when `test` already exists returns success and creates nothing
+   * new) — an ancestor segment that already exists under a *different*
+   * case is left as-is rather than added as a second, distinct tracked
+   * directory. Without this, a test creating "test" then "Test" would see
+   * two independent directories, which is exactly the divergence this
+   * fake filesystem exists to reproduce, not paper over.
    */
   async createDirectory(path: string): Promise<void> {
     const segments = path.split('/');
@@ -33,10 +43,33 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     for (let i = 1; i <= segments.length; i++) {
       const ancestor = segments.slice(0, i).join('/');
 
-      if (ancestor) {
+      if (ancestor && !this.findCaseInsensitiveMatch(ancestor, this.directories)) {
         this.directories.add(ancestor);
       }
     }
+  }
+
+  /**
+   * Same case-collapsing as createDirectory() above, but for individual
+   * files — mirrors real `writeFile`'s behavior for a case-variant of an
+   * already-existing path: it silently writes into the *existing* file,
+   * not a new one (empirically confirmed: writing to "Test/.folder.md"
+   * when only "test/.folder.md" exists overwrites the latter). Resolving
+   * to the already-tracked key (rather than the caller's casing) is what
+   * makes that corruption reproducible in a test — a Gate write meant for
+   * a "new" case-variant folder observably clobbers the original's file.
+   */
+  private findCaseInsensitiveMatch(
+    path: string,
+    keys: Iterable<string>
+  ): string | undefined {
+    for (const key of keys) {
+      if (VaultPath.equalsCaseInsensitive(key, path)) {
+        return key;
+      }
+    }
+
+    return undefined;
   }
 
   async readDirectory(path: string): Promise<VaultEntry[]> {
@@ -76,8 +109,18 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
     return contents;
   }
 
+  /**
+   * Also case-collapsing, for the same empirically-confirmed reason as
+   * createDirectory() above: writing "Test/.folder.md" when only
+   * "test/.folder.md" is tracked overwrites the existing key rather than
+   * creating a second one — this is the exact mechanism by which a Gate
+   * create-folder write can silently corrupt a pre-existing case-variant
+   * folder's metadata.
+   */
   async writeFile(path: string, contents: string): Promise<void> {
-    this.files.set(path, contents);
+    const existingKey = this.findCaseInsensitiveMatch(path, this.files.keys());
+
+    this.files.set(existingKey ?? path, contents);
   }
 
   /**

@@ -35,6 +35,7 @@ export type {
 } from './MarkdownEditor.types';
 export type { ResolveDate, DateResolution } from './codemirror/date/dateResolution';
 export type { ResolveTag, TagResolution } from './codemirror/tag/tagResolution';
+export type { GetTagSuggestions } from './codemirror/tag/tagSuggestion';
 export type {
   ResolveWikiLink,
   WikiLinkResolution,
@@ -67,7 +68,16 @@ export const MarkdownEditor = forwardRef<
   MarkdownEditorHandle,
   MarkdownEditorProps
 >(function MarkdownEditor(
-  { markdown, onEdit, onFlush, resolveWikiLink, getWikiLinkSuggestions, resolveTag, resolveDate },
+  {
+    markdown,
+    onEdit,
+    onFlush,
+    resolveWikiLink,
+    getWikiLinkSuggestions,
+    resolveTag,
+    getTagSuggestions,
+    resolveDate,
+  },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -95,6 +105,10 @@ export const MarkdownEditor = forwardRef<
   // Same freshness pattern as resolveWikiLinkRef above, for Tag's decoration/mouse/keymap accessor.
   const resolveTagRef = useRef(resolveTag);
   resolveTagRef.current = resolveTag;
+
+  // Same freshness pattern, for Tag's completion source accessor below.
+  const getTagSuggestionsRef = useRef(getTagSuggestions);
+  getTagSuggestionsRef.current = getTagSuggestions;
 
   // Same freshness pattern, for Date's decoration/mouse/keymap accessor.
   const resolveDateRef = useRef(resolveDate);
@@ -135,7 +149,10 @@ export const MarkdownEditor = forwardRef<
         dateMouseHandlers(() => resolveDateRef.current),
         dateKeymap(() => resolveDateRef.current),
         dateSelectionSnap(),
-        semanticCompletion(() => getWikiLinkSuggestionsRef.current),
+        semanticCompletion(
+          () => getWikiLinkSuggestionsRef.current,
+          () => getTagSuggestionsRef.current
+        ),
       ],
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onBlur: () => onFlushRef.current?.(),

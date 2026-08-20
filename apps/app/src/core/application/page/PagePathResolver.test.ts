@@ -128,4 +128,20 @@ describe('PagePathResolver.createNotePath', () => {
 
     expect(result).toEqual({ path: `${ROOT}/Untitled 4.md`, parentId: null });
   });
+
+  // Regression test: macOS (APFS) and Windows (NTFS) are case-insensitive
+  // on disk — "untitled.md" and "Untitled.md" are the same file — but this
+  // resolver's isTaken check used to be a case-sensitive vault.getPageByPath
+  // lookup, so a differently-cased title sailed past it as "free" and the
+  // resulting mkdir/writeFile would have silently collided with (and
+  // corrupted) the existing file on a real disk.
+  it('treats a case-variant of an existing title as a collision', () => {
+    const existing = makePage('page-1', `${ROOT}/Untitled.md`);
+    const vault = makeVault([existing]);
+    const resolver = new PagePathResolver(vault);
+
+    const result = resolver.createNotePath(null, 'UNTITLED');
+
+    expect(result).toEqual({ path: `${ROOT}/UNTITLED 2.md`, parentId: null });
+  });
 });

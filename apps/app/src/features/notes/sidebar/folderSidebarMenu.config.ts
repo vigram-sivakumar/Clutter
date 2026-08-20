@@ -39,7 +39,7 @@ export function buildFolderSidebarMenu(
   isFavorite: boolean = false
 ): OverflowMenuItemConfig[] {
   const items: OverflowMenuItemConfig[] = [
-    { id: 'rename', label: 'Rename', icon: 'notePencil' },
+    { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
     { id: 'change-icon', label: 'Change icon', icon: 'smile' },
     { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
     {

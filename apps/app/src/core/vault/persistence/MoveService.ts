@@ -48,7 +48,9 @@ export class MoveService {
     const candidateName = resolveArchiveCollisionFreeName(
       baseName,
       (candidate) => {
-        const occupant = this.vault.getPageByPath(`${archiveFolder.path}/${candidate}.md`);
+        const occupant = this.vault.getPageByPathCaseInsensitive(
+          `${archiveFolder.path}/${candidate}.md`
+        );
         return occupant !== undefined && occupant.id !== current.id;
       },
       new Date()
@@ -136,7 +138,7 @@ export class MoveService {
     const candidateName = resolveCollisionFreeName(
       baseName,
       (candidate) => {
-        const occupant = this.vault.getPageByPath(
+        const occupant = this.vault.getPageByPathCaseInsensitive(
           `${destinationPath}/${candidate}.md`
         );
         return occupant !== undefined && occupant.id !== current.id;
@@ -177,7 +179,7 @@ export class MoveService {
     const folderPath = resolveFolderPathOrRoot(this.vault, current.parentId);
 
     const candidateName = resolveEntityName(title, (candidate) => {
-      const occupant = this.vault.getPageByPath(`${folderPath}/${candidate}.md`);
+      const occupant = this.vault.getPageByPathCaseInsensitive(`${folderPath}/${candidate}.md`);
       return occupant !== undefined && occupant.id !== current.id;
     });
 
@@ -201,7 +203,7 @@ export class MoveService {
       return;
     }
 
-    const occupant = this.vault.getPageByPath(updated.path);
+    const occupant = this.vault.getPageByPathCaseInsensitive(updated.path);
 
     if (occupant && occupant.id !== updated.id) {
       throw new Error(`Path already in use by another page: ${updated.path}`);

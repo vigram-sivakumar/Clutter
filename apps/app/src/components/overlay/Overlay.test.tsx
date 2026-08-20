@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type MutableRefObject } from 'react';
 import {
   cleanup,
   fireEvent,
@@ -333,6 +333,88 @@ describe('Overlay', () => {
 
     overlayAction.focus();
     expect(document.activeElement).toBe(overlayAction);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(anchor);
+    });
+  });
+
+  it('suppressReturnFocusRef, set true before closing, skips exactly that one restoration and resets itself for the next close', async () => {
+    function SuppressibleHarness({
+      suppressReturnFocusRef,
+    }: {
+      suppressReturnFocusRef: MutableRefObject<boolean>;
+    }) {
+      const [open, setOpen] = useState(true);
+      const anchorRef = useRef<HTMLButtonElement>(null);
+
+      return (
+        <>
+          <button
+            ref={anchorRef}
+            type="button"
+            data-testid="overlay-anchor"
+            onClick={() => setOpen(true)}
+          >
+            Open overlay
+          </button>
+          <Overlay
+            open={open}
+            anchorRef={anchorRef}
+            suppressReturnFocusRef={suppressReturnFocusRef}
+            onClose={() => setOpen(false)}
+          >
+            <button type="button">Overlay action</button>
+          </Overlay>
+        </>
+      );
+    }
+
+    function Wrapper() {
+      const suppressReturnFocusRef = useRef(false);
+      return (
+        <>
+          <button
+            type="button"
+            data-testid="suppress-trigger"
+            onClick={() => {
+              suppressReturnFocusRef.current = true;
+            }}
+          >
+            Suppress next
+          </button>
+          <SuppressibleHarness suppressReturnFocusRef={suppressReturnFocusRef} />
+        </>
+      );
+    }
+
+    render(<Wrapper />);
+
+    const anchor = screen.getByTestId('overlay-anchor');
+    const overlayAction = screen.getByText('Overlay action');
+
+    // Suppressed close: focus stays wherever it already is (does NOT jump
+    // to the anchor).
+    fireEvent.click(screen.getByTestId('suppress-trigger'));
+    overlayAction.focus();
+    expect(document.activeElement).toBe(overlayAction);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    // Give any (incorrect) restoration a chance to happen before asserting
+    // it didn't.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.activeElement).not.toBe(anchor);
+
+    // Reopen (without suppressing again) and close normally — the flag
+    // must have been consumed/reset by the suppressed close above, so
+    // this later, ordinary close still restores focus as usual.
+    fireEvent.click(anchor);
+    const overlayActionAgain = screen.getByText('Overlay action');
+    overlayActionAgain.focus();
+    expect(document.activeElement).toBe(overlayActionAgain);
 
     fireEvent.keyDown(document, { key: 'Escape' });
 

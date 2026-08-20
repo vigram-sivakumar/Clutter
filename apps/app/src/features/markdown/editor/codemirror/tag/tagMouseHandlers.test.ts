@@ -22,7 +22,7 @@ function mountView(doc: string, resolver?: ResolveTag): EditorView {
 describe('handleTagClick', () => {
   it('a plain click on an at-rest Tag activates it', () => {
     const activate = vi.fn();
-    const resolver: ResolveTag = () => ({ status: 'resolved', activate });
+    const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
     const view = mountView('Text before #project', resolver);
     const nodeFrom = 'Text before '.length;
 
@@ -34,7 +34,7 @@ describe('handleTagClick', () => {
 
   it('Alt-click on an at-rest Tag engages it instead of activating', () => {
     const activate = vi.fn();
-    const resolver: ResolveTag = () => ({ status: 'resolved', activate });
+    const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
     const view = mountView('Text before #project', resolver);
     const nodeFrom = 'Text before '.length;
 
@@ -47,7 +47,7 @@ describe('handleTagClick', () => {
   });
 
   it('a click that is not on any Tag is not handled, letting CM6 fall through to default behavior', () => {
-    const resolver: ResolveTag = () => ({ status: 'resolved', activate: vi.fn() });
+    const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate: vi.fn() });
     const view = mountView('Text before #project', resolver);
 
     const handled = handleTagClick(view, 2, false, () => resolver);
@@ -57,7 +57,7 @@ describe('handleTagClick', () => {
 
   it('clicking an already-engaged Tag is not handled — it is just ordinary text at that point', () => {
     const activate = vi.fn();
-    const resolver: ResolveTag = () => ({ status: 'resolved', activate });
+    const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
     const view = mountView('Text before #project', resolver);
     const nodeFrom = 'Text before '.length;
 

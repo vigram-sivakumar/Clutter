@@ -285,6 +285,29 @@ describe('Vault invariants', () => {
       path: '/vault/NewProjects',
     });
   });
+
+  it('allows renaming a folder to a different case of its own current name (a pure case change, not a collision with itself)', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/test', name: 'test' });
+    const vault = makeVault([], [folder]);
+
+    vault.moveFolder('folder-1', '/vault/Test', null);
+
+    expect(vault.getFolder('folder-1')!.path).toBe('/vault/Test');
+    expect(vault.getFolderByPath('/vault/Test')!.id).toBe('folder-1');
+  });
+
+  it('rejects renaming a folder to a case-variant of a different, existing sibling folder', () => {
+    const test = makeFolder({ id: 'folder-1', path: '/vault/test', name: 'test' });
+    const other = makeFolder({ id: 'folder-2', path: '/vault/Other', name: 'Other' });
+    const vault = makeVault([], [test, other]);
+
+    expect(() => vault.moveFolder('folder-2', '/vault/Test', null)).toThrow(
+      /Folder path already in use/
+    );
+
+    expect(vault.getFolder('folder-2')!.path).toBe('/vault/Other');
+    expect(vault.getFolderByPath('/vault/test')!.id).toBe('folder-1');
+  });
 });
 
 describe('updatePagePath', () => {
@@ -371,6 +394,28 @@ describe('updatePagePath', () => {
     expect(() => {
       vault.updatePagePath('page-a', '/vault/B.md', null);
     }).toThrow('Path already in use by another page: /vault/B.md');
+  });
+
+  it('allows renaming a page to a different case of its own current name (a pure case change, not a collision with itself)', () => {
+    const page = makePage({ id: 'page-1', path: '/vault/note.md', name: 'note' });
+    const vault = makeVault([page]);
+
+    vault.updatePagePath('page-1', '/vault/Note.md', null);
+
+    expect(vault.getPage('page-1')!.path).toBe('/vault/Note.md');
+  });
+
+  it('rejects renaming a page to a case-variant of a different, existing sibling page (macOS/Windows treat these as the same file)', () => {
+    const noteA = makePage({ id: 'page-a', path: '/vault/note.md' });
+    const noteB = makePage({ id: 'page-b', path: '/vault/Other.md' });
+    const vault = makeVault([noteA, noteB]);
+
+    expect(() => {
+      vault.updatePagePath('page-b', '/vault/Note.md', null);
+    }).toThrow('Path already in use by another page: /vault/Note.md');
+
+    expect(vault.getPage('page-b')!.path).toBe('/vault/Other.md');
+    expect(vault.getPageByPath('/vault/note.md')!.id).toBe('page-a');
   });
 
   // A page's Daily Note vs. Note role is a pure function of its current
@@ -1141,5 +1186,42 @@ describe('Vault.addFolder', () => {
     vault.addFolder(makeFolder({ id: 'folder-1', path: '/vault/Projects' }));
 
     expect(buildEagerSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects a case-variant duplicate path (macOS/Windows are case-insensitive on disk, even though foldersByPath is a case-sensitive Map key)', () => {
+    const existing = makeFolder({ id: 'folder-1', path: '/vault/test' });
+    const vault = makeVault([], [existing]);
+
+    expect(() =>
+      vault.addFolder(makeFolder({ id: 'folder-2', path: '/vault/Test' }))
+    ).toThrow(/Folder path already in use/);
+
+    expect(vault.getFolderByPath('/vault/test')).toBe(existing);
+    expect(vault.getFolder('folder-2')).toBeUndefined();
+    expect(vault.folderCount).toBe(1);
+  });
+});
+
+describe('Vault.getFolderByPathCaseInsensitive / getPageByPathCaseInsensitive', () => {
+  it('finds a folder registered under a different case', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Projects' });
+    const vault = makeVault([], [folder]);
+
+    expect(vault.getFolderByPathCaseInsensitive('/vault/projects')).toBe(folder);
+    expect(vault.getFolderByPathCaseInsensitive('/vault/PROJECTS')).toBe(folder);
+  });
+
+  it('finds a page registered under a different case', () => {
+    const page = makePage({ id: 'page-1', path: '/vault/Note.md' });
+    const vault = makeVault([page]);
+
+    expect(vault.getPageByPathCaseInsensitive('/vault/note.md')).toBe(page);
+  });
+
+  it('returns undefined when nothing matches, even case-insensitively', () => {
+    const vault = makeVault([]);
+
+    expect(vault.getFolderByPathCaseInsensitive('/vault/Nothing')).toBeUndefined();
+    expect(vault.getPageByPathCaseInsensitive('/vault/Nothing.md')).toBeUndefined();
   });
 });

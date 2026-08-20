@@ -22,7 +22,7 @@ function renderTag(
   }
 
   const resolver = getResolver();
-  const resolution = resolver?.(match.name) ?? fallbackTagResolution();
+  const resolution = resolver?.(match.name) ?? fallbackTagResolution(match.name);
   return new TagWidget(raw, resolution);
 }
 

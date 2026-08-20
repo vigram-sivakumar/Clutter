@@ -8,6 +8,26 @@
   overflow-wrap: break-word;
 }
 
+@keyframes editable-text-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(3px);
+  }
+  50% {
+    transform: translateX(0);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+.editable-text--shake {
+  animation: editable-text-shake 240ms ease-in-out;
+}
+
 .editable-text[data-empty='true']::before {
   position: absolute;
   inset: 0;

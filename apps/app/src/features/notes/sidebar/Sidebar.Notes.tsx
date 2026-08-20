@@ -109,8 +109,19 @@ export function Notes({
       pageOperations.commitTitle(pageId, value),
     onNoteTitleFlush: (pageId) => void pageOperations.requestTitleSave(pageId),
     onNoteTitleCancel: (pageId) => pageOperations.cancelTitleEdit(pageId),
-    onDraftTitleCommit: (pageId, value) =>
-      void pageOperations.updateDraftTitle(pageId, value),
+    // A synchronous pre-check only — the continuous channel above
+    // (onNoteTitleEdit/onNoteTitleFlush) already persists; this exists so
+    // Enter/blur-changed on a colliding title rejects immediately (stay
+    // open, shake) instead of waiting on the debounced save to fail.
+    onNoteTitleCommit: (pageId, value) =>
+      pageOperations.canRename(pageId, value) ? undefined : false,
+    onDraftTitleCommit: (pageId, value) => {
+      if (!pageOperations.canRename(pageId, value)) {
+        return false;
+      }
+
+      void pageOperations.updateDraftTitle(pageId, value);
+    },
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
     onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
@@ -129,6 +140,9 @@ export function Notes({
     // "+" button (handleCommitNewFolder above) already uses.
     onCreateFolder: (name) => folderOperations.create(name, null),
 
+    // Same synchronous pre-check role as onNoteTitleCommit above.
+    onFolderTitleCommit: (folderId, value) =>
+      folderOperations.canRename(folderId, value) ? undefined : false,
     onFolderTitleEdit: (folderId, value) =>
       folderOperations.commitName(folderId, value),
     onFolderTitleFlush: (folderId) =>
@@ -213,11 +227,30 @@ export function Notes({
     membershipSelector.getNotesChildPages(null).length === 0 &&
     pendingNewFolder?.parentId !== null;
 
+  // A synchronous pre-check only (FolderOperations.canCreate()) — mirrors
+  // onNoteTitleCommit/onFolderTitleCommit above: returning `false` lets
+  // NewFolderRow's own EditableText reject the commit (stay open, shake,
+  // caret at end, typed value preserved) for a duplicate sibling name,
+  // instead of auto-suffixing the way FolderPathResolver.createFolderPath()
+  // does for every other create() caller (unchanged — see canCreate()'s own
+  // doc comment). Only once a unique name passes does the actual create()
+  // call happen, fired-and-forgotten below.
+  function handleCommitNewFolder(
+    name: string,
+    parentId: string | null
+  ): void | boolean {
+    if (!folderOperations.canCreate(name, parentId)) {
+      return false;
+    }
+
+    void createNewFolder(name, parentId);
+  }
+
   // Only cleared once the Gate call settles (success or failure) — this is
   // what lets the temporary row stay visible until the real Folder is
   // ready to take its place via the Vault's own notification flow, rather
   // than clearing optimistically and leaving a gap.
-  async function handleCommitNewFolder(
+  async function createNewFolder(
     name: string,
     parentId: string | null
   ): Promise<void> {

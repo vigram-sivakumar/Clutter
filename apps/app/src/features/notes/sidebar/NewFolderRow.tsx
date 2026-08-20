@@ -6,7 +6,7 @@ import { FolderLeading } from './FolderLeading';
 
 interface NewFolderRowProps {
   level: number;
-  onCommit(name: string): void;
+  onCommit(name: string): void | boolean;
   onCancel(): void;
 }
 
@@ -19,6 +19,15 @@ interface NewFolderRowProps {
  *
  * Escape, an empty/whitespace-only commit, or a blur without a commit all
  * end the session without calling onCommit — see onEditingEnd below.
+ *
+ * `onCommit` may return `false` (e.g. a duplicate sibling name —
+ * Sidebar.Notes' handleCommitNewFolder pre-checks via
+ * FolderOperations.canCreate()) — propagated straight through so
+ * EditableText's own rejected-commit behavior (stay open, shake, caret at
+ * end, typed value preserved) handles it, same as Note/Folder rename.
+ * committedRef only flips for an actually-accepted commit, so a rejected
+ * Enter correctly leaves the row still "in progress" rather than
+ * cancelling it once the field eventually blurs away.
  */
 export function NewFolderRow({ level, onCommit, onCancel }: NewFolderRowProps) {
   const committedRef = useRef(false);
@@ -45,8 +54,13 @@ export function NewFolderRow({ level, onCommit, onCancel }: NewFolderRowProps) {
             return;
           }
 
+          const result = onCommit(trimmed);
+
+          if (result === false) {
+            return false;
+          }
+
           committedRef.current = true;
-          onCommit(trimmed);
         }}
         onEditingEnd={() => {
           if (!committedRef.current) {

@@ -32,6 +32,14 @@ export interface FolderProps extends Omit<EntryProps, 'children'> {
 
   /** Renders the title as an EditableText field instead of static text. */
   isEditing?: boolean;
+  /**
+   * See PageTitle.onCommit — a synchronous canRename() pre-check only (the
+   * continuous channel below still does the actual persisting), same
+   * shape as Note.tsx's persisted-note onTitleCommit. Returning `false`
+   * rejects the submitted value (EditableText stays open, shakes,
+   * preserves the typed value).
+   */
+  onTitleCommit?(value: string): void | boolean;
   /** See PageTitle.onEdit — folder rename is channel-backed, same as a persisted Note's title. */
   onTitleEdit?(value: string): void;
   /** See PageTitle.onFlush. */
@@ -81,6 +89,7 @@ export function Folder({
   onExpandToggle,
   onAddClick,
   isEditing = false,
+  onTitleCommit,
   onTitleEdit,
   onTitleFlush,
   onTitleCancel,
@@ -161,7 +170,7 @@ export function Folder({
             value={title ?? ''}
             placeholder={titlePlaceholder}
             autoFocus
-            onCommit={() => {}}
+            onCommit={onTitleCommit ?? (() => {})}
             onEdit={onTitleEdit}
             onFlush={onTitleFlush}
             onCancel={onTitleCancel}

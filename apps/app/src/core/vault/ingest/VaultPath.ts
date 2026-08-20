@@ -27,6 +27,26 @@ export class VaultPath {
   }
 
   /**
+   * Whether two paths refer to the same filesystem entry on a
+   * case-insensitive (but case-preserving) filesystem — the default for
+   * both macOS (APFS) and Windows (NTFS), which LocalVaultProvider writes
+   * to. `mkdir`/`writeFile` for a path differing from an existing one only
+   * in case silently resolves to the *same* directory/file on disk rather
+   * than erroring or creating a second entry — every place Vault decides
+   * whether a candidate path collides with an existing one must ask this
+   * question, not raw `===`, or a case-variant "new" folder/page silently
+   * reuses (and can corrupt) an existing one's on-disk content while the
+   * in-memory Vault projection ends up with two separate records for what
+   * is physically one entry. `toLowerCase()` mirrors the ASCII-only
+   * identity fold `normalizeTagName()` already uses for the same class of
+   * problem (Tag.ts) — this codebase's existing precedent for "the domain
+   * treats X as case-insensitive," not a new convention.
+   */
+  static equalsCaseInsensitive(a: string, b: string): boolean {
+    return a.toLowerCase() === b.toLowerCase();
+  }
+
+  /**
    * A page's display name — its filename, minus a trailing `.md` — derived
    * from its path the same way everywhere it's needed: PageBuilder (initial
    * scan), PageOperations (a still-unpersisted draft's default title), and

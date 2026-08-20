@@ -380,7 +380,12 @@ export class Application {
     // `.clutter` is never a Vault Folder (VaultScanner excludes it from
     // every scan), so it follows its own small filesystem-only lazy-ensure
     // primitive, not FolderOperations.ensureReservedFolder().
-    this.tagOperations = new TagOperations(vault, this.fileSystem, this.rootPath);
+    this.tagOperations = new TagOperations(
+      vault,
+      this.fileSystem,
+      this.rootPath,
+      this.pageOperations
+    );
     // ADR-020: constructed after query/workspace/pageOperations all exist
     // above — the projection reconciling Vault (Durable) with
     // PageOperations/DocumentEditing (Committed) state. No production

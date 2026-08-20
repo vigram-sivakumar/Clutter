@@ -1,0 +1,14 @@
+/*
+ * Popup row styling for Tag completion options — reuses the same design
+ * tokens `dateCompletion.css`/`wikiLinkCompletion.css` already establish
+ * (`--entry-*`) for visual consistency, without importing either file's
+ * own kind-specific classes.
+ */
+.tag-completion {
+  display: flex;
+  align-items: baseline;
+  padding-inline: var(--space-8);
+  width: 100%;
+  color: var(--entry-foreground);
+  font: var(--text-body-small);
+}

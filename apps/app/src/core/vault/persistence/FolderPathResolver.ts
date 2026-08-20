@@ -34,7 +34,8 @@ export class FolderPathResolver {
 
     const candidateName = resolveEntityName(
       name,
-      (candidate) => this.vault.getFolderByPath(`${parentPath}/${candidate}`) !== undefined
+      (candidate) =>
+        this.vault.getFolderByPathCaseInsensitive(`${parentPath}/${candidate}`) !== undefined
     );
 
     return {
@@ -75,7 +76,9 @@ export class FolderPathResolver {
     const candidateName = resolveArchiveCollisionFreeName(
       folder.name,
       (candidate) => {
-        const occupant = this.vault.getFolderByPath(`${archiveFolder.path}/${candidate}`);
+        const occupant = this.vault.getFolderByPathCaseInsensitive(
+          `${archiveFolder.path}/${candidate}`
+        );
         return occupant !== undefined && occupant.id !== folderId;
       },
       new Date()
@@ -177,7 +180,9 @@ export class FolderPathResolver {
     }
 
     const candidateName = resolveEntityName(name ?? folder.name, (candidate) => {
-      const occupant = this.vault.getFolderByPath(`${destinationPath}/${candidate}`);
+      const occupant = this.vault.getFolderByPathCaseInsensitive(
+        `${destinationPath}/${candidate}`
+      );
       return occupant !== undefined && occupant.id !== folderId;
     });
 

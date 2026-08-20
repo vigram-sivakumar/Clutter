@@ -180,6 +180,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onNoteTitleEdit: ReturnType<typeof vi.fn>;
     onNoteTitleFlush: ReturnType<typeof vi.fn>;
     onNoteTitleCancel: ReturnType<typeof vi.fn>;
+    onNoteTitleCommit: ReturnType<typeof vi.fn>;
     onDraftTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveNote: ReturnType<typeof vi.fn>;
     onDeleteNote: ReturnType<typeof vi.fn>;
@@ -188,6 +189,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onFolderTitleEdit: ReturnType<typeof vi.fn>;
     onFolderTitleFlush: ReturnType<typeof vi.fn>;
     onFolderTitleCancel: ReturnType<typeof vi.fn>;
+    onFolderTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveFolder: ReturnType<typeof vi.fn>;
     onDeleteFolder: ReturnType<typeof vi.fn>;
     onToggleFavoriteFolder: ReturnType<typeof vi.fn>;
@@ -201,6 +203,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onNoteTitleEdit: vi.fn(),
     onNoteTitleFlush: vi.fn(),
     onNoteTitleCancel: vi.fn(),
+    onNoteTitleCommit: vi.fn(),
     onDraftTitleCommit: vi.fn(),
     onArchiveNote: vi.fn(),
     onDeleteNote: vi.fn(),
@@ -211,6 +214,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onFolderTitleEdit: vi.fn(),
     onFolderTitleFlush: vi.fn(),
     onFolderTitleCancel: vi.fn(),
+    onFolderTitleCommit: vi.fn(),
     onArchiveFolder: vi.fn(),
     onDeleteFolder: vi.fn(),
     onToggleFavoriteFolder: vi.fn(),

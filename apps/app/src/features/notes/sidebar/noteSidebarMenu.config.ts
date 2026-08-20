@@ -39,7 +39,7 @@ export function buildNoteSidebarMenu(
   }
 
   return [
-    { id: 'rename', label: 'Rename', icon: 'notePencil' },
+    { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
     { id: 'change-icon', label: 'Change icon', icon: 'smile' },
     { id: 'duplicate', label: 'Duplicate', icon: 'copy' },
     { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },

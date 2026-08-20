@@ -10,6 +10,8 @@ import { DocumentState } from '../../engine/DocumentState';
 import type { Folder } from '../../vault/models/Folder';
 import type { FolderMetadata } from '../../vault/models/FolderMetadata';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
+import { VaultPath } from '../../vault/ingest/VaultPath';
+import { resolveFolderPathOrRoot } from '../../vault/persistence/resolveFolderPathOrRoot';
 
 /**
  * The folder-name channel's own debounce/ceiling — mirrors
@@ -286,18 +288,119 @@ export class FolderOperations {
   }
 
   /**
+   * Synchronous pre-check for an explicit in-place folder rename — mirrors
+   * PageOperations.canRename()/TagOperations.canRename() exactly: lets an
+   * EditableText onCommit reject a colliding submitted name immediately,
+   * without waiting on the async rename() call, which still re-checks
+   * internally. An empty/whitespace name is never a collision here (it
+   * resolves through the existing "Untitled" auto-generation instead,
+   * unchanged) — this only rejects an exact, non-empty sibling-name match.
+   */
+  public canRename(folderId: string, name: string): boolean {
+    const folder = this.vault.getFolder(folderId);
+
+    if (!folder) {
+      return false;
+    }
+
+    return !this.findRenameCollision(folder, name.trim());
+  }
+
+  /**
+   * Synchronous pre-check for the interactive "New Folder" inline-creation
+   * row (NewFolderRow, via Sidebar.Notes' handleCommitNewFolder) — the
+   * create-side counterpart to canRename() above, sharing the same
+   * hasSiblingFolder() collision primitive. Only this one interactive entry
+   * point uses it: every other create call (FolderPathResolver's own
+   * createFolderPath, used by the ordinary create() below, the Move
+   * picker's "Create ..." row, and page/folder move) keeps its existing
+   * auto-suffix behavior untouched — this method never calls create()
+   * itself and has no bearing on it. An empty/whitespace name is never a
+   * collision here, same reasoning as canRename(): it resolves through the
+   * existing "Untitled" auto-generation on actual create(), not a reject.
+   */
+  public canCreate(name: string, parentId: string | null): boolean {
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      return true;
+    }
+
+    const parentPath = resolveFolderPathOrRoot(this.vault, parentId);
+
+    return !this.hasSiblingFolder(parentPath, trimmedName);
+  }
+
+  /**
+   * The one exact-collision predicate behind canCreate() and (via
+   * findRenameCollision below) canRename()/rename() — same folder scope,
+   * same "own current path is not a collision with itself" exclusion
+   * FolderPathResolver.resolveMoveDestination() already uses, but never
+   * auto-suffixing: an occupied exact name is simply rejected. Deliberately
+   * not reusing resolveMoveDestination()/createFolderPath() themselves
+   * (their whole job is the auto-suffix behavior, which must stay
+   * unchanged for an actual move or any other create call — see
+   * move()/create(), below) — this is a distinct, narrower check.
+   */
+  private hasSiblingFolder(
+    parentPath: string,
+    trimmedName: string,
+    excludeFolderId?: string
+  ): boolean {
+    const occupant = this.vault.getFolderByPathCaseInsensitive(`${parentPath}/${trimmedName}`);
+
+    return occupant !== undefined && occupant.id !== excludeFolderId;
+  }
+
+  /**
+   * findRenameCollision() additionally needs the colliding Folder itself
+   * (for rename()'s error message), so it fetches directly rather than
+   * going through hasSiblingFolder()'s boolean — same rule, same
+   * parentPath/trimmedName/exclusion shape either way.
+   */
+  private findRenameCollision(folder: Folder, trimmedName: string): Folder | undefined {
+    if (!trimmedName) {
+      return undefined;
+    }
+
+    const parentPath = VaultPath.parentDirectory(folder.path);
+    const occupant = this.vault.getFolderByPathCaseInsensitive(`${parentPath}/${trimmedName}`);
+
+    return occupant && occupant.id !== folder.id ? occupant : undefined;
+  }
+
+  /**
    * Renames a folder in place — same parent only. Backed by the Gate's
    * unified 'move-folder' kind (ADR-024 §4's target shape): supplies the
    * folder's own current parentId as destinationFolderId, so the Gate's
    * dequeue-time resolution reparents it to exactly where it already is.
-   * No existence check of its own, same reasoning as delete() above — if
-   * the folder is gone by the time this dequeues, the Gate's own guard
-   * abandons it regardless of what parentId was captured here.
+   *
+   * Rejects an exact sibling-name collision synchronously, before ever
+   * enqueueing to the Gate — same reasoning as
+   * PageOperations.rename()'s equivalent check: the Gate's own
+   * resolveMoveDestination() still auto-suffixes (unchanged, still correct
+   * for an actual move, and for a race between this check and dequeue),
+   * but this is now the one place a caller-visible duplicate folder name
+   * is refused rather than silently renamed to "Folder 2". This is also
+   * what protects the continuous, debounced name-autosave channel
+   * (runRequestNameSave, below) for free — it already treats any throw
+   * from this call as a save failure (nameState.markSaveFailed()), so a
+   * collision now simply becomes one more reason this can throw.
    */
   public async rename(folderId: string, name: string): Promise<void> {
+    const folder = this.vault.getFolder(folderId);
+
+    if (folder) {
+      const collision = this.findRenameCollision(folder, name.trim());
+
+      if (collision) {
+        throw new Error(`A folder named "${collision.name}" already exists here.`);
+      }
+    }
+
     const result = await this.coordinator.enqueue(folderId, {
       kind: 'move-folder',
-      destinationFolderId: this.vault.getFolder(folderId)?.parentId ?? null,
+      destinationFolderId: folder?.parentId ?? null,
       name,
     });
 

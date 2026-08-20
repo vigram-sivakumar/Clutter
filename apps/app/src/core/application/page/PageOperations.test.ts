@@ -676,6 +676,54 @@ describe('PageOperations.create()', () => {
     expect(vault.getPage(newId)!.path).toBe(`${ROOT}/Idea 2.md`);
   });
 
+  // Regression test for the same case-insensitive-filesystem ghost-duplicate
+  // bug this file's Folder-side sibling documents (see FolderOperations.
+  // test.ts's identical scenario for the full mechanism write-up) — macOS
+  // (APFS) and Windows (NTFS) collapse "Idea.md" and "idea.md" into one
+  // file/path on disk, but Vault.pagesByPath (and, before this fix,
+  // PagePathResolver.createNotePath's isTaken check) treated them as
+  // distinct.
+  it('creating "idea" (lowercase) when "Idea.md" already exists on disk does not corrupt the existing page or fork the Vault projection', async () => {
+    const existing = buildPage();
+    const { vault, fileSystem, pageOperations } = setup(existing);
+    (fileSystem as InMemoryVaultFileSystem).seedFile(
+      `${ROOT}/Idea.md`,
+      '---\nid: page-occupant\n---\nOriginal content'
+    );
+    vault.addPage(
+      new PageBuilder().build({
+        parentId: null,
+        page: {
+          path: `${ROOT}/Idea.md`,
+          directoryPath: ROOT,
+          frontmatter: { id: 'page-occupant' },
+          frontmatterAnalysis: { aliases: [] },
+          content: 'Original content',
+          analysis: {
+            headings: [],
+            blockReferences: [],
+            tasks: [],
+            tags: [],
+            links: [],
+            embeds: [],
+          },
+        },
+      })
+    );
+
+    const newId = await pageOperations.create({ folderId: null, title: 'idea' });
+
+    expect(newId).not.toBe('page-occupant');
+    const created = vault.getPage(newId)!;
+    expect(created.path).toBe(`${ROOT}/idea 2.md`);
+
+    expect((fileSystem as InMemoryVaultFileSystem).getFileSync(`${ROOT}/Idea.md`)).toBe(
+      '---\nid: page-occupant\n---\nOriginal content'
+    );
+    expect(vault.getPage('page-occupant')!.path).toBe(`${ROOT}/Idea.md`);
+    expect(vault.getPageByPath(`${ROOT}/idea.md`)).toBeUndefined();
+  });
+
   it('the created page id in the Vault matches the id PageCreator generated', async () => {
     const existing = buildPage();
     const { vault, pageOperations } = setup(existing);
@@ -1357,6 +1405,100 @@ describe('PageOperations.rename() (completes spec §6 rename())', () => {
     expect(renamed.path).toBe(`${ROOT}/Renamed.md`);
     expect(renamed.source.markdown).toBe('Edited after rename');
   });
+
+  it('rejects a rename to an existing sibling title instead of auto-suffixing', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+    vault.addPage(buildNamedPage('page-sibling', `${ROOT}/Existing.md`));
+
+    await expect(pageOperations.rename(page.id, 'Existing')).rejects.toThrow(
+      /already exists/
+    );
+
+    const unchanged = vault.getPage(page.id)!;
+    expect(unchanged.path).toBe(`${ROOT}/Note.md`);
+  });
+
+  it('does not reject a rename that collides only with itself (a no-op title)', async () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+
+    await pageOperations.rename(page.id, 'Note');
+
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Note.md`);
+  });
+
+  it('does not reject a same-title collision against a sibling in a different folder', async () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const page = new PageBuilder().build({
+      parentId: 'folder-1',
+      page: {
+        path: `${ROOT}/Projects/Note.md`,
+        directoryPath: `${ROOT}/Projects`,
+        frontmatter: { id: 'page-1' },
+        frontmatterAnalysis: { aliases: [] },
+        content: 'Body',
+        analysis: {
+          headings: [],
+          blockReferences: [],
+          tasks: [],
+          tags: [],
+          links: [],
+          embeds: [],
+        },
+      },
+    });
+    const { vault, pageOperations } = setup(page, undefined, [
+      makeArchiveFolder(),
+      folder,
+    ]);
+    vault.addPage(buildNamedPage('page-sibling', `${ROOT}/Existing.md`));
+
+    await pageOperations.rename(page.id, 'Existing');
+
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Projects/Existing.md`);
+  });
+});
+
+describe('PageOperations.canRename()', () => {
+  it('returns false for an existing sibling title', () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+    vault.addPage(buildNamedPage('page-sibling', `${ROOT}/Existing.md`));
+
+    expect(pageOperations.canRename(page.id, 'Existing')).toBe(false);
+  });
+
+  it('returns true for a free title', () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    expect(pageOperations.canRename(page.id, 'Free Title')).toBe(true);
+  });
+
+  it('returns true for a no-op (same-title) rename', () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    expect(pageOperations.canRename(page.id, 'Note')).toBe(true);
+  });
+
+  it('returns true for an empty title (falls through to auto-generated naming, unchanged)', () => {
+    const page = buildPage();
+    const { pageOperations } = setup(page);
+
+    expect(pageOperations.canRename(page.id, '')).toBe(true);
+    expect(pageOperations.canRename(page.id, '   ')).toBe(true);
+  });
+
+  it('returns false for a case-variant of an existing sibling title (macOS/Windows are case-insensitive on disk)', () => {
+    const page = buildPage();
+    const { vault, pageOperations } = setup(page);
+    vault.addPage(buildNamedPage('page-sibling', `${ROOT}/Existing.md`));
+
+    expect(pageOperations.canRename(page.id, 'EXISTING')).toBe(false);
+    expect(pageOperations.canRename(page.id, 'existing')).toBe(false);
+  });
 });
 
 function setupEmpty(folders: Folder[] = [makeArchiveFolder()]) {
@@ -1692,6 +1834,39 @@ describe('PageOperations.updateDraftTitle()', () => {
     await pageOperations.updateDraftTitle(id, '');
 
     expect(vault.getPage(id)).toBeUndefined();
+  });
+
+  it('rejects a committed title that collides with an existing sibling instead of promoting/auto-suffixing', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    vault.addPage(buildNamedPage('page-sibling', `${ROOT}/Existing.md`));
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    await expect(pageOperations.updateDraftTitle(id, 'Existing')).rejects.toThrow(
+      /already exists/
+    );
+
+    expect(vault.getPage(id)).toBeUndefined();
+    expect(pageOperations.getDraft(id)?.title).toBeUndefined();
+  });
+
+  it('canRename() returns false for a draft title colliding with an existing sibling', async () => {
+    const { vault, pageOperations } = setupEmpty();
+    vault.addPage(buildNamedPage('page-sibling', `${ROOT}/Existing.md`));
+    const id = await pageOperations.openDraft({ folderId: null });
+
+    expect(pageOperations.canRename(id, 'Existing')).toBe(false);
+    expect(pageOperations.canRename(id, 'Free title')).toBe(true);
+  });
+
+  it('canRename() is always true for a deterministic-path (Daily Note) draft — title commit never collision-checks', async () => {
+    const { pageOperations } = setupEmpty([
+      makeArchiveFolder(),
+      makeDailyNotesFolder(),
+    ]);
+    const path = `${ROOT}/Daily Notes/2026/August/2026-08-01.md`;
+    const id = await pageOperations.openAtPath(path, { type: 'daily-note' });
+
+    expect(pageOperations.canRename(id, 'Anything')).toBe(true);
   });
 
   it('does not promote a Daily Note draft on title commit — only its own body/metadata commits do', async () => {

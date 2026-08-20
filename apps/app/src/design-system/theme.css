@@ -36,7 +36,10 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-placeholder: #565656;
   --foreground-inverse: var(--neutral-700);
   --marker-foreground: var(--foreground-placeholder);
+
+  /* Markdown foreground colors */
   --link-foreground: orange;
+  --date-foreground: var(--foreground-secondary);
 
   /* Interactive states */
   --state-base: 255 255 255;
@@ -106,7 +109,10 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-placeholder: #cccccc; /* ≈ black @ 20% */
   --foreground-inverse: #d4d4d4;
   --marker-foreground: var(--foreground-placeholder);
+
+  /* Markdown foreground colors */
   --link-foreground: orange;
+  --date-foreground: var(--foreground-secondary);
 
   /* Interactive states */
   --state-base: 0 0 0;

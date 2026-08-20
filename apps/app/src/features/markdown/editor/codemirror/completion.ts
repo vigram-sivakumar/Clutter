@@ -3,6 +3,9 @@ import type { Extension } from '@codemirror/state';
 
 import { dateCompletionSource } from './date/dateCompletionSource';
 import { renderDateCompletion } from './date/dateCompletionRenderer';
+import { tagCompletionSource } from './tag/tagCompletionSource';
+import { renderTagCompletion } from './tag/tagCompletionRenderer';
+import type { GetTagSuggestions } from './tag/tagSuggestion';
 import { renderWikiLinkCompletion } from './wikilink/wikiLinkCompletionRenderer';
 import { wikiLinkAutocompleteTheme } from './wikilink/wikiLinkAutocomplete';
 import { wikiLinkCompletionSource } from './wikilink/wikiLinkCompletionSource';
@@ -29,19 +32,32 @@ import type { GetWikiLinkSuggestions } from './wikilink/wikiLinkSuggestion';
  * `renderDateCompletion`'s own doc comments for why each already guards
  * against rendering a completion that isn't its own kind) — never a new
  * `autocompletion()` call, and never a change to this file's shape.
+ *
+ * Tag also needs its own `addToOptions` renderer (`renderTagCompletion`),
+ * not just an `override` entry — `wikiLinkAutocompleteTheme()`'s shared
+ * CSS hides CM6's default `.cm-completionLabel` for every row in this one
+ * popup, not only WikiLink's, so any source without a replacement row
+ * renders with no visible content at all. WikiLink's and Date's own
+ * renderers already compensate for themselves; Tag's does the same.
  */
 export function semanticCompletion(
-  getWikiLinkSuggestions: () => GetWikiLinkSuggestions | undefined
+  getWikiLinkSuggestions: () => GetWikiLinkSuggestions | undefined,
+  getTagSuggestions: () => GetTagSuggestions | undefined = () => undefined
 ): Extension {
   return [
     autocompletion({
-      override: [wikiLinkCompletionSource(getWikiLinkSuggestions), dateCompletionSource()],
+      override: [
+        wikiLinkCompletionSource(getWikiLinkSuggestions),
+        dateCompletionSource(),
+        tagCompletionSource(getTagSuggestions),
+      ],
       icons: false,
       defaultKeymap: true,
       closeOnBlur: true,
       addToOptions: [
         { render: renderWikiLinkCompletion, position: 50 },
         { render: renderDateCompletion, position: 50 },
+        { render: renderTagCompletion, position: 50 },
       ],
     }),
     wikiLinkAutocompleteTheme(),

@@ -135,6 +135,20 @@ describe('MoveService.resolveMoveDestination', () => {
 
     expect(destination).toEqual({ path: `${ROOT}/Note.md`, parentId: null });
   });
+
+  // Regression test: macOS/Windows are case-insensitive on disk, but this
+  // resolver's collision check used to be case-sensitive.
+  it('appends a numeric suffix when the filename is a case-variant of an existing page already at the destination', () => {
+    const page = buildPage(`${ROOT}/Note.md`, null, 'page-1');
+    const occupant = buildPage(`${ROOT}/Projects/note.md`, 'folder-1', 'page-2');
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([page, occupant], [folder]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveMoveDestination(page, 'folder-1');
+
+    expect(destination.path).toBe(`${ROOT}/Projects/Note 1.md`);
+  });
 });
 
 describe('MoveService.resolveRenameDestination', () => {
@@ -193,6 +207,29 @@ describe('MoveService.resolveRenameDestination', () => {
 
     expect(moveService.resolveRenameDestination(page, '').path).toBe(`${ROOT}/Untitled.md`);
     expect(moveService.resolveRenameDestination(page, '   ').path).toBe(`${ROOT}/Untitled.md`);
+  });
+
+  // Regression tests: macOS/Windows are case-insensitive on disk, but this
+  // resolver's collision check used to be case-sensitive.
+  it('appends a numeric suffix when the new title is a case-variant of a different, existing sibling page', () => {
+    const page = buildPage(`${ROOT}/Note.md`, null, 'page-1');
+    const occupant = buildPage(`${ROOT}/other.md`, null, 'page-2');
+    const vault = makeVault([page, occupant], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveRenameDestination(page, 'Other');
+
+    expect(destination.path).toBe(`${ROOT}/Other 2.md`);
+  });
+
+  it('renaming to a case-variant of its own current title is a pure case change, not a self-collision', () => {
+    const page = buildPage(`${ROOT}/note.md`);
+    const vault = makeVault([page], []);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveRenameDestination(page, 'Note');
+
+    expect(destination.path).toBe(`${ROOT}/Note.md`);
   });
 });
 

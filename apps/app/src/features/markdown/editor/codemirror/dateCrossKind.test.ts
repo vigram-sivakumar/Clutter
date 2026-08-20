@@ -73,7 +73,7 @@ function pressKey(view: EditorView, key: string): void {
 
 function resolvers() {
   return {
-    tagResolver: (() => ({ status: 'resolved' as const, activate: vi.fn() })) as ResolveTag,
+    tagResolver: (() => ({ status: 'resolved' as const, displayLabel: 'X', activate: vi.fn() })) as ResolveTag,
     wikiLinkResolver: (() => ({
       status: 'resolved' as const,
       displayLabel: 'X',

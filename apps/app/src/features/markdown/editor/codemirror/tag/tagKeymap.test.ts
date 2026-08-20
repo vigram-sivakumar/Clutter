@@ -28,7 +28,7 @@ function mountView(doc: string, cursorPos: number, resolver?: ResolveTag): Edito
   return new EditorView({ state, parent });
 }
 
-const resolvedTag = (): ResolveTag => () => ({ status: 'resolved', activate: vi.fn() });
+const resolvedTag = (): ResolveTag => () => ({ status: 'resolved', displayLabel: 'project', activate: vi.fn() });
 
 describe('hopRight / hopLeft — Tag', () => {
   it('one position before an at-rest Tag, hopRight hops in from the left (near) boundary', () => {

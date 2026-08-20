@@ -56,12 +56,16 @@ export class DateWidget extends WidgetType {
 
   override toDOM(): HTMLElement {
     const span = document.createElement('span');
-    const text = `@${this.label}`;
-    span.textContent = text;
     span.classList.add('tok-date');
     span.setAttribute('role', 'button');
-    span.setAttribute('aria-label', `date: ${text}`);
+    span.setAttribute('aria-label', `date: @${this.label}`);
     span.dataset.dateStatus = this.valid ? 'valid' : 'invalid';
+
+    const prefix = document.createElement('span');
+    prefix.classList.add('tok-date-prefix');
+    prefix.textContent = '@';
+    span.append(prefix, document.createTextNode(this.label));
+
     return span;
   }
 

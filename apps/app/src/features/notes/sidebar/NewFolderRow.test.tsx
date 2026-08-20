@@ -79,4 +79,54 @@ describe('NewFolderRow', () => {
     expect(onCommit).not.toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
+
+  it('a rejected commit (onCommit returns false) stays open, preserves the typed value, and never calls onCancel', () => {
+    const onCommit = vi.fn(() => false);
+    const onCancel = vi.fn();
+    render(<NewFolderRow level={0} onCommit={onCommit} onCancel={onCancel} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Projects');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(onCommit).toHaveBeenCalledWith('Projects');
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(editable.textContent).toBe('Projects');
+    expect(document.activeElement).toBe(editable);
+  });
+
+  it('a rejected commit triggers the shake state (data-shake / editable-text--shake)', () => {
+    const onCommit = vi.fn(() => false);
+    render(<NewFolderRow level={0} onCommit={onCommit} onCancel={vi.fn()} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Projects');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(editable.dataset.shake).toBe('true');
+    expect(editable.className).toContain('editable-text--shake');
+  });
+
+  it('a valid commit after a rejected one calls onCommit again and, once accepted, ends the session', () => {
+    const onCommit = vi.fn((name: string) => name !== 'Projects');
+    const onCancel = vi.fn();
+    render(<NewFolderRow level={0} onCommit={onCommit} onCancel={onCancel} />);
+
+    const editable = getEditable();
+    editable.focus();
+    typeText(editable, 'Projects');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(onCancel).not.toHaveBeenCalled();
+
+    typeText(editable, 'Projects 2');
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(onCommit).toHaveBeenLastCalledWith('Projects 2');
+    // Enter's own flush/end sequence runs regardless of blur — onCancel is
+    // never called for an accepted commit (committedRef guards it).
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

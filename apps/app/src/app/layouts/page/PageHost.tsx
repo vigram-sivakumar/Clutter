@@ -28,6 +28,11 @@ import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
+import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
+import {
+  getCollectionPageTitleProps,
+  createTagCollectionRenameHandler,
+} from '@app/layouts/page/tagCollectionRename';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
 import {
@@ -87,7 +92,9 @@ export function PageHost({ application }: PageHostProps) {
     application.folderOperations
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
-  const resolveTag = createTagResolver(application.navigation);
+  const resolveTag = createTagResolver(application.navigation, vault);
+  // Same per-render, stateless-glue composition as resolveWikiLink above.
+  const getTagSuggestions = createTagSuggester(vault);
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveDate = createDateResolver(vault, application.pageOperations);
 
@@ -369,8 +376,10 @@ export function PageHost({ application }: PageHostProps) {
   // deliberately smaller than the folder branch above, not a stripped-down
   // copy of it.
   if (workspace.activeView?.type === 'filtered-view') {
+    const view = workspace.activeView.view;
+
     const model = toCollectionPageModel(
-      { view: workspace.activeView.view },
+      { view },
       vault,
       application.query,
       application.effectivePageState,
@@ -383,13 +392,29 @@ export function PageHost({ application }: PageHostProps) {
       }
     );
 
+    // Tag is the one filtered view that's renameable — reuses the exact
+    // same inline title-edit mechanism (PageTitle/EditableText,
+    // titleEditable + onTitleCommit) Folder rename already established,
+    // not a topbar menu item (no existing precedent for that shape here).
+    // Workspace-root/Favorites remain non-editable, unchanged.
+    const titleProps = getCollectionPageTitleProps(view, model.title);
+    const onTitleCommit =
+      view.kind === 'tag'
+        ? createTagCollectionRenameHandler(
+            application.tagOperations,
+            application.navigation,
+            view.tagName
+          )
+        : undefined;
+
     return (
       <Page
         isSidebarVisible={workspace.isSidebarVisible}
         onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
-        title={model.title}
+        title={titleProps.title}
         description={model.description}
-        titleEditable={false}
+        titleEditable={titleProps.titleEditable}
+        onTitleCommit={onTitleCommit}
         breadcrumbs={<Breadcrumbs items={[]} />}
         body={<CollectionBody folders={model.folders} notes={model.notes} />}
       />
@@ -466,6 +491,7 @@ export function PageHost({ application }: PageHostProps) {
               resolveWikiLink={resolveWikiLink}
               getWikiLinkSuggestions={getWikiLinkSuggestions}
               resolveTag={resolveTag}
+              getTagSuggestions={getTagSuggestions}
               resolveDate={resolveDate}
             />
           </MarkdownBody>
@@ -554,6 +580,7 @@ export function PageHost({ application }: PageHostProps) {
             resolveWikiLink={resolveWikiLink}
             getWikiLinkSuggestions={getWikiLinkSuggestions}
             resolveTag={resolveTag}
+            getTagSuggestions={getTagSuggestions}
             resolveDate={resolveDate}
           />
         </MarkdownBody>

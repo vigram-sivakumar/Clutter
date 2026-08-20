@@ -105,6 +105,27 @@ describe('FolderPathResolver.createFolderPath', () => {
 
     expect(result).toEqual({ path: `${ROOT}/Projects 4`, parentId: null });
   });
+
+  // Regression test for the "test" / "Test" / "Test 2" ghost-duplicate bug:
+  // macOS (APFS) and Windows (NTFS) are case-insensitive-but-case-preserving
+  // on disk — "test" and "Test" are the same directory — but this resolver's
+  // isTaken check used to be a case-sensitive vault.getFolderByPath lookup,
+  // so a differently-cased name sailed past it as "free." The real mkdir
+  // for that "free" candidate would then silently no-op against the
+  // existing directory (see LocalFileSystem.createDirectory /
+  // InMemoryVaultFileSystem's mirrored behavior), and the Gate's own
+  // .folder.md write would corrupt the pre-existing folder's metadata,
+  // while Vault ended up with two separate in-memory records for one
+  // physical directory.
+  it('treats a case-variant of an existing name as a collision, picking the next free numbered name instead', () => {
+    const existing = makeFolder('folder-1', `${ROOT}/test`);
+    const vault = makeVault([existing]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.createFolderPath(null, 'Test');
+
+    expect(result).toEqual({ path: `${ROOT}/Test 2`, parentId: null });
+  });
 });
 
 describe('FolderPathResolver.resolveArchiveDestination (ADR-026)', () => {
@@ -242,6 +263,31 @@ describe('FolderPathResolver.resolveMoveDestination — same-parent (rename)', (
     expect(() => resolver.resolveMoveDestination('does-not-exist', null, 'Renamed')).toThrow(
       /Folder not found: does-not-exist/
     );
+  });
+
+  // Regression tests: macOS/Windows are case-insensitive on disk, but this
+  // resolver's collision check used to be case-sensitive — see
+  // FolderPathResolver.createFolderPath's identical regression test above
+  // for the full mechanism.
+  it('appends a numeric suffix when the new name is a case-variant of a different, existing sibling folder', () => {
+    const renaming = makeFolder('folder-1', `${ROOT}/Projects`);
+    const sibling = makeFolder('folder-2', `${ROOT}/test`);
+    const vault = makeVault([renaming, sibling]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveMoveDestination('folder-1', null, 'Test');
+
+    expect(result.path).toBe(`${ROOT}/Test 2`);
+  });
+
+  it('renaming to a case-variant of its own current name is a pure case change, not a self-collision', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/test`);
+    const vault = makeVault([folder]);
+    const resolver = new FolderPathResolver(vault);
+
+    const result = resolver.resolveMoveDestination('folder-1', null, 'Test');
+
+    expect(result.path).toBe(`${ROOT}/Test`);
   });
 });
 

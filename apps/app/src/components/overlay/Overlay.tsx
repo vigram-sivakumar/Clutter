@@ -21,6 +21,7 @@ export function Overlay(props: OverlayProps) {
     animate = true,
     className,
     returnFocusRef,
+    suppressReturnFocusRef,
   } = props;
 
   const isCentered = props.position === 'centered';
@@ -38,6 +39,7 @@ export function Overlay(props: OverlayProps) {
   useOverlayFocus({
     open,
     returnFocusRef: focusRestoreRef,
+    suppressReturnFocusRef,
   });
 
   const anchoredPosition = useOverlayPosition({

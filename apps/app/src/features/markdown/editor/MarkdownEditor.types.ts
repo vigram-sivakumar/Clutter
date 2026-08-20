@@ -1,5 +1,6 @@
 import type { ResolveDate } from './codemirror/date/dateResolution';
 import type { ResolveTag } from './codemirror/tag/tagResolution';
+import type { GetTagSuggestions } from './codemirror/tag/tagSuggestion';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
 import type { GetWikiLinkSuggestions } from './codemirror/wikilink/wikiLinkSuggestion';
 
@@ -46,6 +47,14 @@ export interface MarkdownEditorProps {
    * same text — see `tagResolution.ts`).
    */
   readonly resolveTag?: ResolveTag;
+  /**
+   * Supplies Tag autocomplete candidates for a given in-progress
+   * `#query` — supplied entirely by the feature/app layer, same
+   * injected-boundary shape as `getWikiLinkSuggestions` above. Only
+   * consumed once `tagCompletionSource` is included in
+   * `semanticCompletion()`'s `override` array.
+   */
+  readonly getTagSuggestions?: GetTagSuggestions;
   /**
    * Resolves a Date's activation behavior — supplied entirely by the
    * feature/app layer, same injected-boundary shape as `resolveTag`
