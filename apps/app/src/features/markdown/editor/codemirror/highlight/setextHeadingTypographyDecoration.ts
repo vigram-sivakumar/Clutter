@@ -40,10 +40,30 @@ import { isTokenEngaged } from '../semanticToken/tokenEngagement';
  * ATX's established, intentional behavior (`headingMarkerDecoration.ts`'s
  * tests: typing/editing inside `# Heading` keeps it big). ATX has no
  * second line, so there's no equivalent ambiguity window there — nothing
- * about ATX changes here. Only engagement with the underline `HeaderMark`
- * row specifically should suppress typography, since that's the one
- * state where the *previous* line's appearance is changing purely as a
- * side effect of a keystroke on a line the user isn't even looking at.
+ * about ATX changes here. Only engagement with the underline row
+ * specifically should suppress typography, since that's the one state
+ * where the *previous* line's appearance is changing purely as a side
+ * effect of a keystroke on a line the user isn't even looking at.
+ *
+ * The engaged range is `[underlineMark.from, node.to)` — starting at the
+ * `HeaderMark` child's own start, but ending at the *outer* node's `to`,
+ * not the child's own (narrower) `to`. `SetextHeadingParser`
+ * (`node_modules/@lezer/markdown/dist/index.js`) writes `HeaderMark`'s end
+ * at the `=`/`-` run's own end, excluding any trailing whitespace on that
+ * line (`isSetextUnderline`'s `end` vs `pos` distinction) — but the outer
+ * node's own `.to` is `cx.prevLineEnd()`, which is always exactly the
+ * underline's full raw document line end, trailing whitespace included,
+ * whether or not the line is document-final. Verified empirically across
+ * every case (`=`, `==`, `===`, `= `, `==  `, `-  `, mid-document and
+ * document-final): `node.to` and `state.doc.lineAt(underlineMark.from).to`
+ * are always identical. Using the child's own narrower `to` instead (the
+ * previous version of this file) meant a caret sitting on trailing
+ * whitespace after the delimiter run — e.g. right after typing the space
+ * in `Hello world\n= ` — fell just outside the engaged range, letting
+ * heading typography reassert itself mid-type. `node.to` requires no new
+ * API and can never under- or over-shoot the underline's own line: it's
+ * already the exact boundary the parser itself computed for where that
+ * line ends.
  *
  * Implemented as an additive `Decoration.mark({class})` rather than
  * trying to retract the class `syntaxHighlighting()` already applied —
@@ -74,7 +94,7 @@ function buildDecorations(view: EditorView): DecorationSet {
           return;
         }
 
-        if (isTokenEngaged(view.state, { from: underlineMark.from, to: underlineMark.to })) {
+        if (isTokenEngaged(view.state, { from: underlineMark.from, to: node.to })) {
           ranges.push({ from: node.from, to: node.to });
         }
       },

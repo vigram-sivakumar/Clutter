@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
+import { syntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
@@ -33,6 +34,31 @@ function mountView(doc: string, anchor: number): EditorView {
     ],
   });
   return new EditorView({ state, parent });
+}
+
+function headingSpanClass(view: EditorView, text: string): string {
+  const span = [...view.dom.querySelectorAll('span')].find((s) => s.textContent?.includes(text));
+  return span?.className ?? '';
+}
+
+/** Reads the actual parsed SetextHeading node's own `.to` and its `HeaderMark` child's `.from` from a state — never assumed/hardcoded, per the design's "verify against actual CodeMirror selection semantics" requirement. */
+function findSetextBounds(state: EditorState): { nodeTo: number; underlineFrom: number } {
+  let result: { nodeTo: number; underlineFrom: number } | null = null;
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      if (node.name !== 'SetextHeading1' && node.name !== 'SetextHeading2') {
+        return;
+      }
+      const underline = node.node.lastChild;
+      if (underline && underline.name === 'HeaderMark') {
+        result = { nodeTo: node.to, underlineFrom: underline.from };
+      }
+    },
+  });
+  if (!result) {
+    throw new Error('no SetextHeading node found');
+  }
+  return result;
 }
 
 describe('setextHeadingTypographyDecoration', () => {
@@ -115,5 +141,81 @@ describe('setextHeadingTypographyDecoration', () => {
     expect(view.state.doc.toString()).toBe(doc);
     view.dispatch({ selection: { anchor: 3 } });
     expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  describe('trailing whitespace on the underline (the gap the previous engagement range missed)', () => {
+    it('"= " (single "=" plus a trailing space): caret after the space still suppresses', () => {
+      const doc = 'Hello world\n= ';
+      const view = mountView(doc, doc.length); // caret right after the trailing space
+
+      expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+    });
+
+    it('"==  " (double "=" plus two trailing spaces): caret after the spaces still suppresses', () => {
+      const doc = 'Hello world\n==  ';
+      const view = mountView(doc, doc.length);
+
+      expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+    });
+
+    it('"-  " (Setext H2, dash plus trailing spaces): caret after the spaces still suppresses', () => {
+      const doc = 'Hello world\n-  ';
+      const view = mountView(doc, doc.length);
+
+      expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading2');
+    });
+  });
+
+  describe('boundary behavior around the outer node.to, verified against the actual parsed tree', () => {
+    it('caret exactly at node.to (the true end of the underline row) still suppresses', () => {
+      const doc = 'Hello world\n==  ';
+      const probe = EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
+      const { nodeTo } = findSetextBounds(probe);
+      expect(nodeTo).toBe(doc.length); // sanity: doc-final underline, node.to reaches doc end
+
+      const view = mountView(doc, nodeTo);
+      expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+    });
+
+    it('caret on a genuinely following line (past node.to) does not suppress', () => {
+      const doc = 'Hello world\n==  \nAfter';
+      const probe = EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
+      const { nodeTo } = findSetextBounds(probe);
+      // The following line starts strictly after node.to (a real line break sits between).
+      const followingLineStart = doc.indexOf('After');
+      expect(followingLineStart).toBeGreaterThan(nodeTo);
+
+      const view = mountView(doc, followingLineStart);
+      expect(headingSpanClass(view, 'Hello world')).toContain('tok-heading1');
+    });
+  });
+
+  it('backspacing within the underline (=== -> ==  -> =) keeps suppression active throughout', () => {
+    const view = mountView('Hello world\n===', 'Hello world\n==='.length);
+    expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+
+    view.dispatch({ changes: { from: view.state.doc.length - 1, to: view.state.doc.length } }); // -> "=="
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    expect(view.state.doc.toString()).toBe('Hello world\n==');
+    expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+
+    view.dispatch({ changes: { from: view.state.doc.length - 1, to: view.state.doc.length } }); // -> "="
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    expect(view.state.doc.toString()).toBe('Hello world\n=');
+    expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+  });
+
+  it('switching "=" to "-" mid-edit keeps suppression active throughout', () => {
+    const view = mountView('Hello world\n=', 'Hello world\n='.length);
+    expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+
+    const lastPos = view.state.doc.length;
+    view.dispatch({
+      changes: { from: lastPos - 1, to: lastPos, insert: '-' },
+      selection: { anchor: lastPos },
+    });
+    expect(view.state.doc.toString()).toBe('Hello world\n-');
+    expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
+    expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading2');
   });
 });
