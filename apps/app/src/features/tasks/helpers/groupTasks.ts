@@ -1,5 +1,6 @@
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import { isFuture, isPast, isToday } from '@shared/helpers/time';
+import { isValidCalendarDate } from '@shared/helpers/time/helpers/isValidCalendarDate';
 
 export type TaskGroups = {
   today: readonly TaskOccurrence[];
@@ -11,8 +12,18 @@ export type TaskGroups = {
   unscheduled: readonly TaskOccurrence[];
 };
 
+// `TaskExtractor.ts`'s bare-date extraction is shape-matched only, not
+// calendar-validated (documented there) — a task's `dueDate` can be
+// `'2026-13-45'`. `toDate()`'s local-component construction (correct for
+// genuine dates) silently rolls an out-of-range month/day over into a real
+// but fabricated date rather than throwing, so `isPast`/`isFuture` must
+// never be handed a calendar-invalid `dueDate` directly — same
+// `isValidCalendarDate` gate `DateWidget`/`resolveDate.ts` already apply
+// before trusting a Date node. Without this guard such a task would sort
+// into `today`/`overdue`/`future` under a silently wrong rolled-over date
+// instead of `unscheduled`, the documented fallback below.
 function isDueToday(task: TaskOccurrence): boolean {
-  return task.dueDate != null && isToday(task.dueDate);
+  return task.dueDate != null && isValidCalendarDate(task.dueDate) && isToday(task.dueDate);
 }
 
 function isCompletedToday(task: TaskOccurrence): boolean {
@@ -20,11 +31,11 @@ function isCompletedToday(task: TaskOccurrence): boolean {
 }
 
 function isOverdue(task: TaskOccurrence): boolean {
-  return task.dueDate != null && isPast(task.dueDate);
+  return task.dueDate != null && isValidCalendarDate(task.dueDate) && isPast(task.dueDate);
 }
 
 function isDueInFuture(task: TaskOccurrence): boolean {
-  return task.dueDate != null && isFuture(task.dueDate);
+  return task.dueDate != null && isValidCalendarDate(task.dueDate) && isFuture(task.dueDate);
 }
 
 function byDueDateAscending(a: TaskOccurrence, b: TaskOccurrence): number {

@@ -87,6 +87,23 @@ describe('groupTasks', () => {
     expect(groups.upcoming).toEqual([malformed]);
   });
 
+  it('treats a shape-valid but calendar-invalid due date as unscheduled, not a rolled-over date', () => {
+    // Regression: '2026-13-45' is exactly the shape TaskExtractor.ts's
+    // BARE_DATE_PATTERN accepts without calendar validation. toDate()'s
+    // local-component construction silently rolls this over to a real but
+    // fabricated date (2027-02-14) rather than throwing — without the
+    // isValidCalendarDate guard in isOverdue/isDueInFuture/isDueToday, this
+    // task would have sorted into `future` under that fabricated date
+    // instead of `unscheduled`.
+    const invalidCalendarDate = task({ text: 'invalid calendar date', dueDate: '2026-13-45' });
+
+    const groups = groupTasks([invalidCalendarDate]);
+
+    expect(groups.today).toEqual([]);
+    expect(groups.unscheduled).toEqual([invalidCalendarDate]);
+    expect(groups.upcoming).toEqual([invalidCalendarDate]);
+  });
+
   it('excludes completed tasks (other than todayCompleted) from every group', () => {
     const completedLastWeek = task({
       text: 'old completed',
