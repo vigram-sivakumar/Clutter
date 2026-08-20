@@ -29,10 +29,10 @@ import type { ISODate } from './types';
  * - `'condensed'` — for a narrower list surface (the Tasks sidebar):
  *   identical day-identity behavior to `'compact'`, but the "outside the
  *   current week" fallback uses an abbreviated month name — `12 Aug 2026`
- *   — since a sidebar row has less room than an inline `@date` token. The
- *   date *relationship* logic (today/tomorrow/weekday/other) is not
- *   duplicated for this — only which month-label table gets used in the
- *   final string.
+ *   — since a sidebar row has less room than an inline `@date` token.
+ *   Unlike `'compact'`, the year itself is dropped when it matches
+ *   `referenceDate`'s year — `12 Aug` — since a sidebar row's due date is
+ *   read against "now" far more often than an inline `@date` token is.
  * - `'full'` — for a title-sized surface (Daily Note titles): always
  *   `"<day identity>, <day month year>"` — e.g. `"Today, 20 August 2026"`,
  *   `"Friday, 21 August 2026"`, and, unlike the other two modes, still
@@ -195,6 +195,10 @@ export function formatDateDisplay(
 
   if (relation.kind !== 'other') {
     return dayIdentityLabel(relation);
+  }
+
+  if (mode === 'condensed' && relation.year === referenceDate.getFullYear()) {
+    return `${relation.day} ${monthLabel}`;
   }
 
   return fullDate;

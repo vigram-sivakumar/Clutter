@@ -114,8 +114,8 @@ describe('formatDateDisplay', () => {
       expect(formatDateDisplay('2026-08-22', 'condensed', REFERENCE)).toBe('Saturday');
     });
 
-    it('a date outside the current week, in the current year, uses an abbreviated month and still includes the year', () => {
-      expect(formatDateDisplay('2026-08-27', 'condensed', REFERENCE)).toBe('27 Aug 2026');
+    it('a date outside the current week, in the current year, uses an abbreviated month and omits the year', () => {
+      expect(formatDateDisplay('2026-08-27', 'condensed', REFERENCE)).toBe('27 Aug');
     });
 
     it('a date outside the current week, in a different year, uses an abbreviated month and includes the year', () => {
@@ -123,7 +123,7 @@ describe('formatDateDisplay', () => {
     });
 
     it('every month abbreviates to its short form', () => {
-      expect(formatDateDisplay('2026-09-30', 'condensed', REFERENCE)).toBe('30 Sep 2026');
+      expect(formatDateDisplay('2026-09-30', 'condensed', REFERENCE)).toBe('30 Sep');
       expect(formatDateDisplay('2027-11-19', 'condensed', REFERENCE)).toBe('19 Nov 2027');
     });
 
