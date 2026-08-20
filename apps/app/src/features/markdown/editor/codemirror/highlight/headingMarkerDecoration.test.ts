@@ -97,6 +97,84 @@ describe('headingMarkerDecoration', () => {
     expect(view.dom.textContent).not.toMatch(/#\s*One/);
   });
 
+  describe('Setext headings (Heading\\n===  /  Heading\\n---)', () => {
+    it('at rest, the "===" underline of a Setext H1 has no DOM presence at all', () => {
+      const text = 'Heading\n===\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(view.dom.textContent).toContain('Heading');
+      expect(view.dom.textContent).not.toContain('=');
+    });
+
+    it('at rest, the "---" underline of a Setext H2 has no DOM presence at all', () => {
+      const text = 'Heading\n---\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(view.dom.textContent).toContain('Heading');
+      expect(view.dom.textContent).not.toContain('-');
+    });
+
+    it('reveals the raw "===" underline once the cursor is inside the heading', () => {
+      const text = 'Heading\n===';
+      const view = mountView(text);
+
+      view.dispatch({ selection: { anchor: 3 } }); // inside "Heading"
+
+      expect(view.dom.textContent).toContain('Heading');
+      expect(view.dom.textContent).toContain('===');
+    });
+
+    it('reveals the raw "===" underline when the cursor sits on the underline row itself', () => {
+      const text = 'Heading\n===';
+      const view = mountView(text, 0);
+
+      view.dispatch({ selection: { anchor: text.indexOf('===') + 1 } });
+
+      expect(view.dom.textContent).toContain('Heading');
+      expect(view.dom.textContent).toContain('===');
+    });
+
+    it('re-collapses the underline once the selection leaves the heading', () => {
+      const text = 'Heading\n===\n\nOther text';
+      const view = mountView(text);
+
+      view.dispatch({ selection: { anchor: 3 } }); // inside the heading
+      expect(view.dom.textContent).toContain('Heading');
+      expect(view.dom.textContent).toContain('===');
+
+      view.dispatch({ selection: { anchor: view.state.doc.length } }); // outside
+      expect(view.dom.textContent).not.toContain('=');
+      expect(view.dom.textContent).toContain('Heading');
+    });
+
+    it('the stored document text never changes as the underline collapses/reveals', () => {
+      const text = 'Heading\n===';
+      const view = mountView(text);
+
+      expect(view.state.doc.toString()).toBe(text);
+      view.dispatch({ selection: { anchor: 3 } });
+      expect(view.state.doc.toString()).toBe(text);
+      view.dispatch({ selection: { anchor: 0 } });
+      expect(view.state.doc.toString()).toBe(text);
+    });
+  });
+
+  describe('ATX headings remain unaffected by Setext handling', () => {
+    it('a document mixing ATX and Setext headings hides/reveals each independently', () => {
+      const text = '# ATX\n\nSetext\n===\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(view.dom.textContent).not.toContain('#');
+      expect(view.dom.textContent).not.toContain('=');
+      expect(view.dom.textContent).toContain('ATX');
+      expect(view.dom.textContent).toContain('Setext');
+
+      view.dispatch({ selection: { anchor: text.indexOf('ATX') } });
+      expect(view.dom.textContent).toContain('# ATX');
+      expect(view.dom.textContent).not.toContain('=');
+    });
+  });
+
   describe('core invariant: the document is always authoritative', () => {
     it('the stored document text never changes as the prefix collapses/reveals', () => {
       const text = '# Heading';
