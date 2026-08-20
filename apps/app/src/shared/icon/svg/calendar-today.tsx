@@ -1,5 +1,6 @@
 import type { FC, SVGProps } from 'react';
 import { formatDate } from '@shared/helpers/time/';
+import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 
 export type CalendarTodayIconProps = SVGProps<SVGSVGElement> & {
   /** Local calendar day to show (defaults to today). */
@@ -14,7 +15,14 @@ export const CalendarTodayIcon: FC<CalendarTodayIconProps> = ({
   date,
   ...svgProps
 }) => {
-  const day = formatDate((date ?? new Date()).toISOString(), 'date');
+  // `formatDate` (and the `toDate()` it routes through) expects a plain
+  // `YYYY-MM-DD` date-only string — never `.toISOString()`'s full
+  // datetime-with-offset form, which `toDate()`'s local-component parsing
+  // can't split correctly (the day segment ends up as `"20T13:48:14.263Z"`,
+  // not `"20"`, producing an Invalid Date and a RangeError in
+  // Intl.DateTimeFormat). `toISODate` is the existing local-getter-based
+  // Date→string converter built for exactly this conversion.
+  const day = formatDate(toISODate(date ?? new Date()), 'date');
 
   return (
     <svg
