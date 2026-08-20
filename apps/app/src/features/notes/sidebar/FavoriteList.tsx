@@ -5,6 +5,7 @@ import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
 import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
 import type { SidebarRowActions } from './FolderTree';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 
 interface FavoriteListProps {
   items: FavoriteItem[];
@@ -22,6 +23,15 @@ interface FavoriteListProps {
    * already fall back to.
    */
   rowActions?: SidebarRowActions;
+  /**
+   * Same injected resolution boundary the page editor uses — see Note's
+   * own prop doc comment. A favorited note's title is markdown-bearing
+   * (getPageDisplayLabel's description/content fallbacks) the same way
+   * FolderTree's rows are; a favorited folder's title is a plain name
+   * (getFolderDisplayLabel), so only the note branch below uses these.
+   */
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
 }
 
 export function FavoriteList({
@@ -30,6 +40,8 @@ export function FavoriteList({
   onOpenPage,
   onOpenFolder,
   rowActions,
+  resolveWikiLink,
+  resolveTag,
 }: FavoriteListProps) {
   return items.map((item) => {
     if (item.type === 'note') {
@@ -48,6 +60,8 @@ export function FavoriteList({
           title={item.title}
           titleStyle={item.titleStyle}
           emoji={item.emoji}
+          resolveWikiLink={resolveWikiLink}
+          resolveTag={resolveTag}
           selected={workspace.activePageId === item.id}
           onClick={() => onOpenPage(item.id)}
           menuItems={menuItems}

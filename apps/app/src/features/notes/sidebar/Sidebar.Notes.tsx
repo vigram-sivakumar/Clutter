@@ -284,6 +284,8 @@ export function Notes({
         <FavoriteList
           items={favoriteItems}
           workspace={workspace}
+          resolveWikiLink={resolveWikiLink}
+          resolveTag={resolveTag}
           onOpenPage={(id) => {
             onOpen(id);
           }}
