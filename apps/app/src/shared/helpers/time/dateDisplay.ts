@@ -25,15 +25,14 @@ import type { ISODate } from './types';
  * - `'compact'` — for space-constrained inline rendering (`@date`'s
  *   Markdown token): the bare day-identity word *only* within the
  *   current week (`Today`, `Friday`, ...); outside it, no weekday name
- *   at all — just `12 August` (full month name, year omitted when it's
- *   the current year) or `12 August 2027`.
+ *   at all — just `12 August 2026` (full month name, year always shown).
  * - `'condensed'` — for a narrower list surface (the Tasks sidebar):
  *   identical day-identity behavior to `'compact'`, but the "outside the
- *   current week" fallback uses an abbreviated month name — `12 Aug` /
- *   `12 Aug 2027` — since a sidebar row has less room than an inline
- *   `@date` token. The date *relationship* logic (today/tomorrow/weekday/
- *   other, current-year check) is not duplicated for this — only which
- *   month-label table gets used in the final string.
+ *   current week" fallback uses an abbreviated month name — `12 Aug 2026`
+ *   — since a sidebar row has less room than an inline `@date` token. The
+ *   date *relationship* logic (today/tomorrow/weekday/other) is not
+ *   duplicated for this — only which month-label table gets used in the
+ *   final string.
  * - `'full'` — for a title-sized surface (Daily Note titles): always
  *   `"<day identity>, <day month year>"` — e.g. `"Today, 20 August 2026"`,
  *   `"Friday, 21 August 2026"`, and, unlike the other two modes, still
@@ -198,6 +197,5 @@ export function formatDateDisplay(
     return dayIdentityLabel(relation);
   }
 
-  const isCurrentYear = relation.year === referenceDate.getFullYear();
-  return isCurrentYear ? `${relation.day} ${monthLabel}` : fullDate;
+  return fullDate;
 }

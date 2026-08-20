@@ -74,8 +74,8 @@ describe('formatDateDisplay', () => {
       expect(formatDateDisplay('2026-08-22', 'compact', REFERENCE)).toBe('Saturday');
     });
 
-    it('a date outside the current week, in the current year, omits the year', () => {
-      expect(formatDateDisplay('2026-12-25', 'compact', REFERENCE)).toBe('25 December');
+    it('a date outside the current week, in the current year, still includes the year', () => {
+      expect(formatDateDisplay('2026-12-25', 'compact', REFERENCE)).toBe('25 December 2026');
     });
 
     it('a date outside the current week, in a different year, includes the year', () => {
@@ -87,13 +87,13 @@ describe('formatDateDisplay', () => {
       expect(formatDateDisplay('2027-01-03', 'compact', lateDecember)).toBe('3 January 2027');
     });
 
-    it('month boundary: a date in the next month but the same year omits the year', () => {
+    it('month boundary: a date in the next month but the same year still includes the year', () => {
       const lateAugust = new Date(2026, 7, 25); // Tue, 2026-08-25
-      expect(formatDateDisplay('2026-09-01', 'compact', lateAugust)).toBe('1 September');
+      expect(formatDateDisplay('2026-09-01', 'compact', lateAugust)).toBe('1 September 2026');
     });
 
     it('week boundary: the day right after the current week ends is "other", not a weekday label', () => {
-      expect(formatDateDisplay('2026-08-30', 'compact', REFERENCE)).toBe('30 August');
+      expect(formatDateDisplay('2026-08-30', 'compact', REFERENCE)).toBe('30 August 2026');
     });
   });
 
@@ -114,8 +114,8 @@ describe('formatDateDisplay', () => {
       expect(formatDateDisplay('2026-08-22', 'condensed', REFERENCE)).toBe('Saturday');
     });
 
-    it('a date outside the current week, in the current year, uses an abbreviated month and omits the year', () => {
-      expect(formatDateDisplay('2026-08-27', 'condensed', REFERENCE)).toBe('27 Aug');
+    it('a date outside the current week, in the current year, uses an abbreviated month and still includes the year', () => {
+      expect(formatDateDisplay('2026-08-27', 'condensed', REFERENCE)).toBe('27 Aug 2026');
     });
 
     it('a date outside the current week, in a different year, uses an abbreviated month and includes the year', () => {
@@ -123,7 +123,7 @@ describe('formatDateDisplay', () => {
     });
 
     it('every month abbreviates to its short form', () => {
-      expect(formatDateDisplay('2026-09-30', 'condensed', REFERENCE)).toBe('30 Sep');
+      expect(formatDateDisplay('2026-09-30', 'condensed', REFERENCE)).toBe('30 Sep 2026');
       expect(formatDateDisplay('2027-11-19', 'condensed', REFERENCE)).toBe('19 Nov 2027');
     });
 
@@ -149,7 +149,7 @@ describe('formatDateDisplay', () => {
 
     it('the first day of the next week (Sunday) is outside the current week — compact drops the weekday, full keeps it', () => {
       expect(formatDateDisplay('2026-08-23', 'full', REFERENCE)).toBe('Sunday, 23 August 2026');
-      expect(formatDateDisplay('2026-08-23', 'compact', REFERENCE)).toBe('23 August');
+      expect(formatDateDisplay('2026-08-23', 'compact', REFERENCE)).toBe('23 August 2026');
     });
   });
 
