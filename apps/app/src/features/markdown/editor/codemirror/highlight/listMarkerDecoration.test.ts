@@ -83,15 +83,16 @@ describe('listMarkerDecoration', () => {
     expect(atRest.dom.textContent).not.toContain('-');
     expect(atRest.dom.textContent).toContain('  nested item');
 
-    // Engaging the nested item also reveals the parent's own marker: the
-    // parent ListItem's range includes its nested sublist (confirmed by
-    // the node-shape probe), so a caret inside "nested" is contained by
-    // both nodes' ranges under the same containment-based engagement rule
-    // every other construct uses — not a bug specific to lists.
+    // Physical-line engagement: engaging the nested item reveals only its
+    // own marker. The parent ListItem's node range technically extends
+    // across the nested sublist's lines too (confirmed by the node-shape
+    // probe), but engagement is now scoped to the marker's own physical
+    // line, not the enclosing node's full span — so the parent's marker
+    // correctly stays collapsed while a sibling/descendant line is engaged.
     const engaged = mountView(text, nestedStart + 2); // inside "nested"
 
     expect(engaged.dom.textContent).toContain('- nested item');
-    expect(engaged.dom.textContent).toContain('- item one');
+    expect(engaged.dom.textContent).not.toContain('- item one');
   });
 
   it("each item's marker engages independently — engaging one does not reveal a sibling's", () => {
@@ -102,6 +103,32 @@ describe('listMarkerDecoration', () => {
     expect(view.dom.textContent).toContain('- second');
     expect(view.dom.textContent).not.toContain('- first');
     expect(view.dom.textContent).toContain('first');
+  });
+
+  describe('lazy continuation does not leak engagement onto an unrelated marker-less line', () => {
+    it('"- item\\n=": cursor on the "=" line does not reveal "-" — the "=" line has no ListMark of its own', () => {
+      const text = '- item\n=';
+      const view = mountView(text, text.indexOf('='));
+
+      expect(view.dom.textContent).not.toContain('-');
+      expect(view.dom.textContent).toContain('item');
+    });
+
+    it('nested list + lazy continuation: a "=" line after a nested item leaves both levels collapsed', () => {
+      const text = '- parent\n  - nested\n=';
+      const view = mountView(text, text.indexOf('='));
+
+      expect(view.dom.textContent).not.toContain('-');
+      expect(view.dom.textContent).toContain('parent');
+      expect(view.dom.textContent).toContain('nested');
+    });
+
+    it("the marker's own physical line still reveals correctly despite the lazy-continuation fix", () => {
+      const text = '- item\n=';
+      const view = mountView(text, 2); // inside "item", the marker's own line
+
+      expect(view.dom.textContent).toContain('- item');
+    });
   });
 
   describe('node shape', () => {

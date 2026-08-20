@@ -42,5 +42,5 @@ const getListMarkRanges: MarkRangeSelector = (node, state) => {
 };
 
 export function listMarkerDecoration(): Extension {
-  return liveMarkDecoration(isListItemNode, getListMarkRanges);
+  return liveMarkDecoration(isListItemNode, getListMarkRanges, 'physical-line');
 }

@@ -94,6 +94,23 @@ describe('blockquoteMarkerDecoration', () => {
     expect(view.dom.textContent).toBe('>> nested quote');
   });
 
+  describe('lazy continuation does not leak engagement onto an unrelated marker-less line', () => {
+    it('"> quote\\n=": cursor on the "=" line does not reveal ">" — the "=" line has no QuoteMark of its own', () => {
+      const text = '> quote\n=';
+      const view = mountView(text, text.indexOf('='));
+
+      expect(view.dom.textContent).not.toContain('>');
+      expect(view.dom.textContent).toContain('quote');
+    });
+
+    it("the marker's own physical line still reveals correctly despite the lazy-continuation fix", () => {
+      const text = '> quote\n=';
+      const view = mountView(text, 2); // inside "quote", the marker's own line
+
+      expect(view.dom.textContent).toContain('> quote');
+    });
+  });
+
   describe('node shape', () => {
     it('a single-line Blockquote has QuoteMark as firstChild', () => {
       const language = markdownLanguageExtension().language;

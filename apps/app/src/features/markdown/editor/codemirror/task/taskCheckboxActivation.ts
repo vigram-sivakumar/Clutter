@@ -16,10 +16,24 @@ import type { TaskMarkerNodeRange } from './taskEngagement';
  * character was `x` or `X` — "lenient reader, strict writer"
  * (docs/editor-architecture-decisions.md), the same convention every other
  * construct's writer already follows.
+ *
+ * `requestImmediateSave`, if supplied, is called *after* the dispatch —
+ * by then `onDocChange` has already run synchronously (CM6's
+ * `updateListener` fires within `dispatch()` itself), so
+ * `PageOperations.commitEdit()` has already committed this toggle to the
+ * session before the flush request reads it. This is the same `onFlush`
+ * callback `MarkdownEditor` already exposes for blur (`onBlur:
+ * onFlushRef.current?.()` in `createEditorView.ts`), reused verbatim, not
+ * a new save path — it just requests the existing debounced autosave
+ * (`PageOperations.requestSave` via `SaveCoordinator`) run now instead of
+ * waiting out its normal ~2s window, specifically for this one discrete,
+ * instant-feedback action. Never called for a mere engage (Alt-click/
+ * keyboard hop) — only a real toggle warrants an immediate save.
  */
 export function getTaskCheckboxActivation(
   view: EditorView,
-  node: TaskMarkerNodeRange
+  node: TaskMarkerNodeRange,
+  requestImmediateSave?: () => void
 ): (() => void) | null {
   const stateCharFrom = node.from + 1;
   const stateCharTo = node.from + 2;
@@ -36,5 +50,6 @@ export function getTaskCheckboxActivation(
     view.dispatch({
       changes: { from: stateCharFrom, to: stateCharTo, insert: nextChar },
     });
+    requestImmediateSave?.();
   };
 }

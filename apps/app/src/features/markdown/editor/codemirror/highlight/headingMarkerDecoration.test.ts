@@ -114,14 +114,14 @@ describe('headingMarkerDecoration', () => {
       expect(view.dom.textContent).not.toContain('-');
     });
 
-    it('reveals the raw "===" underline once the cursor is inside the heading', () => {
+    it('cursor inside the heading TEXT line does NOT reveal the underline — engagement is physical-line-scoped, not whole-node', () => {
       const text = 'Heading\n===';
       const view = mountView(text);
 
-      view.dispatch({ selection: { anchor: 3 } }); // inside "Heading"
+      view.dispatch({ selection: { anchor: 3 } }); // inside "Heading", the text line — not the underline's own line
 
       expect(view.dom.textContent).toContain('Heading');
-      expect(view.dom.textContent).toContain('===');
+      expect(view.dom.textContent).not.toContain('=');
     });
 
     it('reveals the raw "===" underline when the cursor sits on the underline row itself', () => {
@@ -134,11 +134,12 @@ describe('headingMarkerDecoration', () => {
       expect(view.dom.textContent).toContain('===');
     });
 
-    it('re-collapses the underline once the selection leaves the heading', () => {
+    it('re-collapses the underline once the selection leaves the underline\'s own line', () => {
       const text = 'Heading\n===\n\nOther text';
       const view = mountView(text);
+      const underlinePos = text.indexOf('===') + 1;
 
-      view.dispatch({ selection: { anchor: 3 } }); // inside the heading
+      view.dispatch({ selection: { anchor: underlinePos } }); // on the underline row itself
       expect(view.dom.textContent).toContain('Heading');
       expect(view.dom.textContent).toContain('===');
 

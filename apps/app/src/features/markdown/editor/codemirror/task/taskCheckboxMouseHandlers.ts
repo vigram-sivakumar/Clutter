@@ -12,11 +12,25 @@ import { isTaskMarkerNode } from './taskEngagement';
  * Alt-click still engages (reveals the raw `[ ]`/`[x]` text) rather than
  * toggling — same as every other semantic token kind, not a checkbox-
  * specific carve-out.
+ *
+ * `requestImmediateSave` is threaded straight through to
+ * `getTaskCheckboxActivation` — see that function's own doc comment for
+ * why. Alt-click never reaches it (it never calls `activate()`), so a
+ * mere engage never triggers a save.
  */
-export function handleTaskCheckboxClick(view: EditorView, pos: number, altKey: boolean): boolean {
-  return handleTokenClick(view, pos, altKey, isTaskMarkerNode, getTaskCheckboxActivation);
+export function handleTaskCheckboxClick(
+  view: EditorView,
+  pos: number,
+  altKey: boolean,
+  requestImmediateSave?: () => void
+): boolean {
+  return handleTokenClick(view, pos, altKey, isTaskMarkerNode, (v, node) =>
+    getTaskCheckboxActivation(v, node, requestImmediateSave)
+  );
 }
 
-export function taskCheckboxMouseHandlers(): Extension {
-  return tokenMouseHandlers(isTaskMarkerNode, getTaskCheckboxActivation);
+export function taskCheckboxMouseHandlers(requestImmediateSave?: () => void): Extension {
+  return tokenMouseHandlers(isTaskMarkerNode, (view, node) =>
+    getTaskCheckboxActivation(view, node, requestImmediateSave)
+  );
 }

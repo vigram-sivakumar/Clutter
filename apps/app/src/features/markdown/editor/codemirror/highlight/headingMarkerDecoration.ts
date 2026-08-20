@@ -90,5 +90,5 @@ const getHeadingMarkRanges: MarkRangeSelector = (node, state) => {
 };
 
 export function headingMarkerDecoration(): Extension {
-  return liveMarkDecoration(isHeadingNode, getHeadingMarkRanges);
+  return liveMarkDecoration(isHeadingNode, getHeadingMarkRanges, 'physical-line');
 }

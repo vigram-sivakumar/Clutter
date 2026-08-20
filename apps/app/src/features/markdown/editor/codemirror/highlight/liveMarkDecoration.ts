@@ -68,10 +68,70 @@ export type MarkRangeSelector = (
   state: EditorState
 ) => readonly TokenNodeRange[];
 
+/**
+ * `'node-range'` (default): engaged iff the selection is contained by the
+ * construct's own enclosing node — the original, still-correct rule for
+ * every genuinely single-line-or-truly-atomic construct routed through
+ * this mechanism (emphasis, strong, strikethrough, highlight, inline
+ * code, ATX headings). These can validly span a soft line-wrap within one
+ * paragraph's inline content, so collapsing to a line check would
+ * under-engage them.
+ *
+ * `'physical-line'`: engaged iff the selection sits on the same physical
+ * document line as one of the construct's own marker ranges (whatever
+ * `getMarkRanges` actually returns) — never merely because the selection
+ * falls somewhere within the enclosing node's full span. For block
+ * markers (`ListMark`, `QuoteMark`, Setext `HeaderMark`), that enclosing
+ * span is not a reliable engagement boundary: CommonMark lazy
+ * continuation can extend a `ListItem`/`Blockquote`/`SetextHeading` node
+ * across a later physical line that carries no marker of its own at all
+ * (confirmed empirically — a bare line with no `>`/`-` prefix, or a
+ * `SetextHeading`'s own text line, both fall inside the enclosing node's
+ * range without containing any of `getMarkRanges`' own marks), and a
+ * `ListItem` containing a nested list extends across its nested child's
+ * lines the same way. Keying engagement to the marker's own line instead
+ * fixes both without inventing a construct-specific check: a multi-line
+ * Blockquote's own several `QuoteMark`s (one per continuation line it
+ * genuinely owns) still engage together, since `getMarkRanges` already
+ * only returns marks that really belong to this construct — lazy
+ * continuation and nested children are already excluded there, for their
+ * own, independent construct-specific reasons.
+ */
+export type MarkEngagementMode = 'node-range' | 'physical-line';
+
+function isPhysicalLineEngaged(state: EditorState, ranges: readonly TokenNodeRange[]): boolean {
+  if (ranges.length === 0) {
+    return false;
+  }
+
+  const selection = state.selection.main;
+  const selFromLine = state.doc.lineAt(selection.from).number;
+  const selToLine = state.doc.lineAt(selection.to).number;
+
+  return ranges.some((range) => {
+    const markLine = state.doc.lineAt(range.from).number;
+    return markLine === selFromLine || markLine === selToLine;
+  });
+}
+
+export function isConstructEngaged(
+  state: EditorState,
+  node: SyntaxNodeRef,
+  getMarkRanges: MarkRangeSelector,
+  mode: MarkEngagementMode
+): boolean {
+  if (mode === 'node-range') {
+    return isTokenEngaged(state, { from: node.from, to: node.to });
+  }
+
+  return isPhysicalLineEngaged(state, getMarkRanges(node, state));
+}
+
 function buildDecorations(
   view: EditorView,
   isConstructNode: TokenNodePredicate,
-  getMarkRanges: MarkRangeSelector
+  getMarkRanges: MarkRangeSelector,
+  engagementMode: MarkEngagementMode
 ): DecorationSet {
   const collapsed: TokenNodeRange[] = [];
 
@@ -84,8 +144,7 @@ function buildDecorations(
           return;
         }
 
-        const range: TokenNodeRange = { from: node.from, to: node.to };
-        if (isTokenEngaged(view.state, range)) {
+        if (isConstructEngaged(view.state, node, getMarkRanges, engagementMode)) {
           return;
         }
 
@@ -110,19 +169,20 @@ interface LiveMarkPlugin extends PluginValue {
 
 export function liveMarkDecoration(
   isConstructNode: TokenNodePredicate,
-  getMarkRanges: MarkRangeSelector
+  getMarkRanges: MarkRangeSelector,
+  engagementMode: MarkEngagementMode = 'node-range'
 ): Extension {
   const decorations = ViewPlugin.fromClass<LiveMarkPlugin>(
     class implements LiveMarkPlugin {
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = buildDecorations(view, isConstructNode, getMarkRanges);
+        this.decorations = buildDecorations(view, isConstructNode, getMarkRanges, engagementMode);
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged || update.selectionSet) {
-          this.decorations = buildDecorations(update.view, isConstructNode, getMarkRanges);
+          this.decorations = buildDecorations(update.view, isConstructNode, getMarkRanges, engagementMode);
         }
       }
     },
@@ -133,7 +193,8 @@ export function liveMarkDecoration(
 
   // Every construct routed through this shared mechanism gets the click
   // boundary fix (liveMarkSelectionSnap.ts) for free, from the exact same
-  // (isConstructNode, getMarkRanges) it already supplies for hiding the
-  // markers in the first place — no construct-specific wiring anywhere.
-  return [decorations, liveMarkSelectionSnap(isConstructNode, getMarkRanges)];
+  // (isConstructNode, getMarkRanges, engagementMode) it already supplies
+  // for hiding the markers in the first place — no construct-specific
+  // wiring anywhere.
+  return [decorations, liveMarkSelectionSnap(isConstructNode, getMarkRanges, engagementMode)];
 }

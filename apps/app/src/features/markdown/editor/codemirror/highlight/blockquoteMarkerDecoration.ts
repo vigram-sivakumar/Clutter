@@ -70,5 +70,5 @@ const getBlockquoteMarkRanges: MarkRangeSelector = (node, state) => {
 };
 
 export function blockquoteMarkerDecoration(): Extension {
-  return liveMarkDecoration(isBlockquoteNode, getBlockquoteMarkRanges);
+  return liveMarkDecoration(isBlockquoteNode, getBlockquoteMarkRanges, 'physical-line');
 }

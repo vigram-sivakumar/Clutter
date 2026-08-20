@@ -146,7 +146,13 @@ export const MarkdownEditor = forwardRef<
         listMarkerDecoration(),
         blockquoteMarkerDecoration(),
         taskCheckboxDecorations(),
-        taskCheckboxMouseHandlers(),
+        // Reuses the exact same onFlush callback already wired to blur
+        // below (PageOperations.requestSave, via SaveCoordinator) — a
+        // checkbox toggle is instant, single-click feedback a user expects
+        // to see reflected everywhere (the sidebar) immediately, unlike
+        // ordinary typing, which should keep using the normal debounced
+        // autosave. See taskCheckboxActivation.ts's own doc comment.
+        taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
         taskCheckboxKeymap(),
         taskLineIndent(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),

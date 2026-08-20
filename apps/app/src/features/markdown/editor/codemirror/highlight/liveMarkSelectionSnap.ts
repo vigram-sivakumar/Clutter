@@ -3,11 +3,10 @@ import { EditorSelection, EditorState, type Extension } from '@codemirror/state'
 import type { SyntaxNode } from '@lezer/common';
 
 import {
-  isTokenEngaged,
   type TokenNodePredicate,
   type TokenNodeRange,
 } from '../semanticToken/tokenEngagement';
-import type { MarkRangeSelector } from './liveMarkDecoration';
+import { isConstructEngaged, type MarkEngagementMode, type MarkRangeSelector } from './liveMarkDecoration';
 
 /**
  * Fixes the one gap `liveMarkDecoration.ts`'s empty `Decoration.replace({})`
@@ -63,7 +62,8 @@ import type { MarkRangeSelector } from './liveMarkDecoration';
  */
 export function liveMarkSelectionSnap(
   isConstructNode: TokenNodePredicate,
-  getMarkRanges: MarkRangeSelector
+  getMarkRanges: MarkRangeSelector,
+  engagementMode: MarkEngagementMode = 'node-range'
 ): Extension {
   return EditorState.transactionFilter.of((tr) => {
     if (tr.docChanged || !tr.selection || !tr.isUserEvent('select.pointer')) {
@@ -71,8 +71,8 @@ export function liveMarkSelectionSnap(
     }
 
     const range = tr.selection.main;
-    const anchor = snapPosition(tr.startState, range.anchor, isConstructNode, getMarkRanges);
-    const head = snapPosition(tr.startState, range.head, isConstructNode, getMarkRanges);
+    const anchor = snapPosition(tr.startState, range.anchor, isConstructNode, getMarkRanges, engagementMode);
+    const head = snapPosition(tr.startState, range.head, isConstructNode, getMarkRanges, engagementMode);
 
     if (anchor === range.anchor && head === range.head) {
       return tr;
@@ -86,7 +86,8 @@ function snapPosition(
   state: EditorState,
   pos: number,
   isConstructNode: TokenNodePredicate,
-  getMarkRanges: MarkRangeSelector
+  getMarkRanges: MarkRangeSelector,
+  engagementMode: MarkEngagementMode
 ): number {
   let candidate = pos;
 
@@ -100,7 +101,7 @@ function snapPosition(
     }
 
     const range: TokenNodeRange = { from: node.from, to: node.to };
-    if (isTokenEngaged(state, range)) {
+    if (isConstructEngaged(state, node, getMarkRanges, engagementMode)) {
       continue;
     }
 

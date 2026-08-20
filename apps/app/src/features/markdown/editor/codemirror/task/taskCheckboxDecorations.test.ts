@@ -86,6 +86,25 @@ describe('taskCheckboxDecorations — at-rest rendering', () => {
   });
 });
 
+describe('taskCheckboxDecorations — lazy continuation does not affect TaskMarker engagement', () => {
+  it('nested task + lazy continuation: TaskMarker uses its own fixed range, unaffected by the enclosing Task node absorbing a later marker-less line', () => {
+    const text = '- [ ] parent\n  - [ ] nested\n=';
+    const view = mountView(text);
+    view.dispatch({ selection: { anchor: text.indexOf('=') } }); // on the lazy-continuation line
+
+    const checkboxes = view.dom.querySelectorAll('button[role="checkbox"]');
+    expect(checkboxes).toHaveLength(2); // both stay at rest as widgets
+  });
+
+  it('"- [ ] task\\n=": cursor on the "=" line leaves the checkbox at rest', () => {
+    const text = '- [ ] task\n=';
+    const view = mountView(text);
+    view.dispatch({ selection: { anchor: text.indexOf('=') } });
+
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+  });
+});
+
 describe('taskCheckboxDecorations — reveal on engagement', () => {
   it('engaging the TaskMarker reveals the raw "[ ]" text for direct editing instead of the widget', () => {
     const line = '- [ ] Buy milk';

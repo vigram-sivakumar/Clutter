@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
@@ -72,6 +72,27 @@ describe('getTaskCheckboxActivation', () => {
 
     expect(view.state.doc.toString()).toBe('- [x] Buy milk and eggs');
   });
+
+  it('calls requestImmediateSave exactly once, after the dispatch has already committed', () => {
+    const view = mountView('- [ ] Buy milk');
+    const node = findTaskMarkerAt(view.state, 2)!;
+    let docAtCallTime: string | null = null;
+    const requestImmediateSave = vi.fn(() => {
+      docAtCallTime = view.state.doc.toString();
+    });
+
+    getTaskCheckboxActivation(view, node, requestImmediateSave)?.();
+
+    expect(requestImmediateSave).toHaveBeenCalledTimes(1);
+    expect(docAtCallTime).toBe('- [x] Buy milk'); // toggle already applied
+  });
+
+  it('requestImmediateSave is optional — omitting it does not throw', () => {
+    const view = mountView('- [ ] Buy milk');
+    const node = findTaskMarkerAt(view.state, 2)!;
+
+    expect(() => getTaskCheckboxActivation(view, node)?.()).not.toThrow();
+  });
 });
 
 describe('handleTaskCheckboxClick', () => {
@@ -84,6 +105,33 @@ describe('handleTaskCheckboxClick', () => {
     expect(view.state.doc.toString()).toBe('- [x] Buy milk');
   });
 
+  it('a plain click toggles WITHOUT moving the selection into TaskMarker — the widget stays rendered, per the locked product decision', () => {
+    const view = mountView('- [ ] Buy milk');
+    const selectionBefore = view.state.selection.main;
+
+    handleTaskCheckboxClick(view, 2, false);
+
+    // The selection is untouched by the toggle dispatch — engagement is
+    // never a side effect of clicking the checkbox itself.
+    expect(view.state.selection.main.from).toBe(selectionBefore.from);
+    expect(view.state.selection.main.to).toBe(selectionBefore.to);
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+  });
+
+  it('clicking one checkbox does not affect a sibling task widget', () => {
+    const text = '- [ ] first\n- [ ] second';
+    const view = mountView(text);
+    const secondNode = findTaskMarkerAt(view.state, text.indexOf('second') - 3)!;
+
+    handleTaskCheckboxClick(view, 2, false); // click the first task
+
+    expect(view.state.doc.toString()).toBe('- [x] first\n- [ ] second');
+    // The second task's own marker is untouched — re-resolving it confirms
+    // its range/content didn't shift or get toggled as a side effect.
+    const raw = view.state.sliceDoc(secondNode.from, secondNode.to);
+    expect(raw).toBe('[ ]');
+  });
+
   it('Alt-click on an at-rest TaskMarker engages it (reveals raw text) instead of toggling', () => {
     const view = mountView('- [ ] Buy milk');
 
@@ -92,6 +140,19 @@ describe('handleTaskCheckboxClick', () => {
     expect(handled).toBe(true);
     expect(view.state.doc.toString()).toBe('- [ ] Buy milk'); // unchanged
     expect(view.state.selection.main.head).toBe(4); // node.to - 1, inside the marker
+  });
+
+  it('a plain click requests an immediate save; Alt-click (mere engagement) never does', () => {
+    const view = mountView('- [ ] Buy milk');
+    const requestImmediateSave = vi.fn();
+
+    handleTaskCheckboxClick(view, 2, false, requestImmediateSave);
+    expect(requestImmediateSave).toHaveBeenCalledTimes(1);
+
+    requestImmediateSave.mockClear();
+    const altView = mountView('- [ ] Buy milk');
+    handleTaskCheckboxClick(altView, 2, true, requestImmediateSave);
+    expect(requestImmediateSave).not.toHaveBeenCalled();
   });
 
   it('clicking a non-task list marker position is a no-op — nothing to toggle', () => {
