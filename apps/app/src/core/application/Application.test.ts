@@ -26,8 +26,14 @@ import type { Folder } from '../vault/models/Folder';
 // are documented above as untestable here. Mocked at the module boundary,
 // test-file-local only, so close()'s pure in-memory disposal ordering
 // (the actual thing under test) becomes reachable at all.
+//
+// isTauri() is mocked to false so attachVault() takes the same non-Tauri
+// (BrowserFileSystemWatcher) branch as the rest of this file's in-memory,
+// Platform-free setup — attachVault() calls isTauri() directly, not just
+// bootstrap().
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
+  isTauri: vi.fn().mockReturnValue(false),
 }));
 
 /**

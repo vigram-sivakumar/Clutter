@@ -278,15 +278,17 @@ describe('FolderPicker', () => {
       expect(screen.getByText('Finance')).toBeDefined();
     });
 
-    it('styles the Create row with the existing tertiary color treatment', () => {
+    it('styles the Create row with its own muted color treatment', () => {
       render(<FolderPicker items={items} onSelect={vi.fn()} onCreate={vi.fn()} />);
 
       fireEvent.change(screen.getByPlaceholderText('Search folders'), {
         target: { value: 'Finance Q1' },
       });
 
+      // Styled via .folder__title-create (FolderPicker.css), not the
+      // shared .tertiary utility class.
       const createRow = screen.getByText('Create "Finance Q1"').closest('.entry');
-      expect(createRow?.className).toContain('tertiary');
+      expect(createRow?.className).toContain('folder__title-create');
     });
 
     it('clicking Create invokes onCreate with the trimmed search term', () => {

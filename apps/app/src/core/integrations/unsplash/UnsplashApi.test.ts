@@ -93,9 +93,11 @@ describe('UnsplashApi', () => {
 
     await searchPhotos('   ');
 
+    // Math.random mocked to 0.99 selects the last entry in
+    // DEFAULT_SEARCH_QUERIES (UnsplashApi.ts) — currently 'gradient'.
     expect(fetchMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        href: 'https://api.unsplash.com/search/photos?query=architectural+detail&page=1&per_page=30&orientation=portrait',
+        href: 'https://api.unsplash.com/search/photos?query=gradient&page=1&per_page=30&orientation=portrait',
       }),
       {
         headers: unsplashHeaders,

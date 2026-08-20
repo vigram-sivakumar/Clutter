@@ -1203,9 +1203,12 @@ describe('VaultSyncService: external archive reconciliation', () => {
     const disk = fileSystem.getFileSync(`${ROOT}/Projects/Clutter.md`)!;
     expect(disk).toMatch(/status:\s*active/);
     expect(disk).not.toMatch(/status:\s*archived/);
-    expect(disk).toMatch(/archivedAt:\s*null/);
-    expect(disk).toMatch(/originalPath:\s*null/);
-    expect(disk).toMatch(/originalParentId:\s*null/);
+    // FrontmatterSerializer omits null-valued fields entirely rather than
+    // writing them out literally (e.g. `archivedAt: null`) — a cleared
+    // field disappears from the frontmatter, it doesn't get echoed back.
+    expect(disk).not.toMatch(/archivedAt:/);
+    expect(disk).not.toMatch(/originalPath:/);
+    expect(disk).not.toMatch(/originalParentId:/);
 
     const query = new VaultQuery(vault);
     expect(query.getChildPages('folder-projects').map((page) => page.id)).toContain(

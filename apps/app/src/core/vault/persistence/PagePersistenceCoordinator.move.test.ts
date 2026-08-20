@@ -130,18 +130,22 @@ describe('PagePersistenceCoordinator move kind', () => {
     expect(fileSystem.hasFileSync(`${ROOT}/Note.md`)).toBe(true);
   });
 
-  it('throws when the destination path is already occupied', async () => {
+  it('auto-resolves a naming collision at the destination, same as Rename and Archive', async () => {
     const page = buildPage('page-1', `${ROOT}/Note.md`);
     const occupant = buildPage('page-occupant', `${ROOT}/Projects/Note.md`);
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const { fileSystem, coordinator } = setup([page, occupant], [folder]);
+    const { vault, fileSystem, coordinator } = setup([page, occupant], [folder]);
 
-    await expect(
-      coordinator.enqueue(page.id, { kind: 'move', destinationFolderId: 'folder-1' })
-    ).rejects.toThrow(/Path already in use/);
+    const result = await coordinator.enqueue(page.id, {
+      kind: 'move',
+      destinationFolderId: 'folder-1',
+    });
 
-    expect(fileSystem.hasFileSync(`${ROOT}/Note.md`)).toBe(true);
+    expect(result.status).toBe('saved');
+    expect(fileSystem.hasFileSync(`${ROOT}/Note.md`)).toBe(false);
     expect(fileSystem.hasFileSync(`${ROOT}/Projects/Note.md`)).toBe(true);
+    expect(fileSystem.hasFileSync(`${ROOT}/Projects/Note 1.md`)).toBe(true);
+    expect(vault.getPage(page.id)!.path).toBe(`${ROOT}/Projects/Note 1.md`);
   });
 
   it('abandons the operation for an unknown page id', async () => {
