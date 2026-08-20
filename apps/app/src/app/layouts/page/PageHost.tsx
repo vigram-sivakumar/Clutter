@@ -24,6 +24,7 @@ import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResou
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
+import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
@@ -87,6 +88,8 @@ export function PageHost({ application }: PageHostProps) {
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveTag = createTagResolver(application.navigation);
+  // Same per-render, stateless-glue composition as resolveWikiLink above.
+  const resolveDate = createDateResolver(vault, application.pageOperations);
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
@@ -422,6 +425,7 @@ export function PageHost({ application }: PageHostProps) {
     );
     const model = toDraftPageModel(
       activePageId,
+      draft.type,
       draft.title,
       session,
       onUpdateMarkdown,
@@ -462,6 +466,7 @@ export function PageHost({ application }: PageHostProps) {
               resolveWikiLink={resolveWikiLink}
               getWikiLinkSuggestions={getWikiLinkSuggestions}
               resolveTag={resolveTag}
+              resolveDate={resolveDate}
             />
           </MarkdownBody>
         }
@@ -549,6 +554,7 @@ export function PageHost({ application }: PageHostProps) {
             resolveWikiLink={resolveWikiLink}
             getWikiLinkSuggestions={getWikiLinkSuggestions}
             resolveTag={resolveTag}
+            resolveDate={resolveDate}
           />
         </MarkdownBody>
       }

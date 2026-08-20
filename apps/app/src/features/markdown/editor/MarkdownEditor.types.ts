@@ -1,3 +1,4 @@
+import type { ResolveDate } from './codemirror/date/dateResolution';
 import type { ResolveTag } from './codemirror/tag/tagResolution';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
 import type { GetWikiLinkSuggestions } from './codemirror/wikilink/wikiLinkSuggestion';
@@ -45,6 +46,14 @@ export interface MarkdownEditorProps {
    * same text — see `tagResolution.ts`).
    */
   readonly resolveTag?: ResolveTag;
+  /**
+   * Resolves a Date's activation behavior — supplied entirely by the
+   * feature/app layer, same injected-boundary shape as `resolveTag`
+   * above. Narrower still: a Date's display label needs no injection at
+   * all (see `dateResolution.ts`), so this only ever supplies
+   * `activate()`.
+   */
+  readonly resolveDate?: ResolveDate;
 }
 
 /**

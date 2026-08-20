@@ -286,3 +286,94 @@ describe('Tag — heading disambiguation and coexistence (§11 second-kind proof
     expect(names).toContain('WikiLink');
   });
 });
+
+describe('Date — the @-family’s first construct, context-free by construction', () => {
+  it('@2026-08-20 produces a Date node', () => {
+    expect(nodeNames('@2026-08-20')).toContain('Date');
+  });
+
+  it('foo @2026-08-20 (preceded by whitespace) produces a Date node', () => {
+    expect(nodeNames('foo @2026-08-20')).toContain('Date');
+  });
+
+  it('foo@2026-08-20 (no preceding whitespace) does NOT produce a Date node', () => {
+    expect(nodeNames('foo@2026-08-20')).not.toContain('Date');
+  });
+
+  it('@2026-08-20x (trailing letter) does NOT produce a Date node — not a valid boundary', () => {
+    expect(nodeNames('@2026-08-20x')).not.toContain('Date');
+  });
+
+  it('@2026-13-45 (calendar-invalid but shape-valid) still produces a Date node — parse vs. validate', () => {
+    // The grammar only checks shape; calendar correctness is a separate,
+    // later concern (isValidCalendarDate), same distinction already
+    // established for @due:-style property values.
+    expect(nodeNames('@2026-13-45')).toContain('Date');
+  });
+
+  it('`@2026-08-20` inside a code span produces no Date node — code-span content is never re-offered to later inline parsers', () => {
+    const names = nodeNames('`@2026-08-20`');
+    expect(names).toContain('InlineCode');
+    expect(names).not.toContain('Date');
+  });
+
+  it('@Today does NOT produce a Date node — relative keywords are never persistent syntax', () => {
+    expect(nodeNames('@Today')).not.toContain('Date');
+  });
+
+  it('@Tomorrow does NOT produce a Date node', () => {
+    expect(nodeNames('@Tomorrow')).not.toContain('Date');
+  });
+
+  it('@Yesterday does NOT produce a Date node', () => {
+    expect(nodeNames('@Yesterday')).not.toContain('Date');
+  });
+
+  it('@20/08/2026 does NOT produce a Date node — not an accepted format', () => {
+    expect(nodeNames('@20/08/2026')).not.toContain('Date');
+  });
+
+  it('Date has no children of its own — a single indivisible node, same shape as Tag', () => {
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse('@2026-08-20');
+    const paragraph = tree.topNode.getChild('Paragraph');
+    const date = paragraph?.getChild('Date');
+    expect(date).not.toBeNull();
+    expect(date?.firstChild).toBeNull();
+  });
+
+  it('# Heading remains a heading, never a Date construct — different trigger characters, no collision possible', () => {
+    const names = nodeNames('# Heading');
+    expect(names).toContain('ATXHeading1');
+    expect(names).not.toContain('Date');
+  });
+
+  it('a task line containing a bare date parses Date exactly as ordinary content would — no context-sensitive grammar', () => {
+    const names = nodeNames('- [ ] Finish report @2026-08-20');
+    expect(names).toContain('Task');
+    expect(names).toContain('Date');
+  });
+
+  it('adjacent Date and Tag tokens with no separating whitespace both parse as distinct nodes', () => {
+    const names = nodeNames('@2026-08-20#tag');
+    expect(names).toContain('Date');
+    // Not preceded by whitespace ("0" before "#"), so per the same
+    // foo#tag rule this must NOT produce a Tag node.
+    expect(names).not.toContain('Tag');
+  });
+
+  it('adjacent Date and WikiLink tokens with no separating whitespace both parse as distinct nodes', () => {
+    const names = nodeNames('@2026-08-20[[Page]]');
+    expect(names).toContain('Date');
+    expect(names).toContain('WikiLink');
+  });
+
+  it('a representative plain-prose document with a date round-trips correctly alongside every other construct', () => {
+    const text = '# Notes\n\nMeeting on @2026-08-20 about #project and [[Reference]].\n';
+    const names = nodeNames(text);
+    expect(names).toContain('ATXHeading1');
+    expect(names).toContain('Date');
+    expect(names).toContain('Tag');
+    expect(names).toContain('WikiLink');
+  });
+});

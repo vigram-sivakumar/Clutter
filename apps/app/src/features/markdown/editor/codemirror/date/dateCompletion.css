@@ -1,0 +1,24 @@
+/*
+ * Popup row styling for Date completion options — reuses the same design
+ * tokens `wikiLinkCompletion.css` already establishes (`--entry-*`) for
+ * visual consistency, without importing that file's WikiLink-specific
+ * classes.
+ */
+.date-completion {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding-inline: var(--space-8);
+  width: 100%;
+}
+
+.date-completion__label {
+  color: var(--entry-foreground);
+  font: var(--text-body-small);
+}
+
+.date-completion__iso {
+  color: var(--foreground-tertiary);
+  font: var(--text-caption);
+  margin-inline-start: auto;
+}

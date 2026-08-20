@@ -1,6 +1,7 @@
 import { markdown } from '@codemirror/lang-markdown';
 import { Autolink, Strikethrough, TaskList } from '@lezer/markdown';
 
+import { dateSyntax } from './date/dateSyntax';
 import { tagSyntax } from './tag/tagSyntax';
 import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
 
@@ -25,11 +26,21 @@ import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
  *   a second concrete semantic-token kind, built entirely on the same
  *   generic `semanticToken/*` mechanism WikiLink already proved out, with
  *   zero changes to that mechanism itself.
+ * - `dateSyntax` registers the `Date` node — the first `@`-family
+ *   construct (`@YYYY-MM-DD`). Context-free by construction: this parser
+ *   never inspects surrounding block context (task checkbox or not) to
+ *   decide whether something is a `Date` node — it always is. Task
+ *   due-date semantics are assembled entirely downstream, by
+ *   `TaskExtractor.ts`'s own independent bare-date recognition, never by
+ *   this grammar.
  *
- * `Mention` and `PropertyToken` are not registered here yet.
+ * `Mention` and `PropertyToken` are not registered here yet — `dateSyntax`
+ * is deliberately the first, not a generalized "AtSyntax" for all of
+ * them, per the "leave an extension point, don't build the coordinator"
+ * posture already applied to Tag.
  */
 export function markdownLanguageExtension() {
   return markdown({
-    extensions: [Autolink, Strikethrough, TaskList, wikiLinkSyntax, tagSyntax],
+    extensions: [Autolink, Strikethrough, TaskList, wikiLinkSyntax, tagSyntax, dateSyntax],
   });
 }

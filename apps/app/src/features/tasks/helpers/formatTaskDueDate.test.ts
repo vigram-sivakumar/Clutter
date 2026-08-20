@@ -23,12 +23,17 @@ describe('formatTaskDueDate', () => {
     expect(formatTaskDueDate('2026-08-03')).toBe('Yesterday');
   });
 
-  it('renders day + short month, no year, for other dates in the current year', () => {
+  it('renders day + abbreviated month, no year, for other dates in the current year — via the shared formatDateDisplay "condensed" mode', () => {
     expect(formatTaskDueDate('2026-08-15')).toBe('15 Aug');
-    expect(formatTaskDueDate('2026-09-30')).toBe('30 Sept');
+    expect(formatTaskDueDate('2026-09-30')).toBe('30 Sep');
   });
 
-  it('renders day + short month + year for dates outside the current year', () => {
+  it('renders day + abbreviated month + year for dates outside the current year', () => {
     expect(formatTaskDueDate('2027-11-19')).toBe('19 Nov 2027');
+  });
+
+  it('renders the bare weekday name for another day within the current week', () => {
+    // System time is 2026-08-04 (Tuesday); 2026-08-07 (Friday) is later the same week.
+    expect(formatTaskDueDate('2026-08-07')).toBe('Friday');
   });
 });

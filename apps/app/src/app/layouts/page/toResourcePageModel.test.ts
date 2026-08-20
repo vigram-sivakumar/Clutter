@@ -4,6 +4,7 @@ import { DocumentSession } from '@core/engine/DocumentSession';
 import { DocumentTransaction } from '@core/engine/DocumentTransaction';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 import type { Page } from '@core/vault/models/Page';
+import { formatDateDisplay } from '@shared/helpers/time';
 
 function buildPage(overrides: {
   path?: string;
@@ -138,6 +139,44 @@ describe('toResourcePageModel', () => {
     expect(model.title).toBe(page.name);
   });
 
+  it("formats a real Daily Note's title through the shared full-date formatter, not the raw ISO filename", () => {
+    const page: Page = {
+      id: 'daily-2',
+      type: 'daily-note',
+      name: '2026-08-20',
+      path: '/vault/Daily Notes/2026/August/2026-08-20.md',
+      parentId: null,
+      metadata: {
+        icon: null,
+        cover: null,
+        description: null,
+        favorite: false,
+        status: 'active',
+        archivedAt: null,
+        originalParentId: null,
+        originalPath: null,
+        createdAt: null,
+        updatedAt: null,
+      },
+      source: { markdown: '' },
+      analysis: {
+        headings: [],
+        aliases: [],
+        blockReferences: [],
+        tasks: [],
+        tags: [],
+        links: [],
+        embeds: [],
+      },
+    };
+    const session = new DocumentSession(page.id, page.source.markdown);
+
+    const model = toResourcePageModel(page, session, vi.fn(), vi.fn(), vi.fn());
+
+    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'full'));
+    expect(model.title).not.toBe(page.name);
+  });
+
   it('updateDescription delegates to the onUpdateDescription callback with the page id', () => {
     const page = buildPage();
     const session = new DocumentSession(page.id, page.source.markdown);
@@ -155,24 +194,33 @@ describe('toDraftPageModel (ADR-017)', () => {
     const session = new DocumentSession('draft-1', '');
 
     expect(
-      toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn()).title
+      toDraftPageModel('draft-1', 'note', 'My Draft', session, vi.fn(), vi.fn()).title
     ).toBe('My Draft');
     expect(
-      toDraftPageModel('draft-1', undefined, session, vi.fn(), vi.fn()).title
+      toDraftPageModel('draft-1', 'note', undefined, session, vi.fn(), vi.fn()).title
     ).toBe('');
     expect(
-      toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn()).description
+      toDraftPageModel('draft-1', 'note', 'My Draft', session, vi.fn(), vi.fn()).description
     ).toBe('');
     expect(
-      toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn()).coverImage
+      toDraftPageModel('draft-1', 'note', 'My Draft', session, vi.fn(), vi.fn()).coverImage
     ).toBe(null);
+  });
+
+  it('formats a daily-note draft\'s title through the shared full-date formatter, same as a persisted Daily Note', () => {
+    const session = new DocumentSession('draft-1', '');
+    const reference = new Date(2026, 7, 20); // Thursday, 2026-08-20
+
+    const model = toDraftPageModel('draft-1', 'daily-note', '2026-08-20', session, vi.fn(), vi.fn());
+
+    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'full', reference));
   });
 
   it("renders the session's in-memory revision", () => {
     const session = new DocumentSession('draft-1', '');
     session.commit(new DocumentTransaction('Typed content'));
 
-    const model = toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), vi.fn());
+    const model = toDraftPageModel('draft-1', 'note', 'My Draft', session, vi.fn(), vi.fn());
 
     expect(model.markdown).toBe('Typed content');
   });
@@ -183,6 +231,7 @@ describe('toDraftPageModel (ADR-017)', () => {
 
     toDraftPageModel(
       'draft-1',
+      'note',
       'My Draft',
       session,
       onUpdateMarkdown,
@@ -196,7 +245,7 @@ describe('toDraftPageModel (ADR-017)', () => {
     const session = new DocumentSession('draft-1', '');
     const onRequestSave = vi.fn();
 
-    toDraftPageModel('draft-1', 'My Draft', session, vi.fn(), onRequestSave).requestSave();
+    toDraftPageModel('draft-1', 'note', 'My Draft', session, vi.fn(), onRequestSave).requestSave();
 
     expect(onRequestSave).toHaveBeenCalledWith('draft-1');
     expect(onRequestSave).toHaveBeenCalledTimes(1);

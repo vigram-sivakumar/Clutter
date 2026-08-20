@@ -134,6 +134,16 @@
   opacity: var(--opacity-medium);
 }
 
+.cm-editor .tok-date {
+  color: var(--link-foreground);
+  cursor: pointer;
+}
+.tok-date[data-date-status='invalid'] {
+  opacity: var(--opacity-medium);
+  text-decoration: line-through;
+  cursor: default;
+}
+
 /*
  * Live Preview marker hiding — heading, WikiLink, emphasis, strikethrough,
  * and inline-code markers are all hidden at rest via `Decoration.replace({})`

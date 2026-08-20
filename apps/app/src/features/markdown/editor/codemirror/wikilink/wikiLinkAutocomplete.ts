@@ -4,7 +4,6 @@ import {
   completionStatus,
   selectedCompletion,
   startCompletion,
-  autocompletion,
 } from '@codemirror/autocomplete';
 import { Prec } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
@@ -12,13 +11,7 @@ import { EditorView, keymap } from '@codemirror/view';
 
 import { findWikiLinkAt } from './wikiLinkEngagement';
 import type { WikiLinkCompletion } from './wikiLinkCompletionRenderer';
-import { renderWikiLinkCompletion } from './wikiLinkCompletionRenderer';
-import {
-  WIKILINK_TRIGGER_PATTERN,
-  referenceZoneAt,
-  wikiLinkCompletionSource,
-} from './wikiLinkCompletionSource';
-import type { GetWikiLinkSuggestions } from './wikiLinkSuggestion';
+import { WIKILINK_TRIGGER_PATTERN, referenceZoneAt } from './wikiLinkCompletionSource';
 
 /**
  * Re-skins CM6's own `.cm-tooltip-autocomplete` popup to match
@@ -29,8 +22,14 @@ import type { GetWikiLinkSuggestions } from './wikiLinkSuggestion';
  * these same selectors would lose the cascade regardless of specificity
  * (the exact issue `editorTheme.ts` already documents and works around
  * for `.cm-activeLine`; the same fix applies here).
+ *
+ * Exported — despite the name, every rule inside targets generic CM6
+ * classes (`.cm-tooltip-autocomplete`, `.cm-completionLabel`, etc.), never
+ * anything WikiLink-specific, so `codemirror/completion.ts` reuses it
+ * wholesale as the one shared completion-popup theme for every `@`/`[[`
+ * source rather than duplicating it.
  */
-function wikiLinkAutocompleteTheme(): Extension {
+export function wikiLinkAutocompleteTheme(): Extension {
   return EditorView.theme({
     '.cm-tooltip.cm-tooltip-autocomplete': {
       background: 'var(--surface-secondary)',
@@ -229,28 +228,25 @@ const reactivateOnReferenceDeletion = EditorView.updateListener.of((update) => {
 });
 
 /**
- * WikiLink autocomplete: `@codemirror/autocomplete`'s own `autocompletion()`
- * owns triggering, popup lifecycle, caret-relative positioning, keyboard
- * navigation (Up/Down/Enter/Tab/Escape), and dismissal in full — the only
- * Clutter-specific pieces are `wikiLinkCompletionSource` (what candidates
- * to offer), this theme (how the popup looks), and the `|` keymap command
- * above (the reference/display-name boundary). No `Menu`/`Overlay`/
- * `Popover`/`useOverlayPosition`/`useMenuKeyboard` involved: those all
- * assume a real DOM anchor element, which a moving text caret isn't, and
- * would be a second, competing owner of keyboard nav over the same list.
+ * WikiLink's own non-`autocompletion()` completion extras: the `|` keymap
+ * command (the reference/display-name boundary) and the reactivate-on-
+ * deletion listener above. `@codemirror/autocomplete`'s own
+ * `autocompletion()` call itself — triggering, popup lifecycle,
+ * caret-relative positioning, keyboard navigation, dismissal, which
+ * `CompletionSource`s are active, and the shared popup theme
+ * (`wikiLinkAutocompleteTheme()`, exported above) — now lives in
+ * `codemirror/completion.ts`, the one shared call every `@`/`[[` source
+ * must register through (`@codemirror/autocomplete`'s own
+ * `completionConfig` facet throws a config-merge conflict if `override`
+ * is set by two independent `autocompletion()` calls in the same editor —
+ * confirmed by reading its `combineConfig` merge logic directly, not
+ * assumed). WikiLink's own completion behavior — trigger pattern,
+ * candidate source, popup rendering — is completely unchanged by this
+ * move; only where the `autocompletion()` call and its theme are
+ * registered from changed.
  */
-export function wikiLinkAutocomplete(
-  getSuggestions: () => GetWikiLinkSuggestions | undefined
-): Extension {
+export function wikiLinkAutocomplete(): Extension {
   return [
-    autocompletion({
-      override: [wikiLinkCompletionSource(getSuggestions)],
-      icons: false,
-      defaultKeymap: true,
-      closeOnBlur: true,
-      addToOptions: [{ render: renderWikiLinkCompletion, position: 50 }],
-    }),
-    wikiLinkAutocompleteTheme(),
     // Highest precedence so this wins over any other binding for `|`
     // (there isn't one today, but this must not depend on staying that
     // way) — when it declines (returns false), the key falls through to

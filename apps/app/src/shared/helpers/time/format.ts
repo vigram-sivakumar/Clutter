@@ -24,21 +24,8 @@ export function formatDate(date: ISODate, format: DateFormat) {
         month: 'long',
       }).format(currentDate);
 
-    case 'short':
-      return new Intl.DateTimeFormat(DEFAULT_LOCALE, {
-        month: 'short',
-        day: 'numeric',
-      }).format(currentDate);
-
     case 'monthYear':
       return new Intl.DateTimeFormat(DEFAULT_LOCALE, {
-        month: 'short',
-        year: 'numeric',
-      }).format(currentDate);
-
-    case 'shortDate':
-      return new Intl.DateTimeFormat(DEFAULT_LOCALE, {
-        day: 'numeric',
         month: 'short',
         year: 'numeric',
       }).format(currentDate);

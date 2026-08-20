@@ -5,6 +5,11 @@ import {
   createEditorView,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
+import { semanticCompletion } from './codemirror/completion';
+import { dateDecorations } from './codemirror/date/dateDecorations';
+import { dateKeymap } from './codemirror/date/dateKeymap';
+import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
+import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
@@ -28,6 +33,7 @@ export type {
   MarkdownEditorHandle,
   MarkdownEditorProps,
 } from './MarkdownEditor.types';
+export type { ResolveDate, DateResolution } from './codemirror/date/dateResolution';
 export type { ResolveTag, TagResolution } from './codemirror/tag/tagResolution';
 export type {
   ResolveWikiLink,
@@ -61,7 +67,7 @@ export const MarkdownEditor = forwardRef<
   MarkdownEditorHandle,
   MarkdownEditorProps
 >(function MarkdownEditor(
-  { markdown, onEdit, onFlush, resolveWikiLink, getWikiLinkSuggestions, resolveTag },
+  { markdown, onEdit, onFlush, resolveWikiLink, getWikiLinkSuggestions, resolveTag, resolveDate },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -90,6 +96,10 @@ export const MarkdownEditor = forwardRef<
   const resolveTagRef = useRef(resolveTag);
   resolveTagRef.current = resolveTag;
 
+  // Same freshness pattern, for Date's decoration/mouse/keymap accessor.
+  const resolveDateRef = useRef(resolveDate);
+  resolveDateRef.current = resolveDate;
+
   useImperativeHandle(ref, () => ({
     focus() {
       viewRef.current?.focus();
@@ -116,11 +126,16 @@ export const MarkdownEditor = forwardRef<
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
         wikiLinkKeymap(() => resolveWikiLinkRef.current),
         wikiLinkSelectionSnap(),
-        wikiLinkAutocomplete(() => getWikiLinkSuggestionsRef.current),
+        wikiLinkAutocomplete(),
         tagDecorations(() => resolveTagRef.current),
         tagMouseHandlers(() => resolveTagRef.current),
         tagKeymap(() => resolveTagRef.current),
         tagSelectionSnap(),
+        dateDecorations(() => resolveDateRef.current),
+        dateMouseHandlers(() => resolveDateRef.current),
+        dateKeymap(() => resolveDateRef.current),
+        dateSelectionSnap(),
+        semanticCompletion(() => getWikiLinkSuggestionsRef.current),
       ],
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onBlur: () => onFlushRef.current?.(),

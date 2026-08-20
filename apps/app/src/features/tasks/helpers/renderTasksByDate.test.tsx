@@ -198,6 +198,51 @@ describe('renderTasksByDate', () => {
     expect(getByText('Tomorrow')).not.toBeNull();
   });
 
+  /**
+   * Component-level coverage for every relative-label case, through the
+   * real render path (renderTasksByDate -> renderTaskRow ->
+   * formatTaskDueDate -> formatDateDisplay) rather than only the isolated
+   * formatTaskDueDate unit tests — closing the gap this file only
+   * previously covered for "Tomorrow" and the different-year case.
+   * System time is faked to Tuesday, 2026-08-04.
+   */
+  describe('relative due-date labels, through the full render path', () => {
+    function renderDueDateLabelFor(dueDate: string): string {
+      const { getByText } = render(
+        <>
+          {renderTasksByDate({
+            tasks: [task({ text: 'Some task', dueDate })],
+            workspace: new Workspace(),
+            onToggleComplete: vi.fn(),
+            onOpenTask: vi.fn(),
+            navigation: fakeNavigation(),
+          })}
+        </>
+      );
+
+      const row = getByText('Some task').closest('.entry') as HTMLElement;
+      // The due-date label is the only text besides the task's own title
+      // inside the row's trailing metadata slot.
+      return within(row).getByText(/./, { selector: '.task__due-date' }).textContent ?? '';
+    }
+
+    it('yesterday', () => {
+      expect(renderDueDateLabelFor('2026-08-03')).toBe('Yesterday');
+    });
+
+    it('a weekday within the current week (Friday)', () => {
+      expect(renderDueDateLabelFor('2026-08-07')).toBe('Friday');
+    });
+
+    it('same year, outside the current week', () => {
+      expect(renderDueDateLabelFor('2026-08-21')).toBe('21 Aug');
+    });
+
+    it('a different year', () => {
+      expect(renderDueDateLabelFor('2027-08-21')).toBe('21 Aug 2027');
+    });
+  });
+
   it('navigates to Today when the Today section header is clicked', () => {
     const navigation = fakeNavigation();
 

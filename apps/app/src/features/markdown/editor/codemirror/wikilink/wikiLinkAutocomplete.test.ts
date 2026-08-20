@@ -4,16 +4,30 @@ import { completionStatus } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import { semanticCompletion } from '../completion';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { acceptReferenceForDisplayName, wikiLinkAutocomplete } from './wikiLinkAutocomplete';
 import type { GetWikiLinkSuggestions } from './wikiLinkSuggestion';
 
+/**
+ * The `autocompletion()` call itself now lives in `codemirror/completion.ts`
+ * (shared with Date's own completion source — see that file's doc comment
+ * for why), so mounting WikiLink's completion behavior for a test needs
+ * both `semanticCompletion` (triggering/popup/candidates) and
+ * `wikiLinkAutocomplete` (the `|` keymap command + reactivate-on-deletion
+ * listener) together, matching the real production extension list
+ * (`MarkdownEditor.tsx`).
+ */
 function mountView(doc: string, getSuggestions: GetWikiLinkSuggestions): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), wikiLinkAutocomplete(() => getSuggestions)],
+    extensions: [
+      markdownLanguageExtension(),
+      semanticCompletion(() => getSuggestions),
+      wikiLinkAutocomplete(),
+    ],
   });
   return new EditorView({ state, parent });
 }

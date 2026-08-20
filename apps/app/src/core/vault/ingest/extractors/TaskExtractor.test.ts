@@ -130,4 +130,74 @@ describe('TaskExtractor', () => {
 
     expect(tasks[0]!.rawText).toBe(line);
   });
+
+  describe('bare @YYYY-MM-DD Date references (v1: no @due: required)', () => {
+    it('a bare Date reference on a task line becomes its due date', () => {
+      const line = '- [ ] Finish report @2026-08-20';
+      const tasks = extractor.extract(line);
+
+      expect(tasks).toEqual([
+        {
+          completed: false,
+          text: 'Finish report @2026-08-20',
+          dueDate: '2026-08-20',
+          completedAt: undefined,
+          rawText: line,
+        },
+      ]);
+    });
+
+    it('unlike @due:, the bare Date reference is NOT stripped from text — it is real content, not hidden metadata', () => {
+      const tasks = extractor.extract('- [ ] Finish report @2026-08-20');
+
+      expect(tasks[0]!.text).toContain('@2026-08-20');
+    });
+
+    it('a Date reference in ordinary (non-task) content does not produce a task at all', () => {
+      const tasks = extractor.extract('The meeting is on @2026-08-20.');
+
+      expect(tasks).toEqual([]);
+    });
+
+    it('a task with no Date reference and no @due: has no due date, same as before this change', () => {
+      const tasks = extractor.extract('- [ ] Buy milk');
+
+      expect(tasks[0]!.dueDate).toBeUndefined();
+    });
+
+    it('legacy @due: still wins over a bare Date reference when both are present on the same line', () => {
+      const line = '- [ ] Reschedule @due:2026-08-01 to @2026-08-20';
+      const tasks = extractor.extract(line);
+
+      expect(tasks[0]!.dueDate).toBe('2026-08-01');
+    });
+
+    it('multiple bare Date references on one task line: the FIRST one becomes the due date, deterministically', () => {
+      const line = '- [ ] Moved from @2026-08-01 to @2026-08-20';
+      const tasks = extractor.extract(line);
+
+      expect(tasks[0]!.dueDate).toBe('2026-08-01');
+      // Neither is stripped — both remain visible, real content.
+      expect(tasks[0]!.text).toContain('@2026-08-01');
+      expect(tasks[0]!.text).toContain('@2026-08-20');
+    });
+
+    it('a shape-valid but calendar-invalid bare Date is still captured as dueDate — no validation here, matching @due:\'s own pre-existing leniency', () => {
+      const tasks = extractor.extract('- [ ] Odd date @2026-13-45');
+
+      expect(tasks[0]!.dueDate).toBe('2026-13-45');
+    });
+
+    it('foo@2026-08-20 (no preceding whitespace) is not recognized as a Date reference at all', () => {
+      const tasks = extractor.extract('- [ ] Ref foo@2026-08-20');
+
+      expect(tasks[0]!.dueDate).toBeUndefined();
+    });
+
+    it('@2026-08-20x (trailing letter) is not recognized as a Date reference', () => {
+      const tasks = extractor.extract('- [ ] Ref @2026-08-20x');
+
+      expect(tasks[0]!.dueDate).toBeUndefined();
+    });
+  });
 });

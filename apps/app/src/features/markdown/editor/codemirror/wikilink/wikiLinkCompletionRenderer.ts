@@ -16,6 +16,10 @@ export interface WikiLinkCompletion extends Completion {
   readonly suggestion: WikiLinkSuggestion;
 }
 
+function isWikiLinkCompletion(completion: Completion): completion is WikiLinkCompletion {
+  return 'suggestion' in completion;
+}
+
 /**
  * Inlined verbatim from `shared/icon/svg/note.svg` and `plus.svg` — the
  * exact same icons `AppIcon` renders elsewhere (`note` for an existing
@@ -46,13 +50,25 @@ const PLUS_ICON_SVG =
  * (there is no way to fully replace it, only add to it) — hidden via
  * `wikiLinkAutocompleteTheme()` since this node already carries the same
  * text plus the icon/breadcrumb it doesn't.
+ *
+ * Returns `null` for any completion that isn't a `WikiLinkCompletion` —
+ * required, not defensive-programming caution: CM6's `addToOptions` calls
+ * every registered `render` callback for every visible option regardless
+ * of which `CompletionSource` produced it, which only became a real
+ * question once `codemirror/completion.ts` started sharing one
+ * `autocompletion()` call between WikiLink's and Date's sources (see
+ * `dateCompletionRenderer.ts`'s matching guard).
  */
 export function renderWikiLinkCompletion(
   completion: Completion,
   _state: EditorState,
   view: EditorView
-): HTMLElement {
-  const { suggestion } = completion as WikiLinkCompletion;
+): HTMLElement | null {
+  if (!isWikiLinkCompletion(completion)) {
+    return null;
+  }
+
+  const { suggestion } = completion;
 
   const row = document.createElement('div');
   row.className = 'wikilink-completion';

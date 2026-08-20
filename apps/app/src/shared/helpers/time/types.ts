@@ -13,8 +13,6 @@ export type DateFormat =
   | 'date' // 12
   | 'monthShort' // Jan
   | 'monthLong' // January
-  | 'short' // 12 Jan
   | 'monthYear' // Jan 2027
-  | 'shortDate' // 12 Jan 2027
   | 'longDate' // 12 January 2027
   | 'weekday'; // Monday, 12 January 2027

@@ -16,7 +16,16 @@ function mountView(): EditorView {
 function render(suggestion: WikiLinkSuggestion): HTMLElement {
   const completion: WikiLinkCompletion = { label: 'unused', suggestion } as WikiLinkCompletion;
   const view = mountView();
-  return renderWikiLinkCompletion(completion as Completion, view.state, view);
+  // Every completion built here is a genuine WikiLinkCompletion (has
+  // `suggestion`), so renderWikiLinkCompletion's null guard (added for
+  // coexistence with Date's own completions in the now-shared
+  // addToOptions array — see that function's doc comment) never actually
+  // returns null in this file.
+  const row = renderWikiLinkCompletion(completion as Completion, view.state, view);
+  if (!(row instanceof HTMLElement)) {
+    throw new Error('Expected renderWikiLinkCompletion to render a genuine WikiLinkCompletion');
+  }
+  return row;
 }
 
 function titleText(row: HTMLElement): string | null {
