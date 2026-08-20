@@ -109,6 +109,36 @@ describe('renderCompactMarkdown', () => {
     });
   });
 
+  describe('Link and image rendering', () => {
+    it('renders a standard Markdown link as its label text, with no element wrapper and no URL', () => {
+      const { container } = render(<>{renderCompactMarkdown('[Clutter](https://clutter.app)')}</>);
+
+      expect(container).toHaveTextContent('Clutter');
+      expect(container).not.toHaveTextContent('https://clutter.app');
+      expect(container.querySelector('a')).toBeNull();
+    });
+
+    it('renders an image as its alt text, with no URL', () => {
+      const { container } = render(<>{renderCompactMarkdown('![diagram](https://img.example.com/a.png)')}</>);
+
+      expect(container).toHaveTextContent('diagram');
+      expect(container).not.toHaveTextContent('https://img.example.com/a.png');
+    });
+
+    it('renders an angle-bracket autolink as the bare URL, stripping < >', () => {
+      const { container } = render(<>{renderCompactMarkdown('<https://example.com>')}</>);
+
+      expect(container).toHaveTextContent('https://example.com');
+      expect(container).not.toHaveTextContent('<https://example.com>');
+    });
+
+    it('renders a bare URL autolink verbatim', () => {
+      const { container } = render(<>{renderCompactMarkdown('see https://example.com for details')}</>);
+
+      expect(container).toHaveTextContent('see https://example.com for details');
+    });
+  });
+
   it('renders mixed content in document order with plain text gaps preserved', () => {
     const { container } = render(<>{renderCompactMarkdown('Ship **[[Project Alpha]]** by @2020-01-15 #urgent')}</>);
 

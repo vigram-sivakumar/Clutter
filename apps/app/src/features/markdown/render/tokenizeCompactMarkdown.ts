@@ -11,7 +11,9 @@ export type CompactSpan =
   | { readonly kind: 'bold' | 'italic' | 'strikethrough' | 'code'; readonly value: string }
   | { readonly kind: 'wikilink'; readonly path: string; readonly alias: string | null }
   | { readonly kind: 'tag'; readonly name: string }
-  | { readonly kind: 'date'; readonly isoDate: string };
+  | { readonly kind: 'date'; readonly isoDate: string }
+  | { readonly kind: 'link'; readonly label: string }
+  | { readonly kind: 'image'; readonly alt: string };
 
 /**
  * Parses with the exact same `@lezer/markdown` grammar the page editor
@@ -88,12 +90,50 @@ function readDate(node: SyntaxNode, text: string): CompactSpan {
 }
 
 /**
+ * `Link`/`Image` both parse as a flat run of `LinkMark` tokens around an
+ * unnamed label range plus a `URL` child (confirmed empirically against
+ * the installed `@lezer/markdown@1.7.2`: `[text](url)` → `LinkMark"["`,
+ * `LinkMark"]"`, `LinkMark"("`, `URL`, `LinkMark")"`; `![alt](url)` is the
+ * same shape with `LinkMark"!["` as the opening mark) — the label itself
+ * has no node of its own, so it's recovered the same way `markedInnerText`
+ * recovers emphasis content: the text between the first two `LinkMark`
+ * children. The destination URL is intentionally discarded — compact
+ * rendering has no click/keyboard activation on individual tokens (see
+ * `renderCompactMarkdown`'s doc comment), so there is nothing to navigate
+ * to and no reason to carry an unused field.
+ */
+function bracketedLabelText(node: SyntaxNode, text: string): string | null {
+  const marks: SyntaxNode[] = [];
+  for (let child = node.firstChild; child && marks.length < 2; child = child.nextSibling) {
+    if (child.name === 'LinkMark') {
+      marks.push(child);
+    }
+  }
+  const [open, close] = marks;
+  if (!open || !close) {
+    return null;
+  }
+  return text.slice(open.to, close.from);
+}
+
+function readLink(node: SyntaxNode, text: string): CompactSpan {
+  const label = bracketedLabelText(node, text);
+  return label === null ? { kind: 'text', value: text.slice(node.from, node.to) } : { kind: 'link', label };
+}
+
+function readImage(node: SyntaxNode, text: string): CompactSpan {
+  const alt = bracketedLabelText(node, text);
+  return alt === null ? { kind: 'text', value: text.slice(node.from, node.to) } : { kind: 'image', alt };
+}
+
+/**
  * Tokenizes `text` into a flat, marker-free sequence of `CompactSpan`s for
  * compact (sidebar-row) display — pure, React- and CodeMirror-independent.
  *
  * Walks the parse tree depth-first with a single running cursor: any node
- * of a recognized kind (emphasis family, WikiLink, Tag, Date) is emitted
- * as its own span and not recursed into; everything else (Document,
+ * of a recognized kind (emphasis family, WikiLink, Tag, Date, Link, Image,
+ * Autolink, bare URL) is emitted as its own span and not recursed into;
+ * everything else (Document,
  * Paragraph, and any other block/inline node this grammar produces) is
  * recursed through so its recognized descendants are still found,
  * wherever they're nested. Text between/around recognized nodes — plain
@@ -126,6 +166,35 @@ export function tokenizeCompactMarkdown(text: string): CompactSpan[] {
       spans.push(
         node.name === 'WikiLink' ? readWikiLink(node, text) : node.name === 'Tag' ? readTag(node, text) : readDate(node, text)
       );
+      cursor = node.to;
+      return;
+    }
+
+    if (node.name === 'Link' || node.name === 'Image') {
+      pushText(cursor, node.from);
+      spans.push(node.name === 'Link' ? readLink(node, text) : readImage(node, text));
+      cursor = node.to;
+      return;
+    }
+
+    // Angle-bracket autolink (`<http://…>`/`<user@host>`): base-parser
+    // node, two `LinkMark` marks around a `URL` child — same shape as
+    // emphasis, so `markedInnerText` recovers the bare URL/email text
+    // without the angle brackets leaking through as literal text.
+    if (node.name === 'Autolink') {
+      pushText(cursor, node.from);
+      spans.push({ kind: 'link', label: markedInnerText(node, text, 'LinkMark') });
+      cursor = node.to;
+      return;
+    }
+
+    // A `URL` node reached here (rather than inside the `Link`/`Image`/
+    // `Autolink` cases above, which return before recursing into their
+    // children) is always a *bare* GFM autolink — `https://…`, `www.…`, or
+    // a bare email — with no surrounding mark characters to strip.
+    if (node.name === 'URL') {
+      pushText(cursor, node.from);
+      spans.push({ kind: 'link', label: text.slice(node.from, node.to) });
       cursor = node.to;
       return;
     }

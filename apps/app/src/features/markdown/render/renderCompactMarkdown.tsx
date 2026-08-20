@@ -86,6 +86,10 @@ function renderCompactSpan(span: CompactSpan, resolvers: CompactMarkdownResolver
       return renderTag(span.name, resolvers.resolveTag, key);
     case 'date':
       return renderDate(span.isoDate, key);
+    case 'link':
+      return span.label;
+    case 'image':
+      return span.alt;
   }
 }
 
