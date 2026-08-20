@@ -42,6 +42,16 @@
  * `.markdown-editor` above, since nothing in the DOM currently applies
  * that class; not fixed here as out of scope for this change.
  */
+/*
+ * `tok-heading1`/`tok-heading2`'s font-size/weight/line-height are read
+ * through inherited custom properties (fallback = the normal heading
+ * value) rather than hardcoded directly, so `.tok-setext-pending` below
+ * can neutralize them for a pending Setext candidate via inheritance
+ * instead of a competing, more-specific descendant selector — see that
+ * rule's own doc comment for why the previous descendant-selector
+ * approach was wrong. `tok-heading3` has no pending-Setext case (Setext
+ * only ever produces heading1/2) and is left as a plain value.
+ */
 .cm-editor .tok-heading1,
 .cm-editor .tok-heading2,
 .cm-editor .tok-heading3 {
@@ -50,13 +60,15 @@
 }
 
 .cm-editor .tok-heading1 {
-  font-size: var(--text-heading-1);
-  line-height: var(--lh-heading-1);
+  font-size: var(--setext-heading-size, var(--text-heading-1));
+  font-weight: var(--setext-heading-weight, 700);
+  line-height: var(--setext-heading-line-height, var(--lh-heading-1));
 }
 
 .cm-editor .tok-heading2 {
-  font-size: var(--text-heading-2);
-  line-height: var(--lh-heading-2);
+  font-size: var(--setext-heading-size, var(--text-heading-2));
+  font-weight: var(--setext-heading-weight, 700);
+  line-height: var(--setext-heading-line-height, var(--lh-heading-2));
 }
 
 .cm-editor .tok-heading3 {
@@ -116,10 +128,12 @@
 
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
+  font-size: var(--text-body-small);
+  color: var(--foreground-secondary);
   background: var(--surface-subtle);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-inset-default);
-  padding: 0.2em 0.2em;
+  padding: 0.2em 0.4em;
 }
 
 .cm-editor .tok-wikilink {
@@ -180,18 +194,44 @@
  * text line and the underline line) as an *ancestor* of the
  * TreeHighlighter's own `tok-heading1`/`tok-heading2` spans — a separate
  * ViewPlugin's decorations nest around, rather than merge into, another
- * plugin's spans (confirmed by direct DOM inspection, not assumed) — so
- * this must be a descendant selector, not a compound `.a.b` selector.
+ * plugin's spans (confirmed by direct DOM inspection, not assumed).
  * Applies only while the caret sits on the underline row itself; see that
  * file's doc comment for why editing the heading's text line is
  * deliberately exempt (matches ATX's established always-big-while-engaged
  * behavior).
+ *
+ * This sets the three custom properties `.tok-heading1`/`.tok-heading2`
+ * read above — it does NOT re-declare font-size/font-weight/line-height
+ * directly on a `.tok-setext-pending .tok-headingN` descendant selector,
+ * which was the previous (incorrect) approach. That approach broke as
+ * soon as a heading line's content contained any other inline construct
+ * (inline code, bold, …): CM6's TreeHighlighter merges every enclosing
+ * tagged ancestor's class onto one leaf span (`class="tok-heading2
+ * tok-code"`, confirmed by direct DOM inspection — not two nested spans),
+ * so a `.tok-setext-pending .tok-headingN` selector (3 classes) has
+ * *higher specificity* than every construct-specific rule (`.tok-code`,
+ * `.tok-strong`, … — each 2 classes), and wins the cascade for font-size/
+ * weight/line-height on that shared element regardless of which
+ * construct it belongs to — clobbering the construct's own typography,
+ * not just the heading's.
+ *
+ * Custom-property inheritance sidesteps this entirely: it's a different
+ * mechanism from selector-specificity cascade. `.tok-heading1`/`.tok-
+ * heading2`'s own rules keep their original, unchanged specificity (2
+ * classes) — their relationship to every construct-specific rule's
+ * specificity is exactly what it already was, so a merged `tok-heading2
+ * tok-code` span still resolves font-size via whichever of those two
+ * rules already won that tie before this change (`.tok-code`, unaffected
+ * either way, since it never references these variables). The variables
+ * set here are only ever *read* by `.tok-heading1`/`.tok-heading2`'s own
+ * declarations — no other construct's rule needs to know this class
+ * exists, now or for any future construct written the same way as the
+ * existing ones.
  */
-.cm-editor .tok-setext-pending .tok-heading1,
-.cm-editor .tok-setext-pending .tok-heading2 {
-  font-size: var(--text-body);
-  font-weight: normal;
-  line-height: var(--lh-body);
+.cm-editor .tok-setext-pending {
+  --setext-heading-size: var(--text-body);
+  --setext-heading-weight: normal;
+  --setext-heading-line-height: var(--lh-body);
 }
 
 .cm-editor .tok-heading1.tok-mark,

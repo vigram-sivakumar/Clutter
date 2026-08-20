@@ -218,4 +218,91 @@ describe('setextHeadingTypographyDecoration', () => {
     expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading1');
     expect(headingSpanClass(view, 'Hello world')).not.toContain('tok-heading2');
   });
+
+  /**
+   * Covers the typography-leak bug: `tok-setext-pending`'s previous
+   * descendant-selector override (`.tok-setext-pending .tok-heading1 {
+   * font-size: ...; font-weight: ...; }`, 3-class specificity) beat every
+   * construct-specific rule (`.tok-code`, `.tok-strong`, ... — each
+   * 2-class) on CM6's merged leaf span (`class="tok-heading2 tok-code"`,
+   * confirmed via direct DOM inspection — TreeHighlighter accumulates
+   * every enclosing tagged ancestor's class onto one span, not nested
+   * ones), clobbering the construct's own font-size/weight regardless of
+   * pending state. The fix moved neutralization to inherited custom
+   * properties consulted only by `.tok-heading1`/`.tok-heading2`'s own
+   * (unchanged-specificity) rules — jsdom's `getComputedStyle` doesn't
+   * reliably resolve `var()` cascade winners (verified directly: it
+   * returns unresolved `var(...)` strings rather than the winning value),
+   * so these assert on the actually-meaningful, reliably-testable fact:
+   * the construct's own class is still present on the (still-merged)
+   * span, exactly as before this fix and exactly as a genuinely committed
+   * heading already behaves. Real cascade/pixel-value correctness was
+   * verified directly in a real browser, not jsdom — see the design
+   * report for the computed-style numbers.
+   */
+  describe('nested inline constructs keep their own typography class while a Setext candidate is pending', () => {
+    it('inline code: `tok-code` survives alongside the (parameterized) `tok-heading1`', () => {
+      const doc = 'before `code text` after\n=';
+      const view = mountView(doc, doc.length);
+
+      const span = [...view.dom.querySelectorAll('span')].find(
+        (s) => s.textContent === 'code text'
+      );
+      expect(span?.className ?? '').toContain('tok-heading1');
+      expect(span?.className ?? '').toContain('tok-code');
+    });
+
+    it('bold: `tok-strong` survives alongside `tok-heading1`', () => {
+      const doc = 'before **bold text** after\n=';
+      const view = mountView(doc, doc.length);
+
+      const span = [...view.dom.querySelectorAll('span')].find(
+        (s) => s.textContent === 'bold text'
+      );
+      expect(span?.className ?? '').toContain('tok-heading1');
+      expect(span?.className ?? '').toContain('tok-strong');
+    });
+
+    it('italic: `tok-emphasis` survives alongside `tok-heading1`', () => {
+      const doc = 'before *italic text* after\n=';
+      const view = mountView(doc, doc.length);
+
+      const span = [...view.dom.querySelectorAll('span')].find(
+        (s) => s.textContent === 'italic text'
+      );
+      expect(span?.className ?? '').toContain('tok-heading1');
+      expect(span?.className ?? '').toContain('tok-emphasis');
+    });
+
+    it('strikethrough: `tok-strike` survives alongside `tok-heading1`', () => {
+      const doc = 'before ~~struck~~ after\n=';
+      const view = mountView(doc, doc.length);
+
+      const span = [...view.dom.querySelectorAll('span')].find(
+        (s) => s.textContent === 'struck'
+      );
+      expect(span?.className ?? '').toContain('tok-heading1');
+      expect(span?.className ?? '').toContain('tok-strike');
+    });
+
+    it('plain text portions still lose the heading tag styling class relationship (no regression from the fix)', () => {
+      const doc = 'before `code text` after\n=';
+      const view = mountView(doc, doc.length);
+
+      const plainSpan = [...view.dom.querySelectorAll('span')].find(
+        (s) => s.className === 'tok-heading1'
+      );
+      expect(plainSpan?.textContent).toBe('before ');
+    });
+
+    it('a committed Setext heading (caret away) still gets plain `tok-heading1`, no construct classes involved', () => {
+      const doc = 'Hey I am here\n=\n\nOther';
+      const view = mountView(doc, doc.indexOf('Other'));
+
+      const span = [...view.dom.querySelectorAll('span')].find((s) =>
+        s.textContent?.includes('Hey I am here')
+      );
+      expect(span?.className).toBe('tok-heading1');
+    });
+  });
 });
