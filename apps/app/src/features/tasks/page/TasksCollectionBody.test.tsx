@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import '@testing-library/jest-dom/vitest';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -143,5 +144,127 @@ describe('TasksCollectionBody', () => {
     expect(getByText('No due date')).not.toBeNull();
     expect(queryByText('Has due date')).toBeNull();
     expect(queryByText('Completed, no due date')).toBeNull();
+  });
+
+  describe('compact Markdown title rendering, with resolvers threaded to every view', () => {
+    it('renders WikiLink/Tag titles as compact Markdown in the tasks-today view, resolving through injected resolvers', () => {
+      const dueToday = task({ text: '[[Project Alpha]] #urgent', dueDate: '2026-08-04' });
+      const resolveWikiLink = vi.fn().mockReturnValue({
+        status: 'resolved' as const,
+        displayLabel: 'Resolved Link',
+        activate: () => {},
+      });
+      const resolveTag = vi.fn().mockReturnValue({
+        status: 'resolved' as const,
+        displayLabel: 'Resolved Tag',
+        activate: () => {},
+      });
+
+      const { container } = render(
+        <TasksCollectionBody
+          view="tasks-today"
+          tasks={[dueToday]}
+          workspace={new Workspace()}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          onOpenCompleted={vi.fn()}
+          resolveWikiLink={resolveWikiLink}
+          resolveTag={resolveTag}
+        />
+      );
+
+      expect(resolveWikiLink).toHaveBeenCalledWith('Project Alpha', null);
+      expect(resolveTag).toHaveBeenCalledWith('urgent');
+      const title = container.querySelector('.task-title')!;
+      expect(title.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Resolved Link');
+      expect(title.querySelector('.compact-markdown-tag')).toHaveTextContent('#Resolved Tag');
+    });
+
+    it('renders WikiLink/Tag titles through the injected resolvers in the tasks-upcoming view', () => {
+      const dueTomorrow = task({ text: '[[Project Alpha]] #urgent', dueDate: '2026-08-05' });
+      const resolveWikiLink = vi.fn().mockReturnValue({
+        status: 'resolved' as const,
+        displayLabel: 'Resolved Link',
+        activate: () => {},
+      });
+
+      const { container } = render(
+        <TasksCollectionBody
+          view="tasks-upcoming"
+          tasks={[dueTomorrow]}
+          workspace={new Workspace()}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          onOpenCompleted={vi.fn()}
+          resolveWikiLink={resolveWikiLink}
+        />
+      );
+
+      expect(resolveWikiLink).toHaveBeenCalledWith('Project Alpha', null);
+      expect(container.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Resolved Link');
+    });
+
+    it('renders bold/italic Markdown in the tasks-completed, tasks-unscheduled, and tasks-all views', () => {
+      const completed = task({ text: '**Ship** it', completed: true, completedAt: '2026-08-01' });
+
+      const completedResult = render(
+        <TasksCollectionBody
+          view="tasks-completed"
+          tasks={[completed]}
+          workspace={new Workspace()}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          onOpenCompleted={vi.fn()}
+        />
+      );
+      expect(completedResult.container.querySelector('strong')).toHaveTextContent('Ship');
+      completedResult.unmount();
+
+      const unscheduled = task({ text: '*urgent* work' });
+      const unscheduledResult = render(
+        <TasksCollectionBody
+          view="tasks-unscheduled"
+          tasks={[unscheduled]}
+          workspace={new Workspace()}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          onOpenCompleted={vi.fn()}
+        />
+      );
+      expect(unscheduledResult.container.querySelector('em')).toHaveTextContent('urgent');
+      unscheduledResult.unmount();
+
+      const all = task({ text: '~~old~~ new' });
+      const allResult = render(
+        <TasksCollectionBody
+          view="tasks-all"
+          tasks={[all]}
+          workspace={new Workspace()}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          onOpenCompleted={vi.fn()}
+        />
+      );
+      expect(allResult.container.querySelector('s')).toHaveTextContent('old');
+    });
+
+    it('falls back to unresolved raw-text rendering when no resolvers are passed', () => {
+      const dueToday = task({ text: '[[Project Alpha]]', dueDate: '2026-08-04' });
+
+      const { container } = render(
+        <TasksCollectionBody
+          view="tasks-today"
+          tasks={[dueToday]}
+          workspace={new Workspace()}
+          onToggleComplete={vi.fn()}
+          onOpenTask={vi.fn()}
+          onOpenCompleted={vi.fn()}
+        />
+      );
+
+      const wikilink = container.querySelector('.compact-markdown-wikilink')!;
+      expect(wikilink).toHaveTextContent('Project Alpha');
+      expect(wikilink).toHaveAttribute('data-wikilink-status', 'unresolved');
+    });
   });
 });

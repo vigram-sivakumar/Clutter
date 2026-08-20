@@ -364,6 +364,8 @@ export function PageHost({ application }: PageHostProps) {
             onToggleComplete={(task) => void application.taskOperations.toggleComplete(task)}
             onOpenTask={(task) => void application.pageOperations.open(task.sourcePageId)}
             onOpenCompleted={() => application.navigation.openTasksCompleted()}
+            resolveWikiLink={resolveWikiLink}
+            resolveTag={resolveTag}
           />
         }
       />

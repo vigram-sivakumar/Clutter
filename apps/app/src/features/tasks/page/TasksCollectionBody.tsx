@@ -1,6 +1,7 @@
 import { PageBody } from '@app/layouts/page/body/Page.Body';
 import type { TaskOccurrence } from '@core/vault/models/occurrences';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import {
   renderTaskRow,
   renderTodayContent,
@@ -23,6 +24,9 @@ export interface TasksCollectionBodyProps {
   readonly onToggleComplete: (task: TaskOccurrence) => void;
   readonly onOpenTask: (task: TaskOccurrence) => void;
   readonly onOpenCompleted: () => void;
+  /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
+  readonly resolveWikiLink?: ResolveWikiLink;
+  readonly resolveTag?: ResolveTag;
 }
 
 /**
@@ -42,8 +46,10 @@ export function TasksCollectionBody({
   onToggleComplete,
   onOpenTask,
   onOpenCompleted,
+  resolveWikiLink,
+  resolveTag,
 }: TasksCollectionBodyProps) {
-  const rowCallbacks = { onToggleComplete, onOpenTask };
+  const rowCallbacks = { onToggleComplete, onOpenTask, resolveWikiLink, resolveTag };
 
   if (view === 'tasks-today') {
     const { today, todayCompleted } = groupTasks(tasks);
@@ -56,6 +62,8 @@ export function TasksCollectionBody({
           onToggleComplete,
           onOpenTask,
           onOpenCompleted,
+          resolveWikiLink,
+          resolveTag,
         })}
       </PageBody>
     );
@@ -64,7 +72,9 @@ export function TasksCollectionBody({
   if (view === 'tasks-upcoming') {
     const { upcoming } = groupTasks(tasks);
     return (
-      <PageBody>{renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask })}</PageBody>
+      <PageBody>
+        {renderUpcomingContent({ upcoming, onToggleComplete, onOpenTask, resolveWikiLink, resolveTag })}
+      </PageBody>
     );
   }
 
