@@ -332,7 +332,14 @@ export function PageHost({ application }: PageHostProps) {
         coverImage={
           application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
         }
-        body={<CollectionBody folders={model.folders} notes={model.notes} />}
+        body={
+          <CollectionBody
+            folders={model.folders}
+            notes={model.notes}
+            resolveWikiLink={resolveWikiLink}
+            resolveTag={resolveTag}
+          />
+        }
       />
     );
   }
@@ -418,7 +425,14 @@ export function PageHost({ application }: PageHostProps) {
         titleEditable={titleProps.titleEditable}
         onTitleCommit={onTitleCommit}
         breadcrumbs={<Breadcrumbs items={[]} />}
-        body={<CollectionBody folders={model.folders} notes={model.notes} />}
+        body={
+          <CollectionBody
+            folders={model.folders}
+            notes={model.notes}
+            resolveWikiLink={resolveWikiLink}
+            resolveTag={resolveTag}
+          />
+        }
       />
     );
   }
