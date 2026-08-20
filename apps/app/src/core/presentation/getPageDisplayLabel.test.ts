@@ -53,27 +53,27 @@ describe('getPageDisplayLabel — Notes', () => {
     });
   });
 
-  it('falls through to description when the filename is auto-generated', () => {
+  it('falls through to the placeholder when the filename is auto-generated, even with a description', () => {
     const page = makePage({
       name: 'Untitled 2',
       metadata: { ...defaultMetadata, description: 'A quick summary' },
     });
 
     expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'A quick summary',
-      source: 'description',
+      text: 'New Note',
+      source: 'placeholder',
     });
   });
 
-  it('falls through to body content when there is no description', () => {
+  it('falls through to the placeholder rather than body content when the filename is auto-generated', () => {
     const page = makePage({
       name: 'Untitled 3',
       source: { markdown: '- [ ] Buy milk' },
     });
 
     expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'Buy milk',
-      source: 'content',
+      text: 'New Note',
+      source: 'placeholder',
     });
   });
 
@@ -100,7 +100,7 @@ describe('getPageDisplayLabel — Notes', () => {
     });
   });
 
-  it('treats whitespace-only description as absent', () => {
+  it('treats whitespace-only description as absent and still shows the placeholder, not body content', () => {
     const page = makePage({
       name: 'Untitled',
       metadata: { ...defaultMetadata, description: '   ' },
@@ -108,8 +108,8 @@ describe('getPageDisplayLabel — Notes', () => {
     });
 
     expect(getPageDisplayLabel(toPageDisplayLabelInput(page))).toEqual({
-      text: 'Real content',
-      source: 'content',
+      text: 'New Note',
+      source: 'placeholder',
     });
   });
 });

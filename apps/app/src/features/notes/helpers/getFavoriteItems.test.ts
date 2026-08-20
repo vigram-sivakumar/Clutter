@@ -188,7 +188,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     ]);
   });
 
-  it('does not show a raw auto-generated name for a favorited-but-unnamed page, and styles the inferred content label as default (real user content)', () => {
+  it('does not show a raw auto-generated name for a favorited-but-unnamed page — body content is never used as a Note title', () => {
     const page = makePage({
       name: 'Untitled 2',
       source: { markdown: 'Real content here' },
@@ -200,8 +200,8 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     expect(items).toEqual([
       {
         id: 'page-1',
-        title: 'Real content here',
-        titleStyle: 'default',
+        title: 'New Note',
+        titleStyle: 'placeholder',
         type: 'note',
         emoji: null,
       },
@@ -225,7 +225,7 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
     ]);
   });
 
-  it('reflects a live, uncommitted-to-disk body edit on an open favorited page — the actual point of this migration', async () => {
+  it('a live, uncommitted-to-disk body edit on an open favorited page does not change its title — Notes never derive a title from body content', async () => {
     const page = makePage({ name: 'Untitled', source: { markdown: '' } });
     const { query, pageOperations, effectivePageState } = setup([], [page]);
 
@@ -234,15 +234,11 @@ describe('getFavoriteItems — membership durable-only, label via EffectivePageS
 
     const items = getFavoriteItems(query, effectivePageState);
 
-    // page.source.markdown (the stale, durable snapshot on the setup
-    // fixture) would still say '' here — the label must come from the
-    // open session's current revision, reached via
-    // EffectivePageState.getFavoritePages().
     expect(items).toEqual([
       {
         id: 'page-1',
-        title: 'Live, unsaved content',
-        titleStyle: 'default',
+        title: 'New Note',
+        titleStyle: 'placeholder',
         type: 'note',
         emoji: null,
       },

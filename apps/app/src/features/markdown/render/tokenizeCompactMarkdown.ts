@@ -99,7 +99,7 @@ function readDate(node: SyntaxNode, text: string): CompactSpan {
  * wherever they're nested. Text between/around recognized nodes — plain
  * words, unrecognized syntax (e.g. a leading heading marker, since block-
  * marker stripping is a separate, upstream concern — see
- * `getPrimaryDisplayText.ts`) — is captured verbatim as `'text'` spans.
+ * `getDailyNotePrimaryDisplayText.ts`) — is captured verbatim as `'text'` spans.
  */
 export function tokenizeCompactMarkdown(text: string): CompactSpan[] {
   const tree = compactMarkdownParser.parse(text);

@@ -226,7 +226,7 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     ]);
   });
 
-  it('does not show the raw auto-generated filename for an unnamed note', () => {
+  it('does not show the raw auto-generated filename for an unnamed note — falls to the placeholder, not body content', () => {
     const active = makeFolder({ id: 'folder-1' });
     const page = makePage({
       name: 'Untitled 2',
@@ -250,7 +250,7 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     );
 
     expect(model.notes).toEqual([
-      expect.objectContaining({ id: 'page-1', title: 'Real content here' }),
+      expect.objectContaining({ id: 'page-1', title: 'New Note' }),
     ]);
   });
 });

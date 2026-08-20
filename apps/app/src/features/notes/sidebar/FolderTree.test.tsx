@@ -330,21 +330,21 @@ describe('FolderTree: reusable-draft policy (PageOperations.findReusableDraftId)
     expect(getAllByText('New Note')).toHaveLength(1);
   });
 
-  it('a draft with real content is left alone — a second "New Note" click shows two distinct rows', async () => {
+  it('a draft with real content is not distinguished by body text — both unsaved drafts show "New Note"', async () => {
     const { query, workspace, pageOperations, membershipSelector } = setup();
 
     const firstId = await pageOperations.openDraft({ folderId: null });
     pageOperations.commitEdit(firstId, 'Real content');
     await pageOperations.openDraft({ folderId: null });
 
-    const { getAllByText, getByText } = renderTree(
+    const { getAllByText, queryByText } = renderTree(
       query,
       membershipSelector,
       workspace
     );
 
-    expect(getByText('Real content')).toBeInTheDocument();
-    expect(getAllByText('New Note')).toHaveLength(1);
+    expect(queryByText('Real content')).not.toBeInTheDocument();
+    expect(getAllByText('New Note')).toHaveLength(2);
   });
 });
 
@@ -373,7 +373,7 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
     expect(screen.getByText('My Persisted Note')).toBeInTheDocument();
   });
 
-  it('renders the durable description as the label when the filename is auto-generated (EffectivePageState M3 amendment)', () => {
+  it('shows the placeholder, not the durable description, when the filename is auto-generated', () => {
     const page = buildPersistedPage(`${ROOT}/Untitled.md`, {
       description: 'A durable description',
     });
@@ -396,7 +396,8 @@ describe('FolderTree: persisted-page rendering is unchanged', () => {
       />
     );
 
-    expect(screen.getByText('A durable description')).toBeInTheDocument();
+    expect(screen.queryByText('A durable description')).not.toBeInTheDocument();
+    expect(screen.getByText('New Note')).toBeInTheDocument();
   });
 
   it('clicking a persisted page invokes onPageClick with its id (not a draft click)', () => {
@@ -842,9 +843,9 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     expect(workspace.isFolderExpanded('folder-b')).toBe(true);
 
     expect(container.querySelectorAll('.entry').length).toBeGreaterThan(2);
-    // Exactly one "New Note" placeholder (folder B's empty draft) plus
-    // folder A's promoted-to-real-content draft rendered by its own title.
-    expect(screen.getAllByText('New Note')).toHaveLength(1);
-    expect(screen.getByText('Real content')).toBeInTheDocument();
+    // Both drafts show the placeholder — a Note's title never derives from
+    // body content, even for a draft with real, uncommitted content — but
+    // they still render as two distinct rows, one under each folder.
+    expect(screen.getAllByText('New Note')).toHaveLength(2);
   });
 });
