@@ -4,8 +4,12 @@ import { DailyNotesShortcuts } from '@features/daily-notes/shortcuts/DailyNotesS
 import type { Vault } from '@core/vault/models';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
+import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
+import type { FolderOperations } from '@core/application/folder/FolderOperations';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
+import { createTagResolver } from '@app/layouts/page/resolveTag';
+import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 
 import { DailyNotesList, type DailyNoteRowActions } from './DailyNotesList';
 
@@ -14,7 +18,9 @@ interface DailyNotesPanelProps {
   query: VaultQuery;
   membershipSelector: MembershipSelector;
   workspace: Workspace;
+  navigation: NavigationRouter;
   pageOperations: PageOperations;
+  folderOperations: FolderOperations;
   activeDate: string | undefined;
   onOpen(pageId: string): void;
   onOpenDraft(pageId: string): void;
@@ -26,7 +32,9 @@ export function DailyNotes({
   query,
   membershipSelector,
   workspace,
+  navigation,
   pageOperations,
+  folderOperations,
   activeDate,
   onOpen,
   onOpenDraft,
@@ -46,6 +54,12 @@ export function DailyNotes({
     onDeleteNote: (pageId) => void pageOperations.delete(pageId),
   };
 
+  // Same composition PageHost.tsx/Sidebar.Notes.tsx use to inject the page
+  // editor's own WikiLink/Tag resolution — cheap, stateless glue, not worth
+  // memoizing (resolveTag.ts/resolveWikiLink.ts).
+  const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations);
+  const resolveTag = createTagResolver(navigation, vault);
+
   return (
     <View
       navigation={
@@ -61,6 +75,8 @@ export function DailyNotes({
         onOpenDraft={onOpenDraft}
         onOpenDate={onOpenDate}
         rowActions={rowActions}
+        resolveWikiLink={resolveWikiLink}
+        resolveTag={resolveTag}
       />
     </View>
   );

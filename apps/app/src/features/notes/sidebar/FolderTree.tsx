@@ -26,6 +26,7 @@ import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePage } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 
 export interface PendingNewFolder {
   // The parent under which a not-yet-persisted folder is being named.
@@ -182,6 +183,9 @@ interface FolderTreeProps {
   onCancelNewFolder(): void;
   /** Overflow-menu/rename wiring — see SidebarRowActions. */
   rowActions?: SidebarRowActions;
+  /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
 }
 
 function PageEntry({
@@ -191,6 +195,8 @@ function PageEntry({
   onPageClick,
   onDraftPageClick,
   rowActions,
+  resolveWikiLink,
+  resolveTag,
 }: {
   entry: EffectivePage;
   level: number;
@@ -198,6 +204,8 @@ function PageEntry({
   onPageClick(pageId: string): void;
   onDraftPageClick(pageId: string): void;
   rowActions?: SidebarRowActions;
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
 }) {
   const label = getPageDisplayLabel(entry);
   const isEditing = rowActions?.editingId === entry.id;
@@ -213,6 +221,8 @@ function PageEntry({
       }
       titleStyle={getPageDisplayLabelStyle(label)}
       emoji={entry.icon}
+      resolveWikiLink={resolveWikiLink}
+      resolveTag={resolveTag}
       level={level}
       selected={workspace.activePageId === entry.id}
       // A row mid-rename must not also navigate on click — EditableText's
@@ -305,6 +315,8 @@ export function FolderTree({
   onCommitNewFolder,
   onCancelNewFolder,
   rowActions,
+  resolveWikiLink,
+  resolveTag,
 }: FolderTreeProps) {
   // Get all folders that belong to the current parent. Root-level: ADR-023's
   // MembershipSelector is the single owner of "is this folder part of
@@ -470,6 +482,8 @@ export function FolderTree({
                     onPageClick={onPageClick}
                     onDraftPageClick={onDraftPageClick}
                     rowActions={rowActions}
+                    resolveWikiLink={resolveWikiLink}
+                    resolveTag={resolveTag}
                   />
                 ))}
                 {/* Render this folder's child folders.
@@ -489,6 +503,8 @@ export function FolderTree({
                   onCommitNewFolder={onCommitNewFolder}
                   onCancelNewFolder={onCancelNewFolder}
                   rowActions={rowActions}
+                  resolveWikiLink={resolveWikiLink}
+                  resolveTag={resolveTag}
                 />
               </>
             )}
@@ -506,6 +522,8 @@ export function FolderTree({
           onPageClick={onPageClick}
           onDraftPageClick={onDraftPageClick}
           rowActions={rowActions}
+          resolveWikiLink={resolveWikiLink}
+          resolveTag={resolveTag}
         />
       ))}
     </>

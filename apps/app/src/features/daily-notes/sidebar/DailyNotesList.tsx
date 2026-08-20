@@ -18,6 +18,7 @@ import { DailyNote } from './DailyNote';
 import { buildDailyNoteSidebarMenu } from './dailyNoteSidebarMenu.config';
 import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 
 // The Workspace session-state id for the "All Daily Notes" collapsible
 // section (see Workspace.collapsedSectionIds) — seeded collapsed there by
@@ -92,6 +93,9 @@ interface DailyNotesListProps {
   onOpenDate(date: string): void;
   /** Overflow-menu/rename wiring — see DailyNoteRowActions. */
   rowActions?: DailyNoteRowActions;
+  /** Same injected resolution boundary the page editor uses — see Note's own prop doc comment. */
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
 }
 
 function collectRealMonthSections(
@@ -199,6 +203,8 @@ export function DailyNotesList({
   onOpenDraft,
   onOpenDate,
   rowActions,
+  resolveWikiLink,
+  resolveTag,
 }: DailyNotesListProps) {
   const sectionsByMonth = new Map<ISODate, RenderedMonthSection>();
 
@@ -298,6 +304,8 @@ export function DailyNotesList({
           key={entry.id}
           title={label.text}
           titleStyle={getPageDisplayLabelStyle(label)}
+          resolveWikiLink={resolveWikiLink}
+          resolveTag={resolveTag}
           date={entry.name}
           isToday={isToday(entry.name)}
           selected={workspace.activePageId === entry.id}

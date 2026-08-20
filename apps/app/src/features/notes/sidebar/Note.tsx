@@ -9,6 +9,8 @@ import { useChangeIconTrigger } from '@components/change-icon-picker/useChangeIc
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 import { AppIcon } from '@shared/icon';
 import { getPageIcon } from '@core/presentation/getPageIcon';
+import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 
 import './Note.css';
 
@@ -18,6 +20,15 @@ interface NoteProps extends Omit<EntryProps, 'children'> {
   /** Shown by EditableText during rename when the title buffer is empty. */
   titlePlaceholder?: string;
   emoji?: string | null;
+
+  /**
+   * Injected exactly like the page editor's own WikiLink/Tag resolution
+   * (see MarkdownEditor's props of the same name) — omitted falls back to
+   * renderCompactMarkdown's own unresolved/raw-text fallback, never a
+   * second resolution implementation.
+   */
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
 
   /** Renders the title as an EditableText field instead of static text. */
   isEditing?: boolean;
@@ -72,6 +83,8 @@ export function Note({
   titleStyle = 'default',
   titlePlaceholder,
   emoji,
+  resolveWikiLink,
+  resolveTag,
   isEditing = false,
   onTitleCommit,
   onTitleEdit,
@@ -150,7 +163,7 @@ export function Note({
                 : 'note__title'
             }
           >
-            {title}
+            {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag })}
           </span>
         )}
       </Entry>

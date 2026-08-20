@@ -147,3 +147,56 @@ describe('Note — sidebar Change icon wiring', () => {
     expect(onChangeIcon).toHaveBeenCalledWith(null);
   });
 });
+
+describe('Note — compact Markdown title rendering', () => {
+  it('renders a plain-text title verbatim, unchanged from before', () => {
+    render(<Note title="Plain title" />);
+
+    expect(screen.getByText('Plain title')).toBeDefined();
+  });
+
+  it('renders mixed Markdown in the title as compact Markdown, not raw syntax', () => {
+    const { container } = render(
+      <Note title="**Ship** [[Project Alpha]] by @2020-01-15 #urgent" />
+    );
+
+    const titleEl = container.querySelector('.note__title')!;
+    expect(titleEl.querySelector('strong')).toHaveTextContent('Ship');
+    expect(titleEl.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Project Alpha');
+    expect(titleEl.querySelector('.compact-markdown-tag')).toHaveTextContent('#urgent');
+    expect(titleEl.querySelector('.compact-markdown-date')).toHaveTextContent('@15 January 2020');
+    // The raw syntax itself must never leak through as literal text.
+    expect(titleEl).not.toHaveTextContent('**Ship**');
+    expect(titleEl).not.toHaveTextContent('[[Project Alpha]]');
+  });
+
+  it('resolves a WikiLink title through the injected resolveWikiLink, not the fallback', () => {
+    const resolveWikiLink = vi.fn().mockReturnValue({
+      status: 'resolved' as const,
+      displayLabel: 'Resolved Label',
+      activate: () => {},
+    });
+
+    const { container } = render(
+      <Note title="[[Projects/Alpha|Alpha]]" resolveWikiLink={resolveWikiLink} />
+    );
+
+    expect(resolveWikiLink).toHaveBeenCalledWith('Projects/Alpha', 'Alpha');
+    expect(container.querySelector('.compact-markdown-wikilink')).toHaveTextContent('Resolved Label');
+  });
+
+  it('row click still fires normally when the title contains Markdown', () => {
+    const onClick = vi.fn();
+    render(<Note title="**Ship** it" onClick={onClick} />);
+
+    fireEvent.click(screen.getByText('Ship').closest('.entry')!);
+
+    expect(onClick).toHaveBeenCalled();
+  });
+
+  it('the editing (EditableText) field still receives the raw, unrendered title', () => {
+    render(<Note title="**Ship it**" isEditing />);
+
+    expect(screen.getByRole('textbox')).toHaveTextContent('**Ship it**');
+  });
+});

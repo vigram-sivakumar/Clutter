@@ -3,6 +3,8 @@ import { Entry, type EntryProps } from '@components/entry/Entry';
 import { OverflowMenu } from '@components/menu/OverflowMenu';
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { formatDate } from '@shared/helpers/time';
+import { renderCompactMarkdown } from '@features/markdown/render/renderCompactMarkdown';
+import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
 import './DailyNote.css';
 
 interface DailyNoteProps extends Omit<EntryProps, 'children'> {
@@ -10,6 +12,16 @@ interface DailyNoteProps extends Omit<EntryProps, 'children'> {
   isToday?: boolean;
   date?: string;
   titleStyle?: 'default' | 'placeholder';
+
+  /**
+   * Injected exactly like the page editor's own WikiLink/Tag resolution
+   * (see MarkdownEditor's props of the same name, and Note's identical
+   * prop doc comment) — omitted falls back to renderCompactMarkdown's own
+   * unresolved/raw-text fallback, never a second resolution
+   * implementation.
+   */
+  resolveWikiLink?: ResolveWikiLink;
+  resolveTag?: ResolveTag;
 
   menuItems?: readonly OverflowMenuItemConfig[];
   menuOpen?: boolean;
@@ -22,6 +34,8 @@ export function DailyNote({
   isToday,
   date,
   titleStyle = 'default',
+  resolveWikiLink,
+  resolveTag,
   menuItems,
   menuOpen = false,
   onMenuOpenChange,
@@ -58,7 +72,7 @@ export function DailyNote({
             : 'daily-note__title'
         }
       >
-        {title}
+        {renderCompactMarkdown(title ?? '', { resolveWikiLink, resolveTag })}
       </span>
     </Entry>
   );

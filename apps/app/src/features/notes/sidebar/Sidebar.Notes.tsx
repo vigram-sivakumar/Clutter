@@ -13,6 +13,8 @@ import type { MembershipSelector } from '@core/application/membership/Membership
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
+import { createTagResolver } from '@app/layouts/page/resolveTag';
+import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import {
   FolderTree,
   type PendingNewFolder,
@@ -67,6 +69,14 @@ export function Notes({
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
+
+  // Same composition PageHost.tsx uses to inject the page editor's own
+  // WikiLink/Tag resolution — cheap, stateless glue, not worth memoizing
+  // (resolveTag.ts/resolveWikiLink.ts). Reused here so a row's compact
+  // Markdown rendering resolves WikiLinks/Tags identically to the open
+  // page, not via a second resolution implementation.
+  const resolveWikiLink = createWikiLinkResolver(vault, pageOperations, folderOperations);
+  const resolveTag = createTagResolver(navigation, vault);
 
   // Single owner of "which row's overflow menu/rename session is open" —
   // shared by every row FolderTree recurses through (SidebarRowActions),
@@ -321,6 +331,8 @@ export function Notes({
           onCommitNewFolder={handleCommitNewFolder}
           onCancelNewFolder={() => setPendingNewFolder(null)}
           rowActions={rowActions}
+          resolveWikiLink={resolveWikiLink}
+          resolveTag={resolveTag}
           onPageClick={onOpen}
           onDraftPageClick={onOpenDraft}
           onFolderClick={(folder) => {

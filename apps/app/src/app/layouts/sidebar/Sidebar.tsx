@@ -55,7 +55,9 @@ export function Sidebar({ application }: SidebarProps) {
           query={query}
           membershipSelector={membershipSelector}
           workspace={workspace}
+          navigation={navigation}
           pageOperations={pageOperations}
+          folderOperations={folderOperations}
           activeDate={activeDailyNoteDate}
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
