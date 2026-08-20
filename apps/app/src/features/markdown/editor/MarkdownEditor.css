@@ -118,7 +118,8 @@
   font-family: ui-monospace, monospace;
   background: var(--surface-subtle);
   border-radius: var(--radius-sm);
-  padding: 0 0.2em;
+  box-shadow: var(--shadow-inset-default);
+  padding: 0.2em 0.2em;
 }
 
 .cm-editor .tok-wikilink {
@@ -173,6 +174,26 @@
  * and exist purely to color it, at uniform node-level granularity for
  * every construct, no `.cm-activeLine` special-casing needed anymore.
  */
+/*
+ * Setext heading typography suppression (setextHeadingTypographyDecoration.ts).
+ * `tok-setext-pending` wraps the whole SetextHeading1/2 span (both the
+ * text line and the underline line) as an *ancestor* of the
+ * TreeHighlighter's own `tok-heading1`/`tok-heading2` spans — a separate
+ * ViewPlugin's decorations nest around, rather than merge into, another
+ * plugin's spans (confirmed by direct DOM inspection, not assumed) — so
+ * this must be a descendant selector, not a compound `.a.b` selector.
+ * Applies only while the caret sits on the underline row itself; see that
+ * file's doc comment for why editing the heading's text line is
+ * deliberately exempt (matches ATX's established always-big-while-engaged
+ * behavior).
+ */
+.cm-editor .tok-setext-pending .tok-heading1,
+.cm-editor .tok-setext-pending .tok-heading2 {
+  font-size: var(--text-body);
+  font-weight: normal;
+  line-height: var(--lh-body);
+}
+
 .cm-editor .tok-heading1.tok-mark,
 .cm-editor .tok-heading2.tok-mark,
 .cm-editor .tok-heading3.tok-mark,

@@ -5,6 +5,7 @@ import { EditorView, highlightActiveLine, keymap } from '@codemirror/view';
 import { editorTheme } from './editorTheme';
 import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
 import { markdownHighlighting } from './highlight/markdownHighlightStyle';
+import { setextHeadingTypographyDecoration } from './highlight/setextHeadingTypographyDecoration';
 
 /**
  * Marks a dispatched transaction as an external prop sync rather than user
@@ -38,6 +39,12 @@ export interface CreateEditorViewOptions {
  * uses selection-containment engagement instead, matching every other
  * Markdown construct — see `highlight/liveMarkDecoration.ts`'s doc
  * comment for why line-granularity CSS hiding was replaced).
+ * `setextHeadingTypographyDecoration()` is the same baseline-wiring
+ * category: it suppresses heading typography specifically while the
+ * caret sits on a Setext heading's underline row, so typing `=`/`-` under
+ * an existing paragraph doesn't retroactively balloon that previous line
+ * to heading size — see that file's own doc comment for the full
+ * reasoning.
  */
 export function createEditorView(options: CreateEditorViewOptions): EditorView {
   const { doc, parent, extensions = [], onDocChange, onBlur } = options;
@@ -75,6 +82,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       editorTheme(),
       markdownHighlighting(),
       headingMarkerDecoration(),
+      setextHeadingTypographyDecoration(),
       highlightActiveLine(),
       EditorView.lineWrapping,
       ...extensions,
