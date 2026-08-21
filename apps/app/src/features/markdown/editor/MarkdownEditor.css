@@ -148,8 +148,6 @@
  * purpose: a hook for width/height adjustments, not a default override.
  */
 .cm-editor .cm-task-checkbox {
-  height: var(--marker-size);
-  aspect-ratio: 1;
 }
 
 /*
@@ -161,6 +159,11 @@
  * default override of any kind's own current appearance.
  */
 .cm-editor .cm-list-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--marker-size);
+  aspect-ratio: 1;
 }
 
 /*
