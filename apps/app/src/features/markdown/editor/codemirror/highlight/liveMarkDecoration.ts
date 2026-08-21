@@ -106,10 +106,25 @@ export type MarkRangeSelector = (
  * only returns marks that really belong to this construct — lazy
  * continuation and nested children are already excluded there, for their
  * own, independent construct-specific reasons.
+ *
+ * A function value is the escape hatch for the one case neither built-in
+ * mode covers: a construct whose engagement genuinely depends on a
+ * *different* node's own engagement, not this one's line or range at all
+ * (`listMarkerDecoration.ts`'s Task-owned `ListMark` — see its own doc
+ * comment). It receives the same `(state, node, getMarkRanges)` the two
+ * built-in modes already compute from, so a construct can still fall back
+ * to `isPhysicalLineEngaged` for the cases that genuinely are ordinary
+ * physical-line engagement, reusing it rather than reimplementing it.
  */
-export type MarkEngagementMode = 'node-range' | 'physical-line';
+export type MarkEngagementPredicate = (
+  state: EditorState,
+  node: SyntaxNodeRef,
+  getMarkRanges: MarkRangeSelector
+) => boolean;
 
-function isPhysicalLineEngaged(state: EditorState, ranges: readonly TokenNodeRange[]): boolean {
+export type MarkEngagementMode = 'node-range' | 'physical-line' | MarkEngagementPredicate;
+
+export function isPhysicalLineEngaged(state: EditorState, ranges: readonly TokenNodeRange[]): boolean {
   if (ranges.length === 0) {
     return false;
   }
@@ -130,6 +145,10 @@ export function isConstructEngaged(
   getMarkRanges: MarkRangeSelector,
   mode: MarkEngagementMode
 ): boolean {
+  if (typeof mode === 'function') {
+    return mode(state, node, getMarkRanges);
+  }
+
   if (mode === 'node-range') {
     return isTokenEngaged(state, { from: node.from, to: node.to });
   }

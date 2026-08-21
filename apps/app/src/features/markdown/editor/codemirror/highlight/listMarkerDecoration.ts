@@ -1,6 +1,14 @@
 import type { Extension } from '@codemirror/state';
+import type { SyntaxNode } from '@lezer/common';
 
-import { liveMarkDecoration, type MarkRange, type MarkRangeSelector } from './liveMarkDecoration';
+import { isTokenEngaged } from '../semanticToken/tokenEngagement';
+import {
+  isPhysicalLineEngaged,
+  liveMarkDecoration,
+  type MarkEngagementPredicate,
+  type MarkRange,
+  type MarkRangeSelector,
+} from './liveMarkDecoration';
 import { ListBulletWidget } from './ListBulletWidget';
 
 /**
@@ -18,10 +26,6 @@ import { ListBulletWidget } from './ListBulletWidget';
  * nested `ListItem`'s own `ListMark` is plain document text belonging to
  * no node at all, so it's never touched by `getMarkRanges` and is
  * preserved automatically, not by any logic specific to nesting.
- *
- * Deliberately excludes `TaskMarker` (`[ ]`/`[x]`) — task checkbox
- * interaction is out of scope for this milestone; only the list bullet/
- * number prefix is hidden, the checkbox markup is left untouched.
  */
 const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
 
@@ -33,6 +37,26 @@ const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
  */
 const BULLET_MARKERS: ReadonlySet<string> = new Set(['-', '*', '+']);
 
+/**
+ * A `ListItem` wrapping a task (`ListItem → ListMark, Task → TaskMarker`,
+ * confirmed against the installed `@lezer/markdown`'s `TaskList`
+ * extension) is structurally distinguished from a plain `ListItem →
+ * ListMark, Paragraph` by its second child's node *name* — `Task` vs.
+ * `Paragraph` — never by re-inspecting source characters (`[ ]`/`[x]`)
+ * this module has no business parsing; `taskEngagement.ts` already owns
+ * that. Returns the `TaskMarker` node itself (not just a boolean) since
+ * both call sites below need its exact range, not merely its presence.
+ */
+function findTaskMarker(listItem: SyntaxNode): SyntaxNode | null {
+  for (let child = listItem.firstChild; child; child = child.nextSibling) {
+    if (child.name === 'Task') {
+      const taskMarker = child.firstChild;
+      return taskMarker && taskMarker.name === 'TaskMarker' ? taskMarker : null;
+    }
+  }
+  return null;
+}
+
 const getListMarkRanges: MarkRangeSelector = (node, state) => {
   const listMark = node.node.firstChild;
   if (!listMark || listMark.name !== 'ListMark') {
@@ -41,19 +65,28 @@ const getListMarkRanges: MarkRangeSelector = (node, state) => {
 
   const raw = state.sliceDoc(listMark.from, listMark.to);
   const isBullet = BULLET_MARKERS.has(raw);
+  const isTaskOwned = findTaskMarker(node.node) !== null;
+
+  // A Task-owned ListMark never gets the bullet widget — the checkbox is
+  // the construct's sole rendered representation (see the module doc
+  // comment above and taskCheckboxDecorations.ts). It hides like an
+  // ordinary ordered marker: both itself and its separator space collapse
+  // to nothing, no widget standing in for either.
+  const getsWidget = isBullet && !isTaskOwned;
 
   const ranges: MarkRange[] = [
-    isBullet
+    getsWidget
       ? { from: listMark.from, to: listMark.to, widget: new ListBulletWidget() }
       : { from: listMark.from, to: listMark.to },
   ];
 
-  // A bullet's separator space is left uncollapsed — real, visible
-  // whitespace between the rendered `•` widget and the item's text, the
-  // same gap `- ` already had. An ordered marker keeps the previous
-  // hide-both behavior unchanged (no widget stands in for `1.`, so
-  // nothing is left to create a gap against).
-  if (!isBullet) {
+  // A bullet's separator space is left uncollapsed only when it actually
+  // got the widget — real, visible whitespace between the rendered `•`
+  // and the item's text, the same gap `- ` already had. Every other case
+  // (ordered marker, or a Task-owned bullet marker) keeps the previous
+  // hide-both behavior: no widget stands in for either, so there's
+  // nothing to create a gap against.
+  if (!getsWidget) {
     const separatorFrom = listMark.to;
     const separatorTo = separatorFrom + 1;
     if (separatorTo <= state.doc.length && state.sliceDoc(separatorFrom, separatorTo) === ' ') {
@@ -64,6 +97,32 @@ const getListMarkRanges: MarkRangeSelector = (node, state) => {
   return ranges;
 };
 
+/**
+ * "Cursor entered the Task line" and "TaskMarker is engaged" are two
+ * different facts, and only the second should ever reveal this
+ * `ListMark`. A Task-owned `ListMark`'s own engagement is therefore keyed
+ * to its sibling `TaskMarker`'s own engagement (the exact same
+ * `isTokenEngaged` containment query `semanticTokenDecorations` already
+ * uses to decide the checkbox's own reveal) — not to physical-line
+ * engagement, which would fire for a cursor anywhere on the task's text,
+ * reveal the raw `-`, and leave the checkbox widget rendered next to it
+ * (the reported mixed `- ☑ Task` state). Keying both the `ListMark` and
+ * the `TaskMarker` to the identical condition is what guarantees they can
+ * never disagree — not a UI patch after the fact.
+ *
+ * Every other `ListItem` (plain bullet or ordered) has no `Task` child,
+ * so this falls through to the same `isPhysicalLineEngaged` rule the
+ * generic `'physical-line'` mode already applies — unchanged.
+ */
+const listItemEngagement: MarkEngagementPredicate = (state, node, getMarkRanges) => {
+  const taskMarker = findTaskMarker(node.node);
+  if (taskMarker) {
+    return isTokenEngaged(state, { from: taskMarker.from, to: taskMarker.to });
+  }
+
+  return isPhysicalLineEngaged(state, getMarkRanges(node, state));
+};
+
 export function listMarkerDecoration(): Extension {
-  return liveMarkDecoration(isListItemNode, getListMarkRanges, 'physical-line');
+  return liveMarkDecoration(isListItemNode, getListMarkRanges, listItemEngagement);
 }
