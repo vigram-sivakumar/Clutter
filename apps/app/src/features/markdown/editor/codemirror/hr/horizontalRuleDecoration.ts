@@ -5,13 +5,15 @@ import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValu
 /**
  * Live Preview rendering for horizontal rules: native CommonMark `---`/
  * `***`/`___` (core `HorizontalRule`, parsed for free — not GFM-extension-
- * gated) and Clutter's own wavy variant `~---~` (`WavyHorizontalRule`, a
- * distinct node registered by `wavyHorizontalRuleSyntax.ts`). Both share
- * this one `ViewPlugin`/collapse-at-rest contract rather than two parallel
- * decoration layers — they're the same interaction, styled differently —
- * built on the same standalone-`ViewPlugin` architecture as
- * `tableDecoration.ts`'s alignment row: no foreign widget, no replacement
- * DOM node, the real Markdown text stays in place throughout.
+ * gated) and Clutter's own variants `~---~` (`WavyHorizontalRule`, see
+ * `wavyHorizontalRuleSyntax.ts`) and `=---=` (`DoubleHorizontalRule`, see
+ * `doubleHorizontalRuleSyntax.ts`) — each a distinct node type registered
+ * the same way. All three share this one `ViewPlugin`/collapse-at-rest
+ * contract rather than parallel decoration layers per variant — they're
+ * the same interaction, styled differently — built on the same
+ * standalone-`ViewPlugin` architecture as `tableDecoration.ts`'s alignment
+ * row: no foreign widget, no replacement DOM node, the real Markdown text
+ * stays in place throughout.
  *
  * Unlike the table alignment row, the collapsing line class is only
  * applied while *not* engaged: `font-size`/`line-height: 0` on that class
@@ -27,6 +29,7 @@ import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValu
 const hrLineAtRest: Readonly<Record<string, Decoration>> = {
   HorizontalRule: Decoration.line({ class: 'cm-hr-line' }),
   WavyHorizontalRule: Decoration.line({ class: 'cm-hr-line-wavy' }),
+  DoubleHorizontalRule: Decoration.line({ class: 'cm-hr-line-double' }),
 };
 const hiddenMark = Decoration.replace({});
 

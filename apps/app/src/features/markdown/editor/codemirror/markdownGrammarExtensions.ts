@@ -3,6 +3,7 @@ import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from
 import { dateSyntax } from './date/dateSyntax';
 import { emojiListSyntax } from './emoji-list/emojiListSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
+import { doubleHorizontalRuleSyntax } from './hr/doubleHorizontalRuleSyntax';
 import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
 import { tagSyntax } from './tag/tagSyntax';
 import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
@@ -27,5 +28,6 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   dateSyntax,
   highlightSyntax,
   wavyHorizontalRuleSyntax,
+  doubleHorizontalRuleSyntax,
   emojiListSyntax,
 ];

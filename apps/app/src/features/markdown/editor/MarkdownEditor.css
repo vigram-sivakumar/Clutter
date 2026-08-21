@@ -252,6 +252,43 @@
   mask-position: left center;
 }
 
+/*
+ * Resting double horizontal rule (`=---=`, horizontalRuleDecoration.ts +
+ * doubleHorizontalRuleSyntax.ts) — same ~24px collapsed-line box and
+ * single-`::after`-pseudo convention as `.cm-hr-line`/`.cm-hr-line-wavy`
+ * above. The two 1px lines are one box's `border-top`/`border-bottom`
+ * rather than two separate pseudo-elements (there's only one `::after`
+ * available per line decoration); `box-sizing: border-box` makes the 5px
+ * `height` include those borders, so the transparent gap between them is
+ * exactly `height` minus the two 1px borders — 3px, a small gap balanced
+ * against the two 1px rules without competing with the wavy variant's 6px
+ * footprint. Centered the same way as the other two variants: `top: 50%`
+ * + `translateY(-50%)` against this same border box, so the midpoint
+ * between the two borders lands on the line's vertical center — without
+ * `border-box`, the ambient `content-box` sizing would center the
+ * *content* box instead and visibly bias the pair upward by half the
+ * combined border width.
+ */
+.cm-editor .cm-hr-line-double {
+  position: relative;
+  font-size: 0;
+  line-height: 0;
+  padding: 12px 0;
+}
+
+.cm-editor .cm-hr-line-double::after {
+  content: '';
+  position: absolute;
+  box-sizing: border-box;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 5px;
+  border-top: 1px solid var(--surface-tertiary);
+  border-bottom: 1px solid var(--surface-tertiary);
+  transform: translateY(-50%);
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-body-small);
