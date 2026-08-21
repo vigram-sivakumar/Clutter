@@ -10,6 +10,8 @@ import { dateDecorations } from './codemirror/date/dateDecorations';
 import { dateKeymap } from './codemirror/date/dateKeymap';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
+import { emojiListKeymap } from './codemirror/emoji-list/emojiListKeymap';
+import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
@@ -148,6 +150,8 @@ export const MarkdownEditor = forwardRef<
         inlineCodeMarkerDecoration(),
         listMarkerDecoration(),
         listIndentKeymap(),
+        emojiListKeymap(),
+        emojiListMarkDecoration(),
         blockquoteMarkerDecoration(),
         horizontalRuleDecoration(),
         formatShortcutsKeymap(),

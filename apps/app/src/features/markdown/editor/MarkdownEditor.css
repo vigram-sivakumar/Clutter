@@ -163,6 +163,17 @@
 }
 
 /*
+ * The emoji list marker (emojiListMarkDecoration.ts) — unlike
+ * `.cm-list-marker`/`.cm-list-number` above, this is not a widget standing
+ * in for hidden syntax; the emoji itself is always the rendered text, so
+ * this class only ever wraps it (`Decoration.mark`, no replacement). Empty
+ * on purpose: a hook for size/spacing adjustments, not a default override
+ * of the emoji's own glyph rendering.
+ */
+.cm-editor .cm-emoji-list-marker {
+}
+
+/*
  * Resting horizontal rule (horizontalRuleDecoration.ts) — `font-size`/
  * `line-height: 0` remove the line's own text-metric height (its raw
  * `---`/`***`/`___` text is replaced to nothing when not engaged), exactly

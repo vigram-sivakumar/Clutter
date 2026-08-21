@@ -1,6 +1,7 @@
 import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from '@lezer/markdown';
 
 import { dateSyntax } from './date/dateSyntax';
+import { emojiListSyntax } from './emoji-list/emojiListSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
 import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
 import { tagSyntax } from './tag/tagSyntax';
@@ -26,4 +27,5 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   dateSyntax,
   highlightSyntax,
   wavyHorizontalRuleSyntax,
+  emojiListSyntax,
 ];
