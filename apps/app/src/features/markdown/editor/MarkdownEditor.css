@@ -153,6 +153,17 @@
 }
 
 /*
+ * Shared marker class — every list-item marker widget/mark (bullet,
+ * ordered, task checkbox, emoji) carries `cm-list-marker` alongside its
+ * own type-specific class below, as the one common CSS hook for "this
+ * represents a list item's marker," regardless of kind. Empty on purpose
+ * for now: a hook for shared marker styling to land on later, not a
+ * default override of any kind's own current appearance.
+ */
+.cm-editor .cm-list-marker {
+}
+
+/*
  * Resting bullet glyph (ListBulletWidget.ts) standing in for a hidden
  * `-`/`*`/`+`. Deliberately its own class, not `tok-mark`: `tok-mark`
  * styles the *raw* Markdown marker text when engagement reveals it — a
@@ -160,7 +171,7 @@
  * be styled independently (this one is a permanent, always-visible glyph;
  * `tok-mark` only ever appears mid-edit).
  */
-.cm-editor .cm-list-marker {
+.cm-editor .cm-bullet-list-marker {
   color: var(--marker-foreground);
   font-size: 1.2em;
   line-height: 1;
@@ -169,11 +180,11 @@
 /*
  * Resting ordered-marker glyph (OrderedListMarkerWidget.ts) standing in
  * for a hidden `1.`/`2)`/… — the numbered-list counterpart to
- * `.cm-list-marker` above, kept as its own class rather than reusing it so
- * bullet and numbered markers can be styled independently. Renders actual
- * text (the parsed number/delimiter), not a generated glyph, so it's sized
- * with the surrounding text rather than `.cm-list-marker`'s enlarged
- * bullet treatment.
+ * `.cm-bullet-list-marker` above, kept as its own class rather than
+ * reusing it so bullet and numbered markers can be styled independently.
+ * Renders actual text (the parsed number/delimiter), not a generated
+ * glyph, so it's sized with the surrounding text rather than
+ * `.cm-bullet-list-marker`'s enlarged bullet treatment.
  */
 .cm-editor .cm-list-number {
   color: var(--marker-foreground);
@@ -181,11 +192,11 @@
 
 /*
  * The emoji list marker (emojiListMarkDecoration.ts) — unlike
- * `.cm-list-marker`/`.cm-list-number` above, this is not a widget standing
- * in for hidden syntax; the emoji itself is always the rendered text, so
- * this class only ever wraps it (`Decoration.mark`, no replacement). Empty
- * on purpose: a hook for size/spacing adjustments, not a default override
- * of the emoji's own glyph rendering.
+ * `.cm-bullet-list-marker`/`.cm-list-number` above, this is not a widget
+ * standing in for hidden syntax; the emoji itself is always the rendered
+ * text, so this class only ever wraps it (`Decoration.mark`, no
+ * replacement). Empty on purpose: a hook for size/spacing adjustments,
+ * not a default override of the emoji's own glyph rendering.
  */
 .cm-editor .cm-emoji-list-marker {
   height: var(--marker-size);

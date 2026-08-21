@@ -33,7 +33,7 @@ describe('ListMark vs Task ownership', () => {
     const text = 'plain paragraph\n\n- item one';
     const view = mountView(text, 5); // well outside the list item
 
-    expect(view.dom.querySelector('.cm-list-marker')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).not.toBeNull();
     expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
   });
 
@@ -41,7 +41,7 @@ describe('ListMark vs Task ownership', () => {
     const text = '- [ ] Task';
     const view = mountView(text, text.length); // outside the whole line
 
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
     expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
     expect(view.dom.textContent).not.toContain('-');
   });
@@ -54,7 +54,7 @@ describe('at rest: only the checkbox renders, never bullet + checkbox and never 
 
     const checkbox = view.dom.querySelector('button[role="checkbox"]');
     expect(checkbox?.getAttribute('aria-checked')).toBe('false');
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
     expect(view.dom.textContent).not.toContain('-');
     expect(view.dom.textContent).not.toContain('[');
   });
@@ -65,7 +65,7 @@ describe('at rest: only the checkbox renders, never bullet + checkbox and never 
 
     const checkbox = view.dom.querySelector('button[role="checkbox"]');
     expect(checkbox?.getAttribute('aria-checked')).toBe('true');
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
   });
 
   it('nested task at rest also renders only its own checkbox, no bullet', () => {
@@ -74,7 +74,7 @@ describe('at rest: only the checkbox renders, never bullet + checkbox and never 
     view.dispatch({ selection: { anchor: text.length } }); // fully outside both
 
     expect(view.dom.querySelectorAll('button[role="checkbox"]')).toHaveLength(2);
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
   });
 });
 
@@ -87,7 +87,7 @@ describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
     view.dispatch({ selection: { anchor: textPos } });
 
     expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
     expect(view.dom.textContent).not.toContain('-');
     expect(view.dom.textContent).not.toContain('[');
   });
@@ -100,7 +100,7 @@ describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
     view.dispatch({ selection: { anchor: taskMarkerPos } });
 
     expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
     expect(view.dom.textContent).toBe('- [ ] Task');
   });
 
@@ -127,7 +127,7 @@ describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
     view.dispatch({ selection: { anchor: textPos } });
 
     expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
     expect(view.dom.textContent).not.toContain('-');
     expect(view.dom.textContent).not.toContain('[');
   });
@@ -140,7 +140,7 @@ describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
     const textEngaged = mountView(text);
     textEngaged.dispatch({ selection: { anchor: nestedTextPos } });
     expect(textEngaged.dom.querySelectorAll('button[role="checkbox"]')).toHaveLength(2);
-    expect(textEngaged.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(textEngaged.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
 
     const markerEngaged = mountView(text);
     markerEngaged.dispatch({ selection: { anchor: nestedTaskMarkerPos } });
@@ -161,7 +161,7 @@ describe('clicking the checkbox never produces a mixed bullet/dash + checkbox st
     const checkboxes = view.dom.querySelectorAll('button[role="checkbox"]');
     expect(checkboxes).toHaveLength(1);
     expect(checkboxes[0]?.getAttribute('aria-checked')).toBe('true');
-    expect(view.dom.querySelectorAll('.cm-list-marker')).toHaveLength(0);
+    expect(view.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(0);
     expect(view.dom.textContent).not.toContain('-');
   });
 
@@ -176,7 +176,7 @@ describe('clicking the checkbox never produces a mixed bullet/dash + checkbox st
     const checkboxes = view.dom.querySelectorAll('button[role="checkbox"]');
     expect(checkboxes).toHaveLength(1);
     expect(checkboxes[0]?.getAttribute('aria-checked')).toBe('false');
-    expect(view.dom.querySelectorAll('.cm-list-marker')).toHaveLength(0);
+    expect(view.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(0);
     expect(view.dom.textContent).not.toContain('-');
   });
 });

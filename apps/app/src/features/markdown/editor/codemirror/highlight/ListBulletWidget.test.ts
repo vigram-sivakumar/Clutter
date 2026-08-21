@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { ListBulletWidget } from './ListBulletWidget';
 
 describe('ListBulletWidget', () => {
-  it('renders a <span class="cm-list-marker"> containing the bullet glyph', () => {
+  it('renders a <span> containing the bullet glyph, with both the shared and bullet-specific marker classes', () => {
     const widget = new ListBulletWidget();
     const dom = widget.toDOM();
 
     expect(dom.tagName).toBe('SPAN');
-    expect(dom.className).toBe('cm-list-marker');
+    expect(dom.classList.contains('cm-list-marker')).toBe(true);
+    expect(dom.classList.contains('cm-bullet-list-marker')).toBe(true);
     expect(dom.textContent).toBe('•');
   });
 

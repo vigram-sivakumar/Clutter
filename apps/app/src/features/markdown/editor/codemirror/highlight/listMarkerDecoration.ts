@@ -37,7 +37,7 @@ const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
  * resting widget below; this set only decides *which* widget class
  * (`ListBulletWidget` vs. `OrderedListMarkerWidget`) a given `ListMark`
  * renders as, so bullet and numbered markers can be styled independently
- * (`.cm-list-marker` vs. `.cm-list-number`) per product ask.
+ * (`.cm-bullet-list-marker` vs. `.cm-list-number`) per product ask.
  */
 const BULLET_MARKERS: ReadonlySet<string> = new Set(['-', '*', '+']);
 

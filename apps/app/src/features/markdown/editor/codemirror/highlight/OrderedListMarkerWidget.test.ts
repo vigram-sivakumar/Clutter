@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { OrderedListMarkerWidget } from './OrderedListMarkerWidget';
 
 describe('OrderedListMarkerWidget', () => {
-  it('renders a <span class="cm-list-number"> containing the actual parsed marker text', () => {
+  it('renders a <span> containing the actual parsed marker text, with both the shared and ordered-specific marker classes', () => {
     const widget = new OrderedListMarkerWidget('1.');
     const dom = widget.toDOM();
 
     expect(dom.tagName).toBe('SPAN');
-    expect(dom.className).toBe('cm-list-number');
+    expect(dom.classList.contains('cm-list-marker')).toBe(true);
+    expect(dom.classList.contains('cm-list-number')).toBe(true);
     expect(dom.textContent).toBe('1.');
   });
 
@@ -20,12 +21,12 @@ describe('OrderedListMarkerWidget', () => {
     expect(dom.textContent).toBe('27.');
   });
 
-  it('never carries the tok-mark or cm-list-marker class — deliberately separate styling', () => {
+  it('never carries the tok-mark or cm-bullet-list-marker class — deliberately separate styling', () => {
     const widget = new OrderedListMarkerWidget('1.');
     const dom = widget.toDOM();
 
     expect(dom.classList.contains('tok-mark')).toBe(false);
-    expect(dom.classList.contains('cm-list-marker')).toBe(false);
+    expect(dom.classList.contains('cm-bullet-list-marker')).toBe(false);
   });
 
   it('eq() reports equal only when the raw marker text matches', () => {

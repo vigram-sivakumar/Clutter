@@ -30,6 +30,14 @@ describe('emojiListMarkDecoration', () => {
     expect(view.dom.textContent).toBe('🍎 Apple');
   });
 
+  it('also carries the shared cm-list-marker class alongside cm-emoji-list-marker', () => {
+    const view = mountView('🍎 Apple');
+
+    const span = markedSpans(view)[0];
+    expect(span?.classList.contains('cm-list-marker')).toBe(true);
+    expect(span?.classList.contains('cm-emoji-list-marker')).toBe(true);
+  });
+
   it('marks a class for every item in a multi-emoji list', () => {
     const view = mountView('🍎 Apple\n🍊 Orange');
 

@@ -17,8 +17,12 @@ import {
  * glyph the user wants to see, so this only wraps it in a class, the same
  * `Decoration.mark`-only pattern `wikiLinkMarkerDecorations.ts` uses for
  * `[[`/`]]` coloring — no atomic ranges, no text replacement.
+ *
+ * Also carries `cm-list-marker` — the shared class every list-item marker
+ * kind carries (bullet/ordered/task/emoji alike); see `ListBulletWidget`'s
+ * doc comment for the full rationale.
  */
-const emojiMark = Decoration.mark({ class: 'cm-emoji-list-marker' });
+const emojiMark = Decoration.mark({ class: 'cm-list-marker cm-emoji-list-marker' });
 
 function buildEmojiListMarkDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();

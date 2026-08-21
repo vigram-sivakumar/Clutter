@@ -17,6 +17,11 @@ import '@components/checkbox/Checkbox.css';
  * `role="checkbox"`/`aria-checked` mirror `Checkbox.tsx`'s own ARIA shape
  * (§6 baseline, same caveat as `WikiLinkWidget`'s doc comment: not a final
  * accessibility design, just parity with the existing component).
+ *
+ * Also carries `cm-list-marker` — the shared class every list-item marker
+ * kind carries (bullet/ordered/task/emoji alike), alongside the existing
+ * `cm-task-checkbox` sizing hook; see `ListBulletWidget`'s doc comment for
+ * the full rationale.
  */
 const UNCHECKED_ICON_PATH =
   'M6 0.6H10C12.982 0.6 15.4 3.582 15.4 6V10C15.4 12.418 12.982 15.4 10 15.4H6C3.582 15.4 0.6 12.418 0.6 10V6C0.6 3.582 3.582 0.6 6 0.6Z';
@@ -70,8 +75,8 @@ export class TaskCheckboxWidget extends WidgetType {
     button.setAttribute('role', 'checkbox');
     button.setAttribute('aria-checked', String(this.checked));
     button.className = this.checked
-      ? 'checkbox checkbox--checked cm-task-checkbox'
-      : 'checkbox cm-task-checkbox';
+      ? 'cm-list-marker checkbox checkbox--checked cm-task-checkbox'
+      : 'cm-list-marker checkbox cm-task-checkbox';
     button.appendChild(buildIcon(this.checked));
     return button;
   }

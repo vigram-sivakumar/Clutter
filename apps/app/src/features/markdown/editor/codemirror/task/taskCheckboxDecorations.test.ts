@@ -31,6 +31,14 @@ describe('taskCheckboxDecorations — at-rest rendering', () => {
     expect(view.dom.textContent).not.toContain('[ ]');
   });
 
+  it('also carries the shared cm-list-marker class alongside cm-task-checkbox', () => {
+    const view = mountAtRest('- [ ] Buy milk');
+
+    const checkbox = view.dom.querySelector('button[role="checkbox"]');
+    expect(checkbox?.classList.contains('cm-list-marker')).toBe(true);
+    expect(checkbox?.classList.contains('cm-task-checkbox')).toBe(true);
+  });
+
   it('renders an at-rest [x] TaskMarker as a checked checkbox widget', () => {
     const view = mountAtRest('- [x] Buy milk');
 

@@ -31,7 +31,7 @@ describe('listMarkerDecoration', () => {
     const text = '- item one\n\nOther';
     const view = mountView(text, text.indexOf('Other'));
 
-    const bullet = view.dom.querySelector('.cm-list-marker');
+    const bullet = view.dom.querySelector('.cm-bullet-list-marker');
     expect(bullet).not.toBeNull();
     expect(bullet?.textContent).toBe('•');
     expect(view.dom.textContent).toContain('item one');
@@ -43,7 +43,7 @@ describe('listMarkerDecoration', () => {
       const text = `${marker} item one\n\nOther`;
       const view = mountView(text, text.indexOf('Other'));
 
-      const bullet = view.dom.querySelector('.cm-list-marker');
+      const bullet = view.dom.querySelector('.cm-bullet-list-marker');
       expect(bullet?.textContent).toBe('•');
       expect(view.dom.textContent).toContain('item one');
       expect(view.dom.textContent).not.toContain(marker);
@@ -57,7 +57,7 @@ describe('listMarkerDecoration', () => {
     const number = view.dom.querySelector('.cm-list-number');
     expect(number).not.toBeNull();
     expect(number?.textContent).toBe('1.');
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull(); // not the bullet widget
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull(); // not the bullet widget
     expect(view.dom.textContent).toContain('1. item one');
   });
 
@@ -91,7 +91,7 @@ describe('listMarkerDecoration', () => {
     const text = '- bullet one\n1. ordered one\n- bullet two\n\nOther';
     const view = mountView(text, text.indexOf('Other'));
 
-    const bullets = Array.from(view.dom.querySelectorAll('.cm-list-marker')).map((el) => el.textContent);
+    const bullets = Array.from(view.dom.querySelectorAll('.cm-bullet-list-marker')).map((el) => el.textContent);
     const numbers = Array.from(view.dom.querySelectorAll('.cm-list-number')).map((el) => el.textContent);
     expect(bullets).toEqual(['•', '•']);
     expect(numbers).toEqual(['1.']);
@@ -102,7 +102,7 @@ describe('listMarkerDecoration', () => {
     const view = mountView(text, text.indexOf('Other'));
 
     expect(view.dom.querySelectorAll('.cm-list-number')).toHaveLength(0);
-    expect(view.dom.querySelectorAll('.cm-list-marker')).toHaveLength(0);
+    expect(view.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(0);
   });
 
   it('reveals the raw "- " once the cursor is inside the item — no bullet widget while engaged', () => {
@@ -111,7 +111,7 @@ describe('listMarkerDecoration', () => {
     view.dispatch({ selection: { anchor: 4 } }); // inside "item"
 
     expect(view.dom.textContent).toBe('- item one');
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
   });
 
   it('re-collapses to the bullet widget once the selection leaves the item', () => {
@@ -119,13 +119,13 @@ describe('listMarkerDecoration', () => {
     const view = mountView(text, 4); // inside the list item
 
     expect(view.dom.textContent).toContain('- item one');
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
 
     view.dispatch({ selection: { anchor: text.indexOf('Other') } });
 
     expect(view.dom.textContent).not.toContain('-');
     expect(view.dom.textContent).toContain('item one');
-    expect(view.dom.querySelector('.cm-list-marker')?.textContent).toBe('•');
+    expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('•');
   });
 
   it("nested lists: only the engaged item's own marker reveals, both levels render as bullets at rest", () => {
@@ -137,7 +137,7 @@ describe('listMarkerDecoration', () => {
     // the nested item's leading indentation (untouched raw text, not a
     // node) is still present.
     expect(atRest.dom.textContent).not.toContain('-');
-    expect(atRest.dom.querySelectorAll('.cm-list-marker')).toHaveLength(2);
+    expect(atRest.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(2);
     expect(atRest.dom.textContent).toContain('nested item');
 
     // Physical-line engagement: engaging the nested item reveals only its
@@ -151,7 +151,7 @@ describe('listMarkerDecoration', () => {
 
     expect(engaged.dom.textContent).toContain('- nested item');
     expect(engaged.dom.textContent).not.toContain('- item one');
-    expect(engaged.dom.querySelectorAll('.cm-list-marker')).toHaveLength(1); // only the parent's
+    expect(engaged.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(1); // only the parent's
   });
 
   it("each item's marker engages independently — engaging one does not reveal a sibling's", () => {
