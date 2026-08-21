@@ -85,3 +85,70 @@ describe('horizontalRuleDecoration — engaged', () => {
     expect(hrLine?.textContent).toBe('');
   });
 });
+
+describe('horizontalRuleDecoration — wavy variant (`~---~`) at rest', () => {
+  it('collapses the wavy rule line under its own class, hiding its raw marker text', () => {
+    const text = 'Above\n\n~---~\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    const wavyLine = view.dom.querySelector('.cm-hr-line-wavy');
+    expect(wavyLine).not.toBeNull();
+    expect(wavyLine?.textContent).toBe('');
+    expect(view.dom.querySelector('.cm-hr-line')).toBeNull();
+  });
+
+  it('the stored document text is unaffected by the collapse', () => {
+    const text = 'Above\n\n~---~\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    expect(view.state.doc.toString()).toBe(text);
+  });
+
+  it('interrupts an in-progress paragraph without a blank line first, unlike plain `---`', () => {
+    const text = 'Above\n~---~\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    const wavyLine = view.dom.querySelector('.cm-hr-line-wavy');
+    expect(wavyLine).not.toBeNull();
+    expect(wavyLine?.textContent).toBe('');
+  });
+
+  it('does not collapse a bare `---` on the same line as content, straight rule behavior is unchanged', () => {
+    const text = 'Above\n\n---\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    expect(view.dom.querySelector('.cm-hr-line')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-hr-line-wavy')).toBeNull();
+  });
+});
+
+describe('horizontalRuleDecoration — wavy variant engaged', () => {
+  it('reveals the raw `~---~` marker text when the cursor is on the rule line itself', () => {
+    const text = 'Above\n\n~---~\n\nBelow';
+    const ruleFrom = text.indexOf('~---~');
+    const view = mountView(text, ruleFrom);
+
+    expect(view.dom.textContent).toContain('~---~');
+  });
+
+  it('does not carry the collapsing line class while engaged', () => {
+    const text = 'Above\n\n~---~\n\nBelow';
+    const ruleFrom = text.indexOf('~---~');
+    const view = mountView(text, ruleFrom);
+
+    expect(view.dom.querySelector('.cm-hr-line-wavy')).toBeNull();
+  });
+
+  it('re-collapses once the selection moves off the rule line', () => {
+    const text = 'Above\n\n~---~\n\nBelow';
+    const ruleFrom = text.indexOf('~---~');
+    const view = mountView(text, ruleFrom);
+    expect(view.dom.querySelector('.cm-hr-line-wavy')).toBeNull();
+
+    view.dispatch({ selection: { anchor: text.indexOf('Below') } });
+
+    const wavyLine = view.dom.querySelector('.cm-hr-line-wavy');
+    expect(wavyLine).not.toBeNull();
+    expect(wavyLine?.textContent).toBe('');
+  });
+});

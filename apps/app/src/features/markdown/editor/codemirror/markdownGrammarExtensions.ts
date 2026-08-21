@@ -2,6 +2,7 @@ import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from
 
 import { dateSyntax } from './date/dateSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
+import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
 import { tagSyntax } from './tag/tagSyntax';
 import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
 
@@ -24,4 +25,5 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   tagSyntax,
   dateSyntax,
   highlightSyntax,
+  wavyHorizontalRuleSyntax,
 ];

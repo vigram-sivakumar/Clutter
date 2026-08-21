@@ -3,25 +3,31 @@ import type { EditorState, Extension } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from '@codemirror/view';
 
 /**
- * Live Preview rendering for native CommonMark horizontal rules (`---`,
- * `***`, `___`), built on the same standalone-`ViewPlugin` architecture as
- * `tableDecoration.ts`'s alignment row — no foreign widget, no replacement
+ * Live Preview rendering for horizontal rules: native CommonMark `---`/
+ * `***`/`___` (core `HorizontalRule`, parsed for free — not GFM-extension-
+ * gated) and Clutter's own wavy variant `~---~` (`WavyHorizontalRule`, a
+ * distinct node registered by `wavyHorizontalRuleSyntax.ts`). Both share
+ * this one `ViewPlugin`/collapse-at-rest contract rather than two parallel
+ * decoration layers — they're the same interaction, styled differently —
+ * built on the same standalone-`ViewPlugin` architecture as
+ * `tableDecoration.ts`'s alignment row: no foreign widget, no replacement
  * DOM node, the real Markdown text stays in place throughout.
- * `@lezer/markdown`'s core grammar already emits a leaf `HorizontalRule`
- * node for these lines (not GFM-extension-gated), so no grammar change is
- * needed here.
  *
- * Unlike the table alignment row, the collapsing `cm-hr-line` class is only
+ * Unlike the table alignment row, the collapsing line class is only
  * applied while *not* engaged: `font-size`/`line-height: 0` on that class
  * zeroes out text-box metrics regardless of whether the line has visible
  * text, so applying it unconditionally (as the align row does) would keep
- * the raw `---` invisible even once `hiddenMark` stops replacing it. At
- * rest, the class collapses the line to a 1px `border-top` divider; once
- * engaged, no special line class is applied at all, so the revealed marker
- * text renders at normal size like any other line.
+ * the raw marker invisible even once `hiddenMark` stops replacing it. At
+ * rest, the class collapses the line to a thin divider (CSS-painted, see
+ * `MarkdownEditor.css`); once engaged, no special line class is applied at
+ * all, so the revealed marker text renders at normal size like any other
+ * line.
  */
 
-const hrLineAtRest = Decoration.line({ class: 'cm-hr-line' });
+const hrLineAtRest: Readonly<Record<string, Decoration>> = {
+  HorizontalRule: Decoration.line({ class: 'cm-hr-line' }),
+  WavyHorizontalRule: Decoration.line({ class: 'cm-hr-line-wavy' }),
+};
 const hiddenMark = Decoration.replace({});
 
 /**
@@ -53,12 +59,13 @@ function buildHorizontalRuleDecorations(view: EditorView): DecorationSet {
       from,
       to,
       enter: (node) => {
-        if (node.name !== 'HorizontalRule') {
+        const lineDeco = hrLineAtRest[node.name];
+        if (!lineDeco) {
           return;
         }
         const engaged = isRuleEngaged(view.state, node.from);
         if (!engaged) {
-          items.push({ from: node.from, to: node.from, deco: hrLineAtRest });
+          items.push({ from: node.from, to: node.from, deco: lineDeco });
           if (node.to > node.from) {
             items.push({ from: node.from, to: node.to, deco: hiddenMark });
           }
