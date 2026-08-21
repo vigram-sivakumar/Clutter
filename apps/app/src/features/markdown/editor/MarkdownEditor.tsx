@@ -10,12 +10,14 @@ import { dateDecorations } from './codemirror/date/dateDecorations';
 import { dateKeymap } from './codemirror/date/dateKeymap';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
+import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
 import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
 import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
+import { listIndentKeymap } from './codemirror/list/listIndentKeymap';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { taskCheckboxDecorations } from './codemirror/task/taskCheckboxDecorations';
 import { taskCheckboxKeymap } from './codemirror/task/taskCheckboxKeymap';
@@ -144,7 +146,9 @@ export const MarkdownEditor = forwardRef<
         highlightMarkerDecoration(),
         inlineCodeMarkerDecoration(),
         listMarkerDecoration(),
+        listIndentKeymap(),
         blockquoteMarkerDecoration(),
+        formatShortcutsKeymap(),
         taskCheckboxDecorations(),
         // Reuses the exact same onFlush callback already wired to blur
         // below (PageOperations.requestSave, via SaveCoordinator) — a
