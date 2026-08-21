@@ -155,4 +155,22 @@ describe('tokenizeCompactMarkdown', () => {
       { kind: 'link', label: 'https://example.com' },
     ]);
   });
+
+  describe('a Markdown table (Phase 0: Table is parsed, but has no dedicated compact-render case)', () => {
+    it('degrades gracefully to raw pipe/dash text — no crash, no missing content', () => {
+      expect(tokenizeCompactMarkdown('| a | b |\n| - | - |\n| 1 | 2 |')).toEqual([
+        { kind: 'text', value: '| a | b |\n| - | - |\n| 1 | 2 |' },
+      ]);
+    });
+
+    it('still recognizes WikiLink/Tag/Date inside a table cell — recursion into unrecognized block nodes reaches them', () => {
+      expect(tokenizeCompactMarkdown('| a | b |\n| - | - |\n| [[Page]] | #tag |')).toEqual([
+        { kind: 'text', value: '| a | b |\n| - | - |\n| ' },
+        { kind: 'wikilink', path: 'Page', alias: null },
+        { kind: 'text', value: ' | ' },
+        { kind: 'tag', name: 'tag' },
+        { kind: 'text', value: ' |' },
+      ]);
+    });
+  });
 });

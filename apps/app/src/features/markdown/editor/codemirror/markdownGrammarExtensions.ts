@@ -1,4 +1,4 @@
-import { Autolink, Strikethrough, TaskList, type MarkdownExtension } from '@lezer/markdown';
+import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from '@lezer/markdown';
 
 import { dateSyntax } from './date/dateSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
@@ -19,6 +19,7 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   Autolink,
   Strikethrough,
   TaskList,
+  Table,
   wikiLinkSyntax,
   tagSyntax,
   dateSyntax,

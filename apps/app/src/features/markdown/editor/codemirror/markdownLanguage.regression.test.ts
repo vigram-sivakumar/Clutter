@@ -4,12 +4,12 @@ import { markdownLanguageExtension } from './markdownLanguage';
 
 /**
  * Pure parser-level regression tests — no EditorView, no DOM. Confirms the
- * enabled GFM subset (TaskList, Strikethrough, Autolink), the exclusion of
- * Table, and (since §4) the `WikiLink` extension all produce the expected
- * tree shape and coexist with ordinary CommonMark without altering its
- * meaning. Node names and tree shapes below were confirmed empirically
- * against the installed `@lezer/markdown@1.7.2` — not assumed from the
- * type declarations alone.
+ * enabled GFM subset (TaskList, Strikethrough, Autolink, Table), and
+ * (since §4) the `WikiLink` extension all produce the expected tree shape
+ * and coexist with ordinary CommonMark without altering its meaning. Node
+ * names and tree shapes below were confirmed empirically against the
+ * installed `@lezer/markdown@1.7.2` — not assumed from the type
+ * declarations alone.
  */
 
 function nodeNames(text: string): string[] {
@@ -93,12 +93,94 @@ describe('Enabled GFM subset', () => {
   });
 });
 
-describe('Table is deliberately not enabled', () => {
-  it('does not produce a Table node for pipe-table-shaped text', () => {
+describe('Table — Phase 0 (grammar only, no Live Preview rendering yet)', () => {
+  it('produces Table/TableHeader/TableDelimiter/TableRow/TableCell nodes for pipe-table-shaped text', () => {
     const names = nodeNames('| a | b |\n| - | - |\n| 1 | 2 |');
+    expect(names).toContain('Table');
+    expect(names).toContain('TableHeader');
+    expect(names).toContain('TableDelimiter');
+    expect(names).toContain('TableRow');
+    expect(names).toContain('TableCell');
+  });
+
+  it('the alignment row parses as a single opaque TableDelimiter, not per-column nodes', () => {
+    // Confirmed empirically against the installed @lezer/markdown: the
+    // "|---|:---:|" row is one TableDelimiter spanning the whole line —
+    // there is no structured per-column alignment node. Phase 1's
+    // rendering layer has to recover alignment by re-scanning this node's
+    // own raw text, the same "re-run a pure scanner" pattern already used
+    // for WikiLink/Tag/Date.
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse('| a | b |\n| :--- | ---: |\n| 1 | 2 |');
+    const table = tree.topNode.getChild('Table');
+    const delimiterRow = table?.getChild('TableHeader')?.nextSibling;
+    expect(delimiterRow?.name).toBe('TableDelimiter');
+    expect(delimiterRow?.firstChild).toBeNull();
+  });
+
+  it('a representative table document round-trips: every Table node range slices back to its exact original source', () => {
+    const text = '| a | b |\n| :--- | ---: |\n| 1 | 2 |\n';
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse(text);
+    const table = tree.topNode.getChild('Table');
+    expect(table).not.toBeNull();
+    expect(text.slice(table!.from, table!.to)).toBe('| a | b |\n| :--- | ---: |\n| 1 | 2 |');
+  });
+
+  it('WikiLink/Tag/Date/emphasis all compose correctly inside a TableCell, unmodified by table registration', () => {
+    const text = '| a | b |\n| - | - |\n| [[Page]] | #tag @2026-08-20 **bold** |';
+    const language = markdownLanguageExtension().language;
+    const tree = language.parser.parse(text);
+    const cellNames: string[] = [];
+    tree.iterate({
+      enter: (n) => {
+        cellNames.push(n.name);
+      },
+    });
+    expect(cellNames).toContain('WikiLink');
+    expect(cellNames).toContain('Tag');
+    expect(cellNames).toContain('Date');
+    expect(cellNames).toContain('StrongEmphasis');
+  });
+
+  it('does not require a blank line before it — a table can directly follow a heading', () => {
+    const names = nodeNames('# Heading\n| a | b |\n| - | - |\n| 1 | 2 |');
+    expect(names).toContain('ATXHeading1');
+    expect(names).toContain('Table');
+  });
+});
+
+describe('Setext heading / Table precedence (Table is registered before: "SetextHeading")', () => {
+  it('an ordinary Setext heading is completely unaffected', () => {
+    const names = nodeNames('Setext Heading\n---');
+    expect(names).toContain('SetextHeading2');
     expect(names).not.toContain('Table');
-    expect(names).not.toContain('TableHeader');
-    expect(names).not.toContain('TableRow');
+  });
+
+  it('a Setext heading whose text line happens to contain a stray "|" is still an ordinary heading — the underline alone decides', () => {
+    const names = nodeNames('A | B\n---');
+    expect(names).toContain('SetextHeading2');
+    expect(names).not.toContain('Table');
+  });
+
+  it('a level-1 Setext heading (===) is likewise unaffected', () => {
+    const names = nodeNames('Setext Heading\n===');
+    expect(names).toContain('SetextHeading1');
+    expect(names).not.toContain('Table');
+  });
+
+  it('genuinely table-shaped text — a pipe-delimiter row for BOTH lines — is claimed as a Table, not a SetextHeading, per upstream GFM precedence', () => {
+    const names = nodeNames('A|B\n-|-');
+    expect(names).toContain('Table');
+    expect(names).not.toContain('SetextHeading1');
+    expect(names).not.toContain('SetextHeading2');
+  });
+
+  it('a real 3-line table immediately followed by unrelated prose is unaffected by Setext precedence — parses as Table, not a heading swallowing the next line', () => {
+    const names = nodeNames('| a | b |\n| - | - |\n| 1 | 2 |\n\nAfter');
+    expect(names).toContain('Table');
+    expect(names).not.toContain('SetextHeading1');
+    expect(names).not.toContain('SetextHeading2');
   });
 });
 

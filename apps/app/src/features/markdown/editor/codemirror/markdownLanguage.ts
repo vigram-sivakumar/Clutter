@@ -11,10 +11,16 @@ import { markdownGrammarExtensions } from './markdownGrammarExtensions';
  * - `Autolink` is enabled specifically so the future `@`-family precedence
  *   rule (`after: "Autolink"`) has something real to test against once
  *   that parser exists.
- * - `Table` is deliberately NOT enabled. Tables are explicitly deferred
- *   (interaction spec, Category E) — this is a reversible config choice,
- *   not an architectural one, and is omitted here so it reads as
- *   intentional rather than an oversight.
+ * - `Table` is enabled (Phase 0 of the table milestone,
+ *   docs/editor-feature-matrix.md — grammar only, no Live Preview
+ *   rendering yet: an unstyled pipe table still shows its raw `|`/`-`
+ *   syntax exactly as before this change). Registered `before:
+ *   "SetextHeading"` by GFM's own bundle — confirmed empirically this
+ *   only reclassifies text where the underline row *itself* also forms a
+ *   valid pipe-delimiter row (`"A|B\n-|-"`); an ordinary Setext heading,
+ *   even one whose heading line contains a stray `|`, is unaffected (see
+ *   the Setext/Table precedence tests in
+ *   `markdownLanguage.regression.test.ts`).
  * - `wikiLinkSyntax` registers the `WikiLink` node through the same public
  *   `MarkdownConfig` mechanism GFM itself uses — no second parser.
  * - `tagSyntax` registers the `Tag` node the same way — the first
