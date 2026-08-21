@@ -110,7 +110,7 @@
 }
 
 .cm-editor .tok-highlight {
-  background: var(--highlight-background);
+  background: var(--highlight-surface);
   color: var(--highlight-foreground);
 }
 
