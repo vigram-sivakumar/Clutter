@@ -43,10 +43,26 @@ const LIST_MARKER_NODE_NAMES: ReadonlySet<string> = new Set(['ListMark', 'EmojiL
  * lazy-continuation line). Returns `null` for the latter case, so callers
  * can fall back to simpler handling for continuation lines, which have no
  * "previous sibling" of their own to nest under.
+ *
+ * Resolves at the line's first non-whitespace character, never at the raw
+ * line start — a nested item's own `ListItem`/`ListMark` node always
+ * begins at the marker itself (confirmed by direct inspection of parsed
+ * trees), never at column 0; the leading indentation in front of it is a
+ * gap covered by no node at all (`@lezer/markdown`'s continuation-skip
+ * machinery consumes it procedurally while parsing, but it never becomes
+ * part of any node's own range). Resolving at column 0 for an indented
+ * line therefore can only ever land on an *ancestor* whose range happens
+ * to span that gap — never this line's own item — which silently broke
+ * indentation for every already-nested item, not merely ones with no
+ * sibling: `contentColumn`'s callers below only ever saw the fallback
+ * path, capable of blindly widening a line's indentation on every Tab
+ * press with no bound, eventually reinterpreting the line as ordinary
+ * paragraph text and destroying the list structure.
  */
 function listItemStartingAt(state: EditorState, linePos: number): SyntaxNode | null {
   const line = state.doc.lineAt(linePos);
-  let node: SyntaxNode | null = syntaxTree(state).resolveInner(linePos, 1);
+  const probePos = line.from + leadingSpaceCount(line.text);
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(probePos, 1);
   for (; node; node = node.parent) {
     if (node.name === 'ListItem' && state.doc.lineAt(node.from).from === line.from) {
       return node;

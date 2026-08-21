@@ -50,6 +50,27 @@ function nestingDepthOf(text: string, needle: string): number {
   return depth;
 }
 
+/**
+ * Whether `text` still contains a marker node of the given name anywhere
+ * in a fresh parse — the strongest possible regression guard for the
+ * "repeated Tab eventually reinterprets the item as plain paragraph text"
+ * failure mode: a leading-space count alone can't distinguish genuine
+ * nesting from a line that has merely accumulated whitespace after its
+ * list-ness was already destroyed.
+ */
+function hasMarkerNode(text: string, markerName: string): boolean {
+  const tree = markdownLanguageExtension().language.parser.parse(text);
+  let found = false;
+  tree.iterate({
+    enter(node) {
+      if (node.name === markerName) {
+        found = true;
+      }
+    },
+  });
+  return found;
+}
+
 describe('indentListItem', () => {
   it('indents a list item, nesting it under the preceding item', () => {
     const doc = '- item1\n- item2';
@@ -183,6 +204,114 @@ describe('indentListItem', () => {
     expect(final).toBe('- item1\n  - item2\n    - item3');
     expect(nestingDepthOf(final, 'item2')).toBe(1);
     expect(nestingDepthOf(final, 'item3')).toBe(2);
+  });
+
+  describe('regression: listItemStartingAt must resolve an already-nested item, not just a top-level one', () => {
+    /**
+     * Before the fix, `listItemStartingAt` probed the tree at the raw
+     * line start (column 0), which only ever lands inside a node for a
+     * top-level (unindented) item — any already-nested item's own
+     * `ListItem` begins at its marker, past the leading indentation, so
+     * the probe silently fell through to the "continuation line" fallback
+     * on every Tab after the first. That fallback blindly inserts the
+     * flat `indentUnit`, unbounded, eventually exceeding the real content
+     * column and causing the parser to reinterpret the line as ordinary
+     * paragraph text, destroying the marker entirely.
+     */
+
+    it.each([
+      { label: 'bullet', doc: '- Parent\n- Child', markerName: 'ListMark' },
+      { label: 'ordered "1."', doc: '1. Parent\n1. Child', markerName: 'ListMark' },
+      { label: 'ordered "10."', doc: '10. Parent\n1. Child', markerName: 'ListMark' },
+      { label: 'task', doc: '- [ ] Parent\n- [ ] Child', markerName: 'TaskMarker' },
+      { label: 'emoji', doc: '🍒 Parent\n🍒 Child', markerName: 'EmojiListMark' },
+    ])('$label: sole nested child — first Tab nests, repeated Tab is a stable no-op, marker survives', ({ doc, markerName }) => {
+      const view = mountView(doc, doc.indexOf('Child'));
+
+      // First Tab: genuinely nests Child under Parent.
+      const firstHandled = indentListItem(view);
+      expect(firstHandled).toBe(true);
+      const afterFirst = view.state.doc.toString();
+      expect(nestingDepthOf(afterFirst, 'Child')).toBe(1);
+      expect(hasMarkerNode(afterFirst, markerName)).toBe(true);
+
+      // Every subsequent Tab: Child is now the sole item of its own
+      // nested list — there is nothing valid to nest it under, so this
+      // must be a true no-op, not a blind indentation increase.
+      for (let press = 0; press < 10; press++) {
+        view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('Child') } });
+        const handled = indentListItem(view);
+        expect(handled).toBe(false);
+      }
+
+      const final = view.state.doc.toString();
+      expect(final).toBe(afterFirst);
+      expect(nestingDepthOf(final, 'Child')).toBe(1);
+      expect(hasMarkerNode(final, markerName)).toBe(true);
+    });
+
+    it('ordered list: re-Tabbing a genuine nested sibling computes the real content column, not a coincidentally-matching flat indentUnit', () => {
+      // Deliberately chosen so the correct sibling-derived column (6) and
+      // the old flat-fallback amount (3 + indentUnit = 5) differ — the
+      // bullet-only staircase case above can't distinguish "computed
+      // correctly" from "happened to match indentUnit by coincidence."
+      const doc = '1. item1\n   1. item2\n   1. item3';
+      const view = mountView(doc, doc.lastIndexOf('item3'));
+
+      const handled = indentListItem(view);
+
+      expect(handled).toBe(true);
+      const result = view.state.doc.toString();
+      expect(result).toBe('1. item1\n   1. item2\n      1. item3');
+      expect(nestingDepthOf(result, 'item2')).toBe(1);
+      expect(nestingDepthOf(result, 'item3')).toBe(2);
+      expect(hasMarkerNode(result, 'ListMark')).toBe(true);
+    });
+
+    it('emoji list: re-Tabbing a genuine nested sibling reaches real depth 2 via the marker\'s own content column', () => {
+      const doc = '🍒 item1\n   🍒 item2\n   🍒 item3';
+      const view = mountView(doc, doc.lastIndexOf('item3'));
+
+      const handled = indentListItem(view);
+
+      expect(handled).toBe(true);
+      const result = view.state.doc.toString();
+      expect(nestingDepthOf(result, 'item2')).toBe(1);
+      expect(nestingDepthOf(result, 'item3')).toBe(2);
+      expect(hasMarkerNode(result, 'EmojiListMark')).toBe(true);
+    });
+
+    it('deeply nested sole child: many repeated Tab presses never accumulate indentation or destroy the list', () => {
+      const doc = '🍒 a\n🍒 b';
+      const view = mountView(doc, 0);
+
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('b') } });
+      indentListItem(view);
+      const afterNest = view.state.doc.toString();
+      expect(nestingDepthOf(afterNest, 'b')).toBe(1);
+
+      for (let press = 0; press < 25; press++) {
+        view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('b') } });
+        const handled = indentListItem(view);
+        expect(handled).toBe(false);
+        expect(view.state.doc.toString()).toBe(afterNest);
+      }
+
+      expect(hasMarkerNode(view.state.doc.toString(), 'EmojiListMark')).toBe(true);
+    });
+
+    it('Shift-Tab is unaffected by the fix: dedenting an already-nested sibling still works exactly as before', () => {
+      const doc = '- item1\n  - item2\n    - item3';
+      const view = mountView(doc, doc.indexOf('item3'));
+      expect(nestingDepthOf(doc, 'item3')).toBe(2);
+
+      const handled = dedentListItem(view);
+
+      expect(handled).toBe(true);
+      const result = view.state.doc.toString();
+      expect(result).toBe('- item1\n  - item2\n  - item3');
+      expect(nestingDepthOf(result, 'item3')).toBe(1);
+    });
   });
 });
 
