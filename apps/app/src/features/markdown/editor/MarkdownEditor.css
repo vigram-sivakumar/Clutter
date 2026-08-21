@@ -147,8 +147,9 @@
  * dimensions stay untouched by markdown-editor-specific overrides. Empty on
  * purpose: a hook for width/height adjustments, not a default override.
  */
-.cm-editor .cm-task-checkbox {
-}
+/* .cm-editor .cm-task-checkbox {
+
+} */
 
 /*
  * Shared marker class — every list-item marker widget/mark (bullet,
@@ -434,7 +435,7 @@
 }
 
 .cm-editor .tok-tag {
-  color: var(--link-foreground);
+  color: var(--tag-foreground);
   cursor: pointer;
 }
 /* .cm-editor .tok-tag .tok-tag-prefix {
