@@ -107,6 +107,22 @@ function leadingSpaceCount(lineText: string): number {
 }
 
 /**
+ * The nearest ancestor `ListItem` that `node` is nested *inside* — one
+ * level up. Pure tree navigation, no indentation math: used by
+ * `dedentListItem` to find what "one level shallower" means for a given
+ * item, the mirror image of how `indentListItem` uses `prevSibling` to
+ * find what "one level deeper" means.
+ */
+function enclosingListItem(node: SyntaxNode): SyntaxNode | null {
+  for (let n = node.parent; n; n = n.parent) {
+    if (n.name === 'ListItem') {
+      return n;
+    }
+  }
+  return null;
+}
+
+/**
  * Every distinct document line touched by the current selection, deduped
  * by start position — a multi-line selection indents/dedents every line it
  * spans, matching `@codemirror/commands`' own `indentMore`/`indentLess`
@@ -190,6 +206,30 @@ export const indentListItem: StateCommand = ({ state, dispatch }) => {
   return true;
 };
 
+/**
+ * Shift-Tab removes exactly the indentation `indentListItem` would have
+ * added to reach the current level, restoring the item to its enclosing
+ * item's own sibling column — never a flat `indentUnit` strip. A flat
+ * strip only ever coincidentally undoes a single Tab in one press (true
+ * for `-`/task, whose own content column happens to equal `indentUnit`'s
+ * length); for any marker whose content column isn't a multiple of it
+ * (`1.` = 3, `10.` = 4, an emoji marker depending on its own UTF-16
+ * width), it left 1+ stray leading spaces after one Shift-Tab — tolerated
+ * by CommonMark's own "up to 3 spaces before a marker" leniency, so the
+ * item stayed nested at the right depth, but the raw text never actually
+ * round-tripped back to what Tab started from without a second press.
+ *
+ * The target column is the current item's *grandparent's* `contentColumn`
+ * (0 with no grandparent) — reusing `contentColumn` rather than a second,
+ * parallel calculation — because that is by construction exactly the
+ * column `indentListItem` used to place the current item's *parent*,
+ * which is where the parent's own marker starts.
+ *
+ * A line with no marker of its own (`listItemStartingAt` returns `null` —
+ * ordinary wrapped continuation text within an item) has no per-marker
+ * content column to derive, so it keeps the previous flat `indentUnit`
+ * strip unchanged.
+ */
 export const dedentListItem: StateCommand = ({ state, dispatch }) => {
   const lines = selectedLines(state);
   if (lines.length === 0 || !lines.every((line) => isInsideListItem(state, line.from))) {
@@ -199,10 +239,24 @@ export const dedentListItem: StateCommand = ({ state, dispatch }) => {
   const unit = state.facet(indentUnit);
   const changes = lines
     .map((line) => {
-      let removable = 0;
-      while (removable < unit.length && line.text[removable] === ' ') {
-        removable++;
+      const ownItem = listItemStartingAt(state, line.from);
+      if (!ownItem) {
+        let removable = 0;
+        while (removable < unit.length && line.text[removable] === ' ') {
+          removable++;
+        }
+        return removable > 0 ? { from: line.from, to: line.from + removable } : null;
       }
+
+      const parentItem = enclosingListItem(ownItem);
+      if (!parentItem) {
+        return null;
+      }
+
+      const grandparentItem = enclosingListItem(parentItem);
+      const targetColumn = grandparentItem ? contentColumn(state, grandparentItem) : 0;
+      const removable = leadingSpaceCount(line.text) - targetColumn;
+
       return removable > 0 ? { from: line.from, to: line.from + removable } : null;
     })
     .filter((change): change is { from: number; to: number } => change !== null);

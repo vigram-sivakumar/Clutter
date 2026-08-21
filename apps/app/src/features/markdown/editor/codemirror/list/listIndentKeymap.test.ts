@@ -362,4 +362,84 @@ describe('dedentListItem', () => {
     expect(handled).toBe(false);
     expect(view.state.doc.toString()).toBe(doc);
   });
+
+  describe('regression: one Shift-Tab exactly undoes one Tab, for every marker kind/width', () => {
+    /**
+     * Before this fix, `dedentListItem` stripped a flat `indentUnit`
+     * (2 spaces) regardless of the marker's own content column. That
+     * only round-tripped correctly by coincidence for `-`/task (content
+     * column 2, equal to `indentUnit`'s length) — `1.` (3), `10.` (4),
+     * and emoji markers all left 1+ stray leading spaces after a single
+     * Shift-Tab, needing a second press to fully restore the original
+     * text (still nested at the *correct* depth throughout, since
+     * CommonMark tolerates up to 3 leading spaces before a marker — the
+     * bug was purely in the raw Markdown never round-tripping in one
+     * press, not in the resulting nesting depth).
+     */
+    it.each([
+      { label: 'bullet', doc: '- Parent\n- Child' },
+      { label: 'task', doc: '- [ ] Parent\n- [ ] Child' },
+      { label: 'ordered "1."', doc: '1. Parent\n1. Child' },
+      { label: 'ordered "10."', doc: '10. Parent\n1. Child' },
+      { label: 'emoji', doc: '🍒 Parent\n🍒 Child' },
+    ])('$label: Tab then exactly one Shift-Tab restores the exact original Markdown text', ({ doc }) => {
+      const view = mountView(doc, doc.indexOf('Child'));
+
+      const tabHandled = indentListItem(view);
+      expect(tabHandled).toBe(true);
+      const afterTab = view.state.doc.toString();
+      expect(afterTab).not.toBe(doc);
+      expect(nestingDepthOf(afterTab, 'Child')).toBe(1);
+
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('Child') } });
+      const shiftTabHandled = dedentListItem(view);
+
+      expect(shiftTabHandled).toBe(true);
+      const restored = view.state.doc.toString();
+      expect(restored).toBe(doc);
+      expect(nestingDepthOf(restored, 'Child')).toBe(0);
+    });
+
+    it('repeated Shift-Tab from a two-level-deep item dedents exactly one level per press, restoring the exact original text', () => {
+      const doc = '- item1\n  - item2\n    - item3';
+      expect(nestingDepthOf(doc, 'item3')).toBe(2);
+      const view = mountView(doc, doc.indexOf('item3'));
+
+      const firstHandled = dedentListItem(view);
+      expect(firstHandled).toBe(true);
+      const afterFirst = view.state.doc.toString();
+      expect(afterFirst).toBe('- item1\n  - item2\n  - item3');
+      expect(nestingDepthOf(afterFirst, 'item3')).toBe(1);
+
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('item3') } });
+      const secondHandled = dedentListItem(view);
+      expect(secondHandled).toBe(true);
+      const afterSecond = view.state.doc.toString();
+      expect(afterSecond).toBe('- item1\n  - item2\n- item3');
+      expect(nestingDepthOf(afterSecond, 'item3')).toBe(0);
+
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('item3') } });
+      const thirdHandled = dedentListItem(view);
+      expect(thirdHandled).toBe(false);
+      expect(view.state.doc.toString()).toBe(afterSecond);
+    });
+
+    it('emoji: repeated Shift-Tab from a two-level-deep item dedents exactly one level per press', () => {
+      const doc = '🍒 item1\n   🍒 item2\n      🍒 item3';
+      expect(nestingDepthOf(doc, 'item3')).toBe(2);
+      const view = mountView(doc, doc.indexOf('item3'));
+
+      dedentListItem(view);
+      const afterFirst = view.state.doc.toString();
+      expect(nestingDepthOf(afterFirst, 'item3')).toBe(1);
+      expect(hasMarkerNode(afterFirst, 'EmojiListMark')).toBe(true);
+
+      view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('item3') } });
+      dedentListItem(view);
+      const afterSecond = view.state.doc.toString();
+      expect(afterSecond).toBe(doc.replace('      🍒 item3', '🍒 item3'));
+      expect(nestingDepthOf(afterSecond, 'item3')).toBe(0);
+      expect(hasMarkerNode(afterSecond, 'EmojiListMark')).toBe(true);
+    });
+  });
 });
