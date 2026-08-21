@@ -21,12 +21,12 @@ import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoratio
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 import { listIndentKeymap } from './codemirror/list/listIndentKeymap';
+import { listLineDecoration } from './codemirror/list/listLineDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { tableDecoration } from './codemirror/table/tableDecoration';
 import { taskCheckboxDecorations } from './codemirror/task/taskCheckboxDecorations';
 import { taskCheckboxKeymap } from './codemirror/task/taskCheckboxKeymap';
 import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
-import { taskLineIndent } from './codemirror/task/taskLineIndent';
 import { tagDecorations } from './codemirror/tag/tagDecorations';
 import { tagKeymap } from './codemirror/tag/tagKeymap';
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
@@ -151,6 +151,7 @@ export const MarkdownEditor = forwardRef<
         inlineCodeMarkerDecoration(),
         listMarkerDecoration(),
         listIndentKeymap(),
+        listLineDecoration(),
         emojiListKeymap(),
         emojiListMarkDecoration(),
         blockquoteMarkerDecoration(),
@@ -166,7 +167,6 @@ export const MarkdownEditor = forwardRef<
         // autosave. See taskCheckboxActivation.ts's own doc comment.
         taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
         taskCheckboxKeymap(),
-        taskLineIndent(),
         wikiLinkDecorations(() => resolveWikiLinkRef.current),
         wikiLinkMarkerDecorations(),
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
