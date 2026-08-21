@@ -11,18 +11,19 @@ import {
 import type { SyntaxNode } from '@lezer/common';
 
 /**
- * Nesting depth of a `ListItem` — how many `ListItem` ancestors contain it,
- * including itself. A top-level item is depth 1, an item nested one level
- * inside another list item is depth 2, and so on. Uniform across bullet,
- * ordered, task, and emoji lists: `emojiListSyntax.ts`'s `EmojiList`
- * composite starts a `ListItem` exactly like `BulletList`/`OrderedList` do
- * (confirmed by direct inspection of the parser), so no per-list-type
- * branching is needed here — a `Task` is just a `ListItem` whose second
- * child happens to be a `Task` node instead of a `Paragraph`.
+ * Nesting depth of a `ListItem` — how many `ListItem` *ancestors* contain
+ * it, excluding itself. A top-level item has no `ListItem` ancestor, so
+ * depth 0; an item nested one level inside another list item is depth 1,
+ * and so on. Uniform across bullet, ordered, task, and emoji lists:
+ * `emojiListSyntax.ts`'s `EmojiList` composite starts a `ListItem` exactly
+ * like `BulletList`/`OrderedList` do (confirmed by direct inspection of
+ * the parser), so no per-list-type branching is needed here — a `Task` is
+ * just a `ListItem` whose second child happens to be a `Task` node instead
+ * of a `Paragraph`.
  */
 function listDepth(node: SyntaxNode): number {
   let depth = 0;
-  for (let n: SyntaxNode | null = node; n; n = n.parent) {
+  for (let n: SyntaxNode | null = node.parent; n; n = n.parent) {
     if (n.name === 'ListItem') {
       depth++;
     }
@@ -39,9 +40,12 @@ function listLineMark(depth: number): Decoration {
 /**
  * Reserves a hanging-indent column (`.cm-list-line`, styled in
  * MarkdownEditor.css) on every physical document line that starts a
- * `ListItem` — bullet, ordered, task, or emoji alike — so a long item's
- * wrapped continuation lands under the list's own indent rather than the
- * editor's left edge.
+ * *nested* `ListItem` — bullet, ordered, task, or emoji alike — so a long
+ * nested item's wrapped continuation lands under the list's own indent
+ * rather than the editor's left edge. A top-level item (depth 0) gets
+ * neither the class nor `--list-depth` at all: `.cm-line`'s own base
+ * indentation is already 0 (see MarkdownEditor.css), so there is nothing
+ * for a depth-0 line decoration to add.
  *
  * One mechanism shared by every list type, replacing the previous
  * Task-only `taskLineIndent.ts`. The indent is driven entirely by
@@ -76,13 +80,18 @@ function buildListLineDecorations(view: EditorView): DecorationSet {
           return;
         }
 
+        const depth = listDepth(node.node);
+        if (depth === 0) {
+          return;
+        }
+
         const line = view.state.doc.lineAt(node.from);
         if (seenLines.has(line.from)) {
           return;
         }
         seenLines.add(line.from);
 
-        builder.add(line.from, line.from, listLineMark(listDepth(node.node)));
+        builder.add(line.from, line.from, listLineMark(depth));
       },
     });
   }

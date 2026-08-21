@@ -40,52 +40,54 @@ function depthOf(line: HTMLElement): string | null {
   return line.style.getPropertyValue('--list-depth') || null;
 }
 
+function hasListLine(line: HTMLElement): boolean {
+  return line.className.includes('cm-list-line');
+}
+
 describe('listLineDecoration', () => {
-  it('adds cm-list-line with depth 1 to a plain bullet item', () => {
-    const view = mountView('- item');
+  describe('top-level items (depth 0) get no decoration at all', () => {
+    it.each([
+      ['bullet', '- item'],
+      ['ordered', '1. item'],
+      ['task', '- [ ] Buy milk'],
+      ['checked task', '- [x] Buy milk'],
+      ['emoji', '🍒 item'],
+    ])('%s: no cm-list-line class, no --list-depth', (_kind, doc) => {
+      const view = mountView(doc);
+      const line = nthLine(view, 0);
 
-    expect(nthLine(view, 0).className).toContain('cm-list-line');
-    expect(depthOf(nthLine(view, 0))).toBe('1');
+      expect(hasListLine(line)).toBe(false);
+      expect(depthOf(line)).toBeNull();
+    });
   });
 
-  it('adds cm-list-line with depth 1 to an ordered item', () => {
-    const view = mountView('1. item');
+  it('a first-nested item (depth 1) gets cm-list-line and --list-depth: 1', () => {
+    const view = mountView('- parent\n  - [x] nested task');
 
-    expect(nthLine(view, 0).className).toContain('cm-list-line');
-    expect(depthOf(nthLine(view, 0))).toBe('1');
+    expect(hasListLine(nthLine(view, 0))).toBe(false); // top-level parent: depth 0
+    expect(depthOf(nthLine(view, 0))).toBeNull();
+
+    expect(hasListLine(nthLine(view, 1))).toBe(true);
+    expect(depthOf(nthLine(view, 1))).toBe('1');
   });
 
-  it('adds cm-list-line with depth 1 to a task item, regardless of checked state', () => {
-    const view = mountView('- [ ] Buy milk\n- [x] Buy eggs');
-    const lines = listLines(view);
+  it('a second-nested item (depth 2) gets cm-list-line and --list-depth: 2', () => {
+    const view = mountView('- top\n  - first nested\n    - second nested');
 
-    for (const line of lines) {
-      expect(line.className).toContain('cm-list-line');
-      expect(depthOf(line)).toBe('1');
-    }
-  });
+    expect(hasListLine(nthLine(view, 0))).toBe(false); // top-level: depth 0
+    expect(depthOf(nthLine(view, 0))).toBeNull();
 
-  it('adds cm-list-line with depth 1 to an emoji list item', () => {
-    const view = mountView('🍒 item');
+    expect(hasListLine(nthLine(view, 1))).toBe(true); // first nested: depth 1
+    expect(depthOf(nthLine(view, 1))).toBe('1');
 
-    expect(nthLine(view, 0).className).toContain('cm-list-line');
-    expect(depthOf(nthLine(view, 0))).toBe('1');
-  });
-
-  it('gives a nested item depth 2, independent of its parent/child marker kind', () => {
-    const view = mountView('- parent\n  - [x] nested task\n    🍒 nested emoji');
-    const lines = listLines(view);
-
-    expect(lines).toHaveLength(3);
-    expect(depthOf(nthLine(view, 0))).toBe('1');
-    expect(depthOf(nthLine(view, 1))).toBe('2');
-    expect(depthOf(nthLine(view, 2))).toBe('3');
+    expect(hasListLine(nthLine(view, 2))).toBe(true); // second nested: depth 2
+    expect(depthOf(nthLine(view, 2))).toBe('2');
   });
 
   it('does NOT add the class to an unrelated line — blockquote, heading, or plain paragraph', () => {
     const view = mountView('> quoted\n# Heading\nplain text', [blockquoteMarkerDecoration()]);
 
-    expect(listLines(view).every((l) => !l.className.includes('cm-list-line'))).toBe(true);
+    expect(listLines(view).every((l) => !hasListLine(l))).toBe(true);
   });
 
   it('a plain paragraph gets no --list-depth and no inline style at all — no default list indentation to opt out of', () => {
@@ -97,53 +99,57 @@ describe('listLineDecoration', () => {
     expect(line.getAttribute('style')).toBeNull();
   });
 
-  it('removes cm-list-line and --list-depth once a line stops being a list item', () => {
-    const view = mountView('- was a list item');
-    expect(nthLine(view, 0).className).toContain('cm-list-line');
-    expect(depthOf(nthLine(view, 0))).toBe('1');
+  it('removes cm-list-line and --list-depth once a nested line stops being a list item', () => {
+    const view = mountView('- parent\n  - nested item');
+    expect(hasListLine(nthLine(view, 1))).toBe(true);
+    expect(depthOf(nthLine(view, 1))).toBe('1');
 
-    // Delete the `- ` marker prefix so the line reparses as a plain paragraph.
-    view.dispatch({ changes: { from: 0, to: 2, insert: '' } });
+    // Delete the nested line's own `- ` marker prefix (keeping its 2-space
+    // indent), so it reparses as lazy-continuation text of the parent item
+    // rather than a ListItem of its own.
+    const nestedMarkerStart = '- parent\n  '.length;
+    view.dispatch({ changes: { from: nestedMarkerStart, to: nestedMarkerStart + 2, insert: '' } });
 
-    const line = nthLine(view, 0);
-    expect(line.className).not.toContain('cm-list-line');
+    const line = nthLine(view, 1);
+    expect(hasListLine(line)).toBe(false);
     expect(depthOf(line)).toBeNull();
   });
 
-  it('demotes a nested item back to depth 1 once its parent indentation is removed', () => {
-    const doc = '- parent\n  - nested';
+  it('demotes a second-nested item from depth 2 to depth 1 once one level of its own indentation is removed', () => {
+    const doc = '- top\n  - first nested\n    - second nested';
     const view = mountView(doc);
-    expect(depthOf(nthLine(view, 1))).toBe('2');
+    expect(depthOf(nthLine(view, 2))).toBe('2');
 
-    // Delete the 2-space indent in front of the nested item's own marker.
-    const nestedLineStart = doc.indexOf('  - nested');
-    view.dispatch({ changes: { from: nestedLineStart, to: nestedLineStart + 2, insert: '' } });
+    // Delete 2 of the second-nested item's 4 leading spaces, making it a
+    // sibling of "first nested" instead of a child of it.
+    const secondNestedStart = doc.indexOf('    - second nested');
+    view.dispatch({
+      changes: { from: secondNestedStart, to: secondNestedStart + 2, insert: '' },
+    });
 
-    expect(depthOf(nthLine(view, 1))).toBe('1');
+    expect(hasListLine(nthLine(view, 2))).toBe(true);
+    expect(depthOf(nthLine(view, 2))).toBe('1');
   });
 
-  it('is unconditional — the class and depth stay applied whether or not the marker is currently engaged', () => {
-    const text = 'Text before\n\n- [ ] Buy milk';
+  it('is unconditional — a nested item keeps its class/depth whether or not its marker is currently engaged', () => {
+    const text = '- parent\n  - [ ] Buy milk';
     const view = mountView(text);
-    const taskLineIndex = 2;
+    const nestedLineIndex = 1;
 
-    expect(nthLine(view, taskLineIndex).className).toContain('cm-list-line');
+    expect(hasListLine(nthLine(view, nestedLineIndex))).toBe(true);
+    expect(depthOf(nthLine(view, nestedLineIndex))).toBe('1');
 
     const taskMarkerPos = text.indexOf('[ ]') + 1;
     view.dispatch({ selection: { anchor: taskMarkerPos } });
 
-    expect(nthLine(view, taskLineIndex).className).toContain('cm-list-line');
+    expect(hasListLine(nthLine(view, nestedLineIndex))).toBe(true);
+    expect(depthOf(nthLine(view, nestedLineIndex))).toBe('1');
   });
 
-  it('only decorates lines that actually start a list item, in a document mixing list and non-list lines', () => {
-    const view = mountView('plain paragraph\n- item one\nplain again\n1. item two');
+  it('only decorates nested list-item lines in a document mixing plain, top-level, and nested lines', () => {
+    const view = mountView('plain paragraph\n- top item\n  - nested item\nplain again');
     const lines = listLines(view);
 
-    expect(lines.map((l) => l.className.includes('cm-list-line'))).toEqual([
-      false,
-      true,
-      false,
-      true,
-    ]);
+    expect(lines.map(hasListLine)).toEqual([false, false, true, false]);
   });
 });
