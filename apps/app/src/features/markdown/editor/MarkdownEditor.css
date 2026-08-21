@@ -350,6 +350,53 @@
   mask-position: left center;
 }
 
+/*
+ * GFM table Live Preview layout (tableDecoration.ts) — CSS-table styling
+ * over the real decorated text (no widget), per that file's own doc
+ * comment. `.cm-table-row`/`.cm-table-header` are `Decoration.line`
+ * classes applied to every row unconditionally; `.cm-table-cell` (plus an
+ * alignment modifier) is a `Decoration.mark` on each cell. Contiguous
+ * `display: table-row` siblings get the browser's anonymous
+ * `display: table` wrapper for free (CSS2.1 table box generation) — no
+ * wrapping element in the DOM to style.
+ */
+.cm-editor .cm-table-row {
+  display: table-row;
+}
+
+.cm-editor .cm-table-cell {
+  display: table-cell;
+  padding: var(--space-6) var(--space-12);
+  border: 1px solid var(--border-strong);
+}
+
+.cm-editor .cm-table-header .cm-table-cell {
+  font-weight: 700;
+}
+
+.cm-editor .cm-table-align-left {
+  text-align: left;
+}
+
+.cm-editor .cm-table-align-center {
+  text-align: center;
+}
+
+.cm-editor .cm-table-align-right {
+  text-align: right;
+}
+
+/*
+ * The alignment/separator row (`| :--- | ---: |`) collapses to a hairline
+ * when not engaged — same collapsed-line technique as `.cm-hr-line` above,
+ * scaled down to a single row's height rather than the ~24px standalone
+ * divider box.
+ */
+.cm-editor .cm-table-align-row {
+  font-size: 0;
+  line-height: 0;
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-body-small);
