@@ -17,6 +17,7 @@ import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarke
 import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
+import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 import { listIndentKeymap } from './codemirror/list/listIndentKeymap';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { taskCheckboxDecorations } from './codemirror/task/taskCheckboxDecorations';
@@ -148,6 +149,7 @@ export const MarkdownEditor = forwardRef<
         listMarkerDecoration(),
         listIndentKeymap(),
         blockquoteMarkerDecoration(),
+        horizontalRuleDecoration(),
         formatShortcutsKeymap(),
         taskCheckboxDecorations(),
         // Reuses the exact same onFlush callback already wired to blur

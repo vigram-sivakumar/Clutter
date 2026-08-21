@@ -162,6 +162,40 @@
   color: var(--marker-foreground);
 }
 
+/*
+ * Resting horizontal rule (horizontalRuleDecoration.ts) — `font-size`/
+ * `line-height: 0` remove the line's own text-metric height (its raw
+ * `---`/`***`/`___` text is replaced to nothing when not engaged), exactly
+ * like `.cm-table-align-row` below. Unlike that row, the divider isn't
+ * painted with `border-top`: a border sits flush at the box's top edge,
+ * which can't be centered by padding alone. Instead, `padding` (real block
+ * layout CM re-measures normally — not a raw `height` override, which
+ * risks drifting from CM's own layout/coordinate measurements) supplies
+ * the ~24px resting height, and the `::after` pseudo-element — outside the
+ * editable text flow, so it can't interfere with cursor placement — paints
+ * the 1px line centered within it. When engaged, the raw marker text
+ * reveals again and this class no longer applies at all (see
+ * horizontalRuleDecoration.ts), so none of this resting styling carries
+ * over.
+ */
+.cm-editor .cm-hr-line {
+  position: relative;
+  font-size: 0;
+  line-height: 0;
+  padding: 12px 0;
+}
+
+.cm-editor .cm-hr-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--surface-tertiary);
+  transform: translateY(-50%);
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-body-small);
