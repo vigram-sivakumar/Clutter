@@ -27,72 +27,85 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
 }
 
 describe('listMarkerDecoration', () => {
-  it('at rest, an unordered list marker (- ) has no DOM presence', () => {
+  it('at rest, an unordered list marker (- ) renders as a bullet widget, not the raw text', () => {
     const text = '- item one\n\nOther';
     const view = mountView(text, text.indexOf('Other'));
 
+    const bullet = view.dom.querySelector('.cm-list-marker');
+    expect(bullet).not.toBeNull();
+    expect(bullet?.textContent).toBe('•');
     expect(view.dom.textContent).toContain('item one');
     expect(view.dom.textContent).not.toContain('-');
   });
 
-  it('at rest, * and + markers also have no DOM presence', () => {
+  it('at rest, * and + markers also render as the same bullet widget', () => {
     for (const marker of ['*', '+']) {
       const text = `${marker} item one\n\nOther`;
       const view = mountView(text, text.indexOf('Other'));
 
+      const bullet = view.dom.querySelector('.cm-list-marker');
+      expect(bullet?.textContent).toBe('•');
       expect(view.dom.textContent).toContain('item one');
       expect(view.dom.textContent).not.toContain(marker);
     }
   });
 
-  it('at rest, an ordered list marker (1. ) has no DOM presence', () => {
+  it('at rest, an ordered list marker (1. ) has no DOM presence — unaffected by the bullet widget', () => {
     const text = '1. item one\n\nOther';
     const view = mountView(text, text.indexOf('Other'));
 
+    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
     expect(view.dom.textContent).toContain('item one');
     expect(view.dom.textContent).not.toContain('1.');
   });
 
-  it('reveals the raw "- " once the cursor is inside the item', () => {
+  it('reveals the raw "- " once the cursor is inside the item — no bullet widget while engaged', () => {
     const view = mountView('- item one');
 
     view.dispatch({ selection: { anchor: 4 } }); // inside "item"
 
     expect(view.dom.textContent).toBe('- item one');
+    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
   });
 
-  it('re-collapses once the selection leaves the item', () => {
+  it('re-collapses to the bullet widget once the selection leaves the item', () => {
     const text = '- item one\n\nOther';
     const view = mountView(text, 4); // inside the list item
 
     expect(view.dom.textContent).toContain('- item one');
+    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
 
     view.dispatch({ selection: { anchor: text.indexOf('Other') } });
 
     expect(view.dom.textContent).not.toContain('-');
     expect(view.dom.textContent).toContain('item one');
+    expect(view.dom.querySelector('.cm-list-marker')?.textContent).toBe('•');
   });
 
-  it("nested lists: only the engaged item's own marker reveals, indentation is preserved untouched", () => {
+  it("nested lists: only the engaged item's own marker reveals, both levels render as bullets at rest", () => {
     const text = '- item one\n  - nested item\n\nOther';
     const nestedStart = text.indexOf('nested');
     const atRest = mountView(text, text.indexOf('Other'));
 
-    // At rest: neither marker is visible, but the nested item's leading
-    // indentation (untouched raw text, not a node) is still present.
+    // At rest: neither raw marker is visible, both render as bullets, and
+    // the nested item's leading indentation (untouched raw text, not a
+    // node) is still present.
     expect(atRest.dom.textContent).not.toContain('-');
-    expect(atRest.dom.textContent).toContain('  nested item');
+    expect(atRest.dom.querySelectorAll('.cm-list-marker')).toHaveLength(2);
+    expect(atRest.dom.textContent).toContain('nested item');
 
     // Physical-line engagement: engaging the nested item reveals only its
     // own marker. The parent ListItem's node range technically extends
     // across the nested sublist's lines too (confirmed by the node-shape
     // probe), but engagement is now scoped to the marker's own physical
     // line, not the enclosing node's full span — so the parent's marker
-    // correctly stays collapsed while a sibling/descendant line is engaged.
+    // correctly stays a collapsed bullet while a sibling/descendant line
+    // is engaged.
     const engaged = mountView(text, nestedStart + 2); // inside "nested"
 
     expect(engaged.dom.textContent).toContain('- nested item');
     expect(engaged.dom.textContent).not.toContain('- item one');
+    expect(engaged.dom.querySelectorAll('.cm-list-marker')).toHaveLength(1); // only the parent's
   });
 
   it("each item's marker engages independently — engaging one does not reveal a sibling's", () => {

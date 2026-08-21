@@ -1,6 +1,7 @@
 import type { Extension } from '@codemirror/state';
 
-import { liveMarkDecoration, type MarkRangeSelector } from './liveMarkDecoration';
+import { liveMarkDecoration, type MarkRange, type MarkRangeSelector } from './liveMarkDecoration';
+import { ListBulletWidget } from './ListBulletWidget';
 
 /**
  * Live Preview marker hiding for list item prefixes (`- `/`* `/`+ `/`1. `),
@@ -24,18 +25,40 @@ import { liveMarkDecoration, type MarkRangeSelector } from './liveMarkDecoration
  */
 const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
 
+/**
+ * `-`/`*`/`+` are the only three GFM bullet markers (confirmed against the
+ * installed `@lezer/markdown`'s `BulletList` parser) — anything else
+ * `ListMark` matches is an ordered marker (`1.`, `2)`, …), which this
+ * deliberately leaves alone: ordered-list rendering is unchanged for now.
+ */
+const BULLET_MARKERS: ReadonlySet<string> = new Set(['-', '*', '+']);
+
 const getListMarkRanges: MarkRangeSelector = (node, state) => {
   const listMark = node.node.firstChild;
   if (!listMark || listMark.name !== 'ListMark') {
     return [];
   }
 
-  const ranges = [{ from: listMark.from, to: listMark.to }];
+  const raw = state.sliceDoc(listMark.from, listMark.to);
+  const isBullet = BULLET_MARKERS.has(raw);
 
-  const separatorFrom = listMark.to;
-  const separatorTo = separatorFrom + 1;
-  if (separatorTo <= state.doc.length && state.sliceDoc(separatorFrom, separatorTo) === ' ') {
-    ranges.push({ from: separatorFrom, to: separatorTo });
+  const ranges: MarkRange[] = [
+    isBullet
+      ? { from: listMark.from, to: listMark.to, widget: new ListBulletWidget() }
+      : { from: listMark.from, to: listMark.to },
+  ];
+
+  // A bullet's separator space is left uncollapsed — real, visible
+  // whitespace between the rendered `•` widget and the item's text, the
+  // same gap `- ` already had. An ordered marker keeps the previous
+  // hide-both behavior unchanged (no widget stands in for `1.`, so
+  // nothing is left to create a gap against).
+  if (!isBullet) {
+    const separatorFrom = listMark.to;
+    const separatorTo = separatorFrom + 1;
+    if (separatorTo <= state.doc.length && state.sliceDoc(separatorFrom, separatorTo) === ' ') {
+      ranges.push({ from: separatorFrom, to: separatorTo });
+    }
   }
 
   return ranges;

@@ -135,6 +135,20 @@
   text-indent: calc(-1 * (var(--height-xs) + var(--space-4)));
 }
 
+/*
+ * Resting bullet glyph (ListBulletWidget.ts) standing in for a hidden
+ * `-`/`*`/`+`. Deliberately its own class, not `tok-mark`: `tok-mark`
+ * styles the *raw* Markdown marker text when engagement reveals it — a
+ * different DOM node, at a different moment — and the two are meant to
+ * be styled independently (this one is a permanent, always-visible glyph;
+ * `tok-mark` only ever appears mid-edit).
+ */
+.cm-editor .cm-list-marker {
+  color: var(--marker-foreground);
+  font-size: 1.2em;
+  line-height: 1;
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-body-small);

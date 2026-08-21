@@ -7,6 +7,7 @@ import {
   ViewPlugin,
   type PluginValue,
   type ViewUpdate,
+  type WidgetType,
 } from '@codemirror/view';
 import type { SyntaxNodeRef } from '@lezer/common';
 
@@ -62,11 +63,20 @@ import { liveMarkSelectionSnap } from './liveMarkSelectionSnap';
  * `StrongEmphasis`'s own marks sit strictly inside its enclosing
  * `Emphasis`'s range, visited out of left-to-right order by `iterate`) —
  * is shared.
+ *
+ * A range may optionally carry its own `widget`, rendering it in place of
+ * the collapsed-to-nothing default (`Decoration.replace({})`) — e.g. a
+ * resting bullet glyph standing in for a hidden `-`/`*`/`+` (see
+ * `listMarkerDecoration.ts`/`ListBulletWidget.ts`). Every other construct
+ * routed through this mechanism (heading, emphasis, blockquote, …) simply
+ * never sets it, and keeps collapsing to nothing exactly as before.
  */
+export type MarkRange = TokenNodeRange & { readonly widget?: WidgetType };
+
 export type MarkRangeSelector = (
   node: SyntaxNodeRef,
   state: EditorState
-) => readonly TokenNodeRange[];
+) => readonly MarkRange[];
 
 /**
  * `'node-range'` (default): engaged iff the selection is contained by the
@@ -133,7 +143,7 @@ function buildDecorations(
   getMarkRanges: MarkRangeSelector,
   engagementMode: MarkEngagementMode
 ): DecorationSet {
-  const collapsed: TokenNodeRange[] = [];
+  const collapsed: MarkRange[] = [];
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -158,7 +168,9 @@ function buildDecorations(
   // are visited before its inner construct's own (earlier-positioned)
   // marks, which RangeSetBuilder's strictly-ascending insertion rejects.
   return Decoration.set(
-    collapsed.map(({ from, to }) => Decoration.replace({}).range(from, to)),
+    collapsed.map(({ from, to, widget }) =>
+      (widget ? Decoration.replace({ widget }) : Decoration.replace({})).range(from, to)
+    ),
     true
   );
 }
