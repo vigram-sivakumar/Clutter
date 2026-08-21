@@ -1,5 +1,4 @@
 import { WidgetType } from '@codemirror/view';
-
 import type { TagResolution } from './tagResolution';
 
 /**
@@ -40,17 +39,25 @@ export class TagWidget extends WidgetType {
   }
 
   override toDOM(): HTMLElement {
-    const text = `#${this.resolution.displayLabel}`;
     const span = document.createElement('span');
-    span.textContent = text;
     span.classList.add('tok-tag');
     // A tag's activation filters/opens a tag-scoped view, closer to a
     // toggle/filter control than a hyperlink — "button", not "link"
     // (docs/editor-research/clutter-editor-shared-token-interaction-contract.md's
     // explicit recommendation for this construct's accessibility role).
+
     span.setAttribute('role', 'button');
-    span.setAttribute('aria-label', `${this.resolution.status} tag: ${text}`);
+    span.setAttribute(
+      'aria-label',
+      `${this.resolution.status} tag: #${this.resolution.displayLabel}`
+    );
     span.dataset.tagStatus = this.resolution.status;
+
+    const prefix = document.createElement('span');
+    prefix.classList.add('tok-tag-prefix');
+    prefix.textContent = '#';
+    span.append(prefix, document.createTextNode(this.resolution.displayLabel));
+
     return span;
   }
 

@@ -17,8 +17,8 @@
   width: 100%;
   min-height: var(--height-lg);
   font-family: var(--font-sans);
-  font-size: var(--text-body-small);
-  line-height: var(--lh-body-small);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
 
   padding-block: var(--space-6);
   padding-inline: var(--space-6);

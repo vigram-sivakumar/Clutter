@@ -50,7 +50,7 @@
 .input__hint {
   font-size: var(--text-label-small);
   font-weight: var(--fw-thin);
-  line-height: var(--lh-label);
+  line-height: var(--lh-label-small);
   color: var(--foreground-tertiary);
   text-align: center;
   opacity: var(--opacity-medium);

@@ -11,9 +11,12 @@
 
 .compact-markdown-code {
   font-family: ui-monospace, monospace;
+  font-size: var(--text-label-small);
   background: var(--surface-subtle);
+  color: var(--foreground-secondary);
   border-radius: var(--radius-sm);
-  padding: 0 0.2em;
+  box-shadow: var(--shadow-inset-default);
+  padding: 0.2em 0.4em;
 }
 
 .compact-markdown-wikilink {
@@ -36,7 +39,7 @@
 }
 
 .compact-markdown-highlight {
-  background: var(--highlight-background);
+  background: var(--highlight-surface);
   color: var(--highlight-foreground);
   padding: 0 0.15em;
 }

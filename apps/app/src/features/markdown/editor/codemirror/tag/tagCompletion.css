@@ -10,5 +10,5 @@
   padding-inline: var(--space-8);
   width: 100%;
   color: var(--entry-foreground);
-  font: var(--text-body-small);
+  font: var(--text-label);
 }

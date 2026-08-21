@@ -14,7 +14,7 @@
 
 .date-completion__label {
   color: var(--entry-foreground);
-  font: var(--text-body-small);
+  font: var(--text-label);
 }
 
 .date-completion__iso {

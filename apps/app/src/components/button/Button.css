@@ -3,7 +3,7 @@
   padding: 0;
   cursor: pointer;
   color: var(--foreground-secondary);
-  font-size: var(--text-body-small);
+  font-size: var(--text-label);
 
   transition:
     background-color 160ms ease,

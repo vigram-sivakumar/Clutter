@@ -30,9 +30,9 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-inverse: var(--neutral-50);
 
   /* Text & icons */
-  --foreground-primary: #e6e6e6;
+  --foreground-primary: #d6d6d6;
   --foreground-secondary: #a8a8a8;
-  --foreground-tertiary: #787878;
+  --foreground-tertiary: #858585;
   --foreground-placeholder: #565656;
   --foreground-inverse: var(--neutral-700);
   --link-underline: rgb(
@@ -40,12 +40,12 @@ html.theme-transitioning [data-themeable] *::after {
   );
 
   /* Markdown surface */
-  --highlight-background: #ffe066;
+  --highlight-surface: #ffe066;
 
   /* Markdown foreground */
   --marker-foreground: var(--foreground-placeholder);
-  --link-foreground: orange;
-  --date-foreground: var(--foreground-secondary);
+  --link-foreground: var(--foreground-primary);
+  --date-foreground: #999999;
   --highlight-foreground: #2b2200;
 
   /* Interactive states */
@@ -83,6 +83,11 @@ html.theme-transitioning [data-themeable] *::after {
   --opacity-medium: 55%;
   --opacity-subtle: 75%;
 
+  /* Border */
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-default: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.1);
+
   /* Inset borders */
   --shadow-inset-default: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   --shadow-inset-subtle: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
@@ -115,22 +120,22 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-inverse: var(--neutral-900);
 
   /* Text & icons */
-  --foreground-primary: #1a1a1a; /* ≈ black @ 90% */
-  --foreground-secondary: #666666; /* ≈ black @ 60% */
-  --foreground-tertiary: #8c8c8c; /* ≈ black @ 45% */
-  --foreground-placeholder: #cccccc; /* ≈ black @ 20% */
+  --foreground-primary: #333333;
+  --foreground-secondary: hsl(0, 0%, 34%);
+  --foreground-tertiary: #747474;
+  --foreground-placeholder: #cccccc;
   --foreground-inverse: #d4d4d4;
   --link-underline: rgb(
     from var(--foreground-tertiary) r g b / var(--opacity-medium)
   );
 
   /* Markdown surface */
-  --highlight-background: #ffe066;
+  --highlight-surface: #ffe066;
 
   /* Markdown foreground colors */
   --marker-foreground: var(--foreground-placeholder);
-  --link-foreground: orange;
-  --date-foreground: var(--foreground-secondary);
+  --link-foreground: var(--foreground-primary);
+  --date-foreground: #767676;
   --highlight-foreground: #2b2200;
 
   /* Interactive states */
@@ -167,6 +172,11 @@ html.theme-transitioning [data-themeable] *::after {
   --opacity-strong: 30%;
   --opacity-medium: 50%;
   --opacity-subtle: 70%;
+
+  /* Border */
+  --border-subtle: rgba(0, 0, 0, 0.04);
+  --border-default: rgba(0, 0, 0, 0.06);
+  --border-strong: rgba(0, 0, 0, 0.12);
 
   /* Inset borders */
   --shadow-inset-default: inset 0 0 0 1px rgba(0, 0, 0, 0.06);

@@ -23,9 +23,9 @@
   white-space: nowrap;
   text-align: start;
 
-  font-size: var(--text-body-small);
-  line-height: var(--lh-body-small);
-  letter-spacing: var(--ls-body-small);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  letter-spacing: var(--ls-label);
 }
 
 .breadcrumb-item:hover {

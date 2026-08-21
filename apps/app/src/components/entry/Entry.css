@@ -22,8 +22,8 @@
 
   color: var(--entry-foreground);
 
-  font-size: var(--text-body-small);
-  line-height: var(--lh-body-small);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
 
   transition:
     background-color 120ms ease,
@@ -146,7 +146,7 @@
 /* Object type specific classes */
 .section-header {
   font-size: var(--text-label-small);
-  line-height: var(--lh-label);
+  line-height: var(--lh-label-small);
   color: var(--entry-muted-foreground);
 }
 .section-header::first-letter {

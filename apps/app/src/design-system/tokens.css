@@ -18,11 +18,6 @@
   --accent-dark: #007aff;
   --accent-hover: #008acc;
 
-  /* Opacity */
-  --opacity-strong: 0.4;
-  --opacity-medium: 0.6;
-  --opacity-subtle: 0.8;
-
   /* Motion */
   --duration-interaction: 120ms;
   --easing-interaction: ease;
@@ -92,37 +87,61 @@
   --z-overlay: 1000;
 
   /* Typography */
-  --font-sans: Helvatica, system-ui, -apple-system, sans-serif;
+  --font-sans:
+    -apply-system, system-ui, ui-sans-serif, -apple-system, 'system-ui',
+    'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
   /* Font size */
-  --text-heading-0: 32px;
+  --text-display: 32px;
+
   --text-heading-1: 28px;
   --text-heading-2: 24px;
   --text-heading-3: 20px;
-  --text-body: 15px;
-  --text-body-small: 13px;
+  --text-heading-4: 18px;
+  --text-heading-5: 16px;
+  --text-heading-6: 14px;
+
+  --text-body: 16px;
+  --text-body-small: 14px;
+
+  --text-label: 13px;
   --text-label-small: 12px;
+
   --text-caption: 11px;
 
   /* Line height */
-  --lh-heading-0: 40px;
+  --lh-display: 40px;
+
   --lh-heading-1: 36px;
-  --lh-heading-2: 36px;
-  --lh-heading-3: 32px;
+  --lh-heading-2: 32px;
+  --lh-heading-3: 28px;
+  --lh-heading-4: 24px;
+  --lh-heading-5: 24px;
+  --lh-heading-6: 20px;
+
   --lh-body: 24px;
-  --lh-body-small: 20px;
-  --lh-label: 16px;
-  --lh-caption: 12px;
-  --lh-100: 1;
+
+  --lh-label: 20px;
+  --lh-label-small: 16px;
+
+  --lh-caption: 16px;
 
   /* Letter spacing */
+  --ls-display: -0.02em;
 
   --ls-heading-1: -0.02em;
   --ls-heading-2: -0.01em;
-  --ls-heading-3: 0;
+  --ls-heading-3: -0.01em;
+  --ls-heading-4: 0;
+  --ls-heading-5: 0;
+  --ls-heading-6: 0;
+
   --ls-body: 0;
-  --ls-body-small: 0;
+
   --ls-label: 0;
+  --ls-label-small: 0;
+
   --ls-caption: 0.01em;
 
   /* Font weight */

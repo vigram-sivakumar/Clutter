@@ -9,8 +9,8 @@
   gap: var(--btn-gap-md);
   padding-inline: var(--space-6);
 
-  font-size: var(--text-body-small);
-  line-height: var(--lh-body-small);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
 
   transition:
     background-color 120ms ease,

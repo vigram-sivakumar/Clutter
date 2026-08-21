@@ -208,12 +208,22 @@ describe('toDraftPageModel (ADR-017)', () => {
   });
 
   it('formats a daily-note draft\'s title through the shared full-date formatter, same as a persisted Daily Note', () => {
+    // formatDailyNoteTitle (toResourcePageModel.ts) calls formatDateDisplay
+    // with no explicit reference date, so it always resolves against the
+    // real clock (same as DateWidget/formatTaskDueDate elsewhere) — the
+    // clock is pinned here so this test's own expected-value computation
+    // (also via the real Date, no reference passed) stays in sync with it
+    // regardless of which day this test actually runs.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 20)); // Thursday, 2026-08-20
+
     const session = new DocumentSession('draft-1', '');
-    const reference = new Date(2026, 7, 20); // Thursday, 2026-08-20
 
     const model = toDraftPageModel('draft-1', 'daily-note', '2026-08-20', session, vi.fn(), vi.fn());
 
-    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'full', reference));
+    expect(model.title).toBe(formatDateDisplay('2026-08-20', 'full'));
+
+    vi.useRealTimers();
   });
 
   it("renders the session's in-memory revision", () => {
