@@ -10,6 +10,7 @@ import {
   type MarkRangeSelector,
 } from './liveMarkDecoration';
 import { ListBulletWidget } from './ListBulletWidget';
+import { OrderedListMarkerWidget } from './OrderedListMarkerWidget';
 
 /**
  * Live Preview marker hiding for list item prefixes (`- `/`* `/`+ `/`1. `),
@@ -32,8 +33,11 @@ const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
 /**
  * `-`/`*`/`+` are the only three GFM bullet markers (confirmed against the
  * installed `@lezer/markdown`'s `BulletList` parser) — anything else
- * `ListMark` matches is an ordered marker (`1.`, `2)`, …), which this
- * deliberately leaves alone: ordered-list rendering is unchanged for now.
+ * `ListMark` matches is an ordered marker (`1.`, `2)`, …). Both kinds get a
+ * resting widget below; this set only decides *which* widget class
+ * (`ListBulletWidget` vs. `OrderedListMarkerWidget`) a given `ListMark`
+ * renders as, so bullet and numbered markers can be styled independently
+ * (`.cm-list-marker` vs. `.cm-list-number`) per product ask.
  */
 const BULLET_MARKERS: ReadonlySet<string> = new Set(['-', '*', '+']);
 
@@ -67,25 +71,30 @@ const getListMarkRanges: MarkRangeSelector = (node, state) => {
   const isBullet = BULLET_MARKERS.has(raw);
   const isTaskOwned = findTaskMarker(node.node) !== null;
 
-  // A Task-owned ListMark never gets the bullet widget — the checkbox is
+  // A Task-owned ListMark never gets a resting widget — the checkbox is
   // the construct's sole rendered representation (see the module doc
-  // comment above and taskCheckboxDecorations.ts). It hides like an
-  // ordinary ordered marker: both itself and its separator space collapse
-  // to nothing, no widget standing in for either.
-  const getsWidget = isBullet && !isTaskOwned;
+  // comment above and taskCheckboxDecorations.ts). It hides entirely:
+  // both itself and its separator space collapse to nothing, no widget
+  // standing in for either. Every other ListMark — bullet or ordered —
+  // gets its own widget, matching the numbered marker to the bullet's
+  // already-established at-rest treatment.
+  const getsWidget = !isTaskOwned;
 
   const ranges: MarkRange[] = [
     getsWidget
-      ? { from: listMark.from, to: listMark.to, widget: new ListBulletWidget() }
+      ? {
+          from: listMark.from,
+          to: listMark.to,
+          widget: isBullet ? new ListBulletWidget() : new OrderedListMarkerWidget(raw),
+        }
       : { from: listMark.from, to: listMark.to },
   ];
 
-  // A bullet's separator space is left uncollapsed only when it actually
-  // got the widget — real, visible whitespace between the rendered `•`
-  // and the item's text, the same gap `- ` already had. Every other case
-  // (ordered marker, or a Task-owned bullet marker) keeps the previous
-  // hide-both behavior: no widget stands in for either, so there's
-  // nothing to create a gap against.
+  // A marker's separator space is left uncollapsed only when it actually
+  // got a widget — real, visible whitespace between the rendered glyph
+  // (`•` or `1.`) and the item's text, the same gap the raw marker already
+  // had. The only remaining hide-both case is a Task-owned marker: no
+  // widget stands in for it, so there's nothing to create a gap against.
   if (!getsWidget) {
     const separatorFrom = listMark.to;
     const separatorTo = separatorFrom + 1;

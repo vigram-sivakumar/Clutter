@@ -149,6 +149,19 @@
   line-height: 1;
 }
 
+/*
+ * Resting ordered-marker glyph (OrderedListMarkerWidget.ts) standing in
+ * for a hidden `1.`/`2)`/… — the numbered-list counterpart to
+ * `.cm-list-marker` above, kept as its own class rather than reusing it so
+ * bullet and numbered markers can be styled independently. Renders actual
+ * text (the parsed number/delimiter), not a generated glyph, so it's sized
+ * with the surrounding text rather than `.cm-list-marker`'s enlarged
+ * bullet treatment.
+ */
+.cm-editor .cm-list-number {
+  color: var(--marker-foreground);
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-body-small);

@@ -50,13 +50,59 @@ describe('listMarkerDecoration', () => {
     }
   });
 
-  it('at rest, an ordered list marker (1. ) has no DOM presence — unaffected by the bullet widget', () => {
+  it('at rest, an ordered list marker (1. ) renders as a numbered widget, not the raw text disappearing', () => {
     const text = '1. item one\n\nOther';
     const view = mountView(text, text.indexOf('Other'));
 
-    expect(view.dom.querySelector('.cm-list-marker')).toBeNull();
-    expect(view.dom.textContent).toContain('item one');
-    expect(view.dom.textContent).not.toContain('1.');
+    const number = view.dom.querySelector('.cm-list-number');
+    expect(number).not.toBeNull();
+    expect(number?.textContent).toBe('1.');
+    expect(view.dom.querySelector('.cm-list-marker')).toBeNull(); // not the bullet widget
+    expect(view.dom.textContent).toContain('1. item one');
+  });
+
+  it('reveals the raw "1. " once the cursor is inside an ordered item — no numbered widget while engaged', () => {
+    const view = mountView('1. item one');
+
+    view.dispatch({ selection: { anchor: 5 } }); // inside "item"
+
+    expect(view.dom.textContent).toBe('1. item one');
+    expect(view.dom.querySelector('.cm-list-number')).toBeNull();
+  });
+
+  it("an ordered list's second and third items render their own actual numbers, not a repeated 1.", () => {
+    const text = '1. first\n2. second\n3. third\n\nOther';
+    const view = mountView(text, text.indexOf('Other')); // outside every item, nothing engaged
+
+    const numbers = Array.from(view.dom.querySelectorAll('.cm-list-number')).map((el) => el.textContent);
+    expect(numbers).toEqual(['1.', '2.', '3.']);
+  });
+
+  it('nested ordered lists: both levels render their own numbers at rest, independently', () => {
+    const text = '1. parent\n   1. nested\n   2. nested two\n\nOther';
+    const view = mountView(text, text.indexOf('Other'));
+
+    const numbers = Array.from(view.dom.querySelectorAll('.cm-list-number')).map((el) => el.textContent);
+    expect(numbers).toEqual(['1.', '1.', '2.']);
+    expect(view.dom.textContent).toContain('nested two');
+  });
+
+  it('mixed ordered and unordered lists render each marker with its own widget kind, independently', () => {
+    const text = '- bullet one\n1. ordered one\n- bullet two\n\nOther';
+    const view = mountView(text, text.indexOf('Other'));
+
+    const bullets = Array.from(view.dom.querySelectorAll('.cm-list-marker')).map((el) => el.textContent);
+    const numbers = Array.from(view.dom.querySelectorAll('.cm-list-number')).map((el) => el.textContent);
+    expect(bullets).toEqual(['•', '•']);
+    expect(numbers).toEqual(['1.']);
+  });
+
+  it("a Task-owned ListMark — ordered or bullet — never gets the numbered/bullet widget, leaving the checkbox as the item's sole rendered representation", () => {
+    const text = '1. [ ] ordered task\n- [ ] bullet task\n\nOther';
+    const view = mountView(text, text.indexOf('Other'));
+
+    expect(view.dom.querySelectorAll('.cm-list-number')).toHaveLength(0);
+    expect(view.dom.querySelectorAll('.cm-list-marker')).toHaveLength(0);
   });
 
   it('reveals the raw "- " once the cursor is inside the item — no bullet widget while engaged', () => {

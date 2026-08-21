@@ -10,8 +10,10 @@ import { WidgetType } from '@codemirror/view';
  * node entirely, at a different moment) so the resting bullet's own look
  * can be styled independently of it, per product ask.
  *
- * Ordered-list markers (`1.`) are unaffected — `listMarkerDecoration.ts`
- * only ever constructs this widget for a bullet marker's own range.
+ * Ordered-list markers (`1.`) get the same at-rest treatment via their own
+ * `OrderedListMarkerWidget`/`.cm-list-number` — `listMarkerDecoration.ts`
+ * only ever constructs *this* widget for a bullet marker's own range, so
+ * the two glyphs stay styleable independently.
  */
 export class ListBulletWidget extends WidgetType {
   override eq(_other: ListBulletWidget): boolean {
