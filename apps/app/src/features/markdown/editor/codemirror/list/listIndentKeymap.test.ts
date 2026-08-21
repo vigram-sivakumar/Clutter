@@ -17,6 +17,39 @@ function mountView(doc: string, cursorPos: number): EditorView {
   return new EditorView({ state, parent });
 }
 
+/**
+ * Freshly reparses `text` from scratch (independent of any live view's
+ * incrementally-updated tree) and returns how many `ListItem` ancestors
+ * contain the line that has `needle` in it. This is what proves the
+ * *Markdown source itself* is correctly nested — per requirement 9, a
+ * fix here must hold up even in a completely different Markdown reader,
+ * not just against this app's own live-view tree/decorations.
+ */
+function nestingDepthOf(text: string, needle: string): number {
+  const language = markdownLanguageExtension().language;
+  const tree = language.parser.parse(text);
+  const targetLine = text.slice(0, text.indexOf(needle)).split('\n').length; // 1-based line number
+  let depth = -1;
+  let cursor = tree.cursor();
+  function lineNumberAt(pos: number): number {
+    return text.slice(0, pos).split('\n').length;
+  }
+  function visit(ancestorListItems: number) {
+    if (cursor.name === 'ListItem' && lineNumberAt(cursor.from) === targetLine) {
+      depth = ancestorListItems;
+    }
+    const nextAncestors = cursor.name === 'ListItem' ? ancestorListItems + 1 : ancestorListItems;
+    if (cursor.firstChild()) {
+      do {
+        visit(nextAncestors);
+      } while (cursor.nextSibling());
+      cursor.parent();
+    }
+  }
+  visit(0);
+  return depth;
+}
+
 describe('indentListItem', () => {
   it('indents a list item, nesting it under the preceding item', () => {
     const doc = '- item1\n- item2';
@@ -63,6 +96,94 @@ describe('indentListItem', () => {
 
     expect(view.state.doc.toString()).toBe('- item1\n  - item2\n  - item3');
   });
+
+  describe('one Tab always moves exactly one nesting level, regardless of marker kind/width', () => {
+    it('bullet: one Tab nests the child at the bullet\'s own 2-column content start', () => {
+      const doc = '- Parent\n- Child';
+      const view = mountView(doc, doc.indexOf('Child'));
+
+      indentListItem(view);
+
+      const result = view.state.doc.toString();
+      expect(result).toBe('- Parent\n  - Child');
+      expect(nestingDepthOf(result, 'Child')).toBe(1);
+    });
+
+    it('ordered "1.": one Tab nests the child at the 3-column content start — 2 spaces alone (the global indentUnit) would NOT be enough', () => {
+      const doc = '1. Parent\n1. Child';
+      const view = mountView(doc, doc.indexOf('Child'));
+
+      indentListItem(view);
+
+      const result = view.state.doc.toString();
+      expect(result).toBe('1. Parent\n   1. Child');
+      expect(nestingDepthOf(result, 'Child')).toBe(1);
+    });
+
+    it('ordered "10.": one Tab nests the child at the 4-column content start', () => {
+      const doc = '10. Parent\n1. Child';
+      const view = mountView(doc, doc.indexOf('Child'));
+
+      indentListItem(view);
+
+      const result = view.state.doc.toString();
+      expect(result).toBe('10. Parent\n    1. Child');
+      expect(nestingDepthOf(result, 'Child')).toBe(1);
+    });
+
+    it('task: one Tab nests the child under a task-owned ListItem, same as a plain bullet', () => {
+      const doc = '- [ ] Parent\n- [ ] Child';
+      const view = mountView(doc, doc.indexOf('Child'));
+
+      indentListItem(view);
+
+      const result = view.state.doc.toString();
+      expect(result).toBe('- [ ] Parent\n  - [ ] Child');
+      expect(nestingDepthOf(result, 'Child')).toBe(1);
+    });
+
+    it('emoji list: one Tab nests the child at the emoji marker\'s own content start', () => {
+      const doc = '🍒 Parent\n🍒 Child';
+      const view = mountView(doc, doc.indexOf('Child'));
+
+      indentListItem(view);
+
+      const result = view.state.doc.toString();
+      expect(nestingDepthOf(result, 'Child')).toBe(1);
+      // Content column derived from the actual marker width in the
+      // document (🍒 + its separating space), not a hardcoded "2".
+      expect(result.split('\n')[1]?.match(/^ */)?.[0].length).toBe(
+        '🍒 '.length
+      );
+    });
+  });
+
+  it('repeated Tab, applied to progressively later items, builds a genuine multi-level staircase — not arbitrary over-indentation of one item', () => {
+    // Indenting item2 once nests it under item1. Indenting item3 makes it
+    // a sibling of item2 first (item3's immediate predecessor is item1,
+    // not item2, once item2 has left the top-level list) — a second Tab
+    // on item3 is what then nests it specifically under item2. This is
+    // the only way to reach real depth-2 for item3: CommonMark has no
+    // notion of a lone item skipping straight to depth 2 with nothing
+    // between it and its depth-0 ancestor.
+    const doc = '- item1\n- item2\n- item3';
+    const view = mountView(doc, doc.indexOf('item2'));
+
+    indentListItem(view);
+    expect(view.state.doc.toString()).toBe('- item1\n  - item2\n- item3');
+
+    view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('item3') } });
+    indentListItem(view);
+    expect(view.state.doc.toString()).toBe('- item1\n  - item2\n  - item3');
+    expect(nestingDepthOf(view.state.doc.toString(), 'item3')).toBe(1);
+
+    view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('item3') } });
+    indentListItem(view);
+    const final = view.state.doc.toString();
+    expect(final).toBe('- item1\n  - item2\n    - item3');
+    expect(nestingDepthOf(final, 'item2')).toBe(1);
+    expect(nestingDepthOf(final, 'item3')).toBe(2);
+  });
 });
 
 describe('dedentListItem', () => {
@@ -74,6 +195,23 @@ describe('dedentListItem', () => {
 
     expect(handled).toBe(true);
     expect(view.state.doc.toString()).toBe('- item1\n- item2');
+  });
+
+  it('correctly moves a Tab-nested item back out to top level — Shift-Tab is unchanged by the Tab fix above', () => {
+    const doc = '- Parent\n- Child';
+    const view = mountView(doc, doc.indexOf('Child'));
+
+    indentListItem(view);
+    const nested = view.state.doc.toString();
+    expect(nestingDepthOf(nested, 'Child')).toBe(1);
+
+    view.dispatch({ selection: { anchor: nested.indexOf('Child') } });
+    const handled = dedentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    expect(result).toBe('- Parent\n- Child');
+    expect(nestingDepthOf(result, 'Child')).toBe(0);
   });
 
   it('does nothing on a top-level item with no indentation left to remove', () => {
