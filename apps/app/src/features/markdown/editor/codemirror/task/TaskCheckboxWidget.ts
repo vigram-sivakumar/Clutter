@@ -69,7 +69,9 @@ export class TaskCheckboxWidget extends WidgetType {
     button.type = 'button';
     button.setAttribute('role', 'checkbox');
     button.setAttribute('aria-checked', String(this.checked));
-    button.className = this.checked ? 'checkbox checkbox--checked' : 'checkbox';
+    button.className = this.checked
+      ? 'checkbox checkbox--checked cm-task-checkbox'
+      : 'checkbox cm-task-checkbox';
     button.appendChild(buildIcon(this.checked));
     return button;
   }

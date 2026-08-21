@@ -136,6 +136,18 @@
 }
 
 /*
+ * Editor-only sizing hook for the task checkbox (TaskCheckboxWidget.ts).
+ * Added alongside the shared `checkbox`/`checkbox--checked` classes rather
+ * than in `Checkbox.css`, so the standalone React `Checkbox` component's own
+ * dimensions stay untouched by markdown-editor-specific overrides. Empty on
+ * purpose: a hook for width/height adjustments, not a default override.
+ */
+.cm-editor .cm-task-checkbox {
+  height: var(--marker-size);
+  aspect-ratio: 1;
+}
+
+/*
  * Resting bullet glyph (ListBulletWidget.ts) standing in for a hidden
  * `-`/`*`/`+`. Deliberately its own class, not `tok-mark`: `tok-mark`
  * styles the *raw* Markdown marker text when engagement reveals it — a
