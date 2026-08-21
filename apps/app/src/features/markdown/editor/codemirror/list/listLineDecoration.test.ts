@@ -88,6 +88,40 @@ describe('listLineDecoration', () => {
     expect(listLines(view).every((l) => !l.className.includes('cm-list-line'))).toBe(true);
   });
 
+  it('a plain paragraph gets no --list-depth and no inline style at all — no default list indentation to opt out of', () => {
+    const view = mountView('plain paragraph');
+    const line = nthLine(view, 0);
+
+    expect(line.className).toBe('cm-line');
+    expect(depthOf(line)).toBeNull();
+    expect(line.getAttribute('style')).toBeNull();
+  });
+
+  it('removes cm-list-line and --list-depth once a line stops being a list item', () => {
+    const view = mountView('- was a list item');
+    expect(nthLine(view, 0).className).toContain('cm-list-line');
+    expect(depthOf(nthLine(view, 0))).toBe('1');
+
+    // Delete the `- ` marker prefix so the line reparses as a plain paragraph.
+    view.dispatch({ changes: { from: 0, to: 2, insert: '' } });
+
+    const line = nthLine(view, 0);
+    expect(line.className).not.toContain('cm-list-line');
+    expect(depthOf(line)).toBeNull();
+  });
+
+  it('demotes a nested item back to depth 1 once its parent indentation is removed', () => {
+    const doc = '- parent\n  - nested';
+    const view = mountView(doc);
+    expect(depthOf(nthLine(view, 1))).toBe('2');
+
+    // Delete the 2-space indent in front of the nested item's own marker.
+    const nestedLineStart = doc.indexOf('  - nested');
+    view.dispatch({ changes: { from: nestedLineStart, to: nestedLineStart + 2, insert: '' } });
+
+    expect(depthOf(nthLine(view, 1))).toBe('1');
+  });
+
   it('is unconditional — the class and depth stay applied whether or not the marker is currently engaged', () => {
     const text = 'Text before\n\n- [ ] Buy milk';
     const view = mountView(text);
