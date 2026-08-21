@@ -289,6 +289,47 @@
   transform: translateY(-50%);
 }
 
+/*
+ * Resting dotted horizontal rule (`.---.`, horizontalRuleDecoration.ts +
+ * dottedHorizontalRuleSyntax.ts) — same ~24px collapsed-line box and
+ * single-`::after`-pseudo `mask-image` technique as `.cm-hr-line-wavy`
+ * above (rather than a CSS `border-top: dotted` line, whose dot size/
+ * spacing/roundness isn't controlled and varies by browser): the mask's
+ * shape is a single 2px-diameter circle in a 6px-wide tile, repeated with
+ * `mask-repeat: repeat-x` for small, evenly spaced, subtle dots — kept
+ * deliberately smaller than the wavy variant's 16px tile so the dots read
+ * as dots rather than a dashed line. Same reasoning as `.cm-hr-line-wavy`
+ * for why the *color* comes from `background-color` rather than the SVG's
+ * own (opaque-white-for-luminance-masking-only) stroke, and why centering
+ * uses `top: 50%` + `translateY(-50%)` against this pseudo-element's own
+ * (dot-diameter-sized) height.
+ */
+.cm-editor .cm-hr-line-dotted {
+  position: relative;
+  font-size: 0;
+  line-height: 0;
+  padding: 12px 0;
+}
+
+.cm-editor .cm-hr-line-dotted::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background-color: var(--surface-tertiary);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: 6px 2px;
+  mask-size: 6px 2px;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+
 .cm-editor .tok-code {
   font-family: ui-monospace, monospace;
   font-size: var(--text-body-small);

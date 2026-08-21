@@ -4,6 +4,7 @@ import { dateSyntax } from './date/dateSyntax';
 import { emojiListSyntax } from './emoji-list/emojiListSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
 import { doubleHorizontalRuleSyntax } from './hr/doubleHorizontalRuleSyntax';
+import { dottedHorizontalRuleSyntax } from './hr/dottedHorizontalRuleSyntax';
 import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
 import { tagSyntax } from './tag/tagSyntax';
 import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
@@ -29,5 +30,6 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   highlightSyntax,
   wavyHorizontalRuleSyntax,
   doubleHorizontalRuleSyntax,
+  dottedHorizontalRuleSyntax,
   emojiListSyntax,
 ];
