@@ -128,29 +128,45 @@
  * `--list-depth` indent units — nesting is purely additive, no per-depth
  * class, no marker-specific rule.
  *
- * On top of that nesting column, `padding-left` also reserves one
- * `--marker-size` — the marker's own fixed rendered width (shared by
- * every marker kind, see `.cm-list-marker` below) — and `text-indent`
- * pulls the line's *first* visual row back out of exactly that much of
- * the reserved space. Per the CSS spec, `text-indent` applies only to a
- * block's first line, never to soft-wrapped continuation rows, so the
- * two rules together produce a genuine hanging indent from one pair of
- * properties, no per-row JavaScript involved:
+ * On top of that nesting column, `padding-left` also reserves the
+ * marker's own full footprint — `--marker-size` (its fixed rendered
+ * width, shared by every marker kind, see `.cm-list-marker` below) *plus*
+ * `--space-4` (the same token `.cm-list-marker`'s own `margin-right` uses
+ * for the deliberate marker-to-text gap, not a second, independently
+ * chosen value) — and `text-indent` pulls the line's *first* visual row
+ * back out of exactly that much of the reserved space. Per the CSS spec,
+ * `text-indent` applies only to a block's first line, never to
+ * soft-wrapped continuation rows, so the two rules together produce a
+ * genuine hanging indent from one pair of properties, no per-row
+ * JavaScript involved:
  *
- *   first row:      `--list-depth` * `--list-indent`                (marker sits here)
- *   wrapped rows:    `--list-depth` * `--list-indent` + `--marker-size`  (text continues here)
+ *   first row:      `--list-depth` * `--list-indent`                                    (marker sits here)
+ *   wrapped rows:    `--list-depth` * `--list-indent` + `--marker-size` + `--space-4`    (text continues here)
+ *
+ * The `--space-4` term is required, not optional: `.cm-list-marker`'s own
+ * `margin-right` sits *after* the marker's box on the first row only (an
+ * ordinary inline margin, invisible to `padding-left`/`text-indent`,
+ * which know nothing about the marker element's own box model) — so
+ * without it here, first-row text lands 4px right of where a wrapped
+ * row's text lands, confirmed by direct measurement (marker right edge
+ * 440px + its 4px margin = first-row text at 444px, while wrapped rows
+ * landed at 440px, the `--marker-size`-only target). Folding `--space-4`
+ * into this formula, rather than compensating with an ad hoc pixel value,
+ * keeps both rows targeting the same real quantity: where the marker's
+ * box plus its own deliberate gap actually ends.
  *
  * `--list-indent` reuses the previous task-line footprint
  * (`--height-xs` + `--space-4`, `.checkbox`'s own width plus the ~4px a
  * rendered space occupies after it) as the one shared per-depth unit, so
- * existing task-list spacing is visually unchanged at depth 1.
+ * existing task-list spacing is visually unchanged at depth 1. That
+ * `--space-4` is nesting-only and unrelated to the marker-gap term above.
  */
 .cm-editor .cm-list-line {
   --list-indent: calc(var(--height-xs) + var(--space-4));
   padding-left: calc(
-    var(--list-depth) * var(--list-indent) + var(--marker-size)
+    var(--list-depth) * var(--list-indent) + var(--marker-size) + var(--space-4)
   );
-  text-indent: calc(-1 * var(--marker-size));
+  text-indent: calc(-1 * (var(--marker-size) + var(--space-4)));
 }
 
 /*
