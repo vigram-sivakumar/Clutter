@@ -36,7 +36,7 @@ function mountFullView(doc: string, initialAnchor: number | null = null): Editor
 }
 
 describe('listIndentWhitespaceDecoration', () => {
-  describe('leading indentation before a nested marker (existing behavior, unchanged)', () => {
+  describe('leading indentation before a nested marker (never reveals, per product decision)', () => {
     it('at rest, collapses the raw leading whitespace before a nested bullet marker', () => {
       const text = '- parent\n  - nested\n\nOther';
       const view = mountView(text, text.indexOf('Other'));
@@ -61,28 +61,34 @@ describe('listIndentWhitespaceDecoration', () => {
       expect(view.state.doc.toString()).toBe(text);
     });
 
-    it('reveals the raw leading whitespace once the physical line is engaged', () => {
+    it('stays collapsed even once the physical line is engaged — never reveals, per product decision', () => {
       const text = '1. Item\n   2. sdv';
       const view = mountView(text);
       expect(view.dom.textContent).not.toContain('   2.');
 
       view.dispatch({ selection: { anchor: text.indexOf('sdv') } });
 
-      expect(view.dom.textContent).toContain('   2. sdv');
+      expect(view.dom.textContent).not.toContain('   2.');
+      expect(view.state.doc.toString()).toBe(text);
     });
 
-    it('does nothing for a top-level marker with no leading whitespace', () => {
+    it('does nothing for a top-level marker with no leading whitespace (there is none to collapse)', () => {
       const text = '- top level item';
       const view = mountView(text, text.length);
 
-      expect(view.dom.textContent).toBe(text);
+      // No leading whitespace exists at depth 0, so nothing changes here;
+      // the separator after the marker still collapses (covered below).
+      expect(view.dom.textContent).not.toContain('- top');
     });
 
-    it('does NOT collapse a blockquote-owned line\'s ">" into the leading-whitespace range', () => {
-      const text = '> - quoted bullet';
-      const view = mountView(text, 0);
+    it('does NOT collapse a blockquote-owned line\'s ">" into the leading-whitespace range, even though nothing ever reveals it', () => {
+      const text = '> - quoted bullet\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
 
-      expect(view.dom.textContent).toBe(text);
+      // ">" is blockquoteMarkerDecoration.ts's own territory (unchanged,
+      // may or may not render depending on its own rules) — this module's
+      // guard must still never swallow it regardless.
+      expect(view.dom.textContent).toContain('quoted bullet');
       expect(view.state.doc.toString()).toBe(text);
     });
   });
@@ -155,7 +161,7 @@ describe('listIndentWhitespaceDecoration', () => {
     });
   });
 
-  describe('task engagement — separator and leading whitespace track the checkbox\'s own rendering state, not generic physical-line engagement', () => {
+  describe('task items: leading indentation and separator stay collapsed regardless of cursor position, matching the checkbox\'s own always-at-rest rendering', () => {
     it('cursor inside the task text: checkbox stays rendered, leading indentation and separator stay collapsed', () => {
       const text = '1. item\n   - [ ] nested task text';
       const view = mountFullView(text, text.indexOf('nested task text') + 5); // inside "task text"
@@ -170,7 +176,7 @@ describe('listIndentWhitespaceDecoration', () => {
       expect(view.state.doc.toString()).toBe(text);
     });
 
-    it('cursor on the marker itself: checkbox reverts to raw text, and leading indentation/separator reveal alongside it', () => {
+    it('cursor on the marker itself: checkbox, leading indentation, and separator all stay collapsed too', () => {
       const text = '1. item\n   - [ ] nested task text';
       const view = mountFullView(text, text.indexOf('[ ]') + 1); // inside "[ ]"
 
@@ -178,8 +184,9 @@ describe('listIndentWhitespaceDecoration', () => {
         l.textContent?.includes('nested task text')
       );
       expect(nestedLine).toBeDefined();
-      expect(nestedLine!.querySelector('.cm-task-checkbox')).toBeNull(); // raw, not a widget
-      expect(nestedLine!.textContent).toBe('   - [ ] nested task text');
+      expect(nestedLine!.querySelector('.cm-task-checkbox')).not.toBeNull(); // still a widget
+      expect(nestedLine!.textContent).not.toContain('   -'); // leading indentation still collapsed
+      expect(nestedLine!.textContent).not.toContain('[ ] nested'); // separator still collapsed
     });
   });
 

@@ -38,27 +38,25 @@ import {
  * existing as its own independent module rather than a branch inside
  * `listMarkerDecoration.ts`.
  *
- * Built on the same shared `liveMarkDecoration` collapse/engagement
- * mechanism every other Live-Preview marker in this codebase already uses
- * — `Decoration.replace({})`, no widget, the same mechanism (and the same
+ * Built on the same shared `liveMarkDecoration` collapse mechanism every
+ * other Live-Preview marker in this codebase already uses —
+ * `Decoration.replace({})`, no widget, the same mechanism (and the same
  * `.cm-widgetBuffer` cursor-placement handling that comes with it) already
  * proven safe in production for `listMarkerDecoration.ts`'s own
  * Task-owned-`ListMark` collapse-to-nothing case.
  *
  * Engagement is `listItemEngagement` — imported from
  * `listMarkerDecoration.ts`, never a second, independently-defined notion
- * of "engaged" — so both the leading and separator ranges reveal exactly
- * when the marker they sit next to is itself showing raw text, and stay
- * collapsed exactly when it's showing its widget/glyph. Reusing the
- * generic `'physical-line'` mode here (the previous approach) is provably
- * wrong for Task items specifically: `listItemEngagement`'s own doc
- * comment establishes that a Task-owned marker's engagement is keyed to
- * the `TaskMarker`'s own node-range, not the physical line, precisely so
- * the checkbox widget and its raw `[ ]`/`[x]` form can never disagree —
- * confirmed live (this module's previous `'physical-line'` mode) that a
- * cursor placed anywhere in a nested task's own text left the leading
- * indentation revealed as raw text while the checkbox widget remained
- * rendered, a disagreement `listItemEngagement` does not have.
+ * of "engaged" — so this whitespace always tracks whatever that module
+ * decides for the marker it sits next to. Per product decision, list
+ * markers never reveal raw Markdown on cursor/line engagement
+ * (`listItemEngagement` always reports "not engaged" now), so both the
+ * leading and separator ranges here stay collapsed unconditionally too —
+ * there is no marker-revealed state left for them to need to match. The
+ * only way either becomes visible again is the same way the marker itself
+ * does: the syntax tree stops recognizing the construct at all (a broken
+ * `.`, a missing separator space, …), at which point `getMarkerWhitespaceRanges`
+ * below is never even called for that position.
  */
 const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
 

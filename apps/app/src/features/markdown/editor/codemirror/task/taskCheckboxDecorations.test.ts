@@ -113,8 +113,8 @@ describe('taskCheckboxDecorations — lazy continuation does not affect TaskMark
   });
 });
 
-describe('taskCheckboxDecorations — reveal on engagement', () => {
-  it('engaging the TaskMarker reveals the raw "[ ]" text for direct editing instead of the widget', () => {
+describe('taskCheckboxDecorations — never reveals raw text on engagement (alwaysAtRest)', () => {
+  it('cursor inside the TaskMarker still renders the checkbox widget, not raw "[ ]" text', () => {
     const line = '- [ ] Buy milk';
     const view = mountView(`Text before\n\n${line}`);
     const lineStart = `Text before\n\n`.length;
@@ -122,21 +122,32 @@ describe('taskCheckboxDecorations — reveal on engagement', () => {
 
     view.dispatch({ selection: { anchor: taskMarkerStart + 1 } }); // inside "[ ]"
 
-    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-    expect(view.dom.textContent).toContain('[ ] Buy milk');
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+    expect(view.dom.textContent).not.toContain('[ ]');
   });
 
-  it('re-collapses back to the widget once the selection leaves the TaskMarker', () => {
+  it('stays the widget whether the selection is inside the TaskMarker or elsewhere', () => {
     const line = '- [ ] Buy milk';
     const view = mountView(`Text before\n\n${line}`);
     const lineStart = `Text before\n\n`.length;
     const taskMarkerStart = lineStart + '- '.length;
 
     view.dispatch({ selection: { anchor: taskMarkerStart + 1 } });
-    expect(view.dom.textContent).toContain('[ ] Buy milk');
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
 
     view.dispatch({ selection: { anchor: 0 } });
     expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
     expect(view.dom.textContent).not.toContain('[ ]');
+  });
+
+  it('falls back to plain text only once the syntax breaks — deleting "[" leaves no TaskMarker to decorate', () => {
+    const line = '- [ ] Buy milk';
+    const view = mountView(`Text before\n\n${line}`);
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+
+    const openBracketPos = view.state.doc.toString().indexOf('[');
+    view.dispatch({ changes: { from: openBracketPos, to: openBracketPos + 1, insert: '' } });
+
+    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
   });
 });

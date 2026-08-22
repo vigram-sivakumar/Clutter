@@ -12,10 +12,12 @@ import { listMarkerDecoration } from './listMarkerDecoration';
  * Mounts both decorations together — the only way to observe the
  * interaction this file exists to test. `listMarkerDecoration.test.ts`
  * and `taskCheckboxDecorations.test.ts` each cover their own construct in
- * isolation and are left unchanged; this file covers the boundary
- * between them, per the locked product rule: "cursor entered the Task
- * line" != "TaskMarker is engaged" — only the latter should ever reveal
- * raw Markdown for a task.
+ * isolation and are left unchanged; this file covers the boundary between
+ * them: neither a cursor on the task's own text nor a cursor inside the
+ * `TaskMarker` itself ever reveals raw `- [ ]`/`- [x]` — both the
+ * `ListMark` and the checkbox stay rendered regardless of selection, per
+ * product decision. The only way either reverts to plain text is the
+ * syntax tree itself no longer recognizing the construct.
  */
 function mountView(doc: string, initialAnchor: number | null = null): EditorView {
   const parent = document.createElement('div');
@@ -78,8 +80,8 @@ describe('at rest: only the checkbox renders, never bullet + checkbox and never 
   });
 });
 
-describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
-  it('cursor inside the task TEXT (not TaskMarker) keeps the checkbox rendered — no raw "-" or "[ ]"', () => {
+describe('neither text-line engagement nor TaskMarker engagement reveals raw syntax', () => {
+  it('cursor inside the task TEXT keeps the checkbox rendered — no raw "-" or "[ ]"', () => {
     const text = '- [ ] Task text here';
     const view = mountView(text);
     const textPos = text.indexOf('Task') + 2; // inside "Task", well past TaskMarker
@@ -92,37 +94,40 @@ describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
     expect(view.dom.textContent).not.toContain('[');
   });
 
-  it('cursor inside an unchecked TaskMarker reveals "- [ ]" — both the ListMark and the checkbox raw text', () => {
+  it('cursor inside an unchecked TaskMarker still keeps the checkbox rendered — no raw "- [ ]"', () => {
     const text = '- [ ] Task';
     const view = mountView(text);
     const taskMarkerPos = text.indexOf('[ ]') + 1; // inside "[ ]"
 
     view.dispatch({ selection: { anchor: taskMarkerPos } });
 
-    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
     expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
-    expect(view.dom.textContent).toBe('- [ ] Task');
+    expect(view.dom.textContent).not.toContain('-');
+    expect(view.dom.textContent).not.toContain('[');
   });
 
-  it('cursor inside a checked TaskMarker reveals "- [x]"', () => {
+  it('cursor inside a checked TaskMarker still keeps the checkbox rendered — no raw "- [x]"', () => {
     const text = '- [x] Task';
     const view = mountView(text);
     const taskMarkerPos = text.indexOf('[x]') + 1;
 
     view.dispatch({ selection: { anchor: taskMarkerPos } });
 
-    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-    expect(view.dom.textContent).toBe('- [x] Task');
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+    expect(view.dom.querySelector('button[role="checkbox"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(view.dom.textContent).not.toContain('[x]');
   });
 
-  it('moving the cursor from TaskMarker back into task text restores the checkbox (and hides the ListMark again)', () => {
+  it('moving the cursor between TaskMarker and task text never changes the rendered checkbox', () => {
     const text = '- [ ] Task text here';
     const view = mountView(text);
     const taskMarkerPos = text.indexOf('[ ]') + 1;
     const textPos = text.indexOf('Task') + 2;
 
     view.dispatch({ selection: { anchor: taskMarkerPos } });
-    expect(view.dom.textContent).toContain('- [ ]');
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+    expect(view.dom.textContent).not.toContain('-');
 
     view.dispatch({ selection: { anchor: textPos } });
 
@@ -132,7 +137,7 @@ describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
     expect(view.dom.textContent).not.toContain('[');
   });
 
-  it('nested tasks behave the same way: text-line cursor keeps the checkbox, TaskMarker cursor reveals raw syntax', () => {
+  it('nested tasks behave the same way: neither the text-line nor the TaskMarker position reveals raw syntax', () => {
     const text = '- [ ] parent\n  - [x] nested task text';
     const nestedTaskMarkerPos = text.indexOf('[x]') + 1;
     const nestedTextPos = text.indexOf('nested') + 2;
@@ -144,8 +149,19 @@ describe('"cursor entered the Task line" != "TaskMarker is engaged"', () => {
 
     const markerEngaged = mountView(text);
     markerEngaged.dispatch({ selection: { anchor: nestedTaskMarkerPos } });
-    expect(markerEngaged.dom.textContent).toContain('- [x] nested');
-    expect(markerEngaged.dom.querySelectorAll('button[role="checkbox"]')).toHaveLength(1); // only the parent's
+    expect(markerEngaged.dom.textContent).not.toContain('- [x]');
+    expect(markerEngaged.dom.querySelectorAll('button[role="checkbox"]')).toHaveLength(2); // both stay rendered
+  });
+
+  it('falls back to plain text only once the syntax breaks — deleting "]" leaves no TaskMarker to decorate', () => {
+    const text = '- [ ] Task';
+    const view = mountView(text, text.length);
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+
+    const closeBracketPos = text.indexOf(']');
+    view.dispatch({ changes: { from: closeBracketPos, to: closeBracketPos + 1, insert: '' } });
+
+    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
   });
 });
 

@@ -21,25 +21,25 @@ function mountView(doc: string, cursorPos: number): EditorView {
 }
 
 describe('keyboard engagement — TaskMarker', () => {
-  it('one position before an at-rest TaskMarker, hopRight hops in to the near boundary and reveals the raw text', () => {
+  it('one position before an at-rest TaskMarker, hopRight hops in to the near boundary — checkbox stays rendered (alwaysAtRest)', () => {
     const view = mountView('- [ ] task', 1); // right before "["
 
     const handled = hopRight(view, isTaskMarkerNode);
 
     expect(handled).toBe(true);
     expect(view.state.selection.main.head).toBe(2);
-    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-    expect(view.dom.textContent).toContain('[ ] task');
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+    expect(view.dom.textContent).not.toContain('[ ]');
   });
 
-  it('one position after an at-rest TaskMarker, hopLeft hops in to the near boundary and reveals the raw text', () => {
+  it('one position after an at-rest TaskMarker, hopLeft hops in to the near boundary — checkbox stays rendered (alwaysAtRest)', () => {
     const view = mountView('- [ ] task', 6); // right after "]"
 
     const handled = hopLeft(view, isTaskMarkerNode);
 
     expect(handled).toBe(true);
     expect(view.state.selection.main.head).toBe(5);
-    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
   });
 
   it('keyboard engagement never toggles the checked state — only reveals raw text', () => {

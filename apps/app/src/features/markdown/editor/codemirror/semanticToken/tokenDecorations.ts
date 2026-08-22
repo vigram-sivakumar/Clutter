@@ -29,7 +29,8 @@ export type RenderToken = (
 function buildDecorations(
   view: EditorView,
   isTokenNode: TokenNodePredicate,
-  renderToken: RenderToken
+  renderToken: RenderToken,
+  alwaysAtRest: boolean
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
 
@@ -47,7 +48,11 @@ function buildDecorations(
         // No decoration for an engaged node — the raw Markdown renders as
         // ordinary editable text. See tokenEngagement.ts for the shared
         // containment rule, also used by the mouse/keyboard mechanism.
-        if (isTokenEngaged(view.state, range)) {
+        // `alwaysAtRest` kinds (currently only the task checkbox) opt out
+        // of this entirely: the widget renders regardless of selection,
+        // and falling back to raw text happens only when the syntax tree
+        // itself stops recognizing the node — never from cursor placement.
+        if (!alwaysAtRest && isTokenEngaged(view.state, range)) {
           return;
         }
 
@@ -83,22 +88,35 @@ interface TokenDecorationPlugin extends PluginValue {
  * Interaction handling (click, Alt/Option-click, keyboard entry and
  * activation) is deliberately not here — see tokenMouseHandlers.ts and
  * tokenKeymap.ts.
+ *
+ * `alwaysAtRest` (default `false`, preserving reveal-on-engagement for
+ * every existing kind — dates, WikiLinks, tags) lets one kind opt out of
+ * the engagement check entirely, staying rendered as its widget
+ * regardless of selection. Currently only `taskCheckboxDecorations.ts`
+ * passes it, per product decision: list constructs (bullets, ordered
+ * markers, task checkboxes, emoji markers) never reveal raw Markdown on
+ * cursor/line engagement, falling back to plain text only when the syntax
+ * tree itself stops recognizing the construct (e.g. deleting the `.` from
+ * `1.` or the required separator space) — not from cursor placement.
  */
 export function semanticTokenDecorations(
   isTokenNode: TokenNodePredicate,
-  renderToken: RenderToken
+  renderToken: RenderToken,
+  options?: { alwaysAtRest?: boolean }
 ): Extension {
+  const alwaysAtRest = options?.alwaysAtRest ?? false;
+
   const plugin = ViewPlugin.fromClass<TokenDecorationPlugin>(
     class implements TokenDecorationPlugin {
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = buildDecorations(view, isTokenNode, renderToken);
+        this.decorations = buildDecorations(view, isTokenNode, renderToken, alwaysAtRest);
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged || update.selectionSet) {
-          this.decorations = buildDecorations(update.view, isTokenNode, renderToken);
+          this.decorations = buildDecorations(update.view, isTokenNode, renderToken, alwaysAtRest);
         }
       }
     },

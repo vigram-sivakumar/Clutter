@@ -1,9 +1,7 @@
 import type { Extension } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { isTokenEngaged } from '../semanticToken/tokenEngagement';
 import {
-  isPhysicalLineEngaged,
   liveMarkDecoration,
   type MarkEngagementPredicate,
   type MarkRange,
@@ -107,42 +105,23 @@ const getListMarkRanges: MarkRangeSelector = (node, state) => {
 };
 
 /**
- * "Cursor entered the Task line" and "TaskMarker is engaged" are two
- * different facts, and only the second should ever reveal this
- * `ListMark`. A Task-owned `ListMark`'s own engagement is therefore keyed
- * to its sibling `TaskMarker`'s own engagement (the exact same
- * `isTokenEngaged` containment query `semanticTokenDecorations` already
- * uses to decide the checkbox's own reveal) — not to physical-line
- * engagement, which would fire for a cursor anywhere on the task's text,
- * reveal the raw `-`, and leave the checkbox widget rendered next to it
- * (the reported mixed `- ☑ Task` state). Keying both the `ListMark` and
- * the `TaskMarker` to the identical condition is what guarantees they can
- * never disagree — not a UI patch after the fact.
- *
- * Every other `ListItem` (plain bullet or ordered) has no `Task` child,
- * so this falls through to the same `isPhysicalLineEngaged` rule the
- * generic `'physical-line'` mode already applies — unchanged.
+ * List markers (bullet, ordered, task) never reveal their raw Markdown on
+ * cursor/line engagement — per product decision, they stay rendered as
+ * their widget regardless of selection, falling back to plain text only
+ * once the syntax tree itself stops recognizing the construct (deleting
+ * the `.` from `1.`, or the required separator space, so it no longer
+ * parses as a `ListMark`/`ListItem` at all — at which point there is no
+ * node left for this predicate to even be asked about). `emojiListMarkDecoration.ts`
+ * already behaves this way by construction (it never hides the glyph in
+ * the first place); this predicate brings bullet/ordered/task in line
+ * with it, rather than the previous engagement-revealing behavior.
  *
  * Exported so `listIndentWhitespaceDecoration.ts` can reuse the identical
- * predicate for whitespace immediately adjacent to a marker (leading
- * indentation before it, the separator after it): that whitespace's own
- * visibility must track *this specific marker's* current rendering mode,
- * not a second, independently-computed notion of "engaged" — generic
- * physical-line engagement disagrees with this predicate for Task items
- * specifically (confirmed: a cursor anywhere in a task's text keeps the
- * checkbox widget rendered per the TaskMarker-range check above, while
- * physical-line engagement alone would already report "engaged"), which
- * previously left task-adjacent whitespace decorations toggled
- * independently of the checkbox they sit next to.
+ * "never" answer for whitespace immediately adjacent to a marker (leading
+ * indentation before it, the separator after it): that whitespace has no
+ * reason to reveal independently of a marker that itself never reveals.
  */
-export const listItemEngagement: MarkEngagementPredicate = (state, node, getMarkRanges) => {
-  const taskMarker = findTaskMarker(node.node);
-  if (taskMarker) {
-    return isTokenEngaged(state, { from: taskMarker.from, to: taskMarker.to });
-  }
-
-  return isPhysicalLineEngaged(state, getMarkRanges(node, state));
-};
+export const listItemEngagement: MarkEngagementPredicate = () => false;
 
 export function listMarkerDecoration(): Extension {
   return liveMarkDecoration(isListItemNode, getListMarkRanges, listItemEngagement);

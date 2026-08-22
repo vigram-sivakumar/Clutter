@@ -61,13 +61,17 @@ describe('listMarkerDecoration', () => {
     expect(view.dom.textContent).toContain('1. item one');
   });
 
-  it('reveals the raw "1. " once the cursor is inside an ordered item — no numbered widget while engaged', () => {
+  it('stays rendered as the numbered widget even once the cursor is inside the ordered item', () => {
     const view = mountView('1. item one');
+    const widgetBefore = view.dom.querySelector('.cm-list-number');
+    expect(widgetBefore?.textContent).toBe('1.');
 
     view.dispatch({ selection: { anchor: 5 } }); // inside "item"
 
-    expect(view.dom.textContent).toBe('1. item one');
-    expect(view.dom.querySelector('.cm-list-number')).toBeNull();
+    // Still a real widget node, not raw text mimicking the same string —
+    // the DOM element itself is still present, same as before dispatch.
+    expect(view.dom.querySelector('.cm-list-number')?.textContent).toBe('1.');
+    expect(view.dom.querySelector('.cm-list-number')).not.toBeNull();
   });
 
   it("an ordered list's second and third items render their own actual numbers, not a repeated 1.", () => {
@@ -105,21 +109,22 @@ describe('listMarkerDecoration', () => {
     expect(view.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(0);
   });
 
-  it('reveals the raw "- " once the cursor is inside the item — no bullet widget while engaged', () => {
+  it('stays rendered as the bullet widget even once the cursor is inside the item', () => {
     const view = mountView('- item one');
 
     view.dispatch({ selection: { anchor: 4 } }); // inside "item"
 
-    expect(view.dom.textContent).toBe('- item one');
-    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
+    expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('•');
+    expect(view.dom.textContent).not.toContain('- item one');
   });
 
-  it('re-collapses to the bullet widget once the selection leaves the item', () => {
+  it('stays the bullet widget whether the selection is inside the item or elsewhere in the document', () => {
     const text = '- item one\n\nOther';
     const view = mountView(text, 4); // inside the list item
 
-    expect(view.dom.textContent).toContain('- item one');
-    expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
+    expect(view.dom.textContent).not.toContain('-');
+    expect(view.dom.textContent).toContain('item one');
+    expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('•');
 
     view.dispatch({ selection: { anchor: text.indexOf('Other') } });
 
@@ -128,40 +133,32 @@ describe('listMarkerDecoration', () => {
     expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('•');
   });
 
-  it("nested lists: only the engaged item's own marker reveals, both levels render as bullets at rest", () => {
+  it('nested lists: both levels stay rendered as bullets regardless of where the cursor is', () => {
     const text = '- item one\n  - nested item\n\nOther';
     const nestedStart = text.indexOf('nested');
     const atRest = mountView(text, text.indexOf('Other'));
 
-    // At rest: neither raw marker is visible, both render as bullets, and
-    // the nested item's leading indentation (untouched raw text, not a
-    // node) is still present.
     expect(atRest.dom.textContent).not.toContain('-');
     expect(atRest.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(2);
     expect(atRest.dom.textContent).toContain('nested item');
 
-    // Physical-line engagement: engaging the nested item reveals only its
-    // own marker. The parent ListItem's node range technically extends
-    // across the nested sublist's lines too (confirmed by the node-shape
-    // probe), but engagement is now scoped to the marker's own physical
-    // line, not the enclosing node's full span — so the parent's marker
-    // correctly stays a collapsed bullet while a sibling/descendant line
-    // is engaged.
-    const engaged = mountView(text, nestedStart + 2); // inside "nested"
+    // Cursor inside the nested item's own text — still both bullets, no
+    // raw "-" revealed for either level.
+    const cursorOnNested = mountView(text, nestedStart + 2); // inside "nested"
 
-    expect(engaged.dom.textContent).toContain('- nested item');
-    expect(engaged.dom.textContent).not.toContain('- item one');
-    expect(engaged.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(1); // only the parent's
+    expect(cursorOnNested.dom.textContent).not.toContain('-');
+    expect(cursorOnNested.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(2);
   });
 
-  it("each item's marker engages independently — engaging one does not reveal a sibling's", () => {
+  it("each item's marker stays rendered independently of where the cursor is on a sibling", () => {
     const text = '- first\n- second';
     const secondStart = text.indexOf('second');
     const view = mountView(text, secondStart + 2); // inside "second"
 
-    expect(view.dom.textContent).toContain('- second');
-    expect(view.dom.textContent).not.toContain('- first');
+    expect(view.dom.textContent).not.toContain('-');
+    expect(view.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(2);
     expect(view.dom.textContent).toContain('first');
+    expect(view.dom.textContent).toContain('second');
   });
 
   describe('lazy continuation does not leak engagement onto an unrelated marker-less line', () => {
@@ -182,11 +179,12 @@ describe('listMarkerDecoration', () => {
       expect(view.dom.textContent).toContain('nested');
     });
 
-    it("the marker's own physical line still reveals correctly despite the lazy-continuation fix", () => {
+    it("the marker's own physical line stays rendered as a bullet regardless of the lazy-continuation fix", () => {
       const text = '- item\n=';
       const view = mountView(text, 2); // inside "item", the marker's own line
 
-      expect(view.dom.textContent).toContain('- item');
+      expect(view.dom.textContent).not.toContain('-');
+      expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('•');
     });
   });
 
@@ -215,6 +213,43 @@ describe('listMarkerDecoration', () => {
 
         expect(found).toBe(true);
       }
+    });
+  });
+
+  describe('falls back to plain text only when the syntax itself breaks, never from cursor placement', () => {
+    it('deleting the "." from "1." stops it from parsing as a list marker at all', () => {
+      const text = '1. item';
+      const view = mountView(text, text.length);
+      expect(view.dom.querySelector('.cm-list-number')).not.toBeNull();
+
+      const dotPos = text.indexOf('.');
+      view.dispatch({ changes: { from: dotPos, to: dotPos + 1, insert: '' } });
+
+      expect(view.dom.querySelector('.cm-list-number')).toBeNull();
+      expect(view.dom.textContent).toBe('1 item');
+    });
+
+    it('deleting the required separator space so "1.Text" is no longer a valid marker falls back to plain text', () => {
+      const text = '1. Text';
+      const view = mountView(text, text.length);
+      expect(view.dom.querySelector('.cm-list-number')).not.toBeNull();
+
+      const spacePos = text.indexOf(' ');
+      view.dispatch({ changes: { from: spacePos, to: spacePos + 1, insert: '' } });
+
+      expect(view.dom.querySelector('.cm-list-number')).toBeNull();
+      expect(view.dom.textContent).toBe('1.Text');
+    });
+
+    it('deleting the "-" itself removes the bullet entirely — nothing left to render', () => {
+      const text = '- item';
+      const view = mountView(text, text.length);
+      expect(view.dom.querySelector('.cm-bullet-list-marker')).not.toBeNull();
+
+      view.dispatch({ changes: { from: 0, to: 2, insert: '' } });
+
+      expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
+      expect(view.dom.textContent).toBe('item');
     });
   });
 
