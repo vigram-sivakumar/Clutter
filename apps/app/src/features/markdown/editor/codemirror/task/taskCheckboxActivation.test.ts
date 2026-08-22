@@ -7,14 +7,14 @@ import { markdownLanguageExtension } from '../markdownLanguage';
 import { getTaskCheckboxActivation } from './taskCheckboxActivation';
 import { findTaskMarkerAt } from './taskEngagement';
 import { handleTaskCheckboxClick } from './taskCheckboxMouseHandlers';
-import { taskCheckboxDecorations } from './taskCheckboxDecorations';
+import { listMarkerDecoration } from '../highlight/listMarkerDecoration';
 
 function mountView(doc: string): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), taskCheckboxDecorations()],
+    extensions: [markdownLanguageExtension(), listMarkerDecoration()],
   });
   return new EditorView({ state, parent });
 }
@@ -105,11 +105,13 @@ describe('handleTaskCheckboxClick', () => {
     expect(view.state.doc.toString()).toBe('- [x] Buy milk');
   });
 
-  it('a plain click toggles WITHOUT moving the selection into TaskMarker — the widget stays rendered, per the locked product decision', () => {
-    const view = mountView('- [ ] Buy milk');
-    const selectionBefore = view.state.selection.main;
+  it('a plain click toggles WITHOUT moving the selection into TaskMarker — the widget stays rendered, since the caret never entered the marker range', () => {
+    const text = 'Text before\n\n- [ ] Buy milk';
+    const view = mountView(text);
+    const taskMarkerStart = text.indexOf('[ ]');
+    const selectionBefore = view.state.selection.main; // position 0, well outside the marker range
 
-    handleTaskCheckboxClick(view, 2, false);
+    handleTaskCheckboxClick(view, taskMarkerStart, false);
 
     // The selection is untouched by the toggle dispatch — engagement is
     // never a side effect of clicking the checkbox itself.

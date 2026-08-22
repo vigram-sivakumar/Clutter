@@ -6,7 +6,6 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { emojiListMarkDecoration } from '../emoji-list/emojiListMarkDecoration';
 import { listMarkerDecoration } from '../highlight/listMarkerDecoration';
-import { taskCheckboxDecorations } from '../task/taskCheckboxDecorations';
 
 /**
  * `cm-list-marker` is the one common CSS hook shared by every list-item
@@ -26,7 +25,6 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
     extensions: [
       markdownLanguageExtension(),
       listMarkerDecoration(),
-      taskCheckboxDecorations(),
       emojiListMarkDecoration(),
     ],
   });

@@ -25,7 +25,6 @@ import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhit
 import { listLineDecoration } from './codemirror/list/listLineDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { tableDecoration } from './codemirror/table/tableDecoration';
-import { taskCheckboxDecorations } from './codemirror/task/taskCheckboxDecorations';
 import { taskCheckboxKeymap } from './codemirror/task/taskCheckboxKeymap';
 import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
 import { tagDecorations } from './codemirror/tag/tagDecorations';
@@ -160,7 +159,6 @@ export const MarkdownEditor = forwardRef<
         horizontalRuleDecoration(),
         formatShortcutsKeymap(),
         tableDecoration(),
-        taskCheckboxDecorations(),
         // Reuses the exact same onFlush callback already wired to blur
         // below (PageOperations.requestSave, via SaveCoordinator) — a
         // checkbox toggle is instant, single-click feedback a user expects

@@ -6,7 +6,7 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { blockquoteMarkerDecoration } from '../highlight/blockquoteMarkerDecoration';
-import { taskCheckboxDecorations } from '../task/taskCheckboxDecorations';
+import { listMarkerDecoration } from '../highlight/listMarkerDecoration';
 import { listLineDecoration } from './listLineDecoration';
 
 function mountView(doc: string, extraExtensions: Extension[] = []): EditorView {
@@ -16,7 +16,7 @@ function mountView(doc: string, extraExtensions: Extension[] = []): EditorView {
     doc,
     extensions: [
       markdownLanguageExtension(),
-      taskCheckboxDecorations(),
+      listMarkerDecoration(),
       listLineDecoration(),
       ...extraExtensions,
     ],

@@ -1,53 +1,58 @@
-import type { Extension } from '@codemirror/state';
+import { syntaxTree } from '@codemirror/language';
+import { RangeSetBuilder, type Extension } from '@codemirror/state';
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  ViewPlugin,
+  type PluginValue,
+  type ViewUpdate,
+} from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
-import {
-  liveMarkDecoration,
-  type MarkEngagementPredicate,
-  type MarkRange,
-  type MarkRangeSelector,
-} from './liveMarkDecoration';
-import { ListBulletWidget } from './ListBulletWidget';
-import { OrderedListMarkerWidget } from './OrderedListMarkerWidget';
+import { isTaskMarkerChecked } from '../task/taskEngagement';
+import { TaskCheckboxWidget } from '../task/TaskCheckboxWidget';
 
 /**
- * Live Preview marker hiding for list item prefixes (`- `/`* `/`+ `/`1. `),
- * built on the shared `liveMarkDecoration` mechanism — see
- * `headingMarkerDecoration.ts`'s doc comment for the full rationale.
+ * Live Preview rendering for list item prefixes — bullet (`-`/`*`/`+`),
+ * ordered (`1.`/`2)`/…), and task (`- [ ]`/`- [x]`) — all three in one
+ * module, one tree walk, one decoration set. Deliberately not built on
+ * `liveMarkDecoration.ts`/`semanticToken/tokenDecorations.ts`: both of
+ * those exist to answer "collapse this one node's own range, or don't,
+ * based on that node's own engagement" — a task marker needs something
+ * those mechanisms don't provide, a *shared* reveal/hide decision spanning
+ * two sibling nodes (`ListMark` + `TaskMarker`) as a single visual unit,
+ * so the dash and the checkbox can never disagree (see `markerRange`
+ * below). Expressing that by threading a second, wider "engagement range"
+ * concept through either shared mechanism would be more machinery than
+ * just walking the tree directly here — so this does, using the same
+ * primitive (`Decoration.mark`/`Decoration.replace`, a plain `ViewPlugin`)
+ * every other decoration in this codebase already reduces to.
+ *
+ * The model is exactly: syntax tree decides *what* a marker is (bullet vs.
+ * ordered vs. task, via `ListMark`'s own text and whether it owns a
+ * `Task`), current selection decides whether it's *rendered* (a styled
+ * `Decoration.mark` over the real text, or a checkbox widget) or
+ * *revealed* (no decoration at all — the real Markdown text underneath
+ * was always there, so "revealed" is simply "nothing hides it this pass").
+ * Falling back to plain text when the syntax itself breaks needs no
+ * separate handling: a broken `ListMark`/`TaskMarker` simply isn't visited
+ * by the tree walk below.
  *
  * `ListItem`'s `firstChild` is always `ListMark` (confirmed directly
  * against the installed `@lezer/markdown@1.7.2`: bullet and ordered
- * markers alike), the same single-fixed-position shape heading/emphasis/
- * strikethrough already rely on — so this reuses `headingMarkerDecoration`'s
- * separator-space check verbatim rather than inventing a new one.
- *
- * Nested lists need no special handling here: the indentation before a
- * nested `ListItem`'s own `ListMark` is plain document text belonging to
- * no node at all, so it's never touched by `getMarkRanges` and is
- * preserved automatically, not by any logic specific to nesting.
+ * markers alike).
  */
-const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
-
-/**
- * `-`/`*`/`+` are the only three GFM bullet markers (confirmed against the
- * installed `@lezer/markdown`'s `BulletList` parser) — anything else
- * `ListMark` matches is an ordered marker (`1.`, `2)`, …). Both kinds get a
- * resting widget below; this set only decides *which* widget class
- * (`ListBulletWidget` vs. `OrderedListMarkerWidget`) a given `ListMark`
- * renders as, so bullet and numbered markers can be styled independently
- * (`.cm-bullet-list-marker` vs. `.cm-list-number`) per product ask.
- */
-const BULLET_MARKERS: ReadonlySet<string> = new Set(['-', '*', '+']);
+const isBulletMarker = (raw: string): boolean => raw === '-' || raw === '*' || raw === '+';
 
 /**
  * A `ListItem` wrapping a task (`ListItem → ListMark, Task → TaskMarker`,
  * confirmed against the installed `@lezer/markdown`'s `TaskList`
  * extension) is structurally distinguished from a plain `ListItem →
  * ListMark, Paragraph` by its second child's node *name* — `Task` vs.
- * `Paragraph` — never by re-inspecting source characters (`[ ]`/`[x]`)
- * this module has no business parsing; `taskEngagement.ts` already owns
- * that. Returns the `TaskMarker` node itself (not just a boolean) since
- * both call sites below need its exact range, not merely its presence.
+ * `Paragraph` — never by re-inspecting source characters (`[ ]`/`[x]`).
+ * Returns the `TaskMarker` node itself (not just a boolean) since callers
+ * need its exact range, not merely its presence.
  */
 export function findTaskMarker(listItem: SyntaxNode): SyntaxNode | null {
   for (let child = listItem.firstChild; child; child = child.nextSibling) {
@@ -59,70 +64,144 @@ export function findTaskMarker(listItem: SyntaxNode): SyntaxNode | null {
   return null;
 }
 
-const getListMarkRanges: MarkRangeSelector = (node, state) => {
-  const listMark = node.node.firstChild;
-  if (!listMark || listMark.name !== 'ListMark') {
-    return [];
+/**
+ * The single Markdown range a list marker's render-vs-reveal decision is
+ * made against: for a plain bullet/ordered item, the `ListMark` itself
+ * (`-`, `1.`); for a task, `ListMark` through `TaskMarker` combined —
+ * `"- [ ]"`/`"- [x]"` as one unit. The combined range is what prevents the
+ * mixed state a per-node check would allow (cursor landing exactly on the
+ * `-` revealing it while the checkbox widget stays rendered next to the
+ * now-raw dash): both the dash and the checkbox are decided from this one
+ * range, so they can never disagree.
+ *
+ * Exported for `listIndentWhitespaceDecoration.ts`, which needs the same
+ * range to decide whether the whitespace immediately around a marker
+ * should track it as rendered or revealed — including for an emoji
+ * marker's `EmojiListMark`, even though this module's own `buildDecorations`
+ * below never renders one itself (that stays `emojiListMarkDecoration.ts`'s
+ * job, untouched).
+ */
+export function markerRange(listItem: SyntaxNode): { from: number; to: number } | null {
+  const marker = listItem.firstChild;
+  if (!marker || (marker.name !== 'ListMark' && marker.name !== 'EmojiListMark')) {
+    return null;
   }
+  const taskMarker = findTaskMarker(listItem);
+  return { from: marker.from, to: taskMarker ? taskMarker.to : marker.to };
+}
 
-  const raw = state.sliceDoc(listMark.from, listMark.to);
-  const isBullet = BULLET_MARKERS.has(raw);
-  const isTaskOwned = findTaskMarker(node.node) !== null;
+/** Selection strictly within `range` (a zero-width caret at either boundary counts) — the one trigger for reveal. Never doc-changed, never "typing somewhere on the line." */
+function selectionWithin(view: EditorView, range: { from: number; to: number }): boolean {
+  const selection = view.state.selection.main;
+  return selection.from >= range.from && selection.to <= range.to;
+}
 
-  // A Task-owned ListMark never gets a resting widget — the checkbox is
-  // the construct's sole rendered representation (see the module doc
-  // comment above and taskCheckboxDecorations.ts). It hides entirely:
-  // both itself and its separator space collapse to nothing, no widget
-  // standing in for either. Every other ListMark — bullet or ordered —
-  // gets its own widget, matching the numbered marker to the bullet's
-  // already-established at-rest treatment.
-  const getsWidget = !isTaskOwned;
+function buildDecorations(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
 
-  const ranges: MarkRange[] = [
-    getsWidget
-      ? {
-          from: listMark.from,
-          to: listMark.to,
-          widget: isBullet ? new ListBulletWidget() : new OrderedListMarkerWidget(raw),
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (node.name !== 'ListItem') {
+          return;
         }
-      : { from: listMark.from, to: listMark.to },
-  ];
 
-  // A marker's separator space is left uncollapsed only when it actually
-  // got a widget — real, visible whitespace between the rendered glyph
-  // (`•` or `1.`) and the item's text, the same gap the raw marker already
-  // had. The only remaining hide-both case is a Task-owned marker: no
-  // widget stands in for it, so there's nothing to create a gap against.
-  if (!getsWidget) {
-    const separatorFrom = listMark.to;
-    const separatorTo = separatorFrom + 1;
-    if (separatorTo <= state.doc.length && state.sliceDoc(separatorFrom, separatorTo) === ' ') {
-      ranges.push({ from: separatorFrom, to: separatorTo });
-    }
+        const marker = node.node.firstChild;
+        if (!marker || marker.name !== 'ListMark') {
+          return; // EmojiListMark stays emojiListMarkDecoration.ts's job
+        }
+
+        const range = markerRange(node.node);
+        if (!range || selectionWithin(view, range)) {
+          return;
+        }
+
+        const taskMarker = findTaskMarker(node.node);
+        if (taskMarker) {
+          const raw = view.state.sliceDoc(taskMarker.from, taskMarker.to);
+          builder.add(
+            range.from,
+            range.to,
+            Decoration.replace({ widget: new TaskCheckboxWidget(isTaskMarkerChecked(raw)) })
+          );
+          return;
+        }
+
+        const raw = view.state.sliceDoc(range.from, range.to);
+        const className = isBulletMarker(raw)
+          ? 'cm-list-marker cm-bullet-list-marker'
+          : 'cm-list-marker cm-list-number';
+        builder.add(range.from, range.to, Decoration.mark({ class: className }));
+      },
+    });
   }
 
-  return ranges;
-};
+  return builder.finish();
+}
 
 /**
- * List markers (bullet, ordered, task) never reveal their raw Markdown on
- * cursor/line engagement — per product decision, they stay rendered as
- * their widget regardless of selection, falling back to plain text only
- * once the syntax tree itself stops recognizing the construct (deleting
- * the `.` from `1.`, or the required separator space, so it no longer
- * parses as a `ListMark`/`ListItem` at all — at which point there is no
- * node left for this predicate to even be asked about). `emojiListMarkDecoration.ts`
- * already behaves this way by construction (it never hides the glyph in
- * the first place); this predicate brings bullet/ordered/task in line
- * with it, rather than the previous engagement-revealing behavior.
- *
- * Exported so `listIndentWhitespaceDecoration.ts` can reuse the identical
- * "never" answer for whitespace immediately adjacent to a marker (leading
- * indentation before it, the separator after it): that whitespace has no
- * reason to reveal independently of a marker that itself never reveals.
+ * Only the task-checkbox ranges above are atomic (single Backspace/Delete
+ * removes the whole `- [ ]`/`- [x]` unit, matching the previous
+ * `semanticTokenDecorations` behavior for this construct) — bullet/ordered
+ * marks must stay individually, character-by-character editable, so they
+ * are deliberately excluded here even though they're both built in the
+ * same tree walk.
  */
-export const listItemEngagement: MarkEngagementPredicate = () => false;
+function buildAtomicRanges(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>();
+  const atomic = Decoration.mark({});
+
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (node.name !== 'ListItem') {
+          return;
+        }
+        const range = markerRange(node.node);
+        if (!range || selectionWithin(view, range) || !findTaskMarker(node.node)) {
+          return;
+        }
+        builder.add(range.from, range.to, atomic);
+      },
+    });
+  }
+
+  return builder.finish();
+}
+
+interface ListMarkerPlugin extends PluginValue {
+  decorations: DecorationSet;
+  atomic: DecorationSet;
+}
 
 export function listMarkerDecoration(): Extension {
-  return liveMarkDecoration(isListItemNode, getListMarkRanges, listItemEngagement);
+  const plugin = ViewPlugin.fromClass<ListMarkerPlugin>(
+    class implements ListMarkerPlugin {
+      decorations: DecorationSet;
+      atomic: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildDecorations(view);
+        this.atomic = buildAtomicRanges(view);
+      }
+
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+          this.decorations = buildDecorations(update.view);
+          this.atomic = buildAtomicRanges(update.view);
+        }
+      }
+    },
+    {
+      decorations: (p) => p.decorations,
+    }
+  );
+
+  const atomicRanges = EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? Decoration.none);
+
+  return [plugin, atomicRanges];
 }
