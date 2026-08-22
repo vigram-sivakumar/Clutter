@@ -147,7 +147,9 @@
  */
 .cm-editor .cm-list-line {
   --list-indent: calc(var(--height-xs) + var(--space-4));
-  padding-left: calc(var(--list-depth) * var(--list-indent) + var(--marker-size));
+  padding-left: calc(
+    var(--list-depth) * var(--list-indent) + var(--marker-size)
+  );
   text-indent: calc(-1 * var(--marker-size));
 }
 
@@ -166,9 +168,18 @@
  * Shared marker class — every list-item marker widget/mark (bullet,
  * ordered, task checkbox, emoji) carries `cm-list-marker` alongside its
  * own type-specific class below, as the one common CSS hook for "this
- * represents a list item's marker," regardless of kind. Empty on purpose
- * for now: a hook for shared marker styling to land on later, not a
- * default override of any kind's own current appearance.
+ * represents a list item's marker," regardless of kind.
+ *
+ * `margin-right: var(--space-4)` is the deliberate visual gap between the
+ * marker and the item's text, replacing the literal separator space
+ * `listIndentWhitespaceDecoration.ts` now collapses at rest. A `margin`
+ * (not `padding`) so it never changes the marker box's own dimensions —
+ * `--marker-size`/`aspect-ratio: 1` stay exactly as they are, and the
+ * hanging-indent geometry in `.cm-list-line` below (driven solely by
+ * `--marker-size`) is unaffected: the margin only ever exists on the
+ * marker's own inline box on a construct's first visual row, never on a
+ * `padding-left`-positioned wrapped row, so it doesn't need — and
+ * deliberately isn't given — a term in that calculation.
  */
 .cm-editor .cm-list-marker {
   color: var(--marker-foreground);
@@ -177,6 +188,7 @@
   justify-content: center;
   height: var(--marker-size);
   aspect-ratio: 1;
+  margin-right: var(--space-4);
 }
 
 /*

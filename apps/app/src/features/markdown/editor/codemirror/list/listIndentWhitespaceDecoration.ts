@@ -1,5 +1,10 @@
-import type { Extension } from '@codemirror/state';
+import type { EditorState, Extension } from '@codemirror/state';
+import type { SyntaxNode } from '@lezer/common';
 
+import {
+  findTaskMarker,
+  listItemEngagement,
+} from '../highlight/listMarkerDecoration';
 import {
   liveMarkDecoration,
   type MarkRange,
@@ -7,21 +12,28 @@ import {
 } from '../highlight/liveMarkDecoration';
 
 /**
- * Visually collapses the raw leading whitespace that sits before a nested
- * list marker (`ListMark`/`EmojiListMark`) at rest, without touching the
- * document — the CommonMark-required source indentation stays exactly as
- * typed. That whitespace belongs to no syntax node of its own (confirmed
- * by direct inspection of the parsed tree: a nested `ListItem`'s range
- * starts at or after its own marker, never at the physical line's true
- * start), so it renders as ordinary proportional-font text unless
- * something collapses it — additive on top of `.cm-list-line`'s own
- * `padding-left` (`listLineDecoration.ts`/`MarkdownEditor.css`), which is
- * exactly the unwanted gap this module removes.
+ * Visually collapses two kinds of raw Markdown whitespace around a list
+ * marker at rest, without touching the document — both stay exactly as
+ * typed in `state.doc`; this is rendering-only:
+ *
+ *  - the raw leading indentation *before* a nested marker
+ *    (`ListMark`/`EmojiListMark`), additive on top of `.cm-list-line`'s own
+ *    `padding-left` (`listLineDecoration.ts`/`MarkdownEditor.css`);
+ *  - the raw separator space *after* a marker — the CommonMark-required
+ *    delimiter between `-`/`1.`/`[ ]`/`🔥` and the item's content — which
+ *    otherwise renders as ordinary text between the marker widget and the
+ *    text, adding its own width on top of the marker-widget-only hanging
+ *    indent (`MarkdownEditor.css`'s `text-indent: calc(-1 * --marker-size)`
+ *    accounts for the marker's box alone, never for this extra character).
+ *
+ * Neither belongs to any syntax node of its own (confirmed by direct
+ * inspection of the parsed tree for both), so both render as ordinary
+ * proportional-font text unless something collapses them.
  *
  * Deliberately a separate module from `listMarkerDecoration.ts` rather
  * than folded into it: that module owns *marker* rendering (the glyph a
- * `ListMark`/`EmojiListMark` becomes at rest), a different, unrelated
- * concern from neutralizing the raw text that happens to precede it —
+ * `ListMark`/`EmojiListMark`/`TaskMarker` becomes at rest), a different,
+ * unrelated concern from neutralizing the raw text immediately around it —
  * the same granularity already established by `emojiListMarkDecoration.ts`
  * existing as its own independent module rather than a branch inside
  * `listMarkerDecoration.ts`.
@@ -32,6 +44,21 @@ import {
  * `.cm-widgetBuffer` cursor-placement handling that comes with it) already
  * proven safe in production for `listMarkerDecoration.ts`'s own
  * Task-owned-`ListMark` collapse-to-nothing case.
+ *
+ * Engagement is `listItemEngagement` — imported from
+ * `listMarkerDecoration.ts`, never a second, independently-defined notion
+ * of "engaged" — so both the leading and separator ranges reveal exactly
+ * when the marker they sit next to is itself showing raw text, and stay
+ * collapsed exactly when it's showing its widget/glyph. Reusing the
+ * generic `'physical-line'` mode here (the previous approach) is provably
+ * wrong for Task items specifically: `listItemEngagement`'s own doc
+ * comment establishes that a Task-owned marker's engagement is keyed to
+ * the `TaskMarker`'s own node-range, not the physical line, precisely so
+ * the checkbox widget and its raw `[ ]`/`[x]` form can never disagree —
+ * confirmed live (this module's previous `'physical-line'` mode) that a
+ * cursor placed anywhere in a nested task's own text left the leading
+ * indentation revealed as raw text while the checkbox widget remained
+ * rendered, a disagreement `listItemEngagement` does not have.
  */
 const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
 
@@ -44,50 +71,82 @@ const isListItemNode = (nodeName: string): boolean => nodeName === 'ListItem';
 const LIST_MARKER_NODE_NAMES: ReadonlySet<string> = new Set(['ListMark', 'EmojiListMark']);
 
 /**
- * The candidate collapse range is `[line.from, marker.from)` — everything
- * on the marker's own physical line before the marker itself. That range
- * is only ever actually collapsed once it's proven to contain nothing but
- * whitespace: a marker nested inside another construct that itself
- * occupies the start of the line (a list inside a blockquote, `> - item`,
- * where `line.from` lands on the blockquote's own `>`) would otherwise
- * have that unrelated construct's own marker swallowed along with the
- * intended indentation — confirmed as a real, not hypothetical, collision
- * by direct inspection of the parsed tree for exactly that input. An empty
- * range (a marker with no leading whitespace at all, e.g. a top-level
- * item) is likewise never collapsed — there is nothing to hide.
+ * The whitespace strictly between `node`'s own end and wherever its
+ * content actually starts — `node.nextSibling`'s own start position, the
+ * same tree-derived "content column" `listIndentKeymap.ts`'s
+ * `contentColumn()` already relies on, rather than a fixed one-character
+ * offset: a separator isn't always exactly one space (CommonMark tolerates
+ * more, up to the marker's own indent threshold), and anchoring to the
+ * real next sibling handles any width by construction. Falls back to one
+ * column past `node`'s own end (bounded by the document's length) only
+ * when there's no next sibling at all — an empty item with nothing typed
+ * after its marker yet.
  */
-const getLeadingWhitespaceRanges: MarkRangeSelector = (node, state) => {
+function separatorRangeAfter(state: EditorState, node: SyntaxNode): MarkRange | null {
+  const from = node.to;
+  const to = node.nextSibling ? node.nextSibling.from : Math.min(from + 1, state.doc.length);
+
+  if (to <= from) {
+    return null;
+  }
+
+  const gapText = state.sliceDoc(from, to);
+  if (gapText.trim() !== '') {
+    return null;
+  }
+
+  return { from, to };
+}
+
+/**
+ * The candidate leading-indentation range is `[line.from, marker.from)` —
+ * everything on the marker's own physical line before the marker itself.
+ * That range is only ever actually collapsed once it's proven to contain
+ * nothing but whitespace: a marker nested inside another construct that
+ * itself occupies the start of the line (a list inside a blockquote,
+ * `> - item`, where `line.from` lands on the blockquote's own `>`) would
+ * otherwise have that unrelated construct's own marker swallowed along
+ * with the intended indentation — confirmed as a real, not hypothetical,
+ * collision by direct inspection of the parsed tree for exactly that
+ * input. An empty range (a marker with no leading whitespace at all, e.g.
+ * a top-level item) is likewise never collapsed — there is nothing to
+ * hide.
+ *
+ * The separator range is anchored to whichever node the reader actually
+ * sees as "the marker" at rest: a Task-owned `ListItem`'s own `ListMark`
+ * (and that `ListMark`'s own separator) already collapse unconditionally
+ * via `listMarkerDecoration.ts` — the checkbox (`TaskMarker`) is that
+ * construct's sole rendered representation, so the separator this module
+ * cares about for a task is the one *after* the checkbox, not after the
+ * already-hidden `-`.
+ */
+const getMarkerWhitespaceRanges: MarkRangeSelector = (node, state) => {
   const marker = node.node.firstChild;
   if (!marker || !LIST_MARKER_NODE_NAMES.has(marker.name)) {
     return [];
   }
 
+  const ranges: MarkRange[] = [];
+
   const line = state.doc.lineAt(marker.from);
-  const gapFrom = line.from;
-  const gapTo = marker.from;
-
-  if (gapTo <= gapFrom) {
-    return [];
+  const leadingFrom = line.from;
+  const leadingTo = marker.from;
+  if (leadingTo > leadingFrom) {
+    const leadingText = state.sliceDoc(leadingFrom, leadingTo);
+    if (leadingText.trim() === '') {
+      ranges.push({ from: leadingFrom, to: leadingTo });
+    }
   }
 
-  const gapText = state.sliceDoc(gapFrom, gapTo);
-  if (gapText.trim() !== '') {
-    return [];
+  const taskMarker = findTaskMarker(node.node);
+  const separator = separatorRangeAfter(state, taskMarker ?? marker);
+  if (separator) {
+    ranges.push(separator);
   }
 
-  const range: MarkRange = { from: gapFrom, to: gapTo };
-  return [range];
+  return ranges;
 };
 
 export function listIndentWhitespaceDecoration(): Extension {
-  // `'physical-line'` — the same underlying `isPhysicalLineEngaged` check
-  // `listMarkerDecoration.ts`'s own `listItemEngagement` falls through to
-  // for every non-Task `ListItem` — so the leading whitespace reveals
-  // exactly when its own marker's line is engaged, never a second,
-  // independently-defined notion of "engaged". The Task-specific
-  // TaskMarker-engagement override that predicate also carries doesn't
-  // apply here: raw indentation exists identically whether or not the
-  // item is a task, so there is nothing task-specific for this module to
-  // special-case.
-  return liveMarkDecoration(isListItemNode, getLeadingWhitespaceRanges, 'physical-line');
+  return liveMarkDecoration(isListItemNode, getMarkerWhitespaceRanges, listItemEngagement);
 }

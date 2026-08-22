@@ -51,7 +51,7 @@ const BULLET_MARKERS: ReadonlySet<string> = new Set(['-', '*', '+']);
  * that. Returns the `TaskMarker` node itself (not just a boolean) since
  * both call sites below need its exact range, not merely its presence.
  */
-function findTaskMarker(listItem: SyntaxNode): SyntaxNode | null {
+export function findTaskMarker(listItem: SyntaxNode): SyntaxNode | null {
   for (let child = listItem.firstChild; child; child = child.nextSibling) {
     if (child.name === 'Task') {
       const taskMarker = child.firstChild;
@@ -122,8 +122,20 @@ const getListMarkRanges: MarkRangeSelector = (node, state) => {
  * Every other `ListItem` (plain bullet or ordered) has no `Task` child,
  * so this falls through to the same `isPhysicalLineEngaged` rule the
  * generic `'physical-line'` mode already applies — unchanged.
+ *
+ * Exported so `listIndentWhitespaceDecoration.ts` can reuse the identical
+ * predicate for whitespace immediately adjacent to a marker (leading
+ * indentation before it, the separator after it): that whitespace's own
+ * visibility must track *this specific marker's* current rendering mode,
+ * not a second, independently-computed notion of "engaged" — generic
+ * physical-line engagement disagrees with this predicate for Task items
+ * specifically (confirmed: a cursor anywhere in a task's text keeps the
+ * checkbox widget rendered per the TaskMarker-range check above, while
+ * physical-line engagement alone would already report "engaged"), which
+ * previously left task-adjacent whitespace decorations toggled
+ * independently of the checkbox they sit next to.
  */
-const listItemEngagement: MarkEngagementPredicate = (state, node, getMarkRanges) => {
+export const listItemEngagement: MarkEngagementPredicate = (state, node, getMarkRanges) => {
   const taskMarker = findTaskMarker(node.node);
   if (taskMarker) {
     return isTokenEngaged(state, { from: taskMarker.from, to: taskMarker.to });
