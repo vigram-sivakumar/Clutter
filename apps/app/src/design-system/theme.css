@@ -134,7 +134,7 @@ html.theme-transitioning [data-themeable] *::after {
   --highlight-surface: #ffe066;
 
   /* Markdown foreground colors */
-  --marker-foreground: var(--foreground-placeholder);
+  --marker-foreground: var(--foreground-tertiary);
   --link-foreground: var(--foreground-primary);
   --tag-foreground: orange;
   --date-foreground: #767676;

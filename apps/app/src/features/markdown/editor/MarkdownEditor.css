@@ -176,9 +176,9 @@
  * dimensions stay untouched by markdown-editor-specific overrides. Empty on
  * purpose: a hook for width/height adjustments, not a default override.
  */
-/* .cm-editor .cm-task-checkbox {
-
-} */
+.cm-list-marker.checkbox.checkbox--checked.cm-task-checkbox {
+  color: var(--checkbox-accent);
+}
 
 /*
  * Shared marker class — every list-item marker widget/mark (bullet,
