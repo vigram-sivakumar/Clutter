@@ -29,15 +29,15 @@ import { TaskCheckboxWidget } from '../task/TaskCheckboxWidget';
  * primitive (`Decoration.mark`/`Decoration.replace`, a plain `ViewPlugin`)
  * every other decoration in this codebase already reduces to.
  *
- * The model is exactly: syntax tree decides *what* a marker is (bullet vs.
- * ordered vs. task, via `ListMark`'s own text and whether it owns a
- * `Task`), current selection decides whether it's *rendered* (a styled
- * `Decoration.mark` over the real text, or a checkbox widget) or
- * *revealed* (no decoration at all — the real Markdown text underneath
- * was always there, so "revealed" is simply "nothing hides it this pass").
- * Falling back to plain text when the syntax itself breaks needs no
- * separate handling: a broken `ListMark`/`TaskMarker` simply isn't visited
- * by the tree walk below.
+ * The model is exactly: the syntax tree decides *what* a marker is (bullet
+ * vs. ordered vs. task, via `ListMark`'s own text and whether it owns a
+ * `Task`) and *how* it renders (a styled `Decoration.mark` over the real
+ * text, or a checkbox widget) — unconditionally, never gated on selection.
+ * The cursor entering a marker never changes its DOM, its CSS classes, or
+ * its dimensions; there is no reveal/engagement state for any list marker
+ * kind to be in. Falling back to plain text when the syntax itself breaks
+ * needs no separate handling either: a broken `ListMark`/`TaskMarker`
+ * simply isn't visited by the tree walk below.
  *
  * `ListItem`'s `firstChild` is always `ListMark` (confirmed directly
  * against the installed `@lezer/markdown@1.7.2`: bullet and ordered
@@ -65,18 +65,14 @@ export function findTaskMarker(listItem: SyntaxNode): SyntaxNode | null {
 }
 
 /**
- * The single Markdown range a list marker's render-vs-reveal decision is
- * made against: for a plain bullet/ordered item, the `ListMark` itself
- * (`-`, `1.`); for a task, `ListMark` through `TaskMarker` combined —
- * `"- [ ]"`/`"- [x]"` as one unit. The combined range is what prevents the
- * mixed state a per-node check would allow (cursor landing exactly on the
- * `-` revealing it while the checkbox widget stays rendered next to the
- * now-raw dash): both the dash and the checkbox are decided from this one
- * range, so they can never disagree.
+ * The single Markdown range a list marker occupies: for a plain
+ * bullet/ordered item, the `ListMark` itself (`-`, `1.`); for a task,
+ * `ListMark` through `TaskMarker` combined — `"- [ ]"`/`"- [x]"` as one
+ * unit, so the dash and the checkbox are always one rendering decision,
+ * never two that could disagree.
  *
  * Exported for `listIndentWhitespaceDecoration.ts`, which needs the same
- * range to decide whether the whitespace immediately around a marker
- * should track it as rendered or revealed — including for an emoji
+ * range to know what to treat as "the marker" — including for an emoji
  * marker's `EmojiListMark`, even though this module's own `buildDecorations`
  * below never renders one itself (that stays `emojiListMarkDecoration.ts`'s
  * job, untouched).
@@ -88,12 +84,6 @@ export function markerRange(listItem: SyntaxNode): { from: number; to: number } 
   }
   const taskMarker = findTaskMarker(listItem);
   return { from: marker.from, to: taskMarker ? taskMarker.to : marker.to };
-}
-
-/** Selection strictly within `range` (a zero-width caret at either boundary counts) — the one trigger for reveal. Never doc-changed, never "typing somewhere on the line." */
-function selectionWithin(view: EditorView, range: { from: number; to: number }): boolean {
-  const selection = view.state.selection.main;
-  return selection.from >= range.from && selection.to <= range.to;
 }
 
 function buildDecorations(view: EditorView): DecorationSet {
@@ -114,7 +104,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         }
 
         const range = markerRange(node.node);
-        if (!range || selectionWithin(view, range)) {
+        if (!range) {
           return;
         }
 
@@ -142,12 +132,12 @@ function buildDecorations(view: EditorView): DecorationSet {
 }
 
 /**
- * Only the task-checkbox ranges above are atomic (single Backspace/Delete
- * removes the whole `- [ ]`/`- [x]` unit, matching the previous
- * `semanticTokenDecorations` behavior for this construct) — bullet/ordered
- * marks must stay individually, character-by-character editable, so they
- * are deliberately excluded here even though they're both built in the
- * same tree walk.
+ * Only the task-checkbox ranges are atomic (single Backspace/Delete
+ * removes the whole `- [ ]`/`- [x]` unit) — bullet/ordered marks must stay
+ * individually, character-by-character editable, so they are deliberately
+ * excluded here even though both are built in the same tree walk.
+ * Unconditional, same as `buildDecorations` — a task marker is atomic
+ * whenever it exists in the tree, never dependent on selection.
  */
 function buildAtomicRanges(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
@@ -162,7 +152,7 @@ function buildAtomicRanges(view: EditorView): DecorationSet {
           return;
         }
         const range = markerRange(node.node);
-        if (!range || selectionWithin(view, range) || !findTaskMarker(node.node)) {
+        if (!range || !findTaskMarker(node.node)) {
           return;
         }
         builder.add(range.from, range.to, atomic);
@@ -178,6 +168,12 @@ interface ListMarkerPlugin extends PluginValue {
   atomic: DecorationSet;
 }
 
+/**
+ * Rendering is parser-driven only: both decoration sets below are rebuilt
+ * on `docChanged`/`viewportChanged`, never on `selectionSet` — the cursor
+ * moving must never change what a marker looks like, so there is nothing
+ * for a selection-triggered rebuild to do.
+ */
 export function listMarkerDecoration(): Extension {
   const plugin = ViewPlugin.fromClass<ListMarkerPlugin>(
     class implements ListMarkerPlugin {
@@ -190,7 +186,7 @@ export function listMarkerDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (update.docChanged || update.viewportChanged) {
           this.decorations = buildDecorations(update.view);
           this.atomic = buildAtomicRanges(update.view);
         }

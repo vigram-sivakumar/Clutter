@@ -67,6 +67,22 @@ describe('listMarkerDecoration', () => {
       expect(numbers).toEqual(['1.', '2.', '3.']);
     });
 
+    it('multi-digit ordered markers (10., 100.) render their real full text, unconditionally, same as single-digit ones', () => {
+      const text = '10. tenth\n100. hundredth\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      const numbers = Array.from(view.dom.querySelectorAll('.cm-list-number')).map((el) => el.textContent);
+      expect(numbers).toEqual(['10.', '100.']);
+
+      // Same invariant as single-digit markers: caret inside a multi-digit
+      // marker must not change its DOM node, class, or text either.
+      const before = view.dom.querySelectorAll('.cm-list-number')[1];
+      view.dispatch({ selection: { anchor: text.indexOf('100.') + 1 } });
+      const after = view.dom.querySelectorAll('.cm-list-number')[1];
+      expect(after).toBe(before);
+      expect(after?.textContent).toBe('100.');
+    });
+
     it('nested ordered lists: both levels render their own numbers at rest, independently', () => {
       const text = '1. parent\n   1. nested\n   2. nested two\n\nOther';
       const view = mountView(text, text.indexOf('Other'));
@@ -103,83 +119,86 @@ describe('listMarkerDecoration', () => {
     });
   });
 
-  describe('caret inside the marker range reveals raw text; caret outside restores rendering', () => {
-    it('caret inside "1." reveals the raw text; caret back outside restores the numbered widget', () => {
+  describe('core invariant: cursor position never changes marker rendering (parser-driven, not selection-driven)', () => {
+    it('caret entering "1." leaves the exact same DOM node, class, and text — no widget swap, no removal', () => {
       const text = '1. item one\n\nOther';
       const view = mountView(text, text.indexOf('Other'));
-      expect(view.dom.querySelector('.cm-list-number')?.textContent).toBe('1.');
+      const before = view.dom.querySelector('.cm-list-number');
+      expect(before?.textContent).toBe('1.');
 
       view.dispatch({ selection: { anchor: 1 } }); // inside "1."
 
-      expect(view.dom.querySelector('.cm-list-number')).toBeNull();
-      expect(view.dom.textContent).toContain('1. item one');
-
-      view.dispatch({ selection: { anchor: text.indexOf('Other') } });
-
-      expect(view.dom.querySelector('.cm-list-number')?.textContent).toBe('1.');
+      const after = view.dom.querySelector('.cm-list-number');
+      expect(after).not.toBeNull();
+      expect(after).toBe(before); // same DOM node, not a re-created one
+      expect(after?.textContent).toBe('1.');
     });
 
-    it('caret inside "-" reveals raw text; caret back outside restores the bullet widget', () => {
+    it('caret entering "-" leaves the exact same DOM node, class, and text', () => {
       const text = '- item one\n\nOther';
       const view = mountView(text, text.indexOf('Other'));
-      expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('-');
+      const before = view.dom.querySelector('.cm-bullet-list-marker');
+      expect(before?.textContent).toBe('-');
 
       view.dispatch({ selection: { anchor: 0 } }); // on the "-" itself
 
-      expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
-      expect(view.dom.textContent).toContain('- item one');
-
-      view.dispatch({ selection: { anchor: text.indexOf('Other') } });
-
-      expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('-');
+      const after = view.dom.querySelector('.cm-bullet-list-marker');
+      expect(after).toBe(before);
+      expect(after?.textContent).toBe('-');
     });
 
-    it('caret in the item TEXT (not the marker) never reveals the marker', () => {
+    it('caret in the item TEXT does not affect the marker either', () => {
       const text = '- item one\n\nOther';
       const view = mountView(text, text.indexOf('item'));
 
       expect(view.dom.querySelector('.cm-bullet-list-marker')?.textContent).toBe('-');
     });
 
-    it('nested lists: only the item whose own marker contains the caret reveals; the other stays rendered', () => {
+    it('nested lists: both markers stay rendered identically regardless of which line the caret is on', () => {
       const text = '- item one\n  - nested item\n\nOther';
       const nestedMarkerPos = text.indexOf('- nested') + 1;
       const view = mountView(text, nestedMarkerPos);
 
-      const bullets = view.dom.querySelectorAll('.cm-bullet-list-marker');
-      expect(bullets).toHaveLength(1); // only the parent's — the nested one is revealed
-      expect(view.dom.textContent).toContain('- nested item');
+      const markers = view.dom.querySelectorAll('.cm-bullet-list-marker');
+      expect(markers).toHaveLength(2);
+      expect(Array.from(markers).map((m) => m.textContent)).toEqual(['-', '-']);
     });
 
-    it("each item's marker reveals independently — engaging one does not reveal a sibling's", () => {
+    it("each item's marker stays rendered independently of where the caret is on a sibling", () => {
       const text = '- first\n- second';
       const secondMarkerPos = text.indexOf('- second');
       const view = mountView(text, secondMarkerPos);
 
-      expect(view.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(1); // only "first"'s
-      expect(view.dom.textContent).toContain('- second');
+      expect(view.dom.querySelectorAll('.cm-bullet-list-marker')).toHaveLength(2);
+    });
+
+    it('the underlying marker text remains real, editable DOM text (not contenteditable=false) — a Decoration.mark, not a widget', () => {
+      const text = '1. item one\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      const marker = view.dom.querySelector('.cm-list-number');
+      expect(marker?.getAttribute('contenteditable')).not.toBe('false');
     });
   });
 
-  describe('task marker reveals the complete "- [ ]" as one unit, never a mixed state', () => {
-    it('caret inside "[ ]" reveals the full "- [ ]", not just the checkbox portion', () => {
+  describe('task marker: always the checkbox widget, regardless of caret position', () => {
+    it('caret inside "[ ]" leaves the checkbox rendered — no reveal of "- [ ]"', () => {
       const text = '- [ ] Buy milk\n\nOther';
       const view = mountView(text, text.indexOf('[ ]') + 1);
 
-      expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-      expect(view.dom.querySelector('.cm-bullet-list-marker')).toBeNull();
-      expect(view.dom.textContent).toContain('- [ ] Buy milk');
+      expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+      expect(view.dom.textContent).not.toContain('[ ]');
     });
 
-    it('caret on the leading "-" also reveals the full unit — never a bare "-" with the checkbox still rendered', () => {
+    it('caret on the leading "-" also leaves the checkbox rendered — no bare "-" and no reveal', () => {
       const text = '- [ ] Buy milk\n\nOther';
       const view = mountView(text, 0); // on the dash itself
 
-      expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-      expect(view.dom.textContent).toContain('- [ ] Buy milk');
+      expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+      expect(view.dom.textContent).not.toContain('- [ ]');
     });
 
-    it('caret in the task TEXT keeps the checkbox rendered — no raw "-" or "[ ]"', () => {
+    it('caret in the task TEXT also leaves the checkbox rendered — no raw "-" or "[ ]" ever', () => {
       const text = '- [ ] Buy milk';
       const view = mountView(text, text.indexOf('Buy'));
 
@@ -187,14 +206,19 @@ describe('listMarkerDecoration', () => {
       expect(view.dom.textContent).not.toContain('[ ]');
     });
 
-    it('leaving the task marker restores the checkbox', () => {
+    it('moving the caret across the whole line never swaps the checkbox for a different DOM node', () => {
       const text = '- [ ] Buy milk\n\nOther';
-      const view = mountView(text, text.indexOf('[ ]') + 1);
-      expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
+      const view = mountView(text, text.indexOf('Other'));
+      const before = view.dom.querySelector('button[role="checkbox"]');
 
-      view.dispatch({ selection: { anchor: text.indexOf('Other') } });
+      view.dispatch({ selection: { anchor: text.indexOf('[ ]') + 1 } });
+      const inMarker = view.dom.querySelector('button[role="checkbox"]');
 
-      expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+      view.dispatch({ selection: { anchor: text.indexOf('Buy') } });
+      const inText = view.dom.querySelector('button[role="checkbox"]');
+
+      expect(before).toBe(inMarker);
+      expect(inMarker).toBe(inText);
     });
   });
 

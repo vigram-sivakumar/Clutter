@@ -14,9 +14,8 @@ import { findTaskMarker, markerRange } from '../highlight/listMarkerDecoration';
 
 /**
  * Visually collapses two kinds of raw Markdown whitespace around a list
- * marker while it's rendered (not revealed), without touching the
- * document — both stay exactly as typed in `state.doc`; this is
- * rendering-only:
+ * marker, unconditionally, without touching the document — both stay
+ * exactly as typed in `state.doc`; this is rendering-only:
  *
  *  - the raw leading indentation *before* a nested marker
  *    (`ListMark`), additive on top of `.cm-list-line`'s own `padding-left`
@@ -29,16 +28,12 @@ import { findTaskMarker, markerRange } from '../highlight/listMarkerDecoration';
  * Neither belongs to any syntax node of its own, so both render as
  * ordinary proportional-font text unless something collapses them.
  *
- * Tracks the exact same range `listMarkerDecoration.ts`'s own render-vs-
- * reveal decision uses (`markerRange`) — imported directly, not a second,
- * independently-computed notion of "is this marker rendered or revealed."
- * Whitespace immediately around a marker has no reason to reveal
- * independently of that marker.
+ * Tracks the exact same range `listMarkerDecoration.ts`'s own marker
+ * rendering uses (`markerRange`) — imported directly, not a second,
+ * independently-computed notion of what counts as "the marker." Parser-
+ * driven only, same as that module: never gated on selection, so the
+ * cursor entering a marker never re-adds the whitespace it collapses.
  */
-function selectionWithin(view: EditorView, range: { from: number; to: number }): boolean {
-  const selection = view.state.selection.main;
-  return selection.from >= range.from && selection.to <= range.to;
-}
 
 /**
  * The whitespace strictly between `node`'s own end and wherever its
@@ -86,7 +81,7 @@ function buildDecorations(view: EditorView): DecorationSet {
         }
 
         const marker = markerRange(node.node);
-        if (!marker || selectionWithin(view, marker)) {
+        if (!marker) {
           return;
         }
 
@@ -145,7 +140,7 @@ export function listIndentWhitespaceDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (update.docChanged || update.viewportChanged) {
           this.decorations = buildDecorations(update.view);
         }
       }

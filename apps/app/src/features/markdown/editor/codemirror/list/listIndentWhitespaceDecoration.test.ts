@@ -175,7 +175,7 @@ describe('listIndentWhitespaceDecoration', () => {
       expect(view.state.doc.toString()).toBe(text);
     });
 
-    it('cursor inside the task marker itself: checkbox reveals raw text, and leading indentation/separator reveal alongside it (same range)', () => {
+    it('cursor inside the task marker itself: checkbox, leading indentation, and separator all stay collapsed — nothing changes based on caret position', () => {
       const text = '1. item\n   - [ ] nested task text';
       const view = mountFullView(text, text.indexOf('[ ]') + 1); // inside "[ ]"
 
@@ -183,11 +183,9 @@ describe('listIndentWhitespaceDecoration', () => {
         l.textContent?.includes('nested task text')
       );
       expect(nestedLine).toBeDefined();
-      // Caret is inside the combined "- [ ]" range, so the whole unit
-      // reveals together — checkbox, leading indentation, and separator
-      // all show their raw form, never a mixed state.
-      expect(nestedLine!.querySelector('.cm-task-checkbox')).toBeNull();
-      expect(nestedLine!.textContent).toBe('   - [ ] nested task text');
+      expect(nestedLine!.querySelector('.cm-task-checkbox')).not.toBeNull();
+      expect(nestedLine!.textContent).not.toContain('   -'); // leading indentation still collapsed
+      expect(nestedLine!.textContent).not.toContain('[ ] nested'); // separator still collapsed
     });
   });
 

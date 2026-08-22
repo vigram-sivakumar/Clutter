@@ -20,33 +20,30 @@ function mountView(doc: string, cursorPos: number): EditorView {
   return new EditorView({ state, parent });
 }
 
-describe('keyboard engagement — TaskMarker', () => {
-  it('one position before an at-rest TaskMarker, hopRight hops in to the near boundary — caret now inside the combined "- [ ]" range, so it reveals raw text', () => {
+describe('keyboard navigation over the TaskMarker — cursor moves, rendering never changes', () => {
+  it('hopRight moves the caret to the near boundary; the checkbox stays rendered (parser-driven, not selection-driven)', () => {
     const view = mountView('- [ ] task', 1); // right before "["
 
     const handled = hopRight(view, isTaskMarkerNode);
 
     expect(handled).toBe(true);
     expect(view.state.selection.main.head).toBe(2);
-    // Position 2 is inside the combined ListMark+TaskMarker range ("- [ ]"
-    // as one unit, listMarkerDecoration.ts's markerRange), so the whole
-    // construct reveals its raw text rather than staying a checkbox.
-    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-    expect(view.dom.textContent).toContain('[ ]');
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+    expect(view.dom.textContent).not.toContain('[ ]');
   });
 
-  it('one position after an at-rest TaskMarker, hopLeft hops in to the near boundary — same reveal', () => {
+  it('hopLeft moves the caret to the near boundary; the checkbox stays rendered', () => {
     const view = mountView('- [ ] task', 6); // right after "]"
 
     const handled = hopLeft(view, isTaskMarkerNode);
 
     expect(handled).toBe(true);
     expect(view.state.selection.main.head).toBe(5);
-    expect(view.dom.querySelector('button[role="checkbox"]')).toBeNull();
-    expect(view.dom.textContent).toContain('[ ]');
+    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
+    expect(view.dom.textContent).not.toContain('[ ]');
   });
 
-  it('keyboard engagement never toggles the checked state — only reveals raw text', () => {
+  it('keyboard navigation never toggles the checked state and never mutates the document', () => {
     const view = mountView('- [ ] task', 1);
 
     hopRight(view, isTaskMarkerNode);

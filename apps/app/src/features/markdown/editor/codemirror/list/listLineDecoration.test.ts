@@ -211,4 +211,17 @@ describe('listLineDecoration', () => {
     expect(lines.map(hasListLine)).toEqual([true, true]);
     expect(lines.map(depthOf)).toEqual(['0', '0']);
   });
+
+  it('nested indentation is unaffected by the caret entering a marker — depth is parser-driven, same as marker rendering', () => {
+    const text = '- top\n  - nested';
+    const view = mountView(text);
+    const nestedLine = nthLine(view, 1);
+    expect(depthOf(nestedLine)).toBe('1');
+
+    const nestedMarkerPos = text.indexOf('- nested') + 2;
+    view.dispatch({ selection: { anchor: nestedMarkerPos } }); // caret inside the nested "-"
+
+    expect(depthOf(nthLine(view, 1))).toBe('1');
+    expect(hasListLine(nthLine(view, 1))).toBe(true);
+  });
 });
