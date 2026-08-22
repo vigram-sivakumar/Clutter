@@ -123,12 +123,22 @@
  * a line decoration's `padding-left` reserves space across a
  * browser-soft-wrapped continuation of the same physical line.
  *
- * Deliberately no `text-indent` counter-offset: the marker is never pulled
- * back out of the indent or positioned independently from the rest of the
- * line — `--list-depth` (the `ListItem` nesting depth, set per line by
- * listLineDecoration.ts) shifts the whole line, marker and content
- * together, by `--list-depth` indent units. Nesting is purely additive —
- * no per-depth class, no marker-specific rule.
+ * `--list-depth` (the owning `ListItem`'s nesting depth, set per line by
+ * listLineDecoration.ts) shifts the whole line's content column right by
+ * `--list-depth` indent units — nesting is purely additive, no per-depth
+ * class, no marker-specific rule.
+ *
+ * On top of that nesting column, `padding-left` also reserves one
+ * `--marker-size` — the marker's own fixed rendered width (shared by
+ * every marker kind, see `.cm-list-marker` below) — and `text-indent`
+ * pulls the line's *first* visual row back out of exactly that much of
+ * the reserved space. Per the CSS spec, `text-indent` applies only to a
+ * block's first line, never to soft-wrapped continuation rows, so the
+ * two rules together produce a genuine hanging indent from one pair of
+ * properties, no per-row JavaScript involved:
+ *
+ *   first row:      `--list-depth` * `--list-indent`                (marker sits here)
+ *   wrapped rows:    `--list-depth` * `--list-indent` + `--marker-size`  (text continues here)
  *
  * `--list-indent` reuses the previous task-line footprint
  * (`--height-xs` + `--space-4`, `.checkbox`'s own width plus the ~4px a
@@ -137,7 +147,8 @@
  */
 .cm-editor .cm-list-line {
   --list-indent: calc(var(--height-xs) + var(--space-4));
-  padding-left: calc(var(--list-depth) * var(--list-indent));
+  padding-left: calc(var(--list-depth) * var(--list-indent) + var(--marker-size));
+  text-indent: calc(-1 * var(--marker-size));
 }
 
 /*
@@ -160,6 +171,7 @@
  * default override of any kind's own current appearance.
  */
 .cm-editor .cm-list-marker {
+  color: var(--marker-foreground);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -176,7 +188,6 @@
  * `tok-mark` only ever appears mid-edit).
  */
 .cm-editor .cm-bullet-list-marker {
-  color: var(--marker-foreground);
   font-size: 1.2em;
   line-height: 1;
 }
@@ -190,9 +201,9 @@
  * glyph, so it's sized with the surrounding text rather than
  * `.cm-bullet-list-marker`'s enlarged bullet treatment.
  */
-.cm-editor .cm-list-number {
+/* .cm-editor .cm-list-number {
   color: var(--marker-foreground);
-}
+} */
 
 /*
  * The emoji list marker (emojiListMarkDecoration.ts) — unlike
@@ -205,7 +216,7 @@
 .cm-editor .cm-emoji-list-marker {
   height: var(--marker-size);
   aspect-ratio: 1;
-  font-size: var(--text-label-small);
+  font-size: var(--text-label);
 }
 
 /*

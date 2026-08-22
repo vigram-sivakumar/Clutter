@@ -45,27 +45,27 @@ function hasListLine(line: HTMLElement): boolean {
 }
 
 describe('listLineDecoration', () => {
-  describe('top-level items (depth 0) get no decoration at all', () => {
+  describe('top-level items (depth 0) get cm-list-line and --list-depth: 0', () => {
     it.each([
       ['bullet', '- item'],
       ['ordered', '1. item'],
       ['task', '- [ ] Buy milk'],
       ['checked task', '- [x] Buy milk'],
       ['emoji', '🍒 item'],
-    ])('%s: no cm-list-line class, no --list-depth', (_kind, doc) => {
+    ])('%s', (_kind, doc) => {
       const view = mountView(doc);
       const line = nthLine(view, 0);
 
-      expect(hasListLine(line)).toBe(false);
-      expect(depthOf(line)).toBeNull();
+      expect(hasListLine(line)).toBe(true);
+      expect(depthOf(line)).toBe('0');
     });
   });
 
   it('a first-nested item (depth 1) gets cm-list-line and --list-depth: 1', () => {
     const view = mountView('- parent\n  - [x] nested task');
 
-    expect(hasListLine(nthLine(view, 0))).toBe(false); // top-level parent: depth 0
-    expect(depthOf(nthLine(view, 0))).toBeNull();
+    expect(hasListLine(nthLine(view, 0))).toBe(true); // top-level parent: depth 0
+    expect(depthOf(nthLine(view, 0))).toBe('0');
 
     expect(hasListLine(nthLine(view, 1))).toBe(true);
     expect(depthOf(nthLine(view, 1))).toBe('1');
@@ -74,8 +74,8 @@ describe('listLineDecoration', () => {
   it('a second-nested item (depth 2) gets cm-list-line and --list-depth: 2', () => {
     const view = mountView('- top\n  - first nested\n    - second nested');
 
-    expect(hasListLine(nthLine(view, 0))).toBe(false); // top-level: depth 0
-    expect(depthOf(nthLine(view, 0))).toBeNull();
+    expect(hasListLine(nthLine(view, 0))).toBe(true); // top-level: depth 0
+    expect(depthOf(nthLine(view, 0))).toBe('0');
 
     expect(hasListLine(nthLine(view, 1))).toBe(true); // first nested: depth 1
     expect(depthOf(nthLine(view, 1))).toBe('1');
@@ -99,20 +99,21 @@ describe('listLineDecoration', () => {
     expect(line.getAttribute('style')).toBeNull();
   });
 
-  it('removes cm-list-line and --list-depth once a nested line stops being a list item', () => {
+  it('demotes cm-list-line from depth 1 to depth 0 once a nested line stops being a list item of its own', () => {
     const view = mountView('- parent\n  - nested item');
     expect(hasListLine(nthLine(view, 1))).toBe(true);
     expect(depthOf(nthLine(view, 1))).toBe('1');
 
     // Delete the nested line's own `- ` marker prefix (keeping its 2-space
     // indent), so it reparses as lazy-continuation text of the parent item
-    // rather than a ListItem of its own.
+    // rather than a ListItem of its own — still owned by "parent" (depth
+    // 0), not unrelated to it.
     const nestedMarkerStart = '- parent\n  '.length;
     view.dispatch({ changes: { from: nestedMarkerStart, to: nestedMarkerStart + 2, insert: '' } });
 
     const line = nthLine(view, 1);
-    expect(hasListLine(line)).toBe(false);
-    expect(depthOf(line)).toBeNull();
+    expect(hasListLine(line)).toBe(true);
+    expect(depthOf(line)).toBe('0');
   });
 
   it('demotes a second-nested item from depth 2 to depth 1 once one level of its own indentation is removed', () => {
@@ -146,10 +147,68 @@ describe('listLineDecoration', () => {
     expect(depthOf(nthLine(view, nestedLineIndex))).toBe('1');
   });
 
-  it('only decorates nested list-item lines in a document mixing plain, top-level, and nested lines', () => {
+  it('decorates every list-owned line in a document mixing plain, top-level, and nested lines', () => {
     const view = mountView('plain paragraph\n- top item\n  - nested item\nplain again');
     const lines = listLines(view);
 
-    expect(lines.map(hasListLine)).toEqual([false, false, true, false]);
+    // "plain again" carries no indentation of its own, but CommonMark lazy
+    // continuation still attaches it to the nested item's own Paragraph
+    // (confirmed against the parsed tree) — so it's owned by the nested
+    // ListItem, depth 1, same as the line above it.
+    expect(lines.map(hasListLine)).toEqual([false, true, true, true]);
+    expect(lines.map(depthOf)).toEqual([null, '0', '1', '1']);
+  });
+
+  it('decorates a lazy-continuation line that starts a ListItem\'s own line with no leading whitespace at all', () => {
+    const view = mountView('1. Parent item\nlazy continuation line with no leading whitespace');
+    const lines = listLines(view);
+
+    expect(lines.map(hasListLine)).toEqual([true, true]);
+    expect(lines.map(depthOf)).toEqual(['0', '0']);
+  });
+
+  it('decorates every physical line of a multi-block ListItem — second paragraph, nested list, fenced code alike', () => {
+    const doc = [
+      '1. first paragraph',
+      '',
+      '   second paragraph',
+      '',
+      '   - nested item',
+      '',
+      '   ```',
+      '   code',
+      '   ```',
+    ].join('\n');
+    const view = mountView(doc);
+    const lines = listLines(view);
+
+    // Blank lines are skipped (no visible content to hang-align), every
+    // other line is owned by either the outer ListItem (depth 0) or the
+    // nested one (depth 1).
+    expect(lines.map(hasListLine)).toEqual([true, false, true, false, true, false, true, true, true]);
+    expect(lines.map(depthOf)).toEqual(['0', null, '0', null, '1', null, '0', '0', '0']);
+  });
+
+  it('does not decorate a blockquote-prefixed line at all — its first non-whitespace character is ">", not a ListItem', () => {
+    const view = mountView('> - quoted bullet', [blockquoteMarkerDecoration()]);
+    const line = nthLine(view, 0);
+
+    // The physical line's first non-whitespace character is the
+    // blockquote's own ">" (confirmed against the parsed tree: QuoteMark
+    // is a direct child of Blockquote, a sibling of the nested BulletList,
+    // never itself inside the ListItem). Probing there finds no ListItem
+    // ancestor, so this line correctly gets no list-line decoration at
+    // all — the list's own marker line (one line down, in the
+    // multi-line-blockquote case) is unaffected by this.
+    expect(hasListLine(line)).toBe(false);
+    expect(depthOf(line)).toBeNull();
+  });
+
+  it('gives a blockquote nested inside a ListItem the ListItem\'s own depth, not zero from being "just a blockquote"', () => {
+    const view = mountView('- outer\n  > quoted continuation inside list item', [blockquoteMarkerDecoration()]);
+    const lines = listLines(view);
+
+    expect(lines.map(hasListLine)).toEqual([true, true]);
+    expect(lines.map(depthOf)).toEqual(['0', '0']);
   });
 });

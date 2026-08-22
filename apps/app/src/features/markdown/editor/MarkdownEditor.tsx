@@ -21,6 +21,7 @@ import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoratio
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 import { listIndentKeymap } from './codemirror/list/listIndentKeymap';
+import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
 import { listLineDecoration } from './codemirror/list/listLineDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { tableDecoration } from './codemirror/table/tableDecoration';
@@ -152,6 +153,7 @@ export const MarkdownEditor = forwardRef<
         listMarkerDecoration(),
         listIndentKeymap(),
         listLineDecoration(),
+        listIndentWhitespaceDecoration(),
         emojiListKeymap(),
         emojiListMarkDecoration(),
         blockquoteMarkerDecoration(),
