@@ -170,6 +170,18 @@
  * own type-specific class below, as the one common CSS hook for "this
  * represents a list item's marker," regardless of kind.
  *
+ * `text-indent: 0` resets the `-1 * var(--marker-size)` value
+ * `.cm-list-line` sets below — `text-indent` is an inherited property, so
+ * without this reset it also applies to the marker's own internal
+ * `inline-flex` layout (not just the block-level line it's inherited
+ * from), shifting the glyph left by a full marker-width and out from
+ * under `justify-content: center` even though the marker's own outer box
+ * stays positioned correctly. The block-level hanging indent is already
+ * fully determined by the marker's own box position (`padding-left`, set
+ * by `listLineDecoration.ts`/`.cm-list-line`); resetting the inherited
+ * value here only stops it from being applied a second time to content
+ * inside this box.
+ *
  * `margin-right: var(--space-4)` is the deliberate visual gap between the
  * marker and the item's text, replacing the literal separator space
  * `listIndentWhitespaceDecoration.ts` now collapses at rest. A `margin`
@@ -183,6 +195,7 @@
  */
 .cm-editor .cm-list-marker {
   color: var(--marker-foreground);
+  text-indent: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
