@@ -102,4 +102,123 @@ describe('boldLivePreview', () => {
       expect(view.dom.querySelector('.tok-strong')).toBeNull();
     });
   });
+
+  describe('nested StrongEmphasis (a 4+-star delimiter run, e.g. ****text****)', () => {
+    // A 4-star run is valid CommonMark and parses as StrongEmphasis nested
+    // inside StrongEmphasis (confirmed via direct tree inspection, not
+    // assumed) — realistic input (e.g. a bold shortcut pressed twice on
+    // the same selection), not a contrived malformed case.
+    it('does not crash mounting the view', () => {
+      expect(() => mountView('Text before ****strong**** after')).not.toThrow();
+    });
+
+    it('conceals both levels of markers at rest', () => {
+      const view = mountView('Text before ****strong**** after');
+
+      expect(view.dom.textContent).toBe('Text before strong after');
+      expect(view.dom.textContent).not.toContain('*');
+    });
+
+    it('renders the nested content bold', () => {
+      const view = mountView('Text before ****strong**** after');
+
+      const bold = view.dom.querySelector('.tok-strong');
+      expect(bold).not.toBeNull();
+      expect(bold?.textContent).toBe('strong');
+    });
+
+    it('an independent, unrelated **bold** elsewhere in the same document still renders after the nested construct', () => {
+      const view = mountView('Before ****nested**** middle **plain** after');
+
+      expect(view.dom.textContent).toBe('Before nested middle plain after');
+      // The nested construct contributes two overlapping .tok-strong spans
+      // (outer's content mark wraps the inner node's own mark) — a genuine
+      // consequence of two independently-decorated nesting levels, not a
+      // bug. The independent "plain" span is the third, unrelated one and
+      // must still be present and correctly scoped to just its own text.
+      const boldSpans = Array.from(view.dom.querySelectorAll('.tok-strong'));
+      expect(boldSpans).toHaveLength(3);
+      expect(boldSpans.some((el) => el.textContent === 'plain')).toBe(true);
+      expect(boldSpans.every((el) => el.textContent === 'nested' || el.textContent === 'plain')).toBe(true);
+    });
+
+    it('the document text is never mutated by mounting or decorating the nested construct', () => {
+      const text = 'Text before ****strong**** after';
+      const view = mountView(text);
+
+      expect(view.state.doc.toString()).toBe(text);
+    });
+  });
+
+  describe('engagement-boundary fix: whole-document construct at the real initial cursor position', () => {
+    // createEditorView.ts always seeds the initial selection at doc.length
+    // ("opening a page should land the cursor at the end of its content").
+    // When a StrongEmphasis node's own range coincides with doc.length (or
+    // with position 0), isTokenEngaged's boundary-inclusive containment
+    // check previously read the caret as "inside" the *full* node range
+    // (including the delimiters themselves), permanently engaging the
+    // construct and leaving its markers visibly unconcealed until the
+    // user clicked elsewhere. Checking the inner content range instead
+    // (openMark.to to closeMark.from) fixes this without touching
+    // isTokenEngaged itself.
+    function mountViewWithSelection(doc: string, anchor: number): EditorView {
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      const state = EditorState.create({
+        doc,
+        selection: { anchor },
+        extensions: [markdownLanguageExtension(), boldLivePreview()],
+      });
+      return new EditorView({ state, parent });
+    }
+
+    it('plain **Hey** as the entire document, caret at doc.length: fully conceals', () => {
+      const doc = '**Hey**';
+      const view = mountViewWithSelection(doc, doc.length);
+
+      expect(view.dom.textContent).toBe('Hey');
+      expect(view.dom.textContent).not.toContain('*');
+      expect(view.dom.querySelector('.tok-strong')?.textContent).toBe('Hey');
+    });
+
+    it('plain **Hey** as the entire document, caret at 0: fully conceals', () => {
+      const doc = '**Hey**';
+      const view = mountViewWithSelection(doc, 0);
+
+      expect(view.dom.textContent).toBe('Hey');
+      expect(view.dom.textContent).not.toContain('*');
+    });
+
+    it('nested ****Hey**** as the entire document, caret at doc.length: fully conceals both levels', () => {
+      const doc = '****Hey****';
+      const view = mountViewWithSelection(doc, doc.length);
+
+      expect(view.dom.textContent).toBe('Hey');
+      expect(view.dom.textContent).not.toContain('*');
+    });
+
+    it('nested ****Hey**** as the entire document, caret at 0: fully conceals both levels', () => {
+      const doc = '****Hey****';
+      const view = mountViewWithSelection(doc, 0);
+
+      expect(view.dom.textContent).toBe('Hey');
+      expect(view.dom.textContent).not.toContain('*');
+    });
+
+    it('still engages when the caret is genuinely inside the content, even at the exact inner-content boundary', () => {
+      const doc = '**Hey**';
+      // Position right after the opening '**', i.e. the first character of
+      // the content — the inner-content range's own inclusive boundary.
+      const view = mountViewWithSelection(doc, 2);
+
+      expect(view.dom.textContent).toBe('**Hey**');
+    });
+
+    it('placing the caret inside nested content reveals both delimiter levels together (matches the established ***bold italic*** precedent)', () => {
+      const doc = 'Before ****Hey**** after';
+      const view = mountViewWithSelection(doc, doc.indexOf('Hey') + 1);
+
+      expect(view.dom.textContent).toBe('Before ****Hey**** after');
+    });
+  });
 });
