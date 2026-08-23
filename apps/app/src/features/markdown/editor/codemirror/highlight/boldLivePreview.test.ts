@@ -150,17 +150,16 @@ describe('boldLivePreview', () => {
     });
   });
 
-  describe('engagement-boundary fix: whole-document construct at the real initial cursor position', () => {
-    // createEditorView.ts always seeds the initial selection at doc.length
-    // ("opening a page should land the cursor at the end of its content").
-    // When a StrongEmphasis node's own range coincides with doc.length (or
-    // with position 0), isTokenEngaged's boundary-inclusive containment
-    // check previously read the caret as "inside" the *full* node range
-    // (including the delimiters themselves), permanently engaging the
-    // construct and leaving its markers visibly unconcealed until the
-    // user clicked elsewhere. Checking the inner content range instead
-    // (openMark.to to closeMark.from) fixes this without touching
-    // isTokenEngaged itself.
+  describe('boundary-after-completion: a caret at either edge of the construct stays engaged', () => {
+    // A caret sitting exactly at node.from or node.to counts as engaged
+    // (full-range containment, including both boundaries) — this is what
+    // keeps a just-completed construct revealed on the exact keystroke
+    // that finished it (the caret is, by definition, at node.to right
+    // after typing the closing delimiter), matching every real-world
+    // Live Preview Markdown editor. Confirmed by direct browser execution:
+    // typing "**bold**" character by character leaves the selection at
+    // {8,8} == node.to immediately, and the construct must still render
+    // raw at that instant, not collapse before the user moves on.
     function mountViewWithSelection(doc: string, anchor: number): EditorView {
       const parent = document.createElement('div');
       document.body.appendChild(parent);
@@ -172,53 +171,82 @@ describe('boldLivePreview', () => {
       return new EditorView({ state, parent });
     }
 
-    it('plain **Hey** as the entire document, caret at doc.length: fully conceals', () => {
+    it('caret at node.to (right after typing the closing **) stays revealed', () => {
+      const doc = 'Text before **bold** after';
+      const nodeTo = 'Text before **bold**'.length;
+      const view = mountViewWithSelection(doc, nodeTo);
+
+      expect(view.dom.textContent).toBe('Text before **bold** after');
+      expect(view.dom.querySelector('.tok-strong')).toBeNull();
+    });
+
+    it('caret at node.from (right before the opening **) stays revealed', () => {
+      const doc = 'Text before **bold** after';
+      const nodeFrom = 'Text before '.length;
+      const view = mountViewWithSelection(doc, nodeFrom);
+
+      expect(view.dom.textContent).toBe('Text before **bold** after');
+    });
+
+    it('caret one position further out on either side conceals normally', () => {
+      const doc = 'Text before **bold** after';
+      const nodeFrom = 'Text before '.length;
+      const nodeTo = 'Text before **bold**'.length;
+
+      const viewBefore = mountViewWithSelection(doc, nodeFrom - 1);
+      expect(viewBefore.dom.textContent).toBe('Text before bold after');
+
+      const viewAfter = mountViewWithSelection(doc, nodeTo + 1);
+      expect(viewAfter.dom.textContent).toBe('Text before bold after');
+    });
+
+    it('nested ****Hey****: caret at the outer node.to keeps the outer level revealed (inner independently stays concealed — its own range does not contain this position)', () => {
+      const doc = 'Text before ****Hey**** after';
+      const nodeTo = 'Text before ****Hey****'.length;
+      const view = mountViewWithSelection(doc, nodeTo);
+
+      expect(view.dom.textContent).toBe('Text before **Hey** after');
+    });
+  });
+
+  describe('known, deferred limitation: whole-document construct at the real initial cursor position', () => {
+    // createEditorView.ts always seeds the initial selection at doc.length.
+    // When a StrongEmphasis node's own range coincides with doc.length (or
+    // with position 0) -- i.e. the construct is the *entire* reachable
+    // document -- the full-range engagement rule (restored above) reads
+    // that boundary as "inside," so the construct loads permanently
+    // revealed until the user clicks elsewhere. A narrower fix (checking
+    // the inner content range instead) was tried and reverted: it broke
+    // the far more common "stays revealed right after typing" case tested
+    // above. No rule that's a pure function of (tree, selection) can
+    // satisfy both, since the identical boundary position occurs in both
+    // scenarios with no way to distinguish "just typed" from "just
+    // loaded." Left as a known, deliberately out-of-scope gap -- these
+    // tests document and pin the current (accepted) behavior rather than
+    // leaving it silently unverified.
+    function mountViewWithSelection(doc: string, anchor: number): EditorView {
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      const state = EditorState.create({
+        doc,
+        selection: { anchor },
+        extensions: [markdownLanguageExtension(), boldLivePreview()],
+      });
+      return new EditorView({ state, parent });
+    }
+
+    it('plain **Hey** as the entire document, caret at doc.length: stays revealed (known limitation)', () => {
       const doc = '**Hey**';
       const view = mountViewWithSelection(doc, doc.length);
-
-      expect(view.dom.textContent).toBe('Hey');
-      expect(view.dom.textContent).not.toContain('*');
-      expect(view.dom.querySelector('.tok-strong')?.textContent).toBe('Hey');
-    });
-
-    it('plain **Hey** as the entire document, caret at 0: fully conceals', () => {
-      const doc = '**Hey**';
-      const view = mountViewWithSelection(doc, 0);
-
-      expect(view.dom.textContent).toBe('Hey');
-      expect(view.dom.textContent).not.toContain('*');
-    });
-
-    it('nested ****Hey**** as the entire document, caret at doc.length: fully conceals both levels', () => {
-      const doc = '****Hey****';
-      const view = mountViewWithSelection(doc, doc.length);
-
-      expect(view.dom.textContent).toBe('Hey');
-      expect(view.dom.textContent).not.toContain('*');
-    });
-
-    it('nested ****Hey**** as the entire document, caret at 0: fully conceals both levels', () => {
-      const doc = '****Hey****';
-      const view = mountViewWithSelection(doc, 0);
-
-      expect(view.dom.textContent).toBe('Hey');
-      expect(view.dom.textContent).not.toContain('*');
-    });
-
-    it('still engages when the caret is genuinely inside the content, even at the exact inner-content boundary', () => {
-      const doc = '**Hey**';
-      // Position right after the opening '**', i.e. the first character of
-      // the content — the inner-content range's own inclusive boundary.
-      const view = mountViewWithSelection(doc, 2);
 
       expect(view.dom.textContent).toBe('**Hey**');
     });
 
-    it('placing the caret inside nested content reveals both delimiter levels together (matches the established ***bold italic*** precedent)', () => {
-      const doc = 'Before ****Hey**** after';
-      const view = mountViewWithSelection(doc, doc.indexOf('Hey') + 1);
+    it('plain **Hey** as the entire document, caret at 0: stays revealed (known limitation)', () => {
+      const doc = '**Hey**';
+      const view = mountViewWithSelection(doc, 0);
 
-      expect(view.dom.textContent).toBe('Before ****Hey**** after');
+      expect(view.dom.textContent).toBe('**Hey**');
     });
   });
 });

@@ -18,6 +18,7 @@ import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap
 import { boldLivePreview } from './codemirror/highlight/boldLivePreview';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 // import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
+import { italicLivePreview } from './codemirror/highlight/italicLivePreview';
 // import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
@@ -161,6 +162,10 @@ export const MarkdownEditor = forwardRef<
         // (liveMarkSelectionSnap.ts) this slice's scope excludes. See
         // boldLivePreview.ts's own doc comment.
         boldLivePreview(),
+        // Italic-only Live Preview vertical slice — same architecture as
+        // boldLivePreview() above, targeting Emphasis instead of
+        // StrongEmphasis. See italicLivePreview.ts's own doc comment.
+        italicLivePreview(),
         // strikethroughMarkerDecoration(),
         // highlightMarkerDecoration(),
         // inlineCodeMarkerDecoration(),

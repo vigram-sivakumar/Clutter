@@ -50,25 +50,29 @@ import { isTokenEngaged } from '../semanticToken/tokenEngagement';
  * the same shape `liveMarkDecoration.ts` already relies on for its own
  * nested-construct case (`***bold italic***`).
  *
- * Engagement is checked against the node's inner content range
- * (`openMark.to` to `closeMark.from`), not its full range (`node.from` to
- * `node.to`) — confirmed necessary, not cosmetic. `isTokenEngaged`'s
- * containment check is boundary-inclusive by design (shared with the
- * semantic-token family), so checking the full range means a caret
- * sitting exactly at `node.from`/`node.to` counts as "inside." That's
- * unreachable in an ordinary document (something else is always beyond
- * the construct), but `createEditorView.ts` always seeds the initial
- * selection at `doc.length`, so any document whose content is (or ends
- * with) exactly a `StrongEmphasis` puts the caret exactly on that
- * boundary on load — confirmed by direct execution to leave the markers
- * stuck visibly unconcealed until the user clicks elsewhere. Checking the
- * inner content range instead means only a caret genuinely between the
- * delimiters engages; a caret immediately before/after them does not.
- * This doesn't regress reveal-while-editing: while composing `**word**`,
- * the moment the closing delimiter is completed the caret sits at
- * `node.to`, now outside the content range, so the construct immediately
- * collapses to its bold rendered form — the same behavior every
- * real-world live-preview Markdown editor exhibits, not a new gap.
+ * Engagement is checked against the node's full range (`node.from` to
+ * `node.to`), including both boundaries — a caret sitting exactly at
+ * `node.from` or `node.to` counts as engaged. This was briefly narrowed to
+ * the inner content range (`openMark.to` to `closeMark.from`) to fix a
+ * mount-time edge case — `createEditorView.ts` seeds the initial selection
+ * at `doc.length`, so a document whose entire content is exactly a
+ * `StrongEmphasis` loads with the caret stuck on that boundary, which the
+ * full-range rule reads as engaged, leaving the markers visibly
+ * unconcealed until the user clicks elsewhere. That narrowing broke the
+ * far more common case: `node.from`/`node.to` are exactly where the caret
+ * sits immediately after typing the opening/closing delimiter, so the
+ * inner-content-range rule concealed a construct on the very keystroke
+ * that completed it — confirmed by direct execution in a real browser to
+ * fire before the user ever moves the caret away, breaking the basic
+ * "type `**word**`, keep seeing it revealed until you move on" Live
+ * Preview interaction every real-world implementation supports. Reverted
+ * to the full-range rule; the narrower mount-time case is a known,
+ * separate, deliberately-deferred issue — not solved here, since no
+ * rule that's a pure function of `(tree, selection)` alone can
+ * distinguish "caret is here because typing just completed" from "caret
+ * is here because the document loaded this way," and solving that would
+ * require exactly the kind of stored state or transaction-history
+ * inspection this architecture excludes.
  */
 function buildDecorations(view: EditorView): DecorationSet {
   const ranges: Range<Decoration>[] = [];
@@ -88,7 +92,7 @@ function buildDecorations(view: EditorView): DecorationSet {
           return;
         }
 
-        if (isTokenEngaged(view.state, { from: openMark.to, to: closeMark.from })) {
+        if (isTokenEngaged(view.state, { from: node.from, to: node.to })) {
           return;
         }
 
