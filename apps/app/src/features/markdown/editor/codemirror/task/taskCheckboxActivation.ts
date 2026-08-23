@@ -27,8 +27,11 @@ import type { TaskMarkerNodeRange } from './taskEngagement';
  * a new save path — it just requests the existing debounced autosave
  * (`PageOperations.requestSave` via `SaveCoordinator`) run now instead of
  * waiting out its normal ~2s window, specifically for this one discrete,
- * instant-feedback action. Never called for a mere engage (Alt-click/
- * keyboard hop) — only a real toggle warrants an immediate save.
+ * instant-feedback action. Called for every click that reaches this
+ * function, including Alt-click — the "mere engage" Alt-click carve-out
+ * (and the keyboard-hop mechanism it paralleled) was Clutter-authored
+ * cursor repositioning, removed in the cursor/selection behavior reset;
+ * every click now activates identically.
  */
 export function getTaskCheckboxActivation(
   view: EditorView,

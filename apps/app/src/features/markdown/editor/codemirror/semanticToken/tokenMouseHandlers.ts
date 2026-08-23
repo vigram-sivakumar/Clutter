@@ -16,12 +16,22 @@ export type GetTokenActivation = (
 ) => (() => void) | null;
 
 /**
- * The actual click/Alt-click decision logic, factored out from the
- * `posAtCoords`-based DOM wiring below so it's directly testable with an
- * explicit position — `posAtCoords` relies on real text-layout geometry
- * (`Range.getClientRects`) that jsdom does not implement at all, so tests
- * exercise this function directly rather than synthesizing coordinates
- * jsdom can't resolve. Works correctly in a real browser regardless.
+ * The actual click decision logic, factored out from the `posAtCoords`-based
+ * DOM wiring below so it's directly testable with an explicit position —
+ * `posAtCoords` relies on real text-layout geometry (`Range.getClientRects`)
+ * that jsdom does not implement at all, so tests exercise this function
+ * directly rather than synthesizing coordinates jsdom can't resolve. Works
+ * correctly in a real browser regardless.
+ *
+ * `_altKey` is accepted (kept in the signature — every caller, including
+ * every kind-specific wrapper and its tests, still passes it) but no
+ * longer changes behavior — a click always activates. It previously
+ * dispatched a custom selection to "engage" the token instead of
+ * activating it; that was Clutter-authored cursor repositioning with no
+ * CM6 equivalent, removed as part of the cursor/selection behavior reset
+ * (placing the caret inside a token to edit it is ordinary
+ * click-to-position-cursor, which CM6 already does natively once this
+ * handler declines to intercept the click).
  *
  * Returns `true` if a token was at `pos` and something happened (so the
  * caller knows to `preventDefault()`), `false` otherwise.
@@ -29,7 +39,7 @@ export type GetTokenActivation = (
 export function handleTokenClick(
   view: EditorView,
   pos: number,
-  altKey: boolean,
+  _altKey: boolean,
   isTokenNode: TokenNodePredicate,
   getActivation: GetTokenActivation
 ): boolean {
@@ -41,14 +51,6 @@ export function handleTokenClick(
   const activate = getActivation(view, node);
   if (!activate) {
     return false;
-  }
-
-  if (altKey) {
-    // Engage: place the caret at the end of the raw text (a defined,
-    // deterministic position — exact placement is an implementation
-    // detail, not an architecture question).
-    view.dispatch({ selection: { anchor: node.to - 1 } });
-    return true;
   }
 
   activate();

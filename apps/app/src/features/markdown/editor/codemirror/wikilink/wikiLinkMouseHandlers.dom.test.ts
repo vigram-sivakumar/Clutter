@@ -57,7 +57,7 @@ describe('WikiLink click activation — real DOM event path', () => {
     expect(activate).toHaveBeenCalledTimes(1);
   });
 
-  it('a real Alt-click mousedown engages (reveals raw text) instead of activating', () => {
+  it('a real Alt-click mousedown activates it the same as a plain click — no special engage behavior', () => {
     const activate = vi.fn();
     const resolver: ResolveWikiLink = () => ({ status: 'resolved', displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
@@ -74,8 +74,6 @@ describe('WikiLink click activation — real DOM event path', () => {
     });
     widget!.dispatchEvent(event);
 
-    expect(activate).not.toHaveBeenCalled();
-    expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
-    expect(view.dom.textContent).toContain('[[Projects/Page]]');
+    expect(activate).toHaveBeenCalledTimes(1);
   });
 });

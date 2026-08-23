@@ -12,7 +12,6 @@ import { semanticCompletion } from './codemirror/completion';
 // safe to unwire. Nothing has been deleted or rewritten.
 // import { dateDecorations } from './codemirror/date/dateDecorations';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
-import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 // import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
@@ -29,12 +28,10 @@ import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
 // import { tagDecorations } from './codemirror/tag/tagDecorations';
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
-import { tagSelectionSnap } from './codemirror/tag/tagSelectionSnap';
 import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
 // import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
 // import { wikiLinkMarkerDecorations } from './codemirror/wikilink/wikiLinkMarkerDecorations';
 import { wikiLinkMouseHandlers } from './codemirror/wikilink/wikiLinkMouseHandlers';
-import { wikiLinkSelectionSnap } from './codemirror/wikilink/wikiLinkSelectionSnap';
 import type {
   MarkdownEditorHandle,
   MarkdownEditorProps,
@@ -182,22 +179,24 @@ export const MarkdownEditor = forwardRef<
         taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
         // wikiLinkDecorations(() => resolveWikiLinkRef.current),
         // wikiLinkMarkerDecorations(),
-        // Kept alongside the other *MouseHandlers/*SelectionSnap below:
-        // these are click/selection-correctness behavior tied to a visual
-        // widget that no longer renders without the decorations above —
-        // inert (nothing to click/snap around) but not themselves visual,
-        // so left wired rather than touched. Arrow-key hop/activation
-        // (the former *Keymap() extensions) is reset along with the rest
-        // of the custom keyboard layer — see the top-of-array comment.
+        // Kept: click activation is product interaction (open/toggle),
+        // not cursor behavior, and works independently of the decorations
+        // above (it reads the syntax tree directly, not the rendered
+        // widget). `*SelectionSnap()` was removed in the cursor/selection
+        // behavior reset — it existed only to correct a drag-selection
+        // endpoint landing inside an at-rest widget's rendered footprint,
+        // which requires that widget to actually render; with the
+        // decorations above off, it had nothing left to compensate for
+        // and was overriding CM6's own default selection placement on
+        // plain, fully-editable raw Markdown text. See
+        // `semanticToken/tokenSelectionSnap.ts`'s own doc comment and
+        // docs/editor-architecture-decisions.md for the full record.
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
-        wikiLinkSelectionSnap(),
         wikiLinkAutocomplete(),
         // tagDecorations(() => resolveTagRef.current),
         tagMouseHandlers(() => resolveTagRef.current),
-        tagSelectionSnap(),
         // dateDecorations(() => resolveDateRef.current),
         dateMouseHandlers(() => resolveDateRef.current),
-        dateSelectionSnap(),
         semanticCompletion(
           () => getWikiLinkSuggestionsRef.current,
           () => getTagSuggestionsRef.current

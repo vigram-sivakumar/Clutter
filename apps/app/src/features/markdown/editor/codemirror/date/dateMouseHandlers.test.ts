@@ -41,7 +41,7 @@ describe('handleDateClick', () => {
     expect(activate).toHaveBeenCalledTimes(1);
   });
 
-  it('Alt-click on an at-rest Date engages it instead of activating', () => {
+  it('Alt-click on an at-rest Date activates it the same as a plain click — no special engage behavior', () => {
     const activate = vi.fn();
     const resolver: ResolveDate = () => ({ activate });
     const view = mountView('Text before @2026-08-20', resolver);
@@ -50,9 +50,7 @@ describe('handleDateClick', () => {
     const handled = handleDateClick(view, nodeFrom + 3, true, () => resolver);
 
     expect(handled).toBe(true);
-    expect(activate).not.toHaveBeenCalled();
-    expect(view.dom.querySelector('[data-date-status]')).toBeNull();
-    expect(view.dom.textContent).toContain('@2026-08-20');
+    expect(activate).toHaveBeenCalledTimes(1);
   });
 
   it('a click that is not on any Date is not handled', () => {

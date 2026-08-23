@@ -32,7 +32,7 @@ describe('handleTagClick', () => {
     expect(activate).toHaveBeenCalledTimes(1);
   });
 
-  it('Alt-click on an at-rest Tag engages it instead of activating', () => {
+  it('Alt-click on an at-rest Tag activates it the same as a plain click — no special engage behavior', () => {
     const activate = vi.fn();
     const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
     const view = mountView('Text before #project', resolver);
@@ -41,9 +41,7 @@ describe('handleTagClick', () => {
     const handled = handleTagClick(view, nodeFrom + 3, true, () => resolver);
 
     expect(handled).toBe(true);
-    expect(activate).not.toHaveBeenCalled();
-    expect(view.dom.querySelector('[data-tag-status]')).toBeNull();
-    expect(view.dom.textContent).toContain('#project');
+    expect(activate).toHaveBeenCalledTimes(1);
   });
 
   it('a click that is not on any Tag is not handled, letting CM6 fall through to default behavior', () => {

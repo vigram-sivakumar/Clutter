@@ -1,6 +1,17 @@
-import { defaultKeymap } from '@codemirror/commands';
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { bracketMatching, codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
 import { Annotation, EditorState, type Extension } from '@codemirror/state';
-import { drawSelection, EditorView, highlightActiveLine, keymap } from '@codemirror/view';
+import {
+  crosshairCursor,
+  drawSelection,
+  dropCursor,
+  EditorView,
+  highlightActiveLine,
+  highlightSpecialChars,
+  keymap,
+  rectangularSelection,
+} from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
 // TEMPORARILY DISABLED — Live Preview rendering, unwired for the
@@ -97,6 +108,39 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // styling (MarkdownEditor.css) is what's visible now.
       drawSelection(),
       EditorView.lineWrapping,
+      history(),
+      EditorState.allowMultipleSelections.of(true),
+      // Purely visual/pointer standard CM6 extensions — no keymap, no
+      // change to Backspace/Enter/Delete/Tab/Arrow handling. highlightSpecialChars()
+      // renders otherwise-invisible characters (stray non-breaking spaces,
+      // control characters) as a visible placeholder glyph. dropCursor()
+      // shows a drop-target caret when dragging text into the editor.
+      // bracketMatching() highlights the matching bracket when the cursor
+      // sits next to one. rectangularSelection()/crosshairCursor() add
+      // Alt-drag box selection with its own crosshair pointer — useful for
+      // editing pipe-table columns; both are pointer-driven, not keyboard.
+      highlightSpecialChars(),
+      dropCursor(),
+      bracketMatching(),
+      rectangularSelection(),
+      crosshairCursor(),
+      // closeBrackets() auto-closes ()/[]/{}/quotes and skips over an
+      // already-present closing char when typed — standard
+      // @codemirror/autocomplete behavior, unmodified. Verified against
+      // WikiLink syntax: typing `[[Page]]` still produces exactly
+      // `[[Page]]` (the auto-close on the first `[[` and the type-over
+      // skip on the trailing `]]` cancel out), and wikiLinkAutocomplete's
+      // own `[[`-trigger detection is unaffected since it reads the text
+      // immediately before the cursor, which still reads `[[` either way.
+      closeBrackets(),
+      // codeFolding() is the fold state/commands; foldGutter() is CM6's
+      // own standard gutter UI for it — the first gutter this editor has.
+      // Both consume exactly the foldNodeProp data markdownLanguageExtension()
+      // already gets for free from @codemirror/lang-markdown (headings,
+      // fenced code blocks, blockquotes, tables); no Clutter-authored fold
+      // detection or gutter rendering.
+      codeFolding(),
+      foldGutter(),
       ...extensions,
       // Lowest-priority keymap (added last), so any higher-precedence
       // binding in `extensions` above still wins when it applies. Without
@@ -105,7 +149,21 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // which CM6 then had to reconcile via DOM-mutation observation — the
       // actual source of the double-newline and stuck-until-refocus
       // symptoms, not a CSS or focus-handling issue.
-      keymap.of(defaultKeymap),
+      //
+      // closeBracketsKeymap's only binding is Backspace (deleteBracketPair,
+      // for deleting an empty auto-inserted pair in one press) — placed
+      // ahead of defaultKeymap per CM6's own documented precedence
+      // convention, but it only fires for that one empty-pair case;
+      // defaultKeymap's deleteCharBackward still handles every other
+      // Backspace press exactly as before. foldKeymap adds
+      // Ctrl-Shift-[/Ctrl-Shift-] (fold/unfold), which nothing else binds.
+      keymap.of([
+        indentWithTab,
+        ...closeBracketsKeymap,
+        ...historyKeymap,
+        ...foldKeymap,
+        ...defaultKeymap,
+      ]),
     ],
   });
 

@@ -134,17 +134,16 @@ describe('handleTaskCheckboxClick', () => {
     expect(raw).toBe('[ ]');
   });
 
-  it('Alt-click on an at-rest TaskMarker engages it (reveals raw text) instead of toggling', () => {
+  it('Alt-click on an at-rest TaskMarker toggles it the same as a plain click — no special engage behavior', () => {
     const view = mountView('- [ ] Buy milk');
 
     const handled = handleTaskCheckboxClick(view, 2, true);
 
     expect(handled).toBe(true);
-    expect(view.state.doc.toString()).toBe('- [ ] Buy milk'); // unchanged
-    expect(view.state.selection.main.head).toBe(4); // node.to - 1, inside the marker
+    expect(view.state.doc.toString()).toBe('- [x] Buy milk');
   });
 
-  it('a plain click requests an immediate save; Alt-click (mere engagement) never does', () => {
+  it('a plain click requests an immediate save; Alt-click requests it too, same as any other click', () => {
     const view = mountView('- [ ] Buy milk');
     const requestImmediateSave = vi.fn();
 
@@ -154,7 +153,7 @@ describe('handleTaskCheckboxClick', () => {
     requestImmediateSave.mockClear();
     const altView = mountView('- [ ] Buy milk');
     handleTaskCheckboxClick(altView, 2, true, requestImmediateSave);
-    expect(requestImmediateSave).not.toHaveBeenCalled();
+    expect(requestImmediateSave).toHaveBeenCalledTimes(1);
   });
 
   it('clicking a non-task list marker position is a no-op — nothing to toggle', () => {

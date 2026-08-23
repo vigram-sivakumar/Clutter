@@ -37,7 +37,7 @@ describe('handleWikiLinkClick', () => {
     expect(activate).toHaveBeenCalledTimes(1);
   });
 
-  it('Alt-click on an at-rest WikiLink engages it instead of activating', () => {
+  it('Alt-click on an at-rest WikiLink activates it the same as a plain click — no special engage behavior', () => {
     const activate = vi.fn();
     const resolver: ResolveWikiLink = () => ({ status: 'resolved', displayLabel: 'X', activate });
     const view = mountView('Text before [[Projects/Page]]', resolver);
@@ -46,11 +46,7 @@ describe('handleWikiLinkClick', () => {
     const handled = handleWikiLinkClick(view, nodeFrom + 3, true, () => resolver);
 
     expect(handled).toBe(true);
-    expect(activate).not.toHaveBeenCalled();
-    // Engagement is purely selection-derived (§6) — placing the caret
-    // inside is the entire "engage" mechanism, no separate command exists.
-    expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
-    expect(view.dom.textContent).toContain('[[Projects/Page]]');
+    expect(activate).toHaveBeenCalledTimes(1);
   });
 
   it('a click that is not on any WikiLink is not handled, letting CM6 fall through to default behavior', () => {

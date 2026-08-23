@@ -58,16 +58,15 @@ function resolveTaskClick(view: EditorView, pos: number): TaskClickResolution | 
 }
 
 /**
- * Task-specific entry point onto the click/Alt-click mechanism — kept as
- * its own named export since it's exercised directly in tests, mirroring
- * `handleDateClick`. Alt-click still engages (reveals the raw `[ ]`/`[x]`
- * text) rather than toggling — same as every other semantic token kind,
- * not a checkbox-specific carve-out.
+ * Task-specific entry point onto the click mechanism — kept as its own
+ * named export since it's exercised directly in tests, mirroring
+ * `handleDateClick`. `altKey` is accepted but no longer changes behavior
+ * — see `tokenMouseHandlers.ts`'s `handleTokenClick` doc comment for why.
  *
  * `requestImmediateSave` is threaded straight through to
  * `getTaskCheckboxActivation` — see that function's own doc comment for
- * why. Alt-click never reaches it (it never calls `activate()`), so a
- * mere engage never triggers a save.
+ * why. Called for every click that reaches `activate()`, Alt-click
+ * included.
  */
 export function handleTaskCheckboxClick(
   view: EditorView,

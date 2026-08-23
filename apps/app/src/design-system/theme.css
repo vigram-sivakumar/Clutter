@@ -74,7 +74,7 @@ html.theme-transitioning [data-themeable] *::after {
   --editor-caret-color: var(--foreground-primary);
 
   /* Selection */
-  --selection-surface: rgba(99, 102, 241, 0.18);
+  --selection-surface: rgba(241, 99, 99, 0.18);
 
   /* Text decoration */
   --strikethrough-color: #595757;

@@ -540,6 +540,11 @@
   color: var(--marker-foreground);
 }
 
+.ͼ2 .cm-gutters {
+  background: transparent;
+  border: none;
+}
+
 .cm-editor.cm-focused .cm-cursor {
   border-left-color: var(--foreground-primary);
 }
