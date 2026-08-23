@@ -15,6 +15,7 @@ import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 // import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
+import { boldLivePreview } from './codemirror/highlight/boldLivePreview';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 // import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
 // import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
@@ -154,6 +155,12 @@ export const MarkdownEditor = forwardRef<
         // deleted or rewritten; uncomment to restore. See the accompanying
         // report for the full per-extension classification.
         // emphasisMarkerDecoration(),
+        // Bold-only Live Preview vertical slice — deliberately not the
+        // liveMarkDecoration-based emphasisMarkerDecoration() above, which
+        // also covers italic and unconditionally wires in a transactionFilter
+        // (liveMarkSelectionSnap.ts) this slice's scope excludes. See
+        // boldLivePreview.ts's own doc comment.
+        boldLivePreview(),
         // strikethroughMarkerDecoration(),
         // highlightMarkerDecoration(),
         // inlineCodeMarkerDecoration(),
