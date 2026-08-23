@@ -74,7 +74,6 @@ describe('Shared semantic-token mechanism boundary: no Vault/application-layer i
         'tokenEngagement.ts',
         'tokenDecorations.ts',
         'tokenMouseHandlers.ts',
-        'tokenKeymap.ts',
         'tokenSelectionSnap.ts',
       ])
     );

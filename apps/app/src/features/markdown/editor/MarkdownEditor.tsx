@@ -6,37 +6,33 @@ import {
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
 import { semanticCompletion } from './codemirror/completion';
-import { dateDecorations } from './codemirror/date/dateDecorations';
-import { dateKeymap } from './codemirror/date/dateKeymap';
+// Visual decoration imports below are commented out alongside their usage
+// further down — temporary keyboard-behavior-only configuration. See the
+// disabling comments at each call site for what each one did and why it's
+// safe to unwire. Nothing has been deleted or rewritten.
+// import { dateDecorations } from './codemirror/date/dateDecorations';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
-import { deleteMarkupForwardKeymap } from './codemirror/deleteMarkupForward';
-import { emojiListKeymap } from './codemirror/emoji-list/emojiListKeymap';
-import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
+// import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
-import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
-import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
-import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
-import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
-import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
-import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
-import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
-import { listDeleteKeymap } from './codemirror/list/listDeleteKeymap';
-import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
-import { listLineDecoration } from './codemirror/list/listLineDecoration';
+// import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
+// import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
+// import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
+// import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
+// import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
+// import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
+// import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
+// import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
+// import { listLineDecoration } from './codemirror/list/listLineDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
-import { markdownTabKeymap } from './codemirror/markdownTabKeymap';
-import { tableDecoration } from './codemirror/table/tableDecoration';
-import { taskCheckboxKeymap } from './codemirror/task/taskCheckboxKeymap';
+// import { tableDecoration } from './codemirror/table/tableDecoration';
 import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
-import { tagDecorations } from './codemirror/tag/tagDecorations';
-import { tagKeymap } from './codemirror/tag/tagKeymap';
+// import { tagDecorations } from './codemirror/tag/tagDecorations';
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
 import { tagSelectionSnap } from './codemirror/tag/tagSelectionSnap';
 import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
-import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
-import { wikiLinkKeymap } from './codemirror/wikilink/wikiLinkKeymap';
-import { wikiLinkMarkerDecorations } from './codemirror/wikilink/wikiLinkMarkerDecorations';
+// import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
+// import { wikiLinkMarkerDecorations } from './codemirror/wikilink/wikiLinkMarkerDecorations';
 import { wikiLinkMouseHandlers } from './codemirror/wikilink/wikiLinkMouseHandlers';
 import { wikiLinkSelectionSnap } from './codemirror/wikilink/wikiLinkSelectionSnap';
 import type {
@@ -146,56 +142,61 @@ export const MarkdownEditor = forwardRef<
       doc: markdown,
       parent: container,
       extensions: [
-        // Must precede markdownLanguageExtension() in this array: both
-        // register a Prec.high Backspace handler, and array position is
-        // the tiebreak within that tier — this supplement needs first
-        // refusal on the narrow set of marker-removal-boundary cases it
-        // owns, before lang-markdown's own deleteMarkupBackward would
-        // already have consumed the keystroke for them. See
-        // listDeleteKeymap.ts's own doc comment.
-        listDeleteKeymap(),
-        // Delete has no Prec.high claimant to coexist with today — this
-        // only needs to outrank defaultKeymap's bare deleteCharForward
-        // (default tier), which any Prec.high registration does
-        // regardless of array position. Placed adjacent to
-        // listDeleteKeymap() purely for consistency, not correctness.
-        deleteMarkupForwardKeymap(),
+        // Reset to CodeMirror's default keyboard behavior: no Clutter
+        // Backspace/Delete/Enter/Tab/Shift-Tab/Arrow interception layered
+        // on top of markdownLanguageExtension()'s own lang-markdown
+        // defaults (deleteMarkupBackward, insertNewlineContinueMarkup,
+        // etc.) or CM6's generic fallback keymap. Custom Markdown editing
+        // behaviors are reintroduced incrementally later.
         markdownLanguageExtension(),
-        emphasisMarkerDecoration(),
-        strikethroughMarkerDecoration(),
-        highlightMarkerDecoration(),
-        inlineCodeMarkerDecoration(),
-        listMarkerDecoration(),
-        markdownTabKeymap(),
-        listLineDecoration(),
-        listIndentWhitespaceDecoration(),
-        emojiListKeymap(),
-        emojiListMarkDecoration(),
-        blockquoteMarkerDecoration(),
-        horizontalRuleDecoration(),
+        // --- Temporarily unwired: purely visual Live Preview decorations ---
+        // Every extension below this line, up to the next "--- end ---"
+        // marker, was checked for behavioral coupling (keymap registration,
+        // EditorView.atomicRanges, transactionFilter) before being disabled.
+        // None of them have any — confirmed by grepping each file. Nothing
+        // deleted or rewritten; uncomment to restore. See the accompanying
+        // report for the full per-extension classification.
+        // emphasisMarkerDecoration(),
+        // strikethroughMarkerDecoration(),
+        // highlightMarkerDecoration(),
+        // inlineCodeMarkerDecoration(),
+        // listMarkerDecoration(),
+        // listLineDecoration(),
+        // listIndentWhitespaceDecoration(),
+        // emojiListMarkDecoration(),
+        // blockquoteMarkerDecoration(),
+        // horizontalRuleDecoration(),
         formatShortcutsKeymap(),
-        tableDecoration(),
+        // tableDecoration(),
+        // --- end purely-visual decorations ---
         // Reuses the exact same onFlush callback already wired to blur
         // below (PageOperations.requestSave, via SaveCoordinator) — a
         // checkbox toggle is instant, single-click feedback a user expects
         // to see reflected everywhere (the sidebar) immediately, unlike
         // ordinary typing, which should keep using the normal debounced
         // autosave. See taskCheckboxActivation.ts's own doc comment.
+        // Kept: mouse-driven checkbox toggle behavior. Harmless without its
+        // visual widget (nothing to click), but it's a behavior handler,
+        // not a decoration, so left wired per "preserve the behavioral
+        // portion."
         taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
-        taskCheckboxKeymap(),
-        wikiLinkDecorations(() => resolveWikiLinkRef.current),
-        wikiLinkMarkerDecorations(),
+        // wikiLinkDecorations(() => resolveWikiLinkRef.current),
+        // wikiLinkMarkerDecorations(),
+        // Kept alongside the other *MouseHandlers/*SelectionSnap below:
+        // these are click/selection-correctness behavior tied to a visual
+        // widget that no longer renders without the decorations above —
+        // inert (nothing to click/snap around) but not themselves visual,
+        // so left wired rather than touched. Arrow-key hop/activation
+        // (the former *Keymap() extensions) is reset along with the rest
+        // of the custom keyboard layer — see the top-of-array comment.
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
-        wikiLinkKeymap(() => resolveWikiLinkRef.current),
         wikiLinkSelectionSnap(),
         wikiLinkAutocomplete(),
-        tagDecorations(() => resolveTagRef.current),
+        // tagDecorations(() => resolveTagRef.current),
         tagMouseHandlers(() => resolveTagRef.current),
-        tagKeymap(() => resolveTagRef.current),
         tagSelectionSnap(),
-        dateDecorations(() => resolveDateRef.current),
+        // dateDecorations(() => resolveDateRef.current),
         dateMouseHandlers(() => resolveDateRef.current),
-        dateKeymap(() => resolveDateRef.current),
         dateSelectionSnap(),
         semanticCompletion(
           () => getWikiLinkSuggestionsRef.current,

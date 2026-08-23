@@ -1,10 +1,17 @@
 import { defaultKeymap } from '@codemirror/commands';
 import { Annotation, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, highlightActiveLine, keymap } from '@codemirror/view';
+import { drawSelection, EditorView, highlightActiveLine, keymap } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
-import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
-import { markdownHighlighting } from './highlight/markdownHighlightStyle';
+// TEMPORARILY DISABLED — Live Preview rendering, unwired for the
+// keyboard-behavior-only editor configuration (see MarkdownEditor.tsx).
+// headingMarkerDecoration() is purely visual (hide/reveal via
+// liveMarkDecoration, no keymap/atomicRanges/transactionFilter of its
+// own); markdownHighlighting() is the syntax-highlighting HighlightStyle
+// (CSS classes only, no DOM restructuring, but still visual styling).
+// Neither deleted nor rewritten — uncomment both to restore.
+// import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
+// import { markdownHighlighting } from './highlight/markdownHighlightStyle';
 
 /**
  * Marks a dispatched transaction as an external prop sync rather than user
@@ -72,17 +79,30 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     extensions: [
       updateListener,
       blurHandler,
+      // editorTheme() and highlightActiveLine() are kept: baseline editor
+      // chrome (caret color, active-line background), not Markdown-specific
+      // Live Preview decoration — neither restructures the DOM around a
+      // construct the way markdownHighlighting()/headingMarkerDecoration()
+      // do, and disabling them would just make the editor hard to see.
       editorTheme(),
-      markdownHighlighting(),
-      headingMarkerDecoration(),
+      // markdownHighlighting(),
+      // headingMarkerDecoration(),
       highlightActiveLine(),
+      // Current rendering baseline: CM6 draws its own cursor/selection
+      // instead of relying on WKWebView's native contenteditable caret,
+      // which was confirmed (diagnostic red caret-color test) to leave a
+      // stale/duplicate caret artifact on Backspace in Tauri/WKWebView.
+      // `.cm-content { caret-color }` (editorTheme.ts) becomes irrelevant
+      // for the caret itself once this hides the native one; `.cm-cursor`
+      // styling (MarkdownEditor.css) is what's visible now.
+      drawSelection(),
       EditorView.lineWrapping,
       ...extensions,
-      // Lowest-priority keymap (added last), so e.g. wikiLinkKeymap's own
-      // Enter binding above still wins when it applies. Without this,
-      // Enter had no CM6-level binding at all and fell through to the
-      // browser's native contentEditable paragraph-split behavior, which
-      // CM6 then had to reconcile via DOM-mutation observation — the
+      // Lowest-priority keymap (added last), so any higher-precedence
+      // binding in `extensions` above still wins when it applies. Without
+      // this, Enter had no CM6-level binding at all and fell through to
+      // the browser's native contentEditable paragraph-split behavior,
+      // which CM6 then had to reconcile via DOM-mutation observation — the
       // actual source of the double-newline and stuck-until-refocus
       // symptoms, not a CSS or focus-handling issue.
       keymap.of(defaultKeymap),

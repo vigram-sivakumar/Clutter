@@ -8,20 +8,18 @@ import { EditorView } from '@codemirror/view';
  * ("no ... decorations, or semantic-token behavior") since this is
  * theming, not a feature layer.
  *
- * CM6's own base theme sets the caret color as `caret-color` on
- * `.cm-content` (`&light .cm-content { caretColor: black }` / `&dark
- * .cm-content { caretColor: white }`) — not a `.cm-cursor` element,
- * which exists only when `drawSelection()` is enabled (it isn't, here).
- * Without `drawSelection()`, the visible caret is the browser's native
- * one, rendered because `.cm-content` is a real `contenteditable`
- * element; its color is controlled by CSS `caret-color`, styled here.
- *
- * CM6's own `&light`/`&dark` selectors track `EditorView.theme()`'s own
- * `dark` option, never set anywhere in this codebase — a separate
- * concept from Clutter's `[data-theme]` attribute, so CM6 always
- * resolves to its `&light` default regardless of Clutter's active
- * theme. `--editor-caret-color` (design-system/theme.css) is what
- * actually tracks `[data-theme='dark']`/`[data-theme='light']` here.
+ * No `.cm-content` `caret-color` rule here: `drawSelection()`
+ * (`createEditorView.ts`) is the current rendering baseline, and it
+ * bundles `hideNativeSelection` — a `Prec.highest` `EditorView.theme()`
+ * forcing `.cm-content`/`.cm-line { caret-color: transparent !important }`
+ * unconditionally. `Prec.highest` beats any other style module regardless
+ * of source order (confirmed by reading `@codemirror/view`'s own
+ * `drawSelection` source, not assumed), so a `caret-color` rule here could
+ * never actually win — it would be dead styling, not a fallback. The
+ * caret CM6 draws instead is `.cm-cursor`, styled in `MarkdownEditor.css`
+ * (`.cm-editor.cm-focused .cm-cursor { border-left-color:
+ * var(--foreground-primary) }`), which is where theme-token-driven caret
+ * color actually lives now.
  *
  * `.cm-activeLine`'s default background (`highlightActiveLine()`'s own
  * baseTheme rule, `#cceeff44`) is neutralized here rather than in
@@ -33,18 +31,14 @@ import { EditorView } from '@codemirror/view';
  * matching specificity, later source order wins, so `baseTheme()` wins
  * regardless of what a static CSS file says. `EditorView.theme()` style
  * modules are what CM6 itself designs to take priority over
- * `baseTheme()` (the same reason the caret-color override above
- * actually works) — confirmed by testing both approaches directly
- * against the real injected stylesheets, not assumed from documentation.
+ * `baseTheme()` — confirmed by testing both approaches directly against
+ * the real injected stylesheets, not assumed from documentation.
  * `highlightActiveLine()` itself (`createEditorView.ts`) is kept only
  * for the `cm-activeLine` class it applies; this file removes the one
  * piece of its default appearance nothing here wants.
  */
 export function editorTheme(): Extension {
   return EditorView.theme({
-    '.cm-content': {
-      caretColor: 'var(--editor-caret-color)',
-    },
     '.cm-activeLine': {
       backgroundColor: 'transparent',
     },
