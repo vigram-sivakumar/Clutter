@@ -19,3 +19,15 @@ Listed in the order the underlying architecture Q&A actually happened, which is 
 | [clutter-editor-wikilink-grammar-corrections.md](./clutter-editor-wikilink-grammar-corrections.md) | Addendum: corrects the round-trip invariant's precision, clarifies CommonMark-escaping reuse is semantic not delegated, validates escape-every-`]` over escape-only-`]]`-pairs |
 
 Scope note: this archive covers the **semantic-inline construct architecture** thread specifically (parser, grammar, resolution, interaction contract). The earlier Markdown editor behavioral specification, architecture-blocking-decision resolution, architecture proposal, and bounded implementation plan are a separate, earlier phase of work and are not part of this archive.
+
+## Later, separate thread: keyboard ODR and live-preview rendering
+
+These followed the semantic-inline thread above and are not part of it — read them independently:
+
+| Document | Covers |
+|---|---|
+| [legacy-editor-keyboard-behavior-recovery.md](./legacy-editor-keyboard-behavior-recovery.md) | Forensic reconstruction of `packages-archived/editor`'s keyboard/selection model (not a decision document) |
+| [canonical-keyboard-odr-v1.md](./canonical-keyboard-odr-v1.md) / [canonical-keyboard-odr-v2.md](./canonical-keyboard-odr-v2.md) | The 3-space canonical indentation contract for Tab/Shift-Tab/Enter/Backspace |
+| [keyboard-odr-test-matrix.md](./keyboard-odr-test-matrix.md) | Test matrix accompanying the ODR |
+| [backspace-indentation-investigation.md](./backspace-indentation-investigation.md) | Backspace-specific indentation investigation |
+| [cm6-live-preview-rendering-architecture.md](./cm6-live-preview-rendering-architecture.md) | Research (not yet decided) on how to render Markdown constructs with syntax concealed while keeping `state.doc` sole source of truth and native CM6 editing behavior fully intact — includes forensic diagnosis of why the earlier rendering attempt broke keyboard/selection behavior (reset in commit `58c7d9d7`), CM6 source-verified decoration/atomicRanges/clipboard/IME behavior, real-world implementation survey (Obsidian, atomic-editor, codemirror-live-markdown), and a per-construct decoration matrix |
