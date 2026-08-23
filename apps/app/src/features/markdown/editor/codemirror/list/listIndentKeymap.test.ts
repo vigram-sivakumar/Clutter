@@ -237,11 +237,15 @@ describe('indentListItem', () => {
 
       // Every subsequent Tab: Child is now the sole item of its own
       // nested list — there is nothing valid to nest it under, so this
-      // must be a true no-op, not a blind indentation increase.
+      // must be a true no-op in terms of document content. It is still
+      // *consumed* (returns true) rather than left unhandled: Child is
+      // still list context, and an unhandled Tab here would fall through
+      // to the browser's native focus navigation (the checkbox-focus bug
+      // this milestone's routing exists to prevent).
       for (let press = 0; press < 10; press++) {
         view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('Child') } });
         const handled = indentListItem(view);
-        expect(handled).toBe(false);
+        expect(handled).toBe(true);
       }
 
       const final = view.state.doc.toString();
@@ -293,7 +297,7 @@ describe('indentListItem', () => {
       for (let press = 0; press < 25; press++) {
         view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('b') } });
         const handled = indentListItem(view);
-        expect(handled).toBe(false);
+        expect(handled).toBe(true); // consumed — still list context — even though it's a document no-op
         expect(view.state.doc.toString()).toBe(afterNest);
       }
 
@@ -343,13 +347,13 @@ describe('dedentListItem', () => {
     expect(nestingDepthOf(result, 'Child')).toBe(0);
   });
 
-  it('does nothing on a top-level item with no indentation left to remove', () => {
+  it('does nothing on a top-level item with no indentation left to remove — but still consumes the key (list context)', () => {
     const doc = '- item1';
     const view = mountView(doc, doc.indexOf('item1'));
 
     const handled = dedentListItem(view);
 
-    expect(handled).toBe(false);
+    expect(handled).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
   });
 
@@ -420,7 +424,7 @@ describe('dedentListItem', () => {
 
       view.dispatch({ selection: { anchor: view.state.doc.toString().indexOf('item3') } });
       const thirdHandled = dedentListItem(view);
-      expect(thirdHandled).toBe(false);
+      expect(thirdHandled).toBe(true); // consumed — still list context — even though item3 is already top-level
       expect(view.state.doc.toString()).toBe(afterSecond);
     });
 
@@ -441,5 +445,184 @@ describe('dedentListItem', () => {
       expect(nestingDepthOf(afterSecond, 'item3')).toBe(0);
       expect(hasMarkerNode(afterSecond, 'EmojiListMark')).toBe(true);
     });
+  });
+});
+
+describe('subtree movement — the unit of Tab/Shift-Tab is the whole ListItem node range, never one line', () => {
+  it('outdenting a parent moves its complete subtree with it, never stranding a descendant', () => {
+    // The exact worked example from the architecture investigation:
+    // outdenting B must carry C (its child) along, and must never touch D
+    // (a sibling, not a descendant).
+    const doc = '- A\n    - B\n        - C\n    - D';
+    const view = mountView(doc, doc.indexOf('B'));
+
+    const handled = dedentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    expect(result).toBe('- A\n- B\n    - C\n    - D');
+    expect(nestingDepthOf(result, 'A')).toBe(0);
+    expect(nestingDepthOf(result, 'B')).toBe(0);
+    expect(nestingDepthOf(result, 'C')).toBe(1);
+    expect(nestingDepthOf(result, 'D')).toBe(1);
+  });
+
+  it('indenting a parent moves its complete subtree with it, preserving descendants\' relative structure', () => {
+    const doc = '- Z\n- Parent\n  - Child\n    - Grandchild';
+    const view = mountView(doc, doc.indexOf('Parent'));
+
+    const handled = indentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    expect(result).toBe('- Z\n  - Parent\n    - Child\n      - Grandchild');
+    expect(nestingDepthOf(result, 'Parent')).toBe(1);
+    expect(nestingDepthOf(result, 'Child')).toBe(2);
+    expect(nestingDepthOf(result, 'Grandchild')).toBe(3);
+  });
+
+  it('a childless item near a subtree with children only moves itself, not its unrelated sibling\'s descendants', () => {
+    const doc = '- A\n  - B\n    - C\n  - D';
+    const view = mountView(doc, doc.indexOf('D'));
+
+    const handled = indentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    // D nests under B (its prior sibling); B's own child C is untouched.
+    expect(result).toBe('- A\n  - B\n    - C\n    - D');
+    expect(nestingDepthOf(result, 'B')).toBe(1);
+    expect(nestingDepthOf(result, 'C')).toBe(2);
+    expect(nestingDepthOf(result, 'D')).toBe(2);
+  });
+
+  it('mixed markers with children: outdenting a task item carries its bullet child, marker kinds untouched', () => {
+    const doc = '1. A\n   - [ ] B\n     - C\n   - D';
+    const view = mountView(doc, doc.indexOf('B'));
+    expect(nestingDepthOf(doc, 'B')).toBe(1);
+    expect(nestingDepthOf(doc, 'C')).toBe(2);
+
+    const handled = dedentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    expect(nestingDepthOf(result, 'B')).toBe(0);
+    expect(nestingDepthOf(result, 'C')).toBe(1);
+    expect(nestingDepthOf(result, 'D')).toBe(1);
+    expect(hasMarkerNode(result, 'TaskMarker')).toBe(true);
+    expect(hasMarkerNode(result, 'ListMark')).toBe(true);
+  });
+});
+
+describe('continuation lines resolve to their owning ListItem, not a line-based special case', () => {
+  it('cursor on a continuation line indents the whole owning item, same as the marker line would', () => {
+    const doc = '- item1\n- This is a list item\n  continuation text\n  more continuation text';
+    const view = mountView(doc, doc.indexOf('more continuation'));
+
+    const handled = indentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    expect(result).toBe('- item1\n  - This is a list item\n    continuation text\n    more continuation text');
+  });
+
+  it('a nested item\'s own continuation belongs to the nested item, not its parent', () => {
+    const doc = '- Parent\n  paragraph continuation\n  - Child\n    child continuation';
+    const view = mountView(doc, doc.indexOf('child continuation'));
+
+    const handled = dedentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    // Child (and only Child's own continuation) outdents to top level;
+    // Parent and its own continuation line are untouched.
+    expect(result).toBe('- Parent\n  paragraph continuation\n- Child\n  child continuation');
+  });
+});
+
+describe('selection resolves structural roots from the tree, never from which lines were literally selected', () => {
+  it('selecting a parent and its child produces exactly one operation, on the parent\'s full subtree', () => {
+    const doc = '- Z\n- Parent\n  - Child';
+    const view = mountView(doc, 0);
+    const from = doc.indexOf('Parent');
+    const to = doc.indexOf('Child') + 'Child'.length;
+    view.dispatch({ selection: { anchor: from, head: to } });
+
+    const handled = indentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    expect(result).toBe('- Z\n  - Parent\n    - Child');
+  });
+
+  it('selecting only part of a child\'s line still moves the parent\'s complete subtree, never stranding the rest', () => {
+    const doc = '- Z\n- Parent\n  - Child\n    - Grandchild';
+    const view = mountView(doc, 0);
+    const from = doc.indexOf('Parent');
+    const to = doc.indexOf('Child') + 2; // partway into "Child", not the whole line
+    view.dispatch({ selection: { anchor: from, head: to } });
+
+    const handled = indentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    expect(result).toBe('- Z\n  - Parent\n    - Child\n      - Grandchild');
+  });
+
+  it('multiple independent structural roots (siblings) each move once, with no duplication', () => {
+    const doc = '- Z\n- B\n  - C\n- D';
+    const view = mountView(doc, 0);
+    // A selection spanning B (with its own child C) through D: two
+    // independent top-level roots (B and D — neither a descendant of the
+    // other), with C only ever reachable as B's own descendant, never a
+    // root in its own right.
+    view.dispatch({ selection: { anchor: doc.indexOf('B'), head: doc.indexOf('D') + 'D'.length } });
+
+    const handled = indentListItem(view);
+
+    expect(handled).toBe(true);
+    const result = view.state.doc.toString();
+    // Both B (carrying C) and D each nest one level deeper, independently.
+    expect(result).toBe('- Z\n  - B\n    - C\n  - D');
+  });
+});
+
+describe('failed Tab/Shift-Tab is consumed — the guard against focus escaping to a task checkbox', () => {
+  /**
+   * jsdom does not implement native keyboard-driven focus traversal (Tab
+   * moving focus to the next focusable element is real-browser UA
+   * behavior, not something jsdom's event system simulates even when a
+   * keydown event is dispatched and left un-prevented) — so a DOM
+   * `document.activeElement` assertion here would pass identically with
+   * or without the fix, which would be a misleading test, not a real one.
+   * What *is* verifiable, and what the browser's own focus-navigation
+   * fallback is actually gated on: CM6's keymap handling calls
+   * `preventDefault()` on the underlying keydown exactly when a bound
+   * command's `run` returns `true` — so asserting `handled === true` here
+   * is the correct, faithful unit-level proxy for "this keypress never
+   * reaches the browser's native Tab handling." The task-list-specific
+   * document body only documents *why* this matters (a real `<button
+   * role="checkbox">` sits inline in the DOM at this exact cursor
+   * position — see `TaskCheckboxWidget.ts`), not something the DOM
+   * assertion itself needs to inspect.
+   */
+  it('a failed Tab on a two-item flat task list is consumed (no document change, key handled)', () => {
+    const doc = '- [ ] First\n- [ ] Second';
+    const view = mountView(doc, doc.indexOf('First'));
+
+    const handled = indentListItem(view);
+
+    expect(handled).toBe(true); // consumed — First has no prior sibling, so nothing indents
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('a failed Shift-Tab on a top-level task item is consumed (no document change, key handled)', () => {
+    const doc = '- [ ] Task';
+    const view = mountView(doc, doc.indexOf('Task'));
+
+    const handled = dedentListItem(view);
+
+    expect(handled).toBe(true); // consumed — already top-level, nothing to outdent to
+    expect(view.state.doc.toString()).toBe(doc);
   });
 });

@@ -87,7 +87,7 @@ function nearestListItem(state: EditorState, probePos: number): SyntaxNode | nul
  *
  * The probe position for "which `ListItem` owns this line" is the line's
  * first non-whitespace character, never column 0 (`line.from`) — the same
- * fix `listIndentKeymap.ts`'s `listItemStartingAt` already applies, and
+ * fix `listIndentKeymap.ts`'s `owningListItem` already applies, and
  * for the identical reason: a nested item's leading indentation belongs to
  * no syntax node at all (confirmed by direct inspection of the parsed
  * tree), so resolving at column 0 on an indented line can only ever land

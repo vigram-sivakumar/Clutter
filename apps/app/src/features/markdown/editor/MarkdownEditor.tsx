@@ -10,6 +10,7 @@ import { dateDecorations } from './codemirror/date/dateDecorations';
 import { dateKeymap } from './codemirror/date/dateKeymap';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { dateSelectionSnap } from './codemirror/date/dateSelectionSnap';
+import { deleteMarkupForwardKeymap } from './codemirror/deleteMarkupForward';
 import { emojiListKeymap } from './codemirror/emoji-list/emojiListKeymap';
 import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
@@ -20,10 +21,11 @@ import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMar
 import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
-import { listIndentKeymap } from './codemirror/list/listIndentKeymap';
+import { listDeleteKeymap } from './codemirror/list/listDeleteKeymap';
 import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
 import { listLineDecoration } from './codemirror/list/listLineDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
+import { markdownTabKeymap } from './codemirror/markdownTabKeymap';
 import { tableDecoration } from './codemirror/table/tableDecoration';
 import { taskCheckboxKeymap } from './codemirror/task/taskCheckboxKeymap';
 import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
@@ -144,13 +146,27 @@ export const MarkdownEditor = forwardRef<
       doc: markdown,
       parent: container,
       extensions: [
+        // Must precede markdownLanguageExtension() in this array: both
+        // register a Prec.high Backspace handler, and array position is
+        // the tiebreak within that tier — this supplement needs first
+        // refusal on the narrow set of marker-removal-boundary cases it
+        // owns, before lang-markdown's own deleteMarkupBackward would
+        // already have consumed the keystroke for them. See
+        // listDeleteKeymap.ts's own doc comment.
+        listDeleteKeymap(),
+        // Delete has no Prec.high claimant to coexist with today — this
+        // only needs to outrank defaultKeymap's bare deleteCharForward
+        // (default tier), which any Prec.high registration does
+        // regardless of array position. Placed adjacent to
+        // listDeleteKeymap() purely for consistency, not correctness.
+        deleteMarkupForwardKeymap(),
         markdownLanguageExtension(),
         emphasisMarkerDecoration(),
         strikethroughMarkerDecoration(),
         highlightMarkerDecoration(),
         inlineCodeMarkerDecoration(),
         listMarkerDecoration(),
-        listIndentKeymap(),
+        markdownTabKeymap(),
         listLineDecoration(),
         listIndentWhitespaceDecoration(),
         emojiListKeymap(),
