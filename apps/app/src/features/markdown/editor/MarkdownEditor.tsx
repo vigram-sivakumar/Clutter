@@ -15,17 +15,16 @@ import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 // import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
-import { emphasisLivePreview } from './codemirror/highlight/emphasisLivePreview';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 // import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
+import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePreviewRegion';
 // import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
-import { strikethroughLivePreview } from './codemirror/highlight/strikethroughLivePreview';
-// strikethroughMarkerDecoration() (liveMarkDecoration-based, carries the
-// still-undecided liveMarkSelectionSnap transactionFilter) remains dormant
-// on purpose — strikethroughLivePreview() above is the currently-wired
-// implementation instead. See strikethroughLivePreview.ts's own doc
-// comment and docs/editor-architecture-decisions.md.
+// The liveMarkDecoration-based marker decorations (emphasis/strikethrough/
+// highlight/inline code) remain dormant on purpose: they carry the
+// still-undecided liveMarkSelectionSnap transactionFilter, and inline
+// visibility is now owned by inlineLivePreviewRegion() above. See
+// docs/editor-research/inline-live-preview-region-odr-v1.md.
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 // import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 // import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
@@ -161,27 +160,19 @@ export const MarkdownEditor = forwardRef<
         // deleted or rewritten; uncomment to restore. See the accompanying
         // report for the full per-extension classification.
         // emphasisMarkerDecoration(),
-        // Emphasis-family (bold + italic, including combined/nested
-        // constructs like ***text***) Live Preview — deliberately not the
-        // liveMarkDecoration-based emphasisMarkerDecoration() above, which
-        // unconditionally wires in a transactionFilter
-        // (liveMarkSelectionSnap.ts) this slice's scope excludes. See
-        // emphasisLivePreview.ts's own doc comment. Merges what were
-        // previously separate boldLivePreview()/italicLivePreview() vertical
-        // slices into one plugin/traversal so nested emphasis is treated
-        // atomically rather than as two independently-engaged constructs.
-        emphasisLivePreview(),
-        // GFM Strikethrough Live Preview — its own ViewPlugin, not the
-        // liveMarkDecoration-based strikethroughMarkerDecoration() below,
-        // for the same reason emphasisLivePreview() isn't
-        // emphasisMarkerDecoration(): liveMarkDecoration unconditionally
-        // wires in liveMarkSelectionSnap.ts's transactionFilter, which
-        // this plugin doesn't need and doesn't introduce. Strikethrough
-        // is a single node type that cannot self-nest (confirmed via
-        // direct parser inspection), so — unlike emphasis — no
-        // traversal-short-circuit coordination is needed here either.
-        // See strikethroughLivePreview.ts's own doc comment.
-        strikethroughLivePreview(),
+        // The single authoritative inline Live Preview visibility
+        // mechanism (Emphasis, StrongEmphasis, Strikethrough), per
+        // docs/editor-research/inline-live-preview-region-odr-v1.md.
+        // Replaces the previously separate emphasisLivePreview() and
+        // strikethroughLivePreview() plugins: two independent traversals
+        // each decided engagement for their own node kinds only, so a
+        // caret between an outer and inner delimiter (`~~__Text__~~`)
+        // revealed the outer construct while the inner stayed concealed.
+        // Visibility now resolves per nested *region*, not per construct.
+        // Adding a participant is a registry entry in
+        // inlineLivePreviewParticipants.ts — never a change here or to
+        // another construct (ODR §4.8).
+        inlineLivePreviewRegion(),
         // strikethroughMarkerDecoration(),
         // highlightMarkerDecoration(),
         // inlineCodeMarkerDecoration(),
