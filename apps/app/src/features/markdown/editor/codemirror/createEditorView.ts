@@ -1,16 +1,14 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { bracketMatching, codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
+import { codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
 import { Annotation, EditorState, type Extension } from '@codemirror/state';
 import {
-  crosshairCursor,
   drawSelection,
   dropCursor,
   EditorView,
   highlightActiveLine,
   highlightSpecialChars,
   keymap,
-  rectangularSelection,
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
@@ -115,15 +113,20 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // renders otherwise-invisible characters (stray non-breaking spaces,
       // control characters) as a visible placeholder glyph. dropCursor()
       // shows a drop-target caret when dragging text into the editor.
-      // bracketMatching() highlights the matching bracket when the cursor
-      // sits next to one. rectangularSelection()/crosshairCursor() add
-      // Alt-drag box selection with its own crosshair pointer — useful for
-      // editing pipe-table columns; both are pointer-driven, not keyboard.
+      //
+      // Deliberately NOT wired (all standard @codemirror/language or
+      // @codemirror/view extensions, drop-in with a single import + one
+      // line here if a concrete need shows up):
+      //   - bracketMatching() [@codemirror/language] — highlights the
+      //     matching bracket when the cursor sits next to one.
+      //   - rectangularSelection() [@codemirror/view] — Alt-drag box
+      //     (column) selection, e.g. for editing pipe-table columns.
+      //   - crosshairCursor() [@codemirror/view] — swaps the mouse pointer
+      //     to a crosshair while rectangularSelection()'s Alt-drag is
+      //     active; only meaningful paired with it.
+      // None currently have a feature depending on them.
       highlightSpecialChars(),
       dropCursor(),
-      bracketMatching(),
-      rectangularSelection(),
-      crosshairCursor(),
       // closeBrackets() auto-closes ()/[]/{}/quotes and skips over an
       // already-present closing char when typed — standard
       // @codemirror/autocomplete behavior, unmodified. Verified against
