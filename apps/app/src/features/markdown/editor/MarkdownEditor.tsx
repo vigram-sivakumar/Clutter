@@ -20,6 +20,12 @@ import { emphasisLivePreview } from './codemirror/highlight/emphasisLivePreview'
 // import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
 // import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
+import { strikethroughLivePreview } from './codemirror/highlight/strikethroughLivePreview';
+// strikethroughMarkerDecoration() (liveMarkDecoration-based, carries the
+// still-undecided liveMarkSelectionSnap transactionFilter) remains dormant
+// on purpose — strikethroughLivePreview() above is the currently-wired
+// implementation instead. See strikethroughLivePreview.ts's own doc
+// comment and docs/editor-architecture-decisions.md.
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 // import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 // import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
@@ -165,6 +171,17 @@ export const MarkdownEditor = forwardRef<
         // slices into one plugin/traversal so nested emphasis is treated
         // atomically rather than as two independently-engaged constructs.
         emphasisLivePreview(),
+        // GFM Strikethrough Live Preview — its own ViewPlugin, not the
+        // liveMarkDecoration-based strikethroughMarkerDecoration() below,
+        // for the same reason emphasisLivePreview() isn't
+        // emphasisMarkerDecoration(): liveMarkDecoration unconditionally
+        // wires in liveMarkSelectionSnap.ts's transactionFilter, which
+        // this plugin doesn't need and doesn't introduce. Strikethrough
+        // is a single node type that cannot self-nest (confirmed via
+        // direct parser inspection), so — unlike emphasis — no
+        // traversal-short-circuit coordination is needed here either.
+        // See strikethroughLivePreview.ts's own doc comment.
+        strikethroughLivePreview(),
         // strikethroughMarkerDecoration(),
         // highlightMarkerDecoration(),
         // inlineCodeMarkerDecoration(),
