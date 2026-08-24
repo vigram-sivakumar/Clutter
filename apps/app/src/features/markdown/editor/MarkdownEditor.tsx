@@ -16,15 +16,15 @@ import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 // import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
-// import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
 import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePreviewRegion';
-// import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
-// The liveMarkDecoration-based marker decorations (emphasis/strikethrough/
-// highlight/inline code) remain dormant on purpose: they carry the
-// still-undecided liveMarkSelectionSnap transactionFilter, and inline
-// visibility is now owned by inlineLivePreviewRegion() above. See
-// docs/editor-research/inline-live-preview-region-odr-v1.md.
+// The liveMarkDecoration-based marker decorations still dormant here
+// (emphasis, strikethrough — plus heading/blockquote/list, which stay
+// on liveMarkDecoration permanently per ODR §4.10) carry the
+// still-undecided liveMarkSelectionSnap transactionFilter. Highlight and
+// InlineCode's own liveMarkDecoration-based modules were retired outright
+// (not left dormant) once inlineLivePreviewRegion() took over their
+// inline visibility — see docs/editor-research/inline-live-preview-region-odr-v1.md.
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 // import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 // import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
@@ -174,8 +174,6 @@ export const MarkdownEditor = forwardRef<
         // another construct (ODR §4.8).
         inlineLivePreviewRegion(),
         // strikethroughMarkerDecoration(),
-        // highlightMarkerDecoration(),
-        // inlineCodeMarkerDecoration(),
         // listMarkerDecoration(),
         // listLineDecoration(),
         // listIndentWhitespaceDecoration(),

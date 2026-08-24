@@ -26,11 +26,13 @@ import type { SyntaxNodeRef } from '@lezer/common';
  * entry describes one construct in isolation; how two of them compose is
  * decided structurally by the syntax tree, never declared here.
  *
- * Phase 1 scope (ODR §10) is deliberately the three currently-wired
- * participants only. `Highlight`, `InlineCode` (Phase 2) and the
- * semantic-token/widget family — `WikiLink`, `Tag`, `Date`, `Task`
- * (Phase 3) — are **not** registered yet, and must not be added here
- * without doing the rest of their phase's work.
+ * Phase 2 scope (ODR §10) adds `Highlight` and `InlineCode` to the three
+ * Phase 1 participants — both share the same `<mark>content<mark>` shape
+ * `delimitedInlineRenderer` already generalizes over, so neither needed a
+ * new renderer. The semantic-token/widget family — `WikiLink`, `Tag`,
+ * `Date`, `Task` (Phase 3) — is **not** registered yet, and must not be
+ * added here without doing the rest of that phase's work (notably the
+ * `atomicRanges` scoping question ODR §10 Phase 3 flags).
  */
 export type ParticipantRenderer = (
   node: SyntaxNodeRef,
@@ -98,4 +100,6 @@ export const inlineLivePreviewParticipants: ReadonlyMap<string, ParticipantRende
     ['Emphasis', delimitedInlineRenderer('EmphasisMark', 'tok-emphasis')],
     ['StrongEmphasis', delimitedInlineRenderer('EmphasisMark', 'tok-strong')],
     ['Strikethrough', delimitedInlineRenderer('StrikethroughMark', 'tok-strike')],
+    ['Highlight', delimitedInlineRenderer('HighlightMark', 'tok-highlight')],
+    ['InlineCode', delimitedInlineRenderer('CodeMark', 'tok-code')],
   ]);

@@ -129,6 +129,22 @@ describe('inlineLivePreviewRegion', () => {
       expectRegionRevealsAtomicallyThroughout('before **_Text_** after', '**_Text_**');
       expectRegionRevealsAtomicallyThroughout('before __*Text*__ after', '__*Text*__');
     });
+
+    it('~~==Text==~~ — Phase 2: Highlight nested inside Strikethrough', () => {
+      expectRegionRevealsAtomicallyThroughout('before ~~==Text==~~ after', '~~==Text==~~');
+    });
+
+    it('==**Text**== — Phase 2: StrongEmphasis nested inside Highlight', () => {
+      expectRegionRevealsAtomicallyThroughout('before ==**Text**== after', '==**Text**==');
+    });
+
+    it('**`Text`** — Phase 2: InlineCode nested inside StrongEmphasis (InlineCode can be a child but, per its terminal shape, never a parent)', () => {
+      expectRegionRevealsAtomicallyThroughout('before **`Text`** after', '**`Text`**');
+    });
+
+    it('***~~`Text`~~*** — the 4-level chain (Emphasis > StrongEmphasis > Strikethrough > InlineCode), all four current participants in one region', () => {
+      expectRegionRevealsAtomicallyThroughout('before ***~~`Text`~~*** after', '***~~`Text`~~***');
+    });
   });
 
   // ===================================================================
@@ -359,6 +375,140 @@ describe('inlineLivePreviewRegion', () => {
     });
   });
 
+  // ===================================================================
+  // Phase 2 — ==text== (Highlight)
+  // ===================================================================
+  describe('==text== (Highlight)', () => {
+    it('at rest, the == markers have no DOM presence at all — not merely hidden', () => {
+      const view = mountView('Text before ==marked== after');
+
+      expect(view.dom.textContent).toBe('Text before marked after');
+      expect(view.dom.textContent).not.toContain('=');
+    });
+
+    it('renders the content highlighted at rest', () => {
+      expect(mountView('Text before ==marked== after').dom.querySelector('.tok-highlight')?.textContent).toBe('marked');
+    });
+
+    it('reveals the raw ==…== text once the selection is inside it, then re-collapses when it leaves', () => {
+      const view = mountView('Before ==marked== after');
+
+      view.dispatch({ selection: { anchor: 10 } });
+      expect(view.dom.textContent).toContain('==marked==');
+      expect(view.dom.querySelector('.tok-highlight')).toBeNull();
+
+      view.dispatch({ selection: { anchor: 0 } });
+      expect(view.dom.textContent).not.toContain('=');
+      expect(view.dom.querySelector('.tok-highlight')).not.toBeNull();
+    });
+
+    it('boundary-after-completion: caret at node.from/node.to stays revealed, one further out conceals', () => {
+      const doc = 'Text before ==marked== after';
+      const nodeFrom = 'Text before '.length;
+      const nodeTo = 'Text before ==marked=='.length;
+
+      expect(mountViewWithSelection(doc, nodeFrom).dom.textContent).toBe(doc);
+      expect(mountViewWithSelection(doc, nodeTo).dom.textContent).toBe(doc);
+      expect(mountViewWithSelection(doc, nodeFrom - 1).dom.textContent).toBe('Text before marked after');
+      expect(mountViewWithSelection(doc, nodeTo + 1).dom.textContent).toBe('Text before marked after');
+    });
+
+    // Construct-local parser fact, migrated from the retired
+    // highlightMarkerDecoration.test.ts — not implied by anything generic:
+    // a bare triple `=` run doesn't open a Highlight spanning the whole
+    // run. Confirmed against the actual parser (script run and discarded
+    // during Phase 2 planning, not assumed): the leading `=` is left as
+    // literal text outside the node, matching Strikethrough's own
+    // analogous adjacent-delimiter quirk already pinned in Phase 1.
+    it('===not-highlight===: a bare triple run leaves the leading = as literal text outside the Highlight node', () => {
+      const view = mountView('===not-highlight===');
+
+      // The Highlight node claims [1,19): its own marks consume indices
+      // 1-2 and 17-18, leaving one further literal '=' (index 16) inside
+      // the *content* range alongside the leading one left outside the
+      // node entirely at index 0.
+      expect(view.dom.textContent).toBe('=not-highlight=');
+      expect(view.dom.querySelector('.tok-highlight')?.textContent).toBe('not-highlight=');
+    });
+  });
+
+  // ===================================================================
+  // Phase 2 — `text` (InlineCode)
+  // ===================================================================
+  describe('`text` (InlineCode)', () => {
+    it('at rest, the ` markers have no DOM presence at all — not merely hidden', () => {
+      const view = mountView('Text before `code` after');
+
+      expect(view.dom.textContent).toBe('Text before code after');
+      expect(view.dom.textContent).not.toContain('`');
+    });
+
+    it('renders the content as code at rest', () => {
+      expect(mountView('Text before `code` after').dom.querySelector('.tok-code')?.textContent).toBe('code');
+    });
+
+    it('reveals the raw `…` text once the selection is inside it, then re-collapses when it leaves', () => {
+      const view = mountView('Before `code` after');
+
+      view.dispatch({ selection: { anchor: 9 } });
+      expect(view.dom.textContent).toContain('`code`');
+      expect(view.dom.querySelector('.tok-code')).toBeNull();
+
+      view.dispatch({ selection: { anchor: 0 } });
+      expect(view.dom.textContent).not.toContain('`');
+      expect(view.dom.querySelector('.tok-code')).not.toBeNull();
+    });
+
+    it('boundary-after-completion: caret at node.from/node.to stays revealed, one further out conceals', () => {
+      const doc = 'Text before `code` after';
+      const nodeFrom = 'Text before '.length;
+      const nodeTo = 'Text before `code`'.length;
+
+      expect(mountViewWithSelection(doc, nodeFrom).dom.textContent).toBe(doc);
+      expect(mountViewWithSelection(doc, nodeTo).dom.textContent).toBe(doc);
+      expect(mountViewWithSelection(doc, nodeFrom - 1).dom.textContent).toBe('Text before code after');
+      expect(mountViewWithSelection(doc, nodeTo + 1).dom.textContent).toBe('Text before code after');
+    });
+
+    // Construct-local parser fact, migrated from the retired
+    // inlineCodeMarkerDecoration.test.ts: CommonMark requires a longer
+    // backtick run to let a literal backtick appear inside the span.
+    // firstChild/lastChild resolve positionally, so this needs no
+    // special-casing here — but it's real evidence worth pinning, not
+    // implied by the generic mechanism.
+    it('a variable-length backtick run lets a literal backtick appear inside the span', () => {
+      const view = mountView('Text before ``code with ` backtick`` after');
+
+      expect(view.dom.textContent).not.toContain('``');
+      expect(view.dom.querySelector('.tok-code')?.textContent).toBe('code with ` backtick');
+
+      view.dispatch({ selection: { anchor: 15 } });
+      expect(view.dom.textContent).toContain('``code with ` backtick``');
+    });
+
+    // Construct-local parser-terminality fact this whole Phase 2
+    // registration depends on, migrated from the retired suite: a code
+    // span's content is CommonMark-literal and is never re-parsed as
+    // Markdown — confirmed at the tree level, not just at the DOM level,
+    // so this is independent of inlineLivePreviewRegion entirely.
+    it('does not parse further Markdown inside a code span — `**not bold**` stays literal both in the tree and on screen', () => {
+      const text = 'Text before `**not bold**` after';
+      const language = markdownLanguageExtension().language;
+      const names: string[] = [];
+      language.parser.parse(text).iterate({
+        enter: (n) => {
+          names.push(n.name);
+        },
+      });
+      expect(names).toContain('InlineCode');
+      expect(names).not.toContain('Emphasis');
+      expect(names).not.toContain('StrongEmphasis');
+
+      const view = mountView(text);
+      expect(view.dom.textContent).toContain('Text before **not bold** after');
+    });
+  });
+
   describe('bold, italic, and strikethrough together but not nested: each resolves separately', () => {
     it('renders separately, each with its own class', () => {
       const view = mountViewWithSelection('Text with **bold** and *italic* and ~~struck~~ together', 0);
@@ -489,6 +639,8 @@ describe('inlineLivePreviewRegion', () => {
         ['*italic*', 'Emphasis', 'EmphasisMark'],
         ['**bold**', 'StrongEmphasis', 'EmphasisMark'],
         ['~~struck~~', 'Strikethrough', 'StrikethroughMark'],
+        ['==marked==', 'Highlight', 'HighlightMark'],
+        ['`code`', 'InlineCode', 'CodeMark'],
       ];
 
       for (const [source, nodeName, markName] of cases) {
