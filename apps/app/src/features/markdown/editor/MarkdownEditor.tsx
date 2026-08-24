@@ -15,10 +15,9 @@ import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 // import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
-import { boldLivePreview } from './codemirror/highlight/boldLivePreview';
+import { emphasisLivePreview } from './codemirror/highlight/emphasisLivePreview';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 // import { highlightMarkerDecoration } from './codemirror/highlight/highlightMarkerDecoration';
-import { italicLivePreview } from './codemirror/highlight/italicLivePreview';
 // import { inlineCodeMarkerDecoration } from './codemirror/highlight/inlineCodeMarkerDecoration';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
@@ -156,16 +155,16 @@ export const MarkdownEditor = forwardRef<
         // deleted or rewritten; uncomment to restore. See the accompanying
         // report for the full per-extension classification.
         // emphasisMarkerDecoration(),
-        // Bold-only Live Preview vertical slice — deliberately not the
+        // Emphasis-family (bold + italic, including combined/nested
+        // constructs like ***text***) Live Preview — deliberately not the
         // liveMarkDecoration-based emphasisMarkerDecoration() above, which
-        // also covers italic and unconditionally wires in a transactionFilter
+        // unconditionally wires in a transactionFilter
         // (liveMarkSelectionSnap.ts) this slice's scope excludes. See
-        // boldLivePreview.ts's own doc comment.
-        boldLivePreview(),
-        // Italic-only Live Preview vertical slice — same architecture as
-        // boldLivePreview() above, targeting Emphasis instead of
-        // StrongEmphasis. See italicLivePreview.ts's own doc comment.
-        italicLivePreview(),
+        // emphasisLivePreview.ts's own doc comment. Merges what were
+        // previously separate boldLivePreview()/italicLivePreview() vertical
+        // slices into one plugin/traversal so nested emphasis is treated
+        // atomically rather than as two independently-engaged constructs.
+        emphasisLivePreview(),
         // strikethroughMarkerDecoration(),
         // highlightMarkerDecoration(),
         // inlineCodeMarkerDecoration(),
