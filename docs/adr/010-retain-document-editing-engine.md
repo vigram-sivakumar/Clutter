@@ -8,6 +8,8 @@
 
 The question this ADR settles: given the capability facades (ADR-002) are being introduced anyway, should `DocumentEditing` be simplified down to match today's minimal editor, with the expectation of rebuilding it when a richer editor is prioritized?
 
+**Note (added later, non-normative):** the `contentEditable`-field description above is contemporaneous context from when this ADR was written. `MarkdownEditor.tsx` has since migrated to a CodeMirror 6 `EditorView` (see `docs/editor-architecture-decisions.md`). This does not change the decision below — `DocumentEditing` remains `PageOperations`'s internal collaborator regardless of what the editor's own rendering layer is built on.
+
 ## Decision
 
 Keep `DocumentEditing` exactly as-is, unshrunk, folded into the application layer as `PageOperations`'s internal collaborator (not a peer application-layer service — this is the one structural change: it stops being importable from outside `application/`). No simplification, no rebuilding.
