@@ -30,7 +30,7 @@ import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePrevie
 // engaged-state behavior now lives outside inlineLivePreviewRegion
 // entirely, in wikiLinkLivePreview.ts (see that file's doc comment).
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
-// import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
+import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 // import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
 // import { listLineDecoration } from './codemirror/list/listLineDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
@@ -204,7 +204,7 @@ export const MarkdownEditor = forwardRef<
         // listIndentWhitespaceDecoration(),
         // emojiListMarkDecoration(),
         // blockquoteMarkerDecoration(),
-        // horizontalRuleDecoration(),
+        horizontalRuleDecoration(),
         formatShortcutsKeymap(),
         // tableDecoration(),
         // --- end purely-visual decorations ---
