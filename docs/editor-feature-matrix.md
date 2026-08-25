@@ -48,7 +48,7 @@ Structural, line- or paragraph-level constructs.
 |---|---|---|---|---|---|---|
 | ATX headings `# … ######` | ✓ | ✓ | ✓ | Native grammar + dedicated marker decoration | A | — |
 | Paragraphs, hard breaks, horizontal rule | ✓ | ✓ | ✓ | Native CommonMark `---`/`***`/`___`, plus Clutter's own `~---~`/`=---=`/`.---.` variants — `horizontalRuleDecoration()` wired in `MarkdownEditor.tsx` | A | — |
-| Blockquote `> text` | ✓ | ✓ | ✓ | **Updated — now implemented**: `blockquoteMarkerDecoration` (commit `f8111f61`) — currently disabled (`blockquoteMarkerDecoration()` commented out in `MarkdownEditor.tsx`) | A | — |
+| Blockquote `> text` | ✓ | ✓ | ✓ | `blockquoteMarkerDecoration()` wired in `MarkdownEditor.tsx` (re-enabled 2026-08-25) | A | — |
 | Bullet / ordered lists | ✓ | ✓ | ✓ | **Updated — now implemented**: `listMarkerDecoration` + `ListBulletWidget` render resting markers as a styled glyph (commits `f8111f61`, `824b3b66`, `809a9909`) — currently disabled (`listMarkerDecoration()`, `listLineDecoration()`, `listIndentWhitespaceDecoration()` all commented out in `MarkdownEditor.tsx`) | A | — |
 | Task checkbox `- [ ]` / `- [x]` | ✓ | ✓ | ✓ | **Updated — now implemented**: GFM `TaskList` node + `TaskCheckboxWidget`, interactive/clickable in-editor, wired to the Tasks feature (commits `7d2a22b7`, `dbac5aa1`) — the checkbox *widget decoration* is currently disabled, but its click-toggle behavior remains wired (`taskCheckboxMouseHandlers()`), since it reads the syntax tree directly rather than depending on the rendered widget | A | — |
 | Fenced / indented code block | ✓ | ✓ | ✓ | Parses natively; no per-language syntax highlighting inside the block | B | decoration, language data, CSS |
