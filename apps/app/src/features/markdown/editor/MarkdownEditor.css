@@ -187,16 +187,47 @@
  * `.cm-hr-line::after`'s doc comment, where the collapsed-to-zero-height
  * line box is exactly why that one needs a pseudo-element instead).
  *
- * Reuses `--border-strong` (already the shared "visible rule" token in
- * this file — `.cm-hr-line::after`, `.cm-table-cell`) rather than
- * introducing a new blockquote-specific color token; no depth-aware
- * styling for nested `>>` quotes yet — deliberately not designed until a
- * concrete need exists (see blockquoteLineDecoration.ts's own doc
- * comment).
+ * Rounded corners only at the top/bottom of the whole quote *block*, not
+ * at every physical line — `Decoration.line` applies `.cm-quote-line`
+ * independently per line, so a naive `border-radius` on the base rule
+ * would notch every line boundary in a multi-line quote. Fixed with pure
+ * sibling combinators rather than a DOM wrapper or a second decoration:
+ * `.cm-content` renders `.cm-line` elements as flat, direct siblings in
+ * document order (same fact `.cm-list-line`/`.cm-table-row` above already
+ * rely on), so DOM adjacency between two `.cm-quote-line` elements is
+ * already a correct, always-in-sync proxy for "these two physical lines
+ * belong to the same contiguous quote run" — no new class, no change to
+ * blockquoteLineDecoration.ts. The base rule rounds both start-side
+ * corners (a full capsule, correct for a single-line quote); `+` squares
+ * off the top corner of any line that follows another quote line, and
+ * `:has(+ ...)` squares off the bottom corner of any line followed by
+ * another — leaving only the true first/last line of a run rounded.
+ * `:has()` is an established dependency in this codebase already
+ * (Entry.css), not a new one. A blank line inside a lazy-continued quote
+ * still carries the class (blockquoteLineDecoration.ts), so it stays
+ * joined; a genuine blank line that ends the quote carries no class, so
+ * adjacency — and the rounding — correctly breaks there. Nested `>>`
+ * quotes get one flat class with no depth distinction (unchanged,
+ * deliberate), so they join the same capsule rather than getting their
+ * own.
+ *
+ * No depth-aware styling for nested `>>` quotes yet — deliberately not
+ * designed until a concrete need exists (see blockquoteLineDecoration.ts's
+ * own doc comment).
  */
 .cm-editor .cm-quote-line {
-  border-inline-start: 2px solid var(--border-strong);
+  border-inline-start: 4px solid var(--foreground-primary);
   padding-inline-start: var(--space-12);
+  border-start-start-radius: var(--radius-xs);
+  border-end-start-radius: var(--radius-xs);
+}
+
+.cm-editor .cm-quote-line + .cm-quote-line {
+  border-start-start-radius: 0;
+}
+
+.cm-editor .cm-quote-line:has(+ .cm-quote-line) {
+  border-end-start-radius: 0;
 }
 
 /*
