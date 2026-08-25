@@ -178,18 +178,24 @@
  * marker is currently hidden or revealed — it's presentation of the
  * block, not a Live-Preview reveal-on-engagement construct.
  *
- * `border-inline-start` (not a `::before` pseudo-element): a real border
- * on the line box itself naturally extends the full height of that line,
- * including any browser-soft-wrapped continuation rows, with no separate
- * positioning/sizing math needed — the same reasoning `.cm-table-cell`'s
- * `border` above already relies on. `::before` is reserved for cases
- * where the line's own box can't carry the paint directly (see
- * `.cm-hr-line::after`'s doc comment, where the collapsed-to-zero-height
- * line box is exactly why that one needs a pseudo-element instead).
+ * A `::before` pseudo-element paints the rule, not `border-inline-start`
+ * on the line box itself. `border-inline-start` was tried first (see the
+ * prior version of this comment/rule, still visible in git history) but
+ * rounding *that* border's corners rounds the geometry of a border that's
+ * flush against the `.cm-line` box's own edge — visually a rounded notch
+ * cut into the line, not a standalone rounded bar, confirmed by direct
+ * visual inspection. A `::before` sized to exactly the rule's own
+ * footprint (`width: 4px`, full line height) is a real independent box,
+ * so `border-radius` on it rounds the *bar's own* corners — an actual
+ * pill, not the line's. `position: relative` on `.cm-quote-line` scopes
+ * the pseudo-element's `position: absolute` to that line box, so it still
+ * naturally spans the full height of a browser-soft-wrapped continuation
+ * row with no extra sizing math (`top: 0; bottom: 0` against the line's
+ * own box), same coverage `border-inline-start` gave for free before.
  *
  * Rounded corners only at the top/bottom of the whole quote *block*, not
  * at every physical line — `Decoration.line` applies `.cm-quote-line`
- * independently per line, so a naive `border-radius` on the base rule
+ * independently per line, so rounding every `::before` unconditionally
  * would notch every line boundary in a multi-line quote. Fixed with pure
  * sibling combinators rather than a DOM wrapper or a second decoration:
  * `.cm-content` renders `.cm-line` elements as flat, direct siblings in
@@ -197,37 +203,51 @@
  * rely on), so DOM adjacency between two `.cm-quote-line` elements is
  * already a correct, always-in-sync proxy for "these two physical lines
  * belong to the same contiguous quote run" — no new class, no change to
- * blockquoteLineDecoration.ts. The base rule rounds both start-side
- * corners (a full capsule, correct for a single-line quote); `+` squares
- * off the top corner of any line that follows another quote line, and
- * `:has(+ ...)` squares off the bottom corner of any line followed by
- * another — leaving only the true first/last line of a run rounded.
- * `:has()` is an established dependency in this codebase already
- * (Entry.css), not a new one. A blank line inside a lazy-continued quote
- * still carries the class (blockquoteLineDecoration.ts), so it stays
- * joined; a genuine blank line that ends the quote carries no class, so
- * adjacency — and the rounding — correctly breaks there. Nested `>>`
- * quotes get one flat class with no depth distinction (unchanged,
- * deliberate), so they join the same capsule rather than getting their
- * own.
+ * blockquoteLineDecoration.ts. The base rule rounds all four corners of
+ * the bar (radius equal to its own width — an exact semicircular cap top
+ * and bottom, a true pill; correct for a single-line quote on its own);
+ * `+` squares off *both* top corners of any line's bar that follows
+ * another quote line (a bar has no single "outer" side the way a border
+ * does, so both corners of the affected edge must be zeroed together or
+ * the cap reads as lopsided), and `:has(+ ...)` squares off both bottom
+ * corners of any line followed by another — leaving only the true
+ * first/last line of a run rounded, and squaring all four corners on
+ * every line in between. `:has()` is an established dependency in this
+ * codebase already (Entry.css), not a new one. A blank line inside a
+ * lazy-continued quote still carries the class (blockquoteLineDecoration.ts),
+ * so it stays joined; a genuine blank line that ends the quote carries no
+ * class, so adjacency — and the rounding — correctly breaks there. Nested
+ * `>>` quotes get one flat class with no depth distinction (unchanged,
+ * deliberate), so they join the same bar rather than getting their own.
  *
  * No depth-aware styling for nested `>>` quotes yet — deliberately not
  * designed until a concrete need exists (see blockquoteLineDecoration.ts's
  * own doc comment).
  */
 .cm-editor .cm-quote-line {
-  border-inline-start: 4px solid var(--foreground-primary);
+  position: relative;
   padding-inline-start: var(--space-12);
-  border-start-start-radius: var(--radius-xs);
-  border-end-start-radius: var(--radius-xs);
 }
 
-.cm-editor .cm-quote-line + .cm-quote-line {
+.cm-editor .cm-quote-line::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--foreground-primary);
+  border-radius: var(--radius-xs);
+}
+
+.cm-editor .cm-quote-line + .cm-quote-line::before {
   border-start-start-radius: 0;
+  border-start-end-radius: 0;
 }
 
-.cm-editor .cm-quote-line:has(+ .cm-quote-line) {
+.cm-editor .cm-quote-line:has(+ .cm-quote-line)::before {
   border-end-start-radius: 0;
+  border-end-end-radius: 0;
 }
 
 /*
