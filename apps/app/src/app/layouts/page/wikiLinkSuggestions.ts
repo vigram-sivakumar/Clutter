@@ -40,18 +40,28 @@ export function createWikiLinkSuggester(
   return (query) => {
     const normalizedQuery = query.trim().toLowerCase();
 
+    // Deterministic, simple order: natural/alphanumeric by title, the
+    // same comparator convention VaultQuery.ts's compareByName already
+    // establishes for every other listing in this codebase — not a
+    // relevance ranking, just a stable, predictable order.
+    const byTitle = (a: WikiLinkPageSuggestion, b: WikiLinkPageSuggestion) =>
+      a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' });
+
+    // Empty query: a freshly typed `[[` (closeBrackets already produces
+    // the closed, empty `[[]]` node before any character is typed) — show
+    // every page rather than nothing, so autocomplete opens immediately
+    // instead of waiting for the first typed character
+    // (docs/editor-architecture-decisions.md's WikiLink autocomplete
+    // investigation). No Create option here: an empty path has nothing to
+    // create yet.
     if (!normalizedQuery) {
-      return [];
+      return Array.from(vault.pages()).map((page) => toPageSuggestion(vault, page)).sort(byTitle);
     }
 
     const matches = Array.from(vault.pages())
       .filter((page) => matchesQuery(page, normalizedQuery))
       .map((page) => toPageSuggestion(vault, page))
-      // Deterministic, simple order: natural/alphanumeric by title, the
-      // same comparator convention VaultQuery.ts's compareByName already
-      // establishes for every other listing in this codebase — not a
-      // relevance ranking, just a stable, predictable order.
-      .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
+      .sort(byTitle);
 
     if (matches.length > 0) {
       return matches;

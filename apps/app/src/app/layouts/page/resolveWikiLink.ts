@@ -63,13 +63,20 @@ export function createWikiLinkResolver(
 
     if (aliasMatches.length > 1) {
       // Ambiguous alias matches must produce an explicit ambiguous state,
-      // never a silent pick.
-      return { status: 'ambiguous', displayLabel: localAlias ?? path, activate: () => {} };
+      // never a silent pick. Display label follows the same alias-or-
+      // filename rule as every other status (never the raw vault-relative
+      // path — VaultPath.pageName strips both directory and extension).
+      return { status: 'ambiguous', displayLabel: localAlias ?? VaultPath.pageName(path), activate: () => {} };
     }
 
     return {
       status: 'unresolved',
-      displayLabel: localAlias ?? path,
+      // Same rule as resolved/ambiguous: local alias, else the bare
+      // filename — never the directory-qualified path. Previously fell
+      // back to the raw `path` here, which leaked the full
+      // "Folder/Subfolder/Name" string into the rendered widget for any
+      // unresolved reference.
+      displayLabel: localAlias ?? VaultPath.pageName(path),
       // Clicking an unresolved reference creates the referenced page —
       // full path preserved, including any missing intermediate folders
       // — then opens it, through the existing PageOperations.create()/

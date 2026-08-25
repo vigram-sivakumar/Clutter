@@ -228,6 +228,31 @@ const reactivateOnReferenceDeletion = EditorView.updateListener.of((update) => {
 });
 
 /**
+ * Symmetric counterpart to `reactivateOnReferenceDeletion` above, for a
+ * plain cursor-only move into an *empty* reference — e.g. the popup was
+ * dismissed (Escape, click elsewhere) right after typing `[[`, leaving a
+ * still-empty `[[]]` behind, and the user clicks or arrow-keys back into
+ * it before typing anything. CM6's own `activateOnTyping` heuristic never
+ * fires for a selection-only transaction (by design — this is exactly
+ * what keeps "moving the cursor into an already-populated `[[Text]]`"
+ * from reopening completion, and that must keep being true), so this is
+ * the one narrow, explicit exception: only when `referenceZoneAt` finds a
+ * zone *and* that zone is empty (`zone.from === zone.to`) — a populated
+ * reference's zone is never empty, so this never fires for it, leaving
+ * that existing behavior exactly as it was.
+ */
+const reactivateOnEnteringEmptyReference = EditorView.updateListener.of((update) => {
+  if (!update.selectionSet || update.docChanged || completionStatus(update.state) !== null) {
+    return;
+  }
+
+  const zone = referenceZoneAt(update.state, update.state.selection.main.head);
+  if (zone && zone.from === zone.to) {
+    startCompletion(update.view);
+  }
+});
+
+/**
  * WikiLink's own non-`autocompletion()` completion extras: the `|` keymap
  * command (the reference/display-name boundary) and the reactivate-on-
  * deletion listener above. `@codemirror/autocomplete`'s own
@@ -254,5 +279,6 @@ export function wikiLinkAutocomplete(): Extension {
     // exist.
     Prec.highest(keymap.of([{ key: '|', run: acceptReferenceForDisplayName }])),
     reactivateOnReferenceDeletion,
+    reactivateOnEnteringEmptyReference,
   ];
 }

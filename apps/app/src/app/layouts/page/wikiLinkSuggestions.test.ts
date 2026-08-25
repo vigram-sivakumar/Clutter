@@ -118,12 +118,36 @@ function persistingFolderOperations(vault: Vault): FolderOperations {
 }
 
 describe('createWikiLinkSuggester', () => {
-  it('returns nothing for an empty query', () => {
+  it('returns nothing for an empty query when the vault has no pages', () => {
     const vault = makeVault([]);
     const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
 
     expect(suggest('')).toEqual([]);
     expect(suggest('   ')).toEqual([]);
+  });
+
+  it('returns every page for an empty query, so autocomplete can open immediately on a freshly typed [[', () => {
+    const pageB = makePage({ id: 'p2', path: '/vault/Beta.md', name: 'Beta' });
+    const pageA = makePage({ id: 'p1', path: '/vault/Alpha.md', name: 'Alpha' });
+    const vault = makeVault([pageB, pageA]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    const results = suggest('');
+
+    expect(results).toEqual([
+      { kind: 'page', path: 'Alpha', title: 'Alpha', breadcrumb: null },
+      { kind: 'page', path: 'Beta', title: 'Beta', breadcrumb: null },
+    ]);
+  });
+
+  it('an empty (whitespace-only) query is treated the same as a truly empty one — every page, no Create option', () => {
+    const page = makePage({ id: 'p1', path: '/vault/Alpha.md', name: 'Alpha' });
+    const vault = makeVault([page]);
+    const suggest = createWikiLinkSuggester(vault, fakePageOperations(), fakeFolderOperations());
+
+    const results = suggest('   ');
+
+    expect(results).toEqual([{ kind: 'page', path: 'Alpha', title: 'Alpha', breadcrumb: null }]);
   });
 
   it('matches by case-insensitive title substring', () => {

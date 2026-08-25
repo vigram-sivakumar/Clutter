@@ -207,7 +207,86 @@ describe('createWikiLinkResolver', () => {
     const resolution = resolve('Missing/Page', null);
 
     expect(resolution.status).toBe('unresolved');
-    expect(resolution.displayLabel).toBe('Missing/Page');
+    // Never the directory-qualified path — bare filename only.
+    expect(resolution.displayLabel).toBe('Page');
+  });
+
+  // Display label must always be "alias if present, else the bare target
+  // filename" — never the directory-qualified path — regardless of
+  // resolution status. Six cases: {resolved, unresolved, ambiguous} x
+  // {no alias, local alias}.
+  describe('display label is alias-or-filename, never the directory-qualified path, for every resolution status', () => {
+    it('resolved, no alias -> filename only, directory stripped', () => {
+      const page = makePage({ id: 'p1', path: '/vault/Projects/Project A.md', name: 'Project A' });
+      const vault = makeVault([page]);
+      const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+      expect(resolve('Projects/Project A', null).displayLabel).toBe('Project A');
+    });
+
+    it('unresolved, no alias -> filename only, directory stripped', () => {
+      const vault = makeVault([]);
+      const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+      expect(resolve('Projects/Project A', null).displayLabel).toBe('Project A');
+    });
+
+    it('ambiguous, no alias -> filename only, directory stripped', () => {
+      const pageA = makePage({
+        id: 'p1',
+        path: '/vault/A.md',
+        name: 'A',
+        analysis: { headings: [], aliases: [{ value: 'Dup' }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      });
+      const pageB = makePage({
+        id: 'p2',
+        path: '/vault/B.md',
+        name: 'B',
+        analysis: { headings: [], aliases: [{ value: 'Dup' }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      });
+      const vault = makeVault([pageA, pageB]);
+      const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+      const resolution = resolve('Dup', null);
+      expect(resolution.status).toBe('ambiguous');
+      // "Dup" itself has no directory component, so also cover a
+      // directory-qualified ambiguous reference explicitly.
+      expect(resolve('Projects/Dup', null).displayLabel).toBe('Dup');
+    });
+
+    it('resolved, with local alias -> alias, not the filename', () => {
+      const page = makePage({ id: 'p1', path: '/vault/Projects/Project A.md', name: 'Project A' });
+      const vault = makeVault([page]);
+      const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+      expect(resolve('Projects/Project A', 'Display name').displayLabel).toBe('Display name');
+    });
+
+    it('unresolved, with local alias -> alias, not the path', () => {
+      const vault = makeVault([]);
+      const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+      expect(resolve('Projects/Project A', 'Display name').displayLabel).toBe('Display name');
+    });
+
+    it('ambiguous, with local alias -> alias, not the path', () => {
+      const pageA = makePage({
+        id: 'p1',
+        path: '/vault/A.md',
+        name: 'A',
+        analysis: { headings: [], aliases: [{ value: 'Dup' }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      });
+      const pageB = makePage({
+        id: 'p2',
+        path: '/vault/B.md',
+        name: 'B',
+        analysis: { headings: [], aliases: [{ value: 'Dup' }], blockReferences: [], tasks: [], tags: [], links: [], embeds: [] },
+      });
+      const vault = makeVault([pageA, pageB]);
+      const resolve = createWikiLinkResolver(vault, fakePageOperations(vault), fakeFolderOperations(vault));
+
+      expect(resolve('Dup', 'Display name').displayLabel).toBe('Display name');
+    });
   });
 
   // Requirement 1: resolved WikiLink -> existing page opens. Resolved
