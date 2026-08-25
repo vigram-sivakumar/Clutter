@@ -596,19 +596,17 @@ export class PagePersistenceCoordinator {
   }
 
   /**
-   * Cascade-deletes a folder and everything nested inside it (ADR-024 §5).
-   * Reuses Vault.getDescendantFoldersAndPages() — the one implementation of
-   * this subtree walk — for both the disk-deletion order and, ultimately,
-   * Vault.removeFolder()'s own cascade.
-   *
-   * Deletes bottom-up: every descendant page's file first (order doesn't
-   * matter among these — they're leaves), then every descendant folder's
-   * directory deepest-first, then the target folder's own directory last.
-   * This is why no recursive-delete Platform capability is needed
-   * (ARCHITECTURE_RULES.md rule 4's Alternative B, rejected in the ADR):
-   * by construction, every path still inside a directory has already been
-   * removed by the time that directory itself is deleted, so the existing
-   * single-entry deleteFile() is always deleting an empty directory.
+   * Permanently deletes a folder and its entire physical subtree (ADR-024,
+   * amended — see "Amendment (delete invariant correction)"). A single
+   * recursive VaultFileSystem.deleteFile(path, { recursive: true }) call
+   * removes everything under the folder's own path — Vault-tracked pages
+   * and folders, .folder.md files, and anything on disk the Vault model
+   * never tracked (OS artifacts, externally-dropped files, Assets' own
+   * image files) — scoped strictly to this folder's path, never touching
+   * anything outside it. Vault.removeFolder() then reconciles the
+   * in-memory model in one call; it already performs its own full
+   * descendant cascade independent of disk state, so no separate
+   * enumeration is needed here.
    */
   private async runDeleteFolder(folderId: string): Promise<PersistenceResult> {
     const folder = this.vault.getFolder(folderId);
@@ -620,27 +618,8 @@ export class PagePersistenceCoordinator {
       };
     }
 
-    const { folders: descendantFolders, pages: descendantPages } =
-      this.vault.getDescendantFoldersAndPages(folderId);
-
-    for (const page of descendantPages) {
-      await this.fileSystem.deleteFile(page.path);
-    }
-
-    // Deepest-first (longest path first) — a parent directory must still
-    // be empty of tracked descendants when its own deleteFile() call runs.
-    const foldersInnermostFirst = [...descendantFolders, folder].sort(
-      (a, b) => b.path.length - a.path.length
-    );
-
-    for (const folderToDelete of foldersInnermostFirst) {
-      const folderMetadataPath = `${folderToDelete.path}/.folder.md`;
-
-      if (await this.fileSystem.exists(folderMetadataPath)) {
-        await this.fileSystem.deleteFile(folderMetadataPath);
-      }
-
-      await this.fileSystem.deleteFile(folderToDelete.path);
+    if (await this.fileSystem.exists(folder.path)) {
+      await this.fileSystem.deleteFile(folder.path, { recursive: true });
     }
 
     this.vault.removeFolder(folderId);

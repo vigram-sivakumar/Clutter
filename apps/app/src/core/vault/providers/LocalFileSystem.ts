@@ -43,8 +43,8 @@ export class LocalVaultProvider implements VaultFileSystem {
     await writeTextFile(path, contents);
   }
 
-  async deleteFile(path: string): Promise<void> {
-    await remove(this.resolvePath(path));
+  async deleteFile(path: string, options?: { recursive?: boolean }): Promise<void> {
+    await remove(this.resolvePath(path), { recursive: options?.recursive ?? false });
   }
 
   async moveFile(sourcePath: string, destinationPath: string): Promise<void> {

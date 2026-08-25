@@ -51,8 +51,8 @@ export class SelfWriteAwareFileSystem implements VaultFileSystem {
     }
   }
 
-  deleteFile(path: string): Promise<void> {
-    return this.inner.deleteFile(path);
+  deleteFile(path: string, options?: { recursive?: boolean }): Promise<void> {
+    return this.inner.deleteFile(path, options);
   }
 
   async moveFile(sourcePath: string, destinationPath: string): Promise<void> {

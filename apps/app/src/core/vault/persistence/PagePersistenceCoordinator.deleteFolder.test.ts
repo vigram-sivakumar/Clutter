@@ -167,6 +167,78 @@ describe('PagePersistenceCoordinator delete-folder vertical slice (ADR-024)', ()
     expect(followUp.status).toBe('folder-deleted');
   });
 
+  it('deletes a folder containing an untracked file (e.g. an OS artifact) that the Vault never tracked', async () => {
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const notes = makePage('page-notes', `${ROOT}/Projects/Notes.md`, 'folder-projects');
+    const { vault, fileSystem, coordinator } = setup([notes], [projects]);
+
+    await fileSystem.createDirectory(projects.path);
+    await fileSystem.writeFile(notes.path, '# Notes');
+    // Never added as a Page — mirrors a stray .DS_Store or an
+    // externally-dropped file the Vault model never scanned as content.
+    await fileSystem.writeFile(`${projects.path}/.DS_Store`, 'binary-junk');
+
+    const result = await coordinator.enqueue('folder-projects', { kind: 'delete-folder' });
+
+    expect(result.status).toBe('folder-deleted');
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(await fileSystem.exists(projects.path)).toBe(false);
+    expect(await fileSystem.exists(`${projects.path}/.DS_Store`)).toBe(false);
+  });
+
+  it('deletes a folder containing a nested untracked directory the Vault never scanned', async () => {
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const { vault, fileSystem, coordinator } = setup([], [projects]);
+
+    await fileSystem.createDirectory(projects.path);
+    // Created on disk but never added as a Folder to the Vault — simulates
+    // content the Vault hasn't scanned yet.
+    await fileSystem.createDirectory(`${projects.path}/.git`);
+    await fileSystem.writeFile(`${projects.path}/.git/config`, '[core]');
+
+    const result = await coordinator.enqueue('folder-projects', { kind: 'delete-folder' });
+
+    expect(result.status).toBe('folder-deleted');
+    expect(vault.getFolder('folder-projects')).toBeUndefined();
+    expect(await fileSystem.exists(projects.path)).toBe(false);
+    expect(await fileSystem.exists(`${projects.path}/.git`)).toBe(false);
+    expect(await fileSystem.exists(`${projects.path}/.git/config`)).toBe(false);
+  });
+
+  it('deleting Assets (an ordinary, unreserved folder) deletes its asset files too', async () => {
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const { vault, fileSystem, coordinator } = setup([], [assets]);
+
+    await fileSystem.createDirectory(assets.path);
+    // Asset files are never tracked as Pages (importAsset.ts's non-Gate
+    // write path) — same shape as real cover-image imports.
+    await fileSystem.writeFile(`${assets.path}/photo.png`, 'image-bytes');
+
+    const result = await coordinator.enqueue('folder-assets', { kind: 'delete-folder' });
+
+    expect(result.status).toBe('folder-deleted');
+    expect(vault.getFolder('folder-assets')).toBeUndefined();
+    expect(await fileSystem.exists(assets.path)).toBe(false);
+    expect(await fileSystem.exists(`${assets.path}/photo.png`)).toBe(false);
+  });
+
+  it('deleting an unrelated folder leaves a sibling Assets directory and its contents untouched', async () => {
+    const projects = makeFolder('folder-projects', `${ROOT}/Projects`);
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const { vault, fileSystem, coordinator } = setup([], [projects, assets]);
+
+    await fileSystem.createDirectory(projects.path);
+    await fileSystem.createDirectory(assets.path);
+    await fileSystem.writeFile(`${assets.path}/cover.png`, 'image-bytes');
+
+    const result = await coordinator.enqueue('folder-projects', { kind: 'delete-folder' });
+
+    expect(result.status).toBe('folder-deleted');
+    expect(vault.getFolder('folder-assets')).toBeDefined();
+    expect(await fileSystem.exists(assets.path)).toBe(true);
+    expect(await fileSystem.exists(`${assets.path}/cover.png`)).toBe(true);
+  });
+
   it('does not block or get blocked by an operation for a different id', async () => {
     const a = makeFolder('folder-a', `${ROOT}/A`);
     const b = makeFolder('folder-b', `${ROOT}/B`);

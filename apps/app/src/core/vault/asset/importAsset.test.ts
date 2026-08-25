@@ -51,6 +51,24 @@ describe('importAsset', () => {
     expect(reference).toBe('Assets/photo 3.png');
   });
 
+  it('recreates Assets/ after it was permanently deleted', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    await fileSystem.createDirectory(`${ROOT}/Assets`);
+    fileSystem.seedFile(`${ROOT}/Assets/old.png`, 'old-bytes');
+
+    // Simulates the permanent-delete path (PagePersistenceCoordinator's
+    // recursive deleteFile) removing Assets/ entirely.
+    await fileSystem.deleteFile(`${ROOT}/Assets`, { recursive: true });
+    expect(await fileSystem.exists(`${ROOT}/Assets`)).toBe(false);
+
+    fileSystem.seedFile('/external/new.png', 'new-bytes');
+    const reference = await importAsset(fileSystem, ROOT, '/external/new.png');
+
+    expect(reference).toBe('Assets/new.png');
+    expect(await fileSystem.exists(`${ROOT}/Assets`)).toBe(true);
+    expect(fileSystem.getFileSync(`${ROOT}/Assets/new.png`)).toBe('new-bytes');
+  });
+
   it('preserves the original file extension', async () => {
     const fileSystem = new InMemoryVaultFileSystem();
     fileSystem.seedFile('/external/scan.jpeg', 'jpeg-bytes');

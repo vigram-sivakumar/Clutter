@@ -124,24 +124,52 @@ export class InMemoryVaultFileSystem implements VaultFileSystem {
   }
 
   /**
-   * Deletes a file or a directory (ADR-024's folder-delete cascade calls
-   * this once per descendant path, innermost-first, exactly the way
-   * LocalFileSystem's non-recursive remove() requires — mirrored here by
-   * accepting either a tracked file or a tracked directory, matching real
-   * filesystem rmdir/unlink semantics for an already-empty directory).
+   * Deletes a file, or a directory, matching real filesystem rmdir/unlink
+   * semantics: a directory with anything still tracked under it throws
+   * unless `{ recursive: true }` is passed (mirrors LocalFileSystem's
+   * `remove(path, { recursive })` — real disk rejects a non-empty
+   * directory the same way, which is exactly the ENOTEMPTY class of bug
+   * this fidelity exists to reproduce in tests rather than paper over).
    */
-  async deleteFile(path: string): Promise<void> {
+  async deleteFile(path: string, options?: { recursive?: boolean }): Promise<void> {
     if (this.files.has(path)) {
       this.files.delete(path);
       return;
     }
 
     if (this.directories.has(path)) {
+      if (options?.recursive) {
+        this.removeRecursively(path);
+        return;
+      }
+
+      if (this.hasChildren(path)) {
+        throw new Error(`InMemoryVaultFileSystem: directory not empty: ${path}`);
+      }
+
       this.directories.delete(path);
       return;
     }
 
     throw new Error(`InMemoryVaultFileSystem: path not found: ${path}`);
+  }
+
+  private hasChildren(path: string): boolean {
+    const prefix = `${path}/`;
+
+    for (const filePath of this.files.keys()) {
+      if (filePath.startsWith(prefix)) {
+        return true;
+      }
+    }
+
+    for (const dirPath of this.directories) {
+      if (dirPath.startsWith(prefix)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**

@@ -27,13 +27,17 @@ export interface VaultFileSystem {
   writeFile(path: string, contents: string): Promise<void>;
 
   /**
-   * Deletes a file from the filesystem.
+   * Deletes a file, or a directory, from the filesystem. Deleting a
+   * directory without `{ recursive: true }` requires it to already be
+   * empty (real-filesystem rmdir semantics — throws otherwise). Passing
+   * `{ recursive: true }` removes `path` and everything nested under it,
+   * and nothing else — the removal is always scoped strictly to `path`.
    *
    * This is a low-level infrastructure primitive.
    * Higher layers remain responsible for validation, confirmations,
    * and business rules before invoking it.
    */
-  deleteFile(path: string): Promise<void>;
+  deleteFile(path: string, options?: { recursive?: boolean }): Promise<void>;
   moveFile(sourcePath: string, destinationPath: string): Promise<void>;
 
   /**

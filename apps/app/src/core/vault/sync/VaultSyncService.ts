@@ -625,6 +625,14 @@ export class VaultSyncService {
       return;
     }
 
+    // .folder.md can have disappeared again between the watcher event and
+    // this read (e.g. raced by a folder-delete cascade) — converge as a
+    // no-op instead of letting readFile() throw ENOENT, mirroring
+    // reconcileFileEntity's existence guard above.
+    if (!(await this.fileSystem.exists(absolutePath))) {
+      return;
+    }
+
     const fileContent = await this.fileSystem.readFile(absolutePath);
     const { frontmatter } = this.frontmatterParser.parse(fileContent);
     const status = frontmatter.status === 'archived' ? 'archived' : 'active';

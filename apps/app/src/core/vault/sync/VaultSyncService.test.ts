@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { VaultSyncService } from './VaultSyncService';
 import { Vault } from '../models/Vault';
 import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
@@ -1759,6 +1759,29 @@ describe('VaultSyncService: external .folder.md edit reconciliation', () => {
     await flush();
 
     expect(vault.getFolder('folder-projects')).toBeUndefined();
+  });
+
+  it('changed event for a .folder.md that no longer exists on disk (raced by a delete) does not throw ENOENT', async () => {
+    const projects = makeProjectsFolder();
+    const { vault, fileSystem, watcher } = setup([], [projects]);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // .folder.md was already removed (e.g. by a folder-delete cascade)
+    // by the time this watcher event is handled — never written/seeded.
+    expect(await fileSystem.exists(`${ROOT}/Projects/.folder.md`)).toBe(false);
+
+    watcher.emit({ type: 'changed', path: 'Projects/.folder.md' });
+    await flush();
+
+    // dispatch()'s catch-all would have logged the ENOENT here pre-fix —
+    // its absence is the actual proof the read never threw.
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    expect(vault.getFolder('folder-projects')).toBeDefined();
+    expect(vault.getFolder('folder-projects')!.metadata.status).toBe(
+      projects.metadata.status
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });
 
