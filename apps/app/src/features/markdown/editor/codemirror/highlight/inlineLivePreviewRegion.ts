@@ -10,7 +10,7 @@ import {
 } from '@codemirror/view';
 
 import { isTokenEngaged } from '../semanticToken/tokenEngagement';
-import { inlineLivePreviewParticipants } from './inlineLivePreviewParticipants';
+import type { ParticipantRenderer } from './inlineLivePreviewParticipants';
 
 /**
  * The single authoritative mechanism for resolving inline Live Preview
@@ -72,23 +72,44 @@ import { inlineLivePreviewParticipants } from './inlineLivePreviewParticipants';
  *
  * **Out of scope, deliberately (ODR §7, §10):** block-level rendering
  * (heading/list/blockquote markers are line-scoped, not subtree-scoped,
- * and keep their existing owner); `atomicRanges` (this mechanism registers
- * none — Phase 3's concern); `liveMarkSelectionSnap`'s `transactionFilter`
- * (neither introduced nor removed here); and the known whole-document
- * initial-caret limitation, where a construct spanning the entire document
- * loads revealed because `createEditorView.ts` seeds the caret at
- * `doc.length`, an inclusive boundary. That limitation is unrelated to
- * nesting and is pinned, not solved, in this file's test suite.
+ * and keep their existing owner); `liveMarkSelectionSnap`'s
+ * `transactionFilter` (neither introduced nor removed here); `Task`
+ * (fused into block-level list rendering, out of scope per ODR §4.10 —
+ * its inclusion in the ODR's own §10 Phase 3 text is a recorded
+ * erratum); and the known whole-document initial-caret limitation, where
+ * a construct spanning the entire document loads revealed because
+ * `createEditorView.ts` seeds the caret at `doc.length`, an inclusive
+ * boundary. That limitation is unrelated to nesting and is pinned, not
+ * solved, in this file's test suite.
+ *
+ * **`atomicRanges` (Phase 3, ODR §10 as revised):** derived from the
+ * *same* single traversal as `decorations`, never by inspecting the
+ * merged decoration set afterward. Each participant's renderer already
+ * returns `{decorations, atomic?}` (`inlineLivePreviewParticipants.ts`)
+ * — `atomic` is present only for the widget-replace family (`WikiLink`/
+ * `Tag`/`Date`), absent for ordinary marker-hiding participants, so "is
+ * this atomic" is a per-participant-owned fact read at the source, not a
+ * property re-derived from the shape of the final `DecorationSet`. When a
+ * region is engaged, the traversal returns `false` *before* calling any
+ * renderer — so neither a widget's `decorations` nor its `atomic` range
+ * is ever emitted for an engaged occurrence, automatically, from the same
+ * short-circuit that already governs ordinary participants. The
+ * visibility algorithm itself (`isTokenEngaged` → `return false` →
+ * render) is unchanged from Phases 1–2.
  */
-function buildDecorations(view: EditorView): DecorationSet {
+function buildDecorations(
+  view: EditorView,
+  participants: ReadonlyMap<string, ParticipantRenderer>
+): { decorations: DecorationSet; atomic: DecorationSet } {
   const ranges: Range<Decoration>[] = [];
+  const atomicRanges: Range<Decoration>[] = [];
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
       to,
       enter: (node) => {
-        const render = inlineLivePreviewParticipants.get(node.name);
+        const render = participants.get(node.name);
         if (!render) {
           // Not a participant — transparent to this mechanism. Keep
           // descending: a participant may sit anywhere beneath it.
@@ -97,34 +118,42 @@ function buildDecorations(view: EditorView): DecorationSet {
 
         if (isTokenEngaged(view.state, { from: node.from, to: node.to })) {
           // Region root. Do not descend — the entire region renders as
-          // source, so nothing inside it decorates.
+          // source, so nothing inside it decorates or becomes atomic.
           return false;
         }
 
-        ranges.push(...render(node, view.state));
+        const result = render(node, view.state);
+        ranges.push(...result.decorations);
+        if (result.atomic) {
+          atomicRanges.push(...result.atomic);
+        }
       },
     });
   }
 
-  return Decoration.set(ranges, true);
+  return { decorations: Decoration.set(ranges, true), atomic: Decoration.set(atomicRanges, true) };
 }
 
 interface InlineLivePreviewRegionPlugin extends PluginValue {
   decorations: DecorationSet;
+  atomic: DecorationSet;
 }
 
-export function inlineLivePreviewRegion(): Extension {
-  return ViewPlugin.fromClass<InlineLivePreviewRegionPlugin>(
+export function inlineLivePreviewRegion(
+  participants: ReadonlyMap<string, ParticipantRenderer>
+): Extension {
+  const plugin = ViewPlugin.fromClass<InlineLivePreviewRegionPlugin>(
     class implements InlineLivePreviewRegionPlugin {
       decorations: DecorationSet;
+      atomic: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = buildDecorations(view);
+        ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(view, participants));
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged || update.selectionSet) {
-          this.decorations = buildDecorations(update.view);
+          ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(update.view, participants));
         }
       }
     },
@@ -132,4 +161,8 @@ export function inlineLivePreviewRegion(): Extension {
       decorations: (p) => p.decorations,
     }
   );
+
+  const atomic = EditorView.atomicRanges.of((view) => view.plugin(plugin)?.atomic ?? Decoration.none);
+
+  return [plugin, atomic];
 }

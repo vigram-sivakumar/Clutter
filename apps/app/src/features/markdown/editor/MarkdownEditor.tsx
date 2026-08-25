@@ -10,21 +10,25 @@ import { semanticCompletion } from './codemirror/completion';
 // further down — temporary keyboard-behavior-only configuration. See the
 // disabling comments at each call site for what each one did and why it's
 // safe to unwire. Nothing has been deleted or rewritten.
-// import { dateDecorations } from './codemirror/date/dateDecorations';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 // import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
+import { createInlineLivePreviewParticipants } from './codemirror/highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePreviewRegion';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 // The liveMarkDecoration-based marker decorations still dormant here
 // (emphasis, strikethrough — plus heading/blockquote/list, which stay
 // on liveMarkDecoration permanently per ODR §4.10) carry the
-// still-undecided liveMarkSelectionSnap transactionFilter. Highlight and
-// InlineCode's own liveMarkDecoration-based modules were retired outright
-// (not left dormant) once inlineLivePreviewRegion() took over their
-// inline visibility — see docs/editor-research/inline-live-preview-region-odr-v1.md.
+// still-undecided liveMarkSelectionSnap transactionFilter. Highlight,
+// InlineCode, Tag, and Date's own liveMarkDecoration/
+// semanticTokenDecorations-based modules were retired outright (not left
+// dormant) once inlineLivePreviewRegion() took over their inline
+// visibility — see docs/editor-research/inline-live-preview-region-odr-v1.md.
+// WikiLink's own at-rest widget went through the same path, but its
+// engaged-state behavior now lives outside inlineLivePreviewRegion
+// entirely, in wikiLinkLivePreview.ts (see that file's doc comment).
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 // import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
 // import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
@@ -32,11 +36,9 @@ import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePrevie
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 // import { tableDecoration } from './codemirror/table/tableDecoration';
 import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
-// import { tagDecorations } from './codemirror/tag/tagDecorations';
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
 import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
-// import { wikiLinkDecorations } from './codemirror/wikilink/wikiLinkDecorations';
-// import { wikiLinkMarkerDecorations } from './codemirror/wikilink/wikiLinkMarkerDecorations';
+import { wikiLinkLivePreview } from './codemirror/wikilink/wikiLinkLivePreview';
 import { wikiLinkMouseHandlers } from './codemirror/wikilink/wikiLinkMouseHandlers';
 import type {
   MarkdownEditorHandle,
@@ -161,18 +163,41 @@ export const MarkdownEditor = forwardRef<
         // report for the full per-extension classification.
         // emphasisMarkerDecoration(),
         // The single authoritative inline Live Preview visibility
-        // mechanism (Emphasis, StrongEmphasis, Strikethrough), per
+        // mechanism — Emphasis, StrongEmphasis, Strikethrough, Highlight,
+        // InlineCode (marker-hiding), plus WikiLink, Tag, Date
+        // (widget-replace, Phase 3) — per
         // docs/editor-research/inline-live-preview-region-odr-v1.md.
-        // Replaces the previously separate emphasisLivePreview() and
-        // strikethroughLivePreview() plugins: two independent traversals
-        // each decided engagement for their own node kinds only, so a
-        // caret between an outer and inner delimiter (`~~__Text__~~`)
-        // revealed the outer construct while the inner stayed concealed.
-        // Visibility now resolves per nested *region*, not per construct.
-        // Adding a participant is a registry entry in
-        // inlineLivePreviewParticipants.ts — never a change here or to
-        // another construct (ODR §4.8).
-        inlineLivePreviewRegion(),
+        // Replaces the previously separate per-construct plugins: an
+        // independent traversal per construct could each decide
+        // engagement only for its own node kinds, so a caret between an
+        // outer and inner delimiter (`~~__Text__~~`) revealed the outer
+        // construct while the inner stayed concealed. Visibility now
+        // resolves per nested *region*, not per construct. Resolvers are
+        // threaded through as stable getter closures (same freshness
+        // pattern as onEdit/onFlush below), so the extension is never
+        // rebuilt when a resolver changes. `atomicRanges` is derived from
+        // the same single traversal, scoped to the widget-replace family
+        // only (ODR §10 Phase 3) — ordinary marks never atomic, widgets
+        // atomic only at rest. `Task` is deliberately not a participant:
+        // its checkbox rendering is fused into block-level
+        // listMarkerDecoration/'physical-line' engagement, out of scope
+        // per ODR §4.10 (the ODR's own §10 Phase 3 text naming Task is a
+        // recorded erratum, not implemented). Adding a participant is a
+        // registry entry in inlineLivePreviewParticipants.ts — never a
+        // change here or to another construct (ODR §4.8).
+        inlineLivePreviewRegion(
+          createInlineLivePreviewParticipants({
+            resolveTag: () => resolveTagRef.current,
+            resolveDate: () => resolveDateRef.current,
+          })
+        ),
+        // WikiLink's own standalone visibility mechanism — not a
+        // participant above. Its required behavior (the folder-qualified
+        // path must never be visible, engaged or not) is not an instance
+        // of inlineLivePreviewRegion's reveal-on-engage contract, so it
+        // isn't governed by that shared traversal at all. See
+        // wikilink/wikiLinkLivePreview.ts's own doc comment.
+        wikiLinkLivePreview(() => resolveWikiLinkRef.current),
         // strikethroughMarkerDecoration(),
         // listMarkerDecoration(),
         // listLineDecoration(),
@@ -194,8 +219,6 @@ export const MarkdownEditor = forwardRef<
         // not a decoration, so left wired per "preserve the behavioral
         // portion."
         taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
-        // wikiLinkDecorations(() => resolveWikiLinkRef.current),
-        // wikiLinkMarkerDecorations(),
         // Kept: click activation is product interaction (open/toggle),
         // not cursor behavior, and works independently of the decorations
         // above (it reads the syntax tree directly, not the rendered
@@ -210,9 +233,7 @@ export const MarkdownEditor = forwardRef<
         // docs/editor-architecture-decisions.md for the full record.
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
         wikiLinkAutocomplete(),
-        // tagDecorations(() => resolveTagRef.current),
         tagMouseHandlers(() => resolveTagRef.current),
-        // dateDecorations(() => resolveDateRef.current),
         dateMouseHandlers(() => resolveDateRef.current),
         semanticCompletion(
           () => getWikiLinkSuggestionsRef.current,

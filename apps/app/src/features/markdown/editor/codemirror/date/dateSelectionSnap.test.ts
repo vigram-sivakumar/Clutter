@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { dateDecorations } from './dateDecorations';
 import { dateSelectionSnap } from './dateSelectionSnap';
 import type { ResolveDate } from './dateResolution';
 
@@ -13,7 +14,17 @@ function mountView(doc: string, resolver?: ResolveDate): EditorView {
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), dateDecorations(() => resolver), dateSelectionSnap()],
+    extensions: [
+      markdownLanguageExtension(),
+      inlineLivePreviewRegion(
+        createInlineLivePreviewParticipants({
+          resolveWikiLink: () => undefined,
+          resolveTag: () => undefined,
+          resolveDate: () => resolver,
+        })
+      ),
+      dateSelectionSnap(),
+    ],
   });
   return new EditorView({ state, parent });
 }

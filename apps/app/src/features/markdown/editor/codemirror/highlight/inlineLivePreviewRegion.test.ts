@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import type { ResolveDate } from '../date/dateResolution';
 import { markdownLanguageExtension } from '../markdownLanguage';
+import type { ResolveTag } from '../tag/tagResolution';
+import { createInlineLivePreviewParticipants, type ParticipantResolvers } from './inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from './inlineLivePreviewRegion';
 
 /**
@@ -22,25 +25,49 @@ import { inlineLivePreviewRegion } from './inlineLivePreviewRegion';
  * `strikethroughLivePreview.test.ts`; their meaningful behavioral coverage
  * is migrated below rather than discarded.
  */
-function mountView(doc: string): EditorView {
+/** No resolver injected — matches every existing test's assumption of fallback resolution unless a test explicitly supplies one. */
+const noResolvers: ParticipantResolvers = {
+  resolveWikiLink: () => undefined,
+  resolveTag: () => undefined,
+  resolveDate: () => undefined,
+};
+
+function mountView(doc: string, resolvers: ParticipantResolvers = noResolvers): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), inlineLivePreviewRegion()],
+    extensions: [markdownLanguageExtension(), inlineLivePreviewRegion(createInlineLivePreviewParticipants(resolvers))],
   });
   return new EditorView({ state, parent });
 }
 
-function mountViewWithSelection(doc: string, anchor: number): EditorView {
+function mountViewWithSelection(
+  doc: string,
+  anchor: number,
+  resolvers: ParticipantResolvers = noResolvers
+): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
     selection: { anchor },
-    extensions: [markdownLanguageExtension(), inlineLivePreviewRegion()],
+    extensions: [markdownLanguageExtension(), inlineLivePreviewRegion(createInlineLivePreviewParticipants(resolvers))],
   });
   return new EditorView({ state, parent });
+}
+
+/** Mirrors the "includes range in EditorView.atomicRanges" check the retired wikiLinkDecorations.test.ts/tagDecorations.test.ts/dateDecorations.test.ts each defined identically. */
+function isAtomicAnywhere(view: EditorView): boolean {
+  const atomicProviders = view.state.facet(EditorView.atomicRanges);
+  return atomicProviders.some((provider) => {
+    const rangeSet = provider(view);
+    let found = false;
+    rangeSet.between(0, view.state.doc.length, () => {
+      found = true;
+    });
+    return found;
+  });
 }
 
 /**
@@ -145,6 +172,15 @@ describe('inlineLivePreviewRegion', () => {
     it('***~~`Text`~~*** — the 4-level chain (Emphasis > StrongEmphasis > Strikethrough > InlineCode), all four current participants in one region', () => {
       expectRegionRevealsAtomicallyThroughout('before ***~~`Text`~~*** after', '***~~`Text`~~***');
     });
+
+    // WikiLink's own region-atomicity coverage moved to
+    // wikiLinkLivePreview.test.ts — WikiLink is no longer a participant of
+    // this mechanism (see inlineLivePreviewParticipants.ts's doc comment),
+    // so "the whole region renders as literal source" no longer describes
+    // its engaged behavior. Tag/Date remain participants and keep that
+    // exact contract unchanged; representative coverage for the
+    // widget-replace family in this INVARIANT block continues via them
+    // elsewhere in this file.
   });
 
   // ===================================================================
@@ -506,6 +542,361 @@ describe('inlineLivePreviewRegion', () => {
 
       const view = mountView(text);
       expect(view.dom.textContent).toContain('Text before **not bold** after');
+    });
+  });
+
+  // ===================================================================
+  // [label](url) — Link. A shared marker-hiding participant (like
+  // Emphasis/Strikethrough/etc.), never a widget-replace/atomic one —
+  // docs/editor-architecture-decisions.md, "Shared live-preview
+  // participant contract — confirmed via Link".
+  // ===================================================================
+  describe('[label](url) (Link)', () => {
+    it('at rest, only the label is visible — the [ ]( url ) syntax has no DOM presence', () => {
+      const view = mountView('before [Display name](https://example.com) after');
+
+      expect(view.dom.textContent).toBe('before Display name after');
+      expect(view.dom.textContent).not.toContain('[');
+      expect(view.dom.textContent).not.toContain('https://example.com');
+    });
+
+    it('classes the label with tok-link at rest', () => {
+      expect(
+        mountView('before [Display name](https://example.com) after').dom.querySelector('.tok-link')?.textContent
+      ).toBe('Display name');
+    });
+
+    it('reveals the full raw source from a caret anywhere in the node — label or URL portion, no distinction', () => {
+      const doc = 'Before [Display name](https://example.com) after';
+      const labelInside = doc.indexOf('name');
+      const urlInside = doc.indexOf('example');
+
+      expect(mountViewWithSelection(doc, labelInside).dom.textContent).toBe(doc);
+      expect(mountViewWithSelection(doc, urlInside).dom.textContent).toBe(doc);
+
+      const view = mountView(doc);
+      view.dispatch({ selection: { anchor: labelInside } });
+      expect(view.dom.textContent).toBe(doc);
+      view.dispatch({ selection: { anchor: 0 } });
+      expect(view.dom.textContent).toBe('Before Display name after');
+    });
+
+    it('region atomicity: every caret position within the node reveals the whole thing, exactly the shared invariant every other participant proves', () => {
+      expectRegionRevealsAtomicallyThroughout(
+        'before [Display name](https://example.com) after',
+        '[Display name](https://example.com)'
+      );
+    });
+
+    it('empty label: [](url) has no content range to class, but still conceals correctly', () => {
+      const view = mountView('before [](https://example.com) after');
+      expect(view.dom.textContent).toBe('before  after');
+    });
+
+    it('a URL with a title still conceals as one combined unit', () => {
+      const view = mountView('before [text](https://example.com "a title") after');
+      expect(view.dom.textContent).toBe('before text after');
+    });
+
+    it('a URL with balanced parens still conceals correctly', () => {
+      const view = mountView('before [text](https://example.com/a(b)c) after');
+      expect(view.dom.textContent).toBe('before text after');
+    });
+
+    it('nested formatting in the label composes correctly', () => {
+      // Padded: a Link starting at document position 0 would otherwise
+      // sit on the pre-existing default-(0,0)-selection edge case
+      // (documented above under "known, deferred limitation") and load
+      // engaged, defeating the at-rest assertion below.
+      const bold = mountView('x [**bold** text](https://example.com) y');
+      expect(bold.dom.textContent).toBe('x bold text y');
+      expect(bold.dom.querySelector('.tok-strong')?.textContent).toBe('bold');
+
+      const italic = mountView('x [*italic* text](https://example.com) y');
+      expect(italic.dom.textContent).toBe('x italic text y');
+      expect(italic.dom.querySelector('.tok-emphasis')?.textContent).toBe('italic');
+    });
+
+    it('Link nested inside StrongEmphasis: tok-strong wraps tok-link (DOM nesting, same mechanism as the WikiLink inheritance fix)', () => {
+      const view = mountView('before **[text](https://example.com)** after');
+      const label = view.dom.querySelector('.tok-link');
+      expect(label).not.toBeNull();
+      expect(label!.closest('.tok-strong')).not.toBeNull();
+    });
+
+    it('reference-style/shortcut links (no URL child) are left fully raw, not decorated at all', () => {
+      expect(mountView('before [Display][reference] after').dom.textContent).toBe(
+        'before [Display][reference] after'
+      );
+      expect(mountView('before [Display][] after').dom.textContent).toBe('before [Display][] after');
+      expect(mountView('before [Display] after').dom.textContent).toBe('before [Display] after');
+    });
+
+    it('reference-style links stay raw even when a matching LinkReference definition exists elsewhere in the document', () => {
+      const view = mountView('[Display][reference]\n\n[reference]: https://example.com');
+      expect(view.dom.textContent).toContain('[Display][reference]');
+    });
+
+    it('is never registered in EditorView.atomicRanges — the label stays ordinary, character-editable text', () => {
+      const view = mountView('before [Display name](https://example.com) after');
+      expect(isAtomicAnywhere(view)).toBe(false);
+    });
+
+    it('the underlying document never changes as the link collapses/reveals', () => {
+      const text = 'before [Display name](https://example.com) after';
+      const view = mountView(text);
+
+      expect(view.state.doc.toString()).toBe(text);
+      view.dispatch({ selection: { anchor: 10 } });
+      expect(view.state.doc.toString()).toBe(text);
+      view.dispatch({ selection: { anchor: 0 } });
+      expect(view.state.doc.toString()).toBe(text);
+    });
+
+    it('adjacent to Tag/Date/WikiLink as siblings: unaffected, no interaction', () => {
+      const view = mountView('x [text](https://example.com) #tag y', {
+        resolveTag: () => undefined,
+        resolveDate: () => undefined,
+      });
+      expect(view.dom.textContent).toBe('x text #tag y');
+    });
+  });
+
+  // ===================================================================
+  // Phase 3 — #tag (Tag), @date (Date) — the widget-replace family.
+  // Construct-local resolver-contract coverage migrated from the retired
+  // tagDecorations.test.ts/dateDecorations.test.ts; generic
+  // engagement-boundary tests those files also had ("doesn't decorate
+  // when selection contained", "re-decorates on leave", "spanning
+  // selection stays collapsed", "document text never changes") are not
+  // migrated — already proven structurally by the INVARIANT blocks above.
+  //
+  // WikiLink's own equivalent coverage moved to wikiLinkLivePreview.test.ts
+  // — WikiLink is no longer a participant of this mechanism at all (see
+  // inlineLivePreviewParticipants.ts's doc comment).
+  // ===================================================================
+  describe('#tag (Tag)', () => {
+    it("renders an at-rest Tag as a widget showing the resolution's displayLabel, identical to the raw text when the tag has no separator", () => {
+      const view = mountView('Text before #project after', {
+        ...noResolvers,
+        resolveTag: () => (name) => ({ status: 'resolved', displayLabel: name, activate: () => {} }),
+      });
+
+      const widget = view.dom.querySelector('[data-tag-status="resolved"]');
+      expect(widget?.textContent).toBe('#project');
+    });
+
+    it('falls back to a separator-normalized display label with no resolver injected at all', () => {
+      const view = mountView('Text before #Product_design after');
+
+      const widget = view.dom.querySelector('[data-tag-status="unresolved"]');
+      expect(widget?.textContent).toBe('#Product design');
+    });
+
+    it('calls the resolver with the identifier only, without the leading #', () => {
+      const calls: string[] = [];
+      const resolveTag: ResolveTag = (name) => {
+        calls.push(name);
+        return { status: 'resolved', displayLabel: name, activate: () => {} };
+      };
+
+      mountView('Text before #project after', { ...noResolvers, resolveTag: () => resolveTag });
+
+      expect(calls).toEqual(['project']);
+    });
+
+    it('renders resolved and unresolved statuses on their own distinct data-tag-status hook', () => {
+      const resolvedView = mountView('Text before #project after', {
+        ...noResolvers,
+        resolveTag: () => (name) => ({ status: 'resolved', displayLabel: name, activate: () => {} }),
+      });
+      expect(resolvedView.dom.querySelector('[data-tag-status="resolved"]')).not.toBeNull();
+
+      const unresolvedView = mountView('Text before #newtag after');
+      expect(unresolvedView.dom.querySelector('[data-tag-status="unresolved"]')).not.toBeNull();
+    });
+  });
+
+  describe('@date (Date)', () => {
+    it('renders an at-rest Date as a widget showing a computed label, not the raw @YYYY-MM-DD text — the @ prefix is kept', () => {
+      const view = mountView('Text before @2026-08-20 after', {
+        ...noResolvers,
+        resolveDate: () => () => ({ activate: () => {} }),
+      });
+
+      const widget = view.dom.querySelector('[data-date-status="valid"]');
+      expect(widget).not.toBeNull();
+      expect(widget?.textContent?.startsWith('@')).toBe(true);
+      expect(view.dom.textContent).not.toContain('@2026-08-20');
+    });
+
+    it('falls back to activate-as-no-op when no resolver is provided, still renders a valid-looking widget', () => {
+      const view = mountView('Text before @2026-08-20 after');
+
+      expect(view.dom.querySelector('[data-date-status="valid"]')).not.toBeNull();
+    });
+
+    it('calls the resolver with the matched ISO date', () => {
+      const calls: string[] = [];
+      const resolveDate: ResolveDate = (isoDate) => {
+        calls.push(isoDate);
+        return { activate: () => {} };
+      };
+
+      mountView('Text before @2026-08-20 after', { ...noResolvers, resolveDate: () => resolveDate });
+
+      expect(calls).toEqual(['2026-08-20']);
+    });
+
+    it('renders a calendar-invalid-but-shape-valid date with data-date-status="invalid" and its raw text as the label', () => {
+      const view = mountView('Text before @2026-13-45 after', {
+        ...noResolvers,
+        resolveDate: () => () => ({ activate: () => {} }),
+      });
+
+      const widget = view.dom.querySelector('[data-date-status="invalid"]');
+      expect(widget).not.toBeNull();
+      expect(widget?.textContent).toBe('@2026-13-45');
+    });
+  });
+
+  // ===================================================================
+  // Widget participants must visually inherit the enclosing formatting
+  // decoration's class — the content Decoration.mark() in
+  // delimitedInlineRenderer must be inclusiveStart/inclusiveEnd so it
+  // wraps a nested widget-replace participant (WikiLink/Tag/Date) whose
+  // range exactly fills its content range, the ordinary zero-gap-nesting
+  // case. Regression for a real bug found in manual review: without those
+  // flags, `**[[Page]]**` rendered the WikiLink widget as a plain sibling
+  // with no `tok-strong` wrapper at all (CM6 mark decorations default to
+  // non-inclusive boundaries, which don't extend across a widget point).
+  // ===================================================================
+  describe('INVARIANT: widget participants visually inherit the enclosing formatting mark', () => {
+    /** Asserts the widget's own element sits inside a `.contentClass` ancestor, not merely present somewhere in the DOM. */
+    function expectWidgetWrappedBy(view: EditorView, widgetSelector: string, contentClass: string) {
+      const widget = view.dom.querySelector(widgetSelector);
+      expect(widget, `expected to find widget matching ${widgetSelector}`).not.toBeNull();
+      expect(
+        widget!.closest(`.${contentClass}`),
+        `expected ${widgetSelector} to be wrapped by an ancestor with class ${contentClass}`
+      ).not.toBeNull();
+    }
+
+    // WikiLink-specific inheritance coverage (**[[Page]]**, ~~[[Page]]~~,
+    // ==[[Page]]==, etc.) moved to wikiLinkLivePreview.test.ts. WikiLink is
+    // no longer a participant of this mechanism, so it can no longer be
+    // exercised via mountView()/createInlineLivePreviewParticipants() —
+    // Tag and Date remain unchanged and continue to prove this invariant
+    // for the widget-replace family below.
+    it('**x #tag**: tok-strong wraps the Tag widget (representative widget participant)', () => {
+      const view = mountView('before **x #tag** after');
+      expectWidgetWrappedBy(view, '[data-tag-status]', 'tok-strong');
+    });
+
+    it('**x @2026-01-01**: tok-strong wraps the Date widget (representative widget participant)', () => {
+      const view = mountView('before **x @2026-01-01** after');
+      expectWidgetWrappedBy(view, '[data-date-status]', 'tok-strong');
+    });
+
+    it('engaged: the whole region stays fully raw source, exactly as before this fix', () => {
+      // Regression guard: the inclusivity fix must not change engagement
+      // behavior. Sweeping every caret position within the region root
+      // for **x #tag** — reusing the same invariant this ODR is built
+      // on — is the strongest available proof it didn't.
+      expectRegionRevealsAtomicallyThroughout('before **x #tag** after', '**x #tag**');
+    });
+
+    it('ordinary (non-widget) nested formatting is visually unaffected by the inclusivity change', () => {
+      // ***Text***: purely marker-hiding participants nested in each
+      // other, no widget involved — must render identically to before.
+      const view = mountView('before ***Text*** after');
+
+      expect(view.dom.textContent).toBe('before Text after');
+      const strong = view.dom.querySelector('.tok-strong');
+      const emphasis = view.dom.querySelector('.tok-emphasis');
+      expect(strong?.textContent).toBe('Text');
+      expect(emphasis?.textContent).toBe('Text');
+      expect(strong!.contains(emphasis) || emphasis!.contains(strong)).toBe(true);
+    });
+  });
+
+  // ===================================================================
+  // Phase 3 §8 — INVARIANT: atomic ranges are participant-owned facts,
+  // produced by the same traversal as decorations, never derived by
+  // inspecting the merged decoration set.
+  // ===================================================================
+  describe('INVARIANT: atomic ranges — widget family only, never ordinary marks, never while engaged', () => {
+    // WikiLink's own atomic-range coverage (at rest, engaged, nested under
+    // engaged formatting) moved to wikiLinkLivePreview.test.ts, since
+    // WikiLink's atomic range is now contributed by its own standalone
+    // extension rather than this mechanism. Tag proves this INVARIANT for
+    // the participants that remain here, unchanged.
+    it('an at-rest widget participant (Tag) registers in EditorView.atomicRanges', () => {
+      const view = mountView('Text before #project after');
+      expect(isAtomicAnywhere(view)).toBe(true);
+    });
+
+    it('an ordinary marker-hiding participant (Strikethrough) never registers as atomic, at rest or otherwise', () => {
+      const view = mountView('Text before ~~struck~~ after');
+      expect(isAtomicAnywhere(view)).toBe(false);
+    });
+
+    it('an engaged widget participant emits neither its decoration nor its atomic range', () => {
+      const doc = 'Text before #project after';
+      const nodeStart = 'Text before '.length;
+      const view = mountViewWithSelection(doc, nodeStart + 3);
+
+      expect(view.dom.querySelector('[data-tag-status]')).toBeNull();
+      expect(view.dom.textContent).toContain('#project');
+      expect(isAtomicAnywhere(view)).toBe(false);
+    });
+
+    it('**x #tag**: the Tag is not atomic while the enclosing StrongEmphasis region is engaged — the generalized defect this ODR prevents, for the widget family', () => {
+      const doc = 'before **x #tag** after';
+      const outerFrom = 'before '.length; // caret at the StrongEmphasis boundary, outside Tag's own range
+      const view = mountViewWithSelection(doc, outerFrom);
+
+      expect(view.dom.textContent).toBe(doc);
+      expect(isAtomicAnywhere(view)).toBe(false);
+    });
+  });
+
+  // ===================================================================
+  // Phase 3 §9 — INVARIANT: resolver freshness — a stable getter closure,
+  // never a captured snapshot; the extension is never rebuilt when the
+  // resolver changes.
+  // ===================================================================
+  describe('INVARIANT: resolver freshness via getter indirection', () => {
+    // WikiLink's own resolver-freshness coverage moved to
+    // wikiLinkLivePreview.test.ts along with the rest of its behavior; Tag
+    // proves the same getter-indirection fact for the participants that
+    // remain in this shared mechanism.
+    it('reflects a resolver change between two decoration passes without rebuilding the extension', () => {
+      let current: ResolveTag = () => ({ status: 'resolved', displayLabel: 'first', activate: () => {} });
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      const state = EditorState.create({
+        doc: 'Text before #tag after',
+        extensions: [
+          markdownLanguageExtension(),
+          inlineLivePreviewRegion(
+            createInlineLivePreviewParticipants({ ...noResolvers, resolveTag: () => current })
+          ),
+        ],
+      });
+      const view = new EditorView({ state, parent });
+
+      expect(view.dom.querySelector('[data-tag-status="resolved"]')?.textContent).toBe('#first');
+
+      current = () => ({ status: 'resolved', displayLabel: 'second', activate: () => {} });
+      // Force a decoration rebuild the same way engaging/disengaging does —
+      // no extension reconstruction, just transactions. Engage (hides the
+      // widget) then disengage (rebuilds and re-shows it), so the second
+      // dispatch's rebuild reads the getter fresh while outside the node.
+      view.dispatch({ selection: { anchor: 'Text before '.length + 1 } });
+      view.dispatch({ selection: { anchor: 0 } });
+
+      expect(view.dom.querySelector('[data-tag-status="resolved"]')?.textContent).toBe('#second');
     });
   });
 

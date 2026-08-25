@@ -4,7 +4,10 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownHighlighting } from '../highlight/markdownHighlightStyle';
+import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
 import { horizontalRuleDecoration } from './horizontalRuleDecoration';
 
 /** Mirrors tableDecoration.test.ts's mountView. */
@@ -15,6 +18,25 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
     doc,
     selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
     extensions: [markdownLanguageExtension(), markdownHighlighting(), horizontalRuleDecoration()],
+  });
+  return new EditorView({ state, parent });
+}
+
+/** Same as mountView, plus every inline Live Preview mechanism active alongside it — the combination the compatibility investigation checked. */
+function mountViewWithInlineConstructs(doc: string, initialAnchor: number | null = null): EditorView {
+  const parent = document.createElement('div');
+  document.body.appendChild(parent);
+  const state = EditorState.create({
+    doc,
+    selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
+    extensions: [
+      markdownLanguageExtension(),
+      inlineLivePreviewRegion(
+        createInlineLivePreviewParticipants({ resolveTag: () => undefined, resolveDate: () => undefined })
+      ),
+      wikiLinkLivePreview(() => () => ({ status: 'resolved', displayLabel: 'Page', activate: () => {} })),
+      horizontalRuleDecoration(),
+    ],
   });
   return new EditorView({ state, parent });
 }
@@ -287,5 +309,37 @@ describe('horizontalRuleDecoration — dotted variant engaged', () => {
     const dottedLine = view.dom.querySelector('.cm-hr-line-dotted');
     expect(dottedLine).not.toBeNull();
     expect(dottedLine?.textContent).toBe('');
+  });
+});
+
+/**
+ * Permanent regression coverage for the WikiLink-extraction/Link-addition
+ * compatibility investigation: Divider is a block-level, physical-line-
+ * scoped standalone renderer with no inline children of its own, so it can
+ * never share a decorated range with any inline construct — confirmed here
+ * rather than only reasoned about.
+ */
+describe('horizontalRuleDecoration — compatible with every inline Live Preview construct', () => {
+  it('collapses correctly with WikiLink/Link/Tag/emphasis active in the surrounding paragraphs, which render unaffected', () => {
+    const doc = '**bold** [[Page]] [text](https://example.com) #tag\n\n---\n\nMore ~~text~~';
+    const view = mountViewWithInlineConstructs(doc, doc.length);
+
+    expect(view.dom.textContent).toBe('bold Page text #tagMore ~~text~~');
+    expect(view.dom.querySelector('.cm-hr-line')).not.toBeNull();
+  });
+
+  it('engaging the rule line reveals its marker without disturbing adjacent inline rendering', () => {
+    const doc = '**bold** [[Page]] [text](https://example.com) #tag\n\n---\n\nMore ~~text~~';
+    const view = mountViewWithInlineConstructs(doc, doc.indexOf('---'));
+
+    expect(view.dom.textContent).toBe('bold Page text #tag---More text');
+  });
+
+  it('engaging a WikiLink in the paragraph leaves the rule line collapsed', () => {
+    const doc = '**bold** [[Page]] [text](https://example.com) #tag\n\n---\n\nMore ~~text~~';
+    const view = mountViewWithInlineConstructs(doc, doc.indexOf('Page') + 1);
+
+    expect(view.dom.textContent).toBe('bold [[Page]] text #tagMore text');
+    expect(view.dom.querySelector('.cm-hr-line')).not.toBeNull();
   });
 });

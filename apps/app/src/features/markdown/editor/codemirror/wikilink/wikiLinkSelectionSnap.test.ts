@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { wikiLinkDecorations } from './wikiLinkDecorations';
 import { wikiLinkSelectionSnap } from './wikiLinkSelectionSnap';
 import type { ResolveWikiLink } from './wikiLinkResolution';
 
@@ -15,7 +16,13 @@ function mountView(doc: string, resolver?: ResolveWikiLink): EditorView {
     doc,
     extensions: [
       markdownLanguageExtension(),
-      wikiLinkDecorations(() => resolver),
+      inlineLivePreviewRegion(
+        createInlineLivePreviewParticipants({
+          resolveWikiLink: () => resolver,
+          resolveTag: () => undefined,
+          resolveDate: () => undefined,
+        })
+      ),
       wikiLinkSelectionSnap(),
     ],
   });

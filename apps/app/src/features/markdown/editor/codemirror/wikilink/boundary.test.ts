@@ -69,13 +69,15 @@ describe('Shared semantic-token mechanism boundary: no Vault/application-layer i
   const files = sourceFiles(semanticTokenDir);
 
   it('found the expected source files to check (sanity check on the check itself)', () => {
+    // tokenDecorations.ts was retired in Phase 3 of the Inline Live
+    // Preview Region ODR (docs/editor-research/inline-live-preview-region-odr-v1.md)
+    // — its at-rest-widget/atomicRanges mechanism moved into
+    // inlineLivePreviewRegion.ts/inlineLivePreviewParticipants.ts, which
+    // this boundary check doesn't cover (they live under codemirror/highlight/,
+    // not codemirror/semanticToken/, and are already free of Vault imports
+    // by construction — they only ever see EditorState/SyntaxNodeRef).
     expect(files).toEqual(
-      expect.arrayContaining([
-        'tokenEngagement.ts',
-        'tokenDecorations.ts',
-        'tokenMouseHandlers.ts',
-        'tokenSelectionSnap.ts',
-      ])
+      expect.arrayContaining(['tokenEngagement.ts', 'tokenMouseHandlers.ts', 'tokenSelectionSnap.ts'])
     );
   });
 

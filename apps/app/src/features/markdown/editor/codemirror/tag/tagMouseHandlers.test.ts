@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { tagDecorations } from './tagDecorations';
 import { handleTagClick } from './tagMouseHandlers';
 import type { ResolveTag } from './tagResolution';
 
@@ -14,7 +15,16 @@ function mountView(doc: string, resolver?: ResolveTag): EditorView {
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), tagDecorations(() => resolver)],
+    extensions: [
+      markdownLanguageExtension(),
+      inlineLivePreviewRegion(
+        createInlineLivePreviewParticipants({
+          resolveWikiLink: () => undefined,
+          resolveTag: () => resolver,
+          resolveDate: () => undefined,
+        })
+      ),
+    ],
   });
   return new EditorView({ state, parent });
 }

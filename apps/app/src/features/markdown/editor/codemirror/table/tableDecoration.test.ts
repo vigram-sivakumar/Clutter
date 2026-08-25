@@ -3,13 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-import { dateDecorations } from '../date/dateDecorations';
 import { emphasisMarkerDecoration } from '../highlight/emphasisMarkerDecoration';
+import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownHighlighting } from '../highlight/markdownHighlightStyle';
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { tagDecorations } from '../tag/tagDecorations';
-import { wikiLinkDecorations } from '../wikilink/wikiLinkDecorations';
+import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
 import { tableDecoration } from './tableDecoration';
+
+const noResolvers = { resolveTag: () => undefined, resolveDate: () => undefined };
 
 /** Mirrors listMarkerDecoration.test.ts's mountView — see its doc comment for why `initialAnchor` matters for "at rest" tests. */
 function mountView(doc: string, initialAnchor: number | null = null): EditorView {
@@ -35,9 +37,8 @@ function mountViewWithSemanticTokens(doc: string, initialAnchor: number | null =
       markdownHighlighting(),
       tableDecoration(),
       emphasisMarkerDecoration(),
-      wikiLinkDecorations(() => undefined),
-      tagDecorations(() => undefined),
-      dateDecorations(() => undefined),
+      inlineLivePreviewRegion(createInlineLivePreviewParticipants(noResolvers)),
+      wikiLinkLivePreview(() => undefined),
     ],
   });
   return new EditorView({ state, parent });

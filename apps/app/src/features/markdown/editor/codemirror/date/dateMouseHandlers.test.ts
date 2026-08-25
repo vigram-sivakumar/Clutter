@@ -3,9 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { getDateActivation } from './dateActivation';
-import { dateDecorations } from './dateDecorations';
 import { findAtRestDateAt } from './dateEngagement';
 import { handleDateClick } from './dateMouseHandlers';
 import type { ResolveDate } from './dateResolution';
@@ -15,7 +16,16 @@ function mountView(doc: string, resolver?: ResolveDate): EditorView {
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), dateDecorations(() => resolver)],
+    extensions: [
+      markdownLanguageExtension(),
+      inlineLivePreviewRegion(
+        createInlineLivePreviewParticipants({
+          resolveWikiLink: () => undefined,
+          resolveTag: () => undefined,
+          resolveDate: () => resolver,
+        })
+      ),
+    ],
   });
   return new EditorView({ state, parent });
 }

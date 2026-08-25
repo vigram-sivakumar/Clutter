@@ -1,6 +1,12 @@
 import type { EditorState, Range } from '@codemirror/state';
-import { Decoration } from '@codemirror/view';
-import type { SyntaxNodeRef } from '@lezer/common';
+import { Decoration, type WidgetType } from '@codemirror/view';
+import type { SyntaxNode, SyntaxNodeRef } from '@lezer/common';
+
+import { renderDate } from '../date/dateDecorations';
+import type { ResolveDate } from '../date/dateResolution';
+import { renderTag } from '../tag/tagDecorations';
+import type { ResolveTag } from '../tag/tagResolution';
+import type { ResolveWikiLink } from '../wikilink/wikiLinkResolution';
 
 /**
  * Declaration of which Markdown constructs participate in inline Live
@@ -26,18 +32,46 @@ import type { SyntaxNodeRef } from '@lezer/common';
  * entry describes one construct in isolation; how two of them compose is
  * decided structurally by the syntax tree, never declared here.
  *
- * Phase 2 scope (ODR §10) adds `Highlight` and `InlineCode` to the three
- * Phase 1 participants — both share the same `<mark>content<mark>` shape
- * `delimitedInlineRenderer` already generalizes over, so neither needed a
- * new renderer. The semantic-token/widget family — `WikiLink`, `Tag`,
- * `Date`, `Task` (Phase 3) — is **not** registered yet, and must not be
- * added here without doing the rest of that phase's work (notably the
- * `atomicRanges` scoping question ODR §10 Phase 3 flags).
+ * Phase 3 scope (ODR §10, as revised) added `WikiLink`, `Tag`, and `Date` —
+ * the semantic-token/widget family — reusing `renderTag`/`renderDate`'s
+ * existing, unmodified construct-specific logic (scanning, resolution
+ * fallback, widget construction) via the `widgetReplaceRenderer` shape
+ * below. Per the ODR's locked engaged-region-is-fully-raw-source contract,
+ * neither declares an engaged-state renderer — there is no such hook in
+ * `ParticipantDecoration` at all, so a widget participant renders nothing
+ * (not even styling) while engaged, identical to every other participant.
+ * `Task` is deliberately excluded: its checkbox rendering is fused into
+ * block-level `listMarkerDecoration.ts`/`'physical-line'` engagement,
+ * outside this mechanism's scope per ODR §4.10 — the ODR's own §10 Phase 3
+ * text naming `Task` is a recorded erratum, not something implemented here.
+ *
+ * `WikiLink` is no longer registered here (post-Phase-3): its required
+ * behavior — the folder-qualified path must never be visible, in either
+ * state — is not an instance of this mechanism's reveal-on-engage contract
+ * at all, so it has its own standalone mechanism instead
+ * (`wikilink/wikiLinkLivePreview.ts`), entirely independent of this
+ * traversal. `resolveWikiLink` stays on `ParticipantResolvers` below,
+ * optional and unread, purely so existing call sites that still pass it
+ * don't need to change.
  */
+export interface ParticipantDecoration {
+  readonly decorations: readonly Range<Decoration>[];
+  /**
+   * Present only for participants whose at-rest form must also be atomic
+   * (the widget-replace family) — never present-but-empty for ordinary
+   * marker-hiding participants, so "does this participant have atomic
+   * ranges" is answered by simple field absence, not a flag to remember
+   * to set correctly. Sourced from the *same* renderer call that produced
+   * `decorations`, never re-derived by inspecting the merged decoration
+   * set afterward (ODR: atomic ranges are participant-owned facts).
+   */
+  readonly atomic?: readonly Range<Decoration>[];
+}
+
 export type ParticipantRenderer = (
   node: SyntaxNodeRef,
   state: EditorState
-) => readonly Range<Decoration>[];
+) => ParticipantDecoration;
 
 /**
  * Renderer for a construct whose source form is `<mark>content<mark>` —
@@ -72,34 +106,182 @@ function delimitedInlineRenderer(
       !closeMark ||
       closeMark.name !== markNodeName
     ) {
-      return [];
+      return { decorations: [] };
     }
 
-    const ranges: Range<Decoration>[] = [
+    const decorations: Range<Decoration>[] = [
       Decoration.replace({}).range(openMark.from, openMark.to),
     ];
     // An empty construct (`****`) has its two marks adjacent, with no
     // content range between them to class.
     if (openMark.to < closeMark.from) {
-      ranges.push(
-        Decoration.mark({ class: contentClass }).range(openMark.to, closeMark.from)
+      // inclusiveStart/inclusiveEnd: true — required so this mark visually
+      // wraps a nested widget-replace participant (WikiLink/Tag/Date)
+      // whose range exactly fills the content range (the ordinary
+      // zero-gap-nesting case, e.g. `**[[Page]]**`). CM6's mark
+      // decorations default to non-inclusive boundaries, and a
+      // non-inclusive mark does not extend its wrapping `<span>` across a
+      // widget point sitting at/through its span — confirmed by direct
+      // A/B DOM inspection, not assumed: without these flags, `**[[Page]]**`
+      // rendered the WikiLink widget as a plain sibling with no `tok-strong`
+      // wrapper at all. Ordinary (non-widget) content is unaffected: plain
+      // text and concealed zero-width marker ranges compose into this mark
+      // the same way regardless of inclusivity, so this is purely additive.
+      decorations.push(
+        Decoration.mark({ class: contentClass, inclusiveStart: true, inclusiveEnd: true }).range(
+          openMark.to,
+          closeMark.from
+        )
       );
     }
-    ranges.push(Decoration.replace({}).range(closeMark.from, closeMark.to));
-    return ranges;
+    decorations.push(Decoration.replace({}).range(closeMark.from, closeMark.to));
+    return { decorations };
   };
 }
 
 /**
- * The participant set. Membership in this map is what makes a node kind
- * visibility-participating; `inlineLivePreviewRegion.ts` reads it and
- * knows nothing else about any construct.
+ * Renderer for a construct whose at-rest form is the *entire* node
+ * replaced by one widget — the semantic-token/widget family (`WikiLink`,
+ * `Tag`, `Date`). Unlike `delimitedInlineRenderer`, the single replace
+ * range doubles as both the visible decoration and the atomic-range
+ * fact: at rest, a widget-family occurrence must be both rendered as a
+ * widget *and* untouchable by a single Backspace/Delete/cursor-motion
+ * step, and both facts come from the exact same range because they
+ * describe the exact same at-rest occurrence — there is never a case
+ * where one applies without the other.
+ *
+ * `render` receives only the node's raw matched text — every renderer
+ * registered through this factory today (`renderWikiLink`/`renderTag`/
+ * `renderDate`) only ever needed `raw` and a resolver getter, never
+ * `view` or the node itself (confirmed by inspecting each: their `_view`/
+ * `_node` parameters were unused), so this factory doesn't thread through
+ * anything that has no real consumer.
  */
-export const inlineLivePreviewParticipants: ReadonlyMap<string, ParticipantRenderer> =
-  new Map<string, ParticipantRenderer>([
+function widgetReplaceRenderer(
+  render: (raw: string) => WidgetType | null
+): ParticipantRenderer {
+  return (node, state) => {
+    const widget = render(state.sliceDoc(node.from, node.to));
+    if (!widget) {
+      return { decorations: [] };
+    }
+    const range = Decoration.replace({ widget }).range(node.from, node.to);
+    return { decorations: [range], atomic: [range] };
+  };
+}
+
+/**
+ * Renderer for `Link` (`[label](url "title")`) — conceals the Markdown
+ * syntax while keeping the label ordinary, character-editable text; never
+ * atomic. Per docs/editor-architecture-decisions.md's "Shared live-preview
+ * participant contract — confirmed via Link": `Link`'s contract is "hide
+ * syntax, keep the visible content editable, reveal everything when
+ * engaged" — the same contract every `delimitedInlineRenderer` participant
+ * already implements — so it belongs here, in the shared `Decoration.set()`,
+ * not as a standalone extension the way WikiLink is (WikiLink's contract is
+ * genuinely different: it must conceal part of its content even while
+ * engaged, which this shared "engaged region → fully raw source" contract
+ * cannot express at all).
+ *
+ * Not `delimitedInlineRenderer`: that helper's `firstChild`/`lastChild`
+ * precondition assumes a 2-same-named-child shape. `Link`'s own
+ * `firstChild`/`lastChild` are the opening `[` and the *final* closing `)`
+ * of the destination — the range between them is the label **plus**
+ * `](url "title")`, not just the label. What's actually needed is the
+ * FIRST TWO `LinkMark` children specifically (the opening `[` and the
+ * label-closing `]`) — confirmed against the real parse, including with
+ * nested formatting and a nested WikiLink inside the label (both parse as
+ * ordinary child nodes between those two marks, recursively parsed exactly
+ * like any other inline content). Everything from the label-closing `]`
+ * through the node's own end is concealed as one combined range regardless
+ * of internal shape (`URL`, optional `LinkTitle`, closing `)` are never
+ * independently visible at rest) — deliberately not decomposed further.
+ *
+ * Reference-style/shortcut links (`[text][ref]`, `[text][]`, bare
+ * `[text]`) parse to this exact same `Link` node type but with no `URL`
+ * child (a `LinkLabel` child, or nothing, instead) — confirmed identical
+ * whether or not a matching `LinkReference` definition exists elsewhere in
+ * the document, so the tree alone can never say whether such a link
+ * actually resolves. This renderer requires a `URL` child to be present at
+ * all; without one, it decorates nothing and the text stays fully raw —
+ * a deliberate scope boundary (real reference resolution is separate,
+ * larger scope), not an oversight.
+ */
+const linkRenderer: ParticipantRenderer = (node) => {
+  const linkNode = node.node;
+  const marks: SyntaxNode[] = [];
+  let hasUrl = false;
+  for (let child = linkNode.firstChild; child; child = child.nextSibling) {
+    if (child.name === 'LinkMark' && marks.length < 2) {
+      marks.push(child);
+    } else if (child.name === 'URL') {
+      hasUrl = true;
+    }
+  }
+
+  const [openMark, labelCloseMark] = marks;
+  if (!openMark || !labelCloseMark || !hasUrl) {
+    return { decorations: [] };
+  }
+
+  const decorations: Range<Decoration>[] = [
+    Decoration.replace({}).range(openMark.from, openMark.to),
+  ];
+  // An empty label (`[](url)`) has the two marks adjacent, with no label
+  // range to class — same guard as delimitedInlineRenderer's empty case.
+  if (openMark.to < labelCloseMark.from) {
+    // inclusiveStart/inclusiveEnd: true, same reasoning and same
+    // confirmed-via-DOM justification as delimitedInlineRenderer's own —
+    // required so this mark visually wraps a nested widget-replace
+    // participant (e.g. a WikiLink) whose range exactly fills the label.
+    decorations.push(
+      Decoration.mark({ class: 'tok-link', inclusiveStart: true, inclusiveEnd: true }).range(
+        openMark.to,
+        labelCloseMark.from
+      )
+    );
+  }
+  decorations.push(Decoration.replace({}).range(labelCloseMark.from, linkNode.to));
+  return { decorations };
+};
+
+/**
+ * The resolvers each widget-family participant needs, obtained as stable
+ * getter closures (e.g. `() => resolveWikiLinkRef.current`) rather than
+ * captured resolver values — so the extension never needs rebuilding when
+ * a resolver changes; only the ref's `.current` needs to change, which
+ * the closure indirection already reads fresh on every decoration pass.
+ * Mirrors the freshness pattern `MarkdownEditor.tsx` already uses for
+ * `onEdit`/`onFlush`.
+ */
+export interface ParticipantResolvers {
+  /** No longer read by this file — see the doc comment above. Optional so existing callers don't need to change. */
+  readonly resolveWikiLink?: () => ResolveWikiLink | undefined;
+  readonly resolveTag: () => ResolveTag | undefined;
+  readonly resolveDate: () => ResolveDate | undefined;
+}
+
+/**
+ * Builds the participant set. A factory rather than a static constant
+ * because the widget-family entries close over `resolvers` — the map
+ * itself is still built once (at `MarkdownEditor` mount time, alongside
+ * every other extension), not rebuilt per render; only the resolver
+ * getters' `.current` reads are per-pass.
+ *
+ * `inlineLivePreviewRegion.ts` reads this map and knows nothing else
+ * about any construct — same as Phases 1–2, unchanged.
+ */
+export function createInlineLivePreviewParticipants(
+  resolvers: ParticipantResolvers
+): ReadonlyMap<string, ParticipantRenderer> {
+  return new Map<string, ParticipantRenderer>([
     ['Emphasis', delimitedInlineRenderer('EmphasisMark', 'tok-emphasis')],
     ['StrongEmphasis', delimitedInlineRenderer('EmphasisMark', 'tok-strong')],
     ['Strikethrough', delimitedInlineRenderer('StrikethroughMark', 'tok-strike')],
     ['Highlight', delimitedInlineRenderer('HighlightMark', 'tok-highlight')],
     ['InlineCode', delimitedInlineRenderer('CodeMark', 'tok-code')],
+    ['Link', linkRenderer],
+    ['Tag', widgetReplaceRenderer((raw) => renderTag(raw, resolvers.resolveTag))],
+    ['Date', widgetReplaceRenderer((raw) => renderDate(raw, resolvers.resolveDate))],
   ]);
+}

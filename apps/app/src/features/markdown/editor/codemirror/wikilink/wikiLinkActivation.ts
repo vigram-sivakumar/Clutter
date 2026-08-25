@@ -14,6 +14,16 @@ import { fallbackWikiLinkResolution, type ResolveWikiLink } from './wikiLinkReso
  * can't be re-scanned (only possible if the buffer changed out from under
  * a stale tree between parse and this call), matching
  * `GetTokenActivation`'s contract.
+ *
+ * Also returns `null` for an empty or whitespace-only path (`[[]]`,
+ * `[[ ]]`) — same guard, same reasoning as `renderWikiLink`'s: without
+ * it, a click resolves the empty path through the ordinary `unresolved`
+ * branch and activates create-and-open with an empty title. `null` here
+ * means `handleTokenClick` treats the click as unhandled and falls
+ * through to CM6's default click-to-position-cursor — which, per
+ * `wikiLinkAutocomplete.ts`'s `reactivateOnEnteringEmptyReference`, is
+ * exactly what lets the user click into an empty reference and get
+ * autocomplete instead of an accidental new page.
  */
 export function getWikiLinkActivation(
   view: EditorView,
@@ -22,7 +32,7 @@ export function getWikiLinkActivation(
 ): (() => void) | null {
   const raw = view.state.sliceDoc(node.from, node.to);
   const match = scanWikiLink(raw, 0);
-  if (!match) {
+  if (!match || !match.path.trim()) {
     return null;
   }
 

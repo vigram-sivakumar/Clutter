@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { wikiLinkDecorations } from './wikiLinkDecorations';
+import { wikiLinkLivePreview } from './wikiLinkLivePreview';
 import { wikiLinkMouseHandlers } from './wikiLinkMouseHandlers';
 import type { ResolveWikiLink } from './wikiLinkResolution';
 
@@ -29,7 +29,7 @@ function mountView(doc: string, resolver: ResolveWikiLink): EditorView {
     doc,
     extensions: [
       markdownLanguageExtension(),
-      wikiLinkDecorations(() => resolver),
+      wikiLinkLivePreview(() => resolver),
       wikiLinkMouseHandlers(() => resolver),
     ],
   });

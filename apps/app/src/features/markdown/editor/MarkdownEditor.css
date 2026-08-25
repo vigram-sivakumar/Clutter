@@ -107,11 +107,13 @@
  */
 .cm-editor .tok-strike {
   text-decoration: line-through;
+  color: var(--strikethrough-color);
 }
 
 .cm-editor .tok-highlight {
   background: var(--highlight-surface);
   color: var(--highlight-foreground);
+  box-shadow: var(--highlight-shadow);
 }
 
 /*
@@ -475,12 +477,22 @@
 }
 
 .cm-editor .tok-wikilink {
-  /* color: var(--link-foreground); */
+  color: var(--link-foreground);
   text-decoration: underline;
   text-decoration-thickness: 0.05em;
   text-decoration-color: var(--link-underline);
   text-underline-offset: 10%;
   cursor: pointer;
+}
+
+/* Markdown [label](url) — label only, no click activation yet (separate,
+   unbuilt scope), so no cursor: pointer unlike tok-wikilink/tok-tag. */
+.cm-editor .tok-link {
+  color: var(--link-foreground);
+  text-decoration: underline;
+  text-decoration-thickness: 0.05em;
+  text-decoration-color: var(--link-underline);
+  text-underline-offset: 10%;
 }
 .tok-wikilink[data-wikilink-status='unresolved'] {
   opacity: var(--opacity-medium);
@@ -488,6 +500,13 @@
 
 .cm-editor .tok-tag {
   color: var(--tag-foreground);
+  background-color: var(--tag-surface);
+  /* box-shadow:
+    rgba(46, 109, 233, 0.24) -2px 0px 0px,
+    rgba(46, 109, 233, 0.24) 2px 0px 0px; */
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-weight: var(--fw-thin);
   cursor: pointer;
 }
 /* .cm-editor .tok-tag .tok-tag-prefix {
@@ -499,13 +518,21 @@
 
 .cm-editor .tok-date {
   color: var(--date-foreground);
+  background-color: var(--date-surface);
+  /* box-shadow:
+    rgba(46, 109, 233, 0.24) -2px 0px 0px,
+    rgba(46, 109, 233, 0.24) 2px 0px 0px; */
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  font-weight: var(--fw-thin);
+
   cursor: pointer;
 }
 .cm-editor .tok-date .tok-date-prefix {
-  opacity: var(--opacity-medium);
+  opacity: var(--opacity-subtle);
 }
 .tok-date[data-date-status='invalid'] {
-  opacity: var(--opacity-medium);
+  opacity: var(--opacity-subtle);
   cursor: default;
 }
 

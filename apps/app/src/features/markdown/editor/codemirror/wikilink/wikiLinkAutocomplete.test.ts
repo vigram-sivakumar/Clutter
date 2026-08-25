@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { completionStatus } from '@codemirror/autocomplete';
+import { closeCompletion, completionStatus } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
@@ -246,5 +246,86 @@ describe('reference vs display-name activation (integration, via a real dispatch
     // silently dropped that trailing "X".
     expect(getSuggestions).toHaveBeenLastCalledWith('NewsXX');
     expect(completionStatus(view.state)).toBe('active');
+  });
+});
+
+describe('empty-reference activation (Task 1: [[ opens immediately, [[Text] does not)', () => {
+  it('typing [[ (closeBrackets already produces [[]]) opens autocomplete immediately with the full page list — queried with an empty string, no characters needed', async () => {
+    const getSuggestions: GetWikiLinkSuggestions = vi.fn(() => [
+      { kind: 'page' as const, path: 'Alpha', title: 'Alpha', breadcrumb: null },
+      { kind: 'page' as const, path: 'Beta', title: 'Beta', breadcrumb: null },
+    ]);
+    const view = mountView('x ', getSuggestions);
+
+    // Simulates what closeBrackets itself does to the original keystroke's
+    // own transaction: typing "[[" lands as "[[]]" with the cursor placed
+    // between the two pairs, in one input.type transaction — not two
+    // separate keystrokes, since a programmatic dispatch here can't drive
+    // the real inputHandler machinery closeBrackets hooks into.
+    view.dispatch({ changes: { from: 2, insert: '[[]]' }, selection: { anchor: 4 }, userEvent: 'input.type' });
+    await waitForQuery();
+
+    expect(getSuggestions).toHaveBeenCalledWith('');
+    expect(completionStatus(view.state)).toBe('active');
+  });
+
+  it('[[query keeps filtering as before once the user starts typing into the now-open list', async () => {
+    const getSuggestions: GetWikiLinkSuggestions = vi.fn((query) =>
+      query === '' ? [{ kind: 'page' as const, path: 'Alpha', title: 'Alpha', breadcrumb: null }] : []
+    );
+    const view = mountView('x ', getSuggestions);
+    view.dispatch({ changes: { from: 2, insert: '[[]]' }, selection: { anchor: 4 }, userEvent: 'input.type' });
+    await waitForQuery();
+    expect(getSuggestions).toHaveBeenCalledWith('');
+
+    type(view, 4, 'A');
+    await waitForQuery();
+
+    expect(getSuggestions).toHaveBeenCalledWith('A');
+  });
+
+  it('re-entering a still-empty [[]] by cursor placement alone (after the popup was dismissed) reopens autocomplete', async () => {
+    const getSuggestions: GetWikiLinkSuggestions = vi.fn(() => [
+      { kind: 'page' as const, path: 'Alpha', title: 'Alpha', breadcrumb: null },
+    ]);
+    const view = mountView('x [[]] y', getSuggestions);
+    view.dispatch({ selection: { anchor: 4 } }); // enters the empty reference once
+    await waitForQuery();
+    expect(completionStatus(view.state)).toBe('active');
+
+    closeCompletion(view);
+    view.dispatch({ selection: { anchor: 0 } }); // leaves
+    expect(completionStatus(view.state)).toBeNull();
+
+    view.dispatch({ selection: { anchor: 4 } }); // re-enters the still-empty reference
+    await waitForQuery();
+
+    expect(completionStatus(view.state)).toBe('active');
+  });
+
+  it('merely moving the cursor into an already-populated [[Text]] does NOT auto-open — existing behavior, unchanged', async () => {
+    const getSuggestions: GetWikiLinkSuggestions = vi.fn(() => [
+      { kind: 'page' as const, path: 'Text', title: 'Text', breadcrumb: null },
+    ]);
+    const view = mountView('x [[Text]] y', getSuggestions);
+
+    view.dispatch({ selection: { anchor: 6 } }); // lands inside "Text", no edit
+    await waitForQuery();
+
+    expect(getSuggestions).not.toHaveBeenCalled();
+    expect(completionStatus(view.state)).toBeNull();
+  });
+
+  it('moving the cursor to the boundary of an already-populated reference does NOT auto-open either', async () => {
+    const getSuggestions: GetWikiLinkSuggestions = vi.fn(() => [
+      { kind: 'page' as const, path: 'Text', title: 'Text', breadcrumb: null },
+    ]);
+    const view = mountView('x [[Text]] y', getSuggestions);
+
+    view.dispatch({ selection: { anchor: 4 } }); // right after "[[", start of the reference
+    await waitForQuery();
+
+    expect(getSuggestions).not.toHaveBeenCalled();
+    expect(completionStatus(view.state)).toBeNull();
   });
 });

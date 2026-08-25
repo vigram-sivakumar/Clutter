@@ -30,7 +30,7 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-inverse: var(--neutral-50);
 
   /* Text & icons */
-  --foreground-primary: #d6d6d6;
+  --foreground-primary: #f4f4f4;
   --foreground-secondary: #a8a8a8;
   --foreground-tertiary: #858585;
   --foreground-placeholder: #565656;
@@ -48,6 +48,9 @@ html.theme-transitioning [data-themeable] *::after {
   --tag-foreground: orange;
   --date-foreground: #999999;
   --highlight-foreground: #2b2200;
+
+  /* Text decoration */
+  --strikethrough-color: #595757;
 
   /* Interactive states */
   --state-base: 255 255 255;
@@ -74,10 +77,7 @@ html.theme-transitioning [data-themeable] *::after {
   --editor-caret-color: var(--foreground-primary);
 
   /* Selection */
-  --selection-surface: rgba(241, 99, 99, 0.18);
-
-  /* Text decoration */
-  --strikethrough-color: #595757;
+  --selection-surface: rgba(189, 144, 255, 0.4);
 
   /* Opacity */
   --opacity-strong: 35%;
@@ -131,14 +131,22 @@ html.theme-transitioning [data-themeable] *::after {
   );
 
   /* Markdown surface */
-  --highlight-surface: #ffe066;
+  --highlight-surface: rgba(255, 241, 0, 0.4);
+  --highlight-shadow:
+    rgba(255, 241, 0, 0.4) -2px 0px 0px, rgba(255, 241, 0, 0.4) 2px 0px 0px;
 
   /* Markdown foreground colors */
   --marker-foreground: var(--foreground-tertiary);
   --link-foreground: var(--foreground-primary);
-  --tag-foreground: orange;
-  --date-foreground: #767676;
+  --tag-foreground: rgb(46, 109, 233);
+  --tag-surface: rgba(46, 109, 233, 0.12);
+  /* --date-foreground: #767676; */
+  --date-foreground: rgb(46, 109, 233);
+  --date-surface: rgba(46, 109, 233, 0.12);
   --highlight-foreground: #2b2200;
+
+  /* Text decoration */
+  --strikethrough-color: var(--neutral-600);
 
   /* Interactive states */
   --state-base: 0 0 0;
@@ -165,10 +173,7 @@ html.theme-transitioning [data-themeable] *::after {
   --editor-caret-color: var(--foreground-primary);
 
   /* Selection */
-  --selection-surface: rgba(99, 102, 241, 0.18);
-
-  /* Text decoration */
-  --strikethrough-color: var(--neutral-600);
+  --selection-surface: rgba(196, 155, 255, 0.4);
 
   /* Opacity */
   --opacity-strong: 30%;
