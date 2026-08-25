@@ -13,6 +13,7 @@ import { semanticCompletion } from './codemirror/completion';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
+import { blockquoteLineDecoration } from './codemirror/highlight/blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
 import { headingMarkerDecoration } from './codemirror/highlight/headingMarkerDecoration';
@@ -210,6 +211,7 @@ export const MarkdownEditor = forwardRef<
         // listIndentWhitespaceDecoration(),
         // emojiListMarkDecoration(),
         blockquoteMarkerDecoration(),
+        blockquoteLineDecoration(),
         headingMarkerDecoration(),
         // tok-heading1-6 content classing is now emitted directly by
         // inlineLivePreviewRegion() above (see its own doc comment) —

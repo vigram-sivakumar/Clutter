@@ -170,6 +170,36 @@
 }
 
 /*
+ * Blockquote left rule (blockquoteLineDecoration.ts) — the visible "line
+ * in front" of quoted content, matching how real Markdown editors mark a
+ * blockquote. A block-level `Decoration.line` class, deliberately
+ * independent of `blockquoteMarkerDecoration.ts`'s marker-concealment
+ * work: this rule renders unconditionally, regardless of whether the `>`
+ * marker is currently hidden or revealed — it's presentation of the
+ * block, not a Live-Preview reveal-on-engagement construct.
+ *
+ * `border-inline-start` (not a `::before` pseudo-element): a real border
+ * on the line box itself naturally extends the full height of that line,
+ * including any browser-soft-wrapped continuation rows, with no separate
+ * positioning/sizing math needed — the same reasoning `.cm-table-cell`'s
+ * `border` above already relies on. `::before` is reserved for cases
+ * where the line's own box can't carry the paint directly (see
+ * `.cm-hr-line::after`'s doc comment, where the collapsed-to-zero-height
+ * line box is exactly why that one needs a pseudo-element instead).
+ *
+ * Reuses `--border-strong` (already the shared "visible rule" token in
+ * this file — `.cm-hr-line::after`, `.cm-table-cell`) rather than
+ * introducing a new blockquote-specific color token; no depth-aware
+ * styling for nested `>>` quotes yet — deliberately not designed until a
+ * concrete need exists (see blockquoteLineDecoration.ts's own doc
+ * comment).
+ */
+.cm-editor .cm-quote-line {
+  border-inline-start: 2px solid var(--border-strong);
+  padding-inline-start: var(--space-12);
+}
+
+/*
  * Editor-only sizing hook for the task checkbox (TaskCheckboxWidget.ts).
  * Added alongside the shared `checkbox`/`checkbox--checked` classes rather
  * than in `Checkbox.css`, so the standalone React `Checkbox` component's own
