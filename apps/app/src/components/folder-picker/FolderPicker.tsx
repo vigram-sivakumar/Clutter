@@ -196,9 +196,9 @@ export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
               onMouseEnter={() => keyboard.setActiveId(item.id)}
               onClick={() => onSelect(item)}
             >
-              <div className="folder__content">
-                <span className="folder__title">{item.title}</span>
-                {path && <span className="folder__path">{path}</span>}
+              <div className="folder-picker__content">
+                <span className="folder-picker__title">{item.title}</span>
+                {path && <span className="folder-picker__path">{path}</span>}
               </div>
             </Entry>
           );
@@ -215,7 +215,10 @@ export function FolderPicker({ items, onSelect, onCreate }: FolderPickerProps) {
             onMouseEnter={() => keyboard.setActiveId(CREATE_ITEM_ID)}
             onClick={() => onCreate(query.trim())}
           >
-            {`Create "${query.trim()}"`}
+            <div className="folder-picker__create">
+              <span className="folder-picker__create-label">Create</span>
+              <span className="folder-picker__title">{query.trim()}</span>
+            </div>
           </Entry>
         )}
       </div>
