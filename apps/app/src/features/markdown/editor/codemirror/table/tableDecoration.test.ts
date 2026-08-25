@@ -3,10 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-import { emphasisMarkerDecoration } from '../highlight/emphasisMarkerDecoration';
 import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
-import { markdownHighlighting } from '../highlight/markdownHighlightStyle';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
 import { tableDecoration } from './tableDecoration';
@@ -20,7 +18,7 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
   const state = EditorState.create({
     doc,
     selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
-    extensions: [markdownLanguageExtension(), markdownHighlighting(), tableDecoration()],
+    extensions: [markdownLanguageExtension(), tableDecoration()],
   });
   return new EditorView({ state, parent });
 }
@@ -34,9 +32,7 @@ function mountViewWithSemanticTokens(doc: string, initialAnchor: number | null =
     selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
     extensions: [
       markdownLanguageExtension(),
-      markdownHighlighting(),
       tableDecoration(),
-      emphasisMarkerDecoration(),
       inlineLivePreviewRegion(createInlineLivePreviewParticipants(noResolvers)),
       wikiLinkLivePreview(() => undefined),
     ],
@@ -237,6 +233,61 @@ describe('tableDecoration — semantic tokens compose inside cells', () => {
     const view = mountViewWithSemanticTokens(text, text.indexOf('Other'));
 
     expect(view.dom.querySelector('.tok-date')).not.toBeNull();
+  });
+
+  // ===================================================================
+  // DOM containment (not merely "the class appears somewhere"). Same class
+  // of regression the heading fix addressed: TableCell's own mark and
+  // inlineLivePreviewRegion's/wikiLinkLivePreview's marks are independent
+  // decoration sources, so without inclusiveStart/inclusiveEnd on
+  // TableCell's mark plus correct precedence (see tableDecoration.ts's own
+  // doc comment on `cellClass`/`tableDecoration`), these split or dropped
+  // the cell class entirely instead of nesting — confirmed empirically
+  // before the fix. Deliberately exact-range-coincidence cases (the cell's
+  // ENTIRE content is one construct), the shape that broke without the fix.
+  // ===================================================================
+  describe('cm-table-cell correctly wraps a nested construct (no split, no dropped class)', () => {
+    it('| **Bold** |: cm-table-cell is the outer span, tok-strong nests inside it', () => {
+      const text = '| a |\n| - |\n| **Bold** |\n\nOther';
+      const view = mountViewWithSemanticTokens(text, text.indexOf('Other'));
+
+      const cell = view.dom.querySelector('.cm-table-row:not(.cm-table-header) .cm-table-cell');
+      expect(cell).not.toBeNull();
+      const inner = cell?.querySelector('.tok-strong');
+      expect(inner).not.toBeNull();
+      expect(inner?.textContent).toBe('Bold');
+      // Not a sibling split: exactly one cm-table-cell, not one per side.
+      expect(view.dom.querySelectorAll('.cm-table-cell').length).toBe(2); // header cell "a" + this cell
+    });
+
+    it('| ==highlight== |: cm-table-cell is the outer span, tok-highlight nests inside it', () => {
+      const text = '| a |\n| - |\n| ==highlight== |\n\nOther';
+      const view = mountViewWithSemanticTokens(text, text.indexOf('Other'));
+
+      const cell = view.dom.querySelector('.cm-table-row:not(.cm-table-header) .cm-table-cell');
+      expect(cell).not.toBeNull();
+      const inner = cell?.querySelector('.tok-highlight');
+      expect(inner).not.toBeNull();
+      expect(inner?.textContent).toBe('highlight');
+    });
+
+    it('| [[Page]] |: cm-table-cell is the outer span, the WikiLink widget nests inside it (not dropped)', () => {
+      const text = '| a |\n| - |\n| [[Page]] |\n\nOther';
+      const view = mountViewWithSemanticTokens(text, text.indexOf('Other'));
+
+      const cell = view.dom.querySelector('.cm-table-row:not(.cm-table-header) .cm-table-cell');
+      expect(cell).not.toBeNull();
+      const inner = cell?.querySelector('.tok-wikilink');
+      expect(inner).not.toBeNull();
+      expect(inner?.textContent).toBe('Page');
+    });
+
+    it('document text is never mutated by the cell/inline-construct composition', () => {
+      const text = '| a |\n| - |\n| **Bold** |';
+      const view = mountViewWithSemanticTokens(text);
+
+      expect(view.state.doc.toString()).toBe(text);
+    });
   });
 });
 

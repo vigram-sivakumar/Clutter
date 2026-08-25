@@ -71,6 +71,18 @@ function scanSegment(text: string, start: number, stopOnPipe: boolean, requireSt
       return { text: out, stoppedAt: i, stoppedOnPipe: false };
     }
 
+    if (ch === '\n') {
+      // A WikiLink never crosses a physical line break: `@lezer/markdown`
+      // joins a lazy-continuation paragraph's lines with a literal `\n` in
+      // the text handed to inline parsers, so without this check `[[Foo\nBar]]`
+      // would scan as one match spanning two lines. CodeMirror 6 forbids a
+      // ViewPlugin-sourced Decoration.replace() from crossing a line break
+      // (wikiLinkLivePreview.ts renders WikiLink via exactly such a plugin),
+      // so a cross-line WikiLink node would crash the view. Treat `\n` as
+      // an unrecoverable stop, same as running off the end unterminated.
+      return null;
+    }
+
     out += ch;
     i += 1;
   }

@@ -206,43 +206,100 @@ function widgetReplaceRenderer(
  * all; without one, it decorates nothing and the text stays fully raw —
  * a deliberate scope boundary (real reference resolution is separate,
  * larger scope), not an oversight.
+ *
+ * **Empty label (`[](url)`) falls back to displaying the URL itself.**
+ * Rather than concealing the entire construct (which would make it
+ * disappear at rest with nothing to click or read), the URL child's own
+ * range is left as ordinary visible content — classed `tok-link`, exactly
+ * like a non-empty label — and only the surrounding syntax (`[`, `](`, and
+ * `)`/optional title) is concealed. The URL text rendered at rest is the
+ * real document text at its own real position, not a synthesized/widget
+ * label, so no new concealment or widget machinery is introduced — this is
+ * the same "conceal marks, class the content between them" shape as the
+ * non-empty branch, just with the URL node standing in for the label.
  */
 const linkRenderer: ParticipantRenderer = (node) => {
   const linkNode = node.node;
   const marks: SyntaxNode[] = [];
-  let hasUrl = false;
+  let urlNode: SyntaxNode | null = null;
   for (let child = linkNode.firstChild; child; child = child.nextSibling) {
     if (child.name === 'LinkMark' && marks.length < 2) {
       marks.push(child);
-    } else if (child.name === 'URL') {
-      hasUrl = true;
+    } else if (child.name === 'URL' && !urlNode) {
+      urlNode = child;
     }
   }
 
   const [openMark, labelCloseMark] = marks;
-  if (!openMark || !labelCloseMark || !hasUrl) {
+  if (!openMark || !labelCloseMark || !urlNode) {
     return { decorations: [] };
   }
 
   const decorations: Range<Decoration>[] = [
     Decoration.replace({}).range(openMark.from, openMark.to),
   ];
-  // An empty label (`[](url)`) has the two marks adjacent, with no label
-  // range to class — same guard as delimitedInlineRenderer's empty case.
+  // inclusiveStart/inclusiveEnd: true, same reasoning and same
+  // confirmed-via-DOM justification as delimitedInlineRenderer's own —
+  // required so this mark visually wraps a nested widget-replace
+  // participant (e.g. a WikiLink) whose range exactly fills the label.
   if (openMark.to < labelCloseMark.from) {
-    // inclusiveStart/inclusiveEnd: true, same reasoning and same
-    // confirmed-via-DOM justification as delimitedInlineRenderer's own —
-    // required so this mark visually wraps a nested widget-replace
-    // participant (e.g. a WikiLink) whose range exactly fills the label.
+    // Non-empty label: unchanged from before the URL fallback — the URL
+    // portion (`](url "title")`) stays concealed as one combined range,
+    // exactly as it always has.
     decorations.push(
       Decoration.mark({ class: 'tok-link', inclusiveStart: true, inclusiveEnd: true }).range(
         openMark.to,
         labelCloseMark.from
       )
     );
+    decorations.push(Decoration.replace({}).range(labelCloseMark.from, linkNode.to));
+  } else {
+    // Empty label: conceal `](` up to the URL's own start, class the URL
+    // itself as the visible content, then conceal from the URL's own end
+    // through the closing `)` (swallowing any optional title). `(` always
+    // separates `]` from the URL in this grammar, and `)` always follows
+    // the URL, so both replace ranges are always non-empty.
+    decorations.push(Decoration.replace({}).range(labelCloseMark.from, urlNode.from));
+    decorations.push(
+      Decoration.mark({ class: 'tok-link', inclusiveStart: true, inclusiveEnd: true }).range(
+        urlNode.from,
+        urlNode.to
+      )
+    );
+    decorations.push(Decoration.replace({}).range(urlNode.to, linkNode.to));
   }
-  decorations.push(Decoration.replace({}).range(labelCloseMark.from, linkNode.to));
   return { decorations };
+};
+
+/**
+ * Renderer for a bare `URL` occurrence (no `Link`/`Autolink` wrapper) —
+ * reuses `Link`'s own `tok-link` class rather than inventing a second
+ * visual convention, per docs/editor-architecture-decisions.md's "Link/URL
+ * styling — resolved". No concealment: unlike `Link`, a bare URL has no
+ * bracket/paren syntax to hide, so its at-rest and engaged forms are
+ * identical by construction — it still participates in the shared
+ * traversal (for the same `tok-link` styling and containment semantics as
+ * every other participant), it just never differs when revealed.
+ *
+ * Guards against double-decorating a `URL` child that a *different*,
+ * already-registered participant owns: `Link`'s own renderer conceals its
+ * `URL` child as part of one combined replace range, and `Autolink`'s
+ * `delimitedInlineRenderer` registration (below) already classes its own
+ * `URL` child as `tok-link` content. `inlineLivePreviewRegion.ts`'s
+ * traversal does not skip descending into a non-engaged participant's
+ * children (only an *engaged* one short-circuits), so without this guard
+ * a `URL` nested in either would be visited a second time and receive a
+ * redundant, overlapping decoration. Checking the immediate parent node
+ * name is sufficient — a `URL` node's only possible non-`Paragraph`-ish
+ * parents in this grammar are exactly `Link` and `Autolink`.
+ */
+const urlRenderer: ParticipantRenderer = (node) => {
+  if (node.node.parent?.name === 'Link' || node.node.parent?.name === 'Autolink') {
+    return { decorations: [] };
+  }
+  return {
+    decorations: [Decoration.mark({ class: 'tok-link' }).range(node.from, node.to)],
+  };
 };
 
 /**
@@ -281,6 +338,13 @@ export function createInlineLivePreviewParticipants(
     ['Highlight', delimitedInlineRenderer('HighlightMark', 'tok-highlight')],
     ['InlineCode', delimitedInlineRenderer('CodeMark', 'tok-code')],
     ['Link', linkRenderer],
+    // Autolink (`<https://...>`) fits delimitedInlineRenderer's own
+    // 2-same-named-mark-child shape exactly (`Autolink > [LinkMark, URL,
+    // LinkMark]`) — reused unmodified, no Autolink-specific renderer
+    // needed. Conceals `<`/`>`, classes the URL content `tok-link` — same
+    // class Link's own label already uses.
+    ['Autolink', delimitedInlineRenderer('LinkMark', 'tok-link')],
+    ['URL', urlRenderer],
     ['Tag', widgetReplaceRenderer((raw) => renderTag(raw, resolvers.resolveTag))],
     ['Date', widgetReplaceRenderer((raw) => renderDate(raw, resolvers.resolveDate))],
   ]);

@@ -5,7 +5,6 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { blockquoteMarkerDecoration } from './blockquoteMarkerDecoration';
-import { markdownHighlighting } from './markdownHighlightStyle';
 
 /** Mirrors headingMarkerDecoration.test.ts's mountView — see its doc comment for why `initialAnchor` matters for "at rest" tests. */
 function mountView(doc: string, initialAnchor: number | null = null): EditorView {
@@ -14,7 +13,7 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
   const state = EditorState.create({
     doc,
     selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
-    extensions: [markdownLanguageExtension(), markdownHighlighting(), blockquoteMarkerDecoration()],
+    extensions: [markdownLanguageExtension(), blockquoteMarkerDecoration()],
   });
   return new EditorView({ state, parent });
 }

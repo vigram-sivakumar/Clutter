@@ -229,3 +229,71 @@ describe('MarkdownEditor: resolveWikiLink (§5 boundary, §6 decoration wiring)'
   // — is covered in codemirror/wikilink/wikiLinkDecorations.test.ts, not
   // duplicated here.
 });
+
+describe('MarkdownEditor: no duplicate same-class decoration wrapping (same-range regression guard)', () => {
+  // Regression guard for a real, previously-confirmed failure mode: two
+  // independently-registered decoration sources targeting the same syntax
+  // node range produce nested duplicate wrappers instead of one correctly
+  // composed element — confirmed once already for headings (see
+  // docs/editor-architecture-decisions.md's "Heading content classing
+  // moved into the shared decoration source"), where two sources each
+  // emitting `tok-heading1` on the same range rendered as
+  // `<span class="tok-heading1"><span class="tok-heading1">...`.
+  //
+  // This exercises the actual production extension set assembled in
+  // MarkdownEditor.tsx (not an isolated single-extension harness), so it
+  // fails if *any* future change to that wiring — re-enabling a currently
+  // commented-out extension, or adding a new one — reintroduces a second
+  // independent source classing one of these six ranges, regardless of
+  // that source's name. Each construct is padded with leading/trailing
+  // text so the default end-of-document mount caret (see
+  // createEditorView.ts) never lands inside it and renders it engaged
+  // (raw source, no classing at all) instead of at rest.
+  //
+  // The assertion is deliberately about the *observable DOM contract* —
+  // a class must not wrap another element carrying that same class — not
+  // about which extension produced it.
+  function expectNoSelfNestedClass(view: EditorView, className: string) {
+    const matches = view.dom.querySelectorAll(`.${className}`);
+    expect(matches.length).toBeGreaterThan(0);
+    matches.forEach((el) => {
+      expect(el.querySelector(`.${className}`)).toBeNull();
+    });
+  }
+
+  it('Emphasis (*text*): tok-emphasis does not wrap another tok-emphasis', () => {
+    const { container } = render(<MarkdownEditor markdown="before *italic* after" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    expectNoSelfNestedClass(view, 'tok-emphasis');
+  });
+
+  it('StrongEmphasis (**text**): tok-strong does not wrap another tok-strong', () => {
+    const { container } = render(<MarkdownEditor markdown="before **bold** after" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    expectNoSelfNestedClass(view, 'tok-strong');
+  });
+
+  it('Strikethrough (~~text~~): tok-strike does not wrap another tok-strike', () => {
+    const { container } = render(<MarkdownEditor markdown="before ~~struck~~ after" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    expectNoSelfNestedClass(view, 'tok-strike');
+  });
+
+  it('InlineCode (`text`): tok-code does not wrap another tok-code', () => {
+    const { container } = render(<MarkdownEditor markdown="before `code` after" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    expectNoSelfNestedClass(view, 'tok-code');
+  });
+
+  it('Highlight (==text==): tok-highlight does not wrap another tok-highlight', () => {
+    const { container } = render(<MarkdownEditor markdown="before ==marked== after" />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    expectNoSelfNestedClass(view, 'tok-highlight');
+  });
+
+  it('ATX heading (# text): tok-heading1 does not wrap another tok-heading1', () => {
+    const { container } = render(<MarkdownEditor markdown={'# Heading\n\nafter'} />);
+    const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
+    expectNoSelfNestedClass(view, 'tok-heading1');
+  });
+});

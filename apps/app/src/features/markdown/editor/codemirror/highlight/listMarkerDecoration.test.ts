@@ -5,7 +5,6 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { listMarkerDecoration } from './listMarkerDecoration';
-import { markdownHighlighting } from './markdownHighlightStyle';
 
 /**
  * `initialAnchor` defaults to document start (position 0), which for a
@@ -21,7 +20,7 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
   const state = EditorState.create({
     doc,
     selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
-    extensions: [markdownLanguageExtension(), markdownHighlighting(), listMarkerDecoration()],
+    extensions: [markdownLanguageExtension(), listMarkerDecoration()],
   });
   return new EditorView({ state, parent });
 }

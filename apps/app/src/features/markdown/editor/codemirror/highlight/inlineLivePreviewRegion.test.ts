@@ -588,11 +588,6 @@ describe('inlineLivePreviewRegion', () => {
       );
     });
 
-    it('empty label: [](url) has no content range to class, but still conceals correctly', () => {
-      const view = mountView('before [](https://example.com) after');
-      expect(view.dom.textContent).toBe('before  after');
-    });
-
     it('a URL with a title still conceals as one combined unit', () => {
       const view = mountView('before [text](https://example.com "a title") after');
       expect(view.dom.textContent).toBe('before text after');
@@ -659,6 +654,164 @@ describe('inlineLivePreviewRegion', () => {
         resolveDate: () => undefined,
       });
       expect(view.dom.textContent).toBe('x text #tag y');
+    });
+
+    // =================================================================
+    // Empty label ([](url)) falls back to displaying the URL itself, so
+    // the construct never disappears at rest — docs/editor-architecture-
+    // decisions.md, "Link/URL styling — resolved".
+    // =================================================================
+    describe('empty label ([](url)) falls back to the URL', () => {
+      it('at rest, displays the URL itself, classed tok-link, instead of vanishing', () => {
+        const view = mountView('before [](https://google.com) after');
+
+        expect(view.dom.textContent).toBe('before https://google.com after');
+        expect(view.dom.querySelector('.tok-link')?.textContent).toBe('https://google.com');
+      });
+
+      it('a non-http URL (www.one.autodesk.com) follows the same fallback', () => {
+        const view = mountView('before [](www.one.autodesk.com) after');
+
+        expect(view.dom.textContent).toBe('before www.one.autodesk.com after');
+        expect(view.dom.querySelector('.tok-link')?.textContent).toBe('www.one.autodesk.com');
+      });
+
+      it('reveals the full raw [](url) source when engaged', () => {
+        const doc = 'before [](https://google.com) after';
+        const inside = doc.indexOf('google');
+
+        expect(mountViewWithSelection(doc, inside).dom.textContent).toBe(doc);
+      });
+
+      it('collapses back to the URL fallback once the caret leaves', () => {
+        const doc = 'before [](https://google.com) after';
+        const inside = doc.indexOf('google');
+        const view = mountView(doc);
+
+        view.dispatch({ selection: { anchor: inside } });
+        expect(view.dom.textContent).toBe(doc);
+        view.dispatch({ selection: { anchor: 0 } });
+        expect(view.dom.textContent).toBe('before https://google.com after');
+      });
+
+      it('the underlying document never changes as it renders/reveals/collapses', () => {
+        const text = 'before [](https://google.com) after';
+        const view = mountView(text);
+
+        expect(view.state.doc.toString()).toBe(text);
+        view.dispatch({ selection: { anchor: 10 } });
+        expect(view.state.doc.toString()).toBe(text);
+        view.dispatch({ selection: { anchor: 0 } });
+        expect(view.state.doc.toString()).toBe(text);
+      });
+
+      it('is never registered in EditorView.atomicRanges', () => {
+        const view = mountView('before [](https://google.com) after');
+        expect(isAtomicAnywhere(view)).toBe(false);
+      });
+
+      it('reuses the exact tok-link class a non-empty label uses — no second visual convention', () => {
+        const emptyClass = mountView('x [](https://google.com) y').dom.querySelector('.tok-link')?.className;
+        const nonEmptyClass = mountView('x [Google](https://google.com) y').dom.querySelector('.tok-link')
+          ?.className;
+        expect(emptyClass).not.toBeUndefined();
+        expect(emptyClass).toBe(nonEmptyClass);
+      });
+
+      it('non-empty label [Google](https://google.com) is unaffected by the fallback branch', () => {
+        const view = mountView('before [Google](https://google.com) after');
+
+        expect(view.dom.textContent).toBe('before Google after');
+        expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
+      });
+    });
+  });
+
+  // ===================================================================
+  // <https://example.com> — Autolink, and bare `https://example.com` —
+  // URL. Reuse Link's own mechanism/CSS class rather than a second visual
+  // convention — docs/editor-architecture-decisions.md, "Link/URL styling
+  // — resolved". Autolink registers delimitedInlineRenderer unmodified
+  // (its `LinkMark`/`URL`/`LinkMark` shape already fits); bare URL gets
+  // its own minimal renderer that just applies the same `tok-link` class,
+  // with no concealment (nothing to conceal).
+  // ===================================================================
+  describe('<https://example.com> (Autolink)', () => {
+    it('at rest, conceals the < and > marks and classes the URL content tok-link', () => {
+      const view = mountView('before <https://example.com> after');
+
+      expect(view.dom.textContent).toBe('before https://example.com after');
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('https://example.com');
+    });
+
+    it('reveals the full raw <...> source when engaged', () => {
+      const doc = 'before <https://example.com> after';
+      const inside = doc.indexOf('example');
+
+      expect(mountViewWithSelection(doc, inside).dom.textContent).toBe(doc);
+    });
+
+    it('collapses back once the caret leaves', () => {
+      const doc = 'before <https://example.com> after';
+      const inside = doc.indexOf('example');
+      const view = mountView(doc);
+
+      view.dispatch({ selection: { anchor: inside } });
+      expect(view.dom.textContent).toBe(doc);
+      view.dispatch({ selection: { anchor: 0 } });
+      expect(view.dom.textContent).toBe('before https://example.com after');
+    });
+
+    it('is never registered in EditorView.atomicRanges — stays ordinary, character-editable text', () => {
+      const view = mountView('before <https://example.com> after');
+      expect(isAtomicAnywhere(view)).toBe(false);
+    });
+  });
+
+  describe('bare https://example.com (URL)', () => {
+    it('at rest, classes the whole URL tok-link with no concealment (nothing to conceal)', () => {
+      const view = mountView('before https://example.com/a?b=1 after');
+
+      expect(view.dom.textContent).toBe('before https://example.com/a?b=1 after');
+      expect(view.dom.querySelector('.tok-link')?.textContent).toBe('https://example.com/a?b=1');
+    });
+
+    it('reuses the exact tok-link class Link already uses — no second visual convention', () => {
+      const linkClass = mountView('x [text](https://example.com) y').dom.querySelector('.tok-link')?.className;
+      const urlClass = mountView('x https://example.com y').dom.querySelector('.tok-link')?.className;
+      expect(linkClass).not.toBeUndefined();
+      expect(urlClass).toBe(linkClass);
+    });
+
+    it('is never registered in EditorView.atomicRanges', () => {
+      const view = mountView('before https://example.com/a after');
+      expect(isAtomicAnywhere(view)).toBe(false);
+    });
+
+    it("a URL nested inside an explicit Link is not double-decorated — Link's own renderer owns it exclusively", () => {
+      // Padded: a construct starting at document position 0 would
+      // otherwise sit on the pre-existing default-(0,0)-selection edge
+      // case (documented above under "known, deferred limitation") and
+      // load engaged, defeating the at-rest assertion below.
+      const view = mountView('x [Google](https://google.com) y');
+      // Exactly one tok-link element for the whole construct — not a
+      // second, nested one from the URL participant independently firing
+      // on the same child node.
+      expect(view.dom.querySelectorAll('.tok-link').length).toBe(1);
+    });
+
+    it("a URL nested inside an Autolink is not double-decorated — Autolink's own delimitedInlineRenderer owns it exclusively", () => {
+      const view = mountView('x <https://example.com> y');
+      expect(view.dom.querySelectorAll('.tok-link').length).toBe(1);
+    });
+
+    it('the underlying document never changes as it renders', () => {
+      const text = 'before https://example.com after';
+      const view = mountView(text);
+
+      expect(view.state.doc.toString()).toBe(text);
+      view.dispatch({ selection: { anchor: 10 } });
+      expect(view.state.doc.toString()).toBe(text);
     });
   });
 

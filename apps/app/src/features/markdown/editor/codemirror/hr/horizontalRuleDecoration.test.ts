@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-import { markdownHighlighting } from '../highlight/markdownHighlightStyle';
 import { createInlineLivePreviewParticipants } from '../highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
@@ -17,7 +16,7 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
   const state = EditorState.create({
     doc,
     selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
-    extensions: [markdownLanguageExtension(), markdownHighlighting(), horizontalRuleDecoration()],
+    extensions: [markdownLanguageExtension(), horizontalRuleDecoration()],
   });
   return new EditorView({ state, parent });
 }

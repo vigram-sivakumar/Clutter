@@ -557,3 +557,80 @@ describe('wikiLinkLivePreview', () => {
     });
   });
 });
+
+// =====================================================================
+// Regression: a WikiLink whose `[[`/`]]` land on different physical lines
+// of the same lazy-continuation paragraph must never produce a decoration
+// that crosses the line break. wikiLinkLivePreview renders WikiLink via a
+// ViewPlugin, and CM6 throws "Decorations that replace line breaks may
+// not be specified via plugins" for any ViewPlugin-sourced
+// Decoration.replace() whose range crosses a line — see
+// docs/editor-architecture-decisions.md and the investigation that traced
+// this crash. Mounting a real EditorView here (not just checking the
+// syntax tree) is deliberate: it's the actual code path that threw.
+// =====================================================================
+// CM6 renders each document line as its own DOM block (`.cm-line`); the
+// browser's `textContent` does not insert a `\n` between them, so
+// multi-line assertions here compare per-line text rather than the whole
+// `view.dom.textContent` blob. A leading/trailing word around a WikiLink
+// keeps its node away from doc position 0, where CM6's default (0,0)
+// selection would otherwise engage it (see the existing "bare WikiLink"
+// tests above), so the widget-rendering assertions reflect the at-rest
+// case they intend to test.
+function lineTexts(view: EditorView): string[] {
+  return Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line')).map((line) => line.textContent ?? '');
+}
+
+describe('wikiLinkLivePreview — cross-line WikiLink never crashes the view', () => {
+  it('a single-line WikiLink still renders as a widget', () => {
+    const view = mountView('before [[Some Page]] after', resolvedAs('Some Page'));
+    expect(view.dom.textContent).toBe('before Some Page after');
+  });
+
+  it('a single-line WikiLink with spaces in the path still renders as a widget', () => {
+    const view = mountView('before [[Some Page Name]] after', resolvedAs('Some Page Name'));
+    expect(view.dom.textContent).toBe('before Some Page Name after');
+  });
+
+  it('a WikiLink split across a physical newline does not mount as a widget — it stays raw text', () => {
+    expect(() => {
+      const view = mountView('See [[Some Page\nName]] for details.', resolvedAs('should never render'));
+      expect(lineTexts(view)).toEqual(['See [[Some Page', 'Name]] for details.']);
+      expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
+    }).not.toThrow();
+  });
+
+  it('text after the newline following an unclosed [[ is not incorrectly claimed across the line break', () => {
+    expect(() => {
+      const view = mountView('[[Unclosed\nSecond line stays plain text.', resolvedAs('should never render'));
+      expect(lineTexts(view)).toEqual(['[[Unclosed', 'Second line stays plain text.']);
+      expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
+    }).not.toThrow();
+  });
+
+  it('two independent single-line WikiLinks on separate lines both still render', () => {
+    const doc = 'a [[Page One]]\nb [[Page Two]]';
+    // Selection at position 0, away from either node's boundary, so
+    // neither engages — the default (0,0) caret only matters when a
+    // WikiLink node itself starts at position 0 (see the "bare WikiLink"
+    // test above), which isn't the case here.
+    const view = mountView(doc, (path) => ({
+      status: 'resolved',
+      displayLabel: path,
+      activate: () => {},
+    }));
+    expect(lineTexts(view)).toEqual(['a Page One', 'b Page Two']);
+  });
+
+  it('an ordinary multiline paragraph with unrelated text and no WikiLink parses normally', () => {
+    const doc = 'This is a normal\nmultiline paragraph with no\nwikilinks at all.';
+    const view = mountView(doc, resolvedAs('should never render'));
+    expect(lineTexts(view)).toEqual(doc.split('\n'));
+    expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
+  });
+
+  it('the originally crashing note (a cross-line WikiLink among other content) opens without throwing', () => {
+    const doc = 'Intro paragraph.\n\nSee [[Some Page\nName]] for details.\n\nTrailing paragraph.';
+    expect(() => mountView(doc, resolvedAs('should never render'))).not.toThrow();
+  });
+});

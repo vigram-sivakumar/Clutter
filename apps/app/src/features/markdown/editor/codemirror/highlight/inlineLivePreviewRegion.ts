@@ -13,6 +13,53 @@ import { isTokenEngaged } from '../semanticToken/tokenEngagement';
 import type { ParticipantRenderer } from './inlineLivePreviewParticipants';
 
 /**
+ * Heading content classing (`tok-heading1`-`tok-heading6`), folded into
+ * this shared decoration source per docs/editor-architecture-decisions.md's
+ * "Heading content classing moved into the shared decoration source"
+ * correction entry. Previously a second, independent `syntaxHighlighting()`
+ * extension (`headingHighlighting()`) — which composed *incorrectly*
+ * whenever a heading's inline content also contained a participant from
+ * this shared set (Highlight, Emphasis, Link, ...): two independent
+ * decoration sources targeting overlapping ranges split/nest by
+ * registration precedence rather than merging, confirmed empirically to
+ * produce `<span class="tok-highlight"><span class="tok-heading1">` instead
+ * of one correctly-nested composition.
+ *
+ * Deliberately **not** a `participants` map entry: that contract's
+ * engagement short-circuit (`isTokenEngaged` on the node's own range →
+ * `return false`, stop descending, nothing inside decorates) is for
+ * reveal-on-engage marker-hiding constructs. Heading content is never
+ * concealed — only the marker is, via `headingMarkerDecoration.ts`'s own
+ * independent, line-scoped mechanism, left entirely unchanged here.
+ * Registering headings as participants would make the *entire* heading,
+ * including any nested Highlight/Bold/Link inside it, stop decorating and
+ * stop independently engaging the moment the cursor is anywhere on that
+ * line — confirmed by prototyping that exact mistake before rejecting it.
+ * So this stays a small unconditional branch that always emits the class
+ * and always keeps descending, letting nested participants engage exactly
+ * as before this existed.
+ *
+ * Range: the full node range (marker included), matching prior
+ * `headingHighlighting()` behavior exactly, including the "revealed marker
+ * renders at heading size" artifact — not a scope this change tries to fix.
+ * `inclusiveStart`/`inclusiveEnd: true` for the same reason every other
+ * wrapping participant in this file needs it: a heading whose entire
+ * content is one other participant (`# [[Page]]`, `# ==Heading==`) has an
+ * exactly-coincident range with that participant's own decoration, and
+ * without the inclusive flags CM6 splits instead of nesting them.
+ */
+const HEADING_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
+  ['ATXHeading1', 'tok-heading1'],
+  ['ATXHeading2', 'tok-heading2'],
+  ['ATXHeading3', 'tok-heading3'],
+  ['ATXHeading4', 'tok-heading4'],
+  ['ATXHeading5', 'tok-heading5'],
+  ['ATXHeading6', 'tok-heading6'],
+  ['SetextHeading1', 'tok-heading1'],
+  ['SetextHeading2', 'tok-heading2'],
+]);
+
+/**
  * The single authoritative mechanism for resolving inline Live Preview
  * visibility, per the Inline Live Preview Region ODR
  * (docs/editor-research/inline-live-preview-region-odr-v1.md). Supersedes
@@ -109,6 +156,24 @@ function buildDecorations(
       from,
       to,
       enter: (node) => {
+        const headingClass = HEADING_CLASS_BY_NODE_NAME.get(node.name);
+        if (headingClass) {
+          if (node.from < node.to) {
+            ranges.push(
+              Decoration.mark({
+                class: headingClass,
+                inclusiveStart: true,
+                inclusiveEnd: true,
+              }).range(node.from, node.to)
+            );
+          }
+          // Not a reveal-on-engage participant — always keep descending,
+          // regardless of selection, so nested participants (Highlight,
+          // Emphasis, Link, ...) are still visited and independently
+          // engaged exactly as before this branch existed.
+          return;
+        }
+
         const render = participants.get(node.name);
         if (!render) {
           // Not a participant — transparent to this mechanism. Keep

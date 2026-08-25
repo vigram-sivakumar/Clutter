@@ -102,6 +102,15 @@ function widenToEnclosingLivePreviewRegion(node: SyntaxNodeRef): TokenNodeRange 
  * this file's own tree scan instead of the shared traversal's.
  */
 function buildEngagedDecorations(node: SyntaxNodeRef, state: EditorState): Range<Decoration>[] {
+  if (node.to > state.doc.lineAt(node.from).to) {
+    // The scanner (wikiLinkScanner.ts) never emits a WikiLink node crossing
+    // a physical line break, but this guards the CM6 invariant directly —
+    // a Decoration.replace() spanning a line break from this ViewPlugin
+    // would throw "Decorations that replace line breaks may not be
+    // specified via plugins". Leave the text undecorated rather than crash.
+    return [];
+  }
+
   const raw = state.sliceDoc(node.from, node.to);
   if (!scanWikiLink(raw, 0)) {
     // Stale tree — next reparse corrects it, same as the at-rest branch.
@@ -138,6 +147,13 @@ function buildDecorations(
       to,
       enter: (node) => {
         if (node.name !== 'WikiLink') {
+          return;
+        }
+
+        if (node.to > view.state.doc.lineAt(node.from).to) {
+          // See the identical guard in buildEngagedDecorations above — the
+          // scanner already prevents this, this is belt-and-suspenders
+          // against the CM6 line-break-replace invariant.
           return;
         }
 

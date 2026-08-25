@@ -5,7 +5,6 @@ import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { headingMarkerDecoration } from './headingMarkerDecoration';
-import { markdownHighlighting } from './markdownHighlightStyle';
 
 /**
  * Mirrors emphasisMarkerDecoration.test.ts. Node-granularity engagement
@@ -28,7 +27,7 @@ function mountView(doc: string, initialAnchor: number | null = null): EditorView
   const state = EditorState.create({
     doc,
     selection: initialAnchor === null ? undefined : { anchor: initialAnchor },
-    extensions: [markdownLanguageExtension(), markdownHighlighting(), headingMarkerDecoration()],
+    extensions: [markdownLanguageExtension(), headingMarkerDecoration()],
   });
   return new EditorView({ state, parent });
 }

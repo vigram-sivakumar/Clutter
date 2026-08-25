@@ -44,7 +44,10 @@
  */
 .cm-editor .tok-heading1,
 .cm-editor .tok-heading2,
-.cm-editor .tok-heading3 {
+.cm-editor .tok-heading3,
+.cm-editor .tok-heading4,
+.cm-editor .tok-heading5,
+.cm-editor .tok-heading6 {
   font-weight: 700;
   color: var(--foreground-primary);
 }
@@ -64,23 +67,19 @@
   line-height: var(--lh-heading-3);
 }
 
-.cm-editor .tok-heading4,
-.cm-editor .tok-heading5,
-.cm-editor .tok-heading6 {
-  font-size: var(--text-body);
-  color: var(--foreground-primary);
-}
-
 .cm-editor .tok-heading4 {
-  font-weight: 700;
+  font-size: var(--text-heading-4);
+  line-height: var(--lh-heading-4);
 }
 
 .cm-editor .tok-heading5 {
-  font-weight: 600;
+  font-size: var(--text-heading-5);
+  line-height: var(--lh-heading-5);
 }
 
 .cm-editor .tok-heading6 {
-  font-weight: 500;
+  font-size: var(--text-heading-6);
+  line-height: var(--lh-heading-6);
 }
 
 /*
@@ -112,7 +111,6 @@
 
 .cm-editor .tok-highlight {
   background: var(--highlight-surface);
-  color: var(--highlight-foreground);
   box-shadow: var(--highlight-shadow);
 }
 
@@ -485,14 +483,16 @@
   cursor: pointer;
 }
 
-/* Markdown [label](url) — label only, no click activation yet (separate,
-   unbuilt scope), so no cursor: pointer unlike tok-wikilink/tok-tag. */
+/* Markdown [label](url), bare URL, and Autolink — click activates/navigates
+   (link/linkMouseHandlers.ts, link/urlMouseHandlers.ts), so cursor: pointer
+   like tok-wikilink/tok-tag. */
 .cm-editor .tok-link {
   color: var(--link-foreground);
   text-decoration: underline;
   text-decoration-thickness: 0.05em;
   text-decoration-color: var(--link-underline);
   text-underline-offset: 10%;
+  cursor: pointer;
 }
 .tok-wikilink[data-wikilink-status='unresolved'] {
   opacity: var(--opacity-medium);

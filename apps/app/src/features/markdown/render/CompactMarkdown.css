@@ -40,7 +40,6 @@
 
 .compact-markdown-highlight {
   background: var(--highlight-surface);
-  color: var(--highlight-foreground);
   padding: 0 0.15em;
 }
 

@@ -15,13 +15,19 @@ import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 // import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
 // import { emphasisMarkerDecoration } from './codemirror/highlight/emphasisMarkerDecoration';
+import { headingMarkerDecoration } from './codemirror/highlight/headingMarkerDecoration';
 import { createInlineLivePreviewParticipants } from './codemirror/highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePreviewRegion';
+import { linkMouseHandlers } from './codemirror/link/linkMouseHandlers';
+import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 // The liveMarkDecoration-based marker decorations still dormant here
-// (emphasis, strikethrough — plus heading/blockquote/list, which stay
-// on liveMarkDecoration permanently per ODR §4.10) carry the
-// still-undecided liveMarkSelectionSnap transactionFilter. Highlight,
+// (emphasis, strikethrough — plus blockquote/list, which stay on
+// liveMarkDecoration permanently per ODR §4.10) carry the
+// still-undecided liveMarkSelectionSnap transactionFilter. Heading is
+// wired below (re-enabled alongside horizontalRuleDecoration) — its
+// liveMarkSelectionSnap wiring comes bundled from the same
+// liveMarkDecoration() factory call, unchanged. Highlight,
 // InlineCode, Tag, and Date's own liveMarkDecoration/
 // semanticTokenDecorations-based modules were retired outright (not left
 // dormant) once inlineLivePreviewRegion() took over their inline
@@ -204,6 +210,13 @@ export const MarkdownEditor = forwardRef<
         // listIndentWhitespaceDecoration(),
         // emojiListMarkDecoration(),
         // blockquoteMarkerDecoration(),
+        headingMarkerDecoration(),
+        // tok-heading1-6 content classing is now emitted directly by
+        // inlineLivePreviewRegion() above (see its own doc comment) —
+        // folded into the same shared decoration source rather than a
+        // second, independent syntaxHighlighting() extension, so it
+        // composes correctly with Highlight/Emphasis/Link/etc. nested
+        // inside a heading. No separate registration needed here.
         horizontalRuleDecoration(),
         formatShortcutsKeymap(),
         // tableDecoration(),
@@ -235,6 +248,12 @@ export const MarkdownEditor = forwardRef<
         wikiLinkAutocomplete(),
         tagMouseHandlers(() => resolveTagRef.current),
         dateMouseHandlers(() => resolveDateRef.current),
+        // Explicit Markdown Link ([label](url)) and bare-URL/Autolink
+        // click-to-navigate — no injected resolver needed (unlike
+        // WikiLink/Tag/Date), since opening a URL has no Vault/app-layer
+        // dependency. See link/linkActivation.ts and link/urlActivation.ts.
+        linkMouseHandlers(),
+        urlMouseHandlers(),
         semanticCompletion(
           () => getWikiLinkSuggestionsRef.current,
           () => getTagSuggestionsRef.current

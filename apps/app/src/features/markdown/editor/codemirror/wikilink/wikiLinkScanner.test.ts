@@ -120,6 +120,27 @@ describe('scanWikiLink — all-or-nothing: malformed input never produces a part
   });
 });
 
+describe('scanWikiLink — never crosses a physical line break', () => {
+  // @lezer/markdown joins a lazy-continuation paragraph's lines with a
+  // literal `\n` before inline-parsing it, so scanWikiLink can be handed
+  // text containing one even though `\n` never appears in the *editor's*
+  // own single-line content model. A cross-line WikiLink node would
+  // reach wikiLinkLivePreview.ts's ViewPlugin-sourced Decoration.replace()
+  // and CM6 throws "Decorations that replace line breaks may not be
+  // specified via plugins" for that — see docs/editor-architecture-decisions.md.
+  it('a `[[` left unclosed by a newline before the `]]` is not matched — the whole thing is invalid, same as any other unterminated match', () => {
+    expect(scanWikiLink('[[Some Page\nName]]', 0)).toBeNull();
+  });
+
+  it('an alias split by a newline is likewise not matched', () => {
+    expect(scanWikiLink('[[Page|Alias\nText]]', 0)).toBeNull();
+  });
+
+  it('a newline before any closer at all is not matched', () => {
+    expect(scanWikiLink('[[Some Page\n', 0)).toBeNull();
+  });
+});
+
 describe('scanWikiLink — rejects non-WikiLink input outright', () => {
   it('returns null for a single bracket', () => {
     expect(scanWikiLink('[text](url)', 0)).toBeNull();

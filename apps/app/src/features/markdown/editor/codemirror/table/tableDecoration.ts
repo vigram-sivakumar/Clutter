@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import type { EditorState, Extension } from '@codemirror/state';
+import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
@@ -51,6 +51,22 @@ const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>>
   right: 'cm-table-align-right',
 };
 
+/**
+ * `inclusiveStart`/`inclusiveEnd: true` — required so this mark correctly
+ * wraps a nested shared-set participant (Emphasis/Strong/Highlight/Link/...
+ * via `inlineLivePreviewRegion`, or a widget-replace token via
+ * `wikiLinkLivePreview`/Tag/Date) whose range exactly fills a cell's
+ * content, e.g. `| **Bold** |`. Same reasoning, same fix as every other
+ * wrapping participant in this codebase — see
+ * `inlineLivePreviewParticipants.ts`'s `delimitedInlineRenderer` and
+ * docs/editor-architecture-decisions.md's "Shared DecorationSet vs
+ * independent CM6 extensions" section. Confirmed empirically necessary:
+ * without these flags plus `Prec.highest` on the extension below, `|
+ * **Bold** |` produced `<span class="tok-strong"><span
+ * class="cm-table-cell">Bold</span></span>` (inverted nesting — the cell
+ * class lost its own outer wrapper) and `| [[Page]] |` dropped
+ * `cm-table-cell` entirely.
+ */
 function cellClass(alignment: TableColumnAlignment): string {
   return alignment ? `cm-table-cell ${ALIGN_CLASS[alignment]}` : 'cm-table-cell';
 }
@@ -102,7 +118,15 @@ function decorateRow(row: SyntaxNode, alignment: readonly TableColumnAlignment[]
       continue;
     }
     if (child.name === 'TableCell' && child.to > child.from) {
-      items.push({ from: child.from, to: child.to, deco: Decoration.mark({ class: cellClass(alignment[columnIndex] ?? null) }) });
+      items.push({
+        from: child.from,
+        to: child.to,
+        deco: Decoration.mark({
+          class: cellClass(alignment[columnIndex] ?? null),
+          inclusiveStart: true,
+          inclusiveEnd: true,
+        }),
+      });
     }
   }
 }
@@ -175,8 +199,25 @@ interface TableDecorationPlugin extends PluginValue {
   decorations: DecorationSet;
 }
 
+/**
+ * `Prec.lowest`: `TableCell`'s mark is an independent decoration source
+ * from `inlineLivePreviewRegion`'s shared set and from `wikiLinkLivePreview`
+ * (`Prec.high`) — self-contained precedence, not dependent on where
+ * `MarkdownEditor.tsx` happens to list this extension relative to those.
+ * Confirmed empirically (not assumed) which direction is correct: CM6's
+ * decoration nesting puts the *lower*-precedence source as the outer
+ * wrapper and the *higher*-precedence source inner — the reverse of the
+ * intuitive reading of "precedence." This is exactly why
+ * `**[[Page]]**` nests as `tok-strong > tok-wikilink`: `inlineLivePreviewRegion`
+ * (default precedence) is outer, `wikiLinkLivePreview` (`Prec.high`) is
+ * inner. `Prec.lowest` here (not `Prec.default`) so `TableCell` reliably
+ * stays outer regardless of the shared set's own default precedence and
+ * regardless of registration order — verified against `| **Bold** |`,
+ * `| ==highlight== |`, and `| [[Page]] |` all producing `cm-table-cell` as
+ * the outermost span.
+ */
 export function tableDecoration(): Extension {
-  return ViewPlugin.fromClass<TableDecorationPlugin>(
+  const plugin = ViewPlugin.fromClass<TableDecorationPlugin>(
     class implements TableDecorationPlugin {
       decorations: DecorationSet;
 
@@ -194,4 +235,6 @@ export function tableDecoration(): Extension {
       decorations: (p) => p.decorations,
     }
   );
+
+  return Prec.lowest(plugin);
 }

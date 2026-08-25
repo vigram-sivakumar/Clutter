@@ -12,15 +12,14 @@ import {
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
-// TEMPORARILY DISABLED — Live Preview rendering, unwired for the
-// keyboard-behavior-only editor configuration (see MarkdownEditor.tsx).
-// headingMarkerDecoration() is purely visual (hide/reveal via
-// liveMarkDecoration, no keymap/atomicRanges/transactionFilter of its
-// own); markdownHighlighting() is the syntax-highlighting HighlightStyle
-// (CSS classes only, no DOM restructuring, but still visual styling).
-// Neither deleted nor rewritten — uncomment both to restore.
-// import { headingMarkerDecoration } from './highlight/headingMarkerDecoration';
-// import { markdownHighlighting } from './highlight/markdownHighlightStyle';
+// `headingMarkerDecoration()` is wired for real now, via `MarkdownEditor.tsx`'s
+// own extension list, not here. `markdownHighlighting()`/`markdownHighlightStyle`
+// (the stale commented-out import that used to sit here) was retired
+// outright — per docs/editor-architecture-decisions.md's "markdownHighlighting()
+// retired" entry, every tag it mapped (heading1-6, emphasis, strong,
+// strikethrough, highlight, monospace) already had a dedicated Live Preview
+// decoration owner, making it a standing duplicate-ownership risk with no
+// safe remaining purpose, not a harmless dormant extension.
 
 /**
  * Marks a dispatched transaction as an external prop sync rather than user
@@ -41,19 +40,19 @@ export interface CreateEditorViewOptions {
 /**
  * Constructs and mounts a CM6 `EditorView`. No Markdown language or
  * semantic-token behavior — this is the plain-text CM6 foundation other
- * modules build on incrementally. `markdownHighlighting()` and
- * `highlightActiveLine()` are the exceptions, wired here rather than
- * left to each caller's own extension list, matching `editorTheme()`'s
- * precedent: all three are baseline visual wiring applicable regardless
- * of which Markdown grammar extensions (`markdownLanguageExtension()` et
- * al.) a caller passes in via `extensions`, not feature behavior of
- * their own. `highlightActiveLine()` is CM6's own built-in extension
+ * modules build on incrementally. `editorTheme()` and `highlightActiveLine()`
+ * are the exceptions, wired here rather than left to each caller's own
+ * extension list: baseline visual wiring applicable regardless of which
+ * Markdown grammar extensions (`markdownLanguageExtension()` et al.) a
+ * caller passes in via `extensions`, not feature behavior of their own.
+ * `highlightActiveLine()` is CM6's own built-in extension
  * (`@codemirror/view`) — it only adds a `cm-activeLine` class for the
  * active-line background highlight (`editorTheme.ts`); heading Live
- * Preview hide/reveal no longer depends on it (`headingMarkerDecoration()`
- * uses selection-containment engagement instead, matching every other
- * Markdown construct — see `highlight/liveMarkDecoration.ts`'s doc
- * comment for why line-granularity CSS hiding was replaced).
+ * Preview hide/reveal no longer depends on it (`headingMarkerDecoration()`,
+ * wired by `MarkdownEditor.tsx`, uses selection-containment engagement
+ * instead, matching every other Markdown construct — see
+ * `highlight/liveMarkDecoration.ts`'s doc comment for why line-granularity
+ * CSS hiding was replaced).
  */
 export function createEditorView(options: CreateEditorViewOptions): EditorView {
   const { doc, parent, extensions = [], onDocChange, onBlur } = options;
@@ -91,11 +90,10 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // editorTheme() and highlightActiveLine() are kept: baseline editor
       // chrome (caret color, active-line background), not Markdown-specific
       // Live Preview decoration — neither restructures the DOM around a
-      // construct the way markdownHighlighting()/headingMarkerDecoration()
-      // do, and disabling them would just make the editor hard to see.
+      // construct the way headingMarkerDecoration() (wired in
+      // MarkdownEditor.tsx, not here) does, and disabling them would just
+      // make the editor hard to see.
       editorTheme(),
-      // markdownHighlighting(),
-      // headingMarkerDecoration(),
       highlightActiveLine(),
       // Current rendering baseline: CM6 draws its own cursor/selection
       // instead of relying on WKWebView's native contenteditable caret,
