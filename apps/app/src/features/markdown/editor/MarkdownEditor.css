@@ -35,6 +35,11 @@
 .markdown__editor .cm-line {
   padding: 0;
 }
+.cm-indent {
+  display: inline-block;
+  width: 20px;
+  box-sizing: border-box;
+}
 
 /*
  * Heading highlighting PoC (markdownHighlightStyle.ts). Scoped to
