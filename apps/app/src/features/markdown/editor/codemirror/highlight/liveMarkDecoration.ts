@@ -156,6 +156,49 @@ export function isConstructEngaged(
   return isPhysicalLineEngaged(state, getMarkRanges(node, state));
 }
 
+/**
+ * Per-mark engagement — the fix for a real cross-physical-line leak found
+ * in `'physical-line'` mode (2026-08-26): `isConstructEngaged` decides
+ * engagement once for a *whole node's* mark set, then every caller applied
+ * that single boolean to every mark in the set uniformly. That's correct
+ * for `'node-range'`/function modes, where a node's own marks are always
+ * confined to one physical line by construction (an ATX `HeaderMark`, an
+ * inline emphasis delimiter — CommonMark doesn't let those span a real
+ * newline). It's wrong for blockquote: a `Blockquote` node's *own*
+ * `getMarkRanges` can legitimately span multiple physical lines, because
+ * CommonMark's lazy continuation nests a later line's `QuoteMark` one
+ * level inside the same `Paragraph` an earlier line's own direct-child
+ * `QuoteMark` also belongs to (confirmed directly against the parser —
+ * see `blockquoteMarkerDecoration.ts`'s doc comment). Engaging the node
+ * because the cursor sits on *one* of those lines revealed *every* mark
+ * in the set, including ones on a different, uninvolved physical line —
+ * observed concretely: caret on `>> Man` (the third line of `> hey\n>>
+ * come on\n>> Man`) revealed the `>>` on the `>> come on` line above it,
+ * because both lines' `QuoteMark`s are collected into the same inner
+ * `Blockquote` node's mark set.
+ *
+ * The fix: for `'physical-line'` mode, ask whether *this one mark*
+ * (`isPhysicalLineEngaged` given a single-element array) sits on the
+ * selection's line — not whether *any* mark belonging to the same node
+ * does. `'node-range'` and function modes are unchanged, byte-for-byte:
+ * they still ask the node-level question via `isConstructEngaged`
+ * (which doesn't depend on `mark` at all), so heading/emphasis behavior
+ * is untouched.
+ */
+export function isMarkEngaged(
+  state: EditorState,
+  node: SyntaxNodeRef,
+  getMarkRanges: MarkRangeSelector,
+  mode: MarkEngagementMode,
+  mark: TokenNodeRange
+): boolean {
+  if (mode === 'physical-line') {
+    return isPhysicalLineEngaged(state, [mark]);
+  }
+
+  return isConstructEngaged(state, node, getMarkRanges, mode);
+}
+
 function buildDecorations(
   view: EditorView,
   isConstructNode: TokenNodePredicate,
@@ -173,11 +216,13 @@ function buildDecorations(
           return;
         }
 
-        if (isConstructEngaged(view.state, node, getMarkRanges, engagementMode)) {
-          return;
-        }
+        for (const mark of getMarkRanges(node, view.state)) {
+          if (isMarkEngaged(view.state, node, getMarkRanges, engagementMode, mark)) {
+            continue;
+          }
 
-        collapsed.push(...getMarkRanges(node, view.state));
+          collapsed.push(mark);
+        }
       },
     });
   }

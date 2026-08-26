@@ -56,13 +56,79 @@ describe('blockquoteMarkerDecoration', () => {
     expect(view.dom.textContent).toContain('line two');
   });
 
-  it('multi-line quote engages as one construct: cursor anywhere inside reveals every line\'s marker', () => {
+  it('multi-line quote engagement is strictly per physical line: cursor on line two reveals ONLY line two\'s marker, not line one\'s (fixed 2026-08-26 — was previously a same-construct-wide leak)', () => {
     const text = '> line one\n> line two';
     const lineTwoStart = text.indexOf('line two');
     const view = mountView(text, lineTwoStart + 2); // inside "line two"
 
-    expect(view.dom.textContent).toContain('> line one');
-    expect(view.dom.textContent).toContain('> line two');
+    expect(view.dom.textContent).toBe('line one> line two');
+  });
+
+  it('the reverse: cursor on line one reveals ONLY line one\'s marker, not line two\'s', () => {
+    const text = '> line one\n> line two';
+    const view = mountView(text, 2); // inside "line one"
+
+    expect(view.dom.textContent).toBe('> line oneline two');
+  });
+
+  describe('nested-depth cross-line leak (the reported bug)', () => {
+    // "> hey\n>> come on\n>> Man": line 2's second ">" and line 3's two ">"
+    // all end up in the *same* inner Blockquote node's own mark set
+    // (CommonMark lazy continuation nests line 3's markers one level into
+    // the Paragraph line 2's own direct QuoteMark also belongs to — see
+    // liveMarkDecoration.ts's isMarkEngaged doc comment for the full tree).
+    // Engaging that whole node used to reveal every mark in the set
+    // regardless of which physical line the cursor was actually on.
+    const text = '> hey\n>> come on\n>> Man';
+
+    it('cursor on "> hey": only line 1\'s marker reveals', () => {
+      const view = mountView(text, text.indexOf('hey'));
+
+      expect(view.dom.textContent).toBe('> heycome onMan');
+    });
+
+    it('cursor on ">> come on": only line 2\'s markers reveal, not line 1\'s or line 3\'s', () => {
+      const view = mountView(text, text.indexOf('come on'));
+
+      expect(view.dom.textContent).toBe('hey>> come onMan');
+    });
+
+    it('cursor on ">> Man": only line 3\'s markers reveal, not line 2\'s (the exact reported symptom)', () => {
+      const view = mountView(text, text.indexOf('Man'));
+
+      expect(view.dom.textContent).toBe('heycome on>> Man');
+    });
+
+    it('moving the caret 1 -> 2 -> 3 -> 2 -> 1 always reveals exactly the current line', () => {
+      const view = mountView(text, text.indexOf('hey'));
+      expect(view.dom.textContent).toBe('> heycome onMan');
+
+      view.dispatch({ selection: { anchor: text.indexOf('come on') } });
+      expect(view.dom.textContent).toBe('hey>> come onMan');
+
+      view.dispatch({ selection: { anchor: text.indexOf('Man') } });
+      expect(view.dom.textContent).toBe('heycome on>> Man');
+
+      view.dispatch({ selection: { anchor: text.indexOf('come on') } });
+      expect(view.dom.textContent).toBe('hey>> come onMan');
+
+      view.dispatch({ selection: { anchor: text.indexOf('hey') } });
+      expect(view.dom.textContent).toBe('> heycome onMan');
+    });
+
+    it('>>> nested three deep: engaging one line never reveals a sibling line\'s markers', () => {
+      const deep = '> one\n>> two\n>>> three';
+      const view = mountView(deep, deep.indexOf('two'));
+
+      expect(view.dom.textContent).toBe('one>> twothree');
+    });
+  });
+
+  it('genuinely separate blockquotes (blank-line separated) never leak into each other', () => {
+    const text = '> first\n\n> second';
+    const view = mountView(text, text.indexOf('first'));
+
+    expect(view.dom.textContent).toBe('> firstsecond');
   });
 
   it('lazy continuation (no ">" on the second physical line) needs no decoration and is unaffected', () => {

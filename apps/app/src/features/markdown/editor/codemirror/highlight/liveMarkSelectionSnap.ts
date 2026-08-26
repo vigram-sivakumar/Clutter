@@ -6,7 +6,7 @@ import {
   type TokenNodePredicate,
   type TokenNodeRange,
 } from '../semanticToken/tokenEngagement';
-import { isConstructEngaged, type MarkEngagementMode, type MarkRangeSelector } from './liveMarkDecoration';
+import { isMarkEngaged, type MarkEngagementMode, type MarkRangeSelector } from './liveMarkDecoration';
 
 /**
  * Fixes the one gap `liveMarkDecoration.ts`'s empty `Decoration.replace({})`
@@ -101,11 +101,12 @@ function snapPosition(
     }
 
     const range: TokenNodeRange = { from: node.from, to: node.to };
-    if (isConstructEngaged(state, node, getMarkRanges, engagementMode)) {
-      continue;
-    }
 
     for (const mark of getMarkRanges(node, state)) {
+      if (isMarkEngaged(state, node, getMarkRanges, engagementMode, mark)) {
+        continue;
+      }
+
       if (candidate < mark.from || candidate > mark.to) {
         continue;
       }
