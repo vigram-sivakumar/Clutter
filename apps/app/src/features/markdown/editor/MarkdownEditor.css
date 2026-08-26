@@ -226,7 +226,7 @@
  */
 .cm-editor .cm-quote-line {
   position: relative;
-  padding-inline-start: var(--space-16);
+  padding-inline-start: var(--space-12);
 }
 
 .cm-editor .cm-quote-line::before {
@@ -655,26 +655,4 @@
 
 .cm-editor.cm-focused .cm-cursor {
   border-left-color: var(--foreground-primary);
-}
-
-/*
- * Generic paragraph leading-indentation (leadingIndentDecoration.ts) — one
- * empty widget per replaced leading-whitespace character, so its own
- * `width` is the *sole* visual contributor for that column (the original
- * character no longer renders at all once replaced — no double-counted
- * width to guard against). `1ch` — an approximation of one character's
- * width in the current font, not a font-metric measurement — deliberately
- * kept this simple per this pass's own scope; Clutter's editor uses a
- * proportional font (`--font-sans`, see `.cm-content` above), so `1ch`
- * won't be pixel-exact for every glyph, but no more precise mechanism
- * (JS-measured character width, tab-stop arithmetic) is needed yet. No
- * `text-indent`/`padding-inline-start` hanging-indent here — unlike
- * `.cm-list-line`/`.cm-quote-line`, nothing about this decoration
- * repositions content, so wrapped continuation rows need no special
- * handling: the widgets simply occupy their own inline width at the
- * start of the line, exactly where the replaced characters used to.
- */
-.cm-editor .cm-indent {
-  display: inline-block;
-  width: 1ch;
 }
