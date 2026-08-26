@@ -19,6 +19,7 @@ import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMar
 import { headingMarkerDecoration } from './codemirror/highlight/headingMarkerDecoration';
 import { createInlineLivePreviewParticipants } from './codemirror/highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePreviewRegion';
+import { leadingIndentDecoration } from './codemirror/highlight/leadingIndentDecoration';
 import { linkMouseHandlers } from './codemirror/link/linkMouseHandlers';
 import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
@@ -220,6 +221,7 @@ export const MarkdownEditor = forwardRef<
         // composes correctly with Highlight/Emphasis/Link/etc. nested
         // inside a heading. No separate registration needed here.
         horizontalRuleDecoration(),
+        leadingIndentDecoration(),
         formatShortcutsKeymap(),
         // tableDecoration(),
         // --- end purely-visual decorations ---
