@@ -25,19 +25,19 @@ import {
  * spaces), this decoration follows automatically — it re-reads the facet
  * on every rebuild rather than assuming any fixed width.
  *
- * Remainder handling, decided explicitly: groups are formed left to
- * right; a leftover run shorter than a full unit (e.g. 3 leading spaces
- * with a 2-character unit — one full 2-character group plus a 1-character
- * remainder) still gets its own `.cm-indent` span, sized to whatever is
- * actually left. Every leading whitespace character ends up inside some
- * `.cm-indent` span — none are ever left unwrapped — chunking is purely
- * left-to-right because that direction doesn't require knowing the run's
- * total length up front. This is a raw-character-count grouping
- * (`unit.length`), not a `tabSize`-aware column computation — Clutter's
- * current `indentUnit` contains no tabs, so this is the direct, literal
- * reading of "one unit's worth of characters"; a leading run that itself
- * mixes tabs and spaces is a separate question this decoration does not
- * yet address.
+ * Remainder handling, decided explicitly: only *complete* `indentUnit`
+ * groups count as indentation. Groups are formed left to right; a
+ * leftover run shorter than a full unit (e.g. the 3rd space of 3 leading
+ * spaces, with a 2-character unit) is **not** wrapped at all — it stays
+ * ordinary text, part of the normal flow immediately after the last
+ * complete group. So 3 leading spaces produce exactly one 2-character
+ * `.cm-indent` span followed by one plain, undecorated space; 5 produce
+ * two 2-character spans followed by one plain space. This is a
+ * raw-character-count grouping (`unit.length`), not a `tabSize`-aware
+ * column computation — Clutter's current `indentUnit` contains no tabs,
+ * so this is the direct, literal reading of "one unit's worth of
+ * characters"; a leading run that itself mixes tabs and spaces is a
+ * separate question this decoration does not yet address.
  *
  * Otherwise unchanged from the per-character version this replaces:
  * - No syntax-tree lookup, no construct/ancestor check — the Markdown
@@ -75,9 +75,10 @@ function buildDecorations(view: EditorView): DecorationSet {
       const line = view.state.doc.lineAt(pos);
       const leadingLength = leadingWhitespaceLength(line.text);
 
-      for (let groupStart = 0; groupStart < leadingLength; groupStart += unitLength) {
-        const groupEnd = Math.min(groupStart + unitLength, leadingLength);
-        builder.add(line.from + groupStart, line.from + groupEnd, INDENT_MARK);
+      const completeUnits = Math.floor(leadingLength / unitLength);
+      for (let unitIndex = 0; unitIndex < completeUnits; unitIndex++) {
+        const groupStart = unitIndex * unitLength;
+        builder.add(line.from + groupStart, line.from + groupStart + unitLength, INDENT_MARK);
       }
 
       pos = line.to + 1;

@@ -39,12 +39,11 @@ describe('leadingIndentDecoration (grouped by the current indentUnit facet)', ()
     expect(view.state.doc.toString()).toBe('hello');
   });
 
-  it('1. " hello" (1 space, less than one full unit) -> 1 span, sized to the remainder', () => {
+  it('1. " hello" (1 space, less than one full unit) -> 0 spans, the space stays ordinary text', () => {
     const view = mountView(' hello');
     const line = nthLine(view, 0);
     const spans = indentSpans(line);
-    expect(spans).toHaveLength(1);
-    expect(spans[0]!.textContent).toBe(' ');
+    expect(spans).toHaveLength(0);
     expect(line.textContent).toBe(' hello');
     expect(view.state.doc.toString()).toBe(' hello');
   });
@@ -59,12 +58,12 @@ describe('leadingIndentDecoration (grouped by the current indentUnit facet)', ()
     expect(view.state.doc.toString()).toBe('  hello');
   });
 
-  it('3. "   hello" (3 spaces: 1 full unit + 1 remainder) -> 2 spans, sizes [2, 1]', () => {
+  it('3. "   hello" (3 spaces: 1 full unit + 1 incomplete remainder) -> 1 span; the remainder stays ordinary text', () => {
     const view = mountView('   hello');
     const line = nthLine(view, 0);
     const spans = indentSpans(line);
-    expect(spans).toHaveLength(2);
-    expect(spans.map((s) => s.textContent)).toEqual(['  ', ' ']);
+    expect(spans).toHaveLength(1);
+    expect(spans.map((s) => s.textContent)).toEqual(['  ']);
     expect(line.textContent).toBe('   hello');
     expect(view.state.doc.toString()).toBe('   hello');
   });
@@ -79,12 +78,13 @@ describe('leadingIndentDecoration (grouped by the current indentUnit facet)', ()
     expect(view.state.doc.toString()).toBe('    hello');
   });
 
-  it('5. "     hello" (5 spaces: 2 full units + 1 remainder) -> 3 spans, sizes [2, 2, 1]', () => {
+  it('5. "     hello" (5 spaces: 2 full units + 1 incomplete remainder) -> 2 spans; the remainder stays ordinary text', () => {
     const view = mountView('     hello');
     const line = nthLine(view, 0);
     const spans = indentSpans(line);
-    expect(spans).toHaveLength(3);
-    expect(spans.map((s) => s.textContent)).toEqual(['  ', '  ', ' ']);
+    expect(spans).toHaveLength(2);
+    expect(spans.map((s) => s.textContent)).toEqual(['  ', '  ']);
+    expect(line.textContent).toBe('     hello');
     expect(view.state.doc.toString()).toBe('     hello');
   });
 
@@ -96,17 +96,17 @@ describe('leadingIndentDecoration (grouped by the current indentUnit facet)', ()
     expect(spans.map((s) => s.textContent)).toEqual(['  ', '  ', '  ']);
   });
 
-  it('tabs are grouped the same way as spaces, by raw character count', () => {
-    const view = mountView('\t\t\thello'); // 3 tabs -> [2, 1] with a 2-char unit
+  it('tabs are grouped the same way as spaces, by raw character count; an incomplete remainder stays plain', () => {
+    const view = mountView('\t\t\thello'); // 3 tabs -> 1 complete 2-tab group + 1 plain leftover tab
     const line = nthLine(view, 0);
     const spans = indentSpans(line);
-    expect(spans).toHaveLength(2);
-    expect(spans.map((s) => s.textContent)).toEqual(['\t\t', '\t']);
+    expect(spans).toHaveLength(1);
+    expect(spans.map((s) => s.textContent)).toEqual(['\t\t']);
     expect(view.state.doc.toString()).toBe('\t\t\thello');
   });
 
   it('mixed leading spaces/tabs are grouped by raw character count, in document order', () => {
-    const view = mountView(' \t \thello'); // 4 chars -> [2, 2]
+    const view = mountView(' \t \thello'); // 4 chars -> 2 complete groups, no remainder
     const line = nthLine(view, 0);
     const spans = indentSpans(line);
     expect(spans).toHaveLength(2);
@@ -160,13 +160,22 @@ describe('leadingIndentDecoration (grouped by the current indentUnit facet)', ()
     expect(htmlC).toBe(htmlA);
   });
 
-  it('editing: removing one leading whitespace character reshapes the groups (3 -> 2 spaces: [2,1] -> [2])', () => {
-    const view = mountView('   hello');
-    expect(indentSpans(nthLine(view, 0)).map((s) => s.textContent)).toEqual(['  ', ' ']);
+  it('editing: removing one leading whitespace character reshapes the groups (4 -> 3 spaces: [2,2] -> [2] + plain remainder)', () => {
+    const view = mountView('    hello');
+    expect(indentSpans(nthLine(view, 0)).map((s) => s.textContent)).toEqual(['  ', '  ']);
 
     view.dispatch({ changes: { from: 0, to: 1, insert: '' } }); // remove one leading space
     expect(indentSpans(nthLine(view, 0)).map((s) => s.textContent)).toEqual(['  ']);
-    expect(view.state.doc.toString()).toBe('  hello');
+    expect(view.state.doc.toString()).toBe('   hello');
+  });
+
+  it('editing: adding one character to a plain-remainder line completes a new group (3 -> 4 spaces: [2] -> [2,2])', () => {
+    const view = mountView('   hello');
+    expect(indentSpans(nthLine(view, 0)).map((s) => s.textContent)).toEqual(['  ']);
+
+    view.dispatch({ changes: { from: 0, to: 0, insert: ' ' } }); // add one more leading space
+    expect(indentSpans(nthLine(view, 0)).map((s) => s.textContent)).toEqual(['  ', '  ']);
+    expect(view.state.doc.toString()).toBe('    hello');
   });
 
   it('editing: adding leading whitespace mid-document updates the groups', () => {
