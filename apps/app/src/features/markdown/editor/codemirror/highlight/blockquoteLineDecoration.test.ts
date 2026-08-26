@@ -36,6 +36,11 @@ function hasQuoteLine(line: HTMLElement): boolean {
   return line.className.includes('cm-quote-line');
 }
 
+function quoteDepth(line: HTMLElement): number {
+  const match = /cm-quote-line-(\d+)/.exec(line.className);
+  return match ? Number(match[1]) : 0;
+}
+
 describe('blockquoteLineDecoration', () => {
   it('a single-line quote gets cm-quote-line', () => {
     const view = mountView('> quoted text');
@@ -79,12 +84,52 @@ describe('blockquoteLineDecoration', () => {
     expect(rows.map(hasQuoteLine)).toEqual([true, false, false]);
   });
 
-  it('nested quote (>>): every line still gets a single cm-quote-line, no depth distinction', () => {
+  it('nested quote (>>) is depth-2, derived from the Blockquote ancestor count', () => {
     const view = mountView('>> nested quote\n\nOther');
     const rows = lines(view);
 
     expect(rows.map(hasQuoteLine)).toEqual([true, false, false]);
-    expect(nthLine(view, 0).style.cssText).toBe('');
+    expect(quoteDepth(nthLine(view, 0))).toBe(2);
+    expect(nthLine(view, 0).style.cssText).toBe('--quote-depth: 2;');
+  });
+
+  it('depth scales with the number of ">" markers: 1, 2, 3', () => {
+    expect(quoteDepth(nthLine(mountView('> one'), 0))).toBe(1);
+    expect(quoteDepth(nthLine(mountView('>> two'), 0))).toBe(2);
+    expect(quoteDepth(nthLine(mountView('>>> three'), 0))).toBe(3);
+  });
+
+  it('decreasing ">" counts on consecutive lines stay lazily nested at the deepest level (real CommonMark blockquote nesting, not independent per-line depths)', () => {
+    const view = mountView('>>> one\n>> two\n> three');
+    const rows = lines(view);
+
+    expect(rows.map(quoteDepth)).toEqual([3, 3, 3]);
+  });
+
+  it('depth 1 then depth 2 as genuinely separate quotes (blank line between): each reports its own depth', () => {
+    const view = mountView('> one\n\n>> two');
+    const rows = lines(view);
+
+    expect(rows.map(quoteDepth)).toEqual([1, 0, 2]);
+  });
+
+  it('depth 2 then depth 1 as genuinely separate quotes (blank line between): each reports its own depth', () => {
+    const view = mountView('>> one\n\n> two');
+    const rows = lines(view);
+
+    expect(rows.map(quoteDepth)).toEqual([2, 0, 1]);
+  });
+
+  it('indentation does not add depth: "  > quote" is still depth 1', () => {
+    const view = mountView('  > indented quote');
+
+    expect(quoteDepth(nthLine(view, 0))).toBe(1);
+  });
+
+  it('indented nested quote: "  >> quote" is still depth 2, not inflated by the leading spaces', () => {
+    const view = mountView('  >> indented nested quote');
+
+    expect(quoteDepth(nthLine(view, 0))).toBe(2);
   });
 
   it('is unconditional — stays present whether or not the marker is currently engaged', () => {

@@ -225,13 +225,20 @@
  * `>>` quotes get one flat class with no depth distinction (unchanged,
  * deliberate), so they join the same bar rather than getting their own.
  *
- * No depth-aware styling for nested `>>` quotes yet — deliberately not
- * designed until a concrete need exists (see blockquoteLineDecoration.ts's
- * own doc comment).
+ * Depth-aware (blockquoteLineDecoration.ts sets `--quote-depth` per line,
+ * straight from the syntax tree's `Blockquote` ancestor count): the bar's
+ * width and the line's start padding both scale with `--quote-depth`, and
+ * `background-image` switches from a flat fill to a `repeating-linear-
+ * gradient` — 4px of color then 4px of gap, repeating — so a depth-N line
+ * renders N separate 4px bars with a 4px gap between them (one bar's own
+ * width/gap period), rather than one bar that merely grows wider. Depth 1
+ * reduces to the exact single flat bar this already was (one gradient
+ * period, still 4px), so existing single-level quotes are pixel-identical
+ * to before this change.
  */
 .cm-editor .cm-quote-line {
   position: relative;
-  padding-inline-start: var(--space-12);
+  padding-inline-start: calc(var(--quote-depth, 1) * 8px + 4px);
 }
 
 .cm-editor .cm-quote-line::before {
@@ -240,8 +247,12 @@
   inset-inline-start: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
-  background: var(--foreground-primary);
+  width: calc(var(--quote-depth, 1) * 8px - 4px);
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--foreground-primary) 0 4px,
+    transparent 4px 8px
+  );
   border-radius: var(--radius-xs);
 }
 

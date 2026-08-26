@@ -35,10 +35,23 @@ import type { SyntaxNode } from '@lezer/common';
  * `Blockquote` ancestor finds the right owner either way, and a line
  * inside a nested quote still has a `Blockquote` ancestor (the outer one,
  * at minimum), so it gets the same line class as any other quoted line.
- * No per-depth styling is attempted here (`--list-depth`'s counterpart
- * intentionally omitted) — nested quotes render with the same single rule
- * as a top-level one, deliberately not over-designed until a concrete need
- * for depth-aware styling exists.
+ * Depth-aware: nested `>>`/`>>>` quotes are genuinely nested `Blockquote`
+ * nodes in the Lezer tree (confirmed directly — `>> text` parses as
+ * `Blockquote > QuoteMark, Blockquote > QuoteMark, Paragraph`, not one
+ * `Blockquote` with a depth attribute), so the number of `Blockquote`
+ * ancestors at a line's probe position *is* the line's quote depth,
+ * straight from the syntax tree — never inferred from indentation or
+ * character counting. `blockquoteDepth` counts them instead of stopping at
+ * the first, and the line decoration exposes the count as both a
+ * `cm-quote-line-N` class and a `--quote-depth` CSS custom property so the
+ * stylesheet can render N visual bars without a second decoration source.
+ * Ownership (`isBlockquoteOwned`, forward probe at the first non-whitespace
+ * character) and depth (`blockquoteDepth`, backward probe at `line.to`) are
+ * deliberately two separate probes rather than one shared position: the
+ * forward probe is what makes the blank-line handling below correct, while
+ * the backward probe is what reaches inside `>>`'s inner `Blockquote`
+ * (probing at a `QuoteMark`'s own start position under-resolves nested
+ * depth — see `blockquoteDepth`'s own comment).
  *
  * Unlike `listLineDecoration.ts`, genuinely blank/whitespace-only physical
  * lines are **not** skipped: a blockquote can legitimately contain an
@@ -53,22 +66,64 @@ import type { SyntaxNode } from '@lezer/common';
  * parser has already made that call, so this decoration only ever reads
  * it, never re-derives CommonMark's own blank-line-termination rule.
  */
-function quoteLineMark(): Decoration {
-  return Decoration.line({ attributes: { class: 'cm-quote-line' } });
+function quoteLineMark(depth: number): Decoration {
+  return Decoration.line({
+    attributes: {
+      class: `cm-quote-line cm-quote-line-${depth}`,
+      style: `--quote-depth: ${depth}`,
+    },
+  });
 }
 
 function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
 }
 
-function nearestBlockquote(state: EditorState, probePos: number): SyntaxNode | null {
+/**
+ * Ownership uses the same forward probe as before (the first
+ * non-whitespace position, biased forward): this is what already
+ * correctly distinguishes a quote-internal blank separator line from a
+ * genuine CommonMark-terminating blank line — unchanged, since depth
+ * awareness must not regress that existing behavior.
+ */
+function isBlockquoteOwned(state: EditorState, line: { from: number; text: string }): boolean {
+  const probePos = line.from + firstNonWhitespaceOffset(line.text);
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(probePos, 1);
   for (; node; node = node.parent) {
     if (node.name === 'Blockquote') {
-      return node;
+      return true;
     }
   }
-  return null;
+  return false;
+}
+
+/**
+ * Depth is probed at the *end* of the line, not its first non-whitespace
+ * character. A line's own `QuoteMark`(s) sit at the very start of the
+ * line, and `>>`'s outer `QuoteMark` ends exactly where the inner
+ * `Blockquote` begins — probing right at that boundary only ever resolves
+ * inside the outer node, undercounting nested depth by however many
+ * markers are being stood on (confirmed empirically: probing `">> two"`
+ * at offset 0 resolves depth 1, not 2). Probing at `line.to` instead lands
+ * inside the innermost `Paragraph` the line's actual content belongs to,
+ * whose full `Blockquote` ancestor chain is exactly the line's depth —
+ * verified against `>> two` (depth 2), a bare `>` separator line (depth
+ * 1), a lazy-continuation line with no marker of its own (depth inherited
+ * from its `Blockquote`), and indented `  >> quote` (depth 2, unaffected
+ * by the leading spaces). Only called once `isBlockquoteOwned` has
+ * already confirmed the line belongs to a quote — a genuinely empty line
+ * (`line.to === line.from`) never reaches here, since an empty line can
+ * never itself carry a `>` and always fails that ownership check first.
+ */
+function blockquoteDepth(state: EditorState, lineTo: number): number {
+  let depth = 0;
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(lineTo, -1);
+  for (; node; node = node.parent) {
+    if (node.name === 'Blockquote') {
+      depth++;
+    }
+  }
+  return depth;
 }
 
 function buildBlockquoteLineDecorations(view: EditorView): DecorationSet {
@@ -82,9 +137,9 @@ function buildBlockquoteLineDecorations(view: EditorView): DecorationSet {
       if (!seenLines.has(line.from)) {
         seenLines.add(line.from);
 
-        const probePos = line.from + firstNonWhitespaceOffset(line.text);
-        if (nearestBlockquote(view.state, probePos)) {
-          builder.add(line.from, line.from, quoteLineMark());
+        if (isBlockquoteOwned(view.state, line)) {
+          const depth = blockquoteDepth(view.state, line.to);
+          builder.add(line.from, line.from, quoteLineMark(depth));
         }
       }
 
