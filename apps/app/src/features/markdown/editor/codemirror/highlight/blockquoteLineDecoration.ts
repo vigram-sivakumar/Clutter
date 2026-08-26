@@ -53,6 +53,11 @@ import type { SyntaxNode } from '@lezer/common';
  * (probing at a `QuoteMark`'s own start position under-resolves nested
  * depth — see `blockquoteDepth`'s own comment).
  *
+ * `isBlockquoteOwned`/`blockquoteDepth` are exported for reuse by
+ * `blockquoteLevelDecoration.ts` (the per-level rail widgets) — same
+ * ownership/depth facts, one implementation, not two independent tree
+ * reads that could drift out of sync.
+ *
  * Unlike `listLineDecoration.ts`, genuinely blank/whitespace-only physical
  * lines are **not** skipped: a blockquote can legitimately contain an
  * empty paragraph-separator line that still carries its own `>` (e.g. the
@@ -86,7 +91,7 @@ function firstNonWhitespaceOffset(text: string): number {
  * genuine CommonMark-terminating blank line — unchanged, since depth
  * awareness must not regress that existing behavior.
  */
-function isBlockquoteOwned(state: EditorState, line: { from: number; text: string }): boolean {
+export function isBlockquoteOwned(state: EditorState, line: { from: number; text: string }): boolean {
   const probePos = line.from + firstNonWhitespaceOffset(line.text);
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(probePos, 1);
   for (; node; node = node.parent) {
@@ -115,7 +120,7 @@ function isBlockquoteOwned(state: EditorState, line: { from: number; text: strin
  * (`line.to === line.from`) never reaches here, since an empty line can
  * never itself carry a `>` and always fails that ownership check first.
  */
-function blockquoteDepth(state: EditorState, lineTo: number): number {
+export function blockquoteDepth(state: EditorState, lineTo: number): number {
   let depth = 0;
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(lineTo, -1);
   for (; node; node = node.parent) {
