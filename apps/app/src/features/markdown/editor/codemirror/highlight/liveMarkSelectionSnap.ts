@@ -59,6 +59,26 @@ import { isMarkEngaged, type MarkEngagementMode, type MarkRangeSelector } from '
  * the position, not just the innermost — this is what makes nested markup
  * (`***bold italic***`) resolve outward through both delimiter layers in
  * one click rather than stopping at the inner one.
+ *
+ * The snap *destination* (`markBoundaryRange`) is branched on
+ * `engagementMode` the same way `isMarkEngaged` already branches the
+ * engagement *decision* — for a real reason, not just for symmetry: in
+ * `'node-range'` mode the containing node genuinely is the engagement
+ * unit (an entire `*emphasis*` span), so snapping to its own edges is
+ * correct there. In `'physical-line'` mode the mark's own physical line
+ * is the unit instead — a `Blockquote` node can span many lines (lazy
+ * continuation nests a later line's `QuoteMark` inside an earlier line's
+ * own `Paragraph`, see `liveMarkDecoration.ts`'s `isMarkEngaged` doc
+ * comment), so using the *node's* `[from, to)` here snapped a click near
+ * an unengaged marker to the start/end of the entire multi-line
+ * blockquote instead of a boundary on the marker's own line — confirmed
+ * concretely: clicking into the concealed marker on the middle line of
+ * `"> hey\n>> come on\n>> Man"` (with `>> Man` engaged) landed the caret
+ * at document position 0. Fixed by deriving the boundary from
+ * `state.doc.lineAt(mark.from)` instead of the node — the exact same
+ * "which physical line does this mark belong to" fact `isMarkEngaged`
+ * already keys off, just supplying its `.from`/`.to` as the snap target
+ * range rather than only using it for the boolean.
  */
 export function liveMarkSelectionSnap(
   isConstructNode: TokenNodePredicate,
@@ -82,6 +102,27 @@ export function liveMarkSelectionSnap(
   });
 }
 
+/**
+ * The boundary a mark should snap toward. `'node-range'`/function modes
+ * use the containing node's own span (unchanged, intentional — see this
+ * file's doc comment); `'physical-line'` mode uses the mark's own
+ * physical line instead of the containing node's span, which can cover
+ * many lines for a construct like `Blockquote`.
+ */
+function markBoundaryRange(
+  state: EditorState,
+  node: SyntaxNode,
+  engagementMode: MarkEngagementMode,
+  mark: TokenNodeRange
+): TokenNodeRange {
+  if (engagementMode === 'physical-line') {
+    const line = state.doc.lineAt(mark.from);
+    return { from: line.from, to: line.to };
+  }
+
+  return { from: node.from, to: node.to };
+}
+
 function snapPosition(
   state: EditorState,
   pos: number,
@@ -100,8 +141,6 @@ function snapPosition(
       continue;
     }
 
-    const range: TokenNodeRange = { from: node.from, to: node.to };
-
     for (const mark of getMarkRanges(node, state)) {
       if (isMarkEngaged(state, node, getMarkRanges, engagementMode, mark)) {
         continue;
@@ -111,6 +150,7 @@ function snapPosition(
         continue;
       }
 
+      const range = markBoundaryRange(state, node, engagementMode, mark);
       const leadingDistance = mark.from - range.from;
       const trailingDistance = range.to - mark.to;
       candidate = leadingDistance <= trailingDistance ? range.from : range.to;

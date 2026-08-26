@@ -4,6 +4,7 @@ import { EditorState, type TransactionSpec } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { blockquoteMarkerDecoration } from './blockquoteMarkerDecoration';
 import { headingMarkerDecoration } from './headingMarkerDecoration';
 
 /**
@@ -36,6 +37,17 @@ function mountView(doc: string, initialAnchor: number): EditorView {
     doc,
     selection: { anchor: initialAnchor },
     extensions: [markdownLanguageExtension(), headingMarkerDecoration()],
+  });
+  return new EditorView({ state, parent });
+}
+
+function mountBlockquoteView(doc: string, initialAnchor: number): EditorView {
+  const parent = document.createElement('div');
+  document.body.appendChild(parent);
+  const state = EditorState.create({
+    doc,
+    selection: { anchor: initialAnchor },
+    extensions: [markdownLanguageExtension(), blockquoteMarkerDecoration()],
   });
   return new EditorView({ state, parent });
 }
@@ -120,5 +132,65 @@ describe('liveMarkSelectionSnap — click boundary correction, shared across eve
     view.dispatch({ changes: { from: 5, insert: '!' } });
 
     expect(view.state.doc.toString()).toBe('# Hea!ding\n\nOther');
+  });
+
+  describe('blockquote (physical-line mode, multi-line node) — snap destination never escapes the mark\'s own physical line', () => {
+    // "> hey\n>> come on\n>> Man": line 2's second QuoteMark and the inner
+    // Blockquote node both start at the same offset, and the outer
+    // Blockquote spans all three lines. Before the fix, snapPosition used
+    // the *containing node's* [from, to) for the leading/trailing distance
+    // calc — for the outer Blockquote that's the whole 3-line span, so a
+    // click resolving into an unengaged marker snapped to the entire
+    // construct's start/end rather than a boundary on the marker's own
+    // line. Reproduced concretely (not assumed): clicking position 7 with
+    // "Man" engaged used to land the caret at document position 0.
+    const text = '> hey\n>> come on\n>> Man';
+
+    it('cursor on "hey": click into "come on"\'s concealed marker snaps within the "come on" line, never to the blockquote\'s start', () => {
+      const view = mountBlockquoteView(text, text.indexOf('hey'));
+      const comeOnLine = view.state.doc.lineAt(text.indexOf('come on'));
+
+      click(view, 7); // inside ">> "'s second QuoteMark on the "come on" line
+
+      const result = view.state.selection.main.head;
+      expect(result).toBeGreaterThanOrEqual(comeOnLine.from);
+      expect(result).toBeLessThanOrEqual(comeOnLine.to);
+      expect(result).not.toBe(0);
+    });
+
+    it('cursor on "come on": click into "hey"\'s concealed marker snaps within the "hey" line', () => {
+      const view = mountBlockquoteView(text, text.indexOf('come on'));
+      const heyLine = view.state.doc.lineAt(text.indexOf('hey'));
+
+      click(view, 0); // inside "hey"'s own QuoteMark
+
+      const result = view.state.selection.main.head;
+      expect(result).toBeGreaterThanOrEqual(heyLine.from);
+      expect(result).toBeLessThanOrEqual(heyLine.to);
+    });
+
+    it('cursor on "come on": click into "Man"\'s concealed marker snaps within the "Man" line, never to the blockquote\'s end', () => {
+      const view = mountBlockquoteView(text, text.indexOf('come on'));
+      const manLine = view.state.doc.lineAt(text.indexOf('Man'));
+
+      click(view, text.indexOf('Man') - 2); // inside ">> " on the "Man" line
+
+      const result = view.state.selection.main.head;
+      expect(result).toBeGreaterThanOrEqual(manLine.from);
+      expect(result).toBeLessThanOrEqual(manLine.to);
+      expect(result).not.toBe(text.length);
+    });
+
+    it('cursor on "Man": click into "come on"\'s concealed marker snaps within the "come on" line — the exact reported repro (was position 0)', () => {
+      const view = mountBlockquoteView(text, text.indexOf('Man'));
+      const comeOnLine = view.state.doc.lineAt(text.indexOf('come on'));
+
+      click(view, 7);
+
+      const result = view.state.selection.main.head;
+      expect(result).toBeGreaterThanOrEqual(comeOnLine.from);
+      expect(result).toBeLessThanOrEqual(comeOnLine.to);
+      expect(result).not.toBe(0);
+    });
   });
 });
