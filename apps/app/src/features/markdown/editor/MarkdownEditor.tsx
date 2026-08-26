@@ -12,6 +12,7 @@ import { semanticCompletion } from './codemirror/completion';
 // safe to unwire. Nothing has been deleted or rewritten.
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
+import { markdownEnterKeymap } from './codemirror/enter/markdownEnterKeymap';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 import { blockquoteLineDecoration } from './codemirror/highlight/blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
@@ -161,13 +162,16 @@ export const MarkdownEditor = forwardRef<
       doc: markdown,
       parent: container,
       extensions: [
-        // Reset to CodeMirror's default keyboard behavior: no Clutter
-        // Backspace/Delete/Enter/Tab/Shift-Tab/Arrow interception layered
-        // on top of markdownLanguageExtension()'s own lang-markdown
-        // defaults (deleteMarkupBackward, insertNewlineContinueMarkup,
-        // etc.) or CM6's generic fallback keymap. Custom Markdown editing
-        // behaviors are reintroduced incrementally later.
+        // Still CodeMirror's own keyboard behavior: no Clutter
+        // Delete/Tab/Shift-Tab/Arrow interception layered on top of it, and
+        // no generic fallback-keymap overrides. The two exceptions are
+        // Enter and Backspace, which markdownEnterKeymap() below registers
+        // in place of the markdownKeymap that markdownLanguageExtension()
+        // deliberately no longer installs (addKeymap: false) — Backspace
+        // identically (deleteMarkupBackward), Enter differing only in the
+        // empty-continuation policy documented in that file.
         markdownLanguageExtension(),
+        markdownEnterKeymap(),
         // --- Temporarily unwired: purely visual Live Preview decorations ---
         // Every extension below this line, up to the next "--- end ---"
         // marker, was checked for behavioral coupling (keymap registration,

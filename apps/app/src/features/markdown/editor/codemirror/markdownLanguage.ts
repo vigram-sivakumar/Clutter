@@ -42,8 +42,24 @@ import { markdownGrammarExtensions } from './markdownGrammarExtensions';
  * them, per the "leave an extension point, don't build the coordinator"
  * posture already applied to Tag.
  */
+/**
+ * `addKeymap: false`: this returns the language and grammar only, with no
+ * key bindings at all. `markdownKeymap`'s two bindings are re-registered,
+ * at the same `Prec.high` and with `deleteMarkupBackward` unchanged, by
+ * `enter/markdownEnterKeymap.ts` — which needs to configure the Enter
+ * command (`nonTightLists: false`) and prepend two narrow handlers for the
+ * empty-continuation cases CM6 leaves unhandled. Leaving `addKeymap` on
+ * would install a second, competing Enter binding at the same precedence;
+ * see `docs/editor-architecture-decisions.md`'s forensic note on
+ * hand-rolled keymaps racing lang-markdown's own defaults.
+ *
+ * Any caller mounting this for real editing must wire `markdownEnterKeymap()`
+ * alongside it. Callers that only need the parser (tests reaching for
+ * `.language`, decoration suites) are unaffected.
+ */
 export function markdownLanguageExtension() {
   return markdown({
     extensions: markdownGrammarExtensions,
+    addKeymap: false,
   });
 }
