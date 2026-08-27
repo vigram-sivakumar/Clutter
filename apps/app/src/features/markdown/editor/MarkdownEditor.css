@@ -28,8 +28,8 @@
    * so `inherit` here resolved to that forced monospace, not the app's
    * font. Setting the token directly bypasses the inherited value. */
   font-family: var(--font-sans);
-  font-size: var(--text-body);
-  line-height: var(--lh-body);
+  font-size: var(--cm-content);
+  line-height: var(--lh-cm-content);
 }
 
 .markdown__editor .cm-line {
@@ -37,7 +37,7 @@
 }
 .cm-indent {
   display: inline-block;
-  width: 20px;
+  width: var(--marker-width);
   box-sizing: border-box;
 }
 
@@ -111,12 +111,101 @@
  */
 .cm-editor .tok-strike {
   text-decoration: line-through;
-  color: var(--strikethrough-color);
+  /* color: var(--strikethrough-color); */
 }
 
 .cm-editor .tok-highlight {
   background: var(--highlight-surface);
   box-shadow: var(--highlight-shadow);
+}
+
+/*
+ * Inline marker DOM (docs/markdown-dom-structure-agreement.md §7, first
+ * slice — Emphasis/StrongEmphasis/Strikethrough/Highlight/InlineCode).
+ * Every marker span (`inlineLivePreviewParticipants.ts`'s
+ * `delimitedInlineRenderer`/`revealedMarkerRanges`) carries the
+ * universal `cm-marker` hook plus its own `cm-{construct}-marker` class —
+ * one global color rule here, no enumerated per-construct selector list
+ * (the exact pattern the retired `.tok-mark`-based rule below already
+ * shows the cost of not having).
+ *
+ * `cm-marker--concealed` is the at-rest state (marker text real, present,
+ * negligible visual footprint), not `display: none` and not blockquote's
+ * `color: transparent`. Blockquote keeps its marker's normal font size
+ * because a *reserved* real-character width is exactly what its own
+ * migration needed (gutter alignment); an inline marker has no gutter to
+ * reserve, and `color: transparent` here would visibly widen the gap
+ * around every collapsed construct with an invisible-but-occupied `**`/
+ * `~~`/etc — confirmed by measurement (19.5px reserved width), not just
+ * reasoned.
+ *
+ * **Current technique — atomic inline box, scaled to near-zero width**
+ * (2026-08-27, replacing the earlier near-zero-`font-size` technique; see
+ * docs/editor-architecture-decisions.md's selection-geometry entry for
+ * the full investigation): `display: inline-block` plus
+ * `transform: scaleX(0.001)`. `font-size`/`line-height` stay at `inherit`
+ * — the marker's glyph is laid out at the run's normal size (so its
+ * content-box height matches the surrounding text exactly, in whatever
+ * context it appears: body text, a heading, etc.) and only the *painted*
+ * box is squashed horizontally after layout. `transform` only affects
+ * elements that generate an atomic (`inline-block`-or-higher) box per
+ * spec — a plain `inline` span ignores it entirely (verified: identical
+ * markup with `display` left at its default measured an *unscaled*
+ * `getBoundingClientRect().width`) — hence `inline-block` is load-bearing
+ * here, not incidental. Measured rendered width: ~0.014px for a 2-
+ * character marker (`**`), smaller than the prior technique's ~0.05px
+ * and visually indistinguishable from zero.
+ *
+ * This technique was adopted specifically because the near-zero-
+ * `font-size` predecessor left the marker's own `getClientRects()` at
+ * `height: 0` (a real, load-bearing side effect of shrinking the glyph
+ * itself, not a bug in that fix — line-height:1 on a ~0 font-size is ~0
+ * either way). `drawSelection()` computes the selection-background
+ * layer's rectangles by querying `coordsAtPos`/`getClientRects()` at
+ * selection boundaries; when a boundary landed on/inside a concealed
+ * marker, that `height: 0` rect fed directly into the computed
+ * selection-box height, silently zeroing out the selection-background
+ * rectangle for the whole line containing it (reproduced: Cmd+A on a
+ * document whose first line starts with a concealed marker painted no
+ * selection background at all for that line). Giving the marker a normal
+ * content-box height removes the zero-height rect at its source; the
+ * `scaleX` transform then does the same visual-suppression job the old
+ * `font-size` shrink did, without touching layout metrics at all.
+ *
+ * `inline-block` does not affect character-level caret navigation here —
+ * verified ArrowLeft/ArrowRight step through the marker's individual
+ * characters exactly as they did under the plain-`inline` technique
+ * (identical DOM Range offsets each step, both before and after this
+ * change). It also sidesteps the WebKit vertical-caret-motion bug the
+ * prior near-zero-`font-size` value was tuned against (docs/tauri-
+ * webkit-editor-issues.md) rather than merely avoiding it: that bug was
+ * specific to a real text run rendered at `font-size` near `0`, and this
+ * technique never shrinks `font-size` at all.
+ *
+ * A `width: 0; overflow: hidden` alternative was tried and rejected: with
+ * `width: 0`, the browser wraps the marker's own two-or-more-character
+ * text one glyph per line *inside* the atomic box, which doubles (or
+ * worse) the box's own height rather than suppressing its width — the
+ * exact inflation failure mode this rule exists to avoid, just triggered
+ * a different way (measured: 48px instead of the correct 24px for a
+ * 2-character marker at 24px line-height).
+ *
+ * Engaged (no `--concealed` modifier): the marker renders at normal size,
+ * in `--marker-foreground` via the `cm-marker` rule below — see
+ * `revealedMarkerRanges` in `inlineLivePreviewParticipants.ts` for why
+ * engaged is the state that makes marker coloring visible at all for this
+ * family.
+ */
+.cm-editor .cm-marker {
+  color: var(--marker-foreground);
+}
+
+.cm-editor .cm-marker--concealed {
+  display: inline-block;
+  font-size: inherit;
+  line-height: inherit;
+  transform: scaleX(0.001);
+  transform-origin: left center;
 }
 
 /*
@@ -233,20 +322,85 @@
  * `>>` quotes get one flat class with no depth distinction (unchanged,
  * deliberate), so they join the same bar rather than getting their own.
  */
+/*
+ * No `padding-inline-start`, `margin`, or `text-indent` on this line —
+ * explicit DOM-structure invariant (2026-08-27): the marker gutter is
+ * never a `.cm-line`-level layout property. `position: relative` only,
+ * scoping the absolutely positioned `::before` bar below to this line's
+ * own box.
+ *
+ * Gutter geometry now comes entirely from `blockquoteMarkerDecoration.ts`'s
+ * own marker span (`.cm-quote-marker`) — a `Decoration.mark` wrapping
+ * the real `QuoteMark` character(s), never removed from the DOM, only
+ * visually concealed via `.cm-quote-marker--concealed` when the line
+ * isn't engaged. Because the real character is always present, its
+ * natural rendered width is always reserved — text never shifts when the
+ * marker toggles visible/hidden, without any fixed-width placeholder.
+ *
+ * Known consequence, not an oversight: a wrapped (soft-wrapped) quote
+ * line's continuation rows carry no indent at all under this rule, since
+ * the marker span exists only where the real `>` character is (the first
+ * row) and nothing here reserves width on rows after it. A prior version
+ * of this file used a `padding-inline-start`/`text-indent` pairing plus
+ * an in-flow gutter widget specifically to fix that; both were removed
+ * per this same instruction (still visible in git history) in favor of
+ * the two-span (`marker span → content span`) structure this rule now
+ * assumes. Flagged for real-app verification, not hidden.
+ */
 .cm-editor .cm-quote-line {
   position: relative;
-  padding-inline-start: var(--space-12);
 }
 
 .cm-editor .cm-quote-line::before {
   content: '';
   position: absolute;
-  inset-inline-start: 0;
+  inset-inline-start: var(--space-0);
   top: 0;
   bottom: 0;
   width: 4px;
   background: var(--foreground-primary);
   border-radius: var(--radius-xs);
+}
+
+/*
+ * The marker span — wraps the real `QuoteMark` character(s) (+ its own
+ * trailing separator space, if present) via `Decoration.mark`, never
+ * `Decoration.replace`. Default state: rendered normally, exactly like
+ * ordinary text — this is what the DOM looks like while the line is
+ * engaged (caret on it).
+ */
+.cm-editor .cm-quote-marker {
+  display: inline-block;
+  width: var(--marker-width);
+  color: var(--marker-foreground);
+  text-align: end;
+}
+
+/*
+ * Concealed state — added only when the line is *not* engaged. The
+ * character is still real, present text (unlike every other
+ * marker-hiding construct in this codebase, which uses
+ * `Decoration.replace({})` to remove the DOM node entirely — see
+ * blockquoteMarkerDecoration.ts's own doc comment for why blockquote is
+ * the deliberate exception). `color: transparent` rather than
+ * `visibility: hidden`/`display: none`: both of those would also pull it
+ * out of native click hit-testing, which is one of the two things this
+ * choice is explicitly trading away — kept as `color: transparent` so
+ * the tradeoff is visible and testable, not silently masked by a
+ * different hiding mechanism that happens to dodge the symptom too.
+ */
+.cm-editor .cm-quote-marker--concealed {
+  color: transparent;
+}
+
+/*
+ * The content span — wraps a physical quote line's own text, the
+ * `marker span → content span` sibling structure the DOM agreement calls
+ * for. No rules yet: a styling hook for future per-construct work (e.g.
+ * depth-based coloring), not required for current rendering.
+ */
+.cm-editor .cm-quote {
+  color: inherit;
 }
 
 .cm-editor .cm-quote-line + .cm-quote-line::before {
