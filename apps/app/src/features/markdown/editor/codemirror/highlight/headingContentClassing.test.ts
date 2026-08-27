@@ -46,8 +46,8 @@ function mountView(doc: string, anchor: number | null = null): EditorView {
  * What a user actually sees — see inlineLivePreviewRegion.test.ts's own
  * `visibleText` doc comment for the full rationale. Needed here because a
  * migrated construct (Highlight) can appear nested inside a heading, and
- * its concealed marker text (`cm-marker--concealed`) is now real DOM text,
- * not removed.
+ * its concealed marker (`cm-marker--concealed`) is a widget with no text
+ * of its own (see inlineLivePreviewRegion.test.ts's `visibleText` comment).
  */
 function visibleText(target: EditorView | Node | null | undefined): string {
   if (!target) {

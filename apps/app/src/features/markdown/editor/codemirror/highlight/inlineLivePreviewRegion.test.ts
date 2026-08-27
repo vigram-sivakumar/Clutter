@@ -58,26 +58,30 @@ function mountViewWithSelection(
 }
 
 /**
- * What a user actually sees, as opposed to `visibleText(view)` — which,
- * per the inline marker DOM migration (docs/markdown-dom-structure-
- * agreement.md §7), is no longer a valid proxy for that. Migrated markers
- * (Emphasis/StrongEmphasis/Strikethrough/Highlight/InlineCode) now keep
- * their real marker text in the DOM at rest, concealed only via
- * `cm-marker--concealed`'s `font-size: 0` (`inlineLivePreviewParticipants.ts`),
- * not via removal — so `textContent` alone can no longer distinguish
- * concealed from revealed the way it could when concealment meant
- * `Decoration.replace({})`. This walks the DOM the same way, but skips the
- * text of any element carrying `cm-marker--concealed`, mirroring what a
- * real browser actually renders. Every test below that means "what is
- * visually shown" uses this instead of raw `textContent`; a test that
- * specifically wants the underlying document text uses `view.state.doc`,
- * unaffected by any of this. Matches the assertion strategy
- * `blockquoteMarkerDecoration.test.ts` already established for the same
- * real-text-but-concealed pattern (there: assert via `--concealed` class
- * presence rather than `textContent` exclusion) — this is the same idea
- * generalized into one reusable text-extraction helper, since here
- * (unlike blockquote) many tests need to combine concealed-marker
- * awareness with content-level assertions across nested constructs.
+ * What a user actually sees, as opposed to raw `textContent`. Concealed
+ * markers (Emphasis/StrongEmphasis/Strikethrough/Highlight/InlineCode, at
+ * rest) are `ConcealedMarkerWidget`s — `Decoration.replace()` with an
+ * empty widget (2026-08-27, see docs/editor-architecture-decisions.md's
+ * `Decoration.replace()`-with-widget entry) — so as of this migration
+ * their `.cm-marker--concealed` element already contributes no text of
+ * its own, and a plain `textContent` walk would already skip them
+ * correctly without any special-casing. This helper's explicit
+ * `cm-marker--concealed` skip predates that migration (it was written
+ * when concealment meant a real, CSS-hidden marker text run still present
+ * in the DOM, per this migration's earlier `Decoration.mark`-based
+ * technique) and is kept unchanged rather than simplified away: it is
+ * still correct, still documents the intent ("skip whatever is concealed,
+ * regardless of how"), and keeps this helper robust to a future
+ * concealment technique change without every call site needing to know
+ * which one is current. A test that specifically wants the underlying
+ * document text uses `view.state.doc` instead, unaffected by any of this.
+ * Matches the assertion strategy `blockquoteMarkerDecoration.test.ts`
+ * already established for its own, unrelated real-text-but-concealed
+ * pattern (`color: transparent`, not a widget — see `MarkdownEditor.css`)
+ * — this is the same idea generalized into one reusable text-extraction
+ * helper, since here (unlike blockquote) many tests need to combine
+ * concealed-marker awareness with content-level assertions across nested
+ * constructs.
  */
 function visibleText(target: EditorView | Node | null | undefined): string {
   if (!target) {
@@ -351,12 +355,15 @@ describe('inlineLivePreviewRegion', () => {
       const doc = 'x ***bold italic*** y';
       const mid = doc.indexOf('bold');
 
+      // Concealed markers are `ConcealedMarkerWidget`s (Decoration.replace),
+      // not real marker text — `text` is empty for every concealed span,
+      // unlike the engaged case below where the marks carry real text.
       const rest = mountView(doc);
       expect(markerSpans(rest)).toEqual([
-        { text: '*', cls: 'cm-emphasis-marker', concealed: true },
-        { text: '**', cls: 'cm-strong-marker', concealed: true },
-        { text: '**', cls: 'cm-strong-marker', concealed: true },
-        { text: '*', cls: 'cm-emphasis-marker', concealed: true },
+        { text: '', cls: 'cm-emphasis-marker', concealed: true },
+        { text: '', cls: 'cm-strong-marker', concealed: true },
+        { text: '', cls: 'cm-strong-marker', concealed: true },
+        { text: '', cls: 'cm-emphasis-marker', concealed: true },
       ]);
 
       const engaged = mountViewWithSelection(doc, mid);
@@ -1215,6 +1222,24 @@ describe('inlineLivePreviewRegion', () => {
 
     it('an ordinary marker-hiding participant (Strikethrough) never registers as atomic, at rest or otherwise', () => {
       const view = mountView('Text before ~~struck~~ after');
+      expect(isAtomicAnywhere(view)).toBe(false);
+    });
+
+    // Extra explicit coverage since 2026-08-27 (docs/editor-architecture-
+    // decisions.md's `Decoration.replace()`-with-widget entry): concealed
+    // ordinary markers are now `ConcealedMarkerWidget`s — the same
+    // `Decoration.replace({widget})` shape the genuinely-atomic widget
+    // family (Tag/Date) above uses — so "never atomic" is no longer a
+    // consequence of "not a widget" and must be proven directly, not
+    // assumed from the decoration kind. Document positions inside a
+    // concealed marker must stay individually addressable (no
+    // `EditorView.atomicRanges` for this family) so Backspace/Delete/
+    // arrow-key motion through one is ordinary, per-character editing —
+    // `markerBoundaryBehavior.test.ts` already exercises that behavior
+    // directly via real CM6 commands; this asserts the underlying fact
+    // those tests depend on.
+    it('every ConcealedMarkerWidget-backed participant never registers as atomic, at rest', () => {
+      const view = mountView('**bold** *italic* ~~strike~~ ==highlight== `code`');
       expect(isAtomicAnywhere(view)).toBe(false);
     });
 

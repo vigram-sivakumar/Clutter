@@ -60,7 +60,8 @@ function mountViewWithSelection(
  * `visibleText` doc comment for the full rationale. Needed here because a
  * migrated construct (bold) can enclose a WikiLink in several of this
  * file's own regression cases, and its concealed marker text
- * (`cm-marker--concealed`) is now real DOM text, not removed.
+ * (`cm-marker--concealed`) is a widget with no text of its own (see
+ * inlineLivePreviewRegion.test.ts's `visibleText` comment).
  */
 function visibleText(target: EditorView | Node | null | undefined): string {
   if (!target) {

@@ -123,78 +123,80 @@
  * Inline marker DOM (docs/markdown-dom-structure-agreement.md §7, first
  * slice — Emphasis/StrongEmphasis/Strikethrough/Highlight/InlineCode).
  * Every marker span (`inlineLivePreviewParticipants.ts`'s
- * `delimitedInlineRenderer`/`revealedMarkerRanges`) carries the
- * universal `cm-marker` hook plus its own `cm-{construct}-marker` class —
- * one global color rule here, no enumerated per-construct selector list
- * (the exact pattern the retired `.tok-mark`-based rule below already
+ * `revealedMarkerRanges`, for the *engaged* state only — see below) carries
+ * the universal `cm-marker` hook plus its own `cm-{construct}-marker`
+ * class — one global color rule here, no enumerated per-construct selector
+ * list (the exact pattern the retired `.tok-mark`-based rule below already
  * shows the cost of not having).
  *
- * `cm-marker--concealed` is the at-rest state (marker text real, present,
- * negligible visual footprint), not `display: none` and not blockquote's
- * `color: transparent`. Blockquote keeps its marker's normal font size
- * because a *reserved* real-character width is exactly what its own
- * migration needed (gutter alignment); an inline marker has no gutter to
- * reserve, and `color: transparent` here would visibly widen the gap
- * around every collapsed construct with an invisible-but-occupied `**`/
- * `~~`/etc — confirmed by measurement (19.5px reserved width), not just
- * reasoned.
+ * **`cm-marker--concealed` is now an empty placeholder widget's own class,
+ * not a CSS-suppressed real marker (2026-08-27) — see docs/editor-
+ * architecture-decisions.md's `Decoration.replace()`-with-widget entry for
+ * the full investigation, including the two rejected CSS-only techniques
+ * that used to live on this exact rule (near-zero `font-size`, then
+ * `transform: scaleX()`).** Neither could get both axes right at once: a
+ * CSS technique can only ever *style* the marker's real glyphs, and a real
+ * multi-character text run's width and height are governed by the same
+ * font metrics, so shrinking one CSS-visible dimension kept breaking the
+ * other (near-zero `font-size` → `height: 0`, breaking `drawSelection()`'s
+ * selection-rectangle geometry; `transform: scaleX()` → paints small but
+ * still reserves its full original layout width, causing progressively
+ * more horizontal indentation the more/longer markers a line has, since
+ * `transform` never touches the layout box, only paint). Concealment now
+ * happens at the decoration layer instead: `inlineLivePreviewParticipants.ts`'s
+ * `delimitedInlineRenderer` replaces the marker's source range with
+ * `ConcealedMarkerWidget` (`Decoration.replace({widget})`) — a *new*,
+ * empty DOM element, not the marker's own text. An empty element's box is
+ * authored independently of any glyph's font metrics, so `width: 0` and a
+ * normal `height` below are two ordinary, uncontested declarations rather
+ * than competing demands on one shrunk text run.
  *
- * **Current technique — atomic inline box, scaled to near-zero width**
- * (2026-08-27, replacing the earlier near-zero-`font-size` technique; see
- * docs/editor-architecture-decisions.md's selection-geometry entry for
- * the full investigation): `display: inline-block` plus
- * `transform: scaleX(0.001)`. `font-size`/`line-height` stay at `inherit`
- * — the marker's glyph is laid out at the run's normal size (so its
- * content-box height matches the surrounding text exactly, in whatever
- * context it appears: body text, a heading, etc.) and only the *painted*
- * box is squashed horizontally after layout. `transform` only affects
- * elements that generate an atomic (`inline-block`-or-higher) box per
- * spec — a plain `inline` span ignores it entirely (verified: identical
- * markup with `display` left at its default measured an *unscaled*
- * `getBoundingClientRect().width`) — hence `inline-block` is load-bearing
- * here, not incidental. Measured rendered width: ~0.014px for a 2-
- * character marker (`**`), smaller than the prior technique's ~0.05px
- * and visually indistinguishable from zero.
+ * Blockquote's marker is unrelated and unaffected — it keeps its normal
+ * font size and uses `color: transparent`, because a *reserved* real-
+ * character width is exactly what its own migration needed (gutter
+ * alignment); an inline marker has no gutter to reserve, and
+ * `color: transparent` here would visibly widen the gap around every
+ * collapsed construct with an invisible-but-occupied `**`/`~~`/etc —
+ * confirmed by measurement (19.5px reserved width) when that alternative
+ * was considered for this rule.
  *
- * This technique was adopted specifically because the near-zero-
- * `font-size` predecessor left the marker's own `getClientRects()` at
- * `height: 0` (a real, load-bearing side effect of shrinking the glyph
- * itself, not a bug in that fix — line-height:1 on a ~0 font-size is ~0
- * either way). `drawSelection()` computes the selection-background
- * layer's rectangles by querying `coordsAtPos`/`getClientRects()` at
- * selection boundaries; when a boundary landed on/inside a concealed
- * marker, that `height: 0` rect fed directly into the computed
- * selection-box height, silently zeroing out the selection-background
- * rectangle for the whole line containing it (reproduced: Cmd+A on a
- * document whose first line starts with a concealed marker painted no
- * selection background at all for that line). Giving the marker a normal
- * content-box height removes the zero-height rect at its source; the
- * `scaleX` transform then does the same visual-suppression job the old
- * `font-size` shrink did, without touching layout metrics at all.
+ * `height: 1em` (not an explicit pixel value): the widget has no text
+ * content of its own, so — unlike a real glyph, whose box height comes
+ * from the font regardless of any explicit `height` — an empty
+ * `inline-block` with `height` left at `auto` collapses to `0` (CSS2.1
+ * §10.6.7: "if it has no in-flow content, the height is zero"), which
+ * would silently reintroduce the exact zero-height `drawSelection()` bug
+ * this rule exists to prevent. `1em` resolves against whatever `font-size`
+ * this element inherits from its actual rendering context — deliberately
+ * not set explicitly here, so a marker nested inside a heading (larger
+ * `tok-heading1`-`tok-heading6` font-size, see below) or any other sized
+ * context automatically gets a proportionally correct height, with zero
+ * per-context CSS needed. This does not need to equal the *line's* full
+ * `line-height` (`--lh-body`/`--lh-heading-*`) exactly — CM6's
+ * `drawSelection()` takes the min/max across every rect it queries on a
+ * line, so as long as this box's height is non-zero and in the same
+ * ballpark as the surrounding real text's glyph height (not wildly
+ * larger, which risks the same inflation this replaces), the line's
+ * neighboring real content already establishes the correct bounding
+ * rectangle — verified directly in the real app (see the doc entry).
  *
- * `inline-block` does not affect character-level caret navigation here —
- * verified ArrowLeft/ArrowRight step through the marker's individual
- * characters exactly as they did under the plain-`inline` technique
- * (identical DOM Range offsets each step, both before and after this
- * change). It also sidesteps the WebKit vertical-caret-motion bug the
- * prior near-zero-`font-size` value was tuned against (docs/tauri-
- * webkit-editor-issues.md) rather than merely avoiding it: that bug was
- * specific to a real text run rendered at `font-size` near `0`, and this
- * technique never shrinks `font-size` at all.
+ * `width: 0` is a real, uncontested layout width — not a transform, so
+ * sibling content never has a phantom reserved gap to shift around,
+ * regardless of how many concealed markers precede it on the line (this
+ * is the fix for the progressive-indentation regression the `scaleX()`
+ * predecessor had).
  *
- * A `width: 0; overflow: hidden` alternative was tried and rejected: with
- * `width: 0`, the browser wraps the marker's own two-or-more-character
- * text one glyph per line *inside* the atomic box, which doubles (or
- * worse) the box's own height rather than suppressing its width — the
- * exact inflation failure mode this rule exists to avoid, just triggered
- * a different way (measured: 48px instead of the correct 24px for a
- * 2-character marker at 24px line-height).
+ * `display: inline-block` is required for `height` to apply at all — a
+ * plain `inline` element's box height is derived from its content model
+ * and line-height, not a settable property, and this element deliberately
+ * has no content to derive it from.
  *
- * Engaged (no `--concealed` modifier): the marker renders at normal size,
- * in `--marker-foreground` via the `cm-marker` rule below — see
- * `revealedMarkerRanges` in `inlineLivePreviewParticipants.ts` for why
- * engaged is the state that makes marker coloring visible at all for this
- * family.
+ * Engaged (no `--concealed` modifier, and no widget at all — a fully
+ * different code path, `revealedMarkerRanges`): the marker renders as its
+ * own real, source-backed text, at normal size, in `--marker-foreground`
+ * via the `cm-marker` rule below — see `revealedMarkerRanges` in
+ * `inlineLivePreviewParticipants.ts` for why engaged is the one state an
+ * inline marker's real text is present in the DOM at all for this family.
  */
 .cm-editor .cm-marker {
   color: var(--marker-foreground);
@@ -202,10 +204,8 @@
 
 .cm-editor .cm-marker--concealed {
   display: inline-block;
-  font-size: inherit;
-  line-height: inherit;
-  transform: scaleX(0.001);
-  transform-origin: left center;
+  width: 0;
+  height: 1em;
 }
 
 /*

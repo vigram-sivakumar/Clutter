@@ -15,8 +15,8 @@ const noResolvers = { resolveTag: () => undefined, resolveDate: () => undefined 
  * What a user actually sees — see inlineLivePreviewRegion.test.ts's own
  * `visibleText` doc comment for the full rationale. Needed here because a
  * migrated construct (bold) can appear inside a table cell, and its
- * concealed marker text (`cm-marker--concealed`) is now real DOM text,
- * not removed.
+ * concealed marker (`cm-marker--concealed`) is a widget with no text of
+ * its own (see inlineLivePreviewRegion.test.ts's `visibleText` comment).
  */
 function visibleText(target: EditorView | Node | null | undefined): string {
   if (!target) {

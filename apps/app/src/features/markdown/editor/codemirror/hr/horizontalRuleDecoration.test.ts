@@ -45,7 +45,8 @@ function mountViewWithInlineConstructs(doc: string, initialAnchor: number | null
  * `visibleText` doc comment for the full rationale. Needed here because
  * migrated constructs (bold/strikethrough) appear in the surrounding
  * paragraphs these tests exercise, and their concealed marker text
- * (`cm-marker--concealed`) is now real DOM text, not removed.
+ * (`cm-marker--concealed`) is a widget with no text of its own (see
+ * inlineLivePreviewRegion.test.ts's `visibleText` comment).
  */
 function visibleText(target: EditorView | Node | null | undefined): string {
   if (!target) {

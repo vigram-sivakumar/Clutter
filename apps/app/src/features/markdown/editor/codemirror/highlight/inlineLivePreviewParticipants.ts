@@ -7,6 +7,7 @@ import type { ResolveDate } from '../date/dateResolution';
 import { renderTag } from '../tag/tagDecorations';
 import type { ResolveTag } from '../tag/tagResolution';
 import type { ResolveWikiLink } from '../wikilink/wikiLinkResolution';
+import { ConcealedMarkerWidget } from './ConcealedMarkerWidget';
 
 /**
  * Declaration of which Markdown constructs participate in inline Live
@@ -94,22 +95,31 @@ export type ParticipantRenderer = (
  * tree, in which case nothing is decorated this pass and the next reparse
  * corrects it.
  *
- * **`markerClass` (added for the inline marker DOM migration, per
- * docs/markdown-dom-structure-agreement.md §7):** when provided, marker
- * ranges become a real, source-backed `Decoration.mark` — never removed
- * from the DOM — carrying the universal `cm-marker` hook plus this
- * construct's own `cm-{construct}-marker` class, concealed via the shared
- * `cm-marker--concealed` modifier (zero-width; see `MarkdownEditor.css`'s
- * own doc comment on that class for why this is deliberately *not*
- * blockquote's `color: transparent` technique — blockquote's marker needs
- * to reserve real gutter width, an inline marker does not, and reserving
- * it here would visibly widen the gap around every collapsed construct).
- * When `markerClass` is omitted (Autolink's current registration), marker
- * ranges keep the original `Decoration.replace({})` behavior completely
- * unchanged — this migration is deliberately scoped to the five
- * constructs that pass one; Autolink/Link/WikiLink are out of scope for
- * this slice (see the agreement's §7.1 ordering) and must not be affected
- * by this factory change merely because they share it.
+ * **`markerClass` (2026-08-27, `Decoration.replace()`-with-widget
+ * concealment — see docs/editor-architecture-decisions.md's entry of that
+ * name for the full investigation, including the two rejected CSS-only
+ * predecessors that both lived on this same `Decoration.mark` path):**
+ * when provided, marker ranges are concealed via `Decoration.replace()`
+ * with a `ConcealedMarkerWidget` — an empty, independently-styled box, not
+ * the marker's own real glyphs. This is a change *from* an earlier
+ * version of this same factory, which kept the marker's real text in the
+ * DOM as a `Decoration.mark` and concealed it purely via CSS on the
+ * shared `cm-marker--concealed` class; that approach could not
+ * simultaneously get zero horizontal layout width and non-degenerate
+ * vertical geometry right (see the doc entry for the measured failure
+ * mode of each CSS variant tried). `ConcealedMarkerWidget`'s own DOM
+ * element still carries `cm-marker`/`cm-{construct}-marker`/
+ * `cm-marker--concealed` for continuity with existing per-construct
+ * concealed-marker queries, but contains no text, and blockquote's
+ * separate `color: transparent` technique (which deliberately does
+ * reserve real gutter width) is unaffected by any of this — see that
+ * construct's own decoration source. When `markerClass` is omitted
+ * (Autolink's current registration), marker ranges keep the original bare
+ * `Decoration.replace({})` behavior completely unchanged — this migration
+ * is deliberately scoped to the five constructs that pass one;
+ * Autolink/Link/WikiLink are out of scope for this slice (see the
+ * agreement's §7.1 ordering) and must not be affected by this factory
+ * change merely because they share it.
  */
 function delimitedInlineRenderer(
   markNodeName: string,
@@ -129,7 +139,7 @@ function delimitedInlineRenderer(
     }
 
     const markerDecoration = markerClass
-      ? Decoration.mark({ class: `cm-marker ${markerClass} cm-marker--concealed` })
+      ? Decoration.replace({ widget: new ConcealedMarkerWidget(markerClass) })
       : Decoration.replace({});
 
     const decorations: Range<Decoration>[] = [markerDecoration.range(openMark.from, openMark.to)];
