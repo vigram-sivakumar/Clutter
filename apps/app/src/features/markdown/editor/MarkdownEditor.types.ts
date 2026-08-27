@@ -5,6 +5,19 @@ import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
 import type { GetWikiLinkSuggestions } from './codemirror/wikilink/wikiLinkSuggestion';
 
 export interface MarkdownEditorProps {
+  /**
+   * The page/draft id this editor instance is showing — the same value
+   * `PageHost.tsx` already passes as React's own `key={activePageId}`
+   * (which is *why* a `MarkdownEditor` instance exists for exactly one
+   * page at a time; this prop doesn't change that). Used explicitly as
+   * the cache key for per-document CM6 undo/redo history preservation
+   * (`codemirror/editorHistoryCache.ts`) — read once at mount, not
+   * inferred from the React `key` (a private React implementation detail
+   * this component shouldn't reach for) or from `markdown` content (which
+   * is not a stable identity: two different pages can have identical
+   * text, and a page's own text changes on every edit).
+   */
+  readonly pageId: string;
   readonly markdown: string;
   /**
    * Fires on every content change (typing, paste, deletion) — commits into

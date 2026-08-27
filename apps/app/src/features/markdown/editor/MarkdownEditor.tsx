@@ -3,8 +3,13 @@ import type { EditorView } from '@codemirror/view';
 
 import {
   createEditorView,
+  serializeEditorHistory,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
+import {
+  getCachedEditorHistory,
+  setCachedEditorHistory,
+} from './codemirror/editorHistoryCache';
 import { semanticCompletion } from './codemirror/completion';
 // Visual decoration imports below are commented out alongside their usage
 // further down — temporary keyboard-behavior-only configuration. See the
@@ -94,6 +99,7 @@ export const MarkdownEditor = forwardRef<
   MarkdownEditorProps
 >(function MarkdownEditor(
   {
+    pageId,
     markdown,
     onEdit,
     onFlush,
@@ -155,6 +161,16 @@ export const MarkdownEditor = forwardRef<
     const view = createEditorView({
       doc: markdown,
       parent: container,
+      // Per-document CM6 undo/redo history preservation
+      // (docs/editor-architecture-decisions.md's entry of that name):
+      // `createEditorView` itself guards this against a stale/mismatched
+      // cache entry (its own `restoreHistoryJSON` doc comment) — silently
+      // falls back to a fresh state if the cached snapshot's embedded
+      // document no longer matches `markdown`, e.g. because something
+      // changed this page's content elsewhere while it was closed
+      // (`PageOperations.mutateBody()`). This lookup itself is therefore
+      // always safe to pass through unconditionally, cache hit or miss.
+      restoreHistoryJSON: getCachedEditorHistory(pageId),
       extensions: [
         // Still CodeMirror's own keyboard behavior: no Clutter
         // Delete/Tab/Shift-Tab/Arrow interception layered on top of it, and
@@ -273,13 +289,24 @@ export const MarkdownEditor = forwardRef<
     viewRef.current = view;
 
     return () => {
+      // Captured before destroy() (which invalidates the view) — this is
+      // the write side of the history cache read via restoreHistoryJSON
+      // above. Runs on every unmount, including a real page switch (the
+      // common, intended case) and this component's own StrictMode
+      // double-invoke in dev (harmless: the second mount's own read
+      // overwrites this with the same content moments later).
+      setCachedEditorHistory(pageId, serializeEditorHistory(view));
       view.destroy();
       viewRef.current = null;
     };
-    // Mounted once; the markdown prop's initial value seeds the view
-    // here, later changes are handled by the sync effect below — matches
-    // the previous implementation, where the DOM node was likewise
-    // created once by JSX and only ever updated via a separate effect.
+    // Mounted once per pageId (React's key={activePageId} on this
+    // component, in PageHost.tsx, already forces a full remount on every
+    // page switch — this effect doesn't need pageId in its own deps to
+    // "notice" that, matching the existing markdown-is-mount-only comment
+    // below). The markdown prop's initial value seeds the view here,
+    // later changes are handled by the sync effect below — matches the
+    // previous implementation, where the DOM node was likewise created
+    // once by JSX and only ever updated via a separate effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

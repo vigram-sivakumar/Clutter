@@ -500,6 +500,7 @@ export function PageHost({ application }: PageHostProps) {
           <MarkdownBody>
             <MarkdownEditor
               key={activePageId}
+              pageId={activePageId}
               ref={editorRef}
               markdown={model.markdown}
               onEdit={(markdown) => model.updateMarkdown(markdown)}
@@ -589,6 +590,7 @@ export function PageHost({ application }: PageHostProps) {
         <MarkdownBody>
           <MarkdownEditor
             key={activePageId}
+            pageId={activePageId}
             ref={editorRef}
             markdown={model.markdown}
             onEdit={(markdown) => model.updateMarkdown(markdown)}

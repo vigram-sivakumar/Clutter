@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
+import { Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
-import { createEditorView, syncMarkdownIntoView } from './createEditorView';
+import { createEditorView, serializeEditorHistory, syncMarkdownIntoView } from './createEditorView';
+import {
+  __clearAllCachedEditorHistoryForTests,
+  getCachedEditorHistory,
+  setCachedEditorHistory,
+} from './editorHistoryCache';
 
 describe('createEditorView — initial cursor position', () => {
   it('places a collapsed selection at doc.length, not position 0', () => {
@@ -213,5 +219,144 @@ describe('syncMarkdownIntoView — external syncs must not corrupt undo history'
     noteB.destroy();
     const { view: noteAAgain } = mountWithEdits('EDITED: note A');
     expect(undoDepth(noteAAgain.state)).toBe(0);
+  });
+});
+
+/**
+ * Regression coverage for per-document CM6 undo/redo history preservation
+ * (docs/editor-architecture-decisions.md's entry of that name).
+ * `MarkdownEditor.tsx`'s own mount/unmount effect is the real integration
+ * point (`getCachedEditorHistory`/`setCachedEditorHistory` around
+ * `createEditorView`'s `restoreHistoryJSON` option and
+ * `serializeEditorHistory`) — these tests exercise the same three
+ * functions directly, at the level a page switch actually operates:
+ * "unmount page A" is `serializeEditorHistory` + `setCachedEditorHistory`
+ * + `view.destroy()`; "mount page A again" is `getCachedEditorHistory` +
+ * `createEditorView({..., restoreHistoryJSON})`.
+ */
+describe('Per-document undo/redo history preservation (editorHistoryCache + restoreHistoryJSON)', () => {
+  beforeEach(() => {
+    __clearAllCachedEditorHistoryForTests();
+  });
+
+  /** Mirrors MarkdownEditor.tsx's mount effect: cache lookup -> createEditorView. */
+  function openPage(pageId: string, markdown: string): EditorView {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    return createEditorView({
+      doc: markdown,
+      parent,
+      restoreHistoryJSON: getCachedEditorHistory(pageId),
+    });
+  }
+
+  /** Mirrors MarkdownEditor.tsx's unmount cleanup: serialize -> cache -> destroy. */
+  function closePage(pageId: string, view: EditorView): void {
+    setCachedEditorHistory(pageId, serializeEditorHistory(view));
+    view.destroy();
+  }
+
+  it('A: history survives a page switch — only the leaving page\'s own edit is undone on return', () => {
+    const a = openPage('page-a', 'A');
+    a.dispatch({ changes: { from: 1, to: 1, insert: '1' } }); // "A1"
+    closePage('page-a', a);
+
+    const b = openPage('page-b', 'B');
+    b.dispatch({ changes: { from: 1, to: 1, insert: '1' } }); // "B1"
+    // page A's cache entry is untouched by anything that happened to B
+    closePage('page-b', b);
+
+    const aAgain = openPage('page-a', 'A1'); // fresh markdown prop matches what A was left at
+    expect(undoDepth(aAgain.state)).toBe(1);
+    undo(aAgain);
+    expect(aAgain.state.doc.toString()).toBe('A'); // only A's own edit, never B's
+  });
+
+  it('B: histories are independent in both directions', () => {
+    const a = openPage('page-a', 'A');
+    a.dispatch({ changes: { from: 1, to: 1, insert: '1' } });
+    closePage('page-a', a);
+
+    const b = openPage('page-b', 'B');
+    b.dispatch({ changes: { from: 1, to: 1, insert: '1' } });
+    closePage('page-b', b);
+
+    const aRestored = openPage('page-a', 'A1');
+    undo(aRestored);
+    expect(aRestored.state.doc.toString()).toBe('A');
+
+    const bRestored = openPage('page-b', 'B1');
+    undo(bRestored);
+    expect(bRestored.state.doc.toString()).toBe('B');
+  });
+
+  it('C: multiple undo/redo steps survive a round trip through another page', () => {
+    const a = openPage('page-a', 'A');
+    // Three separately-grouped edits — CM6 groups consecutive dispatches
+    // within its default 500ms `newGroupDelay` window, which every
+    // synchronous same-tick test dispatch always falls inside; explicit,
+    // widely-spaced `Transaction.time` annotations simulate real,
+    // separated user keystrokes instead.
+    a.dispatch({ changes: { from: 1, to: 1, insert: '1' }, annotations: Transaction.time.of(1000) });
+    a.dispatch({ changes: { from: 2, to: 2, insert: '2' }, annotations: Transaction.time.of(2000) });
+    a.dispatch({ changes: { from: 3, to: 3, insert: '3' }, annotations: Transaction.time.of(3000) });
+    expect(a.state.doc.toString()).toBe('A123');
+    expect(undoDepth(a.state)).toBe(3);
+    closePage('page-a', a);
+
+    const b = openPage('page-b', 'B');
+    b.dispatch({ changes: { from: 1, to: 1, insert: 'x' } });
+    closePage('page-b', b);
+
+    const aRestored = openPage('page-a', 'A123');
+    expect(undoDepth(aRestored.state)).toBe(3);
+
+    undo(aRestored);
+    expect(aRestored.state.doc.toString()).toBe('A12');
+    undo(aRestored);
+    expect(aRestored.state.doc.toString()).toBe('A1');
+    undo(aRestored);
+    expect(aRestored.state.doc.toString()).toBe('A');
+
+    redo(aRestored);
+    expect(aRestored.state.doc.toString()).toBe('A1');
+    redo(aRestored);
+    expect(aRestored.state.doc.toString()).toBe('A12');
+    redo(aRestored);
+    expect(aRestored.state.doc.toString()).toBe('A123');
+  });
+
+  it('D: a page with no cached entry starts with clean, empty history', () => {
+    const fresh = openPage('never-opened-before', 'fresh content');
+    expect(undoDepth(fresh.state)).toBe(0);
+    expect(redoDepth(fresh.state)).toBe(0);
+  });
+
+  it('E: selection/caret position is restored alongside history', () => {
+    const a = openPage('page-a', 'hello world');
+    a.dispatch({ selection: { anchor: 5 } }); // caret between "hello" and " world"
+    closePage('page-a', a);
+
+    const aRestored = openPage('page-a', 'hello world');
+    expect(aRestored.state.selection.main.anchor).toBe(5);
+    expect(aRestored.state.selection.main.head).toBe(5);
+  });
+
+  it('F: a cache entry whose document no longer matches the incoming markdown prop is never used — no partial/stale restore, and no corrupted history', () => {
+    const a = openPage('page-a', 'A');
+    a.dispatch({ changes: { from: 1, to: 1, insert: '1' } }); // "A1"
+    closePage('page-a', a); // cache holds doc "A1" + 1 history entry
+
+    // Simulate an external change to page A's content while it was closed
+    // (PageOperations.mutateBody() — a task toggle from a different UI
+    // surface). The fresh markdown prop on reopen ("A1-external") no
+    // longer matches the cached snapshot's own embedded doc ("A1").
+    const aReopened = openPage('page-a', 'A1-external');
+
+    // The cached (now-stale) history must be silently ignored — never a
+    // partial restore that shows correct-looking content with a
+    // corrupted/mismatched history underneath it.
+    expect(aReopened.state.doc.toString()).toBe('A1-external'); // real, current content — not the stale cached "A1"
+    expect(undoDepth(aReopened.state)).toBe(0); // clean history, exactly like any other cache miss
   });
 });

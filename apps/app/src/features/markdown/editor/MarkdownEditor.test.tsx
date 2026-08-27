@@ -14,7 +14,7 @@ afterEach(() => {
 describe('MarkdownEditor imperative focus handle', () => {
   it('lets a caller focus the editor via ref', () => {
     const ref = createRef<MarkdownEditorHandle>();
-    const { container } = render(<MarkdownEditor ref={ref} markdown="Hello" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown="Hello" />);
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
 
     expect(document.activeElement).not.toBe(editor);
@@ -27,24 +27,24 @@ describe('MarkdownEditor imperative focus handle', () => {
 
 describe('MarkdownEditor: DOM sync from the markdown prop', () => {
   it('syncs the DOM to the markdown prop on initial render', () => {
-    const { container } = render(<MarkdownEditor markdown="Hello" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
 
     expect(editor.textContent).toBe('Hello');
   });
 
   it('syncs an external markdown prop change into the DOM while unfocused', () => {
-    const { container, rerender } = render(<MarkdownEditor markdown="Hello" />);
+    const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
     expect(document.activeElement).not.toBe(editor);
 
-    rerender(<MarkdownEditor markdown="Changed externally" />);
+    rerender(<MarkdownEditor pageId="test-page" markdown="Changed externally" />);
 
     expect(editor.textContent).toBe('Changed externally');
   });
 
   it('does NOT overwrite the DOM from a markdown prop change while the editor has focus', () => {
-    const { container, rerender } = render(<MarkdownEditor markdown="Hello" />);
+    const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
     editor.focus();
     expect(document.activeElement).toBe(editor);
@@ -55,17 +55,17 @@ describe('MarkdownEditor: DOM sync from the markdown prop', () => {
 
     // A stale/round-tripped prop update arrives (e.g. this editor's own
     // earlier commit re-rendering) — must not clobber in-progress typing.
-    rerender(<MarkdownEditor markdown="Hello" />);
+    rerender(<MarkdownEditor pageId="test-page" markdown="Hello" />);
 
     expect(editor.textContent).toBe('Hello, mid-edit');
   });
 
   it('resumes syncing from the prop once focus leaves the editor', () => {
-    const { container, rerender } = render(<MarkdownEditor markdown="Hello" />);
+    const { container, rerender } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
     editor.focus();
     editor.textContent = 'Mid-edit';
-    rerender(<MarkdownEditor markdown="Hello" />);
+    rerender(<MarkdownEditor pageId="test-page" markdown="Hello" />);
     expect(editor.textContent).toBe('Mid-edit');
 
     // jsdom's fireEvent.blur only dispatches the event, it doesn't move
@@ -73,7 +73,7 @@ describe('MarkdownEditor: DOM sync from the markdown prop', () => {
     // .blur() is what actually clears activeElement here, which is the
     // condition the component's effect checks.
     editor.blur();
-    rerender(<MarkdownEditor markdown="Reconciled value" />);
+    rerender(<MarkdownEditor pageId="test-page" markdown="Reconciled value" />);
 
     expect(editor.textContent).toBe('Reconciled value');
   });
@@ -81,7 +81,7 @@ describe('MarkdownEditor: DOM sync from the markdown prop', () => {
 
 describe('MarkdownEditor: initial cursor position', () => {
   it('places the cursor at the end of the document on open, not position 0', () => {
-    const { container } = render(<MarkdownEditor markdown="Hello, world" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="Hello, world" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
@@ -90,7 +90,7 @@ describe('MarkdownEditor: initial cursor position', () => {
 
   it('reflects the end-of-document cursor once focused via the imperative handle', () => {
     const ref = createRef<MarkdownEditorHandle>();
-    const { container } = render(<MarkdownEditor ref={ref} markdown="Hello, world" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" ref={ref} markdown="Hello, world" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
     ref.current?.focus();
@@ -100,7 +100,7 @@ describe('MarkdownEditor: initial cursor position', () => {
   });
 
   it('does not fight a subsequent user selection — a later click/selection change is preserved', () => {
-    const { container } = render(<MarkdownEditor markdown="Hello, world" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="Hello, world" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
     view.dispatch({ selection: { anchor: 0 } });
@@ -123,7 +123,7 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
   // browser input event jsdom can't fully emulate for a CM6 editor.
   it('calls onEdit with the current content on every document-changing transaction', () => {
     const onEdit = vi.fn();
-    const { container } = render(<MarkdownEditor markdown="Hello" onEdit={onEdit} />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="Hello" onEdit={onEdit} />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
     view.dispatch({ changes: { from: 5, insert: ', edited' } });
@@ -133,7 +133,7 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
 
   it('calls onEdit again for a second change, unconditionally (no local diffing)', () => {
     const onEdit = vi.fn();
-    const { container } = render(<MarkdownEditor markdown="" onEdit={onEdit} />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="" onEdit={onEdit} />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
     view.dispatch({ changes: { from: 0, insert: 'H' } });
@@ -144,7 +144,7 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
   });
 
   it('does not throw when onEdit is not provided', () => {
-    const { container } = render(<MarkdownEditor markdown="Hello" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
 
     expect(() => view.dispatch({ changes: { from: 5, insert: '!' } })).not.toThrow();
@@ -154,7 +154,7 @@ describe('MarkdownEditor: onEdit (per-keystroke commit)', () => {
 describe('MarkdownEditor: onFlush (blur — a payload-free save request)', () => {
   it('calls onFlush with no arguments on blur', () => {
     const onFlush = vi.fn();
-    const { container } = render(<MarkdownEditor markdown="Hello" onFlush={onFlush} />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="Hello" onFlush={onFlush} />);
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
 
     fireEvent.blur(editor);
@@ -167,7 +167,7 @@ describe('MarkdownEditor: onFlush (blur — a payload-free save request)', () =>
     const onEdit = vi.fn();
     const onFlush = vi.fn();
     const { container } = render(
-      <MarkdownEditor markdown="Hello" onEdit={onEdit} onFlush={onFlush} />
+      <MarkdownEditor pageId="test-page" markdown="Hello" onEdit={onEdit} onFlush={onFlush} />
     );
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
 
@@ -179,7 +179,7 @@ describe('MarkdownEditor: onFlush (blur — a payload-free save request)', () =>
   });
 
   it('does not throw when onFlush is not provided', () => {
-    const { container } = render(<MarkdownEditor markdown="Hello" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="Hello" />);
     const editor = container.querySelector('[contenteditable]') as HTMLElement;
 
     expect(() => fireEvent.blur(editor)).not.toThrow();
@@ -195,12 +195,12 @@ describe('MarkdownEditor: resolveWikiLink (§5 boundary, §6 decoration wiring)'
     }));
 
     expect(() =>
-      render(<MarkdownEditor markdown="[[Page]]" resolveWikiLink={resolveWikiLink} />)
+      render(<MarkdownEditor pageId="test-page" markdown="[[Page]]" resolveWikiLink={resolveWikiLink} />)
     ).not.toThrow();
   });
 
   it('renders without throwing when resolveWikiLink is not provided, even with WikiLink syntax present', () => {
-    expect(() => render(<MarkdownEditor markdown="[[Page]]" />)).not.toThrow();
+    expect(() => render(<MarkdownEditor pageId="test-page" markdown="[[Page]]" />)).not.toThrow();
   });
 
   it('calls resolveWikiLink for a WikiLink present in the initial markdown (§6 — decoration layer now consumes it)', () => {
@@ -219,7 +219,7 @@ describe('MarkdownEditor: resolveWikiLink (§5 boundary, §6 decoration wiring)'
       displayLabel: 'x',
       activate: vi.fn(),
     }));
-    render(<MarkdownEditor markdown="See [[Page]] here" resolveWikiLink={resolveWikiLink} />);
+    render(<MarkdownEditor pageId="test-page" markdown="See [[Page]] here" resolveWikiLink={resolveWikiLink} />);
 
     expect(resolveWikiLink).toHaveBeenCalledWith('Page', null);
   });
@@ -262,37 +262,37 @@ describe('MarkdownEditor: no duplicate same-class decoration wrapping (same-rang
   }
 
   it('Emphasis (*text*): tok-emphasis does not wrap another tok-emphasis', () => {
-    const { container } = render(<MarkdownEditor markdown="before *italic* after" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="before *italic* after" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
     expectNoSelfNestedClass(view, 'tok-emphasis');
   });
 
   it('StrongEmphasis (**text**): tok-strong does not wrap another tok-strong', () => {
-    const { container } = render(<MarkdownEditor markdown="before **bold** after" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="before **bold** after" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
     expectNoSelfNestedClass(view, 'tok-strong');
   });
 
   it('Strikethrough (~~text~~): tok-strike does not wrap another tok-strike', () => {
-    const { container } = render(<MarkdownEditor markdown="before ~~struck~~ after" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="before ~~struck~~ after" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
     expectNoSelfNestedClass(view, 'tok-strike');
   });
 
   it('InlineCode (`text`): tok-code does not wrap another tok-code', () => {
-    const { container } = render(<MarkdownEditor markdown="before `code` after" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="before `code` after" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
     expectNoSelfNestedClass(view, 'tok-code');
   });
 
   it('Highlight (==text==): tok-highlight does not wrap another tok-highlight', () => {
-    const { container } = render(<MarkdownEditor markdown="before ==marked== after" />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown="before ==marked== after" />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
     expectNoSelfNestedClass(view, 'tok-highlight');
   });
 
   it('ATX heading (# text): tok-heading1 does not wrap another tok-heading1', () => {
-    const { container } = render(<MarkdownEditor markdown={'# Heading\n\nafter'} />);
+    const { container } = render(<MarkdownEditor pageId="test-page" markdown={'# Heading\n\nafter'} />);
     const view = EditorView.findFromDOM(container as unknown as HTMLElement)!;
     expectNoSelfNestedClass(view, 'tok-heading1');
   });

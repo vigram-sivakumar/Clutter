@@ -1,5 +1,5 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, history, historyField, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
 import { Annotation, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
@@ -35,6 +35,23 @@ export interface CreateEditorViewOptions {
   readonly extensions?: readonly Extension[];
   readonly onDocChange?: (markdown: string) => void;
   readonly onBlur?: () => void;
+  /**
+   * A previous `serializeEditorHistory()` snapshot for this exact
+   * document (typically retrieved from `editorHistoryCache.ts` by the
+   * page id, right before this view is constructed for a page the user
+   * is returning to) — when supplied *and* its own embedded document text
+   * matches `doc`, the view's undo/redo history is restored from it
+   * instead of starting fresh. Per docs/editor-architecture-decisions.md's
+   * "Per-document CM6 undo/redo history preservation" entry: the doc-text
+   * match check is load-bearing, not defensive boilerplate — a snapshot
+   * whose embedded document no longer matches `doc` (something changed
+   * the page's content between when this snapshot was taken and now,
+   * e.g. a task toggled elsewhere while this page was closed) is exactly
+   * as untrustworthy to restore from as it would be to show stale content
+   * outright, so it's silently ignored and a fresh state is created
+   * instead — never a partial/best-effort restore.
+   */
+  readonly restoreHistoryJSON?: unknown;
 }
 
 /**
@@ -55,7 +72,7 @@ export interface CreateEditorViewOptions {
  * CSS hiding was replaced).
  */
 export function createEditorView(options: CreateEditorViewOptions): EditorView {
-  const { doc, parent, extensions = [], onDocChange, onBlur } = options;
+  const { doc, parent, extensions = [], onDocChange, onBlur, restoreHistoryJSON } = options;
 
   const updateListener = EditorView.updateListener.of((update) => {
     if (!update.docChanged) {
@@ -76,15 +93,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     },
   });
 
-  const state = EditorState.create({
-    doc,
-    // Opening a page should land the cursor at the end of its content, not
-    // CM6's own default (position 0) — matches how a document is resumed,
-    // not started. Set once at initial-state construction, so it's just
-    // this view's starting selection: any later click/selection dispatches
-    // through the normal transaction path untouched.
-    selection: { anchor: doc.length },
-    extensions: [
+  const allExtensions = [
       updateListener,
       blurHandler,
       // editorTheme() and highlightActiveLine() are kept: baseline editor
@@ -165,10 +174,65 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
         ...foldKeymap,
         ...defaultKeymap,
       ]),
-    ],
-  });
+  ];
+
+  // Opening a page should land the cursor at the end of its content, not
+  // CM6's own default (position 0) — matches how a document is resumed,
+  // not started. Only used on the fresh-state path: a restored state
+  // brings its own serialized selection along (see docTextMatches below).
+  const freshSelection = { anchor: doc.length };
+
+  const restoredState =
+    restoreHistoryJSON && docTextMatches(restoreHistoryJSON, doc)
+      ? EditorState.fromJSON(
+          restoreHistoryJSON,
+          { extensions: allExtensions },
+          { history: historyField }
+        )
+      : null;
+
+  const state =
+    restoredState ??
+    EditorState.create({ doc, selection: freshSelection, extensions: allExtensions });
 
   return new EditorView({ state, parent });
+}
+
+/**
+ * `EditorState.toJSON()`'s own `doc` field is a plain string
+ * (`doc: this.sliceDoc()` — confirmed directly against the installed
+ * `@codemirror/state` source; `EditorState.fromJSON` itself validates
+ * `typeof json.doc === "string"` and throws otherwise). Not `Text`'s own,
+ * different `toJSON()` shape (an array of lines) — the two are easy to
+ * conflate but are not the same serialization, confirmed the hard way
+ * (this function's first version assumed the array shape and always
+ * returned `false`, so `restoreHistoryJSON` was silently ignored on
+ * every call — caught by this module's own regression tests, not by
+ * inspection).
+ */
+function docTextMatches(serialized: unknown, doc: string): boolean {
+  const json = serialized as { doc?: unknown } | null | undefined;
+  return typeof json?.doc === 'string' && json.doc === doc;
+}
+
+/**
+ * Captures `view`'s full undo/redo history (plus its current document and
+ * selection, both already part of every `EditorState`) as a
+ * JSON-serializable snapshot — the counterpart to `restoreHistoryJSON`
+ * above. Intended for `editorHistoryCache.ts`: called right before a
+ * page's `EditorView` is torn down (a page switch), stored keyed by that
+ * page's id, and handed back into a future `createEditorView()` call's
+ * `restoreHistoryJSON` option when the user returns to that same page.
+ * `{history: historyField}` is CM6's own documented mechanism for this —
+ * `historyField`'s own doc comment: "Should probably only be used when
+ * you want to serialize or deserialize state objects in a way that
+ * preserves history" — confirmed end-to-end (including zero cross-
+ * document leakage between two unrelated documents' snapshots) before
+ * this was wired in; see the architecture-decisions.md entry for the
+ * verification.
+ */
+export function serializeEditorHistory(view: EditorView): unknown {
+  return view.state.toJSON({ history: historyField });
 }
 
 /**
