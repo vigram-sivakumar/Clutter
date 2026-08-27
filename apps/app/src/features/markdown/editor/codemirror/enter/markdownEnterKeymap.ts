@@ -3,9 +3,10 @@ import {
   insertNewlineContinueMarkupCommand,
   markdownLanguage,
 } from '@codemirror/lang-markdown';
-import { syntaxTree } from '@codemirror/language';
+import { getIndentUnit, indentString, syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
 import {
+  countColumn,
   EditorSelection,
   Prec,
   type EditorState,
@@ -165,9 +166,18 @@ const exitEmptyBlockquoteContinuation: StateCommand = (target) => {
 };
 
 /**
- * Indentation-only continuation (`    Text` / `    |`): remove the
- * indentation, leaving a genuinely empty line. No line break is inserted —
- * the press *undoes* the continuation rather than extending it.
+ * Indentation-only continuation (`    Text` / `    |`): remove one
+ * indentation unit, not the whole leading-whitespace run — repeated Enter
+ * presses step down to column 0 the same way `indentLess` (Shift-Tab) steps
+ * up, one unit per press, before falling through to a genuinely empty line.
+ *
+ * Reuses `indentLess`'s own column math (`countColumn`, `getIndentUnit`,
+ * `indentString`) rather than a bespoke calculation, so this stays in sync
+ * with whatever `indentUnit`/`tabSize` the editor is actually configured
+ * with — but never calls `indentLess`/`indentMore`/`indentWithTab`
+ * themselves, and never touches their keybindings; those commands operate
+ * over the full selection across every selected line, which is broader than
+ * this single-line, empty-continuation case.
  *
  * Ordered last in the chain, so it can only ever see presses CM6's own
  * Markdown command has already declined. That ordering is what keeps it
@@ -184,10 +194,14 @@ const exitEmptyIndentContinuation: StateCommand = (target) => {
     return false;
   }
 
+  const { state } = target;
+  const column = countColumn(context.before, state.tabSize);
+  const insert = indentString(state, Math.max(0, column - getIndentUnit(state)));
+
   target.dispatch(
-    target.state.update({
-      changes: { from: context.lineFrom, to: context.pos },
-      selection: EditorSelection.cursor(context.lineFrom),
+    state.update({
+      changes: { from: context.lineFrom, to: context.pos, insert },
+      selection: EditorSelection.cursor(context.lineFrom + insert.length),
       scrollIntoView: true,
       userEvent: 'delete',
     })

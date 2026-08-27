@@ -55,6 +55,33 @@ function mountViewWithSelection(
   return view;
 }
 
+/**
+ * What a user actually sees — see inlineLivePreviewRegion.test.ts's own
+ * `visibleText` doc comment for the full rationale. Needed here because a
+ * migrated construct (bold) can enclose a WikiLink in several of this
+ * file's own regression cases, and its concealed marker text
+ * (`cm-marker--concealed`) is now real DOM text, not removed.
+ */
+function visibleText(target: EditorView | Node | null | undefined): string {
+  if (!target) {
+    return '';
+  }
+  const root: Node = 'dom' in target ? target.dom : target;
+  let result = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).classList.contains('cm-marker--concealed')) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent ?? '';
+      return;
+    }
+    node.childNodes.forEach(walk);
+  };
+  walk(root);
+  return result;
+}
+
 function isAtomicAnywhere(view: EditorView): boolean {
   const atomicProviders = view.state.facet(EditorView.atomicRanges);
   return atomicProviders.some((provider) => {
@@ -78,9 +105,9 @@ describe('wikiLinkLivePreview', () => {
     it('renders the compact widget, not the raw syntax', () => {
       const view = mountView('before [[Projects/Project A]] after', resolvedAs('Project A'));
 
-      expect(view.dom.textContent).toBe('before Project A after');
-      expect(view.dom.textContent).not.toContain('Projects/');
-      expect(view.dom.textContent).not.toContain('[[');
+      expect(visibleText(view)).toBe('before Project A after');
+      expect(visibleText(view)).not.toContain('Projects/');
+      expect(visibleText(view)).not.toContain('[[');
     });
 
     it('resolved path: shows the resolver-supplied display label', () => {
@@ -110,7 +137,7 @@ describe('wikiLinkLivePreview', () => {
         displayLabel: 'Display name',
         activate: () => {},
       }));
-      expect(view.dom.textContent).toBe('before Display name after');
+      expect(visibleText(view)).toBe('before Display name after');
     });
 
     it('is registered in EditorView.atomicRanges', () => {
@@ -132,14 +159,14 @@ describe('wikiLinkLivePreview', () => {
       const view = mountView('before [[]] after', resolvedAs('should never render'));
 
       expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
-      expect(view.dom.textContent).toBe('before [[]] after');
+      expect(visibleText(view)).toBe('before [[]] after');
     });
 
     it('[[ ]] (a literal space) is treated the same as truly empty — not replaced by a widget', () => {
       const view = mountView('before [[ ]] after', resolvedAs('should never render'));
 
       expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
-      expect(view.dom.textContent).toBe('before [[ ]] after');
+      expect(visibleText(view)).toBe('before [[ ]] after');
     });
 
     it('[[]] is not atomic — ordinary cursor motion applies, since it is plain text, not a widget', () => {
@@ -158,7 +185,7 @@ describe('wikiLinkLivePreview', () => {
       const view = new EditorView({ state, parent });
 
       expect(view.dom.querySelector('[data-wikilink-status]')).toBeNull();
-      expect(view.dom.textContent).toBe('before [[]] after');
+      expect(visibleText(view)).toBe('before [[]] after');
     });
 
     it('typing a real path into a previously-empty [[]] resumes normal at-rest widget rendering — nothing is permanently stuck raw', () => {
@@ -176,7 +203,7 @@ describe('wikiLinkLivePreview', () => {
       const view = mountView('before [[Projects/Project A]] after', resolvedAs('Project A'));
 
       expect(view.dom.querySelector('[data-wikilink-status="resolved"]')?.textContent).toBe('Project A');
-      expect(view.dom.textContent).toBe('before Project A after');
+      expect(visibleText(view)).toBe('before Project A after');
       expect(isAtomicAnywhere(view)).toBe(true);
     });
   });
@@ -187,8 +214,8 @@ describe('wikiLinkLivePreview', () => {
       const nodeFrom = 'before '.length;
       const view = mountViewWithSelection(doc, nodeFrom + 3, resolvedAs('Project A'));
 
-      expect(view.dom.textContent).toBe('before [[Project A]] after');
-      expect(view.dom.textContent).not.toContain('Projects/');
+      expect(visibleText(view)).toBe('before [[Project A]] after');
+      expect(visibleText(view)).not.toContain('Projects/');
     });
 
     it('with an alias: reveals [[filename|alias]] — the folder prefix stays concealed, the alias stays visible', () => {
@@ -196,8 +223,8 @@ describe('wikiLinkLivePreview', () => {
       const nodeFrom = 'before '.length;
       const view = mountViewWithSelection(doc, nodeFrom + 3, resolvedAs('Display name'));
 
-      expect(view.dom.textContent).toBe('before [[Project A|Display name]] after');
-      expect(view.dom.textContent).not.toContain('Projects/');
+      expect(visibleText(view)).toBe('before [[Project A|Display name]] after');
+      expect(visibleText(view)).not.toContain('Projects/');
     });
 
     it('no folder component: the whole reference was already just the filename, nothing to conceal', () => {
@@ -205,7 +232,7 @@ describe('wikiLinkLivePreview', () => {
       const nodeFrom = 'before '.length;
       const view = mountViewWithSelection(doc, nodeFrom + 3, resolvedAs('Project A'));
 
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
     });
 
     it('has no atomic range while engaged', () => {
@@ -222,17 +249,17 @@ describe('wikiLinkLivePreview', () => {
       const view = mountView(doc, resolvedAs('Project A'));
 
       view.dispatch({ selection: { anchor: nodeFrom + 3 } });
-      expect(view.dom.textContent).toContain('[[Project A]]');
+      expect(visibleText(view)).toContain('[[Project A]]');
 
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).toBe('before Project A after');
+      expect(visibleText(view)).toBe('before Project A after');
     });
   });
 
   describe('nested formatting', () => {
     it('**[[Projects/Project A]]**: outside the link, the bold formatting still collapses to the plain compact label', () => {
       const view = mountView('before **[[Projects/Project A]]** after', resolvedAs('Project A'), true);
-      expect(view.dom.textContent).toBe('before Project A after');
+      expect(visibleText(view)).toBe('before Project A after');
     });
 
     it('**[[Projects/Project A]]**: cursor inside the link reveals the bold marks (StrongEmphasis is genuinely engaged) alongside the compact reference', () => {
@@ -240,8 +267,8 @@ describe('wikiLinkLivePreview', () => {
       const insideWikiLink = doc.indexOf('Project A') + 1;
       const view = mountViewWithSelection(doc, insideWikiLink, resolvedAs('Project A'), true);
 
-      expect(view.dom.textContent).toBe('**[[Project A]]**');
-      expect(view.dom.textContent).not.toContain('Projects/');
+      expect(visibleText(view)).toBe('**[[Project A]]**');
+      expect(visibleText(view)).not.toContain('Projects/');
     });
 
     it('**[[Projects/Project A|Display name]]**: cursor inside reveals the alias alongside the compact reference', () => {
@@ -250,8 +277,8 @@ describe('wikiLinkLivePreview', () => {
       const resolver: ResolveWikiLink = () => ({ status: 'resolved', displayLabel: 'Display name', activate: () => {} });
       const view = mountViewWithSelection(doc, insideWikiLink, resolver, true);
 
-      expect(view.dom.textContent).toBe('**[[Project A|Display name]]**');
-      expect(view.dom.textContent).not.toContain('Projects/');
+      expect(visibleText(view)).toBe('**[[Project A|Display name]]**');
+      expect(visibleText(view)).not.toContain('Projects/');
     });
 
     it('~~[[Projects/Project A]]~~: cursor inside the link reveals the strikethrough marks alongside the compact reference', () => {
@@ -259,7 +286,7 @@ describe('wikiLinkLivePreview', () => {
       const insideWikiLink = doc.indexOf('Project A') + 1;
       const view = mountViewWithSelection(doc, insideWikiLink, resolvedAs('Project A'), true);
 
-      expect(view.dom.textContent).toBe('~~[[Project A]]~~');
+      expect(visibleText(view)).toBe('~~[[Project A]]~~');
     });
 
     it('**~~[[Projects/Project A]]~~**: nested combination — both outer marks reveal, the reference stays folder-free', () => {
@@ -267,8 +294,8 @@ describe('wikiLinkLivePreview', () => {
       const insideWikiLink = doc.indexOf('Project A') + 1;
       const view = mountViewWithSelection(doc, insideWikiLink, resolvedAs('Project A'), true);
 
-      expect(view.dom.textContent).toBe('**~~[[Project A]]~~**');
-      expect(view.dom.textContent).not.toContain('Projects/');
+      expect(visibleText(view)).toBe('**~~[[Project A]]~~**');
+      expect(visibleText(view)).not.toContain('Projects/');
     });
 
     it('does not introduce construct-pair logic: StrongEmphasis with no WikiLink inside behaves exactly as it does without wikiLinkLivePreview registered', () => {
@@ -276,7 +303,7 @@ describe('wikiLinkLivePreview', () => {
       // Genuinely engaged StrongEmphasis with no WikiLink inside — must
       // stay fully raw, exactly as inlineLivePreviewRegion.test.ts already
       // proves for this construct on its own.
-      expect(view.dom.textContent).toBe('**bold text**');
+      expect(visibleText(view)).toBe('**bold text**');
     });
   });
 
@@ -429,13 +456,13 @@ describe('wikiLinkLivePreview', () => {
         activate: () => {},
       }), true);
       expectNestedAncestry(view, '[data-wikilink-status]', 'tok-strong');
-      expect(view.dom.textContent).toBe('before Alias after');
+      expect(visibleText(view)).toBe('before Alias after');
     });
 
     it('[See [[Page]]](url): tok-link wraps the WikiLink widget — same mechanism as Strong/Strike/Highlight/Emphasis, since Link stays inside the shared inlineLivePreviewRegion traversal', () => {
       const view = mountView('before [See [[Page]]](https://example.com) after', resolvedAs('Page'), true);
       expectNestedAncestry(view, '[data-wikilink-status]', 'tok-link');
-      expect(view.dom.textContent).toBe('before See Page after');
+      expect(visibleText(view)).toBe('before See Page after');
     });
   });
 
@@ -462,7 +489,7 @@ describe('wikiLinkLivePreview', () => {
       // Desired behavior would be "See Page" (WikiLink stays compact,
       // since the caret isn't inside it) — current behavior incorrectly
       // reveals it. This assertion documents the bug, not an endorsement.
-      expect(view.dom.textContent).toContain('[[Page]]');
+      expect(visibleText(view)).toContain('[[Page]]');
     });
   });
 
@@ -489,12 +516,12 @@ describe('wikiLinkLivePreview', () => {
 
       // Baseline established with the caret far outside the construct —
       // not the default (0,0) selection.
-      const atRest = mountViewWithSelection(doc, 0, resolvedAs('Display text'), true).dom.textContent;
+      const atRest = visibleText(mountViewWithSelection(doc, 0, resolvedAs('Display text'), true));
       expect(atRest).toBe('x Display text y'); // sanity: guards against a vacuous baseline
 
       for (let pos = constructFrom; pos <= constructTo; pos++) {
         const swept = mountViewWithSelection(doc, pos, resolvedAs('Display text'), true);
-        const text = swept.dom.textContent ?? '';
+        const text = visibleText(swept);
         const isFullyEngaged = text === doc;
         const isFullyAtRest = text === atRest;
         expect(
@@ -508,21 +535,21 @@ describe('wikiLinkLivePreview', () => {
       const doc = '**[[Display text]]**';
       const view = mountViewWithSelection(doc, 0, resolvedAs('Display text'), true);
 
-      expect(view.dom.textContent).toBe('**[[Display text]]**');
+      expect(visibleText(view)).toBe('**[[Display text]]**');
     });
 
     it('caret exactly at the outer closing ** boundary (after WikiLink itself ends) still shows the fully engaged form', () => {
       const doc = '**[[Display text]]**';
       const view = mountViewWithSelection(doc, doc.length, resolvedAs('Display text'), true);
 
-      expect(view.dom.textContent).toBe('**[[Display text]]**');
+      expect(visibleText(view)).toBe('**[[Display text]]**');
     });
 
     it('deeper nesting (**~~[[Display text]]~~**) also has no gap at the outermost boundary', () => {
       const doc = '**~~[[Display text]]~~**';
       const view = mountViewWithSelection(doc, 0, resolvedAs('Display text'), true);
 
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
     });
 
     it('a caret just outside the whole formatting construct stays fully at rest — the widening does not overreach', () => {
@@ -530,7 +557,7 @@ describe('wikiLinkLivePreview', () => {
       const constructStart = doc.indexOf('**');
       const view = mountViewWithSelection(doc, constructStart - 1, resolvedAs('Display text'), true);
 
-      expect(view.dom.textContent).toBe('x Display text y');
+      expect(visibleText(view)).toBe('x Display text y');
     });
 
     it('with an alias: the same boundary positions engage fully, never an intermediate **Display text** (alias case)', () => {
@@ -538,8 +565,8 @@ describe('wikiLinkLivePreview', () => {
       const resolver: ResolveWikiLink = () => ({ status: 'resolved', displayLabel: 'Display name', activate: () => {} });
       const view = mountViewWithSelection(doc, 0, resolver, true);
 
-      expect(view.dom.textContent).toBe('**[[Project A|Display name]]**');
-      expect(view.dom.textContent).not.toContain('Projects/');
+      expect(visibleText(view)).toBe('**[[Project A|Display name]]**');
+      expect(visibleText(view)).not.toContain('Projects/');
     });
 
     it('a bare WikiLink with no enclosing formatting is unaffected: engagement boundary equals its own node range', () => {
@@ -547,13 +574,13 @@ describe('wikiLinkLivePreview', () => {
       const nodeFrom = 'before '.length;
       const view = mountViewWithSelection(doc, nodeFrom, resolvedAs('Project A'), true);
 
-      expect(view.dom.textContent).toBe('before [[Project A]] after');
+      expect(visibleText(view)).toBe('before [[Project A]] after');
 
       // One position before the node: must NOT be engaged (no formatting
       // ancestor to widen into) — the fix must not accidentally widen a
       // bare WikiLink's own boundary.
       const before = mountViewWithSelection(doc, nodeFrom - 1, resolvedAs('Project A'), true);
-      expect(before.dom.textContent).toBe('before Project A after');
+      expect(visibleText(before)).toBe('before Project A after');
     });
   });
 });
@@ -584,12 +611,12 @@ function lineTexts(view: EditorView): string[] {
 describe('wikiLinkLivePreview — cross-line WikiLink never crashes the view', () => {
   it('a single-line WikiLink still renders as a widget', () => {
     const view = mountView('before [[Some Page]] after', resolvedAs('Some Page'));
-    expect(view.dom.textContent).toBe('before Some Page after');
+    expect(visibleText(view)).toBe('before Some Page after');
   });
 
   it('a single-line WikiLink with spaces in the path still renders as a widget', () => {
     const view = mountView('before [[Some Page Name]] after', resolvedAs('Some Page Name'));
-    expect(view.dom.textContent).toBe('before Some Page Name after');
+    expect(visibleText(view)).toBe('before Some Page Name after');
   });
 
   it('a WikiLink split across a physical newline does not mount as a widget — it stays raw text', () => {

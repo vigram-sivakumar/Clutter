@@ -198,22 +198,72 @@ describe('markdownEnterCommand', () => {
     });
   });
 
-  describe('empty indentation-only continuation removes the indentation', () => {
-    it('leaves a normal empty line under an indented block', () => {
-      expect(pressEnterTimes('    Text|', 2)).toEqual([
+  describe('empty indentation-only continuation removes one indentation unit per press', () => {
+    // The editor's configured indentUnit/tabSize are read fresh from CM6's
+    // own facets (no override in this test harness, so the defaults apply:
+    // a 2-space indentUnit, 4-column tabSize) — the same values `indentLess`
+    // (Shift-Tab) would use, never a bespoke unit invented for this feature.
+    it('steps 6 -> 4 -> 2 -> 0, one unit at a time, then falls through', () => {
+      expect(pressEnterTimes('      Text|', 4)).toEqual([
+        '      Text\n      |',
+        '      Text\n    |',
+        '      Text\n  |',
+        '      Text\n|',
+      ]);
+      expect(handlerFor('      Text\n|')).toBe('default');
+    });
+
+    it('steps 4 -> 2 -> 0', () => {
+      expect(pressEnterTimes('    Text|', 3)).toEqual([
         '    Text\n    |',
+        '    Text\n  |',
         '    Text\n|',
       ]);
     });
 
-    it('removes deeper indentation in one press', () => {
-      expect(pressEnterTimes('        Text|', 2)).toEqual([
+    it('steps 2 -> 0', () => {
+      expect(pressEnterTimes('  Text|', 2)).toEqual(['  Text\n  |', '  Text\n|']);
+    });
+
+    it('steps an odd remainder 3 -> 1 -> 0', () => {
+      expect(pressEnterTimes('   Text|', 3)).toEqual([
+        '   Text\n   |',
+        '   Text\n |',
+        '   Text\n|',
+      ]);
+    });
+
+    it('never removes more than one unit per press, even at 8 spaces', () => {
+      expect(pressEnterTimes('        Text|', 5)).toEqual([
         '        Text\n        |',
+        '        Text\n      |',
+        '        Text\n    |',
+        '        Text\n  |',
         '        Text\n|',
       ]);
     });
 
-    it('removes the indentation left by a list continuation line', () => {
+    it('steps a single tab down using the same column math as spaces', () => {
+      // The first Enter is CM6's own newline-and-indent (default keymap,
+      // outside this feature) — it renders the new line's indentation from
+      // column width via `indentString`, so a 1-tab (4-column) line already
+      // continues as 4 spaces, not a literal tab. From there, our handler's
+      // column math takes over: 4 columns -> minus a 2-column unit -> 2.
+      expect(pressEnterTimes('\tText|', 2)).toEqual(['\tText\n    |', '\tText\n  |']);
+    });
+
+    it('steps mixed tab+space indentation down by column, not by character', () => {
+      // "\t  " is 6 columns (tab=4, tabSize) + 2 spaces); same as above, the
+      // first Enter is CM6's own indent (4-space-unit rendering), then our
+      // handler steps 6 -> 4 -> 2 by column.
+      expect(pressEnterTimes('\t  Text|', 3)).toEqual([
+        '\t  Text\n      |',
+        '\t  Text\n    |',
+        '\t  Text\n  |',
+      ]);
+    });
+
+    it('removes one unit from the indentation left by a list continuation line', () => {
       expect(pressEnterTimes('- Parent\n    continuation|', 2)).toEqual([
         '- Parent\n    continuation\n  |',
         '- Parent\n    continuation\n|',

@@ -48,6 +48,15 @@ import type { SyntaxNode } from '@lezer/common';
  * *non-whitespace* character, so `  >>> indented` still resolves inside
  * the `Blockquote` the same way un-indented `>>> text` does.
  *
+ * No gutter of any kind is reserved by this file (no `padding-inline-start`,
+ * no in-flow gutter widget — a prior version of this file added one,
+ * `QuoteIndentWidget`; reverted 2026-08-27, still visible in git history).
+ * Per the current DOM-structure direction, gutter geometry is owned
+ * entirely by `blockquoteMarkerDecoration.ts`'s own marker span
+ * (`.cm-quote-marker`) — the marker's own box reserves the space a
+ * line-level gutter used to. This file is scoped purely to the bar and
+ * line ownership, nothing else.
+ *
  * Unlike `listLineDecoration.ts`, genuinely blank/whitespace-only physical
  * lines are **not** skipped: a blockquote can legitimately contain an
  * empty paragraph-separator line that still carries its own `>` (e.g. the

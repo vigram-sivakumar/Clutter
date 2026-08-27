@@ -42,6 +42,33 @@ function mountView(doc: string, anchor: number | null = null): EditorView {
   return new EditorView({ state, parent });
 }
 
+/**
+ * What a user actually sees — see inlineLivePreviewRegion.test.ts's own
+ * `visibleText` doc comment for the full rationale. Needed here because a
+ * migrated construct (Highlight) can appear nested inside a heading, and
+ * its concealed marker text (`cm-marker--concealed`) is now real DOM text,
+ * not removed.
+ */
+function visibleText(target: EditorView | Node | null | undefined): string {
+  if (!target) {
+    return '';
+  }
+  const root: Node = 'dom' in target ? target.dom : target;
+  let result = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).classList.contains('cm-marker--concealed')) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent ?? '';
+      return;
+    }
+    node.childNodes.forEach(walk);
+  };
+  walk(root);
+  return result;
+}
+
 describe('heading content classing (inlineLivePreviewRegion)', () => {
   it('ATX H1-H6 each get their own tok-headingN class on the revealed text, and only that one', () => {
     for (let level = 1; level <= 6; level += 1) {
@@ -169,7 +196,7 @@ describe('heading content classing (inlineLivePreviewRegion)', () => {
       const doc = '# ==Heading== more\n\nOther';
       const cursorInMore = doc.indexOf('more') + 1;
       const view = mountView(doc, cursorInMore);
-      const lineText = view.dom.querySelector('.cm-line')?.textContent ?? '';
+      const lineText = visibleText(view.dom.querySelector('.cm-line'));
       expect(lineText).not.toContain('==');
       expect(lineText).toContain('Heading');
       expect(view.dom.querySelector('.tok-highlight')).toBeTruthy();

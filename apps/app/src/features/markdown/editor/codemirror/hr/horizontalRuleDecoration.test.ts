@@ -40,6 +40,33 @@ function mountViewWithInlineConstructs(doc: string, initialAnchor: number | null
   return new EditorView({ state, parent });
 }
 
+/**
+ * What a user actually sees — see inlineLivePreviewRegion.test.ts's own
+ * `visibleText` doc comment for the full rationale. Needed here because
+ * migrated constructs (bold/strikethrough) appear in the surrounding
+ * paragraphs these tests exercise, and their concealed marker text
+ * (`cm-marker--concealed`) is now real DOM text, not removed.
+ */
+function visibleText(target: EditorView | Node | null | undefined): string {
+  if (!target) {
+    return '';
+  }
+  const root: Node = 'dom' in target ? target.dom : target;
+  let result = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).classList.contains('cm-marker--concealed')) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent ?? '';
+      return;
+    }
+    node.childNodes.forEach(walk);
+  };
+  walk(root);
+  return result;
+}
+
 describe('horizontalRuleDecoration — at rest', () => {
   it('collapses the rule line, hiding its raw marker text', () => {
     const text = 'Above\n\n---\n\nBelow';
@@ -82,7 +109,7 @@ describe('horizontalRuleDecoration — engaged', () => {
     const ruleFrom = text.indexOf('---');
     const view = mountView(text, ruleFrom);
 
-    expect(view.dom.textContent).toContain('---');
+    expect(visibleText(view)).toContain('---');
   });
 
   it('does not carry the collapsing line class while engaged, so the revealed text renders at normal size', () => {
@@ -149,7 +176,7 @@ describe('horizontalRuleDecoration — wavy variant engaged', () => {
     const ruleFrom = text.indexOf('~---~');
     const view = mountView(text, ruleFrom);
 
-    expect(view.dom.textContent).toContain('~---~');
+    expect(visibleText(view)).toContain('~---~');
   });
 
   it('does not carry the collapsing line class while engaged', () => {
@@ -217,7 +244,7 @@ describe('horizontalRuleDecoration — double variant engaged', () => {
     const ruleFrom = text.indexOf('=---=');
     const view = mountView(text, ruleFrom);
 
-    expect(view.dom.textContent).toContain('=---=');
+    expect(visibleText(view)).toContain('=---=');
   });
 
   it('does not carry the collapsing line class while engaged', () => {
@@ -286,7 +313,7 @@ describe('horizontalRuleDecoration — dotted variant engaged', () => {
     const ruleFrom = text.indexOf('.---.');
     const view = mountView(text, ruleFrom);
 
-    expect(view.dom.textContent).toContain('.---.');
+    expect(visibleText(view)).toContain('.---.');
   });
 
   it('does not carry the collapsing line class while engaged', () => {
@@ -323,7 +350,7 @@ describe('horizontalRuleDecoration — compatible with every inline Live Preview
     const doc = '**bold** [[Page]] [text](https://example.com) #tag\n\n---\n\nMore ~~text~~';
     const view = mountViewWithInlineConstructs(doc, doc.length);
 
-    expect(view.dom.textContent).toBe('bold Page text #tagMore ~~text~~');
+    expect(visibleText(view)).toBe('bold Page text #tagMore ~~text~~');
     expect(view.dom.querySelector('.cm-hr-line')).not.toBeNull();
   });
 
@@ -331,14 +358,14 @@ describe('horizontalRuleDecoration — compatible with every inline Live Preview
     const doc = '**bold** [[Page]] [text](https://example.com) #tag\n\n---\n\nMore ~~text~~';
     const view = mountViewWithInlineConstructs(doc, doc.indexOf('---'));
 
-    expect(view.dom.textContent).toBe('bold Page text #tag---More text');
+    expect(visibleText(view)).toBe('bold Page text #tag---More text');
   });
 
   it('engaging a WikiLink in the paragraph leaves the rule line collapsed', () => {
     const doc = '**bold** [[Page]] [text](https://example.com) #tag\n\n---\n\nMore ~~text~~';
     const view = mountViewWithInlineConstructs(doc, doc.indexOf('Page') + 1);
 
-    expect(view.dom.textContent).toBe('bold [[Page]] text #tagMore text');
+    expect(visibleText(view)).toBe('bold [[Page]] text #tagMore text');
     expect(view.dom.querySelector('.cm-hr-line')).not.toBeNull();
   });
 });

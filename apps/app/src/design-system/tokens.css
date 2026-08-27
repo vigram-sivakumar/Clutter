@@ -67,7 +67,8 @@
   ); /* Default for most of the interactive elements */
 
   /* Markdown */
-  --marker-size: var(--lh-body);
+  --marker-height: 24px;
+  --marker-width: var(--height-xs);
 
   /* Content width */
   --content-width: calc(100% - 96px);
@@ -104,6 +105,7 @@
   --text-heading-4: 18px;
   --text-heading-5: 16px;
   --text-heading-6: 14px;
+  --cm-content: 16px;
 
   --text-body: 16px;
   --text-body-small: 14px;
@@ -122,6 +124,7 @@
   --lh-heading-4: 24px;
   --lh-heading-5: 24px;
   --lh-heading-6: 20px;
+  --lh-cm-content: 1.5;
 
   --lh-body: 24px;
 

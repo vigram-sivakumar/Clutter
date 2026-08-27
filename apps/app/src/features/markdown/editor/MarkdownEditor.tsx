@@ -21,12 +21,6 @@ import { headingMarkerDecoration } from './codemirror/highlight/headingMarkerDec
 import { createInlineLivePreviewParticipants } from './codemirror/highlight/inlineLivePreviewParticipants';
 import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePreviewRegion';
 import { leadingIndentDecoration } from './codemirror/highlight/leadingIndentDecoration';
-// TEMPORARY — diagnostic-only instrumentation for the live-typing
-// .cm-indent DOM-divergence investigation. Not a feature, not a fix.
-// Remove this import and its call site below, plus leadingIndentDecorationDebug.ts
-// and the DEBUG_LEADING_INDENT flag/log blocks in leadingIndentDecoration.ts,
-// once the investigation concludes.
-import { leadingIndentDecorationDebug } from './codemirror/highlight/leadingIndentDecorationDebug';
 import { linkMouseHandlers } from './codemirror/link/linkMouseHandlers';
 import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
 // import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
@@ -232,7 +226,6 @@ export const MarkdownEditor = forwardRef<
         // inside a heading. No separate registration needed here.
         horizontalRuleDecoration(),
         leadingIndentDecoration(),
-        leadingIndentDecorationDebug(), // TEMPORARY — see import comment above
         formatShortcutsKeymap(),
         // tableDecoration(),
         // --- end purely-visual decorations ---

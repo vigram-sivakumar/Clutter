@@ -140,7 +140,12 @@ describe('blockquoteLineDecoration', () => {
     const view = mountView(text, [blockquoteMarkerDecoration()]);
     view.dispatch({ selection: { anchor: text.indexOf('Other') } }); // outside the quote, marker at rest
 
-    expect(view.dom.textContent).not.toContain('>');
+    // blockquoteMarkerDecoration conceals the marker via a CSS class on a
+    // real Decoration.mark span, not by removing it from the DOM (2026-08-27
+    // DOM-structure change) — so ">" still appears in textContent; what
+    // matters here is that blockquoteLineDecoration's own line class is
+    // wholly unaffected by that decision either way.
+    expect(view.dom.querySelector('.cm-quote-marker--concealed')).not.toBeNull();
     expect(hasQuoteLine(nthLine(view, 0))).toBe(true);
     expect(hasQuoteLine(nthLine(view, 1))).toBe(false);
   });

@@ -57,6 +57,48 @@ function mountViewWithSelection(
   return new EditorView({ state, parent });
 }
 
+/**
+ * What a user actually sees, as opposed to `visibleText(view)` — which,
+ * per the inline marker DOM migration (docs/markdown-dom-structure-
+ * agreement.md §7), is no longer a valid proxy for that. Migrated markers
+ * (Emphasis/StrongEmphasis/Strikethrough/Highlight/InlineCode) now keep
+ * their real marker text in the DOM at rest, concealed only via
+ * `cm-marker--concealed`'s `font-size: 0` (`inlineLivePreviewParticipants.ts`),
+ * not via removal — so `textContent` alone can no longer distinguish
+ * concealed from revealed the way it could when concealment meant
+ * `Decoration.replace({})`. This walks the DOM the same way, but skips the
+ * text of any element carrying `cm-marker--concealed`, mirroring what a
+ * real browser actually renders. Every test below that means "what is
+ * visually shown" uses this instead of raw `textContent`; a test that
+ * specifically wants the underlying document text uses `view.state.doc`,
+ * unaffected by any of this. Matches the assertion strategy
+ * `blockquoteMarkerDecoration.test.ts` already established for the same
+ * real-text-but-concealed pattern (there: assert via `--concealed` class
+ * presence rather than `textContent` exclusion) — this is the same idea
+ * generalized into one reusable text-extraction helper, since here
+ * (unlike blockquote) many tests need to combine concealed-marker
+ * awareness with content-level assertions across nested constructs.
+ */
+function visibleText(target: EditorView | Node | null | undefined): string {
+  if (!target) {
+    return '';
+  }
+  const root: Node = 'dom' in target ? target.dom : target;
+  let result = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).classList.contains('cm-marker--concealed')) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent ?? '';
+      return;
+    }
+    node.childNodes.forEach(walk);
+  };
+  walk(root);
+  return result;
+}
+
 /** Mirrors the "includes range in EditorView.atomicRanges" check the retired wikiLinkDecorations.test.ts/tagDecorations.test.ts/dateDecorations.test.ts each defined identically. */
 function isAtomicAnywhere(view: EditorView): boolean {
   const atomicProviders = view.state.facet(EditorView.atomicRanges);
@@ -86,21 +128,21 @@ function expectRegionRevealsAtomicallyThroughout(padded: string, construct: stri
   // to its bare content, which is only true if every participating level
   // actually concealed its markers.
   const atRest = mountView(padded);
-  expect(atRest.dom.textContent).not.toBe(padded);
+  expect(visibleText(atRest)).not.toBe(padded);
 
   for (let pos = regionFrom; pos <= regionTo; pos++) {
     const view = mountViewWithSelection(padded, pos);
     expect(
-      view.dom.textContent,
+      visibleText(view),
       `caret at ${pos} (offset ${pos - regionFrom} into the region) must reveal the whole region as source`
     ).toBe(padded);
   }
 
   // One position beyond either edge: the whole region conceals again.
   const before = mountViewWithSelection(padded, regionFrom - 1);
-  expect(before.dom.textContent).toBe(atRest.dom.textContent);
+  expect(visibleText(before)).toBe(visibleText(atRest));
   const after = mountViewWithSelection(padded, regionTo + 1);
-  expect(after.dom.textContent).toBe(atRest.dom.textContent);
+  expect(visibleText(after)).toBe(visibleText(atRest));
 }
 
 describe('inlineLivePreviewRegion', () => {
@@ -190,15 +232,15 @@ describe('inlineLivePreviewRegion', () => {
     it('a nested region fully conceals when the caret is elsewhere in the document', () => {
       const view = mountViewWithSelection('before ~~__Text__~~ after', 0);
 
-      expect(view.dom.textContent).toBe('before Text after');
-      expect(view.dom.textContent).not.toMatch(/[~_]/);
+      expect(visibleText(view)).toBe('before Text after');
+      expect(visibleText(view)).not.toMatch(/[~_]/);
     });
 
     it('every participating level applied its own content class at rest', () => {
       const view = mountViewWithSelection('before ~~__Text__~~ after', 0);
 
-      expect(view.dom.querySelector('.tok-strike')?.textContent).toBe('Text');
-      expect(view.dom.querySelector('.tok-strong')?.textContent).toBe('Text');
+      expect(visibleText(view.dom.querySelector('.tok-strike'))).toBe('Text');
+      expect(visibleText(view.dom.querySelector('.tok-strong'))).toBe('Text');
     });
   });
 
@@ -212,7 +254,7 @@ describe('inlineLivePreviewRegion', () => {
       const regionTo = regionFrom + '~~__Text__~~'.length;
 
       for (let pos = 0; pos <= doc.length; pos++) {
-        const text = mountViewWithSelection(doc, pos).dom.textContent ?? '';
+        const text = visibleText(mountViewWithSelection(doc, pos));
         const inRegion = pos >= regionFrom && pos <= regionTo;
         // Exactly two legal outcomes — fully raw, or fully collapsed.
         // Anything else (e.g. "~~Text~~" with inner markers still hidden)
@@ -229,7 +271,7 @@ describe('inlineLivePreviewRegion', () => {
 
       // The caret is inside `**a**`, which is inside the Strikethrough —
       // so the whole Strikethrough region reveals, `**b**` included.
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
     });
   });
 
@@ -243,13 +285,13 @@ describe('inlineLivePreviewRegion', () => {
 
       const view = mountViewWithSelection(doc, firstRegion + 1);
 
-      expect(view.dom.textContent).toBe('a ~~__one__~~ b two c');
+      expect(visibleText(view)).toBe('a ~~__one__~~ b two c');
     });
 
     it('an unrelated plain construct still renders after a separate nested construct', () => {
       const view = mountViewWithSelection('Before ~~***nested***~~ middle **plain** after', 0);
 
-      expect(view.dom.textContent).toBe('Before nested middle plain after');
+      expect(visibleText(view)).toBe('Before nested middle plain after');
       const strong = Array.from(view.dom.querySelectorAll('.tok-strong'));
       expect(strong.some((el) => el.textContent === 'plain')).toBe(true);
     });
@@ -265,16 +307,135 @@ describe('inlineLivePreviewRegion', () => {
       const regionFrom = doc.indexOf('~~__Text__~~');
 
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).toBe('before Text after');
+      expect(visibleText(view)).toBe('before Text after');
 
       view.dispatch({ selection: { anchor: regionFrom + 2 } });
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
 
       view.dispatch({ selection: { anchor: doc.length } });
-      expect(view.dom.textContent).toBe('before Text after');
+      expect(visibleText(view)).toBe('before Text after');
 
       view.dispatch({ selection: { anchor: regionFrom } });
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
+    });
+  });
+
+  // ===================================================================
+  // Engaged nested marker representation (inline marker DOM migration,
+  // docs/markdown-dom-structure-agreement.md §7 — nested-marker fix)
+  //
+  // Regression coverage for the confirmed bug: previously, an engaged
+  // region only ever represented the region root's own two marks
+  // (`ENGAGED_MARKER_RENDERERS`, one node lookup) — any nested
+  // marker-contract construct's marks were simply never visited, so
+  // `***bold italic***` engaged rendered as `*` + raw `**bold italic**`
+  // text instead of independently-styleable `*` + `**` marker spans.
+  // `revealedMarkerRanges` fixes this via one subtree walk over the
+  // engaged region, scoped to the same five marker-contract constructs
+  // (Emphasis/StrongEmphasis/Strikethrough/Highlight/InlineCode) already
+  // covered by the at-rest marker DOM, with zero combination-specific
+  // logic: nesting depth and construct kind are never branched on, only
+  // read from the tree.
+  // ===================================================================
+  describe('INVARIANT: an engaged region represents every nested marker, not just the region root\'s own', () => {
+    /** All `.cm-marker` spans in document order, with their construct-specific class and concealed-or-not state — DOM-order is also open/close pair order, since markers never reorder relative to their own document position. */
+    function markerSpans(view: EditorView): { text: string; cls: string; concealed: boolean }[] {
+      return Array.from(view.dom.querySelectorAll('.cm-marker')).map((el) => ({
+        text: el.textContent ?? '',
+        cls: Array.from(el.classList).find((c) => c.startsWith('cm-') && c !== 'cm-marker' && c !== 'cm-marker--concealed') ?? '',
+        concealed: el.classList.contains('cm-marker--concealed'),
+      }));
+    }
+
+    it('***bold italic*** — the exact reported bug: engaged reveals both the outer Emphasis and the nested StrongEmphasis markers', () => {
+      const doc = 'x ***bold italic*** y';
+      const mid = doc.indexOf('bold');
+
+      const rest = mountView(doc);
+      expect(markerSpans(rest)).toEqual([
+        { text: '*', cls: 'cm-emphasis-marker', concealed: true },
+        { text: '**', cls: 'cm-strong-marker', concealed: true },
+        { text: '**', cls: 'cm-strong-marker', concealed: true },
+        { text: '*', cls: 'cm-emphasis-marker', concealed: true },
+      ]);
+
+      const engaged = mountViewWithSelection(doc, mid);
+      // Every marker present, none concealed — this is the fixed shape,
+      // not the pre-fix `*` ... raw "**bold italic**" ... `*`.
+      expect(markerSpans(engaged)).toEqual([
+        { text: '*', cls: 'cm-emphasis-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '*', cls: 'cm-emphasis-marker', concealed: false },
+      ]);
+      // Content stays completely raw/unclassed while engaged — no tok-*
+      // decoration was introduced by the nested-marker fix.
+      expect(engaged.dom.querySelector('.tok-emphasis, .tok-strong')).toBeNull();
+      expect(visibleText(engaged)).toBe(doc);
+    });
+
+    it('~~***bold _italic_ `code`***~~ — four-level nesting resolves via the same mechanism, no combination-specific logic', () => {
+      const doc = '~~***bold _italic_ `code`***~~';
+      const midOfItalic = doc.indexOf('italic');
+
+      const engaged = mountViewWithSelection(doc, midOfItalic);
+      expect(markerSpans(engaged)).toEqual([
+        { text: '~~', cls: 'cm-strike-marker', concealed: false },
+        { text: '*', cls: 'cm-emphasis-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '_', cls: 'cm-emphasis-marker', concealed: false },
+        { text: '_', cls: 'cm-emphasis-marker', concealed: false },
+        { text: '`', cls: 'cm-code-marker', concealed: false },
+        { text: '`', cls: 'cm-code-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '*', cls: 'cm-emphasis-marker', concealed: false },
+        { text: '~~', cls: 'cm-strike-marker', concealed: false },
+      ]);
+      expect(engaged.dom.querySelector('[class*="tok-"]')).toBeNull();
+      expect(visibleText(engaged)).toBe(doc);
+      // No widget/atomic-range machinery was pulled in by the nested walk.
+      expect(isAtomicAnywhere(engaged)).toBe(false);
+    });
+
+    it('****text**** — same-kind nesting (StrongEmphasis > StrongEmphasis): all four marker spans appear as independent siblings, not merged into one `****`', () => {
+      const doc = 'x ****text**** y';
+      const engaged = mountViewWithSelection(doc, doc.indexOf('text'));
+
+      expect(markerSpans(engaged)).toEqual([
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+      ]);
+      expect(visibleText(engaged)).toBe(doc);
+    });
+
+    it('**bold `code` _italic_ ~~strike~~** — sibling constructs at one nesting level all resolve independently', () => {
+      const doc = '**bold `code` _italic_ ~~strike~~**';
+      const engaged = mountViewWithSelection(doc, doc.indexOf('code'));
+
+      expect(markerSpans(engaged)).toEqual([
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+        { text: '`', cls: 'cm-code-marker', concealed: false },
+        { text: '`', cls: 'cm-code-marker', concealed: false },
+        { text: '_', cls: 'cm-emphasis-marker', concealed: false },
+        { text: '_', cls: 'cm-emphasis-marker', concealed: false },
+        { text: '~~', cls: 'cm-strike-marker', concealed: false },
+        { text: '~~', cls: 'cm-strike-marker', concealed: false },
+        { text: '**', cls: 'cm-strong-marker', concealed: false },
+      ]);
+    });
+
+    it('a non-marker-contract engaged node (Link) is unaffected: no cm-marker spans, no crash', () => {
+      // Link is deliberately out of MARKER_CONSTRUCTS' scope for this
+      // slice — engaging it must fall back to exactly today's behavior
+      // (fully raw source, no marker spans at all), not error or produce
+      // spurious markers.
+      const doc = 'x [label](https://example.com) y';
+      const engaged = mountViewWithSelection(doc, doc.indexOf('label'));
+
+      expect(engaged.dom.querySelector('.cm-marker')).toBeNull();
+      expect(visibleText(engaged)).toBe(doc);
     });
   });
 
@@ -285,8 +446,8 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, the * markers have no DOM presence — not merely hidden', () => {
       const view = mountView('Text before *italic* after');
 
-      expect(view.dom.textContent).toBe('Text before italic after');
-      expect(view.dom.textContent).not.toContain('*');
+      expect(visibleText(view)).toBe('Text before italic after');
+      expect(visibleText(view)).not.toContain('*');
     });
 
     it('renders the content italic at rest', () => {
@@ -296,7 +457,7 @@ describe('inlineLivePreviewRegion', () => {
     it('_text_: same behavior with underscores', () => {
       const view = mountView('Text before _italic_ after');
 
-      expect(view.dom.textContent).toBe('Text before italic after');
+      expect(visibleText(view)).toBe('Text before italic after');
       expect(view.dom.querySelector('.tok-emphasis')?.textContent).toBe('italic');
     });
 
@@ -304,11 +465,11 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountView('Before *italic* after');
 
       view.dispatch({ selection: { anchor: 10 } });
-      expect(view.dom.textContent).toContain('*italic*');
+      expect(visibleText(view)).toContain('*italic*');
       expect(view.dom.querySelector('.tok-emphasis')).toBeNull();
 
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).not.toContain('*');
+      expect(visibleText(view)).not.toContain('*');
       expect(view.dom.querySelector('.tok-emphasis')).not.toBeNull();
     });
 
@@ -321,10 +482,10 @@ describe('inlineLivePreviewRegion', () => {
       const nodeFrom = 'Text before '.length;
       const nodeTo = 'Text before *italic*'.length;
 
-      expect(mountViewWithSelection(doc, nodeFrom).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeTo).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeFrom - 1).dom.textContent).toBe('Text before italic after');
-      expect(mountViewWithSelection(doc, nodeTo + 1).dom.textContent).toBe('Text before italic after');
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeTo))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom - 1))).toBe('Text before italic after');
+      expect(visibleText(mountViewWithSelection(doc, nodeTo + 1))).toBe('Text before italic after');
     });
   });
 
@@ -332,8 +493,8 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, the ** markers have no DOM presence at all — not merely hidden', () => {
       const view = mountView('Text before **hello** after');
 
-      expect(view.dom.textContent).toBe('Text before hello after');
-      expect(view.dom.textContent).not.toContain('*');
+      expect(visibleText(view)).toBe('Text before hello after');
+      expect(visibleText(view)).not.toContain('*');
     });
 
     it('renders the content bold at rest', () => {
@@ -344,11 +505,11 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountView('Before **hello** after');
 
       view.dispatch({ selection: { anchor: 10 } });
-      expect(view.dom.textContent).toContain('**hello**');
+      expect(visibleText(view)).toContain('**hello**');
       expect(view.dom.querySelector('.tok-strong')).toBeNull();
 
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).not.toContain('*');
+      expect(visibleText(view)).not.toContain('*');
       expect(view.dom.querySelector('.tok-strong')).not.toBeNull();
     });
 
@@ -361,10 +522,10 @@ describe('inlineLivePreviewRegion', () => {
       const nodeFrom = 'Text before '.length;
       const nodeTo = 'Text before **bold**'.length;
 
-      expect(mountViewWithSelection(doc, nodeFrom).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeTo).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeFrom - 1).dom.textContent).toBe('Text before bold after');
-      expect(mountViewWithSelection(doc, nodeTo + 1).dom.textContent).toBe('Text before bold after');
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeTo))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom - 1))).toBe('Text before bold after');
+      expect(visibleText(mountViewWithSelection(doc, nodeTo + 1))).toBe('Text before bold after');
     });
   });
 
@@ -372,8 +533,8 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, the ~~ markers have no DOM presence at all — not merely hidden', () => {
       const view = mountView('Text before ~~struck~~ after');
 
-      expect(view.dom.textContent).toBe('Text before struck after');
-      expect(view.dom.textContent).not.toContain('~');
+      expect(visibleText(view)).toBe('Text before struck after');
+      expect(visibleText(view)).not.toContain('~');
     });
 
     it('renders the content struck-through at rest', () => {
@@ -383,7 +544,7 @@ describe('inlineLivePreviewRegion', () => {
     it('multi-word content behaves the same', () => {
       const view = mountView('before ~~Text with several words~~ after');
 
-      expect(view.dom.textContent).toBe('before Text with several words after');
+      expect(visibleText(view)).toBe('before Text with several words after');
       expect(view.dom.querySelector('.tok-strike')?.textContent).toBe('Text with several words');
     });
 
@@ -391,11 +552,11 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountView('Before ~~struck~~ after');
 
       view.dispatch({ selection: { anchor: 10 } });
-      expect(view.dom.textContent).toContain('~~struck~~');
+      expect(visibleText(view)).toContain('~~struck~~');
       expect(view.dom.querySelector('.tok-strike')).toBeNull();
 
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).not.toContain('~');
+      expect(visibleText(view)).not.toContain('~');
       expect(view.dom.querySelector('.tok-strike')).not.toBeNull();
     });
 
@@ -404,10 +565,10 @@ describe('inlineLivePreviewRegion', () => {
       const nodeFrom = 'Text before '.length;
       const nodeTo = 'Text before ~~struck~~'.length;
 
-      expect(mountViewWithSelection(doc, nodeFrom).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeTo).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeFrom - 1).dom.textContent).toBe('Text before struck after');
-      expect(mountViewWithSelection(doc, nodeTo + 1).dom.textContent).toBe('Text before struck after');
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeTo))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom - 1))).toBe('Text before struck after');
+      expect(visibleText(mountViewWithSelection(doc, nodeTo + 1))).toBe('Text before struck after');
     });
   });
 
@@ -418,8 +579,8 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, the == markers have no DOM presence at all — not merely hidden', () => {
       const view = mountView('Text before ==marked== after');
 
-      expect(view.dom.textContent).toBe('Text before marked after');
-      expect(view.dom.textContent).not.toContain('=');
+      expect(visibleText(view)).toBe('Text before marked after');
+      expect(visibleText(view)).not.toContain('=');
     });
 
     it('renders the content highlighted at rest', () => {
@@ -430,11 +591,11 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountView('Before ==marked== after');
 
       view.dispatch({ selection: { anchor: 10 } });
-      expect(view.dom.textContent).toContain('==marked==');
+      expect(visibleText(view)).toContain('==marked==');
       expect(view.dom.querySelector('.tok-highlight')).toBeNull();
 
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).not.toContain('=');
+      expect(visibleText(view)).not.toContain('=');
       expect(view.dom.querySelector('.tok-highlight')).not.toBeNull();
     });
 
@@ -443,28 +604,91 @@ describe('inlineLivePreviewRegion', () => {
       const nodeFrom = 'Text before '.length;
       const nodeTo = 'Text before ==marked=='.length;
 
-      expect(mountViewWithSelection(doc, nodeFrom).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeTo).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeFrom - 1).dom.textContent).toBe('Text before marked after');
-      expect(mountViewWithSelection(doc, nodeTo + 1).dom.textContent).toBe('Text before marked after');
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeTo))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom - 1))).toBe('Text before marked after');
+      expect(visibleText(mountViewWithSelection(doc, nodeTo + 1))).toBe('Text before marked after');
     });
 
-    // Construct-local parser fact, migrated from the retired
-    // highlightMarkerDecoration.test.ts — not implied by anything generic:
-    // a bare triple `=` run doesn't open a Highlight spanning the whole
-    // run. Confirmed against the actual parser (script run and discarded
-    // during Phase 2 planning, not assumed): the leading `=` is left as
-    // literal text outside the node, matching Strikethrough's own
-    // analogous adjacent-delimiter quirk already pinned in Phase 1.
-    it('===not-highlight===: a bare triple run leaves the leading = as literal text outside the Highlight node', () => {
-      const view = mountView('===not-highlight===');
+    // Delimiter-length policy (revised 2026-08-27, see docs/editor-
+    // architecture-decisions.md's Highlight-delimiter entry): a run of
+    // *any* length >= 2 opens/closes a Highlight, and the two runs never
+    // need to match. Supersedes the old "===...=== isn't a Highlight"
+    // expectation this describe block previously pinned — that was the
+    // grammar's un-widened default, not a deliberate product decision, and
+    // is now obsolete. Confirmed against the actual parser (not assumed):
+    // each of these produces a single flat `Highlight` node whose two
+    // `HighlightMark`s are exactly the matched run on each side, content
+    // always the clean word with nothing swallowed or left stray.
+    // Wrapped in surrounding plain text throughout (`x ... y`), same as
+    // every other participant's tests in this file — a bare document
+    // whose entire content is one construct sits at the doc-start/doc-end
+    // caret-boundary default (`mountView`'s no-selection default of
+    // anchor 0, which is inclusive of a construct starting at 0), an
+    // already-known, unrelated limitation, not something to re-litigate
+    // per construct.
+    it.each([
+      ['==text==', '==', '=='],
+      ['===text===', '===', '==='],
+      ['====text====', '====', '===='],
+      ['=====text=====', '=====', '====='],
+    ])('x %s y: symmetric runs of length >= 2 all produce a Highlight with matching-width marks', (construct, openMark, closeMark) => {
+      const doc = `x ${construct} y`;
+      const view = mountView(doc);
 
-      // The Highlight node claims [1,19): its own marks consume indices
-      // 1-2 and 17-18, leaving one further literal '=' (index 16) inside
-      // the *content* range alongside the leading one left outside the
-      // node entirely at index 0.
-      expect(view.dom.textContent).toBe('=not-highlight=');
-      expect(view.dom.querySelector('.tok-highlight')?.textContent).toBe('not-highlight=');
+      expect(visibleText(view)).toBe('x text y');
+      expect(view.dom.querySelector('.tok-highlight')?.textContent).toBe('text');
+
+      view.dispatch({ selection: { anchor: Math.floor(doc.length / 2) } });
+      const markers = Array.from(view.dom.querySelectorAll('.cm-highlight-marker'));
+      expect(markers.map((m) => m.textContent)).toEqual([openMark, closeMark]);
+    });
+
+    it.each([
+      ['==text===', '==', '==='],
+      ['===text==', '===', '=='],
+      ['====text===', '====', '==='],
+      ['====text==', '====', '=='],
+    ])('x %s y: opening/closing run lengths may differ — each mark is simply its own actual run, content stays clean', (construct, openMark, closeMark) => {
+      const doc = `x ${construct} y`;
+      const view = mountView(doc);
+
+      // Content is always exactly "text" — nothing from either run leaks
+      // into it, unlike the pre-widening asymmetric behavior where a
+      // rejected triple-run character was swallowed into content.
+      expect(visibleText(view)).toBe('x text y');
+      expect(view.dom.querySelector('.tok-highlight')?.textContent).toBe('text');
+
+      view.dispatch({ selection: { anchor: Math.floor(doc.length / 2) } });
+      const markers = Array.from(view.dom.querySelectorAll('.cm-highlight-marker'));
+      expect(markers.map((m) => m.textContent)).toEqual([openMark, closeMark]);
+    });
+
+    it.each(['=text=', '=text==', '==text=', '=text===', '===text', '======', '=== ==='])(
+      'x %s y: a single = or an unmatched/unflanked run never becomes a Highlight',
+      (construct) => {
+        const doc = `x ${construct} y`;
+        const view = mountView(doc);
+
+        expect(view.dom.querySelector('.tok-highlight')).toBeNull();
+        expect(view.dom.querySelector('.cm-highlight-marker')).toBeNull();
+        expect(visibleText(view)).toBe(doc);
+      }
+    );
+
+    it('two independent ==...== regions on one line resolve separately, unaffected by the length widening', () => {
+      const view = mountView('before ==a== middle ==b== after');
+
+      expect(visibleText(view)).toBe('before a middle b after');
+      const highlights = Array.from(view.dom.querySelectorAll('.tok-highlight'));
+      expect(highlights.map((h) => h.textContent)).toEqual(['a', 'b']);
+    });
+
+    it('an asymmetric-length Highlight composes normally with surrounding plain text', () => {
+      const view = mountView('x ==text=== y');
+
+      expect(visibleText(view)).toBe('x text y');
+      expect(view.dom.querySelector('.tok-highlight')?.textContent).toBe('text');
     });
   });
 
@@ -475,8 +699,8 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, the ` markers have no DOM presence at all — not merely hidden', () => {
       const view = mountView('Text before `code` after');
 
-      expect(view.dom.textContent).toBe('Text before code after');
-      expect(view.dom.textContent).not.toContain('`');
+      expect(visibleText(view)).toBe('Text before code after');
+      expect(visibleText(view)).not.toContain('`');
     });
 
     it('renders the content as code at rest', () => {
@@ -487,11 +711,11 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountView('Before `code` after');
 
       view.dispatch({ selection: { anchor: 9 } });
-      expect(view.dom.textContent).toContain('`code`');
+      expect(visibleText(view)).toContain('`code`');
       expect(view.dom.querySelector('.tok-code')).toBeNull();
 
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).not.toContain('`');
+      expect(visibleText(view)).not.toContain('`');
       expect(view.dom.querySelector('.tok-code')).not.toBeNull();
     });
 
@@ -500,10 +724,10 @@ describe('inlineLivePreviewRegion', () => {
       const nodeFrom = 'Text before '.length;
       const nodeTo = 'Text before `code`'.length;
 
-      expect(mountViewWithSelection(doc, nodeFrom).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeTo).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, nodeFrom - 1).dom.textContent).toBe('Text before code after');
-      expect(mountViewWithSelection(doc, nodeTo + 1).dom.textContent).toBe('Text before code after');
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeTo))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, nodeFrom - 1))).toBe('Text before code after');
+      expect(visibleText(mountViewWithSelection(doc, nodeTo + 1))).toBe('Text before code after');
     });
 
     // Construct-local parser fact, migrated from the retired
@@ -515,11 +739,11 @@ describe('inlineLivePreviewRegion', () => {
     it('a variable-length backtick run lets a literal backtick appear inside the span', () => {
       const view = mountView('Text before ``code with ` backtick`` after');
 
-      expect(view.dom.textContent).not.toContain('``');
+      expect(visibleText(view)).not.toContain('``');
       expect(view.dom.querySelector('.tok-code')?.textContent).toBe('code with ` backtick');
 
       view.dispatch({ selection: { anchor: 15 } });
-      expect(view.dom.textContent).toContain('``code with ` backtick``');
+      expect(visibleText(view)).toContain('``code with ` backtick``');
     });
 
     // Construct-local parser-terminality fact this whole Phase 2
@@ -541,7 +765,7 @@ describe('inlineLivePreviewRegion', () => {
       expect(names).not.toContain('StrongEmphasis');
 
       const view = mountView(text);
-      expect(view.dom.textContent).toContain('Text before **not bold** after');
+      expect(visibleText(view)).toContain('Text before **not bold** after');
     });
   });
 
@@ -555,9 +779,9 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, only the label is visible — the [ ]( url ) syntax has no DOM presence', () => {
       const view = mountView('before [Display name](https://example.com) after');
 
-      expect(view.dom.textContent).toBe('before Display name after');
-      expect(view.dom.textContent).not.toContain('[');
-      expect(view.dom.textContent).not.toContain('https://example.com');
+      expect(visibleText(view)).toBe('before Display name after');
+      expect(visibleText(view)).not.toContain('[');
+      expect(visibleText(view)).not.toContain('https://example.com');
     });
 
     it('classes the label with tok-link at rest', () => {
@@ -571,14 +795,14 @@ describe('inlineLivePreviewRegion', () => {
       const labelInside = doc.indexOf('name');
       const urlInside = doc.indexOf('example');
 
-      expect(mountViewWithSelection(doc, labelInside).dom.textContent).toBe(doc);
-      expect(mountViewWithSelection(doc, urlInside).dom.textContent).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, labelInside))).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, urlInside))).toBe(doc);
 
       const view = mountView(doc);
       view.dispatch({ selection: { anchor: labelInside } });
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).toBe('Before Display name after');
+      expect(visibleText(view)).toBe('Before Display name after');
     });
 
     it('region atomicity: every caret position within the node reveals the whole thing, exactly the shared invariant every other participant proves', () => {
@@ -590,12 +814,12 @@ describe('inlineLivePreviewRegion', () => {
 
     it('a URL with a title still conceals as one combined unit', () => {
       const view = mountView('before [text](https://example.com "a title") after');
-      expect(view.dom.textContent).toBe('before text after');
+      expect(visibleText(view)).toBe('before text after');
     });
 
     it('a URL with balanced parens still conceals correctly', () => {
       const view = mountView('before [text](https://example.com/a(b)c) after');
-      expect(view.dom.textContent).toBe('before text after');
+      expect(visibleText(view)).toBe('before text after');
     });
 
     it('nested formatting in the label composes correctly', () => {
@@ -604,11 +828,11 @@ describe('inlineLivePreviewRegion', () => {
       // (documented above under "known, deferred limitation") and load
       // engaged, defeating the at-rest assertion below.
       const bold = mountView('x [**bold** text](https://example.com) y');
-      expect(bold.dom.textContent).toBe('x bold text y');
+      expect(visibleText(bold)).toBe('x bold text y');
       expect(bold.dom.querySelector('.tok-strong')?.textContent).toBe('bold');
 
       const italic = mountView('x [*italic* text](https://example.com) y');
-      expect(italic.dom.textContent).toBe('x italic text y');
+      expect(visibleText(italic)).toBe('x italic text y');
       expect(italic.dom.querySelector('.tok-emphasis')?.textContent).toBe('italic');
     });
 
@@ -620,16 +844,16 @@ describe('inlineLivePreviewRegion', () => {
     });
 
     it('reference-style/shortcut links (no URL child) are left fully raw, not decorated at all', () => {
-      expect(mountView('before [Display][reference] after').dom.textContent).toBe(
+      expect(visibleText(mountView('before [Display][reference] after'))).toBe(
         'before [Display][reference] after'
       );
-      expect(mountView('before [Display][] after').dom.textContent).toBe('before [Display][] after');
-      expect(mountView('before [Display] after').dom.textContent).toBe('before [Display] after');
+      expect(visibleText(mountView('before [Display][] after'))).toBe('before [Display][] after');
+      expect(visibleText(mountView('before [Display] after'))).toBe('before [Display] after');
     });
 
     it('reference-style links stay raw even when a matching LinkReference definition exists elsewhere in the document', () => {
       const view = mountView('[Display][reference]\n\n[reference]: https://example.com');
-      expect(view.dom.textContent).toContain('[Display][reference]');
+      expect(visibleText(view)).toContain('[Display][reference]');
     });
 
     it('is never registered in EditorView.atomicRanges — the label stays ordinary, character-editable text', () => {
@@ -653,7 +877,7 @@ describe('inlineLivePreviewRegion', () => {
         resolveTag: () => undefined,
         resolveDate: () => undefined,
       });
-      expect(view.dom.textContent).toBe('x text #tag y');
+      expect(visibleText(view)).toBe('x text #tag y');
     });
 
     // =================================================================
@@ -665,14 +889,14 @@ describe('inlineLivePreviewRegion', () => {
       it('at rest, displays the URL itself, classed tok-link, instead of vanishing', () => {
         const view = mountView('before [](https://google.com) after');
 
-        expect(view.dom.textContent).toBe('before https://google.com after');
+        expect(visibleText(view)).toBe('before https://google.com after');
         expect(view.dom.querySelector('.tok-link')?.textContent).toBe('https://google.com');
       });
 
       it('a non-http URL (www.one.autodesk.com) follows the same fallback', () => {
         const view = mountView('before [](www.one.autodesk.com) after');
 
-        expect(view.dom.textContent).toBe('before www.one.autodesk.com after');
+        expect(visibleText(view)).toBe('before www.one.autodesk.com after');
         expect(view.dom.querySelector('.tok-link')?.textContent).toBe('www.one.autodesk.com');
       });
 
@@ -680,7 +904,7 @@ describe('inlineLivePreviewRegion', () => {
         const doc = 'before [](https://google.com) after';
         const inside = doc.indexOf('google');
 
-        expect(mountViewWithSelection(doc, inside).dom.textContent).toBe(doc);
+        expect(visibleText(mountViewWithSelection(doc, inside))).toBe(doc);
       });
 
       it('collapses back to the URL fallback once the caret leaves', () => {
@@ -689,9 +913,9 @@ describe('inlineLivePreviewRegion', () => {
         const view = mountView(doc);
 
         view.dispatch({ selection: { anchor: inside } });
-        expect(view.dom.textContent).toBe(doc);
+        expect(visibleText(view)).toBe(doc);
         view.dispatch({ selection: { anchor: 0 } });
-        expect(view.dom.textContent).toBe('before https://google.com after');
+        expect(visibleText(view)).toBe('before https://google.com after');
       });
 
       it('the underlying document never changes as it renders/reveals/collapses', () => {
@@ -721,7 +945,7 @@ describe('inlineLivePreviewRegion', () => {
       it('non-empty label [Google](https://google.com) is unaffected by the fallback branch', () => {
         const view = mountView('before [Google](https://google.com) after');
 
-        expect(view.dom.textContent).toBe('before Google after');
+        expect(visibleText(view)).toBe('before Google after');
         expect(view.dom.querySelector('.tok-link')?.textContent).toBe('Google');
       });
     });
@@ -740,7 +964,7 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, conceals the < and > marks and classes the URL content tok-link', () => {
       const view = mountView('before <https://example.com> after');
 
-      expect(view.dom.textContent).toBe('before https://example.com after');
+      expect(visibleText(view)).toBe('before https://example.com after');
       expect(view.dom.querySelector('.tok-link')?.textContent).toBe('https://example.com');
     });
 
@@ -748,7 +972,7 @@ describe('inlineLivePreviewRegion', () => {
       const doc = 'before <https://example.com> after';
       const inside = doc.indexOf('example');
 
-      expect(mountViewWithSelection(doc, inside).dom.textContent).toBe(doc);
+      expect(visibleText(mountViewWithSelection(doc, inside))).toBe(doc);
     });
 
     it('collapses back once the caret leaves', () => {
@@ -757,9 +981,9 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountView(doc);
 
       view.dispatch({ selection: { anchor: inside } });
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
       view.dispatch({ selection: { anchor: 0 } });
-      expect(view.dom.textContent).toBe('before https://example.com after');
+      expect(visibleText(view)).toBe('before https://example.com after');
     });
 
     it('is never registered in EditorView.atomicRanges — stays ordinary, character-editable text', () => {
@@ -772,7 +996,7 @@ describe('inlineLivePreviewRegion', () => {
     it('at rest, classes the whole URL tok-link with no concealment (nothing to conceal)', () => {
       const view = mountView('before https://example.com/a?b=1 after');
 
-      expect(view.dom.textContent).toBe('before https://example.com/a?b=1 after');
+      expect(visibleText(view)).toBe('before https://example.com/a?b=1 after');
       expect(view.dom.querySelector('.tok-link')?.textContent).toBe('https://example.com/a?b=1');
     });
 
@@ -880,7 +1104,7 @@ describe('inlineLivePreviewRegion', () => {
       const widget = view.dom.querySelector('[data-date-status="valid"]');
       expect(widget).not.toBeNull();
       expect(widget?.textContent?.startsWith('@')).toBe(true);
-      expect(view.dom.textContent).not.toContain('@2026-08-20');
+      expect(visibleText(view)).not.toContain('@2026-08-20');
     });
 
     it('falls back to activate-as-no-op when no resolver is provided, still renders a valid-looking widget', () => {
@@ -964,11 +1188,11 @@ describe('inlineLivePreviewRegion', () => {
       // other, no widget involved — must render identically to before.
       const view = mountView('before ***Text*** after');
 
-      expect(view.dom.textContent).toBe('before Text after');
+      expect(visibleText(view)).toBe('before Text after');
       const strong = view.dom.querySelector('.tok-strong');
       const emphasis = view.dom.querySelector('.tok-emphasis');
-      expect(strong?.textContent).toBe('Text');
-      expect(emphasis?.textContent).toBe('Text');
+      expect(visibleText(strong)).toBe('Text');
+      expect(visibleText(emphasis)).toBe('Text');
       expect(strong!.contains(emphasis) || emphasis!.contains(strong)).toBe(true);
     });
   });
@@ -1000,7 +1224,7 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountViewWithSelection(doc, nodeStart + 3);
 
       expect(view.dom.querySelector('[data-tag-status]')).toBeNull();
-      expect(view.dom.textContent).toContain('#project');
+      expect(visibleText(view)).toContain('#project');
       expect(isAtomicAnywhere(view)).toBe(false);
     });
 
@@ -1009,7 +1233,7 @@ describe('inlineLivePreviewRegion', () => {
       const outerFrom = 'before '.length; // caret at the StrongEmphasis boundary, outside Tag's own range
       const view = mountViewWithSelection(doc, outerFrom);
 
-      expect(view.dom.textContent).toBe(doc);
+      expect(visibleText(view)).toBe(doc);
       expect(isAtomicAnywhere(view)).toBe(false);
     });
   });
@@ -1057,7 +1281,7 @@ describe('inlineLivePreviewRegion', () => {
     it('renders separately, each with its own class', () => {
       const view = mountViewWithSelection('Text with **bold** and *italic* and ~~struck~~ together', 0);
 
-      expect(view.dom.textContent).toBe('Text with bold and italic and struck together');
+      expect(visibleText(view)).toBe('Text with bold and italic and struck together');
       expect(view.dom.querySelector('.tok-strong')?.textContent).toBe('bold');
       expect(view.dom.querySelector('.tok-emphasis')?.textContent).toBe('italic');
       expect(view.dom.querySelector('.tok-strike')?.textContent).toBe('struck');
@@ -1071,14 +1295,14 @@ describe('inlineLivePreviewRegion', () => {
     it('whitespace-adjacent delimiters never form a Strikethrough', () => {
       for (const doc of ['before ~~ Text ~~ after', 'before ~~Text ~~ after', 'before ~~ Text~~ after']) {
         const view = mountViewWithSelection(doc, 0);
-        expect(view.dom.textContent).toBe(doc);
+        expect(visibleText(view)).toBe(doc);
         expect(view.dom.querySelector('.tok-strike')).toBeNull();
       }
     });
 
     it('~Text~ (single tilde) is never a Strikethrough delimiter', () => {
       const view = mountViewWithSelection('before ~Text~ after', 0);
-      expect(view.dom.textContent).toBe('before ~Text~ after');
+      expect(visibleText(view)).toBe('before ~Text~ after');
       expect(view.dom.querySelector('.tok-strike')).toBeNull();
     });
 
@@ -1091,14 +1315,14 @@ describe('inlineLivePreviewRegion', () => {
     it('mid-line long tilde runs: leftover tildes stay literal on both sides', () => {
       const view = mountViewWithSelection('before ~~~~Text~~~~ after', 0);
 
-      expect(view.dom.textContent).toBe('before ~~Text~~ after');
+      expect(visibleText(view)).toBe('before ~~Text~~ after');
       expect(view.dom.querySelector('.tok-strike')?.textContent).toBe('Text~~');
     });
 
     it('~~Text~~~~More~~: only "~~More~~" forms a node; the leading run stays unwrapped literal text', () => {
       const view = mountViewWithSelection('~~Text~~~~More~~', 0);
 
-      expect(view.dom.textContent).toBe('~~Text~~More');
+      expect(visibleText(view)).toBe('~~Text~~More');
       const spans = Array.from(view.dom.querySelectorAll('.tok-strike'));
       expect(spans).toHaveLength(1);
       expect(spans[0]?.textContent).toBe('More');
@@ -1107,7 +1331,7 @@ describe('inlineLivePreviewRegion', () => {
     it('soft-wrapped ~~one\\ntwo~~ spans the line break within one paragraph', () => {
       const view = mountViewWithSelection('before ~~one\ntwo~~ after', 0);
 
-      expect(view.dom.textContent).toBe('before onetwo after');
+      expect(visibleText(view)).toBe('before onetwo after');
       const spans = Array.from(view.dom.querySelectorAll('.tok-strike'));
       expect(spans.map((el) => el.textContent)).toEqual(['one', 'two']);
     });
@@ -1118,14 +1342,14 @@ describe('inlineLivePreviewRegion', () => {
       const view = mountViewWithSelection('* **Text** *', 12);
 
       expect(view.dom.querySelector('.tok-strong')?.textContent).toBe('Text');
-      expect(view.dom.textContent).toContain('*');
+      expect(visibleText(view)).toContain('*');
     });
 
     it('** *Text* ** — outer ** fails flanking rules and stays literal', () => {
       const view = mountViewWithSelection('** *Text* **', 0);
 
       expect(view.dom.querySelector('.tok-emphasis')?.textContent).toBe('Text');
-      expect(view.dom.textContent).toContain('**');
+      expect(visibleText(view)).toContain('**');
     });
   });
 
@@ -1155,7 +1379,7 @@ describe('inlineLivePreviewRegion', () => {
     });
 
     it('does not affect plain text with no formatting', () => {
-      expect(mountView('Just plain text, nothing to hide.').dom.textContent).toBe(
+      expect(visibleText(mountView('Just plain text, nothing to hide.'))).toBe(
         'Just plain text, nothing to hide.'
       );
     });
@@ -1170,8 +1394,8 @@ describe('inlineLivePreviewRegion', () => {
     // so it loads revealed. Unrelated to nesting; not solved here (ODR §7.1).
     it('a construct spanning the entire document stays revealed at either end', () => {
       for (const doc of ['**Hey**', '*italic*', '~~Hey~~']) {
-        expect(mountViewWithSelection(doc, doc.length).dom.textContent).toBe(doc);
-        expect(mountViewWithSelection(doc, 0).dom.textContent).toBe(doc);
+        expect(visibleText(mountViewWithSelection(doc, doc.length))).toBe(doc);
+        expect(visibleText(mountViewWithSelection(doc, 0))).toBe(doc);
       }
     });
   });

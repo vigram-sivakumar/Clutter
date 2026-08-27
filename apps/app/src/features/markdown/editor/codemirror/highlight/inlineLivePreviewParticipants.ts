@@ -76,7 +76,8 @@ export type ParticipantRenderer = (
 /**
  * Renderer for a construct whose source form is `<mark>content<mark>` —
  * exactly two same-named delimiter children with the styled content
- * between them. Conceals both delimiter runs and classes the content.
+ * between them. Classes the content; marker handling depends on
+ * `markerClass` (see below).
  *
  * This factory takes **one** construct's own facts (its delimiter node
  * name, its content class); it encodes no relationship between
@@ -92,10 +93,28 @@ export type ParticipantRenderer = (
  * and nothing else of its own); the name check is a guard against a stale
  * tree, in which case nothing is decorated this pass and the next reparse
  * corrects it.
+ *
+ * **`markerClass` (added for the inline marker DOM migration, per
+ * docs/markdown-dom-structure-agreement.md §7):** when provided, marker
+ * ranges become a real, source-backed `Decoration.mark` — never removed
+ * from the DOM — carrying the universal `cm-marker` hook plus this
+ * construct's own `cm-{construct}-marker` class, concealed via the shared
+ * `cm-marker--concealed` modifier (zero-width; see `MarkdownEditor.css`'s
+ * own doc comment on that class for why this is deliberately *not*
+ * blockquote's `color: transparent` technique — blockquote's marker needs
+ * to reserve real gutter width, an inline marker does not, and reserving
+ * it here would visibly widen the gap around every collapsed construct).
+ * When `markerClass` is omitted (Autolink's current registration), marker
+ * ranges keep the original `Decoration.replace({})` behavior completely
+ * unchanged — this migration is deliberately scoped to the five
+ * constructs that pass one; Autolink/Link/WikiLink are out of scope for
+ * this slice (see the agreement's §7.1 ordering) and must not be affected
+ * by this factory change merely because they share it.
  */
 function delimitedInlineRenderer(
   markNodeName: string,
-  contentClass: string
+  contentClass: string,
+  markerClass?: string
 ): ParticipantRenderer {
   return (node) => {
     const openMark = node.node.firstChild;
@@ -109,9 +128,11 @@ function delimitedInlineRenderer(
       return { decorations: [] };
     }
 
-    const decorations: Range<Decoration>[] = [
-      Decoration.replace({}).range(openMark.from, openMark.to),
-    ];
+    const markerDecoration = markerClass
+      ? Decoration.mark({ class: `cm-marker ${markerClass} cm-marker--concealed` })
+      : Decoration.replace({});
+
+    const decorations: Range<Decoration>[] = [markerDecoration.range(openMark.from, openMark.to)];
     // An empty construct (`****`) has its two marks adjacent, with no
     // content range between them to class.
     if (openMark.to < closeMark.from) {
@@ -134,9 +155,84 @@ function delimitedInlineRenderer(
         )
       );
     }
-    decorations.push(Decoration.replace({}).range(closeMark.from, closeMark.to));
+    decorations.push(markerDecoration.range(closeMark.from, closeMark.to));
     return { decorations };
   };
+}
+
+/**
+ * Which node names are marker-contract constructs for the *engaged*
+ * subtree walk (`revealedMarkerRanges` below), and which node name each
+ * one's own direct marker children carry. Deliberately explicit and
+ * construct-scoped — never "any node whose name ends in `Mark`" — so
+ * block-level mark owners (`HeaderMark`/`QuoteMark`/`ListMark`/
+ * `TaskMarker`, each owned by its own line-scoped decoration source:
+ * `headingMarkerDecoration.ts`/`blockquoteMarkerDecoration.ts`/
+ * `listMarkerDecoration.ts`) are structurally unreachable here, not just
+ * excluded by convention. Scoped to exactly the five constructs already
+ * migrated to the marker-DOM contract (docs/markdown-dom-structure-
+ * agreement.md §7.1's first slice) — same scope as
+ * `delimitedInlineRenderer`'s own registrations below. Adding a construct
+ * is one entry in this map, same shape as the `participants` map itself;
+ * it never requires touching another construct's entry.
+ */
+const MARKER_CONSTRUCTS: ReadonlyMap<string, { readonly markNodeName: string; readonly markerClass: string }> =
+  new Map([
+    ['Emphasis', { markNodeName: 'EmphasisMark', markerClass: 'cm-emphasis-marker' }],
+    ['StrongEmphasis', { markNodeName: 'EmphasisMark', markerClass: 'cm-strong-marker' }],
+    ['Strikethrough', { markNodeName: 'StrikethroughMark', markerClass: 'cm-strike-marker' }],
+    ['Highlight', { markNodeName: 'HighlightMark', markerClass: 'cm-highlight-marker' }],
+    ['InlineCode', { markNodeName: 'CodeMark', markerClass: 'cm-code-marker' }],
+  ]);
+
+/**
+ * Discovers every marker-contract construct's own marker ranges within an
+ * **engaged** region's subtree, replacing the old per-node
+ * `delimitedMarkerOnlyRenderer` lookup (which only ever reached the
+ * engaged node's *own* two marks, per that function's now-superseded doc
+ * comment — see docs/editor-architecture-decisions.md's correction entry
+ * on nested inline Live Preview visibility).
+ *
+ * This is the fix for the confirmed bug: `inlineLivePreviewRegion.ts`'s
+ * traversal still returns `false` at the engaged region root — region
+ * atomicity (no descendant participant renderer runs, no `tok-*` content
+ * decoration, no widget, no atomic range) is completely unchanged. This
+ * function is called *in place of* resuming that traversal, and performs
+ * a second, separate, narrowly-scoped walk over the engaged node's own
+ * subtree using the *same* Lezer tree — never a second parser, never
+ * combination-specific branches. For each descendant (including the root
+ * itself) whose name is a key in `MARKER_CONSTRUCTS`, its direct marker
+ * children (found the same way `delimitedInlineRenderer` already finds
+ * two-mark constructs' delimiters, generalized to "however many direct
+ * children carry the registered mark node name" rather than assuming
+ * exactly `firstChild`/`lastChild`) become `cm-marker cm-{construct}-marker`
+ * spans with no `--concealed` modifier — engaged is the one state an
+ * inline marker is actually visible in, so it's the one state
+ * `--marker-foreground` needs to reach (same reasoning the retired
+ * `delimitedMarkerOnlyRenderer` doc comment already established).
+ *
+ * Nesting depth is never inspected or branched on: `***bold italic***`'s
+ * `Emphasis > StrongEmphasis` is walked as two ordinary marker-construct
+ * nodes, `~~***bold _italic_ `code`***~~`'s four levels are walked
+ * identically. Content stays completely unstyled — this function only
+ * ever pushes `cm-marker` ranges, never a `tok-*` range, so raw/unclassed
+ * engaged content is a property of what this function *doesn't* do, not
+ * something it enforces separately.
+ */
+export function revealedMarkerRanges(root: SyntaxNode): readonly Range<Decoration>[] {
+  const ranges: Range<Decoration>[] = [];
+  const cursor = root.cursor();
+  do {
+    const spec = MARKER_CONSTRUCTS.get(cursor.name);
+    if (!spec) continue;
+    const decoration = Decoration.mark({ class: `cm-marker ${spec.markerClass}` });
+    for (let child = cursor.node.firstChild; child; child = child.nextSibling) {
+      if (child.name === spec.markNodeName) {
+        ranges.push(decoration.range(child.from, child.to));
+      }
+    }
+  } while (cursor.next() && cursor.from < root.to);
+  return ranges;
 }
 
 /**
@@ -332,20 +428,24 @@ export function createInlineLivePreviewParticipants(
   resolvers: ParticipantResolvers
 ): ReadonlyMap<string, ParticipantRenderer> {
   return new Map<string, ParticipantRenderer>([
-    ['Emphasis', delimitedInlineRenderer('EmphasisMark', 'tok-emphasis')],
-    ['StrongEmphasis', delimitedInlineRenderer('EmphasisMark', 'tok-strong')],
-    ['Strikethrough', delimitedInlineRenderer('StrikethroughMark', 'tok-strike')],
-    ['Highlight', delimitedInlineRenderer('HighlightMark', 'tok-highlight')],
-    ['InlineCode', delimitedInlineRenderer('CodeMark', 'tok-code')],
+    ['Emphasis', delimitedInlineRenderer('EmphasisMark', 'tok-emphasis', 'cm-emphasis-marker')],
+    ['StrongEmphasis', delimitedInlineRenderer('EmphasisMark', 'tok-strong', 'cm-strong-marker')],
+    ['Strikethrough', delimitedInlineRenderer('StrikethroughMark', 'tok-strike', 'cm-strike-marker')],
+    ['Highlight', delimitedInlineRenderer('HighlightMark', 'tok-highlight', 'cm-highlight-marker')],
+    ['InlineCode', delimitedInlineRenderer('CodeMark', 'tok-code', 'cm-code-marker')],
     ['Link', linkRenderer],
     // Autolink (`<https://...>`) fits delimitedInlineRenderer's own
     // 2-same-named-mark-child shape exactly (`Autolink > [LinkMark, URL,
     // LinkMark]`) — reused unmodified, no Autolink-specific renderer
     // needed. Conceals `<`/`>`, classes the URL content `tok-link` — same
-    // class Link's own label already uses.
+    // class Link's own label already uses. No `markerClass` — deliberately
+    // out of scope for this migration slice (docs/markdown-dom-structure-
+    // agreement.md §7.1): Autolink keeps its exact current
+    // `Decoration.replace({})` marker behavior, unchanged.
     ['Autolink', delimitedInlineRenderer('LinkMark', 'tok-link')],
     ['URL', urlRenderer],
     ['Tag', widgetReplaceRenderer((raw) => renderTag(raw, resolvers.resolveTag))],
     ['Date', widgetReplaceRenderer((raw) => renderDate(raw, resolvers.resolveDate))],
   ]);
 }
+

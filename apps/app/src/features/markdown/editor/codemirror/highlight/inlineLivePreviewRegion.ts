@@ -10,7 +10,7 @@ import {
 } from '@codemirror/view';
 
 import { isTokenEngaged } from '../semanticToken/tokenEngagement';
-import type { ParticipantRenderer } from './inlineLivePreviewParticipants';
+import { revealedMarkerRanges, type ParticipantRenderer } from './inlineLivePreviewParticipants';
 
 /**
  * Heading content classing (`tok-heading1`-`tok-heading6`), folded into
@@ -90,9 +90,16 @@ const HEADING_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
  * walking and no stored state:**
  *  - Non-participants are transparent: keep descending.
  *  - A participant that *is* directly engaged is the region root — return
- *    `false` so `iterate` never descends into it. Nothing inside is
- *    visited, so nothing inside can emit a conflicting decoration, so the
- *    whole region renders as source.
+ *    `false` so `iterate` never descends into it *as ordinary traversal*.
+ *    No descendant's `render`/participant path ever runs, so nothing
+ *    inside can emit a conflicting `tok-*`/widget/atomic decoration, and
+ *    the whole region still renders as source. Correction (see docs/
+ *    editor-architecture-decisions.md's nested-visibility entry): the
+ *    engaged branch does perform one additional, separate subtree walk
+ *    purely to discover nested marker-contract constructs' own marker
+ *    ranges (`revealedMarkerRanges`) — this is not "ordinary traversal
+ *    resuming," never calls a participant renderer, and changes nothing
+ *    about which region is source vs. preview.
  *  - A participant that is *not* engaged emits its own concealing
  *    decorations and descent continues. By the containment invariant
  *    (every nested participant's range is a strict subset of its
@@ -182,8 +189,30 @@ function buildDecorations(
         }
 
         if (isTokenEngaged(view.state, { from: node.from, to: node.to })) {
-          // Region root. Do not descend — the entire region renders as
-          // source, so nothing inside it decorates or becomes atomic.
+          // Region root. `return false` still stops ordinary traversal
+          // from resuming below this point — no descendant participant
+          // renderer runs, so no `tok-*` content decoration, no widget,
+          // no atomic range is ever produced inside an engaged region.
+          // That half of region atomicity (docs/editor-architecture-
+          // decisions.md's "Nested inline Live Preview visibility") is
+          // completely unchanged.
+          //
+          // What differs from a bare `return false`: `revealedMarkerRanges`
+          // performs its own separate, narrowly-scoped walk over this
+          // node's subtree (same tree, same call), discovering every
+          // marker-contract construct nested inside — not just this
+          // node's own marks — and emitting each one's `cm-marker
+          // cm-{construct}-marker` spans with no `--concealed` modifier.
+          // This is the fix for the confirmed nested-marker bug: previously
+          // only the region root's own two marks were reachable here, so
+          // `***bold italic***` engaged showed the outer `Emphasis` marks
+          // but never the nested `StrongEmphasis` marks. See
+          // `revealedMarkerRanges`'s own doc comment in
+          // inlineLivePreviewParticipants.ts for the full rationale,
+          // including why this stays additive-only (no content decoration,
+          // no widget, no atomic range) and a no-op for every construct not
+          // registered in `MARKER_CONSTRUCTS`.
+          ranges.push(...revealedMarkerRanges(node.node));
           return false;
         }
 

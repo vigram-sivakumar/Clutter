@@ -110,19 +110,6 @@ function tabIndentMark(unitLength: number): Decoration {
   return mark;
 }
 
-/**
- * TEMPORARY diagnostic flag for the live-typing DOM-divergence
- * investigation (phantom trailing text node after `.cm-indent` reuse).
- * Gates all console logging added for this investigation, both here and
- * in the companion `leadingIndentDecorationDebug.ts`. Flip to `false` (or
- * delete both the flag and every block it guards, plus
- * `leadingIndentDecorationDebug.ts` and its wiring in `MarkdownEditor.tsx`)
- * once the investigation concludes — none of this is meant to ship.
- */
-export const DEBUG_LEADING_INDENT = true;
-
-let buildCount = 0;
-
 function leadingWhitespaceLength(lineText: string): number {
   return lineText.length - lineText.trimStart().length;
 }
@@ -139,8 +126,7 @@ function emitLineIndentMarks(
   lineFrom: number,
   lineText: string,
   leadingLength: number,
-  unitLength: number,
-  debugEmitted?: Array<[number, number]>
+  unitLength: number
 ): void {
   let offset = 0;
   let spaceRunStart = 0;
@@ -150,7 +136,6 @@ function emitLineIndentMarks(
       const from = lineFrom + offset;
       const to = from + 1;
       builder.add(from, to, tabIndentMark(unitLength));
-      debugEmitted?.push([from, to]);
       offset += 1;
       spaceRunStart = offset;
       continue;
@@ -161,7 +146,6 @@ function emitLineIndentMarks(
       const from = lineFrom + spaceRunStart;
       const to = lineFrom + offset;
       builder.add(from, to, SPACE_INDENT_MARK);
-      debugEmitted?.push([from, to]);
       spaceRunStart = offset;
     }
   }
@@ -173,28 +157,15 @@ function buildDecorations(view: EditorView): DecorationSet {
   // indentUnit combine() already throws on an empty/invalid unit, so this
   // is a defensive floor, not an expected case.
   const unitLength = Math.max(1, view.state.facet(indentUnit).length);
-  const buildId = ++buildCount;
 
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
     while (pos <= to) {
       const line = view.state.doc.lineAt(pos);
       const leadingLength = leadingWhitespaceLength(line.text);
-      const lineEmitted: Array<[number, number]> = [];
 
       if (leadingLength > 0) {
-        emitLineIndentMarks(builder, line.from, line.text, leadingLength, unitLength, lineEmitted);
-      }
-
-      if (DEBUG_LEADING_INDENT && leadingLength > 0) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[leadingIndent] build #${buildId} line.from=${line.from} line.to=${line.to} line.text=${JSON.stringify(
-            line.text
-          )} leadingLength=${leadingLength} indentUnit=${JSON.stringify(
-            view.state.facet(indentUnit)
-          )} unitLength=${unitLength} emitted=${JSON.stringify(lineEmitted)}`
-        );
+        emitLineIndentMarks(builder, line.from, line.text, leadingLength, unitLength);
       }
 
       pos = line.to + 1;
@@ -208,16 +179,7 @@ interface LeadingIndentPlugin extends PluginValue {
   decorations: DecorationSet;
 }
 
-/**
- * The raw `ViewPlugin`, exported (debug-only) so
- * `leadingIndentDecorationDebug.ts` can read the plugin instance's actual
- * live `DecorationSet` via `view.plugin(leadingIndentDecorationPlugin)` —
- * needed to log the real, currently-rendered decoration ranges rather
- * than recomputing what they *should* be. Purely additive: nothing about
- * `leadingIndentDecoration()`'s own behavior changes by this export
- * existing.
- */
-export const leadingIndentDecorationPlugin = ViewPlugin.fromClass<LeadingIndentPlugin>(
+const leadingIndentDecorationPlugin = ViewPlugin.fromClass<LeadingIndentPlugin>(
   class implements LeadingIndentPlugin {
     decorations: DecorationSet;
 

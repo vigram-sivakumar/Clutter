@@ -11,6 +11,33 @@ import { tableDecoration } from './tableDecoration';
 
 const noResolvers = { resolveTag: () => undefined, resolveDate: () => undefined };
 
+/**
+ * What a user actually sees — see inlineLivePreviewRegion.test.ts's own
+ * `visibleText` doc comment for the full rationale. Needed here because a
+ * migrated construct (bold) can appear inside a table cell, and its
+ * concealed marker text (`cm-marker--concealed`) is now real DOM text,
+ * not removed.
+ */
+function visibleText(target: EditorView | Node | null | undefined): string {
+  if (!target) {
+    return '';
+  }
+  const root: Node = 'dom' in target ? target.dom : target;
+  let result = '';
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).classList.contains('cm-marker--concealed')) {
+      return;
+    }
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent ?? '';
+      return;
+    }
+    node.childNodes.forEach(walk);
+  };
+  walk(root);
+  return result;
+}
+
 /** Mirrors listMarkerDecoration.test.ts's mountView — see its doc comment for why `initialAnchor` matters for "at rest" tests. */
 function mountView(doc: string, initialAnchor: number | null = null): EditorView {
   const parent = document.createElement('div');
@@ -224,8 +251,8 @@ describe('tableDecoration — semantic tokens compose inside cells', () => {
     const text = '| a |\n| - |\n| **bold** |\n\nOther';
     const view = mountViewWithSemanticTokens(text, text.indexOf('Other'));
 
-    expect(view.dom.textContent).toContain('bold');
-    expect(view.dom.textContent).not.toContain('**');
+    expect(visibleText(view)).toContain('bold');
+    expect(visibleText(view)).not.toContain('**');
   });
 
   it('a Date token inside a cell resolves independently of the table decoration', () => {
