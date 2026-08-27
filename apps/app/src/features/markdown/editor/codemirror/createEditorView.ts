@@ -1,7 +1,7 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
-import { Annotation, EditorState, type Extension } from '@codemirror/state';
+import { Annotation, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
   drawSelection,
   dropCursor,
@@ -172,9 +172,98 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
 }
 
 /**
- * Replaces the view's full document with `markdown`, tagged so the update
- * listener above treats it as a prop-driven sync rather than user input.
- * No-ops if the view's document already matches.
+ * The smallest single `{from, to, insert}` change that turns `current` into
+ * `next` — a common-prefix/common-suffix diff, not a general (multi-hunk)
+ * diff algorithm. That's deliberate, not a simplification taken for
+ * expedience: `syncMarkdownIntoView`'s callers (task-checkbox toggles from
+ * a different UI surface, any other single-`PageOperations.mutateBody()`-
+ * style external mutation) each make one small, localized edit to an
+ * otherwise-unchanged document, which a prefix/suffix diff finds exactly
+ * and cheaply (no dependency, no O(n²)/Myers-diff cost). Its job here is
+ * narrower than "compute a good diff" — it's "touch as little of the
+ * document's position-space as possible," so that CM6's history mapping
+ * (see `syncMarkdownIntoView`'s own doc comment) has the best chance of
+ * keeping an *unrelated* prior user edit's undo entry intact. A full
+ * `{from: 0, to: current.length, insert: next}` replace (the previous
+ * behavior) touches the *entire* document's position-space on every sync,
+ * regardless of how small the actual external change was — proven to be
+ * more damage than the mapping can reliably recover from (see the doc
+ * comment below).
+ */
+function minimalReplaceChange(
+  current: string,
+  next: string
+): { from: number; to: number; insert: string } {
+  const maxCommon = Math.min(current.length, next.length);
+  let prefix = 0;
+  while (prefix < maxCommon && current[prefix] === next[prefix]) {
+    prefix++;
+  }
+  let suffix = 0;
+  const maxSuffix = maxCommon - prefix;
+  while (
+    suffix < maxSuffix &&
+    current[current.length - 1 - suffix] === next[next.length - 1 - suffix]
+  ) {
+    suffix++;
+  }
+  return {
+    from: prefix,
+    to: current.length - suffix,
+    insert: next.slice(prefix, next.length - suffix),
+  };
+}
+
+/**
+ * Replaces the view's document with `markdown` to match an external change
+ * — the page's content changed somewhere other than this same editor
+ * instance (`PageOperations.mutateBody()`, e.g. a task-checkbox toggle from
+ * a different UI surface acting on the same open-but-unfocused page; see
+ * `MarkdownEditor.tsx`'s own call site for the focus-gating this always
+ * runs under). Tagged `externalSync` so the update listener above skips
+ * `onDocChange` for it (prevents a feedback loop back into the very state
+ * this sync is reconciling from) — completely independent of, and
+ * unaffected by, the history annotation below; that annotation governs
+ * whether the change is *undo-able*, this one governs whether it *re-fires
+ * the edit callback*, and a transaction can need only one, the other, or
+ * (here) both.
+ *
+ * **Also tagged `Transaction.addToHistory.of(false)` (2026-08-27) — this
+ * transaction must never become a user-undoable step.** Confirmed as a
+ * real bug, not a theoretical one, via a direct `createEditorView()` +
+ * `syncMarkdownIntoView()` + CM6's own `undo`/`undoDepth` commands
+ * reproduction (no UI needed — this is a CM6 history-mechanics question,
+ * not a rendering one): dispatching this transaction *without* the
+ * annotation, immediately after one real user edit, did not create a
+ * *second* undo-able step as expected — CM6's default history grouping
+ * silently merged it into the *same* group as the preceding user edit
+ * (confirmed: `undoDepth` stayed at `1`, not `2`), so a single subsequent
+ * `undo()` reverted the user's own edit *and* the unrelated external
+ * change together, in one step the user never asked for.
+ *
+ * `Transaction.addToHistory.of(false)` alone is not sufficient, and this
+ * is why the diff above is minimal rather than a full-document replace:
+ * excluding a transaction from history does not exempt it from CM6's
+ * change-mapping — a still-open undo entry from *before* this transaction
+ * has its recorded positions mapped through it regardless, and a full
+ * `{from: 0, to: current.length}` replace maps every prior position
+ * through "the entire document was deleted and something new inserted,"
+ * which degenerates the mapped entry into an empty/meaningless change —
+ * confirmed directly: with `addToHistory: false` alone (full-document
+ * replace), `undoDepth` dropped to `0` immediately after the sync, losing
+ * the user's own still-unsaved edit from history entirely, with no way to
+ * undo it. The minimal diff instead maps a prior edit's positions through
+ * only the small, localized change that's actually different, which
+ * `ChangeSet.map` can carry through intact when (as expected for this
+ * call site's actual callers) the two edits don't overlap — confirmed
+ * directly: `undoDepth` stays at `1` through this sync, `undo()` correctly
+ * reverts only the user's own edit (leaving the externally-synced content
+ * in place), and `redo()` correctly restores it afterward.
+ *
+ * No-ops if the view's document already matches (same as before this
+ * fix) — this is the common case (the `markdown` prop round-tripping this
+ * same editor's own just-committed edit back through React state), so the
+ * cost of this function is usually just one string comparison.
  */
 export function syncMarkdownIntoView(view: EditorView, markdown: string): void {
   const currentDoc = view.state.doc.toString();
@@ -183,7 +272,7 @@ export function syncMarkdownIntoView(view: EditorView, markdown: string): void {
   }
 
   view.dispatch({
-    changes: { from: 0, to: currentDoc.length, insert: markdown },
-    annotations: externalSync.of(true),
+    changes: minimalReplaceChange(currentDoc, markdown),
+    annotations: [externalSync.of(true), Transaction.addToHistory.of(false)],
   });
 }
