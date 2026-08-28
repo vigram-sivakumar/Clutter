@@ -3,15 +3,21 @@ import type { EditorState, Line } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 /**
- * Clutter's own stated editor-indentation ceiling (2026-08-28 product
- * decision) — one Tab = 2 leading spaces, five levels maximum, applied
- * uniformly to every construct this module recognizes. Deliberately not
- * derived from `indentUnit`/`tabSize` (same reasoning as
+ * Clutter's own stated indentation step — one Tab = 2 leading spaces.
+ * Deliberately not derived from `indentUnit`/`tabSize` (same reasoning as
  * `leadingIndentDecoration.ts`'s own `SPACE_PX`/`TAB_PX`): this is
  * Clutter's own product rule, not a generic CM6 setting.
+ *
+ * There is no maximum. Tab/Shift-Tab are source-local operations: they
+ * write only the touched line's own leading-whitespace run and never
+ * discover, inspect, or require a parent/ancestor list item. Deep or
+ * parent-less indentation must remain possible (Markdown list nesting is
+ * a property the parser derives from the resulting source on every
+ * reparse, not something this module tracks or protects), so growth is
+ * unbounded in the Tab direction; only Shift-Tab has a real, structural
+ * floor at 0 (negative indentation is meaningless).
  */
 export const INDENT_STEP_SPACES = 2;
-export const MAX_INDENT_SPACES = 10;
 
 /**
  * What `markdownIndentKeymap.ts` needs to know about one physical
@@ -126,12 +132,12 @@ export function resolveLineIndentContext(state: EditorState, line: Line): LineIn
 /**
  * The single `{from, to, insert}` change one line needs for the given
  * direction, or `null` when this line's own current indentation is
- * already at the direction's limit (0 for Shift-Tab, `MAX_INDENT_SPACES`
- * for Tab) — a real, meaningful "nothing to do," distinct from `line`
- * not being a `paragraph`/`list` line at all (that distinction is the
- * caller's job, via `resolveLineIndentContext`, not this function's —
- * this function assumes it's already been called for a `paragraph` or
- * `list` line and only computes the arithmetic).
+ * already at the direction's limit (0 for Shift-Tab — Tab has no limit)
+ * — a real, meaningful "nothing to do," distinct from `line` not being a
+ * `paragraph`/`list` line at all (that distinction is the caller's job,
+ * via `resolveLineIndentContext`, not this function's — this function
+ * assumes it's already been called for a `paragraph` or `list` line and
+ * only computes the arithmetic).
  *
  * Leading-whitespace amount is a plain **character count** of the
  * existing run — never `countColumn`/`tabSize`-aware column math, per
@@ -147,24 +153,14 @@ export function resolveLineIndentContext(state: EditorState, line: Line): LineIn
  * Tab/Shift-Tab press on that line, a deliberate simplification, not an
  * oversight.
  *
- * `MAX_INDENT_SPACES` is a ceiling on indentation **Tab itself creates**,
- * never a normalization applied to indentation that's already there.
- * Concretely: if `current` is already past the ceiling (existing document
- * text indented more than 10 columns — hand-typed, pasted, or from before
- * this ceiling existed), Tab (`direction === 1`) is a no-op — it never
- * grows *or* shrinks that line — while Shift-Tab still works normally,
- * removing `INDENT_STEP_SPACES` at a time same as anywhere else, letting
- * the user gradually walk it back down. This is why the two directions
- * are computed asymmetrically below rather than both funneling through
- * one shared `Math.min(MAX_INDENT_SPACES, …)` clamp — a single shared
- * clamp would silently truncate existing over-ceiling text down to the
- * ceiling the first time Tab (or even Shift-Tab) touched that line, which
- * is exactly the silent-modification-of-untouched-document-state this
- * function must never do. Nothing here runs unless the user actually
- * presses Tab/Shift-Tab on that specific line — opening or merely
- * displaying a document never calls this at all, so existing indentation
- * of any size is always preserved exactly until a keypress on that line
- * chooses to change it.
+ * This function only ever computes and returns a change for the *one*
+ * line it was called with — it never inspects, and the caller never
+ * passes it, any other line. List hierarchy (which `ListItem` a line
+ * ends up inside) is a consequence the parser derives from the resulting
+ * source on the next reparse, not something this function tracks,
+ * preserves, or requires as a precondition — a line with no parent
+ * anywhere in the document is exactly as indentable as one with several
+ * ancestors.
  */
 export function computeIndentChange(
   line: Line,
@@ -177,15 +173,7 @@ export function computeIndentChange(
       : line.from + /^[ \t]*/.exec(line.text)![0].length;
   const current = leadingEnd - line.from;
 
-  let target: number;
-  if (direction === 1) {
-    if (current >= MAX_INDENT_SPACES) {
-      return null;
-    }
-    target = Math.min(MAX_INDENT_SPACES, current + INDENT_STEP_SPACES);
-  } else {
-    target = Math.max(0, current - INDENT_STEP_SPACES);
-  }
+  const target = direction === 1 ? current + INDENT_STEP_SPACES : Math.max(0, current - INDENT_STEP_SPACES);
 
   if (target === current) {
     return null;

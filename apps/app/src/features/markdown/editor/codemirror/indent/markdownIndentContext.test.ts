@@ -108,21 +108,29 @@ describe('computeIndentChange', () => {
     });
   });
 
-  it('Tab at exactly 10 is a no-op', () => {
+  it('Tab has no ceiling: keeps growing by INDENT_STEP_SPACES past what used to be the limit', () => {
     const doc = `${' '.repeat(10)}paragraph`;
     const state = stateFor(doc);
     const line = state.doc.lineAt(0);
-    expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toBeNull();
+    expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toEqual({
+      from: 0,
+      to: 10,
+      insert: ' '.repeat(12),
+    });
   });
 
-  it('Tab past the ceiling (14 existing) is a no-op, never shrinks to 10', () => {
-    const doc = `${' '.repeat(14)}paragraph`;
+  it('Tab from far beyond the old ceiling (20) still grows by exactly 2, to 22', () => {
+    const doc = `${' '.repeat(20)}paragraph`;
     const state = stateFor(doc);
     const line = state.doc.lineAt(0);
-    expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toBeNull();
+    expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toEqual({
+      from: 0,
+      to: 20,
+      insert: ' '.repeat(22),
+    });
   });
 
-  it('Shift-Tab past the ceiling (14 existing) still removes exactly 2, landing at 12', () => {
+  it('Shift-Tab from far beyond the old ceiling (14) removes exactly 2, landing at 12', () => {
     const doc = `${' '.repeat(14)}paragraph`;
     const state = stateFor(doc);
     const line = state.doc.lineAt(0);

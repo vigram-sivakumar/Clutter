@@ -68,10 +68,10 @@ function lineOutcome(state: EditorState, from: number, direction: 1 | -1): LineO
  * today) only when **no** touched line resolved to `paragraph`/`list` at
  * all. When at least one line did resolve to a supported kind, this
  * always returns `true` and swallows the keypress — including when every
- * such line was already at its direction's limit and produced zero
- * actual changes. That's what makes the 10-space ceiling (and the
- * 0-space floor) a real ceiling: without this, declining at the limit
- * would let the keypress fall through to the generic, unlimited
+ * such line was already at its direction's limit (Shift-Tab's 0-space
+ * floor; Tab has no limit) and produced zero actual changes. That's what
+ * makes the 0-space floor a real floor: without this, declining at the
+ * limit would let the keypress fall through to the generic
  * `indentMore`/`indentLess` beneath it.
  */
 function markdownIndentDirection(direction: 1 | -1): StateCommand {
