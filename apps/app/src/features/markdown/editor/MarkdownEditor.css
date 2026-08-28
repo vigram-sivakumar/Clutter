@@ -35,29 +35,30 @@
 .markdown__editor .cm-line {
   padding: 0;
 }
-.cm-indent {
+/*
+ * IndentTokenWidget.ts / leadingIndentDecoration.ts's `indentTokenDecoration()`
+ * — the rendered box for one complete leading-indentation token (a run of
+ * `indentUnit.length` spaces, or a single tab). An empty, text-less
+ * element that `Decoration.replace()`s the token's real characters,
+ * rather than a mark wrapping them: CM6's own `coordsAtPos` (caret
+ * placement) and `posAtCoords` (mouse hit-testing) both measure a
+ * replaced range via this element's own box (`getClientRects()`), so
+ * `width: var(--marker-width)` here is the single source of truth for
+ * indentation's visual+interactive width in both directions — there is
+ * no second, real-glyph-based coordinate system for either to disagree
+ * with (see IndentTokenWidget.ts's doc comment for the full mechanism
+ * and the measurements that motivated moving off `Decoration.mark`).
+ * `height: 1em` is required, not cosmetic, for the same reason
+ * `.cm-marker--concealed` below documents: an empty `inline-block` left
+ * at `height: auto` collapses to 0 (CSS2.1 §10.6.7), and CM6 derives the
+ * drawn caret's height directly from this element's measured rect
+ * (`RectangleMarker.forRange`, `@codemirror/view`).
+ */
+.cm-indent-token {
   display: inline-block;
   width: var(--marker-width);
-  box-sizing: border-box;
-}
-
-/*
- * Caret-geometry anchor (IndentEndAnchorWidget.ts, leadingIndentDecoration.ts's
- * `INDENT_END_ANCHOR`) — an empty, text-less element so CM6's `coordsAtPos`
- * measures its own box (`WidgetTile.coordsIn` -> `dom.getClientRects()`)
- * instead of the narrow glyph geometry of the real whitespace characters
- * inside the preceding `.cm-indent` mark. `width: 0` keeps it invisible and
- * non-reflowing. `height: 1em` is required, not cosmetic: an empty
- * `inline-block` left at `height: auto` collapses to 0 (CSS2.1 §10.6.7),
- * and CM6 derives the drawn caret's height directly from this element's
- * measured rect (`RectangleMarker.forRange`, `@codemirror/view`) -- the
- * same zero-height pitfall `.cm-marker--concealed` below already
- * documents for the unrelated marker-concealment case.
- */
-.cm-indent-end-anchor {
-  display: inline-block;
-  width: 0;
   height: 1em;
+  box-sizing: border-box;
 }
 
 /*
