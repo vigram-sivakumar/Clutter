@@ -255,61 +255,6 @@
 }
 
 /*
- * List line hanging indent (listLineDecoration.ts) — one mechanism shared
- * by every list type (bullet, ordered, task, emoji), replacing the
- * previous Task-only `.cm-task-line`. A block-level concern, not something
- * the inline marker widgets (ListBulletWidget/OrderedListMarkerWidget/
- * TaskCheckboxWidget/the emoji glyph itself) can solve on their own: only
- * a line decoration's `padding-left` reserves space across a
- * browser-soft-wrapped continuation of the same physical line.
- *
- * `--list-depth` (the owning `ListItem`'s nesting depth, set per line by
- * listLineDecoration.ts) shifts the whole line's content column right by
- * `--list-depth` indent units — nesting is purely additive, no per-depth
- * class, no marker-specific rule.
- *
- * On top of that nesting column, `padding-left` also reserves the
- * marker's own full footprint — `--marker-size` (its fixed rendered
- * width, shared by every marker kind, see `.cm-list-marker` below) *plus*
- * `--space-4` (the same token `.cm-list-marker`'s own `margin-right` uses
- * for the deliberate marker-to-text gap, not a second, independently
- * chosen value) — and `text-indent` pulls the line's *first* visual row
- * back out of exactly that much of the reserved space. Per the CSS spec,
- * `text-indent` applies only to a block's first line, never to
- * soft-wrapped continuation rows, so the two rules together produce a
- * genuine hanging indent from one pair of properties, no per-row
- * JavaScript involved:
- *
- *   first row:      `--list-depth` * `--list-indent`                                    (marker sits here)
- *   wrapped rows:    `--list-depth` * `--list-indent` + `--marker-size` + `--space-4`    (text continues here)
- *
- * The `--space-4` term is required, not optional: `.cm-list-marker`'s own
- * `margin-right` sits *after* the marker's box on the first row only (an
- * ordinary inline margin, invisible to `padding-left`/`text-indent`,
- * which know nothing about the marker element's own box model) — so
- * without it here, first-row text lands 4px right of where a wrapped
- * row's text lands, confirmed by direct measurement (marker right edge
- * 440px + its 4px margin = first-row text at 444px, while wrapped rows
- * landed at 440px, the `--marker-size`-only target). Folding `--space-4`
- * into this formula, rather than compensating with an ad hoc pixel value,
- * keeps both rows targeting the same real quantity: where the marker's
- * box plus its own deliberate gap actually ends.
- *
- * `--list-indent` reuses the previous task-line footprint
- * (`--height-xs` + `--space-4`, `.checkbox`'s own width plus the ~4px a
- * rendered space occupies after it) as the one shared per-depth unit, so
- * existing task-list spacing is visually unchanged at depth 1. That
- * `--space-4` is nesting-only and unrelated to the marker-gap term above.
- */
-.cm-editor .cm-list-line {
-  --list-indent: calc(var(--height-xs) + var(--space-4));
-  padding-left: calc(
-    var(--list-depth) * var(--list-indent) + var(--marker-size) + var(--space-4)
-  );
-  text-indent: calc(-1 * (var(--marker-size) + var(--space-4)));
-}
-
-/*
  * Blockquote left rule (blockquoteLineDecoration.ts) — the visible "line
  * in front" of quoted content, matching how real Markdown editors mark a
  * blockquote. A block-level `Decoration.line` class, deliberately
@@ -347,8 +292,8 @@
  * would notch every line boundary in a multi-line quote. Fixed with pure
  * sibling combinators rather than a DOM wrapper or a second decoration:
  * `.cm-content` renders `.cm-line` elements as flat, direct siblings in
- * document order (same fact `.cm-list-line`/`.cm-table-row` above already
- * rely on), so DOM adjacency between two `.cm-quote-line` elements is
+ * document order (same fact `.cm-table-row` above already relies on), so
+ * DOM adjacency between two `.cm-quote-line` elements is
  * already a correct, always-in-sync proxy for "these two physical lines
  * belong to the same contiguous quote run" — no new class, no change to
  * blockquoteLineDecoration.ts. The base rule rounds all four corners of
@@ -369,32 +314,53 @@
  * deliberate), so they join the same bar rather than getting their own.
  */
 /*
- * No `padding-inline-start`, `margin`, or `text-indent` on this line —
- * explicit DOM-structure invariant (2026-08-27): the marker gutter is
- * never a `.cm-line`-level layout property. `position: relative` only,
- * scoping the absolutely positioned `::before` bar below to this line's
- * own box.
+ * Hanging indent (2026-08-28, reinstated) — `padding-left` reserves
+ * `--quote-depth` marker-widths of space, and negative `text-indent`
+ * pulls only the line's own *first* visual row back out of exactly that
+ * much of it (per the CSS spec, `text-indent` never applies to
+ * soft-wrapped continuation rows) — so the marker sits in the reserved
+ * gutter on the first row, and every wrapped/continuation row lands at
+ * the same real content column as the first row's own text, not back at
+ * the line's outer left edge.
  *
- * Gutter geometry now comes entirely from `blockquoteMarkerDecoration.ts`'s
- * own marker span (`.cm-quote-marker`) — a `Decoration.mark` wrapping
- * the real `QuoteMark` character(s), never removed from the DOM, only
- * visually concealed via `.cm-quote-marker--concealed` when the line
- * isn't engaged. Because the real character is always present, its
- * natural rendered width is always reserved — text never shifts when the
- * marker toggles visible/hidden, without any fixed-width placeholder.
+ * This corrects a real, previously-flagged regression: the 2026-08-27 DOM
+ * structure direction removed the equivalent `padding-inline-start`/
+ * `text-indent` pairing this file had before, on the theory that the real
+ * `.cm-quote-marker` character's own rendered width would reserve enough
+ * space on its own — true for a marker's own (first) line, but a
+ * `Decoration.mark`'s inline box contributes nothing to *later*,
+ * browser-soft-wrapped rows of the same `.cm-line`, which is exactly why
+ * removing this rule broke wrapped-quote alignment (confirmed live,
+ * screenshot-driven bug report). Re-added, now correctly scoped: this is
+ * a per-line multiplier, not a re-introduction of the retired in-flow
+ * gutter widget (`QuoteIndentWidget`, still gone) or any manual DOM/JS
+ * positioning — `--quote-depth` is computed once, from the syntax tree,
+ * by `blockquoteLineDecoration.ts`; the pixel value is pure CSS
+ * arithmetic from there.
  *
- * Known consequence, not an oversight: a wrapped (soft-wrapped) quote
- * line's continuation rows carry no indent at all under this rule, since
- * the marker span exists only where the real `>` character is (the first
- * row) and nothing here reserves width on rows after it. A prior version
- * of this file used a `padding-inline-start`/`text-indent` pairing plus
- * an in-flow gutter widget specifically to fix that; both were removed
- * per this same instruction (still visible in git history) in favor of
- * the two-span (`marker span → content span`) structure this rule now
- * assumes. Flagged for real-app verification, not hidden.
+ * `--quote-depth * var(--marker-width)` is exact, not an estimate: unlike
+ * an ordered-list marker (real, variable-width text — no safe way to
+ * learn its pixel width without a DOM measurement CM6 doesn't allow
+ * mid-decoration-build, per the list-block research), a blockquote
+ * marker's own box is CSS-forced to exactly `var(--marker-width)`
+ * regardless of its text (`.cm-quote-marker`'s own `display: inline-block;
+ * width: var(--marker-width)` below) — so the total marker footprint at
+ * depth N really is N copies of that same fixed box, with zero gap
+ * between them (no margin on `.cm-quote-marker`), confirmed by direct
+ * inspection of the rendered DOM, not assumed. No JS pixel measurement,
+ * no `coordsAtPos`, no per-frame recomputation — a plain depth count times
+ * one CSS token.
+ *
+ * `position: relative` (unchanged) still scopes the absolutely positioned
+ * `::before` bar below to this line's own box — the bar's own position is
+ * independent of this padding, deliberately: it stays flush at the line's
+ * true left edge (`inset-inline-start: 0`), outside the text gutter, the
+ * same as before this change.
  */
 .cm-editor .cm-quote-line {
   position: relative;
+  padding-left: calc(var(--quote-depth, 0) * var(--marker-width));
+  text-indent: calc(-1 * var(--quote-depth, 0) * var(--marker-width));
 }
 
 .cm-editor .cm-quote-line::before {
@@ -414,12 +380,27 @@
  * `Decoration.replace`. Default state: rendered normally, exactly like
  * ordinary text — this is what the DOM looks like while the line is
  * engaged (caret on it).
+ *
+ * `text-indent: 0` (2026-08-28, added alongside the hanging-indent
+ * reinstatement above): `text-indent` is an inherited property, and
+ * because this element is itself `display: inline-block` — establishing
+ * its own block-like formatting context for its own single line of
+ * content — it would otherwise inherit `.cm-quote-line`'s new negative
+ * `text-indent` a *second* time and apply it to its own "> " text,
+ * shifting the marker glyph left by the same reserved amount instead of
+ * leaving it flush in its box. The block-level hanging indent is already
+ * fully determined by this element's own box position (`padding-left`,
+ * set by `.cm-quote-line` above); resetting the inherited value here only
+ * stops it from being applied a second time to content inside this box —
+ * the identical fix `.cm-list-marker` already needed for the same reason
+ * during the (since-reset) list rendering work.
  */
 .cm-editor .cm-quote-marker {
   display: inline-block;
   width: var(--marker-width);
   color: var(--marker-foreground);
   text-align: end;
+  text-indent: 0;
 }
 
 /*
@@ -460,89 +441,31 @@
 }
 
 /*
- * Editor-only sizing hook for the task checkbox (TaskCheckboxWidget.ts).
- * Added alongside the shared `checkbox`/`checkbox--checked` classes rather
- * than in `Checkbox.css`, so the standalone React `Checkbox` component's own
- * dimensions stay untouched by markdown-editor-specific overrides. Empty on
- * purpose: a hook for width/height adjustments, not a default override.
- */
-.cm-list-marker.checkbox.checkbox--checked.cm-task-checkbox {
-  color: var(--checkbox-accent);
-}
-
-/*
- * Shared marker class — every list-item marker widget/mark (bullet,
- * ordered, task checkbox, emoji) carries `cm-list-marker` alongside its
- * own type-specific class below, as the one common CSS hook for "this
- * represents a list item's marker," regardless of kind.
- *
- * `text-indent: 0` resets the `-1 * var(--marker-size)` value
- * `.cm-list-line` sets below — `text-indent` is an inherited property, so
- * without this reset it also applies to the marker's own internal
- * `inline-flex` layout (not just the block-level line it's inherited
- * from), shifting the glyph left by a full marker-width and out from
- * under `justify-content: center` even though the marker's own outer box
- * stays positioned correctly. The block-level hanging indent is already
- * fully determined by the marker's own box position (`padding-left`, set
- * by `listLineDecoration.ts`/`.cm-list-line`); resetting the inherited
- * value here only stops it from being applied a second time to content
- * inside this box.
- *
- * `margin-right: var(--space-4)` is the deliberate visual gap between the
- * marker and the item's text, replacing the literal separator space
- * `listIndentWhitespaceDecoration.ts` now collapses at rest. A `margin`
- * (not `padding`) so it never changes the marker box's own dimensions —
- * `--marker-size`/`aspect-ratio: 1` stay exactly as they are, and the
- * hanging-indent geometry in `.cm-list-line` below (driven solely by
- * `--marker-size`) is unaffected: the margin only ever exists on the
- * marker's own inline box on a construct's first visual row, never on a
- * `padding-left`-positioned wrapped row, so it doesn't need — and
- * deliberately isn't given — a term in that calculation.
+ * Shared marker class (emojiListMarkDecoration.ts's own `Decoration.mark`
+ * carries this alongside `cm-emoji-list-marker` below — its sole consumer
+ * now). Bullet/ordered/task marker rendering — the other three kinds this
+ * class used to be shared across — was deleted with the rest of the old
+ * list-marker implementation (2026-08-28 list reset): `listMarkerDecoration.ts`
+ * and `TaskCheckboxWidget.ts` are gone, and `.cm-list-line`'s own
+ * hanging-indent rule (which this class's `text-indent: 0` reset and
+ * `margin-right` gap existed to counteract/complement) went with them.
+ * Kept minimal, for emoji alone, rather than restoring the fuller
+ * bullet/task-oriented rule — a new list architecture may want a
+ * differently-shaped shared marker class entirely, not necessarily this
+ * one's old shape.
  */
 .cm-editor .cm-list-marker {
   color: var(--marker-foreground);
-  text-indent: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: var(--marker-size);
-  aspect-ratio: 1;
-  margin-right: var(--space-4);
 }
 
 /*
- * Resting bullet glyph (ListBulletWidget.ts) standing in for a hidden
- * `-`/`*`/`+`. Deliberately its own class, not `tok-mark`: `tok-mark`
- * styles the *raw* Markdown marker text when engagement reveals it — a
- * different DOM node, at a different moment — and the two are meant to
- * be styled independently (this one is a permanent, always-visible glyph;
- * `tok-mark` only ever appears mid-edit).
- */
-.cm-editor .cm-bullet-list-marker {
-  font-size: 1.2em;
-  line-height: 1;
-}
-
-/*
- * Resting ordered-marker glyph (OrderedListMarkerWidget.ts) standing in
- * for a hidden `1.`/`2)`/… — the numbered-list counterpart to
- * `.cm-bullet-list-marker` above, kept as its own class rather than
- * reusing it so bullet and numbered markers can be styled independently.
- * Renders actual text (the parsed number/delimiter), not a generated
- * glyph, so it's sized with the surrounding text rather than
- * `.cm-bullet-list-marker`'s enlarged bullet treatment.
- */
-/* .cm-editor .cm-list-number {
-  color: var(--marker-foreground);
-} */
-
-/*
- * The emoji list marker (emojiListMarkDecoration.ts) — unlike
- * `.cm-bullet-list-marker`/`.cm-list-number` above, this is not a widget
+ * The emoji list marker (emojiListMarkDecoration.ts) — not a widget
  * standing in for hidden syntax; the emoji itself is always the rendered
  * text, so this class only ever wraps it (`Decoration.mark`, no
- * replacement). Empty on purpose: a hook for size/spacing adjustments,
- * not a default override of the emoji's own glyph rendering.
+ * replacement).
  */
 .cm-editor .cm-emoji-list-marker {
   height: var(--marker-size);

@@ -75,6 +75,66 @@ describe('Page — title Enter advances focus to the body', () => {
   });
 });
 
+describe('Page — non-editable title (e.g. a Daily Note, via titleEditable=false)', () => {
+  it('renders the title as static text, not an editable textbox', () => {
+    render(<Page title="Thursday, August 28" titleEditable={false} body={<div />} />);
+
+    expect(screen.queryByRole('textbox')).toBeNull();
+    const title = screen.getByText('Thursday, August 28');
+    expect(title).not.toBeNull();
+    expect(title.getAttribute('contenteditable')).toBeNull();
+  });
+
+  it('remains unchanged after typing', () => {
+    render(<Page title="Thursday, August 28" titleEditable={false} body={<div />} />);
+
+    const title = screen.getByText('Thursday, August 28');
+    fireEvent.keyDown(title, { key: 'X' });
+    fireEvent.keyPress(title, { key: 'X' });
+
+    expect(title.textContent).toBe('Thursday, August 28');
+    expect(screen.queryByText('Thursday, August 28X')).toBeNull();
+  });
+
+  it('remains unchanged after Backspace/Delete', () => {
+    render(<Page title="Thursday, August 28" titleEditable={false} body={<div />} />);
+
+    const title = screen.getByText('Thursday, August 28');
+    fireEvent.keyDown(title, { key: 'Backspace' });
+    fireEvent.keyDown(title, { key: 'Delete' });
+
+    expect(title.textContent).toBe('Thursday, August 28');
+  });
+
+  it('remains unchanged after paste', () => {
+    render(<Page title="Thursday, August 28" titleEditable={false} body={<div />} />);
+
+    const title = screen.getByText('Thursday, August 28');
+    fireEvent.paste(title, {
+      clipboardData: { getData: () => 'hijacked title' },
+    });
+
+    expect(title.textContent).toBe('Thursday, August 28');
+    expect(screen.queryByText('hijacked title')).toBeNull();
+  });
+
+  it('leaves the body editable even though the title is not', () => {
+    render(
+      <Page
+        title="Thursday, August 28"
+        titleEditable={false}
+        body={<div data-testid="body" contentEditable suppressContentEditableWarning />}
+      />
+    );
+
+    const body = screen.getByTestId('body');
+    body.textContent = 'Some notes for today';
+    fireEvent.input(body);
+
+    expect(body.textContent).toBe('Some notes for today');
+  });
+});
+
 describe('Page — title commit', () => {
   it('calls onTitleCommit with the typed value when Enter commits the title', () => {
     const onTitleCommit = vi.fn();

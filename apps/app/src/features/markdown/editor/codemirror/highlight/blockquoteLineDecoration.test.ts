@@ -7,8 +7,6 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { blockquoteLineDecoration } from './blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './blockquoteMarkerDecoration';
-import { listLineDecoration } from '../list/listLineDecoration';
-import { listMarkerDecoration } from './listMarkerDecoration';
 
 function mountView(doc: string, extraExtensions: Extension[] = []): EditorView {
   const parent = document.createElement('div');
@@ -79,13 +77,13 @@ describe('blockquoteLineDecoration', () => {
     expect(rows.map(hasQuoteLine)).toEqual([true, false, false]);
   });
 
-  it('nested quote (>>): still exactly one cm-quote-line, no depth distinction', () => {
+  it('nested quote (>>): still exactly one cm-quote-line class, no per-depth class distinction — but its hanging-indent depth (--quote-depth, for the marker-width multiplier) is real and correct', () => {
     const view = mountView('>> nested quote\n\nOther');
     const rows = lines(view);
 
     expect(rows.map(hasQuoteLine)).toEqual([true, false, false]);
     expect(nthLine(view, 0).className).toBe('cm-line cm-quote-line');
-    expect(nthLine(view, 0).style.cssText).toBe('');
+    expect(nthLine(view, 0).style.getPropertyValue('--quote-depth')).toBe('2');
   });
 
   it('quote depth never changes the class: >, >>, >>>, and >>>>>>>> all get the exact same "cm-quote-line" class, no cm-quote-line-N', () => {
@@ -150,11 +148,8 @@ describe('blockquoteLineDecoration', () => {
     expect(hasQuoteLine(nthLine(view, 1))).toBe(false);
   });
 
-  it('a quote nested inside a list item still gets cm-quote-line, independent of listLineDecoration', () => {
-    const view = mountView('- outer\n  > quoted continuation inside list item', [
-      listMarkerDecoration(),
-      listLineDecoration(),
-    ]);
+  it('a quote nested inside a list item still gets cm-quote-line — the list marker/line decorations were deleted with the old list implementation; this only needs the list *structure* to exist in the parsed tree, not any list rendering extension mounted alongside it', () => {
+    const view = mountView('- outer\n  > quoted continuation inside list item');
     const rows = lines(view);
 
     expect(rows.map(hasQuoteLine)).toEqual([false, true]);

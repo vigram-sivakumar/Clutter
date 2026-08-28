@@ -607,7 +607,7 @@ export function PageHost({ application }: PageHostProps) {
       onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
       title={model.title}
       description={model.description}
-      titleEditable
+      titleEditable={isRenameable}
       onTitleEdit={isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined}
       onTitleFlush={isRenameable ? () => onFlushPageTitle(page.id) : undefined}
       onTitleCancel={isRenameable ? () => onCancelPageTitle(page.id) : undefined}

@@ -16,10 +16,17 @@ import { semanticCompletion } from './codemirror/completion';
 // Visual decoration imports below are commented out alongside their usage
 // further down — temporary keyboard-behavior-only configuration. See the
 // disabling comments at each call site for what each one did and why it's
-// safe to unwire. Nothing has been deleted or rewritten.
+// safe to unwire. The old list-marker implementation is the one exception:
+// `listMarkerDecoration.ts`, `list/listLineDecoration.ts`,
+// `list/listIndentWhitespaceDecoration.ts`, and `task/taskCheckboxMouseHandlers.ts`
+// were deleted outright (2026-08-28 list reset), not left dormant — list
+// rendering is being rebuilt from scratch against a different architecture;
+// see docs/editor-architecture-decisions.md for the research that preceded
+// the reset.
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { markdownEnterKeymap } from './codemirror/enter/markdownEnterKeymap';
+import { markdownIndentKeymap } from './codemirror/indent/markdownIndentKeymap';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 import { blockquoteLineDecoration } from './codemirror/highlight/blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
@@ -30,7 +37,6 @@ import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePrevie
 import { leadingIndentDecoration } from './codemirror/highlight/leadingIndentDecoration';
 import { linkMouseHandlers } from './codemirror/link/linkMouseHandlers';
 import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
-// import { listMarkerDecoration } from './codemirror/highlight/listMarkerDecoration';
 // The liveMarkDecoration-based marker decorations still dormant here
 // (emphasis, strikethrough — plus blockquote/list, which stay on
 // liveMarkDecoration permanently per ODR §4.10) carry the
@@ -47,11 +53,11 @@ import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
 // entirely, in wikiLinkLivePreview.ts (see that file's doc comment).
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
-// import { listIndentWhitespaceDecoration } from './codemirror/list/listIndentWhitespaceDecoration';
-// import { listLineDecoration } from './codemirror/list/listLineDecoration';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 // import { tableDecoration } from './codemirror/table/tableDecoration';
-import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
+// taskCheckboxMouseHandlers.ts was deleted alongside the rest of the old
+// list-marker implementation (2026-08-28 list reset) — see the wiring
+// site below for why, and what needs rebuilding.
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
 import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
 import { wikiLinkLivePreview } from './codemirror/wikilink/wikiLinkLivePreview';
@@ -232,16 +238,24 @@ export const MarkdownEditor = forwardRef<
       restoreHistoryJSON: cachedSession?.historyJSON,
       restoreScrollEffect: cachedSession?.scrollEffect,
       extensions: [
-        // Still CodeMirror's own keyboard behavior: no Clutter
-        // Delete/Tab/Shift-Tab/Arrow interception layered on top of it, and
-        // no generic fallback-keymap overrides. The two exceptions are
-        // Enter and Backspace, which markdownEnterKeymap() below registers
-        // in place of the markdownKeymap that markdownLanguageExtension()
-        // deliberately no longer installs (addKeymap: false) — Backspace
-        // identically (deleteMarkupBackward), Enter differing only in the
-        // empty-continuation policy documented in that file.
+        // Still CodeMirror's own keyboard behavior for Delete/Arrow keys —
+        // no Clutter interception there. Enter, Backspace, and (2026-08-28)
+        // Tab/Shift-Tab are the exceptions. Enter/Backspace:
+        // markdownEnterKeymap() below, in place of the markdownKeymap that
+        // markdownLanguageExtension() deliberately no longer installs
+        // (addKeymap: false) — Backspace identically (deleteMarkupBackward),
+        // Enter differing only in the empty-continuation policy documented
+        // in that file. Tab/Shift-Tab: markdownIndentKeymap() — a
+        // construct-aware replacement for `createEditorView.ts`'s own
+        // generic `indentMore`/`indentLess` (`indentWithTab`), scoped this
+        // milestone to plain paragraphs and single-line list items only;
+        // every other construct (heading, blockquote, code, tables, …)
+        // still falls through to that same generic behavior, unchanged —
+        // see markdownIndentKeymap.ts's own doc comment for exactly which
+        // constructs are, and aren't, handled yet.
         markdownLanguageExtension(),
         markdownEnterKeymap(),
+        markdownIndentKeymap(),
         // --- Temporarily unwired: purely visual Live Preview decorations ---
         // Every extension below this line, up to the next "--- end ---"
         // marker, was checked for behavioral coupling (keymap registration,
@@ -311,11 +325,17 @@ export const MarkdownEditor = forwardRef<
         // to see reflected everywhere (the sidebar) immediately, unlike
         // ordinary typing, which should keep using the normal debounced
         // autosave. See taskCheckboxActivation.ts's own doc comment.
-        // Kept: mouse-driven checkbox toggle behavior. Harmless without its
-        // visual widget (nothing to click), but it's a behavior handler,
-        // not a decoration, so left wired per "preserve the behavioral
-        // portion."
-        taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
+        // Click-driven checkbox toggling is disabled, not just its visual
+        // widget — `taskCheckboxMouseHandlers.ts` was deleted alongside the
+        // rest of the old list-marker implementation (2026-08-28 list
+        // reset): its click-position resolution was built specifically
+        // around `listMarkerDecoration.ts`'s combined marker range, which
+        // no longer exists. `taskCheckboxActivation.ts`'s own toggle logic
+        // is untouched and still fully covered by its own tests — only the
+        // mouse-click entry point onto it needs rebuilding, against
+        // whatever the new list architecture's own marker-range concept
+        // turns out to be, once task lists are reached.
+        // taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
         // Kept: click activation is product interaction (open/toggle),
         // not cursor behavior, and works independently of the decorations
         // above (it reads the syntax tree directly, not the rendered

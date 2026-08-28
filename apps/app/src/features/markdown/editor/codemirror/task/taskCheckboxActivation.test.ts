@@ -6,15 +6,28 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { getTaskCheckboxActivation } from './taskCheckboxActivation';
 import { findTaskMarkerAt } from './taskEngagement';
-import { handleTaskCheckboxClick } from './taskCheckboxMouseHandlers';
-import { listMarkerDecoration } from '../highlight/listMarkerDecoration';
 
+/**
+ * `handleTaskCheckboxClick`/`taskCheckboxMouseHandlers.ts` (formerly
+ * tested below, alongside a `listMarkerDecoration()`-mounted view) were
+ * deleted with the rest of the old list-marker implementation — that
+ * click-position-resolution wrapper was built specifically around
+ * `listMarkerDecoration.ts`'s combined marker range, which no longer
+ * exists. `getTaskCheckboxActivation` itself (tested below) has no such
+ * dependency — it operates purely on a `TaskMarkerNodeRange` from
+ * `taskEngagement.ts` and the document, independent of any list
+ * rendering — so its own coverage stays intact with no
+ * `listMarkerDecoration()` extension needed at all. Click-driven
+ * checkbox toggling needs to be rebuilt against whatever the new list
+ * architecture's own marker-range concept turns out to be, once task
+ * lists are reached.
+ */
 function mountView(doc: string): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), listMarkerDecoration()],
+    extensions: [markdownLanguageExtension()],
   });
   return new EditorView({ state, parent });
 }
@@ -92,76 +105,5 @@ describe('getTaskCheckboxActivation', () => {
     const node = findTaskMarkerAt(view.state, 2)!;
 
     expect(() => getTaskCheckboxActivation(view, node)?.()).not.toThrow();
-  });
-});
-
-describe('handleTaskCheckboxClick', () => {
-  it('a plain click on an at-rest TaskMarker toggles it via the normal dispatch pipeline', () => {
-    const view = mountView('- [ ] Buy milk');
-
-    const handled = handleTaskCheckboxClick(view, 2, false);
-
-    expect(handled).toBe(true);
-    expect(view.state.doc.toString()).toBe('- [x] Buy milk');
-  });
-
-  it('a plain click toggles WITHOUT moving the selection into TaskMarker — the widget stays rendered, since the caret never entered the marker range', () => {
-    const text = 'Text before\n\n- [ ] Buy milk';
-    const view = mountView(text);
-    const taskMarkerStart = text.indexOf('[ ]');
-    const selectionBefore = view.state.selection.main; // position 0, well outside the marker range
-
-    handleTaskCheckboxClick(view, taskMarkerStart, false);
-
-    // The selection is untouched by the toggle dispatch — engagement is
-    // never a side effect of clicking the checkbox itself.
-    expect(view.state.selection.main.from).toBe(selectionBefore.from);
-    expect(view.state.selection.main.to).toBe(selectionBefore.to);
-    expect(view.dom.querySelector('button[role="checkbox"]')).not.toBeNull();
-  });
-
-  it('clicking one checkbox does not affect a sibling task widget', () => {
-    const text = '- [ ] first\n- [ ] second';
-    const view = mountView(text);
-    const secondNode = findTaskMarkerAt(view.state, text.indexOf('second') - 3)!;
-
-    handleTaskCheckboxClick(view, 2, false); // click the first task
-
-    expect(view.state.doc.toString()).toBe('- [x] first\n- [ ] second');
-    // The second task's own marker is untouched — re-resolving it confirms
-    // its range/content didn't shift or get toggled as a side effect.
-    const raw = view.state.sliceDoc(secondNode.from, secondNode.to);
-    expect(raw).toBe('[ ]');
-  });
-
-  it('Alt-click on an at-rest TaskMarker toggles it the same as a plain click — no special engage behavior', () => {
-    const view = mountView('- [ ] Buy milk');
-
-    const handled = handleTaskCheckboxClick(view, 2, true);
-
-    expect(handled).toBe(true);
-    expect(view.state.doc.toString()).toBe('- [x] Buy milk');
-  });
-
-  it('a plain click requests an immediate save; Alt-click requests it too, same as any other click', () => {
-    const view = mountView('- [ ] Buy milk');
-    const requestImmediateSave = vi.fn();
-
-    handleTaskCheckboxClick(view, 2, false, requestImmediateSave);
-    expect(requestImmediateSave).toHaveBeenCalledTimes(1);
-
-    requestImmediateSave.mockClear();
-    const altView = mountView('- [ ] Buy milk');
-    handleTaskCheckboxClick(altView, 2, true, requestImmediateSave);
-    expect(requestImmediateSave).toHaveBeenCalledTimes(1);
-  });
-
-  it('clicking a non-task list marker position is a no-op — nothing to toggle', () => {
-    const view = mountView('- plain item');
-
-    const handled = handleTaskCheckboxClick(view, 2, false);
-
-    expect(handled).toBe(false);
-    expect(view.state.doc.toString()).toBe('- plain item');
   });
 });
