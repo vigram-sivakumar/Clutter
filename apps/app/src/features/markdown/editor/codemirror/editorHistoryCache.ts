@@ -89,6 +89,19 @@ export interface CachedEditorSession {
    * can distinguish "nothing to restore" from "restore to the top".
    */
   readonly domScrollTop: number | undefined;
+  /**
+   * Whether `EditorView.hasFocus` was `true` at the moment this session
+   * was captured (unmount). Deliberately DOM-focus, not
+   * `EditorState`-derived: focus belongs to `EditorView`/the DOM and is
+   * never restored by `EditorState.fromJSON` (unlike `historyJSON`, which
+   * carries selection along with it automatically) — see
+   * `docs/editor-architecture-decisions.md`'s "Focus restoration" entry
+   * for the investigation this implements. Read by `MarkdownEditor.tsx`'s
+   * mount effect to decide whether to call `view.focus()` after restoring
+   * state — restoring a page that was never focused must not focus it,
+   * so this can't be inferred from "a cache entry exists."
+   */
+  readonly wasFocused: boolean;
 }
 
 const cache = new Map<string, CachedEditorSession>();

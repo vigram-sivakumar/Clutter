@@ -4,7 +4,7 @@ import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
 import { Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
-import { createEditorView, serializeEditorHistory, syncMarkdownIntoView } from './createEditorView';
+import { createEditorView, docTextMatches, serializeEditorHistory, syncMarkdownIntoView } from './createEditorView';
 import {
   __clearAllCachedEditorHistoryForTests,
   clearCachedEditorSession,
@@ -241,21 +241,29 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     __clearAllCachedEditorHistoryForTests();
   });
 
-  /** Mirrors MarkdownEditor.tsx's mount effect: cache lookup -> createEditorView. */
+  /** Mirrors MarkdownEditor.tsx's mount effect: cache lookup -> createEditorView -> conditional view.focus(). */
   function openPage(pageId: string, markdown: string): EditorView {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
     const cached = getCachedEditorSession(pageId);
-    return createEditorView({
+    const view = createEditorView({
       doc: markdown,
       parent,
       restoreHistoryJSON: cached?.historyJSON,
       restoreScrollEffect: cached?.scrollEffect,
     });
+    // Mirrors MarkdownEditor.tsx's own gate exactly: only restore focus
+    // when the cached session was actually focused *and* the document
+    // still matches (the same staleness check history/scroll restoration
+    // already uses) — never an unconditional focus-on-open.
+    if (cached?.wasFocused && docTextMatches(cached.historyJSON, markdown)) {
+      view.focus();
+    }
+    return view;
   }
 
   /** Mirrors MarkdownEditor.tsx's unmount cleanup: serialize -> cache -> destroy. */
-  function closePage(pageId: string, view: EditorView): void {
+  function closePage(pageId: string, view: EditorView, wasFocused = false): void {
     setCachedEditorSession(pageId, {
       historyJSON: serializeEditorHistory(view),
       scrollEffect: view.scrollSnapshot(),
@@ -265,6 +273,13 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
       // entry); `view.scrollDOM.scrollTop` stands in here purely so the
       // cache-plumbing tests below (G/H) have a real number to round-trip.
       domScrollTop: view.scrollDOM.scrollTop,
+      // Explicit parameter, not `view.hasFocus` read live here — the real
+      // component samples this via a poll (see MarkdownEditor.tsx's
+      // `lastKnownFocusRef` doc comment for why a live unmount-time read
+      // is unreliable in the real browser); jsdom has no such race, but
+      // callers pass what they intend to simulate for clarity/symmetry
+      // with the real cleanup's already-sampled ref value.
+      wasFocused,
     });
     view.destroy();
   }
@@ -380,6 +395,7 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
       historyJSON: serializeEditorHistory(a),
       scrollEffect,
       domScrollTop: 42,
+      wasFocused: false,
     });
     a.destroy();
 
@@ -459,5 +475,69 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     expect(a.state.doc.toString()).toBe('A1');
     undo(a);
     expect(a.state.doc.toString()).toBe('A');
+  });
+
+  it('K: a focused editor regains focus (and its selection) on return from another page', () => {
+    const a = openPage('page-a', 'hello world');
+    a.dispatch({ selection: { anchor: 5 } });
+    a.focus();
+    expect(a.hasFocus).toBe(true);
+    closePage('page-a', a, /* wasFocused */ true);
+
+    const b = openPage('page-b', 'B');
+    closePage('page-b', b);
+
+    const aRestored = openPage('page-a', 'hello world');
+    expect(aRestored.hasFocus).toBe(true);
+    expect(aRestored.state.selection.main.anchor).toBe(5);
+  });
+
+  it('L: an unfocused editor stays unfocused on return — restoring selection never implies restoring focus', () => {
+    const a = openPage('page-a', 'hello world');
+    a.dispatch({ selection: { anchor: 5 } });
+    // Deliberately never focused — mirrors a page that was open but never
+    // clicked into (e.g. the user only read it, or scrolled it via the
+    // sidebar without engaging the body).
+    expect(a.hasFocus).toBe(false);
+    closePage('page-a', a, /* wasFocused */ false);
+
+    const aRestored = openPage('page-a', 'hello world');
+    expect(aRestored.hasFocus).toBe(false);
+    // Selection restoration is unaffected by the focus decision — the two
+    // are independent, per docs/editor-architecture-decisions.md's "Focus
+    // restoration" entry.
+    expect(aRestored.state.selection.main.anchor).toBe(5);
+  });
+
+  it('M: a page with no cached session at all never autofocuses', () => {
+    const fresh = openPage('never-opened-before', 'fresh content');
+    expect(fresh.hasFocus).toBe(false);
+  });
+
+  it('N: focus state is isolated per page, independent of what the other page was doing', () => {
+    const a = openPage('page-a', 'A');
+    a.focus();
+    closePage('page-a', a, true);
+
+    const b = openPage('page-b', 'B');
+    // B is deliberately left unfocused.
+    closePage('page-b', b, false);
+
+    const aRestored = openPage('page-a', 'A');
+    expect(aRestored.hasFocus).toBe(true);
+    closePage('page-a', aRestored, true);
+
+    const bRestored = openPage('page-b', 'B');
+    expect(bRestored.hasFocus).toBe(false); // never picks up A's focused state
+  });
+
+  it("O: a stale (doc-mismatched) cache entry's wasFocused is never honored — focus restoration follows the same all-or-nothing gate as history/scroll", () => {
+    const a = openPage('page-a', 'A');
+    a.focus();
+    closePage('page-a', a, true);
+
+    // Page changed externally while closed (same scenario as F/H).
+    const aReopened = openPage('page-a', 'A-external');
+    expect(aReopened.hasFocus).toBe(false);
   });
 });

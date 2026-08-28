@@ -155,6 +155,19 @@ export const MarkdownEditor = forwardRef<
   // the time unmount runs, regardless of when that external reset
   // happens relative to React's own commit/cleanup ordering.
   const lastKnownScrollTopRef = useRef<number | undefined>(undefined);
+  // Tracks `view.hasFocus`, sampled by the same `scrollPollInterval` below
+  // (not a separate `focus`/`blur` listener pair) — for the identical
+  // reason `lastKnownScrollTopRef` isn't a live unmount-time read: the
+  // click that switches pages (e.g. a sidebar item) synchronously blurs
+  // this view as a native side effect of that click, *before* React runs
+  // this component's unmount cleanup — so a live `view.hasFocus` read (or
+  // a `blur`-event listener setting this to `false`) would always read
+  // `false` at exactly the moment we need to know whether the user was
+  // "in" this editor right before they left. Reusing the poll's last
+  // sample (taken up to 300ms before that blur) sidesteps this exactly
+  // as it already does for scroll. See
+  // `docs/editor-architecture-decisions.md`'s "Focus restoration" entry.
+  const lastKnownFocusRef = useRef<boolean | undefined>(undefined);
   // Resolved once, right after mount (see the mount effect below), and
   // reused as-is at unmount — deliberately not re-queried via
   // findScrollableAncestor(container) a second time at unmount. Observed
@@ -361,16 +374,34 @@ export const MarkdownEditor = forwardRef<
     // copy of that same guard, not an assumption that createEditorView's
     // internal gate already covered it.
     scrollAncestorRef.current = findScrollableAncestor(container);
-    if (
-      scrollAncestorRef.current &&
-      cachedSession?.domScrollTop !== undefined &&
-      docTextMatches(cachedSession.historyJSON, markdown)
-    ) {
+    const cachedSessionMatchesDoc =
+      cachedSession !== undefined && docTextMatches(cachedSession.historyJSON, markdown);
+    if (scrollAncestorRef.current && cachedSession?.domScrollTop !== undefined && cachedSessionMatchesDoc) {
       scrollAncestorRef.current.scrollTop = cachedSession.domScrollTop;
       lastKnownScrollTopRef.current = cachedSession.domScrollTop;
     } else {
       lastKnownScrollTopRef.current = scrollAncestorRef.current?.scrollTop;
     }
+
+    // Restoring the *document*'s previous selection (via `restoreHistoryJSON`
+    // above) never implies restoring *focus* — `EditorState.fromJSON`
+    // carries selection along automatically, but focus is a DOM/EditorView
+    // concern EditorState knows nothing about (confirmed by reading CM6's
+    // own state/view separation, not assumed). A page that was never
+    // focused before (no cache entry, or `wasFocused: false`) must not be
+    // focused now — this is a *restoration* of prior focus, not a new
+    // "always focus on open" behavior; a fresh page (no cache entry at
+    // all) takes the same `false`-like path via `cachedSession?.wasFocused`
+    // being `undefined`. Called after the scroll restore immediately above
+    // so a focused caret settles into its already-correctly-scrolled
+    // position, and only once `view` is fully constructed and attached
+    // (`createEditorView`'s `new EditorView({..., parent})` already
+    // attaches synchronously — `view.focus()` here is not called before
+    // that has happened).
+    if (cachedSession?.wasFocused && cachedSessionMatchesDoc) {
+      view.focus();
+    }
+    lastKnownFocusRef.current = view.hasFocus;
 
     // Sampled on a short interval, not a `scroll` event listener — a
     // deliberate choice, not the first one tried. A `scroll`-event
@@ -392,9 +423,20 @@ export const MarkdownEditor = forwardRef<
     // is always from while this page's own content (and therefore its
     // real, correct scrollHeight) was still the one in the DOM. 300ms is
     // an approximate-restoration tolerance, not a precision guarantee —
-    // scroll position restoration doesn't need pixel accuracy.
+    // scroll position restoration doesn't need pixel accuracy. Also
+    // samples `view.hasFocus` into `lastKnownFocusRef` on the same tick —
+    // not a second interval — for the identical race described in that
+    // ref's own doc comment above: the click that triggers a page switch
+    // blurs this view natively, before this component's own unmount
+    // cleanup runs, so only a *previously sampled* value (not a live read
+    // at unmount, and not a `blur`-listener-set value either, since the
+    // blur that fires right before unmount would itself overwrite a
+    // listener-tracked value to `false`) reflects "was this focused right
+    // before the user left," which is what deciding whether to restore
+    // focus on return actually needs.
     const scrollPollInterval = window.setInterval(() => {
       lastKnownScrollTopRef.current = scrollAncestorRef.current?.scrollTop;
+      lastKnownFocusRef.current = view.hasFocus;
     }, 300);
 
     return () => {
@@ -422,6 +464,7 @@ export const MarkdownEditor = forwardRef<
         historyJSON: serializeEditorHistory(view),
         scrollEffect: view.scrollSnapshot(),
         domScrollTop: lastKnownScrollTopRef.current,
+        wasFocused: lastKnownFocusRef.current ?? false,
       });
       view.destroy();
       viewRef.current = null;
