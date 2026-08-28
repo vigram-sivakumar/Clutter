@@ -42,6 +42,25 @@
 }
 
 /*
+ * Caret-geometry anchor (IndentEndAnchorWidget.ts, leadingIndentDecoration.ts's
+ * `INDENT_END_ANCHOR`) — an empty, text-less element so CM6's `coordsAtPos`
+ * measures its own box (`WidgetTile.coordsIn` -> `dom.getClientRects()`)
+ * instead of the narrow glyph geometry of the real whitespace characters
+ * inside the preceding `.cm-indent` mark. `width: 0` keeps it invisible and
+ * non-reflowing. `height: 1em` is required, not cosmetic: an empty
+ * `inline-block` left at `height: auto` collapses to 0 (CSS2.1 §10.6.7),
+ * and CM6 derives the drawn caret's height directly from this element's
+ * measured rect (`RectangleMarker.forRange`, `@codemirror/view`) -- the
+ * same zero-height pitfall `.cm-marker--concealed` below already
+ * documents for the unrelated marker-concealment case.
+ */
+.cm-indent-end-anchor {
+  display: inline-block;
+  width: 0;
+  height: 1em;
+}
+
+/*
  * Heading highlighting PoC (markdownHighlightStyle.ts). Scoped to
  * `.cm-editor` — CM6's own always-present root class — rather than
  * `.markdown-editor` above, since nothing in the DOM currently applies

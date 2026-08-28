@@ -294,6 +294,98 @@ describe('leadingIndentDecoration (grouped by the current indentUnit facet)', ()
     });
   });
 
+  describe('caret-geometry anchor (IndentEndAnchorWidget): added only when line.to sits exactly at the last mark\'s end', () => {
+    function anchor(line: HTMLElement): HTMLElement | null {
+      return line.querySelector('.cm-indent-end-anchor');
+    }
+
+    it('a whitespace-only line (one indent unit) gets the anchor', () => {
+      const view = mountView('  ');
+      const line = nthLine(view, 0);
+      expect(indentSpans(line)).toHaveLength(1);
+      expect(anchor(line)).not.toBeNull();
+      expect(view.state.doc.toString()).toBe('  ');
+    });
+
+    it('a whitespace-only line (multiple indent units) gets the anchor, placed after the last mark', () => {
+      const view = mountView('    ');
+      const line = nthLine(view, 0);
+      const spans = indentSpans(line);
+      expect(spans).toHaveLength(2);
+      const anchorEl = anchor(line);
+      expect(anchorEl).not.toBeNull();
+      // Anchor comes after both marks in document order (CM6 also inserts
+      // its own `cm-widgetBuffer`/`<br>` accessories around the widget --
+      // see IndentEndAnchorWidget.ts's doc comment -- so it isn't
+      // necessarily lastElementChild).
+      const position = spans[1]!.compareDocumentPosition(anchorEl!);
+      expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('a whitespace-only line made of tabs gets the anchor', () => {
+      const view = mountView('\t\t');
+      const line = nthLine(view, 0);
+      expect(indentSpans(line)).toHaveLength(2);
+      expect(anchor(line)).not.toBeNull();
+    });
+
+    it('a line with real content after the indentation does NOT get the anchor', () => {
+      const view = mountView('    hello');
+      const line = nthLine(view, 0);
+      expect(indentSpans(line)).toHaveLength(2);
+      expect(anchor(line)).toBeNull();
+    });
+
+    it('a line with no leading whitespace at all does NOT get the anchor', () => {
+      const view = mountView('hello');
+      expect(anchor(nthLine(view, 0))).toBeNull();
+    });
+
+    it('a whitespace-only line with an incomplete trailing partial run does NOT get the anchor (the stray remainder, not a mark, is line.to)', () => {
+      const view = mountView('   '); // 1 full 2-space unit + 1 stray trailing space
+      const line = nthLine(view, 0);
+      expect(indentSpans(line)).toHaveLength(1);
+      expect(anchor(line)).toBeNull();
+    });
+
+    it('appears on an inherited-indent empty line after Enter, driven by document state -- not the Enter key itself', () => {
+      // Same end state as pressing Enter with 4-space indentation active:
+      // constructing the document directly proves the anchor's gate is
+      // purely a function of `state.doc`/decorations, not a keymap.
+      const view = mountView('Hello world\n    ');
+      const line = nthLine(view, 1);
+      expect(indentSpans(line)).toHaveLength(2);
+      expect(anchor(line)).not.toBeNull();
+    });
+
+    it('the anchor disappears the instant real text follows it (typing self-corrects, matching the pre-fix behavior)', () => {
+      const view = mountView('    ');
+      expect(anchor(nthLine(view, 0))).not.toBeNull();
+
+      view.dispatch({ changes: { from: 4, to: 4, insert: 'x' } });
+      const line = nthLine(view, 0);
+      expect(anchor(line)).toBeNull();
+      expect(indentSpans(line)).toHaveLength(2);
+      expect(view.state.doc.toString()).toBe('    x');
+    });
+
+    it('multiple consecutive empty indented lines each get their own anchor', () => {
+      const view = mountView('    \n    \n    ');
+      for (let i = 0; i < 3; i++) {
+        const line = nthLine(view, i);
+        expect(indentSpans(line)).toHaveLength(2);
+        expect(anchor(line)).not.toBeNull();
+      }
+    });
+
+    it('the anchor consumes zero document length and never changes stored text', () => {
+      const before = '    ';
+      const view = mountView(before);
+      expect(view.state.doc.toString()).toBe(before);
+      expect(view.state.doc.length).toBe(4);
+    });
+  });
+
   describe('core invariant: the document is always authoritative', () => {
     it('the stored document text never changes as indent decorations are applied', () => {
       const text = '   line one\n \t next line';

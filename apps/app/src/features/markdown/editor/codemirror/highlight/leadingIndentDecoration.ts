@@ -9,6 +9,8 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 
+import { IndentEndAnchorWidget } from './IndentEndAnchorWidget';
+
 /**
  * Generic leading-whitespace representation — independent of, and
  * composable with, every Markdown-construct decoration in this codebase
@@ -72,19 +74,46 @@ import {
  *
  * Otherwise unchanged from prior versions of this file:
  * - No syntax-tree lookup, no construct/ancestor check.
- * - `Decoration.mark`, not `Decoration.replace` — every leading
- *   whitespace character stays in the rendered DOM, at its own native
- *   width (spaces) or its `tab-size`-overridden width (tabs). Nothing is
- *   replaced or hidden; no widgets.
+ * - `Decoration.mark`, not `Decoration.replace`, for every indent token —
+ *   every leading whitespace character stays in the rendered DOM, at its
+ *   own native width (spaces) or its `tab-size`-overridden width (tabs).
+ *   Nothing is replaced or hidden.
  * - `state.doc` is never touched. Tabs are never normalized to spaces,
  *   or vice versa; `indentUnit` and `tabSize` are only ever read.
  * - No `data-*` metadata — a decoration range already fully represents
  *   what it covers; there's nothing further to encode.
  * - Rebuilt purely from `state.doc` and `indentUnit` on every
  *   `docChanged`/`viewportChanged`.
+ *
+ * One addition on top of the marks: `INDENT_END_ANCHOR`, a zero-width
+ * `Decoration.widget` (`IndentEndAnchorWidget`) added immediately after
+ * the last `.cm-indent` mark on a line, but only when that mark's own end
+ * position is the line's last position — i.e. the line's content ends
+ * exactly at a complete indent token, with no real content and no
+ * unmarked trailing partial-run remainder after it. This exists purely to
+ * fix CM6's caret *measurement* (`coordsAtPos`) for that one case, not to
+ * change what's rendered or stored — see `IndentEndAnchorWidget`'s own
+ * doc comment for the full mechanism.
  */
 
 const SPACE_INDENT_MARK = Decoration.mark({ class: 'cm-indent' });
+// `side: -1`, not `1`: @codemirror/view's own `resolveInline` (the
+// function `coordsAtPos` resolves through) only ever considers a widget
+// for the query's "after"-position slot when its decoration has
+// `side > 0`; `side <= 0` puts it in the "before"-position slot instead
+// -- and `before` beats a same-position widget carrying `after` whenever
+// the query itself is a backward-affinity one (`side < 0`), which is
+// exactly what native Backspace/ArrowLeft leave the selection with
+// (`range.assoc === -1`). A `side: 1` anchor therefore only fixed the
+// caret for a *forward*-affinity query (e.g. fresh Enter) and silently
+// reverted to the old glyph-measured position for a backward one (e.g.
+// Backspace back down to a whitespace-only line) -- confirmed by direct
+// measurement in the real app, not merely inferred. `side: -1` makes this
+// widget win the "before" slot instead, which resolveInline prefers for
+// backward queries directly and falls back to for forward queries too
+// (since it then declines to ever claim the "after" slot) -- covering
+// both selection affinities with one decoration.
+const INDENT_END_ANCHOR = Decoration.widget({ widget: new IndentEndAnchorWidget(), side: -1 });
 
 const tabIndentMarkCache = new Map<number, Decoration>();
 
@@ -120,6 +149,11 @@ function leadingWhitespaceLength(lineText: string): number {
  * one-character mark (discarding, unmarked, any incomplete space run
  * accumulated just before it); a run of spaces is emitted as a mark the
  * moment it reaches `unitLength` characters, then a new run starts.
+ *
+ * Returns the document position immediately after the last mark emitted
+ * (or `null` if none were), so the caller can tell whether the line's
+ * content ends exactly at a complete indent token — the one case
+ * `INDENT_END_ANCHOR` needs to cover; see its doc comment on `buildDecorations`.
  */
 function emitLineIndentMarks(
   builder: RangeSetBuilder<Decoration>,
@@ -127,15 +161,17 @@ function emitLineIndentMarks(
   lineText: string,
   leadingLength: number,
   unitLength: number
-): void {
+): number | null {
   let offset = 0;
   let spaceRunStart = 0;
+  let lastMarkEnd: number | null = null;
 
   while (offset < leadingLength) {
     if (lineText.charCodeAt(offset) === 9) {
       const from = lineFrom + offset;
       const to = from + 1;
       builder.add(from, to, tabIndentMark(unitLength));
+      lastMarkEnd = to;
       offset += 1;
       spaceRunStart = offset;
       continue;
@@ -146,9 +182,12 @@ function emitLineIndentMarks(
       const from = lineFrom + spaceRunStart;
       const to = lineFrom + offset;
       builder.add(from, to, SPACE_INDENT_MARK);
+      lastMarkEnd = to;
       spaceRunStart = offset;
     }
   }
+
+  return lastMarkEnd;
 }
 
 function buildDecorations(view: EditorView): DecorationSet {
@@ -165,7 +204,22 @@ function buildDecorations(view: EditorView): DecorationSet {
       const leadingLength = leadingWhitespaceLength(line.text);
 
       if (leadingLength > 0) {
-        emitLineIndentMarks(builder, line.from, line.text, leadingLength, unitLength);
+        const lastMarkEnd = emitLineIndentMarks(builder, line.from, line.text, leadingLength, unitLength);
+
+        // Caret-geometry anchor (IndentEndAnchorWidget's doc comment has the
+        // full mechanism): only when the line's last character is itself
+        // part of a complete, marked indent token -- i.e. line.to sits
+        // exactly at the last mark's end, with nothing (no real content, no
+        // unmarked trailing partial-run remainder) between them. Real
+        // content after the indentation already measures correctly against
+        // its own text node; an unmarked trailing partial run (e.g. one
+        // stray space short of a full unit) is ordinary text that already
+        // measures correctly too -- the anchor is only needed, and only
+        // added, where a `.cm-indent` mark's own widened box would
+        // otherwise be the last thing on the line.
+        if (lastMarkEnd === line.to) {
+          builder.add(lastMarkEnd, lastMarkEnd, INDENT_END_ANCHOR);
+        }
       }
 
       pos = line.to + 1;
