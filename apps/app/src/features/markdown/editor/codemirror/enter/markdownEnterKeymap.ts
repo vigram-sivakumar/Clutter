@@ -15,6 +15,8 @@ import {
 } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 
+import { resolveLineIndentContext } from '../indent/markdownIndentContext';
+
 /**
  * The one Markdown editing policy Clutter adds on top of CodeMirror:
  *
@@ -221,18 +223,134 @@ export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyIndentContinuation(target);
 
 /**
+ * Finds the `ListMark` node for a `list`-classified line, given the
+ * `markerFrom` `resolveLineIndentContext` already resolved for it. Mirrors
+ * that function's own internal walk (`ListItem`'s `firstChild`) rather
+ * than importing anything private from it — `resolveLineIndentContext`
+ * intentionally exposes only the classification (`kind`/`markerFrom`),
+ * never node identity, since Tab/Shift-Tab (its only other caller) never
+ * needs more than an offset. This function needs the actual node to read
+ * its parent (bullet vs. ordered) and its next sibling (the boundary this
+ * command cares about) — a different concern from line classification,
+ * not a duplication of it.
+ */
+function bulletListMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(markerFrom, 1);
+    node;
+    node = node.parent
+  ) {
+    if (node.name === 'ListItem') {
+      const marker = node.firstChild;
+      return marker && marker.name === 'ListMark' ? marker : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Clutter's own Backspace policy at a bullet list item's marker/separator
+ * boundary: `- |Text` removes only the whitespace separating the marker
+ * from its content, leaving the marker character itself intact —
+ * `-|Text` — regardless of how many separator spaces preceded the cursor
+ * (`-   |Text` collapses to `-|Text` in one press, not several) and
+ * regardless of whether this is the first or a later item in its list.
+ *
+ * This replaces, at this one exact position, CM6's own two branches for
+ * it (`deleteMarkupBackward`'s `getContext`-driven asymmetry: blank the
+ * marker to spaces for a "later" item, delete the whole marker+separator
+ * for the "first" item of its list — verified via
+ * `node_modules/@codemirror/lang-markdown`'s `deleteMarkupBackward`,
+ * confirmed empirically for both top-level and nested items) with one
+ * uniform rule that doesn't depend on list position.
+ *
+ * The resulting `-Text` naturally stops parsing as a `ListMark`/`ListItem`
+ * on the next reparse (CommonMark requires at least one space — or truly
+ * nothing at all — after a bullet marker; a marker directly followed by
+ * non-whitespace content is not a list marker), verified empirically
+ * against the installed `@lezer/markdown` grammar. That is the intended,
+ * parser-driven consequence — this command performs the smallest source
+ * edit and stops; it does not decide, repair, or compensate for the
+ * resulting structure. No rendering change is needed either: bullet
+ * rendering is keyed off the parser's own `ListMark` node
+ * (`listMarkerDecoration.ts`), so it stops being drawn on its own once
+ * the parser stops emitting one.
+ *
+ * Deliberately excludes:
+ * - **Ordered lists** (`1.`/`1)`) — a separate, not-yet-made product
+ *   decision (see the investigation this command's commit reports);
+ *   `deleteMarkupBackward` continues to handle them unchanged.
+ * - **Empty list items** (`- |` with no content following the marker at
+ *   all) — CM6's existing full-delete-the-marker behavior there is kept
+ *   deliberately (explicit product decision: an empty item's own native
+ *   CM6 behavior — removing the whole construct in one press — stays as
+ *   is; this rule only governs the marker/content boundary when there
+ *   *is* content). There is no "content" boundary to normalize toward on
+ *   an empty item; its own end-of-line is a different, already-handled
+ *   case, not this one.
+ * - **Any non-collapsed selection or multi-range selection** — this is a
+ *   single-cursor, single-position rule; everything else is `false`.
+ *
+ * Every other Backspace press (before the marker, mid-separator, inside
+ * content, on ordered lists, on empty items, on paragraphs/blockquotes/
+ * code, or on any selection) returns `false` and reaches
+ * `deleteMarkupBackward` exactly as before — this function's entire
+ * surface is the single document position `content.from` on a bullet
+ * `ListItem`'s own defining line.
+ */
+export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+
+  const pos = selection.main.head;
+  const line = state.doc.lineAt(pos);
+  const context = resolveLineIndentContext(state, line);
+  if (context.kind !== 'list') {
+    return false;
+  }
+
+  const marker = bulletListMarkAt(state, context.markerFrom);
+  if (!marker || marker.parent?.parent?.name !== 'BulletList') {
+    return false;
+  }
+
+  const content = marker.nextSibling;
+  if (!content || pos !== content.from || content.from <= marker.to) {
+    return false;
+  }
+
+  dispatch(
+    state.update({
+      changes: { from: marker.to, to: content.from },
+      selection: EditorSelection.cursor(marker.to),
+      scrollIntoView: true,
+      userEvent: 'delete',
+    })
+  );
+  return true;
+};
+
+/**
  * Replaces `markdownKeymap`, which `markdownLanguageExtension()` no longer
- * installs (`addKeymap: false`). Same precedence (`Prec.high`) and the same
- * Backspace binding lang-markdown itself registered — only Enter differs,
- * and only by the policy documented at the top of this file. Anything using
- * `markdownLanguageExtension()` for real editing must wire this alongside
- * it, or it gets no Markdown-aware Enter or Backspace at all.
+ * installs (`addKeymap: false`). Same precedence (`Prec.high`) as
+ * lang-markdown's own Backspace binding — Enter differs by the policy
+ * documented at the top of this file, and Backspace is CM6's own
+ * `deleteMarkupBackward` with exactly one narrower rule shadowing it first
+ * (`deleteBulletMarkerSeparator`, documented above its definition).
+ * Anything using `markdownLanguageExtension()` for real editing must wire
+ * this alongside it, or it gets no Markdown-aware Enter or Backspace at
+ * all.
  */
 export function markdownEnterKeymap(): Extension {
   return Prec.high(
     keymap.of([
       { key: 'Enter', run: markdownEnterCommand },
-      { key: 'Backspace', run: deleteMarkupBackward },
+      {
+        key: 'Backspace',
+        run: (target) => deleteBulletMarkerSeparator(target) || deleteMarkupBackward(target),
+      },
     ])
   );
 }
