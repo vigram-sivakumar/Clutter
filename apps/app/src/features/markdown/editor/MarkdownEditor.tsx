@@ -16,13 +16,18 @@ import { semanticCompletion } from './codemirror/completion';
 // Visual decoration imports below are commented out alongside their usage
 // further down — temporary keyboard-behavior-only configuration. See the
 // disabling comments at each call site for what each one did and why it's
-// safe to unwire. The old list-marker implementation is the one exception:
+// safe to unwire. The old list-marker implementation was one exception:
 // `listMarkerDecoration.ts`, `list/listLineDecoration.ts`,
 // `list/listIndentWhitespaceDecoration.ts`, and `task/taskCheckboxMouseHandlers.ts`
 // were deleted outright (2026-08-28 list reset), not left dormant — list
 // rendering is being rebuilt from scratch against a different architecture;
 // see docs/editor-architecture-decisions.md for the research that preceded
-// the reset.
+// the reset. `listMarkerDecoration()` (wired below) is the first slice of
+// that rebuild — bullet (`-`/`*`/`+`) markers only, built on the shared
+// `liveMarkDecoration` mechanism rather than the old bespoke ViewPlugin.
+// Ordered lists, task checklists, and hanging-indent/line-level list
+// decoration remain unimplemented; leading indentation for nested bullets
+// is already handled, construct-agnostically, by `leadingIndentDecoration.ts`.
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { markdownEnterKeymap } from './codemirror/enter/markdownEnterKeymap';
@@ -37,6 +42,7 @@ import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePrevie
 import { leadingIndentDecoration } from './codemirror/highlight/leadingIndentDecoration';
 import { linkMouseHandlers } from './codemirror/link/linkMouseHandlers';
 import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
+import { listMarkerDecoration } from './codemirror/list/listMarkerDecoration';
 // The liveMarkDecoration-based marker decorations still dormant here
 // (emphasis, strikethrough — plus blockquote/list, which stay on
 // liveMarkDecoration permanently per ODR §4.10) carry the
@@ -301,7 +307,14 @@ export const MarkdownEditor = forwardRef<
         // wikilink/wikiLinkLivePreview.ts's own doc comment.
         wikiLinkLivePreview(() => resolveWikiLinkRef.current),
         // strikethroughMarkerDecoration(),
-        // listMarkerDecoration(),
+        // Bullet (-/*/+) marker rendering only — the first slice of the
+        // list-rendering rebuild (2026-08-28 reset, see the comment near
+        // this file's top). Built on liveMarkDecoration, same mechanism as
+        // headingMarkerDecoration()/blockquoteMarkerDecoration() above.
+        // Ordered lists and task checklists are still unrendered; a future
+        // slice adds them alongside line/hanging-indent decoration
+        // (listLineDecoration(), not yet reimplemented).
+        listMarkerDecoration(),
         // listLineDecoration(),
         // listIndentWhitespaceDecoration(),
         // emojiListMarkDecoration(),

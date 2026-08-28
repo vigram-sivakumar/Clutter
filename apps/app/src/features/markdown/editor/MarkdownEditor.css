@@ -441,18 +441,18 @@
 }
 
 /*
- * Shared marker class (emojiListMarkDecoration.ts's own `Decoration.mark`
- * carries this alongside `cm-emoji-list-marker` below — its sole consumer
- * now). Bullet/ordered/task marker rendering — the other three kinds this
- * class used to be shared across — was deleted with the rest of the old
- * list-marker implementation (2026-08-28 list reset): `listMarkerDecoration.ts`
- * and `TaskCheckboxWidget.ts` are gone, and `.cm-list-line`'s own
- * hanging-indent rule (which this class's `text-indent: 0` reset and
- * `margin-right` gap existed to counteract/complement) went with them.
- * Kept minimal, for emoji alone, rather than restoring the fuller
- * bullet/task-oriented rule — a new list architecture may want a
- * differently-shaped shared marker class entirely, not necessarily this
- * one's old shape.
+ * Shared marker class — `emojiListMarkDecoration.ts`'s `Decoration.mark`
+ * and (2026-08-28, bullet-list reintroduction) `ListBulletWidget`'s
+ * `Decoration.replace` widget both carry this alongside their own
+ * construct-specific class (`cm-emoji-list-marker`/`cm-bullet-list-marker`
+ * below). Ordered-list and task-checklist marker rendering are still
+ * unimplemented (out of scope for this slice) — a future slice may extend
+ * this shared class rather than introduce a new one, per this file's own
+ * "extend before adding" convention. `.cm-list-line`'s own hanging-indent
+ * rule (which this class's `text-indent: 0` reset and `margin-right` gap
+ * used to counteract/complement, pre-reset) has not been reintroduced yet
+ * — nested-bullet indentation is currently handled entirely by
+ * `leadingIndentDecoration.ts`'s construct-agnostic per-character widgets.
  */
 .cm-editor .cm-list-marker {
   color: var(--marker-foreground);
@@ -471,6 +471,21 @@
   height: var(--marker-size);
   aspect-ratio: 1;
   font-size: var(--text-label);
+}
+
+/*
+ * The bullet-list marker (`ListBulletWidget`/`listMarkerDecoration.ts`) —
+ * a `Decoration.replace` widget standing in for the collapsed raw `-`/
+ * `*`/`+` (+ separator space) text, unlike the emoji marker above. Sized
+ * to `var(--marker-width)` (the same fixed-width token blockquote's own
+ * marker box uses, `.cm-quote-marker`) so a bullet occupies a consistent,
+ * predictable column regardless of which of the three source characters
+ * produced it.
+ */
+.cm-editor .cm-bullet-list-marker {
+  display: inline-block;
+  width: var(--marker-width);
+  text-align: center;
 }
 
 /*
