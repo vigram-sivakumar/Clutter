@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { markdownIndentMore } from '../indent/markdownIndentKeymap';
-import { deleteBulletMarkerSeparator } from './markdownEnterKeymap';
+import { deleteBulletMarkerSeparator, markdownEnterCommand } from './markdownEnterKeymap';
 
 /**
  * Same `|`-marker fixture convention as `markdownEnterKeymap.test.ts`:
@@ -225,26 +225,99 @@ describe('deleteBulletMarkerSeparator: source-local marker/separator boundary po
     });
   });
 
-  describe('scope: empty list items keep CM6\'s native full-delete behavior (explicit product decision)', () => {
-    it('an empty first item is not touched by the bullet override', () => {
-      const result = backspace('- |');
-      expect(result.handledBy).not.toBe('clutter');
+  /**
+   * Locked product rule (2026-08-28): Backspace never introduces spaces
+   * that were not already in the source. Empty list items are NOT
+   * excluded from this rule — they follow the identical marker-preserving
+   * boundary logic as non-empty items, replacing CM6's own two divergent
+   * empty-item branches (full delete for a first item, blank-to-spaces
+   * for a later one) with the same one uniform rule used everywhere else
+   * in this file.
+   */
+  /**
+   * Locked product rule (2026-08-28, superseding the prior "bare marker
+   * kept" rule from the same day): a bare marker is visually
+   * indistinguishable from a not-yet-backspaced marker (both collapse to
+   * the identical `Decoration.replace` widget), so the empty-item case
+   * removes the marker AND its separator together in one press, rather
+   * than leaving a bare marker on screen that looks like nothing
+   * happened. Non-empty items are unchanged: separator only.
+   */
+  describe('empty list items: marker + separator removed together in one press (locked 2026-08-28)', () => {
+    it('empty first/only item: "- |" -> "|" (whole item removed, truly empty line)', () => {
+      expect(backspace('- |')).toEqual({ rendered: '|', handledBy: 'clutter' });
     });
 
-    it('an empty non-first item is not touched by the bullet override', () => {
-      const result = backspace('- One\n- |');
-      expect(result.handledBy).not.toBe('clutter');
+    it('empty non-first item: "- One\\n- |" -> "- One\\n|" — this is the regression case that used to become two spaces', () => {
+      expect(backspace('- One\n- |')).toEqual({
+        rendered: '- One\n|',
+        handledBy: 'clutter',
+      });
     });
 
-    it('documents current (unmodified) CM6 behavior for empty items as a regression guard', () => {
-      expect(backspace('- |')).toEqual({ rendered: '|', handledBy: 'cm6' });
-      // Non-first empty item: CM6 blanks the marker to spaces (its own
-      // pre-existing asymmetry, untouched by this task — an explicit
-      // product decision to keep CM6's native behavior here, not an
-      // oversight). The cursor marker sits directly after the two spaces
-      // here, which breaks the render helper's end-of-line lookahead, so
-      // the spaces render literally.
-      expect(backspace('- One\n- |')).toEqual({ rendered: '- One\n  |', handledBy: 'cm6' });
+    it('nested empty item: "- Parent\\n  - |" -> "- Parent\\n  |" — leading indentation untouched, only marker+separator removed', () => {
+      expect(backspace('- Parent\n  - |')).toEqual({
+        rendered: '- Parent\n  |',
+        handledBy: 'clutter',
+      });
+    });
+
+    it('multi-space separator on an empty item is removed together with the marker in one press: "-   |" -> "|"', () => {
+      expect(backspace('-__ |')).toEqual({ rendered: '|', handledBy: 'clutter' });
+    });
+
+    it('deep leading indentation survives exactly as it was — not altered, not normalized', () => {
+      // The cursor marker sits directly after the 4 spaces here, which
+      // breaks the render helper's end-of-line lookahead (same reason
+      // noted elsewhere in this file), so the spaces render literally.
+      expect(backspace('____- |')).toEqual({ rendered: '    |', handledBy: 'clutter' });
+    });
+
+    it('the resulting blank line is no longer any kind of list construct', () => {
+      const { rendered } = backspace('- |');
+      const doc = rendered.replace('|', '');
+      expect(doc).toBe('');
+    });
+
+    it('nested case: only the second line loses its ListItem/BulletList — Parent is untouched', () => {
+      const { rendered } = backspace('- Parent\n  - |');
+      const doc = rendered.replace('|', '');
+      expect(doc).toBe('- Parent\n  ');
+      const names = topLevelNodeNames(doc);
+      expect(names.filter((n) => n === 'ListItem')).toHaveLength(1); // Parent only
+      expect(names.filter((n) => n === 'BulletList')).toHaveLength(1);
+    });
+
+    it('list-marker decoration would not render a bullet for "*Text" (no ListMark at all) — parser-driven, no rendering change needed', () => {
+      // Not a rendering test (out of scope) — a parser-level guard that
+      // the *precondition* the decoration relies on (a ListMark node)
+      // really is absent, since listMarkerDecoration.ts's tree walk can
+      // only ever decorate a ListItem whose firstChild is ListMark.
+      expect(topLevelNodeNames('*Text')).toEqual(['Document', 'Paragraph']);
+    });
+  });
+
+  describe('all bullet marker characters follow the identical rule', () => {
+    it.each([
+      ['dash', '-'],
+      ['plus', '+'],
+      ['star', '*'],
+    ])('%s: non-empty "%s |Text" -> "%s|Text"', (_label, marker) => {
+      expect(backspace(`${marker} |Text`)).toEqual({
+        rendered: `${marker}|Text`,
+        handledBy: 'clutter',
+      });
+    });
+
+    it.each([
+      ['dash', '-'],
+      ['plus', '+'],
+      ['star', '*'],
+    ])('%s: empty non-first "%s One\\n%s |" -> "%s One\\n|"', (_label, marker) => {
+      expect(backspace(`${marker} One\n${marker} |`)).toEqual({
+        rendered: `${marker} One\n|`,
+        handledBy: 'clutter',
+      });
     });
   });
 
@@ -348,6 +421,48 @@ describe('deleteBulletMarkerSeparator: source-local marker/separator boundary po
       const lines = result.state.doc.toString().split('\n');
       expect(lines[0]).toBe('  - Parent'); // untouched by Backspace on Child
       expect(lines[1]).toBe('  -Child');
+    });
+  });
+
+  /**
+   * Key regression test (2026-08-28): Enter creates the marker/separator
+   * for a new list item; ONE Backspace on that freshly-created empty item
+   * must remove it entirely and return exactly to the pre-Enter text —
+   * a clean, one-press, source-level inverse. No hidden "did Enter just
+   * run" state makes this work — both commands independently re-derive
+   * everything from the current tree/cursor position every time.
+   */
+  describe('Enter interaction: ONE Backspace on a freshly-created empty item removes exactly what Enter added', () => {
+    it('"* Text", Enter, then ONE Backspace: marker+separator gone, the line break Enter inserted is untouched', () => {
+      let state = parse('* Text|');
+      const enter = {
+        state,
+        dispatch: (tr: Transaction) => (state = tr.state),
+      };
+      expect(markdownEnterCommand(enter)).toBe(true);
+      expect(state.doc.toString()).toBe('* Text\n* '); // Enter's own insertion, unmodified
+
+      const result = pressBackspace(state);
+      expect(result.handledBy).toBe('clutter');
+      // Backspace removes only the marker/separator it's scoped to — never
+      // the newline before it, which belongs to a different line entirely.
+      // This matches the diagrammed result exactly: "* Text" followed by
+      // a blank second line with the cursor on it, not a full collapse
+      // back to the single pre-Enter line.
+      expect(result.state.doc.toString()).toBe('* Text\n');
+      expect(result.state.selection.main.head).toBe(7); // start of the now-blank second line
+    });
+
+    it('the same result is reached whether the empty item was typed by hand or created by Enter — no hidden "was this created by Enter" state exists', () => {
+      const viaEnter = (() => {
+        let state = parse('* Text|');
+        const enter = { state, dispatch: (tr: Transaction) => (state = tr.state) };
+        markdownEnterCommand(enter);
+        return pressBackspace(state).state.doc.toString();
+      })();
+      const viaHandTyping = backspace('* Text\n* |').rendered.replace('|', '');
+      expect(viaEnter).toBe(viaHandTyping);
+      expect(viaEnter).toBe('* Text\n');
     });
   });
 });

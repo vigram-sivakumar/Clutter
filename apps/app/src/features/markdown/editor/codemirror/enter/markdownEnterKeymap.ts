@@ -250,53 +250,61 @@ function bulletListMarkAt(state: EditorState, markerFrom: number): SyntaxNode | 
 
 /**
  * Clutter's own Backspace policy at a bullet list item's marker/separator
- * boundary: `- |Text` removes only the whitespace separating the marker
- * from its content, leaving the marker character itself intact —
- * `-|Text` — regardless of how many separator spaces preceded the cursor
- * (`-   |Text` collapses to `-|Text` in one press, not several) and
- * regardless of whether this is the first or a later item in its list.
+ * boundary. Two shapes, both source-local and both resolved purely from
+ * the current tree/cursor position — never from what command last ran:
  *
- * This replaces, at this one exact position, CM6's own two branches for
- * it (`deleteMarkupBackward`'s `getContext`-driven asymmetry: blank the
- * marker to spaces for a "later" item, delete the whole marker+separator
- * for the "first" item of its list — verified via
- * `node_modules/@codemirror/lang-markdown`'s `deleteMarkupBackward`,
- * confirmed empirically for both top-level and nested items) with one
- * uniform rule that doesn't depend on list position.
+ * - **Non-empty item** (`- |Text`): removes only the separator
+ *   whitespace, leaving the marker intact — `-|Text` — regardless of
+ *   separator width (`-   |Text` collapses to `-|Text` in one press) and
+ *   regardless of list position (first/later/nested all identical).
+ * - **Empty item** (`- |` with nothing following the marker at all):
+ *   removes the marker *and* its separator together, in one press —
+ *   `- |` → `|` (blank line) — rather than leaving a bare marker behind.
+ *   Locked product decision (2026-08-28): a bare marker (`-`) is
+ *   rendered by `listMarkerDecoration.ts` as the exact same glyph as a
+ *   marker that still has a concealed separator after it (both collapse
+ *   to one `Decoration.replace` widget), so a bare-marker end state is
+ *   visually indistinguishable from "nothing happened yet" — the empty
+ *   case removes the whole construct instead, matching the same
+ *   principle from the other direction: never leave state on screen that
+ *   looks identical to a different, unintended state.
  *
- * The resulting `-Text` naturally stops parsing as a `ListMark`/`ListItem`
- * on the next reparse (CommonMark requires at least one space — or truly
- * nothing at all — after a bullet marker; a marker directly followed by
- * non-whitespace content is not a list marker), verified empirically
- * against the installed `@lezer/markdown` grammar. That is the intended,
- * parser-driven consequence — this command performs the smallest source
- * edit and stops; it does not decide, repair, or compensate for the
- * resulting structure. No rendering change is needed either: bullet
- * rendering is keyed off the parser's own `ListMark` node
- * (`listMarkerDecoration.ts`), so it stops being drawn on its own once
- * the parser stops emitting one.
+ * Both shapes replace CM6's own `deleteMarkupBackward` behavior at this
+ * one position (verified via `node_modules/@codemirror/lang-markdown`,
+ * empirically for top-level/non-first/nested items): CM6 blanks a later
+ * item's marker to matching-width spaces and fully deletes a first
+ * item's — both are replaced here by one pair of uniform rules keyed
+ * only on "does content follow the marker," never on list position.
+ *
+ * Leading indentation is untouched in both shapes — the deleted range
+ * never starts before `marker.from` (empty case) or `marker.to`
+ * (non-empty case), so indentation belonging to the line/container
+ * (everything before the marker itself) is never part of what either
+ * branch removes.
+ *
+ * Verified against the installed `@lezer/markdown` grammar: the
+ * resulting `-Text` (non-empty case) does not parse as a list construct
+ * at all — CommonMark requires at least one separator space after a
+ * bullet marker with content following it — while the resulting blank
+ * line (empty case) is simply not a `ListItem` any more, by construction
+ * (nothing of the marker remains). Both are the intended, parser-driven
+ * consequence of the smallest source edit this command performs; it does
+ * not decide, repair, or compensate for the resulting structure. No
+ * rendering change is needed or was made: bullet rendering is keyed
+ * entirely off the parser's own `ListMark` node, so it stops being drawn
+ * on its own once the parser stops emitting one.
  *
  * Deliberately excludes:
  * - **Ordered lists** (`1.`/`1)`) — a separate, not-yet-made product
  *   decision (see the investigation this command's commit reports);
  *   `deleteMarkupBackward` continues to handle them unchanged.
- * - **Empty list items** (`- |` with no content following the marker at
- *   all) — CM6's existing full-delete-the-marker behavior there is kept
- *   deliberately (explicit product decision: an empty item's own native
- *   CM6 behavior — removing the whole construct in one press — stays as
- *   is; this rule only governs the marker/content boundary when there
- *   *is* content). There is no "content" boundary to normalize toward on
- *   an empty item; its own end-of-line is a different, already-handled
- *   case, not this one.
  * - **Any non-collapsed selection or multi-range selection** — this is a
  *   single-cursor, single-position rule; everything else is `false`.
  *
  * Every other Backspace press (before the marker, mid-separator, inside
- * content, on ordered lists, on empty items, on paragraphs/blockquotes/
- * code, or on any selection) returns `false` and reaches
- * `deleteMarkupBackward` exactly as before — this function's entire
- * surface is the single document position `content.from` on a bullet
- * `ListItem`'s own defining line.
+ * content, on ordered lists, on paragraphs/blockquotes/code, or on any
+ * selection) returns `false` and reaches `deleteMarkupBackward` exactly
+ * as before.
  */
 export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) => {
   const { selection } = state;
@@ -317,14 +325,20 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
   }
 
   const content = marker.nextSibling;
-  if (!content || pos !== content.from || content.from <= marker.to) {
+  const boundary = content ? content.from : line.to;
+  if (pos !== boundary || boundary <= marker.to) {
     return false;
   }
 
+  // Non-empty: remove only the separator, keeping the marker. Empty:
+  // remove the marker and its separator together, preserving whatever
+  // leading indentation sits before `marker.from`.
+  const from = content ? marker.to : marker.from;
+
   dispatch(
     state.update({
-      changes: { from: marker.to, to: content.from },
-      selection: EditorSelection.cursor(marker.to),
+      changes: { from, to: boundary },
+      selection: EditorSelection.cursor(from),
       scrollIntoView: true,
       userEvent: 'delete',
     })
