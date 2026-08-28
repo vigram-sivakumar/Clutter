@@ -43,6 +43,7 @@ import {
   MarkdownEditor,
   type MarkdownEditorHandle,
 } from '@features/markdown/editor/MarkdownEditor';
+import { clearCachedEditorSession } from '@features/markdown/editor/codemirror/editorHistoryCache';
 
 interface PageHostProps {
   application: Application;
@@ -146,6 +147,18 @@ export function PageHost({ application }: PageHostProps) {
       return;
     }
 
+    // Deletion is the one truly non-reversible page action — unlike
+    // archive/restore below (which deliberately do NOT clear this),
+    // a deleted page's cached editing session (editorHistoryCache.ts)
+    // can never legitimately be returned to, so it's cleared eagerly
+    // here rather than left to decay as an inert, never-looked-up-again
+    // entry. Best-effort: if this page's MarkdownEditor is still mounted
+    // and unmounts after this call (the common outcome of a delete,
+    // since navigation typically moves away from the deleted page), its
+    // own cleanup will write the entry back — a known, accepted race
+    // (see clearCachedEditorSession's own doc comment) that can only
+    // ever make this a no-op, never cause incorrect behavior.
+    clearCachedEditorSession(activePageId);
     void application.pageOperations.delete(activePageId);
   };
 

@@ -7,8 +7,9 @@ import type { EditorView } from '@codemirror/view';
 import { createEditorView, serializeEditorHistory, syncMarkdownIntoView } from './createEditorView';
 import {
   __clearAllCachedEditorHistoryForTests,
-  getCachedEditorHistory,
-  setCachedEditorHistory,
+  clearCachedEditorSession,
+  getCachedEditorSession,
+  setCachedEditorSession,
 } from './editorHistoryCache';
 
 describe('createEditorView — initial cursor position', () => {
@@ -223,16 +224,17 @@ describe('syncMarkdownIntoView — external syncs must not corrupt undo history'
 });
 
 /**
- * Regression coverage for per-document CM6 undo/redo history preservation
- * (docs/editor-architecture-decisions.md's entry of that name).
- * `MarkdownEditor.tsx`'s own mount/unmount effect is the real integration
- * point (`getCachedEditorHistory`/`setCachedEditorHistory` around
- * `createEditorView`'s `restoreHistoryJSON` option and
- * `serializeEditorHistory`) — these tests exercise the same three
- * functions directly, at the level a page switch actually operates:
- * "unmount page A" is `serializeEditorHistory` + `setCachedEditorHistory`
- * + `view.destroy()`; "mount page A again" is `getCachedEditorHistory` +
- * `createEditorView({..., restoreHistoryJSON})`.
+ * Regression coverage for per-document CM6 undo/redo history + scroll
+ * preservation (docs/editor-architecture-decisions.md's entries of that
+ * name). `MarkdownEditor.tsx`'s own mount/unmount effect is the real
+ * integration point (`getCachedEditorSession`/`setCachedEditorSession`
+ * around `createEditorView`'s `restoreHistoryJSON`/`restoreScrollEffect`
+ * options and `serializeEditorHistory`/`view.scrollSnapshot()`) — these
+ * tests exercise the same functions directly, at the level a page switch
+ * actually operates: "unmount page A" is `serializeEditorHistory` +
+ * `scrollSnapshot()` + `setCachedEditorSession` + `view.destroy()`;
+ * "mount page A again" is `getCachedEditorSession` +
+ * `createEditorView({..., restoreHistoryJSON, restoreScrollEffect})`.
  */
 describe('Per-document undo/redo history preservation (editorHistoryCache + restoreHistoryJSON)', () => {
   beforeEach(() => {
@@ -243,16 +245,27 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
   function openPage(pageId: string, markdown: string): EditorView {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
+    const cached = getCachedEditorSession(pageId);
     return createEditorView({
       doc: markdown,
       parent,
-      restoreHistoryJSON: getCachedEditorHistory(pageId),
+      restoreHistoryJSON: cached?.historyJSON,
+      restoreScrollEffect: cached?.scrollEffect,
     });
   }
 
   /** Mirrors MarkdownEditor.tsx's unmount cleanup: serialize -> cache -> destroy. */
   function closePage(pageId: string, view: EditorView): void {
-    setCachedEditorHistory(pageId, serializeEditorHistory(view));
+    setCachedEditorSession(pageId, {
+      historyJSON: serializeEditorHistory(view),
+      scrollEffect: view.scrollSnapshot(),
+      // No real scrollable-ancestor DOM to measure in this test harness
+      // (that's `MarkdownEditor.tsx`'s `findScrollableAncestor`, verified
+      // live in the real app instead — see the architecture-decisions.md
+      // entry); `view.scrollDOM.scrollTop` stands in here purely so the
+      // cache-plumbing tests below (G/H) have a real number to round-trip.
+      domScrollTop: view.scrollDOM.scrollTop,
+    });
     view.destroy();
   }
 
@@ -358,5 +371,93 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
     // corrupted/mismatched history underneath it.
     expect(aReopened.state.doc.toString()).toBe('A1-external'); // real, current content — not the stale cached "A1"
     expect(undoDepth(aReopened.state)).toBe(0); // clean history, exactly like any other cache miss
+  });
+
+  it('G: scroll position (both the CM6 scrollEffect and the plain-DOM domScrollTop) is captured and handed back through the cache alongside history (jsdom cannot verify real pixel scrolling — see the real-browser verification in the doc entry for that)', () => {
+    const a = openPage('page-a', 'A');
+    const scrollEffect = a.scrollSnapshot();
+    setCachedEditorSession('page-a', {
+      historyJSON: serializeEditorHistory(a),
+      scrollEffect,
+      domScrollTop: 42,
+    });
+    a.destroy();
+
+    const cached = getCachedEditorSession('page-a');
+    expect(cached?.domScrollTop).toBe(42);
+    // The exact same effect object round-trips through the cache — this
+    // is the structural guarantee createEditorView's own restoreScrollEffect
+    // relies on; the *visual* result of applying it can only be verified
+    // in a real browser (jsdom has no layout, so EditorView.scrollDOM's
+    // scrollTop is always 0 regardless of what's applied).
+    expect(cached?.scrollEffect).toBe(scrollEffect);
+  });
+
+  it('H: a stale (doc-mismatched) cache entry discards its scroll effect along with its history — never a partial restore of just one', () => {
+    const a = openPage('page-a', 'A');
+    closePage('page-a', a); // caches doc "A" + a real scrollEffect
+
+    // Page changed externally while closed (same scenario as F).
+    const aReopened = openPage('page-a', 'A-external');
+
+    // createEditorView's own gate (`scrollTo: restoredState ? ... :
+    // undefined`) means a stale entry never reaches EditorViewConfig.scrollTo
+    // at all — observable here as the reopened view still existing and
+    // functioning normally (no exception, no attempted restore) with a
+    // clean history, matching F's own assertion for the history half of
+    // the same guarantee.
+    expect(aReopened.state.doc.toString()).toBe('A-external');
+    expect(undoDepth(aReopened.state)).toBe(0);
+  });
+
+  it('I: deleting a page clears its cached session — reopening the same id afterward starts completely fresh', () => {
+    const a = openPage('page-a', 'A');
+    a.dispatch({ changes: { from: 1, to: 1, insert: '1' } });
+    closePage('page-a', a);
+    expect(getCachedEditorSession('page-a')).not.toBeUndefined();
+
+    clearCachedEditorSession('page-a'); // mirrors PageHost.tsx's onDelete
+    expect(getCachedEditorSession('page-a')).toBeUndefined();
+
+    // A page id is never reused after deletion in the real app, but even
+    // if something did reopen it, the result is a clean, empty history —
+    // never a resurrected stale session.
+    const reopened = openPage('page-a', 'fresh content unrelated to the deleted page');
+    expect(undoDepth(reopened.state)).toBe(0);
+  });
+
+  it('J: rapid A -> B -> A -> B switching keeps each page\'s own history correct at every step — no interleaving, no cross-contamination', () => {
+    // Simulates a user clicking through pages faster than they can read —
+    // each switch is still a synchronous unmount-then-mount pair (React
+    // guarantees cleanup completes before the next effect runs), so
+    // "rapid" has no different observable behavior than "deliberate" at
+    // this level; this test exists to prove that explicitly rather than
+    // leave it assumed.
+    let a = openPage('page-a', 'A');
+    a.dispatch({ changes: { from: 1, to: 1, insert: '1' } }); // "A1"
+    closePage('page-a', a);
+
+    let b = openPage('page-b', 'B');
+    b.dispatch({ changes: { from: 1, to: 1, insert: '1' } }); // "B1"
+    closePage('page-b', b);
+
+    a = openPage('page-a', 'A1');
+    expect(a.state.doc.toString()).toBe('A1');
+    expect(undoDepth(a.state)).toBe(1);
+    a.dispatch({ changes: { from: 2, to: 2, insert: '!' } }); // "A1!"
+    closePage('page-a', a);
+
+    b = openPage('page-b', 'B1');
+    expect(b.state.doc.toString()).toBe('B1'); // never "A1!" or any trace of A
+    expect(undoDepth(b.state)).toBe(1);
+    closePage('page-b', b);
+
+    a = openPage('page-a', 'A1!');
+    expect(a.state.doc.toString()).toBe('A1!');
+    expect(undoDepth(a.state)).toBe(2); // both of A's own edits, still intact
+    undo(a);
+    expect(a.state.doc.toString()).toBe('A1');
+    undo(a);
+    expect(a.state.doc.toString()).toBe('A');
   });
 });

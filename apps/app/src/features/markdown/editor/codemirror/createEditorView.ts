@@ -1,7 +1,7 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyField, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
-import { Annotation, EditorState, Transaction, type Extension } from '@codemirror/state';
+import { Annotation, EditorState, Transaction, type Extension, type StateEffect } from '@codemirror/state';
 import {
   drawSelection,
   dropCursor,
@@ -52,6 +52,21 @@ export interface CreateEditorViewOptions {
    * instead — never a partial/best-effort restore.
    */
   readonly restoreHistoryJSON?: unknown;
+  /**
+   * A previous `view.scrollSnapshot()` effect for this same page —
+   * CM6's own documented mechanism for restoring scroll position
+   * (`EditorViewConfig.scrollTo`: "Pass an effect created with...
+   * `EditorView.scrollSnapshot` here to set an initial scroll
+   * position"). Applied only when `restoreHistoryJSON` above was *also*
+   * successfully restored (same doc-match gate) — scroll and history are
+   * one session, restored together or not at all; a scroll position
+   * captured against a document that's since changed elsewhere has
+   * nothing meaningful to scroll to any more, and CM6's own doc comment
+   * on `scrollSnapshot` warns exactly this case is silently unreliable
+   * ("not an error, but may not scroll to the expected position") rather
+   * than a case worth trying to partially honor.
+   */
+  readonly restoreScrollEffect?: StateEffect<unknown>;
 }
 
 /**
@@ -72,7 +87,7 @@ export interface CreateEditorViewOptions {
  * CSS hiding was replaced).
  */
 export function createEditorView(options: CreateEditorViewOptions): EditorView {
-  const { doc, parent, extensions = [], onDocChange, onBlur, restoreHistoryJSON } = options;
+  const { doc, parent, extensions = [], onDocChange, onBlur, restoreHistoryJSON, restoreScrollEffect } = options;
 
   const updateListener = EditorView.updateListener.of((update) => {
     if (!update.docChanged) {
@@ -195,7 +210,17 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     restoredState ??
     EditorState.create({ doc, selection: freshSelection, extensions: allExtensions });
 
-  return new EditorView({ state, parent });
+  return new EditorView({
+    state,
+    parent,
+    // Gated on `restoredState` (not merely on `restoreScrollEffect` being
+    // present) — a scroll target captured against a document that turned
+    // out to be stale (docTextMatches failed above) has nothing valid to
+    // scroll to; restoring it anyway would be exactly the kind of
+    // partial/best-effort restore this whole mechanism is designed to
+    // avoid (see `restoreScrollEffect`'s own doc comment).
+    scrollTo: restoredState ? restoreScrollEffect : undefined,
+  });
 }
 
 /**
@@ -209,8 +234,16 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
  * returned `false`, so `restoreHistoryJSON` was silently ignored on
  * every call — caught by this module's own regression tests, not by
  * inspection).
+ *
+ * Exported (not module-private) so `MarkdownEditor.tsx` can apply the
+ * exact same staleness check to its own DOM-level scroll-position
+ * restoration (`editorHistoryCache.ts`'s `domScrollTop`) — a session's
+ * scroll position is exactly as untrustworthy to restore as its history
+ * is when the underlying document has changed externally, and duplicating
+ * this one-line comparison there instead of importing it would risk the
+ * two checks silently drifting apart.
  */
-function docTextMatches(serialized: unknown, doc: string): boolean {
+export function docTextMatches(serialized: unknown, doc: string): boolean {
   const json = serialized as { doc?: unknown } | null | undefined;
   return typeof json?.doc === 'string' && json.doc === doc;
 }

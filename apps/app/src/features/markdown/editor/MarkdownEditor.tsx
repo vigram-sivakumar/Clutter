@@ -3,12 +3,13 @@ import type { EditorView } from '@codemirror/view';
 
 import {
   createEditorView,
+  docTextMatches,
   serializeEditorHistory,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
 import {
-  getCachedEditorHistory,
-  setCachedEditorHistory,
+  getCachedEditorSession,
+  setCachedEditorSession,
 } from './codemirror/editorHistoryCache';
 import { semanticCompletion } from './codemirror/completion';
 // Visual decoration imports below are commented out alongside their usage
@@ -79,6 +80,33 @@ export type {
 import './MarkdownEditor.css';
 
 /**
+ * Walks up from `el` to find the nearest ancestor that's actually the
+ * page's scrolling element — `overflow-y: auto`/`scroll` in its computed
+ * style, checked generically rather than matching a specific class name
+ * (e.g. `Page.tsx`'s own `.page__content`) to avoid coupling this
+ * feature-layer component to a particular page shell's internal DOM
+ * structure; any host that scrolls its content via a CSS-overflow
+ * ancestor works automatically. See `editorHistoryCache.ts`'s
+ * `domScrollTop` doc comment for why this exists: CM6's own
+ * `EditorView.scrollSnapshot()`/`scrollTo` only ever affect the editor's
+ * *own* internal scroller (`.cm-scroller`), which is never the actual
+ * scrolling element in this app's layout (`EditorView.lineWrapping` lets
+ * editor content grow to full height; an ancestor scrolls instead) —
+ * confirmed by direct measurement in the real app, not assumed.
+ */
+function findScrollableAncestor(el: HTMLElement | null): HTMLElement | null {
+  let node = el?.parentElement ?? null;
+  while (node && node !== document.body) {
+    const overflowY = getComputedStyle(node).overflowY;
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return null;
+}
+
+/**
  * Feature-level Markdown editing surface, backed by a CodeMirror 6
  * EditorView.
  *
@@ -113,6 +141,32 @@ export const MarkdownEditor = forwardRef<
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // The scroll ancestor's last known scrollTop, tracked continuously via
+  // a `scroll` listener (see the mount effect below) rather than read
+  // live at unmount. Necessary, not merely defensive — confirmed directly
+  // (real-browser debugging): whatever navigation triggers a page switch
+  // resets the scroll ancestor's `scrollTop` to `0` *before* this
+  // component's own unmount cleanup runs (observed identically via
+  // `document.querySelector('.page__content').scrollTop` and this exact
+  // element reference — not an identity mismatch), so a live read at
+  // unmount always captures the just-reset `0`, never the position the
+  // user actually left the page scrolled to. Tracking on every scroll
+  // event means the ref already holds the last real, pre-reset value by
+  // the time unmount runs, regardless of when that external reset
+  // happens relative to React's own commit/cleanup ordering.
+  const lastKnownScrollTopRef = useRef<number | undefined>(undefined);
+  // Resolved once, right after mount (see the mount effect below), and
+  // reused as-is at unmount — deliberately not re-queried via
+  // findScrollableAncestor(container) a second time at unmount. Observed
+  // directly (real-browser debugging, not theorized): re-querying at
+  // unmount intermittently returned null even though the exact same
+  // ancestor was found correctly moments earlier at mount and is provably
+  // still in the DOM (a manual query from the console at the same moment
+  // finds it fine) — consistent with a transient computed-style state
+  // during whatever page-switch transition is in flight right as
+  // unmount's cleanup runs. Caching the reference sidesteps needing to
+  // pin down that transition's exact timing.
+  const scrollAncestorRef = useRef<HTMLElement | null>(null);
 
   // The view's listeners are wired once at mount (below); these refs let
   // them always call whatever onEdit/onFlush is current on a given
@@ -158,19 +212,23 @@ export const MarkdownEditor = forwardRef<
       return;
     }
 
+    const cachedSession = getCachedEditorSession(pageId);
+
     const view = createEditorView({
       doc: markdown,
       parent: container,
-      // Per-document CM6 undo/redo history preservation
-      // (docs/editor-architecture-decisions.md's entry of that name):
-      // `createEditorView` itself guards this against a stale/mismatched
-      // cache entry (its own `restoreHistoryJSON` doc comment) — silently
-      // falls back to a fresh state if the cached snapshot's embedded
-      // document no longer matches `markdown`, e.g. because something
-      // changed this page's content elsewhere while it was closed
-      // (`PageOperations.mutateBody()`). This lookup itself is therefore
-      // always safe to pass through unconditionally, cache hit or miss.
-      restoreHistoryJSON: getCachedEditorHistory(pageId),
+      // Per-document CM6 undo/redo history + scroll preservation
+      // (docs/editor-architecture-decisions.md's entries of that name):
+      // `createEditorView` itself guards both against a stale/mismatched
+      // cache entry (its own `restoreHistoryJSON`/`restoreScrollEffect`
+      // doc comments) — silently falls back to a fresh state (and default
+      // scroll) if the cached snapshot's embedded document no longer
+      // matches `markdown`, e.g. because something changed this page's
+      // content elsewhere while it was closed (`PageOperations.mutateBody()`).
+      // This lookup is therefore always safe to pass through
+      // unconditionally, cache hit or miss.
+      restoreHistoryJSON: cachedSession?.historyJSON,
+      restoreScrollEffect: cachedSession?.scrollEffect,
       extensions: [
         // Still CodeMirror's own keyboard behavior: no Clutter
         // Delete/Tab/Shift-Tab/Arrow interception layered on top of it, and
@@ -288,14 +346,83 @@ export const MarkdownEditor = forwardRef<
     });
     viewRef.current = view;
 
+    // Applied after mount, not via createEditorView's own `scrollTo`
+    // config (which is scoped to CM6's internal `.cm-scroller` — see
+    // `findScrollableAncestor`'s doc comment for why that alone doesn't
+    // produce a visible effect in this app's real layout): the ancestor
+    // that actually scrolls is outside CM6's own DOM, so restoring its
+    // `scrollTop` is a plain DOM write, done here once the view's content
+    // (and therefore the ancestor's real `scrollHeight`) exists. Gated on
+    // the identical doc-match check `createEditorView` already applies to
+    // `restoreHistoryJSON`/`restoreScrollEffect` — a session's scroll
+    // position is exactly as untrustworthy to restore as its history when
+    // the underlying document changed externally while this page was
+    // closed, and this is a *separate* restore path that needs its own
+    // copy of that same guard, not an assumption that createEditorView's
+    // internal gate already covered it.
+    scrollAncestorRef.current = findScrollableAncestor(container);
+    if (
+      scrollAncestorRef.current &&
+      cachedSession?.domScrollTop !== undefined &&
+      docTextMatches(cachedSession.historyJSON, markdown)
+    ) {
+      scrollAncestorRef.current.scrollTop = cachedSession.domScrollTop;
+      lastKnownScrollTopRef.current = cachedSession.domScrollTop;
+    } else {
+      lastKnownScrollTopRef.current = scrollAncestorRef.current?.scrollTop;
+    }
+
+    // Sampled on a short interval, not a `scroll` event listener — a
+    // deliberate choice, not the first one tried. A `scroll`-event
+    // listener is the more obvious design and was implemented first, but
+    // it shares a real failure mode with a live unmount-time read: the
+    // browser's own scroll-position clamping (a page switch replaces this
+    // page's tall content with the next page's much shorter content, and
+    // `.page__content`'s `scrollTop` is clamped to fit the new,
+    // now-current `scrollHeight` — confirmed directly: switching from a
+    // 40-line, scrolled-to-400px page to a near-empty one left `scrollTop`
+    // at `0`) *also* fires a `scroll` event, and does so as part of the
+    // very same DOM mutation React's commit phase performs *before*
+    // running this component's own unmount cleanup — so a listener-based
+    // "last known" value is just as vulnerable to being overwritten by
+    // the clamp's own event as a live read is. Polling sidesteps this
+    // categorically: the interval is cleared (below) as the very first
+    // step of cleanup, before anything else runs, so no poll can ever
+    // observe a post-mutation, already-clamped value — the last sample
+    // is always from while this page's own content (and therefore its
+    // real, correct scrollHeight) was still the one in the DOM. 300ms is
+    // an approximate-restoration tolerance, not a precision guarantee —
+    // scroll position restoration doesn't need pixel accuracy.
+    const scrollPollInterval = window.setInterval(() => {
+      lastKnownScrollTopRef.current = scrollAncestorRef.current?.scrollTop;
+    }, 300);
+
     return () => {
+      // Cleared FIRST, before anything else in this cleanup — the
+      // ordering is load-bearing (see scrollPollInterval's own doc
+      // comment): stops any further sampling before React's own DOM
+      // mutation for this switch has a chance to change what
+      // scrollAncestorRef.current.scrollTop reads as.
+      window.clearInterval(scrollPollInterval);
+
       // Captured before destroy() (which invalidates the view) — this is
-      // the write side of the history cache read via restoreHistoryJSON
-      // above. Runs on every unmount, including a real page switch (the
-      // common, intended case) and this component's own StrictMode
-      // double-invoke in dev (harmless: the second mount's own read
-      // overwrites this with the same content moments later).
-      setCachedEditorHistory(pageId, serializeEditorHistory(view));
+      // the write side of the session cache read via
+      // restoreHistoryJSON/restoreScrollEffect/domScrollTop above. Runs on
+      // every unmount, including a real page switch (the common, intended
+      // case) and this component's own StrictMode double-invoke in dev
+      // (harmless: the second mount's own read overwrites this with the
+      // same content moments later). `scrollSnapshot()` is CM6's own
+      // documented capture — safe to call even if the view never
+      // scrolled (captures the default/top position in that case).
+      // `lastKnownScrollTopRef` (not a live read of
+      // `scrollAncestorRef.current.scrollTop`) is the plain-DOM
+      // counterpart that actually matters in this app's layout — see its
+      // own doc comment for why a live read here is already too late.
+      setCachedEditorSession(pageId, {
+        historyJSON: serializeEditorHistory(view),
+        scrollEffect: view.scrollSnapshot(),
+        domScrollTop: lastKnownScrollTopRef.current,
+      });
       view.destroy();
       viewRef.current = null;
     };
