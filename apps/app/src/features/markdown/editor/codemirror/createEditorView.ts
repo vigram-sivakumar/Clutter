@@ -1,5 +1,12 @@
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyField, historyKeymap, indentWithTab } from '@codemirror/commands';
+import {
+  defaultKeymap,
+  history,
+  historyField,
+  historyKeymap,
+  indentWithTab,
+  undoDepth,
+} from '@codemirror/commands';
 import { codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
 import { Annotation, EditorState, Transaction, type Extension, type StateEffect } from '@codemirror/state';
 import {
@@ -266,6 +273,30 @@ export function docTextMatches(serialized: unknown, doc: string): boolean {
  */
 export function serializeEditorHistory(view: EditorView): unknown {
   return view.state.toJSON({ history: historyField });
+}
+
+/**
+ * Whether `view` shows real, prior engagement worth returning the user's
+ * focus to — not merely "a cache entry for this page exists." A session
+ * entry is written unconditionally on every unmount (see
+ * `editorHistoryCache.ts`), including a page that was opened and closed
+ * without the user ever touching it, and (in dev) React StrictMode's own
+ * mount-unmount-remount cycle, which would otherwise manufacture a
+ * trivially-matching "restorable session" (empty doc, selection at 0, no
+ * history) out of a component lifecycle artifact rather than anything the
+ * user did. Caught directly, not theorized: a brand-new, empty-title
+ * draft's *second* StrictMode mount found `hasCachedSession: true` purely
+ * from its own first mount's cleanup, which would have wrongly stolen
+ * focus from the title on every brand-new note. A non-default caret
+ * position or any undo history are both real, user-caused signals; a
+ * doc-length caret from `EditorState.create`'s own default placement
+ * (`createEditorView`'s own "cursor at document end, not 0" behavior —
+ * see the test of that name) is deliberately excluded by checking against
+ * `view.state.doc.length` too, not just `0`.
+ */
+export function hasEstablishedEditingPosition(view: EditorView): boolean {
+  const { head } = view.state.selection.main;
+  return (head !== 0 && head !== view.state.doc.length) || undoDepth(view.state) > 0;
 }
 
 /**

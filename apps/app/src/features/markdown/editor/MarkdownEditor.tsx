@@ -4,6 +4,7 @@ import type { EditorView } from '@codemirror/view';
 import {
   createEditorView,
   docTextMatches,
+  hasEstablishedEditingPosition,
   serializeEditorHistory,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
@@ -129,6 +130,7 @@ export const MarkdownEditor = forwardRef<
   {
     pageId,
     markdown,
+    focusOnOpen,
     onEdit,
     onFlush,
     resolveWikiLink,
@@ -155,19 +157,6 @@ export const MarkdownEditor = forwardRef<
   // the time unmount runs, regardless of when that external reset
   // happens relative to React's own commit/cleanup ordering.
   const lastKnownScrollTopRef = useRef<number | undefined>(undefined);
-  // Tracks `view.hasFocus`, sampled by the same `scrollPollInterval` below
-  // (not a separate `focus`/`blur` listener pair) — for the identical
-  // reason `lastKnownScrollTopRef` isn't a live unmount-time read: the
-  // click that switches pages (e.g. a sidebar item) synchronously blurs
-  // this view as a native side effect of that click, *before* React runs
-  // this component's unmount cleanup — so a live `view.hasFocus` read (or
-  // a `blur`-event listener setting this to `false`) would always read
-  // `false` at exactly the moment we need to know whether the user was
-  // "in" this editor right before they left. Reusing the poll's last
-  // sample (taken up to 300ms before that blur) sidesteps this exactly
-  // as it already does for scroll. See
-  // `docs/editor-architecture-decisions.md`'s "Focus restoration" entry.
-  const lastKnownFocusRef = useRef<boolean | undefined>(undefined);
   // Resolved once, right after mount (see the mount effect below), and
   // reused as-is at unmount — deliberately not re-queried via
   // findScrollableAncestor(container) a second time at unmount. Observed
@@ -387,21 +376,34 @@ export const MarkdownEditor = forwardRef<
     // above) never implies restoring *focus* — `EditorState.fromJSON`
     // carries selection along automatically, but focus is a DOM/EditorView
     // concern EditorState knows nothing about (confirmed by reading CM6's
-    // own state/view separation, not assumed). A page that was never
-    // focused before (no cache entry, or `wasFocused: false`) must not be
-    // focused now — this is a *restoration* of prior focus, not a new
-    // "always focus on open" behavior; a fresh page (no cache entry at
-    // all) takes the same `false`-like path via `cachedSession?.wasFocused`
-    // being `undefined`. Called after the scroll restore immediately above
-    // so a focused caret settles into its already-correctly-scrolled
-    // position, and only once `view` is fully constructed and attached
-    // (`createEditorView`'s `new EditorView({..., parent})` already
-    // attaches synchronously — `view.focus()` here is not called before
-    // that has happened).
-    if (cachedSession?.wasFocused && cachedSessionMatchesDoc) {
+    // own state/view separation, not assumed). Priority, per
+    // docs/editor-architecture-decisions.md's "Focus restoration" entry:
+    // (1) a restorable cached session with real, established prior
+    // engagement (`hasEstablishedEditingPosition` — not merely "a cache
+    // entry exists": one gets written on *every* unmount unconditionally,
+    // including a page that was opened and immediately closed untouched,
+    // and React StrictMode's own dev-only mount-unmount-remount cycle,
+    // which would otherwise manufacture a trivially-matching "session" out
+    // of a brand-new, never-touched page's own component lifecycle —
+    // caught directly: a brand-new empty-title draft's second StrictMode
+    // mount found a cache entry from its own first mount's cleanup, and
+    // very nearly stole focus from the title as a result) always focuses
+    // the editor — the user is returning to an established editing
+    // position and should be able to keep typing immediately, regardless
+    // of whether that session happened to be focused when it was last
+    // closed; (2) otherwise, `focusOnOpen` (computed by `PageHost.tsx`,
+    // mirroring `Page.tsx`'s own "empty title -> focus title" policy: the
+    // editor is the open-time focus target only when the title is *not*
+    // empty) decides instead — a brand-new, empty-title page leaves the
+    // title as the first editing target, exactly as before. Called after
+    // the scroll restore immediately above so a focused caret settles into
+    // its already-correctly-scrolled position, and only once `view` is
+    // fully constructed and attached (`createEditorView`'s `new
+    // EditorView({..., parent})` already attaches synchronously —
+    // `view.focus()` here is not called before that has happened).
+    if ((cachedSessionMatchesDoc && hasEstablishedEditingPosition(view)) || focusOnOpen) {
       view.focus();
     }
-    lastKnownFocusRef.current = view.hasFocus;
 
     // Sampled on a short interval, not a `scroll` event listener — a
     // deliberate choice, not the first one tried. A `scroll`-event
@@ -423,20 +425,9 @@ export const MarkdownEditor = forwardRef<
     // is always from while this page's own content (and therefore its
     // real, correct scrollHeight) was still the one in the DOM. 300ms is
     // an approximate-restoration tolerance, not a precision guarantee —
-    // scroll position restoration doesn't need pixel accuracy. Also
-    // samples `view.hasFocus` into `lastKnownFocusRef` on the same tick —
-    // not a second interval — for the identical race described in that
-    // ref's own doc comment above: the click that triggers a page switch
-    // blurs this view natively, before this component's own unmount
-    // cleanup runs, so only a *previously sampled* value (not a live read
-    // at unmount, and not a `blur`-listener-set value either, since the
-    // blur that fires right before unmount would itself overwrite a
-    // listener-tracked value to `false`) reflects "was this focused right
-    // before the user left," which is what deciding whether to restore
-    // focus on return actually needs.
+    // scroll position restoration doesn't need pixel accuracy.
     const scrollPollInterval = window.setInterval(() => {
       lastKnownScrollTopRef.current = scrollAncestorRef.current?.scrollTop;
-      lastKnownFocusRef.current = view.hasFocus;
     }, 300);
 
     return () => {
@@ -464,7 +455,6 @@ export const MarkdownEditor = forwardRef<
         historyJSON: serializeEditorHistory(view),
         scrollEffect: view.scrollSnapshot(),
         domScrollTop: lastKnownScrollTopRef.current,
-        wasFocused: lastKnownFocusRef.current ?? false,
       });
       view.destroy();
       viewRef.current = null;

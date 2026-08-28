@@ -20,6 +20,19 @@ export interface MarkdownEditorProps {
   readonly pageId: string;
   readonly markdown: string;
   /**
+   * Whether note-open policy (computed by `PageHost.tsx`, mirroring the
+   * same "empty title -> title gets focus, otherwise the body is ready to
+   * edit" concept `Page.tsx`'s own `shouldAutoFocusTitle` already applies
+   * to the title) wants this editor focused when there's no restorable
+   * cached session to make that decision instead. Read once at mount —
+   * `false`/omitted for every existing test call site, which don't
+   * exercise this policy. See `docs/editor-architecture-decisions.md`'s
+   * "Focus restoration" entry for the full priority rule (a restorable
+   * cached session always wins over this flag; this flag only decides
+   * when there's no session to restore).
+   */
+  readonly focusOnOpen?: boolean;
+  /**
    * Fires on every content change (typing, paste, deletion) — commits into
    * the document session's Committed stage only, no persistence
    * (autosave-execution-model.md §3.1). Called unconditionally on every

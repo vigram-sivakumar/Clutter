@@ -58,6 +58,23 @@ const TASK_COLLECTION_VIEWS: ReadonlySet<string> = new Set<TasksCollectionView>(
 ]);
 
 /**
+ * The note-open half of `MarkdownEditor`'s focus policy (the other half —
+ * "a restorable cached session always wins" — lives entirely inside
+ * `MarkdownEditor.tsx`'s own mount effect, since only it knows about the
+ * session cache). Deliberately the *same* emptiness check `Page.tsx`'s own
+ * `shouldAutoFocusTitle` applies to this identical `title` value, not a
+ * competing rule: when there's no cached session to restore, an empty
+ * title should stay the first editing target (title autofocuses, per
+ * existing behavior, untouched here), and a non-empty title means the
+ * user is opening an already-named note to keep editing its body, so the
+ * editor should be ready to type into immediately. See
+ * `docs/editor-architecture-decisions.md`'s "Focus restoration" entry.
+ */
+function focusEditorOnOpen(title: string): boolean {
+  return title !== '';
+}
+
+/**
  * PageHost is the composition root for page rendering.
  *
  * It resolves the active navigation target, constructs the appropriate ViewModel,
@@ -516,6 +533,7 @@ export function PageHost({ application }: PageHostProps) {
               pageId={activePageId}
               ref={editorRef}
               markdown={model.markdown}
+              focusOnOpen={focusEditorOnOpen(model.title)}
               onEdit={(markdown) => model.updateMarkdown(markdown)}
               onFlush={() => model.requestSave()}
               resolveWikiLink={resolveWikiLink}
@@ -606,6 +624,7 @@ export function PageHost({ application }: PageHostProps) {
             pageId={activePageId}
             ref={editorRef}
             markdown={model.markdown}
+            focusOnOpen={focusEditorOnOpen(model.title)}
             onEdit={(markdown) => model.updateMarkdown(markdown)}
             onFlush={() => model.requestSave()}
             resolveWikiLink={resolveWikiLink}

@@ -2,10 +2,23 @@
 
 import { createRef } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
+import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
+
+// Many tests below reuse the same `pageId="test-page"` (and often the same
+// markdown text) across independent `it()` blocks. Since a restorable
+// cached session now unconditionally focuses the editor on mount (see
+// docs/editor-architecture-decisions.md's "Focus restoration" entry) — not
+// gated by any per-test focus action, just "does a matching entry exist"
+// — a session left behind by an earlier test would otherwise silently
+// autofocus a later, unrelated test's editor. Cleared before every test,
+// matching createEditorView.test.ts's own identical `beforeEach`.
+beforeEach(() => {
+  __clearAllCachedEditorHistoryForTests();
+});
 
 afterEach(() => {
   cleanup();
