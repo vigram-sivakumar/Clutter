@@ -36,29 +36,55 @@
   padding: 0;
 }
 /*
- * IndentTokenWidget.ts / leadingIndentDecoration.ts's `indentTokenDecoration()`
- * — the rendered box for one complete leading-indentation token (a run of
- * `indentUnit.length` spaces, or a single tab). An empty, text-less
- * element that `Decoration.replace()`s the token's real characters,
- * rather than a mark wrapping them: CM6's own `coordsAtPos` (caret
- * placement) and `posAtCoords` (mouse hit-testing) both measure a
- * replaced range via this element's own box (`getClientRects()`), so
- * `width: var(--marker-width)` here is the single source of truth for
- * indentation's visual+interactive width in both directions — there is
- * no second, real-glyph-based coordinate system for either to disagree
- * with (see IndentTokenWidget.ts's doc comment for the full mechanism
- * and the measurements that motivated moving off `Decoration.mark`).
- * `height: 1em` is required, not cosmetic, for the same reason
- * `.cm-marker--concealed` below documents: an empty `inline-block` left
- * at `height: auto` collapses to 0 (CSS2.1 §10.6.7), and CM6 derives the
- * drawn caret's height directly from this element's measured rect
- * (`RectangleMarker.forRange`, `@codemirror/view`).
+ * IndentTokenWidget.ts / leadingIndentDecoration.ts's `indentCharDecoration()`
+ * — the rendered box for one leading-indentation *character* (one space
+ * or one tab; `width` is set inline per instance by the widget, 10px or
+ * 20px, since the two kinds differ). An element that `Decoration.replace()`s
+ * the character's real text, rather than a mark wrapping it: CM6's own
+ * `coordsAtPos` (caret placement) and `posAtCoords` (mouse hit-testing)
+ * both measure a replaced range via this element's own box
+ * (`getClientRects()`), so this box is the single source of truth for
+ * indentation's visual+interactive geometry in both directions — there
+ * is no second, real-glyph-based coordinate system for either to
+ * disagree with (see IndentTokenWidget.ts's doc comment for the full
+ * mechanism).
+ *
+ * Vertical geometry — `height: auto` + a real (invisible) character +
+ * `line-height: normal` + `vertical-align: text-top` — replaces the
+ * previous `height: 1em`, which measurably undershot: direct measurement
+ * in the real app (16px/1.5-line-height config) found `1em` gives a 16px
+ * box while the line's own real-text cursor measures 19px
+ * (`coordsAtPos`-reported, not just the line's full 24px line-height —
+ * text's own glyph-metric cursor height is smaller than the full line
+ * box, matching browsers' own ascent/descent-based cursor sizing, not
+ * CSS `line-height`). That 3px shortfall is exactly what produced the
+ * reported vertical caret jump moving between indentation and text.
+ *
+ * The fix does not hardcode either number. An *empty* `inline-block`
+ * with `height: auto` collapses to 0 (CSS2.1 §10.6.7) — that's why
+ * `1em` existed at all — but `IndentTokenWidget.toDOM()`'s invisible
+ * (`color: transparent`, clipped by `overflow: hidden` + the fixed
+ * `width`) non-breaking space gives the box the SAME font-metric-driven
+ * natural height real text gets, automatically tracking whatever
+ * `--cm-content`/`--lh-cm-content` (or a future font/size change) the
+ * line actually uses — confirmed directly: with this content and
+ * `line-height: normal` (not the line's inherited 1.5 multiplier, which
+ * overshoots to the full 24px line box), the resulting box height was
+ * measured at exactly 19px, matching the real-text cursor's height to
+ * the pixel. `vertical-align: text-top` (confirmed empirically to
+ * coincide with `text-bottom` here, since the box's height already
+ * equals the reference span it's aligned against) then positions that
+ * box at exactly the same top/bottom the real-text cursor uses — also
+ * measured to the pixel, not assumed from the keyword's name alone.
  */
 .cm-indent-token {
   display: inline-block;
-  width: var(--marker-width);
-  height: 1em;
+  height: auto;
+  line-height: normal;
+  vertical-align: text-top;
   box-sizing: border-box;
+  overflow: hidden;
+  color: transparent;
 }
 
 /*
