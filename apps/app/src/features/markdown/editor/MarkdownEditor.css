@@ -442,17 +442,19 @@
 
 /*
  * Shared marker class — `emojiListMarkDecoration.ts`'s `Decoration.mark`
- * and (2026-08-28, bullet-list reintroduction) `ListBulletWidget`'s
- * `Decoration.replace` widget both carry this alongside their own
- * construct-specific class (`cm-emoji-list-marker`/`cm-bullet-list-marker`
- * below). Ordered-list and task-checklist marker rendering are still
- * unimplemented (out of scope for this slice) — a future slice may extend
- * this shared class rather than introduce a new one, per this file's own
- * "extend before adding" convention. `.cm-list-line`'s own hanging-indent
- * rule (which this class's `text-indent: 0` reset and `margin-right` gap
- * used to counteract/complement, pre-reset) has not been reintroduced yet
- * — nested-bullet indentation is currently handled entirely by
- * `leadingIndentDecoration.ts`'s construct-agnostic per-character widgets.
+ * carries this alongside its own construct-specific class
+ * (`cm-emoji-list-marker` below). Ordered-list and task-checklist marker
+ * rendering are still unimplemented (out of scope for this slice) — a
+ * future slice may extend this shared class rather than introduce a new
+ * one, per this file's own "extend before adding" convention.
+ *
+ * `listMarkerDecoration.ts`'s bullet marker (`cm-bullet-list-marker`,
+ * below) deliberately does NOT carry this class (2026-08-29): this shared
+ * rule's `color: var(--marker-foreground)` tint would itself be a visual
+ * change from plain, undecorated source text — the bullet marker's own
+ * explicit product requirement is to render exactly as written
+ * (`- Bullet`, never tinted, never `• Bullet`), unlike ordered-list
+ * numbers or a future emoji-list marker where a styling tint is wanted.
  */
 .cm-editor .cm-list-marker {
   color: var(--marker-foreground);
@@ -474,19 +476,18 @@
 }
 
 /*
- * The bullet-list marker (`ListBulletWidget`/`listMarkerDecoration.ts`) —
- * a `Decoration.replace` widget standing in for the collapsed raw `-`/
- * `*`/`+` (+ separator space) text, unlike the emoji marker above. Sized
- * to `var(--marker-width)` (the same fixed-width token blockquote's own
- * marker box uses, `.cm-quote-marker`) so a bullet occupies a consistent,
- * predictable column regardless of which of the three source characters
- * produced it.
+ * The bullet-list marker (`listMarkerDecoration.ts`) — a real,
+ * source-backed `Decoration.mark` over the raw `-`/`*`/`+` + separator
+ * text (migrated 2026-08-29 from a `ListBulletWidget`/`Decoration.replace`
+ * widget that rendered a `•` glyph in its place; see that file's own doc
+ * comment for the caret-boundary defect this fixed and the live
+ * verification performed). Deliberately no rule at all here — this
+ * construct's explicit product requirement is that the marker renders
+ * exactly as written, with no visual difference from plain source text,
+ * so `cm-bullet-list-marker` exists purely as a stable class hook for the
+ * DOM structure agreement's naming contract and for tests, not as
+ * something currently styled.
  */
-.cm-editor .cm-bullet-list-marker {
-  display: inline-block;
-  width: var(--marker-width);
-  text-align: center;
-}
 
 /*
  * Resting horizontal rule (horizontalRuleDecoration.ts) — `font-size`/

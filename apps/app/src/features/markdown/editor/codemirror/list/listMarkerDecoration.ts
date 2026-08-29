@@ -1,12 +1,14 @@
+import { syntaxTree } from '@codemirror/language';
 import type { EditorState, Extension } from '@codemirror/state';
-import type { SyntaxNode } from '@lezer/common';
-
 import {
-  liveMarkDecoration,
-  type MarkEngagementPredicate,
-  type MarkRangeSelector,
-} from '../highlight/liveMarkDecoration';
-import { ListBulletWidget } from './ListBulletWidget';
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  ViewPlugin,
+  type PluginValue,
+  type ViewUpdate,
+} from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
 
 /**
  * Live Preview rendering for **unordered/bullet** list markers (`-`, `*`,
@@ -16,14 +18,60 @@ import { ListBulletWidget } from './ListBulletWidget';
  * Backspace/Enter) are out of scope for this slice; see
  * docs/editor-architecture-decisions.md for that boundary.
  *
- * Built on the shared `liveMarkDecoration` mechanism — the same one
- * heading (`headingMarkerDecoration.ts`) uses — rather than a bespoke
- * `ViewPlugin`, per that file's own doc comment, which already names this
- * exact pairing ("a resting bullet glyph standing in for a hidden
- * `-`/`*`/`+` (see `listMarkerDecoration.ts`/`ListBulletWidget.ts`)") as
- * its anticipated caller. Reusing it means the tree walk, sorting of
- * possibly-nested collapsed ranges, and the click-boundary fix
- * (`liveMarkSelectionSnap`) are inherited for free, unchanged.
+ * **Real, source-backed marker — a plain `Decoration.mark`, no widget, no
+ * concealment, no visual transformation (2026-08-29).** Modeled directly
+ * on `blockquoteMarkerDecoration.ts`'s own structural pattern (a standalone
+ * `ViewPlugin`, not the shared `liveMarkDecoration`/`liveMarkSelectionSnap`
+ * mechanism heading uses) for the same reason that file's own doc comment
+ * states: `liveMarkDecoration` exists specifically to *replace* a marker
+ * range with something else (`Decoration.replace`), and this construct
+ * deliberately never does that.
+ *
+ * Unlike blockquote, this construct has **no reveal/conceal state at all**
+ * — the marker is real text, always rendered exactly as written, in both
+ * "engaged" and "at rest" states. `- Bullet` always shows as `- Bullet`,
+ * never `• Bullet`. This was an explicit, deliberate product requirement,
+ * verified live in the running app before landing: an isolated probe
+ * decoration (a plain `Decoration.mark` with no CSS attached at all) was
+ * mounted temporarily in `MarkdownEditor.tsx`, and every position/gesture
+ * tested — click before the marker, between the marker and its separator,
+ * at content-start, mid-word; ArrowLeft/ArrowRight stepping through the
+ * marker one character at a time; Backspace/Delete at the boundary —
+ * behaved exactly like ordinary undecorated text, because it *is* ordinary
+ * text with a styling hook, not a replaced range.
+ *
+ * This retires the prior architecture entirely (`ListBulletWidget.ts`,
+ * `Decoration.replace`, a `•` glyph standing in for the source). That
+ * architecture was never an approved decision (see the file's own former
+ * doc comment / commit `b485cb3e`, "list bullet progress day 1" — no
+ * rationale recorded) and had a real, traced consequence: a click landing
+ * exactly at content-start (the position immediately after the replaced
+ * range — the legitimate resting position before the item's own text) was
+ * misidentified by `liveMarkSelectionSnap.ts` as "inside the replaced
+ * range" and redirected backward into the marker. A real, source-backed
+ * mark has no replaced range for any such correction to exist for.
+ *
+ * No CSS is attached to the marker span deliberately, not by omission:
+ * this construct's own shared naming-contract hooks (`cm-marker`,
+ * `cm-list-marker`) already carry a `color: var(--marker-foreground)` tint
+ * in `MarkdownEditor.css`, which would itself be a (small) visual change
+ * from plain, undecorated source text — exactly what this construct's
+ * product requirement rules out. The marker still carries its own
+ * construct-specific class (`cm-bullet-list-marker`) as a stable styling
+ * hook for future, deliberate work, but nothing currently targets it with
+ * a rule.
+ *
+ * Enter/Backspace/Tab behavior is unaffected by this migration — confirmed
+ * directly, not assumed: `insertNewlineContinueMarkupCommand` and
+ * `deleteMarkupBackward` (`@codemirror/lang-markdown`) operate purely on
+ * `state.doc`/`syntaxTree` positions, with no coupling to which decoration
+ * (if any) is active over those positions. Verified three independent
+ * ways this session: decoration present vs. absent (byte-identical
+ * results), a fully undecorated control mount, and this exact
+ * `Decoration.mark`-based probe — Enter at content-start still produces
+ * `"-\n- Bullet"` (the separator moves to the new line's own fresh
+ * marker) in every case. That is a real, separate, upstream CM6
+ * characteristic, out of scope for this change.
  *
  * `ListItem`'s `firstChild` is always `ListMark` (confirmed against the
  * installed `@lezer/markdown@1.7.2`, for bullet, ordered, and task markers
@@ -65,8 +113,8 @@ function hasTaskChild(listItem: SyntaxNode): boolean {
  * item's own first line at all, so this walks the actual gap up to
  * whatever node comes next, rather than assuming exactly one space —
  * `-  Text`/`-   Text` (2/3-space separators) are valid, non-canonical
- * Markdown this must still conceal correctly, not leave a stray visible
- * space between the bullet and the text.
+ * Markdown this must still mark correctly, extending the decoration to
+ * cover the full real separator rather than assuming a fixed width.
  *
  * Bounded to the marker's own physical line (`Math.min(to, line.to)`):
  * confirmed by direct inspection of a real parsed tree (`"-\n  - nested"`)
@@ -74,7 +122,7 @@ function hasTaskChild(listItem: SyntaxNode): boolean {
  * *later* line, with only whitespace (including the intervening `\n`)
  * physically between them — an ungated "whitespace-only gap" check would
  * misidentify that real line break as separator whitespace and try to
- * collapse it into this same-line widget. A separator span, by
+ * extend this same-line decoration across it. A separator span, by
  * definition, is CommonMark's own same-line marker-to-content gap only.
  */
 function separatorRangeAfter(
@@ -93,107 +141,89 @@ function separatorRangeAfter(
   return gapText.trim() === '' ? { from, to } : null;
 }
 
-const getBulletMarkRanges: MarkRangeSelector = (node, state) => {
-  const marker = node.node.firstChild;
+/**
+ * A bare marker with nothing after it on its own physical line (`-`,
+ * cursor still mid-keystroke before the separator space is typed) is a
+ * syntactically valid, complete, empty `ListItem` per CommonMark — the
+ * parser is right to produce a `ListMark` for it (confirmed directly
+ * against the installed `@lezer/markdown`: `ListMark[0,1)` for `"-"` is
+ * byte-identical to `ListMark[0,1)` for `"- "`). But this construct's own
+ * marker class should not apply until the marker actually *has* a real
+ * separator after it — the same bare-marker gate as before, unchanged by
+ * the widget-to-mark migration.
+ */
+function getBulletMarkRange(node: SyntaxNode, state: EditorState): { from: number; to: number } | null {
+  const marker = node.firstChild;
   if (!marker || marker.name !== 'ListMark') {
-    return [];
+    return null;
   }
 
   const raw = state.sliceDoc(marker.from, marker.to);
-  if (!BULLET_MARKER_CHARACTERS.has(raw) || hasTaskChild(node.node)) {
-    return [];
+  if (!BULLET_MARKER_CHARACTERS.has(raw) || hasTaskChild(node)) {
+    return null;
   }
 
-  /**
-   * A bare marker with nothing after it on its own physical line (`-`,
-   * cursor still mid-keystroke before the separator space is typed) is a
-   * syntactically valid, complete, empty `ListItem` per CommonMark — the
-   * parser is right to produce a `ListMark` for it (confirmed directly
-   * against the installed `@lezer/markdown`: `ListMark[0,1)` for `"-"` is
-   * byte-identical to `ListMark[0,1)` for `"- "`). But Clutter's Live
-   * Preview should not visually replace it until the marker actually
-   * *has* something after it — otherwise the very first keystroke of
-   * typing a list item flashes a bullet before the user has finished
-   * writing the marker. `separatorRangeAfter` already computes exactly
-   * this signal (a real, same-line whitespace gap, or — via its own
-   * `Math.min(..., lineEnd, ...)` clamp — correctly `null` when the only
-   * thing "after" the marker is a sibling on a *later* line, e.g. a
-   * same-line-bare parent immediately followed by a nested child list).
-   * `separator === null` alone is sufficient here, with no separate
-   * `!marker.nextSibling` check needed: CommonMark itself requires at
-   * least one whitespace character between a marker and any real content
-   * sibling on the same line (a marker with content directly adjacent —
-   * zero gap — doesn't parse as a `ListMark` at all, per the same
-   * grammar), so whenever a content sibling truly follows on this line,
-   * `separatorRangeAfter` is guaranteed to find that whitespace and
-   * return non-null; `null` therefore already means, completely, "there
-   * is genuinely nothing — no separator, no content — after this marker
-   * on its own line."
-   */
   const separator = separatorRangeAfter(state, marker);
   if (!separator) {
-    return [];
+    return null;
   }
 
-  return [
-    {
-      from: marker.from,
-      to: separator.to,
-      widget: new ListBulletWidget(),
-    },
-  ];
-};
+  return { from: marker.from, to: separator.to };
+}
 
-/**
- * Engagement is deliberately its own predicate, not either of
- * `liveMarkDecoration.ts`'s two built-in modes:
- *
- * - `'physical-line'` (heading/blockquote's choice) would reveal the raw
- *   marker whenever the selection is *anywhere on the item's own line* —
- *   including deep inside the item's own text, which is exactly the
- *   behavior this predicate exists to avoid. Heading/blockquote need
- *   line-scoped engagement because their enclosing node's range isn't a
- *   reliable boundary (lazy continuation, nested children) — but a list
- *   marker's *own* range is fully sufficient once checked directly.
- * - `'node-range'` checks containment against the *enclosing* `ListItem`
- *   node's `[from, to)` — for a single-line item that's still the whole
- *   line (no improvement), and for an item with nested children it's
- *   worse (would reveal the parent's marker while editing a grandchild
- *   several lines down).
- *
- * So: a genuinely new predicate, using the existing escape hatch
- * (`MarkEngagementMode`'s function form), checked against the *marker's
- * own* mark range (`getMarkRanges`) — not a change to `liveMarkDecoration.ts`
- * itself, and not a change to `isTokenEngaged`'s shared boundary semantics
- * used by every other semantic-token construct.
- *
- * The overlap test is `selection.from < range.to && selection.to > range.from`
- * — deliberately NOT `isTokenEngaged`'s boundary-inclusive
- * `>=`/`<=` — because the one boundary position that matters here,
- * `- |Text` (a collapsed caret exactly at the marker range's own `to`,
- * immediately before the content), must NOT reveal: that position is
- * reached by ordinary cursor movement while editing the item's text (e.g.
- * Home, or arriving from the left), not an attempt to edit the marker.
- * `isTokenEngaged`'s inclusive convention exists for other constructs
- * where "touching the boundary" genuinely means "about to edit this
- * thing" (WikiLink, Tag, Date) — a list marker's trailing boundary is
- * different: it's also the leading edge of the sentence a user is
- * actively typing, which is the overwhelmingly common case, not a rare
- * one. A true interval-overlap check instead only engages when the
- * selection has at least one character of genuine overlap with the marker
- * range — a collapsed cursor strictly inside it (`- |-Text`-style,
- * between the dash and the separator, i.e. `from < pos < to`), or any
- * selection that spans into it (e.g. Home then Shift+Right, selecting the
- * marker's own first character) — while a cursor sitting at either exact
- * edge (`from` or `to`) alone does not.
- */
-const isMarkerRangeEngaged: MarkEngagementPredicate = (state, node, getMarkRanges) => {
-  const selection = state.selection.main;
-  return getMarkRanges(node, state).some(
-    (range) => selection.from < range.to && selection.to > range.from
+const MARKER_MARK = Decoration.mark({ class: 'cm-bullet-list-marker' });
+
+function buildDecorations(view: EditorView): DecorationSet {
+  const pending: { from: number; to: number }[] = [];
+
+  for (const { from, to } of view.visibleRanges) {
+    syntaxTree(view.state).iterate({
+      from,
+      to,
+      enter: (node) => {
+        if (!isBulletListItemNode(node.name)) {
+          return;
+        }
+
+        const range = getBulletMarkRange(node.node, view.state);
+        if (range) {
+          pending.push(range);
+        }
+      },
+    });
+  }
+
+  // Sorted once via Decoration.set(_, true) rather than inserted in tree
+  // visitation order via RangeSetBuilder: a nested item's marker starts
+  // after its parent's own marker, but iteration order across levels isn't
+  // guaranteed strictly ascending by construction.
+  return Decoration.set(
+    pending.map(({ from, to }) => MARKER_MARK.range(from, to)),
+    true
   );
-};
+}
+
+interface ListMarkerPlugin extends PluginValue {
+  decorations: DecorationSet;
+}
 
 export function listMarkerDecoration(): Extension {
-  return liveMarkDecoration(isBulletListItemNode, getBulletMarkRanges, isMarkerRangeEngaged);
+  return ViewPlugin.fromClass<ListMarkerPlugin>(
+    class implements ListMarkerPlugin {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildDecorations(view);
+      }
+
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = buildDecorations(update.view);
+        }
+      }
+    },
+    {
+      decorations: (p) => p.decorations,
+    }
+  );
 }
