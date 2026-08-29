@@ -12,6 +12,7 @@ import {
   type EditorState,
   type Extension,
   type StateCommand,
+  type Transaction,
 } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 
@@ -519,6 +520,140 @@ const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }
 };
 
 /**
+ * True when `[from, to)` is exactly the digit run of some `ListMark` in
+ * `state`'s own (pre-edit) tree, and that `ListMark`'s own `ListItem`
+ * spans more than one physical line — i.e. genuinely owns descendant
+ * content (a nested list, a multi-line paragraph) whose own leading
+ * whitespace was calibrated to this item's *current* content column, not
+ * a re-derived one. A single-line item (`ListMark` + one short
+ * `Paragraph`, nothing else) has nothing that could fall out of
+ * alignment, so rewriting its digits is always safe regardless of width
+ * — this function only flags the cases that could actually break.
+ *
+ * The digit run is `[marker.from, marker.to - 1)`: a `ListMark` is
+ * always exactly the marker's digits plus one delimiter character
+ * (`.`/`)`), confirmed against the installed `@lezer/markdown@1.7.2`
+ * (this document's own §13.1) — `renumberList`'s own regex-based
+ * position math (`itemNumber`, `@codemirror/lang-markdown`, read
+ * directly from the installed source) produces changes at exactly this
+ * boundary, never touching the delimiter itself.
+ */
+function isRiskyRenumberRewrite(state: EditorState, from: number, to: number): boolean {
+  let risky = false;
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      if (risky || node.name !== 'ListItem') {
+        return;
+      }
+      const marker = node.node.firstChild;
+      if (!marker || marker.name !== 'ListMark') {
+        return;
+      }
+      if (marker.from !== from || marker.to - 1 !== to) {
+        return;
+      }
+      risky = state.doc.lineAt(node.to).number > state.doc.lineAt(node.from).number;
+    },
+  });
+  return risky;
+}
+
+/**
+ * Guards `continueMarkup`'s own upstream ordered-list renumbering
+ * (`renumberList`, `@codemirror/lang-markdown`) against a confirmed
+ * structural-corruption defect — recorded in full in
+ * docs/list-item-architecture-odr.md §15, not re-derived here:
+ * renumbering a sibling's digit run to keep a sequence consistent is a
+ * pure text rewrite with zero awareness of that sibling's own descendant
+ * content. When the rewrite changes the digit run's *width* — crossing
+ * `9`→`10`, `99`→`100`, `999`→`1000`, or simply stripping a leading-
+ * zero-padded marker's own padding (`"008."`→`"9."`, confirmed live:
+ * `renumberList` converts through a bare `Number`, which never
+ * round-trips zero-padding) — the sibling's own content column shifts,
+ * and any already-correctly-nested child whose indentation was
+ * calibrated to the *old* width falls out of that item's tolerance
+ * window on the next reparse: either flattened into a top-level sibling
+ * `ListItem` (the new indentation now reads as CommonMark's own 0-3-
+ * space "new marker" tolerance) or silently absorbed as lazy-
+ * continuation text of the renumbered item's own paragraph (the new
+ * indentation now lands in neither-sibling-nor-nested territory — this
+ * document's own §14.9 already measured and named that same gap for a
+ * different, Tab-driven case). Confirmed live against the installed
+ * `@codemirror/lang-markdown@6.5.2`/`@lezer/markdown@1.7.2`: `"8.
+ * A\n9. B\n   1. Child"` + Enter at the end of `A` renumbers `"9."`→
+ * `"10."` and destroys the nested list under `B`.
+ *
+ * This does **not** reimplement, replace, or second-guess
+ * `renumberList` — it only inspects the transaction `continueMarkup`
+ * *already computed* and would have dispatched unchanged, and drops the
+ * tail of its own renumbering edits starting at the first one that would
+ * corrupt structure, keeping every edit before it byte-identical to what
+ * upstream produced. Every case that doesn't hit this specific hazard
+ * (the overwhelming majority: no ordered-list renumbering at all, or
+ * renumbering that never crosses a digit-width boundary, or a boundary
+ * crossing where the affected item has no descendant content to break)
+ * dispatches exactly as `continueMarkup` alone would — nothing about
+ * this wrapper changes any already-correct Enter behavior, and it never
+ * touches Tab/Shift-Tab or Backspace.
+ *
+ * Declining a would-be-corrupting rewrite leaves that one item (and any
+ * later siblings in the same renumbering walk, since they depend on it)
+ * numerically out of sequence rather than structurally broken —
+ * deliberately: this document's own standing principle (§1, §7, §13.6)
+ * is "never silently author a document shape the user didn't ask for,"
+ * and a non-sequential number is a far smaller, purely cosmetic
+ * consequence than a destroyed nested list. This wrapper does not
+ * attempt to *repair* the resulting gap (e.g. by compensating
+ * whitespace) — that would be exactly the kind of new, invented editing
+ * behavior this codebase's Tab/Enter architecture treats as requiring
+ * its own deliberate design pass (see the ordered-list-normalization
+ * addendum tracked in §9/§14), not something to fold into a narrow
+ * corruption guard.
+ */
+const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) => {
+  let captured: Transaction | null = null;
+  const handled = continueMarkup({
+    state,
+    dispatch: (tr) => {
+      captured = tr;
+    },
+  });
+  if (!handled || !captured) {
+    return handled;
+  }
+
+  const transaction: Transaction = captured;
+  const kept: { from: number; to: number; insert: string }[] = [];
+  let corrupting = false;
+
+  transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    if (corrupting) {
+      return;
+    }
+    if (isRiskyRenumberRewrite(state, fromA, toA)) {
+      corrupting = true;
+      return;
+    }
+    kept.push({ from: fromA, to: toA, insert: inserted.toString() });
+  }, true);
+
+  if (!corrupting) {
+    dispatch(transaction);
+    return true;
+  }
+
+  dispatch(
+    state.update({
+      changes: kept,
+      selection: EditorSelection.cursor(transaction.state.selection.main.head),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
+  return true;
+};
+
+/**
  * The single Enter binding. Exported for tests; wire it through
  * `markdownEnterKeymap()`, never as a second Enter binding of its own.
  * Returning false delegates to whatever sits below — in the real editor,
@@ -529,7 +664,7 @@ export const markdownEnterCommand: StateCommand = (target) =>
   exitLazyContinuationBulletLookalike(target) ||
   preserveListMarkerOnContentStartSplit(target) ||
   continueFirstSameLineListLevel(target) ||
-  continueMarkup(target) ||
+  continueMarkupPreservingStructure(target) ||
   exitEmptyIndentContinuation(target);
 
 /**

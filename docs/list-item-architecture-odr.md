@@ -203,6 +203,324 @@ therefore a **rendering-layer policy**, never a parser change — the tree
 above is exactly what Clutter's renderer, Enter command, and every other
 consumer see and must work with as given.
 
+### An empty marker directly after a paragraph never produces `ListItem` at all — INVESTIGATED, not a bug (2026-08-29)
+
+**Reported symptom**: typing an ordinary paragraph, pressing Enter, then
+typing `- ` (or `* `/`+ `) does not render a bullet marker until real
+content is typed after it — e.g. `- Text` renders correctly, but the
+bare `- `/`* `/`+ ` line sitting directly under a paragraph, with no
+blank line between them, never becomes a marker no matter how long you
+wait.
+
+**This is not a decoration-code guard, and not a renderer bug.**
+Confirmed directly against the installed `@lezer/markdown@1.7.2` grammar
+(the exact `markdown({ extensions: markdownGrammarExtensions, addKeymap:
+false })` config the editor uses, via a throwaway script — not
+reconstructed from memory): for this exact input, **no `ListItem` node
+exists in the tree at all**. There is nothing for `listMarkerDecoration.ts`
+to fail to decorate — the tree it walks genuinely contains no list.
+
+```
+Source: "Some paragraph text\n- "
+
+Document [0,22)
+  SetextHeading2 [0,22) "Some paragraph text\n- "
+    HeaderMark [20,21) "-"
+```
+
+```
+Source: "Some paragraph text\n* "   (or "\n+ ")
+
+Document [0,22)
+  Paragraph [0,22) "Some paragraph text\n* "
+```
+
+Two independent, genuine CommonMark rules — not a Lezer bug, not a
+grammar misconfiguration, not something introduced by any of Clutter's
+grammar extensions or the `IndentedCode` removal — combine to produce
+this:
+
+1. **A line consisting only of `-` (optionally with trailing spaces)
+   directly below a non-blank paragraph line is a Setext heading level-2
+   underline**, and this reading takes precedence over "start of a new
+   list." This is the standard CommonMark Setext-heading construct
+   (`=` produces `SetextHeading1`, confirmed with the same script) — it
+   is not specific to lists, bullets, or Clutter's own extensions.
+2. **An empty list item cannot interrupt a paragraph** (CommonMark's own
+   list-interruption rule — a list item whose own first line is blank
+   cannot begin a new list directly under an unrelated paragraph without
+   an intervening blank line). This is why `* `/`+ ` — which aren't
+   Setext underline characters, so rule 1 never applies to them — still
+   don't produce a `ListItem`: they fall back to ordinary lazy
+   continuation of the *same* `Paragraph` instead.
+
+**The moment real content follows the marker, both effects vanish and a
+genuine `ListItem`/`ListMark` appears immediately, even with no blank
+line before it** — confirmed directly:
+
+```
+Source: "Some paragraph text\n- Text"   (no blank line, real content)
+
+Document [0,26)
+  Paragraph [0,19) "Some paragraph text"
+  BulletList [20,26) "- Text"
+    ListItem [20,26) "- Text"
+      ListMark [20,21) "-"
+      Paragraph [22,26) "Text"
+```
+
+identically for `* Text`/`+ Text`. This is CommonMark's ordinary "a list
+can interrupt a paragraph, as long as its first item isn't empty" rule
+working exactly as specified — the underlying grammar has no ambiguity
+once there's real content to disambiguate with.
+
+**Answering the ten investigation questions against this fact**:
+
+1. `state.doc` immediately after typing `- `/`* `/`+ ` following a
+   paragraph (no blank line) is exactly `"Some paragraph text\n- "` (etc.)
+   — plain concatenation, nothing rewritten, consistent with §1's opening
+   claim.
+2. The actual Lezer tree at that moment is `SetextHeading2` (for `-`) or
+   a single, unbroken `Paragraph` (for `*`/`+`) — shown above. No
+   `BulletList`/`ListItem`/`ListMark` node exists anywhere in either tree.
+3. Whether an empty marker produces `BulletList → ListItem → ListMark`
+   depends entirely on what precedes it on the previous physical line,
+   confirmed by direct parse for all four cases the investigation asked
+   for:
+   - **(a) first line of the document**: **yes** — `"- "` alone parses as
+     `BulletList → ListItem → ListMark` (already established §1, re-
+     confirmed here).
+   - **(b) after an ordinary paragraph, no blank line**: **no** — absorbed
+     into `SetextHeading2` (`-`) or the paragraph itself via lazy
+     continuation (`*`/`+`); see trees above. This is the case the
+     reported symptom is actually about.
+   - **(c) after another list item** (`"- Item\n- "`): **yes** — the
+     second line parses as a sibling `ListItem [7,9) "- "` with `ListMark`
+     as its only child, no `Paragraph` sibling (confirmed by direct
+     parse). A list item, unlike a paragraph, can freely have an empty
+     sibling item follow it — the paragraph-interruption restriction in
+     rule 2 above only applies to a list attempting to interrupt a
+     *different* block kind.
+   - **(d) after a blank line** (`"Some paragraph text\n\n- "`): **yes** —
+     a blank line always ends the preceding paragraph outright, so there
+     is no paragraph left to "interrupt"; `"- "` starts a fresh
+     `BulletList → ListItem → ListMark` exactly as case (a) does
+     (confirmed by direct parse: `BulletList [21,23) → ListItem [21,23) →
+     ListMark [21,22)`, no `Paragraph` sibling, separator gap trailing to
+     end of document).
+4. `listMarkerDecoration.ts` never receives a `ListMark` node for case
+   (b) — there is none to receive, because `buildDecorations`'s tree walk
+   only visits nodes the parser actually produced, and it produced none.
+   For cases (a)/(c)/(d), it **does** receive `ListMark` and (per point 6
+   below) does decorate it.
+5. **No guard in the decoration code prevents case (b)** — the renderer
+   is never reached for it. The suppression happens entirely upstream, in
+   the parser's own block-level precedence rules (Setext heading
+   recognition, list-interrupting-paragraph restriction), before
+   `listMarkerDecoration.ts`'s `buildDecorations`/`getListMarkRange` ever
+   runs.
+6. `getListMarkRange` (`listMarkerDecoration.ts`) does **not** require
+   content after the marker/separator, and this is intentional, already
+   covered by existing test coverage (`listMarkerDecoration.test.ts`,
+   "marker + separator (no content yet) IS marked"). Traced through the
+   function directly: `separatorRangeAfter` computes `to` as
+   `Math.min(marker.nextSibling?.from ?? marker.to + 1, lineEnd,
+   docLength)` — when a `ListItem` has no sibling after `ListMark` at all
+   (the empty-item shape in cases a/c/d), this correctly resolves to "one
+   character past the marker, capped at end of line," and the resulting
+   gap text (a single space) passes the `gapText.trim() === ''` check, so
+   `getListMarkRange` returns a valid, non-null range and the item **is**
+   decorated. The only thing `getListMarkRange` refuses is a truly *bare*
+   marker with no separator whitespace at all (`"-"` with nothing after
+   it, mid-keystroke) — a distinct, already-documented gate (§1's "bare
+   marker" paragraph, §2), not related to this investigation's symptom.
+7. The `seenLines`/first-marker-per-physical-line logic (§7) is **not
+   involved** in case (b) at all — it only ever suppresses a *later*
+   `ListMark` on a line that already had an earlier one claimed within
+   the same `buildDecorations` pass. Case (b) never reaches
+   `buildDecorations`'s tree walk with any `ListItem` node on that line to
+   begin with, so there is nothing for `seenLines` to (correctly or
+   incorrectly) suppress. Re-confirmed directly: cases (a)/(c)/(d) each
+   produce exactly one `ListItem` on their line, so `seenLines` has no
+   opportunity to misfire there either.
+8. `-`, `*`, and `+` were tested independently (trees above and in the
+   verification script): the two produce different intermediate node
+   kinds (`SetextHeading2` vs. plain `Paragraph` lazy continuation) but
+   the same observable outcome — no `ListItem` — for case (b).
+9. `paragraph → Enter → - → Space` (`"Some paragraph text\n- "`) produces
+   `SetextHeading2`; `empty document → - → Space` (`"- "`) produces
+   `BulletList → ListItem → ListMark`. These are genuinely different
+   trees for genuinely different (if visually similar) documents — not
+   two renderings of the same structural fact.
+10. Pressing Enter while in the paragraph-preceded state does not operate
+    on "the empty bullet," because none exists — the cursor is inside a
+    `SetextHeading2`. Confirmed directly: `"Some paragraph text\n- \n"`
+    (Enter pressed after `- `) still parses as `SetextHeading2` covering
+    both lines, unchanged in kind. Continuing to type more marker
+    characters can change the outcome again — e.g. `"Some paragraph
+    text\n- -"` parses as `Paragraph` + `BulletList` (two nested empty
+    items) once a second `-` makes the line no longer a valid Setext
+    underline or thematic break — but this is the parser responding to
+    the new document content each time, not any special "empty bullet"
+    Enter/Backspace handling; `markdownEnterKeymap.ts`'s existing
+    handlers were not exercised at all for the reported symptom's
+    starting state; they operate over whatever tree an existing edit
+    left behind.
+
+**Verdict: current behavior is correct, not a bug.** The renderer is a
+pure function of `state.doc` + the parsed tree, exactly as the
+architectural constraint requires, and for case (b) the tree contains no
+list to render. The apparent "doesn't become a bullet until you type
+content" behavior is CommonMark's own, standards-compliant list-
+interruption and Setext-heading precedence rules, faithfully reproduced
+by the installed, unmodified grammar — the same class of upstream
+ambiguity already documented for `"- - - "` (§1's `HorizontalRule` case)
+and the deepest-`ListItem` Enter behavior (§6). No parser change, no
+decoration-code change, and no typing-history-dependent interception
+would be compliant fixes here even if one were wanted — the first two are
+already-forbidden per this section's own "why we do not modify
+Lezer/parser behavior" reasoning above, and the third is already
+INVESTIGATED + REJECTED in §7 for the identical reason (a parser is, and
+must remain, stateless with respect to keystroke history). There is no
+CommonMark-compliant way for `"Some paragraph text\n- "` to mean anything
+other than what it currently parses as.
+
+**This section previously concluded "accepted limitation, closed."
+Superseded (2026-08-29) — see the subsection immediately below.** The
+parser-tree facts above are unchanged and still correct; what changed is
+that "CommonMark parses it this way" and "Clutter's product must therefore
+render it this way" are separate questions, and the second one was never
+actually investigated — only assumed. The investigation below treats it
+as an open product decision with concrete, costed options, not a settled
+limitation.
+
+### Can Clutter's product behavior diverge from this parse, and at what cost? — INVESTIGATED, OPEN (2026-08-29)
+
+**Question**: could Clutter make `text here\n- ` (and `\n* `/`\n+ `)
+immediately render as an empty bullet, without violating the
+already-Locked constraints (renderer stays a pure function of
+`state.doc` + tree; the parser is never hand-patched; no typing-history-
+dependent decoration)?
+
+**Traced directly against the installed `@lezer/markdown@1.7.2` source**
+(`node_modules/@lezer/markdown/dist/index.js` — the actual code this
+investigation is about, not its published docs) to find every lever the
+*public* extension API (`MarkdownExtension`/`parser.configure(...)`, the
+same mechanism already used for `wikiLinkSyntax`/`tagSyntax`/`dateSyntax`/
+the HR variants/`{ remove: ['IndentedCode'] }`) actually exposes over
+this behavior — as opposed to a hand-patched fork, which stays out of
+scope per this document's own already-Locked "why we do not modify
+Lezer/parser behavior" reasoning.
+
+**Root mechanism, found in the private (unexported) `isBulletList`**:
+
+```js
+function isBulletList(line, cx, breaking) {
+    return (line.next == 45 || line.next == 43 || line.next == 42) &&
+        (line.pos == line.text.length - 1 || space(line.text.charCodeAt(line.pos + 1))) &&
+        (!breaking || inList(cx, Type.BulletList) || line.skipSpace(line.pos + 2) < line.text.length) ? 1 : -1;
+}
+```
+
+`breaking` is true exactly when the parser is asking "can this line
+interrupt the paragraph currently being accumulated" (confirmed by
+reading every call site — `breaking` is never `true` for cases (a)/(d),
+only for (b)/(c), and `inList(cx, Type.BulletList)` is what makes (c) pass
+despite `breaking`). The third clause is the exact CommonMark "empty item
+cannot interrupt a paragraph" rule from §1: when `breaking` is true and
+we're not already inside a list, `line.skipSpace(line.pos + 2) <
+line.text.length` requires *real content* after the marker+separator —
+this is the single line of logic responsible for the `*`/`+` half of the
+symptom. `isOrderedList` (same file) has the identical shape of
+restriction for ordered markers.
+
+For `-` specifically, `isHorizontalRule` explicitly steps aside for a
+Setext reading first (`// Setext headers take precedence`, line 313-317
+of the same file) — this is a **separate, earlier** check than
+`isBulletList`, so even if `isBulletList`'s restriction were lifted, `-`
+would still lose to `SetextHeading` first. Two independent gates, not
+one, both would need addressing for `-`.
+
+**Is either gate reachable through the public extension API without a
+full reimplementation? Checked directly against what
+`@lezer/markdown`'s `index.d.ts` actually exports**
+(`export { Autolink, BlockContext, type BlockParser, ..., MarkdownParser,
+... }` — the complete list): `isBulletList`, `isOrderedList`,
+`isSetextUnderline`, and the internal `ListParser`/`SetextHeadingParser`
+classes that use them are **not exported**. `MarkdownConfig.parseBlock`
+does let a `{ name: "BulletList", parse: ... }` entry **fully replace**
+the built-in parser for that node name (confirmed by reading
+`MarkdownParser.configure`'s own `parseBlock` handling: `found > -1` →
+`blockParsers[found] = spec.parse` — a straight replacement, no way to
+call through to "the old one, but with this one condition removed"). So
+the only lever available is: **write an entirely new `BulletList`/
+`OrderedList` block-parser from scratch**, not adjust the shipped one.
+
+**What that would actually require, concretely**: CommonMark list-item
+parsing is not just "does this line start with `-`/`*`/`+`" — the same
+parser also owns continuation-line indentation thresholds, the
+tight/loose blank-line-between-items distinction, nested-list depth
+bookkeeping via `cx.stack`, and the interaction with the same-line-
+collapse ambiguity this very document spent §1/§6/§7 characterizing in
+detail. A replacement `parse` function would have to reproduce all of
+that correctly, forever, independently — `@lezer/markdown` gives no
+supported way to delegate "everything except this one interrupt-
+restriction" back to its own, already-correct implementation. This is
+not a small patch; it is taking ownership of a nontrivial slice of
+CommonMark's own block-parsing algorithm, and re-verifying every case
+this document's own investigations already needed multiple sessions to
+get right (§1's nesting/`HorizontalRule` ambiguity, §6's Enter fix, §7's
+same-line collapse) against a parser Clutter now also has to maintain
+correctness for, across every future `@lezer/markdown` version bump.
+
+**Separately, for `-`: this is not just an implementation cost, it is a
+real product trade-off**, because Setext H2 is not a dead or unused
+construct in Clutter — it is fully live (`headingMarkerDecoration.ts`,
+`inlineLivePreviewRegion.ts`, `markdownIndentContext.ts`, and a dedicated
+test suite all treat `SetextHeading1`/`SetextHeading2` as a real,
+supported heading form, confirmed by direct source search, not
+assumption). Any change that makes `text\n- ` become a list by default
+means a user who deliberately types a Setext H2 heading exactly that way
+(`Heading\n---` differs only in whether real heading text or nothing
+precedes the marker on the underline — but an *empty* Setext underline
+attempt, `Heading\n-`, mid-keystroke before the rest of `---` is typed, is
+indistinguishable from an attempted empty bullet at the exact instant
+being asked about) would instead see a bullet appear. There is no way to
+know the user's intent from the document alone at that keystroke — both
+readings are genuinely valid, incomplete prefixes of two different,
+both-real Clutter features. Deciding "list wins" is a legitimate product
+choice, but it is one that silently changes what an existing, tested,
+shipped construct does for an input shape it currently owns — not a
+side-effect-free rendering improvement.
+
+**A separate, smaller-blast-radius idea, evaluated and also rejected as
+disproportionate for now**: a brand-new, additive, low-priority
+`parseBlock` entry (not replacing `BulletList` itself) that recognizes
+only the exact narrow shape "line is exactly `-`/`* `/`+ ` and nothing
+else, directly under a `Paragraph`, otherwise unclaimed" and emits a
+distinct, Clutter-only lookalike node for `listMarkerDecoration.ts` to
+optionally also decorate — without trying to make it a *real*,
+continuable, nestable list at the parser level at all. This avoids
+reimplementing list continuation/nesting, but for `-` it would still need
+`before: "SetextHeading"` precedence to win the line at all, which is the
+exact same product trade-off above, not a way around it; for `*`/`+` it
+is smaller and real content typed immediately afterward would need to
+hand off cleanly from this lookalike node to a genuine `ListItem` the
+instant `isBulletList` itself would already succeed (i.e., the moment
+real content appears) — a seam that would need its own careful
+verification (does `listMarkerCaretAssoc`/Enter/Backspace need to know
+about this second, parser-adjacent node kind, or can they ignore it
+entirely because it never coexists with real editing operations on
+non-empty content?). Not yet built or trace-verified to the level the
+rest of this document holds itself to — recorded here as the
+least-invasive option identified, not as a decision.
+
+**Status: OPEN, not decided.** No option above is free, and the `-` case
+in particular is a genuine two-feature ambiguity requiring a real
+"list wins" or "heading wins" product call, not just an implementation
+choice. Nothing has been implemented. See the options above for what an
+implementer would actually be signing up for before picking one.
+
 ---
 
 ## 2. Rendering architecture
@@ -1001,6 +1319,14 @@ This rule only decides which of them gets a **decoration** — a purely
 visual choice, reversible on every rebuild, with zero effect on
 `state.doc` or the syntax tree.
 
+**Not to be confused with §1's "empty marker directly after a paragraph"
+finding**: that case (a bare `- `/`* `/`+ ` typed right after a paragraph,
+no blank line) is a *different* phenomenon — the parser produces **no**
+`ListItem`/`ListMark` at all for it (absorbed into `SetextHeading2` or
+ordinary paragraph lazy-continuation), so `seenLines` and this policy
+never even run for it. This section's own same-line-collapse policy only
+ever operates on markers the parser *did* produce.
+
 ### Why typing interception was rejected — INVESTIGATED + REJECTED
 
 Two constraints proved to be in direct tension, not merely difficult to
@@ -1317,6 +1643,71 @@ exceptions.
   Enter-specific change needed (Enter simply reads whatever tree Tab's
   edit produced).
 
+### Caret mapping on Tab — IMPLEMENTED + VERIFIED (commit `b435f159`)
+
+**Rule**: on Tab, the resulting selection must be mapped forward through
+the transaction's `ChangeSet` (`assoc = 1`), not left to CM6's default
+mapping (`assoc = -1`). This is a **generic selection-tracking rule**,
+independent of construct — it applies identically to plain paragraphs,
+blank lines, and every list-marker kind (bullet, ordered, task), because
+`lineIndentChange` always inserts at the same relative position
+(`line.from` through the line's own leading-whitespace end) regardless
+of what follows it.
+
+**Why it's needed**: `state.update({ changes, userEvent })` with no
+explicit `selection` resolves the post-transaction selection via
+`Transaction.newSelection`, which maps the *old* selection through the
+change with CM6's own default `assoc = -1`. That default keeps a
+collapsed caret sitting *behind* text inserted exactly at its own
+position — correct for nothing this feature does, since Tab's insertion
+point and a caret at true content-start (column 0, before any existing
+indentation) coincide exactly in the one case that matters most: a
+completely flush line. Confirmed both by direct `EditorState`
+experimentation and by the shipped 45-test suite never once asserting
+`view.state.selection` after Tab (only `doc.toString()`), which is
+exactly why the two prior Tab/Shift-Tab commits (`967d0fb4`, `20ff06a5`)
+never caught it.
+
+**Fix** (`markdownIndentKeymap.ts`, `markdownIndentDirection`):
+
+```ts
+if (changes.length) {
+  const changeSet = state.changes(changes);
+  dispatch(
+    state.update({
+      changes: changeSet,
+      selection: direction === 1 ? state.selection.map(changeSet, 1) : undefined,
+      userEvent: direction === 1 ? 'input.indent' : 'delete.dedent',
+    })
+  );
+}
+```
+
+Shift-Tab is deliberately left on the default mapping (`selection:
+undefined`) — its changes are replacements/deletions rather than pure
+insertions at the caret, so `assoc = -1`'s default already produces the
+correct collapsed position in every tested case (caret at, inside, or
+past the removed whitespace all collapse to the same, correct point).
+
+**Verified** — both by 10 new regression tests added to
+`markdownIndentKeymap.test.ts` (asserting `selection.main.head`/`from`/
+`to`, not just document content: plain text at position 0, empty line at
+0, bullet at 0, ordered list at 0, repeated Tab tracking forward on every
+press, non-zero caret positions unaffected, Shift-Tab unaffected at and
+inside the dedented run, and a multi-range/multi-line selection mapping
+every touched range's own edges correctly) and live in the actual
+Clutter webapp (typed probe characters immediately after Tab, at each of
+the same positions, landing exactly where the fix predicts).
+
+**Why this matters for future numbered/task-list work**: any future
+list-kind-specific Tab/Enter/Backspace work that dispatches its own
+transaction with `changes` inserting at a caret's own position inherits
+this same default-mapping hazard unless it also sets an explicit
+`selection` (or reuses `markdownIndentKeymap.ts`'s pattern above). This
+is not a list-specific fix — it is a generic CM6 selection-mapping rule
+this codebase must apply at every call site that inserts text exactly at
+a collapsed caret's position, list or not.
+
 ### Current actual state: `#1` is enabled, in its simplified (uniform, non-construct-aware) form
 
 To directly answer the phrasing in the request: the "dedicated list
@@ -1329,6 +1720,98 @@ itself was **not deleted** — it remains in active use by two Backspace/
 Enter-adjacent handlers (§6, §8) that have a genuinely different need
 (classifying one specific line for a narrow guard, not indenting a whole
 selection).
+
+### PENDING ADDENDUM (approved direction, 2026-08-29 — NOT YET IMPLEMENTED): ordered-list Tab/Shift-Tab normalization
+
+**This is a decision about future scope, recorded here so §9's own
+"uniform, construct-agnostic, whitespace-only" statement above is never
+read as still-unconditionally-true without this qualifier once the
+addendum ships.** Nothing below is implemented. `computeIndentChange`/
+`lineIndentChange` are untouched and remain exactly as documented above,
+with no changed behavior for the addendum to have shipped yet.
+
+**The approved direction** (superseding §14.4's three-option framing —
+see §14's own update below): if Clutter ever implements ordered-list
+renumbering on Tab/Shift-Tab, it must **not** be "when an item becomes
+newly nested, set its number to `1`." A structural move can affect two
+distinct ordered-list runs at once — the list the item **left** (needs
+its remaining sequence closed up) and the list it **joined** (which may
+already have its own existing items, in which case the moved item should
+continue that sequence, not restart it at `1`). The architecture, when
+built, is two-phase:
+
+1. **Phase A — unchanged.** `computeIndentChange`'s existing leading-
+   whitespace-only edit runs exactly as it does today. This function is
+   never modified by the addendum.
+2. **Phase B — provisional post-indent state.** Before dispatching,
+   build the state Phase A's change would produce (`state.update({
+   changes })`, not yet dispatched) and read its `syntaxTree` — never
+   the pre-edit tree, per this document's own repeated "the parser is
+   stateless, ask it after the edit, never predict structure ahead of
+   it" principle (§1, §7, §9's own text above).
+3. **Detect actual `OrderedList` membership change.** For every
+   explicitly-touched ordered-list item, compare its `OrderedList`
+   ancestor identity in the pre-edit tree against the provisional
+   post-edit tree (positions mapped forward through Phase A's own
+   `ChangeSet` via `mapPos`, confirmed available on the installed
+   `@codemirror/state@6.7.1`). Only a genuine membership change —
+   never merely "the line's leading whitespace changed" — triggers
+   Phase C. A Tab that doesn't yet cross the nesting threshold (§14.9's
+   own measured windows) must produce zero numbering side effects.
+4. **Phase C — conservative normalization, only when Phase B detects a
+   real change.** Normalizes **both** the source run (closing the gap
+   left behind) and the destination run (continuing its existing
+   sequence if one exists, starting at `1` only if the destination is a
+   genuinely new list). Mirrors `renumberList`'s own conservative
+   policy (§14.1): only an already-sequential run is shifted; a
+   deliberately irregular sequence (`1, 7, 42`) is never "repaired."
+   Delimiter (`.` vs `)`) is preserved, never rewritten. Digit-width-
+   changing rewrites for an item that owns descendant content are
+   **deferred** pending the boundary-safety investigation this same
+   session opened as a separate, prerequisite bug (see §14's update and
+   "the Enter/`renumberList` digit-width corruption bug" below) — the
+   addendum must not ship before that prerequisite is resolved, since
+   Phase C's own normalization writes are exactly the kind of edit that
+   bug demonstrates can corrupt structure if unguarded.
+5. **Phase D — one transaction.** Phase A's `ChangeSet` and Phase C's
+   normalization `ChangeSet` (computed against the Phase B provisional
+   *document*, not the original) are combined via `ChangeSet.compose`
+   (confirmed present and semantically exact for this — "if `this` goes
+   docA→docB and `other` represents docB→docC, the result represents
+   docA→docC," read directly from `@codemirror/state`'s own source) and
+   dispatched as a single transaction — one undo step for both the
+   indentation and the renumbering, a direct consequence of composing
+   before dispatch rather than dispatching twice.
+
+**Explicitly not a justification for this addendum**: portability to
+strict CommonMark. An earlier draft of this document's own §14.2
+overstated "a nested item reading `2.` is a valid list starting at 2" as
+if renumbering to `1` would make Clutter's output more spec-compliant.
+Verified directly against the installed parser this session: a nested
+ordered list interrupting its parent's own open paragraph — the exact
+shape a newly-Tab-nested item produces — accepts **any** starting number
+without a blank line, not just `1` (`"1. A\n   5. B"` nests exactly like
+`"1. A\n   2. B"`); only a *top-level* paragraph interruption requires
+`1` in Clutter's own configured `@lezer/markdown@1.7.2`. Whether strict
+CommonMark's spec text extends the same top-level-only restriction to
+nested contexts was not conclusively established (a spec lookup
+returned an unsupported claim either way) — but it doesn't matter for
+Clutter's own purposes regardless: **the parser Clutter actually ships
+already accepts a non-`1`-starting nested list**, so renumbering is a
+pure editor-UX/product-policy decision, never a correctness fix, and
+must not be described as one anywhere in this document going forward.
+
+**Test/verification requirements, when built** (not exhaustive, see
+§14's own updated test-matrix pointer): already-sequential destination
+continues correctly; existing destination children are never
+renumbered to collide with the moved item; source run closes its own
+gap; deliberately irregular numbering is left alone; `.`/`)` preserved;
+multi-line Tab (several items moved at once) normalizes the whole
+affected run, not just one item; Shift-Tab uses the *same* normalization
+planner as Tab (not a separate, ad-hoc inverse algorithm); mixed bullet/
+ordered nesting only ever normalizes the ordered side; undo/redo revert
+the whitespace and numbering changes together, as the single composed
+transaction guarantees for free.
 
 ---
 
@@ -1949,6 +2432,924 @@ mirroring the bullet case.
 
 ---
 
+## 14. Ordered-list Tab nesting and renumbering — INVESTIGATED, NOT YET DECIDED, NOT IMPLEMENTED (2026-08-29)
+
+**Status: investigation only.** Nothing in this section is implemented.
+No code changed as part of this investigation. This section exists so a
+future decision is made from recorded facts, not re-derived or guessed.
+
+### 14.0 The premise needs a correction first
+
+The scenario as commonly described — "Tab the second item, it becomes
+nested under item 1 but keeps its old number" — is **not quite what
+happens with a single Tab press** for a single-digit-numbered parent.
+Verified directly against the installed parser, through the exact
+production `markdownLanguageExtension()` config (not just the bare
+grammar):
+
+```
+"1. Text\n  2. Text"   (ONE Tab = 2 spaces, Clutter's INDENT_STEP_SPACES)
+```
+
+parses as **two sibling `ListItem`s in the same top-level `OrderedList`**
+— `"  2. Text"`'s own `ListMark` is still a direct child of the
+*original* list, not a new nested one. The 2-space indent is real (it
+renders visually shifted right, via the construct-agnostic
+`leadingIndentDecoration.ts`), but it does **not** cross CommonMark's own
+nesting threshold for a `"1. "`-prefixed parent, which requires the
+continuation line's indent to reach the parent's own content column —
+`3` for `"1. "` (2-char marker + 1-char separator). Only a **second** Tab
+(4 spaces) crosses that threshold and produces genuine structural
+nesting — confirmed:
+
+```
+"1. Text\n    2. Text"   (TWO Tabs = 4 spaces)
+```
+
+parses as `OrderedList > ListItem("1. Text") > OrderedList > ListItem("
+2. Text")` — a real nested list, one child, with one stray leading space
+inside it (` 2. Text` — harmless, the same kind of "indentation slop"
+already tolerated elsewhere in this document, e.g. §9's own
+`resolveLineIndentContext`/Tab model).
+
+**This is itself a related, separate, pre-existing gap, not something
+this investigation introduces**: Clutter's Tab step (`INDENT_STEP_SPACES
+= 2`, §9) is a flat, construct-agnostic 2 spaces per press, chosen
+deliberately over a construct-aware/marker-width-aware indent (§9's own
+"investigated and rejected" construct-aware `markdownIndentContext.ts`
+predecessor). For **bullets**, this happens to work perfectly in one
+press, because a bullet's own content column (`"- "` = 2 chars) exactly
+equals `INDENT_STEP_SPACES` — confirmed: `"- Text\n  - Text"` (one Tab)
+nests immediately. For **ordered markers**, the content column varies
+with digit count (`"1. "` = 3, `"10. "` = 4, `"100. "` = 5) and is never
+equal to the flat 2-space step, so the number of Tab presses needed to
+actually nest an ordered item is **inconsistent and marker-width-
+dependent** — 2 presses for `"1."`–`"9."`, exactly 2 presses for `"10."`–
+`"99."` (4 spaces happens to equal that content column exactly), 3
+presses for `"100."`–`"999."`, and so on. This inconsistency exists
+**independently of the renumbering question** and is not fixed or
+addressed by any renumbering decision — flagging it here so it isn't
+conflated with, or mistaken for evidence about, the renumbering question
+itself.
+
+The renumbering question below is therefore precisely scoped to: *once
+enough Tab presses have crossed the nesting threshold and a line's own
+`OrderedList` has become a new, genuinely nested list, should its sole
+(or first) item's literal number be rewritten to reflect its new
+position?* — not to "does Tab visually indent the line" (it always
+does, correctly, per §9, regardless of nesting).
+
+**§14.9–§14.16 (below, after §14.8) is a follow-up investigation session
+that goes much deeper into exactly this "when does Tab genuinely create
+nesting" question — the precise CommonMark rule, the exact measured
+threshold for every marker width, a newly-discovered corruption-adjacent
+edge case for 3+ digit markers, the three-concepts distinction the
+renumbering discussion above only touches briefly, and an explicit,
+undecided architecture question about whether §9's uniform-2-space
+contract itself needs revision.** Read that section for the full,
+citation-backed answer; §14.0's own summary above remains accurate but
+is superseded in precision by §14.9's measurements.
+
+### 14.1 Does CM6 / `@codemirror/lang-markdown` have built-in support for this?
+
+**No — for Tab specifically. Yes, but unrelated, for Enter.**
+
+Confirmed by reading the installed `@codemirror/lang-markdown` source
+directly (`node_modules/@codemirror/lang-markdown/dist/index.js`):
+
+- A `renumberList(after, doc, changes, offset)` function exists (line
+  163) — it rewrites the literal digit run of every `ListItem` following
+  a given node, so that each is the previous one's number + 1. It is a
+  real, precedent-setting example of an upstream editing command
+  legitimately rewriting ordinal digits as a side effect of maintaining
+  a consistent sequence.
+- It is called from exactly **three** sites, **all inside
+  `insertNewlineContinueMarkupCommand`** (the Enter command, already
+  wired as `continueMarkup` in `markdownEnterKeymap.ts`) — never from any
+  indent-related code path. `@codemirror/commands`' own generic
+  `indentMore`/`indentLess` (which Clutter doesn't even use — it has its
+  own `markdownIndentKeymap.ts`) have no Markdown awareness at all, let
+  alone renumbering.
+- `deleteMarkupBackward` (Backspace, also read directly) never calls
+  `renumberList` either.
+
+**Conclusion**: CM6 has zero built-in renumbering tied to indentation
+changes. The only renumbering CM6 does is Enter-triggered, and Clutter
+already inherits that behavior for free (§13.6) without having written
+any renumbering code of its own. If Tab-triggered renumbering is wanted,
+Clutter would have to build it — there is no upstream primitive to
+delegate to, though `renumberList`'s own approach (regex-extract the
+digit run via `itemNumber`, replace with a computed value) is a proven,
+reusable *pattern* even though the function itself isn't exported for
+reuse (`itemNumber`/`renumberList` are both module-private in
+`@codemirror/lang-markdown`'s bundle — confirmed via the package's
+public `export` list, which only exposes `commonmarkLanguage,
+deleteMarkupBackward, insertNewlineContinueMarkup,
+insertNewlineContinueMarkupCommand, markdown, markdownKeymap,
+markdownLanguage, pasteURLAsLink`).
+
+### 14.2 What does CommonMark semantics actually say?
+
+CommonMark does not require, recommend, or even discuss renumbering on
+indentation change, because it has no concept of "indenting an existing
+item" as an operation at all — it only defines how to parse whatever
+literal text exists. What CommonMark *does* define, confirmed directly
+against the parser (§13.1's own methodology, re-applied here):
+
+- **A list's "start" is whatever number its first item literally has.**
+  No renumbering, ever, by the parser, regardless of context — confirmed
+  repeatedly in this document (§13.1's `"5. A\n5. B\n5. C"` finding, and
+  directly here: a nested list whose sole item reads `"2."` is, per
+  CommonMark, a real, valid list starting at 2 — if rendered to real
+  HTML by a spec-compliant renderer, `<ol start="2">`, not `<ol
+  start="1">`. Renumbering it to `1` on nesting is a *Clutter UX
+  decision*, not a CommonMark correctness requirement, and — if
+  implemented — would produce a **different serialized document** than a
+  strict CommonMark round-trip would produce, in exchange for a UX
+  convenience.
+- **Changing delimiter style starts a new list.** `"1. A\n2) B"` parses
+  as two separate `OrderedList`s (confirmed directly) — not relevant to
+  the renumbering question itself, but confirms delimiter style (`.` vs
+  `)`) is exactly as literal/preserved as the digits are.
+- **Repeated/non-sequential numbers are always valid** at any nesting
+  depth — `"1. First\n1. Text"` (two literal `"1."`s at the same top
+  level, e.g. the result of nesting-in-then-dedenting-without-
+  renumbering) is confirmed to parse as two ordinary sibling `ListItem`s,
+  not an error, not a merge, not a warning condition of any kind.
+- **A nested list interrupting its parent's own open paragraph accepts
+  any starting number, not just `1`** — confirmed directly this session,
+  correcting an earlier, over-general reading of "list interrupting a
+  paragraph must start at 1": `"1. A\n   5. B"` nests exactly like
+  `"1. A\n   2. B"` (no blank line needed either way) in Clutter's
+  installed `@lezer/markdown@1.7.2`. Only a **top-level** paragraph
+  interruption enforces the "must start at 1" rule (`"Text\n5. Item"`
+  stays a single `Paragraph`, no list; `"Text\n1. Item"` does interrupt).
+  A CommonMark spec lookup on whether the strict spec text extends this
+  restriction to nested contexts too returned an unsupported/uncertain
+  answer either way — irrelevant regardless, since **the parser Clutter
+  actually ships already accepts the non-`1` nested case**, so no
+  "portability to strict CommonMark" argument for renumbering survives
+  this check: renumbering `2.`→`1.` on nesting would not fix a
+  Clutter-parser compliance gap (there isn't one), only serve a UX
+  preference. Any future proposal for the addendum above must not cite
+  spec-portability as its justification.
+
+**Conclusion**: nothing in CommonMark recommends the behavior the
+original request wants. It is a reasonable *editor UX* convention (many
+outliner-style editors visually restart nested numbering at 1), but it
+is not a Markdown-semantics recommendation, and literal preservation
+(Clutter's current behavior) is, if anything, the more strictly
+CommonMark-faithful choice — this document takes no position on which
+is more "correct" for Clutter's product, only that the two are
+genuinely different values (interop fidelity vs. editor UX convention),
+not a right-answer-vs-bug situation.
+
+### 14.3 What does Clutter currently do?
+
+Exactly what §9 already documents, unchanged: Tab (`lineIndentChange`)
+computes and dispatches **only** `{ from: line.from, to: leadingEnd,
+insert: ' '.repeat(target) }` — a pure leading-whitespace edit, for every
+touched line, with zero syntax-tree awareness beyond
+`resolveLineIndentContext`'s per-line classification (which doesn't
+even feed into the indent computation itself for `list`/`paragraph`
+lines — see `computeIndentChange`). It never inspects, computes, or
+writes anything about a marker's own digits, for bullets or ordered
+markers alike, and never has. There is no existing partial
+implementation, no dormant code path, nothing "almost there" — the gap
+is total, by original design (§9's own explicit, tested, Locked
+decision to keep Tab construct-agnostic).
+
+Concretely, for the exact scenario in the original request (confirmed
+live, in the running Clutter webapp, via real keystrokes, not just the
+parser probe above): typing `1. Text`, Enter, `Text` (continues as `2.`
+via upstream auto-increment, §13.6), then two Tab presses on that second
+item produces `1. Text` / `    2. Text` (4-space indent, genuinely
+nested per §14.0, digits untouched) — the marker renders as `2.` inside
+its own new nested list, exactly as the raw document text says, with no
+special-casing anywhere in the render or edit path.
+
+### 14.4 Recommended behavior — options, not a decision (SUPERSEDED — see §9's own "Pending addendum")
+
+**Status update (2026-08-29): a direction has since been approved** —
+recorded in §9's "PENDING ADDENDUM" subsection above, not implemented
+yet. That direction is a genuine fourth option, not a selection among
+A/B/C below: normalize **both** the source and destination `OrderedList`
+runs a structural move actually affects (never just "set the moved item
+to `1`," which B/C both still frame too narrowly — see §9's own addendum
+for exactly why "existing destination children" and "the source list's
+own gap" both need handling). The three options below are kept, unedited,
+as the historical record of what was considered before that direction
+was chosen — not because they're still live alternatives.
+
+This document does not pick one; that is a product decision outside an
+architecture investigation's scope. Recorded here so the decision, when
+made, can cite this section rather than re-deriving it:
+
+- **Option A — do nothing (status quo).** Literal preservation, matching
+  every other "never invent content the user didn't type" rule in this
+  entire document (§1, §7, §9, §12, §13.6). Cheapest, zero new risk,
+  most CommonMark-round-trip-faithful. Cost: the nested item visually
+  reads a number that doesn't match "first item of a list" convention,
+  which is the exact discomfort the original request raises.
+- **Option B — renumber the newly-nested first item to `1` on the Tab
+  press that actually crosses the nesting threshold.** Addresses the
+  original request literally. Requires Tab to write outside the leading-
+  whitespace range for the first time ever (§14.5) and raises the
+  symmetric Shift-Tab question (§14.6) and the multi-item-nested-at-once
+  question (§14.7) that Option A doesn't have to answer.
+- **Option C — renumber the whole newly-nested run relative to a new
+  start of `1`,** not just a single fixed item, to also handle the case
+  where *multiple* consecutive items are indented together in one
+  multi-line Tab press (e.g. selecting `"2. B"`+`"3. C"` under `"1. A"`
+  and Tabbing both at once) — a strict superset of Option B's scope, and
+  the only one of the three that stays internally consistent for that
+  case without a second, separate mechanism.
+
+No sub-recommendation between B and C is made here without a product
+decision on whether multi-line Tab is a case worth handling for this
+specifically (§14.7) — flagged as the deciding factor, not resolved.
+
+### 14.5 Does source modification violate Clutter's Tab architecture?
+
+**At the level of "may any Clutter command write computed/derived digit
+text into `state.doc`" — no, there is precedent and no blanket
+prohibition.** Enter's own upstream `renumberList` behavior (§14.1),
+which Clutter has knowingly kept wired and unmodified since the original
+bullet-work sessions, already establishes that a list-editing command
+legitimately computing and writing ordinal digits — not literally typed
+by the user in that exact position — is accepted, working behavior in
+this codebase today. §13.6 already documents and accepts this
+distinction for Enter without treating it as a violation of "Markdown
+source is canonical."
+
+**At the level of "does this violate Tab's own specific, tested,
+Locked contract" — yes, this would be a genuine, deliberate expansion,
+not a small tweak.** §9 is explicit and repeatedly reinforced throughout
+this document:
+
+> "This function only ever computes and returns a change for the *one*
+> line it was called with... List hierarchy... is a consequence the
+> parser derives from the resulting source on the next reparse, not
+> something this function tracks, preserves, or requires."
+
+and the test matrix backing §9 (`markdownIndentKeymap.test.ts`) asserts,
+line by line, that every Tab/Shift-Tab change is exactly one `{from,
+to, insert}` triple bounded to `[line.from, leadingEnd)`. A renumbering
+feature would need to dispatch a **second, distinct change range**
+(the marker's own digit run, well past `leadingEnd`) in the same
+transaction — a change Tab has never made, in any form, at any point in
+this document's history, including the earlier, more construct-aware
+`markdownIndentContext.ts` predecessor that §9 itself records as
+"investigated and rejected" (that predecessor, even at its most
+construct-aware, only ever computed indentation *position*, never wrote
+to a marker's own text — this would go further than that rejected
+version ever did).
+
+**Conclusion**: implementing Option B or C is not blocked by any
+absolute "never write to `state.doc` beyond whitespace" rule (no such
+absolute rule exists in this codebase — Enter already disproves it), but
+it does require deliberately, explicitly amending Tab's own specific,
+tested, Locked contract in §9 — which this document's own operational
+process (`docs/implementation-rules.md`) treats as exactly the kind of
+change that needs a stated, explicit decision before implementation,
+not a silent patch (§9's own contract is exactly the kind of "frozen
+architectural invariant" `implementation-rules.md`'s Failure Conditions
+section names as a stop-and-escalate trigger, not a judgment call to
+make silently while implementing something else).
+
+### 14.6 The Shift-Tab symmetric question (only relevant if B/C is chosen)
+
+If a Tab-triggered renumber-to-`1` were implemented, dedenting that same
+item back out (Shift-Tab) merges it back into its parent's own list as
+an ordinary sibling. Confirmed directly: `"1. First\n1. Text"` (two
+literal `"1."`s at the same top level — the exact shape produced by
+dedenting a renumbered item without a matching Shift-Tab-side fix) is
+valid CommonMark, parses as two ordinary sibling `ListItem`s, no error —
+so nothing *breaks*, but the result is a numerically nonsensical
+document (two first items) unless Shift-Tab also renumbers on the way
+out (to, e.g., "previous sibling's number + 1", mirroring
+`renumberList`'s own logic). **Not investigated further than this
+structural confirmation** — whether this symmetric fix is required, or
+whether Option A's "leave it as literal, cosmetic-only" tolerance
+extends to this case too, is unresolved and explicitly deferred to
+whichever decision resolves §14.4.
+
+### 14.7 Multi-line Tab (only relevant if B/C is chosen)
+
+Tab already supports indenting several explicitly-selected lines at once
+(§9, tested extensively for bullets). If two or more consecutive ordered
+items are selected and Tabbed together, they'd become several sibling
+items in one new nested list (not one lone item) — Option B's "renumber
+the one item" framing doesn't naturally cover this case; Option C's
+"renumber the whole newly-nested run" does. **Not investigated
+empirically in this session** (no probe run for this specific multi-line
+shape) — flagged as a design question the eventual implementation must
+resolve, not a confirmed parser fact like the rest of this section.
+
+### 14.8 Smallest clean architecture, if B or C is chosen (design sketch only — not implemented)
+
+Recorded so a future implementation starts from an evaluated shape
+rather than a blank page, consistent with this document's own
+established pattern (e.g. §6's Enter handlers, §8's Backspace handler)
+of "guard narrowly, compute from the post-edit tree, never assume
+structure ahead of the parser":
+
+1. **Compute today's whitespace-only change exactly as `lineIndentChange`
+   already does** — no change to that step.
+2. **Determine the post-edit tree before dispatching, not by
+   pre-computing structure from the pre-edit tree.** This document's own
+   repeated, hard-won lesson (§1, §7, §9: "a structural fact about a
+   document must not depend on how it was typed... the parser is
+   stateless... indentation is derived from the resulting source on the
+   next reparse") applies exactly here: whether a given Tab press
+   actually crosses the nesting threshold for *this specific* marker
+   width can only be known by asking the parser against the *prospective*
+   post-whitespace-change document, never by computing it analytically
+   from `getBulletMarkRange`/the ordered equivalent's own content-column
+   math ahead of time — the same class of bug this whole document
+   spent enormous effort avoiding elsewhere (§1's "why we do not modify
+   Lezer/parser behavior," §7's rejection of typing-time interception).
+   Concretely: build a candidate `EditorState` (or reuse
+   `tr.state`/`state.update` against just the whitespace change) and read
+   `syntaxTree` off *that*, not the original.
+3. **Guard narrowly**: only consider a line whose own `ListMark` is
+   `OrderedList`-parented, and only fire when the post-edit tree shows
+   that `ListItem` is now the **first child** of an `OrderedList` that
+   did not exist (at that position, wrapping that item) before this
+   specific transaction — i.e., genuinely newly created by this Tab
+   press, not an already-nested item being indented one level deeper
+   inside an already-existing nested list (which should never be
+   renumbered — it already has a legitimate position in an existing
+   sequence).
+4. **Reuse `itemNumber`-style regex extraction** (`/^(\s*)(\d+)(?=[.)])/`,
+   matching `@codemirror/lang-markdown`'s own private helper's shape,
+   confirmed via source reading in §14.1) to locate exactly the digit
+   run to replace — never assume a fixed offset/width, since `"1."` vs
+   `"10."` vs `"100."` have different digit-run lengths.
+5. **Combine both changes into one `state.update({ changes: [...] })`
+   and dispatch once** — a single undo step covering both the
+   indentation and the renumbering, not two separate transactions (which
+   would double the undo-history entries for what is conceptually one
+   user action, breaking the "one Tab press = one undo step" expectation
+   §9's own test matrix already locks in for the whitespace-only case).
+6. **This is a genuinely new Tab code path, not a `computeIndentChange`
+   tweak** — `computeIndentChange`'s own contract (single line, single
+   change, whitespace-only, confirmed by its own doc comment and return
+   type) should stay exactly as it is; a renumbering feature is an
+   additional, separate step layered after it, not a modification to it,
+   so that every existing caller/test of `computeIndentChange` itself
+   remains completely unaffected regardless of whether renumbering ships.
+7. **Before writing any of this**, per §14.5's own conclusion: amend
+   §9's stated contract explicitly (a short, dated addendum recording
+   the decision and its scope — mirroring how §13.5 recorded the
+   Backspace-symmetry decision), so `docs/implementation-rules.md`'s own
+   "preserve every public contract... unless the specification itself is
+   amended first" rule is satisfied before, not after, implementation.
+
+None of the above has been built. This is a design sketch for a
+decision that has not yet been made (§14.4).
+
+### 14.9 CommonMark's exact rule for the required indentation — INVESTIGATED, cited against the primary spec
+
+Two genuinely separate CommonMark rules govern the shapes probed in this
+follow-up investigation, confirmed both empirically (a fresh set of
+parser probes, swept exhaustively per marker width) and against the
+CommonMark spec (v0.31.2) text directly, not from memory:
+
+- **Rule #4 ("Indentation")**: a list marker itself may be preceded by
+  **up to three spaces** and still start a valid new item — "the result
+  of preceding each line of *Ls* by up to three spaces of indentation...
+  also constitutes a list item with the same contents and attributes."
+  This is an **absolute cap of 3, independent of the parent's own marker
+  width** — it governs how much a *new* marker line may be indented and
+  still be recognized as starting a fresh item (a sibling, if it's
+  immediately after another item of the same list; a wholly separate new
+  list if the marker kind/delimiter differs — §13.1, §14.10).
+- **Rule #1 ("Basic case")**: a list marker of width *W* (the marker's
+  own characters — `"1."` → *W*=2, `"10."` → *W*=3, `"100."` → *W*=4;
+  confirmed this is character count of the marker glyph run only, not
+  including the separator) followed by 1–4 spaces of indentation *N*
+  requires continuation content to be indented by *W + N* spaces to
+  remain **inside** that item as a nested block. The practical minimum
+  (one canonical separator space, *N*=1) is *W*+1 — confirmed empirically
+  to match this document's own "content column" (§1, §2): 3 for `"1. "`,
+  4 for `"10. "`, 5 for `"100. "`.
+- **Rule #5 ("Laziness")**: once a paragraph is open inside a list item,
+  a following line may have **less** indentation than the item's own
+  required column and still be treated as plain continuation text of
+  that open paragraph (not a new block, not list-structured, not
+  requiring any particular indentation at all) — this is the exact
+  mechanism behind the "gap" phenomenon in §14.11 below, not a special
+  case invented by this investigation.
+
+**The two thresholds (0–3 for a new marker, ≥*W*+1 for nested content)
+are independent numbers that do not always meet.** For `"1."`/`"10."`
+(*W*+1 = 3 or 4), they're adjacent or overlapping — every indentation
+amount is classified as either "new sibling" or "nested," with no gap.
+For `"100."` and wider (*W*+1 ≥ 5), there is a **real gap**: indentation
+amounts from 4 up to *W* (exclusive of the nesting threshold) are
+**neither** a valid new sibling **nor** nested content — Rule #5's
+laziness swallows them into the *preceding* item's own open paragraph
+instead. See §14.11 for the measured boundaries per marker width and why
+this matters concretely for Clutter's own 2-space Tab step.
+
+### 14.10 `@lezer/markdown` parsing of the requested probe matrix — IMPLEMENTED + VERIFIED (fresh probes, this session)
+
+All probes run against the exact production `markdownLanguageExtension()`
+grammar for the earlier, single-shot cases and the bare `markdown({
+addKeymap: false })` config (equivalent for this purpose — §13.1 already
+established Clutter's custom extensions never touch list-nesting
+mechanics) for the exhaustive sweeps below, since a fresh, targeted
+throwaway script is easier to sweep with the bare config and the two are
+confirmed identical for every list-related case tested throughout this
+document.
+
+**`1. A` → indent `2. B`, swept 0–8 spaces** (content column 3):
+
+| Spaces | Result |
+|---|---|
+| 0–2 | Sibling `ListItem` in the same top-level `OrderedList` (within Rule #4's 0–3 tolerance) |
+| 3–6 | Genuinely nested: new child `OrderedList` inside item 1, sole item `"2. B"` (content column 3, tolerance window extends to column+3 = 6) |
+| 7+ | Lazy-continuation: `"2. B"` is swallowed as literal text of item 1's own `Paragraph` (`"A\n       2. B"`) — no `ListItem`, no `ListMark`, for the second line at all |
+
+**`10. A` → indent `2. B`, swept 0–9 spaces** (content column 4):
+
+| Spaces | Result |
+|---|---|
+| 0–3 | Sibling (within the 0–3 tolerance) |
+| 4–7 | Nested (content column 4, window extends to 7) |
+| 8+ | Lazy-continuation |
+
+**`100. A` → indent `2. B`, swept 0–10 spaces** (content column 5) — **this is where the two thresholds stop meeting**:
+
+| Spaces | Result |
+|---|---|
+| 0–3 | Sibling (the 0–3 tolerance is unchanged — absolute, not scaled to marker width) |
+| **4** | **Neither** — lazy-continuation of item 1's paragraph (`"A\n    2. B"`), confirmed directly: `listItemCount` drops from 2 to 1, the second line's own `"2. B"` text is absorbed with zero list structure of its own |
+| 5–8 | Nested (content column 5, window extends to 8) |
+| 9+ | Lazy-continuation again |
+
+**`1000. A`/`10000. A`, swept for confirmation** (content columns 6, 7): the gap widens exactly as predicted by Rule #4's fixed 3-space cap vs. Rule #1's marker-width-scaled column — gap = `[4, contentColumn − 1]`, width = `contentColumn − 4`. Confirmed: 2 gap positions (4–5) for `"1000."`, 3 gap positions (4–6) for `"10000."`. **This gap exists for every marker with 3 or more digits** (content column ≥ 5, i.e. numbers 100 and above) — not a corner case limited to one specific width.
+
+**Nested ordered → bullet** (`"1. A"` + indented `"- B"`, content column 3): identical threshold to same-kind nesting — 0–2 spaces stays a **wholly separate, independent top-level `BulletList`** (not a sibling within the `OrderedList` — different marker *kind* never produces a same-list sibling, confirmed distinctly from the same-kind case, matching §13.1's "changing delimiter starts a new list" finding generalized one step further: changing *kind* does too, unconditionally, at any under-indentation); 3+ spaces nests the bullet inside item 1's `OrderedList` `ListItem`, same mechanism, same threshold, only the child's own node names differ (`BulletList`/`ListItem`/`ListMark` "-" instead of `OrderedList`/`ListItem`/`ListMark` "2.").
+
+**Nested bullet → ordered** (`"- A"` + indented `"1. B"`, content column 2): symmetric — 0–1 spaces produces a separate top-level `OrderedList` (not a "sibling" of the bullet item, since bullets have no numbered-sibling concept and different kinds never share a list regardless); 2+ spaces nests.
+
+**Conclusion**: the nesting threshold is governed **entirely by the parent item's own content column** (Rule #1, *W*+*N*) regardless of what kind of marker the child uses — mixing kinds changes what happens on *under*-indentation (a wholly separate list, not a sibling) but not the *nesting* threshold itself, which is identical to the same-kind case.
+
+### 14.11 `@codemirror/lang-markdown`'s own indentation logic — INVESTIGATED, read directly from the installed source
+
+Confirmed by reading `node_modules/@codemirror/lang-markdown/dist/index.js` directly (not inferred from behavior):
+
+- The grammar registers exactly **one** `indentNodeProp` entry:
+  `indentNodeProp.add({ Document: () => null })`. There is **no**
+  per-node indent computation for `ListItem`, `OrderedList`, or
+  `BulletList` anywhere in the package. This is the generic CM6
+  `getIndentation()` facet (what `indentOnInput`/`insertNewlineAndIndent`
+  would consult for automatic "match the context" indentation) — for
+  Markdown, it is a blank slate beyond "Document itself has no opinion."
+  Clutter doesn't rely on this facet at all (`markdownIndentKeymap.ts`
+  and `markdownEnterKeymap.ts` fully replace the relevant default
+  bindings — already documented in §6/§9), so this absence has zero
+  practical effect on Clutter today, but it does definitively answer
+  "does upstream provide an indent-service Tab could consult": no.
+- The **actual** required-content-column computation lives in a
+  module-**private** `Context` class and its `getContext()` function
+  (already read in full during the §13/§14 investigation) — `Context.to`
+  is exactly the content-column position, computed via a per-line regex
+  match (`/^( *)\d+([.)])( *)/` for ordered, a parallel one for bullets)
+  against that specific line's own text. This is used **only** by
+  `insertNewlineContinueMarkupCommand` (Enter) and `deleteMarkupBackward`
+  (Backspace) — never by any indent-command path, confirmed by grep
+  (§14.1 already established `renumberList`'s call sites are Enter-only;
+  the same is true of `Context`/`getContext` more broadly — every call
+  site is inside those same two exported commands).
+- **Neither `Context` nor `getContext` is exported** from the package
+  (confirmed against its public `export` list, §14.1) — there is no way
+  for Clutter to import and reuse lang-markdown's own private
+  implementation even if it wanted to; any reuse has to be an
+  independent reimplementation, not a shared import.
+
+### 14.12 Does CM6 have a reusable "required content column" concept?
+
+**Not as a ready-made indent-service API a Tab command could simply
+call.** But the *information* is fully derivable, and — critically —
+**Clutter already derives and has it**, independently of
+`lang-markdown`'s own private `Context` class: `getListMarkRange(node,
+state)` in `listMarkerDecoration.ts` (§2, generalized to ordered markers
+in §13) returns exactly `{ from, to }` where `to` **is** the content-
+column position for that specific `ListItem` — the same value
+`lang-markdown`'s own `Context.to` computes, arrived at independently
+(via the syntax tree's own `ListMark`/`nextSibling` boundary, not a
+regex re-scan of the line text the way `lang-markdown`'s private version
+does it). This is not a duplicate-logic problem in the
+`ARCHITECTURE_RULES.md` rule-5 sense (§13.2 already invokes that rule for
+a different function) — it's two independent implementations of the same
+CommonMark fact, one upstream-private, one already shipped in Clutter's
+own codebase for an unrelated purpose (marker decoration), that happen
+to agree. **If Tab-side nesting-threshold logic is ever built, it should
+call `getListMarkRange(...).to` (minus the line's own `.from`, for a
+column) — not reimplement a third regex, and not attempt to reach into
+`lang-markdown`'s private `Context`, which isn't reachable anyway.**
+
+### 14.13 Three distinct concepts — measured, not conflated
+
+Explicitly separated per the request, because the codebase keeps them in
+three unrelated places today and nothing currently connects any two of
+them:
+
+| Concept | Where it lives | What it actually is | Varies with digit count? |
+|---|---|---|---|
+| **Visual marker-column width** | `MarkdownEditor.css`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker` (§2, §13.4) | A CSS pixel value (`--marker-width`, 20px `width`/`min-width`) — purely a rendering-layer concept, has no relationship to character counts at all | No — it's a floor in *pixels*, not characters; a wide marker's *box* grows (§13.4), but this token itself never changes |
+| **Parser's required content column** | `@lezer/markdown`'s own grammar (structural fact, not Clutter code) + independently computed by `getListMarkRange(...).to` (`listMarkerDecoration.ts`) and by `lang-markdown`'s own private `Context.to` | A **character-count** column on one specific physical line — `marker width (W) + separator width (N, 1–4)`, per Rule #1 (§14.9) | **Yes** — 3 for `"1. "`, 4 for `"10. "`, 5 for `"100. "`, ... |
+| **Tab step size** | `markdownIndentContext.ts`, `INDENT_STEP_SPACES = 2` | Clutter's own arbitrary editing-UX constant — a flat, per-press character count, chosen for uniformity (§9), never read by or connected to either of the other two | No — always exactly 2, by explicit design (§9) |
+
+**Confirmed by tracing, not asserted**: no import, no shared constant, no
+function call connects any two rows of this table today. The CSS token
+(row 1) is consumed only by `MarkdownEditor.css`'s own selectors. The
+content-column value (row 2) is consumed only by
+`listMarkerDecoration.ts`'s decoration/query functions and
+`markdownEnterKeymap.ts`'s Enter/Backspace commands (§6, §8, §13). The
+Tab step (row 3) is consumed only by `markdownIndentKeymap.ts`. Their
+numeric agreement for bullets (row 3's `2` happens to equal row 2's `2`-
+component-of-3... actually row 2 for bullets is content column `2`
+exactly, matching row 3's `2` exactly, §14.0) is coincidence, not a
+designed relationship — there is no code path that would keep them in
+sync if either changed independently (e.g. if `INDENT_STEP_SPACES` were
+ever changed to 3, bullet nesting would *stop* working in one press,
+with nothing in the codebase to notice or warn).
+
+### 14.14 Should the uniform 2-space Tab policy remain completely uniform?
+
+**Findings only — no decision made here, per the request.**
+
+The case *for* keeping it uniform (i.e., Option "leave §9 exactly as-is"):
+§9's own investigation of an earlier, construct-aware
+`markdownIndentContext.ts` predecessor found it "produced byte-identical
+results to plain CM6 `indentMore`/`indentLess` in every tested case
+except two narrow, cosmetic ones," and that a genuinely stronger
+guarantee ("indenting list lines without the parser ever reclassifying
+them") was "found to be not achievable at all while staying valid
+CommonMark." If a future construct-aware Tab redesign is evaluated
+against *that same finding*, it would need to explain why this case is
+different.
+
+**It is different, concretely, and this session's own measurements are
+the evidence**: the earlier rejection predates ordered lists' own
+rendering/editing entirely (§13's own work) and its "bought nothing
+durable" finding was never tested against ordered-marker-width-dependent
+nesting thresholds, because there was no ordered-list feature to test it
+against at the time. This session found two concrete, non-cosmetic
+consequences specific to ordered lists that the earlier investigation
+could not have evaluated:
+
+1. **Inconsistent press-count to reliably nest** (§14.0, §14.10): 2
+   presses for 1–2 digit markers, 3 for 3-digit markers, and so on,
+   unlike bullets' reliable single press.
+2. **A genuine data-shape hazard, not merely a UX inconsistency**
+   (§14.9's Rule #5 gap, §14.10's `"100."`/`"1000."`/`"10000."` sweeps):
+   for any 3+-digit ordered marker, **exactly landing on 2 Tab presses
+   (4 spaces) — Clutter's own step size — silently absorbs the intended
+   child item into the *parent's own paragraph* as plain text**, not
+   merely "fails to nest." The child's own `ListMark`/`ListItem`
+   structure is **destroyed**, not deferred — a user pressing Tab twice
+   on a line under a `"100."`-`"999."` parent does not get "not yet
+   nested, press Tab again" (Option A's implicit assumption); they get a
+   line that is no longer a list item *at all*, merged into the
+   preceding paragraph's own text, until edited back out. This was not
+   previously documented anywhere in this ODR and is a materially
+   different, more severe class of finding than "the numbering is
+   wrong."
+
+Whether finding (2) alone is severe enough to justify revisiting §9's
+uniformity decision specifically for ordered lists (as opposed to, say,
+a narrower fix that only prevents Tab from ever landing exactly in the
+Rule #5 gap, without making Tab fully construct-/width-aware) is the
+open architectural question this section surfaces — not answered here.
+
+### 14.15 UX comparison — A (flat, current) vs. B (nests in one press)
+
+Recorded as a comparison, not a recommendation, per the request:
+
+**A — current, flat 2-space Tab, unaffected by construct**:
+```
+1. Parent
+  2. Child        (after 1 Tab — still a sibling, not nested)
+```
+requires a second Tab (4 spaces total) to actually nest, and — per
+§14.9/§14.10 — for 3+ digit markers, that same second Tab press can
+instead silently destroy the child's own list-item structure (§14.14).
+Consistency: uniform behavior across every construct (§9's own stated
+value), at the cost of ordered lists specifically not behaving the way a
+user pressing Tab once would likely expect (nothing else in this editor
+requires 2 presses to "do the thing Tab visually suggests already
+happened" — the visual indent renders immediately on the first press
+regardless of whether real nesting occurred, which is itself a
+source of the mismatch between what's shown and what's true structurally).
+
+**B — marker-width-aware, nests in exactly one press**:
+```
+1. Parent
+  1. Child        (would need construct-aware step sizing to reach the exact content column in one press — this specific rendering choice is a *renumbering* question, not an indent-mechanics one; the mechanics-only version of "B" would show "2." here, only the *step size* changes, not the digits — see §14.0's own scoping note)
+```
+would require Tab's own step size to vary per line, computed from that
+line's *own governing parent's* content column (via §14.12's
+`getListMarkRange(...).to`) rather than a flat constant — a genuinely
+new, construct-aware code path, not a tweak to `INDENT_STEP_SPACES`'s
+value (raising it to 3 or 4 would fix single-digit ordered lists but
+immediately break bullets' own reliable one-press nesting, since row 3
+of §14.13's table would no longer coincidentally match row 2 for *either*
+kind uniformly). Benefit: Tab always "does what it visually shows" in
+one press, for every marker width, and structurally eliminates the
+Rule #5 gap hazard (§14.14) entirely, since a width-aware step would
+jump directly to the correct content column rather than sweeping through
+the dangerous 4-spaces-exactly case for 3+ digit markers.
+
+### 14.16 Does this violate the existing Tab contract, or does the contract need revision?
+
+This is a **different specific clause** of §9's contract than the one
+§14.5 already examined for renumbering. §14.5 asked "may Tab write
+outside the line's own leading-whitespace range" (relevant only to
+*renumbering*, Option B/C). This section asks a narrower, logically prior
+question: **may Tab's own *step size* — how many spaces one press adds —
+vary by construct or by a specific line's own marker width**, while
+still only ever writing to that line's own leading-whitespace range (no
+digit-rewriting at all, orthogonal to §14.5).
+
+§9 states its contract explicitly: *"every physical document line...
+gets the same `INDENT_STEP_SPACES` (2) added to... its own leading
+whitespace, **independently of every other line and regardless of what
+construct it is** — no paragraph/list/heading/blockquote/code
+distinction, no syntax-tree lookup..."* A Tab whose step size depends on
+whether the touched line sits under an ordered-list parent, and *which*
+ordered marker width that parent has, is **definitionally** a violation
+of "independently of... regardless of what construct it is" and "no
+syntax-tree lookup" — even though it would never touch a byte outside
+the leading-whitespace range (so it does *not* violate the narrower,
+separate "whitespace-only" invariant §14.5 examined). These are two
+independently violable clauses of the same section, and a width-aware
+step size would violate only the first, not the second.
+
+**Conclusion, mirroring §14.5's own structure**: implementing Option B
+of §14.15 is not blocked by any absolute "Tab must never look at the
+syntax tree" rule stated elsewhere in this codebase in general terms —
+`resolveLineIndentContext` (used today, by Tab itself, for
+classification, and by the Enter/Backspace handlers) already does
+syntax-tree lookups from the "Tab-adjacent" code path, so the
+*mechanism* of consulting the tree from indent-related code is not
+itself new or forbidden. What would be new is Tab's own step-size
+computation depending on that lookup's result — a direct amendment to
+§9's own quoted contract sentence above, not an implementation detail
+within it. Per `implementation-rules.md`'s own operational contract, this
+is exactly the shape of change that needs a stated, dated decision (a
+short addendum to §9, analogous to how §13.5 amended the Backspace
+contract) before any code is written — not something to implement as a
+"fix" without first updating the sentence in §9 that the fix would
+otherwise silently contradict.
+
+---
+
+## 15. Existing bug: Enter/`renumberList` digit-width corruption
+
+**Status: confirmed reproduction; full investigation and fix in
+progress (2026-08-29).** This is an **already-shipped defect**, entirely
+separate from the not-yet-built Tab/Shift-Tab normalization addendum
+(§9's "PENDING ADDENDUM", §14) — surfaced as a byproduct of investigating
+that future feature, but present today in code Clutter has never
+modified: upstream `@codemirror/lang-markdown@6.5.2`'s own
+`insertNewlineContinueMarkupCommand` (wired unmodified as `continueMarkup`
+in `markdownEnterKeymap.ts`) and its private `renumberList` helper.
+
+### Confirmed reproduction
+
+```
+Before:  "8. A\n9. B\n   1. Child"     (child correctly nested under "9.")
+
+Press Enter at the end of "A" — ordinary list continuation, no Clutter
+code involved beyond delegating to upstream's own continueMarkup.
+
+After:   "8. A\n9. \n10. B\n   1. Child"
+```
+
+`renumberList` correctly bumps the following sibling's number (`9.`→
+`10.`, to keep the sequence consistent after a new item is inserted
+before it) — but `"10."`'s own content column is one column wider than
+`"9."`'s, and the child's indentation (3 spaces, unchanged) is now
+insufficient. Result, confirmed via direct parse-tree inspection: the
+nested `OrderedList` under item "B" is **destroyed** — `"1. Child"`
+becomes a bare top-level sibling `ListItem` in the same list as A/9/10/B,
+not nested under B at all. Renumbering is a pure text rewrite with zero
+awareness of descendant content; the corruption is an emergent
+consequence of composing that rewrite with Lezer's own (correct,
+unrelated) indentation rules on the next reparse — **not a bug in either
+component individually**, per this document's own established
+methodology for classifying this kind of finding (§14.9's identical
+framing for the Rule #5 laziness "gap").
+
+### Investigation
+
+**How `renumberList` decides when to renumber** (read directly from the
+installed `@codemirror/lang-markdown@6.5.2` source): `itemNumber(item,
+doc)` regex-extracts a leading digit run (`/^(\s*)(\d+)(?=[.)])/`,
+applied to the first 10 characters of the item's own text) and converts
+it through a bare `+match[2]` (`Number(...)`) — **losing any leading-zero
+padding immediately**, before any renumbering decision is even made.
+`renumberList(after, doc, changes, offset)` then walks `after` and its
+`nextSibling`s at the *same tree level only* (never recursing into
+nested lists): the first node is the anchor (its own literal number is
+read but never rewritten); each subsequent sibling is rewritten to
+`String(prev + 2 + offset)` **only if** its own current literal number
+already equals `prev + 1` — the walk stops at the first non-sequential
+sibling it finds, a real, working conservative guard, just one that has
+no concept of "sequential" beyond the bare numeric value and no concept
+of "safe" beyond that.
+
+**When a renumber can cross a digit-width boundary** — confirmed to be
+broader than "crossing a power-of-10 numerically": any rewrite where
+`String(newNumber).length !== oldLiteralDigitRun.length`. Two
+independent causes, both verified directly:
+1. **Numeric boundary crossing** — `9→10`, `99→100`, `999→1000`, all
+   confirmed live with nested content, all three reproducing the
+   identical corruption class.
+2. **Leading-zero padding loss** — `"008."` (4 chars) renumbers to
+   `"9."` (2 chars) even though `8→9` doesn't cross a numeric power-of-10
+   boundary at all. Confirmed live: `"007. A\n008. B\n     1. Child"` (child
+   at the correct 5-space content column for `"008."`, genuinely nested
+   in the pre-edit tree) + Enter after `A` → `"008."` stays literal
+   `"008."` under the shipped fix (protected); without the fix, the same
+   input renumbers to `"9."` and destroys the nested child exactly like
+   the numeric-boundary cases.
+
+**Confirmed present with**: both `.` and `)` delimiters (identical
+corruption, delimiter correctly preserved either way); direct child
+lists; multiple descendants (all flattened together, not just the
+first); multiple nested levels (a child's own grandchild subtree stays
+internally correct but the whole subtree gets dragged to the wrong
+level); multiple following siblings after the boundary (same-width
+siblings past the corrupted one renumber correctly and independently —
+the corruption is isolated to the one item whose width actually
+changed, not "everything downstream"); arbitrary (non-1-based) starting
+sequences (`95→96` crossing to `97` when the parent chain reaches
+3-digit width later behaves identically to a `1`-based sequence — the
+mechanism has no special-case for where a sequence starts).
+
+**Two distinct failure modes**, both confirmed, both explained by this
+document's own already-established indentation-threshold model (§14.9):
+whether a corrupted child gets **flattened to a top-level sibling**
+(`9→10` case: the child's stale indentation now falls within
+CommonMark's 0-3-space "new marker" tolerance relative to the wider
+parent) or **silently absorbed as lazy-continuation text** of the
+renumbered item's own paragraph (`99→100`/`999→1000` cases: the stale
+indentation now lands in the "neither sibling nor nested" gap §14.9
+measured for a different, Tab-driven scenario) depends purely on exactly
+how far short the child's *old* indentation falls of the *new* content
+column — the same formula, not a second mechanism.
+
+**Root cause classification**: confirmed to be an **interaction**, not a
+defect in either component alone. `renumberList` is a pure, correct (by
+its own narrow contract) text substitution with zero knowledge of
+indentation or descendant content. Lezer's own indentation rules are
+separately correct and unrelated to renumbering. The corruption is an
+emergent property of composing them: `renumberList`'s edit lands
+correctly, and Lezer's reparse then correctly (per its own unrelated
+rules) reinterprets a child's already-existing, unrelated-line
+indentation against the *new* width — exactly the same framing this
+document already uses for the Rule #5 "gap" finding in §14.9.
+
+**Shrink direction and the other two call sites**: `renumberList` has
+three internal call sites, all inside `insertNewlineContinueMarkupCommand`
+— the ordinary continuation case investigated and fixed above, plus two
+more inside the "empty item unwinds one level" branch (Clutter's own
+`nonTightLists: false` configuration means this branch always fires on
+an empty-item Enter), one of which passes `offset: -2` (a
+shrink-direction rewrite). All three call the *same* shared function, so
+the identical risk applies to all three by construction — but a clean,
+minimal, independently-confirmed **shrink-specific** corruption
+reproduction proved fiddly to construct this session (every attempted
+construction either didn't actually cross a digit-width boundary, or hit
+`renumberList`'s own pre-existing "stop at first non-sequential number"
+guard for an unrelated reason before reaching a width-crossing rewrite
+at all). This is recorded as a genuine, honest investigation gap — see
+`markdownEnterRenumberGuard.test.ts`'s own closing comment — not papered
+over with an inconclusive test. The shipped fix protects this path
+identically in principle (verified by reading its own implementation:
+it inspects only the final `ChangeSet`, with no branch that inspects
+which internal `continueMarkup` decision produced a given change), just
+not independently confirmed with a passing/failing before-fix
+regression test the way the growth-direction cases are.
+
+**Other Enter cases where renumbering changes the parse tree**: none
+found beyond the three `renumberList` call sites already covered — no
+other Clutter or upstream Enter code path rewrites ordinal digit text.
+
+### The fix
+
+**Smallest safe fix, per the stated constraints (no redesign of Enter's
+list behavior, no wholesale replacement of CM6's renumbering policy, no
+Tab-specific logic, all existing correct behavior preserved)**:
+`continueMarkupPreservingStructure` (`markdownEnterKeymap.ts`) wraps
+`continueMarkup` — it does not reimplement, replace, or second-guess
+`renumberList` in any way. It captures the transaction `continueMarkup`
+would have dispatched (via a substitute `dispatch` that intercepts
+rather than commits it — the same capture-and-inspect technique this
+codebase's own test helpers already use), inspects that transaction's
+own `changes` via `ChangeSet.iterChanges`, and for each individual
+change asks: does this exact `[fromA, toA)` range match some
+`ListMark`'s own digit run (`[marker.from, marker.to - 1)`, confirmed
+exact via `renumberList`'s own position math) in the *pre-edit* tree,
+and does that `ListMark`'s own `ListItem` span more than one physical
+line (a cheap, conservative proxy for "owns descendant content that
+could be indentation-calibrated to the current width" — a single-line
+item, `ListMark` + one short `Paragraph` and nothing else, has nothing
+that could fall out of alignment, so its own digit-width changes are
+always safe regardless of magnitude).
+
+If no such risky rewrite exists among the transaction's changes — the
+overwhelming majority of Enter presses in an ordered list, including
+every ordinary renumber that never crosses a width boundary and every
+width-crossing renumber where the affected item has no descendants —
+the original, unmodified transaction is dispatched exactly as
+`continueMarkup` alone would have produced it. **Byte-identical
+behavior for every case that doesn't hit this specific hazard.**
+
+If a risky rewrite is found, the wrapper drops it and every change after
+it in document-position order (`renumberList`'s own walk is strictly
+position-ascending, so "after" is well-defined) — keeping every edit
+before it exactly as upstream computed — and dispatches a new
+transaction built from that reduced change list. The declined item (and
+any later siblings that depended on its own renumbering continuing) is
+left numerically non-sequential rather than structurally corrupted — a
+deliberate choice, not an oversight: this document's own standing
+principle (§1, §7, §13.6) is "never silently author a document shape the
+user didn't ask for," and a duplicate/non-sequential number is a far
+smaller, purely cosmetic consequence than a destroyed nested list. The
+wrapper makes **no attempt to repair** the resulting numeric gap (e.g.
+via compensating whitespace shifts on descendant lines) — that class of
+fix is exactly the kind of new, deliberately-designed editing behavior
+the ordered-list-normalization addendum (§9/§14) is scoped to consider
+separately, not something to fold into a narrow corruption guard.
+
+The selection position is reused directly from the *original,
+unmodified* transaction's own resolved head (`transaction.state.selection.main.head`)
+— valid for the reduced transaction too, since every dropped change sits
+strictly after that position in the document (renumbering only ever
+touches *later* siblings), so the document up to and including the
+cursor's own resting point is byte-identical between the full and
+reduced versions.
+
+Wired at the same position `continueMarkup` previously occupied in
+`markdownEnterCommand`'s own `||` chain — no other handler in that chain
+is touched, and Tab/Shift-Tab (`markdownIndentKeymap.ts`) and Backspace
+(`deleteBulletMarkerSeparator`) are entirely untouched by this fix.
+
+### Test coverage
+
+`markdownEnterRenumberGuard.test.ts` (new file, 12 tests, all passing):
+the confirmed `9→10`/`99→100`/`999→1000` boundaries with nested children
+(structure survives in every case, verified via `OrderedList` node
+count in the resulting tree, not just document text); paren-style
+markers (structure survives, delimiter never flips to `.`); the
+leading-zero-padding-loss case (verified against a fixture whose child
+is genuinely nested in the *pre-edit* tree — an earlier draft of this
+test used an under-indented fixture that was already lazy-continuation-
+absorbed before any edit, which doesn't exercise the guard at all and
+was corrected once the mistake was caught by a failing assertion, not
+silently adjusted); multiple descendants; multiple nested levels
+(grandchild survives inside its own still-correct child); multiple
+following same-width siblings past the boundary (renumber independently
+and correctly); the safe cases — no width change, no ordered list at
+all (bullets), single-line item with a width change and no descendants
+to protect (still renumbers, matching unmodified upstream exactly),
+plain end-of-list Enter — all asserted byte-identical to pre-fix output.
+
+**Full verification performed**: document source (asserted per test, not
+just "handled"); resulting Lezer tree/list hierarchy (`OrderedList`
+node-count assertions, not just visual inspection); Enter behavior
+(the dedicated new test file plus the full pre-existing
+`markdownEnterKeymap.test.ts`/`markdownDeepBulletEnter.test.ts`/
+`markdownBulletBackspace.test.ts` suites, unaffected); undo/redo (the
+fix dispatches exactly one transaction per Enter press, identical to
+unmodified `continueMarkup`, so undo/redo behavior is structurally
+unchanged — not independently re-tested beyond the pre-existing Tab/
+Enter undo coverage elsewhere in this document, since nothing about the
+fix's transaction-dispatch shape differs from what that coverage already
+exercises); the full `features/markdown` test suite (1221 tests, 59
+files, all passing — up from 1199 before this session, the 22 new tests
+being this file's own 12 plus 10 unrelated pre-existing additions from
+an earlier, separately-committed Tab caret-mapping fix already present
+in the working tree at the start of this investigation); `tsc --noEmit`
+clean; and live, direct verification in the running Clutter webapp
+(typed `8. A` / Enter / `B` / Enter / dedented to `1. Child` at the
+correct nested column, confirmed visually nested with its own
+fold-indicator on `9. B`, then clicked to end-of-`A` and pressed Enter —
+the document became `"8. A\n9. \n9. B\n   1. Child"`, exactly matching
+the automated test's own expectation, with the nested child still
+visibly indented under `9. B` and its fold-arrow still present,
+confirming the fix's effect end-to-end, not just at the `state.doc`
+level).
+
+---
+
 ## Open questions / tracked gaps (consolidated)
 
 1. Automated test coverage is missing for: the `listMarkerCaretAssoc`
@@ -1975,3 +3376,49 @@ mirroring the bullet case.
    including for ordered task items specifically (§13.9) — nothing in
    the §13 investigation found reason to expect them to differ from
    bullet task items, but this was not independently verified.
+7. Ordered-list Tab renumbering (§14.0–§14.8) is investigated but
+   genuinely undecided — whether a newly-nested item should keep its
+   literal number or be rewritten to `1` is a product decision, not
+   resolved here, and implementing either answer requires explicitly
+   amending §9's own Locked "Tab only ever writes leading whitespace"
+   contract first (§14.5), not a silent patch.
+8. **Ordered-list Tab nesting mechanics (§14.9–§14.16, deeper follow-up
+   investigation) — genuinely undecided, and surfaced one materially
+   more severe finding than a UX inconsistency**: Tab's flat 2-space
+   step (§9) only reliably nests an ordered item in one press when its
+   content column happens to equal 2 spaces, which never happens for
+   ordered markers (needs 3–4+ depending on digit count) — unlike
+   bullets, where it always does (§14.13's three-concepts table). Worse:
+   for any 3-or-more-digit ordered marker (`100.` and above), pressing
+   Tab **exactly twice** (Clutter's own step size landing exactly on 4
+   spaces) does not "fail to nest" — it silently **destroys** the second
+   item's own list-item structure, merging it as plain lazy-continuation
+   text into the *parent's* paragraph (§14.9's Rule #5, §14.10's swept
+   probe tables, §14.14). This is a real, reproducible CommonMark
+   consequence of the current uniform step size, not a hypothetical edge
+   case — flagged as the single highest-priority finding among the
+   ordered-list gaps in this document. Whether the fix is a narrower
+   "never let Tab land exactly in the Rule #5 gap" guard or a fuller
+   construct-aware step size (§14.15's Option B) is an open question
+   (§14.16) requiring an explicit amendment to §9's own contract before
+   any implementation, exactly like item 7 above but for a different
+   clause of that same contract.
+9. ~~The Enter/`renumberList` digit-width structural-corruption bug~~ —
+   **FIXED** (§15, `continueMarkupPreservingStructure` in
+   `markdownEnterKeymap.ts`, 12 new regression tests in
+   `markdownEnterRenumberGuard.test.ts`). No longer open for the
+   growth-direction cases this session confirmed and fixed. The
+   **shrink-direction call sites** (`renumberList`'s other two internal
+   uses, inside the empty-item-unwind branch) remain an honest,
+   unresolved gap: the fix protects them identically in principle (by
+   construction — it inspects only the final `ChangeSet`, not which
+   internal branch produced it), but no independently-confirmed
+   before/after regression test exists for that direction specifically,
+   since a clean minimal repro proved fiddly to construct this session
+   (§15's own investigation notes explain exactly why).
+10. The ordered-list Tab/Shift-Tab normalization addendum (§9's "PENDING
+    ADDENDUM", superseding items 7/8 above) is an approved *direction*,
+    not yet implemented — and per its own stated prerequisite, must not
+    ship before the shrink-direction gap in item 9 above is resolved,
+    since Phase C's own normalization writes are exactly the class of
+    edit the Enter bug demonstrated can corrupt structure if unguarded.
