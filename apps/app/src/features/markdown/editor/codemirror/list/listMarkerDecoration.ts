@@ -11,12 +11,42 @@ import {
 import type { SyntaxNode } from '@lezer/common';
 
 /**
- * Live Preview rendering for **unordered/bullet** list markers (`-`, `*`,
- * `+`) — the first, deliberately narrow slice of list rendering. Ordered
- * lists, task checklists, and any editing-behavior work (Tab/Shift-Tab
- * beyond what `markdownIndentContext.ts` already resolves, structural
- * Backspace/Enter) are out of scope for this slice; see
- * docs/editor-architecture-decisions.md for that boundary.
+ * Live Preview rendering for **bullet** (`-`, `*`, `+`) **and ordered**
+ * (`1.`, `1)`, ...) list markers. Task checklists and any editing-behavior
+ * work beyond what this file and `markdownEnterKeymap.ts` already cover are
+ * still out of scope; see docs/editor-architecture-decisions.md for that
+ * boundary and docs/list-item-architecture-odr.md for the full record.
+ *
+ * **Bullet and ordered markers share one `buildDecorations` pass and one
+ * `seenLines` set (2026-08-29, ordered-list extension) — not two
+ * independent plugins.** This is load-bearing, not a style choice: the
+ * same-line CommonMark empty-item ambiguity §7/§12 of the ODR documents for
+ * bullets (`- - - - Text`) reproduces identically **across** marker kinds
+ * — confirmed directly against the installed parser — `"- 1. Text"` parses
+ * as a `BulletList` whose sole item's content is an `OrderedList`, all on
+ * one physical line, exactly like same-kind collapsing. If bullet and
+ * ordered decoration were two separate `ViewPlugin`s each keeping their own
+ * `seenLines`, a mixed line like that would render **two** markers (one
+ * per plugin), silently breaking the "first `ListMark` per physical line"
+ * policy the moment a line mixes kinds. One shared set, keyed by
+ * `line.from` and populated by kind-agnostic tree order, is the only way to
+ * keep the policy true for a mixed-kind line without duplicating the
+ * dedup logic in two files (`ARCHITECTURE_RULES`-style "one rule, one
+ * implementation" — this module's own version of that rule).
+ *
+ * Ordered markers are never glyph-substituted (no `*→•`-style pseudo-
+ * element): a real digit sequence has no product-approved substitute glyph,
+ * so `data-marker-glyph`/`::before` painting (§3 of the ODR) is bullet-only
+ * machinery, not reused here. The marker span is real, visible text,
+ * right-aligned within its own box (`text-align: right`/`min-width`, not
+ * bullets' fixed `width`; see `MarkdownEditor.css`'s own doc comment for
+ * the measured caveat — this does not unify content-start *across* items
+ * of different digit counts, only flushes each item's own separator end
+ * against its own box's right edge). Unlike bullets' `text-align: center`
+ * starting point, there is no glyph-vs-box mismatch to fix for
+ * `listMarkerCaretAssoc()`: the real, visible text's own right edge always
+ * coincides with its own box's right edge by construction, so no §4/§5-
+ * style caret or selection gap was ever introduced for this kind.
  *
  * **Real, source-backed marker — a plain `Decoration.mark`, no widget, no
  * concealment, no visual transformation (2026-08-29).** Modeled directly
@@ -76,11 +106,15 @@ import type { SyntaxNode } from '@lezer/common';
  *
  * `ListItem`'s `firstChild` is always `ListMark` (confirmed against the
  * installed `@lezer/markdown@1.7.2`, for bullet, ordered, and task markers
- * alike). This module only claims the ones whose marker text is `-`, `*`,
- * or `+` and whose item is not a task (`TaskList` is enabled at the
- * grammar level — v1-scoped — but checklist *rendering* is explicitly out
- * of scope this slice, so a `- [ ] …`/`- [x] …` item is left completely
- * unrendered here, exactly as an ordered item is).
+ * alike). This module claims a `ListMark` whose text is `-`/`*`/`+`
+ * (bullet) or matches `\d{1,9}[.)]` (ordered, CommonMark's own start-number
+ * limit — confirmed against the installed parser: `"1234567890. Text"`,
+ * ten digits, does not parse as a list at all), as long as its item is not
+ * a task (`TaskList` is enabled at the grammar level for both bullet and
+ * ordered items alike — confirmed directly, `"1. [ ] task"` produces a
+ * `Task`/`TaskMarker` child exactly like `"- [ ] task"` — but checklist
+ * *rendering* is explicitly out of scope this slice, so a `- [ ] …`/
+ * `1. [ ] …` item is left completely unrendered here).
  *
  * Nesting requires no special handling: a nested `ListItem` is visited by
  * the same tree walk as any other, entirely independently of its parent's
@@ -89,11 +123,38 @@ import type { SyntaxNode } from '@lezer/common';
  * (per-character, any line, no syntax-tree awareness) — this module must
  * not, and does not, re-decorate that range a second time.
  */
-function isBulletListItemNode(nodeName: string): boolean {
+function isListItemNode(nodeName: string): boolean {
   return nodeName === 'ListItem';
 }
 
 const BULLET_MARKER_CHARACTERS: ReadonlySet<string> = new Set(['-', '*', '+']);
+
+/**
+ * CommonMark's own ordered-marker shape: 1-9 digits (its own start-number
+ * limit — a 10th digit and the line stops parsing as a list at all,
+ * confirmed against the installed parser) followed by `.` or `)`. Matched
+ * against the raw `ListMark` text, never against the surrounding line —
+ * this is a classification of an already-parsed node's own text, not a
+ * second, parser-duplicating regex scan of raw source.
+ */
+const ORDERED_MARKER_PATTERN = /^\d{1,9}[.)]$/;
+
+export type ListMarkerKind = 'bullet' | 'ordered';
+
+/**
+ * Exported so `markdownEnterKeymap.ts`'s marker-kind guards (content-start
+ * split preservation, Backspace) classify a `ListMark`'s raw text via the
+ * identical rule this file's own rendering uses, rather than keeping a
+ * second `BULLET_MARKER_CHARACTERS`-style set nearby "because it's easier
+ * than importing it" (the exact duplication `ARCHITECTURE_RULES.md` rule 5
+ * warns about, applied to this file's own business rule).
+ */
+export function classifyMarkerText(raw: string): ListMarkerKind | null {
+  if (BULLET_MARKER_CHARACTERS.has(raw)) {
+    return 'bullet';
+  }
+  return ORDERED_MARKER_PATTERN.test(raw) ? 'ordered' : null;
+}
 
 function hasTaskChild(listItem: SyntaxNode): boolean {
   for (let child = listItem.firstChild; child; child = child.nextSibling) {
@@ -153,14 +214,21 @@ function separatorRangeAfter(
  * separator after it — the same bare-marker gate as before, unchanged by
  * the widget-to-mark migration.
  */
-function getBulletMarkRange(node: SyntaxNode, state: EditorState): { from: number; to: number } | null {
+interface ListMarkRange {
+  readonly from: number;
+  readonly to: number;
+  readonly kind: ListMarkerKind;
+}
+
+function getListMarkRange(node: SyntaxNode, state: EditorState): ListMarkRange | null {
   const marker = node.firstChild;
   if (!marker || marker.name !== 'ListMark') {
     return null;
   }
 
   const raw = state.sliceDoc(marker.from, marker.to);
-  if (!BULLET_MARKER_CHARACTERS.has(raw) || hasTaskChild(node)) {
+  const kind = classifyMarkerText(raw);
+  if (!kind || hasTaskChild(node)) {
     return null;
   }
 
@@ -169,7 +237,60 @@ function getBulletMarkRange(node: SyntaxNode, state: EditorState): { from: numbe
     return null;
   }
 
-  return { from: marker.from, to: separator.to };
+  return { from: marker.from, to: separator.to, kind };
+}
+
+/**
+ * Shared with `markdownEnterKeymap.ts` — the same "first `ListMark` per
+ * physical line" fact `buildDecorations` below establishes for rendering
+ * (a same-line CommonMark empty-item chain like `- - - - Text` is visually
+ * collapsed to one marker), queried here for a single position instead of
+ * accumulated across a whole rebuild. Reuses `isListItemNode`/
+ * `getListMarkRange` — the exact same node-matching and range rules the
+ * decoration itself uses — rather than re-deriving "what counts as a list
+ * marker" a second time.
+ *
+ * **Kind-agnostic (2026-08-29, ordered-list extension)**: the same-line
+ * collapse ambiguity is not bullet-specific — confirmed against the
+ * installed parser that `"1. - 1. Text"` (ordered/bullet/ordered, all one
+ * physical line) is exactly as valid and exactly as nested as an all-bullet
+ * chain. This walk collects `ListMark` ranges of *either* kind and returns
+ * whichever starts first, regardless of kind — a caller that needs to know
+ * which kind won reads `.kind` off the result, same as `buildDecorations`
+ * does.
+ *
+ * Walks every `ListItem` ancestor of `pos` (not just the innermost one),
+ * keeping only the ones whose own marker starts on `pos`'s exact physical
+ * line, then returns the smallest-`.from` (outermost/first) of those.
+ * Returns `null` whenever fewer than two such markers exist on the line —
+ * meaning there is nothing "collapsed" here at all: a single-level item,
+ * or an ancestor whose marker is genuine different-line nesting (e.g.
+ * `- Parent` / `  - Child` — Parent's own marker sits on a different
+ * physical line than Child's, so only Child's counts, length stays 1).
+ */
+export function firstSameLineListMark(state: EditorState, pos: number): ListMarkRange | null {
+  const line = state.doc.lineAt(pos);
+  const sameLine: ListMarkRange[] = [];
+
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1);
+    node;
+    node = node.parent
+  ) {
+    if (!isListItemNode(node.name)) {
+      continue;
+    }
+    const range = getListMarkRange(node, state);
+    if (range && state.doc.lineAt(range.from).from === line.from) {
+      sameLine.push(range);
+    }
+  }
+
+  if (sameLine.length < 2) {
+    return null;
+  }
+
+  return sameLine.reduce((a, b) => (a.from < b.from ? a : b));
 }
 
 /**
@@ -201,29 +322,90 @@ const MARKER_MARK_DOT = Decoration.mark({
   attributes: { 'data-marker-glyph': '•' },
 });
 
-function markerMark(raw: string): Decoration {
+function bulletMarkerMark(raw: string): Decoration {
   if (raw === '*') {
     return MARKER_MARK_DOT;
   }
   return raw === '+' ? MARKER_MARK_PLUS : MARKER_MARK_DASH;
 }
 
+/**
+ * The ordered marker's own `Decoration.mark` — real, visible text (no
+ * `data-marker-glyph`/`::before` substitution; see this file's own top
+ * doc comment for why bullets' glyph-painting mechanism doesn't apply
+ * here). `cm-list-marker` is the shared tint class every list-marker kind
+ * but bullets opts into (`MarkdownEditor.css`'s own comment on that class
+ * already anticipated ordered numbers wanting it); `cm-ordered-list-marker`
+ * carries the kind-specific box geometry (`min-width`/`text-align: right`).
+ * One shared instance, not one per digit-count: the box's own CSS handles
+ * every width, so there is nothing per-instance to parameterize.
+ */
+const MARKER_MARK_ORDERED = Decoration.mark({
+  class: 'cm-list-marker cm-ordered-list-marker',
+});
+
+/**
+ * Same-line repeat-marker suppression (2026-08-29) — `- - - - hey` is a
+ * genuinely valid, CommonMark-correct parse (each `- ` after the first is
+ * an empty list item whose own content is *another* list, all on one
+ * physical line with no indentation) — confirmed directly against the
+ * installed parser, not assumed; see this session's own investigation.
+ * Rendering all of them as separate marker columns is structurally
+ * accurate but reads as a bug, so only the first `ListMark` encountered
+ * on a given physical line gets the marker decoration; every later one on
+ * that *same* line is left as ordinary, undecorated source text —
+ * `seenLines` (keyed by `line.from`, reset per `buildDecorations` call)
+ * is the entire mechanism.
+ *
+ * **One `seenLines` set for both bullet and ordered markers together**
+ * (2026-08-29, ordered-list extension) — not one set per kind. Confirmed
+ * against the installed parser that the same-line collapse ambiguity
+ * crosses marker kinds (`"- 1. Text"`/`"1. - Text"` are both valid,
+ * genuinely nested parses, exactly like an all-bullet chain); two
+ * independently-`seenLines`'d passes would each decorate their own kind's
+ * first marker on such a line, rendering two markers where the policy
+ * calls for one. Tree iteration visits nodes in document order and
+ * pre-order visits an outer `ListItem` before its nested child regardless
+ * of kind (the same fact §7 of the ODR already established for same-kind
+ * chains), so "first encountered per line, across both kinds" is
+ * automatically "outermost/leftmost" here too, with no extra sorting.
+ *
+ * This works without any change to editing behavior because it only
+ * decides which `range` gets pushed into `pending` below — nothing about
+ * `getListMarkRange`, the document, the syntax tree, or any keymap
+ * changes. A later `ListMark` that starts on a *different* physical line
+ * (genuine indented nesting, e.g. `- Parent\n  - Child`) is completely
+ * unaffected: `seenLines` is keyed per line, so a new line always starts
+ * with a clean slate. Rebuilt fresh on every `docChanged`/`viewportChanged`
+ * update (same as the rest of this function), so the result depends only
+ * on the current tree and line structure — never on typing history, which
+ * is what keeps typed, pasted, and reloaded `- - - - hey` all rendering
+ * identically.
+ */
 function buildDecorations(view: EditorView): DecorationSet {
-  const pending: { from: number; to: number }[] = [];
+  const pending: ListMarkRange[] = [];
+  const seenLines = new Set<number>();
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
       to,
       enter: (node) => {
-        if (!isBulletListItemNode(node.name)) {
+        if (!isListItemNode(node.name)) {
           return;
         }
 
-        const range = getBulletMarkRange(node.node, view.state);
-        if (range) {
-          pending.push(range);
+        const range = getListMarkRange(node.node, view.state);
+        if (!range) {
+          return;
         }
+
+        const lineFrom = view.state.doc.lineAt(range.from).from;
+        if (seenLines.has(lineFrom)) {
+          return;
+        }
+        seenLines.add(lineFrom);
+        pending.push(range);
       },
     });
   }
@@ -233,9 +415,12 @@ function buildDecorations(view: EditorView): DecorationSet {
   // after its parent's own marker, but iteration order across levels isn't
   // guaranteed strictly ascending by construction.
   return Decoration.set(
-    pending.map(({ from, to }) => {
+    pending.map(({ from, to, kind }) => {
+      if (kind === 'ordered') {
+        return MARKER_MARK_ORDERED.range(from, to);
+      }
       const raw = view.state.sliceDoc(from, from + 1);
-      return markerMark(raw).range(from, to);
+      return bulletMarkerMark(raw).range(from, to);
     }),
     true
   );
@@ -289,14 +474,28 @@ export function listMarkerDecoration(): Extension {
  * leaving every other position, every other construct, and every other
  * transaction untouched.
  */
-function bulletContentStart(state: EditorState, pos: number): boolean {
+/**
+ * Kind-agnostic (2026-08-29, ordered-list extension): queried for content-
+ * start at *any* list item, bullet or ordered. Ordered markers are never
+ * expected to actually need this fix in practice — their real, visible,
+ * right-aligned text already lays out with its own end flush against the
+ * box edge (see this file's own top doc comment), so `coordsAtPos` should
+ * already agree from both motion directions without any transaction-filter
+ * correction. Kept kind-agnostic anyway rather than gated to bullets only:
+ * the guard is a pure "does this transaction's resulting selection land
+ * exactly here, with this specific `assoc`" check, so broadening it costs
+ * nothing when the mismatch doesn't occur for a given kind, and correctly
+ * self-heals if it ever does (a future font/box change, for instance)
+ * without a second, kind-specific copy of this filter.
+ */
+function listContentStart(state: EditorState, pos: number): boolean {
   for (
     let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1);
     node;
     node = node.parent
   ) {
-    if (isBulletListItemNode(node.name)) {
-      const range = getBulletMarkRange(node, state);
+    if (isListItemNode(node.name)) {
+      const range = getListMarkRange(node, state);
       return range !== null && range.to === pos;
     }
   }
@@ -310,7 +509,7 @@ export function listMarkerCaretAssoc(): Extension {
     }
 
     const range = tr.selection.main;
-    if (!range.empty || range.assoc !== -1 || !bulletContentStart(tr.state, range.head)) {
+    if (!range.empty || range.assoc !== -1 || !listContentStart(tr.state, range.head)) {
       return tr;
     }
 

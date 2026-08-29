@@ -312,19 +312,19 @@ describe('markdownEnterCommand', () => {
       expect(handlerFor('hello\n|')).toBe('default');
     });
 
-    it('does not fire when there is content after the cursor', () => {
+    it('content-start on an ordered item preserves the marker rather than incrementing (see "ordered content-start split" below)', () => {
       expect(pressEnterTimes('1. Text\n2. |rest', 1)).toEqual([
-        '1. Text\n2.\n3. |rest',
+        '1. Text\n2._\n2. |rest',
       ]);
     });
   });
 
-  describe('bullet content-start split preserves the complete marker + separator', () => {
-    // Root cause and investigation: preserveBulletMarkerOnContentStartSplit's
+  describe('list-marker content-start split preserves the complete marker + separator', () => {
+    // Root cause and investigation: preserveListMarkerOnContentStartSplit's
     // own doc comment in markdownEnterKeymap.ts. insertNewlineContinueMarkupCommand
     // (@codemirror/lang-markdown) otherwise consumes the original line's own
     // separator into the change that builds the new line, leaving a bare
-    // "-"/"*"/"+" behind instead of "- "/"* "/"+ ".
+    // "-"/"*"/"+"/"1." behind instead of "- "/"* "/"+ "/"1. ".
 
     it.each(['-', '*', '+'])('"%s Text" at content-start: the original marker keeps its separator', (marker) => {
       expect(pressEnterTimes(`${marker} |Text`, 1)).toEqual([`${marker}_\n${marker} |Text`]);
@@ -359,12 +359,58 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('- one\n- |', 1)).toEqual(['- one\n|']);
     });
 
-    it('ordered lists are unaffected — this fix is bullet-only, matching the existing scope', () => {
-      expect(pressEnterTimes('1. |Text', 1)).toEqual(['1.\n2. |Text']);
+    it('ordered content-start split: marker copied verbatim, never incremented (2026-08-29 extension)', () => {
+      expect(pressEnterTimes('1. |Text', 1)).toEqual(['1._\n1. |Text']);
+    });
+
+    it('ordered content-start split with a wider marker: "10. |Text"', () => {
+      expect(pressEnterTimes('10. |Text', 1)).toEqual(['10._\n10. |Text']);
+    });
+
+    it('paren-style ordered content-start split: "1) |Text"', () => {
+      expect(pressEnterTimes('1) |Text', 1)).toEqual(['1)_\n1) |Text']);
     });
 
     it('normal nested Enter away from content-start is unaffected', () => {
       expect(pressEnterTimes('- Parent\n  - Child|', 1)).toEqual(['- Parent\n  - Child\n  - |']);
+    });
+  });
+
+  describe('same-line marker collapse: Enter continues the first (outermost) marker, not the deepest', () => {
+    // Closes a documented gap (docs/list-item-architecture-odr.md §6/§12):
+    // continueFirstSameLineListLevel was previously live-verified only, no
+    // automated coverage. Also the first automated coverage of the
+    // 2026-08-29 ordered/mixed-kind extension of the same mechanism.
+
+    it('two-deep same-line bullet chain: "- - Text" continues at the first level', () => {
+      expect(pressEnterTimes('- - Text|', 1)).toEqual(['- - Text\n- |']);
+    });
+
+    it('four-deep same-line bullet chain: "- - - - Text" still continues at the first level', () => {
+      expect(pressEnterTimes('- - - - Text|', 1)).toEqual(['- - - - Text\n- |']);
+    });
+
+    it('same-line ordered chain: "1. 1. 1. Text" continues at the first level, marker copied verbatim', () => {
+      expect(pressEnterTimes('1. 1. 1. Text|', 1)).toEqual(['1. 1. 1. Text\n1. |']);
+    });
+
+    it('mixed-kind same-line chain: "- 1. - Text" continues at the first (bullet) level', () => {
+      expect(pressEnterTimes('- 1. - Text|', 1)).toEqual(['- 1. - Text\n- |']);
+    });
+
+    it('mixed-kind same-line chain starting ordered: "1. - Text" continues at the first (ordered) level', () => {
+      expect(pressEnterTimes('1. - Text|', 1)).toEqual(['1. - Text\n1. |']);
+    });
+
+    it('genuine multi-line nesting (different physical lines) is unaffected — continues at the deepest, real level', () => {
+      expect(pressEnterTimes('- Parent\n  - Child|', 1)).toEqual(['- Parent\n  - Child\n  - |']);
+      expect(pressEnterTimes('1. Parent\n   1. Child|', 1)).toEqual([
+        '1. Parent\n   1. Child\n   2. |',
+      ]);
+    });
+
+    it('a mid-line Enter on a same-line chain falls through to ordinary splitting, not this command', () => {
+      expect(pressEnterTimes('- - Te|xt', 1)).toEqual(['- - Te\n  - |xt']);
     });
   });
 });

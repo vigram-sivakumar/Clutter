@@ -16,6 +16,7 @@ import {
 import { keymap } from '@codemirror/view';
 
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { classifyMarkerText, firstSameLineListMark } from '../list/listMarkerDecoration';
 
 /**
  * The one Markdown editing policy Clutter adds on top of CodeMirror:
@@ -211,8 +212,21 @@ const exitEmptyIndentContinuation: StateCommand = (target) => {
   return true;
 };
 
-/** A physical line's own leading whitespace, followed by a bullet marker and its separator — the raw *shape* CM6's own `getContext` has declined to recognize as this line's own marker (see the guard below). Never used to decide list *structure*; only to detect this one fallback case. Ordered markers are deliberately excluded (digits don't match), matching the narrower, not-yet-made ordered-list decision from the Backspace work. */
-const BULLET_LOOKALIKE = /^([ \t]*)[-+*][ \t]+/;
+/**
+ * A physical line's own leading whitespace, followed by a bullet or
+ * ordered marker and its separator — the raw *shape* CM6's own
+ * `getContext` has declined to recognize as this line's own marker (see
+ * the guard below). Never used to decide list *structure*; only to detect
+ * this one fallback case.
+ *
+ * Ordered markers included (2026-08-29, ordered-list extension): the root
+ * cause below (a line indented 4+ columns past the nearest open block's
+ * own content column becomes lazy-continuation text) is a generic
+ * CommonMark indentation rule, not specific to which marker character the
+ * line happens to start with — confirmed by the same reasoning already
+ * established for bullets, re-applied here rather than re-derived.
+ */
+const LIST_MARKER_LOOKALIKE = /^([ \t]*)(?:[-+*][ \t]+|\d{1,9}[.)][ \t]+)/;
 
 /**
  * Fallback for Enter on a physical line that *looks* like a bullet item
@@ -246,14 +260,15 @@ const BULLET_LOOKALIKE = /^([ \t]*)[-+*][ \t]+/;
  *    (e.g. inside its own leading whitespace, before the lookalike
  *    prefix even starts) never triggers this fallback and instead
  *    reaches whatever already handles a mid-line Enter today.
- * 4. The physical line's text matches `BULLET_LOOKALIKE` — leading
- *    whitespace, then one of `-`/`+`/`*`, then real separator whitespace.
+ * 4. The physical line's text matches `LIST_MARKER_LOOKALIKE` — leading
+ *    whitespace, then one of `-`/`+`/`*` or an ordered marker (`\d{1,9}[.)]`),
+ *    then real separator whitespace.
  * 5. `resolveLineIndentContext` classifies *this exact line* as
  *    `'paragraph'` — never `'list'` (a real, recognized `ListItem`'s own
  *    line — case A/B, untouched, `continueMarkup` already does the right
  *    thing), `'code'` (a fenced code line that merely contains this text
  *    as content — must never be treated as markup), `'heading'`, or
- *    `'unhandled'` (blockquotes — `>` never matches `BULLET_LOOKALIKE`
+ *    `'unhandled'` (blockquotes — `>` never matches `LIST_MARKER_LOOKALIKE`
  *    anyway — and blank lines).
  *
  * Every other case returns `false` and reaches `continueMarkup` exactly
@@ -278,7 +293,7 @@ export const exitLazyContinuationBulletLookalike: StateCommand = ({ state, dispa
     return false;
   }
 
-  const match = BULLET_LOOKALIKE.exec(line.text);
+  const match = LIST_MARKER_LOOKALIKE.exec(line.text);
   if (!match) {
     return false;
   }
@@ -304,12 +319,88 @@ export const exitLazyContinuationBulletLookalike: StateCommand = ({ state, dispa
   return true;
 };
 
-const BULLET_MARKER_CHARACTERS: ReadonlySet<string> = new Set(['-', '*', '+']);
+/**
+ * Continues the *first* same-line marker, not the deepest, at end-of-line
+ * on a CommonMark same-line-collapsed chain (`- - - - Text`, `1. 1. 1.
+ * Text`, or a chain mixing both kinds, e.g. `- 1. - Text`).
+ *
+ * Root cause this works around: `- - - - Text` is a genuinely valid parse
+ * — each `- ` after the first is an empty list item whose own content is
+ * *another* list, four levels deep, all on one physical line (confirmed
+ * against the installed parser; see this session's own investigation).
+ * `listMarkerDecoration.ts`'s "first `ListMark` per physical line" render
+ * rule visually collapses that to one marker, but
+ * `insertNewlineContinueMarkupCommand`'s own `getContext` walk has no
+ * concept of physical lines at all — it collects every `ListItem`
+ * ancestor regardless of which line it starts on and always continues the
+ * *last* (deepest) one, so Enter here produced a heavily-indented new
+ * marker at the invisible 4th level, matching nothing on screen. Confirmed
+ * (2026-08-29, ordered-list extension) that the identical ambiguity
+ * reproduces across marker kinds, not just within one — `"1. 1. 1. Text"`
+ * and `"- 1. - Text"` are both genuinely nested, same-line parses too.
+ *
+ * `firstSameLineListMark` (`listMarkerDecoration.ts`) is the exact same
+ * "first marker per line" fact already governing rendering — kind-agnostic
+ * since the same 2026-08-29 extension, so this command needs no bullet/
+ * ordered distinction of its own — queried for this one cursor position,
+ * reused, not re-derived. It returns `null` for a genuine, different-line-
+ * nested item (Parent/Child) or a plain single-level item, so this command
+ * only ever fires on the specific same-line-collapsed shape it exists for.
+ *
+ * Guard, all required to fire:
+ * 1. Single collapsed cursor (mirrors every sibling command's own guard).
+ * 2. Cursor is at the exact end of the physical line — narrows this to
+ *    the one reported shape; a mid-line Enter (splitting text) falls
+ *    through to `continueMarkup`'s own default splitting behavior instead
+ *    of this command attempting to replicate it for a rare case.
+ * 3. `firstSameLineListMark` finds a real same-line-collapsed marker.
+ *
+ * When all three hold, this is a pure *insertion* at the cursor — no
+ * deletion — of a newline, the first marker's own real leading
+ * indentation, and a byte-for-byte copy of its own marker+separator text
+ * (whatever the marker's own characters and separator width actually are —
+ * this command never assumes bullet-shaped or single-space, it copies
+ * whatever `firstSameLineListMark` found verbatim). The original line is
+ * never modified. Every other case (mid-line Enter, no same-line collapse,
+ * genuine multi-line nesting, single-level lists) returns `false` and
+ * reaches `continueMarkup` exactly as before.
+ */
+const continueFirstSameLineListLevel: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+
+  const pos = selection.main.head;
+  const line = state.doc.lineAt(pos);
+  if (pos !== line.to) {
+    return false;
+  }
+
+  const first = firstSameLineListMark(state, pos);
+  if (!first) {
+    return false;
+  }
+
+  const indent = state.sliceDoc(line.from, first.from);
+  const markerAndSeparator = state.sliceDoc(first.from, first.to);
+  const insert = state.lineBreak + indent + markerAndSeparator;
+
+  dispatch(
+    state.update({
+      changes: { from: pos, to: pos, insert },
+      selection: EditorSelection.cursor(pos + insert.length),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
+  return true;
+};
 
 /**
- * Preserves the complete `marker + separator` (e.g. `"- "`) on the
- * *original* line when Enter splits a bullet list item exactly at
- * content-start (`- |Text`).
+ * Preserves the complete `marker + separator` (e.g. `"- "`/`"1. "`) on the
+ * *original* line when Enter splits a list item exactly at content-start
+ * (`- |Text`/`1. |Text`).
  *
  * Root cause this works around: `insertNewlineContinueMarkupCommand`
  * (`@codemirror/lang-markdown`) computes the *new* line's marker correctly,
@@ -321,13 +412,30 @@ const BULLET_MARKER_CHARACTERS: ReadonlySet<string> = new Set(['-', '*', '+']);
  * upstream and decoration-independent: identical with `listMarkerDecoration()`
  * present, absent, and under a from-scratch `Decoration.mark` probe — see
  * `listMarkerDecoration.ts`'s own doc comment for that investigation.
+ * Confirmed (2026-08-29, ordered-list extension) that the identical bug
+ * reproduces for ordered markers: `insertNewlineContinueMarkupCommand`
+ * against `"1. |Text"` produces `"1.\n2. Text"` — the original line's own
+ * separator eaten (`"1."`, no trailing space) *and* the split-off content
+ * silently renumbered to `2.` even though nothing about a content-start
+ * split should invent a new number. This command's own fix (copy the
+ * marker+separator verbatim, never compute a new number) is deliberately
+ * **not** symmetric with `continueMarkup`'s own untouched end-of-line
+ * behavior (§ ODR "Ordered-list numbering" — plain `- Text|` + Enter *does*
+ * let CM6 auto-increment the new line to the previous item's number + 1,
+ * which this file does not touch or reimplement): a content-start split is
+ * not "continuing the list with a new entry," it's dividing one line's
+ * existing marker between two lines, so the correct number for *both*
+ * resulting lines is the one the user actually typed, copied verbatim —
+ * inventing an incremented number here would silently author content the
+ * user didn't type, which is exactly what this whole architecture's
+ * source-preservation principle forbids.
  *
  * Guard, all required to fire:
  * 1. Single collapsed cursor (mirrors every sibling command's own guard).
  * 2. Cursor's nearest `ListItem` ancestor exists, and its `firstChild` is a
- *    `ListMark` whose text is `-`, `*`, or `+` (ordered lists are
- *    deliberately excluded, matching this slice's existing bullet-only
- *    scope — `deleteBulletMarkerSeparator`, `listMarkerDecoration.ts`).
+ *    `ListMark` matching `classifyMarkerText` (bullet or ordered; task
+ *    items are separately excluded — this only inspects a `ListItem`'s own
+ *    `ListMark` text, which is never itself a `TaskMarker`).
  * 3. A real, same-physical-line, whitespace-only separator exists after
  *    the marker (never crossing into a nested list starting on a later
  *    line — the same boundary `separatorRangeAfter` in
@@ -344,10 +452,10 @@ const BULLET_MARKER_CHARACTERS: ReadonlySet<string> = new Set(['-', '*', '+']);
  * so it survives completely untouched; the new line gets an identical,
  * freshly-written copy of the same indent/marker/separator. Every other
  * case (before the marker, mid-marker, mid-word, end-of-line, empty item,
- * ordered lists, non-bullet constructs) returns `false` and reaches
- * `continueMarkup` exactly as before.
+ * non-list constructs) returns `false` and reaches `continueMarkup`
+ * exactly as before.
  */
-const preserveBulletMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }) => {
+const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }) => {
   const { selection } = state;
   if (selection.ranges.length !== 1 || !selection.main.empty) {
     return false;
@@ -371,7 +479,7 @@ const preserveBulletMarkerOnContentStartSplit: StateCommand = ({ state, dispatch
   }
 
   const markerText = state.sliceDoc(marker.from, marker.to);
-  if (!BULLET_MARKER_CHARACTERS.has(markerText)) {
+  if (!classifyMarkerText(markerText)) {
     return false;
   }
 
@@ -419,7 +527,8 @@ const preserveBulletMarkerOnContentStartSplit: StateCommand = ({ state, dispatch
 export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyBlockquoteContinuation(target) ||
   exitLazyContinuationBulletLookalike(target) ||
-  preserveBulletMarkerOnContentStartSplit(target) ||
+  preserveListMarkerOnContentStartSplit(target) ||
+  continueFirstSameLineListLevel(target) ||
   continueMarkup(target) ||
   exitEmptyIndentContinuation(target);
 
@@ -431,11 +540,11 @@ export const markdownEnterCommand: StateCommand = (target) =>
  * intentionally exposes only the classification (`kind`/`markerFrom`),
  * never node identity, since Tab/Shift-Tab (its only other caller) never
  * needs more than an offset. This function needs the actual node to read
- * its parent (bullet vs. ordered) and its next sibling (the boundary this
- * command cares about) — a different concern from line classification,
- * not a duplication of it.
+ * its parent (`BulletList` vs. `OrderedList`) and its next sibling (the
+ * boundary this command cares about) — a different concern from line
+ * classification, not a duplication of it.
  */
-function bulletListMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
+function listMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
   for (
     let node: SyntaxNode | null = syntaxTree(state).resolveInner(markerFrom, 1);
     node;
@@ -450,32 +559,37 @@ function bulletListMarkAt(state: EditorState, markerFrom: number): SyntaxNode | 
 }
 
 /**
- * Clutter's own Backspace policy at a bullet list item's marker/separator
- * boundary. Two shapes, both source-local and both resolved purely from
- * the current tree/cursor position — never from what command last ran:
+ * Clutter's own Backspace policy at a list item's marker/separator
+ * boundary — bullet or ordered alike (2026-08-29, ordered-list extension;
+ * originally bullet-only, see below). Two shapes, both source-local and
+ * both resolved purely from the current tree/cursor position — never from
+ * what command last ran:
  *
- * - **Non-empty item** (`- |Text`): removes only the separator
- *   whitespace, leaving the marker intact — `-|Text` — regardless of
- *   separator width (`-   |Text` collapses to `-|Text` in one press) and
- *   regardless of list position (first/later/nested all identical).
- * - **Empty item** (`- |` with nothing following the marker at all):
- *   removes the marker *and* its separator together, in one press —
+ * - **Non-empty item** (`- |Text`/`1. |Text`): removes only the separator
+ *   whitespace, leaving the marker intact — `-|Text`/`1.|Text` —
+ *   regardless of separator width (`-   |Text` collapses to `-|Text` in
+ *   one press) and regardless of list position (first/later/nested all
+ *   identical).
+ * - **Empty item** (`- |`/`1. |` with nothing following the marker at
+ *   all): removes the marker *and* its separator together, in one press —
  *   `- |` → `|` (blank line) — rather than leaving a bare marker behind.
- *   Locked product decision (2026-08-28): a bare marker (`-`) is
- *   rendered by `listMarkerDecoration.ts` as the exact same glyph as a
- *   marker that still has a concealed separator after it (both collapse
- *   to one `Decoration.replace` widget), so a bare-marker end state is
- *   visually indistinguishable from "nothing happened yet" — the empty
- *   case removes the whole construct instead, matching the same
- *   principle from the other direction: never leave state on screen that
- *   looks identical to a different, unintended state.
+ *   Locked product decision (2026-08-28, bullets; extended unchanged to
+ *   ordered markers 2026-08-29 — the reasoning is marker-shape-agnostic):
+ *   a bare marker (`-`/`1.`) is rendered by `listMarkerDecoration.ts` as
+ *   the exact same undecorated text as a marker that still has a
+ *   concealed separator after it, so a bare-marker end state is visually
+ *   indistinguishable from "nothing happened yet" — the empty case
+ *   removes the whole construct instead, matching the same principle from
+ *   the other direction: never leave state on screen that looks identical
+ *   to a different, unintended state.
  *
  * Both shapes replace CM6's own `deleteMarkupBackward` behavior at this
  * one position (verified via `node_modules/@codemirror/lang-markdown`,
- * empirically for top-level/non-first/nested items): CM6 blanks a later
- * item's marker to matching-width spaces and fully deletes a first
- * item's — both are replaced here by one pair of uniform rules keyed
- * only on "does content follow the marker," never on list position.
+ * empirically for top-level/non-first/nested items, both marker kinds):
+ * CM6 blanks a later item's marker to matching-width spaces and fully
+ * deletes a first item's — both are replaced here by one pair of uniform
+ * rules keyed only on "does content follow the marker," never on list
+ * position or marker kind.
  *
  * Leading indentation is untouched in both shapes — the deleted range
  * never starts before `marker.from` (empty case) or `marker.to`
@@ -484,28 +598,32 @@ function bulletListMarkAt(state: EditorState, markerFrom: number): SyntaxNode | 
  * branch removes.
  *
  * Verified against the installed `@lezer/markdown` grammar: the
- * resulting `-Text` (non-empty case) does not parse as a list construct
- * at all — CommonMark requires at least one separator space after a
- * bullet marker with content following it — while the resulting blank
+ * resulting `-Text`/`1.Text` (non-empty case) does not parse as a list
+ * construct at all — CommonMark requires at least one separator space
+ * after a marker with content following it — while the resulting blank
  * line (empty case) is simply not a `ListItem` any more, by construction
  * (nothing of the marker remains). Both are the intended, parser-driven
  * consequence of the smallest source edit this command performs; it does
- * not decide, repair, or compensate for the resulting structure. No
- * rendering change is needed or was made: bullet rendering is keyed
- * entirely off the parser's own `ListMark` node, so it stops being drawn
- * on its own once the parser stops emitting one.
+ * not decide, repair, or compensate for the resulting structure, and does
+ * not renumber any sibling item — no other line is part of this change.
+ * No rendering change is needed or was made: list-marker rendering is
+ * keyed entirely off the parser's own `ListMark` node, so it stops being
+ * drawn on its own once the parser stops emitting one.
+ *
+ * Why ordered lists are no longer excluded (this was a deliberate,
+ * explicitly-recorded not-yet-made decision — see
+ * docs/list-item-architecture-odr.md §8): nothing about either shape's
+ * reasoning above is bullet-specific — `classifyMarkerText` (shared with
+ * `listMarkerDecoration.ts`) accepts either kind, and the marker/parent
+ * check below now accepts `OrderedList` alongside `BulletList`.
  *
  * Deliberately excludes:
- * - **Ordered lists** (`1.`/`1)`) — a separate, not-yet-made product
- *   decision (see the investigation this command's commit reports);
- *   `deleteMarkupBackward` continues to handle them unchanged.
  * - **Any non-collapsed selection or multi-range selection** — this is a
  *   single-cursor, single-position rule; everything else is `false`.
  *
  * Every other Backspace press (before the marker, mid-separator, inside
- * content, on ordered lists, on paragraphs/blockquotes/code, or on any
- * selection) returns `false` and reaches `deleteMarkupBackward` exactly
- * as before.
+ * content, on paragraphs/blockquotes/code, or on any selection) returns
+ * `false` and reaches `deleteMarkupBackward` exactly as before.
  */
 export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) => {
   const { selection } = state;
@@ -520,8 +638,9 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
     return false;
   }
 
-  const marker = bulletListMarkAt(state, context.markerFrom);
-  if (!marker || marker.parent?.parent?.name !== 'BulletList') {
+  const marker = listMarkAt(state, context.markerFrom);
+  const listParentName = marker?.parent?.parent?.name;
+  if (!marker || (listParentName !== 'BulletList' && listParentName !== 'OrderedList')) {
     return false;
   }
 

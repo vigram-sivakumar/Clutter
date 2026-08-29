@@ -443,10 +443,12 @@
 /*
  * Shared marker class — `emojiListMarkDecoration.ts`'s `Decoration.mark`
  * carries this alongside its own construct-specific class
- * (`cm-emoji-list-marker` below). Ordered-list and task-checklist marker
- * rendering are still unimplemented (out of scope for this slice) — a
- * future slice may extend this shared class rather than introduce a new
- * one, per this file's own "extend before adding" convention.
+ * (`cm-emoji-list-marker` below); `listMarkerDecoration.ts`'s ordered
+ * marker (`cm-ordered-list-marker`, below) carries it too, as anticipated
+ * here before ordered rendering existed. Task-checklist marker rendering
+ * remains unimplemented (out of scope) — a future slice may extend this
+ * shared class rather than introduce a new one, per this file's own
+ * "extend before adding" convention.
  *
  * `listMarkerDecoration.ts`'s bullet marker (`cm-bullet-list-marker`,
  * below) deliberately does NOT carry this class (2026-08-29): this shared
@@ -494,6 +496,56 @@
   width: var(--marker-width);
   color: var(--marker-foreground);
   text-align: center;
+  text-indent: 0;
+}
+
+/*
+ * The ordered-list marker (`listMarkerDecoration.ts`, 2026-08-29) — real,
+ * visible `Decoration.mark` text, never glyph-substituted (unlike `*→•`,
+ * a digit sequence has no product-approved substitute). `cm-list-marker`
+ * (above) supplies the tint; this class supplies the box geometry.
+ *
+ * `min-width` (not bullets' fixed `width`): per the carried-forward design
+ * intent this session's own investigation confirmed and implemented (was
+ * previously proposed-but-unverified, tracked in
+ * docs/list-item-architecture-odr.md), `1.`/`2.`/... sit at the same
+ * `--marker-width` (20px) floor bullets use, while a wider marker
+ * (`10.`/`100.`) simply grows the box past that floor — pure CSS, no JS
+ * measurement, since `min-width` is a floor an inline-block's own natural
+ * content width can always exceed.
+ *
+ * `text-align: right` (not bullets' `center`, not `left`): the box wraps
+ * the marker *and* its real separator together (e.g. `"1. "`), so
+ * right-aligning flushes the separator's own trailing edge — i.e.
+ * content-start — against *this box's own* right edge, the same
+ * convention `.cm-quote-marker` above already uses (`text-align: end`).
+ * This means no bullets-style caret-assoc or selection-boundary fix (§4/§5
+ * of the ODR) is needed for this marker: the real, visible text's own
+ * right edge always coincides with its own box's right edge by
+ * construction — there is no glyph-vs-box mismatch for `coordsAtPos` to
+ * disagree about in the first place.
+ *
+ * **Measured live (2026-08-29), correcting an earlier draft of this
+ * comment**: this does *not* align content-start across sibling items of
+ * different digit counts — `1.`/`2.` (at the 20px floor) both start
+ * content at the same column, but `10.`'s own box grows to ~24.9px and
+ * `100.`'s to ~34.6px, so *their* content starts progressively further
+ * right, not realigned back to `1.`'s column. Real browser `<ol>` avoids
+ * this via native list layout that reserves one shared column sized to
+ * the widest marker in the whole list — not achievable here without
+ * measuring every sibling `ListItem`'s marker width up front and forcing
+ * a uniform box width across the block, which no per-line
+ * `Decoration.mark` (bullets' or this one) does today. Accepted as a
+ * cosmetic limitation, matching this file's own precedent for the
+ * selection-boundary gap (§5 of the ODR): the box never clips or
+ * overlaps content (this session's own explicit requirement), it simply
+ * doesn't unify the column across differently-sized markers on separate
+ * lines.
+ */
+.cm-editor .cm-ordered-list-marker {
+  display: inline-block;
+  min-width: var(--marker-width);
+  text-align: right;
   text-indent: 0;
 }
 
@@ -575,7 +627,6 @@
   content: attr(data-marker-glyph);
   position: absolute;
   inset: 0;
-  left: 3px;
   display: flex;
   align-items: center;
   color: var(--marker-foreground);
@@ -583,15 +634,18 @@
 
 .cm-editor .cm-bullet-list-marker--dot::before {
   font-size: 1.5em;
+  left: 3px;
   bottom: 3px;
   line-height: 0;
 }
 
 .cm-editor .cm-bullet-list-marker--plus::before {
-  bottom: 3px;
+  left: 3px;
+  bottom: 1.5px;
 }
 
 .cm-editor .cm-bullet-list-marker--dash::before {
+  left: 3.5px;
   bottom: 2px;
 }
 

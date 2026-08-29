@@ -297,20 +297,121 @@ describe('listMarkerDecoration', () => {
   });
 
   describe('exclusions: not this slice\'s concern', () => {
-    it('ordered-list markers ("1.") are never marked', () => {
-      const text = '1. one\n2. two';
-      const view = mountView(text, text.length);
-
-      expect(markerSpans(view)).toHaveLength(0);
-      expect(view.dom.textContent).toBe(withoutNewlines(text));
-    });
-
     it('task-list items ("- [ ] …") are left completely unmarked', () => {
       const text = '- [ ] todo\n- [x] done';
       const view = mountView(text, text.length);
 
       expect(markerSpans(view)).toHaveLength(0);
       expect(view.dom.textContent).toBe(withoutNewlines(text));
+    });
+
+    it('ordered task-list items ("1. [ ] …") are left completely unmarked', () => {
+      // Confirmed against the installed parser: TaskList applies to
+      // ordered items exactly as it does to bullets ("1. [ ] task"
+      // produces a Task/TaskMarker child identical in shape to
+      // "- [ ] task") — this file's own top doc comment records that
+      // investigation. Excluded here for the same reason bullet task
+      // items are: checklist rendering is a separate, unimplemented slice.
+      const text = '1. [ ] todo\n2. [x] done';
+      const view = mountView(text, text.length);
+
+      expect(view.dom.querySelectorAll('.cm-ordered-list-marker')).toHaveLength(0);
+      expect(view.dom.textContent).toBe(withoutNewlines(text));
+    });
+  });
+
+  describe('ordered-list markers (2026-08-29 extension)', () => {
+    function orderedMarkerSpans(view: EditorView): HTMLElement[] {
+      return Array.from(view.dom.querySelectorAll('.cm-ordered-list-marker'));
+    }
+
+    function orderedMarkerTexts(view: EditorView): string[] {
+      return orderedMarkerSpans(view).map((s) => s.textContent ?? '');
+    }
+
+    it('"1. one\\n2. two": each item\'s own real marker+separator text is preserved, no substitution', () => {
+      const text = '1. one\n2. two\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(orderedMarkerSpans(view)).toHaveLength(2);
+      expect(orderedMarkerTexts(view)).toEqual(['1. ', '2. ']);
+      expect(view.dom.textContent).toBe(withoutNewlines(text));
+    });
+
+    it('repeated same number ("5. A\\n5. B\\n5. C") is rendered verbatim — no renumbering', () => {
+      const text = '5. A\n5. B\n5. C\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(orderedMarkerTexts(view)).toEqual(['5. ', '5. ', '5. ']);
+    });
+
+    it('paren-style markers ("1)") are marked identically to dot-style', () => {
+      const text = '1) one\n2) two\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(orderedMarkerTexts(view)).toEqual(['1) ', '2) ']);
+    });
+
+    it('wider markers ("10.", "100.") are marked with their own full width, not truncated', () => {
+      const text = '10. ten\n100. hundred\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(orderedMarkerTexts(view)).toEqual(['10. ', '100. ']);
+    });
+
+    it('nested ordered items each keep their own real marker text', () => {
+      const text = '1. parent\n   1. child\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      expect(orderedMarkerTexts(view)).toEqual(['1. ', '1. ']);
+    });
+
+    it('a document with 10 digits ("1234567890.") exceeds CommonMark\'s own start-number limit and is not a list at all', () => {
+      const text = '1234567890. not a list';
+      const view = mountView(text, text.length);
+
+      expect(orderedMarkerSpans(view)).toHaveLength(0);
+    });
+
+    describe('mixed bullet + ordered', () => {
+      it('a bullet list and an ordered list, adjacent at the top level, each render independently', () => {
+        const text = '- a\n- b\n\n1. c\n2. d\n\nOther';
+        const view = mountView(text, text.indexOf('Other'));
+
+        expect(markerTexts(view)).toEqual(['- ', '- ']);
+        expect(orderedMarkerTexts(view)).toEqual(['1. ', '2. ']);
+      });
+
+      it('"- 1. Text": same-line collapse across kinds renders exactly one marker (the bullet, outermost/first)', () => {
+        // Confirmed against the installed parser (this file's own top doc
+        // comment): "- 1. Text" is a genuinely valid, single-physical-line
+        // nested parse (BulletList > OrderedList), exactly like an
+        // all-bullet same-line chain. If bullet/ordered decoration used
+        // two independent `seenLines` sets, this would render two markers.
+        const text = '- 1. Text\n\nOther';
+        const view = mountView(text, text.indexOf('Other'));
+
+        expect(markerTexts(view)).toEqual(['- ']);
+        expect(orderedMarkerSpans(view)).toHaveLength(0);
+        expect(view.dom.textContent).toBe(withoutNewlines(text));
+      });
+
+      it('"1. - Text": same-line collapse across kinds renders exactly one marker (the ordered item, outermost/first)', () => {
+        const text = '1. - Text\n\nOther';
+        const view = mountView(text, text.indexOf('Other'));
+
+        expect(orderedMarkerTexts(view)).toEqual(['1. ']);
+        expect(markerSpans(view)).toHaveLength(0);
+        expect(view.dom.textContent).toBe(withoutNewlines(text));
+      });
+
+      it('"1. - 1. Text": three-deep same-line collapse across kinds still renders exactly one (outermost) marker', () => {
+        const text = '1. - 1. Text\n\nOther';
+        const view = mountView(text, text.indexOf('Other'));
+
+        expect(orderedMarkerTexts(view)).toEqual(['1. ']);
+        expect(markerSpans(view)).toHaveLength(0);
+      });
     });
   });
 

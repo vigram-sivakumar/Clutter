@@ -201,27 +201,36 @@ describe('deleteBulletMarkerSeparator: source-local marker/separator boundary po
     });
   });
 
-  describe('scope: ordered lists are explicitly excluded (a separate, not-yet-made decision)', () => {
-    it('"1. |Text" is not touched by the bullet override', () => {
-      const result = backspace('1. |Text');
-      expect(result.handledBy).not.toBe('clutter');
+  describe('ordered lists (2026-08-29): symmetric with bullets, no longer excluded', () => {
+    // Extends the same two-shape rule to ordered markers — see
+    // deleteBulletMarkerSeparator's own doc comment for why this was
+    // previously a "not-yet-made" decision and why nothing in the
+    // reasoning turned out to be bullet-specific.
+    it('non-empty, first item: "1. |Text" -> "1.|Text"', () => {
+      expect(backspace('1. |Text')).toEqual({ rendered: '1.|Text', handledBy: 'clutter' });
     });
 
-    it('"10. |Text" is not touched', () => {
-      const result = backspace('10. |Text');
-      expect(result.handledBy).not.toBe('clutter');
+    it('non-empty, wider marker: "10. |Text" -> "10.|Text"', () => {
+      expect(backspace('10. |Text')).toEqual({ rendered: '10.|Text', handledBy: 'clutter' });
     });
 
-    it('"1) |Text" (paren style) is not touched', () => {
-      const result = backspace('1) |Text');
-      expect(result.handledBy).not.toBe('clutter');
+    it('paren-style marker: "1) |Text" -> "1)|Text"', () => {
+      expect(backspace('1) |Text')).toEqual({ rendered: '1)|Text', handledBy: 'clutter' });
     });
 
-    it('ordered-list Backspace keeps its existing (unmodified) CM6 behavior', () => {
-      // Documents current CM6 behavior as a regression guard — not a new
-      // Clutter policy. If this ever changes, it means lang-markdown
-      // changed underneath us, not that this task touched ordered lists.
-      expect(backspace('1. |Text')).toEqual({ rendered: '|Text', handledBy: 'cm6' });
+    it('non-empty, later item: "1. A\\n2. |B" -> "1. A\\n2.|B"', () => {
+      expect(backspace('1. A\n2. |B')).toEqual({
+        rendered: '1. A\n2.|B',
+        handledBy: 'clutter',
+      });
+    });
+
+    it('empty item: "1. |" -> "|" (marker and separator removed together)', () => {
+      expect(backspace('1. |')).toEqual({ rendered: '|', handledBy: 'clutter' });
+    });
+
+    it('separator width: "1.   |Text" (3 spaces) collapses in one press', () => {
+      expect(backspace('1.   |Text')).toEqual({ rendered: '1.|Text', handledBy: 'clutter' });
     });
   });
 

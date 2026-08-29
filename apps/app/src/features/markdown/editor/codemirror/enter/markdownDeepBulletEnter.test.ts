@@ -251,10 +251,21 @@ describe('exitLazyContinuationBulletLookalike: Enter preserves physical indentat
   }
 
   describe('scope: unaffected constructs', () => {
-    it('ordered lists are not touched by this fallback (regex excludes digits)', () => {
-      // Whatever CM6's own behavior is here, our new command must not be
-      // the one that fired.
-      expect(declines(parse('1. Parent\n        1. Child|'))).toBe(true);
+    it('ordered lazy-continuation lookalikes are handled identically to bullets (2026-08-29 extension)', () => {
+      // Previously excluded ("regex excludes digits" — a bullet-only
+      // scope, not a CommonMark distinction: the same 4+-column
+      // lazy-continuation rule this fallback exists for applies to an
+      // ordered-looking line exactly as it does to a bullet-looking one.
+      // "1. Parent\n        1. Child" (8-space indent) is confirmed
+      // against the installed parser to be lazy-continuation text of
+      // Parent's own paragraph, not a real nested ListItem — this
+      // fallback now fires for it, inserting a newline plus the physical
+      // line's own leading whitespace, no marker invented.
+      expect(declines(parse('1. Parent\n        1. Child|'))).toBe(false);
+      expect(enter('1. Parent\n        1. Child|')).toEqual({
+        rendered: '1. Parent\n        1. Child\n        |',
+        handledBy: 'markdown',
+      });
     });
 
     it('blockquotes are not touched ("> text|")', () => {
