@@ -304,6 +304,112 @@ export const exitLazyContinuationBulletLookalike: StateCommand = ({ state, dispa
   return true;
 };
 
+const BULLET_MARKER_CHARACTERS: ReadonlySet<string> = new Set(['-', '*', '+']);
+
+/**
+ * Preserves the complete `marker + separator` (e.g. `"- "`) on the
+ * *original* line when Enter splits a bullet list item exactly at
+ * content-start (`- |Text`).
+ *
+ * Root cause this works around: `insertNewlineContinueMarkupCommand`
+ * (`@codemirror/lang-markdown`) computes the *new* line's marker correctly,
+ * but derives the deleted range's `from` by walking backward over any
+ * whitespace immediately before the cursor — which, at content-start, is
+ * exactly the marker's own separator. The resulting change deletes that
+ * separator and never re-emits it on the old line, so `- Text` becomes
+ * `-` / `- Text` instead of `- ` / `- Text`. Confirmed this is entirely
+ * upstream and decoration-independent: identical with `listMarkerDecoration()`
+ * present, absent, and under a from-scratch `Decoration.mark` probe — see
+ * `listMarkerDecoration.ts`'s own doc comment for that investigation.
+ *
+ * Guard, all required to fire:
+ * 1. Single collapsed cursor (mirrors every sibling command's own guard).
+ * 2. Cursor's nearest `ListItem` ancestor exists, and its `firstChild` is a
+ *    `ListMark` whose text is `-`, `*`, or `+` (ordered lists are
+ *    deliberately excluded, matching this slice's existing bullet-only
+ *    scope — `deleteBulletMarkerSeparator`, `listMarkerDecoration.ts`).
+ * 3. A real, same-physical-line, whitespace-only separator exists after
+ *    the marker (never crossing into a nested list starting on a later
+ *    line — the same boundary `separatorRangeAfter` in
+ *    `listMarkerDecoration.ts` already establishes).
+ * 4. The cursor sits exactly at content-start (`separator.to`) — not
+ *    before the marker, not mid-marker, not mid-word, not at end-of-line.
+ * 5. Real (non-whitespace) content actually follows on this line — an
+ *    empty item (`- |` with nothing after) is `continueMarkup`'s own
+ *    "exit the list" gesture, untouched here.
+ *
+ * When all five hold, this dispatches a pure *insertion* — no deletion at
+ * all — of `"\n" + indent + marker + separator` at the cursor. The
+ * original line's own `marker + separator` is never part of the change,
+ * so it survives completely untouched; the new line gets an identical,
+ * freshly-written copy of the same indent/marker/separator. Every other
+ * case (before the marker, mid-marker, mid-word, end-of-line, empty item,
+ * ordered lists, non-bullet constructs) returns `false` and reaches
+ * `continueMarkup` exactly as before.
+ */
+const preserveBulletMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+
+  const pos = selection.main.head;
+  let listItem: SyntaxNode | null = null;
+  for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (node.name === 'ListItem') {
+      listItem = node;
+      break;
+    }
+  }
+  if (!listItem) {
+    return false;
+  }
+
+  const marker = listItem.firstChild;
+  if (!marker || marker.name !== 'ListMark') {
+    return false;
+  }
+
+  const markerText = state.sliceDoc(marker.from, marker.to);
+  if (!BULLET_MARKER_CHARACTERS.has(markerText)) {
+    return false;
+  }
+
+  const line = state.doc.lineAt(pos);
+  const separatorFrom = marker.to;
+  const nextSibling = marker.nextSibling;
+  const separatorTo = Math.min(nextSibling ? nextSibling.from : separatorFrom + 1, line.to, state.doc.length);
+  if (separatorTo <= separatorFrom) {
+    return false;
+  }
+
+  const gap = state.sliceDoc(separatorFrom, separatorTo);
+  if (gap.trim() !== '') {
+    return false;
+  }
+
+  if (pos !== separatorTo) {
+    return false;
+  }
+
+  if (!/\S/.test(state.doc.sliceString(separatorTo, line.to))) {
+    return false;
+  }
+
+  const indent = state.sliceDoc(line.from, marker.from);
+  const insert = state.lineBreak + indent + markerText + gap;
+
+  dispatch(
+    state.update({
+      changes: { from: pos, to: pos, insert },
+      selection: EditorSelection.cursor(pos + insert.length),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
+  return true;
+};
+
 /**
  * The single Enter binding. Exported for tests; wire it through
  * `markdownEnterKeymap()`, never as a second Enter binding of its own.
@@ -313,6 +419,7 @@ export const exitLazyContinuationBulletLookalike: StateCommand = ({ state, dispa
 export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyBlockquoteContinuation(target) ||
   exitLazyContinuationBulletLookalike(target) ||
+  preserveBulletMarkerOnContentStartSplit(target) ||
   continueMarkup(target) ||
   exitEmptyIndentContinuation(target);
 

@@ -318,4 +318,53 @@ describe('markdownEnterCommand', () => {
       ]);
     });
   });
+
+  describe('bullet content-start split preserves the complete marker + separator', () => {
+    // Root cause and investigation: preserveBulletMarkerOnContentStartSplit's
+    // own doc comment in markdownEnterKeymap.ts. insertNewlineContinueMarkupCommand
+    // (@codemirror/lang-markdown) otherwise consumes the original line's own
+    // separator into the change that builds the new line, leaving a bare
+    // "-"/"*"/"+" behind instead of "- "/"* "/"+ ".
+
+    it.each(['-', '*', '+'])('"%s Text" at content-start: the original marker keeps its separator', (marker) => {
+      expect(pressEnterTimes(`${marker} |Text`, 1)).toEqual([`${marker}_\n${marker} |Text`]);
+    });
+
+    it.each(['-', '*', '+'])('nested "%s Text" at content-start: indent, marker, and separator all preserved', (marker) => {
+      expect(pressEnterTimes(`${marker} Parent\n  ${marker} |Text`, 1)).toEqual([
+        `${marker} Parent\n  ${marker}_\n  ${marker} |Text`,
+      ]);
+    });
+
+    it('three levels deep: content-start still preserves the deepest item\'s own marker', () => {
+      expect(pressEnterTimes('- L1\n  - L2\n    - |Deepest', 1)).toEqual([
+        '- L1\n  - L2\n    -_\n    - |Deepest',
+      ]);
+    });
+
+    it('before the marker: unaffected, falls through to the default keymap exactly as before', () => {
+      expect(handlerFor('|- Text')).toBe('default');
+      expect(pressEnterTimes('|- Text', 1)).toEqual(['\n|- Text']);
+    });
+
+    it('mid-word: unaffected, ordinary split with a fresh marker on each half', () => {
+      expect(pressEnterTimes('- Te|xt', 1)).toEqual(['- Te\n- |xt']);
+    });
+
+    it('end-of-line: unaffected, ordinary new empty item', () => {
+      expect(pressEnterTimes('- Text|', 1)).toEqual(['- Text\n- |']);
+    });
+
+    it('empty list item: unaffected, still the existing "exit the list" gesture', () => {
+      expect(pressEnterTimes('- one\n- |', 1)).toEqual(['- one\n|']);
+    });
+
+    it('ordered lists are unaffected — this fix is bullet-only, matching the existing scope', () => {
+      expect(pressEnterTimes('1. |Text', 1)).toEqual(['1.\n2. |Text']);
+    });
+
+    it('normal nested Enter away from content-start is unaffected', () => {
+      expect(pressEnterTimes('- Parent\n  - Child|', 1)).toEqual(['- Parent\n  - Child\n  - |']);
+    });
+  });
 });
