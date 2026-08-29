@@ -146,7 +146,7 @@ function snapPosition(
         continue;
       }
 
-      if (candidate < mark.from || candidate >= mark.to) {
+      if (candidate < mark.from || candidate > mark.to) {
         continue;
       }
 
