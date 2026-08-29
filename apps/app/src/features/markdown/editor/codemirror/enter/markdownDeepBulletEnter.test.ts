@@ -1,5 +1,5 @@
 import { insertNewlineAndIndent } from '@codemirror/commands';
-import { ensureSyntaxTree } from '@codemirror/language';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState, type Transaction } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 
@@ -108,6 +108,68 @@ describe('exitLazyContinuationBulletLookalike: Enter preserves physical indentat
       const lines = result.state.doc.toString().split('\n');
       expect(lines[2]).toBe('        '); // 8 spaces, no marker
       expect(result.state.selection.main.head).toBe(result.state.doc.length);
+    });
+
+    it('reparse consistency: the incremental result matches a fresh full parse of the same final text (locked 2026-08-29 narrowing)', () => {
+      const result = pressEnter(parse('* Parent\n        - Child|'));
+      const finalDoc = result.state.doc.toString();
+
+      function dumpTree(state: EditorState): string {
+        let out = '';
+        syntaxTree(state).iterate({
+          enter: (n) => {
+            out += `${n.name}[${n.from},${n.to}) `;
+          },
+        });
+        return out;
+      }
+
+      const incrementalTree = dumpTree(result.state);
+      const freshState = EditorState.create({
+        doc: finalDoc,
+        extensions: [markdownLanguageExtension()],
+      });
+      ensureSyntaxTree(freshState, freshState.doc.length, 5000);
+      const freshTree = dumpTree(freshState);
+
+      expect(incrementalTree).toBe(freshTree);
+    });
+  });
+
+  describe('narrowing (locked 2026-08-29): the fallback fires ONLY when the cursor is at the exact end of the physical line', () => {
+    it('cursor before the end of the lazy-continuation line: fallback declines, ordinary CM6 character-split behavior applies instead', () => {
+      // "* Parent\n        - Chi|ld" — cursor mid-word, not at line end.
+      const before = parse('* Parent\n        - Chi|ld');
+      expect(
+        exitLazyContinuationBulletLookalike({ state: before, dispatch: () => {} })
+      ).toBe(false);
+    });
+
+    it('cursor immediately before the bullet-lookalike prefix (inside its own leading whitespace): fallback declines', () => {
+      // "* Parent\n  |      - Child" — cursor inside the leading whitespace,
+      // well before both the marker and the end of the line.
+      const before = parse('* Parent\n  |        - Child');
+      expect(
+        exitLazyContinuationBulletLookalike({ state: before, dispatch: () => {} })
+      ).toBe(false);
+    });
+
+    it('cursor at the exact end of the line: fallback still fires (the one case it exists for)', () => {
+      const before = parse('* Parent\n        - Child|');
+      expect(
+        exitLazyContinuationBulletLookalike({ state: before, dispatch: () => {} })
+      ).toBe(true);
+    });
+
+    it('one character before the end of the line: fallback declines even though the rest of the guard would otherwise match', () => {
+      const source = '* Parent\n        - Child';
+      const state = EditorState.create({
+        doc: source,
+        selection: EditorSelection.cursor(source.length - 1), // right before the final "d"
+        extensions: [markdownLanguageExtension()],
+      });
+      ensureSyntaxTree(state, state.doc.length, 5000);
+      expect(exitLazyContinuationBulletLookalike({ state, dispatch: () => {} })).toBe(false);
     });
   });
 

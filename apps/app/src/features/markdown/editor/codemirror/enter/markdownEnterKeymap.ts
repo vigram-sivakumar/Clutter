@@ -237,12 +237,18 @@ const BULLET_LOOKALIKE = /^([ \t]*)[-+*][ \t]+/;
  * continuation line — matching what pressing Enter inside any ordinary
  * indented paragraph text does elsewhere in this editor.
  *
- * Guard, all four required to fire:
+ * Guard, all five required to fire:
  * 1. Single collapsed cursor (mirrors `emptyContinuationAt`'s own guard).
  * 2. Markdown active at the cursor.
- * 3. The physical line's text matches `BULLET_LOOKALIKE` — leading
+ * 3. Cursor is at the exact end of the current physical line (`pos ===
+ *    line.to`) — narrows this to precisely the case every product
+ *    example and test describes; a cursor sitting earlier on the line
+ *    (e.g. inside its own leading whitespace, before the lookalike
+ *    prefix even starts) never triggers this fallback and instead
+ *    reaches whatever already handles a mid-line Enter today.
+ * 4. The physical line's text matches `BULLET_LOOKALIKE` — leading
  *    whitespace, then one of `-`/`+`/`*`, then real separator whitespace.
- * 4. `resolveLineIndentContext` classifies *this exact line* as
+ * 5. `resolveLineIndentContext` classifies *this exact line* as
  *    `'paragraph'` — never `'list'` (a real, recognized `ListItem`'s own
  *    line — case A/B, untouched, `continueMarkup` already does the right
  *    thing), `'code'` (a fenced code line that merely contains this text
@@ -268,6 +274,10 @@ export const exitLazyContinuationBulletLookalike: StateCommand = ({ state, dispa
   }
 
   const line = state.doc.lineAt(pos);
+  if (pos !== line.to) {
+    return false;
+  }
+
   const match = BULLET_LOOKALIKE.exec(line.text);
   if (!match) {
     return false;
