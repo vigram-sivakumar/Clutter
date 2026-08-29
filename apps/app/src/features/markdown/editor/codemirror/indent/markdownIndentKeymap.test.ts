@@ -80,31 +80,30 @@ function listNestingDepths(view: EditorView): number[] {
 }
 
 describe('markdownIndentKeymap', () => {
-  describe('paragraph: Tab has no ceiling, Shift-Tab floors at 0', () => {
-    it('Tab progression 0,2,4,...,20 — keeps growing well past the old 10-space ceiling', () => {
+  describe('paragraph: Tab caps at 5 levels (10 spaces), Shift-Tab floors at 0', () => {
+    it('Tab progression 0,2,4,6,8,10, then plateaus at the 5-level ceiling', () => {
       const view = mountView('paragraph', 0);
       const seen: string[] = [view.state.doc.toString()];
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 7; i++) {
         expect(tab(view)).toBe(true);
         seen.push(view.state.doc.toString());
       }
-      expect(seen).toEqual(
-        Array.from({ length: 11 }, (_, i) => `${' '.repeat(i * 2)}paragraph`)
-      );
-      // Explicitly: no plateau at 10.
-      expect(seen[10]).toBe(`${' '.repeat(20)}paragraph`);
+      expect(seen).toEqual([
+        'paragraph',
+        '  paragraph',
+        '    paragraph',
+        '      paragraph',
+        '        paragraph',
+        '          paragraph', // 10 spaces = 5 levels, the ceiling
+        '          paragraph', // plateau: Tab #6 is a handled no-op
+        '          paragraph', // plateau: Tab #7 is a handled no-op
+      ]);
     });
 
-    it('every Tab press increases indentation by exactly INDENT_STEP_SPACES, starting already above the old ceiling', () => {
-      const view = mountView(`${' '.repeat(10)}paragraph`, 0);
-      for (let i = 0; i < 6; i++) {
-        const before = view.state.doc.toString();
-        const beforeIndent = before.length - before.trimStart().length;
-        expect(tab(view)).toBe(true);
-        const after = view.state.doc.toString();
-        const afterIndent = after.length - after.trimStart().length;
-        expect(afterIndent).toBe(beforeIndent + 2);
-      }
+    it('a line already past the ceiling (pasted/typed, not reached via Tab) is never shrunk by Tab — only prevented from growing', () => {
+      const view = mountView(`${' '.repeat(14)}paragraph`, 0); // 14 spaces, already past the 10-space ceiling
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(`${' '.repeat(14)}paragraph`); // unchanged, not clamped down to 10
     });
 
     it('Shift-Tab progression 10 -> 0, then floors', () => {
@@ -133,25 +132,18 @@ describe('markdownIndentKeymap', () => {
       expect(view.state.doc.toString()).toBe('paragraph');
     });
 
-    it('deeply indented text (well beyond the old ceiling) still grows normally via Tab', () => {
-      const text = '              paragraph'; // 14 spaces
-      const view = mountView(text, 0);
-      expect(tab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('                paragraph'); // 16
-    });
-
-    it('deeply indented text can be reduced via Shift-Tab, 2 at a time, no dependency on any former ceiling', () => {
+    it('deeply indented text (past the ceiling) can still be reduced via Shift-Tab, uncapped on the way down', () => {
       const view = mountView('              paragraph', 0); // 14 spaces
       expect(shiftTab(view)).toBe(true);
       expect(view.state.doc.toString()).toBe('            paragraph'); // 12
       expect(shiftTab(view)).toBe(true);
       expect(view.state.doc.toString()).toBe('          paragraph'); // 10
       expect(shiftTab(view)).toBe(true);
-      expect(view.state.doc.toString()).toBe('        paragraph'); // 8 — no ceiling-related special-casing here
+      expect(view.state.doc.toString()).toBe('        paragraph'); // 8 — dedent has no ceiling-related special-casing
     });
   });
 
-  describe('list: Tab has no ceiling, independent of any other item', () => {
+  describe('list: Tab caps at 5 levels, independent of any other item', () => {
     it.each([
       ['bullet -', '- item'],
       ['bullet *', '* item'],
@@ -161,7 +153,7 @@ describe('markdownIndentKeymap', () => {
       ['ordered 3-digit', '100. item'],
       ['task unchecked', '- [ ] item'],
       ['task checked', '- [x] item'],
-    ])('%s: Tab progression 0,2,4,6,8,10, keeps going', (_label, doc) => {
+    ])('%s: Tab progression 0,2,4,6,8,10, then plateaus at the 5-level ceiling', (_label, doc) => {
       const view = mountView(doc, 0);
       const markerText = doc; // marker text is a fixed suffix on every line
       const seen: string[] = [view.state.doc.toString()];
@@ -169,26 +161,31 @@ describe('markdownIndentKeymap', () => {
         expect(tab(view)).toBe(true);
         seen.push(view.state.doc.toString());
       }
-      expect(seen).toEqual(
-        Array.from({ length: 8 }, (_, i) => `${' '.repeat(i * 2)}${markerText}`)
-      );
+      expect(seen).toEqual([
+        markerText,
+        `  ${markerText}`,
+        `    ${markerText}`,
+        `      ${markerText}`,
+        `        ${markerText}`,
+        `          ${markerText}`, // 10 spaces = 5 levels, the ceiling
+        `          ${markerText}`, // plateau
+        `          ${markerText}`, // plateau
+      ]);
     });
 
-    it('bullet: Tab keeps growing indefinitely — 6 presses starting at 10 spaces, no plateau', () => {
-      const view = mountView('          - item', 0); // 10 spaces
+    it('bullet: Tab plateaus at the 5-level ceiling — already at 10 spaces, further presses are no-ops', () => {
+      const view = mountView('          - item', 0); // 10 spaces = 5 levels, already at the ceiling
       const seen: string[] = [view.state.doc.toString()];
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         expect(tab(view)).toBe(true);
         seen.push(view.state.doc.toString());
       }
       expect(seen).toEqual([
         '          - item',
-        '            - item',
-        '              - item',
-        '                - item',
-        '                  - item',
-        '                    - item',
-        '                      - item',
+        '          - item',
+        '          - item',
+        '          - item',
+        '          - item',
       ]);
     });
 
@@ -370,7 +367,7 @@ describe('markdownIndentKeymap', () => {
   });
 
   describe('no-parent deep indentation: an isolated bullet with no structural parent anywhere', () => {
-    it('Tab repeatedly on an isolated deeply-indented bullet — no parent required, no ceiling', () => {
+    it('Tab repeatedly on an isolated deeply-indented bullet — no parent required, plateaus at the 5-level ceiling', () => {
       const view = mountView('        - Item', 0); // 8 leading spaces, no other line in the document
       const seen: string[] = [view.state.doc.toString()];
       for (let i = 0; i < 4; i++) {
@@ -379,10 +376,10 @@ describe('markdownIndentKeymap', () => {
       }
       expect(seen).toEqual([
         '        - Item',
-        '          - Item',
-        '            - Item',
-        '              - Item',
-        '                - Item',
+        '          - Item', // 10 spaces = 5 levels, the ceiling
+        '          - Item', // plateau
+        '          - Item', // plateau
+        '          - Item', // plateau
       ]);
     });
 
@@ -429,13 +426,13 @@ describe('markdownIndentKeymap', () => {
       expect(lines[1]).toBe('    - Child');
     });
 
-    it('selection touching a supported (list) line and an unsupported (blockquote) line only changes the supported one', () => {
+    it('selection touching a list line and a blockquote line indents both uniformly — no construct distinction', () => {
       const doc = '- Item\n> Quote';
       const view = mountViewWithSelection(doc, [[0, doc.length]]);
       expect(tab(view)).toBe(true);
       const lines = view.state.doc.toString().split('\n');
       expect(lines[0]).toBe('  - Item');
-      expect(lines[1]).toBe('> Quote'); // untouched — blockquote Tab is out of scope
+      expect(lines[1]).toBe('  > Quote'); // touched exactly like every other selected line
     });
 
     it('selection boundaries exactly at line starts/ends still cover both lines', () => {
@@ -505,23 +502,66 @@ describe('markdownIndentKeymap', () => {
     });
   });
 
-  describe('scope: constructs this milestone does not touch fall through unchanged', () => {
-    it('heading: declines (returns false), letting the existing generic binding handle it', () => {
+  describe('no construct distinction: every line is touched uniformly, matching plain CM6 indentMore/indentLess', () => {
+    // Simplified 2026-08-29: this keymap no longer inspects the syntax tree
+    // at all, so it no longer "declines" for any construct — every
+    // touched line gets the same treatment, exactly like native CM6.
+
+    it('heading: indented like any other line', () => {
       const view = mountView('# Heading', 0);
-      expect(tab(view)).toBe(false);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  # Heading');
+    });
+
+    it('blockquote: indented like any other line', () => {
+      const view = mountView('> Quote', 0);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  > Quote');
+    });
+
+    it('fenced code content: indented like any other line', () => {
+      const view = mountView('```\ncode\n```', 5); // inside "code"
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('```\n  code\n```');
+    });
+
+    it('a genuinely blank line in the selection is indented too, matching native CM6', () => {
+      const view = mountViewWithSelection('- one\n\n- two', [[0, 12]]);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  - one\n  \n  - two');
+    });
+
+    it('Shift-Tab at 0 spaces on any construct is still a handled no-op (never declines)', () => {
+      const view = mountView('# Heading', 0);
+      expect(shiftTab(view)).toBe(true);
       expect(view.state.doc.toString()).toBe('# Heading');
     });
+  });
 
-    it('blockquote: declines (returns false)', () => {
-      const view = mountView('> Quote', 0);
-      expect(tab(view)).toBe(false);
-      expect(view.state.doc.toString()).toBe('> Quote');
+  describe('5-level indent ceiling (added 2026-08-29)', () => {
+    it('applies uniformly across constructs — heading also plateaus at 10 spaces', () => {
+      const view = mountView('# Heading', 0);
+      for (let i = 0; i < 5; i++) {
+        expect(tab(view)).toBe(true);
+      }
+      expect(view.state.doc.toString()).toBe('          # Heading'); // 10 spaces
+      expect(tab(view)).toBe(true); // 6th press: at the ceiling, no-op
+      expect(view.state.doc.toString()).toBe('          # Heading');
     });
 
-    it('fenced code content: declines (returns false)', () => {
-      const view = mountView('```\ncode\n```', 5); // inside "code"
-      expect(tab(view)).toBe(false);
-      expect(view.state.doc.toString()).toBe('```\ncode\n```');
+    it('a multi-line selection: lines already at the ceiling stay put while a shallower line in the same selection still grows', () => {
+      const doc = '          - one\n- two'; // "one" already at 10 spaces, "two" at 0
+      const view = mountViewWithSelection(doc, [[0, doc.length]]);
+      expect(tab(view)).toBe(true);
+      const lines = view.state.doc.toString().split('\n');
+      expect(lines[0]).toBe('          - one'); // unchanged — already at the ceiling
+      expect(lines[1]).toBe('  - two'); // grew normally
+    });
+
+    it('Shift-Tab is completely unaffected by the ceiling — dedents past it freely', () => {
+      const view = mountView(`${' '.repeat(16)}- deep`, 0); // 16 spaces, well past the 10-space ceiling
+      expect(shiftTab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(`${' '.repeat(14)}- deep`);
     });
   });
 });

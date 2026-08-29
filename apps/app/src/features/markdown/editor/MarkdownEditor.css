@@ -493,7 +493,7 @@
   display: inline-block;
   width: var(--marker-width);
   color: var(--marker-foreground);
-  text-align: end;
+  text-align: center;
   text-indent: 0;
 }
 

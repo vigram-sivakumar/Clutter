@@ -1,84 +1,89 @@
 import {
-  EditorState,
   Prec,
   type ChangeSpec,
   type Extension,
+  type Line,
   type StateCommand,
 } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 
-import { computeIndentChange, resolveLineIndentContext } from './markdownIndentContext';
+import { INDENT_STEP_SPACES } from './markdownIndentContext';
 
 /**
- * Markdown-aware Tab/Shift-Tab — the editor-indentation half of the
- * milestone (blockquote-deepening Tab, table cell navigation, and
- * heading-level Tab are explicitly separate, not-yet-designed later
- * milestones; nothing here touches them).
+ * Markdown-aware Tab/Shift-Tab.
  *
- * Operates on real **document** lines only (`state.doc.lineAt`), never
- * visual/wrapped rows — a paragraph that soft-wraps across several
- * visual rows is still exactly one document line here, and gets exactly
- * one indentation change, applied once at its own real start
- * (`line.from`), regardless of which wrapped row the caret happens to be
- * on. This falls out of using `state.doc`/`syntaxTree(state)` throughout
- * and never any view/DOM/coordinate API — the same reason this file
- * introduces no new caret-coordinate machinery at all.
+ * Deliberately minimal (simplified 2026-08-29, after investigation showed
+ * the previous construct-aware version — paragraph/list handled, heading/
+ * blockquote/code/blank excluded — produced byte-identical results to
+ * plain CM6 `indentMore`/`indentLess` in every tested case *except* two
+ * narrow, cosmetic ones (skipping non-list/paragraph lines in a mixed
+ * selection, and skipping blank lines), and that a genuinely stronger
+ * guarantee — indenting list lines without ever letting the parser
+ * reclassify/reparent them — is not achievable at all while staying valid
+ * CommonMark; see the investigation this change reports for the full
+ * reasoning. What's left is exactly the one behavior actually wanted:
  *
- * Per-line, resolved independently (`resolveLineIndentContext`) — a
- * multi-line selection touching a mix of supported (`paragraph`/`list`)
- * and unsupported (`heading`/`code`/`blockquote`/anything else) lines
- * applies the new rule only to the supported ones and leaves every other
- * touched line completely untouched in that same keypress (no fallback
- * generic indent is layered in for the unsupported lines within a mixed
- * selection — deliberately out of scope for this milestone, not silently
- * guessed at).
+ * Every physical document line touched by the selection gets the same
+ * `INDENT_STEP_SPACES` added to (Tab) or removed from (Shift-Tab) its own
+ * leading whitespace, independently of every other line and regardless of
+ * what construct it is — no paragraph/list/heading/blockquote/code
+ * distinction, no syntax-tree lookup, no parser-hierarchy preservation, no
+ * reparse/validation step. List hierarchy is left entirely to the parser,
+ * to interpret however CommonMark says to on the next reparse.
  *
- * `code` lines are recognized (`resolveLineIndentContext` returns
- * `{kind: 'code'}`) but deliberately produce no change here at all —
- * "ordinary code indentation is appropriate" (the design's own words)
- * means *today's already-existing* generic Tab/Shift-Tab handling is
- * already correct for them, so this command declines them exactly like
- * `heading`/`unhandled`, letting them fall through unchanged rather than
- * reimplementing logic that doesn't need to change.
+ * Reasons this still exists rather than a plain generic-indent extension:
+ * (1) it operates on real **document** lines, never visual/wrapped rows —
+ * a soft-wrapped paragraph gets exactly one change, at its real start,
+ * regardless of which wrapped row the caret is on; (2) whitespace is
+ * always written back as literal space characters, per Clutter's own
+ * space-driven indentation model (`INDENT_STEP_SPACES`), not derived from
+ * CM6's generic `indentUnit`/`tabSize` facets.
+ *
+ * Growth via Tab is capped at `MAX_INDENT_LEVELS` (5) — a flat, per-line
+ * ceiling, not a parser/hierarchy concept: a line already at or past
+ * `MAX_INDENT_SPACES` simply produces no further change on Tab, exactly
+ * like Shift-Tab's existing 0-space floor. Shift-Tab is never capped by
+ * this — a line manually indented deeper than the ceiling (e.g. pasted
+ * content) can still be dedented all the way back down.
  */
 
-interface LineOutcome {
-  readonly handled: boolean;
-  readonly change: ChangeSpec | null;
-}
+const MAX_INDENT_LEVELS = 5;
+const MAX_INDENT_SPACES = MAX_INDENT_LEVELS * INDENT_STEP_SPACES;
 
-function lineOutcome(state: EditorState, from: number, direction: 1 | -1): LineOutcome {
-  const line = state.doc.lineAt(from);
-  const context = resolveLineIndentContext(state, line);
+function lineIndentChange(line: Line, direction: 1 | -1): ChangeSpec | null {
+  const leadingEnd = line.from + /^[ \t]*/.exec(line.text)![0].length;
+  const current = leadingEnd - line.from;
+  // `Math.max(current, …)` on growth: a line already past the ceiling
+  // (pasted/typed content, not reached via Tab) must never be shrunk by
+  // pressing Tab — only prevented from growing further.
+  const target =
+    direction === 1
+      ? Math.max(current, Math.min(current + INDENT_STEP_SPACES, MAX_INDENT_SPACES))
+      : Math.max(0, current - INDENT_STEP_SPACES);
 
-  if (context.kind !== 'paragraph' && context.kind !== 'list') {
-    return { handled: false, change: null };
+  if (target === current) {
+    return null;
   }
 
-  return { handled: true, change: computeIndentChange(line, context, direction) };
+  return { from: line.from, to: leadingEnd, insert: ' '.repeat(target) };
 }
 
 /**
  * Shared implementation for both directions. Walks every physical line
  * touched by every selection range (deduplicated, so an empty/collapsed
  * range and a range spanning several lines are both handled by the same
- * loop), collecting one `ChangeSpec` per line that has one.
+ * loop), collecting one `ChangeSpec` per line that actually changes.
  *
- * Returns `false` (declines — falls through to whatever handles Tab
- * today) only when **no** touched line resolved to `paragraph`/`list` at
- * all. When at least one line did resolve to a supported kind, this
- * always returns `true` and swallows the keypress — including when every
- * such line was already at its direction's limit (Shift-Tab's 0-space
- * floor; Tab has no limit) and produced zero actual changes. That's what
- * makes the 0-space floor a real floor: without this, declining at the
- * limit would let the keypress fall through to the generic
- * `indentMore`/`indentLess` beneath it.
+ * Always returns `true` — this keymap never defers to CM6's generic
+ * `indentWithTab` beneath it, since every line is always "supported" now.
+ * A line already at its direction's limit (Shift-Tab's 0-space floor;
+ * Tab's `MAX_INDENT_SPACES` ceiling) simply contributes no change, exactly
+ * like a no-op keypress elsewhere in the editor — not a decline.
  */
 function markdownIndentDirection(direction: 1 | -1): StateCommand {
   return ({ state, dispatch }) => {
     const seenLines = new Set<number>();
     const changes: ChangeSpec[] = [];
-    let anyHandled = false;
 
     for (const range of state.selection.ranges) {
       let pos = range.from;
@@ -86,20 +91,13 @@ function markdownIndentDirection(direction: 1 | -1): StateCommand {
         const line = state.doc.lineAt(pos);
         if (!seenLines.has(line.from)) {
           seenLines.add(line.from);
-          const outcome = lineOutcome(state, line.from, direction);
-          if (outcome.handled) {
-            anyHandled = true;
-            if (outcome.change) {
-              changes.push(outcome.change);
-            }
+          const change = lineIndentChange(line, direction);
+          if (change) {
+            changes.push(change);
           }
         }
         pos = line.to + 1;
       }
-    }
-
-    if (!anyHandled) {
-      return false;
     }
 
     if (changes.length) {
@@ -122,9 +120,10 @@ export const markdownIndentLess: StateCommand = markdownIndentDirection(-1);
  * `Prec.high`, same precedence `markdownEnterKeymap()` already uses, for
  * the identical reason: it must win over `createEditorView.ts`'s own
  * `indentWithTab` (registered in that file's lowest-priority keymap,
- * added last) without that shared, non-Markdown-specific file needing
- * any change at all — this shadows it for Markdown editing only, exactly
- * the existing Enter/Backspace pattern.
+ * added last) without that shared, non-Markdown-specific file needing any
+ * change at all. Since this keymap never declines, `indentWithTab` is
+ * effectively fully shadowed for Markdown editing — kept anyway as the
+ * fallback for any non-Markdown editor CM6 config in this app might reuse.
  */
 export function markdownIndentKeymap(): Extension {
   return Prec.high(
