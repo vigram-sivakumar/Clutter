@@ -211,6 +211,89 @@ const exitEmptyIndentContinuation: StateCommand = (target) => {
   return true;
 };
 
+/** A physical line's own leading whitespace, followed by a bullet marker and its separator — the raw *shape* CM6's own `getContext` has declined to recognize as this line's own marker (see the guard below). Never used to decide list *structure*; only to detect this one fallback case. Ordered markers are deliberately excluded (digits don't match), matching the narrower, not-yet-made ordered-list decision from the Backspace work. */
+const BULLET_LOOKALIKE = /^([ \t]*)[-+*][ \t]+/;
+
+/**
+ * Fallback for Enter on a physical line that *looks* like a bullet item
+ * but that CM6's own `getContext` doesn't recognize as one — verified
+ * (see the investigation this command's commit reports) to be a genuine
+ * CommonMark parser consequence, not a bug: a line indented 4+ columns
+ * past the nearest currently-open block's own content column becomes
+ * that block's lazy-continuation text, regardless of whether the line's
+ * own characters happen to start with a bullet marker. `getContext`'s
+ * ancestor walk then finds only the *shallower* real `ListItem` (if any)
+ * enclosing that paragraph, and `continueMarkup` reconstructs the new
+ * line at that shallower item's own indentation — discarding the deeper
+ * physical line's own position entirely.
+ *
+ * This command intercepts exactly that one shape, before `continueMarkup`
+ * runs, and inserts a newline plus the *physical line's own* leading
+ * whitespace — nothing else. No marker is repeated: this line was never
+ * a real `ListItem` in the parser's eyes, and inventing one here would be
+ * Clutter deciding list structure the parser itself doesn't recognize,
+ * exactly what this architecture forbids elsewhere (Tab/Shift-Tab,
+ * Backspace). The result is a plain, unindented-relative-to-itself
+ * continuation line — matching what pressing Enter inside any ordinary
+ * indented paragraph text does elsewhere in this editor.
+ *
+ * Guard, all four required to fire:
+ * 1. Single collapsed cursor (mirrors `emptyContinuationAt`'s own guard).
+ * 2. Markdown active at the cursor.
+ * 3. The physical line's text matches `BULLET_LOOKALIKE` — leading
+ *    whitespace, then one of `-`/`+`/`*`, then real separator whitespace.
+ * 4. `resolveLineIndentContext` classifies *this exact line* as
+ *    `'paragraph'` — never `'list'` (a real, recognized `ListItem`'s own
+ *    line — case A/B, untouched, `continueMarkup` already does the right
+ *    thing), `'code'` (a fenced code line that merely contains this text
+ *    as content — must never be treated as markup), `'heading'`, or
+ *    `'unhandled'` (blockquotes — `>` never matches `BULLET_LOOKALIKE`
+ *    anyway — and blank lines).
+ *
+ * Every other case returns `false` and reaches `continueMarkup` exactly
+ * as before.
+ */
+export const exitLazyContinuationBulletLookalike: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+
+  const pos = selection.main.head;
+  if (
+    !markdownLanguage.isActiveAt(state, pos, -1) &&
+    !markdownLanguage.isActiveAt(state, pos, 1)
+  ) {
+    return false;
+  }
+
+  const line = state.doc.lineAt(pos);
+  const match = BULLET_LOOKALIKE.exec(line.text);
+  if (!match) {
+    return false;
+  }
+
+  if (resolveLineIndentContext(state, line).kind !== 'paragraph') {
+    return false;
+  }
+
+  const indent = match[1] ?? '';
+  let from = pos;
+  while (from > line.from && /[ \t]/.test(line.text.charAt(from - line.from - 1))) {
+    from--;
+  }
+
+  dispatch(
+    state.update({
+      changes: { from, to: pos, insert: state.lineBreak + indent },
+      selection: EditorSelection.cursor(from + state.lineBreak.length + indent.length),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
+  return true;
+};
+
 /**
  * The single Enter binding. Exported for tests; wire it through
  * `markdownEnterKeymap()`, never as a second Enter binding of its own.
@@ -219,6 +302,7 @@ const exitEmptyIndentContinuation: StateCommand = (target) => {
  */
 export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyBlockquoteContinuation(target) ||
+  exitLazyContinuationBulletLookalike(target) ||
   continueMarkup(target) ||
   exitEmptyIndentContinuation(target);
 
