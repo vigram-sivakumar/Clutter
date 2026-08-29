@@ -92,21 +92,35 @@ describe('continueMarkupPreservingStructure: guards Enter-triggered renumbering 
       expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
     });
 
-    it('leading-zero marker whose numeric renumber also changes width: nested child survives', () => {
-      // "008." (4 chars, content column 5) renumbering to a plain "9." (2
-      // chars) is a width change even though 8->9 doesn't cross a
-      // power-of-10 boundary numerically — renumberList converts through a
-      // bare Number and never reproduces zero-padding (confirmed in the
-      // ODR investigation). Child indented at exactly 5 spaces to match
-      // "008."'s own real content column, so it is genuinely nested
-      // *before* the edit (verified directly against the pre-edit tree) —
-      // not merely lazy-continuation-absorbed text, which a 4-space
-      // fixture would produce regardless of any renumbering and wouldn't
-      // exercise this guard at all.
+    it('leading-zero marker: a small padding-driven shrink (magnitude <= 3) is safe and still renumbers', () => {
+      // "008." (3-digit run) renumbering to a plain "9." (1-digit run) is
+      // a 2-column *shrink* (padding stripped), even though 8->9 doesn't
+      // cross a power-of-10 boundary numerically — renumberList converts
+      // through a bare Number and never reproduces zero-padding (confirmed
+      // in the ODR investigation). Magnitude 2 is within the established
+      // ±3 safe-shrink tolerance (§15), so this renumbers correctly,
+      // matching upstream, and the child (placed at "008."'s own correct
+      // 5-space content column, genuinely nested in the pre-edit tree)
+      // survives regardless.
       const before = parse('007. A|\n008. B\n     1. Child');
       const after = pressEnter(before);
 
-      expect(after.doc.toString()).toBe('007. A\n8. \n008. B\n     1. Child');
+      expect(after.doc.toString()).toBe('007. A\n8. \n9. B\n     1. Child');
+      const names = treeShape(after).map((e) => e.split(':')[0]);
+      expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
+    });
+
+    it('leading-zero marker: a large padding-driven shrink (magnitude > 3) is declined', () => {
+      // "00010." (5-digit run, content column 7) shrinking to "9." (1
+      // digit) is a 4-column shrink — past the safe tolerance — with the
+      // child at "00010."'s own correct 7-space content column, genuinely
+      // nested pre-edit. Same corruption class as the numeric-boundary
+      // cases above, just reached via padding instead of crossing a
+      // power-of-10.
+      const before = parse('9. |\n00010. Y\n       1. Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n00010. Y\n       1. Child');
       const names = treeShape(after).map((e) => e.split(':')[0]);
       expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
     });
@@ -130,14 +144,19 @@ describe('continueMarkupPreservingStructure: guards Enter-triggered renumbering 
       expect(names.filter((n) => n === 'OrderedList')).toHaveLength(3);
     });
 
-    it('multiple following siblings after the boundary still renumber correctly once the risky one is declined', () => {
+    it('multiple following siblings after the boundary still get their own correct renumber, even though the earlier sibling is declined', () => {
       const before = parse('8. A|\n9. B\n   1. Child\n10. C\n11. D');
       const after = pressEnter(before);
 
-      // 9 is declined (stays "9.", preserving B's own child), but C and D
-      // — same-width renumbers, no descendants — are unaffected by the
-      // guard and keep upstream's own renumbering exactly.
-      expect(after.doc.toString()).toBe('8. A\n9. \n9. B\n   1. Child\n10. C\n11. D');
+      // Only B's own rewrite (9->10) is declined, since only B owns
+      // descendant content that width change would break. C and D have no
+      // descendants — their own renumbers (10->11, 11->12) are
+      // independently safe and are kept exactly as upstream computed them,
+      // not dropped merely for coming after a declined change in the same
+      // transaction. This is the "not more aggressive than necessary"
+      // guarantee (docs/list-item-architecture-odr.md §15): the guard
+      // declines only the specific edits it must, never a whole tail.
+      expect(after.doc.toString()).toBe('8. A\n9. \n9. B\n   1. Child\n11. C\n12. D');
     });
   });
 
@@ -171,22 +190,107 @@ describe('continueMarkupPreservingStructure: guards Enter-triggered renumbering 
     });
   });
 
-  // NOT COVERED HERE, recorded honestly rather than papered over with an
-  // inconclusive test (see docs/list-item-architecture-odr.md §15):
-  // `renumberList` (@codemirror/lang-markdown) has two other internal call
-  // sites beyond the ordinary continuation case exercised above, both
-  // inside the "empty item unwinds one level" branch — one of them passes
-  // `offset: -2`, a shrink-direction rewrite. `continueMarkupPreservingStructure`
-  // wraps the *entire* `continueMarkup` command and inspects only the
-  // final, already-computed `ChangeSet`, cross-referenced against the
-  // pre-edit tree — it has no branch, condition, or code path that
-  // inspects which of continueMarkup's internal decisions produced a
-  // given change, so by construction it protects all three call sites
-  // identically, not just the one exercised above. A clean, minimal,
-  // independently-confirmed *shrink-specific* corruption repro proved
-  // fiddly to construct this session (every attempted construction either
-  // didn't cross a digit-width boundary or hit upstream's own pre-existing
-  // "stop at first non-sequential number" guard for an unrelated reason)
-  // — a genuine investigation gap, not a claim of coverage this file
-  // doesn't have.
+  describe('shrink direction: safe (magnitude <= 3) renumbers, unsafe (magnitude >= 4) declines', () => {
+    // These exercise `renumberList`'s *other* two internal call sites (the
+    // `offset: -2` branch inside "empty item unwinds one level" —
+    // Clutter's `nonTightLists: false` means this branch always fires on
+    // an empty-item Enter) — not the ordinary continuation case the tests
+    // above exercise. `continueMarkupPreservingStructure` needed no
+    // special-casing for this: it inspects only the final `ChangeSet`,
+    // with no branch that inspects which internal decision produced a
+    // given change, so the same guard protects both call sites.
+    //
+    // The exact boundary (magnitude <= 3 safe, magnitude >= 4 unsafe) was
+    // confirmed by a programmatic sweep (content columns 4 through 9,
+    // descendants placed at each item's own correct pre-edit column) —
+    // see docs/list-item-architecture-odr.md §15 for the full swept
+    // matrix; these are the representative boundary cases.
+
+    it('plain numeric shrink 10 -> 9 (magnitude 1): safe, renumbers, child survives', () => {
+      const before = parse('9. |\n10. Y\n    1. Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n9. Y\n    1. Child');
+      const names = treeShape(after).map((e) => e.split(':')[0]);
+      expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
+    });
+
+    it('plain numeric shrink 100 -> 99 (magnitude 1): safe, renumbers, child survives', () => {
+      const before = parse('99. |\n100. Y\n     1. Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n99. Y\n     1. Child');
+      const names = treeShape(after).map((e) => e.split(':')[0]);
+      expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
+    });
+
+    it('plain numeric shrink 1000 -> 999 (magnitude 1): safe, renumbers, child survives', () => {
+      const before = parse('999. |\n1000. Y\n      1. Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n999. Y\n      1. Child');
+      const names = treeShape(after).map((e) => e.split(':')[0]);
+      expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
+    });
+
+    it('boundary: magnitude exactly 3 is safe and renumbers', () => {
+      // Deleted "0009." (itemNumber 9), following "0010." (content column
+      // 6) -> renumbers to "9." (content column 3) -- magnitude 3.
+      const before = parse('0009. |\n0010. Y\n     1. Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n9. Y\n     1. Child');
+      const names = treeShape(after).map((e) => e.split(':')[0]);
+      expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
+    });
+
+    it('boundary: magnitude exactly 4 is unsafe and declines', () => {
+      // Deleted "00009." (itemNumber 9), following "00010." (content
+      // column 7) -> would renumber to "9." (content column 3) --
+      // magnitude 4, one past the safe boundary.
+      const before = parse('00009. |\n00010. Y\n       1. Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n00010. Y\n       1. Child');
+      const names = treeShape(after).map((e) => e.split(':')[0]);
+      expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
+    });
+
+    it('paren-style delimiter: safe shrink renumbers, delimiter preserved', () => {
+      const before = parse('9) |\n10) Y\n    1) Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n9) Y\n    1) Child');
+      expect(after.doc.toString()).not.toContain('.');
+    });
+
+    it('paren-style delimiter: unsafe shrink declines, delimiter preserved', () => {
+      const before = parse('00009) |\n00010) Y\n       1) Child');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n00010) Y\n       1) Child');
+      const names = treeShape(after).map((e) => e.split(':')[0]);
+      expect(names.filter((n) => n === 'OrderedList')).toHaveLength(2);
+    });
+
+    it('unsafe shrink with no descendant content still renumbers (nothing to protect)', () => {
+      const before = parse('00009. |\n00010. Y');
+      const after = pressEnter(before);
+
+      expect(after.doc.toString()).toBe('\n9. Y');
+    });
+  });
+
+  // NOT COVERED HERE, recorded honestly (see docs/list-item-architecture-odr.md
+  // §15): the exact safe/unsafe boundary was confirmed via a *single*
+  // representative family (deleting a "9."-shaped item, following item
+  // shifting down through a "10."-shaped one) swept across padding widths
+  // — not independently re-verified for every other possible old/new
+  // content-column combination (e.g. a shrink that doesn't bottom out at a
+  // single digit). The general tolerance-window formula this boundary
+  // relies on (§14.9) was established independently for a different,
+  // Tab-driven case, so this is corroborating evidence for the same
+  // constant, not a from-scratch re-derivation for every possible
+  // magnitude — treated as sufficient given the swept family already
+  // covers content columns 4 through 9.
 });

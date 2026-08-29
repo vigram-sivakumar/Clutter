@@ -520,25 +520,73 @@ const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }
 };
 
 /**
- * True when `[from, to)` is exactly the digit run of some `ListMark` in
- * `state`'s own (pre-edit) tree, and that `ListMark`'s own `ListItem`
- * spans more than one physical line — i.e. genuinely owns descendant
- * content (a nested list, a multi-line paragraph) whose own leading
- * whitespace was calibrated to this item's *current* content column, not
- * a re-derived one. A single-line item (`ListMark` + one short
- * `Paragraph`, nothing else) has nothing that could fall out of
- * alignment, so rewriting its digits is always safe regardless of width
- * — this function only flags the cases that could actually break.
- *
- * The digit run is `[marker.from, marker.to - 1)`: a `ListMark` is
- * always exactly the marker's digits plus one delimiter character
- * (`.`/`)`), confirmed against the installed `@lezer/markdown@1.7.2`
- * (this document's own §13.1) — `renumberList`'s own regex-based
- * position math (`itemNumber`, `@codemirror/lang-markdown`, read
- * directly from the installed source) produces changes at exactly this
- * boundary, never touching the delimiter itself.
+ * `renumberList`'s own tolerance for a digit-width change on a multi-line
+ * item, before its descendant content's indentation falls out of
+ * alignment — confirmed empirically this session (a programmatic sweep of
+ * zero-padded markers shrinking `9.`/`10.`-style pairs at every content-
+ * column width from 4 through 9) and consistent with the general
+ * nesting-tolerance window this document's own §14.9 already established
+ * for a different (Tab-driven) case: a physical line's content stays
+ * inside a list item's own nested block for any indentation from that
+ * item's content column up to *3 columns past it*, and falls into
+ * CommonMark's Rule #5 laziness (silently absorbed as plain continuation
+ * text) beyond that. `3` here is that same constant, not a new one.
  */
-function isRiskyRenumberRewrite(state: EditorState, from: number, to: number): boolean {
+const MAX_SAFE_SHRINK_COLUMNS = 3;
+
+/**
+ * True when `[from, to)` is exactly the digit run of some `ListMark` in
+ * `state`'s own (pre-edit) tree, that `ListMark`'s own `ListItem` spans
+ * more than one physical line (i.e. genuinely owns descendant content — a
+ * nested list, a multi-line paragraph — whose own leading whitespace was
+ * calibrated to this item's *current* content column, not a re-derived
+ * one; a single-line item has nothing that could fall out of alignment
+ * regardless of width), **and** the specific width change is not provably
+ * safe.
+ *
+ * `insertedLength` is deliberately compared against the digit run's own
+ * `to - from` rather than re-deriving "old width" a second way, so a
+ * caller passing mismatched values can't silently disagree with what
+ * this function is actually checking.
+ *
+ * **Growth** (`insertedLength > oldWidth`, e.g. `9`→`10`): always risky
+ * for a multi-line item. A newly-widened item's content column only ever
+ * *increases*, and a descendant authored at exactly the old column (the
+ * common case — nothing in this codebase or upstream ever leaves
+ * intentional slack there) has zero margin: even a 1-column growth drops
+ * it below the new column. This function doesn't attempt to measure a
+ * descendant's *actual* slack (whether it happens to already sit a few
+ * columns past the old minimum) — that would require inspecting the
+ * specific descendant range rather than just "does this item span more
+ * than one line," a meaningfully bigger check for a case (authored-in
+ * slack on a list item nobody asked to be malformed) this investigation
+ * found no evidence is worth guarding more precisely for. Treating every
+ * growth on a multi-line item as risky is the same worst-case-safe
+ * assumption applied uniformly, not a special case.
+ *
+ * **Shrink** (`insertedLength < oldWidth`, e.g. `10`→`9`, or a
+ * zero-padded `"0010."`→`"9."`): risky only when the shrink's own
+ * magnitude exceeds `MAX_SAFE_SHRINK_COLUMNS`. A shrink *increases* the
+ * gap between a descendant's stale (larger) indentation and the item's
+ * new (smaller) content column — and per the same tolerance window,
+ * that gap can grow by up to 3 columns before the descendant falls out
+ * of the nested-content window into lazy-continuation. Confirmed
+ * empirically this session, not assumed: a swept boundary test (content
+ * columns 4 through 9, descendants placed at each item's own correct
+ * pre-edit column) found every shrink of magnitude ≤3 safe and every
+ * shrink of magnitude ≥4 corrupting, with no exceptions in the swept
+ * range — docs/list-item-architecture-odr.md §15 records the full
+ * matrix. This is *not* symmetric with growth's zero-margin treatment:
+ * shrink's own margin is a structural property of the tolerance window
+ * itself (§14.9), not an assumption about typical authoring, so it is
+ * safe to rely on regardless of how the shrink was produced.
+ */
+function isRiskyRenumberRewrite(
+  state: EditorState,
+  from: number,
+  to: number,
+  insertedLength: number
+): boolean {
   let risky = false;
   syntaxTree(state).iterate({
     enter: (node) => {
@@ -552,7 +600,13 @@ function isRiskyRenumberRewrite(state: EditorState, from: number, to: number): b
       if (marker.from !== from || marker.to - 1 !== to) {
         return;
       }
-      risky = state.doc.lineAt(node.to).number > state.doc.lineAt(node.from).number;
+      const multiLine = state.doc.lineAt(node.to).number > state.doc.lineAt(node.from).number;
+      if (!multiLine) {
+        return;
+      }
+      const oldWidth = to - from;
+      const delta = insertedLength - oldWidth;
+      risky = delta > 0 || -delta > MAX_SAFE_SHRINK_COLUMNS;
     },
   });
   return risky;
@@ -585,19 +639,35 @@ function isRiskyRenumberRewrite(state: EditorState, from: number, to: number): b
  *
  * This does **not** reimplement, replace, or second-guess
  * `renumberList` — it only inspects the transaction `continueMarkup`
- * *already computed* and would have dispatched unchanged, and drops the
- * tail of its own renumbering edits starting at the first one that would
- * corrupt structure, keeping every edit before it byte-identical to what
- * upstream produced. Every case that doesn't hit this specific hazard
- * (the overwhelming majority: no ordered-list renumbering at all, or
- * renumbering that never crosses a digit-width boundary, or a boundary
- * crossing where the affected item has no descendant content to break)
- * dispatches exactly as `continueMarkup` alone would — nothing about
- * this wrapper changes any already-correct Enter behavior, and it never
- * touches Tab/Shift-Tab or Backspace.
+ * *already computed* and would have dispatched unchanged, and drops
+ * *only* the specific renumbering edits that would corrupt structure —
+ * every other edit in the same transaction, including a later, otherwise-
+ * unrelated sibling's own safe renumber that happens to come after a
+ * declined one in document order, is kept byte-identical to what
+ * upstream produced. This was verified, not assumed: an earlier version
+ * of this guard truncated *every* edit from the first risky one onward,
+ * which silently left later, independently-safe siblings un-renumbered
+ * too (confirmed via direct transaction inspection — `9. A / 9. B[risky]
+ * / 10. C[safe] / 11. D[safe]` — the risky-only version keeps C and D's
+ * own correct renumbers; the truncating version dropped them for no
+ * reason, which is exactly the "more aggressive than necessary" failure
+ * mode this design explicitly avoids). Each renumbering edit targets an
+ * independent, non-overlapping digit-run position, and upstream's own
+ * `renumberList` already computes every rewritten value from each
+ * sibling's own *original* literal number (not from any other rewrite in
+ * the same walk) — so declining one specific rewrite has no bearing on
+ * whether any other rewrite in the same transaction remains correct on
+ * its own.
  *
- * Declining a would-be-corrupting rewrite leaves that one item (and any
- * later siblings in the same renumbering walk, since they depend on it)
+ * Every case that doesn't hit this specific hazard (the overwhelming
+ * majority: no ordered-list renumbering at all, or renumbering that
+ * never crosses a digit-width boundary, or a boundary crossing where the
+ * affected item has no descendant content to break) dispatches exactly
+ * as `continueMarkup` alone would — nothing about this wrapper changes
+ * any already-correct Enter behavior, and it never touches Tab/Shift-Tab
+ * or Backspace.
+ *
+ * Declining a would-be-corrupting rewrite leaves that one item
  * numerically out of sequence rather than structurally broken —
  * deliberately: this document's own standing principle (§1, §7, §13.6)
  * is "never silently author a document shape the user didn't ask for,"
@@ -624,20 +694,17 @@ const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) =>
 
   const transaction: Transaction = captured;
   const kept: { from: number; to: number; insert: string }[] = [];
-  let corrupting = false;
+  let declinedAny = false;
 
   transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-    if (corrupting) {
-      return;
-    }
-    if (isRiskyRenumberRewrite(state, fromA, toA)) {
-      corrupting = true;
+    if (isRiskyRenumberRewrite(state, fromA, toA, inserted.length)) {
+      declinedAny = true;
       return;
     }
     kept.push({ from: fromA, to: toA, insert: inserted.toString() });
   }, true);
 
-  if (!corrupting) {
+  if (!declinedAny) {
     dispatch(transaction);
     return true;
   }

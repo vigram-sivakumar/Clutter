@@ -3111,16 +3111,22 @@ otherwise silently contradict.
 
 ## 15. Existing bug: Enter/`renumberList` digit-width corruption
 
-**Status: confirmed reproduction; full investigation and fix in
-progress (2026-08-29).** This is an **already-shipped defect**, entirely
-separate from the not-yet-built Tab/Shift-Tab normalization addendum
-(§9's "PENDING ADDENDUM", §14) — surfaced as a byproduct of investigating
-that future feature, but present today in code Clutter has never
-modified: upstream `@codemirror/lang-markdown@6.5.2`'s own
-`insertNewlineContinueMarkupCommand` (wired unmodified as `continueMarkup`
-in `markdownEnterKeymap.ts`) and its private `renumberList` helper.
+**Status: IMPLEMENTED + VERIFIED (both directions).** This is an
+**already-shipped defect**, entirely separate from the not-yet-built
+Tab/Shift-Tab normalization addendum (§9's "PENDING ADDENDUM", §14) —
+surfaced as a byproduct of investigating that future feature, but
+present today in code Clutter has never modified: upstream
+`@codemirror/lang-markdown@6.5.2`'s own `insertNewlineContinueMarkupCommand`
+(wired unmodified as `continueMarkup` in `markdownEnterKeymap.ts`) and
+its private `renumberList` helper. §15.1–§15.4 below cover the growth
+direction (the first-found case, fixed and verified in an earlier
+session); §15.5 onward cover the shrink-direction follow-up
+investigation (2026-08-29) that closed the remaining gap the growth-only
+fix had left open, and a further refinement (found during that same
+follow-up) to stop the fix from being more aggressive than the actual
+hazard requires.
 
-### Confirmed reproduction
+### 15.1 Confirmed reproduction (growth direction) — IMPLEMENTED + VERIFIED
 
 ```
 Before:  "8. A\n9. B\n   1. Child"     (child correctly nested under "9.")
@@ -3146,7 +3152,7 @@ component individually**, per this document's own established
 methodology for classifying this kind of finding (§14.9's identical
 framing for the Rule #5 laziness "gap").
 
-### Investigation
+### 15.2 Investigation (growth direction) — IMPLEMENTED + VERIFIED
 
 **How `renumberList` decides when to renumber** (read directly from the
 installed `@codemirror/lang-markdown@6.5.2` source): `itemNumber(item,
@@ -3242,7 +3248,7 @@ regression test the way the growth-direction cases are.
 found beyond the three `renumberList` call sites already covered — no
 other Clutter or upstream Enter code path rewrites ordinal digit text.
 
-### The fix
+### 15.3 The fix (initial version — see §15.6 for a later refinement)
 
 **Smallest safe fix, per the stated constraints (no redesign of Enter's
 list behavior, no wholesale replacement of CM6's renumbering policy, no
@@ -3302,7 +3308,7 @@ Wired at the same position `continueMarkup` previously occupied in
 is touched, and Tab/Shift-Tab (`markdownIndentKeymap.ts`) and Backspace
 (`deleteBulletMarkerSeparator`) are entirely untouched by this fix.
 
-### Test coverage
+### 15.4 Test coverage (growth direction, initial — superseded by §15.8's final count)
 
 `markdownEnterRenumberGuard.test.ts` (new file, 12 tests, all passing):
 the confirmed `9→10`/`99→100`/`999→1000` boundaries with nested children
@@ -3347,6 +3353,209 @@ the automated test's own expectation, with the nested child still
 visibly indented under `9. B` and its fold-arrow still present,
 confirming the fix's effect end-to-end, not just at the `state.doc`
 level).
+
+### 15.5 Shrink-direction investigation — IMPLEMENTED + VERIFIED (2026-08-29 follow-up)
+
+**How `renumberList`'s shrink call site is reached**: two of its three
+internal call sites (§15.2) sit inside `insertNewlineContinueMarkupCommand`'s
+"empty item unwinds one level" branch — reached whenever Enter is pressed
+on an empty list item, which `nonTightLists: false` (Clutter's own
+configuration) makes unconditional. One of those two calls passes
+`offset: -2`, decrementing the *deleted* item's own remaining list —
+confirmed live by construction, not merely by reading the source: typing
+`9. X`, Enter, `Y`, Tab×2, `Child` (nesting `Child` under `Y`), then
+deleting `X` and pressing Enter on the now-empty `9.` item, renumbers
+`10. Y` down to `9. Y` in the real, running Clutter webapp, with `Child`
+staying visibly nested.
+
+**Reproduced the confirmed corruption, deliberately, before checking
+whether the existing (growth-only) guard already handled it**: a
+programmatic sweep, deleting a zero-padded `"9"`-valued empty item
+whose following sibling is the equivalent `"10"`-valued item at
+increasing padding widths (content columns 4 through 9), each with a
+descendant at that sibling's own *correct* pre-edit content column —
+
+| digits | old content col. | new content col. (always `"9."` = 3) | delta (shrink magnitude) | descendant survives (raw, unguarded `continueMarkup`) |
+|---|---|---|---|---|
+| 1 (`9`/`10`) | 4 | 3 | 1 | ✓ nested |
+| 2 (`09`/`10`) | 4 | 3 | 1 | ✓ nested |
+| 3 (`009`/`010`) | 5 | 3 | 2 | ✓ nested |
+| 4 (`0009`/`0010`) | 6 | 3 | 3 | ✓ nested |
+| 5 (`00009`/`00010`) | 7 | 3 | 4 | ✗ absorbed as lazy-continuation text |
+| 6 (`000009`/`000010`) | 8 | 3 | 5 | ✗ absorbed |
+| 7 (`0000009`/`0000010`) | 9 | 3 | 6 | ✗ absorbed |
+
+**Confirmed, precisely, not assumed**: the safe/unsafe boundary is
+**magnitude ≤ 3 safe, magnitude ≥ 4 unsafe** — an exact match for the
+same tolerance-window constant this document's own §14.9 already
+established for a different (Tab-driven) case (a physical line stays
+inside a list item's own nested block for indentation from that item's
+content column up to 3 columns past it; beyond that, CommonMark's Rule
+#5 laziness absorbs it as plain continuation text). This is the same
+constant reappearing in a second, independently-discovered context, not
+a coincidence requiring its own separate explanation — shrinking an
+item's content column by *M* has the identical effect on a stale
+descendant's relative indentation as widening it would, just with the
+sign reversed, so the identical tolerance window governs both
+directions.
+
+**Also confirmed**: pure numeric shrinks with no zero-padding (`10→9`,
+`100→99`, `1000→999`) are *always* magnitude-1 shrinks (a single-item
+deletion only ever changes a sequential run's digit count by the amount
+the literal numbers themselves differ by, and consecutive integers
+differ by exactly 1 digit only at a power-of-10 boundary) — always
+within the safe tolerance, confirmed for all three boundaries. The
+*dangerous* magnitudes only arise from zero-padding (a padded marker's
+lexical width is decoupled from its numeric value, so `renumberList`'s
+own `Number(...)`-and-`String(...)` round-trip can drop far more
+characters than the numeric shift alone would suggest) or, in principle,
+from a multi-item deletion in one operation (not independently tested
+this session — CM6's own empty-item-unwind branch only ever removes one
+item per Enter press, so this scenario cannot arise via Enter at all;
+flagged as **NOT YET INVESTIGATED**, not assumed safe, should it ever
+become reachable by some other future editing operation).
+
+### 15.6 Refinement: the existing guard already covered shrink, but was more aggressive than necessary — IMPLEMENTED + VERIFIED
+
+Checking the confirmed-corrupting shrink cases (§15.5's table, magnitude
+≥4) against the *already-shipped* guard (§15.3, unmodified) found it
+**already declines every one of them** — `isRiskyRenumberRewrite`
+inspects only the final `ChangeSet`, cross-referenced against the
+pre-edit tree, with no branch that inspects which of `continueMarkup`'s
+internal decisions (ordinary continuation vs. either empty-item-unwind
+call) produced a given change, so the growth-direction fix already
+protected the shrink direction **by construction**, verified directly
+via the real `markdownEnterCommand`, not merely inferred from the code's
+own shape.
+
+**But inspecting the exact `ChangeSet` `continueMarkup` produces (per
+this investigation's own required step) found the *original* guard was
+itself more aggressive than the stated invariant allows.** For
+`"8. A"` + Enter with `"9. B"` (owns a child, risky) followed by
+`"10. C"`/`"11. D"` (no descendants, individually safe), upstream's own
+transaction contains three independent changes — the new-item insertion,
+`"9"`→`"10"` (risky), and `"10"`→`"11"` (safe, unrelated to B) — confirmed
+by direct `ChangeSet.iterChanges` inspection, reproduced exactly as
+`renumberList`'s own source predicts (§15.2). The original guard's
+"stop at the first risky change and drop everything after it" strategy
+declined **all three** of B, C, and D's rewrites, even though C and D's
+own renumbers are independently safe and have nothing to do with B's
+own descendant. This directly violates the stated invariant — "preserve
+upstream Enter behavior everywhere except where upstream renumbering
+would demonstrably corrupt an existing Markdown structure" — for C and
+D specifically.
+
+**Fix**: `continueMarkupPreservingStructure` now evaluates every change
+in the transaction independently (no early-exit `corrupting` flag) and
+skips *only* the specific rewrites `isRiskyRenumberRewrite` flags,
+keeping every other change — including a later, unrelated sibling's own
+safe renumber — exactly as upstream computed it. This is sound because
+each renumbering edit targets an independent, non-overlapping digit-run
+position, and `renumberList` itself already computes every rewritten
+value from each sibling's own *original* literal number, never from
+another rewrite in the same walk — so which subset of edits ends up
+applied has no bearing on whether any individual one remains correct on
+its own. The selection-reuse logic (`transaction.state.selection.main.head`)
+needed no change: every renumbering edit, risky or not, targets a
+position strictly after the cursor's own resting point (the always-kept
+primary insertion), so the document up to and including that point is
+identical regardless of which later edits are kept or dropped.
+
+**Also refined the digit-width classification itself** to match §15.5's
+asymmetric findings precisely, rather than treating any width change on
+a multi-line item as uniformly risky:
+- **Growth** (`insertedLength > oldWidth`): always risky for a multi-line
+  item — unchanged from §15.3's original reasoning. A descendant
+  authored at exactly the old content column (the common case — nothing
+  in this codebase or upstream ever leaves intentional slack there) has
+  zero margin against any growth at all; this function doesn't attempt
+  to measure a descendant's *actual* slack, which would require
+  inspecting the specific descendant range rather than the cheap
+  "does this item span more than one line" check — investigated and
+  judged not worth the added complexity for a case (deliberately
+  slack-authored list content) this session found no evidence of.
+- **Shrink** (`insertedLength < oldWidth`): risky only when the
+  magnitude exceeds `MAX_SAFE_SHRINK_COLUMNS` (3, named directly after
+  the constant this section's own investigation confirmed, not a magic
+  number). A safe-magnitude shrink is no longer declined at all.
+
+### 15.7 Regression comparison — IMPLEMENTED + VERIFIED
+
+Representative cases, current (fixed) Clutter behavior vs. unmodified
+upstream `continueMarkup`:
+
+| Case | Upstream (unguarded) | Clutter (guarded) | Guard's effect |
+|---|---|---|---|
+| `1. A` + Enter, `2. B` follows (no width change) | `1. A / 2. / 3. B` | identical | none — safe, untouched |
+| `8. A` + Enter, `9. B` follows, no descendants | `8. A / 9. / 10. B` | identical | none — nothing to protect |
+| `8. A` + Enter, `9. B` (has child) follows | `8. A / 9. / 10. B / [child flattened]` | `8. A / 9. / 9. B / [child intact]` | declines B's own rewrite only |
+| same, with safe `10. C`/`11. D` after | `... / 11. C / 12. D` (C, D also shifted) | `... / 11. C / 12. D` (identical) | **none for C/D** — confirmed independently kept, not dropped as collateral (§15.6) |
+| Empty-item unwind, `10. Y` (has child) follows, safe magnitude | `[unwind] / 9. Y / [child intact]` | identical | none — safe shrink, unaffected |
+| same, unsafe magnitude (heavy zero-padding) | `[unwind] / 9. Y / [child absorbed]` | `[unwind] / 00010. Y / [child intact]` | declines Y's own rewrite |
+
+**The invariant holds**: every declined rewrite is one this session
+independently reproduced as corrupting via the raw, unguarded upstream
+command; every other case — including ones adjacent to a declined
+rewrite in the same transaction — is byte-identical to unmodified
+upstream.
+
+### 15.8 Test coverage (final) — IMPLEMENTED + VERIFIED
+
+`markdownEnterRenumberGuard.test.ts`: **21 tests, all passing** (12 from
+the original growth-direction session, 9 added this session). New
+coverage: plain numeric shrinks (`10→9`, `100→99`, `1000→999`, magnitude
+1, all renumber correctly with descendants intact); the exact boundary
+(magnitude 3 safe and renumbers, magnitude 4 unsafe and declines, both
+directly on the boundary rather than deep in either region); paren-style
+delimiter for both a safe and an unsafe shrink; an unsafe shrink with no
+descendant content (renumbers normally, nothing to protect); and the
+"skip-only, not truncate" property from §15.6, made an explicit
+assertion (a declined middle sibling no longer suppresses later,
+independently-safe siblings' own correct renumbers). The original
+leading-zero-padding growth test was corrected once the refined guard's
+own more-precise classification revealed it was actually a *safe*
+magnitude-2 shrink, not risky growth as originally (incorrectly)
+labeled — the test's expectation was updated to the verified-correct
+behavior, not adjusted to preserve a stale expectation.
+
+**Full verification, this session**: `tsc --noEmit` clean; the full
+`features/markdown` suite (1230 tests, 59 files, all passing — up from
+1221 before this session); live, direct verification in the running
+Clutter webapp of a representative safe shrink (typed `9. X`, Enter,
+`Y`, Tab×2, `Child`, deleted `X`, pressed Enter on the now-empty `9.`
+item — `10. Y` correctly renumbered to `9. Y` with `Child` staying
+visibly nested, fold-arrow intact); the confirmed-unsafe cases were not
+separately re-verified live this session beyond the automated tests
+(already directly reproduced live for the growth direction in the
+original session, §15.1) — an **ACCEPTED LIMITATION** of this session's
+own verification depth, not a claim that live verification would show
+anything different from the automated tests, which do assert tree
+structure, not just document text.
+
+### 15.9 What remains genuinely open after this session
+
+- **Multi-item deletion in one operation** (§15.5) — not reachable via
+  Enter (CM6's own empty-item-unwind only ever removes one item per
+  press), so not investigated. **NOT YET INVESTIGATED.**
+- **Descendant-slack-aware growth handling** (§15.6) — a growth is
+  currently always treated as risky for a multi-line item, even though a
+  descendant with pre-existing extra indentation (slack) could in
+  principle tolerate some growth safely. Investigated as a design option
+  and explicitly not built: it would require inspecting the specific
+  descendant's own indentation rather than the cheap "spans multiple
+  lines" check, for a scenario (deliberately over-indented list content)
+  this session found no evidence is common enough to justify the added
+  complexity. **INVESTIGATED + REJECTED** for this pass, not a gap
+  silently left unconsidered.
+- **This bug's relationship to Backspace/`deleteMarkupBackward`** — Read
+  directly (§15.2): `deleteMarkupBackward` never calls `renumberList`.
+  Confirmed to have zero exposure to this defect, not merely assumed.
+- **This fix is a prerequisite for, but does not implement, the
+  Tab/Shift-Tab ordered-list-normalization addendum** (§9's "PENDING
+  ADDENDUM", §14) — that feature's own Phase C would introduce new
+  renumbering writes of the same general shape this section's fix
+  protects against; nothing in *this* session implements, sketches
+  further, or otherwise advances that separate, still-unbuilt feature.
 
 ---
 
@@ -3404,21 +3613,23 @@ level).
    any implementation, exactly like item 7 above but for a different
    clause of that same contract.
 9. ~~The Enter/`renumberList` digit-width structural-corruption bug~~ —
-   **FIXED** (§15, `continueMarkupPreservingStructure` in
-   `markdownEnterKeymap.ts`, 12 new regression tests in
-   `markdownEnterRenumberGuard.test.ts`). No longer open for the
-   growth-direction cases this session confirmed and fixed. The
-   **shrink-direction call sites** (`renumberList`'s other two internal
-   uses, inside the empty-item-unwind branch) remain an honest,
-   unresolved gap: the fix protects them identically in principle (by
-   construction — it inspects only the final `ChangeSet`, not which
-   internal branch produced it), but no independently-confirmed
-   before/after regression test exists for that direction specifically,
-   since a clean minimal repro proved fiddly to construct this session
-   (§15's own investigation notes explain exactly why).
+   **FIXED, both directions** (§15, `continueMarkupPreservingStructure`
+   in `markdownEnterKeymap.ts`, 21 regression tests in
+   `markdownEnterRenumberGuard.test.ts`). Growth (§15.1–§15.4) and
+   shrink (§15.5–§15.8, including the exact safe/unsafe magnitude
+   boundary, confirmed at ≤3/≥4 columns) are both investigated, fixed,
+   and verified — the shrink-direction gap this item previously tracked
+   is closed. The fix was also refined (§15.6) to decline only the
+   specific rewrites that are actually risky rather than an entire
+   transaction tail, so an unrelated, independently-safe sibling
+   renumber is never dropped as collateral. Remaining, narrower open
+   items are tracked in §15.9 (multi-item deletion in one operation, not
+   reachable via Enter; descendant-slack-aware growth handling,
+   investigated and deliberately not built).
 10. The ordered-list Tab/Shift-Tab normalization addendum (§9's "PENDING
     ADDENDUM", superseding items 7/8 above) is an approved *direction*,
-    not yet implemented — and per its own stated prerequisite, must not
-    ship before the shrink-direction gap in item 9 above is resolved,
-    since Phase C's own normalization writes are exactly the class of
-    edit the Enter bug demonstrated can corrupt structure if unguarded.
+    not yet implemented. Its own stated prerequisite (item 9's bug fix)
+    is now satisfied — this does not mean the addendum itself is ready
+    to build, only that the specific blocker recorded against it has
+    been resolved; the addendum's own design (§9's addendum text, §14)
+    still needs its own implementation pass, separately.
