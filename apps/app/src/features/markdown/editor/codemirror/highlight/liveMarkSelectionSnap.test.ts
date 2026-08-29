@@ -54,20 +54,29 @@ function mountBlockquoteView(doc: string, initialAnchor: number): EditorView {
 
 describe('liveMarkSelectionSnap — click boundary correction, shared across every marker-hiding construct', () => {
   describe('# heading', () => {
-    it('click immediately before the visible title lands before the "# " prefix', () => {
+    it('click exactly at content start (mark.to) stays there — the marker range is [mark.from, mark.to), not inclusive of mark.to', () => {
       const text = '# Heading\n\nOther';
       const view = mountView(text, text.indexOf('Other'));
 
-      click(view, 2); // right after "# ", before "Heading"
+      click(view, 2); // right after "# ", before "Heading" — legitimate rest position
 
-      expect(view.state.selection.main.head).toBe(0);
+      expect(view.state.selection.main.head).toBe(2);
     });
 
-    it('## click before visible title skips both the hash run and the separator', () => {
+    it('## click exactly at content start (mark.to) stays there, for a wider marker too', () => {
       const text = '## Subheading\n\nOther';
       const view = mountView(text, text.indexOf('Other'));
 
-      click(view, 3); // right after "## ", before "Subheading"
+      click(view, 3); // right after "## ", before "Subheading" — legitimate rest position
+
+      expect(view.state.selection.main.head).toBe(3);
+    });
+
+    it('click strictly inside the marker range (not at its boundary) still snaps to the construct edge', () => {
+      const text = '# Heading\n\nOther';
+      const view = mountView(text, text.indexOf('Other'));
+
+      click(view, 1); // strictly inside "# " — between the "#" and the separator space
 
       expect(view.state.selection.main.head).toBe(0);
     });
