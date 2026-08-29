@@ -101,9 +101,24 @@ function markdownIndentDirection(direction: 1 | -1): StateCommand {
     }
 
     if (changes.length) {
+      const changeSet = state.changes(changes);
       dispatch(
         state.update({
-          changes,
+          changes: changeSet,
+          // Tab's changes are pure insertions of new leading whitespace.
+          // CM6's default selection mapping (`assoc = -1`, used whenever
+          // a transaction leaves `selection` unset) keeps a position that
+          // sits exactly at an insertion point *behind* the inserted
+          // text — so a caret at true content-start (no existing
+          // indentation before it) stayed put while the indentation was
+          // inserted in front of it. Mapping the selection forward
+          // through the same `changeSet` with `assoc = 1` instead keeps
+          // the caret attached to the content it was next to, matching
+          // the already-correct behavior at every other caret position.
+          // Shift-Tab's changes are replacements/deletions, not pure
+          // insertions at the caret, so its default mapping is already
+          // correct and is left untouched.
+          selection: direction === 1 ? state.selection.map(changeSet, 1) : undefined,
           userEvent: direction === 1 ? 'input.indent' : 'delete.dedent',
         })
       );

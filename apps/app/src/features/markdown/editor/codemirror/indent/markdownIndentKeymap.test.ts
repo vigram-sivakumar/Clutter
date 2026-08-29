@@ -564,4 +564,84 @@ describe('markdownIndentKeymap', () => {
       expect(view.state.doc.toString()).toBe(`${' '.repeat(14)}- deep`);
     });
   });
+
+  describe('caret tracking on Tab (regression: caret must move forward with inserted indentation)', () => {
+    it('plain text, caret at content-start (position 0): caret ends up after the inserted indentation', () => {
+      const view = mountView('Text', 0);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  Text');
+      expect(view.state.selection.main.head).toBe(2);
+    });
+
+    it('empty line, caret at 0: caret ends up after the inserted indentation', () => {
+      const view = mountView('', 0);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  ');
+      expect(view.state.selection.main.head).toBe(2);
+    });
+
+    it('bullet line, caret at 0 (before the marker): caret ends up after the inserted indentation, still before the marker', () => {
+      const view = mountView('- Text', 0);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  - Text');
+      expect(view.state.selection.main.head).toBe(2);
+    });
+
+    it('ordered list line, caret at 0 (before the marker): caret ends up after the inserted indentation, still before the marker', () => {
+      const view = mountView('1. Text', 0);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  1. Text');
+      expect(view.state.selection.main.head).toBe(2);
+    });
+
+    it('repeated Tab at content-start: caret advances by INDENT_STEP_SPACES every press, never sticks', () => {
+      const view = mountView('Text', 0);
+      const seenHeads: number[] = [view.state.selection.main.head];
+      for (let i = 0; i < 3; i++) {
+        expect(tab(view)).toBe(true);
+        seenHeads.push(view.state.selection.main.head);
+      }
+      expect(seenHeads).toEqual([0, 2, 4, 6]);
+      expect(view.state.doc.toString()).toBe('      Text');
+    });
+
+    it('caret already past the insertion point (position 1) is unaffected by the fix — still lands correctly', () => {
+      const view = mountView('Text', 1);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  Text');
+      expect(view.state.selection.main.head).toBe(3);
+    });
+
+    it('caret at end of content is unaffected by the fix — still lands correctly', () => {
+      const view = mountView('Text', 4);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  Text');
+      expect(view.state.selection.main.head).toBe(6);
+    });
+
+    it('Shift-Tab remains correct at content-start — caret already collapses to 0 via default mapping', () => {
+      const view = mountView('  Text', 0);
+      expect(shiftTab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('Text');
+      expect(view.state.selection.main.head).toBe(0);
+    });
+
+    it('Shift-Tab remains correct with caret inside the removed whitespace', () => {
+      const view = mountView('  Text', 1);
+      expect(shiftTab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('Text');
+      expect(view.state.selection.main.head).toBe(0);
+    });
+
+    it('multi-line selection: every touched line maps its own selection edge forward correctly', () => {
+      const doc = '- A\n- B';
+      const view = mountViewWithSelection(doc, [[0, doc.length]]);
+      expect(tab(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe('  - A\n  - B');
+      // Selection anchor was at 0 (before "- A"'s own insertion point);
+      // selection end was at doc.length (past every insertion point).
+      expect(view.state.selection.main.from).toBe(2);
+      expect(view.state.selection.main.to).toBe(view.state.doc.length);
+    });
+  });
 });
