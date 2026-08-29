@@ -5,6 +5,7 @@ import { emojiListSyntax } from './emoji-list/emojiListSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
 import { doubleHorizontalRuleSyntax } from './hr/doubleHorizontalRuleSyntax';
 import { dottedHorizontalRuleSyntax } from './hr/dottedHorizontalRuleSyntax';
+import { labeledHorizontalRuleSyntax } from './hr/labeledHorizontalRuleSyntax';
 import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
 import { tagSyntax } from './tag/tagSyntax';
 import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
@@ -62,6 +63,7 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   wavyHorizontalRuleSyntax,
   doubleHorizontalRuleSyntax,
   dottedHorizontalRuleSyntax,
+  labeledHorizontalRuleSyntax,
   emojiListSyntax,
   { remove: ['IndentedCode'] },
 ];

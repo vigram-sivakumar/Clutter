@@ -1,7 +1,9 @@
 import type { BlockContext, Line, MarkdownConfig } from '@lezer/markdown';
 
+import { matchWrappedDivider } from './dividerLabelMatch';
+
 const EQUALS = '='.charCodeAt(0);
-const MARKER = '=---=';
+const CHAR = '=';
 
 /**
  * The `DoubleHorizontalRule` Lezer node — same convention as
@@ -17,6 +19,10 @@ const MARKER = '=---=';
  * Setext level-1 heading underline (which requires the whole line to be
  * `=`), meaning there's no ambiguity to defer to and it can interrupt an
  * in-progress paragraph without a blank line first, same as `~---~`.
+ *
+ * Also matches the labeled form (`=---Text---=`, `=--- Chapter 1 ---=`) via
+ * `matchWrappedDivider` — see `wavyHorizontalRuleSyntax.ts`'s doc comment
+ * for the shared rationale.
  */
 export const doubleHorizontalRuleSyntax: MarkdownConfig = {
   defineNodes: ['DoubleHorizontalRule'],
@@ -42,5 +48,5 @@ export const doubleHorizontalRuleSyntax: MarkdownConfig = {
 };
 
 function isDoubleHorizontalRule(line: Line): boolean {
-  return line.next === EQUALS && line.text.slice(line.pos).trim() === MARKER;
+  return line.next === EQUALS && matchWrappedDivider(line.text.slice(line.pos), CHAR) !== null;
 }

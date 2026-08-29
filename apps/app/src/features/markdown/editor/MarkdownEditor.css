@@ -646,6 +646,177 @@
 }
 
 /*
+ * Resting *labeled* dividers (`---Text---`, `~---Text---~`, `=---Text---=`,
+ * `.---Text---.`, `horizontalRuleDecoration.ts` + `DividerLabelWidget.ts`)
+ * — unlike the unlabeled variants above, these render a real `DOM` widget
+ * rather than a pure-CSS `::after` line, because they carry real, dynamic
+ * label text that CSS alone can't paint. `.cm-hr-labeled-line` is the
+ * `Decoration.line` class (deliberately *not* `font-size: 0`/
+ * `line-height: 0` like `.cm-hr-line` — this line has real text content to
+ * lay out at normal metrics); `padding: 0` matches `.cm-line`'s own
+ * baseline exactly, so a labeled divider's block height is the label
+ * text's ordinary ~24px line-height, same as any other line, no extra
+ * padding added. `.cm-hr-labeled` is the widget's own root: `inline-flex`,
+ * not `flex` — a `flex` span *blockifies* (CSS Display 3), which would
+ * force CM6's `cm-widgetBuffer` cursor-anchor `<img>`s either side of the
+ * widget onto their own separate line boxes instead of sharing this one,
+ * stacking three ~24px boxes into a 72px line (confirmed exactly this way
+ * via a live DOM inspection before switching to `inline-flex`). Two equal-
+ * `flex: 1 1 auto` rule segments around a centered, non-growing label
+ * mean the label sits centered between the two rule sections by
+ * construction, with `gap` giving it breathing room from each rule rather
+ * than touching it.
+ *
+ * `height`/`vertical-align: top` on `.cm-hr-labeled` are both load-bearing
+ * for vertical centering, not decorative: an inline-flex box's own height
+ * is intrinsic (tallest child — here the label text, ~16px), and its
+ * default `vertical-align: baseline` positions that intrinsic box against
+ * the surrounding text's baseline, not the geometric center of the 24px
+ * line box — confirmed by direct measurement (widget top sat 7px below
+ * the line's top with only 1px left below it, nowhere near centered,
+ * despite `align-items: center` correctly centering the rule/text
+ * children *relative to each other* inside that undersized box). Setting
+ * `height` to the exact same line-height the line box itself uses
+ * (`--cm-content` × `--lh-cm-content` — the same tokens `.cm-content`
+ * itself computes its `line-height` from, so this tracks any future
+ * font/line-height change automatically rather than hardcoding `24px`)
+ * makes the widget's own box exactly as tall as the line; `vertical-align:
+ * top` then aligns that box's top edge to the line box's own top edge
+ * (the correct anchor once the two heights are equal, since a `top`-
+ * aligned box of full line-height cannot be positioned anywhere else
+ * within the line). With the box now spanning the full 24px,
+ * `align-items: center` centers the rule/text children within the real
+ * 24px, not the previous undersized intrinsic box.
+ *
+ * `contain: inline-size` is load-bearing for long labels, not an
+ * optimization hint — without it, an extremely long label blew out
+ * horizontal scrolling for the *entire* editor, not just its own line.
+ * Root cause, confirmed by direct measurement: CM6's `.cm-content` is a
+ * flex item (of `.cm-scroller`'s row layout) whose own `min-width`
+ * defaults to `auto`, which resolves to the *min-content* size of its
+ * descendants — and a `white-space: nowrap` label's min-content size is
+ * its full, un-truncated text width, no matter what `max-width`/
+ * `overflow: hidden`/`text-overflow` are set on it (those only govern
+ * *rendering* once a definite width exists; percentages and overflow
+ * clipping are both ignored during an intrinsic min-content query, and
+ * `min-width: 0` on the label itself only overrides shrink behavior
+ * inside its *own* immediate flex container, `.cm-hr-labeled` — it does
+ * not zero out that container's own min-content contribution one level
+ * further up, to `.cm-content`). The label's full text width was
+ * therefore bubbling all the way up to `.cm-content`'s own auto
+ * min-width, forcing the *entire document* — every line, not just the
+ * labeled one — to a multi-thousand-pixel width (confirmed: every
+ * `.cm-line`, including plain paragraph lines, reported the identical
+ * inflated width). `contain: inline-size` (CSS Containment, applied to
+ * `.cm-hr-labeled` — the widget root, not the label span) makes this
+ * element opaque to that query: ancestors computing intrinsic size treat
+ * its contribution as sized by its own specified/auto size, never by its
+ * descendants' actual content. This does not disturb real, definite-width
+ * layout at all (confirmed: short labels still size to their own content
+ * with no forced stretching, long labels still cap at `max-width: 60%`
+ * with ellipsis, rule segments still flex into whatever's left) — it only
+ * suppresses the *intrinsic-size query* CM6 performs to size
+ * `.cm-content` itself, which is exactly, and only, the thing that was
+ * wrong.
+ */
+.cm-editor .cm-hr-labeled-line {
+  padding: 0;
+}
+
+.cm-editor .cm-hr-labeled {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  height: calc(var(--cm-content) * var(--lh-cm-content));
+  vertical-align: top;
+  contain: inline-size;
+}
+
+/*
+ * `flex: 0 1 auto` + `min-width: 0` + `max-width: 60%`: the label normally
+ * sizes to its own content (`flex-basis: auto`, no `flex-grow`), but two
+ * escape hatches keep a long label from ever pushing the divider's total
+ * width past the line — `max-width: 60%` (relative to `.cm-hr-labeled`'s
+ * own 100%-of-line width, so it's responsive to the editor's actual
+ * width, not a fixed pixel cap) hard-clamps it to roughly 60% of the
+ * divider even when both rule segments have already shrunk to `0`, and
+ * `flex-shrink: 1` (plus `min-width: 0`, overriding the flex item default
+ * `min-width: auto` which would otherwise floor the item at its own
+ * content width and defeat both the shrink *and* the `overflow`/
+ * `text-overflow` below) lets it shrink further still if even 60% would
+ * overflow an extremely narrow editor. `white-space: nowrap` +
+ * `overflow: hidden` + `text-overflow: ellipsis` then visually truncate
+ * whatever doesn't fit inside whichever of those two caps ends up
+ * binding — purely a rendered-`textContent` clipping effect on this one
+ * span; the underlying Markdown source (`state.doc`) is never touched,
+ * exactly like the collapsed-line CSS techniques above never touch the
+ * source they visually hide.
+ */
+.cm-editor .cm-hr-labeled__text {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--foreground-tertiary);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
+  letter-spacing: var(--ls-label-small);
+}
+
+/*
+ * Straight kind's rule segment: a plain 1px bar, the same visual weight as
+ * `.cm-hr-line::after` above, just as a real flex child instead of a
+ * pseudo-element.
+ */
+.cm-editor .cm-hr-labeled__rule {
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+/* Wavy kind's rule segment — identical mask technique to `.cm-hr-line-wavy::after` above, applied to the real flex child instead of a pseudo-element. */
+.cm-editor .cm-hr-labeled--wavy .cm-hr-labeled__rule {
+  height: 6px;
+  background: none;
+  background-color: var(--border-strong);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: 16px 6px;
+  mask-size: 16px 6px;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+
+/* Double kind's rule segment — identical border-pair technique to `.cm-hr-line-double::after` above, applied to the real flex child instead of a pseudo-element. */
+.cm-editor .cm-hr-labeled--double .cm-hr-labeled__rule {
+  height: 6px;
+  box-sizing: border-box;
+  background: none;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+/* Dotted kind's rule segment — identical mask technique to `.cm-hr-line-dotted::after` above, applied to the real flex child instead of a pseudo-element. */
+.cm-editor .cm-hr-labeled--dotted .cm-hr-labeled__rule {
+  height: 2px;
+  background: none;
+  background-color: var(--border-strong);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: 6px 2px;
+  mask-size: 6px 2px;
+  -webkit-mask-position: left center;
+  mask-position: left center;
+}
+
+/*
  * GFM table Live Preview layout (tableDecoration.ts) — CSS-table styling
  * over the real decorated text (no widget), per that file's own doc
  * comment. `.cm-table-row`/`.cm-table-header` are `Decoration.line`

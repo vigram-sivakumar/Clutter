@@ -2,6 +2,9 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState, Extension } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from '@codemirror/view';
 
+import { DividerLabelWidget, type DividerKind } from './DividerLabelWidget';
+import { matchStraightLabeledDivider, matchWrappedDivider } from './dividerLabelMatch';
+
 /**
  * Live Preview rendering for horizontal rules: native CommonMark `---`/
  * `***`/`___` (core `HorizontalRule`, parsed for free — not GFM-extension-
@@ -25,6 +28,19 @@ import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValu
  * `MarkdownEditor.css`); once engaged, no special line class is applied at
  * all, so the revealed marker text renders at normal size like any other
  * line.
+ *
+ * **Labeled variants** (`---Text---`, `~---Text---~`, `=---Text---=`,
+ * `.---Text---.` — `labeledHorizontalRuleSyntax.ts`'s dedicated
+ * `LabeledHorizontalRule` node for the straight case, plus the additive
+ * label-matching in the wavy/double/dotted nodes' own parsers; see
+ * `dividerLabelMatch.ts`) share the same node types, the same
+ * `isRuleEngaged` selection check, and the same "raw source, nothing
+ * special, while engaged" behavior — but render differently at rest:
+ * instead of the collapsed-line CSS-`::after` treatment (which has no way
+ * to paint real, dynamic text), the whole raw range is replaced with a
+ * `DividerLabelWidget`, the same `Decoration.replace({widget})` mechanism
+ * `ListBulletWidget`/`WikiLinkWidget` already use elsewhere in this
+ * codebase for at-rest content CSS alone can't render.
  */
 
 const hrLineAtRest: Readonly<Record<string, Decoration>> = {
@@ -34,6 +50,41 @@ const hrLineAtRest: Readonly<Record<string, Decoration>> = {
   DottedHorizontalRule: Decoration.line({ class: 'cm-hr-line-dotted' }),
 };
 const hiddenMark = Decoration.replace({});
+
+/** Every node name that can carry a label, mapped to its `DividerKind` (which visual style to reuse). `HorizontalRule` (native `---`) is deliberately excluded — it's never labeled, that's `LabeledHorizontalRule`'s job. */
+const DIVIDER_KIND_BY_NODE: Readonly<Record<string, DividerKind>> = {
+  LabeledHorizontalRule: 'straight',
+  WavyHorizontalRule: 'wavy',
+  DoubleHorizontalRule: 'double',
+  DottedHorizontalRule: 'dotted',
+};
+
+const WRAPPED_CHAR_BY_NODE: Readonly<Partial<Record<string, string>>> = {
+  WavyHorizontalRule: '~',
+  DoubleHorizontalRule: '=',
+  DottedHorizontalRule: '.',
+};
+
+const labeledLineDeco = Decoration.line({ class: 'cm-hr-labeled-line' });
+
+/**
+ * Re-derives the label text (if any) for a node from its own source range,
+ * by re-running the exact matcher the block parser used to recognize it in
+ * the first place — rather than threading the label through a second
+ * Lezer child node. Returns `null` for `LabeledHorizontalRule` only if
+ * called with stale/mismatched text, which should never happen since the
+ * node only exists where the same matcher already succeeded at parse time.
+ */
+function extractLabel(state: EditorState, nodeName: string, from: number, to: number): string | null {
+  if (nodeName === 'LabeledHorizontalRule') {
+    return matchStraightLabeledDivider(state.sliceDoc(from, to));
+  }
+  const char = WRAPPED_CHAR_BY_NODE[nodeName];
+  if (!char) {
+    return null;
+  }
+  return matchWrappedDivider(state.sliceDoc(from, to), char)?.label ?? null;
+}
 
 /**
  * Engaged iff the current selection touches the rule's own physical line —
@@ -64,12 +115,27 @@ function buildHorizontalRuleDecorations(view: EditorView): DecorationSet {
       from,
       to,
       enter: (node) => {
+        const dividerKind = DIVIDER_KIND_BY_NODE[node.name];
         const lineDeco = hrLineAtRest[node.name];
-        if (!lineDeco) {
+        if (!dividerKind && !lineDeco) {
           return;
         }
-        const engaged = isRuleEngaged(view.state, node.from);
-        if (!engaged) {
+        if (isRuleEngaged(view.state, node.from)) {
+          return;
+        }
+
+        const label = dividerKind ? extractLabel(view.state, node.name, node.from, node.to) : null;
+        if (dividerKind && label !== null) {
+          items.push({ from: node.from, to: node.from, deco: labeledLineDeco });
+          items.push({
+            from: node.from,
+            to: node.to,
+            deco: Decoration.replace({ widget: new DividerLabelWidget(dividerKind, label) }),
+          });
+          return;
+        }
+
+        if (lineDeco) {
           items.push({ from: node.from, to: node.from, deco: lineDeco });
           if (node.to > node.from) {
             items.push({ from: node.from, to: node.to, deco: hiddenMark });

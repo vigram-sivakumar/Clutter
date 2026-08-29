@@ -370,3 +370,149 @@ describe('horizontalRuleDecoration — compatible with every inline Live Preview
     expect(view.dom.querySelector('.cm-hr-line')).not.toBeNull();
   });
 });
+
+describe('horizontalRuleDecoration — labeled variants at rest', () => {
+  it.each([
+    ['straight', '---Chapter 1---', null],
+    ['wavy', '~---Chapter 1---~', 'cm-hr-labeled--wavy'],
+    ['double', '=---Chapter 1---=', 'cm-hr-labeled--double'],
+    ['dotted', '.---Chapter 1---.', 'cm-hr-labeled--dotted'],
+  ] as const)('renders the %s labeled divider with its label text and no raw marker', (_kind, marker, modifierClass) => {
+    const text = `Above\n\n${marker}\n\nBelow`;
+    const view = mountView(text, text.indexOf('Below'));
+
+    const widget = view.dom.querySelector('.cm-hr-labeled');
+    expect(widget).not.toBeNull();
+    expect(widget?.querySelector('.cm-hr-labeled__text')?.textContent).toBe('Chapter 1');
+    if (modifierClass) {
+      expect(widget?.classList.contains(modifierClass)).toBe(true);
+    }
+    // The two rule segments flank the label, one on each side.
+    expect(widget?.querySelectorAll('.cm-hr-labeled__rule').length).toBe(2);
+    // Raw marker text is not present anywhere in the rendered line.
+    expect(visibleText(view)).not.toContain(marker);
+
+    view.destroy();
+  });
+
+  it.each([
+    ['straight', '--- Chapter 1 ---'],
+    ['wavy', '~--- Chapter 1 ---~'],
+    ['double', '=--- Chapter 1 ---='],
+    ['dotted', '.--- Chapter 1 ---.'],
+  ] as const)('trims syntax padding spaces around the label for %s dividers', (_kind, marker) => {
+    const text = `Above\n\n${marker}\n\nBelow`;
+    const view = mountView(text, text.indexOf('Below'));
+
+    const label = view.dom.querySelector('.cm-hr-labeled__text');
+    expect(label?.textContent).toBe('Chapter 1');
+
+    view.destroy();
+  });
+
+  it('supports multi-word labels with internal spaces preserved', () => {
+    const text = 'Above\n\n~--- The Long Chapter Title ---~\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    const label = view.dom.querySelector('.cm-hr-labeled__text');
+    expect(label?.textContent).toBe('The Long Chapter Title');
+
+    view.destroy();
+  });
+
+  it('the stored document text is unaffected by the widget replacement', () => {
+    const text = 'Above\n\n---Chapter 1---\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    expect(view.state.doc.toString()).toBe(text);
+
+    view.destroy();
+  });
+
+  it('leaves the unlabeled variants on their existing pure-CSS collapse path, unaffected by the labeled addition', () => {
+    for (const marker of ['---', '~---~', '=---=', '.---.']) {
+      const text = `Above\n\n${marker}\n\nBelow`;
+      const view = mountView(text, text.indexOf('Below'));
+
+      expect(view.dom.querySelector('.cm-hr-labeled')).toBeNull();
+
+      view.destroy();
+    }
+  });
+});
+
+describe('horizontalRuleDecoration — labeled variants engaged', () => {
+  it.each(['---Chapter 1---', '~---Chapter 1---~', '=---Chapter 1---=', '.---Chapter 1---.'] as const)(
+    'reveals the raw labeled marker source when the cursor is on the divider line (%s)',
+    (marker) => {
+      const text = `Above\n\n${marker}\n\nBelow`;
+      const ruleFrom = text.indexOf(marker);
+      const view = mountView(text, ruleFrom);
+
+      expect(visibleText(view)).toContain(marker);
+      expect(view.dom.querySelector('.cm-hr-labeled')).toBeNull();
+
+      view.destroy();
+    }
+  );
+
+  it('re-collapses to the label widget once the selection moves off the divider line', () => {
+    const text = 'Above\n\n~---Chapter 1---~\n\nBelow';
+    const ruleFrom = text.indexOf('~---Chapter 1---~');
+    const view = mountView(text, ruleFrom);
+    expect(view.dom.querySelector('.cm-hr-labeled')).toBeNull();
+
+    view.dispatch({ selection: { anchor: text.indexOf('Below') } });
+
+    const label = view.dom.querySelector('.cm-hr-labeled__text');
+    expect(label?.textContent).toBe('Chapter 1');
+
+    view.destroy();
+  });
+});
+
+describe('horizontalRuleDecoration — labeled-divider syntax stays block-scoped, does not misfire on ordinary text', () => {
+  it('does not treat inline text merely containing the marker characters as a divider', () => {
+    const text = 'Above\n\nThis line has --- dashes and ~ tildes but is not a divider---at all\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    expect(view.dom.querySelector('.cm-hr-labeled')).toBeNull();
+    expect(view.dom.querySelector('.cm-hr-line')).toBeNull();
+
+    view.destroy();
+  });
+
+  it('does not treat a plain thematic break of any length as a labeled divider', () => {
+    for (const marker of ['---', '------', '- - -']) {
+      const text = `Above\n\n${marker}\n\nBelow`;
+      const view = mountView(text, text.indexOf('Below'));
+
+      expect(view.dom.querySelector('.cm-hr-labeled')).toBeNull();
+      expect(view.dom.querySelector('.cm-hr-line')).not.toBeNull();
+
+      view.destroy();
+    }
+  });
+
+  it('does not treat an unterminated `---` run as a labeled divider', () => {
+    const text = 'Above\n\n---Hello\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    expect(view.dom.querySelector('.cm-hr-labeled')).toBeNull();
+    expect(view.dom.querySelector('.cm-hr-line')).toBeNull();
+
+    view.destroy();
+  });
+
+  it('native `---` thematic break behavior is otherwise completely unchanged', () => {
+    const text = 'Above\n\n---\n\nBelow';
+    const view = mountView(text, text.indexOf('Below'));
+
+    const hrLine = view.dom.querySelector('.cm-hr-line');
+    expect(hrLine).not.toBeNull();
+    expect(hrLine?.textContent).toBe('');
+    expect(view.dom.querySelector('.cm-hr-labeled')).toBeNull();
+
+    view.destroy();
+  });
+});

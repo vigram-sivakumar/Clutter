@@ -1,7 +1,9 @@
 import type { BlockContext, Line, MarkdownConfig } from '@lezer/markdown';
 
+import { matchWrappedDivider } from './dividerLabelMatch';
+
 const TILDE = '~'.charCodeAt(0);
-const MARKER = '~---~';
+const CHAR = '~';
 
 /**
  * The `WavyHorizontalRule` Lezer node — a distinct node type per Clutter's
@@ -23,6 +25,12 @@ const MARKER = '~---~';
  * behavior `---` itself gets for free from `@lezer/markdown`'s own
  * `DefaultEndLeaf` list — since there's no CommonMark ambiguity here (no
  * Setext-style double meaning for a `~`-fenced line) to defer to.
+ *
+ * Also matches the labeled form (`~---Text---~`, `~--- Chapter 1 ---~`) via
+ * the same `matchWrappedDivider` helper `=---=`/`.---.` use — one node
+ * type covers both the bare and labeled cases; `horizontalRuleDecoration.ts`
+ * re-derives which one it is (and the label text) from the node's own
+ * source range at render time.
  */
 export const wavyHorizontalRuleSyntax: MarkdownConfig = {
   defineNodes: ['WavyHorizontalRule'],
@@ -48,5 +56,5 @@ export const wavyHorizontalRuleSyntax: MarkdownConfig = {
 };
 
 function isWavyHorizontalRule(line: Line): boolean {
-  return line.next === TILDE && line.text.slice(line.pos).trim() === MARKER;
+  return line.next === TILDE && matchWrappedDivider(line.text.slice(line.pos), CHAR) !== null;
 }
