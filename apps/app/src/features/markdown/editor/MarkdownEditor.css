@@ -441,11 +441,11 @@
 }
 
 /*
- * Shared marker class — `emojiListMarkDecoration.ts`'s `Decoration.mark`
- * and (2026-08-28, bullet-list reintroduction) `ListBulletWidget`'s
- * `Decoration.replace` widget both carry this alongside their own
- * construct-specific class (`cm-emoji-list-marker`/`cm-bullet-list-marker`
- * below). Ordered-list and task-checklist marker rendering are still
+ * Shared marker class — `emojiListMarkDecoration.ts`'s and (2026-08-29)
+ * `listMarkerDecoration.ts`'s `Decoration.mark`s both carry this alongside
+ * their own construct-specific class
+ * (`cm-emoji-list-marker`/`cm-bullet-list-marker` below). Ordered-list and
+ * task-checklist marker rendering are still
  * unimplemented (out of scope for this slice) — a future slice may extend
  * this shared class rather than introduce a new one, per this file's own
  * "extend before adding" convention. `.cm-list-line`'s own hanging-indent
@@ -459,6 +459,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-size: var(--text-body);
 }
 
 /*
@@ -474,18 +475,49 @@
 }
 
 /*
- * The bullet-list marker (`ListBulletWidget`/`listMarkerDecoration.ts`) —
- * a `Decoration.replace` widget standing in for the collapsed raw `-`/
- * `*`/`+` (+ separator space) text, unlike the emoji marker above. Sized
- * to `var(--marker-width)` (the same fixed-width token blockquote's own
- * marker box uses, `.cm-quote-marker`) so a bullet occupies a consistent,
- * predictable column regardless of which of the three source characters
- * produced it.
+ * The bullet-list marker (`listMarkerDecoration.ts`) — a real, source-backed
+ * `Decoration.mark` over the raw `-`/`*`/`+` (+ separator space) text
+ * (migrated 2026-08-29 from a `Decoration.replace` widget; see that file's
+ * own doc comment for the caret-boundary defect this fixed and the
+ * real-browser verification performed). Engaged (cursor inside the marker
+ * range): no extra rule here — the real characters render as ordinary
+ * inline text, colored via the shared `.cm-list-marker` rule above.
+ * Concealed (`--concealed` modifier, applied only when unengaged): the real
+ * text is retained in the DOM (never removed) but painted transparent
+ * inside a fixed-width box — sized to `var(--marker-width)`, the same
+ * fixed-width token blockquote's own marker box uses (`.cm-quote-marker`),
+ * so a bullet occupies a consistent, predictable column regardless of
+ * which of the three source characters, or how wide a non-canonical
+ * separator, produced it — and a `::before` pseudo-element paints the
+ * bullet glyph centered in that same box. `color: transparent` (not
+ * `font-size: 0`/`transform: scaleX()`, the two techniques
+ * `MarkdownEditor.css`'s `.cm-marker--concealed` doc comment already
+ * documents as rejected for the inline-marker family) is load-bearing:
+ * it changes paint only, never the box's layout metrics, so it cannot
+ * reproduce either of that saga's failures (near-zero `font-size`
+ * collapsing `getClientRects()` height and breaking `drawSelection()`;
+ * `transform` preserving the original glyph's full reserved width and
+ * causing per-marker indentation drift) — confirmed directly: a mounted
+ * probe `EditorView` measured identical line height for a marked and an
+ * unmarked line, and a real, non-zero marker box, not a degenerate one.
  */
-.cm-editor .cm-bullet-list-marker {
+.cm-editor .cm-bullet-list-marker--concealed {
   display: inline-block;
   width: var(--marker-width);
-  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+  color: transparent;
+}
+
+.cm-editor .cm-bullet-list-marker--concealed::before {
+  content: '\2022';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--marker-foreground);
 }
 
 /*
