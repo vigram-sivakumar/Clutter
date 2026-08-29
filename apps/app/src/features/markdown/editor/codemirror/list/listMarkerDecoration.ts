@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import type { EditorState, Extension } from '@codemirror/state';
+import { EditorSelection, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -172,7 +172,41 @@ function getBulletMarkRange(node: SyntaxNode, state: EditorState): { from: numbe
   return { from: marker.from, to: separator.to };
 }
 
-const MARKER_MARK = Decoration.mark({ class: 'cm-bullet-list-marker' });
+/**
+ * TEMPORARY PROTOTYPE (2026-08-29) — investigating whether the real marker
+ * text can lay out flush-left (fixing the `text-align: center`-caused
+ * selection-boundary gap — see this session's own investigation) while
+ * still *painting* `-`/`+`/`*→•` at their current, unchanged optical
+ * position, via the same `color: transparent` + `::before` technique
+ * already proven for `*` alone. All three marker characters now go
+ * through this mechanism uniformly. Not a permanent decision: no
+ * engagement/editing/keymap code changed, meant to be removed or promoted
+ * after the requested verification pass, not committed as-is.
+ *
+ * `attributes: {'data-marker-glyph': glyph}` supplies the one per-instance
+ * fact CSS's `content: attr(data-marker-glyph)` needs — one shared
+ * `::before` rule for the flush-left/transparent mechanism, rather than a
+ * separate `content: '-'`/`content: '+'`/`content: '•'` rule per kind.
+ */
+const MARKER_MARK_DASH = Decoration.mark({
+  class: 'cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dash',
+  attributes: { 'data-marker-glyph': '-' },
+});
+const MARKER_MARK_PLUS = Decoration.mark({
+  class: 'cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--plus',
+  attributes: { 'data-marker-glyph': '+' },
+});
+const MARKER_MARK_DOT = Decoration.mark({
+  class: 'cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dot',
+  attributes: { 'data-marker-glyph': '•' },
+});
+
+function markerMark(raw: string): Decoration {
+  if (raw === '*') {
+    return MARKER_MARK_DOT;
+  }
+  return raw === '+' ? MARKER_MARK_PLUS : MARKER_MARK_DASH;
+}
 
 function buildDecorations(view: EditorView): DecorationSet {
   const pending: { from: number; to: number }[] = [];
@@ -199,7 +233,10 @@ function buildDecorations(view: EditorView): DecorationSet {
   // after its parent's own marker, but iteration order across levels isn't
   // guaranteed strictly ascending by construction.
   return Decoration.set(
-    pending.map(({ from, to }) => MARKER_MARK.range(from, to)),
+    pending.map(({ from, to }) => {
+      const raw = view.state.sliceDoc(from, from + 1);
+      return markerMark(raw).range(from, to);
+    }),
     true
   );
 }
@@ -227,4 +264,81 @@ export function listMarkerDecoration(): Extension {
       decorations: (p) => p.decorations,
     }
   );
+}
+
+/**
+ * TEMPORARY PROTOTYPE (2026-08-29) — fixes the caret-rendering asymmetry
+ * at a bullet item's content-start position (`- |Text`): arriving via
+ * ArrowRight lands the caret rect against the centered `- ` run's own
+ * (short-of-`Text`) end, per `SelectionRange.assoc`'s `-1` value, which
+ * `RectangleMarker.forRange`'s `coordsAtPos(head, assoc || 1)` then reads
+ * literally — arriving via ArrowLeft instead gets `assoc: 1`, which reads
+ * `Text`'s own start and touches it correctly. Traced to
+ * `@codemirror/view`'s `moveVisually`: `span.forward(forward, dir) ? -1 :
+ * 1` — forward (rightward) motion always produces `-1` for ordinary LTR
+ * text, backward always produces `1`, independent of any marker CSS. Full
+ * investigation: this session's own caret-affinity research.
+ *
+ * `assoc` is a pure rendering/motion-continuation hint on
+ * `SelectionRange`, never part of the document position — `head`/`from`/
+ * `to` stay exactly the same integer either way, and Backspace/Delete/
+ * insertion all operate on those integers, never on `assoc`. Normalizing
+ * it here changes nothing about editing: this only intercepts the
+ * *resulting* selection of a transaction and swaps `assoc: -1` for
+ * `assoc: 1` at exactly one position (a bullet item's own content-start),
+ * leaving every other position, every other construct, and every other
+ * transaction untouched.
+ */
+function bulletContentStart(state: EditorState, pos: number): boolean {
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1);
+    node;
+    node = node.parent
+  ) {
+    if (isBulletListItemNode(node.name)) {
+      const range = getBulletMarkRange(node, state);
+      return range !== null && range.to === pos;
+    }
+  }
+  return false;
+}
+
+export function listMarkerCaretAssoc(): Extension {
+  return EditorState.transactionFilter.of((tr) => {
+    if (!tr.selection) {
+      return tr;
+    }
+
+    const range = tr.selection.main;
+    if (!range.empty || range.assoc !== -1 || !bulletContentStart(tr.state, range.head)) {
+      return tr;
+    }
+
+    // Returning a bare `{selection}` spec here (as an earlier version of
+    // this filter did) is resolved via `resolveTransaction(startState,
+    // ...)` — against the *pre*-transaction state, with no `changes` of
+    // its own — which silently discards whatever document edit the
+    // intercepted transaction carried (confirmed directly: Backspace
+    // joining `- ` + a following plain line, `"- \nText"` -> `"- Text"`,
+    // instead left the document completely unchanged while moving the
+    // caret to where it would have landed *had* the join happened,
+    // because the join itself was thrown away). Returning a real
+    // `Transaction` (via `startState.update(...)`, carrying `tr.changes`
+    // forward) is treated as an already-resolved transaction by
+    // `filterTransaction` and used verbatim — the actual fix is
+    // preserving `changes`/`effects`/`userEvent`, not the selection
+    // rewrite itself, which was never the problem. `Transaction` has no
+    // public API to forward its full raw annotation set, so `userEvent`
+    // is carried explicitly (the one annotation other extensions — undo
+    // grouping in particular — actually key off); every other annotation
+    // this codebase sets is internal to a single command's own dispatch
+    // and not read back afterward.
+    return tr.startState.update({
+      changes: tr.changes,
+      selection: EditorSelection.cursor(range.head, 1),
+      effects: tr.effects,
+      userEvent: tr.annotation(Transaction.userEvent),
+      scrollIntoView: tr.scrollIntoView,
+    });
+  });
 }

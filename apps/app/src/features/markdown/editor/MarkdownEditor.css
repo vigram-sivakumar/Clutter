@@ -498,6 +498,104 @@
 }
 
 /*
+ * TEMPORARY PROTOTYPE (2026-08-29, #5 — root-cause fix) — replaces the
+ * `text-align: center` layout for ALL THREE marker characters (`-`, `+`,
+ * `*`→`•`), not just the dot, to fix a real selection-geometry defect this
+ * session traced precisely: CM6's `drawSelection()` computes the boundary
+ * row of a multi-line selection via `coordsAtPos(selection.from)`, which
+ * reports wherever the real, centered marker text actually starts —
+ * measured at `~340.85`–`342.12px` (glyph-width-dependent) against the
+ * marker box's own true left edge at `337.83px`. Interior (fully-covered)
+ * selection rows use a full-line-width shortcut instead, unaffected — so
+ * only the boundary row visibly loses ~3–4px of selection background,
+ * confirmed identical for `-`/`+`/`*` in every scenario tested (keyboard,
+ * mouse-drag, first-line, last-line). Root cause is `text-align: center`
+ * itself: caret/selection geometry is mathematically the same coordinate
+ * as the real glyph's rendered position, so no CSS technique can move the
+ * selection boundary without also moving the glyph, or vice versa — they
+ * cannot be decoupled while the real text is what's actually positioned.
+ *
+ * Fix: `.cm-bullet-list-marker`'s own `text-align` above is now `left`
+ * (was `center`), so the real (about-to-be-hidden) marker text lays out
+ * flush against the box's true left edge — `coordsAtPos`/selection now
+ * agree with the box edge for every marker, on every row, unconditionally.
+ * Real text's *visual* position no longer matters once it's `color:
+ * transparent` (below), so this flush-left layout shift is invisible —
+ * only the invisible caret-anchor position moved, not anything painted.
+ *
+ * `.cm-bullet-list-marker--glyph` (shared): `color: transparent` hides
+ * the real, now-flush-left text — same technique already proven safe for
+ * `*` alone (touches only `color`, never a geometry property, so none of
+ * the two previously-rejected techniques' failure modes — `font-size: 0`
+ * zeroing `getClientRects()` height; `transform: scaleX()` reserving full
+ * original width — are reachable here either).
+ *
+ * `.cm-bullet-list-marker--glyph::before` (shared): `content:
+ * attr(data-marker-glyph)` reads the one per-instance fact
+ * `listMarkerDecoration.ts` supplies (the literal `-`/`+`, or `•` for
+ * `*`) — one shared rule instead of a separate `content: '-'`/`'+'`/`'•'`
+ * rule per kind. `position: absolute` takes it out of normal flow
+ * entirely, same reasoning as the dot's own prior fix: it cannot
+ * contribute to `.cm-line`'s line-height regardless of font-size, and
+ * cannot affect the flush-left real text's own layout width (so the
+ * selection-boundary fix above is never disturbed by whatever this paints).
+ *
+ * `--dash`/`--plus::before` (2026-08-29): positioned via `left`/`bottom`
+ * tuned to match each glyph's own *previous* `text-align: center`-computed
+ * optical position exactly — measured pre-change at `4.29px`/`3.02px`
+ * inset from the box's left edge respectively (`+` is a visibly wider
+ * glyph, so centering needed less padding for it) — so `-`/`+` continue
+ * to look exactly where they already looked; only the invisible real text
+ * moved, never anything painted. `bottom: 0` (ordinary baseline-height
+ * box, no `line-height: 0`/font-size scaling unlike the dot) since these
+ * render at normal size — verified against a real line-height/coordsAtPos
+ * measurement pass, not assumed from the dot's own already-tuned values.
+ *
+ * `--dot::before` unchanged from its own prior, already-verified fix
+ * (font-size 1.5em / line-height 0 / vertical positioning) — only its
+ * shared `content`/`position` properties now live in the `--glyph` rule
+ * above instead of repeated here.
+ */
+
+.cm-editor .cm-bullet-list-marker--glyph {
+  position: relative;
+  color: transparent;
+}
+
+/*
+ * TEMPORARY PROTOTYPE VARIANT (2026-08-29, same day) — testing uniform
+ * geometric centering across the full 20px box for all three glyphs,
+ * instead of the per-glyph tuned `left`/`bottom` offsets above (removed
+ * here, not deleted from history — see the prior version of this rule).
+ * Question being tested: does simple `inset: 0` + flex-center look
+ * acceptable for `-`/`+` too, or do their own glyph shapes need the
+ * asymmetric per-glyph tuning the previous version used?
+ */
+.cm-editor .cm-bullet-list-marker--glyph::before {
+  content: attr(data-marker-glyph);
+  position: absolute;
+  inset: 0;
+  left: 3px;
+  display: flex;
+  align-items: center;
+  color: var(--marker-foreground);
+}
+
+.cm-editor .cm-bullet-list-marker--dot::before {
+  font-size: 1.5em;
+  bottom: 3px;
+  line-height: 0;
+}
+
+.cm-editor .cm-bullet-list-marker--plus::before {
+  bottom: 3px;
+}
+
+.cm-editor .cm-bullet-list-marker--dash::before {
+  bottom: 2px;
+}
+
+/*
  * Resting horizontal rule (horizontalRuleDecoration.ts) — `font-size`/
  * `line-height: 0` remove the line's own text-metric height (its raw
  * `---`/`***`/`___` text is replaced to nothing when not engaged), exactly

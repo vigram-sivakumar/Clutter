@@ -42,7 +42,7 @@ import { inlineLivePreviewRegion } from './codemirror/highlight/inlineLivePrevie
 import { leadingIndentDecoration } from './codemirror/highlight/leadingIndentDecoration';
 import { linkMouseHandlers } from './codemirror/link/linkMouseHandlers';
 import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
-import { listMarkerDecoration } from './codemirror/list/listMarkerDecoration';
+import { listMarkerCaretAssoc, listMarkerDecoration } from './codemirror/list/listMarkerDecoration';
 // The liveMarkDecoration-based marker decorations still dormant here
 // (emphasis, strikethrough — plus blockquote/list, which stay on
 // liveMarkDecoration permanently per ODR §4.10) carry the
@@ -315,6 +315,10 @@ export const MarkdownEditor = forwardRef<
         // slice adds them alongside line/hanging-indent decoration
         // (listLineDecoration(), not yet reimplemented).
         listMarkerDecoration(),
+        // TEMPORARY PROTOTYPE — fixes ArrowRight's caret-rendering
+        // asymmetry at a bullet item's content-start position; see
+        // listMarkerDecoration.ts's own doc comment on listMarkerCaretAssoc.
+        listMarkerCaretAssoc(),
         // listLineDecoration(),
         // listIndentWhitespaceDecoration(),
         // emojiListMarkDecoration(),
