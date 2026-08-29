@@ -481,13 +481,21 @@
  * text (migrated 2026-08-29 from a `ListBulletWidget`/`Decoration.replace`
  * widget that rendered a `•` glyph in its place; see that file's own doc
  * comment for the caret-boundary defect this fixed and the live
- * verification performed). Deliberately no rule at all here — this
- * construct's explicit product requirement is that the marker renders
- * exactly as written, with no visual difference from plain source text,
- * so `cm-bullet-list-marker` exists purely as a stable class hook for the
- * DOM structure agreement's naming contract and for tests, not as
- * something currently styled.
+ * verification performed). Styled identically to `.cm-quote-marker` above
+ * (same `--marker-width`/`--marker-foreground` tokens, same
+ * `text-indent: 0` reset) for visual consistency with every other marker
+ * in the editor — this only tints/positions the real characters, it never
+ * substitutes a different glyph for them: `- Bullet` still reads `-`
+ * followed by the separator and the content, just colored and given a
+ * predictable column width like every other marker kind.
  */
+.cm-editor .cm-bullet-list-marker {
+  display: inline-block;
+  width: var(--marker-width);
+  color: var(--marker-foreground);
+  text-align: end;
+  text-indent: 0;
+}
 
 /*
  * Resting horizontal rule (horizontalRuleDecoration.ts) — `font-size`/

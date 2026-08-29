@@ -51,15 +51,16 @@ import type { SyntaxNode } from '@lezer/common';
  * range" and redirected backward into the marker. A real, source-backed
  * mark has no replaced range for any such correction to exist for.
  *
- * No CSS is attached to the marker span deliberately, not by omission:
- * this construct's own shared naming-contract hooks (`cm-marker`,
- * `cm-list-marker`) already carry a `color: var(--marker-foreground)` tint
- * in `MarkdownEditor.css`, which would itself be a (small) visual change
- * from plain, undecorated source text — exactly what this construct's
- * product requirement rules out. The marker still carries its own
- * construct-specific class (`cm-bullet-list-marker`) as a stable styling
- * hook for future, deliberate work, but nothing currently targets it with
- * a rule.
+ * The marker carries its own construct-specific class
+ * (`cm-bullet-list-marker`, `MarkdownEditor.css`) styled identically to
+ * blockquote's own marker (`--marker-width`/`--marker-foreground`,
+ * `text-indent: 0`) for visual consistency with every other marker in the
+ * editor — a color tint and a predictable column width, never a
+ * character substitution. It deliberately does not carry the shared
+ * `cm-marker`/`cm-list-marker` naming-contract hooks: those exist for a
+ * different (currently unused) global-marker-color feature and would
+ * double-apply the same tint redundantly, not for any product reason
+ * specific to this construct.
  *
  * Enter/Backspace/Tab behavior is unaffected by this migration — confirmed
  * directly, not assumed: `insertNewlineContinueMarkupCommand` and
