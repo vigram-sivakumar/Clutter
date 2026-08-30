@@ -7,6 +7,7 @@ import { doubleHorizontalRuleSyntax } from './hr/doubleHorizontalRuleSyntax';
 import { dottedHorizontalRuleSyntax } from './hr/dottedHorizontalRuleSyntax';
 import { labeledHorizontalRuleSyntax } from './hr/labeledHorizontalRuleSyntax';
 import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
+import { orderedListParagraphInterrupt } from './list/orderedListParagraphInterrupt';
 import { tagSyntax } from './tag/tagSyntax';
 import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
 
@@ -65,5 +66,6 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   dottedHorizontalRuleSyntax,
   labeledHorizontalRuleSyntax,
   emojiListSyntax,
+  orderedListParagraphInterrupt,
   { remove: ['IndentedCode'] },
 ];
