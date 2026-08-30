@@ -475,3 +475,152 @@ describe('deleteBulletMarkerSeparator: source-local marker/separator boundary po
     });
   });
 });
+
+/** `{ marker text, depth }` for every `ListItem`, in document order — asserts exact tree shape, not just resulting source. */
+function listShape(state: EditorState): Array<{ marker: string; depth: number }> {
+  const doc = state.doc;
+  const shape: Array<{ marker: string; depth: number }> = [];
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      if (node.name !== 'ListItem') return;
+      let depth = 0;
+      for (let p = node.node.parent; p; p = p.parent) {
+        if (p.name === 'ListItem') depth++;
+      }
+      const marker = node.node.firstChild;
+      const markerText =
+        marker && marker.name === 'ListMark' ? doc.sliceString(marker.from, marker.to) : '(swallowed)';
+      shape.push({ marker: markerText, depth });
+    },
+  });
+  return shape;
+}
+
+/**
+ * Backspace deleting an empty ordered-list item closes the numbering gap
+ * (2026-08-30) — matching Enter's own symmetric behavior on the same
+ * empty item (CM6's upstream `renumberList(inner.item, doc, changes, -2)`
+ * in its own "exit an empty list item" branch, confirmed by direct
+ * source inspection of `@codemirror/lang-markdown@6.5.2`). Reported by
+ * the user directly: `1. Text / 2. Text` → Enter after `1. Text` → `1.
+ * Text / 2. / 3. Text` → Enter on the empty `2.` renumbers `3.` to `2.`,
+ * but Backspace on the same empty `2.` left `3.` unchanged. This
+ * describe block is the permanent regression coverage for the fix
+ * (`renumberAfterEmptyItemDeletion` in `markdownEnterKeymap.ts`), which
+ * reimplements upstream's exact walk using only public tree APIs and
+ * filters every rewrite through the same `isRiskyRenumberRewrite` guard
+ * §15 built for Enter — see that function's own doc comment for the
+ * full reasoning.
+ */
+describe('renumberAfterEmptyItemDeletion: Backspace on an empty ordered-list item closes the numbering gap, matching Enter', () => {
+  it('REGRESSION (the exact reported scenario): 1. Text / 2. / 3. Text, Backspace on empty 2 -> 1. Text / 2. Text', () => {
+    const { rendered } = backspace('1. Text\n2. |\n3. Text');
+    expect(rendered.replace('|', '')).toBe('1. Text\n\n2. Text');
+  });
+
+  it('matches Enter exactly on the same input (byte-for-byte, not just "similar")', () => {
+    let enterState = parse('1. Text|\n2. Text');
+    markdownEnterCommand({ state: enterState, dispatch: (tr) => (enterState = tr.state) });
+    expect(enterState.doc.toString()).toBe('1. Text\n2. \n3. Text'); // reproduces the setup
+
+    let enterAgainState = enterState;
+    markdownEnterCommand({ state: enterAgainState, dispatch: (tr) => (enterAgainState = tr.state) });
+
+    const backspaceResult = pressBackspace(enterState);
+
+    expect(backspaceResult.state.doc.toString()).toBe(enterAgainState.doc.toString());
+  });
+
+  it('8. / 9. / 10. -> delete empty 9 -> 8. / 9. (single-digit-width shrink, safe)', () => {
+    const { rendered } = backspace('8. A\n9. |\n10. C');
+    expect(rendered.replace('|', '')).toBe('8. A\n\n9. C');
+  });
+
+  it('99. / 100. / 101. -> delete empty 100 -> 99. / 100.', () => {
+    const { rendered } = backspace('99. A\n100. |\n101. C');
+    expect(rendered.replace('|', '')).toBe('99. A\n\n100. C');
+  });
+
+  it('paren delimiter: 1) / 2) / 3) -> delete empty 2) -> 1) / 2)', () => {
+    const { rendered } = backspace('1) A\n2) |\n3) C');
+    expect(rendered.replace('|', '')).toBe('1) A\n\n2) C');
+  });
+
+  it('nested ordered list: renumbering is scoped to the deleted item\'s own container, never crosses into the outer list', () => {
+    const doc = '1. A\n   1. X\n   2. |\n   3. Z\n2. B';
+    const { rendered } = backspace(doc);
+    expect(rendered.replace('|', '')).toBe('1. A\n   1. X\n   \n   2. Z\n2. B');
+    // Outer "2. B" is untouched — confirms the walk never leaves the
+    // container the deleted item actually belongs to.
+  });
+
+  it('irregular numbering (1. / 5. / 9.) is preserved, never normalized: delete empty 5 -> 9 stays 9', () => {
+    const { rendered } = backspace('1. A\n5. |\n9. C');
+    expect(rendered.replace('|', '')).toBe('1. A\n\n9. C');
+  });
+
+  it('a long sequential run: every item after the deleted one shifts down by exactly one', () => {
+    const { rendered } = backspace('1. A\n2. |\n3. C\n4. D\n5. E\n6. F');
+    expect(rendered.replace('|', '')).toBe('1. A\n\n2. C\n3. D\n4. E\n5. F');
+  });
+
+  it('width-boundary shrink does not corrupt a nested child re-parented onto the renamed item', () => {
+    const doc = '8. A\n9. |\n10. C\n    1. NestedChild';
+    const { state } = pressBackspace(parse(doc));
+    expect(state.doc.toString()).toBe('8. A\n\n9. C\n    1. NestedChild');
+    expect(listShape(state)).toEqual([
+      { marker: '8.', depth: 0 },
+      { marker: '9.', depth: 0 },
+      { marker: '1.', depth: 1 }, // still validly nested, not swallowed
+    ]);
+  });
+
+  it('leading-zero padding is lost on renumbering, matching Enter\'s own already-documented lossy behavior (not a new inconsistency)', () => {
+    const { rendered } = backspace('007. A\n008. |\n009. C');
+    expect(rendered.replace('|', '')).toBe('007. A\n\n8. C');
+  });
+
+  it('GUARD PROOF: a large-magnitude padded shrink on a multi-line item is declined, protecting its own descendant content', () => {
+    // "000003." (7 chars) has numeric value 3 — genuinely sequential
+    // after deleting "2." (2, 2+1=3), so the walk does attempt to rename
+    // it (unlike the irregular-numbering case, where the walk stops
+    // before ever reaching this item). Target "2" (1 char) is magnitude
+    // 6, unsafe (> 3). NestedChild is indented to col 8, "000003."'s own
+    // real content column (0 + 7 + 1) — genuinely, validly nested
+    // beforehand.
+    const doc = '1. A\n2. |\n000003. C\n        1. NestedChild';
+    const { state } = pressBackspace(parse(doc));
+    // The risky rewrite is declined — "000003." stays exactly as it was.
+    expect(state.doc.toString()).toBe('1. A\n\n000003. C\n        1. NestedChild');
+    expect(listShape(state)).toEqual([
+      { marker: '1.', depth: 0 },
+      { marker: '000003.', depth: 0 },
+      { marker: '1.', depth: 1 }, // still validly nested — the decline protected it
+    ]);
+  });
+
+  it('control: the identical large-magnitude padded shrink on a single-line item (no descendant) is allowed', () => {
+    const { rendered } = backspace('1. A\n2. |\n000003. C');
+    expect(rendered.replace('|', '')).toBe('1. A\n\n2. C');
+  });
+
+  it('bullet lists never attempt renumbering (no digits to renumber)', () => {
+    const { rendered } = backspace('- A\n- |\n- C');
+    expect(rendered.replace('|', '')).toBe('- A\n\n- C');
+  });
+
+  it('scope check: the non-empty (separator-only) Backspace branch is unaffected — only deleting an item can leave a gap to close', () => {
+    const { rendered } = backspace('1. A\n2. |Text\n3. C');
+    expect(rendered.replace('|', '')).toBe('1. A\n2.Text\n3. C');
+  });
+
+  it('deleting the LAST item in a sequence needs no renumbering (nothing follows)', () => {
+    const { rendered } = backspace('1. A\n2. |');
+    expect(rendered.replace('|', '')).toBe('1. A\n');
+  });
+
+  it('deleting the FIRST item in a sequence renumbers everything after it down by one', () => {
+    const { rendered } = backspace('1. |\n2. B\n3. C');
+    expect(rendered.replace('|', '')).toBe('\n1. B\n2. C');
+  });
+});

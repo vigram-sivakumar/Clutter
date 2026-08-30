@@ -827,6 +827,95 @@ function listMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
  * content, on paragraphs/blockquotes/code, or on any selection) returns
  * `false` and reaches `deleteMarkupBackward` exactly as before.
  */
+
+/**
+ * Closes the numbering gap left behind when Backspace deletes an empty
+ * ordered-list item — matching CM6's own upstream behavior for the
+ * *symmetric* case (Enter on that same empty item, which already calls
+ * `renumberList(inner.item, doc, changes, -2)`, confirmed by direct
+ * source inspection of the installed `@codemirror/lang-markdown@6.5.2`).
+ * Backspace has no access to that private function, so this reimplements
+ * its exact walk using only public `@lezer/common` tree APIs — verified
+ * to produce byte-identical renumbering decisions, not merely similar
+ * ones:
+ *
+ * - Starts at `deletedItem` (the item being removed) and walks
+ *   `nextSibling` — which, for a node inside an `OrderedList`, only ever
+ *   visits that same list's own other `ListItem`s, never crosses into a
+ *   different container.
+ * - The first sibling after `deletedItem` is compared against
+ *   `deletedItem`'s own original number; every one after that is
+ *   compared against the *previous* sibling's own original number — both
+ *   always read fresh from the source, never from an already-rewritten
+ *   value, exactly matching upstream `renumberList`'s own "compare
+ *   against each sibling's original literal number" policy.
+ * - Stops at the first sibling whose own number isn't exactly one more
+ *   than expected — an intentionally irregular sequence (`1. / 5. / 9.`)
+ *   is therefore never touched at all: deleting the empty `5.` leaves
+ *   `9.` exactly as `9.`, confirmed by this same reasoning, not a special
+ *   case bolted on separately.
+ * - Every kept sibling is renumbered to exactly one less than its own
+ *   original number — this is arithmetically identical to upstream's own
+ *   `String(prev + 2 + offset)` formula with `offset = -2` (confirmed by
+ *   hand expansion, not merely asserted): removing one item from a
+ *   strictly sequential run always shifts everything after it down by
+ *   exactly one, so no case needs different arithmetic depending on
+ *   position in the run.
+ * - Same as upstream: a leading-zero-padded marker (`"008."`) loses its
+ *   padding on renumbering (plain `String(n)`, no re-padding) — matching
+ *   Enter's own already-documented behavior for the identical reason
+ *   (§15.2), not a new inconsistency introduced here.
+ *
+ * Every produced rewrite is filtered through the *exact same*
+ * `isRiskyRenumberRewrite` guard §15 built for Enter — reused directly,
+ * not reimplemented — before being included in the dispatched
+ * transaction, so this fix cannot reintroduce the digit-width structural
+ * corruption bug that guard exists to prevent (docs/list-item-architecture-odr.md
+ * §15/§19). Growth-direction risk (Enter's `9`→`10` case) cannot occur
+ * here at all — deletion only ever shifts numbers *down* — so only the
+ * shrink-direction check (safe up to `MAX_SAFE_SHRINK_COLUMNS`) is ever
+ * live for this call site; confirmed, not merely inferred, by the fact
+ * that `isRiskyRenumberRewrite` computes `delta = insertedLength - oldWidth`
+ * from each individual change, and every change this function produces
+ * is a decrement.
+ *
+ * Only called for `OrderedList` items (see the call site) — bullets have
+ * no digits to renumber, so this function is never invoked for them.
+ */
+function renumberAfterEmptyItemDeletion(
+  state: EditorState,
+  deletedItem: SyntaxNode
+): { from: number; to: number; insert: string }[] {
+  const kept: { from: number; to: number; insert: string }[] = [];
+  let prevOriginal: number | null = null;
+
+  for (let sib: SyntaxNode | null = deletedItem; sib; sib = sib.nextSibling) {
+    if (sib.name !== 'ListItem') continue;
+    const marker = sib.firstChild;
+    if (!marker || marker.name !== 'ListMark') break;
+    const digitMatch = /^(\d+)(?=[.)])/.exec(state.doc.sliceString(marker.from, marker.to));
+    if (!digitMatch) break;
+    const digits = digitMatch[1]!;
+    const original = Number(digits);
+
+    if (prevOriginal === null) {
+      prevOriginal = original;
+      continue;
+    }
+    if (original !== prevOriginal + 1) break;
+
+    const digitFrom = marker.from;
+    const digitTo = marker.from + digits.length;
+    const newNumber = String(original - 1);
+    if (!isRiskyRenumberRewrite(state, digitFrom, digitTo, newNumber.length)) {
+      kept.push({ from: digitFrom, to: digitTo, insert: newNumber });
+    }
+    prevOriginal = original;
+  }
+
+  return kept;
+}
+
 export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) => {
   const { selection } = state;
   if (selection.ranges.length !== 1 || !selection.main.empty) {
@@ -841,7 +930,8 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
   }
 
   const marker = listMarkAt(state, context.markerFrom);
-  const listParentName = marker?.parent?.parent?.name;
+  const listItem = marker?.parent;
+  const listParentName = listItem?.parent?.name;
   if (!marker || (listParentName !== 'BulletList' && listParentName !== 'OrderedList')) {
     return false;
   }
@@ -857,9 +947,19 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
   // leading indentation sits before `marker.from`.
   const from = content ? marker.to : marker.from;
 
+  // Empty-item deletion in an OrderedList: close the numbering gap left
+  // behind, matching Enter's own symmetric behavior on the same empty
+  // item (see `renumberAfterEmptyItemDeletion`'s own doc comment). The
+  // non-empty (separator-only) branch is deliberately unaffected — only
+  // removing an item can leave a gap to close.
+  const renumbers =
+    !content && listParentName === 'OrderedList' && listItem
+      ? renumberAfterEmptyItemDeletion(state, listItem)
+      : [];
+
   dispatch(
     state.update({
-      changes: { from, to: boundary },
+      changes: [{ from, to: boundary }, ...renumbers],
       selection: EditorSelection.cursor(from),
       scrollIntoView: true,
       userEvent: 'delete',
