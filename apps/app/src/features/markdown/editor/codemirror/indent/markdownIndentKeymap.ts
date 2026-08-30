@@ -7,6 +7,7 @@ import {
 } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 
+import { planOrderedListNormalization } from '../list/orderedListTabNormalization';
 import { INDENT_STEP_SPACES } from './markdownIndentContext';
 
 /**
@@ -27,9 +28,25 @@ import { INDENT_STEP_SPACES } from './markdownIndentContext';
  * `INDENT_STEP_SPACES` added to (Tab) or removed from (Shift-Tab) its own
  * leading whitespace, independently of every other line and regardless of
  * what construct it is — no paragraph/list/heading/blockquote/code
- * distinction, no syntax-tree lookup, no parser-hierarchy preservation, no
- * reparse/validation step. List hierarchy is left entirely to the parser,
- * to interpret however CommonMark says to on the next reparse.
+ * distinction, no syntax-tree lookup, no parser-hierarchy preservation.
+ * List hierarchy is left entirely to the parser, to interpret however
+ * CommonMark says to on the next reparse. **This computation itself is
+ * unchanged and untouched by the numbering step below** — nothing here
+ * ever consults the tree, a marker's width, or any parent/child/sibling
+ * relationship to decide how much a line indents.
+ *
+ * A separate, later step (`planOrderedListNormalization`,
+ * `../list/orderedListTabNormalization.ts`, product decision 2026-08-30 —
+ * docs/list-item-architecture-odr.md §16/§20) *does* reparse, strictly
+ * after this computation is complete: it inspects the resulting
+ * provisional tree purely to detect whether a touched line's own
+ * `OrderedList` membership genuinely changed, and if so, renumbers the
+ * lists it left and joined. That step never feeds back into, overrides,
+ * or is consulted by the whitespace arithmetic above — it only ever
+ * consumes this function's own output as opaque `{from,to,insert}` data,
+ * strictly one-directional, so this file's own indentation contract
+ * (below) is not amended, only composed with a second, independent
+ * concern dispatched in the same transaction.
  *
  * Reasons this still exists rather than a plain generic-indent extension:
  * (1) it operates on real **document** lines, never visual/wrapped rows —
@@ -101,10 +118,23 @@ function markdownIndentDirection(direction: 1 | -1): StateCommand {
     }
 
     if (changes.length) {
-      const changeSet = state.changes(changes);
+      // Phase C/D (docs/list-item-architecture-odr.md §16.8, §20):
+      // `planOrderedListNormalization` never influences the whitespace
+      // change above — it only ever *reads* it (as opaque `{from,to,
+      // insert}` data) to find which lines were touched, reparses a
+      // throwaway provisional state to see whether any touched line's
+      // own `OrderedList` membership genuinely changed, and — only then —
+      // plans the digit-run rewrites needed to keep both the list it left
+      // and the list it joined internally consistent. Composed into the
+      // *same* `changes` array so the whitespace edit and any numbering
+      // fix-up dispatch as one transaction, one undo step, exactly like
+      // every other list-editing fix in this codebase.
+      const normalizeEdits = planOrderedListNormalization(state, changes);
+      const allChanges = normalizeEdits.length ? [...changes, ...normalizeEdits] : changes;
+      const changeSet = state.changes(allChanges);
       dispatch(
         state.update({
-          changes: changeSet,
+          changes: allChanges,
           // Tab's changes are pure insertions of new leading whitespace.
           // CM6's default selection mapping (`assoc = -1`, used whenever
           // a transaction leaves `selection` unset) keeps a position that
@@ -117,7 +147,10 @@ function markdownIndentDirection(direction: 1 | -1): StateCommand {
           // the already-correct behavior at every other caret position.
           // Shift-Tab's changes are replacements/deletions, not pure
           // insertions at the caret, so its default mapping is already
-          // correct and is left untouched.
+          // correct and is left untouched. Mapped through `changeSet`
+          // (the *combined* whitespace + normalization changes), not just
+          // the whitespace-only `changes` array, so the caret still lands
+          // correctly on the rare press whose own line got renumbered too.
           selection: direction === 1 ? state.selection.map(changeSet, 1) : undefined,
           userEvent: direction === 1 ? 'input.indent' : 'delete.dedent',
         })

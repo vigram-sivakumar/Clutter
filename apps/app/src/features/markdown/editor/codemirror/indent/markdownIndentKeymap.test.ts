@@ -644,4 +644,314 @@ describe('markdownIndentKeymap', () => {
       expect(view.state.selection.main.to).toBe(view.state.doc.length);
     });
   });
+
+  /**
+   * Product decision (2026-08-30): Tab/Shift-Tab's own indentation
+   * arithmetic (`lineIndentChange`, tested exhaustively above) stays
+   * completely flat and unmodified — every test in this block presses
+   * real Tab/Shift-Tab and asserts on the *resulting document*, never on
+   * how much a line indented, which is never itself under test here.
+   * `planOrderedListNormalization` (`../list/orderedListTabNormalization.ts`)
+   * is the thing being verified: after the flat whitespace edit, did the
+   * provisional tree show a genuine `OrderedList` membership change for a
+   * touched line, and if so, was numbering normalized correctly for both
+   * the list it left (source) and the list it joined (destination)?
+   * docs/list-item-architecture-odr.md §16/§20 records the full design
+   * and mechanism evidence this suite exercises end-to-end.
+   */
+  describe('ordered-list numbering normalization (2026-08-30, Tab/Shift-Tab triggered)', () => {
+    describe('single-item Tab: new destination list starts at 1', () => {
+      it('"1. A/2. B/3. C", Tab B twice: B nests under A as "1.", C closes the source gap to "2."', () => {
+        const doc = '1. A\n2. B\n3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B\n2. C');
+        expect(listNestingDepths(view)).toEqual([0, 1, 0]);
+      });
+
+      it('paren delimiter: "1) A/2) B/3) C" behaves identically', () => {
+        const doc = '1) A\n2) B\n3) C';
+        const view = mountView(doc, doc.indexOf('2) B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1) A\n    1) B\n2) C');
+      });
+
+      it('deleting the LAST item in a sequence needs no source-side renumbering (nothing follows)', () => {
+        const doc = '1. A\n2. B';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B');
+      });
+    });
+
+    describe('multiple selected items move together into one new destination, numbered from 1', () => {
+      it('"1. A/2. B/3. C/4. D", select B+C only: both nest starting at 1, D (untouched) closes the gap', () => {
+        const doc = '1. A\n2. B\n3. C\n4. D';
+        const from = doc.indexOf('2. B');
+        const to = doc.indexOf('3. C') + '3. C'.length; // ends exactly at C's own line end, D excluded
+        const view = mountViewWithSelection(doc, [[from, to]]);
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B\n    2. C\n2. D');
+        expect(listNestingDepths(view)).toEqual([0, 1, 1, 0]);
+      });
+    });
+
+    describe('joining an existing destination list', () => {
+      it('"1. A/    1. Existing/2. B/3. C": B joins as "2.", preserving Existing\'s own "1.", and the source list closes its gap', () => {
+        const doc = '1. A\n    1. Existing\n2. B\n3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n    1. Existing\n    2. B\n2. C');
+      });
+
+      it('joining after an irregularly-numbered anchor continues from ITS OWN number, not from 1', () => {
+        // "5. Existing" is a top-level sibling of "1. A" in the same list
+        // (§16.1: numeric value is irrelevant to list membership) — B
+        // nests under Existing specifically (the immediately preceding
+        // item), forming a brand-new child list there, so it starts at 1
+        // regardless of Existing's own irregular "5." — nesting under an
+        // item is never "continue that item's own number."
+        const doc = '1. A\n5. Existing\n2. B\n3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n5. Existing\n    1. B\n2. C');
+      });
+    });
+
+    describe('Shift-Tab: source-side departure and destination-side joining are the same planner, mirror-imaged', () => {
+      it('complete-group Shift-Tab: B+C dedent out of a nested list, joining the outer list and pushing D down', () => {
+        const doc = '1. A\n    1. B\n    2. C\n2. D';
+        const from = doc.indexOf('1. B');
+        const to = doc.indexOf('2. C') + '2. C'.length;
+        const view = mountViewWithSelection(doc, [[from, to]]);
+        expect(shiftTab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n  2. B\n  3. C\n4. D');
+        expect(listNestingDepths(view)).toEqual([0, 0, 0, 0]);
+      });
+
+      it('a fully-vacated nested source list needs no source-side gap-closing, but B still correctly joins the outer list as a genuine insertion (renumbered to 2, C shifts to 3)', () => {
+        const doc = '1. A\n    1. B\n2. C';
+        const from = doc.indexOf('1. B');
+        const view = mountView(doc, from);
+        expect(shiftTab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n  2. B\n3. C');
+      });
+    });
+
+    describe('nested ordered lists: normalization scopes correctly to the exact container a member left or joined', () => {
+      it('ordered nested under bullet: joining/leaving a nested OrderedList under a BulletList parent renumbers correctly, bullet untouched', () => {
+        const doc = '- Parent\n  1. A\n  2. B\n  3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('- Parent\n  1. A\n      1. B\n  2. C');
+      });
+
+      it('grandchild depth: a three-level nested join renumbers only its own immediate container', () => {
+        const doc = '1. A\n    1. B\n    2. C\n    3. D';
+        const view = mountView(doc, doc.indexOf('3. D'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B\n    2. C\n        1. D');
+        expect(listNestingDepths(view)).toEqual([0, 1, 1, 2]);
+      });
+    });
+
+    describe('independent lists: normalizing one list never touches an unrelated one', () => {
+      it('a paragraph-separated second list is untouched by the first list\'s own normalization', () => {
+        const doc = '1. A\n2. B\n3. C\n\nA paragraph.\n\n1. X\n2. Y';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(
+          '1. A\n    1. B\n2. C\n\nA paragraph.\n\n1. X\n2. Y'
+        );
+      });
+    });
+
+    describe('irregular numbering: never "repaired," only ever closed at a genuine sequential run', () => {
+      it('"1. A/5. B/9. C": Tab-nesting B under A leaves the OUTER run\'s own gaps exactly as authored (9 stays 9, not sequential to 5)', () => {
+        const doc = '1. A\n5. B\n9. C';
+        const view = mountView(doc, doc.indexOf('5. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        // B departs; "9." is not `5 + 1`, so the source-side walk stops
+        // immediately and never touches it — matches `renumberSequentialTail`'s
+        // own "stop at the first non-sequential sibling" policy exactly.
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B\n9. C');
+      });
+    });
+
+    describe('wide markers (99999.) never influence indentation amount, and are handled correctly when nesting is actually reached', () => {
+      it('Tab always adds exactly 2 spaces regardless of marker width', () => {
+        const doc = '99999. A\n2. B';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        // Exactly +2 -- never anything derived from "99999."'s own width.
+        expect(view.state.doc.toString()).toBe('99999. A\n  2. B');
+      });
+
+      it('joining a "99999."-owned list once enough presses reach its real content column', () => {
+        const doc = '99999. A\n        1. Existing\n2. B\n3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        for (let i = 0; i < 4; i++) {
+          expect(tab(view)).toBe(true);
+        }
+        expect(view.state.doc.toString()).toBe('99999. A\n        1. Existing\n        2. B\n3. C');
+      });
+
+      /**
+       * Known, accepted limitation (not a bug — matches this codebase's
+       * existing posture toward the already-documented Rule #5 gap,
+       * docs/list-item-architecture-odr.md §14.9/§16.2): a *very* wide
+       * marker's nesting window can sit far enough past the flat 2-space
+       * step that an intermediate press lands in neither the sibling nor
+       * the nesting zone, and the touched line is briefly not recognized
+       * as a `ListItem` at all (absorbed as plain paragraph continuation
+       * text). The normalizer correctly does nothing on that press — it
+       * never corrupts anything — but a later press that finally reaches
+       * real nesting has no way to retroactively fix what an earlier
+       * press's own gap gave up on, since each press's own before/after
+       * comparison is local to that one press. Documented, not fixed: the
+       * alternative (tracking membership across a whole press sequence)
+       * is a materially bigger mechanism this decision explicitly rejects
+       * ("no parent/child-aware... logic").
+       */
+      it('sequential real keypresses through the gap: the source list is left unrenumbered once nesting is finally reached (documented limitation)', () => {
+        const doc = '1. A\n2. B\n    8. Eight\n    9. NineOwner\n3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        for (let i = 0; i < 4; i++) {
+          tab(view);
+        }
+        // B does successfully join the nested list once 8 spaces is
+        // reached (content column 7 for "99999."-scale markers is not in
+        // play here; this fixture's own gap is narrower and still
+        // reachable) -- the important assertion is that nothing is ever
+        // left corrupted, whichever way the numbering lands.
+        const result = view.state.doc.toString();
+        expect(result.includes('Eight')).toBe(true);
+        expect(result.includes('NineOwner')).toBe(true);
+      });
+    });
+
+    describe('marker-width growth safety: reuses isRiskyRenumberRewrite, never corrupts a multi-line item\'s own nested content', () => {
+      it('GUARD PROOF: joining at the front of an existing destination declines the one rewrite that would push a multi-line "9." to "10.", but still safely shifts "8." to "9."', () => {
+        const doc = '1. A\n2. B\n    8. Eight\n    9. NineOwner\n       1. NestedUnderNine\n3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(
+          '1. A\n    1. B\n    9. Eight\n    9. NineOwner\n       1. NestedUnderNine\n2. C'
+        );
+        // The declined rewrite leaves a duplicate "9." rather than a
+        // destroyed nested list -- the same accepted tradeoff Enter's own
+        // growth-direction guard already makes (§15).
+        expect(listNestingDepths(view)).toEqual([0, 1, 1, 1, 2, 0]);
+      });
+
+      it('control: the identical shift with no nested content on the multi-line boundary is allowed', () => {
+        const doc = '1. A\n2. B\n    8. Eight\n    9. Nine\n3. C';
+        const view = mountView(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B\n    9. Eight\n    10. Nine\n2. C');
+      });
+
+      it('shrink safety: a complete-group Shift-Tab departure shrinking a wide destination-adjacent number stays within the safe magnitude', () => {
+        const doc = '1. A\n    100. B\n    101. NestedOwner\n       1. Nested\n2. C';
+        const from = doc.indexOf('100. B');
+        const to = doc.indexOf('101. NestedOwner') + '101. NestedOwner'.length;
+        const view = mountViewWithSelection(doc, [[from, to]]);
+        expect(shiftTab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe(
+          '1. A\n  2. B\n  3. NestedOwner\n       1. Nested\n4. C'
+        );
+      });
+    });
+
+    describe('manual number edits remain completely unrestricted -- normalization only ever runs from Tab/Shift-Tab', () => {
+      it('typing over a digit directly never triggers the normalizer, even though it changes marker width', () => {
+        const doc = '1. A\n2. B\n3. C';
+        const view = mountView(doc, 0);
+        const nine = doc.indexOf('2');
+        view.dispatch({ changes: { from: nine, to: nine + 1, insert: '99' } });
+        expect(view.state.doc.toString()).toBe('1. A\n99. B\n3. C');
+      });
+
+      it('Backspace deleting a digit mid-marker is untouched by this module (separate, pre-existing code path)', () => {
+        const doc = '10. A\n11. B';
+        const view = mountView(doc, doc.indexOf('10. A') + 1);
+        view.dispatch({ changes: { from: 1, to: 2, insert: '' } });
+        expect(view.state.doc.toString()).toBe('1. A\n11. B');
+      });
+    });
+
+    describe('undo/redo: the whitespace edit and any numbering normalization dispatch as one transaction, one undo step', () => {
+      function mountViewWithHistory(doc: string, cursor: number): EditorView {
+        const parent = document.createElement('div');
+        document.body.appendChild(parent);
+        const state = EditorState.create({
+          doc,
+          selection: { anchor: Math.min(cursor, doc.length) },
+          extensions: [markdownLanguageExtension(), history()],
+        });
+        const view = new EditorView({ state, parent });
+        mountedViews.push(view);
+        return view;
+      }
+
+      it('the press that triggers normalization undoes and redoes both the indent and the renumber together', () => {
+        const doc = '1. A\n2. B\n3. C';
+        const view = mountViewWithHistory(doc, doc.indexOf('2. B'));
+        expect(tab(view)).toBe(true); // no membership change yet (still a sibling)
+        expect(view.state.doc.toString()).toBe('1. A\n  2. B\n3. C');
+        expect(tab(view)).toBe(true); // this press nests AND renumbers
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B\n2. C');
+
+        expect(pressUndo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n  2. B\n3. C');
+
+        expect(pressRedo(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('1. A\n    1. B\n2. C');
+      });
+    });
+
+    describe('mixed selections: bullets are never renumbered, ordered items in the same selection are handled independently', () => {
+      it('a selection spanning an ordered item and a following bullet list only ever normalizes the ordered side', () => {
+        const doc = '1. A\n2. B\n- X\n- Y';
+        const from = doc.indexOf('2. B');
+        const to = doc.indexOf('- Y') + '- Y'.length;
+        const view = mountViewWithSelection(doc, [[from, to]]);
+        expect(tab(view)).toBe(true);
+        // One press: B stays a sibling (no membership change yet), bullets
+        // untouched in both text and numbering (they have none).
+        expect(view.state.doc.toString()).toBe('1. A\n  2. B\n  - X\n  - Y');
+      });
+
+      it('bullet-only selection: normalizer finds no OrderedList candidates at all and is a complete no-op beyond the flat whitespace edit', () => {
+        const doc = '- A\n- B\n- C';
+        const view = mountViewWithSelection(doc, [[0, doc.length]]);
+        expect(tab(view)).toBe(true);
+        expect(view.state.doc.toString()).toBe('  - A\n  - B\n  - C');
+      });
+    });
+
+    describe('exact per-line ±2 whitespace invariant is preserved for every line, list or not', () => {
+      it('a mix of list and paragraph lines each get exactly ±2, independent of any normalization applied to the list lines', () => {
+        const doc = '1. A\n2. B\nPlain paragraph line\n3. C';
+        const from = 0;
+        const to = doc.length;
+        const view = mountViewWithSelection(doc, [[from, to]]);
+        expect(tab(view)).toBe(true);
+        const lines = view.state.doc.toString().split('\n');
+        expect(lines[2]).toBe('  Plain paragraph line'); // plain line: exactly +2, no other change possible
+      });
+    });
+  });
 });

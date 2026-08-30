@@ -18,6 +18,7 @@ import { keymap } from '@codemirror/view';
 
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { classifyMarkerText, firstSameLineListMark } from '../list/listMarkerDecoration';
+import { isRiskyRenumberRewrite, renumberSequentialTail } from '../list/orderedListRenumbering';
 
 /**
  * The one Markdown editing policy Clutter adds on top of CodeMirror:
@@ -520,97 +521,17 @@ const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }
 };
 
 /**
- * `renumberList`'s own tolerance for a digit-width change on a multi-line
- * item, before its descendant content's indentation falls out of
- * alignment — confirmed empirically this session (a programmatic sweep of
- * zero-padded markers shrinking `9.`/`10.`-style pairs at every content-
- * column width from 4 through 9) and consistent with the general
- * nesting-tolerance window this document's own §14.9 already established
- * for a different (Tab-driven) case: a physical line's content stays
- * inside a list item's own nested block for any indentation from that
- * item's content column up to *3 columns past it*, and falls into
- * CommonMark's Rule #5 laziness (silently absorbed as plain continuation
- * text) beyond that. `3` here is that same constant, not a new one.
+ * `isRiskyRenumberRewrite` and `renumberSequentialTail` moved to the
+ * neutral `../list/orderedListRenumbering` module (2026-08-30, Tab/
+ * Shift-Tab numbering normalization) — Tab/Shift-Tab's own membership-
+ * change normalizer needs the identical width-safety check and sibling-
+ * shift walk this file already built for Enter/Backspace, and per
+ * explicit product decision this file should not be the owner of
+ * functionality three different commands now share. Both are imported
+ * above, unchanged in behavior — see that module for their full
+ * documentation; docs/list-item-architecture-odr.md §15/§19/§20 still
+ * record the original reasoning and evidence.
  */
-const MAX_SAFE_SHRINK_COLUMNS = 3;
-
-/**
- * True when `[from, to)` is exactly the digit run of some `ListMark` in
- * `state`'s own (pre-edit) tree, that `ListMark`'s own `ListItem` spans
- * more than one physical line (i.e. genuinely owns descendant content — a
- * nested list, a multi-line paragraph — whose own leading whitespace was
- * calibrated to this item's *current* content column, not a re-derived
- * one; a single-line item has nothing that could fall out of alignment
- * regardless of width), **and** the specific width change is not provably
- * safe.
- *
- * `insertedLength` is deliberately compared against the digit run's own
- * `to - from` rather than re-deriving "old width" a second way, so a
- * caller passing mismatched values can't silently disagree with what
- * this function is actually checking.
- *
- * **Growth** (`insertedLength > oldWidth`, e.g. `9`→`10`): always risky
- * for a multi-line item. A newly-widened item's content column only ever
- * *increases*, and a descendant authored at exactly the old column (the
- * common case — nothing in this codebase or upstream ever leaves
- * intentional slack there) has zero margin: even a 1-column growth drops
- * it below the new column. This function doesn't attempt to measure a
- * descendant's *actual* slack (whether it happens to already sit a few
- * columns past the old minimum) — that would require inspecting the
- * specific descendant range rather than just "does this item span more
- * than one line," a meaningfully bigger check for a case (authored-in
- * slack on a list item nobody asked to be malformed) this investigation
- * found no evidence is worth guarding more precisely for. Treating every
- * growth on a multi-line item as risky is the same worst-case-safe
- * assumption applied uniformly, not a special case.
- *
- * **Shrink** (`insertedLength < oldWidth`, e.g. `10`→`9`, or a
- * zero-padded `"0010."`→`"9."`): risky only when the shrink's own
- * magnitude exceeds `MAX_SAFE_SHRINK_COLUMNS`. A shrink *increases* the
- * gap between a descendant's stale (larger) indentation and the item's
- * new (smaller) content column — and per the same tolerance window,
- * that gap can grow by up to 3 columns before the descendant falls out
- * of the nested-content window into lazy-continuation. Confirmed
- * empirically this session, not assumed: a swept boundary test (content
- * columns 4 through 9, descendants placed at each item's own correct
- * pre-edit column) found every shrink of magnitude ≤3 safe and every
- * shrink of magnitude ≥4 corrupting, with no exceptions in the swept
- * range — docs/list-item-architecture-odr.md §15 records the full
- * matrix. This is *not* symmetric with growth's zero-margin treatment:
- * shrink's own margin is a structural property of the tolerance window
- * itself (§14.9), not an assumption about typical authoring, so it is
- * safe to rely on regardless of how the shrink was produced.
- */
-function isRiskyRenumberRewrite(
-  state: EditorState,
-  from: number,
-  to: number,
-  insertedLength: number
-): boolean {
-  let risky = false;
-  syntaxTree(state).iterate({
-    enter: (node) => {
-      if (risky || node.name !== 'ListItem') {
-        return;
-      }
-      const marker = node.node.firstChild;
-      if (!marker || marker.name !== 'ListMark') {
-        return;
-      }
-      if (marker.from !== from || marker.to - 1 !== to) {
-        return;
-      }
-      const multiLine = state.doc.lineAt(node.to).number > state.doc.lineAt(node.from).number;
-      if (!multiLine) {
-        return;
-      }
-      const oldWidth = to - from;
-      const delta = insertedLength - oldWidth;
-      risky = delta > 0 || -delta > MAX_SAFE_SHRINK_COLUMNS;
-    },
-  });
-  return risky;
-}
 
 /**
  * Guards `continueMarkup`'s own upstream ordered-list renumbering
@@ -829,108 +750,25 @@ function listMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
  */
 
 /**
- * Closes the numbering gap left behind when Backspace deletes an empty
- * ordered-list item — matching CM6's own upstream behavior for the
- * *symmetric* case (Enter on that same empty item, which already calls
- * `renumberList(inner.item, doc, changes, -2)`, confirmed by direct
- * source inspection of the installed `@codemirror/lang-markdown@6.5.2`).
- * Backspace has no access to that private function, so this reimplements
- * its exact walk using only public `@lezer/common` tree APIs — verified
- * to produce byte-identical renumbering decisions, not merely similar
- * ones:
- *
- * - Starts at `deletedItem` (the item being removed) and walks
- *   `nextSibling` — which, for a node inside an `OrderedList`, only ever
- *   visits that same list's own other `ListItem`s, never crosses into a
- *   different container.
- * - The first sibling after `deletedItem` is compared against
- *   `deletedItem`'s own original number; every one after that is
- *   compared against the *previous* sibling's own original number — both
- *   always read fresh from the source, never from an already-rewritten
- *   value, exactly matching upstream `renumberList`'s own "compare
- *   against each sibling's original literal number" policy.
- * - Stops at the first sibling whose own number isn't exactly one more
- *   than expected — an intentionally irregular sequence (`1. / 5. / 9.`)
- *   is therefore never touched at all: deleting the empty `5.` leaves
- *   `9.` exactly as `9.`, confirmed by this same reasoning, not a special
- *   case bolted on separately.
- * - Every kept sibling is renumbered to exactly one less than its own
- *   original number — this is arithmetically identical to upstream's own
- *   `String(prev + 2 + offset)` formula with `offset = -2` (confirmed by
- *   hand expansion, not merely asserted): removing one item from a
- *   strictly sequential run always shifts everything after it down by
- *   exactly one, so no case needs different arithmetic depending on
- *   position in the run.
- * - Same as upstream: a leading-zero-padded marker (`"008."`) loses its
- *   padding on renumbering (plain `String(n)`, no re-padding) — matching
- *   Enter's own already-documented behavior for the identical reason
- *   (§15.2), not a new inconsistency introduced here.
- *
- * Every produced rewrite is filtered through the *exact same*
- * `isRiskyRenumberRewrite` guard §15 built for Enter — reused directly,
- * not reimplemented — before being included in the dispatched
- * transaction, so this fix cannot reintroduce the digit-width structural
- * corruption bug that guard exists to prevent (docs/list-item-architecture-odr.md
- * §15/§19). Growth-direction risk (Enter's `9`→`10` case) cannot occur
- * here at all — deletion only ever shifts numbers *down* — so only the
- * shrink-direction check (safe up to `MAX_SAFE_SHRINK_COLUMNS`) is ever
- * live for this call site; confirmed, not merely inferred, by the fact
- * that `isRiskyRenumberRewrite` computes `delta = insertedLength - oldWidth`
- * from each individual change, and every change this function produces
- * is a decrement.
- *
- * Only called for `OrderedList` items (see the call sites) — bullets have
- * no digits to renumber, so this function is never invoked for them.
- *
- * Generalized (§B, multi-item selection deletion) to accept the full run
- * of `deletedItems`, not just one — the arithmetic needs only two changes
- * to support removing *N* consecutive items in a single transaction: seed
- * `prevOriginal` from the **last** deleted item's own original number
- * (still the item immediately preceding whatever survives, exactly like
- * the single-item case, which is just `N = 1` of this same shape), and
- * shift every kept sibling down by `N` instead of a hardcoded `1`. The
- * single-item call site (`deleteBulletMarkerSeparator`) below passes a
- * one-element array and gets byte-identical behavior to before this
- * generalization — confirmed by the unchanged, still-passing regression
- * suite for that call site.
+ * Closes the numbering gap left behind when Backspace deletes one or more
+ * empty/whole ordered-list item(s) — matching CM6's own upstream behavior
+ * for the *symmetric* case (Enter on an empty item, which already calls
+ * `renumberList(inner.item, doc, changes, -2)`). Delegates directly to
+ * `renumberSequentialTail` (`../list/orderedListRenumbering`, shared with
+ * Tab/Shift-Tab's own numbering normalizer): the departed item(s)' own
+ * *last* member seeds the sequential-run check, and every kept sibling
+ * shifts down by exactly the departed count (`shift = -deletedItems.length`)
+ * — the negative-shift instance of that shared function's general
+ * "anchor plus signed shift" shape. See that module for the full
+ * reasoning (irregular-sequence preservation, width-safety gating, zero-
+ * padding loss); docs/list-item-architecture-odr.md §15/§19/§20 records
+ * the original evidence this call site's own behavior is unchanged from.
  */
 function renumberAfterEmptyItemDeletion(
   state: EditorState,
   deletedItems: readonly SyntaxNode[]
-): { from: number; to: number; insert: string }[] {
-  const kept: { from: number; to: number; insert: string }[] = [];
-  const shift = deletedItems.length;
-  let prevOriginal: number | null = null;
-
-  for (
-    let sib: SyntaxNode | null = deletedItems[deletedItems.length - 1]!;
-    sib;
-    sib = sib.nextSibling
-  ) {
-    if (sib.name !== 'ListItem') continue;
-    const marker = sib.firstChild;
-    if (!marker || marker.name !== 'ListMark') break;
-    const digitMatch = /^(\d+)(?=[.)])/.exec(state.doc.sliceString(marker.from, marker.to));
-    if (!digitMatch) break;
-    const digits = digitMatch[1]!;
-    const original = Number(digits);
-
-    if (prevOriginal === null) {
-      prevOriginal = original;
-      continue;
-    }
-    if (original !== prevOriginal + 1) break;
-
-    const digitFrom = marker.from;
-    const digitTo = marker.from + digits.length;
-    const newNumber = String(original - shift);
-    if (!isRiskyRenumberRewrite(state, digitFrom, digitTo, newNumber.length)) {
-      kept.push({ from: digitFrom, to: digitTo, insert: newNumber });
-    }
-    prevOriginal = original;
-  }
-
-  return kept;
+) {
+  return renumberSequentialTail(state, deletedItems[deletedItems.length - 1]!, -deletedItems.length);
 }
 
 export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) => {

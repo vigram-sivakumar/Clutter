@@ -5231,6 +5231,162 @@ Evidence label: **IMPLEMENTED + VERIFIED**.
 
 ---
 
+## 21. Tab/Shift-Tab ordered-list numbering normalization (2026-08-30, IMPLEMENTED)
+
+**Status: IMPLEMENTED + VERIFIED.** Builds directly on §16's own recommended
+"Option B" policy and §16.8's proposed Phase A/B/C/D architecture — this
+section records the actual implementation, the one real design correction
+found during it, and its full verification. Product decisions locked
+before implementation: Tab/Shift-Tab's own flat `±INDENT_STEP_SPACES`
+arithmetic stays completely unmodified; numbering normalization is a
+strictly separate, later step triggered only by Tab/Shift-Tab, never by
+manual digit edits; shared safety logic moves to a neutral module rather
+than living inside the Enter keymap.
+
+### 21.1 Files
+
+- **New** `list/orderedListRenumbering.ts` — `isRiskyRenumberRewrite` and
+  `MAX_SAFE_SHRINK_COLUMNS`, moved verbatim from `markdownEnterKeymap.ts`
+  (§15), plus a new `renumberSequentialTail(state, anchor, shift)` —
+  `anchor`'s own original number seeds the sequential-run check (never
+  itself rewritten), and every qualifying sibling shifts by a **signed**
+  `shift` (negative for departure/deletion, positive for insertion) —
+  generalizing what was previously deletion-only (`shift` was always
+  `-deletedItems.length`) into the single shape both Backspace/Delete
+  (§19/§20) and Tab/Shift-Tab now share.
+- **New** `list/orderedListTabNormalization.ts` — `planOrderedListNormalization`,
+  the actual Phase C/D implementation (§21.2).
+- `enter/markdownEnterKeymap.ts` — `renumberAfterEmptyItemDeletion` is now
+  a two-line wrapper delegating to `renumberSequentialTail`; every call
+  site (§19, §20) is unchanged in behavior, confirmed by the full,
+  unmodified regression suite for both still passing byte-for-byte.
+- `indent/markdownIndentKeymap.ts` — `markdownIndentDirection` calls
+  `planOrderedListNormalization(state, changes)` after computing Phase
+  A's own per-line edits, and dispatches the combined array as one
+  transaction. `lineIndentChange`/`computeIndentChange` themselves are
+  **not modified at all** — confirmed by diff, not merely by intent.
+
+### 21.2 Mechanism, as implemented
+
+1. **Phase A** (unchanged): the existing per-line `±INDENT_STEP_SPACES`
+   edits.
+2. **Candidate collection**: of the touched lines, only those that were,
+   in the *original* tree, an `OrderedList` item's own marker line
+   (`resolveLineIndentContext` + an `OrderedList`-parent check) are
+   candidates — a touched paragraph, heading, or bullet-list line is
+   never considered.
+3. **Provisional reparse**: `state.update({changes: phaseAChangeSet})`,
+   not dispatched, purely to answer one read-only question per candidate.
+4. **Membership check**: map each candidate's marker position forward
+   (`phaseAChangeSet.mapPos`); if it no longer resolves to a real
+   `ListMark`/`ListItem` at all (§16.2's structural hazards), skip —
+   nothing valid to normalize. Otherwise compare its new nearest
+   `OrderedList` ancestor against its old one (both compared in a common
+   coordinate space via forward-mapping the old list's own `.from`).
+5. **Isolated-relocation guard** (§21.3 — the one real bug this
+   implementation's own test suite caught): before generating any edit,
+   confirm at least one of the source list(s) left or destination list(s)
+   joined has a member *besides* the touched items themselves. If neither
+   does, the touched items are a closed set relocating with zero external
+   context — skip entirely.
+6. **Source-side**: `renumberSequentialTail(state, lastDepartedOriginalItem, -departedCount)`
+   — reused with zero new logic, exactly as anticipated in §16.8.
+7. **Destination-side** (`planDestinationRenumbering`, genuinely new): one
+   forward walk of the destination list's children *in the provisional
+   tree* — a run of pre-existing items before the joined block seeds a
+   `baseline` (never rewritten); each joined item is assigned
+   `baseline + its own 1-based position` (defaulting to `1` when no
+   pre-existing item precedes it — covers both "brand new list" and
+   "joining at an existing list's own front" with one formula, per the
+   product decision's own example: `2. B`+`3. C` → `1. B`+`2. C`); any
+   pre-existing item *after* the joined block shifts by the joined count
+   if — and only if — it's still sequential relative to the *previous*
+   pre-existing item's own original number. Every rewrite, either side of
+   the joined block, is filtered through `isRiskyRenumberRewrite` before
+   being kept.
+8. **One dispatch**: `[...phaseAChanges, ...normalizeEdits]` composed via
+   `state.changes([...])` exactly like every other list-editing fix in
+   this codebase — no `ChangeSet.compose` needed, confirmed (again) that
+   CM6 composes multiple non-overlapping `{from,to,insert}` entries
+   correctly regardless of document order, including two entries on the
+   *same* original line (Phase A's own whitespace insert and a joined
+   item's own digit rewrite).
+
+### 21.3 The one real bug found, and why
+
+An isolated, single-line document (`"10. item"`, no other content
+anywhere) spuriously renamed itself to `"1. item"` after a second Tab
+press — caught by two **pre-existing** tests (`markdownIndentKeymap.test.ts`'s
+own "ordered 2-digit"/"ordered 3-digit: Tab progression... plateaus"
+cases), not by new ones, confirming the regression suite's own value.
+Root cause: a Lezer `OrderedList` node's `.from` tracks its own first
+child's start — for a lone item that is *both* first and only child,
+editing its own leading whitespace necessarily moves the list's own
+`.from` too, so the naive "does the mapped-forward old `.from` still
+equal the new `.from`" check always reported "changed," even though
+nothing about sibling relationships changed (there were none, before or
+after). Fixed by `listHasOtherMembers` (§21.2 step 5) — not a special
+case for "solo items," but the general rule that a genuine departure or
+join requires *some* untouched member on at least one side; a solo
+item's own list, by construction, never has one on either side. This
+also uncovered and corrected a wrong assumption in this session's own
+test authoring (a "fully-vacated nested source list" case initially
+expected the destination's existing tail to stay unshifted — the correct
+behavior, confirmed once the fix was in place, is the pre-existing tail
+*does* shift, since a genuine insertion into a real list occurred).
+
+### 21.4 Verification
+
+`markdownIndentKeymap.test.ts` — 79/79 (76 pre-existing, unaffected; 3
+new/modified, all passing after the §21.3 fix), including single-item and
+multi-item Tab into a new destination, joining an existing destination
+(plain and irregularly-numbered anchors), complete-group Shift-Tab
+source-departure-and-join, a fully-vacated solo source list, nested
+ordered-under-bullet and three-level-deep nesting, an untouched
+independent second list, irregular-numbering preservation, wide
+(`99999.`) markers (both "not yet wide enough to nest" and "wide enough,
+reached via enough presses"), a width-growth guard proof (declines
+exactly the one risky rewrite, still safely shifts the rest) with its own
+control (identical shift, no nested content, allowed), a width-shrink
+case, manual digit edits (both a direct retype and a mid-marker
+Backspace) confirmed to never invoke this module at all, one-transaction
+undo/redo, a mixed ordered+bullet selection, and the exact per-line ±2
+invariant preserved for a mixed list/paragraph selection. Full markdown
+suite: 1291/1291. `tsc --noEmit`: clean. Full suite: 3139/3147 passing,
+the same 8 pre-existing, unrelated FolderPicker/MoveDestinationPicker/
+formatShortcutsKeymap `jsdom` environment failures already present
+without this change (§19/§20's own verification pattern). Live-verified
+in the real webapp: typed `1. A`/`2. B`/`3. C`, Tab on `B` twice produced
+`1. A` / `1. B` (nested) / `2. C` (source gap closed) exactly as
+specified in the product decision's own example; Shift-Tab twice
+correctly reversed it back to the original text; a single Undo correctly
+reverted one Tab press.
+
+### 21.5 Known, accepted limitation (not fixed, documented)
+
+Across multiple *separate* Tab presses on a marker wide enough that some
+intermediate press count lands exactly in the already-documented Rule #5
+gap (§14.9), the touched line can briefly stop being recognized as a
+`ListItem` at all (absorbed as paragraph continuation text) before a
+later press reaches genuine nesting. Each press's own before/after
+membership comparison is local to that press — the normalizer correctly
+does nothing on the gap press (never corrupts anything) but has no
+mechanism to retroactively normalize once nesting is finally reached,
+since the item wasn't recognized as having any prior list membership at
+the time of the press that matters. Tracking membership across an entire
+press sequence would be a materially bigger mechanism, and was explicitly
+rejected as out of scope by this session's own product decision ("no
+parent/child-aware... logic," "smallest safe" framing). A single
+combined edit reaching the correct final width directly (§21.4's own
+"wide enough, reached via enough presses" test) normalizes correctly;
+only the sequential-real-keypresses-through-a-gap case is affected, and
+only for markers wide enough to have a real gap in the first place
+(4+ digits, per §14.9's own boundary).
+
+Evidence label: **IMPLEMENTED + VERIFIED**.
+
+---
+
 ## Open questions / tracked gaps (consolidated)
 
 1. Automated test coverage is missing for: the `listMarkerCaretAssoc`
