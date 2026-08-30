@@ -1,20 +1,24 @@
 import type { BlockContext, Line, MarkdownConfig } from '@lezer/markdown';
 
 /**
- * A bare list marker and nothing else — bullet (`-`/`+`/`*`) or ordered
- * (1-9 digits, CommonMark's own cap — matches `isOrderedList`'s own
- * `pos > line.pos + 9` bound in `@lezer/markdown` — then `.`/`)`) —
- * optionally followed by exactly the one separator character a user's
- * next keystroke (Space) produces. No leading whitespace in the pattern
- * itself — this is deliberately flush-left only; see the doc comment
- * below for why 4+ columns of indentation is out of scope, not merely
- * untested. One shared alternation, not two separate predicates: both
- * marker kinds hit the identical paragraph-interrupt gap for the
- * identical reason (see below), so one pattern/one `endLeaf` covers both,
- * matching the "smallest maintainable" mandate rather than duplicating
- * near-identical logic per marker kind.
+ * A list marker — bullet (`-`/`+`/`*`) or ordered (1-9 digits,
+ * CommonMark's own cap — matches `isOrderedList`'s own
+ * `pos > line.pos + 9` bound in `@lezer/markdown` — then `.`/`)`) — with
+ * either no separator yet (the bare marker, e.g. `1.` before Space is
+ * typed), or a real space/tab separator followed by *any* content
+ * (`(?:[ \t].*)?`). No leading whitespace in the pattern itself — this is
+ * deliberately flush-left only; see the doc comment below for why 4+
+ * columns of indentation is out of scope, not merely untested. One
+ * shared alternation, not two separate predicates: both marker kinds hit
+ * the identical paragraph-interrupt gap for the identical reason (see
+ * below), so one pattern/one `endLeaf` covers both, matching the
+ * "smallest maintainable" mandate rather than duplicating near-identical
+ * logic per marker kind.
+ *
+ * **Includes content-bearing lines, not just the bare marker — required,
+ * not optional; see "Why this must also match content" below.**
  */
-const BARE_LIST_MARKER = /^(?:[-+*]|\d{1,9}[.)])[ \t]?$/;
+const LIST_MARKER_LINE = /^(?:[-+*]|\d{1,9}[.)])(?:[ \t].*)?$/;
 
 /**
  * Closes one narrow gap in CommonMark's own paragraph-interruption rule:
@@ -44,6 +48,40 @@ const BARE_LIST_MARKER = /^(?:[-+*]|\d{1,9}[.)])[ \t]?$/;
  * ends and the *unmodified*, built-in `OrderedList`/`BulletList` block
  * parsers are what actually recognize and produce the resulting tree —
  * this file never re-implements or second-guesses either.
+ *
+ * **Why this must also match content-bearing lines (2026-08-30
+ * regression fix), not just the bare marker.** Every parse — incremental
+ * or fresh — is a pure function of the *current* document text plus the
+ * registered predicates; there is no memory of an earlier recognition to
+ * fall back on. Confirmed directly: `Paragraph\n99.` → Space → typing
+ * `O` produced a tree byte-identical to a completely fresh parse of
+ * `Paragraph\n99. O` on its own. With the predicate scoped to the bare
+ * marker only, that final text satisfies neither this predicate (regex
+ * required zero content) nor native `isOrderedList`'s own `breaking` gate
+ * (which only tolerates content when the marker is single-digit `1`) —
+ * so a list recognized for one instant reverted to plain paragraph text
+ * on the very next keystroke, for every ordered marker except `1.`
+ * (confirmed: `1.`+content already survives natively; `2.`, `9.`, `10.`,
+ * `99.`, `100.`+content all regressed identically). Bullets never hit
+ * this, in either scope — native `isBulletList`'s own `breaking` gate has
+ * no character/digit restriction, so any bullet+content already
+ * interrupts a paragraph natively, extension or not.
+ *
+ * **Direct, unavoidable, and consistent consequence: `Paragraph\n99. O`
+ * typed or pasted fresh, with no prior bare-marker moment, also becomes
+ * `OrderedList`.** Because the two documents (reached via bare-marker-
+ * then-type, vs. typed/pasted whole) are byte-identical text, no
+ * stateless parser — this one or any other — can ever tell them apart
+ * without hidden state, which this codebase's architecture forbids. This
+ * is not a new inconsistency: it brings ordered markers to parity with
+ * what bullets already do, natively, today, independent of this file —
+ * `Paragraph\n- I disagree`, typed fresh with zero bare-marker moment,
+ * already silently becomes a `BulletList` in unmodified `@lezer/
+ * markdown`. This predicate removes ordered lists' native-only
+ * restriction to single-digit `1`, bringing them to the same
+ * paragraph-interrupt leniency bullets already have — a broadening in
+ * degree, not a new kind of surprise this document's own grammar didn't
+ * already contain.
  *
  * **Resolves the `-`/Setext-heading collision as a direct, load-bearing
  * consequence of the same mechanism, not a separate fix.** A bare `-`
@@ -82,24 +120,21 @@ const BARE_LIST_MARKER = /^(?:[-+*]|\d{1,9}[.)])[ \t]?$/;
  * the "second parser" this codebase's architecture forbids — so it is
  * out of scope by design, not by oversight: `Paragraph\n    1. `/
  * `Paragraph\n    - ` (or deeper) are untouched by this predicate and
- * remain ordinary paragraph text, identical to today's behavior.
- *
- * **Deliberately blank-marker-only (no marker-plus-content widening).**
- * A marker followed by real content (`2. A`, `- A`) is left to native
- * CommonMark behavior unchanged — once a marker's own blank instant is
- * recognized here, every subsequent keystroke is ordinary incremental
- * reparsing of an already-real `ListItem`, so no wider interrupt-
- * recognition is needed for typing to continue correctly.
+ * remain ordinary paragraph text, identical to today's behavior — this
+ * holds equally for the content-bearing shape (`Paragraph\n    1. O`
+ * stays plain paragraph text too), since the same core-loop indent gate
+ * applies before this predicate is ever consulted, regardless of what
+ * the predicate itself matches.
  */
-function isBareListMarkerLine(_cx: BlockContext, line: Line): boolean {
-  return BARE_LIST_MARKER.test(line.text);
+function isListMarkerLine(_cx: BlockContext, line: Line): boolean {
+  return LIST_MARKER_LINE.test(line.text);
 }
 
 export const listMarkerParagraphInterrupt: MarkdownConfig = {
   parseBlock: [
     {
       name: 'ClutterListMarkerParagraphInterrupt',
-      endLeaf: isBareListMarkerLine,
+      endLeaf: isListMarkerLine,
     },
   ],
 };
