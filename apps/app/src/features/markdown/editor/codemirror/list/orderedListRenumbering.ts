@@ -137,6 +137,34 @@ export function isRiskyRenumberRewrite(
  * construction of how callers use this — has an identical position and
  * literal text in the original document as before the indent change).
  */
+/**
+ * Extracts the literal numeric value of a `ListItem`'s own `ListMark`
+ * digit run, or `null` if `item` isn't a digit-led ordered-list marker
+ * (defensive only — every caller already walks an `OrderedList`'s own
+ * children, which are guaranteed `ListMark`-led by the grammar). Moved
+ * here (2026-08-30, marker-creation normalization) from
+ * `orderedListTabNormalization.ts`'s own former private copy — a second
+ * command (`orderedListMarkerCreation.ts`) now needs the identical
+ * digit-run extraction, and this neutral module is already where
+ * `isRiskyRenumberRewrite`/`renumberSequentialTail` moved for the same
+ * reason (see this file's own earlier such move, referenced from
+ * `markdownEnterKeymap.ts`): shared numbering primitives live in one
+ * place, imported by every command that needs them, never re-derived
+ * per call site.
+ */
+export function listItemLiteralNumber(
+  state: EditorState,
+  item: SyntaxNode
+): { readonly marker: SyntaxNode; readonly digits: string; readonly literal: number } | null {
+  if (item.name !== 'ListItem') return null;
+  const marker = item.firstChild;
+  if (!marker || marker.name !== 'ListMark') return null;
+  const digitMatch = /^(\d+)(?=[.)])/.exec(state.doc.sliceString(marker.from, marker.to));
+  if (!digitMatch) return null;
+  const digits = digitMatch[1]!;
+  return { marker, digits, literal: Number(digits) };
+}
+
 export function renumberSequentialTail(
   state: EditorState,
   anchor: SyntaxNode,

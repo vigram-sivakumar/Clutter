@@ -3,7 +3,12 @@ import type { ChangeDesc, ChangeSpec, EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
-import { isRiskyRenumberRewrite, renumberSequentialTail, type RenumberEdit } from './orderedListRenumbering';
+import {
+  isRiskyRenumberRewrite,
+  listItemLiteralNumber,
+  renumberSequentialTail,
+  type RenumberEdit,
+} from './orderedListRenumbering';
 
 /**
  * Tab/Shift-Tab's own ordered-list numbering normalizer — the Phase C/D
@@ -205,25 +210,6 @@ function groupBy<T>(items: readonly T[], key: (item: T) => number): Map<number, 
     else groups.set(k, [item]);
   }
   return groups;
-}
-
-/**
- * Extracts the literal numeric value of a `ListItem`'s own `ListMark`
- * digit run, or `null` if `child` isn't a digit-led ordered-list marker
- * (defensive only — every caller already walks an `OrderedList`'s own
- * children, which are guaranteed `ListMark`-led by the grammar).
- */
-function listItemLiteralNumber(
-  state: EditorState,
-  item: SyntaxNode
-): { readonly marker: SyntaxNode; readonly digits: string; readonly literal: number } | null {
-  if (item.name !== 'ListItem') return null;
-  const marker = item.firstChild;
-  if (!marker || marker.name !== 'ListMark') return null;
-  const digitMatch = /^(\d+)(?=[.)])/.exec(state.doc.sliceString(marker.from, marker.to));
-  if (!digitMatch) return null;
-  const digits = digitMatch[1]!;
-  return { marker, digits, literal: Number(digits) };
 }
 
 /**

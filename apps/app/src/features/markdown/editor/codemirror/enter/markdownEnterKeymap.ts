@@ -18,6 +18,7 @@ import { keymap } from '@codemirror/view';
 
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { classifyMarkerText, firstSameLineListMark } from '../list/listMarkerDecoration';
+import { insertOrderedListMarkerSeparator } from '../list/orderedListMarkerCreation';
 import { isRiskyRenumberRewrite, renumberSequentialTail } from '../list/orderedListRenumbering';
 
 /**
@@ -989,9 +990,16 @@ export const deleteCompleteListItemSelection: StateCommand = ({ state, dispatch 
  * binding existed (unaffected: Delete's general lack of Markdown
  * awareness — mid-marker, mid-content, forward-deleting a marker
  * character — remains its own separate, not-yet-scoped future phase, per
- * existing project notes). Anything using `markdownLanguageExtension()`
- * for real editing must wire this alongside it, or it gets no
- * Markdown-aware Enter/Backspace/Delete at all.
+ * existing project notes). `Space` is the newest addition (2026-08-30,
+ * marker-creation numbering): `insertOrderedListMarkerSeparator`
+ * (`../list/orderedListMarkerCreation.ts`) completes a bare ordered
+ * marker into a correctly-numbered item when its own Space is the one
+ * that creates it, and returns `false` for every other Space press
+ * (bullets, mid-content, manual digit edits, anything not shaped exactly
+ * like marker-creation), falling through to CM6's ordinary default Space
+ * handling unchanged. Anything using `markdownLanguageExtension()` for
+ * real editing must wire this alongside it, or it gets no Markdown-aware
+ * Enter/Backspace/Delete/Space at all.
  */
 export function markdownEnterKeymap(): Extension {
   return Prec.high(
@@ -1005,6 +1013,7 @@ export function markdownEnterKeymap(): Extension {
           deleteMarkupBackward(target),
       },
       { key: 'Delete', run: deleteCompleteListItemSelection },
+      { key: 'Space', run: insertOrderedListMarkerSeparator },
     ])
   );
 }
