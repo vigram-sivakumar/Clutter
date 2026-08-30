@@ -879,17 +879,34 @@ function listMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
  * from each individual change, and every change this function produces
  * is a decrement.
  *
- * Only called for `OrderedList` items (see the call site) — bullets have
+ * Only called for `OrderedList` items (see the call sites) — bullets have
  * no digits to renumber, so this function is never invoked for them.
+ *
+ * Generalized (§B, multi-item selection deletion) to accept the full run
+ * of `deletedItems`, not just one — the arithmetic needs only two changes
+ * to support removing *N* consecutive items in a single transaction: seed
+ * `prevOriginal` from the **last** deleted item's own original number
+ * (still the item immediately preceding whatever survives, exactly like
+ * the single-item case, which is just `N = 1` of this same shape), and
+ * shift every kept sibling down by `N` instead of a hardcoded `1`. The
+ * single-item call site (`deleteBulletMarkerSeparator`) below passes a
+ * one-element array and gets byte-identical behavior to before this
+ * generalization — confirmed by the unchanged, still-passing regression
+ * suite for that call site.
  */
 function renumberAfterEmptyItemDeletion(
   state: EditorState,
-  deletedItem: SyntaxNode
+  deletedItems: readonly SyntaxNode[]
 ): { from: number; to: number; insert: string }[] {
   const kept: { from: number; to: number; insert: string }[] = [];
+  const shift = deletedItems.length;
   let prevOriginal: number | null = null;
 
-  for (let sib: SyntaxNode | null = deletedItem; sib; sib = sib.nextSibling) {
+  for (
+    let sib: SyntaxNode | null = deletedItems[deletedItems.length - 1]!;
+    sib;
+    sib = sib.nextSibling
+  ) {
     if (sib.name !== 'ListItem') continue;
     const marker = sib.firstChild;
     if (!marker || marker.name !== 'ListMark') break;
@@ -906,7 +923,7 @@ function renumberAfterEmptyItemDeletion(
 
     const digitFrom = marker.from;
     const digitTo = marker.from + digits.length;
-    const newNumber = String(original - 1);
+    const newNumber = String(original - shift);
     if (!isRiskyRenumberRewrite(state, digitFrom, digitTo, newNumber.length)) {
       kept.push({ from: digitFrom, to: digitTo, insert: newNumber });
     }
@@ -954,7 +971,7 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
   // removing an item can leave a gap to close.
   const renumbers =
     !content && listParentName === 'OrderedList' && listItem
-      ? renumberAfterEmptyItemDeletion(state, listItem)
+      ? renumberAfterEmptyItemDeletion(state, [listItem])
       : [];
 
   dispatch(
@@ -969,15 +986,174 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
 };
 
 /**
+ * The `ListItem` starting *exactly* at `pos`, or `null` — used only by
+ * `exactListItemSelectionRun` below to anchor a selection's `from` to a
+ * real item boundary. `resolveInner(pos, 1)` at a position that is a
+ * `ListItem`'s own start resolves into that item's `ListMark` (its first
+ * child, always co-located with the item's own start), so the first
+ * `ListItem` ancestor found while walking up is the item actually
+ * starting there — never a shallower one, since any enclosing ancestor
+ * necessarily starts at or before `pos`, and this returns as soon as the
+ * innermost `ListItem` is reached rather than continuing upward.
+ */
+function listItemStartingAt(state: EditorState, pos: number): SyntaxNode | null {
+  for (
+    let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1);
+    node;
+    node = node.parent
+  ) {
+    if (node.name === 'ListItem') {
+      return node.from === pos ? node : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether `[from, to)` is *exactly* one or more complete, consecutive
+ * sibling `ListItem`s of the same list — the precondition
+ * `deleteCompleteListItemSelection` requires before it will touch
+ * anything. Two, and only two, shapes of `to` count as "exact":
+ *
+ * 1. `to` lands on some item in the run's own `.to` — the selection is
+ *    the item(s)' own content only, no trailing line break included.
+ * 2. `to` lands exactly on the *next* sibling's `.from` — the selection
+ *    also swallows the single line break separating the run from
+ *    whatever follows (what a ranged selection from one item's start to
+ *    the next item's start naturally produces — e.g. Home, Shift+Down
+ *    across item boundaries).
+ *
+ * Anything else — a selection ending mid-item, mid-nested-content, or
+ * spanning into a different list/construct entirely — returns `null`,
+ * which is what keeps this from ever touching a partial-content
+ * selection: `cur.to`/`next.from` are real tree boundaries, not derived
+ * from character counting, so a selection that merely *looks* like it
+ * covers whole items but actually clips into one can never accidentally
+ * satisfy either check.
+ *
+ * A gap in the walk (the next node after `from`'s own item isn't a
+ * sibling `ListItem` — e.g. the selection would have to cross into a
+ * different list or construct to reach `to`) also returns `null` before
+ * either check is reached, which is what keeps this from ever crossing
+ * into an unrelated list or a different marker kind (§ audit finding:
+ * different marker kinds are always separate sibling nodes at the
+ * `Document`/container level, never reachable via one `ListItem`'s own
+ * `nextSibling` chain, so this is a structural guarantee, not merely an
+ * untested assumption).
+ */
+function exactListItemSelectionRun(
+  state: EditorState,
+  from: number,
+  to: number
+): { readonly items: readonly SyntaxNode[]; readonly listParentName: string } | null {
+  const firstItem = listItemStartingAt(state, from);
+  if (!firstItem) {
+    return null;
+  }
+  const listParentName = firstItem.parent?.name;
+  if (listParentName !== 'BulletList' && listParentName !== 'OrderedList') {
+    return null;
+  }
+
+  const items: SyntaxNode[] = [firstItem];
+  let cur = firstItem;
+  for (;;) {
+    if (cur.to === to) {
+      return { items, listParentName };
+    }
+    const next = cur.nextSibling;
+    if (next && next.from === to) {
+      return { items, listParentName };
+    }
+    // `to` isn't a boundary at `cur` yet — only worth continuing the walk
+    // if `next` is a sibling `ListItem` that `to` still reaches *past*
+    // (`next.from < to`); otherwise `to` either lands strictly inside
+    // `cur`'s own range (checked and rejected above) or strictly inside
+    // `next`'s (caught on the following iteration's own `cur.to === to`
+    // check, since a boundary a further sibling ahead is `>= next.to`).
+    if (!next || next.name !== 'ListItem' || next.from > to) {
+      return null;
+    }
+    items.push(next);
+    cur = next;
+  }
+}
+
+/**
+ * Backspace/Delete with a non-collapsed selection that exactly covers one
+ * or more complete ordered/bullet-list items — the gap
+ * `deleteBulletMarkerSeparator` structurally cannot see, since that
+ * command (and CM6's own `deleteMarkupBackward`) both require a collapsed
+ * cursor. A selection spanning, say, the whole of `"2. B"` (including or
+ * excluding its own trailing line break — see `exactListItemSelectionRun`)
+ * falls through both of those straight to generic `deleteCharBackward`/
+ * `deleteCharForward`, which deletes the range with zero renumbering,
+ * reproducing the identical `"1. A / 2. B / 3. C"` → `"1. A / 3. C"` gap
+ * the collapsed-cursor case was already fixed for.
+ *
+ * Deliberately narrow, matching that fix's own scope exactly: fires only
+ * when `exactListItemSelectionRun` confirms the selection's `[from, to)`
+ * is *precisely* a run of complete sibling items — never a selection that
+ * merely overlaps list content. Any other selection (partial content,
+ * spanning into a different construct, multi-range) returns `false` and
+ * reaches the same fallback chain as before this command existed.
+ *
+ * One atomic transaction: the item-range deletion and every renumbering
+ * rewrite for the surviving siblings after it are dispatched together
+ * (`renumberAfterEmptyItemDeletion`, reused unchanged in shape from the
+ * collapsed-cursor fix, just given the *whole* deleted run so it can
+ * shift survivors down by the run's own length rather than a hardcoded
+ * one) — a single undo step restores the pre-deletion document exactly,
+ * the same guarantee already verified for the collapsed-cursor case.
+ * Bullet runs never renumber (no digits), matching every other call site
+ * in this file.
+ */
+export const deleteCompleteListItemSelection: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || selection.main.empty) {
+    return false;
+  }
+
+  const { from, to } = selection.main;
+  const run = exactListItemSelectionRun(state, from, to);
+  if (!run) {
+    return false;
+  }
+
+  const renumbers =
+    run.listParentName === 'OrderedList'
+      ? renumberAfterEmptyItemDeletion(state, run.items)
+      : [];
+
+  dispatch(
+    state.update({
+      changes: [{ from, to }, ...renumbers],
+      selection: EditorSelection.cursor(from),
+      scrollIntoView: true,
+      userEvent: 'delete',
+    })
+  );
+  return true;
+};
+
+/**
  * Replaces `markdownKeymap`, which `markdownLanguageExtension()` no longer
  * installs (`addKeymap: false`). Same precedence (`Prec.high`) as
  * lang-markdown's own Backspace binding — Enter differs by the policy
- * documented at the top of this file, and Backspace is CM6's own
- * `deleteMarkupBackward` with exactly one narrower rule shadowing it first
- * (`deleteBulletMarkerSeparator`, documented above its definition).
- * Anything using `markdownLanguageExtension()` for real editing must wire
- * this alongside it, or it gets no Markdown-aware Enter or Backspace at
- * all.
+ * documented at the top of this file, Backspace is CM6's own
+ * `deleteMarkupBackward` with two narrower rules shadowing it first
+ * (`deleteBulletMarkerSeparator` for the collapsed-cursor case,
+ * `deleteCompleteListItemSelection` for the exact-selection case), and
+ * Delete has no CM6 Markdown-specific command of its own to defer to at
+ * all — `deleteCompleteListItemSelection` is the only Markdown-aware
+ * behavior Delete gets; every other Delete press reaches
+ * `defaultKeymap`'s plain `deleteCharForward` exactly as before this
+ * binding existed (unaffected: Delete's general lack of Markdown
+ * awareness — mid-marker, mid-content, forward-deleting a marker
+ * character — remains its own separate, not-yet-scoped future phase, per
+ * existing project notes). Anything using `markdownLanguageExtension()`
+ * for real editing must wire this alongside it, or it gets no
+ * Markdown-aware Enter/Backspace/Delete at all.
  */
 export function markdownEnterKeymap(): Extension {
   return Prec.high(
@@ -985,8 +1161,12 @@ export function markdownEnterKeymap(): Extension {
       { key: 'Enter', run: markdownEnterCommand },
       {
         key: 'Backspace',
-        run: (target) => deleteBulletMarkerSeparator(target) || deleteMarkupBackward(target),
+        run: (target) =>
+          deleteBulletMarkerSeparator(target) ||
+          deleteCompleteListItemSelection(target) ||
+          deleteMarkupBackward(target),
       },
+      { key: 'Delete', run: deleteCompleteListItemSelection },
     ])
   );
 }

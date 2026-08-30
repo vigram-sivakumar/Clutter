@@ -1,11 +1,17 @@
+import { deleteCharBackward, deleteCharForward } from '@codemirror/commands';
 import { deleteMarkupBackward } from '@codemirror/lang-markdown';
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorSelection, EditorState, type Transaction } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { markdownIndentMore } from '../indent/markdownIndentKeymap';
-import { deleteBulletMarkerSeparator, markdownEnterCommand } from './markdownEnterKeymap';
+import {
+  deleteBulletMarkerSeparator,
+  deleteCompleteListItemSelection,
+  markdownEnterCommand,
+} from './markdownEnterKeymap';
 
 /**
  * Same `|`-marker fixture convention as `markdownEnterKeymap.test.ts`:
@@ -622,5 +628,276 @@ describe('renumberAfterEmptyItemDeletion: Backspace on an empty ordered-list ite
   it('deleting the FIRST item in a sequence renumbers everything after it down by one', () => {
     const { rendered } = backspace('1. |\n2. B\n3. C');
     expect(rendered.replace('|', '')).toBe('\n1. B\n2. C');
+  });
+});
+
+/**
+ * `deleteCompleteListItemSelection`: Backspace/Delete with a non-collapsed
+ * selection that exactly spans one or more complete `ListItem`s — the gap
+ * `deleteBulletMarkerSeparator`/`deleteMarkupBackward` structurally can't
+ * see (both require a collapsed cursor). Reported scenario: `1. A / 2. B /
+ * 3. C`, select the complete `2. B` item, Backspace or Delete -> `1. A / 3.
+ * C` (no renumbering) today; expected `1. A / 2. C`.
+ */
+describe('deleteCompleteListItemSelection: non-collapsed selection spanning whole ListItem(s)', () => {
+  function selectRange(doc: string, needleFrom: string, needleTo: string): EditorState {
+    const from = doc.indexOf(needleFrom);
+    const to = doc.indexOf(needleTo);
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, to),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    return state;
+  }
+
+  /**
+   * `deleteCharBackward`/`deleteCharForward` are `Command`s (they take a
+   * full `EditorView`), unlike every Clutter/CM6-Markdown command in this
+   * chain (`StateCommand`s, `{state, dispatch}`) — this cast is test-only
+   * plumbing to exercise the *real* end-of-chain fallback a plain `{state,
+   * dispatch}` target can't type-check against; both commands only ever
+   * touch `.state`/`.dispatch` at runtime, which this target genuinely has.
+   */
+  function asView(target: { state: EditorState; dispatch: (tr: Transaction) => void }): EditorView {
+    return target as unknown as EditorView;
+  }
+
+  function runBackspaceChain(state: EditorState): { state: EditorState; handled: boolean } {
+    let next = state;
+    const target = { state: next, dispatch: (tr: Transaction) => (next = tr.state) };
+    const handled =
+      deleteBulletMarkerSeparator(target) ||
+      deleteCompleteListItemSelection(target) ||
+      deleteMarkupBackward(target) ||
+      deleteCharBackward(asView(target));
+    ensureSyntaxTree(next, next.doc.length, 5000);
+    return { state: next, handled };
+  }
+
+  function runDeleteChain(state: EditorState): { state: EditorState; handled: boolean } {
+    let next = state;
+    const target = { state: next, dispatch: (tr: Transaction) => (next = tr.state) };
+    const handled = deleteCompleteListItemSelection(target) || deleteCharForward(asView(target));
+    ensureSyntaxTree(next, next.doc.length, 5000);
+    return { state: next, handled };
+  }
+
+  it('REGRESSION (the exact reported scenario), via Backspace: 1. A/2. B/3. C, select whole "2. B" -> 1. A/2. C', () => {
+    const before = selectRange('1. A\n2. B\n3. C', '2. B', '3. C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('1. A\n2. C');
+  });
+
+  it('REGRESSION, via forward Delete: identical result', () => {
+    const before = selectRange('1. A\n2. B\n3. C', '2. B', '3. C');
+    const { state } = runDeleteChain(before);
+    expect(state.doc.toString()).toBe('1. A\n2. C');
+  });
+
+  it('selection ending at the item\'s own .to (no trailing line break included) is also exact', () => {
+    const doc = '1. A\n2. B\n3. C';
+    const from = doc.indexOf('2. B');
+    const to = from + '2. B'.length; // right after "B", not including "\n"
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, to),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    const { state: result } = runBackspaceChain(state);
+    expect(result.doc.toString()).toBe('1. A\n\n2. C');
+  });
+
+  it('deleting the FIRST item renumbers everything after it down by one', () => {
+    const before = selectRange('1. A\n2. B\n3. C', '1. A', '2. B');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('1. B\n2. C');
+  });
+
+  it('deleting the LAST item needs no renumbering (nothing follows)', () => {
+    const doc = '1. A\n2. B';
+    const from = doc.indexOf('2. B');
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, doc.length),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    const { state: result } = runBackspaceChain(state);
+    expect(result.doc.toString()).toBe('1. A\n');
+  });
+
+  it('multiple consecutive items deleted in one press: shifts survivors down by the deleted count, not by one', () => {
+    const before = selectRange('1. A\n2. B\n3. C\n4. D', '2. B', '4. D');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('1. A\n2. D');
+  });
+
+  it('paren delimiter: 1)/2)/3) -> select whole "2)" item -> 1)/2)', () => {
+    const before = selectRange('1) A\n2) B\n3) C', '2) B', '3) C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('1) A\n2) C');
+  });
+
+  it('irregular numbering preserved: 1./5./9., delete whole "5." item -> 1./9. untouched', () => {
+    const before = selectRange('1. A\n5. B\n9. C', '5. B', '9. C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('1. A\n9. C');
+  });
+
+  it('9->10 shrink boundary: 8./9./10., delete whole "9." item -> 8./9. (single-digit-width shrink, safe)', () => {
+    const before = selectRange('8. A\n9. B\n10. C', '9. B', '10. C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('8. A\n9. C');
+  });
+
+  it('99->100 boundary: delete whole "100." item -> 99./100.', () => {
+    const before = selectRange('99. A\n100. B\n101. C', '100. B', '101. C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('99. A\n100. C');
+  });
+
+  it('nested list under the SURVIVING sibling is preserved (not the deleted one)', () => {
+    const doc = '8. A\n9. B\n10. C\n    1. NestedChild';
+    const before = selectRange(doc, '9. B', '10. C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('8. A\n9. C\n    1. NestedChild');
+    const shapes: Array<{ marker: string; depth: number }> = [];
+    syntaxTree(state).iterate({
+      enter: (node) => {
+        if (node.name !== 'ListItem') return;
+        let depth = 0;
+        for (let p = node.node.parent; p; p = p.parent) if (p.name === 'ListItem') depth++;
+        const marker = node.node.firstChild;
+        const text = marker && marker.name === 'ListMark' ? state.doc.sliceString(marker.from, marker.to) : '(swallowed)';
+        shapes.push({ marker: text, depth });
+      },
+    });
+    expect(shapes).toEqual([
+      { marker: '8.', depth: 0 },
+      { marker: '9.', depth: 0 },
+      { marker: '1.', depth: 1 },
+    ]);
+  });
+
+  it('GUARD PROOF: a large-magnitude padded shrink on a multi-line surviving item is declined, protecting its own descendant', () => {
+    const doc = '1. A\n2. B\n000003. C\n        1. NestedChild';
+    const before = selectRange(doc, '2. B', '000003. C');
+    const { state } = runBackspaceChain(before);
+    // The risky rewrite is declined -- "000003." stays exactly as it was.
+    expect(state.doc.toString()).toBe('1. A\n000003. C\n        1. NestedChild');
+  });
+
+  it('deleting an item that OWNS a nested list removes the whole subtree, no orphan left behind', () => {
+    const doc = '1. A\n2. B\n   1. NestedUnderB\n3. C';
+    const before = selectRange(doc, '2. B', '3. C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('1. A\n2. C');
+  });
+
+  it('independent lists: deleting an item in list A never touches an unrelated list B', () => {
+    const doc = '1. A\n2. B\n3. C\n\nSome paragraph.\n\n1. X\n2. Y';
+    const before = selectRange(doc, '2. B', '3. C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('1. A\n2. C\n\nSome paragraph.\n\n1. X\n2. Y');
+  });
+
+  it('mixed ordered/bullet: an ordered run followed by an unrelated bullet list is never crossed into or renumbered', () => {
+    const doc = '1. A\n2. B\n- X\n- Y';
+    const before = selectRange(doc, '2. B', '- X');
+    const { state, handled } = runBackspaceChain(before);
+    // "to" (start of "- X") is not this item's .to and not a ListItem
+    // sibling's .from (the bullet list is a different container), so the
+    // exact-boundary check must decline and fall through to plain delete.
+    expect(handled).toBe(true);
+    expect(state.doc.toString()).toBe('1. A\n- X\n- Y');
+  });
+
+  it('bullet lists: deleting a whole item never attempts renumbering (no digits)', () => {
+    const before = selectRange('- A\n- B\n- C', '- B', '- C');
+    const { state } = runBackspaceChain(before);
+    expect(state.doc.toString()).toBe('- A\n- C');
+  });
+
+  it('partial-content selection (mid-item to mid-item) declines and falls through to plain deletion', () => {
+    const doc = '1. A\n2. Bxx\n3. C';
+    const from = doc.indexOf('Bxx') + 1; // mid-content of item 2
+    const to = doc.indexOf('3. C') + 2; // mid-content of item 3
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, to),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    const declined = deleteCompleteListItemSelection({ state, dispatch: () => {} });
+    expect(declined).toBe(false);
+  });
+
+  it('selection starting mid-item (not at a ListItem boundary) declines', () => {
+    const doc = '1. A\n2. B\n3. C';
+    const from = doc.indexOf('2. B') + 1; // one character into the marker
+    const to = doc.indexOf('3. C');
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, to),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    const declined = deleteCompleteListItemSelection({ state, dispatch: () => {} });
+    expect(declined).toBe(false);
+  });
+
+  it('selection ending partway into a nested child (not a real boundary) declines', () => {
+    const doc = '1. A\n2. B\n   1. Child\n3. C';
+    const from = doc.indexOf('2. B');
+    const to = doc.indexOf('1. Child'); // inside item 2's own nested list, not item 2's own .to or item 3's .from
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, to),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    const declined = deleteCompleteListItemSelection({ state, dispatch: () => {} });
+    expect(declined).toBe(false);
+  });
+
+  it('collapsed selection never triggers this command (that is deleteBulletMarkerSeparator\'s own scope)', () => {
+    const doc = '1. A\n2. B\n3. C';
+    const pos = doc.indexOf('2. B');
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.cursor(pos),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    expect(deleteCompleteListItemSelection({ state, dispatch: () => {} })).toBe(false);
+  });
+
+  it('one atomic transaction / one undo step: undo restores the exact pre-deletion document', async () => {
+    const { history, undo, redo } = await import('@codemirror/commands');
+    const doc = '1. A\n2. B\n3. C';
+    const from = doc.indexOf('2. B');
+    const to = doc.indexOf('3. C');
+    let state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, to),
+      extensions: [markdownLanguageExtension(), history()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+
+    const target = { state, dispatch: (tr: Transaction) => (state = tr.state) };
+    deleteCompleteListItemSelection(target);
+    ensureSyntaxTree(state, state.doc.length, 5000);
+    expect(state.doc.toString()).toBe('1. A\n2. C');
+
+    const undoTarget = { state, dispatch: (tr: Transaction) => (state = tr.state) };
+    expect(undo(undoTarget)).toBe(true);
+    expect(state.doc.toString()).toBe(doc);
+
+    const redoTarget = { state, dispatch: (tr: Transaction) => (state = tr.state) };
+    expect(redo(redoTarget)).toBe(true);
+    expect(state.doc.toString()).toBe('1. A\n2. C');
   });
 });

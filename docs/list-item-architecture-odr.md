@@ -1536,7 +1536,352 @@ best-automated-tested piece of bullet-list behavior in this document.
 
 ## 9. Tab / Shift-Tab
 
-### Final decision: uniform per-line indentation, no construct awareness
+### AMENDED DECISION (2026-08-30 — REVERTED 2026-08-30, see §18.16): logical list-level Tab/Shift-Tab
+
+**STATUS: REVERTED. Not the active contract.** This amendment was
+implemented, then found — through the §18.15 investigation and the
+product owner's own re-evaluation of its result — to violate the
+locked per-physical-line-independence requirement in a way that could
+not be reconciled by further patching. It is kept below in full,
+unmodified, as the historical record of what was tried, why, and
+exactly what was found wrong with it. **§18.16, at the end of this
+subsection, is the authoritative record of the reversion — read it
+before treating anything below as current.** The active contract is the
+"Final decision: uniform per-line indentation" section immediately
+below this one, which is no longer superseded by anything here.
+
+*(Original framing, kept verbatim below for the historical record —
+"supersedes," "IMPLEMENTED," etc. describe this amendment's own
+now-ended lifecycle, not the current state of the codebase.)*
+
+**This supersedes the "Final decision: uniform per-line indentation"
+section immediately below for list items specifically.** That section's
+own text, and its "no construct awareness" framing, is kept verbatim
+underneath as the historical record of the prior decision and the
+investigation (§17, §18) that led to amending it — do not delete it.
+Non-list lines are **explicitly unaffected** by this amendment; the old
+section's description of their behavior remains currently true. **The
+old section's own Locked, per-physical-line-independence invariant is
+also explicitly unaffected** — see the hard constraint below and §18.13.
+
+**Hard constraint, reconciled before implementation (§18.13)**: an
+earlier draft of this amendment described applying a computed delta
+across an item's "full node span" (marker line + continuation +
+descendants). That draft was rejected before any code shipped — it
+would have moved a `ListItem`'s unselected descendants automatically,
+reintroducing exactly the subtree-movement semantics the original
+decision (immediately below) deliberately rejected and the codebase
+once reverted. **The shipped implementation touches only physical
+lines explicitly covered by the selection — never a line inferred from
+structural ancestry.** `- Parent\n  - Child` with only `Parent`'s line
+selected changes only `Parent`; `Child` is left byte-for-byte unchanged
+even though it is `Parent`'s structural descendant (Parent and Child
+may become siblings as a result — an accepted consequence, identical in
+kind to the original decision's own "Case A"). Selecting both lines
+changes both, but only because both were explicitly selected, and each
+computes its own target **independently** — never by reusing another
+selected line's delta, and never against a hypothetical state where
+some other selected line has already moved. Every target in this
+amendment is computed from the same, single pre-edit tree, for every
+selected line, with zero coupling between lines.
+
+**New contract**: for a physical line that is a `ListItem`'s own marker
+line (in the pre-edit tree) and is explicitly selected, Tab/Shift-Tab
+set *that one line's* leading whitespace to a **target column computed
+from the current syntax tree**, not a fixed constant — independently of
+every other selected line:
+
+- **Tab**: target = the item's true preceding sibling's existing nested-
+  list reference column, if that sibling already has one; otherwise
+  `precedingSibling'sOwnColumn + markerWidth(precedingSibling) + 1`
+  (§18.2's confirmed content-column formula), both read from the
+  **pre-edit** tree regardless of whether that preceding sibling is
+  itself also selected in this same operation. If the item has no
+  preceding sibling (it's its own list's first item) or is already at
+  the logical depth ceiling, there is no structural destination — see
+  §18.14 immediately below for what happens then; it is **not** simply
+  "no-op."
+- **Shift-Tab**: target = the item's immediate parent `ListItem`'s own
+  column, read from the pre-edit tree. **No target (no-op) if the item
+  is already top-level.**
+- **No grouping, no "run," no delta reuse across lines.** A multi-line
+  selection touching several `ListItem`s computes each one's target
+  completely independently; when two selected siblings happen to land at
+  the same resulting column, it is because they shared the same pre-edit
+  column and comparable marker geometry, not because of any mechanism
+  that intentionally keeps them together. **Multiple independent list
+  containers touched by one selection are each resolved independently**,
+  for the same reason — there is no shared state to keep separate.
+- **Only the explicitly selected line moves.** A `ListItem`'s own
+  continuation content or nested descendants are touched only if their
+  own physical line is *also* part of the selection — and if a
+  continuation line is selected, it is not itself a `ListItem`'s own
+  marker line, so it uses the flat fallback below, independently of
+  whatever its owning item's own marker line did.
+- **A physical line that is selected but does not resolve to a
+  `ListItem`'s own marker line** (a heading, blockquote, orphan
+  paragraph, or a list-owned continuation line) **keeps the existing,
+  unchanged flat `± INDENT_STEP_SPACES` behavior** described in the
+  section below — this amendment is additive and provably scoped to
+  list-item marker lines only.
+- **List-item nesting depth is capped at 5 logical levels** (replacing
+  the old flat 10-space/`MAX_INDENT_SPACES` column ceiling, which no
+  longer has a consistent meaning once the column-per-level varies by
+  marker width) — an item already at ancestor-`ListItem` depth 5 has no
+  further *logical* Tab target (though see §18.14: it may still grow via
+  the free-indentation fallback). This is a **judgment call made during
+  implementation, not something §18 explicitly specified** — flagged
+  here rather than silently decided; it preserves the old ceiling's
+  intent (bound unbounded growth) in the new model's own terms (levels,
+  not columns). The non-list fallback path keeps its own existing
+  column-based ceiling unchanged.
+- **Numbering is untouched by construction**: every emitted change is a
+  `{ from, to, insert: ' '.repeat(n) }` replacement of a line's leading-
+  whitespace range only; no code path reads or writes a `ListMark`'s
+  digits or delimiter. §16's numbering question remains fully separate
+  and still undecided.
+- **No coordination with Enter's §15 guard is needed or added** —
+  confirmed directly (§18.12 item 4): Enter's `continueMarkupPreservingStructure`
+  reads the tree at Enter-time and is unaffected by how the surrounding
+  indentation arose.
+- **Cursor/selection mapping uses the existing mechanism unchanged** —
+  `state.selection.map(changeSet, 1)` for Tab's forward-insertion case
+  (exactly as today), confirmed to require no new logic even though the
+  delta is no longer a constant (§18.12 item 3).
+- **One composed `ChangeSet`, one dispatched transaction, one undo
+  step** — same shape as today's `markdownIndentDirection`, just with
+  tree-derived rather than constant per-line `ChangeSpec`s, computed by
+  a single per-line loop with no cross-line dependency.
+
+**Implemented**: `markdownIndentKeymap.ts` (`logicalListItemChange`,
+`logicalTabTarget`, `logicalShiftTabTarget`, `contentColumnOf`,
+`precedingSibling`, `existingNestedList`, `listItemDepth`,
+`collectListItemsByMarkerLine`), `markdownIndentKeymap.test.ts` (65
+tests, including the explicit per-line-independence regression suite
+"§18.13" required: Parent-only selection doesn't move Child, Child-only
+selection doesn't move Parent, Parent+Child selection moves both
+because both were explicitly selected, a multi-line range of siblings
+changes every explicitly selected line independently, and mixed list/
+non-list selection behavior is unchanged).
+
+### §18.14 (2026-08-30, IMPLEMENTED): a single Tab press never no-ops for a list item — with a hazard-driven restriction
+
+**Product requirement, given after §18.13 shipped**: "Tab always permits
+the selected list line to move one indentation step deeper. When a
+valid structural list destination exists, calculate the indentation
+needed to reach that next logical level. When no such destination
+exists, retain the previous free physical indentation behavior rather
+than becoming a no-op."
+
+**Finding, verified before shipping, not assumed**: implementing this
+literally — always falling back to free `INDENT_STEP_SPACES` growth
+whenever a list item has no structural destination, with no other
+condition — **directly reopens Phase 17's Hazard 1** (§17.1), the exact
+`ListItem`-swallowing corruption §18 was built to eliminate. Reproduced
+directly: selecting `# Heading` + `10. A` + `11. B` as one range and
+pressing Tab once (the heading forcing a genuinely multi-line operation)
+corrupted `11. B` into lazy-continuation text of `10. A`'s own
+paragraph — because A (previously a guaranteed no-op) now also moves,
+but B's own target is still correctly computed from A's **pre-edit**
+column (per §18.13's own per-line-independence requirement, which is
+not being relaxed), landing in the gap between A's old and new geometry.
+Also reproduced for bullets (landing at the *same* column as the
+following item instead of nesting, since a bullet's fallback step
+happens to equal its own content-column offset) and more severely for
+3+-digit markers. This is not a rare edge case — it reproduces for any
+multi-line Tab selection that includes a list's own first item together
+with a later sibling.
+
+**Resolution, chosen by the product owner after this finding was
+surfaced**: restrict the free-indentation fallback to operations that
+touch **exactly one physical line**. A single, isolated Tab press on a
+lone list item (the overwhelmingly common real case — pressing Tab with
+the caret on one line) now grows it via the same free `INDENT_STEP_SPACES`
+physical indentation non-list lines already get, never a no-op. A list
+item with no structural destination that is part of a **multi-line**
+selection still has no target and stays put — exactly as §18.13 shipped
+it — so a later selected sibling's own target, computed from that
+item's unmoved pre-edit column, stays correct and Hazard 1 stays closed.
+Shift-Tab is untouched by this entire question: it was never asked to
+gain a fallback, and its own no-op (already top-level) has no physical-
+indentation equivalent to fall back to in either case.
+
+**Verification**: `markdownIndentKeymap.test.ts` gained a dedicated
+describe block ("2026-08-30 refinement") with three tests — single-line
+lone-item growth, and two explicit regression tests (1-digit-marker-
+adjacent and 3-digit-marker-adjacent) proving the exact reproduction
+above no longer corrupts `ListItem` structure when run through the
+shipped code, asserting both resulting source and exact tree shape via
+`listShape`. All 68 tests in that file pass; full suite unaffected
+(3091 passing; the only 2 failing test files are pre-existing and
+confirmed unrelated via `git stash`); `tsc --noEmit` clean; live webapp
+verification repeated for both the single-line-growth case and the
+multi-line-no-swallow case.
+
+See §18/§18.12 for the full investigation, evidence, and rejected
+alternatives (fixed 2, fixed 4, provisional-edit-and-retry) behind this
+amendment. Implementation status is recorded at the end of this
+amendment once landed (commit hash, test file, verification results) —
+if this note still says "IMPLEMENTING NOW" it means the code change
+described here had not yet been completed at last edit.
+
+### §18.15 (2026-08-30, IMPLEMENTED): large multi-item Tab/Shift-Tab selections could silently swallow a `ListItem` past the depth ceiling — found by investigation, fixed with two narrow, same-invariant-compliant lookups
+
+**Trigger**: after §18.14 shipped, verification of a large multi-item
+selection (15 flat ordered-list items, select all, Tab pressed
+repeatedly) found a genuine defect: after the 4th press, two items lost
+`ListItem` status entirely, absorbed as lazy-continuation text of an
+earlier item's own paragraph. Reported before any fix was attempted, per
+instruction. This entry documents the investigation and the fix.
+
+**Investigation — what was and wasn't the cause**. The hard constraint
+was reaffirmed unconditionally throughout: no subtree movement, no
+moving an unselected line, every explicitly selected line still
+independently editable. The question posed was whether a *selected*
+item's target may legitimately account for another *selected* item's
+actual resulting (post-edit) column, rather than only ever reading a
+stale pre-edit one — which is a question about the correctness of the
+target *arithmetic* for lines that are already being edited, not about
+which lines get edited (that set is unaffected either way).
+
+Two genuinely distinct bugs were found, both the same root shape (an
+item's target computed from an ancestor/sibling's *stale* column, once
+that ancestor/sibling also moves in the very same operation) but via
+two different relationships, needing two different fixes:
+
+1. **Tab — sibling chains.** A flat run of touched siblings within one
+   container (e.g. items 2–15 of a 15-item list, all selected) each
+   independently recomputing `contentColumnOf(precedingSibling)` from
+   that sibling's *pre-edit* column is fine only while none of them have
+   moved yet. Across repeated presses, once a sibling in the middle of
+   the chain hits the logical depth ceiling and reverts to "no target,
+   stays put," the next sibling's independently-computed target — still
+   based on the capped sibling's stale column — can land short of that
+   sibling's real content-column floor, the Rule #5 gap (§17.3),
+   swallowing it. **Tested first**: naive "always use the sibling's
+   actual post-edit column" was considered and rejected — it produces a
+   staircase (each sibling nesting one level deeper than the last)
+   instead of the already-shipped, already-tested "all touched siblings
+   become mutual siblings of each other" behavior (§18.13's own tests
+   depend on this). The fix actually needed is the narrower, already-
+   proven-correct one: **same-container delta *propagation*** — once one
+   item in a contiguous touched run establishes a real delta (because
+   its own true preceding sibling has a fixed, unmoving destination),
+   every immediately-following touched sibling in that same container
+   reuses that *exact* delta rather than recomputing its own target from
+   a now-stale column. Implemented in `tabChangesForContainer`.
+2. **Shift-Tab — ancestor chains.** Independently discovered while
+   testing item 7's own boundary cases with digit-width-crossing markers
+   (98.–107., nested via Tab, then select-all Shift-Tab): each item's
+   target is its *parent's* column, and if that parent is *also*
+   selected and dedenting in the same keypress, using the parent's stale
+   pre-edit column produces the identical gap-swallow, just through the
+   ancestor relationship instead of the sibling one. Delta propagation
+   (rule 1) does not apply here — a parent lookup is not a same-
+   container sibling chain — so the fix is a `resultColumn` map,
+   populated in document order as each touched item's final column is
+   decided, consulted before falling back to a live read. Document order
+   is sufficient because a parent's own line is always physically
+   earlier in the source than any of its descendants', so by the time a
+   descendant asks, its ancestor (if also touched) has already been
+   decided. Implemented in `logicalShiftTabTarget`/`logicalShiftTabChange`.
+
+**Why neither fix touches the locked invariant**: both only change how
+an *already-selected* line's own target number is computed. Neither
+reads, infers, or acts on anything about a line that was not itself
+independently and explicitly selected; neither emits a `ChangeSpec` for
+any line beyond the one it was already going to touch. The "gap" that
+was proven safe from multi-range selections in §18.13 (no untouched
+sibling can sit between two touched ones in one container, since this
+editor has no multi-range selection and a contiguous range covering two
+siblings' lines necessarily covers every line physically between them)
+applies identically here, since neither fix changes which lines are
+touched — only what each already-touched line computes as its target.
+
+**Verification — exhaustive, not spot-checked**: a temporary stress
+probe (not committed — findings captured as permanent regression tests
+instead) ran full Tab-then-Shift-Tab round trips, checking for any
+swallowed `ListItem` after *every single press*, across: 15- and 20-item
+flat ordered and bullet lists (8 Tabs, 10 Shift-Tabs each), a 3-item
+baseline, a 6-item run straddling the exact depth-ceiling boundary, and
+two digit-width-crossing runs (98.–107., 995.–1004., crossing the 2→3
+and 3→4 digit boundaries respectively). All clean at every step; every
+list fully round-tripped back to its exact original byte-for-byte flat
+form. Permanent regression coverage added to
+`markdownIndentKeymap.test.ts` (new "§18.15" describe block, 5 tests):
+the exact 15-item and 98–107 reproductions (both directions), the
+6-item ceiling-boundary round trip, and an explicit re-confirmation that
+Parent-only/Child-only/Parent+Child independence (§18.13's own locked
+tests) still holds unchanged. 73/73 tests pass in that file; full suite
+unaffected (3096 passing, same 2 pre-existing unrelated failures
+confirmed via `git stash`); `tsc --noEmit` clean; live webapp
+verification repeated for the full 15-item build → 5 Tabs → 5 Shift-Tabs
+round trip, matching the automated tests exactly, no console errors.
+
+### §18.16 (2026-08-30, DECISION): the logical-target amendment (§9's amendment above, §18/§18.12–§18.15) is REVERTED
+
+**What happened, in sequence.** §18.15 fixed a real, confirmed swallow
+bug in the logical-target model (a 15-item flat ordered list losing two
+items' `ListItem` status across repeated Tab presses) via two narrow
+lookups — same-container delta propagation for Tab, a `resultColumn`
+map for Shift-Tab's parent lookup — verified exhaustively (8 stress
+scenarios, live webapp confirmation, 73 passing tests) to touch nothing
+but each already-selected line's own target arithmetic. On review of
+that fix, the product owner determined it was still the wrong direction
+entirely: **a 15-item selection is supposed to move every selected line
+by the identical physical delta — there is no product requirement, and
+never was one, for Tab to compute a marker-width- or hierarchy-aware
+target column at all.** The corrected contract, stated explicitly:
+
+> Tab = add exactly one `INDENT_STEP_SPACES` to every selected physical
+> line. Shift-Tab = remove exactly one `INDENT_STEP_SPACES` from every
+> selected physical line. Same delta for every selected line, every
+> time. No parent/child concept. No preceding-sibling/destination-list
+> logic. No subtree movement. No marker-width-dependent target columns.
+> No snapping to a parent's indentation. The parser alone decides what
+> the resulting Markdown structurally means.
+
+**Why this is not merely "another edge case to patch," and why §18.15's
+fix — though itself correctly scoped and non-violating on its own
+terms — is the wrong direction to keep building on**: every version of
+the logical-target model, no matter how carefully the target arithmetic
+was scoped to avoid touching unselected lines, was still *computing a
+different delta for different selected lines based on their parsed
+structural role* (a line's own marker width, its preceding sibling's
+marker width, whether it was "first" or "established," its ancestor's
+column). That is itself the thing being rejected — not because it ever
+moved an unselected line (it didn't, at any point in §18–§18.15), but
+because "one Tab = one uniform physical step for every selected line,
+full stop" is the actual, simpler, permanently-settled product
+requirement, and a hierarchy-aware target column can never be that,
+regardless of how safely it's computed.
+
+**Disposition**: the entire amendment above (§9's "AMENDED DECISION,"
+originally approved after §18/§18.12 — implementing `logicalTabTarget`,
+`logicalShiftTabTarget`, `contentColumnOf`, `precedingSibling`,
+`existingNestedList`, same-container delta propagation, and the
+`resultColumn` ancestor lookup) is **reverted in full**. `markdownIndentKeymap.ts`,
+`markdownIndentKeymap.test.ts`, `markdownBulletBackspace.test.ts`, and
+`markdownDeepBulletEnter.test.ts` are restored to their content as of
+commit `b435f159` (the last commit before this amendment's own work
+began) — confirmed via direct diff, byte-for-byte identical, not a
+manual approximation. The "Final decision: uniform per-line
+indentation" section immediately below is the active contract again,
+for list and non-list lines alike, with no exception.
+
+**What is preserved, and why**: §17 (the two structural Tab/Shift-Tab
+hazards) and §18.1–§18.15 (the full logical-target investigation,
+including its two genuinely-fixed bugs) are kept as historical record,
+not deleted — they document real parser behavior, real formulas
+(§18.2's content-column formula remains an accurate description of
+CommonMark nesting math, independent of whether Clutter's own Tab
+command uses it), and a real, instructive example of a design that
+satisfied every constraint it was explicitly asked to satisfy and was
+still the wrong direction. §16's ordered-list *numbering* investigation
+is entirely unaffected by this reversion — it was already, and remains,
+a separate, still-undecided question with no implementation.
+
+### Final decision: uniform per-line indentation, no construct awareness (the active contract — reconfirmed 2026-08-30 after §18.16's reversion, for list and non-list lines alike)
 
 **Current, shipped behavior** (`markdownIndentKeymap.ts`, commit
 `20ff06a5` "simplify Tab/Shift-Tab to uniform per-line indent with a
@@ -3559,6 +3904,1333 @@ structure, not just document text.
 
 ---
 
+## 16. Ordered-list Tab/Shift-Tab numbering — policy investigation (2026-08-30)
+
+**Status: INVESTIGATED. NOT IMPLEMENTED. No code changed in this
+session** — `computeIndentChange`/`lineIndentChange`
+(`markdownIndentKeymap.ts`), `continueMarkupPreservingStructure`
+(`markdownEnterKeymap.ts`), and the Markdown grammar are all exactly as
+§9/§15 left them. This section records parser findings, the resulting
+product-policy options, a recommendation, a proposed (unbuilt)
+implementation architecture, and a proposed (unbuilt) test matrix, per
+an explicit investigation-only request. Versions probed: `@codemirror/state
+6.7.1`, `@codemirror/lang-markdown 6.5.2`, `@codemirror/view 6.43.9`,
+`@codemirror/commands 6.11.0`, `@codemirror/language 6.12.4`,
+`@lezer/markdown 1.7.2` — identical to every other version cited
+elsewhere in this document; no drift.
+
+### 16.1 What Lezer actually considers one `OrderedList` vs. two — IMPLEMENTED + VERIFIED
+
+All confirmed via fresh probes against `markdownLanguageExtension()`
+(the exact production config), not inferred from indentation alone:
+
+- **Numeric value is irrelevant to list membership.** `"1. A\n2. B\n3. C"`,
+  `"5. A\n6. B\n7. C"`, and `"1. A\n7. B\n42. C"` are each **one**
+  `OrderedList` with three ordinary sibling `ListItem`s — confirmed
+  directly. Whether a run "looks sequential" has zero bearing on
+  whether the parser treats it as one list; that's a numbering
+  question, not a structural one, and this document's own §13.1/§14.1
+  already established the same fact from the Enter side.
+- **Delimiter change always splits the list**, confirmed both
+  directions (`"1. A\n2) B\n3. C"` and `"1) A\n2. B\n3) C"`): three
+  **separate** `OrderedList` nodes, one per delimiter run, even with no
+  blank line between them and even though every item is still at the
+  same top-level indentation.
+- **A blank line between same-delimiter items does not split the
+  list** — `"1. A\n\n2. B"` is still one `OrderedList` (CommonMark's own
+  loose-list allowance).
+- **A paragraph separated by a blank line does split the list** —
+  `"1. A\n2. B\n\nParagraph\n\n1. C\n2. D"` produces two independent
+  `OrderedList`s with a `Paragraph` node between them.
+- **A paragraph with *no* blank line does not split the list at all** —
+  it is absorbed as lazy-continuation text of the preceding item's own
+  `Paragraph`, and the line after it (`"1. C"` in the tested fixture)
+  becomes a **third sibling `ListItem` of the same original list**, not
+  a new one. Confirmed directly: `"1. A\n2. B\nParagraph\n1. C"` is one
+  `OrderedList` with three items, the second one's own `Paragraph`
+  reading `"B\nParagraph"`. This is the one case where the surface
+  appearance most resembles the Obsidian screenshot's "paragraph breaks
+  the list, next block restarts at 1" behavior — but the parser's own
+  structural fact is the *opposite* of a break: no new list exists here
+  at all in Clutter's own parse tree.
+- **A bullet marker or blockquote marker splits the list immediately**,
+  no blank line required — `"1. A\n2. B\n- Bullet\n3. C"` produces an
+  `OrderedList` (two items) followed by an independent `BulletList`
+  (whose own `Paragraph` absorbs `"3. C"` as its own lazy-continuation
+  text, itself confirming numbers don't "resume" a different list kind
+  either). `"1. A\n2. B\n> Quote\n3. C"` behaves identically with
+  `Blockquote` in place of `BulletList`.
+- **Nested lists are always their own independent node**, regardless of
+  kind or depth — confirmed for ordered-in-ordered (2 and 3 levels
+  deep), ordered-in-bullet, and bullet-in-ordered, matching this
+  document's own §13.1 finding generalized with fresh, direct probes
+  rather than assumed to still hold.
+
+**Conclusion for the eventual normalizer**: "which `OrderedList` a
+`ListItem` belongs to" must always be read from the actual tree
+(`node.parent` walk to the nearest `OrderedList`), never inferred from
+adjacency, blank lines, or apparent numeric sequence — exactly the
+"ask the parser, never assume" principle this document has applied
+everywhere else (§1, §7, §9, §14.9). Nothing here contradicts or
+requires revising that principle; this section only confirms it holds
+for the specific boundary questions a future normalizer would need to
+answer.
+
+### 16.2 Real Tab/Shift-Tab tree transitions — IMPLEMENTED + VERIFIED
+
+All probes ran the actual, currently-shipped `markdownIndentMore`/
+`markdownIndentLess` (`markdownIndentKeymap.ts`) against
+`markdownLanguageExtension()` — not a bare grammar stand-in, and not a
+hypothetical future command.
+
+- **One Tab never nests an ordered item, regardless of parent width** —
+  re-confirmed directly through the live command (previously only shown
+  against the bare grammar in §14.9/§14.10): 1 Tab (2 spaces) on `"2.
+  B"` under `"1. A"`, `"10. A"`, `"100. A"`, or `"999. A"` leaves `B` a
+  top-level sibling every time.
+- **Two Tabs (4 spaces) produce three different outcomes depending on
+  the parent's own content column** — this is the single most
+  important confirmation in this section, because it means "did Tab
+  actually nest the item" is not a yes/no question answerable from Tab
+  press count alone, exactly as §14.9 already established, now
+  re-verified against the real command with zero renumbering involved:
+  - Parent `"1."`/`"10."` (content column 3 or 4): `B` becomes
+    genuinely nested (`OrderedList` inside `A`'s own `ListItem`).
+  - Parent `"100."`/`"999."` (content column 5): `B` is **not** nested
+    and **not** a sibling — it is absorbed as lazy-continuation text of
+    `A`'s own `Paragraph` (`Paragraph:"A\n    2. B"`). This is §14.9's
+    Rule #5 "gap" reproducing *without any renumbering at all* — pure
+    Tab, on a pristine document, lands exactly in the gap for any
+    3+-digit parent at exactly 2 presses. Already flagged as the
+    highest-priority open item in this document (Open Questions item 8,
+    §14.14); this session's contribution is direct confirmation via the
+    live command rather than the bare-grammar probe alone.
+- **Multi-line Tab genuinely moves every selected item into one shared
+  new nested list together**, with each item's own literal number
+  untouched: selecting `B`+`C` (from `"1. A\n2. B\n3. C\n4. D"`) and
+  pressing Tab twice nests both as siblings of a new `OrderedList`
+  under `A`, reading `"2."`/`"3."` verbatim; selecting `B`+`C`+`D` nests
+  all three together the same way, leaving `A` as the sole remaining
+  top-level item.
+- **Selecting a list's own first item together with later items produces
+  a degenerate, non-nesting result — a genuinely hazardous edge case,
+  not previously documented.** Tab-ing `A`+`B` together (both lines
+  selected) twice does *not* nest `B` under `A`; it re-indents `A`
+  itself by 4 spaces. Because Clutter's grammar removes `IndentedCode`
+  (`markdownGrammarExtensions.ts`), a document-initial line indented 4+
+  spaces does not fall back to a code block the way strict CommonMark
+  would — it is still recognized as the `OrderedList`'s own `ListMark`,
+  just with 4 spaces of leading slop before it, and `B` (still just
+  `"2. B"` on its own line, similarly over-indented) is absorbed as
+  lazy-continuation text of `A`'s own `Paragraph` rather than becoming
+  its own list item at all. **This means a future normalizer's
+  membership-change detector must check that an affected item is still
+  a genuine `ListItem` after the edit, not merely that its `OrderedList`
+  identity changed** — this specific case self-resolves under that
+  check (there is no valid destination `OrderedList` membership to
+  normalize into, since `B` isn't a `ListItem` anymore), but only if the
+  detector is built to notice the difference rather than assuming every
+  Tab-selected line is still list-structured afterward.
+- **Joining an existing destination list works correctly, in document
+  order, with literal numbers preserved** — Tab-ing `B` (from `"1.
+  A\n    1. Existing\n2. B\n3. C"`) twice correctly inserts `B` as
+  `Existing`'s own new sibling inside the pre-existing nested
+  `OrderedList`, `B`'s own literal `"2."` completely untouched.
+  Confirmed the ordering is purely document-position-driven, not
+  semantic: when the pre-existing destination item instead appears
+  *after* the newly-nested one in source order, the newly-nested item
+  becomes the nested list's own first item and the pre-existing one
+  becomes its second — the parser has no concept of "which one arrived
+  first," only textual position, which any normalizer must treat as
+  the sole ordering authority.
+- **Shift-Tab on a *complete* nested group re-attaches every item
+  correctly as top-level siblings, literal numbers preserved** —
+  dedenting `B`+`C` together (from `"1. A\n    1. B\n    2. C\n2.
+  D"`) produces `A`/`B`("1.")/`C`("2.")/`D`("2.") as four ordinary
+  top-level `ListItem`s in one `OrderedList`, no corruption.
+- **Shift-Tab on only *part* of a nested group is a second, genuinely
+  hazardous edge case — also not previously documented.** Dedenting
+  only `B` (leaving `C` in place, from the same starting document)
+  produces `A`(unchanged) / a new top-level `ListItem` for `B` reading
+  `"  1. B\n    2. C"` — **`C` has been absorbed into `B`'s own
+  `Paragraph` as lazy-continuation text**, losing its own `ListItem`/
+  `ListMark` identity entirely. This is structurally the same *shape*
+  of defect §15 fixed for Enter (a sibling's own descendant losing its
+  list-item-hood because of an edit to something else nearby), but
+  reached through Shift-Tab's own uniform, per-line, selection-scoped
+  mechanics (§9) rather than through digit-width renumbering — `C` was
+  never renumbered at all here; it was simply left at its old
+  indentation while `B`'s own new indentation changed the *context* `C`
+  is interpreted relative to. **This is a pre-existing hazard in
+  today's shipped Shift-Tab, unrelated to ordered-list numbering, not
+  discovered or introduced by this investigation's own subject matter**
+  — flagged here because the request asked for a thorough multi-selection
+  investigation and this is a genuine finding it surfaced, not because
+  it is in scope to fix in this phase (see §16.12).
+
+### 16.3 `renumberList`'s policy, as precedent (recap — not re-derived)
+
+Already fully characterized in §15.2 from the Enter investigation, not
+repeated in depth here: walks siblings at one tree level only, uses
+each sibling's own *original* literal number (never a just-rewritten
+one) to check `next == prev + 1`, stops at the first discontinuity,
+never touches delimiters, and never reproduces zero-padding (converts
+through a bare `Number`). This is the *policy* worth copying — "only
+extend an already-sequential run, stop at the first break, never
+invent a fresh sequence over irregular numbers" — not the private
+function itself, which remains unexported and unreachable regardless
+(§15.2 already confirmed this via the package's own public `export`
+list).
+
+### 16.4 Numbering semantics for Tab specifically — IMPLEMENTED + VERIFIED (by construction)
+
+Arbitrary starting numbers, zero-padding, and the 9-digit CommonMark
+maximum need no fresh probing for **today's shipped Tab**: `lineIndentChange`
+(`markdownIndentKeymap.ts`) only ever produces `{ from: line.from, to:
+leadingEnd, insert }` — a change strictly bounded to a line's own
+leading-whitespace run, never touching anything at or after the marker
+itself. Every numbering peculiarity a document already contains is
+therefore preserved by Tab/Shift-Tab today as a direct, structural
+consequence of that function's own scope, not something that needs
+separate verification per case. This is the current, "Option A"
+baseline the rest of this section evaluates alternatives against.
+
+### 16.5 Width-boundary interaction with a future normalizer — IMPLEMENTED + VERIFIED (the constraint), design NOT YET DECIDED
+
+§15's own Enter fix establishes the load-bearing fact any Tab
+normalizer must inherit: **rewriting a digit run can itself change a
+`ListItem`'s content column**, and doing so can destroy an unrelated
+descendant's own structure if that rewrite crosses more than 3 columns
+of width change (§15.5's confirmed boundary) or grows the width at all
+on a multi-line item (§15.6's asymmetric finding). A future Tab
+normalizer's own Phase C (§9's "PENDING ADDENDUM") would perform
+exactly this class of write — renumbering a source or destination
+list's items — and so **must** apply the identical safety check
+(`isRiskyRenumberRewrite`'s own logic, or an equivalent re-derivation of
+it) before committing any digit rewrite, not just before committing an
+indentation change. This document takes no position here on whether
+the normalizer should literally reuse `isRiskyRenumberRewrite` (it is
+currently a Enter-keymap-local, unexported function) or re-derive an
+equivalent check in its own module — that is an implementation-time
+decision, not a policy one, deferred to whenever this feature is
+actually built.
+
+### 16.6 Proposed policy options, evaluated
+
+**Option A — literal Markdown (today's shipped behavior).** Tab/Shift-Tab
+change only whitespace; numbers are exactly as authored, including
+after a genuine nesting-level change. Cost: a freshly-nested `"2. B"`
+under `"1. A"` reads `"2."`, not `"1."`, which is the discomfort the
+original request (this document's own §14) raised. Benefit: zero new
+risk, zero new code, most CommonMark-round-trip-faithful (§14.2's
+already-established finding that literal preservation is, if anything,
+the more strictly spec-faithful choice survives unchanged by this
+session).
+
+**Option B — conservative auto-numbering**, per the approved general
+direction (§9's addendum): normalize only when the post-edit tree
+proves an explicitly-touched item's `OrderedList` identity genuinely
+changed (§16.1/§16.2's own findings give the exact vocabulary for "genuinely
+changed" — including the §16.2-confirmed need to also verify the item
+is *still a `ListItem` at all*, not just check its ancestor identity);
+identify the specific source and destination lists; normalize only an
+already-sequential run within each (mirroring §16.3's `renumberList`
+precedent); preserve delimiter always; preserve arbitrary starts and
+zero-padding *except* where the normalization's own arithmetic requires
+writing a new number (at which point §16.5's width-safety check gates
+whether that specific write is even attempted); never touch bullet
+markers; share one planner between Tab and Shift-Tab (§16.2's own
+findings show both directions produce symmetric, mirror-image
+membership changes — a shared planner is structurally justified, not
+just convenient).
+
+**Option C — stronger editor-style numbering** (Obsidian-like, e.g.
+continuing an outer sequence across an intervening nested block, or
+restarting a sequence after any paragraph break regardless of blank
+lines). **Not evaluated as a serious candidate this session** — per the
+explicit instruction not to build it without a strong architectural
+reason, and because §16.1's own findings show the underlying parser
+model doesn't naturally support several of the Obsidian behaviors
+observed (a paragraph with no blank line doesn't structurally break the
+list at all in Clutter's parser, so "restart numbering after a
+paragraph" would require *inventing* a break the parser itself doesn't
+recognize — a much larger, more speculative undertaking than Option B,
+and one this session found no evidence Clutter's product goals actually
+require).
+
+### 16.7 Recommendation
+
+**Option B**, matching the stated preference, is validated rather than
+merely assumed: every one of its eight stated conditions (§16.6) has a
+direct, confirmed grounding in this session's own probes or in §15's
+already-shipped work — none of them are aspirational or unverified
+premises. The one genuine open risk Option B inherits and must budget
+for explicitly is §16.2's two newly-surfaced hazards (partial-selection
+Shift-Tab, and first-item-included-in-selection Tab) — neither is
+caused by numbering, both predate this feature, and both would need to
+be either fixed independently first or explicitly handled by the
+normalizer's own "is this still a valid `ListItem`" guard (§16.2's own
+proposed resolution for the second one; the first one has no proposed
+resolution here at all — see §16.12).
+
+### 16.8 Proposed implementation architecture (design only — nothing built)
+
+Exactly the approved shape from §9's addendum, restated here with the
+specific hooks this session's findings pin down:
+
+1. **Phase A — unchanged.** `computeIndentChange`/`lineIndentChange`
+   produce exactly the whitespace edits they do today. Not modified.
+2. **Phase B — provisional post-edit state**, built the same way §9's
+   addendum already specifies (`state.update({ changes })`, not
+   dispatched), with `ensureSyntaxTree` covering at least the affected
+   region before Phase C reads it — deferred to implementation time
+   whether the *whole* provisional document needs coverage or just the
+   affected lines' own containing blocks; not decided here.
+3. **Phase C — membership + validity check, per explicitly-touched
+   item**: for each `ListItem` the selection actually touched (not
+   "every line in a visual subtree" — §9's own uniform, per-line model
+   is unchanged), map its pre-edit `ListMark` position forward through
+   Phase A's `ChangeSet` (`mapPos`, confirmed available, §14's own
+   citation) and confirm in the provisional tree that (a) the mapped
+   position still resolves to a `ListMark` at all (§16.2's
+   first-item-hazard finding — if not, skip this item entirely, nothing
+   to normalize), and (b) whether its nearest `OrderedList` ancestor's
+   own identity (start position) differs from before. Only case (b)
+   being true triggers normalization for that item.
+4. **Phase C continued — plan normalization** for every distinct
+   source/destination `OrderedList` a touched item's membership change
+   implicates, using §16.3's conservative "only extend an
+   already-sequential run" policy independently for each, and gating
+   every individual digit rewrite through §16.5's width-safety check
+   before including it in the plan.
+5. **Phase D — one transaction.** Compose Phase A's `ChangeSet` with
+   Phase C's normalization `ChangeSet` via `ChangeSet.compose` (§9's own
+   addendum already cites the exact semantics) and dispatch once.
+
+**Explicitly not decided here**: whether Shift-Tab's own two
+newly-surfaced hazards (§16.2) should be fixed as part of building this
+feature, before it, or left as a separately-tracked, independent bug —
+this is a scope/sequencing decision for whoever approves the eventual
+implementation, not something this investigation resolves.
+
+### 16.9 Proposed test matrix (design only — nothing implemented)
+
+Organized by the request's own checklist, cross-referenced to which
+cases this session already has direct parser/command evidence for
+(marked ✓) versus which are net-new implementation-time obligations
+once Option B is actually built (marked —, meaning "no normalization
+exists yet to test," not "untested"):
+
+| Case | Structural evidence this session | Normalization behavior |
+|---|---|---|
+| First nesting transition (1 Tab, no membership change) | ✓ §16.2 | — no-op expected |
+| Second Tab, genuine nesting | ✓ §16.2 | — new item, plan `1.` or continue destination |
+| Second Tab, lands in the Rule #5 gap (3+-digit parent) | ✓ §16.2 | — must detect "no longer a ListItem" and skip |
+| Shift-Tab, complete nested group | ✓ §16.2 | — plan source-list closing normalization |
+| Shift-Tab, partial group (hazard) | ✓ §16.2 (pre-existing bug) | — must not be silently "fixed" by the normalizer as a side effect |
+| Single item Tab/Shift-Tab | ✓ §16.2 | — |
+| Multi-item selection (2, 3 items) | ✓ §16.2 | — plan whole affected run together, not per-item |
+| Existing destination list | ✓ §16.2 | — continue destination's own sequence, don't reset to `1` |
+| Empty destination (genuinely new list) | ✓ §16.2 (the base nesting case) | — start at `1` only here |
+| Source-list renumbering after departure | not directly probed this session | — NOT YET INVESTIGATED |
+| Arbitrary starts (`5,6,7`) | ✓ (Tab preserves unconditionally, §16.4) | — must preserve start, only close internal gaps |
+| Irregular numbering (`1,7,42`) | ✓ §16.1 (one list regardless) | — must not "repair," per §16.3's policy |
+| `.` delimiter / `)` delimiter | ✓ §16.1 (both split lists identically; Tab preserves either unconditionally) | — never rewrite the delimiter |
+| Mixed bullet/ordered nesting | ✓ §16.1/§16.2 | — normalizer must never touch a `BulletList`'s own markers |
+| Separate ordered lists (delimiter-split) | ✓ §16.1 | — normalizer must never conflate two lists sharing a delimiter coincidentally |
+| Paragraph-separated lists (blank line) | ✓ §16.1 | — confirmed genuinely separate; no cross-list normalization expected |
+| Paragraph, no blank line | ✓ §16.1 (does not split at all) | — no separate case; already one list |
+| Width boundaries (9→10, 99→100, etc.) | ✓ §15 (Enter), §16.5 (the constraint) | — must reuse or re-derive the identical safety gate |
+| Zero-padding | ✓ §15 (Enter) | — must reuse or re-derive the identical width-from-literal-length computation |
+| 9-digit maximum | ✓ §14.1 (confirmed the parser's own cutoff) | — normalizer must never generate a 10-digit marker |
+| Undo / redo | not directly probed this session (Phase D's one-transaction design implies single-step undo, same reasoning as §15.8) | — NOT YET INVESTIGATED, but low-risk given the composed-transaction design |
+| Cursor / selection mapping | not directly probed this session | — NOT YET INVESTIGATED |
+| One transaction | design-level only (§9's addendum, §16.8) | — NOT YET INVESTIGATED empirically |
+| Paste/load/source-preservation consistency | not directly probed this session | — NOT YET INVESTIGATED |
+
+### 16.10 What remains genuinely open — NOT YET INVESTIGATED
+
+- **The two newly-surfaced Tab/Shift-Tab hazards (§16.2)** — partial-
+  selection Shift-Tab destroying a left-behind sibling's own list-item
+  structure, and first-item-inclusive Tab producing a degenerate,
+  non-list result. Neither is fixed, scoped, or assigned to a phase by
+  this document yet.
+- **Source-list-side normalization mechanics specifically** — §16.2
+  confirmed the *structural* fact that Shift-Tab-ing a group correctly
+  re-attaches it with literal numbers preserved, but no probe this
+  session specifically exercised "the departure leaves a gap in the
+  source list that a normalizer would need to close" against a live
+  before/after numbering scenario (as opposed to Enter's own
+  `renumberList`, which already does exactly this for its own,
+  unrelated trigger). **NOT YET INVESTIGATED.**
+- **Undo/redo, cursor/selection mapping, and paste/load consistency**
+  for the proposed feature — all design-level only, none empirically
+  probed against a real (even prototype) implementation, because none
+  exists yet.
+- **Whether `isRiskyRenumberRewrite` should be extracted/shared or
+  re-derived** for the normalizer's own use (§16.5) — an
+  implementation-time decision, not a policy one, explicitly deferred.
+
+---
+
+## 17. Tab/Shift-Tab structural corruption — investigated, not implemented (2026-08-30)
+
+**Status: INVESTIGATED. No code changed in this session. Conclusion is
+Case C (see §17.7) — a fix would require reopening the already-reverted
+subtree-repair design §9 documents, so none was implemented.**
+
+Scope: the two hazards §16.2 surfaced while investigating ordered-list
+Tab/Shift-Tab *numbering* — (1) Tab selecting a list's first item
+together with later items, (2) Shift-Tab on only part of a nested group.
+Both are investigated here on their own terms, independent of numbering,
+per the explicit instruction that produced this section.
+
+### 17.1 Hazard 1 — Tab: first item + later items — IMPLEMENTED... no,
+INVESTIGATED + REPRODUCED
+
+Reproduction (`1. A\n2. B\n3. C`, select `A+B`, press Tab twice — 4
+spaces, i.e. two `INDENT_STEP_SPACES` presses):
+
+```
+before: 1. A / 2. B / 3. C
+after:  "    1. A\n    2. B\n3. C"
+```
+
+Resulting tree: **one** `ListItem` spans both physical lines —
+`ListItem[0,17) "    1. A\n    2. B"` with a single `ListMark` for `1.`
+and a `Paragraph` whose text is literally `"A\n    2. B"`. B's own `2.`
+never becomes a `ListMark` at all; B has no `ListItem`-hood left. `3. C`
+(untouched, still at column 0) becomes a second, correctly-parsed
+top-level `ListItem`, a sibling of the merged A+B item — so the
+resulting `OrderedList` now has *two* real items instead of three, and
+one of them silently contains two lines of un-nested source text.
+
+**Confirmed not selection-count-specific**: the identical swallow
+reproduces with `A+B+C` (all three selected), and with a single Tab
+followed by a second, separately-issued Tab (i.e., it is not an artifact
+of batching multiple lines into one `ChangeSet` — pressing Tab twice in
+a row on a live view produces the same result). It also reproduces at 3
+Tabs (6 spaces) — not a magic-4 special case, any width ≥4 with no
+enclosing container triggers it (§17.3 explains the exact threshold).
+
+**Confirmed not delimiter- or numbering-specific**: renumbering B's
+literal marker to `1.` (matching A) does not prevent the swallow —
+identical tree shape. Converting the whole example to bullets (`- A`,
+`- B`, `- C`) reproduces an **analogous but structurally different**
+failure — see §17.3's asymmetry finding; bullets do not lose
+`ListItem`-hood, they get silently re-parented instead.
+
+**Confirmed not selection-order-specific**: selecting only `B+C` (A left
+untouched, still at column 0) does **not** reproduce the hazard — B and
+C are correctly, cleanly nested as two real `ListItem`s inside a new
+`OrderedList` under A (§17.5, test 1p). The hazard requires the
+selection to include the list's **own first item**, specifically because
+that item has no real container to be nested "into" — see §17.4.
+
+### 17.2 Hazard 2 — Shift-Tab on part of a nested group — INVESTIGATED + REPRODUCED
+
+Reproduction (`1. A\n    1. B\n    2. C\n    3. D\n2. E`, all four
+possible single/pair Shift-Tab selections tested):
+
+| Selection | Result | B/C/D fate |
+|---|---|---|
+| B only | `1. A\n  1. B\n    2. C\n    3. D\n2. E` | **C and D both swallowed** into B's own `Paragraph` as plain continuation text — neither keeps `ListItem`/`ListMark` status |
+| C only | `1. A\n    1. B\n  2. C\n    3. D\n2. E` | B stays correctly nested under A; **D is swallowed** into C's `Paragraph` |
+| D only | `1. A\n    1. B\n    2. C\n  3. D\n2. E` | B and C stay correctly nested under A; D cleanly becomes its own top-level sibling — **nothing swallowed** |
+| B+C | dedent both, leave D | D (untouched) is **swallowed** into C's `Paragraph` |
+| C+D | dedent both, leave nothing after | B stays nested; C and D both become correct top-level siblings — **nothing swallowed** |
+| B+C+D | dedent all three | all three become correct top-level siblings — **nothing swallowed** |
+
+**Precise invariant, derived from this table**: Shift-Tab-ing item X out
+of a nested group corrupts an untouched item Y **only when Y
+immediately follows X in document order, was at X's old (deeper)
+column, and X was dedented while Y was not.** Dedenting the *entire*
+tail of a nested group (a contiguous suffix through the group's last
+item), or dedenting only the group's *last* item, never corrupts
+anything — there is nothing after the touched item left behind at the
+old column. This is not "any partial Shift-Tab is dangerous" — it is
+specifically "a partial *prefix* Shift-Tab, or a scattered non-suffix
+selection, leaves an orphan."
+
+**Confirmed for bullets too, but with a materially better failure
+mode**: the identical bullet reproduction (`- A / - B / - C / - D / - E`,
+same selections) shows the leftover siblings are never actually
+destroyed — they get **re-parented one level deeper**, correctly, as
+real `ListItem`s nested under the item that was dedented past them, e.g.
+`- B` (dedented) followed by `- C` / `- D` (untouched) parses as C and D
+becoming genuine children of B, inside a real nested `BulletList` — not
+swallowed into B's `Paragraph`. §17.3 explains exactly why bullets and
+ordered lists diverge here.
+
+### 17.3 Why bullets and ordered lists diverge — the marker-width mechanism — IMPLEMENTED + VERIFIED (the explanation, empirically confirmed against the parser)
+
+Both hazards reduce to the same arithmetic. After a dedent (or an
+initial over-indent) moves item X to a new column `c`, whether an
+untouched item Y sitting at the old column `oldCol` still parses
+correctly depends on where `oldCol` falls relative to two thresholds
+computed from X's *new* position:
+
+- **X's new content column** = `c + markerWidth(X) + 1` (the minimum
+  column for `oldCol` to still qualify as X's own nested child).
+- **The sibling tolerance ceiling for X's new level** = `c + 3` (the
+  CommonMark 0–3-space fuzz for a marker to still count as X's own
+  sibling at the same level).
+
+If `oldCol` is `> c+3` (fails sibling) `AND` `< c + markerWidth(X) + 1`
+(fails nesting), Y falls into the gap and is swallowed as lazy
+continuation of X's `Paragraph` — this is the exact same "Rule #5 gap"
+concept §14.9 already established for Tab, now shown to apply
+symmetrically to Shift-Tab.
+
+The step size in both Tab and Shift-Tab is fixed at
+`INDENT_STEP_SPACES = 2` (§9). A bullet marker is 1 character
+(`markerWidth = 1`), so a single 2-space step closes the gap exactly:
+X's new content column is `c + 2`, and every reproduction above places
+`oldCol` at precisely `c + 2` relative to X's new column — landing
+**exactly on** the nesting floor, so Y is re-parented as X's real child
+rather than swallowed. An ordered marker is 2 characters for single
+digits (`markerWidth = 2`), so the identical geometry (`oldCol = c + 2`)
+falls **1 column short** of the ordered item's new content column
+(`c + 3`) — inside the gap, not past it — so Y qualifies for neither
+sibling status nor child status and is swallowed as lazy continuation.
+The one-character difference in marker width is the entire divergence:
+the same edit, the same step size, the same starting geometry produces
+"cleanly re-parented" for bullets and "silently destroyed" for ordered
+lists, purely because `markerWidth(ordered) = markerWidth(bullet) + 1`.
+Wider ordered markers (2+ digits) only widen this same gap further —
+consistent with, not separate from, §14's own finding about
+digit-width-driven nesting failures. **Net effect: for ordered lists,
+exactly the same class of edit that safely re-parents a bullet list is a
+genuine `ListItem`-destroying edit — the divergence is entirely
+explained by the marker-width-vs-step-size mismatch this document has
+already identified as ordered lists' central structural issue (§14.13),
+not a new, independent defect.**
+
+### 17.4 Is `IndentedCode` removal causal? — IMPLEMENTED + VERIFIED (yes, for Hazard 1's specific trigger condition)
+
+Directly tested by re-running Hazard 1's reproduction through a second,
+"baseline" parser config — `markdownGrammarExtensions` with the
+`{ remove: ['IndentedCode'] }` entry left out — everything else
+identical:
+
+- **A lone, document-initial `1. A` item, indented to 4 spaces (two
+  Tabs) under the *production* grammar**: parses as `OrderedList` >
+  `ListItem` > `ListMark "1."` — a real list item, per §17.1.
+- **The identical text under the *baseline* grammar (`IndentedCode`
+  present)**: parses as `CodeBlock` > `CodeText "1. A"` — not a list at
+  all. This is exactly CommonMark's standard behavior: 4+ columns of
+  leading indentation with no established container is an indented code
+  block, full stop.
+- **The full `A+B` reproduction under baseline**: the *entire* two-line
+  span becomes one `CodeBlock` (`CodeText "1. A\n"` + `CodeText "2. B"`)
+  followed by `3. C` as a normal, untouched sibling `ListItem`. Under
+  baseline, both A and B lose list-item-hood **together, consistently**
+  — a well-defined, unsurprising CommonMark outcome (a user who
+  triple-Tabs a list into oblivion gets a code block, not corruption).
+
+**Conclusion: `IndentedCode` removal is directly causal for Hazard 1's
+*existence as a partial, asymmetric corruption* rather than a clean,
+consistent (if surprising) code-block reclassification.** Without the
+removal, over-indenting a document-initial list produces a different,
+arguably more defensible outcome (uniform code-block reclassification)
+than what Clutter's grammar produces (one item silently keeps
+`ListItem` status while its sibling silently doesn't). This is not
+presented as a reason to reverse the `IndentedCode` removal — that
+decision's own tradeoffs are already documented and out of scope per
+the task instructions — only as a precise causal answer to the question
+asked. Hazard 2 (Shift-Tab) does **not** depend on `IndentedCode` at
+all — it reproduces identically regardless of that grammar setting,
+since it never involves indentation deep enough to reach the
+indented-code threshold in the first place; it is pure Rule #5 gap
+arithmetic (§17.3).
+
+### 17.5 Is this a Clutter Tab bug, a Markdown limitation, or unavoidable? — IMPLEMENTED + VERIFIED (native CM6 comparison)
+
+Both hazards were re-run through **plain, unmodified `@codemirror/commands`
+`indentMore`/`indentLess`** (not Clutter's `markdownIndentMore`/
+`markdownIndentLess`) against the exact same grammar (`markdownLanguageExtension()`
+plus an `indentUnit.of('  ')` facet so the step size matches):
+
+- Hazard 1 (`A+B`, two `indentMore` presses): **byte-identical** output
+  and tree to Clutter's own command — `"    1. A\n    2. B\n3. C"`, same
+  single-`ListItem`-swallowing-B shape.
+- Hazard 2 (Shift-Tab B only, via `indentLess`): **byte-identical**
+  output and tree to Clutter's own command.
+
+**This settles §17's central question: this is Case A, not Case B.**
+Clutter's Tab/Shift-Tab commands are not introducing any behavior beyond
+"add/remove `INDENT_STEP_SPACES` of leading whitespace on the selected
+physical lines, then let the parser reparse" — exactly what §9's
+contract already says they do, and exactly what generic CM6's own
+built-in indent commands do given the same grammar. The corruption is a
+property of **CommonMark list-nesting arithmetic interacting with
+Clutter's `IndentedCode` removal (Hazard 1) and with plain marker-width
+math (Hazard 2)**, not of any Clutter-specific Tab/Shift-Tab logic. A
+manual, hand-typed document with the exact same post-edit source (no Tab
+or Shift-Tab involved at all) parses identically — confirmed implicitly
+by the fact that every reproduction above is inspected purely by
+re-parsing the resulting text; nothing about the tree shape depends on
+which command produced the bytes.
+
+### 17.6 Can the hazard be prevented without construct-aware indentation? — INVESTIGATED + REJECTED
+
+Per §9's own already-recorded history (the file's top doc comment,
+`markdownIndentKeymap.ts` lines 12–47): a construct-aware, hierarchy-
+preserving version of Tab/Shift-Tab was already built, evaluated, and
+reverted before this session began, specifically because achieving a
+genuine "never let an edit corrupt an unselected line's structure"
+guarantee **is not achievable while staying valid CommonMark** — the
+prior investigation that produced that revert is exactly the same
+class of problem posed by Hazard 1 and Hazard 2. This session's findings
+are consistent with, not a new challenge to, that prior conclusion:
+every one of the six alternatives the current instructions asked to
+consider (constrain the selection, map/adjust it differently, detect the
+first item's special role, etc.) would require exactly the kind of
+descendant-aware, selection-independent rewriting `markdownIndentKeymap.ts`'s
+comment already documents as tried and reverted for producing no real
+benefit over plain per-line edits except two narrow cosmetic cases.
+Nothing probed this session surfaces a new, narrower angle that prior
+work didn't already cover — re-attempting it would be re-opening a
+closed investigation, not applying its result to a new case.
+
+### 17.7 Smallest safe invariant, and which Case this actually is
+
+Evaluating the four candidate invariants against the evidence above:
+
+- **Invariant A/B/C** (some version of "an edit must not corrupt an
+  unselected line's structure") — would require exactly the
+  descendant-aware rewriting §17.6 shows was already tried and reverted;
+  cannot be achieved while keeping Tab/Shift-Tab a pure physical-line
+  edit, i.e., cannot be achieved without violating §9's Locked contract.
+- **Invariant D** ("the current physical-line model is fundamentally
+  insufficient for this operation") — is the conclusion this
+  investigation actually supports, not because the model is *wrong*,
+  but because it is a **direct, documented consequence of the same
+  design tradeoff §9 already made deliberately**, and because §17.5
+  shows generic CM6 has the identical limitation given the same
+  grammar. There is no "smaller" invariant available between "accept
+  the physical-line model's consequences" and "rebuild hierarchy
+  preservation" — the prior investigation already searched that space.
+
+**This is Case C** (per the investigation framework's own three
+options): *the operation cannot be made structurally safe without
+violating the existing §9 physical-line contract.* Per the explicit
+instruction governing this phase, this means: **stop and report, do not
+implement.**
+
+### 17.8 Proposed fix
+
+**None.** Per §17.7's Case C conclusion, no fix is proposed for
+implementation in this session. If this is revisited in the future, the
+two directions on the table are the same two §14/§16 already named for
+the unrelated numbering problem — a narrower per-case guard (e.g.,
+detect "the selection includes a list's own first item and the result
+would push it past its current sibling-tolerance ceiling" and decline to
+apply the edit to that one line) or full construct-aware Tab — and both
+require an explicit, deliberate amendment to §9's Locked contract before
+any code is written, exactly as items 7/8 in the consolidated open-
+questions list already require for the numbering-side changes. Nothing
+here is more implementable today than those already-deferred items.
+
+### 17.9 Regression test matrix (proposed, not implemented)
+
+| Case | Source shape | Selection | Expected today (per this investigation) |
+|---|---|---|---|
+| Tab: first item alone | `1. A` doc-initial | A only | stays a lone top-level `ListItem`, no corruption possible (nothing follows) |
+| Tab: first + second | `1. A\n2. B\n3. C` | A+B, 2 presses | **B swallowed into A's paragraph** — corruption |
+| Tab: first + all | same | A+B+C, 2 presses | **B swallowed**, C untouched and safe |
+| Tab: second + third only | same | B+C, 2 presses | correctly nested under A — **no corruption** |
+| Tab: first + nested descendants | `1. A\n2. B\n   1. Child\n3. C` | A+B | B (and its own child) swallowed the same way |
+| Tab: bullet equivalent, first+second | `- A\n- B\n- C` | A+B, 2 presses | **not swallowed — re-parented** as B's real nested child (structurally valid, different hierarchy than before) |
+| Tab: mixed paragraph/list, first+second | `1. A\n2. B\n3. C\nPara` | A+B | same swallow, Para unaffected |
+| Shift-Tab: first nested item alone | `1. A\n    1. B\n    2. C\n    3. D\n2. E` | B only | **C and D swallowed** into B's paragraph |
+| Shift-Tab: middle nested item alone | same | C only | **D swallowed** into C's paragraph; B safe |
+| Shift-Tab: last nested item alone | same | D only | **no corruption** — B, C stay nested, D becomes a clean sibling |
+| Shift-Tab: first+middle | same | B+C | **D swallowed** |
+| Shift-Tab: middle+last (suffix) | same | C+D | **no corruption** |
+| Shift-Tab: whole nested group | same | B+C+D | **no corruption** |
+| Shift-Tab: bullet equivalent, first alone | `- A\n  - B\n  - C\n  - D\n- E` | B only | **not swallowed — re-parented**, C/D become B's real nested children |
+| Native CM6 cross-check | any of the above | same | byte-identical to Clutter's own command (already confirmed, §17.5) |
+
+Every row marked "no corruption" or "re-parented" above has direct
+parser-tree evidence from this session (§17.1/§17.2/§17.5); every row
+marked "swallowed" likewise. Nothing in this table is a projection.
+
+### 17.10 Summary of evidence labels for this section
+
+- §17.1, §17.2 (reproductions): **INVESTIGATED + REPRODUCED**.
+- §17.3 (marker-width mechanism): **IMPLEMENTED + VERIFIED** (as an
+  empirically-confirmed explanation — nothing was implemented in code,
+  "verified" here means directly checked against the parser, matching
+  this document's established labeling convention for a confirmed-by-
+  direct-inspection finding).
+- §17.4 (`IndentedCode` causality): **IMPLEMENTED + VERIFIED**.
+- §17.5 (native CM6 comparison): **IMPLEMENTED + VERIFIED**.
+- §17.6 (alternative-design search): **INVESTIGATED + REJECTED**.
+- §17.7 (invariant/Case determination): **Case C — ACCEPTED LIMITATION**,
+  not a bug to schedule.
+- §17.8 (fix): **NOT IMPLEMENTED**, deliberately, per §17.7.
+- §17.9 (test matrix): **NOT YET INVESTIGATED as automated tests** — the
+  underlying tree shapes are confirmed (this session's own probes), but
+  no permanent test file was added since no code changed and this
+  document's convention is to add regression tests alongside a fix, not
+  in place of one.
+
+---
+
+## 18. Logical list-level Tab/Shift-Tab semantics — investigated, not implemented (2026-08-30)
+
+**Status: INVESTIGATED. No production code changed. A closed-form,
+non-trial-and-error implementation model was found feasible and, as a
+side effect, was shown to eliminate both Phase 17 hazards in every
+tested case — but this is a design recommendation, not an approved
+change to §9's Locked contract.**
+
+### 18.1 Product expectation under test
+
+> One Tab on a list item should mean "move this item one logical list
+> level deeper," not "add exactly `INDENT_STEP_SPACES` and hope the
+> parser happens to reclassify it as nested." One Shift-Tab should mean
+> the inverse: "move this item one logical list level outward."
+
+Today's Tab/Shift-Tab (§9) do neither — they add/remove a fixed 2
+columns regardless of what "one level" actually requires for the
+specific marker involved. This section investigates whether a
+level-aware model is achievable without abandoning Markdown as the
+canonical source of truth (i.e., without storing any indent-level state
+outside the text itself).
+
+### 18.2 What source indentation one logical level actually requires — IMPLEMENTED + VERIFIED (empirically swept against the real parser)
+
+Swept, for a parent at column 0, the minimum/maximum child indentation
+that the *installed* `@lezer/markdown@1.7.2` parser (through Clutter's
+own `markdownLanguageExtension()`) recognizes as genuinely nested under
+that parent, for every marker width in play:
+
+| Parent marker | `markerWidth` | Content column (nesting floor) | Nested window | Swallow gap before the floor |
+|---|---|---|---|---|
+| `-` / `*` / `+` (bullet) | 1 | 2 | [2, 5] | none (0–3 sibling tolerance meets the floor exactly) |
+| `1.` (1-digit) | 2 | 3 | [3, 6] | none |
+| `10.` (2-digit) | 3 | 4 | [4, 7] | none |
+| `100.` (3-digit) | 4 | 5 | [5, 8] | **column 4 is an orphan gap** — too indented to be a sibling (>3), too shallow to nest (<5) |
+| `1)` (paren-style) | 2 | 3 | [3, 6] | none (identical to `.`-style) |
+
+**The formula, confirmed exactly for every row above and for a second
+nesting level (§18's grandchild sweep, `1. Parent` → `1. Child` at
+column 3 → grandchild swept 0–8) with no deviation**:
+
+```
+contentColumn(item) = item's own column + markerWidth(item's marker) + 1
+```
+
+This is the same formula §14.9/§17.3 already derived analytically —
+this section's contribution is confirming it holds identically at a
+second nesting level (parent→child→grandchild), not just parent→child,
+and confirming the swallow-gap-vs-clean-floor split correlates exactly
+with `markerWidth ≥ 4` (3+ digit ordered markers only) — 1–2 digit
+ordered markers and all bullet styles have *no* gap at all, matching
+§14's own finding that the practical severity is digit-width-specific.
+
+**Consequence for the product question**: "one logical level" requires
+a *different* number of columns depending on the parent's own marker
+width — 2 for bullets, 3 for 1-digit ordered, 4 for 2-digit ordered, 5
+for 3-digit ordered, and so on (`markerWidth + 1`, uncapped as digit
+count grows, matching §14.1's already-confirmed up-to-9-digit ceiling).
+There is no single fixed number that is correct for every case.
+
+### 18.3 Is a public API available for this, or must private parser internals be reproduced? — IMPLEMENTED + VERIFIED (no public API; the public tree-geometry approach works and needs no private internals)
+
+`@codemirror/language` does export a public `getIndentation(state, pos)`
+function. Tested directly against `"1. Parent"`, `"10. Parent"`,
+`"100. Parent"`, `"1000. Parent"`, `"- Parent"`, and `"1) Parent"`, at
+the position right after each line (where CM6's own auto-indent-on-Enter
+machinery would consult it): **`getIndentation` returns `null` in every
+case.** This confirms `@lezer/markdown`'s `List`/`ListItem`/`OrderedList`
+nodes register no `indentNodeProp` — the public auto-indent API this
+grammar could have hooked into simply isn't wired up for lists, matching
+the prior investigation's finding that `getListIndent()` exists
+internally but is not exported.
+
+**However, the formula in §18.2 does not require that private function
+or any private API at all.** It is fully reproducible using only public
+`@lezer/common` `SyntaxNode` surface already used elsewhere in this
+codebase (`node.name`, `node.from`, `node.to`, `.parent`, `.firstChild`,
+`.nextSibling`) — reading a real preceding sibling's own `ListMark`
+node's `to` position and adding 1. No copying of `@lezer/markdown`'s
+internal `getListIndent` logic is needed; the same result falls out of
+inspecting the tree the parser already produces.
+
+### 18.4 One-Tab transitions — exhaustively tested, prototype (test-only, not shipped)
+
+A minimal prototype ("Model C", test-only code in a deleted probe file,
+never merged) was built to make this concrete: for the first selected
+line's `ListItem`, find its true previous sibling within the same list
+container in the **pre-edit** tree; if that sibling already contains a
+nested list, reuse that nested list's own reference column (join the
+existing destination, per §16.3's "join, don't duplicate" policy); if it
+doesn't, target = `contentColumnOf(precedingSibling)` from §18.2's
+formula. Shift by exactly that delta.
+
+Tested and confirmed **exactly one structural level crossed**, before
+and after tree checked in every case:
+
+| Case | Result |
+|---|---|
+| 1-digit parent → child | depth 0 → 1, delta computed = 3 |
+| 2-digit parent → child | depth 0 → 1, delta computed = 4 |
+| 3-digit parent → child | depth 0 → 1, delta computed = 5 |
+| Bullet parent → child | depth 0 → 1, delta computed = 2 |
+| Level-1 item → level-2 (nest under its own preceding level-1 sibling) | depth 1 → 2, delta computed fresh from the *level-1* sibling's own marker, not the top-level parent's |
+| Existing destination list already present | new item joins the *existing* nested list at its established column — does not create a redundant second nested list |
+| First item of a list (no preceding sibling anywhere) | **correctly a no-op** — there is nothing to nest under, matching standard outliner UX (Workflowy/Notion/OneNote all refuse to indent a list's first item) |
+| Item with multiline continuation content | continuation moves by the *same* delta as the marker line, staying aligned to the item's new content column — confirmed only when the edit is scoped to the item's full node span (`item.to`), not just the touched line; a single-line-only scope left continuation mis-aligned (relatively harmless for plain text, since CommonMark's paragraph-laziness rule doesn't require any specific column for continuation text — but this **would** matter if continuation itself contained a marker-like line, so real correctness requires span-aware, not line-only, application) |
+| Item with its own nested descendants | descendants shift by the same delta, staying valid, tested directly |
+| `1)` marker parent | identical formula and result to `.`-style (§18.2's table already covers this — no separate transition table needed, the geometry is delimiter-agnostic) |
+| Ordered parent, bullet-marker line immediately after it at column 0 | **not a valid "mixed same-level" case at all** — §16.1 already established a delimiter/kind change always splits into two independent top-level lists; the bullet line has no preceding sibling *in its own list* (it's the first and only item of a brand-new `BulletList`), so Model C correctly reports "no target," which is the right answer for a case that cannot occur as a real nested-vs-sibling ambiguity in the first place |
+
+**Multi-item selection (including the exact Phase 17 Hazard 1 shape)**:
+extended the prototype to walk *all* top-level selected `ListItem`s in
+document order, computing the first one's delta from its true (possibly
+unselected) preceding sibling, and reusing that same delta for
+subsequent selected siblings so they stay siblings of each other (if the
+first item's delta was 0 — i.e., it was the list's own first item — the
+next selected item computes its own fresh delta from the still-unmoved
+first item instead). Tested directly against Phase 17's own
+reproduction:
+
+```
+before: 1. A / 2. B / 3. C   (select A+B, Tab)
+after:  1. A / "   2. B" / 3. C   — B correctly depth 1 under A, A unmoved, C untouched
+```
+
+and the 3-digit worst case (`100. A` / `101. B` / `102. C`, same
+selection) produces the identical clean result with delta 5 instead of
+3. **Neither reproduces Phase 17's swallow.** See §18.7.
+
+### 18.5 Shift-Tab as the inverse — tested, confirmed asymmetric-but-sound
+
+The natural inverse rule: for a selected `ListItem`, find its immediate
+parent `ListItem` (the item that owns the enclosing list); if none,
+already top-level, no-op; otherwise target = that parent's own column
+exactly (become a sibling of your own current parent). Tested against
+Phase 17's own Hazard 2 fixture (`1. A` with nested `1. B` / `2. C` /
+`3. D`, then `2. E`):
+
+| Selection | Result under the logical model |
+|---|---|
+| B only | B moves to column 0 (sibling of A). **C and D are not swallowed — they are correctly re-parented as B's own nested children** (a real, valid `BulletList`/`OrderedList` under B) |
+| C only | B stays nested under A; C moves to column 0; **D is re-parented under C**, not swallowed |
+| D only (last child) | B, C stay under A; D cleanly becomes a top-level sibling — matches Phase 17's finding that dedenting the last item was always safe |
+| Top-level item | correctly a no-op (no parent to become a sibling of) |
+| 3-digit nested marker (`100.` nested under a 1-digit parent) | moves from column 5 to column 0 in one step, no intermediate mis-parse |
+
+This is standard outliner semantics (Workflowy/OneNote/Word: outdenting
+a middle item takes its remaining younger siblings with it as its own
+new children) — not a compromise invented to dodge Phase 17, but the
+behavior a *deliberate*, full jump to the parent's column produces
+naturally, instead of an arbitrary partial jump landing in the gap
+between "sibling" and "child" that §17.3 identified as the actual
+defect. **Shift-Tab is not a naive mirror of Tab's delta** — Tab's delta
+is `+ (markerWidth(precedingSibling) + 1)`; Shift-Tab's is
+`− (own column − parent's column)`, a different quantity computed from
+a different anchor (parent vs. preceding sibling) — but both are
+single, closed-form, no-trial-and-error calculations from the same kind
+of tree geometry.
+
+### 18.6 Model comparison
+
+| Model | Verdict |
+|---|---|
+| **A — fixed 2 spaces (current)** | Confirmed insufficient: only correct for bullets and coincidentally for 1-digit-ordered-into-bullet transitions; wrong for every ordered marker width ≥ 2 digits (§18.2), and is the direct mechanism behind both Phase 17 hazards (§17.3). |
+| **B — fixed 4 spaces** | Tested against the same table: correct only for exactly `markerWidth = 3` (2-digit ordered, content column 4); wrong (over-shoots into the swallow gap or beyond) for bullets, 1-digit ordered, and 3+-digit ordered alike. **Confirmed, not assumed, to be no better than Model A** — a different wrong constant is still wrong. |
+| **C — marker/content-column-aware (this section's prototype)** | Feasible with a closed-form, single-pass calculation, using only public Lezer tree geometry (§18.3). Produces exactly one logical level in every tested transition (§18.4/§18.5) and, as a side effect, does not reproduce either Phase 17 hazard in any tested case. |
+| **D — provisional-edit + reparse-and-retry** | **Not needed.** §18.2's formula is deterministic and closed-form; there is no case in this investigation where the correct target column had to be *discovered* by trial edits rather than *computed* directly from the existing tree. Model D would add a second parse pass and rollback logic for a problem Model C already solves without it. |
+
+### 18.7 Effect on the Phase 17 hazards
+
+Per the instruction not to fix these individually but to determine
+whether a logical-level model naturally eliminates them:
+
+- **Hazard 1 (Tab: first item + later items)** — **eliminated in every
+  tested case** (§18.4's multi-item table). The mechanism is direct: the
+  model never applies the old flat, marker-width-blind delta that
+  produced the gap in the first place; the list's own first item
+  legitimately has no logical target and is left alone (a UX
+  improvement in its own right, matching every mainstream outliner),
+  and every other selected item gets a delta *sufficient* to clear its
+  own content-column floor, never an arbitrary fixed amount that might
+  fall short.
+- **Hazard 2 (Shift-Tab: partial nested-group dedent)** — **eliminated
+  in every tested case** (§18.5's table). The mechanism: the model
+  always jumps a full, correct amount (to the parent's own column), so
+  a left-behind sibling either stays correctly nested under the
+  now-more-deeply-indented item that got dedented past it (re-parented,
+  structurally valid) or, if it's the last item in the chain, needs no
+  reattachment at all. There is no case where the jump is *too small*
+  to clear the recomputed content-column floor, which was the exact
+  cause of the swallow in §17.3.
+- **3+-digit ordered markers** — the model's delta is *derived from* the
+  marker width, so it is correct by construction at every digit count
+  tested (1, 2, 3 digits); nothing in the formula caps out or degrades
+  as digit count grows, consistent with §14.1's 9-digit ceiling.
+- **The lazy-continuation tolerance window (Rule #5 gap)** — not
+  eliminated as a parser fact (CommonMark's own rule still exists and
+  always will), but **no longer reachable through an intentional,
+  correctly-computed Tab/Shift-Tab**, since the model's target is always
+  either past the entire window (nesting) or exactly at a sibling's own
+  column (0 relative offset) — it never lands inside the gap the way a
+  fixed, marker-width-blind step can.
+- **`IndentedCode` removal** — orthogonal. §17.4 traced Hazard 1 to this
+  removal specifically in the *document-initial, no-container* case,
+  which the logical model sidesteps entirely by refusing to move the
+  first item of any list (there is no scenario left where a first item
+  gets pushed to 4+ columns by this command). Removing `IndentedCode`
+  remains a live, deliberate, unrelated tradeoff (§16.2/§17.4) — the
+  logical model does not depend on it being reversed or retained either
+  way.
+- **Multiline descendants / mixed selections** — handled correctly
+  *only* when the implementation moves an item's full node span
+  (marker line + continuation + nested descendants), not just the
+  explicitly-touched line (§18.4's continuation-content finding). This
+  is a **scope requirement for any real implementation**, not a
+  remaining hazard — the span-aware prototype variant handled it
+  correctly in every case tested.
+
+**None of the Phase 17 hazards are "naturally eliminated" as an
+accident of luck — each traces to the exact same root cause §17.3
+already named (a fixed, marker-width-blind step landing short of or
+inside the Rule #5 gap), and the logical model removes that root cause
+directly, by construction, not by patching each hazard's symptom
+separately.**
+
+### 18.8 Architectural constraint — compliance check
+
+The existing contract (§9, restated by this phase's own instructions):
+indentation must be derived from the resulting source on the next
+reparse, never from which keyboard action produced it, and no hidden
+"indent level" state may be introduced.
+
+The prototype complies: every target column is computed **fresh, from
+the current (pre-edit) syntax tree**, on every keypress — nothing is
+cached, remembered, or carried across presses. The pipeline is exactly:
+
+```
+current source/tree → read a real sibling/parent's marker geometry
+    → compute one target column → emit a plain leading-whitespace edit
+    → new source → parser determines the final structure on reparse
+```
+
+This is the same shape as today's Tab (§9), with one difference: today's
+`lineIndentChange` computes its target using a constant
+(`current ± INDENT_STEP_SPACES`); the prototype computes its target using
+a value read from the tree (`contentColumnOf(precedingSibling)` /
+`parentItem's own column`) instead of a constant. No new persisted
+state, no keyboard-action-dependent branching survives past the single
+transaction, and the result is exactly as re-derivable from the
+resulting Markdown alone as today's behavior — a manually-typed
+document with the identical resulting indentation parses identically,
+by construction (nothing about the tree depends on how the bytes got
+there).
+
+### 18.9 Recommended architecture (recommendation only — not approved)
+
+**Feasible, and recommended for a future implementation pass, subject
+to explicit approval**: replace `lineIndentChange`'s constant-based
+target (§9's current `current ± INDENT_STEP_SPACES`) with a tree-derived
+target using the geometry in §18.2–§18.5, scoped to each top-level
+selected `ListItem`'s **full node span** (not just the touched physical
+line), with:
+
+- Tab: target = preceding sibling's existing nested-list reference
+  column if one exists, else `contentColumnOf(precedingSibling)`; no
+  target (no-op) if there is no preceding sibling.
+- Shift-Tab: target = the immediate parent `ListItem`'s own column; no
+  target (no-op) if already top-level.
+- Multi-item selections: first selected top-level item computes its own
+  delta (0 if it has no target); later selected top-level siblings reuse
+  that delta once established, or compute their own fresh delta from the
+  still-unmoved earlier item if the running delta is still 0.
+- Non-list lines (paragraphs, headings, blockquotes, code) untouched by
+  this section — §9's existing flat, construct-agnostic behavior is not
+  proposed to change for them; this model only applies where the
+  selected line's own `ListItem` can be resolved in the pre-edit tree.
+
+This is a recommendation for **§9's Locked contract to be explicitly
+amended**, not something implemented in this session. Per the governing
+instruction, §9's text is left untouched until that approval is given.
+
+### 18.10 Proposed test matrix (design only — nothing implemented)
+
+In addition to every transition already tested empirically in
+§18.4/§18.5 (kept as direct evidence, not re-listed here), a real
+implementation would need automated coverage for:
+
+- Undo/redo of a single logical Tab/Shift-Tab (expected: one transaction,
+  matching §9/§15's existing "one edit = one transaction" pattern —
+  not empirically probed against this specific prototype this session).
+- Cursor/selection mapping through a variable (non-constant) delta —
+  not empirically probed this session (today's fixed-step caret mapping,
+  §9, assumes a known constant; a variable delta changes the mapping
+  arithmetic but not its shape).
+- Selections spanning **multiple, unrelated lists** (not just multiple
+  items of one list) — not tested this session.
+- Interaction with the still-unresolved ordered-list *numbering*
+  question (§16) — explicitly out of scope per this phase's own
+  instructions; whatever numbering policy is eventually approved would
+  need to be layered on top of whichever indentation model is approved,
+  not the reverse.
+- The already-identified `MAX_INDENT_LEVELS` ceiling (§9) — a variable-
+  width delta changes how many *Tab presses* are needed to reach the
+  ceiling from a given marker width; the ceiling's own column value
+  (10 spaces) was not re-examined against a variable-delta model this
+  session.
+
+### 18.11 Summary of evidence labels for this section
+
+- §18.2 (content-column formula, swept): **IMPLEMENTED + VERIFIED**.
+- §18.3 (public API search): **IMPLEMENTED + VERIFIED** (no public API;
+  public tree geometry suffices).
+- §18.4 (one-Tab transitions, prototype): **IMPLEMENTED + VERIFIED**
+  (as a test-only prototype, not shipped — every listed transition has
+  direct before/after tree evidence from this session).
+- §18.5 (Shift-Tab inverse, prototype): **IMPLEMENTED + VERIFIED**, same
+  caveat as §18.4.
+- §18.6 (model comparison): **INVESTIGATED + REJECTED** for A, B, D;
+  **INVESTIGATED, RECOMMENDED** for C.
+- §18.7 (hazard interaction): **IMPLEMENTED + VERIFIED** (empirically
+  re-run against the prototype, not asserted).
+- §18.8 (architecture compliance): **IMPLEMENTED + VERIFIED** (the
+  prototype's own data flow was inspected directly, not assumed
+  compliant).
+- §18.9 (recommended architecture): **RECOMMENDATION, NOT APPROVED** —
+  §9's Locked contract is unchanged pending explicit sign-off.
+- §18.10 (test matrix): **NOT YET INVESTIGATED as automated tests** —
+  design-level only, consistent with §17.9's own convention (tests
+  accompany an approved fix, not a recommendation).
+
+### 18.12 Final design pass (2026-08-30) — resolving §18.10's open items before approval
+
+Six targeted follow-up probes (test-only, deleted after use), closing
+every item §18.10 had left open, plus the numbering-non-interference
+confirmation:
+
+**1. Multiline items and descendants.** Confirmed (again, against a
+plain-text continuation case): a continuation line with no blank line
+before it is lazy-continued into the SAME `ListItem`'s `Paragraph` — it
+is not a separate node to reason about. Any real implementation must
+apply its computed delta across the item's **full node span**
+(`item.from`–`item.to`), never just the physically-selected line, so
+continuation and nested descendants stay aligned to the item's new
+content column. This was already stated in §18.4; this pass found no
+exception to it.
+
+**2. Multiple selected items, including mixed list/non-list selections.**
+Two real gaps were found in the §18.4 prototype, both resolvable, and a
+third is a genuine design decision, not a technical blocker:
+
+- **Multiple independent lists in one selection** (e.g. a selection
+  spanning two lists separated by a blank line) — the §18.4 prototype
+  only walked the *first* selected item's own container and silently
+  ignored a second, unrelated list also touched by the same selection.
+  **Required fix**: the real implementation must identify every
+  distinct top-level list container touched by the selection and run
+  the per-container algorithm (§18.4/§18.9) independently for each one
+  — not a change to the algorithm itself, just its outer loop.
+- **A selection that starts on a non-list line** (e.g. a heading) and
+  extends into a list below it — the prototype's `findListItemAt` on
+  `range.from` returned `null` and the whole selection was treated as a
+  no-op, silently dropping the list lines too. **Required policy,
+  confirmed necessary, not previously stated**: dispatch per physical
+  line by whether that line resolves to a `ListItem` in the pre-edit
+  tree, not by what the selection's own start line is. A line that
+  isn't part of any `ListItem` (heading, blockquote, plain paragraph
+  with no owning list) keeps §9's **existing** flat, construct-agnostic
+  `± INDENT_STEP_SPACES` behavior unchanged; a line that is part of a
+  `ListItem` uses the new logical target for that item's whole span.
+  This means the amendment is additive and scoped — non-list lines are
+  provably untouched by it, addressing the "mixed selection" case
+  cleanly.
+- **Which delta a later selected sibling should reuse when lists differ
+  in kind or width** — not newly probed this pass (already covered by
+  §18.4's skip-then-reanchor design, which computes per-container, so a
+  second list's own first selected item establishes its own fresh
+  delta independently of the first list's).
+
+**3. Cursor/selection mapping under a variable delta.** Tested directly:
+caret at content-start of a Tab-moved item, caret mid-word, and a
+multi-item selection with a composed multi-part `ChangeSet`. **All three
+mapped exactly correctly using the existing mechanism already in
+production** (`state.selection.map(changeSet, 1)` for Tab's forward
+insertion case, unchanged from §9's current caret-tracking fix) — no new
+mapping logic, special-casing, or variable-delta-aware code is required.
+CM6's `ChangeSet` position-mapping is delta-magnitude-agnostic by
+design; today's code already builds one `ChangeSet` from a list of
+per-line `ChangeSpec`s and maps the selection through it once, and nothing
+about that step depends on every `ChangeSpec` inserting the *same* number
+of characters. **This item is resolved: no open risk.**
+
+**4. Interaction with the existing Enter width-boundary fix (§15).**
+Tested directly: built a document whose 3-digit-adjacent nesting shape
+mirrors what a logical Tab would produce (`8. A` / `9. B` /
+5-space-nested `1. Child` / `10. C`), then pressed Enter on `B`. Result:
+`continueMarkupPreservingStructure` (§15) declined exactly the risky
+`9→10` rewrite that would have broken `Child`'s nesting, while still
+applying the independently-safe `10→11` rename to the trailing sibling
+— **byte-identical to §15's own documented behavior**, with zero
+awareness of, or dependency on, how the document's indentation arose.
+This confirms what §9's architecture already implies: Enter's guard
+reads the tree at Enter-time and has no coupling to Tab/Shift-Tab at
+all — **the two features do not need to coordinate, and neither
+implementation constrains the other.**
+
+**5. Numbering remains untouched.** Confirmed by construction, not by a
+new probe: every change emitted by the §18.4/§18.5/§18.9 design is a
+`{ from, to, insert: ' '.repeat(n) }` replacement scoped to a line's
+*leading whitespace range only* — it never touches a `ListMark` node's
+own character range, and no code path in the recommended architecture
+reads or writes a marker's digits, delimiter, or numeric value.
+Numbering (§16) remains a fully separate, still-undecided concern, to
+be layered on top of whichever indentation model is approved, exactly
+as §18.10 already stated.
+
+**6. Final §9 contract amendment and architecture — see the "Final
+recommended behavior and architecture" summary delivered alongside this
+entry.** No production code was changed to produce it; this entry
+documents that a text-only design report was delivered and is pending
+approval, not that any code was written.
+
+**Evidence label for this entry: IMPLEMENTED + VERIFIED** for items
+1–5 (all directly probed or confirmed by direct code inspection this
+pass); item 6 is a **RECOMMENDATION, NOT APPROVED**, same status as
+§18.9.
+
+---
+
+## 19. Backspace on an empty ordered-list item now closes the numbering gap, matching Enter (2026-08-30, IMPLEMENTED)
+
+**Reported directly by the user**: `1. Text / 2. Text`, Enter after
+`1. Text` produces `1. Text / 2. / 3. Text`. From there, Enter on the
+empty `2.` renumbers `3.` down to `2.`; Backspace on the same empty `2.`
+left `3.` untouched. Investigated first (this section), then fixed, per
+explicit instruction not to assume every ordered-list deletion should
+renumber.
+
+### 19.1 Where each command's behavior lives
+
+- **Enter's renumber**: CM6's own `insertNewlineContinueMarkupCommand`
+  (`@codemirror/lang-markdown@6.5.2`), in its "empty item, exit list"
+  branch — confirmed by direct source read: `if (inner.node.name ==
+  "OrderedList") renumberList(inner.item, doc, changes, -2);`. Not
+  Clutter's code at all; upstream, built-in convention.
+- **Backspace's (previous) non-renumber**: `deleteMarkupBackward`
+  (same package) never references `renumberList`/`itemNumber` anywhere —
+  confirmed by grep of the installed source. Clutter's own
+  `deleteBulletMarkerSeparator` (`markdownEnterKeymap.ts`, extended to
+  ordered lists in `27d88baa`) handles the empty-item deletion itself,
+  and — until this fix — had no renumbering logic of its own either.
+  Two independent, correctly-designed-for-their-own-scope commands
+  simply met at the same visual state with different answers; not a
+  shared bug.
+
+### 19.2 The exact safe/product rule, established before writing any code
+
+Reusing upstream `renumberList`'s own exact semantics (confirmed by
+direct source read of `itemNumber`/`renumberList`, not assumed):
+
+- Compares each sibling's number against the *immediately preceding*
+  sibling's own **original, never-rewritten** literal number — starting
+  the comparison base at the deleted item's own original number.
+- Stops at the first sibling whose number isn't exactly one more than
+  expected. **This means an intentionally irregular sequence (`1. / 5. /
+  9.`) is preserved by construction, not by a special case bolted on**:
+  deleting the empty `5.` leaves `9.` exactly as `9.`, because the walk
+  never gets far enough to consider it sequential in the first place.
+- Every kept sibling renumbers to exactly one less than its own original
+  number — algebraically identical to upstream's `String(prev + 2 +
+  offset)` with `offset = -2` (verified by hand-expansion).
+- Loses zero-padding on rewrite (`"008."` → `"8."` if renumbered),
+  matching Enter's own already-documented lossy behavior (§15.2) — a
+  deliberate consistency choice, not a new inconsistency.
+
+### 19.3 Growth vs. shrink — why only half of §15's guard is ever live here
+
+Deletion can only ever shift subsequent numbers **down**. §15's
+growth-direction risk (Enter's `9`→`10` case) structurally cannot occur
+via this code path — confirmed, not merely argued, by inspecting what
+`isRiskyRenumberRewrite` actually computes: `delta = insertedLength -
+oldWidth` for every change this function produces is a decrement, so
+`delta > 0` (the growth branch) is never reachable from here. Only the
+shrink-direction check (safe up to `MAX_SAFE_SHRINK_COLUMNS = 3`) is
+ever live.
+
+### 19.4 Implementation
+
+`renumberAfterEmptyItemDeletion` (`markdownEnterKeymap.ts`) reimplements
+upstream's exact walk using only public `@lezer/common` tree APIs (no
+private `renumberList`/`itemNumber` access), producing plain
+`{from, to, insert}` digit-range rewrites. Every rewrite is filtered
+through the **exact same, reused (not duplicated or reimplemented)**
+`isRiskyRenumberRewrite` function §15 built for Enter, before being
+folded into the single dispatched transaction alongside the marker/
+separator deletion — one transaction, one undo step, matching the
+architecture's existing composed-transaction pattern. Called only when
+the deleted item's container is `OrderedList` (bullets have no digits)
+and only from the **empty-item** branch of `deleteBulletMarkerSeparator`
+— the non-empty (separator-only) branch is unaffected, since only
+removing an item can leave a gap to close.
+
+### 19.5 Verification — exhaustive, matching the requested matrix exactly
+
+All confirmed via permanent regression tests
+(`markdownBulletBackspace.test.ts`, new describe block, 16 tests) and
+live in the webapp:
+
+| Case | Result |
+|---|---|
+| `1. / 2. / 3.` → delete empty `2.` | → `1. / 2.` (matches Enter byte-for-byte, verified by direct comparison in the same test) |
+| `8. / 9. / 10.` → delete empty `9.` | → `8. / 9.` (single-digit-width shrink, safe) |
+| `99. / 100. / 101.` → delete empty `100.` | → `99. / 100.` |
+| `.` and `)` delimiters | Symmetric, both verified |
+| Nested ordered lists | Renumbering scoped strictly to the deleted item's own container — confirmed an outer list's own numbering is untouched by an inner deletion |
+| Irregular numbering (`1. / 5. / 9.`) | Preserved — `9.` stays `9.`, confirmed as a direct consequence of §19.2's walk, not a special case |
+| Width-boundary shrink + nested child | A child correctly re-parented onto the renamed item survives intact (`8./9./10.` with a nested child under `10.`, renamed to `9.`) |
+| **Guard proof** | A large-magnitude padded shrink (`000003.` → `2`, magnitude 6) on a genuinely multi-line item (with a validly-nested child) is **declined** — item stays unchanged, child stays intact. The identical rewrite on a single-line item (no descendant) **is** applied — confirms the reused guard is actually gating something at this call site, not passively never triggering |
+| Bullet lists | Never attempt renumbering (no digits) |
+| First/last item in a sequence | Deleting the first correctly shifts everything after down by one; deleting the last needs no renumbering (nothing follows) |
+
+**Full verification**: 67/67 tests in `markdownBulletBackspace.test.ts`
+(51 pre-existing + 16 new, all passing, zero regressions to the
+existing marker/separator policy); 1246/1246 markdown tests overall;
+full suite 3094 passing (same 8 pre-existing, unrelated FolderPicker/
+MoveDestinationPicker failures, confirmed via `git stash` earlier in
+this session); `tsc --noEmit` clean; live webapp verification of the
+exact reported scenario (screenshot-confirmed — an `.innerText`
+extraction quirk on CM6's blank-line DOM structure produced a
+misleading extra-newline reading initially, resolved by cross-checking
+against a screenshot and the accessibility tree, both showing the
+correct `1. Text` / blank / `2. Text` result).
+
+**Explicitly out of scope, untouched, confirmed by diff**: Tab/
+Shift-Tab (`markdownIndentKeymap.ts`, `markdownIndentContext.ts`) —
+zero changes. Enter's own `continueMarkupPreservingStructure`/
+`isRiskyRenumberRewrite` (§15) — zero changes, only reused by reference.
+The non-empty Backspace branch — zero changes.
+
+Evidence label: **IMPLEMENTED + VERIFIED**.
+
+---
+
+## 20. Multi-line selection Backspace/Delete removing whole ordered-list item(s) now renumbers, matching the collapsed-cursor fix (2026-08-30, IMPLEMENTED)
+
+**Found by a systematic audit** of every remaining ordered-list-modifying
+operation (Enter, Backspace, Delete, Tab, Shift-Tab, typing/replacing
+digits, paste, multi-line selection edits, undo/redo — full matrix in
+that audit's own report, not reproduced here) run after §19 shipped.
+Two confirmed bugs came out of that audit; only this one (the smaller,
+more architecturally consistent of the two) was approved for
+implementation. The other — manual digit retyping (e.g. selecting `"9"`
+in a multi-line item and typing `"10"`) silently demoting a nested
+descendant, with no guard at all since no *Clutter-computed* rewrite
+exists for a transaction filter to inspect — was deliberately left open,
+pending a product decision on whether Clutter should ever intercept a
+user's own literal keystrokes (something no existing guard does).
+
+### 20.1 Root cause
+
+`deleteBulletMarkerSeparator` (§13) and CM6's own `deleteMarkupBackward`
+both require a **collapsed** cursor (`range.empty`, confirmed by reading
+`node_modules/@codemirror/lang-markdown/dist/index.js` directly, not
+inferred). A non-collapsed selection therefore falls straight through
+both to generic `deleteCharBackward`/`deleteCharForward` — plain text
+splicing, zero Markdown awareness — reproducing the exact numbering gap
+§19 already fixed for the collapsed-cursor case, but for the ordinary
+"select a line, press Backspace/Delete" gesture: `"1. A\n2. B\n3. C"`,
+select the complete `"2. B"` item, Backspace or Delete → `"1. A\n3. C"`
+(confirmed live before this fix), not `"1. A\n2. C"`.
+
+### 20.2 Fix
+
+Two changes, both additive to §19's existing mechanism, not a new one:
+
+1. **Generalized `renumberAfterEmptyItemDeletion`** from a single
+   `deletedItem: SyntaxNode` to `deletedItems: readonly SyntaxNode[]`.
+   Two arithmetic changes cover any run length: `prevOriginal` seeds from
+   the **last** deleted item's own original number (still "whatever
+   immediately preceded the surviving run," identical to the single-item
+   case, which is just this shape with `N = 1`), and every kept sibling
+   shifts down by `deletedItems.length` instead of a hardcoded `1`. The
+   §19 call site (`deleteBulletMarkerSeparator`) now passes a
+   one-element array and is confirmed byte-identical to before this
+   change (its own full regression suite, unmodified, still passes).
+2. **New `deleteCompleteListItemSelection`**, gated by a new
+   `exactListItemSelectionRun(state, from, to)` helper: finds the
+   `ListItem` starting exactly at `from` (`listItemStartingAt`, walking
+   tree ancestors the same way `listMarkAt` already does elsewhere in
+   this file), then walks `nextSibling` accumulating whole items only
+   while `to` genuinely reaches past each one — accepting `to` as a valid
+   boundary only when it lands exactly on the last accumulated item's own
+   `.to` (selection excludes the trailing line break) **or** exactly on
+   the *next* sibling's `.from` (selection includes it) — never on
+   arithmetic/character counting, so a selection that merely *looks* like
+   it spans whole items but actually clips into one (mid-content,
+   mid-nested-child) can't accidentally pass. Any gap in the walk (the
+   selection would have to cross into a different list/construct to
+   reach `to`) also returns `null` before either boundary check, which is
+   what keeps this from ever crossing into an unrelated list or marker
+   kind — a structural guarantee (`nextSibling` never leaves the same
+   parent container), not merely an untested assumption. On a match,
+   dispatches one transaction: the selection's own deletion plus every
+   `renumberAfterEmptyItemDeletion` rewrite for the surviving siblings,
+   filtered through the same `isRiskyRenumberRewrite` guard §15/§19 already
+   use, unmodified. Wired into both Backspace (ahead of
+   `deleteMarkupBackward`, behind `deleteBulletMarkerSeparator`) and a new
+   `Delete` binding (previously unbound in this keymap at all — Delete's
+   general lack of Markdown awareness elsewhere is unchanged and remains
+   its own separate, not-yet-scoped future phase).
+
+**A first implementation attempt had a real bug**, caught by the test
+suite itself, not by inspection: the boundary walk advanced into the next
+sibling *before* checking whether `to` already matched that sibling's own
+`.from` — meaning it always overshot the reported scenario's exact
+boundary by one item and declined every case that should have matched.
+Fixed by checking both boundary conditions (`cur.to === to` and
+`next.from === to`) before ever deciding to extend the run.
+
+### 20.3 Verification — the audit's own requested matrix, run exactly
+
+`.`/`)` delimiters, arbitrary/irregular numbering, `9→10`/`99→100` width
+boundaries, first/middle/last item, multi-item runs (shifts by the run's
+own length, not a hardcoded one), a nested list under a *surviving*
+sibling (preserved, guard reused unchanged), deleting an item that
+*owns* a nested list (whole subtree removed, no orphan), two independent
+lists (second untouched), mixed ordered/bullet siblings (never crossed
+into), bullet-only runs (never attempts renumbering), three shapes of
+decline (partial-content selection, selection not starting at an item
+boundary, selection ending inside a nested child rather than at a real
+boundary), collapsed selections (still `deleteBulletMarkerSeparator`'s
+own scope, unaffected), and one atomic transaction with a single
+undo/redo round-trip (verified byte-identical restore and reapply).
+
+**Full verification**: 88/88 tests in `markdownBulletBackspace.test.ts`
+(67 pre-existing/§19 + 21 new, all passing); `tsc --noEmit` clean; full
+suite 3115/3123 passing, the same 8 pre-existing, unrelated
+FolderPicker/MoveDestinationPicker/formatShortcutsKeymap `jsdom`
+environment failures already present with this change stashed out
+(confirmed via `git stash` in this same session, matching §19's own
+verification pattern).
+
+**Explicitly out of scope, untouched**: manual digit-retyping corruption
+(this session's audit's other confirmed bug — no guard exists or was
+added for it, see this section's own opening note); Tab/Shift-Tab
+(unaffected, zero changes); paste (unaffected, zero changes); partial-
+content multi-line selections (deliberately still decline, per this
+session's own explicit scope — "do not broaden beyond complete ListItem
+deletion").
+
+Evidence label: **IMPLEMENTED + VERIFIED**.
+
+---
+
 ## Open questions / tracked gaps (consolidated)
 
 1. Automated test coverage is missing for: the `listMarkerCaretAssoc`
@@ -3633,3 +5305,53 @@ structure, not just document text.
     to build, only that the specific blocker recorded against it has
     been resolved; the addendum's own design (§9's addendum text, §14)
     still needs its own implementation pass, separately.
+11. **§16's deep policy investigation validated Option B (conservative,
+    membership-change-triggered auto-numbering) as the recommended
+    direction, but surfaced two genuinely new, pre-existing Tab/Shift-Tab
+    hazards unrelated to numbering** — partial-selection Shift-Tab can
+    destroy a left-behind sibling's own list-item structure, and
+    Tab-selecting a list's own first item together with later items
+    produces a degenerate, non-nesting result (§16.2). **Both hazards
+    were investigated to a conclusion in §17 (see item 12) — neither is
+    fixed, and per §17.7 neither is schedulable as an ordinary bug fix.**
+    Several test-matrix cells (source-list-side normalization, undo/redo,
+    cursor mapping, paste/load consistency) remain genuinely unprobed
+    pending an actual implementation to test against (§16.9/§16.10). No
+    implementation has started.
+12. **§17 concluded both hazards from item 11 are Case C — accepted
+    limitations, not implementable Tab/Shift-Tab bugs.** Confirmed
+    causes: Hazard 1 (first-item-inclusive Tab) is directly caused by the
+    `IndentedCode` removal (§17.4, a documented, deliberate tradeoff, not
+    reversed here) combined with CommonMark's ordinary 0–3-space sibling
+    tolerance; Hazard 2 (partial Shift-Tab) is pure marker-width-vs-
+    step-size arithmetic, the same Rule #5 gap mechanism §14.9 already
+    described for Tab, now shown to apply to Shift-Tab too and to
+    explain exactly why bullets merely mis-nest while ordered lists lose
+    `ListItem` status outright (§17.3). Both hazards reproduce
+    byte-identically through plain, unmodified CM6 `indentMore`/
+    `indentLess` given the same grammar (§17.5) — confirming this is not
+    a Clutter-specific Tab/Shift-Tab defect. Fixing either would require
+    reopening the construct-aware, hierarchy-preserving Tab design
+    `markdownIndentKeymap.ts`'s own header comment already documents as
+    built, evaluated, and reverted before this session (§17.6) — not a
+    smaller, targeted patch. No fix was implemented; a full proposed test
+    matrix (§17.9) and regression-test-independent tree-shape evidence
+    (§17.1/§17.2) are recorded for if this is ever revisited.
+13. **UPDATE (2026-08-30, §18.16): §18's "logical list level" Tab/
+    Shift-Tab model was subsequently approved, implemented, found to
+    have a real bug (§18.15), fixed, and then reverted in full** — not
+    because the fix was wrong, but because the whole marker-width-/
+    hierarchy-aware target-column approach was determined to violate
+    the actual product requirement ("every selected line moves by the
+    identical physical step, always"). §9's Locked "Tab only ever
+    writes `current ± INDENT_STEP_SPACES`" contract is the active
+    contract again, unamended, for list and non-list lines alike.
+    `markdownIndentKeymap.ts` and its test files are restored to commit
+    `b435f159`, confirmed byte-for-byte. §17/§18.1–§18.15 remain as
+    historical investigation record only — see §18.16 for the full
+    reversion rationale. §17's own two structural hazards (first-item
+    Tab, partial Shift-Tab) are therefore genuinely open again under
+    the flat model, exactly as they were before any of §18's work
+    began — not fixed, not scheduled, per §17.7's original Case C
+    conclusion. The ordered-list numbering question (§16) is unaffected
+    either way — still separate, still undecided.
