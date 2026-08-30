@@ -11,10 +11,18 @@ import {
 import { IndentTokenWidget } from './IndentTokenWidget';
 
 /** Clutter's own stated rule, not derived from `indentUnit` or any other
- * facet: a leading space is always half an indentation level, a leading
+ * facet: a leading space is always one quarter of an indentation level
+ * (2026-08-30, recalibrated for the 4-space canonical unit —
+ * `indent/markdownIndentContext.ts`'s `INDENT_STEP_SPACES`; one full
+ * level is 4 spaces, so `4 * SPACE_PX` must equal `TAB_PX`), a leading
  * tab is always one full indentation level, independent of column or of
- * how many other characters precede it. */
-const SPACE_PX = 10;
+ * how many other characters precede it. This is a pure rendering
+ * calibration, not an indentation-behavior change: the Spacebar remains
+ * completely literal (typing N spaces always produces exactly N space
+ * characters in `state.doc`, never rounded, completed, or normalized to
+ * a multiple of 4) — only how many pixels each already-existing character
+ * occupies on screen changes here. */
+const SPACE_PX = 5;
 const TAB_PX = 20;
 
 /**
@@ -32,8 +40,8 @@ const TAB_PX = 20;
  * so CM6's own `coordsAtPos`/`posAtCoords` resolve it correctly without
  * any custom coordinate override, and there is no "complete token"
  * concept left to have a "no complete unit yet" exception for — a lone
- * space that isn't part of a larger run still gets its own real 10px
- * widget, exactly like every other space.
+ * space that isn't part of a larger run still gets its own real
+ * `SPACE_PX`-wide widget, exactly like every other space.
  *
  * Why `Decoration.replace`, not `Decoration.mark`: CM6 maps screen
  * coordinates to/from document positions — `coordsAtPos` (caret

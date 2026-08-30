@@ -25,9 +25,10 @@ import { WidgetType } from '@codemirror/view';
  * equivalent `nodeType == 1` branch in `InlineCoordsScan.scanTile`) — the
  * same mechanism, in both directions, measuring the same box.
  *
- * `px` is the visual width in pixels: `--space-10` (10px) for a space,
- * `--space-20` (20px) for a tab — Clutter's own stated rule ("1 space =
- * 10px, 1 tab = one full indentation level = 20px, independent of
+ * `px` is the visual width in pixels: `SPACE_PX` (5px, one quarter of a
+ * 4-space indentation level) for a space, `TAB_PX` (20px, one full level)
+ * for a tab — Clutter's own stated rule ("1 space = one quarter of an
+ * indentation level, 1 tab = one full indentation level, independent of
  * column"), not traditional tab-stop semantics. Passed in by
  * `leadingIndentDecoration.ts`, never computed here.
  *

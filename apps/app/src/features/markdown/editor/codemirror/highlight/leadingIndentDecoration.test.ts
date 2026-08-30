@@ -64,30 +64,30 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
     expect(view.state.doc.toString()).toBe('hello');
   });
 
-  it('" hello" (1 space) -> exactly one 10px widget, not treated as "incomplete"', () => {
+  it('" hello" (1 space) -> exactly one 5px widget, not treated as "incomplete"', () => {
     const view = mountView(' hello');
     const line = nthLine(view, 0);
-    expect(widths(line)).toEqual(['10px']);
+    expect(widths(line)).toEqual(['5px']);
     expect(visibleText(line)).toBe('hello');
     expect(view.state.doc.toString()).toBe(' hello');
   });
 
-  it('"  hello" (2 spaces) -> two independent 10px widgets, not one grouped 20px widget', () => {
+  it('"  hello" (2 spaces) -> two independent 5px widgets, not one grouped 10px widget', () => {
     const view = mountView('  hello');
     const line = nthLine(view, 0);
-    expect(widths(line)).toEqual(['10px', '10px']);
+    expect(widths(line)).toEqual(['5px', '5px']);
     expect(visibleText(line)).toBe('hello');
     expect(view.state.doc.toString()).toBe('  hello');
   });
 
-  it('"   hello" (3 spaces) -> three 10px widgets', () => {
+  it('"   hello" (3 spaces) -> three 5px widgets', () => {
     const view = mountView('   hello');
-    expect(widths(nthLine(view, 0))).toEqual(['10px', '10px', '10px']);
+    expect(widths(nthLine(view, 0))).toEqual(['5px', '5px', '5px']);
   });
 
-  it('"    hello" (4 spaces) -> four 10px widgets', () => {
+  it('"    hello" (4 spaces) -> four 5px widgets', () => {
     const view = mountView('    hello');
-    expect(widths(nthLine(view, 0))).toEqual(['10px', '10px', '10px', '10px']);
+    expect(widths(nthLine(view, 0))).toEqual(['5px', '5px', '5px', '5px']);
   });
 
   it('"\\thello" (one tab) -> one 20px widget', () => {
@@ -103,27 +103,27 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
     expect(widths(nthLine(view, 0))).toEqual(['20px', '20px']);
   });
 
-  it('" \\thello" (space then tab) -> 10px then 20px, both replaced -- no "incomplete run" exception any more', () => {
+  it('" \\thello" (space then tab) -> 5px then 20px, both replaced -- no "incomplete run" exception any more', () => {
     const view = mountView(' \thello');
     const line = nthLine(view, 0);
-    expect(widths(line)).toEqual(['10px', '20px']);
+    expect(widths(line)).toEqual(['5px', '20px']);
     expect(visibleText(line)).toBe('hello');
     expect(view.state.doc.toString()).toBe(' \thello');
   });
 
-  it('"  \\thello" (2 spaces then a tab) -> 10px, 10px, 20px', () => {
+  it('"  \\thello" (2 spaces then a tab) -> 5px, 5px, 20px', () => {
     const view = mountView('  \thello');
-    expect(widths(nthLine(view, 0))).toEqual(['10px', '10px', '20px']);
+    expect(widths(nthLine(view, 0))).toEqual(['5px', '5px', '20px']);
   });
 
-  it('"\\t  hello" (tab then 2 spaces) -> 20px, 10px, 10px', () => {
+  it('"\\t  hello" (tab then 2 spaces) -> 20px, 5px, 5px', () => {
     const view = mountView('\t  hello');
-    expect(widths(nthLine(view, 0))).toEqual(['20px', '10px', '10px']);
+    expect(widths(nthLine(view, 0))).toEqual(['20px', '5px', '5px']);
   });
 
-  it('"  \\t  hello" (2 spaces, tab, 2 spaces) -> 10px, 10px, 20px, 10px, 10px', () => {
+  it('"  \\t  hello" (2 spaces, tab, 2 spaces) -> 5px, 5px, 20px, 5px, 5px', () => {
     const view = mountView('  \t  hello');
-    expect(widths(nthLine(view, 0))).toEqual(['10px', '10px', '20px', '10px', '10px']);
+    expect(widths(nthLine(view, 0))).toEqual(['5px', '5px', '20px', '5px', '5px']);
   });
 
   it('Tab-produced whitespace and manually typed/pasted identical whitespace render identically', () => {
@@ -192,26 +192,26 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
 
     it('Backspace-equivalent removing a tab leaves the remaining spaces correctly widgeted', () => {
       const view = mountView('  \thello'); // 2 spaces + tab
-      expect(widths(nthLine(view, 0))).toEqual(['10px', '10px', '20px']);
+      expect(widths(nthLine(view, 0))).toEqual(['5px', '5px', '20px']);
       view.dispatch({ changes: { from: 2, to: 3, insert: '' } }); // remove the tab
-      expect(widths(nthLine(view, 0))).toEqual(['10px', '10px']);
+      expect(widths(nthLine(view, 0))).toEqual(['5px', '5px']);
       expect(view.state.doc.toString()).toBe('  hello');
     });
   });
 
   describe('indentation-only lines (no trailing content)', () => {
-    it('a whitespace-only line (one space) renders as a single 10px widget with empty text content', () => {
+    it('a whitespace-only line (one space) renders as a single 5px widget with empty text content', () => {
       const view = mountView(' ');
       const line = nthLine(view, 0);
-      expect(widths(line)).toEqual(['10px']);
+      expect(widths(line)).toEqual(['5px']);
       expect(visibleText(line)).toBe('');
       expect(view.state.doc.toString()).toBe(' ');
     });
 
-    it('a whitespace-only line (4 spaces) renders as four 10px widgets', () => {
+    it('a whitespace-only line (4 spaces) renders as four 5px widgets', () => {
       const view = mountView('    ');
       const line = nthLine(view, 0);
-      expect(widths(line)).toEqual(['10px', '10px', '10px', '10px']);
+      expect(widths(line)).toEqual(['5px', '5px', '5px', '5px']);
       expect(visibleText(line)).toBe('');
     });
 
@@ -225,7 +225,7 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
     it('appears on an inherited-indent empty line after Enter, driven by document state -- not the Enter key itself', () => {
       const view = mountView('Hello world\n    ');
       const line = nthLine(view, 1);
-      expect(widths(line)).toEqual(['10px', '10px', '10px', '10px']);
+      expect(widths(line)).toEqual(['5px', '5px', '5px', '5px']);
       expect(visibleText(line)).toBe('');
     });
 
@@ -235,7 +235,7 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
 
       view.dispatch({ changes: { from: 4, to: 4, insert: 'x' } });
       const line = nthLine(view, 0);
-      expect(widths(line)).toEqual(['10px', '10px', '10px', '10px']);
+      expect(widths(line)).toEqual(['5px', '5px', '5px', '5px']);
       expect(visibleText(line)).toBe('x');
       expect(view.state.doc.toString()).toBe('    x');
     });
@@ -244,7 +244,7 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
       const view = mountView('    \n    \n    ');
       for (let i = 0; i < 3; i++) {
         const line = nthLine(view, i);
-        expect(widths(line)).toEqual(['10px', '10px', '10px', '10px']);
+        expect(widths(line)).toEqual(['5px', '5px', '5px', '5px']);
         expect(visibleText(line)).toBe('');
       }
     });
@@ -262,7 +262,7 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
     it('multi-line: each physical line independently derives its own widgets', () => {
       const view = mountView('no indent\n  two spaces\n\t\ttwo tabs');
       expect(indentTokens(nthLine(view, 0))).toHaveLength(0);
-      expect(widths(nthLine(view, 1))).toEqual(['10px', '10px']);
+      expect(widths(nthLine(view, 1))).toEqual(['5px', '5px']);
       expect(widths(nthLine(view, 2))).toEqual(['20px', '20px']);
     });
   });
@@ -290,6 +290,75 @@ describe('leadingIndentDecoration (one widget per leading whitespace character)'
         positions.push(range.head);
       }
       expect(positions).toEqual([3, 2, 1, 0]);
+    });
+  });
+
+  /**
+   * Product decision (2026-08-30): `SPACE_PX` recalibrated to 5 (one
+   * quarter of the 4-space canonical indentation unit —
+   * `indent/markdownIndentContext.ts`'s `INDENT_STEP_SPACES`), so that 4
+   * spaces (one level) reads as 20px, matching `TAB_PX`. This is the
+   * permanent regression lock for the exact canonical pixel table this
+   * decision specifies — total rendered width is always `N * 5`, for any
+   * N, complete level or not, since this architecture has no "completed
+   * group" concept at all (confirmed by the "not grouped" tests above).
+   */
+  describe('canonical pixel table (2026-08-30): total width is always N * 5, complete level or not', () => {
+    it.each([
+      [1, 5],
+      [2, 10],
+      [3, 15],
+      [4, 20], // one full indentation level
+      [5, 25],
+      [6, 30],
+      [7, 35],
+      [8, 40], // two full indentation levels
+    ])('%i leading space(s) -> total width %ipx', (spaces, totalPx) => {
+      const view = mountView(`${' '.repeat(spaces)}Text`);
+      const line = nthLine(view, 0);
+      const totalWidth = widths(line).reduce((sum, w) => sum + parseInt(w, 10), 0);
+      expect(totalWidth).toBe(totalPx);
+      // Every widget is individually 5px -- confirms this is N independent
+      // widgets, not fewer, wider "completed level" tokens.
+      expect(widths(line)).toEqual(Array(spaces).fill('5px'));
+    });
+
+    it('4 spaces (one level) renders at the same total width as one literal tab', () => {
+      const fourSpaces = mountView('    Text');
+      const oneTab = mountView('\tText');
+      const fourSpacesWidth = widths(nthLine(fourSpaces, 0)).reduce((sum, w) => sum + parseInt(w, 10), 0);
+      const tabWidth = widths(nthLine(oneTab, 0)).reduce((sum, w) => sum + parseInt(w, 10), 0);
+      expect(fourSpacesWidth).toBe(20);
+      expect(tabWidth).toBe(20);
+      expect(fourSpacesWidth).toBe(tabWidth);
+    });
+  });
+
+  /**
+   * Product decision (2026-08-30): this rendering calibration change must
+   * never be confused with, or accidentally coupled to, indentation
+   * *behavior* — the Spacebar remains completely literal. Typing N spaces
+   * must produce exactly N space characters in `state.doc`, never
+   * rounded, completed, or normalized toward a multiple of 4. This suite
+   * only ever asserts on rendered widget width; every test in it also
+   * asserts the underlying document text is untouched, but this block
+   * makes that guarantee explicit as its own standalone contract.
+   */
+  describe('Spacebar remains completely literal: document text is never rounded or auto-completed toward a multiple of 4', () => {
+    it.each([1, 2, 3, 5, 6, 7, 9, 11])(
+      'typing %i literal spaces produces exactly that many characters in state.doc, never a multiple of 4',
+      (n) => {
+        const view = mountView(`${' '.repeat(n)}Text`);
+        const leadingInDoc = view.state.doc.toString().length - view.state.doc.toString().trimStart().length;
+        expect(leadingInDoc).toBe(n); // exactly N, not rounded up or down to a 4-multiple
+      }
+    );
+
+    it('a genuinely incomplete run (3 spaces) is rendered, not silently completed to 4 in the DOM or the document', () => {
+      const view = mountView('   Text'); // exactly 3 spaces
+      const line = nthLine(view, 0);
+      expect(widths(line)).toHaveLength(3); // not 4 -- no auto-completion
+      expect(view.state.doc.toString()).toBe('   Text'); // still exactly 3 in the document
     });
   });
 });

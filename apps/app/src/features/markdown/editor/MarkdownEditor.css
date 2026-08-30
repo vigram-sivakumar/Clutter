@@ -38,7 +38,7 @@
 /*
  * IndentTokenWidget.ts / leadingIndentDecoration.ts's `indentCharDecoration()`
  * — the rendered box for one leading-indentation *character* (one space
- * or one tab; `width` is set inline per instance by the widget, 10px or
+ * or one tab; `width` is set inline per instance by the widget, 5px or
  * 20px, since the two kinds differ). An element that `Decoration.replace()`s
  * the character's real text, rather than a mark wrapping it: CM6's own
  * `coordsAtPos` (caret placement) and `posAtCoords` (mouse hit-testing)
