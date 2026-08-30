@@ -18,7 +18,10 @@ import { DailyNote } from './DailyNote';
 import { buildDailyNoteSidebarMenu } from './dailyNoteSidebarMenu.config';
 import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
-import type { ResolveTag, ResolveWikiLink } from '@features/markdown/editor/MarkdownEditor';
+import type {
+  ResolveTag,
+  ResolveWikiLink,
+} from '@features/markdown/editor/MarkdownEditor';
 
 // The Workspace session-state id for the "All Daily Notes" collapsible
 // section (see Workspace.collapsedSectionIds) — seeded collapsed there by
@@ -357,7 +360,7 @@ export function DailyNotesList({
           {otherSections.length > 0 && (
             <Entry
               className="tertiary"
-              leading={<AppIcon icon="moreVertical" />}
+              leading={<AppIcon icon="moreHorizontal" />}
               onClick={() =>
                 workspace.toggleSectionExpanded(ALL_DAILY_NOTES_SECTION_ID)
               }
