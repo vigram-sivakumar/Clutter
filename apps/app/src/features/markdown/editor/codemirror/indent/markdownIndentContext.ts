@@ -3,21 +3,59 @@ import type { EditorState, Line } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 /**
- * Clutter's own stated indentation step — one Tab = 2 leading spaces.
- * Deliberately not derived from `indentUnit`/`tabSize` (same reasoning as
- * `leadingIndentDecoration.ts`'s own `SPACE_PX`/`TAB_PX`): this is
- * Clutter's own product rule, not a generic CM6 setting.
+ * **The single canonical indentation-unit value for the entire Markdown
+ * editor** (2026-08-30, Option C migration — docs/list-item-architecture-odr.md
+ * §22 onward). One indentation level is `INDENT_STEP_SPACES` literal space
+ * characters. Every other place in this codebase or in CM6 itself that
+ * needs to know "how big is one indentation level" must derive from this
+ * constant, directly or via `INDENT_UNIT_STRING` below — never restate the
+ * number independently. Changing this one line (and, for the CM6-facing
+ * half, nothing else) is the entire footprint of a future unit change
+ * (e.g. 4 → 6, or spaces → tabs): that is the point of centralizing it
+ * here, not a byproduct.
  *
- * There is no maximum. Tab/Shift-Tab are source-local operations: they
- * write only the touched line's own leading-whitespace run and never
- * discover, inspect, or require a parent/ancestor list item. Deep or
- * parent-less indentation must remain possible (Markdown list nesting is
- * a property the parser derives from the resulting source on every
- * reparse, not something this module tracks or protects), so growth is
- * unbounded in the Tab direction; only Shift-Tab has a real, structural
- * floor at 0 (negative indentation is meaningless).
+ * Two consumers, two mechanisms, one source of truth:
+ * 1. **Clutter's own Tab/Shift-Tab** (`markdownIndentKeymap.ts`) reads
+ *    this constant directly — it never touches CM6's generic
+ *    `indentUnit`/`tabSize` facets at all, by design (Clutter's own
+ *    space-driven model, not a generic CM6 setting — same reasoning as
+ *    `leadingIndentDecoration.ts`'s own `SPACE_PX`/`TAB_PX`).
+ * 2. **Every CM6-internal indentation-aware command** — `deleteCharBackward`
+ *    (Backspace's whitespace-only-prefix deletion), `insertNewlineAndIndent`
+ *    (Enter's fallback), `indentMore`/`indentLess`/`indentSelection` (also
+ *    reachable directly via Cmd+]/Cmd+[/Cmd-Alt-\\, unshadowed by
+ *    Clutter's own Tab keymap), and `markdownEnterKeymap.ts`'s own
+ *    `exitEmptyIndentContinuation` — all read CM6's `indentUnit`/`tabSize`
+ *    facets, never this constant directly. `createEditorView.ts`
+ *    configures `indentUnit.of(INDENT_UNIT_STRING)` from this exact
+ *    constant, so mechanism 2 stays synchronized with mechanism 1 without
+ *    either one importing the other's machinery — confirmed by a full
+ *    repository-wide audit (this document's own investigation record) that
+ *    every one of these CM6-internal call sites reads the facet, never a
+ *    hardcoded number, so configuring the facet once is sufficient for all
+ *    of them.
+ *
+ * There is no maximum on Tab/Shift-Tab's own growth beyond the two
+ * derived ceiling constants in `markdownIndentKeymap.ts`. Tab/Shift-Tab
+ * are source-local operations: they write only the touched line's own
+ * leading-whitespace run and never discover, inspect, or require a
+ * parent/ancestor list item. Deep or parent-less indentation must remain
+ * possible (Markdown list nesting is a property the parser derives from
+ * the resulting source on every reparse, not something this module
+ * tracks or protects).
  */
-export const INDENT_STEP_SPACES = 2;
+export const INDENT_STEP_SPACES = 4;
+
+/**
+ * `INDENT_STEP_SPACES` literal space characters, as a string — the exact
+ * value `createEditorView.ts` configures CM6's `indentUnit` facet to, and
+ * the only place that string is constructed. No other file should build
+ * its own `' '.repeat(...)` string meant to represent "one indentation
+ * level" — call sites that need the per-line growth/shrink *amount*
+ * (`markdownIndentKeymap.ts`) use `INDENT_STEP_SPACES` directly instead,
+ * since they're adding/removing a number, not inserting a fixed string.
+ */
+export const INDENT_UNIT_STRING = ' '.repeat(INDENT_STEP_SPACES);
 
 /**
  * What `markdownIndentKeymap.ts` needs to know about one physical

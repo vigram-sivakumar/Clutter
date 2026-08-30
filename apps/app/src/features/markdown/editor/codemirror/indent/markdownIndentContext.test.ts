@@ -98,46 +98,46 @@ describe('resolveLineIndentContext', () => {
 });
 
 describe('computeIndentChange', () => {
-  it('Tab from 0 targets 2', () => {
+  it('Tab from 0 targets 4', () => {
     const state = stateFor('paragraph');
     const line = state.doc.lineAt(0);
     expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toEqual({
       from: 0,
       to: 0,
-      insert: '  ',
+      insert: '    ',
     });
   });
 
   it('Tab has no ceiling: keeps growing by INDENT_STEP_SPACES past what used to be the limit', () => {
-    const doc = `${' '.repeat(10)}paragraph`;
-    const state = stateFor(doc);
-    const line = state.doc.lineAt(0);
-    expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toEqual({
-      from: 0,
-      to: 10,
-      insert: ' '.repeat(12),
-    });
-  });
-
-  it('Tab from far beyond the old ceiling (20) still grows by exactly 2, to 22', () => {
     const doc = `${' '.repeat(20)}paragraph`;
     const state = stateFor(doc);
     const line = state.doc.lineAt(0);
     expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toEqual({
       from: 0,
       to: 20,
-      insert: ' '.repeat(22),
+      insert: ' '.repeat(24),
     });
   });
 
-  it('Shift-Tab from far beyond the old ceiling (14) removes exactly 2, landing at 12', () => {
-    const doc = `${' '.repeat(14)}paragraph`;
+  it('Tab from far beyond the old ceiling (40) still grows by exactly 4, to 44', () => {
+    const doc = `${' '.repeat(40)}paragraph`;
+    const state = stateFor(doc);
+    const line = state.doc.lineAt(0);
+    expect(computeIndentChange(line, { kind: 'paragraph' }, 1)).toEqual({
+      from: 0,
+      to: 40,
+      insert: ' '.repeat(44),
+    });
+  });
+
+  it('Shift-Tab from far beyond the old ceiling (28) removes exactly 4, landing at 24', () => {
+    const doc = `${' '.repeat(28)}paragraph`;
     const state = stateFor(doc);
     const line = state.doc.lineAt(0);
     expect(computeIndentChange(line, { kind: 'paragraph' }, -1)).toEqual({
       from: 0,
-      to: 14,
-      insert: ' '.repeat(12),
+      to: 28,
+      insert: ' '.repeat(24),
     });
   });
 

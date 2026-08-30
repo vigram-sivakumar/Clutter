@@ -7,7 +7,7 @@ import {
   indentWithTab,
   undoDepth,
 } from '@codemirror/commands';
-import { codeFolding, foldGutter, foldKeymap } from '@codemirror/language';
+import { codeFolding, foldGutter, foldKeymap, indentUnit } from '@codemirror/language';
 import { Annotation, EditorState, Transaction, type Extension, type StateEffect } from '@codemirror/state';
 import {
   drawSelection,
@@ -19,6 +19,7 @@ import {
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
+import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
 // `headingMarkerDecoration()` is wired for real now, via `MarkdownEditor.tsx`'s
 // own extension list, not here. `markdownHighlighting()`/`markdownHighlightStyle`
 // (the stale commented-out import that used to sit here) was retired
@@ -118,6 +119,23 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
   const allExtensions = [
       updateListener,
       blurHandler,
+      // Synchronizes CM6's own generic `indentUnit` facet to Clutter's
+      // canonical indentation-unit constant (`INDENT_STEP_SPACES`,
+      // `indent/markdownIndentContext.ts`) — the single point that keeps
+      // every CM6-internal indentation-aware command (Backspace's
+      // whitespace-only-prefix deletion via `deleteCharBackward`, Enter's
+      // `insertNewlineAndIndent` fallback, `markdownEnterKeymap.ts`'s own
+      // `exitEmptyIndentContinuation`, and `indentMore`/`indentLess`/
+      // `indentSelection` — the last three reachable directly via
+      // Cmd+]/Cmd+[/Cmd-Alt-\, unshadowed by `markdownIndentKeymap()`'s
+      // own Tab/Shift-Tab bindings) agrees with Clutter's own Tab/
+      // Shift-Tab step, confirmed by a full repository-wide audit that
+      // every one of those call sites reads this facet and none hardcodes
+      // a space count of its own. `markdownIndentKeymap()` itself never
+      // reads this facet — it reads `INDENT_STEP_SPACES` directly — so
+      // this line's only job is keeping CM6's *own* internal commands in
+      // sync with that same constant, not supplying Clutter's own value.
+      indentUnit.of(INDENT_UNIT_STRING),
       // editorTheme() and highlightActiveLine() are kept: baseline editor
       // chrome (caret color, active-line background), not Markdown-specific
       // Live Preview decoration — neither restructures the DOM around a

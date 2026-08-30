@@ -412,29 +412,29 @@ describe('deleteBulletMarkerSeparator: source-local marker/separator boundary po
       let state = parse('- |Text');
       const tab1 = { state, dispatch: (tr: Transaction) => (state = tr.state) };
       expect(markdownIndentMore(tab1)).toBe(true);
-      expect(state.doc.toString()).toBe('  - Text');
+      expect(state.doc.toString()).toBe('    - Text');
 
-      // Re-place the cursor at the new marker/content boundary (position 4)
-      // and press Backspace — the command must see today's tree, not a
-      // pre-Tab one.
-      state = state.update({ selection: EditorSelection.cursor(4) }).state;
+      // Re-place the cursor at the new marker/content boundary (position 6:
+      // 4 leading spaces + "- ") and press Backspace — the command must see
+      // today's tree, not a pre-Tab one.
+      state = state.update({ selection: EditorSelection.cursor(6) }).state;
       const result = pressBackspace(state);
       expect(result.handledBy).toBe('clutter');
-      expect(result.state.doc.toString()).toBe('  -Text');
+      expect(result.state.doc.toString()).toBe('    -Text');
     });
 
     it('"- Parent\\n  - Child", Tab on Parent, then Backspace at Child boundary is unaffected by Parent\'s Tab', () => {
       let state = parse('- |Parent\n  - Child');
       const tab1 = { state, dispatch: (tr: Transaction) => (state = tr.state) };
       expect(markdownIndentMore(tab1)).toBe(true);
-      expect(state.doc.toString()).toBe('  - Parent\n  - Child');
+      expect(state.doc.toString()).toBe('    - Parent\n  - Child');
 
       const childBoundary = state.doc.toString().indexOf('Child');
       state = state.update({ selection: EditorSelection.cursor(childBoundary) }).state;
       const result = pressBackspace(state);
       expect(result.handledBy).toBe('clutter');
       const lines = result.state.doc.toString().split('\n');
-      expect(lines[0]).toBe('  - Parent'); // untouched by Backspace on Child
+      expect(lines[0]).toBe('    - Parent'); // untouched by Backspace on Child
       expect(lines[1]).toBe('  -Child');
     });
   });

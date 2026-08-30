@@ -5387,6 +5387,135 @@ Evidence label: **IMPLEMENTED + VERIFIED**.
 
 ---
 
+## 22. Global indentation unit: 2 spaces → 4 spaces, one canonical source of truth (2026-08-30, IMPLEMENTED)
+
+**Status: IMPLEMENTED + VERIFIED.** Follows a full repository-wide audit
+(two passes) that traced every CM6 keymap/command reachable in this
+editor, not just the obviously-named ones, specifically to find every
+place that assumed a 2-space indentation unit — including indirect,
+upstream CM6 behavior neither Clutter file directly names.
+
+### 22.1 The canonical unit
+
+`INDENT_STEP_SPACES` (`indent/markdownIndentContext.ts`) is now `4`, and
+is the single source of truth. A derived `INDENT_UNIT_STRING = '
+'.repeat(INDENT_STEP_SPACES)` is the only place that string is
+constructed. `createEditorView.ts` configures CM6's own `indentUnit`
+facet (`indentUnit.of(INDENT_UNIT_STRING)`) from this exact constant —
+the one synchronization point. `markdownIndentKeymap.ts` (Clutter's own
+Tab/Shift-Tab) reads `INDENT_STEP_SPACES` directly and never touches the
+facet; every CM6-internal command reads the facet and never touches the
+constant. Changing the unit again in the future is one line
+(`INDENT_STEP_SPACES`'s value) — confirmed, not merely designed for, by
+this migration itself only ever touching that one constant plus six
+files' worth of *derived* fixtures/comments.
+
+### 22.2 Full dependency footprint, as actually found (not assumed)
+
+Read real source, not just grepped names, for every reachable command:
+- **Clutter's own**: `markdownIndentKeymap.ts` (`lineIndentChange`) —
+  reads the constant directly.
+- **CM6-internal, reads the facet** (confirmed by reading
+  `@codemirror/commands`/`@codemirror/language`'s own source, not
+  inferred): `deleteCharBackward` (Backspace's whitespace-only-prefix
+  "remove one indentation level" — found only on a *second* audit pass,
+  after the first pass wrongly concluded no Backspace path touched
+  leading whitespace at all; this was corrected by the user, not caught
+  by the audit itself, and is recorded here as the miss it was),
+  `exitEmptyIndentContinuation` (`markdownEnterKeymap.ts`, Enter's
+  empty-continuation dedent), `insertNewlineAndIndent` (Enter's fallback
+  for ordinary text — confirmed to only ever *copy* the current line's
+  own existing column via `indentString`, never invent a new unit, so it
+  needed no code change despite reading the facet), `indentMore`/
+  `indentLess`/`indentSelection` (reachable directly via Cmd+]/Cmd+[/
+  Cmd-Alt-\\, unshadowed by `markdownIndentKeymap()`'s own Tab/Shift-Tab
+  bindings — confirmed by reading `standardKeymap`'s actual binding
+  table, not assumed).
+- **Confirmed independent, spot-checked on explicit request**:
+  `deleteGroupBackward` (Mod-Backspace/Alt-Backspace) — read its actual
+  implementation (`deleteByGroup`); uses `charCategorizer`/
+  `findClusterBreak`, a pure character-category boundary, zero reference
+  to `indentUnit`/`tabSize` anywhere.
+- **Confirmed independent, structural**: Home/End (`cursorLineBoundaryBackward`/
+  `Forward` — "smart home" snaps to first non-whitespace via a plain
+  regex, not a column computation), Arrow keys (no custom keymap exists
+  at all), marker-boundary Backspace (`deleteBulletMarkerSeparator`),
+  whole-item-selection Backspace/Delete, `orderedListRenumbering.ts`/
+  `orderedListTabNormalization.ts` (confirmed representation-agnostic
+  *before* this migration, by testing with a literal-tab Phase A change —
+  a strictly larger representation change than 2→4 spaces — and getting
+  correct output with zero code modification), `SPACE_PX`/`TAB_PX`
+  (per-character, not per-level, scales automatically), `--marker-width`/
+  `--quote-depth` CSS (a different, marker-glyph-width concept entirely).
+
+### 22.3 One genuine behavioral divergence, surfaced and not papered over
+
+`deleteCharBackward`'s actual algorithm (read directly:
+`drop = col % getIndentUnit(state) || getIndentUnit(state)`) snaps to the
+*nearest lower multiple* of the indent unit, not "delete one character
+below a full unit." Under the old 2-space unit, any odd column (1, 3, 5,
+…) coincidentally behaved like "delete one ordinary space," because the
+gap between consecutive multiples of 2 is only 1. Under the new 4-space
+unit, that gap is 3 — so 1, 2, *and* 3 leading spaces all now collapse
+straight to 0 in a single Backspace press, not just 1. This was flagged
+explicitly against the product's own stated expectation ("1/2/3 spaces →
+delete one ordinary space") rather than silently implemented to match a
+now-incorrect assumption: the discrepancy is upstream CM6's own
+unmodified algorithm, confirmed via direct source reading and a
+regression test (`markdownIndentKeymap.test.ts`, "CM6 indentUnit
+synchronization" describe block), not a bug introduced by this
+migration. Overriding it would mean writing new, bespoke Backspace logic
+specifically to preserve a side effect of the *old* unit size that was
+never a deliberate product decision — not done without an explicit
+follow-up decision.
+
+### 22.4 Verification
+
+`markdownIndentKeymap.test.ts`: 92/92 (79 pre-existing fixtures updated
+— not mechanically, each one individually recomputed against the real
+command's actual output, including several nested/multi-press cases
+whose *press count* changed, not just the numbers, since a 4-space step
+now reaches several markers' nesting windows in one press instead of
+two; 13 new, covering the Cmd+]/Cmd+[/Cmd-Alt-\\ shortcuts, the full
+Backspace boundary matrix (0/1/2/3/4/8 spaces, nested-list demotion),
+and the mixed-whitespace policy). `markdownIndentContext.test.ts`: 36/36
+(4 updated, the dead `computeIndentChange`'s own ceiling-arithmetic
+tests). `markdownBulletBackspace.test.ts`: 88/88 (2 updated, Tab-then-
+Backspace boundary positions). Full markdown suite: 1304/1304 (13 more
+than baseline — the new tests). `tsc --noEmit`: clean. Full repository
+suite: 3152/3160 — the same 8 pre-existing, unrelated FolderPicker/
+MoveDestinationPicker/formatShortcutsKeymap `jsdom` failures already
+present before this change. Live-verified in the real webapp: typed
+`1. A`/`2. B`/`3. C`, Tab on `B` once produced exactly `1. A` /
+`    1. B` / `2. C` — the product's own target example, in one press,
+live, not just in a test harness. Shift-Tab reversed it correctly.
+Enter continuation on the nested item produced a new `4`-space-indented
+sibling. Backspace on that fresh empty item removed the marker (existing
+marker-boundary path, unaffected); a second Backspace on the now-plain
+4-space line removed the whole level in one press (the newly-synced
+`deleteCharBackward` path). Cmd+] indented the nested item by another 4
+spaces, confirmed live. (Redo and Cmd+[ hit a keyboard-shortcut-capture
+limitation of the browser automation tool used for live verification,
+not a product defect — both are rigorously covered by the programmatic
+test suite exercising the identical production code paths.)
+
+### 22.5 Files changed
+
+`indent/markdownIndentContext.ts` (canonical constant + derived string),
+`createEditorView.ts` (facet sync), `markdownGrammarExtensions.ts` (stale
+"10-space ceiling" comment → 20), `indent/markdownIndentKeymap.test.ts`,
+`indent/markdownIndentContext.test.ts`, `enter/markdownBulletBackspace.test.ts`
+(fixture updates + new coverage). `orderedListRenumbering.ts`,
+`orderedListTabNormalization.ts`, `enter/markdownEnterKeymap.ts`,
+`list/listMarkerDecoration.ts`, `highlight/leadingIndentDecoration.ts`,
+`highlight/IndentTokenWidget.ts`, and all CSS: **deliberately untouched**,
+confirmed independent by direct source reading rather than left alone by
+omission.
+
+Evidence label: **IMPLEMENTED + VERIFIED**.
+
+---
+
 ## Open questions / tracked gaps (consolidated)
 
 1. Automated test coverage is missing for: the `listMarkerCaretAssoc`

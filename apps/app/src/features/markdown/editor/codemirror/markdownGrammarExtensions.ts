@@ -44,7 +44,7 @@ import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
  * (falls back to an ordinary paragraph); fenced code blocks
  * (`` ``` ``) are the unaffected, fully-supported way to author code from
  * here on. This also means a Clutter document leaning on deep leading
- * indentation (now valid inside Clutter, up to the editor's own 10-space
+ * indentation (now valid inside Clutter, up to the editor's own 20-space
  * ceiling — see `indent/markdownIndentContext.ts`) will render
  * differently in any standards-compliant external Markdown tool, which
  * has no way to know about this app-local parser configuration — an
