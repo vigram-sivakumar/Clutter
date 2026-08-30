@@ -26,7 +26,7 @@ function typeSpace(state: EditorState, pos: number) {
   }).state;
 }
 
-describe('orderedListParagraphInterrupt', () => {
+describe('listMarkerParagraphInterrupt — ordered markers', () => {
   it('typing the completing Space on "1." immediately below a paragraph produces a real OrderedList — no blank line inserted', () => {
     const state = EditorState.create({
       doc: 'Paragraph text here\n1.',
@@ -79,15 +79,6 @@ describe('orderedListParagraphInterrupt', () => {
     expect(hasNode(state, 'OrderedList')).toBe(false);
   });
 
-  it('does not affect bullets — a separate, unrelated Setext-heading collision, out of scope', () => {
-    const state = EditorState.create({
-      doc: 'Paragraph\n-',
-      extensions: [markdownLanguageExtension()],
-    });
-
-    expect(hasNode(state, 'BulletList')).toBe(false);
-  });
-
   it('already-native cases (doc start, blank-line-preceded) are unaffected', () => {
     const atStart = EditorState.create({ doc: '1.', extensions: [markdownLanguageExtension()] });
     expect(hasNode(atStart, 'OrderedList')).toBe(true);
@@ -118,5 +109,98 @@ describe('orderedListParagraphInterrupt', () => {
     redo({ state: current, dispatch });
     expect(current.doc.toString()).toBe('Paragraph\n1. ');
     expect(current.selection.main.head).toBe(13);
+  });
+});
+
+describe('listMarkerParagraphInterrupt — bullet markers', () => {
+  it.each(['-', '*', '+'])('typing the completing Space on bare "%s" immediately below a paragraph produces a real BulletList — no blank line inserted', (marker) => {
+    const doc = `Paragraph text here\n${marker}`;
+    const state = EditorState.create({
+      doc,
+      selection: { anchor: doc.length },
+      extensions: [markdownLanguageExtension()],
+    });
+
+    const after = typeSpace(state, doc.length);
+
+    expect(after.doc.toString()).toBe(`Paragraph text here\n${marker} `);
+    expect(after.doc.toString()).not.toMatch(/\n\n/);
+    expect(hasNode(after, 'BulletList')).toBe(true);
+    expect(hasNode(after, 'ListItem')).toBe(true);
+  });
+
+  it('"-" resolves to a real BulletList, not a Setext heading, once the completing Space is typed', () => {
+    const state = EditorState.create({
+      doc: 'Paragraph\n-',
+      selection: { anchor: 11 },
+      extensions: [markdownLanguageExtension()],
+    });
+
+    const after = typeSpace(state, 11);
+
+    expect(after.doc.toString()).toBe('Paragraph\n- ');
+    expect(hasNode(after, 'BulletList')).toBe(true);
+    expect(hasNode(after, 'SetextHeading2')).toBe(false);
+  });
+
+  it.each(['-', '*', '+'])('a bullet marker "%s" indented 4+ spaces remains ordinary paragraph text — deliberately out of scope', (marker) => {
+    const doc = `Paragraph\n    ${marker}`;
+    const state = EditorState.create({
+      doc,
+      selection: { anchor: doc.length },
+      extensions: [markdownLanguageExtension()],
+    });
+
+    const after = typeSpace(state, doc.length);
+
+    expect(after.doc.toString()).toBe(`Paragraph\n    ${marker} `);
+    expect(hasNode(after, 'BulletList')).toBe(false);
+  });
+
+  it('does not widen scope to a bullet marker with real content — native CommonMark behavior for that case is unchanged', () => {
+    const state = EditorState.create({
+      doc: 'Paragraph\n- A',
+      extensions: [markdownLanguageExtension()],
+    });
+
+    // Native CommonMark already recognizes a bullet + real content as
+    // interrupting a paragraph (unlike ordered markers, which require
+    // digit "1" — see isBulletList vs isOrderedList in @lezer/markdown).
+    // This assertion documents that existing, unrelated native behavior
+    // is untouched by this extension, not a claim this extension caused it.
+    expect(hasNode(state, 'BulletList')).toBe(true);
+  });
+
+  it('already-native cases (doc start, blank-line-preceded) are unaffected', () => {
+    const atStart = EditorState.create({ doc: '-', extensions: [markdownLanguageExtension()] });
+    expect(hasNode(atStart, 'BulletList')).toBe(true);
+
+    const afterBlank = EditorState.create({ doc: 'Paragraph\n\n-', extensions: [markdownLanguageExtension()] });
+    expect(hasNode(afterBlank, 'BulletList')).toBe(true);
+  });
+
+  it('caret position and undo/redo remain correct across the completing Space, for "-"', () => {
+    const state = EditorState.create({
+      doc: 'Paragraph\n-',
+      selection: { anchor: 11 },
+      extensions: [markdownLanguageExtension(), history()],
+    });
+
+    const afterSpace = typeSpace(state, 11);
+    expect(afterSpace.selection.main.head).toBe(12);
+    expect(hasNode(afterSpace, 'BulletList')).toBe(true);
+
+    let current = afterSpace;
+    const dispatch = (tr: { state: EditorState }) => {
+      current = tr.state;
+    };
+
+    undo({ state: current, dispatch });
+    expect(current.doc.toString()).toBe('Paragraph\n-');
+    expect(current.selection.main.head).toBe(11);
+
+    redo({ state: current, dispatch });
+    expect(current.doc.toString()).toBe('Paragraph\n- ');
+    expect(current.selection.main.head).toBe(12);
   });
 });
