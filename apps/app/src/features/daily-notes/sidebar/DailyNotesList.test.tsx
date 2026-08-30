@@ -553,7 +553,7 @@ describe('DailyNotesList — current month vs. All Daily Notes (no partitioning 
     expect(screen.queryByText(TODAY_MONTH_NAME, { exact: false })).toBeNull();
   });
 
-  it('orders rows within the current month oldest to newest, top to bottom', () => {
+  it('orders rows within the current month newest to oldest, top to bottom', () => {
     const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
     const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
     const month = makeMonthFolder('month', TODAY, 'year');
@@ -570,7 +570,7 @@ describe('DailyNotesList — current month vs. All Daily Notes (no partitioning 
       (el) => el.textContent
     );
 
-    expect(dayNumbers).toEqual([2, 27].sort((a, b) => a - b).map((n) => String(n)));
+    expect(dayNumbers).toEqual([2, 27].sort((a, b) => b - a).map((n) => String(n)));
   });
 
   it('groups every other month under "All Daily Notes", oldest to newest, once expanded', () => {

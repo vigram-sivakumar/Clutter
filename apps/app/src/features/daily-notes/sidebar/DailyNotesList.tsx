@@ -269,13 +269,16 @@ export function DailyNotesList({
     }
   }
 
-  // One chronological timeline, oldest to newest — a month heading is only
-  // a visual marker at each month boundary, never an independent ordering
-  // container. No current-month/current-year/other-years partitioning.
+  // Months run oldest to newest (a month heading is only a visual marker at
+  // each month boundary, never an independent ordering container), but days
+  // within a month run newest to oldest — the most recent note in a month
+  // is the one most likely to be reopened, so it sits closest to the
+  // section boundary. No current-month/current-year/other-years
+  // partitioning.
   const sections = sortRenderedSections(Array.from(sectionsByMonth.values()))
     .map((section) => ({
       ...section,
-      pages: section.pages.sort((a, b) => a.name.localeCompare(b.name)),
+      pages: section.pages.sort((a, b) => b.name.localeCompare(a.name)),
     }))
     // A month section with no Daily Notes in it has nothing to show — a
     // permanent presentation rule, independent of how the month folder
