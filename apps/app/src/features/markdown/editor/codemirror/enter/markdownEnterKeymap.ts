@@ -25,6 +25,7 @@ import {
   renumberSequentialTail,
   type RenumberEdit,
 } from '../list/orderedListRenumbering';
+import { findTaskMarkerAt, isTaskMarkerNode, taskMarkerOfListItem } from '../task/taskEngagement';
 
 /**
  * The one Markdown editing policy Clutter adds on top of CodeMirror:
@@ -604,6 +605,357 @@ const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }
 };
 
 /**
+ * The real content-start of a task item — after the `TaskMarker` *and*
+ * its own separator whitespace, not merely `marker.nextSibling.from`
+ * (which is where the *outer* `ListMark`'s content starts, i.e. the
+ * position of `[` itself — already handled correctly by
+ * `preserveListMarkerOnContentStartSplit` above, a different boundary
+ * from this one).
+ *
+ * `TaskMarker`'s own remaining line content is raw text with no wrapping
+ * `Paragraph` node (confirmed directly: `Task[ ] Text` has exactly one
+ * child, `TaskMarker`; unlike `ListMark`, whose sibling is normally a
+ * real `Paragraph`/nested-list node), so there is no node boundary to
+ * lean on in the common case — this scans the real whitespace run after
+ * `TaskMarker.to`, the same "ask the parser first, fall back to a real
+ * text scan only when the parser gives no node boundary" shape
+ * `separatorRangeAfter` (`listMarkerDecoration.ts`) already uses for the
+ * symmetric `ListMark` case. The one case where a node boundary *does*
+ * exist — inline-formatted content starting immediately after the
+ * checkbox, e.g. `- [ ] **Bold**` — still terminates at that sibling's
+ * own `.from`, matching `separatorRangeAfter`'s own same-line bound.
+ */
+function taskContentBoundaryAfter(state: EditorState, taskMarker: SyntaxNode): number {
+  const from = taskMarker.to;
+  const line = state.doc.lineAt(from);
+  const nextSibling = taskMarker.nextSibling;
+  if (nextSibling && state.doc.lineAt(nextSibling.from).from === line.from) {
+    return Math.min(nextSibling.from, line.to);
+  }
+  const rest = state.doc.sliceString(from, line.to);
+  return from + /^[ \t]*/.exec(rest)![0].length;
+}
+
+/**
+ * Fixes the two confirmed Enter defects at a task item's checkbox
+ * boundary (2026-08-31 task-list investigation): neither of upstream
+ * `insertNewlineContinueMarkupCommand` nor
+ * `preserveListMarkerOnContentStartSplit` above knows `Task`/`TaskMarker`
+ * exists — the former treats the checkbox as ordinary paragraph text and
+ * computes its split point by walking backward over whitespace
+ * immediately before the cursor (the *checkbox's own* separator, one
+ * level deeper than the case that command's doc comment already
+ * describes for plain markers), stripping it from the line left behind
+ * and de-parsing that line's `Task` back into a plain `Paragraph`
+ * (confirmed live: `"- [ ] |Task"` -> `"- [ ]\n- [ ] Task"`, first line's
+ * own `[ ]` no longer parses as a checkbox at all once its trailing
+ * space is gone); the latter's own boundary is `marker.nextSibling.from`
+ * — the position *before* `[`, a real and already-correct boundary for a
+ * different case (splitting the whole item, checkbox included, onto a
+ * fresh line — see that command's own doc comment) — so it never even
+ * looks at content-start *inside* the checkbox.
+ *
+ * **The `TaskMarker` is treated as one atomic, non-splittable unit for
+ * Enter, exactly like `deleteTaskMarker` below treats it for Backspace**:
+ * a press anywhere from just inside its `from` through its `to`
+ * (`- [|] Task`, `- [ |]Task`, `- [ ]|Task` — right up to but not
+ * including the checkbox's own separator) is treated identically to a
+ * press at the real content-start (right after
+ * the checkbox's own separator) — there is no meaningful "split the
+ * checkbox in half" gesture, so every position touching it collapses to
+ * the one well-defined split point. `pos === taskMarker.from` (the
+ * position immediately *before* `[`) is deliberately excluded — that is
+ * the different, already-correct `preserveListMarkerOnContentStartSplit`
+ * boundary, and this command must never compete with it for the same
+ * position.
+ *
+ * On a genuine empty task (`- [ ] |`, nothing after the checkbox's own
+ * separator) this declines and falls through to `continueMarkup`'s own
+ * established empty-item list-exit behavior, unchanged — splitting an
+ * empty task into two empty tasks would invent behavior no other empty-
+ * list-item case in this file produces.
+ *
+ * Once both conditions hold, this dispatches one atomic, insertion-only
+ * transaction (no deletion — mirrors `preserveListMarkerOnContentStartSplit`'s
+ * own shape): the original line's own checkbox and everything up to
+ * content-start is left completely untouched (so a `- [x] |Task` keeps
+ * *its own* checked box, now an empty checked task on the first line —
+ * see this command's own product-decision note below), and a new line is
+ * inserted at content-start carrying the same indent, a byte-for-byte
+ * copy of the outer marker + its own separator, and a **fresh, always-
+ * unchecked** `"[ ] "` — never the original box's checked state.
+ * Confirmed against the unmodified upstream grammar/commands (this
+ * session's own investigation): Enter at the *end* of an already-checked
+ * task (`"- [x] Task|"`) already produces a fresh unchecked `"- [ ] "` on
+ * the new item, never inheriting `checked`, for bullet and ordered
+ * markers alike — this command follows that same, already-established
+ * product behavior rather than inventing a new one; it does not need
+ * `isTaskMarkerChecked` (`../task/taskEngagement.ts`) at all, precisely
+ * because the answer is "always unchecked," not "read and mirror the
+ * original state."
+ *
+ * Ordered markers renumber exactly like
+ * `preserveListMarkerOnContentStartSplit`'s own ordered branch — same
+ * shared primitives (`isRiskyRenumberRewrite`, `nestedContentSurvivesGrowth`,
+ * `renumberSequentialTail`), same anchor-plus-shift-1 shape, not a second
+ * numbering algorithm: the split point (line one) keeps its own literal
+ * number, the newly created item (line two, carrying the moved content)
+ * takes `old + 1`, and the sequential tail shifts by 1 to make room.
+ * Bullet items never renumber (no digits), matching every other call
+ * site in this file.
+ */
+const preserveTaskContentOnContentStartSplit: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+
+  const pos = selection.main.head;
+  let listItem: SyntaxNode | null = null;
+  for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (node.name === 'ListItem') {
+      listItem = node;
+      break;
+    }
+  }
+  if (!listItem) {
+    return false;
+  }
+
+  const taskMarker = taskMarkerOfListItem(listItem);
+  if (!taskMarker) {
+    return false;
+  }
+
+  const contentStart = taskContentBoundaryAfter(state, taskMarker);
+  const insideCheckbox = pos > taskMarker.from && pos <= taskMarker.to;
+  if (!insideCheckbox && pos !== contentStart) {
+    return false;
+  }
+
+  const line = state.doc.lineAt(taskMarker.from);
+  if (!/\S/.test(state.doc.sliceString(contentStart, line.to))) {
+    // Empty task: defer to continueMarkup's own established list-exit behavior.
+    return false;
+  }
+
+  const marker = listItem.firstChild!; // validated by taskMarkerOfListItem
+  const markerText = state.sliceDoc(marker.from, marker.to);
+  const markerKind = classifyMarkerText(markerText);
+  const indent = state.sliceDoc(line.from, marker.from);
+  const markerSeparator = state.sliceDoc(marker.to, taskMarker.from);
+
+  let insertMarkerText = markerText;
+  let tailShiftEdits: RenumberEdit[] = [];
+
+  if (markerKind === 'ordered') {
+    const digitMatch = /^(\d+)([.)])$/.exec(markerText);
+    if (digitMatch) {
+      const digits = digitMatch[1]!;
+      const delimiter = digitMatch[2]!;
+      const newDigits = String(Number(digits) + 1);
+      const digitFrom = marker.from;
+      const digitTo = marker.from + digits.length;
+      const widthDelta = newDigits.length - digits.length;
+      const oldContentColumn = countColumn(state.sliceDoc(line.from, contentStart), state.tabSize);
+      const growthSafe =
+        nestedContentSurvivesGrowth(state, listItem, oldContentColumn, widthDelta) ||
+        !isRiskyRenumberRewrite(state, digitFrom, digitTo, newDigits.length);
+      if (growthSafe) {
+        insertMarkerText = newDigits + delimiter;
+        tailShiftEdits = renumberSequentialTail(state, listItem, 1);
+      }
+    }
+  }
+
+  const insert = state.lineBreak + indent + insertMarkerText + markerSeparator + '[ ] ';
+  const changes = [{ from: contentStart, to: contentStart, insert }, ...tailShiftEdits].sort(
+    (a, b) => a.from - b.from
+  );
+
+  dispatch(
+    state.update({
+      changes,
+      selection: EditorSelection.cursor(contentStart + insert.length),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
+  return true;
+};
+
+/**
+ * Backspace's own atomic-checkbox counterpart to
+ * `preserveTaskContentOnContentStartSplit` above. Every position from
+ * just inside `TaskMarker.from` through `TaskMarker.to` (inclusive —
+ * `- [|] Task`, `- [ |]Task`, `- [ ]|Task`, and everywhere between), *and*
+ * the task's own real content-start (`- [ ] |Task`, right after the
+ * checkbox's own trailing separator — see (2) below) currently falls
+ * through `deleteBulletMarkerSeparator` (whose own boundary is
+ * `marker.nextSibling.from`, i.e. exactly `TaskMarker.from` — the
+ * position *before* `[`, already correctly owned by that command,
+ * unrelated to and untouched by this one) to CM6's generic
+ * `deleteMarkupBackward`, which has no concept of `TaskMarker` at all and
+ * deletes one character at a time — confirmed live to leave `[`, `]`, or
+ * `[]` behind, none of which round-trip as a checkbox on the next parse
+ * (`taskEngagement.ts`'s own `TaskMarker` is always exactly 3 characters).
+ *
+ * Product decision (2026-08-31 task-list investigation, resolved from
+ * this file's own established precedent rather than invented fresh): a
+ * checkbox has no valid "half-removed" state to leave behind the way a
+ * bare `-`/`1.` marker does — `taskContentBoundaryAfter` and this
+ * codebase's own findings both confirm a `[ ]`/`[x]` stripped of its
+ * trailing separator immediately stops parsing as `TaskMarker` and reads
+ * as plain bracket text, i.e. "looks identical to a different, unintended
+ * state" — precisely the condition the empty-bullet-item rule above
+ * (`deleteBulletMarkerSeparator`'s own doc comment) already treats as
+ * requiring whole-construct removal rather than a partial edit. So this
+ * command always removes the *entire* `TaskMarker` plus its own trailing
+ * separator in one press — never just the separator, unlike the
+ * non-empty-item branch of the plain-marker rule — demoting the item to
+ * a plain list item (`- [x] Task` -> `- Task`) regardless of whether real
+ * content follows or the task is empty; the outer `ListMark`'s own
+ * separator (before `[`) is never part of this deletion, so the item
+ * itself survives as a normal, valid, non-task list item.
+ *
+ * **(2) Content-start (2026-08-31, follow-up fix — closes a real gap the
+ * first version of this command left open, confirmed via direct
+ * comparison against the established bullet/ordered cascade)**: at the
+ * task's genuine content-start (`- [ ] |Task`, the position right after
+ * the checkbox's own trailing separator — `taskContentBoundaryAfter`),
+ * neither `deleteBulletMarkerSeparator` (its own boundary is
+ * `TaskMarker.from`, strictly earlier) nor the (1) branch above (which
+ * only ever matches positions inside/at-end of the `TaskMarker` itself)
+ * fired at all — so this position fell all the way through to upstream
+ * `deleteMarkupBackward`, which (confirmed live, isolated from every
+ * Clutter command) already implements its *own*, more aggressive,
+ * single-press removal of the *entire* list-item prefix — for bullets,
+ * ordered, *and* task markers alike, uniformly. That upstream behavior is
+ * *not* what bullets/ordered actually exhibit in this editor today,
+ * though: `deleteBulletMarkerSeparator` deliberately intercepts *first*
+ * for those two kinds and narrows content-start Backspace to a
+ * separator-only removal (locked product decision, this file's own
+ * top-level doc comment on that command) — so a bullet/ordered item
+ * takes two-to-three Backspace presses to reach bare content
+ * (`"- |Task"` -> `"-|Task"` -> `"|Task"`), never one. Task content-start
+ * was the *only* position where neither override applied, so it alone
+ * reached upstream's uniform one-press behavior — a real, confirmed
+ * inconsistency in *press count*, not merely a coincidence that the
+ * *end states* happened to match.
+ *
+ * The fix reuses the exact same one-construct-per-press granularity (1)
+ * above already established, extended to fire at this *one additional*
+ * position: removes only the checkbox (`[TaskMarker.from, contentStart)`)
+ * in this press, leaving the outer `ListMark` and its own separator
+ * completely untouched (`"- [ ] |Task"` -> `"- |Task"`). Every subsequent
+ * Backspace press then lands on an *ordinary* bullet/ordered
+ * content-start position with no task construct left at all, and falls
+ * straight into the unmodified, pre-existing `deleteBulletMarkerSeparator`
+ * cascade — zero task-specific code involved from the second press
+ * onward. This is deliberately *not* a new product rule: it's the
+ * existing rule (1) applied to one more, previously-uncovered trigger
+ * position, composed with the *already-existing, untouched* bullet/
+ * ordered cascade for everything after — "reuse the established
+ * list-item structural behavior," not a parallel task-specific one.
+ *
+ * Excludes the empty-task case (`"- [ ] |"`, nothing after the checkbox's
+ * own separator): removing just the checkbox there would leave a bare,
+ * dangling `"- "` behind — a state that looks identical to "user typed a
+ * new bullet and nothing else," the exact "unintended state" this file's
+ * own empty-item principle (see above) forbids leaving on screen. That
+ * position already reaches the correct, single-press, whole-item-clearing
+ * result via unmodified upstream `deleteMarkupBackward` (verified
+ * unaffected by this change), matching the symmetric empty-item rule
+ * `deleteBulletMarkerSeparator` already applies to plain bullets — so
+ * this command continues to decline there, exactly as before.
+ *
+ * `findTaskMarkerAt` (`../task/taskEngagement.ts`) does the cheap,
+ * position-based existence check for (1); (2) instead resolves the
+ * nearest `ListItem` ancestor and its own `taskMarkerOfListItem`
+ * (`../task/taskEngagement.ts`) — the identical structural walk
+ * `preserveTaskContentOnContentStartSplit` above already uses to find
+ * the same content-start boundary for Enter, reused here rather than
+ * re-derived, so Enter and Backspace can never disagree about where a
+ * task's content-start actually is.
+ */
+function taskMarkerAtBackspaceBoundary(state: EditorState, pos: number): SyntaxNode | null {
+  const markerRange = findTaskMarkerAt(state, pos);
+  if (markerRange) {
+    for (
+      let node: SyntaxNode | null = syntaxTree(state).resolveInner(markerRange.from + 1, 1);
+      node;
+      node = node.parent
+    ) {
+      if (isTaskMarkerNode(node.name)) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  // (2) Content-start: `pos` sits strictly past the `TaskMarker`'s own
+  // range, so `findTaskMarkerAt` (a pos-containment check) can never find
+  // it — resolve via the enclosing `ListItem` instead, exactly as
+  // `preserveTaskContentOnContentStartSplit` does for Enter.
+  let listItem: SyntaxNode | null = null;
+  for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
+    if (node.name === 'ListItem') {
+      listItem = node;
+      break;
+    }
+  }
+  if (!listItem) {
+    return null;
+  }
+
+  const taskMarker = taskMarkerOfListItem(listItem);
+  if (!taskMarker) {
+    return null;
+  }
+
+  const contentStart = taskContentBoundaryAfter(state, taskMarker);
+  if (pos !== contentStart) {
+    return null;
+  }
+
+  const line = state.doc.lineAt(taskMarker.from);
+  if (!/\S/.test(state.doc.sliceString(contentStart, line.to))) {
+    // Empty task: defer to deleteMarkupBackward's own established
+    // whole-item-clearing behavior — see this function's own doc comment.
+    return null;
+  }
+
+  return taskMarker;
+}
+
+export const deleteTaskMarker: StateCommand = ({ state, dispatch }) => {
+  const { selection } = state;
+  if (selection.ranges.length !== 1 || !selection.main.empty) {
+    return false;
+  }
+
+  const pos = selection.main.head;
+  const taskMarker = taskMarkerAtBackspaceBoundary(state, pos);
+  if (!taskMarker || pos === taskMarker.from) {
+    // `pos === taskMarker.from` (immediately before `[`) belongs to
+    // `deleteBulletMarkerSeparator` — see this command's own doc comment.
+    return false;
+  }
+
+  const removalEnd = taskContentBoundaryAfter(state, taskMarker);
+
+  dispatch(
+    state.update({
+      changes: { from: taskMarker.from, to: removalEnd },
+      selection: EditorSelection.cursor(taskMarker.from),
+      scrollIntoView: true,
+      userEvent: 'delete',
+    })
+  );
+  return true;
+};
+
+/**
  * `isRiskyRenumberRewrite` and `renumberSequentialTail` moved to the
  * neutral `../list/orderedListRenumbering` module (2026-08-30, Tab/
  * Shift-Tab numbering normalization) — Tab/Shift-Tab's own membership-
@@ -828,6 +1180,7 @@ export const markdownEnterCommand: StateCommand = (target) =>
   exitEmptyBlockquoteContinuation(target) ||
   exitLazyContinuationBulletLookalike(target) ||
   preserveListMarkerOnContentStartSplit(target) ||
+  preserveTaskContentOnContentStartSplit(target) ||
   continueFirstSameLineListLevel(target) ||
   continueMarkupPreservingStructure(target) ||
   exitEmptyIndentContinuation(target);
@@ -882,6 +1235,23 @@ function listMarkAt(state: EditorState, markerFrom: number): SyntaxNode | null {
  *   removes the whole construct instead, matching the same principle from
  *   the other direction: never leave state on screen that looks identical
  *   to a different, unintended state.
+ *
+ * **Empty *task* item** (`- [ ] |`/`- [x] |`, checkbox with nothing real
+ * after its own separator — 2026-08-31, follow-up fix): the exact same
+ * "empty item" branch above, not a third shape — a task's own `content`
+ * (the `Task` node) is never `null` even when its checkbox has no
+ * trailing text, so without `isEmptyTask` this command's plain
+ * `content === null` check never recognized it, and the position fell
+ * through to upstream `deleteMarkupBackward`'s own quirky space-blanking
+ * behavior (see below) for the one case — an empty task *after* a
+ * sibling item — where that quirk doesn't coincidentally look clean
+ * (confirmed live: `"- [ ] A\n- [ ] |"` left `"- [ ] A\n      |"`, six
+ * stray spaces, instead of `"- [ ] A\n|"`). `isEmptyTask` treats this
+ * shape as equivalent to the plain empty-item case: `boundary` becomes
+ * `line.to` and `from` becomes `marker.from`, so the *entire* marker plus
+ * the *entire* `Task`/`TaskMarker` construct is removed together, in one
+ * press — reusing this branch's own existing removal wholesale, never a
+ * task-specific rewrite of it.
  *
  * Both shapes replace CM6's own `deleteMarkupBackward` behavior at this
  * one position (verified via `node_modules/@codemirror/lang-markdown`,
@@ -969,23 +1339,45 @@ export const deleteBulletMarkerSeparator: StateCommand = ({ state, dispatch }) =
   }
 
   const content = marker.nextSibling;
-  const boundary = content ? content.from : line.to;
+  // A task item's own `content` is always the `Task` node — never `null`,
+  // even when the checkbox has no real text after it — so the plain
+  // `content === null` check below (correct for an ordinary empty bullet/
+  // ordered item, which truly has no content sibling at all) never
+  // recognizes an "empty" *task* as empty. `isEmptyTask` closes that one
+  // gap: a task item counts as empty here exactly when its own content
+  // (everything after the checkbox's own separator) is empty on this
+  // line — reusing `taskMarkerOfListItem`/`taskContentBoundaryAfter`
+  // (`../task/taskEngagement.ts`, this file's own local helper), the
+  // identical structural facts `preserveTaskContentOnContentStartSplit`
+  // and `deleteTaskMarker` already use, not a second definition of "is
+  // this task empty."
+  const taskMarker = listItem ? taskMarkerOfListItem(listItem) : null;
+  const isEmptyTask =
+    taskMarker !== null && !/\S/.test(state.sliceDoc(taskContentBoundaryAfter(state, taskMarker), line.to));
+  const boundary = !content || isEmptyTask ? line.to : content.from;
   if (pos !== boundary || boundary <= marker.to) {
     return false;
   }
 
-  // Non-empty: remove only the separator, keeping the marker. Empty:
-  // remove the marker and its separator together, preserving whatever
-  // leading indentation sits before `marker.from`.
-  const from = content ? marker.to : marker.from;
+  // Non-empty: remove only the separator, keeping the marker. Empty
+  // (including an empty task, per `isEmptyTask` above): remove the
+  // marker — and, for a task, its own `Task`/`TaskMarker` content too,
+  // since `boundary` is `line.to` in that case — together, preserving
+  // whatever leading indentation sits before `marker.from`. This is the
+  // *same* branch and the *same* reasoning as the plain-list empty-item
+  // case, not a task-specific rewrite: a task item with an empty checkbox
+  // is simply one more shape of "empty," reusing this command's own
+  // existing empty-item removal wholesale.
+  const from = !content || isEmptyTask ? marker.from : marker.to;
 
   // Empty-item deletion in an OrderedList: close the numbering gap left
   // behind, matching Enter's own symmetric behavior on the same empty
   // item (see `renumberAfterEmptyItemDeletion`'s own doc comment). The
   // non-empty (separator-only) branch is deliberately unaffected — only
-  // removing an item can leave a gap to close.
+  // removing an item can leave a gap to close. Applies identically to an
+  // empty ordered *task* item (`isEmptyTask`), for the same reason.
   const renumbers =
-    !content && listParentName === 'OrderedList' && listItem
+    (!content || isEmptyTask) && listParentName === 'OrderedList' && listItem
       ? renumberAfterEmptyItemDeletion(state, [listItem])
       : [];
 
@@ -1185,6 +1577,7 @@ export function markdownEnterKeymap(): Extension {
         key: 'Backspace',
         run: (target) =>
           deleteBulletMarkerSeparator(target) ||
+          deleteTaskMarker(target) ||
           deleteCompleteListItemSelection(target) ||
           deleteMarkupBackward(target),
       },

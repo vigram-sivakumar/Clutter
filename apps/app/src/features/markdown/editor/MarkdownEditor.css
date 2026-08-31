@@ -550,6 +550,28 @@
 }
 
 /*
+ * The task checklist checkbox (`taskCheckboxDecoration.ts`,
+ * `TaskCheckboxWidget.ts`, 2026-08-31) — a real `Decoration.replace`
+ * widget standing in for the raw `[ ]`/`[x]`/`[X]` `TaskMarker` text
+ * (unlike bullets/ordered markers above, which stay real, unreplaced
+ * source text; see that file's own doc comment for why: a 3-character
+ * source range collapsing to one visual glyph has no established
+ * transparent-text-plus-`::before` treatment). `cm-list-marker` supplies
+ * the shared tint/box-alignment this class doesn't repeat; this rule
+ * supplies its own geometry and click affordance. `width` (not
+ * `min-width`): unlike ordered numbers, the glyph is always exactly one
+ * character, so there's no variable-width content to accommodate.
+ */
+.cm-editor .cm-task-checkbox {
+  display: inline-block;
+  width: var(--marker-width);
+  text-align: center;
+  text-indent: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+/*
  * TEMPORARY PROTOTYPE (2026-08-29, #5 — root-cause fix) — replaces the
  * `text-align: center` layout for ALL THREE marker characters (`-`, `+`,
  * `*`→`•`), not just the dot, to fix a real selection-geometry defect this

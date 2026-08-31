@@ -44,6 +44,9 @@ import { leadingIndentDecoration } from './codemirror/highlight/leadingIndentDec
 import { linkMouseHandlers } from './codemirror/link/linkMouseHandlers';
 import { urlMouseHandlers } from './codemirror/link/urlMouseHandlers';
 import { listMarkerCaretAssoc, listMarkerDecoration } from './codemirror/list/listMarkerDecoration';
+import { taskCheckboxDecoration } from './codemirror/task/taskCheckboxDecoration';
+import { taskCheckboxMouseHandlers } from './codemirror/task/taskCheckboxMouseHandlers';
+import { taskCompletionMetadataDecoration } from './codemirror/task/taskCompletionMetadataDecoration';
 // The liveMarkDecoration-based marker decorations still dormant here
 // (emphasis, strikethrough — plus blockquote/list, which stay on
 // liveMarkDecoration permanently per ODR §4.10) carry the
@@ -63,8 +66,8 @@ import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecorati
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 // import { tableDecoration } from './codemirror/table/tableDecoration';
 // taskCheckboxMouseHandlers.ts was deleted alongside the rest of the old
-// list-marker implementation (2026-08-28 list reset) — see the wiring
-// site below for why, and what needs rebuilding.
+// list-marker implementation (2026-08-28 list reset) and rebuilt in the
+// task visual-rendering slice (2026-08-31) — see the wiring site below.
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
 import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
 import { wikiLinkLivePreview } from './codemirror/wikilink/wikiLinkLivePreview';
@@ -323,14 +326,33 @@ export const MarkdownEditor = forwardRef<
         // list-rendering rebuild (2026-08-28 reset, see the comment near
         // this file's top). Built on liveMarkDecoration, same mechanism as
         // headingMarkerDecoration()/blockquoteMarkerDecoration() above.
-        // Ordered lists and task checklists are still unrendered; a future
-        // slice adds them alongside line/hanging-indent decoration
-        // (listLineDecoration(), not yet reimplemented).
+        // Ordered lists are still unrendered; a future slice adds them
+        // alongside line/hanging-indent decoration (listLineDecoration(),
+        // not yet reimplemented). Task checklists are rendered separately
+        // below, via taskCheckboxDecoration() — deliberately not folded
+        // into this function: `listMarkerDecoration.ts`'s own glyph-paint
+        // mechanism (real 1-char marker, transparent text + `::before`)
+        // cannot cleanly collapse `TaskMarker`'s fixed 3-character source
+        // range to one visual glyph; the checkbox needs a real
+        // `Decoration.replace`/`WidgetType`, matching WikiLink/Tag/Date's
+        // own at-rest widget mechanism instead. `listMarkerDecoration.ts`
+        // itself is unchanged — its own `hasTaskChild` check still
+        // excludes task items from bullet-glyph rendering, unaffected.
         listMarkerDecoration(),
         // TEMPORARY PROTOTYPE — fixes ArrowRight's caret-rendering
         // asymmetry at a bullet item's content-start position; see
         // listMarkerDecoration.ts's own doc comment on listMarkerCaretAssoc.
         listMarkerCaretAssoc(),
+        // Task checklist visual rendering (2026-08-31): the checkbox
+        // widget (`☐`/`☑`, replacing the raw `[ ]`/`[x]` — TaskMarker
+        // itself stays in the document) plus concealment of the outer
+        // list marker for task items only, and separately, permanent
+        // concealment of `@completed:<date>` inline metadata. See
+        // taskCheckboxDecoration.ts's own doc comment for why this is a
+        // real Decoration.replace/WidgetType/atomicRanges construct, not
+        // an extension of listMarkerDecoration()'s glyph-paint mechanism.
+        taskCheckboxDecoration(),
+        taskCompletionMetadataDecoration(),
         // listLineDecoration(),
         // listIndentWhitespaceDecoration(),
         // emojiListMarkDecoration(),
@@ -354,17 +376,13 @@ export const MarkdownEditor = forwardRef<
         // to see reflected everywhere (the sidebar) immediately, unlike
         // ordinary typing, which should keep using the normal debounced
         // autosave. See taskCheckboxActivation.ts's own doc comment.
-        // Click-driven checkbox toggling is disabled, not just its visual
-        // widget — `taskCheckboxMouseHandlers.ts` was deleted alongside the
-        // rest of the old list-marker implementation (2026-08-28 list
-        // reset): its click-position resolution was built specifically
-        // around `listMarkerDecoration.ts`'s combined marker range, which
-        // no longer exists. `taskCheckboxActivation.ts`'s own toggle logic
-        // is untouched and still fully covered by its own tests — only the
-        // mouse-click entry point onto it needs rebuilding, against
-        // whatever the new list architecture's own marker-range concept
-        // turns out to be, once task lists are reached.
-        // taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
+        // Rebuilt (2026-08-31, task visual-rendering slice) on the exact
+        // same generic tokenMouseHandlers mechanism WikiLink/Tag/Date
+        // already use below — not a new click-resolution mechanism, and
+        // not coupled to listMarkerDecoration.ts's own marker range at
+        // all (that coupling was the old, deleted implementation's own
+        // design, not repeated here).
+        taskCheckboxMouseHandlers(() => onFlushRef.current?.()),
         // Kept: click activation is product interaction (open/toggle),
         // not cursor behavior, and works independently of the decorations
         // above (it reads the syntax tree directly, not the rendered
