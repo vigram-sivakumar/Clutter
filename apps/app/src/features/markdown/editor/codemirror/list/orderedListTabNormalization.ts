@@ -1,8 +1,9 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import type { ChangeDesc, ChangeSpec, EditorState } from '@codemirror/state';
+import { EditorState, type ChangeDesc, type ChangeSpec } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { markdownLanguageExtension } from '../markdownLanguage';
 import {
   isRiskyRenumberRewrite,
   listItemLiteralNumber,
@@ -51,8 +52,17 @@ import {
  *    the indent command actually touched, never a wider blast radius.
  */
 
-/** A touched physical line that was, in the *original* (pre-Phase-A) tree, an `OrderedList` item's own marker line. */
-interface OrderedListCandidate {
+/**
+ * A candidate `ListItem` — in Tab/Shift-Tab's own usage, a touched
+ * physical line that was, in the *original* (pre-Phase-A) tree, an
+ * `OrderedList` item's own marker line. Exported (2026-08-31, transaction-
+ * level structural normalization) so `orderedListStructuralNormalization.ts`
+ * can reuse the identical shape for its own, differently-sourced
+ * candidates (every direct child of a nearby `OrderedList`, rather than
+ * "every touched line") — the shared shape is `{marker position, item
+ * node, list node}`, independent of how the candidate was discovered.
+ */
+export interface OrderedListCandidate {
   readonly originalMarkerFrom: number;
   readonly originalListItem: SyntaxNode;
   readonly originalOrderedList: SyntaxNode;
@@ -65,9 +75,10 @@ interface OrderedListCandidate {
  * `listItemStartingAt` already established for the whole-item-selection
  * Backspace/Delete fix, reused here under a locally descriptive name
  * since a marker *position* (not a selection boundary) is what this
- * module always has on hand.
+ * module always has on hand. Exported for the same reason as
+ * `OrderedListCandidate` above.
  */
-function listItemWithMarkerAt(state: EditorState, pos: number): SyntaxNode | null {
+export function listItemWithMarkerAt(state: EditorState, pos: number): SyntaxNode | null {
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1); node; node = node.parent) {
     if (node.name === 'ListItem') {
       return node.firstChild?.from === pos ? node : null;
@@ -76,8 +87,8 @@ function listItemWithMarkerAt(state: EditorState, pos: number): SyntaxNode | nul
   return null;
 }
 
-/** `item`'s own immediate `OrderedList` parent, or `null` if `item` belongs to a `BulletList` (never renumbered) or has no list parent at all. */
-function orderedListParent(item: SyntaxNode): SyntaxNode | null {
+/** `item`'s own immediate `OrderedList` parent, or `null` if `item` belongs to a `BulletList` (never renumbered) or has no list parent at all. Exported for the same reason as `OrderedListCandidate` above. */
+export function orderedListParent(item: SyntaxNode): SyntaxNode | null {
   return item.parent?.name === 'OrderedList' ? item.parent : null;
 }
 
@@ -118,8 +129,8 @@ function collectOrderedListCandidates(
   return candidates.sort((a, b) => a.originalMarkerFrom - b.originalMarkerFrom);
 }
 
-/** One touched item confirmed, against the provisional post-edit tree, to have genuinely changed which `OrderedList` it belongs to. */
-interface MovedItem {
+/** One touched item confirmed, against the provisional post-edit tree, to have genuinely changed which `OrderedList` it belongs to. Exported for the same reason as `OrderedListCandidate` above. */
+export interface MovedItem {
   readonly candidate: OrderedListCandidate;
   readonly provisionalMarkerFrom: number;
   readonly newOrderedList: SyntaxNode;
@@ -141,7 +152,7 @@ interface MovedItem {
  * dropped here — per this module's own locked invariant 4, there is
  * nothing valid to normalize for it.
  */
-function findMovedItems(
+export function findMovedItems(
   provisional: EditorState,
   phaseAChangeSet: ChangeDesc,
   candidates: readonly OrderedListCandidate[]
@@ -189,7 +200,7 @@ function findMovedItems(
  * list stayed behind") still normalizes exactly as before; this guard
  * only ever suppresses the fully-isolated, no-context case.
  */
-function listHasOtherMembers(listNode: SyntaxNode, excludedMarkerFroms: ReadonlySet<number>): boolean {
+export function listHasOtherMembers(listNode: SyntaxNode, excludedMarkerFroms: ReadonlySet<number>): boolean {
   for (let child: SyntaxNode | null = listNode.firstChild; child; child = child.nextSibling) {
     if (child.name !== 'ListItem') continue;
     const marker = child.firstChild;
@@ -201,7 +212,7 @@ function listHasOtherMembers(listNode: SyntaxNode, excludedMarkerFroms: Readonly
 }
 
 /** Groups `moved` by a numeric key, preserving each group's own relative document order. */
-function groupBy<T>(items: readonly T[], key: (item: T) => number): Map<number, T[]> {
+export function groupBy<T>(items: readonly T[], key: (item: T) => number): Map<number, T[]> {
   const groups = new Map<number, T[]>();
   for (const item of items) {
     const k = key(item);
@@ -246,16 +257,26 @@ function groupBy<T>(items: readonly T[], key: (item: T) => number): Map<number, 
  * by either half of this plan.
  *
  * Rewrite positions are read from `provisional` (where the walk happens)
- * and translated back to `state`'s own original coordinates via
- * `inverted` (`phaseAChangeSet.invert(state.doc)`) before being returned
- * — the *only* place in this module that needs that inverse mapping,
- * since every position here, joined or pre-existing, is discovered by
- * walking the destination's post-edit structure, not by reasoning about
- * which original line it came from.
+ * and translated via `mapEditRange` before being returned — by default
+ * (Tab/Shift-Tab's own call site, below) that translates *back* to
+ * `state`'s own original coordinates (`inverted.mapPos`, `inverted =
+ * phaseAChangeSet.invert(state.doc)`), since Tab composes these edits
+ * into the *same*, single, original-coordinate `changes([...])` array as
+ * its own Phase A whitespace edits. A caller composing this list's edits
+ * as a *separate*, sequential transaction spec applied *after* its own
+ * edit (as `orderedListStructuralNormalization.ts` does, so that the
+ * triggering command's own `dispatch()`-computed selection/effects are
+ * preserved verbatim rather than recomputed) instead passes the identity
+ * mapper — `provisional`'s own coordinates are already the coordinate
+ * space that spec needs. Parameterizing the coordinate translation this
+ * way (2026-08-31, transaction-level structural normalization) is the
+ * *only* change from this function's original, Tab-only shape: the
+ * baseline/sequencing/risk-gating business logic below is completely
+ * unchanged and is not duplicated anywhere else in this codebase.
  */
-function planDestinationRenumbering(
+export function planDestinationRenumbering(
   provisional: EditorState,
-  inverted: ChangeDesc,
+  mapEditRange: (from: number, to: number) => { readonly from: number; readonly to: number },
   destinationList: SyntaxNode,
   joinedMarkerFroms: ReadonlySet<number>
 ): RenumberEdit[] {
@@ -276,8 +297,7 @@ function planDestinationRenumbering(
       joinedSeen++;
       const newNumber = baseline + joinedSeen;
       if (newNumber !== literal) {
-        const from = inverted.mapPos(marker.from, 1);
-        const to = inverted.mapPos(marker.from + digits.length, 1);
+        const { from, to } = mapEditRange(marker.from, marker.from + digits.length);
         if (!isRiskyRenumberRewrite(provisional, marker.from, marker.from + digits.length, String(newNumber).length)) {
           edits.push({ from, to, insert: String(newNumber) });
         }
@@ -298,8 +318,7 @@ function planDestinationRenumbering(
     if (prevPreExistingOriginal !== null && literal !== prevPreExistingOriginal + 1) break;
     const shiftedNumber: number = literal + joinedSeen;
     if (shiftedNumber !== literal) {
-      const from = inverted.mapPos(marker.from, 1);
-      const to = inverted.mapPos(marker.from + digits.length, 1);
+      const { from, to } = mapEditRange(marker.from, marker.from + digits.length);
       if (!isRiskyRenumberRewrite(provisional, marker.from, marker.from + digits.length, String(shiftedNumber).length)) {
         edits.push({ from, to, insert: String(shiftedNumber) });
       }
@@ -334,7 +353,27 @@ export function planOrderedListNormalization(
   }
 
   const phaseAChangeSet = state.changes(phaseAChanges as ChangeSpec[]);
-  const provisional = state.update({ changes: phaseAChangeSet }).state;
+  // A throwaway `EditorState` built from *only* the Markdown grammar —
+  // deliberately not `state.update({changes: phaseAChangeSet}).state`,
+  // which would carry `state`'s *full* extension config, including
+  // `orderedListStructuralNormalization()`'s own `transactionFilter`
+  // (2026-08-31) once that's registered alongside this module in the real
+  // editor: `EditorState.update()` runs registered filters exactly like
+  // `dispatch()` does (`resolveTransaction(state, specs, true)` —
+  // confirmed directly against the installed `@codemirror/state` source),
+  // so building this purely-for-reading provisional tree through the full
+  // state would recursively invoke that filter on a transaction this
+  // function never intends to dispatch, corrupting the positions this
+  // function computes next against `provisional`'s tree. This tree is
+  // only ever read (`listItemLiteralNumber`, `listItemWithMarkerAt`,
+  // `isRiskyRenumberRewrite`), never itself dispatched, so it only ever
+  // needs the same parser every other consumer of Markdown syntax in this
+  // codebase shares (`markdownLanguageExtension()`) — not history, not
+  // keymaps, not this or any other transaction-level extension.
+  const provisional = EditorState.create({
+    doc: phaseAChangeSet.apply(state.doc),
+    extensions: [markdownLanguageExtension()],
+  });
   ensureSyntaxTree(provisional, provisional.doc.length, 5000);
 
   const moved = findMovedItems(provisional, phaseAChangeSet, candidates);
@@ -387,7 +426,14 @@ export function planOrderedListNormalization(
   for (const group of byDestinationList.values()) {
     const destinationList = group[0]!.newOrderedList;
     const joinedMarkerFroms = new Set(group.map((m) => m.provisionalMarkerFrom));
-    edits.push(...planDestinationRenumbering(provisional, inverted, destinationList, joinedMarkerFroms));
+    edits.push(
+      ...planDestinationRenumbering(
+        provisional,
+        (from, to) => ({ from: inverted.mapPos(from, 1), to: inverted.mapPos(to, 1) }),
+        destinationList,
+        joinedMarkerFroms
+      )
+    );
   }
 
   return edits;

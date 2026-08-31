@@ -1,4 +1,4 @@
-import { insertNewlineAndIndent } from '@codemirror/commands';
+import { history, insertNewlineAndIndent, redo, undo, undoDepth } from '@codemirror/commands';
 import { ensureSyntaxTree } from '@codemirror/language';
 import {
   EditorSelection,
@@ -312,9 +312,9 @@ describe('markdownEnterCommand', () => {
       expect(handlerFor('hello\n|')).toBe('default');
     });
 
-    it('content-start on an ordered item preserves the marker rather than incrementing (see "ordered content-start split" below)', () => {
+    it('content-start on an ordered item splits and shifts forward (see "ordered content-start split" below)', () => {
       expect(pressEnterTimes('1. Text\n2. |rest', 1)).toEqual([
-        '1. Text\n2._\n2. |rest',
+        '1. Text\n2._\n3. |rest',
       ]);
     });
   });
@@ -359,20 +359,328 @@ describe('markdownEnterCommand', () => {
       expect(pressEnterTimes('- one\n- |', 1)).toEqual(['- one\n|']);
     });
 
-    it('ordered content-start split: marker copied verbatim, never incremented (2026-08-29 extension)', () => {
-      expect(pressEnterTimes('1. |Text', 1)).toEqual(['1._\n1. |Text']);
+    it('ordered content-start split: new item keeps the split point\'s own number, the moved content shifts forward by one (2026-08-31, locked)', () => {
+      expect(pressEnterTimes('1. |Text', 1)).toEqual(['1._\n2. |Text']);
     });
 
     it('ordered content-start split with a wider marker: "10. |Text"', () => {
-      expect(pressEnterTimes('10. |Text', 1)).toEqual(['10._\n10. |Text']);
+      expect(pressEnterTimes('10. |Text', 1)).toEqual(['10._\n11. |Text']);
     });
 
     it('paren-style ordered content-start split: "1) |Text"', () => {
-      expect(pressEnterTimes('1) |Text', 1)).toEqual(['1)_\n1) |Text']);
+      expect(pressEnterTimes('1) |Text', 1)).toEqual(['1)_\n2) |Text']);
     });
 
     it('normal nested Enter away from content-start is unaffected', () => {
       expect(pressEnterTimes('- Parent\n  - Child|', 1)).toEqual(['- Parent\n  - Child\n  - |']);
+    });
+  });
+
+  describe('ordered content-start split: repeated Enter continues the sequence (2026-08-31)', () => {
+    it('repeated presses at the freshly-created content-start position never duplicate a literal', () => {
+      // Each press splits the *current* content-start item again: the
+      // fresh empty item keeps that press's own split-point number, and
+      // the moved content shifts forward by one again — never the same
+      // literal twice, matching the locked invariant exactly.
+      expect(pressEnterTimes('1. |Text', 3)).toEqual([
+        '1._\n2. |Text',
+        '1._\n2._\n3. |Text',
+        '1._\n2._\n3._\n4. |Text',
+      ]);
+    });
+
+    it('a real sequential run (1/2/3) splitting at the last item shifts only the split point and its own tail, never the untouched head', () => {
+      expect(pressEnterTimes('1. One\n2. Two\n3. |Three', 3)).toEqual([
+        '1. One\n2. Two\n3._\n4. |Three',
+        '1. One\n2. Two\n3._\n4._\n5. |Three',
+        '1. One\n2. Two\n3._\n4._\n5._\n6. |Three',
+      ]);
+    });
+
+    it('splitting a middle item shifts every subsequent sequential sibling, not just the immediate next one', () => {
+      expect(pressEnterTimes('7. Seven\n8. Eight\n9. |Nine', 1)).toEqual([
+        '7. Seven\n8. Eight\n9._\n10. |Nine',
+      ]);
+    });
+
+    it('multi-digit marker: "10. Ten\\n11. Eleven\\n12. |Twelve"', () => {
+      expect(pressEnterTimes('10. Ten\n11. Eleven\n12. |Twelve', 1)).toEqual([
+        '10. Ten\n11. Eleven\n12._\n13. |Twelve',
+      ]);
+    });
+
+    it('paren delimiter shifts and preserves the delimiter through repeated presses', () => {
+      expect(pressEnterTimes('3) |Three', 2)).toEqual([
+        '3)_\n4) |Three',
+        '3)_\n4)_\n5) |Three',
+      ]);
+    });
+
+    it('nested (4-space) content-start split shifts correctly at depth', () => {
+      expect(pressEnterTimes('1. Parent\n    1. One\n    2. Two\n    3. |Three', 1)).toEqual([
+        '1. Parent\n    1. One\n    2. Two\n    3._\n    4. |Three',
+      ]);
+    });
+
+    it('manual/irregular numbering: the split point shifts, but an unrelated earlier manual number is never touched', () => {
+      // "99" is never renumbered toward "2" — this command has no notion
+      // of "the list should be sequential"; it only ever shifts the split
+      // point's own literal and its own already-sequential tail, exactly
+      // like every other renumberSequentialTail call site in this
+      // codebase.
+      expect(pressEnterTimes('1. One\n99. Two\n100. |Three', 1)).toEqual([
+        '1. One\n99. Two\n100._\n101. |Three',
+      ]);
+    });
+
+    it('manual/irregular numbering: a later, still-sequential tail after the split point still shifts', () => {
+      expect(pressEnterTimes('1. One\n99. |Two\n100. Three', 1)).toEqual([
+        '1. One\n99._\n100. |Two\n101. Three',
+      ]);
+    });
+
+    it('a 9->10 digit-width growth on a multi-line split-point item with a sufficiently-margined nested child still grows correctly (2026-08-31, nestedContentSurvivesGrowth)', () => {
+      // "9. Nine" owns a nested child at 4-space indentation - one column
+      // of margin past "9. "'s own 3-column content column - which is
+      // exactly enough to survive the digit-width growth to "10. " (whose
+      // own content column is 4). See the dedicated
+      // nestedContentSurvivesGrowth describe block below for the full
+      // margin/zero-margin regression matrix.
+      expect(
+        pressEnterTimes('9. |Nine\n    1. Nested child', 1)
+      ).toEqual(['9._\n10. |Nine\n    1. Nested child']);
+    });
+
+    it('bullet content-start splits remain completely unaffected by the ordered-only change', () => {
+      expect(pressEnterTimes('- |Text', 1)).toEqual(['-_\n- |Text']);
+      expect(pressEnterTimes('- One\n- |Two', 1)).toEqual(['- One\n-_\n- |Two']);
+    });
+
+    it('is one atomic undo step per press, and undo restores the exact prior document', () => {
+      const doc = '1. Text';
+      const pos = doc.indexOf('Text');
+      let state = EditorState.create({
+        doc,
+        selection: EditorSelection.cursor(pos),
+        extensions: [markdownLanguageExtension(), history()],
+      });
+      ensureSyntaxTree(state, doc.length, 5000);
+
+      function press(s: EditorState): EditorState {
+        let dispatched: Transaction | null = null;
+        const target = { state: s, dispatch: (tr: Transaction) => { dispatched = tr; } };
+        markdownEnterCommand(target);
+        if (!dispatched) throw new Error('nothing dispatched');
+        return (dispatched as Transaction).state;
+      }
+
+      const afterFirst = press(state);
+      expect(undoDepth(afterFirst)).toBe(1);
+      const afterSecond = press(afterFirst);
+      expect(undoDepth(afterSecond)).toBe(2);
+
+      let undone = afterSecond;
+      undo({ state: undone, dispatch: (tr) => { undone = tr.state; } });
+      expect(undone.doc.toString()).toBe(afterFirst.doc.toString());
+
+      let redone = undone;
+      redo({ state: redone, dispatch: (tr) => { redone = tr.state; } });
+      expect(redone.doc.toString()).toBe(afterSecond.doc.toString());
+    });
+  });
+
+  describe('content-start split on a multi-line lazy-continuation item: nestedContentSurvivesGrowth (2026-08-31)', () => {
+    it('a wrapped multi-line paragraph item still grows 9 -> 10 correctly (not the risky-rewrite fallback)', () => {
+      expect(pressEnterTimes('9. |Nine\n    wrapped continuation', 1)).toEqual([
+        '9._\n10. |Nine\n    wrapped continuation',
+      ]);
+    });
+
+    it('repeated Enter on the wrapped multi-line item continues the sequence, never repeating a literal', () => {
+      expect(pressEnterTimes('9. |Nine\n    wrapped continuation', 3)).toEqual([
+        '9._\n10. |Nine\n    wrapped continuation',
+        '9._\n10._\n11. |Nine\n    wrapped continuation',
+        '9._\n10._\n11._\n12. |Nine\n    wrapped continuation',
+      ]);
+    });
+
+    it('99 -> 100 width transition with wrapped continuation content', () => {
+      expect(pressEnterTimes('99. |Ninety\n     wrapped continuation', 1)).toEqual([
+        '99._\n100. |Ninety\n     wrapped continuation',
+      ]);
+    });
+
+    it('999 -> 1000 width transition with wrapped continuation content', () => {
+      expect(pressEnterTimes('999. |NineNine\n      wrapped continuation', 1)).toEqual([
+        '999._\n1000. |NineNine\n      wrapped continuation',
+      ]);
+    });
+
+    it('lazy continuation at zero indentation margin (exactly the old content column) still grows safely', () => {
+      expect(pressEnterTimes('9. |Nine\n   zero margin continuation', 1)).toEqual([
+        '9._\n10. |Nine\n   zero margin continuation',
+      ]);
+    });
+
+    it('lazy continuation with an indentation margin still grows safely', () => {
+      expect(pressEnterTimes('9. |Nine\n       wide margin continuation', 1)).toEqual([
+        '9._\n10. |Nine\n       wide margin continuation',
+      ]);
+    });
+
+    it('a genuine nested ordered-list child still falls back to the conservative (duplicate-literal) behavior', () => {
+      expect(pressEnterTimes('9. |Nine\n   1. Child', 1)).toEqual(['9._\n9. |Nine\n   1. Child']);
+    });
+
+    it('a genuine nested bullet-list child still falls back to the conservative (duplicate-literal) behavior', () => {
+      expect(pressEnterTimes('9. |Nine\n   - Child', 1)).toEqual(['9._\n9. |Nine\n   - Child']);
+    });
+
+    it('nested (4-space) list-item depth: wrapped continuation still grows correctly', () => {
+      expect(
+        pressEnterTimes('1. Parent\n    9. |Nine\n        wrapped continuation', 1)
+      ).toEqual(['1. Parent\n    9._\n    10. |Nine\n        wrapped continuation']);
+    });
+
+    it('paren-style delimiter with wrapped continuation content', () => {
+      expect(pressEnterTimes('9) |Nine\n    wrapped continuation', 1)).toEqual([
+        '9)_\n10) |Nine\n    wrapped continuation',
+      ]);
+    });
+
+    it('irregular numbering elsewhere in the list is untouched, but a still-sequential tail after the split point still shifts', () => {
+      expect(
+        pressEnterTimes('1. One\n99. |Two\n    wrapped continuation\n100. Three', 1)
+      ).toEqual(['1. One\n99._\n100. |Two\n    wrapped continuation\n101. Three']);
+    });
+
+    it('bullet markers with wrapped continuation content remain completely unaffected', () => {
+      expect(pressEnterTimes('- |Text\n    wrapped continuation', 1)).toEqual([
+        '-_\n- |Text\n    wrapped continuation',
+      ]);
+    });
+
+    it('is one atomic undo step for the lazy-continuation growth path', () => {
+      const doc = '9. Nine\n    wrapped continuation';
+      const pos = doc.indexOf('Nine');
+      const state = EditorState.create({
+        doc,
+        selection: EditorSelection.cursor(pos),
+        extensions: [markdownLanguageExtension(), history()],
+      });
+      ensureSyntaxTree(state, doc.length, 5000);
+
+      let dispatched: Transaction | null = null;
+      const target = { state, dispatch: (tr: Transaction) => { dispatched = tr; } };
+      markdownEnterCommand(target);
+      if (!dispatched) throw new Error('nothing dispatched');
+      const after = (dispatched as Transaction).state;
+
+      expect(undoDepth(after)).toBe(1);
+      expect(after.doc.toString()).toBe('9. \n10. Nine\n    wrapped continuation');
+
+      let undone = after;
+      undo({ state: undone, dispatch: (tr) => { undone = tr.state; } });
+      expect(undone.doc.toString()).toBe(doc);
+
+      let redone = undone;
+      redo({ state: redone, dispatch: (tr) => { redone = tr.state; } });
+      expect(redone.doc.toString()).toBe(after.doc.toString());
+    });
+  });
+
+  describe('content-start split with a genuine nested block child: margin-based nestedContentSurvivesGrowth (2026-08-31)', () => {
+    it('the exact reported case: a nested ordered list with sufficient (1-column) margin grows correctly', () => {
+      expect(pressEnterTimes('7.\n8.\n9. |One\n    1. Two', 1)).toEqual([
+        '7.\n8.\n9._\n10. |One\n    1. Two',
+      ]);
+    });
+
+    it('zero-margin nested ordered list falls back to the conservative (duplicate-literal) behavior', () => {
+      expect(pressEnterTimes('9. |One\n   1. Two', 1)).toEqual(['9._\n9. |One\n   1. Two']);
+    });
+
+    it('zero-margin nested bullet list falls back to the conservative (duplicate-literal) behavior', () => {
+      expect(pressEnterTimes('9. |One\n   - Two', 1)).toEqual(['9._\n9. |One\n   - Two']);
+    });
+
+    it('99 -> 100 with a sufficiently-margined nested ordered list', () => {
+      expect(pressEnterTimes('99. |One\n     1. Two', 1)).toEqual(['99._\n100. |One\n     1. Two']);
+    });
+
+    it('999 -> 1000 with a sufficiently-margined nested ordered list', () => {
+      expect(pressEnterTimes('999. |One\n      1. Two', 1)).toEqual([
+        '999._\n1000. |One\n      1. Two',
+      ]);
+    });
+
+    it('nested outer depth: 4-space (one chained level)', () => {
+      expect(pressEnterTimes('1. Parent\n    9. |One\n        1. Two', 1)).toEqual([
+        '1. Parent\n    9._\n    10. |One\n        1. Two',
+      ]);
+    });
+
+    it('nested outer depth: 8-space (two chained levels)', () => {
+      expect(
+        pressEnterTimes('1. Parent\n    1. Mid\n        9. |One\n            1. Two', 1)
+      ).toEqual(['1. Parent\n    1. Mid\n        9._\n        10. |One\n            1. Two']);
+    });
+
+    it('nested outer depth: 12-space (three chained levels)', () => {
+      expect(
+        pressEnterTimes(
+          '1. Parent\n    1. Mid\n        1. Mid2\n            9. |One\n                1. Two',
+          1
+        )
+      ).toEqual([
+        '1. Parent\n    1. Mid\n        1. Mid2\n            9._\n            10. |One\n                1. Two',
+      ]);
+    });
+
+    it('repeated Enter continues the sequence past the width-crossing boundary, nested content stays correctly attached throughout', () => {
+      expect(pressEnterTimes('9. |One\n    1. Two', 3)).toEqual([
+        '9._\n10. |One\n    1. Two',
+        '9._\n10._\n11. |One\n    1. Two',
+        '9._\n10._\n11._\n12. |One\n    1. Two',
+      ]);
+    });
+
+    it('paren delimiter with a sufficiently-margined nested ordered list', () => {
+      expect(pressEnterTimes('9) |One\n    1) Two', 1)).toEqual(['9)_\n10) |One\n    1) Two']);
+    });
+
+    it('irregular numbering: the split point grows, nested content stays attached, and a still-sequential tail after it shifts', () => {
+      expect(pressEnterTimes('1. One\n9. |Two\n    1. Nested\n10. Three', 1)).toEqual([
+        '1. One\n9._\n10. |Two\n    1. Nested\n11. Three',
+      ]);
+    });
+
+    it('is one atomic undo step for the nested-block-with-sufficient-margin growth path', () => {
+      const doc = '9. One\n    1. Two';
+      const pos = doc.indexOf('One');
+      const state = EditorState.create({
+        doc,
+        selection: EditorSelection.cursor(pos),
+        extensions: [markdownLanguageExtension(), history()],
+      });
+      ensureSyntaxTree(state, doc.length, 5000);
+
+      let dispatched: Transaction | null = null;
+      const target = { state, dispatch: (tr: Transaction) => { dispatched = tr; } };
+      markdownEnterCommand(target);
+      if (!dispatched) throw new Error('nothing dispatched');
+      const after = (dispatched as Transaction).state;
+
+      expect(undoDepth(after)).toBe(1);
+      expect(after.doc.toString()).toBe('9. \n10. One\n    1. Two');
+
+      let undone = after;
+      undo({ state: undone, dispatch: (tr) => { undone = tr.state; } });
+      expect(undone.doc.toString()).toBe(doc);
+
+      let redone = undone;
+      redo({ state: redone, dispatch: (tr) => { redone = tr.state; } });
+      expect(redone.doc.toString()).toBe(after.doc.toString());
     });
   });
 
@@ -411,6 +719,63 @@ describe('markdownEnterCommand', () => {
 
     it('a mid-line Enter on a same-line chain falls through to ordinary splitting, not this command', () => {
       expect(pressEnterTimes('- - Te|xt', 1)).toEqual(['- - Te\n  - |xt']);
+    });
+  });
+
+  describe('spurious tail renumbering on lazy-continuation Enter (2026-08-30 fix)', () => {
+    it('Enter at the end of a multi-line lazy-continuation paragraph does not renumber later siblings', () => {
+      const before =
+        '1. One\n2. Two\n3. Three\n4. One\n5. Two\n6. Four\nThis a paragraph that breaks the list|\n7. here\n8. One\n9. Numer';
+      const after = pressEnterTimes(before, 1)[0]!;
+      // The paragraph gets an ordinary newline continuation; every later
+      // sibling's own literal number is untouched - no 7->8, 8->9, 9->10.
+      expect(after).toContain('7. here');
+      expect(after).toContain('8. One');
+      expect(after).toContain('9. Numer');
+      expect(after).not.toContain('8. here');
+      expect(after).not.toContain('9. One');
+      expect(after).not.toContain('10. Numer');
+    });
+
+    it('the exact reported shape: item 6 unchanged, item 7 still reads "7."', () => {
+      const before = '6. Four\nThis a paragraph that breaks the list|\n7. here';
+      const after = pressEnterTimes(before, 1)[0]!;
+      expect(after).toContain('6. Four');
+      expect(after).toContain('7. here');
+      expect(after).not.toContain('8. here');
+    });
+
+    it('a genuine new item (Enter at the end of a real marker line) still renumbers the tail correctly - fix does not over-suppress', () => {
+      // "8. One" is a real ListItem's own marker line; Enter here inserts
+      // a real new "9. " item and must still shift what was "9." to "10."
+      const before = '7. here\n8. One|\n9. Numer';
+      const after = pressEnterTimes(before, 1)[0]!;
+      expect(after).toContain('9. ');
+      expect(after).toContain('10. Numer');
+    });
+
+    it('empty-line-exit with a real following item still closes the numbering gap - fix does not collide with this legitimate case', () => {
+      // Pressing Enter on a truly empty second item exits/removes it;
+      // the following "3." must still shift down to "2." to close the gap
+      // this departure leaves - this is a different, legitimate renumber
+      // this fix must never suppress.
+      const before = '1. One\n2. |\n3. Three';
+      const after = pressEnterTimes(before, 1)[0]!;
+      expect(after).toContain('2. Three');
+      expect(after).not.toContain('3. Three');
+    });
+
+    it('trailing whitespace before the cursor (non-zero-width main edit) is still caught', () => {
+      const before = '6. Four\nThis a paragraph that breaks the list   |\n7. here';
+      const after = pressEnterTimes(before, 1)[0]!;
+      expect(after).toContain('7. here');
+      expect(after).not.toContain('8. here');
+    });
+
+    it('reproduces identically on a bullet list too (no digit involved, but the same "no marker created" defect shape) - confirms the fix is scoped to ordered-only via BARE_DIGIT_RUN, bullets have nothing to renumber anyway', () => {
+      const before = '- Four\nThis a paragraph that breaks the list|\n- here';
+      const after = pressEnterTimes(before, 1)[0]!;
+      expect(after).toContain('- here');
     });
   });
 });

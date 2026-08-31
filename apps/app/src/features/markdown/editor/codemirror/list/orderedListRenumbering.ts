@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import type { EditorState } from '@codemirror/state';
+import { countColumn, type EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 /**
@@ -98,6 +98,84 @@ export function isRiskyRenumberRewrite(
     },
   });
   return risky;
+}
+
+/**
+ * True when every direct non-`Paragraph`, non-`ListMark` child of
+ * `listItem` — a genuine nested block: `OrderedList`, `BulletList`,
+ * `Blockquote`, `FencedCode`, etc. — has enough of its own indentation
+ * margin to survive `listItem`'s own marker growing by `widthDelta`
+ * columns from `oldContentColumn`.
+ *
+ * Exists specifically because `isRiskyRenumberRewrite`'s own "any digit-
+ * width growth on a multi-line item is risky" policy (above) is coarser
+ * than it needs to be: it declines *any* growth on *any* multi-line item,
+ * without ever checking how much indentation margin that item's own
+ * content actually has. The real, structural rule (2026-08-31 investigation,
+ * confirmed via a full-transaction prototype at 9→10/99→100/999→1000, at
+ * top level and nested, with both `OrderedList` and `BulletList` children)
+ * is purely a column comparison: a nested block's own recognition depends
+ * on its leading indentation meeting the *enclosing* item's content
+ * column, so growth is safe exactly when that indentation already meets
+ * the *new*, grown content column (`oldContentColumn + widthDelta`) — and
+ * unsafe when it doesn't (confirmed: a nested block sitting exactly at the
+ * *old* content column, zero margin, is detached into a malformed sibling
+ * by growth, or — at wider transitions — silently absorbed as plain
+ * paragraph text). Every digit-width-crossing increment this codebase's
+ * content-start split performs (`9→10`, `99→100`, `999→1000`, ...) grows
+ * the marker by exactly one character — a fact of decimal arithmetic, not
+ * a hardcoded assumption — but `widthDelta` is a real parameter here, not
+ * a literal `1`, so this generalizes to any delta without modification.
+ *
+ * A `Paragraph` child is always skipped (never checked): a lazy-
+ * continuation line's own recognition never depends on any specific
+ * column at all (CommonMark's laziness rule — confirmed directly by
+ * simulating growth against both zero-margin and wide-margin continuation
+ * text at every width above: the tree is unaffected in every case). This
+ * means a `listItem` whose only children are `Paragraph`s has nothing
+ * left to check in the loop below and returns `true` — the pure-lazy-
+ * continuation case falls out as a trivial degenerate case of this same
+ * general rule, with no separate branch or special-casing needed.
+ *
+ * This function answers a strictly *narrower*, more precise question than
+ * `isRiskyRenumberRewrite` — "does this specific item's own content shape
+ * make *this specific* growth provably safe" — without changing what
+ * `isRiskyRenumberRewrite` itself means for its own existing call sites
+ * (Tab, Backspace's empty-item gap-closing, the ordinary end-of-line Enter
+ * tail-shift): none of those are touched by this function at all. A
+ * caller that finds this `true` may skip the `isRiskyRenumberRewrite` gate
+ * entirely for that specific rewrite; a caller that finds this `false`
+ * should keep using `isRiskyRenumberRewrite` exactly as before — this
+ * function only ever *adds* a proven-safe exception, never removes an
+ * existing protection.
+ *
+ * Reasons purely from the syntax tree's own child-node shape and real
+ * column arithmetic (`countColumn`, the same tab-aware column utility
+ * already used elsewhere in this codebase, e.g.
+ * `markdownEnterKeymap.ts`'s own `exitEmptyIndentContinuation`) — no
+ * digit-width special-casing, no depth assumption, no hardcoded
+ * indentation constant: every value compared here is read from the real
+ * document.
+ */
+export function nestedContentSurvivesGrowth(
+  state: EditorState,
+  listItem: SyntaxNode,
+  oldContentColumn: number,
+  widthDelta: number
+): boolean {
+  const requiredColumn = oldContentColumn + widthDelta;
+  for (let child: SyntaxNode | null = listItem.firstChild; child; child = child.nextSibling) {
+    if (child.name === 'ListMark' || child.name === 'Paragraph') {
+      continue;
+    }
+    const line = state.doc.lineAt(child.from);
+    const leadingWhitespace = /^[ \t]*/.exec(line.text)![0];
+    const column = countColumn(leadingWhitespace, state.tabSize);
+    if (column < requiredColumn) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**

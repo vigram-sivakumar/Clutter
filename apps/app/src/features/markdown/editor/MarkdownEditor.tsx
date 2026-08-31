@@ -32,6 +32,7 @@ import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { markdownEnterKeymap } from './codemirror/enter/markdownEnterKeymap';
 import { markdownIndentKeymap } from './codemirror/indent/markdownIndentKeymap';
+import { orderedListStructuralNormalization } from './codemirror/list/orderedListStructuralNormalization';
 import { formatShortcutsKeymap } from './codemirror/format/formatShortcutsKeymap';
 import { blockquoteLineDecoration } from './codemirror/highlight/blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './codemirror/highlight/blockquoteMarkerDecoration';
@@ -262,6 +263,17 @@ export const MarkdownEditor = forwardRef<
         markdownLanguageExtension(),
         markdownEnterKeymap(),
         markdownIndentKeymap(),
+        // Transaction-level ordered-list membership renumbering
+        // (2026-08-31) — fires on *any* document-changing transaction
+        // (Enter, Backspace, Delete, selection-delete, raw edits),
+        // regardless of which command produced it, complementing
+        // Tab/Shift-Tab's own (markdownIndentKeymap above) and Space's
+        // own (wired inside markdownEnterKeymap) narrower, command-scoped
+        // normalization. See
+        // codemirror/list/orderedListStructuralNormalization.ts's own
+        // doc comment for the full rationale and the transactionFilter
+        // composition/idempotence guarantees.
+        orderedListStructuralNormalization(),
         // --- Temporarily unwired: purely visual Live Preview decorations ---
         // Every extension below this line, up to the next "--- end ---"
         // marker, was checked for behavioral coupling (keymap registration,

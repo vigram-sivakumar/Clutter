@@ -19,7 +19,12 @@ import { keymap } from '@codemirror/view';
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
 import { classifyMarkerText, firstSameLineListMark } from '../list/listMarkerDecoration';
 import { insertOrderedListMarkerSeparator } from '../list/orderedListMarkerCreation';
-import { isRiskyRenumberRewrite, renumberSequentialTail } from '../list/orderedListRenumbering';
+import {
+  isRiskyRenumberRewrite,
+  nestedContentSurvivesGrowth,
+  renumberSequentialTail,
+  type RenumberEdit,
+} from '../list/orderedListRenumbering';
 
 /**
  * The one Markdown editing policy Clutter adds on top of CodeMirror:
@@ -415,23 +420,66 @@ const continueFirstSameLineListLevel: StateCommand = ({ state, dispatch }) => {
  * upstream and decoration-independent: identical with `listMarkerDecoration()`
  * present, absent, and under a from-scratch `Decoration.mark` probe — see
  * `listMarkerDecoration.ts`'s own doc comment for that investigation.
- * Confirmed (2026-08-29, ordered-list extension) that the identical bug
- * reproduces for ordered markers: `insertNewlineContinueMarkupCommand`
- * against `"1. |Text"` produces `"1.\n2. Text"` — the original line's own
- * separator eaten (`"1."`, no trailing space) *and* the split-off content
- * silently renumbered to `2.` even though nothing about a content-start
- * split should invent a new number. This command's own fix (copy the
- * marker+separator verbatim, never compute a new number) is deliberately
- * **not** symmetric with `continueMarkup`'s own untouched end-of-line
- * behavior (§ ODR "Ordered-list numbering" — plain `- Text|` + Enter *does*
- * let CM6 auto-increment the new line to the previous item's number + 1,
- * which this file does not touch or reimplement): a content-start split is
- * not "continuing the list with a new entry," it's dividing one line's
- * existing marker between two lines, so the correct number for *both*
- * resulting lines is the one the user actually typed, copied verbatim —
- * inventing an incremented number here would silently author content the
- * user didn't type, which is exactly what this whole architecture's
- * source-preservation principle forbids.
+ *
+ * **Bullet markers** (`-`/`*`/`+`): the marker+separator is copied verbatim
+ * onto both resulting lines — there is no numbering concept, so "preserve
+ * exactly what the user typed" has no alternative.
+ *
+ * **Ordered markers** (2026-08-31, locked product decision superseding the
+ * original 2026-08-29 "copy verbatim, never invent a number" choice —
+ * confirmed via direct reproduction that the verbatim-copy choice does not
+ * generalize past a *single* Enter press: repeating the press from the
+ * freshly-created, still-content-start-positioned empty line re-triggers
+ * this same command again, compounding one duplicate literal into an
+ * unbounded stack of them, e.g. `3.` five times in a row before `3. Three`
+ * — never a valid product state): splitting an ordered-list item creates a
+ * new sibling **at** the split position and shifts the original item and
+ * its sequential tail forward by one. `"3. |Three"` + Enter produces
+ * `"3.\n4. Three"` — the item *before* the cursor (newly created from
+ * nothing) keeps the split point's own literal number; the item *after*
+ * the cursor (the original line's own content, now on its own line) and
+ * every item after it in the existing sequential run shift forward by one,
+ * reusing `renumberSequentialTail` (`orderedListRenumbering.ts`) completely
+ * unmodified — the *exact* same shared primitive Tab/Backspace already use
+ * for their own "anchor plus signed shift" renumbering, not a second
+ * numbering algorithm. `listItem` (the original, pre-edit `ListItem`) is
+ * passed as `renumberSequentialTail`'s own anchor with `shift = 1`: its own
+ * literal seeds the sequential-run check and is never itself rewritten by
+ * that call (the split-point's own new number is instead baked directly
+ * into the freshly *inserted* text below, not a separate rewrite of
+ * existing text) — irregular runs still stop shifting at the first break,
+ * exactly as every other `renumberSequentialTail` call site already
+ * guarantees, so a manually-authored, non-sequential number later in the
+ * list (e.g. `1. One / 99. Two / 100. |Three`, nothing after `100`) is
+ * left completely untouched beyond the split point itself. The digit-width
+ * growth on the split point's own new number (e.g. a `9.`→`10.` transition
+ * moving into two digits) is gated through `isRiskyRenumberRewrite`
+ * exactly like every other digit-rewrite in this codebase — **except**
+ * when `nestedContentSurvivesGrowth` (`orderedListRenumbering.ts`) proves
+ * growth is safe for that specific item's own content shape and actual
+ * indentation margin, which `isRiskyRenumberRewrite`'s own coarser,
+ * width-only heuristic cannot see (it declines *any* growth on *any*
+ * multi-line item, whether or not that item's own content actually has
+ * enough margin to survive it — see that function's own doc comment for
+ * the full investigation/proof, including why a genuine nested list/quote/
+ * code child with sufficient margin is *also* safe, not only plain
+ * wrapped paragraph text). When neither check clears the growth (a
+ * genuine nested block whose own indentation sits at or below the old
+ * content column, with no margin to spare), this
+ * falls back to the original verbatim-copy behavior for *that specific
+ * split* rather than growing unsafely — matching this file's own
+ * risk-gating pattern everywhere else, not a new fallback rule invented
+ * for this call site. `isRiskyRenumberRewrite` itself is never modified;
+ * every other call site (Tab, Backspace, the ordinary end-of-line Enter
+ * tail-shift) is completely unaffected by this refinement.
+ *
+ * This is a *within-list* edit — the resulting new item and the shifted
+ * tail all remain direct children of the exact same `OrderedList` node
+ * before and after, confirmed directly (with `orderedListStructuralNormalization()`
+ * present and absent, byte-identical output either way) — so the
+ * transaction-level structural normalizer (`list/orderedListStructuralNormalization.ts`)
+ * never sees this as a membership change and is not, and should not
+ * become, involved in producing this result.
  *
  * Guard, all required to fire:
  * 1. Single collapsed cursor (mirrors every sibling command's own guard).
@@ -449,14 +497,16 @@ const continueFirstSameLineListLevel: StateCommand = ({ state, dispatch }) => {
  *    empty item (`- |` with nothing after) is `continueMarkup`'s own
  *    "exit the list" gesture, untouched here.
  *
- * When all five hold, this dispatches a pure *insertion* — no deletion at
- * all — of `"\n" + indent + marker + separator` at the cursor. The
- * original line's own `marker + separator` is never part of the change,
- * so it survives completely untouched; the new line gets an identical,
- * freshly-written copy of the same indent/marker/separator. Every other
- * case (before the marker, mid-marker, mid-word, end-of-line, empty item,
- * non-list constructs) returns `false` and reaches `continueMarkup`
- * exactly as before.
+ * When all five hold, this dispatches one atomic transaction: an
+ * *insertion* (no deletion) of `"\n" + indent + marker + separator` at the
+ * cursor — the original line's own `marker + separator` is never part of
+ * this insertion, so its own text is never directly rewritten — composed,
+ * for ordered markers only, with the tail-shift edits above into the same
+ * `changes` array/single dispatch, matching the one-atomic-transaction
+ * guarantee every other list-editing fix in this codebase already
+ * provides. Every other case (before the marker, mid-marker, mid-word,
+ * end-of-line, empty item, non-list constructs) returns `false` and
+ * reaches `continueMarkup` exactly as before.
  */
 const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }) => {
   const { selection } = state;
@@ -482,7 +532,8 @@ const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }
   }
 
   const markerText = state.sliceDoc(marker.from, marker.to);
-  if (!classifyMarkerText(markerText)) {
+  const markerKind = classifyMarkerText(markerText);
+  if (!markerKind) {
     return false;
   }
 
@@ -508,11 +559,42 @@ const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }
   }
 
   const indent = state.sliceDoc(line.from, marker.from);
-  const insert = state.lineBreak + indent + markerText + gap;
+
+  let insertMarkerText = markerText;
+  let tailShiftEdits: RenumberEdit[] = [];
+
+  if (markerKind === 'ordered') {
+    const digitMatch = /^(\d+)([.)])$/.exec(markerText);
+    if (digitMatch) {
+      const digits = digitMatch[1]!;
+      const delimiter = digitMatch[2]!;
+      const newDigits = String(Number(digits) + 1);
+      const digitFrom = marker.from;
+      const digitTo = marker.from + digits.length;
+      const widthDelta = newDigits.length - digits.length;
+      const oldContentColumn = countColumn(state.sliceDoc(line.from, pos), state.tabSize);
+      // `nestedContentSurvivesGrowth` proves growth safe for this specific
+      // item's own content shape and actual indentation margin, regardless
+      // of what `isRiskyRenumberRewrite`'s own coarser, width-only
+      // heuristic would say — see that function's own doc comment. A
+      // genuine nested block *without* enough margin still falls through
+      // to the existing, unmodified `isRiskyRenumberRewrite` gate below.
+      const growthSafe =
+        nestedContentSurvivesGrowth(state, listItem, oldContentColumn, widthDelta) ||
+        !isRiskyRenumberRewrite(state, digitFrom, digitTo, newDigits.length);
+      if (growthSafe) {
+        insertMarkerText = newDigits + delimiter;
+        tailShiftEdits = renumberSequentialTail(state, listItem, 1);
+      }
+    }
+  }
+
+  const insert = state.lineBreak + indent + insertMarkerText + gap;
+  const changes = [{ from: pos, to: pos, insert }, ...tailShiftEdits].sort((a, b) => a.from - b.from);
 
   dispatch(
     state.update({
-      changes: { from: pos, to: pos, insert },
+      changes,
       selection: EditorSelection.cursor(pos + insert.length),
       scrollIntoView: true,
       userEvent: 'input',
@@ -602,6 +684,91 @@ const preserveListMarkerOnContentStartSplit: StateCommand = ({ state, dispatch }
  * addendum tracked in §9/§14), not something to fold into a narrow
  * corruption guard.
  */
+/**
+ * A run of one or more digits and nothing else — exactly upstream
+ * `renumberList`'s own rewrite shape (`insert: String(prev + 2 + offset)`,
+ * always a bare numeric string, always replacing another bare digit run —
+ * the `ListMark`'s own `\d+` portion, never the delimiter). Used only to
+ * *identify* which of `continueMarkup`'s own changes are `renumberList`
+ * output, never to compute or validate a number itself.
+ */
+const BARE_DIGIT_RUN = /^\d+$/;
+
+/** A list marker (bullet or ordered) immediately followed by its separator, matched anywhere in a string — the same shape `LIST_MARKER_LINE`/`classifyMarkerText` already recognize elsewhere in this codebase, searched unanchored here since a genuinely new item's own `insert` text can be preceded by blockquote/blank-line padding. */
+const LIST_MARKER_WITH_SEPARATOR = /(?:[-+*]|\d{1,9}[.)])[ \t]/;
+
+/**
+ * Detects and drops a confirmed defect in upstream `@codemirror/lang-
+ * markdown`'s own `insertNewlineContinueMarkupCommand`: whenever the
+ * innermost context is an `OrderedList`, it calls its private
+ * `renumberList(inner.item, doc, changes)` *unconditionally* — before
+ * checking whether this exact Enter press is actually going to insert a
+ * new item's marker at all. When the cursor sits inside a `ListItem`'s own
+ * multi-line lazy-continuation `Paragraph` (a later physical line than the
+ * item's own marker, with no marker-eligible prefix on that line —
+ * confirmed via direct tree/transaction inspection, not inferred), the
+ * marker-insertion branch correctly produces no new marker text at all —
+ * but `renumberList` still runs, shifting every subsequent sibling's
+ * literal number up by one to make room for an item that was never
+ * created. Reproduced identically against the completely unmodified
+ * upstream grammar (no Clutter extensions registered at all), confirming
+ * this predates and is unrelated to `listMarkerParagraphInterrupt` or
+ * `insertOrderedListMarkerSeparator`.
+ *
+ * **Identifying the "no new marker" shape, from the transaction alone,
+ * without duplicating any of `continueMarkup`'s own internal branching
+ * logic**: `continueMarkup` always emits its own primary split-edit with
+ * `to` equal to the pre-Enter cursor position, in every branch (confirmed
+ * by direct inspection of the installed `@codemirror/lang-markdown`
+ * source: `changes.push({from, to: pos, insert: ...})` in the general
+ * continuation branch, `{from: delTo, to: pos, insert}` in the
+ * empty-line-exit branch — `pos` is always the original cursor). That
+ * edit is "no new marker" when the text it *replaces* is whitespace-only
+ * (confirmed empirically: Bug 1's own main edit is a zero-width `""`→`"\n"`
+ * insertion; a version with trailing whitespace before the cursor
+ * produces the same shape, just non-zero-width) and its own *inserted*
+ * text contains no list-marker-plus-separator substring anywhere.
+ *
+ * **Why this cannot collide with the legitimate empty-line-exit
+ * gap-closing renumber** (confirmed via direct transaction inspection of
+ * `"1. One\n2. |\n3. Three"`, cursor at the end of the empty second item):
+ * that branch's own primary edit *deletes* the departing item's real
+ * marker text (`"2. "`, not whitespace) to remove it from the list
+ * entirely — so it never satisfies "replaces whitespace-only text," and
+ * its own accompanying `renumberList(..., -2)` gap-closing rewrite is
+ * correctly left untouched. The two hazards are structurally
+ * distinguishable by what the primary edit *replaces*, not by what it
+ * inserts, which is why both conditions (whitespace-only replacement *and*
+ * no marker in the insertion) are checked on the *same* edit.
+ *
+ * **Only a change whose own replaced-and-inserted text are both bare
+ * digit runs is ever dropped** (`BARE_DIGIT_RUN`) — the exact, unmistakable
+ * shape of a `renumberList` rewrite and nothing else `continueMarkup`
+ * produces (e.g. the separate, unrelated "two aligned empty quoted lines"
+ * blockquote-joining branch deletes real `>`/whitespace text, never a bare
+ * digit run, so it can never be mistaken for this).
+ */
+function isSpuriousTailRenumber(
+  state: EditorState,
+  originalPos: number,
+  transaction: Transaction
+): boolean {
+  let mainEditIsMarkerless = false;
+
+  transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    if (toA !== originalPos) {
+      return;
+    }
+    const replaced = state.doc.sliceString(fromA, toA);
+    if (!/^\s*$/.test(replaced)) {
+      return;
+    }
+    mainEditIsMarkerless = !LIST_MARKER_WITH_SEPARATOR.test(inserted.toString());
+  }, true);
+
+  return mainEditIsMarkerless;
+}
+
 const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) => {
   let captured: Transaction | null = null;
   const handled = continueMarkup({
@@ -615,15 +782,24 @@ const continueMarkupPreservingStructure: StateCommand = ({ state, dispatch }) =>
   }
 
   const transaction: Transaction = captured;
+  const originalPos = state.selection.main.head;
+  const suppressTailRenumber = isSpuriousTailRenumber(state, originalPos, transaction);
+
   const kept: { from: number; to: number; insert: string }[] = [];
   let declinedAny = false;
 
   transaction.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    const insertedText = inserted.toString();
+    const isDigitRunRewrite = toA !== originalPos && BARE_DIGIT_RUN.test(insertedText) && BARE_DIGIT_RUN.test(state.doc.sliceString(fromA, toA));
+    if (suppressTailRenumber && isDigitRunRewrite) {
+      declinedAny = true;
+      return;
+    }
     if (isRiskyRenumberRewrite(state, fromA, toA, inserted.length)) {
       declinedAny = true;
       return;
     }
-    kept.push({ from: fromA, to: toA, insert: inserted.toString() });
+    kept.push({ from: fromA, to: toA, insert: insertedText });
   }, true);
 
   if (!declinedAny) {
