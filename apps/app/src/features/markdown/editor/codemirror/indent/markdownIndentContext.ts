@@ -19,7 +19,8 @@ import type { SyntaxNode } from '@lezer/common';
  *    this constant directly — it never touches CM6's generic
  *    `indentUnit`/`tabSize` facets at all, by design (Clutter's own
  *    space-driven model, not a generic CM6 setting — same reasoning as
- *    `leadingIndentDecoration.ts`'s own `SPACE_PX`/`TAB_PX`).
+ *    `leadingIndentDecoration.ts`'s own pixel metrics, which derive from
+ *    `--md-indent` in the design token system).
  * 2. **Every CM6-internal indentation-aware command** — `deleteCharBackward`
  *    (Backspace's whitespace-only-prefix deletion), `insertNewlineAndIndent`
  *    (Enter's fallback), `indentMore`/`indentLess`/`indentSelection` (also

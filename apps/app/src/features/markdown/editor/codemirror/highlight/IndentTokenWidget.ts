@@ -25,12 +25,14 @@ import { WidgetType } from '@codemirror/view';
  * equivalent `nodeType == 1` branch in `InlineCoordsScan.scanTile`) — the
  * same mechanism, in both directions, measuring the same box.
  *
- * `px` is the visual width in pixels: `SPACE_PX` (5px, one quarter of a
- * 4-space indentation level) for a space, `TAB_PX` (20px, one full level)
- * for a tab — Clutter's own stated rule ("1 space = one quarter of an
- * indentation level, 1 tab = one full indentation level, independent of
- * column"), not traditional tab-stop semantics. Passed in by
- * `leadingIndentDecoration.ts`, never computed here.
+ * `px` is the visual width in pixels — derived from the `--md-indent`
+ * CSS custom property and the 4-space-per-level indentation model:
+ * one space gets `--md-indent / 4` pixels, one tab gets `--md-indent`
+ * pixels. Clutter's own stated rule: "1 space = one quarter of an
+ * indentation level, 1 tab = one full indentation level, independent
+ * of column," not traditional tab-stop semantics.
+ * Passed in by `leadingIndentDecoration.ts`, never computed here.
+ * See `design-system/markdownIndent.ts` for token resolution details.
  *
  * The real whitespace character this replaces stays exactly where it is
  * in `state.doc` — this is rendering-only, same invariant every other

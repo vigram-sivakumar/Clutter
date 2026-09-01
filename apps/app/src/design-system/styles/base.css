@@ -19,6 +19,10 @@ body {
   font-weight: var(--fw-regular);
   color: var(--foreground-primary);
   background: var(--surface-root);
+
+  -webkit-font-smoothing: antialiased;
+  font-optical-sizing: auto;
+  font-kerning: auto;
 }
 
 h1,

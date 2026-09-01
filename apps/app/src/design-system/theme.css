@@ -32,8 +32,8 @@ html.theme-transitioning [data-themeable] *::after {
   /* Text & icons */
   --foreground-primary: #f4f4f4;
   --foreground-secondary: #a8a8a8;
-  --foreground-tertiary: #858585;
-  --foreground-placeholder: #565656;
+  --foreground-tertiary: #737373;
+  --foreground-placeholder: #575757;
   --foreground-inverse: var(--neutral-700);
   --link-underline: rgb(
     from var(--foreground-tertiary) r g b / var(--opacity-medium)
@@ -138,7 +138,8 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Markdown foreground colors */
   --marker-foreground: var(--foreground-tertiary);
-  --link-foreground: Indianred;
+  --link-foreground: rgb(46, 109, 233);
+  --cm-link-underline: rgba(46, 109, 233, 0.2);
   --tag-foreground: rgb(46, 109, 233);
   --tag-surface: rgba(46, 109, 233, 0.12);
   /* --date-foreground: #767676; */

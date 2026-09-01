@@ -67,8 +67,13 @@
   ); /* Default for most of the interactive elements */
 
   /* Markdown */
-  --marker-height: 24px;
-  --marker-width: var(--height-xs);
+  --md-base-space: 24px;
+  /* Indentation unit: one tab = this value; one space = this value / 4.
+     Source of truth for markdown indentation rendering (see
+     design-system/markdownIndent.ts). */
+  --md-indent: var(--md-base-space);
+  --marker-height: var(--md-base-space);
+  --marker-width: var(--md-base-space);
 
   /* Content width */
   --content-width: calc(100% - 96px);
@@ -91,10 +96,10 @@
   --z-overlay: 1000;
 
   /* Typography */
-  --font-sans:
-    -apply-system, system-ui, ui-sans-serif, -apple-system, 'system-ui',
-    'Segoe UI', 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+  --font-sans: inter;
+
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Font size */
   --text-display: 32px;

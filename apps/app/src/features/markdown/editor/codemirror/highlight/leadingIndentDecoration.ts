@@ -9,21 +9,21 @@ import {
 } from '@codemirror/view';
 
 import { IndentTokenWidget } from './IndentTokenWidget';
+import { getIndentLevelPx, getIndentSpacePx } from '../../../../../design-system/markdownIndent';
 
-/** Clutter's own stated rule, not derived from `indentUnit` or any other
- * facet: a leading space is always one quarter of an indentation level
- * (2026-08-30, recalibrated for the 4-space canonical unit —
- * `indent/markdownIndentContext.ts`'s `INDENT_STEP_SPACES`; one full
- * level is 4 spaces, so `4 * SPACE_PX` must equal `TAB_PX`), a leading
- * tab is always one full indentation level, independent of column or of
- * how many other characters precede it. This is a pure rendering
- * calibration, not an indentation-behavior change: the Spacebar remains
- * completely literal (typing N spaces always produces exactly N space
- * characters in `state.doc`, never rounded, completed, or normalized to
- * a multiple of 4) — only how many pixels each already-existing character
- * occupies on screen changes here. */
-const SPACE_PX = 5;
-const TAB_PX = 20;
+/** Clutter's indentation model: 4 spaces per indentation level.
+ *
+ * Leading spaces and tabs are rendered at widths derived from the
+ * `--md-indent` CSS custom property in the design token system:
+ * - One tab = one full indentation level (getIndentLevelPx())
+ * - One space = one quarter of an indentation level (getIndentSpacePx())
+ *
+ * This is a pure rendering calibration, not an indentation-behavior
+ * change: the Spacebar remains completely literal (typing N spaces
+ * always produces exactly N space characters in `state.doc`, never
+ * rounded, completed, or normalized to a multiple of 4) — only how many
+ * pixels each already-existing character occupies on screen changes here.
+ * See design-system/markdownIndent.ts for token resolution details. */
 
 /**
  * Generic leading-whitespace representation — independent of, and
@@ -41,7 +41,7 @@ const TAB_PX = 20;
  * any custom coordinate override, and there is no "complete token"
  * concept left to have a "no complete unit yet" exception for — a lone
  * space that isn't part of a larger run still gets its own real
- * `SPACE_PX`-wide widget, exactly like every other space.
+ * space-width widget (derived from `--md-indent`), exactly like every other space.
  *
  * Why `Decoration.replace`, not `Decoration.mark`: CM6 maps screen
  * coordinates to/from document positions — `coordsAtPos` (caret
@@ -101,8 +101,9 @@ function leadingWhitespaceLength(lineText: string): number {
 
 /**
  * Replaces one physical line's leading whitespace, one character at a
- * time -- a space becomes a `SPACE_PX`-wide widget, a tab becomes a
- * `TAB_PX`-wide widget, unconditionally. No run-grouping, no minimum
+ * time -- a space becomes a `SPACE_PX`-wide widget (derived from
+ * `--md-indent`), a tab becomes a `TAB_PX`-wide widget (derived from
+ * `--md-indent`), unconditionally. No run-grouping, no minimum
  * length, no "complete unit" concept.
  */
 function emitLineIndentReplacements(
@@ -111,11 +112,14 @@ function emitLineIndentReplacements(
   lineText: string,
   leadingLength: number
 ): void {
+  const indentLevelPx = getIndentLevelPx();
+  const indentSpacePx = getIndentSpacePx();
+
   for (let offset = 0; offset < leadingLength; offset++) {
     const from = lineFrom + offset;
     const to = from + 1;
     const isTab = lineText.charCodeAt(offset) === 9;
-    builder.add(from, to, indentCharDecoration(isTab ? TAB_PX : SPACE_PX));
+    builder.add(from, to, indentCharDecoration(isTab ? indentLevelPx : indentSpacePx));
   }
 }
 
