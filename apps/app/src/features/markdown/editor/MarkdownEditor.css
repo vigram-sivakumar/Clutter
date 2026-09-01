@@ -590,8 +590,6 @@
   align-items: center;
   justify-content: center;
   width: var(--marker-width);
-  height: var(--marker-width);
-  aspect-ratio: 1;
   padding: 0;
   margin: 0;
   border: none;
@@ -604,6 +602,8 @@
   transition:
     opacity 150ms ease,
     color 150ms ease;
+  line-height: 0;
+  vertical-align: text-bottom;
 }
 
 .cm-editor .cm-task-checkbox[aria-checked="true"] {
@@ -623,6 +623,7 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+  display: block;
 }
 
 /*
