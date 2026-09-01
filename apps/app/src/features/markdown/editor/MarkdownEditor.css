@@ -551,24 +551,78 @@
 
 /*
  * The task checklist checkbox (`taskCheckboxDecoration.ts`,
- * `TaskCheckboxWidget.ts`, 2026-08-31) — a real `Decoration.replace`
+ * `TaskCheckboxWidget.ts`, 2026-09-01) — a real `Decoration.replace`
  * widget standing in for the raw `[ ]`/`[x]`/`[X]` `TaskMarker` text
  * (unlike bullets/ordered markers above, which stay real, unreplaced
  * source text; see that file's own doc comment for why: a 3-character
  * source range collapsing to one visual glyph has no established
- * transparent-text-plus-`::before` treatment). `cm-list-marker` supplies
- * the shared tint/box-alignment this class doesn't repeat; this rule
- * supplies its own geometry and click affordance. `width` (not
- * `min-width`): unlike ordered numbers, the glyph is always exactly one
- * character, so there's no variable-width content to accommodate.
+ * transparent-text-plus-`::before` treatment). Styled to match the
+ * project's `Checkbox` component (`apps/app/src/components/checkbox/Checkbox.tsx`)
+ * exactly — same colors and hover/focus behavior — by reusing the SVG icons
+ * and CSS design tokens (`--checkbox-accent`, `--foreground-tertiary`) rather
+ * than inventing a new visual.
+ *
+ * Button element (not just the span) — allows proper semantic HTML
+ * (`type="button"`) and native keyboard/focus affordances. `display:
+ * inline-flex` centers the SVG icon via flexbox's `align-items: center` +
+ * `justify-content: center`. `width`/`height` both set to `--marker-width`
+ * to align with every other list marker in the editor (bullets, ordered
+ * numbers) — the checkbox occupies the same box as those markers, so they
+ * all have consistent column alignment across mixed-list lines. `aspect-ratio: 1`
+ * ensures square geometry regardless of rounding in `--marker-width` calculations.
+ * `padding: 0`, `margin: 0`, `border: none`, `background: transparent`:
+ * explicit reset for browser default button styling.
+ *
+ * `color: var(--foreground-tertiary)` on unchecked, `color: var(--checkbox-accent)`
+ * on checked (managed by `TaskCheckboxWidget.ts`'s SVG rendering and
+ * `aria-checked` state) — the SVG uses `fill="currentColor"`, so the
+ * checkbox's color changes based on the button's own `color` style, same
+ * pattern the Checkbox component uses.
+ *
+ * Reusing `--marker-width`, `--checkbox-accent`, and other CSS variables from
+ * the design system ensures this widget remains visually synchronized with
+ * the app's existing checkboxes and list markers if those variables are ever
+ * updated. `transition` matches the Checkbox component's own smooth color
+ * transitions for state changes.
  */
 .cm-editor .cm-task-checkbox {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: var(--marker-width);
-  text-align: center;
-  text-indent: 0;
+  height: var(--marker-width);
+  aspect-ratio: 1;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  flex-shrink: 0;
   cursor: pointer;
+  color: var(--foreground-tertiary);
   user-select: none;
+  transition:
+    opacity 150ms ease,
+    color 150ms ease;
+}
+
+.cm-editor .cm-task-checkbox[aria-checked="true"] {
+  color: var(--checkbox-accent);
+}
+
+.cm-editor .cm-task-checkbox:hover:not(:disabled) {
+  opacity: var(--opacity-hover, 0.7);
+}
+
+.cm-editor .cm-task-checkbox:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.cm-editor .cm-task-checkbox svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 /*

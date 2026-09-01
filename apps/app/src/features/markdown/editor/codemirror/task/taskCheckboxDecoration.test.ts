@@ -27,11 +27,46 @@ function mountView(doc: string, withHistory = false): EditorView {
  * each document line as a separate `<div class="cm-line">`, with no
  * literal newline character in the DOM between them, unlike a plain
  * `textContent` read which would silently concatenate lines together).
+ *
+ * Note: SVG elements rendered for task checkboxes don't contribute to
+ * textContent, so this function returns only the non-widget text portion.
+ * Tests verify checkbox presence separately via DOM inspection.
+ *
+ * Extracts text from non-widget elements to avoid picking up whitespace
+ * artifacts from button rendering.
  */
 function visibleText(view: EditorView): string {
   return Array.from(view.dom.querySelectorAll('.cm-line'))
-    .map((line) => line.textContent ?? '')
+    .map((line) => {
+      // Extract text content from non-widget elements
+      const text = Array.from(line.childNodes)
+        .map((node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent ?? '';
+          }
+          if (
+            node.nodeType === Node.ELEMENT_NODE &&
+            !(node as Element).classList.contains('cm-task-checkbox')
+          ) {
+            return (node as Element).textContent ?? '';
+          }
+          return '';
+        })
+        .join('');
+      // Only trim trailing whitespace, not leading (to preserve indentation)
+      return text.trimEnd();
+    })
     .join('\n');
+}
+
+function hasCheckboxAt(view: EditorView, lineIndex: number, isChecked: boolean): boolean {
+  const lines = Array.from(view.dom.querySelectorAll('.cm-line'));
+  if (lineIndex >= lines.length) return false;
+  const line = lines[lineIndex];
+  const button = line.querySelector('.cm-task-checkbox');
+  if (!button) return false;
+  const ariaChecked = button.getAttribute('aria-checked');
+  return isChecked ? ariaChecked === 'true' : ariaChecked === 'false';
 }
 
 function isAtomicAt(view: EditorView, from: number, to: number): boolean {
@@ -63,19 +98,22 @@ function findNode(state: EditorState, name: string): SyntaxNode | null {
 }
 
 describe('taskCheckboxDecoration: rendering', () => {
-  it('unchecked "- [ ] Task" renders as "☐ Task"', () => {
+  it('unchecked "- [ ] Task" renders with an unchecked checkbox', () => {
     const view = mountView('- [ ] Task');
-    expect(visibleText(view)).toBe('☐ Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task'); // Space after [ ] marker
   });
 
-  it('checked "- [x] Task" renders as "☑ Task"', () => {
+  it('checked "- [x] Task" renders with a checked checkbox', () => {
     const view = mountView('- [x] Task');
-    expect(visibleText(view)).toBe('☑ Task');
+    expect(hasCheckboxAt(view, 0, true)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 
   it('"- [X] Task" (uppercase) follows the same lenient checked-state semantics as isTaskMarkerChecked', () => {
     const view = mountView('- [X] Task');
-    expect(visibleText(view)).toBe('☑ Task');
+    expect(hasCheckboxAt(view, 0, true)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 
   it('the underlying document is completely unchanged by mounting the decoration', () => {
@@ -102,22 +140,27 @@ describe('taskCheckboxDecoration: rendering', () => {
 
   it('nested tasks: parent and child both render their own checkboxes independently', () => {
     const view = mountView('- [ ] Parent\n  - [x] Child');
-    expect(visibleText(view)).toBe('☐ Parent\n  ☑ Child');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(hasCheckboxAt(view, 1, true)).toBe(true);
+    expect(visibleText(view)).toBe(' Parent\n   Child');
   });
 
   it('ordered task list renders the checkbox and conceals the number, uniformly with bullets', () => {
     const view = mountView('1. [ ] Task');
-    expect(visibleText(view)).toBe('☐ Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 
   it('"*" task marker', () => {
     const view = mountView('* [ ] Task');
-    expect(visibleText(view)).toBe('☐ Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 
   it('"+" task marker', () => {
     const view = mountView('+ [ ] Task');
-    expect(visibleText(view)).toBe('☐ Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 
   it('a plain (non-task) bullet list is completely unaffected', () => {
@@ -127,7 +170,8 @@ describe('taskCheckboxDecoration: rendering', () => {
 
   it('mixed list: task and plain bullet siblings each render correctly', () => {
     const view = mountView('- [ ] Task\n- Bullet');
-    expect(visibleText(view)).toBe('☐ Task\n- Bullet');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task\n- Bullet');
   });
 
   it('malformed checkbox syntax ("- [ ]Task", no separator) is never decorated — no TaskMarker node exists to decorate', () => {
@@ -168,14 +212,16 @@ describe('taskCheckboxDecoration: atomic caret behavior', () => {
     const taskMarker = findNode(view.state, 'TaskMarker')!;
     for (const pos of [taskMarker.from, taskMarker.from + 1, taskMarker.to, taskMarker.to + 1]) {
       view.dispatch({ selection: EditorSelection.cursor(Math.min(pos, view.state.doc.length)) });
-      expect(visibleText(view)).toBe('☐ Task');
+      expect(hasCheckboxAt(view, 0, false)).toBe(true);
+      expect(visibleText(view)).toBe(' Task');
     }
   });
 
   it('selecting a range spanning the checkbox does not reveal raw syntax', () => {
     const view = mountView('- [ ] Task');
     view.dispatch({ selection: EditorSelection.range(0, view.state.doc.length) });
-    expect(visibleText(view)).toBe('☐ Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 
   it('decorations do not rebuild on selection changes alone (no reveal/engage state to recompute)', () => {
@@ -207,7 +253,8 @@ describe('taskCheckboxDecoration: click interaction', () => {
     const view = mountView('- [ ] Task');
     const taskMarker = findNode(view.state, 'TaskMarker')!;
     handleTaskCheckboxClick(view, taskMarker.from + 1);
-    expect(visibleText(view)).toBe('☑ Task');
+    expect(hasCheckboxAt(view, 0, true)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 
   it('clicking outside the marker does nothing', () => {
@@ -225,11 +272,13 @@ describe('taskCheckboxDecoration: click interaction', () => {
 
     undo(view);
     expect(view.state.doc.toString()).toBe('- [ ] Task');
-    expect(visibleText(view)).toBe('☐ Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
 
     redo(view);
     expect(view.state.doc.toString()).toBe('- [x] Task');
-    expect(visibleText(view)).toBe('☑ Task');
+    expect(hasCheckboxAt(view, 0, true)).toBe(true);
+    expect(visibleText(view)).toBe(' Task');
   });
 });
 
@@ -247,7 +296,8 @@ describe('taskCheckboxDecoration: compatibility with Enter/Backspace editing', (
     });
     expect(handled).toBe(true);
     expect(view.state.doc.toString()).toBe('- [ ] \n- [ ] Task');
-    expect(visibleText(view)).toBe('☐ \n☐ Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(hasCheckboxAt(view, 1, false)).toBe(true);
   });
 
   it('repeated Enter still works with the decoration mounted', () => {
@@ -255,11 +305,14 @@ describe('taskCheckboxDecoration: compatibility with Enter/Backspace editing', (
     view.dispatch({ selection: EditorSelection.cursor(6) });
     markdownEnterCommand({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
     expect(view.state.doc.toString()).toBe('- [x] \n- [ ] Task');
+    expect(hasCheckboxAt(view, 0, true)).toBe(true);
+    expect(hasCheckboxAt(view, 1, false)).toBe(true);
     // Second line ("- [ ] Task") starts at index 7; its own content-start
     // (right after "- [ ] ") is index 13.
     view.dispatch({ selection: EditorSelection.cursor(13) });
     markdownEnterCommand({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
     expect(view.state.doc.toString()).toBe('- [x] \n- [ ] \n- [ ] Task');
+    expect(hasCheckboxAt(view, 2, false)).toBe(true);
   });
 
   it('ordered task numbering still works with the decoration mounted', () => {
@@ -267,6 +320,8 @@ describe('taskCheckboxDecoration: compatibility with Enter/Backspace editing', (
     view.dispatch({ selection: EditorSelection.cursor(7) }); // right after "1. [ ] "
     markdownEnterCommand({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
     expect(view.state.doc.toString()).toBe('1. [ ] \n2. [ ] Task');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(hasCheckboxAt(view, 1, false)).toBe(true);
   });
 
   it('nested task editing still works with the decoration mounted', () => {
@@ -275,5 +330,8 @@ describe('taskCheckboxDecoration: compatibility with Enter/Backspace editing', (
     view.dispatch({ selection: EditorSelection.cursor(childContentStart) });
     markdownEnterCommand({ state: view.state, dispatch: (tr) => view.dispatch(tr) });
     expect(view.state.doc.toString()).toBe('- [ ] Parent\n  - [ ] \n  - [ ] Child');
+    expect(hasCheckboxAt(view, 0, false)).toBe(true);
+    expect(hasCheckboxAt(view, 1, false)).toBe(true);
+    expect(hasCheckboxAt(view, 2, false)).toBe(true);
   });
 });
