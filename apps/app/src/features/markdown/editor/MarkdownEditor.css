@@ -609,6 +609,12 @@
   color: var(--checkbox-accent);
 }
 
+/* Strike-through completed task content */
+.cm-editor .cm-line:has(.cm-task-checkbox[aria-checked="true"]) {
+  color: var(--foreground-tertiary);
+  text-decoration: line-through;
+}
+
 .cm-editor .cm-task-checkbox:hover:not(:disabled) {
   opacity: var(--opacity-hover, 0.7);
 }
