@@ -33,7 +33,8 @@
 }
 
 .markdown__editor .cm-line {
-  padding: 0;
+  padding-block: 3px;
+  padding-inline: 0;
 }
 /*
  * IndentTokenWidget.ts / leadingIndentDecoration.ts's `indentCharDecoration()`
@@ -600,8 +601,7 @@
   cursor: pointer;
   color: var(--foreground-tertiary);
   user-select: none;
-  vertical-align: top;
-
+  vertical-align: bottom;
   transition:
     opacity 150ms ease,
     color 150ms ease;
@@ -617,20 +617,15 @@
   text-decoration: line-through;
 }
 
-.cm-editor .cm-task-checkbox:hover:not(:disabled) {
-  opacity: var(--opacity-hover, 0.7);
-}
-
 .cm-editor .cm-task-checkbox:disabled {
   opacity: var(--opacity-disabled);
   cursor: default;
 }
 
 .cm-editor .cm-task-checkbox svg {
-  width: var(--icon-md);
-  height: var(--icon-md);
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
-  stroke-width: var(--icon-stroke);
 }
 
 /*
@@ -1142,349 +1137,6 @@
   opacity: var(--opacity-medium);
 }
 
-/* ImageWidget's own wrapper — establishes the positioning context for
-   .cm-image-controls (top-right overlay) per the interaction-correction
-   change. Still bare containment beyond that: no caption, no filename
-   label — those remain out of scope.
-
-   `width: fit-content` (not `display: block`'s implicit `width: auto`,
-   which stretches a block box to fill 100% of its containing block
-   regardless of its content's own rendered size) is what makes
-   `.cm-image-controls`'s `position: absolute; right: ...` track the
-   image's own actual right edge instead of the editor's. A block box
-   with no explicit width always fills its container — confirmed as the
-   root cause directly, not assumed: at full width the container's own
-   box and the image's happened to coincide (both effectively the
-   editor's content width), which is why the bug was invisible until the
-   width toggle made them diverge. `fit-content` shrink-wraps the
-   container to whatever the image actually renders at (natural size,
-   `max-width: 100%`-capped, or the fixed-width class's 240px cap below)
-   — the standard CSS shrink-to-fit algorithm resolves this correctly for
-   a nested auto-width `<button>`/`<img>` chain with no circularity, the
-   same well-established pattern `<figure>` wrapping `<img>` already
-   relies on elsewhere on the web. `max-width: 100%` stays alongside it
-   so the *container* itself still caps at the editor's width when the
-   image's natural size would otherwise exceed it — `fit-content`'s own
-   sizing algorithm already respects `max-width` as its outer bound. */
-.cm-editor .cm-image-container {
-  position: relative;
-  width: fit-content;
-  max-width: 100%;
-}
-
-/* Fill's own box (below) is always the full available width by design —
-   `.cm-image-container`'s own `width: fit-content` above would otherwise
-   try to shrink-wrap a `width: 100%` child, an ambiguous case not worth
-   relying on browsers to resolve consistently. This overrides it back to
-   a real full-width box for Fill only, so `.cm-image-controls`'s own
-   `position: absolute; right: 8px` still lands at the actual rendered
-   image's own top-right corner (the full editor width, in this mode) —
-   unaffected by *why* the container is that width, only by what it
-   actually is. Large/Fit never add this class: Large's image already
-   fills the full width by the same mechanism as `.tok-image` itself
-   (`max-width: 100%` on an auto-width box), and Fit is deliberately
-   left-aligned/narrower like the rest of the editor's inline content.
-
-   `calc(100% - 1px)`, not a literal `100%` — the identical caret-overflow
-   bug `.cm-image-container--broken` has its own full account of below
-   (same root cause, confirmed the same way: a working Fill image reported
-   the identical "editor shifts ~1-2px when the caret lands next to it"
-   symptom). Any container in this file styled to the full available width
-   while sharing a `.cm-line` with a boundary-adjacent caret needs this
-   same 1px reserve — `.cm-cursor` is positioned by `coordsAtPos` off
-   this container's own real right edge regardless of which display mode
-   put it there. */
-.cm-editor .cm-image-container--fill {
-  width: calc(100% - 1px);
-}
-
-/* The intermediate `<button class="cm-image-button">` wrapping the `<img>`
-   (ImageWidget.ts) is `display: block` with no `width` override of its
-   own — normally that means "fill the containing block," but confirmed
-   directly (real mounted app, computed styles) that inside a *sibling*
-   rule chain it was instead shrink-wrapping to the `<img>`'s own
-   rendered size, so `.tok-image--fill`'s `width: 100%` below resolved
-   against that shrunk button, not the container's real full width — the
-   image never actually reached "fill," only the container did. Scoped
-   to `.cm-image-container--fill` specifically (not applied to
-   `.cm-image-button` unconditionally): giving the button `width: 100%`
-   in Large/Fit mode, where the container is still `width: fit-content`
-   (above), would create the same width-vs-fit-content circularity the
-   container fix itself exists to avoid — undoing the controls-tracking
-   fix for those two modes. Fill's own container is never fit-content
-   (the rule above already makes it a real 100%), so no such circularity
-   exists here. */
-.cm-editor .cm-image-container--fill .cm-image-button {
-  width: 100%;
-}
-
-/* Resets the native <button> chrome ImageWidget wraps the <img> in
-   (border/background/padding/font) — see ImageWidget.ts's own comment for
-   why a real button, not role="button"+tabindex+manual keydown on the
-   <img> itself. Purely a reset: no visual button affordance is added
-   (background/border stay none), only interactive semantics. */
-.cm-editor .cm-image-button {
-  display: block;
-  max-width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  text-align: inherit;
-  cursor: pointer;
-}
-
-.cm-editor .tok-image {
-  display: block;
-  max-width: 100%;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-inset-strong);
-}
-
-/* Display modes (image-options-menu task) — ephemeral UI state
-   (imageUiState.ts's displayMode), never persisted to the Markdown
-   source; numeric-width syntax (`![[image.png|240]]`) remains a later,
-   separate phase. `.tok-image` above is already exactly "Large": fills
-   the available width (`max-width: 100%`), natural aspect ratio (no
-   `width`/`height` override anywhere in this rule set — the browser's
-   own replaced-element sizing always preserves it), so Large needs no
-   modifier class of its own.
-
-   Fill: a fixed-size box — full available width, exactly 400px tall —
-   that the image fills completely via `object-fit: cover`. This is a
-   real `height`, not `max-height`: `object-fit` only has an actual box
-   to crop into once both dimensions are real sizes, not caps a smaller
-   image could still shrink below (confirmed directly — an earlier
-   `max-height` + `width: 100%` version left a short image short instead
-   of filling the box, since nothing was forcing the height dimension to
-   be anything but auto). `object-fit: cover` still preserves the image's
-   own aspect ratio internally (it crops, it never stretches/distorts)
-   and centers the crop by its own default `object-position: center` —
-   satisfying "never distort" and "center" from this construct's own
-   spec without a second, separate centering rule. `.cm-image-container
-   --fill` (below `.cm-image-container` above) sets the container's own
-   `width: 100%` to match — Fill's box is always the full available
-   width by design, so there is no narrower-than-full-width case left to
-   center as a *box*, unlike this rule's own earlier revision. */
-.cm-editor .tok-image.tok-image--fill {
-  width: 100%;
-  height: 400px;
-  object-fit: cover;
-}
-
-/* Fit (2026-09-02 UX baseline, item 6): capped at 400px *tall* — not
-   wide, unlike this rule's own earlier revision — width follows
-   automatically from the image's own aspect ratio (`width: auto`, the
-   same no-override-preserves-intrinsic-ratio mechanism every other mode
-   already relies on). `max-width: 100%` stays alongside it purely as a
-   safety net for an unusually wide-but-short image, where a 400px height
-   cap alone could otherwise compute a wider-than-the-editor box — it
-   never engages for an ordinary image.
-
-   Centering is a *container*-level concern, not this rule's: see
-   `.cm-image-container--fit` below for why. */
-.cm-editor .tok-image.tok-image--fit {
-  max-height: 400px;
-  max-width: 100%;
-  width: auto;
-}
-
-/* Fit's own container modifier — centers the shrink-wrapped
-   `.cm-image-container` (still `width: fit-content`, from the base rule
-   above; deliberately *not* switched to a real `100%` the way Fill's own
-   modifier is) horizontally within the full editor width via the
-   standard `width: fit-content` + `margin-inline: auto` CSS idiom. This
-   is why Fit needs its own modifier rather than reusing `--fill`'s: Fill
-   makes the container itself full-width because its *image* is always
-   full-width; Fit's image is (almost always) narrower than the editor,
-   so making the container full-width too would anchor
-   `.cm-image-controls`'s `position: absolute; right: ...` to the empty
-   space at the editor's own right edge instead of the actual, narrower,
-   centered image's corner. Keeping the container shrink-wrapped and
-   centering *it* keeps controls anchored to the real image, matching
-   Large's own (already-correct) behavior, while still achieving the
-   item 6 "centered horizontally" requirement Large never needed. */
-.cm-editor .cm-image-container--fit {
-  margin-inline: auto;
-}
-
-.cm-editor .cm-image-controls {
-  position: absolute;
-  top: var(--space-6);
-  right: var(--space-6);
-  display: flex;
-  padding: var(--space-2);
-  opacity: 0;
-  transition: opacity 100ms ease;
-  background: var(--surface-primary);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-
-  box-shadow: var(--shadow-inset-thin), var(--shadow-lg);
-  transition: opacity 150ms ease;
-}
-
-.cm-editor .cm-image-container:hover .cm-image-controls,
-.cm-editor .cm-image-container:focus-within .cm-image-controls,
-/* Item 5 (2026-09-02 UX baseline): "the entire controls area remains
-   visible" while this image's own options menu is open. Needed as its
-   own rule, not covered by :hover/:focus-within above — ImageOptionsMenu
-   is a React Overlay mounted outside this container's own DOM subtree
-   (Overlay's usual portal-style rendering), so once the pointer/keyboard
-   focus moves into the open menu, neither pseudo-class still matches
-   here. `[data-menu-open="true"]` is set/cleared by direct DOM mutation
-   from MarkdownEditor.tsx's `setImageMenuButtonOpen` (onOpenImageMenuRef/
-   closeImageMenu) — deliberately *not* CM6 state diffed through
-   ImageWidget's own `eq()`/`toDOM()` the way `revealed`/`displayMode` are;
-   see imageUiState.ts's doc comment for the bug that approach caused
-   (the menu's own Overlay anchor going stale). */
-.cm-editor .cm-image-container[data-menu-open='true'] .cm-image-controls {
-  opacity: 1;
-}
-
-.cm-editor .cm-image-control {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--height-md);
-  aspect-ratio: 1;
-  padding: 1;
-  border: none;
-  color: var(--foreground-primary);
-  border-radius: var(--radius-md);
-
-  cursor: pointer;
-  transition:
-    opacity 150ms ease,
-    background 150ms ease,
-    color 150ms ease;
-}
-.cm-editor .cm-image-control:hover {
-  background: var(--state-hover);
-  color: var(--foreground-primary);
-}
-
-/* Item 5 (2026-09-02 UX baseline): "the menu button may have an
-   active/open state" — the same size button that opens ImageOptionsMenu,
-   styled the same way any other toggled-on control in this codebase is
-   (`--state-selected`, e.g. Breadcrumb.css/ImagePicker.css's own
-   selected-item rules). Toggled by the same direct-DOM-mutation mechanism
-   as `[data-menu-open]` above, not a CSS-only `:focus`/`:active`
-   pseudo-class — the menu itself is a portal-rendered Overlay, so this
-   button's own DOM focus state doesn't reliably track "is my menu
-   actually open" once focus moves into it. */
-.cm-editor .cm-image-control--active {
-  background: var(--state-selected);
-}
-
-.cm-editor .cm-image-control svg {
-  width: var(--icon-md);
-  height: var(--icon-md);
-  stroke-width: var(--icon-stroke);
-}
-
-/* Broken/invalid image (2026-09-02 UX baseline, "Broken / Invalid Image
-   UX") — ImageWidget.renderBroken()'s own dedicated representation,
-   rendered instead of an <img> once a genuine load failure flips
-   imageUiState.ts's `broken` (never for merely-incomplete Markdown, e.g.
-   `![Text]` with no destination — that never reaches ImageWidget at all,
-   see imageLivePreview.ts's own scanImage-based guard). Visual reference:
-   a rounded, bordered bar — broken-image icon, bold alt text, a lighter
-   "Invalid image url" hint — deliberately not a broken-image icon or a
-   dimmed copy of the normal image box, which is the whole point of this
-   representation existing.
-
-   `.cm-image-container--broken` always fills the available width — unlike
-   Large/Fit's shrink-wrapped box, a broken image has no display-mode
-   choice to honor (no size menu exists for it at all), so there's no
-   "size" for the bar to reflect; it just always spans the full editor
-   width, same mechanism as `.cm-image-container--fill` above.
-
-   **1px reserve, not a literal 100% — root cause confirmed by direct
-   measurement, not assumed.** At a literal `width: 100%` this container
-   left *zero* pixels of horizontal slack on its own `.cm-line`. CM6 still
-   has to compute a real caret position immediately adjacent to this
-   block-shaped widget whenever the caret sits at its `from`/`to`
-   boundary — `.cm-cursor` (drawn in `.cm-cursorLayer`, a sibling of
-   `.cm-content` directly under `.cm-scroller`, confirmed by walking its
-   actual DOM ancestry — not a descendant of this container or even of
-   `.cm-line`, so no amount of `overflow: hidden` scoped to either one
-   could ever contain it) is positioned by `coordsAtPos` from the
-   container's own real right edge. With that edge sitting at the exact
-   width of `.cm-scroller`'s content box and nothing held in reserve, the
-   cursor's own drawn box (confirmed directly: `getBoundingClientRect()`
-   measured its `right` at ~917.4px against `.cm-content`'s own right edge
-   at 917px — a real, repeatable ~0.4px excess, not simulator noise) spans
-   a hair past it. `.cm-scroller`'s `overflow-x` governs the *entire*
-   editor, so whenever that excess rounds up to a real device pixel under
-   a different zoom/DPR/font-hinting combination than tested here, the
-   whole pane flips into horizontal-scroll mode and visibly shifts — not
-   just this widget. Confirmed the other direction too: reserving 1px
-   (`calc(100% - 1px)`) moves the container's own right edge 1px left,
-   which is what `coordsAtPos` then measures against — re-tested live and
-   the cursor's own `right` moved to ~916.4px, safely inside
-   `.cm-content`'s 917px edge with margin to spare, not merely coincidentally
-   avoiding the exact rounding case tested. 1px is deliberately sized from
-   the measured ~0.4px excess plus a safety margin for other browsers/DPRs,
-   not a guessed "1–2px" patch applied without first finding the source —
-   and it costs nothing visible: at any real editor width this is
-   sub-pixel-imperceptible, "fills the available width" in every practical
-   sense a user could judge by eye, while genuinely eliminating the
-   overflow at its actual source instead of merely hiding its symptom. */
-.cm-editor .cm-image-container--broken {
-  width: calc(100% - 1px);
-  overflow: hidden;
-}
-
-.cm-editor .cm-image-broken {
-  display: flex;
-  align-items: center;
-  max-width: 100%;
-  gap: var(--space-6);
-  padding: var(--space-8) var(--space-10);
-  border-radius: var(--radius-lg);
-  background: var(--surface-secondary);
-  box-shadow: var(--shadow-inset-thin);
-}
-
-/* 24x24 wrapper, 16x16 icon centered inside it — matches
-   `.cm-image-control`'s own icon-button proportions (`--height-md` square
-   button, 16x16 svg centered) for visual rhythm, even though this icon
-   isn't itself a button. */
-.cm-editor .cm-image-broken__icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 24px;
-  height: 24px;
-}
-
-.cm-editor .cm-image-broken__icon {
-  width: var(--icon-md);
-  height: var(--icon-md);
-  stroke-width: var(--icon-stroke);
-  color: var(--foreground-secondary);
-}
-
-.cm-editor .cm-image-broken__alt {
-  font-size: var(--text-body-small);
-  font-weight: var(--fw-bold);
-  line-height: var(--lh-cm-content);
-  color: var(--foreground-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cm-editor .cm-image-broken__hint {
-  font-size: var(--text-label);
-  color: var(--foreground-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .cm-editor .tok-tag {
   color: var(--tag-foreground);
   background-color: var(--tag-surface);
@@ -1507,16 +1159,13 @@
 
 .cm-editor .tok-date {
   color: var(--date-foreground);
-  /* background-color: var(--date-surface); */
+  background-color: var(--date-surface);
   border-radius: var(--radius-sm);
   font-size: 0.92em;
   font-weight: inherit;
-  /* padding: 0.2em 0.4em; */
+  padding: 0.2em 0.4em;
   cursor: pointer;
   font-variant-numeric: tabular-nums;
-  /* box-shadow:
-    var(--date-surface) -4px 0px 0px,
-    var(--date-surface) 2px 0px 0px; */
 }
 .cm-editor .tok-date .tok-date-prefix {
   opacity: var(--opacity-medium);
