@@ -395,7 +395,20 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
         // freshly-mapped `to`.
         let existing: ImageUiState | null = null;
         let existingTo: number | null = null;
-        next.between(newFrom, newFrom, (_f, t, v) => {
+        next.between(newFrom, newFrom, (f, t, v) => {
+          // `between`'s point query at `newFrom` also visits any *other*
+          // entry whose own span happens to *end* exactly at `newFrom` —
+          // confirmed directly, not assumed (a scratch `RangeSet.between`
+          // test) — which is exactly what two directly-adjacent Image
+          // nodes produce (`image1.to === image2.from`) the moment image1
+          // has any stored entry at all. Without this `f !== newFrom`
+          // guard, image2's lookup could silently adopt image1's state
+          // (or vice versa) instead of correctly finding nothing yet for
+          // a brand-new occurrence. See `getImageUiState`'s own comment
+          // below for the other, user-facing half of this same bug.
+          if (f !== newFrom) {
+            return;
+          }
           existing = v.state;
           existingTo = t;
           return false;
@@ -413,12 +426,43 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
   },
 });
 
-/** Current UI state for the Image node starting at `pos`, or the default (hidden source, large display mode) if never toggled. */
+/**
+ * Current UI state for the Image node starting at `pos`, or the default
+ * (hidden source, large display mode) if never toggled.
+ *
+ * **Adjacent-images bug (2026-09-02), root cause and fix**: `RangeSet.
+ * between(pos, pos, cb)` also visits any *other* entry whose own span
+ * happens to *end* exactly at `pos` — confirmed directly against
+ * `@codemirror/state`'s real behavior, not assumed. Two Image nodes with
+ * no separator between them (`![A](url1)![B](url2)`) produce exactly
+ * that: the first image's own `to` equals the second image's own `from`.
+ * The instant the first image has *any* stored entry (an edit touched it,
+ * its edit button was clicked, its display mode changed — anything that
+ * gives it a real `[from, to)` span, per this field's own doc comment on
+ * why entries carry spans at all), a lookup for the *second* image at
+ * that shared boundary point could non-deterministically return the
+ * first image's state instead of its own (`between`'s callback returning
+ * `false` stops at whichever overlapping entry it reaches first, not
+ * necessarily the one actually starting at `pos`) — including reading
+ * `broken: false` off the first (working) image while the second
+ * image's own, correct `broken: true` entry sits right there unseen.
+ * That silently authorized `ImageWidget.renderWorking()` for a genuinely
+ * broken second image — a real, visible `<img>` for an invalid URL,
+ * showing the browser's native broken-image glyph, confirmed via a
+ * direct reproduction before this fix. The fix is the same one-line
+ * guard as the `broken`-forcing block's own "existing entry" lookup
+ * below (`imageUiStateField.update`): reject any hit whose own `from`
+ * doesn't exactly equal the queried `pos`, rather than trusting
+ * `between`'s coarser overlap semantics to have found the right entry.
+ */
 export function getImageUiState(state: EditorState, pos: number): ImageUiState {
   let found: ImageUiState | null = null;
   state
     .field(imageUiStateField, false)
-    ?.between(pos, pos, (_from, _to, value) => {
+    ?.between(pos, pos, (from, _to, value) => {
+      if (from !== pos) {
+        return;
+      }
       found = value.state;
       return false;
     });

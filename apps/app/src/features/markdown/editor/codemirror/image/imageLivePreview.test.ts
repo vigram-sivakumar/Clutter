@@ -1310,6 +1310,121 @@ describe('Broken image fallback', () => {
 });
 
 /**
+ * Regression coverage for a reported bug: two Image nodes directly
+ * adjacent with no separator (`![A](url1)![B](url2)`) share a document
+ * position — the first node's own `to` equals the second node's own
+ * `from`. `imageUiState.ts`'s `getImageUiState` looks up per-node state
+ * via `RangeSet.between(pos, pos, cb)`, and `between`'s point query also
+ * visits any *other* entry whose own span happens to *end* exactly at
+ * that point (confirmed directly against `RangeSet`'s real behavior, not
+ * assumed) — which is exactly what the shared boundary above produces the
+ * instant the first image has any stored entry at all (an edit touched
+ * it, its own controls were used, anything). The reported, reproduced
+ * failure: the second image's own correct `broken: true` entry went
+ * unseen — the lookup returned the first (working) image's `broken:
+ * false` instead — silently authorizing `ImageWidget.renderWorking()` to
+ * mount a real, visible `<img>` for the second image's invalid URL,
+ * showing the browser's own native broken-image glyph inside a full-size
+ * `--fill` box. Fixed by requiring the found entry's own `from` to
+ * exactly equal the queried position at both lookup sites in
+ * `imageUiState.ts` (`getImageUiState` and the `broken`-forcing block's
+ * own "existing entry" lookup) — see those functions' own doc comments
+ * for the full account.
+ */
+describe('Adjacent images with no separator — each node has fully independent UI/load state', () => {
+  function mountAdjacent(firstUrl: string, secondUrl: string): EditorView {
+    return mountView(`![A](${firstUrl})![B](${secondUrl})`);
+  }
+
+  function getImages(view: EditorView): HTMLImageElement[] {
+    return Array.from(view.dom.querySelectorAll<HTMLImageElement>('img.tok-image'));
+  }
+
+  function getContainers(view: EditorView): HTMLElement[] {
+    return Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-image-container'));
+  }
+
+  it('valid + invalid (no separator): only the second image goes broken when its own <img> errors', () => {
+    const view = mountAdjacent('https://example.com/valid.jpg', 'https://example.com/invalid.jpg');
+    const images = getImages(view);
+    expect(images.length).toBe(2);
+
+    images[1]!.dispatchEvent(new Event('error'));
+
+    const containers = getContainers(view);
+    expect(containers.length).toBe(2);
+    expect(containers[0]!.classList.contains('cm-image-container--broken')).toBe(false);
+    expect(containers[1]!.classList.contains('cm-image-container--broken')).toBe(true);
+    // The first image is completely unaffected — still a real, working
+    // <img>, still its own default (untouched) UI state.
+    expect(getImages(view).length).toBe(1);
+    expect(getImageUiState(view.state, 0).broken).toBe(false);
+  });
+
+  it('invalid + valid (no separator): only the first image goes broken when its own <img> errors', () => {
+    const view = mountAdjacent('https://example.com/invalid.jpg', 'https://example.com/valid.jpg');
+    const images = getImages(view);
+
+    images[0]!.dispatchEvent(new Event('error'));
+
+    const containers = getContainers(view);
+    expect(containers[0]!.classList.contains('cm-image-container--broken')).toBe(true);
+    expect(containers[1]!.classList.contains('cm-image-container--broken')).toBe(false);
+    expect(getImages(view).length).toBe(1);
+  });
+
+  it('two invalid images (no separator): each goes broken independently, neither depends on the other', () => {
+    const view = mountAdjacent('https://example.com/bad1.jpg', 'https://example.com/bad2.jpg');
+    const images = getImages(view);
+
+    images[0]!.dispatchEvent(new Event('error'));
+    // Only the first has failed so far — the second must still be a real,
+    // working <img> (this is the exact case the reported bug's DOM
+    // evidence came from: the second rendering via renderWorking()).
+    expect(getContainers(view)[0]!.classList.contains('cm-image-container--broken')).toBe(true);
+    expect(getContainers(view)[1]!.classList.contains('cm-image-container--broken')).toBe(false);
+
+    getImages(view)[0]!.dispatchEvent(new Event('error'));
+    const containers = getContainers(view);
+    expect(containers[0]!.classList.contains('cm-image-container--broken')).toBe(true);
+    expect(containers[1]!.classList.contains('cm-image-container--broken')).toBe(true);
+    expect(getImages(view).length).toBe(0);
+  });
+
+  it('two valid images (no separator): both render normally, neither ever goes broken', () => {
+    const view = mountAdjacent('https://example.com/valid1.jpg', 'https://example.com/valid2.jpg');
+    expect(getImages(view).length).toBe(2);
+    expect(getContainers(view).some((c) => c.classList.contains('cm-image-container--broken'))).toBe(false);
+  });
+
+  it('editing (touching) the first image after it renders does not corrupt the second image\'s own lookup', () => {
+    // Reproduces the exact mechanism: the first image acquires a stored
+    // imageUiState entry (via its own Edit-source toggle) whose span's
+    // `to` lands exactly on the second image's own `from` — the shared
+    // boundary a plain `RangeSet.between(pos, pos, ...)` point query
+    // conflates without the `from === pos` guard this fix adds.
+    const view = mountAdjacent('https://example.com/valid.jpg', 'https://example.com/invalid.jpg');
+    clickEdit(view); // toggles the FIRST image's own edit button (first in DOM order)
+
+    getImages(view)[1]!.dispatchEvent(new Event('error'));
+
+    const secondImageFrom = view.state.doc.toString().indexOf('![B]');
+    expect(getImageUiState(view.state, secondImageFrom).broken).toBe(true);
+    expect(view.dom.querySelector('.cm-image-container--broken')).not.toBeNull();
+  });
+
+  it('sanity: a space separator was never affected by this bug (images no longer share a boundary position)', () => {
+    const view = mountView('![A](https://example.com/valid.jpg) ![B](https://example.com/invalid.jpg)');
+    const images = getImages(view);
+    images[1]!.dispatchEvent(new Event('error'));
+
+    const containers = getContainers(view);
+    expect(containers[0]!.classList.contains('cm-image-container--broken')).toBe(false);
+    expect(containers[1]!.classList.contains('cm-image-container--broken')).toBe(true);
+  });
+});
+
+/**
  * "Incomplete image syntax must remain plain editable Markdown" — a
  * syntactically incomplete `![...]`/`![...](...` never satisfies
  * `scanImage`'s own `](`+trailing-`)` check (imageScanner.ts), so
