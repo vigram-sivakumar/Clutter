@@ -3,6 +3,7 @@ import type { PageMetadata } from '../models/PageMetadata';
 import type { PageFrontmatter } from '../ingest/frontmatter/PageFrontmatter';
 import type { Folder } from '../models/Folder';
 import type { FolderMetadata } from '../models/FolderMetadata';
+import type { VaultResource } from '../models/VaultResource';
 import { Vault } from '../models/Vault';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { FrontmatterSerializer } from '../ingest/FrontmatterSerializer';
@@ -14,6 +15,8 @@ import { FolderPathResolver } from './FolderPathResolver';
 import type { ScannedPage, ScannedDirectory } from '../ingest/VaultScanResult';
 import { VaultPath } from '../ingest/VaultPath';
 import { MoveService } from './MoveService';
+import { ResourceArchiveMetadataStore } from './ResourceArchiveMetadataStore';
+import { resolveResourceRestoreDestination } from './resolveResourceRestoreDestination';
 import {
   isDailyNotesFolderOrDescendant,
   reservedFolderRelativePath,
@@ -100,7 +103,29 @@ export type PersistenceOperation =
   // name. Keyed by `reservedFolderId` in the queue (not a page/folder id —
   // there isn't one yet), so two concurrent callers recovering the same
   // reserved folder serialize instead of racing.
-  | { readonly kind: 'ensure-reserved-folder'; readonly reservedFolderId: ReservedFolderId };
+  | { readonly kind: 'ensure-reserved-folder'; readonly reservedFolderId: ReservedFolderId }
+  // Resource-scoped kinds (Rename/Archive/Restore only — no create/delete/
+  // move/favorite yet, per the approved Resource mutation scope). Distinct
+  // `-resource` names for the same reason 'archive-folder'/'restore-folder'
+  // are kept distinct from 'archive'/'restore': a resource id must never
+  // reach the page-scoped switch below (runOperation() resolves
+  // vault.getPage(id) before it), and a resource's persistence (a bare
+  // fileSystem.moveFile — no frontmatter, so no write-parse-rebuild-replace
+  // pipeline) is a genuinely different mechanism from a page's, not a
+  // parameterization of the same one.
+  | { readonly kind: 'rename-resource'; readonly title: string }
+  | { readonly kind: 'archive-resource' }
+  | { readonly kind: 'restore-resource' }
+  // The resource-scoped counterpart to 'move' — an arbitrary destination
+  // folder rather than the fixed Archive/ destination 'archive-resource'
+  // resolves to. `destinationFolderId: null` means the vault root, same
+  // convention 'move'/'move-folder' already use.
+  | { readonly kind: 'move-resource'; readonly destinationFolderId: string | null }
+  // Permanently deletes a resource — the resource-scoped counterpart to
+  // 'delete', reachable only from the archived-resource hover action (see
+  // ResourceOperations.deleteResource()'s own doc comment): the UI never
+  // exposes this for a normal, non-archived resource.
+  | { readonly kind: 'delete-resource' };
 
 export type PersistenceResult =
   | {
@@ -136,6 +161,25 @@ export type PersistenceResult =
   | {
       readonly status: 'folder-metadata-updated';
       readonly folder: Folder;
+    }
+  | {
+      readonly status: 'resource-renamed';
+      readonly resource: VaultResource;
+    }
+  | {
+      readonly status: 'resource-archived';
+      readonly resource: VaultResource;
+    }
+  | {
+      readonly status: 'resource-restored';
+      readonly resource: VaultResource;
+    }
+  | {
+      readonly status: 'resource-moved';
+      readonly resource: VaultResource;
+    }
+  | {
+      readonly status: 'resource-deleted';
     };
 
 /**
@@ -173,7 +217,15 @@ export class PagePersistenceCoordinator {
     private readonly serializer: FrontmatterSerializer,
     private readonly parser: FrontmatterParser,
     private readonly rebuilder: PageRebuilder,
-    private readonly moveService: MoveService
+    private readonly moveService: MoveService,
+    // Trailing and defaulted so every existing call site (production and
+    // the many test fixtures that construct this Gate without caring about
+    // resources) keeps compiling unchanged — same reasoning Vault's own
+    // constructor already applies to its trailing `resources` parameter.
+    private readonly resourceArchiveStore: ResourceArchiveMetadataStore = new ResourceArchiveMetadataStore(
+      fileSystem,
+      vault.root
+    )
   ) {
     this.pageBuilder = new PageBuilder(vault.root);
   }
@@ -253,6 +305,30 @@ export class PagePersistenceCoordinator {
 
     if (operation.kind === 'ensure-reserved-folder') {
       return this.runEnsureReservedFolder(operation.reservedFolderId);
+    }
+
+    // Resource-scoped kinds, keyed by resource id — dispatched here, like
+    // every folder-scoped kind above, for the same reason: the
+    // page-existence guard right below would incorrectly abandon them (a
+    // resource id never resolves via vault.getPage).
+    if (operation.kind === 'rename-resource') {
+      return this.runRenameResource(id, operation.title);
+    }
+
+    if (operation.kind === 'archive-resource') {
+      return this.runArchiveResource(id);
+    }
+
+    if (operation.kind === 'restore-resource') {
+      return this.runRestoreResource(id);
+    }
+
+    if (operation.kind === 'delete-resource') {
+      return this.runDeleteResource(id);
+    }
+
+    if (operation.kind === 'move-resource') {
+      return this.runMoveResource(id, operation.destinationFolderId);
     }
 
     const current = this.vault.getPage(id);
@@ -1090,6 +1166,282 @@ export class PagePersistenceCoordinator {
     await this.moveService.movePage(current, page);
 
     return this.writeParseRebuildReplace(page, current.source.markdown);
+  }
+
+  /**
+   * Guards the "one path maps to one resource" invariant at the one point
+   * it actually matters for a filesystem move: before the disk write, not
+   * only after. Vault.updateResourcePath() (called at the end of every
+   * resource operation below) already re-checks this itself — see its own
+   * assertResourcePathAvailable — but that check alone would let a
+   * collision succeed on disk (fileSystem.moveFile already ran) before
+   * being rejected in memory, leaving disk and Vault inconsistent. The
+   * page-scoped equivalent of this same defense-in-depth shape already
+   * exists in MoveService.movePage()'s own inline collision check, ahead
+   * of its own moveFile call — this mirrors that, resource-scoped.
+   */
+  private assertResourceDestinationAvailable(
+    path: string,
+    exceptResourceId: string
+  ): void {
+    const occupant = this.vault.getResourceByPathCaseInsensitive(path);
+
+    if (occupant && occupant.id !== exceptResourceId) {
+      throw new Error(`Path already in use by another resource: ${path}`);
+    }
+  }
+
+  /**
+   * Renames a VaultResource in place — the resource-scoped counterpart to
+   * runRename, one aggregate over. Unlike a page/folder rename, there is no
+   * frontmatter to rewrite (VaultResource carries none — see §3b), so this
+   * is strictly a filesystem move plus a Vault path update, nothing else:
+   * no write-parse-rebuild-replace pipeline, because there is no content or
+   * frontmatter to round-trip.
+   *
+   * If `resource` currently sits inside the reserved Archive/ folder (the
+   * UI never offers Rename for one today, but this dispatch has no
+   * archived-status guard of its own — same UI-only-restriction precedent
+   * runDeleteResource/runDelete already establish), its
+   * `.clutter/resource-archive.json` provenance record is re-keyed to the
+   * new archived path via updateArchivedPath — otherwise Restore would look
+   * up the *old* archived path and find nothing, silently stranding the
+   * resource in Archive/ with no way back to its original location.
+   */
+  private async runRenameResource(
+    resourceId: string,
+    title: string
+  ): Promise<PersistenceResult> {
+    const resource = this.vault.getResource(resourceId);
+
+    if (!resource) {
+      return {
+        status: 'abandoned',
+        reason: `Resource no longer exists in the vault: ${resourceId}`,
+      };
+    }
+
+    const previousPath = resource.path;
+    const destination = this.moveService.resolveResourceRenameDestination(resource, title);
+
+    if (destination.path !== resource.path) {
+      this.assertResourceDestinationAvailable(destination.path, resource.id);
+      await this.fileSystem.moveFile(resource.path, destination.path);
+    }
+
+    if (this.isInsideArchive(previousPath) && destination.path !== previousPath) {
+      await this.resourceArchiveStore.updateArchivedPath(previousPath, destination.path);
+    }
+
+    try {
+      this.vault.updateResourcePath(resourceId, destination.path, destination.parentId);
+    } catch (error) {
+      return {
+        status: 'abandoned',
+        reason: `Vault rejected the renamed resource after a successful move: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return { status: 'resource-renamed', resource: this.vault.getResource(resourceId)! };
+  }
+
+  /** Whether `path` sits inside the reserved Archive/ folder, if one is tracked yet. */
+  private isInsideArchive(path: string): boolean {
+    const archiveFolder = this.vault.getReservedFolder('archive');
+    return archiveFolder !== undefined && VaultPath.isDescendantOf(path, archiveFolder.path);
+  }
+
+  /**
+   * Archives a VaultResource: relocates it into the reserved Archive/
+   * folder (resolveResourceArchiveDestination — same reserved-folder lookup
+   * and collision-free-naming rule as a page's archive, extension
+   * preserved instead of `.md` appended) and records its provenance in
+   * ResourceArchiveMetadataStore's `.clutter/resource-archive.json` —
+   * VaultResource carries no `status`/`archivedAt`/`originalPath` fields of
+   * its own (unlike Page/Folder — see the approved Resource mutation
+   * design), so this file is the sole record of where to restore to.
+   *
+   * Ordering matters: the provenance record is written only after the
+   * filesystem move has actually succeeded — if fileSystem.moveFile above
+   * throws, `record()` is never reached, so no provenance is ever recorded
+   * for a resource that never actually moved.
+   */
+  private async runArchiveResource(resourceId: string): Promise<PersistenceResult> {
+    const resource = this.vault.getResource(resourceId);
+
+    if (!resource) {
+      return {
+        status: 'abandoned',
+        reason: `Resource no longer exists in the vault: ${resourceId}`,
+      };
+    }
+
+    await this.ensureReservedFolderForOperation('archive');
+
+    const destination = this.moveService.resolveResourceArchiveDestination(resource);
+    const originalPath = resource.path;
+
+    if (destination.path !== resource.path) {
+      this.assertResourceDestinationAvailable(destination.path, resource.id);
+      await this.fileSystem.moveFile(resource.path, destination.path);
+    }
+
+    await this.resourceArchiveStore.record(destination.path, originalPath);
+
+    try {
+      this.vault.updateResourcePath(resourceId, destination.path, destination.parentId);
+    } catch (error) {
+      return {
+        status: 'abandoned',
+        reason: `Vault rejected the archived resource after a successful move: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return { status: 'resource-archived', resource: this.vault.getResource(resourceId)! };
+  }
+
+  /**
+   * Restores a VaultResource from Archive/ — the symmetric counterpart to
+   * runArchiveResource. resolveResourceRestoreDestination (Step 3) already
+   * encodes the full destination rule (original path if its parent still
+   * exists, else the managed Assets/ folder, ensuring/registering it on
+   * demand) and reads `.clutter/resource-archive.json` itself; this method
+   * only sequences the move and the provenance-record cleanup around it.
+   *
+   * Ordering matters, same as archive: the provenance record is removed
+   * only after the filesystem move has actually succeeded — if either the
+   * collision guard or fileSystem.moveFile above throws, `remove()` is
+   * never reached, so a failed restore leaves the record intact for a
+   * retry rather than silently losing the resource's only known original
+   * location.
+   *
+   * No collision-free renaming at the resolved destination — Restore never
+   * auto-renames, for Page/Folder or here; assertResourceDestinationAvailable
+   * is what makes an occupied destination fail loudly instead.
+   */
+  private async runRestoreResource(resourceId: string): Promise<PersistenceResult> {
+    const resource = this.vault.getResource(resourceId);
+
+    if (!resource) {
+      return {
+        status: 'abandoned',
+        reason: `Resource no longer exists in the vault: ${resourceId}`,
+      };
+    }
+
+    const destination = await resolveResourceRestoreDestination(
+      resource,
+      this.vault,
+      this.fileSystem,
+      this.resourceArchiveStore
+    );
+
+    if (destination.path !== resource.path) {
+      this.assertResourceDestinationAvailable(destination.path, resource.id);
+      await this.fileSystem.moveFile(resource.path, destination.path);
+    }
+
+    await this.resourceArchiveStore.remove(resource.path);
+
+    try {
+      this.vault.updateResourcePath(resourceId, destination.path, destination.parentId);
+    } catch (error) {
+      return {
+        status: 'abandoned',
+        reason: `Vault rejected the restored resource after a successful move: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return { status: 'resource-restored', resource: this.vault.getResource(resourceId)! };
+  }
+
+  /**
+   * Permanently deletes a resource — the resource-scoped counterpart to
+   * runDelete, one aggregate over. Reachable only from the archived-
+   * resource hover action (ResourceOperations.deleteResource()'s own doc
+   * comment); this dispatch itself has no archived-status check, mirroring
+   * how runDelete has none either — the restriction is UI-only, the same
+   * precedent PageOperations.delete()/the Note topbar's Delete-only-when-
+   * archived menu gating already establish (this class never re-derives a
+   * UI-only rule).
+   *
+   * Also removes any `.clutter/resource-archive.json` provenance record
+   * for this resource (a no-op if none exists, e.g. deleting a resource
+   * that was never archived) — a deleted resource must leave no stale
+   * provenance a future Restore could act on.
+   */
+  private async runDeleteResource(resourceId: string): Promise<PersistenceResult> {
+    const resource = this.vault.getResource(resourceId);
+
+    if (!resource) {
+      return {
+        status: 'abandoned',
+        reason: `Resource no longer exists in the vault: ${resourceId}`,
+      };
+    }
+
+    await this.fileSystem.deleteFile(resource.path);
+    await this.resourceArchiveStore.remove(resource.path);
+    this.vault.removeResource(resourceId);
+
+    return { status: 'resource-deleted' };
+  }
+
+  /**
+   * Moves a VaultResource into an arbitrary destination folder — the
+   * resource-scoped counterpart to runMove, one aggregate over. Like
+   * runRenameResource, this is a bare filesystem move plus a Vault path
+   * update: no frontmatter, no write-parse-rebuild-replace pipeline.
+   *
+   * Unlike runMove, there is no archived-status guard here: an archived
+   * resource is never reachable through this kind in the first place (the
+   * only Move UI entry point — the sidebar/Assets row menu — is mutually
+   * exclusive with the archived-row hover actions, per Resource.tsx's own
+   * `archiveActions` priority), so there is nothing to defend against, the
+   * same reasoning runDeleteResource/runRenameResource already apply to
+   * their own UI-only restrictions.
+   */
+  private async runMoveResource(
+    resourceId: string,
+    destinationFolderId: string | null
+  ): Promise<PersistenceResult> {
+    const resource = this.vault.getResource(resourceId);
+
+    if (!resource) {
+      return {
+        status: 'abandoned',
+        reason: `Resource no longer exists in the vault: ${resourceId}`,
+      };
+    }
+
+    const destination = this.moveService.resolveResourceMoveDestination(
+      resource,
+      destinationFolderId
+    );
+
+    if (destination.path !== resource.path) {
+      this.assertResourceDestinationAvailable(destination.path, resource.id);
+      await this.fileSystem.moveFile(resource.path, destination.path);
+    }
+
+    try {
+      this.vault.updateResourcePath(resourceId, destination.path, destination.parentId);
+    } catch (error) {
+      return {
+        status: 'abandoned',
+        reason: `Vault rejected the moved resource after a successful move: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+
+    return { status: 'resource-moved', resource: this.vault.getResource(resourceId)! };
   }
 
   /**

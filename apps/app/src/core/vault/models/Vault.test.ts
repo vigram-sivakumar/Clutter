@@ -5,8 +5,13 @@ import { TagBuilder } from '../knowledge/TagBuilder';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
 import type { Page } from './Page';
 import type { Folder } from './Folder';
+import type { VaultResource } from './VaultResource';
 
-function makeVault(pages: Page[], folders: Folder[] = []): Vault {
+function makeVault(
+  pages: Page[],
+  folders: Folder[] = [],
+  resources: VaultResource[] = []
+): Vault {
   // Mirrors VaultBuilder: tags are derived from pages, not hand-supplied,
   // so a fixture page with #tag occurrences in its analysis is reflected
   // in vault.tags()/getTagByName() exactly like a real scan would.
@@ -18,7 +23,9 @@ function makeVault(pages: Page[], folders: Folder[] = []): Vault {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
 }
 
@@ -73,6 +80,17 @@ function makePage(overrides: Partial<Page> & Pick<Page, 'id' | 'path'>): Page {
     metadata: defaultPageMetadata,
     source: { markdown: '' },
     analysis: defaultAnalysis,
+    ...overrides,
+  };
+}
+
+function makeResource(
+  overrides: Partial<VaultResource> & Pick<VaultResource, 'id' | 'path'>
+): VaultResource {
+  return {
+    kind: 'image',
+    name: overrides.path.split('/').pop() ?? '',
+    parentId: null,
     ...overrides,
   };
 }
@@ -460,6 +478,223 @@ describe('updatePagePath', () => {
   });
 });
 
+describe('updateResourcePath', () => {
+  it('updates path, name, and parentId when a resource moves', () => {
+    const archiveFolder = makeFolder({ id: 'folder-archive', path: '/vault/Archive', name: 'Archive' });
+    const resource = makeResource({
+      id: 'resource-1',
+      kind: 'image',
+      path: '/vault/Projects/Website/hero.png',
+      name: 'hero.png',
+      parentId: 'folder-source',
+    });
+    const vault = makeVault([], [archiveFolder], [resource]);
+
+    vault.updateResourcePath('resource-1', '/vault/Archive/hero.png', 'folder-archive');
+
+    const moved = vault.getResource('resource-1')!;
+    expect(moved.path).toBe('/vault/Archive/hero.png');
+    expect(moved.name).toBe('hero.png');
+    expect(moved.parentId).toBe('folder-archive');
+  });
+
+  it('recomputes name from the new path, keeping the extension (unlike a page, which strips .md)', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png', name: 'hero.png' });
+    const vault = makeVault([], [], [resource]);
+
+    vault.updateResourcePath('resource-1', '/vault/Archive/hero-renamed.png', null);
+
+    const renamed = vault.getResource('resource-1')!;
+    expect(renamed.name).toBe('hero-renamed.png');
+    expect(renamed.path).toBe('/vault/Archive/hero-renamed.png');
+  });
+
+  it('keeps the resource id unchanged across the mutation', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [resource]);
+
+    vault.updateResourcePath('resource-1', '/vault/Archive/hero.png', null);
+
+    expect(vault.getResource('resource-1')!.id).toBe('resource-1');
+  });
+
+  it('preserves the resource kind across the mutation', () => {
+    const resource = makeResource({ id: 'resource-1', kind: 'pdf', path: '/vault/spec.pdf' });
+    const vault = makeVault([], [], [resource]);
+
+    vault.updateResourcePath('resource-1', '/vault/Archive/spec.pdf', null);
+
+    expect(vault.getResource('resource-1')!.kind).toBe('pdf');
+  });
+
+  it('removes the old path mapping and registers the new one in resourcesByPath', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [resource]);
+
+    vault.updateResourcePath('resource-1', '/vault/Archive/hero.png', null);
+
+    expect(vault.getResourceByPath('/vault/hero.png')).toBeUndefined();
+    expect(vault.getResourceByPath('/vault/Archive/hero.png')!.id).toBe('resource-1');
+  });
+
+  it('is a no-op when path and parentId are unchanged', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png', parentId: null });
+    const vault = makeVault([], [], [resource]);
+    const events: unknown[] = [];
+
+    vault.subscribe((event) => {
+      events.push(event);
+    });
+
+    vault.updateResourcePath('resource-1', '/vault/hero.png', null);
+
+    expect(vault.getResource('resource-1')).toBe(resource);
+    expect(events).toHaveLength(0);
+  });
+
+  it('throws for an unknown resource', () => {
+    const vault = makeVault([]);
+
+    expect(() => {
+      vault.updateResourcePath('missing', '/vault/hero.png', null);
+    }).toThrow('Cannot move unknown resource: missing');
+  });
+
+  it('throws on path collision with another resource, without mutating either', () => {
+    const resourceA = makeResource({ id: 'resource-a', path: '/vault/a.png' });
+    const resourceB = makeResource({ id: 'resource-b', path: '/vault/b.png' });
+    const vault = makeVault([], [], [resourceA, resourceB]);
+
+    expect(() => {
+      vault.updateResourcePath('resource-a', '/vault/b.png', null);
+    }).toThrow('Path already in use by another resource: /vault/b.png');
+
+    expect(vault.getResource('resource-a')!.path).toBe('/vault/a.png');
+    expect(vault.getResource('resource-b')!.path).toBe('/vault/b.png');
+  });
+
+  it('allows moving a resource to a path already occupied by a Page — Vault has never enforced a cross-entity collision (a page path always ends in .md, a resource path never does, mirroring how a page\'s own collision check never cross-checks folders either)', () => {
+    const page = makePage({ id: 'page-1', path: '/vault/hero.md' });
+    const resource = makeResource({ id: 'resource-1', path: '/vault/other.png' });
+    const vault = makeVault([page], [], [resource]);
+
+    expect(() => {
+      vault.updateResourcePath('resource-1', '/vault/hero.md', null);
+    }).not.toThrow();
+
+    expect(vault.getResource('resource-1')!.path).toBe('/vault/hero.md');
+  });
+
+  it('allows moving a resource to a path already occupied by a Folder, for the same reason', () => {
+    const folder = makeFolder({ id: 'folder-1', path: '/vault/Hero' });
+    const resource = makeResource({ id: 'resource-1', path: '/vault/other.png' });
+    const vault = makeVault([], [folder], [resource]);
+
+    expect(() => {
+      vault.updateResourcePath('resource-1', '/vault/Hero', null);
+    }).not.toThrow();
+
+    expect(vault.getResource('resource-1')!.path).toBe('/vault/Hero');
+  });
+
+  it('rejects moving a resource to a case-variant of a different, existing sibling resource', () => {
+    const resourceA = makeResource({ id: 'resource-a', path: '/vault/hero.png' });
+    const resourceB = makeResource({ id: 'resource-b', path: '/vault/Other.png' });
+    const vault = makeVault([], [], [resourceA, resourceB]);
+
+    expect(() => {
+      vault.updateResourcePath('resource-b', '/vault/Hero.png', null);
+    }).toThrow('Path already in use by another resource: /vault/Hero.png');
+  });
+
+  it('emits a resource-moved event with the resource id and new path', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [resource]);
+    const listener = vi.fn();
+
+    vault.subscribe(listener);
+
+    vault.updateResourcePath('resource-1', '/vault/Archive/hero.png', null);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({
+      type: 'resource-moved',
+      resourceId: 'resource-1',
+      path: '/vault/Archive/hero.png',
+    });
+  });
+
+  it('does not refresh tag/task projections — a resource contributes to none of them', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [resource]);
+    const tagCountBefore = vault.tagCount;
+    const taskCountBefore = vault.taskCount;
+
+    vault.updateResourcePath('resource-1', '/vault/Archive/hero.png', null);
+
+    expect(vault.tagCount).toBe(tagCountBefore);
+    expect(vault.taskCount).toBe(taskCountBefore);
+  });
+});
+
+describe('removeResource', () => {
+  it('removes the resource from both id and path lookups', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [resource]);
+
+    vault.removeResource('resource-1');
+
+    expect(vault.getResource('resource-1')).toBeUndefined();
+    expect(vault.getResourceByPath('/vault/hero.png')).toBeUndefined();
+  });
+
+  it('decrements resourceCount', () => {
+    const resourceA = makeResource({ id: 'resource-a', path: '/vault/a.png' });
+    const resourceB = makeResource({ id: 'resource-b', path: '/vault/b.png' });
+    const vault = makeVault([], [], [resourceA, resourceB]);
+
+    vault.removeResource('resource-a');
+
+    expect(vault.resourceCount).toBe(1);
+    expect(vault.getResource('resource-b')).toBeDefined();
+  });
+
+  it('throws for an unknown resource', () => {
+    const vault = makeVault([]);
+
+    expect(() => {
+      vault.removeResource('missing');
+    }).toThrow('Cannot remove unknown resource: missing');
+  });
+
+  it('emits a resource-removed event with the resource id', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [resource]);
+    const listener = vi.fn();
+
+    vault.subscribe(listener);
+
+    vault.removeResource('resource-1');
+
+    expect(listener).toHaveBeenCalledWith({
+      type: 'resource-removed',
+      resourceId: 'resource-1',
+    });
+  });
+
+  it('does not refresh tag/task projections', () => {
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [resource]);
+    const tagCountBefore = vault.tagCount;
+    const taskCountBefore = vault.taskCount;
+
+    vault.removeResource('resource-1');
+
+    expect(vault.tagCount).toBe(tagCountBefore);
+    expect(vault.taskCount).toBe(taskCountBefore);
+  });
+});
+
 describe('Vault.replacePage: type is recomputed from the final path', () => {
   it('recomputes type for a cross-path replace (archive/restore shape) — a Daily Note archived out of the folder becomes a Note', () => {
     const page = makePage({
@@ -620,6 +855,43 @@ describe('moveFolder cascade', () => {
     expect(vault.getFolderByPath('/vault/Work')?.id).toBe('folder-projects');
     expect(vault.getFolderByPath('/vault/Work/Design')?.id).toBe('folder-design');
     expect(vault.getPageByPath('/vault/Work/Design/Notes.md')?.id).toBe('page-notes');
+  });
+
+  // Extension: a resource nested inside the moved subtree previously kept
+  // its stale pre-move path/parentId (relocateFolderSubtree only knew
+  // about folders/pages) — this is the resource-scoped counterpart to the
+  // page cascade test above.
+  it('also relocates a resource nested inside the moved folder subtree', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const hero = makeResource({
+      id: 'resource-hero',
+      path: '/vault/Projects/Design/hero.png',
+      parentId: 'folder-design',
+    });
+    const vault = makeVault([notes], [projects, design], [hero]);
+
+    vault.moveFolder('folder-projects', '/vault/Work', null);
+
+    const movedResource = vault.getResource('resource-hero');
+    expect(movedResource!.path).toBe('/vault/Work/Design/hero.png');
+    expect(movedResource!.parentId).toBe('folder-design');
+    expect(vault.getResourceByPath('/vault/Projects/Design/hero.png')).toBeUndefined();
+    expect(vault.getResourceByPath('/vault/Work/Design/hero.png')?.id).toBe('resource-hero');
+  });
+
+  it('leaves an unrelated resource outside the moved subtree untouched', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const sibling = makeFolder({ id: 'folder-sibling', path: '/vault/Sibling' });
+    const siblingResource = makeResource({
+      id: 'resource-sibling',
+      path: '/vault/Sibling/photo.png',
+      parentId: 'folder-sibling',
+    });
+    const vault = makeVault([notes], [projects, design, sibling], [siblingResource]);
+
+    vault.moveFolder('folder-projects', '/vault/Work', null);
+
+    expect(vault.getResource('resource-sibling')!.path).toBe('/vault/Sibling/photo.png');
   });
 
   // Regression: relocateFolderSubtree (this cascade's shared implementation
@@ -963,6 +1235,35 @@ describe('Vault.getDescendantFoldersAndPages (ADR-024)', () => {
 
     expect(() => vault.getDescendantFoldersAndPages('does-not-exist')).toThrow();
   });
+
+  it('also returns every nested resource under the given folder', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const hero = makeResource({
+      id: 'resource-hero',
+      path: '/vault/Projects/Design/hero.png',
+      parentId: 'folder-design',
+    });
+    const vault = makeVault([notes], [projects, design], [hero]);
+
+    const result = vault.getDescendantFoldersAndPages('folder-projects');
+
+    expect(result.resources.map((r) => r.id)).toEqual(['resource-hero']);
+  });
+
+  it('excludes an unrelated sibling folder\'s resource', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const sibling = makeFolder({ id: 'folder-sibling', path: '/vault/Sibling' });
+    const siblingResource = makeResource({
+      id: 'resource-sibling',
+      path: '/vault/Sibling/photo.png',
+      parentId: 'folder-sibling',
+    });
+    const vault = makeVault([notes], [projects, design, sibling], [siblingResource]);
+
+    const result = vault.getDescendantFoldersAndPages('folder-projects');
+
+    expect(result.resources.map((r) => r.id)).not.toContain('resource-sibling');
+  });
 });
 
 describe('Vault.removeFolder cascade (ADR-024)', () => {
@@ -975,6 +1276,41 @@ describe('Vault.removeFolder cascade (ADR-024)', () => {
     expect(vault.getFolder('folder-projects')).toBeUndefined();
     expect(vault.getFolder('folder-design')).toBeUndefined();
     expect(vault.getPage('page-notes')).toBeUndefined();
+  });
+
+  // Extension: a resource nested inside the removed subtree previously
+  // survived the cascade untouched (removeFolder only knew about
+  // folders/pages), leaving a dangling VaultResource whose parentId
+  // pointed at a folder id no longer in foldersById.
+  it('also removes a resource nested inside the removed folder subtree', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const hero = makeResource({
+      id: 'resource-hero',
+      path: '/vault/Projects/Design/hero.png',
+      parentId: 'folder-design',
+    });
+    const vault = makeVault([notes], [projects, design], [hero]);
+
+    vault.removeFolder('folder-projects');
+
+    expect(vault.getResource('resource-hero')).toBeUndefined();
+    expect(vault.getResourceByPath('/vault/Projects/Design/hero.png')).toBeUndefined();
+    expect(vault.resourceCount).toBe(0);
+  });
+
+  it('leaves an unrelated sibling folder\'s resource untouched', () => {
+    const { projects, design, notes } = makeProjectsHierarchy();
+    const sibling = makeFolder({ id: 'folder-sibling', path: '/vault/Sibling' });
+    const siblingResource = makeResource({
+      id: 'resource-sibling',
+      path: '/vault/Sibling/photo.png',
+      parentId: 'folder-sibling',
+    });
+    const vault = makeVault([notes], [projects, design, sibling], [siblingResource]);
+
+    vault.removeFolder('folder-projects');
+
+    expect(vault.getResource('resource-sibling')).toBeDefined();
   });
 
   it('clears path lookups for the folder, its descendants, and their pages', () => {
@@ -1199,6 +1535,84 @@ describe('Vault.addFolder', () => {
     expect(vault.getFolderByPath('/vault/test')).toBe(existing);
     expect(vault.getFolder('folder-2')).toBeUndefined();
     expect(vault.folderCount).toBe(1);
+  });
+});
+
+describe('Vault.addResource', () => {
+  it('registers the resource by id and by path', () => {
+    const vault = makeVault([]);
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+
+    vault.addResource(resource);
+
+    expect(vault.getResource('resource-1')).toBe(resource);
+    expect(vault.getResourceByPath('/vault/hero.png')).toBe(resource);
+    expect(vault.resourceCount).toBe(1);
+  });
+
+  it('rejects a duplicate resource id', () => {
+    const existing = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [existing]);
+
+    expect(() =>
+      vault.addResource(makeResource({ id: 'resource-1', path: '/vault/other.png' }))
+    ).toThrow(/Resource already exists/);
+  });
+
+  it('rejects a duplicate resource path, leaving the original occupant reachable', () => {
+    const existing = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [existing]);
+
+    expect(() =>
+      vault.addResource(makeResource({ id: 'resource-2', path: '/vault/hero.png' }))
+    ).toThrow(/Path already in use by another resource/);
+
+    expect(vault.getResourceByPath('/vault/hero.png')).toBe(existing);
+    expect(vault.getResource('resource-2')).toBeUndefined();
+  });
+
+  it('rejects a case-variant duplicate path, mirroring addFolder', () => {
+    const existing = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    const vault = makeVault([], [], [existing]);
+
+    expect(() =>
+      vault.addResource(makeResource({ id: 'resource-2', path: '/vault/HERO.png' }))
+    ).toThrow(/Path already in use by another resource/);
+
+    expect(vault.resourceCount).toBe(1);
+  });
+
+  it('notifies listeners with a resource-added event', () => {
+    const vault = makeVault([]);
+    const listener = vi.fn();
+    vault.subscribe(listener);
+
+    const resource = makeResource({ id: 'resource-1', path: '/vault/hero.png' });
+    vault.addResource(resource);
+
+    expect(listener).toHaveBeenCalledWith({
+      type: 'resource-added',
+      resourceId: 'resource-1',
+    });
+  });
+
+  it('does not touch tag/task projections, unlike addPage', () => {
+    const projectionBuilder = new VaultProjectionBuilder();
+    const buildEagerSpy = vi.spyOn(projectionBuilder, 'buildEager');
+    const vault = new Vault(
+      '/vault',
+      [],
+      [],
+      [],
+      [],
+      [],
+      new KnowledgeGraph([]),
+      projectionBuilder
+    );
+
+    vault.addResource(makeResource({ id: 'resource-1', path: '/vault/hero.png' }));
+
+    expect(buildEagerSpy).not.toHaveBeenCalled();
   });
 });
 

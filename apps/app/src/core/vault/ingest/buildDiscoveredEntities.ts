@@ -12,9 +12,11 @@ export interface DiscoveredEntities {
   readonly pages: readonly Page[];
   /**
    * Non-Markdown supported files (PDF/image) discovered by the same scan,
-   * built alongside folders/pages. Not yet consumed by any caller of this
-   * function's result — VaultBuilder registers them on Vault; VaultSyncService
-   * does not act on them yet (a later step).
+   * built alongside folders/pages. Consumed by both callers: VaultBuilder
+   * registers them on Vault at startup, and VaultSyncService's
+   * reconcileDirectorySubtree() diffs them against `vault.resources()` the
+   * same way it already diffs folders/pages, for a coalesced/bulk
+   * directory-level filesystem event.
    */
   readonly resources: readonly VaultResource[];
   /**

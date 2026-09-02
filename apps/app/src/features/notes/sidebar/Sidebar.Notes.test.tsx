@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { Notes } from './Sidebar.Notes';
+import { AppIcon } from '@shared/icon';
 import { PageOperations } from '@core/application/page/PageOperations';
 import { EffectivePageState } from '@core/application/page/EffectivePageState';
 import { PagePersistenceCoordinator } from '@core/vault/persistence/PagePersistenceCoordinator';
@@ -26,6 +27,7 @@ import { PageFactory } from '@core/application/page/PageFactory';
 import { UuidGenerator } from '@core/shared/identity/UuidGenerator';
 import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 import { FolderOperations } from '@core/application/folder/FolderOperations';
+import { ResourceOperations } from '@core/application/resource/ResourceOperations';
 import { FolderPathResolver } from '@core/vault/persistence/FolderPathResolver';
 import { FolderCreator } from '@core/application/folder/FolderCreator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
@@ -160,9 +162,13 @@ function setup(
     new DailyNoteService(),
     () => {}
   );
+  const resourceOperations = new ResourceOperations(coordinator);
   const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
   const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
-  const navigation = { openWorkspace: vi.fn() } as unknown as NavigationRouter;
+  const navigation = {
+    openWorkspace: vi.fn(),
+    openAssets: vi.fn(),
+  } as unknown as NavigationRouter;
 
   return {
     vault,
@@ -170,6 +176,7 @@ function setup(
     workspace,
     pageOperations,
     folderOperations,
+    resourceOperations,
     effectivePageState,
     membershipSelector,
     navigation,
@@ -191,6 +198,7 @@ function notesElement(
       navigation={deps.navigation}
       pageOperations={deps.pageOperations}
       folderOperations={deps.folderOperations}
+      resourceOperations={deps.resourceOperations}
       effectivePageState={deps.effectivePageState}
       membershipSelector={deps.membershipSelector}
       onOpen={overrides?.onOpen ?? vi.fn()}
@@ -236,6 +244,57 @@ function overflowButtonForEntry(rowTitleElement: HTMLElement): HTMLElement {
   }
   return overflow as HTMLElement;
 }
+
+describe('Sidebar Notes: Assets shortcut', () => {
+  it('is visible in the Notes sidebar, rendered in the navigation area (.view--navigation) alongside New/Inbox/Templates — not inside the Workspace/content area', () => {
+    const deps = setup([]);
+
+    const { container } = renderNotes(deps);
+
+    const assetsRow = screen.getByText('Assets').closest('.entry');
+    if (!assetsRow) {
+      throw new Error('expected an entry row for Assets');
+    }
+
+    expect(assetsRow.closest('.view--navigation')).not.toBeNull();
+    expect(assetsRow.closest('.view--content')).toBeNull();
+
+    // Same navigation list as the other fixed shortcuts, not a second,
+    // Assets-only navigation section.
+    const navigation = container.querySelector('.view--navigation');
+    expect(navigation?.textContent).toContain('New');
+    expect(navigation?.textContent).toContain('Inbox');
+    expect(navigation?.textContent).toContain('Templates');
+    expect(navigation?.textContent).toContain('Assets');
+  });
+
+  it('uses the layers icon', () => {
+    const deps = setup([]);
+
+    renderNotes(deps);
+
+    const row = screen.getByText('Assets').closest('.entry');
+    if (!row) {
+      throw new Error('expected an entry row for Assets');
+    }
+
+    const { container: reference } = render(<AppIcon icon="layers" />);
+
+    expect(row.querySelector('.app-icon svg')?.outerHTML).toBe(
+      reference.querySelector('.app-icon svg')?.outerHTML
+    );
+  });
+
+  it('clicking it opens the Assets destination via NavigationRouter.openAssets', () => {
+    const deps = setup([]);
+
+    renderNotes(deps);
+
+    fireEvent.click(screen.getByText('Assets'));
+
+    expect(deps.navigation.openAssets).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('Sidebar Notes: only one row menu is open at a time', () => {
   it('opening a second row\'s menu closes the first', () => {
@@ -558,5 +617,214 @@ describe('Sidebar Notes: overflow → Rename focus transition', () => {
     const selection = window.getSelection();
     expect(selection?.isCollapsed).toBe(true);
     expect(selection?.anchorOffset).toBe('Projects'.length);
+  });
+
+  it('a Resource row: clicking Rename leaves the EditableText mounted and focused, seeded with the extension-free name', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
+    const deps = setup([], [], [resource]);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(screen.getByText('Rename'));
+
+    const field = screen.getByRole('textbox');
+    expect(field).toBe(document.activeElement);
+    expect(field).toHaveTextContent('floorplan');
+  });
+});
+
+describe('Sidebar Notes: Resource menu — exactly Rename, Move to, and Archive', () => {
+  it('the overflow menu contains exactly Rename, Move to, and Archive, nothing else', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
+    const deps = setup([], [], [resource]);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('floorplan.png'));
+
+    expect(screen.getByText('Rename')).toBeInTheDocument();
+    expect(screen.getByText('Move to…')).toBeInTheDocument();
+    expect(screen.getByText('Archive')).toBeInTheDocument();
+    expect(screen.queryByText('Add to Favorites')).toBeNull();
+    expect(screen.queryByText('Remove from Favorites')).toBeNull();
+    expect(screen.queryByText('Restore')).toBeNull();
+    expect(screen.queryByText('Delete permanently')).toBeNull();
+    expect(screen.queryByText('Duplicate')).toBeNull();
+    expect(screen.queryByText('Change icon')).toBeNull();
+  });
+
+  it('a pdf resource shows the same overflow menu as an image resource', () => {
+    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const deps = setup([], [], [resource]);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('contract.pdf'));
+
+    expect(screen.getByText('Rename')).toBeInTheDocument();
+    expect(screen.getByText('Move to…')).toBeInTheDocument();
+    expect(screen.getByText('Archive')).toBeInTheDocument();
+  });
+});
+
+describe('Sidebar Notes: Resource move', () => {
+  it('selecting Move to… opens the destination picker, and choosing a destination calls ResourceOperations.moveResource', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const deps = setup([folder], [], [resource]);
+    const moveSpy = vi
+      .spyOn(deps.resourceOperations, 'moveResource')
+      .mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(screen.getByText('Move to…'));
+    const picker = document.querySelector<HTMLElement>('.folder-picker')!;
+    fireEvent.click(within(picker).getByText('Projects'));
+
+    expect(moveSpy).toHaveBeenCalledWith('resource-1', 'folder-1');
+  });
+});
+
+describe('Sidebar Notes: Resource rename', () => {
+  it('confirming a rename calls ResourceOperations.renameResource with the resource id and the extension-free logical name typed', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
+    const deps = setup([], [], [resource]);
+    const renameSpy = vi
+      .spyOn(deps.resourceOperations, 'renameResource')
+      .mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(screen.getByText('Rename'));
+
+    const field = screen.getByRole('textbox');
+    fireEvent.input(field, { target: { textContent: 'blueprint' } });
+    fireEvent.blur(field);
+
+    expect(renameSpy).toHaveBeenCalledWith('resource-1', 'blueprint');
+  });
+
+  it('cancel (Escape) does not call renameResource', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
+    const deps = setup([], [], [resource]);
+    const renameSpy = vi
+      .spyOn(deps.resourceOperations, 'renameResource')
+      .mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(screen.getByText('Rename'));
+
+    const field = screen.getByRole('textbox');
+    fireEvent.input(field, { target: { textContent: 'blueprint' } });
+    fireEvent.keyDown(field, { key: 'Escape' });
+
+    expect(renameSpy).not.toHaveBeenCalled();
+  });
+
+  it('a pdf resource supports rename the same way an image resource does', () => {
+    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const deps = setup([], [], [resource]);
+    const renameSpy = vi
+      .spyOn(deps.resourceOperations, 'renameResource')
+      .mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('contract.pdf'));
+    fireEvent.click(screen.getByText('Rename'));
+
+    const field = screen.getByRole('textbox');
+    fireEvent.input(field, { target: { textContent: 'signed-contract' } });
+    fireEvent.blur(field);
+
+    expect(renameSpy).toHaveBeenCalledWith('resource-1', 'signed-contract');
+  });
+});
+
+describe('Sidebar Notes: Resource archive', () => {
+  it('selecting Archive calls ResourceOperations.archiveResource with the resource id, no confirmation dialog', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'floorplan.png' });
+    const deps = setup([], [], [resource]);
+    const archiveSpy = vi
+      .spyOn(deps.resourceOperations, 'archiveResource')
+      .mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(archiveSpy).toHaveBeenCalledWith('resource-1');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a pdf resource supports archive the same way an image resource does', () => {
+    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const deps = setup([], [], [resource]);
+    const archiveSpy = vi
+      .spyOn(deps.resourceOperations, 'archiveResource')
+      .mockResolvedValue(undefined);
+    renderNotes(deps);
+
+    fireEvent.click(overflowButtonFor('contract.pdf'));
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(archiveSpy).toHaveBeenCalledWith('resource-1');
+  });
+});
+
+describe('Sidebar Notes: Resource existing behavior unchanged', () => {
+  it('clicking an image resource row still opens the existing image overlay wiring (onOpenResourceImage)', () => {
+    const resource = makeResource({ id: 'resource-1', kind: 'image', name: 'photo.png' });
+    const deps = setup([], [], [resource]);
+    const onOpenResourceImage = vi.fn();
+
+    render(
+      <Notes
+        vault={deps.vault}
+        query={deps.query}
+        workspace={deps.workspace}
+        navigation={deps.navigation}
+        pageOperations={deps.pageOperations}
+        folderOperations={deps.folderOperations}
+        resourceOperations={deps.resourceOperations}
+        effectivePageState={deps.effectivePageState}
+        membershipSelector={deps.membershipSelector}
+        onOpen={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenResourceImage={onOpenResourceImage}
+      />
+    );
+
+    fireEvent.click(screen.getByText('photo.png').closest('.entry')!);
+
+    expect(onOpenResourceImage).toHaveBeenCalledWith(resource);
+  });
+
+  it('clicking a pdf resource row remains a no-op — no overlay, no navigation', () => {
+    const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
+    const deps = setup([], [], [resource]);
+    const onOpenResourceImage = vi.fn();
+
+    render(
+      <Notes
+        vault={deps.vault}
+        query={deps.query}
+        workspace={deps.workspace}
+        navigation={deps.navigation}
+        pageOperations={deps.pageOperations}
+        folderOperations={deps.folderOperations}
+        resourceOperations={deps.resourceOperations}
+        effectivePageState={deps.effectivePageState}
+        membershipSelector={deps.membershipSelector}
+        onOpen={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onOpenDraft={vi.fn()}
+        onOpenResourceImage={onOpenResourceImage}
+      />
+    );
+
+    fireEvent.click(screen.getByText('contract.pdf').closest('.entry')!);
+
+    expect(onOpenResourceImage).not.toHaveBeenCalled();
   });
 });

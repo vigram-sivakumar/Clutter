@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { Application } from '@core/application/Application';
 
 import { useActivePage } from '@app/hooks/useActivePage';
@@ -19,11 +19,17 @@ import {
   PAGE_DELETE_CONFIRMATION_MESSAGE,
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
-import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
+import {
+  buildMoveDestinationItems,
+  buildResourceMoveDestinationItems,
+} from '@features/notes/helpers/buildMoveDestinationItems';
 import { Breadcrumbs } from '@app/layouts/page/breadcrumb/Breadcrumbs';
 import { toResourcePageModel, toDraftPageModel } from '@app/layouts/page/toResourcePageModel';
 import { toCollectionPageModel } from '@features/collection/page/toCollectionPageModel';
-import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
+import {
+  getSystemLocationPresentation,
+  getSystemLocationForFolder,
+} from '@core/presentation/systemPresentation';
 import { Page } from '@app/layouts/page/Page';
 import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
@@ -36,10 +42,13 @@ import {
 } from '@app/layouts/page/tagCollectionRename';
 import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
+import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
+import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
 import {
   TasksCollectionBody,
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
+import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import {
   MarkdownEditor,
   type MarkdownEditorHandle,
@@ -89,6 +98,14 @@ function focusEditorOnOpen(title: string): boolean {
 export function PageHost({ application }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
+
+  // The Assets collection's own instance of the same lightbox a clicked
+  // Markdown image opens (MarkdownEditor.tsx's own imageOverlay state, and
+  // Sidebar.tsx's identical sidebar-scoped instance) — ImageOverlay is a
+  // plain, stateless component parameterized only by { url, alt }, so a
+  // third mount site is reuse, not a second implementation.
+  const [assetsImageOverlay, setAssetsImageOverlay] =
+    useState<ImageOverlayImage | null>(null);
 
   // One handle, reused across the draft/note/daily-note branches below —
   // only one of them ever renders per render, and each gets a fresh
@@ -350,32 +367,127 @@ export function PageHost({ application }: PageHostProps) {
     // MembershipSelector.isSystemFolder, but title-editability has no
     // equivalent automatic gate, so it's checked here explicitly.
     const isRenameable = !application.membershipSelector.isSystemFolder(folder);
+    // The Archive folder gets a resource-aware body (ArchiveCollectionBody)
+    // instead of the plain folder/note-shaped CollectionBody — see that
+    // component's own doc comment for why this isn't a CollectionPageModel
+    // extension. Every other folder (including every other reserved one)
+    // keeps the exact same CollectionBody rendering as before.
+    const isArchiveView =
+      getSystemLocationForFolder(folder, application.membershipSelector) === 'archive';
 
     return (
-      <Page
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
-        title={model.title}
-        description={model.description}
-        titleEditable={isRenameable}
-        titlePlaceholder={getFolderTitlePlaceholder()}
-        onTitleEdit={isRenameable ? (name) => onEditFolderName(folder.id, name) : undefined}
-        onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
-        onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
-        breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-        actions={topBar.actions}
-        coverImage={
-          application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
-        }
-        body={
-          <CollectionBody
-            folders={model.folders}
-            notes={model.notes}
-            resolveWikiLink={resolveWikiLink}
-            resolveTag={resolveTag}
+      <>
+        <Page
+          isSidebarVisible={workspace.isSidebarVisible}
+          onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+          title={model.title}
+          description={model.description}
+          titleEditable={isRenameable}
+          titlePlaceholder={getFolderTitlePlaceholder()}
+          onTitleEdit={isRenameable ? (name) => onEditFolderName(folder.id, name) : undefined}
+          onTitleFlush={isRenameable ? () => onFlushFolderName(folder.id) : undefined}
+          onTitleCancel={isRenameable ? () => onCancelFolderName(folder.id) : undefined}
+          breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+          actions={topBar.actions}
+          coverImage={
+            application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
+          }
+          body={
+            isArchiveView ? (
+              <ArchiveCollectionBody
+                vault={vault}
+                folders={model.folders}
+                notes={model.notes}
+                resources={application.membershipSelector.getArchivedResources()}
+                onOpenImage={(resource) =>
+                  setAssetsImageOverlay({
+                    url: application.resolveResourceImageUrl(resource.path),
+                    alt: resource.name,
+                  })
+                }
+                onRestoreResource={(id) =>
+                  void application.resourceOperations.restoreResource(id)
+                }
+                onDeleteResource={(id) =>
+                  void application.resourceOperations.deleteResource(id)
+                }
+                onRestoreFolder={(id) => void application.folderOperations.restore(id)}
+                onDeleteFolder={(id) => void application.folderOperations.delete(id)}
+                onRestoreNote={(id) => void application.pageOperations.restore(id)}
+                onDeleteNote={(id) => void application.pageOperations.delete(id)}
+                resolveWikiLink={resolveWikiLink}
+                resolveTag={resolveTag}
+              />
+            ) : (
+              <CollectionBody
+                folders={model.folders}
+                notes={model.notes}
+                resolveWikiLink={resolveWikiLink}
+                resolveTag={resolveTag}
+              />
+            )
+          }
+        />
+        {isArchiveView && (
+          <ImageOverlay
+            image={assetsImageOverlay}
+            onClose={() => setAssetsImageOverlay(null)}
           />
-        }
-      />
+        )}
+      </>
+    );
+  }
+
+  // The Assets collection is a filtered view too, but
+  // CollectionPageModel/CollectionBody are folder+note shaped — no room for
+  // `kind` (image vs. pdf) — so this dispatches to AssetsCollectionBody
+  // instead, before the generic filtered-view branch below, same reasoning
+  // as the task-views branch that follows it.
+  if (
+    workspace.activeView?.type === 'filtered-view' &&
+    workspace.activeView.view.kind === 'assets'
+  ) {
+    const resources = application.membershipSelector.getAllVisibleResources();
+
+    return (
+      <>
+        <Page
+          isSidebarVisible={workspace.isSidebarVisible}
+          onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+          title={getSystemLocationPresentation('assets').label}
+          titleEditable={false}
+          breadcrumbs={<Breadcrumbs items={[]} />}
+          body={
+            <AssetsCollectionBody
+              resources={resources}
+              onOpenImage={(resource) =>
+                setAssetsImageOverlay({
+                  url: application.resolveResourceImageUrl(resource.path),
+                  alt: resource.name,
+                })
+              }
+              onRenameResource={(id, name) =>
+                void application.resourceOperations.renameResource(id, name)
+              }
+              onArchiveResource={(id) =>
+                void application.resourceOperations.archiveResource(id)
+              }
+              resourceMoveDestinations={buildResourceMoveDestinationItems(
+                application.membershipSelector,
+                application.query
+              )}
+              onMoveResource={(id, destinationFolderId) =>
+                void application.resourceOperations.moveResource(id, destinationFolderId)
+              }
+              onCreateFolder={(name) => application.folderOperations.create(name, null)}
+            />
+          }
+        />
+        <ImageOverlay
+          image={assetsImageOverlay}
+          onClose={() => setAssetsImageOverlay(null)}
+        />
+      </>
     );
   }
 

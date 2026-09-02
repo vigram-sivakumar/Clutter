@@ -15,6 +15,7 @@ import { VaultBuilder } from '../ingest/VaultBuilder';
 import { VaultQuery } from '../queries/VaultQuery';
 import type { Page } from '../models/Page';
 import type { Folder } from '../models/Folder';
+import type { VaultResource } from '../models/VaultResource';
 import type { VaultFileSystem } from '../providers/VaultFileSystem';
 
 const ROOT = '/vault';
@@ -45,7 +46,11 @@ function buildPage(path: string, content: string, frontmatterId: string): Page {
   });
 }
 
-function makeVault(pages: Page[] = [], folders: Folder[] = []): Vault {
+function makeVault(
+  pages: Page[] = [],
+  folders: Folder[] = [],
+  resources: VaultResource[] = []
+): Vault {
   return new Vault(
     ROOT,
     pages,
@@ -54,8 +59,25 @@ function makeVault(pages: Page[] = [], folders: Folder[] = []): Vault {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
+}
+
+function makeResource(
+  id: string,
+  path: string,
+  kind: VaultResource['kind'] = 'image',
+  parentId: string | null = null
+): VaultResource {
+  return {
+    id,
+    kind,
+    name: path.slice(path.lastIndexOf('/') + 1),
+    path,
+    parentId,
+  };
 }
 
 const defaultFolderMetadata = {
@@ -128,8 +150,8 @@ function archivedDiskDocument(pageId: string, body: string): string {
   ].join('\n');
 }
 
-function setup(pages: Page[] = [], folders: Folder[] = []) {
-  const vault = makeVault(pages, folders);
+function setup(pages: Page[] = [], folders: Folder[] = [], resources: VaultResource[] = []) {
+  const vault = makeVault(pages, folders, resources);
   const fileSystem = new InMemoryVaultFileSystem();
   const watcher = new FakeVaultFileSystemWatcher();
   const documentRegistry = new DocumentRegistry();
@@ -457,6 +479,233 @@ describe('VaultSyncService', () => {
     const page = vault.getPage('nested-page');
     expect(page).toBeDefined();
     expect(page!.parentId).toBe('folder-1');
+  });
+});
+
+describe('VaultSyncService: resource lifecycle', () => {
+  it('created: a new image file appearing on disk adds a resource to the vault', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
+    await flush();
+
+    const resource = vault.getResourceByPath(`${ROOT}/hero.png`);
+    expect(resource).toBeDefined();
+    expect(resource!.kind).toBe('image');
+    expect(resource!.name).toBe('hero.png');
+  });
+
+  it('created: a new pdf file appearing on disk adds a resource to the vault', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    fileSystem.seedFile(`${ROOT}/spec.pdf`, 'binary-content');
+
+    watcher.emit({ type: 'created', path: 'spec.pdf', isDirectory: false });
+    await flush();
+
+    const resource = vault.getResourceByPath(`${ROOT}/spec.pdf`);
+    expect(resource).toBeDefined();
+    expect(resource!.kind).toBe('pdf');
+  });
+
+  it('created: an unsupported file extension never becomes a resource', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    fileSystem.seedFile(`${ROOT}/notes.txt`, 'plain text');
+
+    watcher.emit({ type: 'created', path: 'notes.txt', isDirectory: false });
+    await flush();
+
+    expect(vault.getResourceByPath(`${ROOT}/notes.txt`)).toBeUndefined();
+    expect(vault.resourceCount).toBe(0);
+  });
+
+  it('created: a resource inside an unknown/unresolvable parent folder is safely ignored, mirroring page creation', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    fileSystem.seedFile(`${ROOT}/unknown-folder/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'created', path: 'unknown-folder/hero.png', isDirectory: false });
+    await flush();
+
+    expect(vault.getResourceByPath(`${ROOT}/unknown-folder/hero.png`)).toBeUndefined();
+  });
+
+  it('changed: an in-place content edit to an already-tracked resource is a no-op — nothing about the resource itself changes', async () => {
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const { vault, fileSystem, watcher } = setup([], [], [resource]);
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'different-binary-content');
+
+    watcher.emit({ type: 'changed', path: 'hero.png' });
+    await flush();
+
+    const stillTracked = vault.getResource('resource-1');
+    expect(stillTracked).toBeDefined();
+    expect(stillTracked!.path).toBe(`${ROOT}/hero.png`);
+    expect(vault.resourceCount).toBe(1);
+  });
+
+  it('deleted: a removed resource file removes it from the vault', async () => {
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const { vault, watcher } = setup([], [], [resource]);
+
+    watcher.emit({ type: 'deleted', path: 'hero.png' });
+    await flush();
+
+    expect(vault.getResource('resource-1')).toBeUndefined();
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeUndefined();
+  });
+
+  it('moved: a renamed resource preserves its id and updates its path', async () => {
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const { vault, fileSystem, watcher } = setup([], [], [resource]);
+    fileSystem.seedFile(`${ROOT}/hero-final.png`, 'binary-content');
+
+    watcher.emit({ type: 'moved', fromPath: 'hero.png', toPath: 'hero-final.png' });
+    await flush();
+
+    const moved = vault.getResource('resource-1');
+    expect(moved).toBeDefined();
+    expect(moved!.id).toBe('resource-1');
+    expect(moved!.path).toBe(`${ROOT}/hero-final.png`);
+    expect(moved!.name).toBe('hero-final.png');
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeUndefined();
+  });
+
+  it('moved: a resource dragged into a different folder updates its parentId', async () => {
+    const folder: Folder = {
+      id: 'folder-projects',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      parentId: null,
+      metadata: {
+        icon: null,
+        favorite: false,
+        description: '',
+        cover: null,
+        status: 'active',
+        archivedAt: null,
+        originalPath: null,
+        originalParentId: null,
+      },
+    };
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const { vault, fileSystem, watcher } = setup([], [folder], [resource]);
+    fileSystem.seedFile(`${ROOT}/Projects/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'moved', fromPath: 'hero.png', toPath: 'Projects/hero.png' });
+    await flush();
+
+    const moved = vault.getResource('resource-1')!;
+    expect(moved.path).toBe(`${ROOT}/Projects/hero.png`);
+    expect(moved.parentId).toBe('folder-projects');
+  });
+
+  it('moved (atomic save, new file): a resource file moved in from outside the watched root, never previously tracked, is discovered as new', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'moved', fromPath: '/outside/hero.png', toPath: 'hero.png' });
+    await flush();
+
+    const resource = vault.getResourceByPath(`${ROOT}/hero.png`);
+    expect(resource).toBeDefined();
+    expect(resource!.kind).toBe('image');
+  });
+
+  it('does not affect markdown reconciliation — a resource event and a page event are handled independently', async () => {
+    const page = buildPage('Note.md', 'content', 'note-1');
+    const { vault, fileSystem, watcher } = setup([page]);
+    fileSystem.seedFile(`${ROOT}/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'created', path: 'hero.png', isDirectory: false });
+    await flush();
+
+    expect(vault.getPage('note-1')).toBeDefined();
+    expect(vault.getPage('note-1')!.source.markdown).toBe('content');
+    expect(vault.getResourceByPath(`${ROOT}/hero.png`)).toBeDefined();
+  });
+});
+
+describe('VaultSyncService: resource lifecycle via folder subtree (bulk/coalesced events)', () => {
+  it('created: a directory moved into the vault with a resource inside is ingested alongside its pages', async () => {
+    const { vault, fileSystem, watcher } = setup();
+    await fileSystem.createDirectory(`${ROOT}/Projects`);
+    await fileSystem.writeFile(
+      `${ROOT}/Projects/Roadmap.md`,
+      '---\nid: page-roadmap\n---\ncontent'
+    );
+    await fileSystem.writeFile(`${ROOT}/Projects/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'created', path: 'Projects', isDirectory: true });
+    await flush();
+
+    const projects = vault.getFolderByPath(`${ROOT}/Projects`);
+    const resource = vault.getResourceByPath(`${ROOT}/Projects/hero.png`);
+
+    expect(projects).toBeDefined();
+    expect(resource).toBeDefined();
+    expect(resource!.parentId).toBe(projects!.id);
+  });
+
+  it('deleted (bulk): a directory deleted along with its contents removes its nested resource from the vault', async () => {
+    const folder: Folder = {
+      id: 'folder-projects',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      parentId: null,
+      metadata: {
+        icon: null,
+        favorite: false,
+        description: '',
+        cover: null,
+        status: 'active',
+        archivedAt: null,
+        originalPath: null,
+        originalParentId: null,
+      },
+    };
+    const resource = makeResource('resource-1', `${ROOT}/Projects/hero.png`, 'image', 'folder-projects');
+    const { vault, watcher } = setup([], [folder], [resource]);
+
+    // A coalesced bulk deletion is reported as a single event on the
+    // directory itself — nothing on disk for the whole subtree afterward.
+    watcher.emit({ type: 'deleted', path: 'Projects' });
+    await flush();
+
+    expect(vault.getFolderByPath(`${ROOT}/Projects`)).toBeUndefined();
+    expect(vault.getResource('resource-1')).toBeUndefined();
+    expect(vault.resourceCount).toBe(0);
+  });
+
+  it('moved: a folder externally moved carries its nested resource along, updating the resource\'s path/parentId', async () => {
+    const folder: Folder = {
+      id: 'folder-projects',
+      name: 'Projects',
+      path: `${ROOT}/Projects`,
+      parentId: null,
+      metadata: {
+        icon: null,
+        favorite: false,
+        description: '',
+        cover: null,
+        status: 'active',
+        archivedAt: null,
+        originalPath: null,
+        originalParentId: null,
+      },
+    };
+    const resource = makeResource('resource-1', `${ROOT}/Projects/hero.png`, 'image', 'folder-projects');
+    const { vault, fileSystem, watcher } = setup([], [folder], [resource]);
+    await fileSystem.createDirectory(`${ROOT}/Archive`);
+    await fileSystem.createDirectory(`${ROOT}/Archive/Projects`);
+    await fileSystem.writeFile(`${ROOT}/Archive/Projects/hero.png`, 'binary-content');
+
+    watcher.emit({ type: 'moved', fromPath: 'Projects', toPath: 'Archive/Projects' });
+    await flush();
+
+    const movedResource = vault.getResource('resource-1');
+    expect(movedResource).toBeDefined();
+    expect(movedResource!.path).toBe(`${ROOT}/Archive/Projects/hero.png`);
+    expect(vault.getResourceByPath(`${ROOT}/Projects/hero.png`)).toBeUndefined();
   });
 });
 

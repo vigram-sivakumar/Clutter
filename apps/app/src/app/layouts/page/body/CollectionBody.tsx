@@ -20,13 +20,29 @@ export interface CollectionBodyProps {
   resolveTag?: CompactMarkdownResolvers['resolveTag'];
 }
 
-function renderEntry(entry: CollectionEntryModel, resolvers: CompactMarkdownResolvers) {
+/**
+ * Exported (not a private CollectionBody-only helper) so ArchiveCollectionBody
+ * can render the same folder/note rows Archive already correctly shows,
+ * without a second implementation — one rendering per entry shape, the same
+ * rule this file already applies to folders vs. notes themselves.
+ *
+ * `actions`, when supplied, reuses Entry's existing hover-gated `actions`
+ * slot (the same slot Resource.tsx's `archiveActions`/Folder.tsx's "+"
+ * button already use) — omitted (the default) renders exactly the same
+ * plain row every existing CollectionBody caller already gets, unchanged.
+ */
+export function renderEntry(
+  entry: CollectionEntryModel,
+  resolvers: CompactMarkdownResolvers,
+  actions?: React.ReactNode
+) {
   return (
     <Entry
       key={entry.id}
       leading={<AppIcon icon={entry.icon} emoji={entry.emoji} />}
       selected={entry.selected}
       onClick={entry.onClick}
+      actions={actions}
     >
       {renderCompactMarkdown(entry.title, resolvers)}
     </Entry>

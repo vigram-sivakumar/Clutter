@@ -70,4 +70,23 @@ export class VaultPath {
     const dotIndex = fileName.lastIndexOf('.');
     return dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : '';
   }
+
+  /**
+   * A file's display name minus its own extension (as defined by
+   * extension() above) — the generic, any-extension counterpart to
+   * pageName()'s `.md`-specific stripping. A filename with no extension
+   * (extension() returns '') is returned unchanged, same as pageName()
+   * would leave a non-`.md` filename unchanged.
+   *
+   * Used by VaultResource's own rename/archive path resolvers
+   * (MoveService), which must never hardcode `.md` the way pageName()
+   * does — a resource's extension varies (`.png`, `.pdf`, ...) and must be
+   * preserved, never assumed.
+   */
+  static stemName(path: string): string {
+    const fileName = this.filename(path);
+    const extension = this.extension(path);
+
+    return extension ? fileName.slice(0, -extension.length) : fileName;
+  }
 }

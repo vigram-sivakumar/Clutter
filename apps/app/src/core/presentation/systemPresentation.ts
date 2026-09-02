@@ -28,7 +28,8 @@ export type SystemLocationId =
   | 'search'
   | 'archive'
   | 'inbox'
-  | 'templates';
+  | 'templates'
+  | 'assets';
 
 /**
  * A system location's presentation — label and icon only. This is the
@@ -107,6 +108,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
   archive: { id: 'archive', label: 'Archive', icon: 'archive' },
   inbox: { id: 'inbox', label: 'Inbox', icon: 'tray' },
   templates: { id: 'templates', label: 'Templates', icon: 'template' },
+  assets: { id: 'assets', label: 'Assets', icon: 'layers' },
 };
 
 export function getSystemLocationPresentation(

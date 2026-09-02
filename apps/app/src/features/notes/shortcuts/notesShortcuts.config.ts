@@ -13,6 +13,11 @@ export const notesShortcuts = [
     title: getSystemLocationPresentation('templates').label,
     icon: getSystemLocationPresentation('templates').icon,
   },
+  {
+    id: 'assets',
+    title: getSystemLocationPresentation('assets').label,
+    icon: getSystemLocationPresentation('assets').icon,
+  },
 ] as const satisfies readonly NavigationItem[];
 
 export type NotesShortcutId = (typeof notesShortcuts)[number]['id'];

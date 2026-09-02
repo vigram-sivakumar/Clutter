@@ -1,5 +1,6 @@
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import type { Folder } from '@core/vault/models/Folder';
+import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type {
   FolderPickerAncestor,
   FolderPickerItem,
@@ -78,4 +79,47 @@ export function buildMoveDestinationItems(
   walk(membershipSelector.getWorkspaceFolders(), 0, null, []);
 
   return items;
+}
+
+/**
+ * The Resource-scoped counterpart to buildMoveDestinationItems — same
+ * shared list every Move entry point already uses, plus the one addition
+ * Resource Move specifically needs: the managed Assets/ folder as a
+ * selectable destination. buildMoveDestinationItems deliberately excludes
+ * it everywhere else (MembershipSelector.isWorkspaceFolder's own
+ * `!isAssetsStorageFolder` filter — Assets/ isn't a normal Note/Folder
+ * destination), but "move a resource into Assets/" is one of the required
+ * destinations per the approved Resource Move design, so this appends it
+ * back — as a plain root-level item, not by changing
+ * isWorkspaceFolder/buildMoveDestinationItems for every other caller.
+ *
+ * If Assets/ hasn't been registered as a tracked Vault Folder yet (it's
+ * lazily created — see ensureAssetsFolder), it simply isn't offered: this
+ * never creates it speculatively just to populate a picker list.
+ */
+export function buildResourceMoveDestinationItems(
+  membershipSelector: MembershipSelector,
+  query: VaultQuery
+): FolderPickerItem[] {
+  const items = buildMoveDestinationItems(membershipSelector);
+  const assetsFolder = query
+    .getRootFolders()
+    .find((folder) => membershipSelector.isAssetsStorageFolder(folder));
+
+  if (!assetsFolder) {
+    return items;
+  }
+
+  const label = getFolderDisplayLabel(assetsFolder);
+
+  return [
+    ...items,
+    {
+      id: assetsFolder.id,
+      title: label.text,
+      level: 0,
+      parentId: null,
+      emoji: assetsFolder.metadata.icon,
+    },
+  ];
 }

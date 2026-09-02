@@ -30,6 +30,7 @@ export function Sidebar({ application }: SidebarProps) {
     navigation,
     pageOperations,
     folderOperations,
+    resourceOperations,
     taskOperations,
     effectivePageState,
     membershipSelector,
@@ -91,6 +92,7 @@ export function Sidebar({ application }: SidebarProps) {
           navigation={navigation}
           pageOperations={pageOperations}
           folderOperations={folderOperations}
+          resourceOperations={resourceOperations}
           effectivePageState={effectivePageState}
           membershipSelector={membershipSelector}
           onOpen={(pageId) => pageOperations.open(pageId)}

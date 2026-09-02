@@ -4,6 +4,8 @@ import type { VaultResource } from '../../vault/models/VaultResource';
 import type { Vault } from '../../vault/models/Vault';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '../page/EffectivePageState';
+import { ASSETS_DIRECTORY_NAME } from '../../vault/initialize/ensureAssetsDirectory';
+import { VaultPath } from '../../vault/ingest/VaultPath';
 
 /**
  * ADR-023: for a page or folder plus a named product concept, answers
@@ -165,7 +167,30 @@ export class MembershipSelector {
    * ADR-022's amendment recording this correction.
    */
   public isWorkspaceFolder(folder: Folder): boolean {
-    return folder.parentId === null && !this.isSystemFolder(folder) && this.isVisibleFolder(folder);
+    return (
+      folder.parentId === null &&
+      !this.isSystemFolder(folder) &&
+      !this.isAssetsStorageFolder(folder) &&
+      this.isVisibleFolder(folder)
+    );
+  }
+
+  /**
+   * Whether `folder` is the physical, managed Assets/ storage folder —
+   * Clutter's default import destination for supported resources, a
+   * filesystem detail distinct from the "Assets" logical collection (every
+   * VaultResource anywhere in the vault, see getAllVisibleResources).
+   * Deliberately NOT a reserved folder (Vault.isReservedFolder/
+   * ReservedResources.ts are untouched): a reserved folder can't be
+   * renamed/deleted and is excluded from scanning-adjacent concerns
+   * app-wide, neither of which applies here — Assets/ is an ordinary,
+   * fully-synced folder that merely doesn't render as a normal row in
+   * FolderTree. Path/parentId-aware rather than name-only, mirroring
+   * isSystemFolder's own reasoning: a nested folder that happens to be
+   * named "Assets" (e.g. Projects/Assets) is not this folder.
+   */
+  public isAssetsStorageFolder(folder: Folder): boolean {
+    return folder.parentId === null && folder.name === ASSETS_DIRECTORY_NAME;
   }
 
   /** Every root folder that belongs to Workspace — see isWorkspaceFolder. */
@@ -265,5 +290,74 @@ export class MembershipSelector {
     return this.query
       .getRootResources()
       .filter((resource) => this.isVisiblePage(resource));
+  }
+
+  /**
+   * Whether a resource is currently archived — determined entirely by
+   * location, not a metadata flag: `VaultResource` deliberately carries no
+   * `status`/`archivedAt` of its own (§3b — see the approved Resource
+   * mutation design), so unlike a Page/Folder, there is no second signal
+   * to check alongside physical location. `ResourceOperations.
+   * archiveResource()` relocates a resource into the reserved Archive/
+   * folder and nowhere else, so "is this resource's path inside Archive/"
+   * is the sole and complete answer, at any nesting depth.
+   *
+   * Deliberately not answered by isEffectivelyArchived(resource.parentId):
+   * that predicate asks "is the *containing folder* itself archived"
+   * (folder.metadata.status === 'archived', per ADR-026 §5) — the reserved
+   * Archive folder's own status is 'active' (it's a container, never
+   * itself an archived entity), so a resource sitting directly inside it
+   * would pass that check and be wrongly treated as visible.
+   */
+  public isResourceArchived(resource: VaultResource): boolean {
+    const archiveFolder = this.vault.getReservedFolder('archive');
+
+    if (!archiveFolder) {
+      return false;
+    }
+
+    return (
+      resource.path === archiveFolder.path ||
+      VaultPath.isDescendantOf(resource.path, archiveFolder.path)
+    );
+  }
+
+  /**
+   * Every visible resource anywhere in the vault — the "Assets" logical
+   * collection (ADR-023-style membership, not a folder-scoped read): a
+   * resource physically inside the managed Assets/ folder and one placed
+   * anywhere else are equally members. Same two presentation rules as
+   * every other resource/page query — dot-prefix hiding and
+   * effective-archive exclusion — applied per-resource against its own
+   * parentId, since results here span every folder in the vault at once,
+   * not one caller-chosen folderId. Also excludes a resource archived
+   * directly into Archive/ itself (isResourceArchived) — a case
+   * isEffectivelyArchived alone can't catch, see that method's own doc
+   * comment.
+   */
+  public getAllVisibleResources(): VaultResource[] {
+    return this.query
+      .getAllResources()
+      .filter(
+        (resource) =>
+          this.isVisiblePage(resource) &&
+          !this.isEffectivelyArchived(resource.parentId) &&
+          !this.isResourceArchived(resource)
+      );
+  }
+
+  /**
+   * Every visible resource currently archived — the resource-scoped
+   * counterpart to VaultQuery.getArchivedPages(), but computed here (not
+   * VaultQuery) since "archived" for a resource is isResourceArchived's
+   * structural, path-based question, not a bare metadata-flag filter the
+   * way a page's `status === 'archived'` is. Feeds the Archive view's
+   * resource rows (ArchiveCollectionBody), the same way getArchivedPages()
+   * feeds its folders/notes today.
+   */
+  public getArchivedResources(): VaultResource[] {
+    return Array.from(this.vault.resources()).filter(
+      (resource) => this.isVisiblePage(resource) && this.isResourceArchived(resource)
+    );
   }
 }

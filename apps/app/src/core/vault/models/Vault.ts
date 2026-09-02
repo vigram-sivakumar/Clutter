@@ -39,6 +39,31 @@ export type VaultChangeEvent =
       path: string;
     }
   | {
+      // The VaultResource counterpart to 'page-moved' — emitted by
+      // updateResourcePath() whenever a resource's path/parentId changes.
+      // No 'resource-changed' variant exists: a resource has no
+      // metadata-only mutation (unlike 'folder-changed').
+      type: 'resource-moved';
+      resourceId: string;
+      path: string;
+    }
+  | {
+      // Emitted by removeResource() — the resource-scoped counterpart to
+      // 'page-removed', for the same 'delete-resource' Gate kind's Vault
+      // commit step.
+      type: 'resource-removed';
+      resourceId: string;
+    }
+  | {
+      // Emitted by addResource() — the resource-scoped counterpart to
+      // 'page-added'/'folder-added', for Sync's external-resource-create
+      // reconciliation (a resource discovered on disk after Vault was
+      // already built, mirroring addPage()'s existing external-create
+      // caller).
+      type: 'resource-added';
+      resourceId: string;
+    }
+  | {
       // A folder's metadata changed in place — no path/parentId change,
       // the folder-scoped counterpart to 'page-changed'. Emitted by
       // updateFolderMetadata() only; archive/restore/move always change
@@ -177,11 +202,6 @@ export class Vault {
     return this.foldersByPath.get(path);
   }
 
-  /**
-   * Read-only for now — resources are populated once, at construction, from
-   * the initial scan (VaultBuilder). No addResource/removeResource/move
-   * exists yet; that's a later step, once something consumes these reads.
-   */
   getResource(id: string): VaultResource | undefined {
     return this.resourcesById.get(id);
   }
@@ -223,6 +243,23 @@ export class Vault {
   }
 
   /**
+   * Case-insensitive counterpart to getResourceByPath(), mirroring
+   * getFolderByPathCaseInsensitive/getPageByPathCaseInsensitive exactly —
+   * same reasoning, one aggregate over. The one collision check
+   * updateResourcePath() (below) uses to guard "one path maps to one
+   * resource."
+   */
+  getResourceByPathCaseInsensitive(path: string): VaultResource | undefined {
+    for (const resource of this.resourcesByPath.values()) {
+      if (VaultPath.equalsCaseInsensitive(resource.path, path)) {
+        return resource;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * Resolves a reserved top-level folder by stable identifier.
    *
    * Reserved folder paths are defined in ReservedResources — callers should
@@ -247,9 +284,14 @@ export class Vault {
   }
 
   /**
-   * Every folder nested (at any depth) inside folderId, and every page
-   * whose parentId is that folder or one of those nested folders (ADR-024).
-   * A pure read, freely callable from anywhere — not a mutation method.
+   * Every folder nested (at any depth) inside folderId, every page whose
+   * parentId is that folder or one of those nested folders (ADR-024), and
+   * every resource whose parentId is that folder or one of those nested
+   * folders (same subtree-membership rule as pages, extended once
+   * VaultResource needed to participate in the same cascade — a resource
+   * has no descendants of its own, so it only ever appears as a leaf here,
+   * never contributing to `folders`). A pure read, freely callable from
+   * anywhere — not a mutation method.
    *
    * The one implementation of this subtree walk: removeFolder() uses it
    * to know what to delete, moveFolder() uses the equivalent inline
@@ -262,6 +304,7 @@ export class Vault {
   getDescendantFoldersAndPages(folderId: string): {
     readonly folders: readonly Folder[];
     readonly pages: readonly Page[];
+    readonly resources: readonly VaultResource[];
   } {
     const folder = this.foldersById.get(folderId);
 
@@ -281,7 +324,11 @@ export class Vault {
       (page) => page.parentId !== null && subtreeFolderIds.has(page.parentId)
     );
 
-    return { folders: descendantFolders, pages };
+    const resources = [...this.resourcesById.values()].filter(
+      (resource) => resource.parentId !== null && subtreeFolderIds.has(resource.parentId)
+    );
+
+    return { folders: descendantFolders, pages, resources };
   }
 
   *folders(): IterableIterator<Folder> {
@@ -497,6 +544,56 @@ export class Vault {
     });
   }
 
+  /**
+   * Registers a newly discovered resource as the Vault's live source of
+   * truth — the resource-scoped counterpart to addPage()/addFolder().
+   * Unlike those two, this has no app-initiated caller yet (there is still
+   * no 'create-resource' Gate kind — resource creation stays out of scope
+   * per the approved Resource mutation design): the only caller is Sync,
+   * reconciling a resource file that appeared on disk after Vault was
+   * already built. No refreshProjections() call, same reasoning
+   * updateResourcePath()/removeResource() already establish: a resource
+   * contributes to no tag/task/embed/knowledge-graph projection.
+   */
+  addResource(resource: VaultResource): void {
+    if (this.resourcesById.has(resource.id)) {
+      throw new Error(`Resource already exists: ${resource.id}`);
+    }
+
+    this.assertResourcePathAvailable(resource.path);
+
+    this.resourcesById.set(resource.id, resource);
+    this.resourcesByPath.set(resource.path, resource);
+
+    this.notify({
+      type: 'resource-added',
+      resourceId: resource.id,
+    });
+  }
+
+  /**
+   * Permanently removes a resource — the resource-scoped counterpart to
+   * removePage(), backing the Gate's 'delete-resource' kind (and Sync's
+   * external-resource-delete reconciliation). No refreshProjections()
+   * call, same reasoning as updateResourcePath(): a resource contributes
+   * to no tag/task/embed/knowledge-graph projection.
+   */
+  removeResource(resourceId: string): void {
+    const resource = this.resourcesById.get(resourceId);
+
+    if (!resource) {
+      throw new Error(`Cannot remove unknown resource: ${resourceId}`);
+    }
+
+    this.resourcesById.delete(resourceId);
+    this.resourcesByPath.delete(resource.path);
+
+    this.notify({
+      type: 'resource-removed',
+      resourceId,
+    });
+  }
+
   removePage(pageId: string): void {
     const page = this.pagesById.get(pageId);
 
@@ -565,6 +662,80 @@ export class Vault {
       pageId,
       path,
     });
+  }
+
+  /**
+   * Updates a resource's path/parentId — the VaultResource counterpart to
+   * updatePagePath(), same shape: `id` is never recomputed (unlike
+   * ResourceBuilder's own path-derived id at scan time — see §3b — this
+   * in-place mutation deliberately keeps the resource's existing id stable
+   * for the rest of the running session, mirroring how updatePagePath never
+   * re-derives a page's id from its new path either). `name` is recomputed
+   * from the new path every time via VaultPath.filename() — not
+   * VaultPath.pageName() — matching ResourceBuilder's own
+   * `name: VaultPath.filename(file.path)` (a resource's display name keeps
+   * its extension, unlike a page's). `kind` is carried over unchanged
+   * (spread), since neither a move nor a rename ever changes what kind of
+   * file a resource is. No refreshProjections() call: unlike a page, a
+   * resource contributes to no tag/task/embed/knowledge-graph projection,
+   * so a path change here has nothing downstream to invalidate.
+   */
+  updateResourcePath(
+    id: string,
+    path: string,
+    parentId: string | null
+  ): void {
+    const resource = this.resourcesById.get(id);
+
+    if (!resource) {
+      throw new Error(`Cannot move unknown resource: ${id}`);
+    }
+
+    if (resource.path === path && resource.parentId === parentId) {
+      return;
+    }
+
+    this.assertResourcePathAvailable(path, id);
+
+    this.resourcesByPath.delete(resource.path);
+
+    const updatedResource: VaultResource = {
+      ...resource,
+      name: VaultPath.filename(path),
+      path,
+      parentId,
+    };
+
+    this.resourcesById.set(id, updatedResource);
+    this.resourcesByPath.set(path, updatedResource);
+
+    this.notify({
+      type: 'resource-moved',
+      resourceId: id,
+      path,
+    });
+  }
+
+  /**
+   * Guards the "one path maps to one resource" invariant — the
+   * resource-scoped counterpart to assertPathAvailable()/
+   * assertFolderPathAvailable() below. Scoped to resourcesByPath only,
+   * mirroring those two exactly: neither of them cross-checks against the
+   * other entity collections either (a page's assertPathAvailable never
+   * checks foldersByPath, and vice versa) — Page and Folder paths are
+   * disjoint by construction today (a page path always ends in `.md`, a
+   * folder path never does), so Vault has never needed a cross-entity
+   * collision check, and this resource-scoped guard deliberately doesn't
+   * introduce the first one. A resource's path also carries its own
+   * extension (`.png`/`.pdf`, never `.md`), so the same disjointness holds
+   * here without any new enforcement.
+   */
+  private assertResourcePathAvailable(path: string, exceptResourceId?: string): void {
+    const occupant = this.getResourceByPathCaseInsensitive(path);
+
+    if (occupant && occupant.id !== exceptResourceId) {
+      throw new Error(`Path already in use by another resource: ${path}`);
+    }
   }
 
   /**
@@ -821,7 +992,11 @@ export class Vault {
     folderId: string,
     path: string,
     parentId: string | null
-  ): { readonly descendantFolders: readonly Folder[]; readonly pagesInSubtree: readonly Page[] } {
+  ): {
+    readonly descendantFolders: readonly Folder[];
+    readonly pagesInSubtree: readonly Page[];
+    readonly resourcesInSubtree: readonly VaultResource[];
+  } {
     const folder = this.foldersById.get(folderId)!;
     const oldPrefix = folder.path;
 
@@ -877,6 +1052,31 @@ export class Vault {
       }
     }
 
+    // The resource-scoped counterpart to pagesInSubtree/pagePathUpdates
+    // above — a resource nested inside this folder subtree must relocate
+    // along with it, the same rule a nested page already followed. Added
+    // once VaultResource needed to participate in the same cascade
+    // Page/Folder already did (previously this method only knew about
+    // folders/pages, silently leaving a nested resource's path/parentId
+    // stale after its containing folder moved/archived/restored).
+    const resourcesInSubtree = [...this.resourcesById.values()].filter(
+      (resource) => resource.parentId !== null && subtreeFolderIds.has(resource.parentId)
+    );
+
+    const resourcePathUpdates = new Map<string, string>();
+
+    for (const resource of resourcesInSubtree) {
+      resourcePathUpdates.set(resource.id, path + resource.path.slice(oldPrefix.length));
+    }
+
+    for (const [id, nextPath] of resourcePathUpdates) {
+      const occupant = this.getResourceByPathCaseInsensitive(nextPath);
+
+      if (occupant && occupant.id !== id && !resourcePathUpdates.has(occupant.id)) {
+        throw new Error(`Path already in use by another resource: ${nextPath}`);
+      }
+    }
+
     for (const descendant of descendantFolders) {
       this.foldersByPath.delete(descendant.path);
     }
@@ -885,6 +1085,10 @@ export class Vault {
 
     for (const page of pagesInSubtree) {
       this.pagesByPath.delete(page.path);
+    }
+
+    for (const resource of resourcesInSubtree) {
+      this.resourcesByPath.delete(resource.path);
     }
 
     // name is recomputed from the new path's filename — until ADR-024, this
@@ -933,7 +1137,19 @@ export class Vault {
       this.pagesByPath.set(nextPath, updatedPage);
     }
 
-    return { descendantFolders, pagesInSubtree };
+    for (const resource of resourcesInSubtree) {
+      const nextPath = resourcePathUpdates.get(resource.id)!;
+      const updatedResource: VaultResource = {
+        ...resource,
+        path: nextPath,
+        name: VaultPath.filename(nextPath),
+      };
+
+      this.resourcesById.set(resource.id, updatedResource);
+      this.resourcesByPath.set(nextPath, updatedResource);
+    }
+
+    return { descendantFolders, pagesInSubtree, resourcesInSubtree };
   }
 
   /**
@@ -960,12 +1176,17 @@ export class Vault {
       throw new Error(`Cannot remove unknown folder: ${folderId}`);
     }
 
-    const { folders: descendantFolders, pages: pagesInSubtree } =
+    const { folders: descendantFolders, pages: pagesInSubtree, resources: resourcesInSubtree } =
       this.getDescendantFoldersAndPages(folderId);
 
     for (const page of pagesInSubtree) {
       this.pagesById.delete(page.id);
       this.pagesByPath.delete(page.path);
+    }
+
+    for (const resource of resourcesInSubtree) {
+      this.resourcesById.delete(resource.id);
+      this.resourcesByPath.delete(resource.path);
     }
 
     for (const descendant of descendantFolders) {

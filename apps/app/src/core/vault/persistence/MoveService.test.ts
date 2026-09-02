@@ -7,6 +7,7 @@ import { PageBuilder } from '../../vault/ingest/PageBuilder';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
 import type { Page } from '../../vault/models/Page';
 import type { Folder } from '../../vault/models/Folder';
+import type { VaultResource } from '../../vault/models/VaultResource';
 
 const ROOT = '/vault';
 
@@ -50,7 +51,26 @@ function buildPage(path: string, parentId: string | null = null, id = 'page-1'):
   });
 }
 
-function makeVault(pages: Page[], folders: Folder[]): Vault {
+function makeResource(
+  id: string,
+  path: string,
+  kind: VaultResource['kind'] = 'image',
+  parentId: string | null = null
+): VaultResource {
+  return {
+    id,
+    kind,
+    name: path.slice(path.lastIndexOf('/') + 1),
+    path,
+    parentId,
+  };
+}
+
+function makeVault(
+  pages: Page[],
+  folders: Folder[],
+  resources: VaultResource[] = []
+): Vault {
   return new Vault(
     ROOT,
     pages,
@@ -59,7 +79,9 @@ function makeVault(pages: Page[], folders: Folder[]): Vault {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
 }
 
@@ -427,5 +449,281 @@ describe('MoveService.resolveArchiveDestination', () => {
     const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
 
     expect(() => moveService.resolveArchiveDestination(page)).toThrow(/Archive folder not found/);
+  });
+});
+
+describe('MoveService.resolveResourceRenameDestination', () => {
+  it('resolves a new filename under the same parent, preserving the extension', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const vault = makeVault([], [], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceRenameDestination(resource, 'holiday');
+
+    expect(destination).toEqual({
+      path: `${ROOT}/holiday.png`,
+      parentId: null,
+    });
+  });
+
+  it('resolves under the same non-root parent, never reparenting', () => {
+    const folder = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/photo.png`, 'image', 'folder-assets');
+    const vault = makeVault([], [folder], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceRenameDestination(resource, 'holiday');
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Assets/holiday.png`,
+      parentId: 'folder-assets',
+    });
+  });
+
+  it('never lets the caller change the extension — a typed .png/.pdf suffix is stripped and the resource\'s own extension is used instead', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const vault = makeVault([], [], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceRenameDestination(resource, 'holiday.png');
+
+    expect(destination.path).toBe(`${ROOT}/holiday.png`);
+  });
+
+  it('strips any extension-looking suffix the caller types, never doubling or substituting it — only the resource\'s own extension is ever appended', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const vault = makeVault([], [], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceRenameDestination(resource, 'holiday.pdf');
+
+    // "holiday.pdf" is stripped to its own stem ("holiday") before the
+    // resource's real extension (.png) is appended — the typed ".pdf"
+    // never survives, and the resource never becomes a "renamed" .pdf.
+    expect(destination.path).toBe(`${ROOT}/holiday.png`);
+  });
+
+  it('resolving to the current title is a no-op, not a self-collision', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const vault = makeVault([], [], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceRenameDestination(resource, 'photo');
+
+    expect(destination.path).toBe(`${ROOT}/photo.png`);
+  });
+
+  it('appends a numeric suffix when the new title collides with a sibling resource of the same extension', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const occupant = makeResource('resource-2', `${ROOT}/holiday.png`);
+    const vault = makeVault([], [], [resource, occupant]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceRenameDestination(resource, 'holiday');
+
+    expect(destination.path).toBe(`${ROOT}/holiday 2.png`);
+  });
+
+  it('does not collide with a sibling resource of a different extension sharing the same stem', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const occupant = makeResource('resource-2', `${ROOT}/holiday.pdf`, 'pdf');
+    const vault = makeVault([], [], [resource, occupant]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceRenameDestination(resource, 'holiday');
+
+    expect(destination.path).toBe(`${ROOT}/holiday.png`);
+  });
+
+  it('regenerates a fresh default name for a blank or whitespace-only title, never keeping the old name', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const vault = makeVault([], [], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(moveService.resolveResourceRenameDestination(resource, '').path).toBe(
+      `${ROOT}/Untitled.png`
+    );
+    expect(moveService.resolveResourceRenameDestination(resource, '   ').path).toBe(
+      `${ROOT}/Untitled.png`
+    );
+  });
+});
+
+describe('MoveService.resolveResourceArchiveDestination', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 12, 16, 43, 1)); // local time, 2026-08-12 16:43:01
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('archives to Archive/<name>.<ext> unchanged when the destination is free, preserving the extension', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const websiteFolder = makeFolder('folder-1', `${ROOT}/Projects/Website`);
+    const resource = makeResource(
+      'resource-1',
+      `${ROOT}/Projects/Website/hero.png`,
+      'image',
+      'folder-1'
+    );
+    const vault = makeVault([], [archiveFolder, websiteFolder], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceArchiveDestination(resource);
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Archive/hero.png`,
+      parentId: 'archive',
+    });
+  });
+
+  it('never appends .md — the page-scoped resolver\'s extension is not reused for resources', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const resource = makeResource('resource-1', `${ROOT}/spec.pdf`, 'pdf');
+    const vault = makeVault([], [archiveFolder], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceArchiveDestination(resource);
+
+    expect(destination.path).toBe(`${ROOT}/Archive/spec.pdf`);
+  });
+
+  it('falls back to a local-time timestamp suffix when Archive/<name>.<ext> is already taken — reusing resolveArchiveCollisionFreeName exactly like the page resolver', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const alreadyArchived = makeResource('resource-archived', `${ROOT}/Archive/hero.png`);
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const vault = makeVault([], [archiveFolder], [alreadyArchived, resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceArchiveDestination(resource);
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Archive/hero 2026-08-12 16.43.01.png`,
+      parentId: 'archive',
+    });
+  });
+
+  it('falls back to a deterministic .01 suffix when even the timestamped name is taken', () => {
+    const archiveFolder = makeFolder('archive', `${ROOT}/Archive`);
+    const alreadyArchived = makeResource('resource-archived', `${ROOT}/Archive/hero.png`);
+    const alreadyTimestamped = makeResource(
+      'resource-archived-2',
+      `${ROOT}/Archive/hero 2026-08-12 16.43.01.png`
+    );
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const vault = makeVault(
+      [],
+      [archiveFolder],
+      [alreadyArchived, alreadyTimestamped, resource]
+    );
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceArchiveDestination(resource);
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Archive/hero 2026-08-12 16.43.01.01.png`,
+      parentId: 'archive',
+    });
+  });
+
+  it('throws when the vault has no reserved Archive folder', () => {
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const vault = makeVault([], [], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(() => moveService.resolveResourceArchiveDestination(resource)).toThrow(
+      /Archive folder not found/
+    );
+  });
+});
+
+describe('MoveService.resolveResourceMoveDestination', () => {
+  it('resolves the destination path inside the target folder, preserving extension and filename', () => {
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const vault = makeVault([], [folder], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceMoveDestination(resource, 'folder-1');
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Projects/hero.png`,
+      parentId: 'folder-1',
+    });
+  });
+
+  it('resolves to the vault root when destinationFolderId is null', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const resource = makeResource('resource-1', `${ROOT}/Projects/hero.png`, 'image', 'folder-1');
+    const vault = makeVault([], [folder], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceMoveDestination(resource, null);
+
+    expect(destination).toEqual({ path: `${ROOT}/hero.png`, parentId: null });
+  });
+
+  it('supports moving into the managed Assets/ folder like any other tracked folder', () => {
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const vault = makeVault([], [assets], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceMoveDestination(resource, 'folder-assets');
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Assets/hero.png`,
+      parentId: 'folder-assets',
+    });
+  });
+
+  it('supports moving a resource out of Assets/ into an ordinary folder', () => {
+    const assets = makeFolder('folder-assets', `${ROOT}/Assets`);
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const resource = makeResource('resource-1', `${ROOT}/Assets/hero.png`, 'image', 'folder-assets');
+    const vault = makeVault([], [assets, folder], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceMoveDestination(resource, 'folder-1');
+
+    expect(destination).toEqual({
+      path: `${ROOT}/Projects/hero.png`,
+      parentId: 'folder-1',
+    });
+  });
+
+  it('rejects a destination inside the reserved Daily Notes folder', () => {
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const dailyNotes = makeFolder('folder-daily-notes', `${ROOT}/Daily Notes`);
+    const vault = makeVault([], [dailyNotes], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(() =>
+      moveService.resolveResourceMoveDestination(resource, 'folder-daily-notes')
+    ).toThrow(/Cannot move into Daily Notes/);
+  });
+
+  it('appends a numeric suffix when the filename collides at the destination', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const occupant = makeResource('resource-2', `${ROOT}/Projects/hero.png`, 'image', 'folder-1');
+    const vault = makeVault([], [folder], [resource, occupant]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    const destination = moveService.resolveResourceMoveDestination(resource, 'folder-1');
+
+    expect(destination.path).toBe(`${ROOT}/Projects/hero 1.png`);
+  });
+
+  it('throws for an unknown destination folder id', () => {
+    const resource = makeResource('resource-1', `${ROOT}/hero.png`);
+    const vault = makeVault([], [], [resource]);
+    const moveService = new MoveService(vault, new InMemoryVaultFileSystem());
+
+    expect(() => moveService.resolveResourceMoveDestination(resource, 'does-not-exist')).toThrow(
+      /Folder not found: does-not-exist/
+    );
   });
 });

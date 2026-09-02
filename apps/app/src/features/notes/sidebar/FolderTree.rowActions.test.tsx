@@ -191,6 +191,9 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onFolderTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveFolder: ReturnType<typeof vi.fn>;
     onToggleFavoriteFolder: ReturnType<typeof vi.fn>;
+    onResourceTitleCommit: ReturnType<typeof vi.fn>;
+    onArchiveResource: ReturnType<typeof vi.fn>;
+    onMoveResource: ReturnType<typeof vi.fn>;
   };
 } {
   const spies = {
@@ -218,12 +221,16 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onMoveFolder: vi.fn(),
     getFolderMoveDestinations: vi.fn(() => []),
     onCreateFolder: vi.fn(async () => 'folder-created'),
+    onResourceTitleCommit: vi.fn(),
+    onArchiveResource: vi.fn(),
+    onMoveResource: vi.fn(),
   };
 
   const actions: SidebarRowActions = {
     openMenuId: null,
     editingId: null,
     noteMoveDestinations: [],
+    resourceMoveDestinations: [],
     ...spies,
     ...overrides,
   };

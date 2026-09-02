@@ -431,6 +431,45 @@ describe('VaultQuery.getChildResources', () => {
   });
 });
 
+describe('VaultQuery.getAllResources', () => {
+  it('returns every resource in the vault regardless of parent folder', () => {
+    const assets = makeFolder('assets-folder', 'Assets');
+    const research = makeFolder('research-folder', 'Research');
+    const resources = [
+      makeResource('house', 'house.png', 'image', 'assets-folder'),
+      makeResource('paper', 'paper.pdf', 'pdf', 'research-folder'),
+      makeResource('root-photo', 'root.png', 'image', null),
+    ];
+    const query = new VaultQuery(makeVault([assets, research], [], resources));
+
+    expect(query.getAllResources().map((r) => r.id)).toEqual(
+      expect.arrayContaining(['house', 'paper', 'root-photo'])
+    );
+    expect(query.getAllResources()).toHaveLength(3);
+  });
+
+  it('returns resources sorted by name, independent of insertion order', () => {
+    const resources = [
+      makeResource('resource-z', 'Zebra.png', 'image', null),
+      makeResource('resource-a', 'Apple.pdf', 'pdf', null),
+      makeResource('resource-m', 'Mango.svg', 'image', null),
+    ];
+    const query = new VaultQuery(makeVault([], [], resources));
+
+    expect(query.getAllResources().map((r) => r.name)).toEqual([
+      'Apple.pdf',
+      'Mango.svg',
+      'Zebra.png',
+    ]);
+  });
+
+  it('returns an empty list when there are no resources', () => {
+    const query = new VaultQuery(makeVault());
+
+    expect(query.getAllResources()).toEqual([]);
+  });
+});
+
 describe('VaultQuery.getPagesByTag', () => {
   function withTag(page: Page, tagName: string): Page {
     return {

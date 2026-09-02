@@ -7,6 +7,7 @@ import { Resource as ResourceEntry } from './Resource';
 import { NewFolderRow } from './NewFolderRow';
 import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
 import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
+import { buildResourceSidebarMenu } from './resourceSidebarMenu.config';
 import { testIds } from '@shared/testing/selectors';
 // Models
 import type { Folder } from '@core/vault/models';
@@ -138,6 +139,37 @@ export interface SidebarRowActions {
    */
   getFolderMoveDestinations(folderId: string): FolderPickerItem[];
   onMoveFolder(folderId: string, destinationFolderId: string | null): void;
+
+  /**
+   * Discrete-commit-only, mirroring a draft Note's onDraftTitleCommit shape
+   * (no continuous channel — ResourceOperations.renameResource() is a
+   * single one-shot Gate call, not a debounced autosave). Never returns
+   * `false`: unlike onNoteTitleCommit/onFolderTitleCommit, a resource
+   * rename never synchronously rejects a collision — it always dispatches,
+   * relying entirely on MoveService.resolveResourceRenameDestination's
+   * existing auto-suffix behavior, per the approved Resource mutation
+   * design (no reject-on-collision rule for resources).
+   */
+  onResourceTitleCommit(resourceId: string, value: string): void;
+  /**
+   * ResourceOperations.archiveResource() — no confirmation dialog, same
+   * shape as onArchiveNote (a resource, like a page, is always a single
+   * leaf with no descendants, so it never needs the non-empty-folder
+   * confirmation onArchiveFolder gates behind).
+   */
+  onArchiveResource(resourceId: string): void;
+  /**
+   * Same Move flow as noteMoveDestinations above — one shared destination
+   * list, since which folders a resource may move into doesn't depend on
+   * the resource itself, same reasoning noteMoveDestinations already
+   * applies. Unlike noteMoveDestinations, this list also surfaces the
+   * managed Assets/ folder as a selectable destination (normally hidden
+   * from Note/Folder's own picker via MembershipSelector.
+   * isAssetsStorageFolder) — moving a resource *into* Assets/ is one of
+   * the required Resource Move destinations, per the approved design.
+   */
+  resourceMoveDestinations: FolderPickerItem[];
+  onMoveResource(resourceId: string, destinationFolderId: string | null): void;
 }
 
 interface FolderTreeProps {
@@ -309,6 +341,63 @@ function PageEntry({
           ? (emoji) => rowActions.onChangeNoteIcon(entry.id, emoji)
           : undefined
       }
+    />
+  );
+}
+
+function ResourceRow({
+  resource,
+  level,
+  onResourceClick,
+  rowActions,
+}: {
+  resource: VaultResource;
+  level: number;
+  onResourceClick?(resource: VaultResource): void;
+  rowActions?: SidebarRowActions;
+}) {
+  const isEditing = rowActions?.editingId === resource.id;
+
+  return (
+    <ResourceEntry
+      resource={resource}
+      level={level}
+      // Same rename/navigate conflict guard as PageEntry/FolderEntry above
+      // — Resource.tsx's own isClickable check already excludes edit mode,
+      // this just avoids passing a stale click target while renaming.
+      onClick={isEditing ? undefined : onResourceClick}
+      isEditing={isEditing}
+      onTitleCommit={
+        rowActions
+          ? (value) => rowActions.onResourceTitleCommit(resource.id, value)
+          : undefined
+      }
+      onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
+      menuItems={rowActions ? buildResourceSidebarMenu() : undefined}
+      menuOpen={rowActions?.openMenuId === resource.id}
+      onMenuOpenChange={
+        rowActions
+          ? (open) => (open ? rowActions.onOpenMenu(resource.id) : rowActions.onCloseMenu())
+          : undefined
+      }
+      onMenuSelect={
+        rowActions
+          ? (id) => {
+              if (id === 'rename') {
+                rowActions.onStartRename(resource.id);
+              } else if (id === 'archive') {
+                rowActions.onArchiveResource(resource.id);
+              }
+            }
+          : undefined
+      }
+      moveDestinations={rowActions ? rowActions.resourceMoveDestinations : undefined}
+      onMove={
+        rowActions
+          ? (destinationFolderId) => rowActions.onMoveResource(resource.id, destinationFolderId)
+          : undefined
+      }
+      onCreateFolder={rowActions ? rowActions.onCreateFolder : undefined}
     />
   );
 }
@@ -513,11 +602,12 @@ export function FolderTree({
                     after its pages — its own non-interleaved block, same
                     convention as pages vs. subfolders. */}
                 {childResources.map((resource) => (
-                  <ResourceEntry
+                  <ResourceRow
                     key={resource.id}
                     resource={resource}
                     level={level + 1}
-                    onClick={onResourceClick}
+                    onResourceClick={onResourceClick}
+                    rowActions={rowActions}
                   />
                 ))}
                 {/* Render this folder's child folders.
@@ -564,11 +654,12 @@ export function FolderTree({
       {/* Render root-level resources, after root pages — same
           non-interleaved-block convention as everywhere else in this tree. */}
       {rootResources.map((resource) => (
-        <ResourceEntry
+        <ResourceRow
           key={resource.id}
           resource={resource}
           level={level}
-          onClick={onResourceClick}
+          onResourceClick={onResourceClick}
+          rowActions={rowActions}
         />
       ))}
     </>

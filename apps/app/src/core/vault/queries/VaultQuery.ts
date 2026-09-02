@@ -115,6 +115,17 @@ export class VaultQuery {
     );
   }
 
+  /**
+   * Every supported resource anywhere in the vault, regardless of parent
+   * folder — the "Assets" logical collection (every VaultResource, not
+   * just the ones physically inside the managed Assets/ storage folder).
+   * Unlike getChildResources/getRootResources, this is not folder-scoped
+   * at all; it's the vault-wide counterpart, same sort as the others.
+   */
+  public getAllResources(): VaultResource[] {
+    return sortResources(Array.from(this.vault.resources()));
+  }
+
   public getFavoriteFolders(): Folder[] {
     return Array.from(this.vault.folders()).filter(
       (folder) =>

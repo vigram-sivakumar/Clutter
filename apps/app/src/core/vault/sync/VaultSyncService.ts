@@ -8,6 +8,7 @@ import { PageBuilder } from '../ingest/PageBuilder';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
 import { ResourceBuilder } from '../ingest/ResourceBuilder';
+import { classifySupportedResourceFile, type SupportedResourceKind } from '../ingest/SupportedResourceKind';
 import { VaultScanner } from '../ingest/VaultScanner';
 import type { VaultScanResult } from '../ingest/VaultScanResult';
 import { buildDiscoveredEntities } from '../ingest/buildDiscoveredEntities';
@@ -157,11 +158,20 @@ export class VaultSyncService {
       return;
     }
 
-    if (!path.endsWith('.md')) {
+    if (path.endsWith('.md')) {
+      await this.reconcileFileEntity(absolutePath);
       return;
     }
 
-    await this.reconcileFileEntity(absolutePath);
+    // A newly-created supported resource file (image/pdf) — the
+    // resource-scoped counterpart to the .md branch above. Anything else
+    // (an unsupported extension) is not vault content at all and is
+    // silently ignored, same as before this branch existed.
+    const resourceKind = classifySupportedResourceFile(path);
+
+    if (resourceKind !== null) {
+      await this.reconcileResourceFile(absolutePath, resourceKind);
+    }
   }
 
   /**
@@ -228,6 +238,16 @@ export class VaultSyncService {
         this.vault.removePage(page.id);
       }
 
+      // The resource-scoped counterpart to the page removal above — a
+      // resource whose file vanished externally (this method's own
+      // not-on-disk convergence branch), never routed through
+      // reconcileFileEntity()'s .md-only machinery.
+      const resource = this.vault.getResourceByPath(absolutePath);
+
+      if (resource) {
+        this.vault.removeResource(resource.id);
+      }
+
       // Nothing on disk, nothing tracked — already converged.
       return;
     }
@@ -238,14 +258,32 @@ export class VaultSyncService {
       // A file path became a directory externally (rare edge case) — not
       // yet tracked as a Folder (the branch above already handles that
       // case), so this is its first appearance as a directory. The stale
-      // Page can't coexist with the subtree reconciliation below.
+      // Page/Resource can't coexist with the subtree reconciliation below.
       const stalePage = this.vault.getPageByPath(absolutePath);
 
       if (stalePage) {
         this.vault.removePage(stalePage.id);
       }
 
+      const staleResource = this.vault.getResourceByPath(absolutePath);
+
+      if (staleResource) {
+        this.vault.removeResource(staleResource.id);
+      }
+
       await this.reconcileDirectorySubtree(absolutePath);
+      return;
+    }
+
+    // A supported resource file (image/pdf) — the resource-scoped
+    // counterpart to reconcileFileEntity() below, which stays .md-only.
+    // Anything else (an unsupported extension) falls through to
+    // reconcileFileEntity(), which safely no-ops for it (existing
+    // behavior, unchanged).
+    const resourceKind = classifySupportedResourceFile(absolutePath);
+
+    if (resourceKind !== null) {
+      await this.reconcileResourceFile(absolutePath, resourceKind);
       return;
     }
 
@@ -384,6 +422,63 @@ export class VaultSyncService {
   }
 
   /**
+   * Reconciles a single supported-resource-extension file path against
+   * disk — the resource-scoped counterpart to reconcileFileEntity() above,
+   * deliberately much simpler: a VaultResource has no frontmatter, no
+   * body, no open DocumentSession, and no archive-metadata-in-content
+   * concept (see ResourceBuilder's own doc comment and §3b of the spec),
+   * so there is nothing to parse, rebuild, or converge — only existence
+   * and identity.
+   *
+   * Existence-tolerant, the same as reconcileFileEntity(): the file can
+   * have disappeared again between whatever caller decided to reconcile
+   * this path and this read (reconcilePath's own not-on-disk branch
+   * already covers the common case, but handleCreated calls this
+   * directly, without that check).
+   *
+   * An already-tracked resource at this exact path is left untouched: a
+   * resource's Vault-visible state (id/kind/name/path/parentId) never
+   * changes as a result of its file's *content* changing in place, so a
+   * `changed` event for one is correctly a no-op here — nothing to
+   * rebuild, unlike a page.
+   */
+  private async reconcileResourceFile(
+    absolutePath: string,
+    kind: SupportedResourceKind
+  ): Promise<void> {
+    const existingResource = this.vault.getResourceByPath(absolutePath);
+
+    if (!(await this.fileSystem.exists(absolutePath))) {
+      if (existingResource) {
+        this.vault.removeResource(existingResource.id);
+      }
+
+      return;
+    }
+
+    if (existingResource) {
+      return;
+    }
+
+    const directoryPath = this.directoryOf(absolutePath);
+    const parentId = this.resolveParentId(directoryPath);
+
+    // Folder identity for an externally-created folder isn't resolvable
+    // yet; skip rather than guess — same rule reconcileFileEntity() above
+    // already applies to a newly-discovered page.
+    if (parentId === undefined) {
+      return;
+    }
+
+    const resource = this.resourceBuilder.build({
+      parentId,
+      file: { path: absolutePath, directoryPath, kind },
+    });
+
+    this.vault.addResource(resource);
+  }
+
+  /**
    * Reconciles an entire directory subtree against disk: the shared
    * mechanism behind both "a brand-new folder appeared" (ADR-024) and "a
    * coalesced/ambiguous event landed on a directory that may have gained
@@ -454,6 +549,7 @@ export class VaultSyncService {
     const scannedFolderPaths = new Set(scanResult.directories.map((directory) => directory.path));
     const scannedPagePaths = new Set(scanResult.pages.map((page) => page.path));
     const scannedPagesByPath = new Map(scanResult.pages.map((page) => [page.path, page]));
+    const scannedResourcePaths = new Set(scanResult.files.map((file) => file.path));
 
     // Ids already claimed by a path this scan itself will rediscover are
     // excluded from "claimed" — otherwise an unchanged, already-tracked
@@ -477,7 +573,7 @@ export class VaultSyncService {
       }
     }
 
-    const { folders, pages, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
+    const { folders, pages, resources, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
       scanResult,
       {
         rootIsFolder: !isVaultRoot,
@@ -533,6 +629,20 @@ export class VaultSyncService {
 
       this.vault.addPage(page);
       this.convergeOpenSession(page.id, page.source.markdown);
+    }
+
+    // The resource-scoped counterpart to the pages loop above — much
+    // simpler, since a resource has no content to reconcile in place: an
+    // already-tracked resource at this exact path needs nothing further
+    // (its id/kind/name/path/parentId are already correct, and there is no
+    // frontmatter/body to re-read), so only genuinely new resources are
+    // added.
+    for (const resource of resources) {
+      if (this.vault.getResource(resource.id) || this.vault.getResourceByPath(resource.path)) {
+        continue;
+      }
+
+      this.vault.addResource(resource);
     }
 
     // A genuine duplicate page id within the subtree was already built
@@ -609,6 +719,26 @@ export class VaultSyncService {
 
       if (!scannedPagePaths.has(page.path)) {
         this.vault.removePage(page.id);
+      }
+    }
+
+    // The resource-scoped counterpart to the page removal above. Guarded
+    // the same way (checked still-present before removing): a folder
+    // removed earlier in this same pass may have already cascaded away a
+    // resource nested inside it (Vault.removeFolder's own subtree cascade
+    // — see getDescendantFoldersAndPages), so this is not assumed to be
+    // the only remover.
+    const subtreeResources = [...this.vault.resources()].filter((resource) =>
+      VaultPath.isDescendantOf(resource.path, absolutePath)
+    );
+
+    for (const resource of subtreeResources) {
+      if (!this.vault.getResource(resource.id)) {
+        continue;
+      }
+
+      if (!scannedResourcePaths.has(resource.path)) {
+        this.vault.removeResource(resource.id);
       }
     }
   }
@@ -812,6 +942,37 @@ export class VaultSyncService {
     const page = this.vault.getPageByPath(absoluteFrom);
 
     if (!page) {
+      const resource = this.vault.getResourceByPath(absoluteFrom);
+
+      if (resource) {
+        // The resource-scoped counterpart to the page branch below: no
+        // frontmatter/archive-metadata repair to evaluate (a resource has
+        // neither), so this is strictly a same-fallback-then-commit shape.
+        // Same fallback as the folder/page branches above — don't commit
+        // updateResourcePath() against a destination the watcher's rename
+        // pairing reported but that no longer holds it.
+        if (!(await this.fileSystem.exists(absoluteTo))) {
+          await this.reconcilePath(absoluteFrom);
+          await this.reconcilePath(absoluteTo);
+          return;
+        }
+
+        const resourceDestinationParentId = this.resolveParentId(this.directoryOf(absoluteTo));
+        const resolvedResourceParentId =
+          resourceDestinationParentId === undefined
+            ? resource.parentId
+            : resourceDestinationParentId;
+
+        // One Vault mutation, one `resource-moved` notification — no
+        // archive-metadata repair (ResourceArchiveMetadataStore's
+        // Archive-path-keyed provenance record is Gate/app-initiated-only,
+        // per this investigation's own finding: see the final report for
+        // why external archived-resource rename reconciliation is
+        // deferred rather than guessed at here).
+        this.vault.updateResourcePath(resource.id, absoluteTo, resolvedResourceParentId);
+        return;
+      }
+
       // The 'from' half never resolved to a tracked page. An atomic save
       // (write a fresh file, then rename it over the real path — one of
       // several equivalent event patterns a save can produce, alongside a

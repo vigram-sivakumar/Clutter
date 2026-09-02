@@ -606,3 +606,373 @@ describe('MembershipSelector resources', () => {
     ).toEqual(['resource-1']);
   });
 });
+
+describe('MembershipSelector.isAssetsStorageFolder', () => {
+  it('is true for the physical, root-level Assets folder', () => {
+    const assets = makeFolder({ id: 'assets-folder', name: 'Assets', path: `${ROOT}/Assets`, parentId: null });
+    const { membershipSelector } = setup([assets]);
+
+    expect(membershipSelector.isAssetsStorageFolder(assets)).toBe(true);
+  });
+
+  it('is false for a nested folder that merely happens to be named Assets', () => {
+    const parent = makeFolder({ id: 'parent', name: 'Projects', path: `${ROOT}/Projects`, parentId: null });
+    const nestedAssets = makeFolder({
+      id: 'nested-assets',
+      name: 'Assets',
+      path: `${ROOT}/Projects/Assets`,
+      parentId: 'parent',
+    });
+    const { membershipSelector } = setup([parent, nestedAssets]);
+
+    expect(membershipSelector.isAssetsStorageFolder(nestedAssets)).toBe(false);
+  });
+
+  it('is false for an ordinary root folder', () => {
+    const projects = makeFolder({ id: 'projects', name: 'Projects', path: `${ROOT}/Projects`, parentId: null });
+    const { membershipSelector } = setup([projects]);
+
+    expect(membershipSelector.isAssetsStorageFolder(projects)).toBe(false);
+  });
+
+  it('is not a reserved/system folder — Vault.isReservedFolder is untouched', () => {
+    const assets = makeFolder({ id: 'assets-folder', name: 'Assets', path: `${ROOT}/Assets`, parentId: null });
+    const { membershipSelector } = setup([assets]);
+
+    expect(membershipSelector.isSystemFolder(assets)).toBe(false);
+  });
+});
+
+describe('MembershipSelector.getWorkspaceFolders excludes the physical Assets folder', () => {
+  it('the Assets folder does not appear among workspace folders, even though it is fully present in VaultQuery', () => {
+    const assets = makeFolder({ id: 'assets-folder', name: 'Assets', path: `${ROOT}/Assets`, parentId: null });
+    const projects = makeFolder({ id: 'projects', name: 'Projects', path: `${ROOT}/Projects`, parentId: null });
+    const { membershipSelector, query } = setup([assets, projects]);
+
+    expect(query.getRootFolders().map((f) => f.id)).toEqual(
+      expect.arrayContaining(['assets-folder', 'projects'])
+    );
+    expect(membershipSelector.getWorkspaceFolders().map((f) => f.id)).toEqual([
+      'projects',
+    ]);
+  });
+
+  it('a nested folder named Assets is unaffected — only the root-level physical folder is hidden', () => {
+    const parent = makeFolder({ id: 'parent', name: 'Projects', path: `${ROOT}/Projects`, parentId: null });
+    const nestedAssets = makeFolder({
+      id: 'nested-assets',
+      name: 'Assets',
+      path: `${ROOT}/Projects/Assets`,
+      parentId: 'parent',
+    });
+    const { membershipSelector } = setup([parent, nestedAssets]);
+
+    expect(
+      membershipSelector.getVisibleChildFolders('parent').map((f) => f.id)
+    ).toEqual(['nested-assets']);
+  });
+});
+
+describe('MembershipSelector.getAllVisibleResources (the Assets logical collection)', () => {
+  it('includes a resource physically inside the Assets/ folder', () => {
+    const assets = makeFolder({ id: 'assets-folder', name: 'Assets', path: `${ROOT}/Assets`, parentId: null });
+    const resource = makeResource({ id: 'resource-1', name: 'house.png', parentId: 'assets-folder' });
+    const { membershipSelector } = setup([assets], [], [resource]);
+
+    expect(membershipSelector.getAllVisibleResources().map((r) => r.id)).toEqual([
+      'resource-1',
+    ]);
+  });
+
+  it('includes a resource physically outside the Assets/ folder', () => {
+    const research = makeFolder({ id: 'research', name: 'Research', path: `${ROOT}/Research`, parentId: null });
+    const resource = makeResource({ id: 'resource-1', name: 'paper.pdf', kind: 'pdf', parentId: 'research' });
+    const { membershipSelector } = setup([research], [], [resource]);
+
+    expect(membershipSelector.getAllVisibleResources().map((r) => r.id)).toEqual([
+      'resource-1',
+    ]);
+  });
+
+  it('combines resources from multiple folders and the root into one collection', () => {
+    const assets = makeFolder({ id: 'assets-folder', name: 'Assets', path: `${ROOT}/Assets`, parentId: null });
+    const research = makeFolder({ id: 'research', name: 'Research', path: `${ROOT}/Research`, parentId: null });
+    const resources = [
+      makeResource({ id: 'house', name: 'house.png', parentId: 'assets-folder' }),
+      makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf', parentId: 'assets-folder' }),
+      makeResource({ id: 'floorplan', name: 'floorplan.png', parentId: null }),
+      makeResource({ id: 'paper', name: 'paper.pdf', kind: 'pdf', parentId: 'research' }),
+    ];
+    const { membershipSelector } = setup([assets, research], [], resources);
+
+    expect(membershipSelector.getAllVisibleResources().map((r) => r.id)).toEqual(
+      expect.arrayContaining(['house', 'manual', 'floorplan', 'paper'])
+    );
+    expect(membershipSelector.getAllVisibleResources()).toHaveLength(4);
+  });
+
+  it('hides a dot-prefixed resource regardless of where it physically lives', () => {
+    const visible = makeResource({ id: 'resource-visible', name: 'Cover.png', parentId: null });
+    const hidden = makeResource({ id: 'resource-hidden', name: '.Cover.png', parentId: null });
+    const { membershipSelector } = setup([], [], [visible, hidden]);
+
+    expect(membershipSelector.getAllVisibleResources().map((r) => r.id)).toEqual([
+      'resource-visible',
+    ]);
+  });
+
+  it('hides a resource that belongs to an archived folder', () => {
+    const archived = makeFolder({
+      id: 'archived-folder',
+      path: `${ROOT}/Archive/Old`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const resource = makeResource({ id: 'resource-1', parentId: 'archived-folder' });
+    const { membershipSelector } = setup([archived], [], [resource]);
+
+    expect(membershipSelector.getAllVisibleResources()).toEqual([]);
+  });
+
+  it('hides a resource that belongs to a folder nested under an archived ancestor', () => {
+    const archivedParent = makeFolder({
+      id: 'folder-parent',
+      path: `${ROOT}/Archive/Parent`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const activeChild = makeFolder({
+      id: 'folder-child',
+      path: `${ROOT}/Archive/Parent/Child`,
+      parentId: 'folder-parent',
+    });
+    const resource = makeResource({ id: 'resource-1', parentId: 'folder-child' });
+    const { membershipSelector } = setup([archivedParent, activeChild], [], [resource]);
+
+    expect(membershipSelector.getAllVisibleResources()).toEqual([]);
+  });
+
+  it('returns an empty list when there are no resources in the vault', () => {
+    const { membershipSelector } = setup();
+
+    expect(membershipSelector.getAllVisibleResources()).toEqual([]);
+  });
+
+  // A Page and a VaultResource are disjoint Vault collections by
+  // construction (ResourceBuilder never routes a .md file through
+  // DocumentLoader — see VaultResource's own doc comment) — this documents
+  // that a Markdown page can never leak into the Assets logical collection,
+  // even when a page and a resource coexist in the same vault.
+  it('never includes a Page — Assets is a resources-only collection', () => {
+    const page = makePage({ id: 'page-1', path: `${ROOT}/Note.md` });
+    const resource = makeResource({ id: 'resource-1', name: 'house.png', parentId: null });
+    const { membershipSelector } = setup([], [page], [resource]);
+
+    const visible = membershipSelector.getAllVisibleResources();
+
+    expect(visible.map((r) => r.id)).toEqual(['resource-1']);
+  });
+
+  // Regression: a resource individually archived via ResourceOperations.
+  // archiveResource() relocates it directly into the reserved Archive/
+  // folder — that folder's own metadata.status is 'active' (it's a
+  // container, never itself an archived entity), so isEffectivelyArchived
+  // alone does not catch this case. isResourceArchived (structural,
+  // path-based) is what must.
+  it('excludes a resource archived directly into the reserved Archive/ folder', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const archivedResource = makeResource({
+      id: 'resource-archived',
+      name: 'hero.png',
+      path: `${ROOT}/Archive/hero.png`,
+      parentId: 'folder-archive',
+    });
+    const { membershipSelector } = setup([archiveFolder], [], [archivedResource]);
+
+    expect(membershipSelector.getAllVisibleResources()).toEqual([]);
+  });
+
+  it('excludes an archived resource while still including an unrelated visible one', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const archivedResource = makeResource({
+      id: 'resource-archived',
+      name: 'hero.png',
+      path: `${ROOT}/Archive/hero.png`,
+      parentId: 'folder-archive',
+    });
+    const visibleResource = makeResource({
+      id: 'resource-visible',
+      name: 'floorplan.png',
+      path: `${ROOT}/floorplan.png`,
+      parentId: null,
+    });
+    const { membershipSelector } = setup(
+      [archiveFolder],
+      [],
+      [archivedResource, visibleResource]
+    );
+
+    expect(membershipSelector.getAllVisibleResources().map((r) => r.id)).toEqual([
+      'resource-visible',
+    ]);
+  });
+});
+
+describe('MembershipSelector.isResourceArchived', () => {
+  it('returns true for a resource sitting directly inside the reserved Archive/ folder', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const resource = makeResource({
+      id: 'resource-1',
+      path: `${ROOT}/Archive/hero.png`,
+      parentId: 'folder-archive',
+    });
+    const { membershipSelector } = setup([archiveFolder], [], [resource]);
+
+    expect(membershipSelector.isResourceArchived(resource)).toBe(true);
+  });
+
+  it('returns false for a resource outside Archive/', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const resource = makeResource({
+      id: 'resource-1',
+      path: `${ROOT}/Projects/hero.png`,
+      parentId: null,
+    });
+    const { membershipSelector } = setup([archiveFolder], [], [resource]);
+
+    expect(membershipSelector.isResourceArchived(resource)).toBe(false);
+  });
+
+  it('returns false when the vault has no reserved Archive folder at all', () => {
+    const resource = makeResource({ id: 'resource-1', path: `${ROOT}/hero.png` });
+    const { membershipSelector } = setup([], [], [resource]);
+
+    expect(membershipSelector.isResourceArchived(resource)).toBe(false);
+  });
+
+  it('does not false-positive on a folder that merely starts with "Archive" as a prefix (e.g. "ArchiveNotes")', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const similarlyNamedFolder = makeFolder({
+      id: 'folder-archivenotes',
+      name: 'ArchiveNotes',
+      path: `${ROOT}/ArchiveNotes`,
+      parentId: null,
+    });
+    const resource = makeResource({
+      id: 'resource-1',
+      path: `${ROOT}/ArchiveNotes/hero.png`,
+      parentId: 'folder-archivenotes',
+    });
+    const { membershipSelector } = setup(
+      [archiveFolder, similarlyNamedFolder],
+      [],
+      [resource]
+    );
+
+    expect(membershipSelector.isResourceArchived(resource)).toBe(false);
+  });
+});
+
+describe('MembershipSelector.getArchivedResources', () => {
+  it('returns a resource archived directly into the reserved Archive/ folder', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const resource = makeResource({
+      id: 'resource-archived',
+      path: `${ROOT}/Archive/hero.png`,
+      parentId: 'folder-archive',
+    });
+    const { membershipSelector } = setup([archiveFolder], [], [resource]);
+
+    expect(membershipSelector.getArchivedResources().map((r) => r.id)).toEqual([
+      'resource-archived',
+    ]);
+  });
+
+  it('excludes a resource that is not archived', () => {
+    const resource = makeResource({ id: 'resource-1', path: `${ROOT}/hero.png`, parentId: null });
+    const { membershipSelector } = setup([], [], [resource]);
+
+    expect(membershipSelector.getArchivedResources()).toEqual([]);
+  });
+
+  it('returns both an archived image and an archived pdf', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const image = makeResource({
+      id: 'resource-image',
+      name: 'hero.png',
+      kind: 'image',
+      path: `${ROOT}/Archive/hero.png`,
+      parentId: 'folder-archive',
+    });
+    const pdf = makeResource({
+      id: 'resource-pdf',
+      name: 'spec.pdf',
+      kind: 'pdf',
+      path: `${ROOT}/Archive/spec.pdf`,
+      parentId: 'folder-archive',
+    });
+    const { membershipSelector } = setup([archiveFolder], [], [image, pdf]);
+
+    expect(membershipSelector.getArchivedResources().map((r) => r.id)).toEqual(
+      expect.arrayContaining(['resource-image', 'resource-pdf'])
+    );
+    expect(membershipSelector.getArchivedResources()).toHaveLength(2);
+  });
+
+  it('hides a dot-prefixed archived resource', () => {
+    const archiveFolder = makeFolder({
+      id: 'folder-archive',
+      name: 'Archive',
+      path: `${ROOT}/Archive`,
+      parentId: null,
+    });
+    const hidden = makeResource({
+      id: 'resource-hidden',
+      name: '.hero.png',
+      path: `${ROOT}/Archive/.hero.png`,
+      parentId: 'folder-archive',
+    });
+    const { membershipSelector } = setup([archiveFolder], [], [hidden]);
+
+    expect(membershipSelector.getArchivedResources()).toEqual([]);
+  });
+
+  it('returns an empty list when nothing is archived', () => {
+    const { membershipSelector } = setup();
+
+    expect(membershipSelector.getArchivedResources()).toEqual([]);
+  });
+});

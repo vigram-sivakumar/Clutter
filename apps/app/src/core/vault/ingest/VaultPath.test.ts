@@ -90,3 +90,34 @@ describe('VaultPath.extension', () => {
     expect(VaultPath.extension('/vault/.folder.md')).toBe('.md');
   });
 });
+
+describe('VaultPath.stemName', () => {
+  it('strips a supported resource extension, e.g. .png', () => {
+    expect(VaultPath.stemName('/vault/Assets/hero.png')).toBe('hero');
+  });
+
+  it('strips a .pdf extension the same way', () => {
+    expect(VaultPath.stemName('/vault/Documents/spec.pdf')).toBe('spec');
+  });
+
+  it('is case-insensitive about the extension it strips, mirroring extension()', () => {
+    expect(VaultPath.stemName('/vault/Assets/Cover.PNG')).toBe('Cover');
+  });
+
+  it('leaves a filename with no extension unchanged', () => {
+    expect(VaultPath.stemName('/vault/Notes/README')).toBe('README');
+  });
+
+  it('treats a leading dot with nothing before it as no extension, mirroring extension()', () => {
+    expect(VaultPath.stemName('/vault/.gitignore')).toBe('.gitignore');
+  });
+
+  it('strips only the final extension when a filename has multiple dots', () => {
+    expect(VaultPath.stemName('/vault/archive.tar.gz')).toBe('archive.tar');
+  });
+
+  it('is not Markdown-specific — unlike pageName(), it strips whatever extension() reports, not just .md', () => {
+    expect(VaultPath.stemName('/vault/Notes/Idea.md')).toBe('Idea');
+    expect(VaultPath.stemName('/vault/Assets/hero.png')).toBe('hero');
+  });
+});

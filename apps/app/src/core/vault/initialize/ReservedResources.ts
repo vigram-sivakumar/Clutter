@@ -53,6 +53,24 @@ export const TAG_METADATA_RELATIVE_PATH = '.clutter/tags.json';
  */
 export const EMPTY_TAG_METADATA_FILE_CONTENTS = '{"tags":{}}';
 
+/**
+ * Relative path of the resource archive-provenance file — the VaultResource
+ * counterpart to TAG_METADATA_RELATIVE_PATH, owned end-to-end by
+ * ResourceArchiveMetadataStore (the only reader/writer), the same way
+ * TagOperations owns tags.json. Records, for each currently-archived
+ * VaultResource (keyed by its current path inside Archive/), the original
+ * path Restore should return it to — the resource-scoped equivalent of the
+ * `originalPath` a Page/Folder already carries in its own frontmatter/
+ * .folder.md, needed here because a VaultResource has neither.
+ */
+export const RESOURCE_ARCHIVE_METADATA_RELATIVE_PATH = '.clutter/resource-archive.json';
+
+/**
+ * The file's shape when no resource is archived yet — mirrors
+ * EMPTY_TAG_METADATA_FILE_CONTENTS exactly, one literal for every reader.
+ */
+export const EMPTY_RESOURCE_ARCHIVE_METADATA_FILE_CONTENTS = '{"resources":{}}';
+
 export const RESERVED_RESOURCES: readonly ReservedResource[] = [
   {
     type: 'folder',
@@ -83,6 +101,11 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
     type: 'file',
     path: TAG_METADATA_RELATIVE_PATH,
     contents: EMPTY_TAG_METADATA_FILE_CONTENTS,
+  },
+  {
+    type: 'file',
+    path: RESOURCE_ARCHIVE_METADATA_RELATIVE_PATH,
+    contents: EMPTY_RESOURCE_ARCHIVE_METADATA_FILE_CONTENTS,
   },
 ];
 

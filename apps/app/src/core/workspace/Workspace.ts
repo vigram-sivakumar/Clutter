@@ -5,8 +5,10 @@ import { type ChangeListener, type Observable } from '../shared/Observable';
  * by a query rather than a location in the folder tree (ADR-022). Grows
  * only when a real consumer ships; 'workspace'/'favorites' (root
  * folders+notes, favorited items), the five task collection views
- * (Today/Upcoming/Completed/All Tasks/Unscheduled), and 'tag' (notes
- * referencing one tag) are the ones that exist today.
+ * (Today/Upcoming/Completed/All Tasks/Unscheduled), 'tag' (notes
+ * referencing one tag), and 'assets' (every supported VaultResource
+ * anywhere in the vault, not just inside the physical Assets/ folder) are
+ * the ones that exist today.
  *
  * A single discriminated union, not a string enum with a bolted-on
  * exception for parameterized views: 'tag' is the first filtered view that
@@ -22,7 +24,8 @@ export type FilteredView =
   | { readonly kind: 'tasks-completed' }
   | { readonly kind: 'tasks-all' }
   | { readonly kind: 'tasks-unscheduled' }
-  | { readonly kind: 'tag'; readonly tagName: string };
+  | { readonly kind: 'tag'; readonly tagName: string }
+  | { readonly kind: 'assets' };
 
 /**
  * Derived, not redeclared — for call sites that only ever want the plain

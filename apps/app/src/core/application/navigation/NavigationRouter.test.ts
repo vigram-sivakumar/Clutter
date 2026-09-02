@@ -208,6 +208,20 @@ describe('NavigationRouter', () => {
     expect(openFolder).not.toHaveBeenCalled();
   });
 
+  it('openAssets shows the assets filtered view directly, without touching FolderOperations', () => {
+    const openFilteredView = vi.fn();
+    const openFolder = vi.fn();
+    const navigation = createNavigationRouter({
+      folderOperations: { open: openFolder },
+      workspace: { openFilteredView },
+    });
+
+    navigation.openAssets();
+
+    expect(openFilteredView).toHaveBeenCalledWith({ kind: 'assets' });
+    expect(openFolder).not.toHaveBeenCalled();
+  });
+
   it('openFavorites shows the favorites filtered view directly, without touching FolderOperations', () => {
     const openFilteredView = vi.fn();
     const openFolder = vi.fn();

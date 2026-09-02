@@ -21,6 +21,9 @@ export function buildNotesShortcutHandler(
       case 'templates':
         navigation.openTemplates();
         break;
+      case 'assets':
+        navigation.openAssets();
+        break;
       default: {
         const _exhaustive: never = id;
         throw new Error(`Unknown notes shortcut: ${_exhaustive}`);

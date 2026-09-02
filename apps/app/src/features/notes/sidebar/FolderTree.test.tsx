@@ -922,19 +922,38 @@ describe('FolderTree: resources', () => {
     expect(screen.getByText('floorplan.png')).toBeInTheDocument();
   });
 
-  it('a folder containing only resources (no pages, no subfolders) is not treated as empty', () => {
-    const assets = makeFolder('folder-1', `${ROOT}/Assets`, null);
-    const resource = makeResource({
-      id: 'resource-1',
-      name: 'photo.png',
-      path: `${ROOT}/Assets/photo.png`,
-      parentId: 'folder-1',
+  it('an archived resource (relocated into the reserved Archive/ folder) does not appear in the normal workspace tree', () => {
+    const archiveFolder = makeFolder('folder-archive', `${ROOT}/Archive`, null);
+    const archivedResource = makeResource({
+      id: 'resource-archived',
+      name: 'hero.png',
+      path: `${ROOT}/Archive/hero.png`,
+      parentId: 'folder-archive',
     });
-    const { query, workspace, membershipSelector } = setup([], [assets], [resource]);
+    const { query, workspace, membershipSelector } = setup(
+      [],
+      [archiveFolder],
+      [archivedResource]
+    );
 
     renderTree(query, membershipSelector, workspace);
 
-    const row = screen.getByText('Assets').closest('.entry');
+    expect(screen.queryByText('hero.png')).toBeNull();
+  });
+
+  it('a folder containing only resources (no pages, no subfolders) is not treated as empty', () => {
+    const media = makeFolder('folder-1', `${ROOT}/Media`, null);
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'photo.png',
+      path: `${ROOT}/Media/photo.png`,
+      parentId: 'folder-1',
+    });
+    const { query, workspace, membershipSelector } = setup([], [media], [resource]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    const row = screen.getByText('Media').closest('.entry');
     expect(row).not.toBeNull();
     // FolderLeading (Caret.tsx) disables the caret button exactly when
     // isEmpty is true — the most direct signal available from rendered
@@ -997,5 +1016,57 @@ describe('FolderTree: resources', () => {
     screen.getByText('brochure.pdf').click();
 
     expect(onResourceClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('FolderTree: physical Assets/ folder is hidden from the normal tree', () => {
+  it('the physical, root-level Assets folder does not render as a row', () => {
+    const assets = makeFolder('assets-folder', `${ROOT}/Assets`, null);
+    const { query, workspace, membershipSelector } = setup([], [assets]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.queryByText('Assets')).not.toBeInTheDocument();
+  });
+
+  it('a resource physically inside Assets/ does not render in the normal tree either — FolderTree never descends into a hidden folder', () => {
+    const assets = makeFolder('assets-folder', `${ROOT}/Assets`, null);
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'house.png',
+      path: `${ROOT}/Assets/house.png`,
+      parentId: 'assets-folder',
+    });
+    const { query, workspace, membershipSelector } = setup([], [assets], [resource]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.queryByText('house.png')).not.toBeInTheDocument();
+  });
+
+  it('existing Notes/folder sidebar behavior is unchanged — an ordinary root folder still renders normally alongside the hidden Assets folder', () => {
+    const assets = makeFolder('assets-folder', `${ROOT}/Assets`, null);
+    const projects = makeFolder('projects-folder', `${ROOT}/Projects`, null);
+    const page = buildPersistedPage(`${ROOT}/Projects/Roadmap.md`, {
+      parentId: 'projects-folder',
+    });
+    const { query, workspace, membershipSelector } = setup([page], [assets, projects]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.queryByText('Assets')).not.toBeInTheDocument();
+    expect(screen.getByText('Projects')).toBeInTheDocument();
+    expect(screen.getByText('Roadmap')).toBeInTheDocument();
+  });
+
+  it('a nested folder that merely happens to be named Assets still renders normally', () => {
+    const parent = makeFolder('parent-folder', `${ROOT}/Projects`, null);
+    const nestedAssets = makeFolder('nested-assets', `${ROOT}/Projects/Assets`, 'parent-folder');
+    const { query, workspace, membershipSelector } = setup([], [parent, nestedAssets]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.getByText('Projects')).toBeInTheDocument();
+    expect(screen.getByText('Assets')).toBeInTheDocument();
   });
 });

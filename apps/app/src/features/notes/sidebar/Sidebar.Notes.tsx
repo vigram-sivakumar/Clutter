@@ -5,6 +5,7 @@ import { FavoritesSection } from '@app/layouts/sidebar/section/FavoritesSection'
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { PageOperations } from '@core/application/page/PageOperations';
 import type { FolderOperations } from '@core/application/folder/FolderOperations';
+import type { ResourceOperations } from '@core/application/resource/ResourceOperations';
 import type { Vault } from '@core/vault/models/Vault';
 import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
@@ -23,7 +24,10 @@ import {
 } from './FolderTree';
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
-import { buildMoveDestinationItems } from '../helpers/buildMoveDestinationItems';
+import {
+  buildMoveDestinationItems,
+  buildResourceMoveDestinationItems,
+} from '../helpers/buildMoveDestinationItems';
 import { getFolderArchiveConfirmation } from '../helpers/folderActionConfirmation';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
@@ -39,6 +43,7 @@ interface NotesProps {
   navigation: NavigationRouter;
   pageOperations: PageOperations;
   folderOperations: FolderOperations;
+  resourceOperations: ResourceOperations;
   effectivePageState: EffectivePageState;
   membershipSelector: MembershipSelector;
   onOpen(pageId: string): void;
@@ -66,6 +71,7 @@ export function Notes({
   navigation,
   pageOperations,
   folderOperations,
+  resourceOperations,
   effectivePageState,
   membershipSelector,
   onOpen,
@@ -199,6 +205,25 @@ export function Notes({
       buildMoveDestinationItems(membershipSelector, folderId),
     onMoveFolder: (folderId, destinationFolderId) =>
       void folderOperations.move(folderId, destinationFolderId),
+
+    // Discrete-commit only, never rejects — see SidebarRowActions'
+    // onResourceTitleCommit doc comment for why a resource rename has no
+    // synchronous collision pre-check the way onNoteTitleCommit/
+    // onFolderTitleCommit do.
+    onResourceTitleCommit: (resourceId, value) => {
+      void resourceOperations.renameResource(resourceId, value);
+    },
+    // Same no-confirmation shape as onArchiveNote above — a resource, like
+    // a page, is always a single leaf with nothing nested inside it.
+    onArchiveResource: (resourceId) =>
+      void resourceOperations.archiveResource(resourceId),
+    // Same flow as Note/Folder's own Move (buildMoveDestinationItems +
+    // *Operations.move), plus the Assets/ folder appended as a selectable
+    // destination — see buildResourceMoveDestinationItems' own doc comment
+    // for why that's specific to Resource Move.
+    resourceMoveDestinations: buildResourceMoveDestinationItems(membershipSelector, query),
+    onMoveResource: (resourceId, destinationFolderId) =>
+      void resourceOperations.moveResource(resourceId, destinationFolderId),
   };
   // Everything but "which row's menu is open" is still the shared
   // rowActions object above — archive/delete/duplicate/move/toggle-favorite

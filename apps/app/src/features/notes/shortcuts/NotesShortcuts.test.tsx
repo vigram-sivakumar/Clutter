@@ -19,6 +19,15 @@ describe('NotesShortcuts', () => {
     expect(onShortcut).toHaveBeenCalledWith('inbox');
   });
 
+  it('renders the Assets shortcut and invokes onShortcut with its id when clicked', () => {
+    const onShortcut = vi.fn();
+    render(<NotesShortcuts onShortcut={onShortcut} />);
+
+    fireEvent.click(screen.getByText('Assets'));
+
+    expect(onShortcut).toHaveBeenCalledWith('assets');
+  });
+
   it('renders none of its shortcuts as disabled today (no entry declares disabled)', () => {
     const onShortcut = vi.fn();
     render(<NotesShortcuts onShortcut={onShortcut} />);

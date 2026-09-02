@@ -150,6 +150,22 @@ export class NavigationRouter {
   }
 
   /**
+   * Shows the Assets collection view — every supported VaultResource
+   * (image/pdf) anywhere in the vault, not just inside the physical
+   * Assets/ storage folder (that folder is Clutter's managed default
+   * import location, a filesystem detail; the Assets collection is the
+   * logical set of every resource regardless of where it physically
+   * lives). Grouped with the location shortcuts above (Archive/Inbox/
+   * Templates) rather than with Workspace/Favorites below — Assets is
+   * a shortcut destination in the same sidebar group as those three, even
+   * though, like Workspace/Favorites, it has no backing reserved Folder to
+   * open and is set directly via a filtered view.
+   */
+  public openAssets(): void {
+    this.workspace.openFilteredView({ kind: 'assets' });
+  }
+
+  /**
    * Shows the root-level folders+notes collection view (ADR-022) — a
    * filtered-view intent, not a folder open: root has no backing Folder
    * (ReservedFolderId has no root/workspace member), so this sets

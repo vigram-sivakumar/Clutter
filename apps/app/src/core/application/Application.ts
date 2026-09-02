@@ -18,6 +18,7 @@ import { PageOperations, SHUTDOWN_FLUSH_TIMEOUT_MS } from './page/PageOperations
 import { EffectivePageState } from './page/EffectivePageState';
 import { MembershipSelector } from './membership/MembershipSelector';
 import { FolderOperations } from './folder/FolderOperations';
+import { ResourceOperations } from './resource/ResourceOperations';
 import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
 import {
@@ -91,6 +92,7 @@ export class Application {
   public readonly saveCoordinator: SaveCoordinator;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
+  public resourceOperations!: ResourceOperations;
   public taskOperations!: TaskOperations;
   public tagOperations!: TagOperations;
   public navigation!: NavigationRouter;
@@ -311,6 +313,11 @@ export class Application {
       new PageRebuilder(),
       moveService
     );
+    // The resource-scoped counterpart to PageOperations/FolderOperations —
+    // needs only the Gate itself (rename-resource/archive-resource/
+    // restore-resource are already fully self-contained there, per Step 4),
+    // so it has no construction-order dependency on anything below.
+    this.resourceOperations = new ResourceOperations(persistenceCoordinator);
 
     // Constructed before PageOperations: PageOperations' Daily Note persist
     // path (DailyNoteService.ensureFolderChain) needs a real FolderOperations
