@@ -35,7 +35,8 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
   // Renders root, current & overflow
   const root = items[0]!;
   const current = items.at(-1)!; //Returns last item in the array
-  const collapsed = items.slice(1, -1)!;
+  const secondLast = items.at(-2)!;
+  const collapsed = items.slice(1, -2)!;
   const overflow = useOverlay<HTMLButtonElement>();
 
   return (
@@ -43,17 +44,18 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
       <div className="breadcrumb">
         <BreadcrumbItem
           id={root.id}
-          isIconOnly
+          // isIconOnly
           icon={root.icon}
           emoji={root.emoji}
           title={root.title}
           onClick={root.onClick}
         />
-        <span className="breadcrumb__slash">
-          <AppIcon icon="slash" />
-        </span>
+
         {collapsed.length > 0 && (
           <>
+            <span className="breadcrumb__slash">
+              <AppIcon icon="slash" />
+            </span>
             <BreadcrumbItem
               isIconOnly
               icon={'moreHorizontal'}
@@ -65,6 +67,18 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
             </span>
           </>
         )}
+        <BreadcrumbItem
+          id={secondLast.id}
+          icon={secondLast.icon}
+          emoji={secondLast.emoji}
+          title={secondLast.title}
+          onClick={secondLast.onClick}
+        />
+
+        <span className="breadcrumb__slash">
+          <AppIcon icon="slash" />
+        </span>
+
         <BreadcrumbItem
           id={current.id}
           icon={current.icon}

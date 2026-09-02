@@ -7,9 +7,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 12px;
+  width: 6px;
   height: 100%;
-  color: var(--foreground-placeholder);
+  color: var(--foreground-tertiary);
+  opacity: var(--opacity-strong);
 }
 .breadcrumb__slash svg {
   flex-shrink: 0;
