@@ -1,0 +1,1436 @@
+// @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
+import { history, redo, undo } from '@codemirror/commands';
+
+import { markdownLanguageExtension } from '../markdownLanguage';
+import { createInlineLivePreviewParticipants, type ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
+import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
+import { imageLivePreview } from './imageLivePreview';
+import type { OnImageClick, OnOpenImageMenu, OpenImageMenuParams } from './ImageWidget';
+import { getImageUiState, setImageUiState } from './imageUiState';
+
+/**
+ * Captures every `new Image()` created by `ImageWidget.probeForRecovery`'s
+ * detached, never-DOM-attached recovery probes — jsdom never fires real
+ * `load`/`error` events for an `Image()` on its own (no real network), so
+ * this is what lets tests simulate a probe resolving, the same way the
+ * *visible* `<img>`'s own error is already simulated elsewhere in this
+ * file via `dispatchEvent(new Event('error'))`. A plain subclass of
+ * jsdom's real `Image`, not a mock replacing its behavior — every probe
+ * this captures is a genuine `HTMLImageElement`, just also pushed onto
+ * `capturedProbes` at construction time so a test can reach in and fire
+ * its `load`/`error` directly.
+ */
+let capturedProbes: HTMLImageElement[] = [];
+let OriginalImage: typeof Image;
+
+beforeEach(() => {
+  capturedProbes = [];
+  OriginalImage = window.Image;
+  class CapturingImage extends OriginalImage {
+    constructor(width?: number, height?: number) {
+      super(width, height);
+      capturedProbes.push(this);
+    }
+  }
+  vi.stubGlobal('Image', CapturingImage);
+});
+
+afterEach(() => {
+  vi.stubGlobal('Image', OriginalImage);
+});
+
+function latestProbe(): HTMLImageElement {
+  const probe = capturedProbes.at(-1);
+  if (!probe) {
+    throw new Error('no recovery probe was created');
+  }
+  return probe;
+}
+
+/**
+ * Integration coverage for the interaction-behavior correction: Image is
+ * no longer a reveal-on-engagement participant (removed from
+ * `inlineLivePreviewParticipants.ts` — see that file's own comment) and
+ * has its own standalone mechanism instead (`imageLivePreview.ts`). Mounts
+ * the same shared-participant stack the real editor uses (minus Image)
+ * *alongside* `imageLivePreview()`, so every test here also doubles as
+ * confirmation that removing Image from the shared map didn't disturb any
+ * other construct (checklist item 12) — not a separate, narrower fixture.
+ */
+const noResolvers: ParticipantResolvers = {
+  resolveWikiLink: () => undefined,
+  resolveTag: () => undefined,
+  resolveDate: () => undefined,
+};
+
+function mountView(
+  doc: string,
+  anchor = 0,
+  onImageClick: OnImageClick = () => {},
+  onOpenImageMenu: OnOpenImageMenu = () => {}
+): EditorView {
+  const parent = document.createElement('div');
+  document.body.appendChild(parent);
+  const state = EditorState.create({
+    doc,
+    selection: { anchor },
+    extensions: [
+      history(),
+      markdownLanguageExtension(),
+      inlineLivePreviewRegion(createInlineLivePreviewParticipants(noResolvers)),
+      imageLivePreview(() => onImageClick, () => onOpenImageMenu),
+    ],
+  });
+  return new EditorView({ state, parent });
+}
+
+function getImg(view: EditorView): HTMLImageElement | null {
+  return view.dom.querySelector('img.tok-image');
+}
+
+/** The real `<button>` ImageWidget wraps the `<img>` in — see ImageWidget.ts's own comment for why. */
+function getImageButton(view: EditorView): HTMLButtonElement {
+  const button = view.dom.querySelector<HTMLButtonElement>('button.cm-image-button');
+  if (!button) {
+    throw new Error('image button not found');
+  }
+  return button;
+}
+
+/** The size button that opens ImageOptionsMenu — see ImageWidget.ts's own comment for why it no longer toggles width itself. */
+function getSizeButton(view: EditorView): HTMLButtonElement {
+  const button = view.dom.querySelector<HTMLButtonElement>('.cm-image-control[aria-label="Image size options"]');
+  if (!button) {
+    throw new Error('size button not found');
+  }
+  return button;
+}
+
+/** `aria-label` distinguishes the edit button ("Edit source"/"Hide source") from the size button ("Image size options"). */
+function getEditButton(view: EditorView): HTMLButtonElement {
+  const button = view.dom.querySelector<HTMLButtonElement>(
+    '.cm-image-control[aria-label="Edit source"], .cm-image-control[aria-label="Hide source"]'
+  );
+  if (!button) {
+    throw new Error('edit/source control not found');
+  }
+  return button;
+}
+
+function clickEdit(view: EditorView): void {
+  getEditButton(view).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+}
+
+const IMAGE_MD = '![Mountain view](https://example.com/mountain.jpg)';
+
+describe('Image interaction behavior', () => {
+  it('1. renders at rest', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('2 & 3. clicking/engaging the image does NOT reveal raw Markdown, and the image remains rendered', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    // Simulate engaging the construct: move the selection to a position
+    // strictly inside the Image node's own range, as a click on it would.
+    const imageStart = view.state.doc.toString().indexOf('![');
+    view.dispatch({ selection: { anchor: imageStart + 3 } });
+
+    const img = getImg(view);
+    expect(img).not.toBeNull();
+    expect(view.dom.textContent).not.toContain(IMAGE_MD);
+  });
+
+  it('4 & 5. clicking edit reveals raw Markdown positioned above the still-rendered image', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+    const img = getImg(view);
+    expect(img).not.toBeNull();
+
+    // "Above" == earlier in document order, matching the visual stacking
+    // (raw source line, then the block widget rendering the image).
+    const rawTextNode = Array.from(view.dom.querySelectorAll('.cm-line')).find((line) =>
+      line.textContent?.includes(IMAGE_MD)
+    );
+    expect(rawTextNode).toBeDefined();
+    // eslint-disable-next-line no-bitwise
+    const positionBits = rawTextNode!.compareDocumentPosition(img as Node);
+    expect(positionBits & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('6. the image remains rendered while the source is visible (both coexist)', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    expect(getImg(view)).not.toBeNull();
+    expect(view.dom.textContent).toContain('![Mountain view](https://example.com/mountain.jpg)');
+  });
+
+  it('7. moving the cursor without changing the source does not remove the image', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    expect(getImg(view)).not.toBeNull();
+
+    view.dispatch({ selection: { anchor: 3 } });
+    view.dispatch({ selection: { anchor: 10 } });
+    view.dispatch({ selection: { anchor: IMAGE_MD.length } });
+
+    expect(getImg(view)).not.toBeNull();
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+  });
+
+  it('8. changing the alt text updates the rendered image once the pessimistic re-verification probe confirms the (unchanged) URL', () => {
+    // Any edit to the node's own text — including alt-only, the URL never
+    // having changed at all — goes through the same pessimistic-until-
+    // confirmed path (imageUiState.ts's own doc comment has the full
+    // account of why: the mechanism can't distinguish "only alt changed"
+    // from "URL changed" without a second, URL-scoped check that isn't
+    // worth the complexity — a redundant-but-harmless probe is the
+    // accepted cost, not a defect).
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    expect(getImg(view)?.getAttribute('alt')).toBe('Mountain view');
+
+    const altStart = view.state.doc.toString().indexOf('Mountain view');
+    view.dispatch({
+      changes: { from: altStart, to: altStart + 'Mountain view'.length, insert: 'Mountain sunset' },
+    });
+
+    // Pessimistic immediately — no live <img> yet.
+    expect(getImg(view)).toBeNull();
+    expect(getImageUiState(view.state, 0).broken).toBe(true);
+
+    latestProbe().dispatchEvent(new Event('load'));
+
+    expect(getImg(view)?.getAttribute('alt')).toBe('Mountain sunset');
+    // Still coexisting with the (now-updated) raw source.
+    expect(view.dom.textContent).toContain('Mountain sunset');
+  });
+
+  it('9. changing the URL updates the rendered image once the probe confirms it', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+
+    const urlStart = view.state.doc.toString().indexOf('https://');
+    const urlEnd = view.state.doc.toString().indexOf(')');
+    view.dispatch({
+      changes: { from: urlStart, to: urlEnd, insert: 'https://example.com/other-image.jpg' },
+    });
+
+    expect(getImg(view)).toBeNull();
+    latestProbe().dispatchEvent(new Event('load'));
+
+    expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/other-image.jpg');
+  });
+
+  it('10. undo/redo continues to work', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+    expect(getImg(view)).toBeNull();
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(`See: ${IMAGE_MD}`);
+    expect(getImg(view)).not.toBeNull();
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe('');
+    expect(getImg(view)).toBeNull();
+  });
+
+  it('11. deleting the Markdown removes the image', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    expect(getImg(view)).not.toBeNull();
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+    expect(getImg(view)).toBeNull();
+  });
+
+  it('12. unrelated Markdown rendering is unaffected (Bold still Live-Previews normally)', () => {
+    // `isTokenEngaged` treats either boundary of a construct's own range as
+    // engaged (tokenEngagement.ts) — a document that is nothing but
+    // `**bold**` has no position that counts as "outside" it, so leading
+    // text is needed to get a genuine at-rest position, same reasoning
+    // imageScanner's own single-construct fixtures needed.
+    const view = mountView('See: **bold**', 0);
+    expect(view.dom.querySelector('.tok-strong')).not.toBeNull();
+    expect(view.dom.textContent).toBe('See: bold');
+  });
+});
+
+/**
+ * 2026-09-02 UX baseline, items 3–4: revealing places a plain caret at the
+ * end of the raw Markdown (never a range selection), and the source
+ * auto-hides once the caret leaves the image's own line — but only leaving
+ * auto-hides; entering (item 2) still never auto-reveals, unchanged from
+ * the existing "Image interaction behavior" coverage above.
+ */
+describe('Edit source: cursor placement and leaving-source auto-hide', () => {
+  it('clicking Edit places a plain caret (not a range) at the end of the raw Markdown', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+
+    const sel = view.state.selection.main;
+    expect(sel.empty).toBe(true);
+    expect(sel.from).toBe(IMAGE_MD.length);
+    expect(sel.to).toBe(IMAGE_MD.length);
+  });
+
+  it('the source stays revealed while the caret moves within the same line', () => {
+    const view = mountView(`Before\n${IMAGE_MD}\nAfter`);
+    const imageFrom = view.state.doc.toString().indexOf('![');
+    clickEdit(view);
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+
+    view.dispatch({ selection: { anchor: imageFrom } });
+    view.dispatch({ selection: { anchor: imageFrom + 5 } });
+
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('the source auto-hides once the caret moves to a different line', () => {
+    const view = mountView(`Before\n${IMAGE_MD}\nAfter`);
+    clickEdit(view);
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+
+    const afterLineStart = view.state.doc.toString().indexOf('After');
+    view.dispatch({ selection: { anchor: afterLineStart } });
+
+    expect(view.dom.textContent).not.toContain(IMAGE_MD);
+    // The image itself is unaffected — still rendered, just back to its
+    // normal at-rest (source-hidden) form.
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('moving the caret elsewhere never auto-*reveals* an at-rest image (entering stays a no-op)', () => {
+    const view = mountView(`Before\n${IMAGE_MD}\nAfter`);
+    const imageFrom = view.state.doc.toString().indexOf('![');
+
+    view.dispatch({ selection: { anchor: imageFrom + 3 } });
+
+    expect(view.dom.textContent).not.toContain(IMAGE_MD);
+  });
+
+  /**
+   * "Completing source editing and continuing after the image" — pressing
+   * Space (or typing) immediately after a just-completed `![alt](url)`
+   * must hide the source in that same transaction, even though the caret
+   * never changed lines: it moved from the image's own `to` (where
+   * revealing placed it) to `to + 1`, strictly outside the Image node's
+   * own `[from, to]` range. A plain line-number comparison (this field's
+   * own earlier revision) missed this entirely, since the inserted text
+   * lands on the *same* line as the image — see imageUiState.ts's own
+   * updated doc comment for the full account.
+   */
+  it('pressing Space immediately after a completed image hides the source in the same transaction, and the space is inserted (not consumed)', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    expect(getImageUiState(view.state, 0).revealed).toBe(true);
+    expect(view.state.selection.main.head).toBe(IMAGE_MD.length);
+
+    // Real typing always ends with the caret positioned after the typed
+    // character — CM6's own text-input handling constructs an explicit
+    // new selection there, it never merely relies on default change-
+    // mapping of the old (pre-insert) selection. `changes`-only (no
+    // `selection`) would map the old cursor-at-the-insertion-point
+    // *backward* by default, which is not what a real keystroke produces
+    // — matching that default here would test the wrong thing.
+    view.dispatch({
+      changes: { from: IMAGE_MD.length, insert: ' ' },
+      selection: { anchor: IMAGE_MD.length + 1 },
+    });
+
+    expect(getImageUiState(view.state, 0).revealed).toBe(false);
+    // Not the "hidden and revealed coexist" DOM shape any more — a single
+    // .cm-line whose own text is just the trailing space, no separate raw-
+    // Markdown line above it.
+    expect(view.dom.querySelectorAll('.cm-line').length).toBe(1);
+    expect(getImg(view)).not.toBeNull();
+    expect(view.state.doc.toString()).toBe(`${IMAGE_MD} `);
+    expect(view.state.selection.main.head).toBe(IMAGE_MD.length + 1);
+  });
+
+  it('typing more text immediately after a completed image hides the source and the text belongs after the image', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+
+    const inserted = ' more text';
+    view.dispatch({
+      changes: { from: IMAGE_MD.length, insert: inserted },
+      selection: { anchor: IMAGE_MD.length + inserted.length },
+    });
+
+    expect(getImageUiState(view.state, 0).revealed).toBe(false);
+    expect(view.state.doc.toString()).toBe(`${IMAGE_MD}${inserted}`);
+  });
+
+  it('this also applies to a broken/invalid image, not only a successfully-loaded one', () => {
+    const view = mountView(IMAGE_MD);
+    getImg(view)!.dispatchEvent(new Event('error'));
+    clickEdit(view);
+    expect(getImageUiState(view.state, 0).revealed).toBe(true);
+
+    view.dispatch({
+      changes: { from: IMAGE_MD.length, insert: ' ' },
+      selection: { anchor: IMAGE_MD.length + 1 },
+    });
+
+    expect(getImageUiState(view.state, 0).revealed).toBe(false);
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+  });
+});
+
+/**
+ * Regression coverage for a reported Link/Image inconsistency: Link's own
+ * source-editing lifecycle (`inlineLivePreviewRegion.ts`'s shared
+ * "engaged region -> fully raw source" contract) stays visible through any
+ * edit as long as the caret remains inside, because raw text there is
+ * *always* real (only concealment styling toggles). Image's own `revealed`
+ * flag used to be re-derived by re-parsing the *current* syntax tree on
+ * every transaction (`findEnclosingImageNode`) — a transient parse hiccup
+ * (an interior edit that momentarily breaks `](` balance, an empty
+ * destination, etc.) made that re-resolution come back `null`, which read
+ * as "the caret left" and hid the source mid-edit. The fix
+ * (`imageUiState.ts`) makes `revealed` tracking purely positional — a real
+ * `RangeSet` span with `endSide = -1` — with no syntax-tree dependency at
+ * all, matching Link's own resilience without literally sharing Link's
+ * mechanism (Image is a deliberate non-participant in the shared
+ * mechanism for unrelated reasons; see `imageUiState.ts`'s own doc
+ * comment).
+ */
+describe('Edit source: Link/Image lifecycle consistency (source stays visible through edits, independent of parse/load validity)', () => {
+  it('editing the URL character-by-character keeps the source visible the whole time', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    expect(getImageUiState(view.state, 0).revealed).toBe(true);
+
+    let pos = view.state.doc.toString().indexOf('https://') + 8;
+    for (const ch of ['a', 'b', 'c']) {
+      view.dispatch({ changes: { from: pos, insert: ch }, selection: { anchor: pos + 1 } });
+      pos += 1;
+      expect(getImageUiState(view.state, 0).revealed).toBe(true);
+    }
+
+    expect(view.state.doc.toString()).toContain('https://abcexample.com');
+    expect(view.dom.textContent).toContain(view.state.doc.toString());
+  });
+
+  it('a temporarily invalid URL while editing keeps the source visible — load state and source-editing state are independent', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    const raw = view.state.doc.toString();
+    const urlFrom = raw.indexOf('https://');
+    const urlTo = raw.indexOf(')', urlFrom);
+    const replacement = 'not a url';
+
+    view.dispatch({
+      changes: { from: urlFrom, to: urlTo, insert: replacement },
+      selection: { anchor: urlFrom + replacement.length },
+    });
+
+    expect(getImageUiState(view.state, 0).revealed).toBe(true);
+    expect(view.dom.textContent).toContain(`![Mountain view](${replacement})`);
+  });
+
+  it('temporarily incomplete image syntax (deleting the closing paren mid-edit) keeps the source visible', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    const raw = view.state.doc.toString();
+    const closeParen = raw.length - 1;
+
+    view.dispatch({
+      changes: { from: closeParen, to: closeParen + 1, insert: '' },
+      selection: { anchor: closeParen },
+    });
+
+    expect(getImageUiState(view.state, 0).revealed).toBe(true);
+    // No longer a complete Image node, so imageLivePreview's own
+    // buildDecorations finds nothing to decorate — the raw text simply
+    // stays visible as ordinary, still-editable text (the same resilience
+    // Link already has), not a widget with something stale inside it.
+    expect(view.dom.textContent).toContain(view.state.doc.toString());
+    expect(getImg(view)).toBeNull();
+
+    // Restoring the syntax (retyping the paren) resumes rendering a widget
+    // for the node again — still without ever having hidden the source in
+    // between. The edit that just touched the node's own text also
+    // pessimistically flips `broken: true` (imageUiState.ts's own separate,
+    // unrelated mechanism for load state — the probe hasn't resolved yet
+    // in this test), so the rendered widget is the broken representation,
+    // not a working `<img>`; asserting on the container is what actually
+    // matters here, not which of the two representations it is.
+    view.dispatch({ changes: { from: closeParen, insert: ')' }, selection: { anchor: closeParen + 1 } });
+    expect(getImageUiState(view.state, 0).revealed).toBe(true);
+    expect(view.dom.querySelector('.cm-image-container')).not.toBeNull();
+  });
+
+  it('moving the caret outside the image source mid-edit still hides it, consistent with leaving normally', () => {
+    const view = mountView(`Before\n${IMAGE_MD}\nAfter`);
+    const imageFrom = view.state.doc.toString().indexOf('![');
+    view.dispatch({ selection: { anchor: imageFrom + 5 } });
+    clickEdit(view);
+    expect(getImageUiState(view.state, imageFrom).revealed).toBe(true);
+
+    const urlFrom = view.state.doc.toString().indexOf('https://');
+    view.dispatch({ changes: { from: urlFrom, insert: 'x' }, selection: { anchor: urlFrom + 1 } });
+    expect(getImageUiState(view.state, imageFrom).revealed).toBe(true);
+
+    const afterPos = view.state.doc.toString().indexOf('After');
+    view.dispatch({ selection: { anchor: afterPos } });
+    expect(getImageUiState(view.state, imageFrom).revealed).toBe(false);
+  });
+
+  it('normal Link behavior is unchanged: raw Markdown stays visible while the caret remains inside, and only hides once it leaves', () => {
+    const linkMd = '[Testingc](https://www.google.co.in)';
+    const view = mountView(`Before ${linkMd} after`);
+    const linkFrom = view.state.doc.toString().indexOf('[');
+
+    // At rest: syntax concealed, only the label renders.
+    expect(view.dom.textContent).not.toContain(linkMd);
+    expect(view.dom.textContent).toContain('Testingc');
+
+    // Caret enters the link's own range: full raw source becomes visible.
+    view.dispatch({ selection: { anchor: linkFrom + 3 } });
+    expect(view.dom.textContent).toContain(linkMd);
+
+    // Editing the URL character-by-character keeps it visible throughout —
+    // this was always true for Link; asserted here so a future regression
+    // in either construct's mechanism is caught the same way.
+    const urlFrom = view.state.doc.toString().indexOf('https://');
+    view.dispatch({
+      changes: { from: urlFrom, to: urlFrom + 5, insert: 'httpX' },
+      selection: { anchor: urlFrom + 5 },
+    });
+    expect(view.dom.textContent).toContain('httpX://www.google.co.in');
+
+    // Caret leaves the link's own line: hides again.
+    const afterPos = view.state.doc.toString().indexOf('after');
+    view.dispatch({ selection: { anchor: afterPos } });
+    expect(view.dom.textContent).not.toContain('httpX://www.google.co.in');
+    expect(view.dom.textContent).toContain('Testingc');
+  });
+});
+
+/**
+ * Coverage for the follow-up interaction correction: the image itself is
+ * a clickable UI element (opens an overlay), not a text-editing surface.
+ *
+ * jsdom has no `posAtCoords` geometry (the same limitation
+ * `taskCheckboxMouseHandlers.ts`'s own doc comment already names for this
+ * codebase), so a synthetic click's *pixel position* can never be proven
+ * to map to a specific document offset here. What *is* fully deterministic
+ * and jsdom-safe, regardless of geometry: whether CM6 ever attempts a
+ * selection-changing dispatch at all in response to the event. These tests
+ * assert `view.state.selection` is byte-identical before and after a
+ * dispatched click/mousedown on the image's wrapping `<button>` — if
+ * `ignoreEvent()` (or a stopped-propagation local listener) correctly keeps
+ * the event from ever
+ * reaching CM6's own internal handling, there is nothing for geometry to
+ * go wrong *in* in the first place, so this assertion holds regardless of
+ * jsdom's layout limitations. Full, real-pixel-click confirmation is a
+ * manual/real-browser verification step (this task's own §9), not
+ * something asserted here.
+ */
+describe('Image click behavior', () => {
+  it('1. renders normally', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('2. clicking the image does not reveal raw Markdown', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    const button = getImageButton(view);
+    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(getImg(view)).not.toBeNull();
+    expect(view.dom.textContent).not.toContain(IMAGE_MD);
+  });
+
+  it('3. clicking the image does not change the CodeMirror selection (no caret placement)', () => {
+    const view = mountView(`See: ${IMAGE_MD}`, 0);
+    const selectionBefore = view.state.selection.toJSON();
+
+    const button = getImageButton(view);
+    const mousedown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    button.dispatchEvent(mousedown);
+    expect(mousedown.defaultPrevented).toBe(true);
+
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    button.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+
+    expect(view.state.selection.toJSON()).toEqual(selectionBefore);
+  });
+
+  it('4. clicking the image triggers the image-open callback with the resolved url/alt', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
+
+    const button = getImageButton(view);
+    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(clicks).toEqual([{ url: 'https://example.com/mountain.jpg', alt: 'Mountain view' }]);
+  });
+
+  it('5. clicking the size button does not open the overlay', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
+
+    const sizeButton = getSizeButton(view);
+    sizeButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    sizeButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(clicks).toEqual([]);
+  });
+
+  it('6. clicking the edit/source button does not open the overlay', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(IMAGE_MD, 0, (url, alt) => clicks.push({ url, alt }));
+
+    clickEdit(view);
+
+    expect(clicks).toEqual([]);
+  });
+
+  it('7. clicking the size button opens the image-options menu with the correct target', () => {
+    const opened: OpenImageMenuParams[] = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, () => {}, (params) => opened.push(params));
+
+    const sizeButton = getSizeButton(view);
+    sizeButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    sizeButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({
+      alt: 'Mountain view',
+      url: 'https://example.com/mountain.jpg',
+      anchor: sizeButton,
+    });
+  });
+
+  it('8. source-reveal behavior still works after this change', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('9. clicking elsewhere in the editor still allows normal caret placement', () => {
+    const view = mountView(`See: ${IMAGE_MD}`, 0);
+    view.dispatch({ selection: { anchor: 2 } });
+    expect(view.state.selection.main.head).toBe(2);
+  });
+
+  it('10. editing the Markdown still works', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    const altStart = view.state.doc.toString().indexOf('Mountain view');
+    view.dispatch({
+      changes: { from: altStart, to: altStart + 'Mountain view'.length, insert: 'Updated alt' },
+    });
+    latestProbe().dispatchEvent(new Event('load'));
+    expect(getImg(view)?.getAttribute('alt')).toBe('Updated alt');
+  });
+
+  it('11. undo/redo still works', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+    expect(getImg(view)).toBeNull();
+    undo(view);
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('12. deleting the image still works', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    expect(getImg(view)).not.toBeNull();
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+    expect(getImg(view)).toBeNull();
+  });
+});
+
+/**
+ * Accessibility coverage for the image's own clickable control
+ * (`ImageWidget.ts`'s `imageButton`) — a real `<button>` wrapping the
+ * `<img>`, per that file's own comment on why this shape was chosen over
+ * `role="button"`+`tabindex`+manual keydown (an earlier, since-corrected
+ * version of this file used that shape).
+ *
+ * jsdom does not implement the browser-native "Enter/Space on a focused
+ * button synthesizes a `click`" behavior (confirmed empirically: a bare
+ * `dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}))` on a real
+ * `<button>` fires zero `click` listeners in this project's jsdom/vitest
+ * setup) — the same category of gap `taskCheckboxMouseHandlers.ts`'s own
+ * doc comment already names for `posAtCoords` geometry. So "Enter"/"Space"
+ * below are tested as **what a real browser's native activation actually
+ * produces** (a `click` event) against a structural guarantee that the
+ * element is a genuine, unmodified `<button type="button">` — the same
+ * native contract that gives Enter/Space activation for free in any real
+ * browser, with no custom keydown code in this codebase to independently
+ * verify or get wrong. Full real-browser keyboard confirmation is a
+ * manual-verification step, not asserted here.
+ */
+describe('Image accessibility', () => {
+  it('the image control is a real, enabled, type="button" element (native keyboard-activation contract)', () => {
+    const view = mountView(`See: ${IMAGE_MD}`);
+    const button = getImageButton(view);
+    expect(button.tagName).toBe('BUTTON');
+    expect(button.type).toBe('button');
+    expect(button.disabled).toBe(false);
+    // No explicit tabindex="-1" (or any tabindex at all) — a native
+    // <button> is keyboard-focusable by default; adding one would only
+    // ever be needed to *remove* it from tab order, never to add it.
+    expect(button.getAttribute('tabindex')).toBeNull();
+  });
+
+  it('Enter (as a real browser would produce via native button activation) opens the overlay', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
+    const button = getImageButton(view);
+
+    button.focus();
+    // What a real browser actually dispatches for native Enter-activation
+    // of a focused <button> — see this describe block's own doc comment
+    // for why jsdom can't be trusted to synthesize this itself.
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(clicks).toEqual([{ url: 'https://example.com/mountain.jpg', alt: 'Mountain view' }]);
+  });
+
+  it('Space (as a real browser would produce via native button activation) opens the overlay', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
+    const button = getImageButton(view);
+
+    button.focus();
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(clicks).toEqual([{ url: 'https://example.com/mountain.jpg', alt: 'Mountain view' }]);
+  });
+
+  it('mouse click opens the overlay', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
+    const button = getImageButton(view);
+
+    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(clicks).toEqual([{ url: 'https://example.com/mountain.jpg', alt: 'Mountain view' }]);
+  });
+
+  it('does not double-open the overlay: a keydown alone (no accompanying click) never activates it', () => {
+    // Guards specifically against the old, corrected shape (a manual
+    // keydown handler living *alongside* a click handler, both able to
+    // fire independently) reappearing — with the current real-<button>
+    // shape, keydown itself does nothing in this codebase; only the
+    // browser's own native click-synthesis (or a real mouse click)
+    // reaches the single click listener, so a keydown with no
+    // accompanying click must produce zero activations.
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
+    const button = getImageButton(view);
+
+    button.focus();
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+
+    expect(clicks).toEqual([]);
+  });
+
+  it('a single click (however triggered) opens the overlay exactly once, never twice', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
+    const button = getImageButton(view);
+
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(clicks).toHaveLength(1);
+  });
+
+  it('controls remain independently interactive — activating the image button does not touch them, and vice versa', () => {
+    const clicks: Array<{ url: string; alt: string }> = [];
+    const opened: OpenImageMenuParams[] = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }), (params) => opened.push(params));
+
+    // Size/edit controls unaffected by an image-button activation.
+    const button = getImageButton(view);
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(opened).toHaveLength(0);
+    expect(view.dom.textContent).not.toContain(IMAGE_MD);
+
+    // And the reverse: activating a control never opens the overlay
+    // (already covered in "Image click behavior" #5/#6 above; repeated
+    // here as part of this task's explicit accessibility checklist).
+    // clicks already has one entry from the image-button activation above
+    // — the assertion is that the size control's own click adds nothing
+    // further, not that `clicks` is empty.
+    const clicksBeforeSizeClick = clicks.length;
+    const sizeButton = getSizeButton(view);
+    sizeButton.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    sizeButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(clicks).toHaveLength(clicksBeforeSizeClick);
+    expect(opened).toHaveLength(1);
+  });
+});
+
+/**
+ * Composition/nesting verification — Image was pulled out of the shared
+ * `inlineLivePreviewRegion` traversal into its own standalone extension
+ * (same move WikiLink already made, for a different reason), which is
+ * exactly the shape of change `docs/editor-architecture-decisions.md`'s
+ * "Standalone-renderer extraction" section warns can silently break
+ * composition with an enclosing shared-traversal construct. Investigated
+ * directly (mounted `EditorView`, real DOM) rather than assumed correct by
+ * analogy with WikiLink.
+ *
+ * **Findings:**
+ * 1. Nesting inside Strong/Emphasis/Strikethrough/Link all compose
+ *    correctly — `Prec.high` (mirroring WikiLink's own reasoning) is
+ *    sufficient; the image widget nests *inside* the enclosing construct's
+ *    own mark, never split or ejected. Covered below.
+ * 2. A real bug, now fixed (see `inlineLivePreviewParticipants.ts`'s
+ *    `urlRenderer`): a *revealed* Image's own nested `URL` child was
+ *    incorrectly styled `tok-link` by the shared traversal's bare-URL
+ *    participant, since `Image` wasn't in that renderer's parent-name
+ *    exclusion guard (only `Link`/`Autolink` were). Covered below.
+ * 3. Not a bug, verified as the intended consequence of Image's own
+ *    deliberately selection-independent design: if an *enclosing*
+ *    construct (e.g. `**`) is engaged by the caret, its own markers reveal
+ *    as raw text as usual, but the nested Image widget keeps rendering
+ *    regardless — `imageLivePreview.ts` never consults `isTokenEngaged` at
+ *    all, so there is no ancestor-engagement signal for it to react to,
+ *    by design. Typing at the enclosing marker boundary and the image's
+ *    own Edit button both still work correctly in this state. Covered
+ *    below as a pinned "does not break" regression, not as a "should
+ *    reveal" expectation.
+ */
+describe('Image composition / nesting', () => {
+  it('nests correctly inside StrongEmphasis (**![alt](url)**)', () => {
+    const view = mountView('See: **![Mountain view](https://example.com/mountain.jpg)**');
+    const strong = view.dom.querySelector('.tok-strong');
+    expect(strong).not.toBeNull();
+    expect(strong?.querySelector('.cm-image-container')).not.toBeNull();
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('nests correctly inside Emphasis (*![alt](url)*)', () => {
+    const view = mountView('See: *![Mountain view](https://example.com/mountain.jpg)*');
+    const emphasis = view.dom.querySelector('.tok-emphasis');
+    expect(emphasis).not.toBeNull();
+    expect(emphasis?.querySelector('.cm-image-container')).not.toBeNull();
+  });
+
+  it('nests correctly inside Strikethrough (~~![alt](url)~~)', () => {
+    const view = mountView('See: ~~![Mountain view](https://example.com/mountain.jpg)~~');
+    const strike = view.dom.querySelector('.tok-strike');
+    expect(strike).not.toBeNull();
+    expect(strike?.querySelector('.cm-image-container')).not.toBeNull();
+  });
+
+  it('nests correctly inside a Link ([![alt](url)](url2)) — the linked-image pattern', () => {
+    const view = mountView(
+      'See: [![Mountain view](https://example.com/mountain.jpg)](https://example.com)'
+    );
+    const link = view.dom.querySelector('.tok-link');
+    expect(link).not.toBeNull();
+    expect(link?.querySelector('.cm-image-container')).not.toBeNull();
+  });
+
+  it('renders correctly adjacent to plain inline text on both sides', () => {
+    const view = mountView('Before ![Mountain view](https://example.com/mountain.jpg) after');
+    expect(view.dom.textContent).toContain('Before ');
+    expect(view.dom.textContent).toContain(' after');
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('regression: a revealed image\'s own URL is not incorrectly styled tok-link by the shared URL participant', () => {
+    const doc = '![Alt](https://example.com/img.jpg)';
+    const view = mountView(doc);
+    view.dispatch({
+      effects: setImageUiState.of({ pos: 0, to: doc.length, state: { revealed: true, displayMode: 'large', broken: false } }),
+    });
+
+    expect(view.dom.textContent).toContain(doc);
+    expect(view.dom.querySelector('.tok-link')).toBeNull();
+  });
+
+  it('a genuine bare URL elsewhere on the same line is still correctly styled (the fix is scoped to Image only)', () => {
+    const view = mountView('See https://example.com and ![Alt](https://example.com/img.jpg)');
+    expect(view.dom.querySelector('.tok-link')).not.toBeNull();
+  });
+
+  it('does not break when an enclosing construct is independently engaged: typing still works, Edit button still works', () => {
+    const doc = 'See: **![Mountain view](https://example.com/mountain.jpg)**';
+    const strongOpenEnd = doc.indexOf('**') + 2;
+    const view = mountView(doc, strongOpenEnd);
+
+    // The enclosing Strong's own markers reveal as raw text (engaged);
+    // the nested Image widget keeps rendering regardless — both are
+    // simultaneously true by design (finding 3 above), not a conflict.
+    expect(view.dom.querySelector('.cm-strong-marker:not(.cm-marker--concealed)')).not.toBeNull();
+    expect(getImg(view)).not.toBeNull();
+
+    // Typing right at the engaged marker boundary still works normally.
+    view.dispatch({ changes: { from: strongOpenEnd, to: strongOpenEnd, insert: 'X' } });
+    expect(view.state.doc.toString()).toContain('**X![Mountain view]');
+
+    // The image's own Edit button still works in this state.
+    const editButton = view.dom.querySelector<HTMLButtonElement>('.cm-image-control[aria-label="Edit source"]')!;
+    editButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(view.dom.textContent).toContain('![Mountain view](https://example.com/mountain.jpg)');
+  });
+});
+
+/**
+ * Regression tripwire for the controls-don't-follow-fixed-width layout
+ * bug: `.cm-image-container` must shrink-wrap the rendered image
+ * (`width: fit-content`), not stretch to the editor's full width
+ * (`display: block`'s implicit `width: auto`). jsdom cannot compute real
+ * layout (a mounted `EditorView` always measures geometry as `0` there —
+ * the same limitation `markerConcealedLineHeight.test.ts` already
+ * documents for this codebase), so the actual pixel-tracking behavior is
+ * only provable in a real browser (verified directly: toggling
+ * full-width/fixed-width repeatedly, `.cm-image-controls`'s own
+ * `getBoundingClientRect().right` stayed exactly 8px inside
+ * `.cm-image-container`'s own right edge every time, tracking a 500x120
+ * test image shrinking from ~454px down to the fixed 240px cap and back).
+ * What a source-level test can still do cheaply and reliably: guard the
+ * CSS rule itself against silently reverting to a full-width box, which
+ * is the exact root cause this fix addresses — `.cm-image-controls`'s own
+ * `position: absolute; right: ...` is only ever correct relative to
+ * whatever `.cm-image-container`'s own box actually is.
+ */
+describe('MarkdownEditor.css — .cm-image-container', () => {
+  it('shrink-wraps its content (width: fit-content), not display: block\'s implicit full-width stretch', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const match = css.match(/\.cm-editor\s+\.cm-image-container\s*\{([^}]*)\}/);
+
+    expect(match, '.cm-image-container rule not found').not.toBeNull();
+    const body = match![1];
+
+    expect(body).toMatch(/width\s*:\s*fit-content\s*;/);
+    // A container that has reverted to filling its containing block
+    // (`display: block` with no `width` override, or an explicit
+    // `width: 100%`) would silently reintroduce the bug — the fixed-width
+    // image would shrink but the container (and therefore the controls
+    // anchored to it) would not.
+    expect(body).not.toMatch(/(?<!max-)width\s*:\s*100%\s*;/);
+    // `max-width: 100%` must remain alongside `width: fit-content` — it's
+    // what still caps the container at the editor's width when the
+    // image's own natural size would otherwise exceed it.
+    expect(body).toMatch(/max-width\s*:\s*100%\s*;/);
+    expect(body).toMatch(/position\s*:\s*relative\s*;/);
+  });
+});
+
+/**
+ * Display modes (image-options-menu task): Large/Fill/Fit replace the
+ * earlier two-state `fullWidth: boolean` model (`imageUiState.ts`'s own
+ * doc comment explains why a boolean can't represent three mutually-
+ * exclusive modes). What's verifiable at this level: switching modes
+ * dispatches only a `setImageUiState` effect (never a `changes` spec) —
+ * the Markdown source is untouched by construction, not by a separate
+ * guard — and the resulting widget carries the right CSS class. The
+ * actual pixel geometry (400px height cap, 320px width cap, Fill's
+ * centering) is CSS the jsdom-layout-limitation notes above already cover
+ * for `.cm-image-container`; verified in the real app instead (see this
+ * task's manual verification).
+ */
+describe('Image display modes', () => {
+  function dispatchMode(view: EditorView, pos: number, mode: 'large' | 'fill' | 'fit', revealed = false) {
+    view.dispatch({
+      effects: setImageUiState.of({ pos, to: view.state.doc.length, state: { revealed, displayMode: mode, broken: false } }),
+    });
+  }
+
+  // These fixtures use the bare `IMAGE_MD` doc (no leading text) so the
+  // Image node's own `pos` is always 0 — `dispatchMode`'s `pos` argument
+  // must match the node's real `from` exactly (imageUiState.ts keys its
+  // RangeSet by exact position), and Image's own rendering never depends
+  // on selection/engagement (confirmed elsewhere in this file), so there
+  // is no "at rest" boundary ambiguity here the way there is for
+  // selection-derived constructs.
+  it('Fill is the default display mode', () => {
+    const view = mountView(IMAGE_MD);
+    expect(getImg(view)?.classList.contains('tok-image--fill')).toBe(true);
+    expect(getImg(view)?.classList.contains('tok-image--large')).toBe(false);
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(false);
+    expect(view.dom.querySelector('.cm-image-container--fill')).not.toBeNull();
+  });
+
+  it('Fill applies the fill class and the container gets the centering modifier', () => {
+    const view = mountView(IMAGE_MD);
+    dispatchMode(view, 0, 'fill');
+
+    expect(getImg(view)?.classList.contains('tok-image--fill')).toBe(true);
+    expect(view.dom.querySelector('.cm-image-container--fill')).not.toBeNull();
+  });
+
+  it('Fit applies the fit class and the container gets the horizontal-centering modifier (not --fill)', () => {
+    const view = mountView(IMAGE_MD);
+    dispatchMode(view, 0, 'fit');
+
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+    expect(view.dom.querySelector('.cm-image-container--fit')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-image-container--fill')).toBeNull();
+  });
+
+  it('switching Large → Fill → Fit never modifies the Markdown source', () => {
+    const view = mountView(IMAGE_MD);
+
+    dispatchMode(view, 0, 'fill');
+    expect(view.state.doc.toString()).toBe(IMAGE_MD);
+
+    dispatchMode(view, 0, 'fit');
+    expect(view.state.doc.toString()).toBe(IMAGE_MD);
+
+    dispatchMode(view, 0, 'large');
+    expect(view.state.doc.toString()).toBe(IMAGE_MD);
+  });
+
+  it('a display-mode change preserves the revealed source alongside the still-rendered image', () => {
+    const view = mountView(IMAGE_MD);
+    clickEdit(view);
+    dispatchMode(view, 0, 'fit', true);
+
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+  });
+});
+
+/**
+ * 2026-09-02 UX baseline, item 5: the widget's own initial (never-yet-
+ * opened) `[data-menu-open]`/active-state defaults, at this CM6-only
+ * level. The open/closed *toggle* itself is deliberately not CM6 state at
+ * all (see `imageUiState.ts`'s doc comment for the bug that approach
+ * caused — a stale `Overlay` anchor after the widget's DOM got recreated
+ * mid-open) — it's driven by direct DOM mutation from
+ * `MarkdownEditor.tsx`'s `setImageMenuButtonOpen`, exercised in
+ * `MarkdownEditor.test.tsx`'s own "image options menu" coverage instead,
+ * where the real anchor/Overlay wiring actually exists.
+ */
+describe('Image size menu — initial (closed) state', () => {
+  it('defaults to closed', () => {
+    const view = mountView(IMAGE_MD);
+    const container = view.dom.querySelector('.cm-image-container') as HTMLElement;
+    expect(container.dataset.menuOpen).toBe('false');
+    expect(getSizeButton(view).classList.contains('cm-image-control--active')).toBe(false);
+    expect(getSizeButton(view).getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
+/**
+ * "Broken / Invalid Image UX" (2026-09-02 UX baseline). A genuine `<img>`
+ * load failure — never a guess from the raw Markdown text — swaps the
+ * widget for a dedicated broken-image representation with a trimmed-down
+ * controls set. Detection is exclusively the real `error` event; a
+ * *syntactically incomplete* image (`![Text]` with no destination) is
+ * covered separately below ("Incomplete image syntax") and never reaches
+ * this state at all, since it never becomes an `ImageWidget` (and
+ * therefore never has an `<img>` to fail loading) in the first place.
+ */
+describe('Broken image fallback', () => {
+  function getDeleteButton(view: EditorView): HTMLButtonElement {
+    const button = view.dom.querySelector<HTMLButtonElement>('.cm-image-control[aria-label="Delete image"]');
+    if (!button) {
+      throw new Error('delete control not found');
+    }
+    return button;
+  }
+
+  it('MarkdownEditor.css: .cm-image-container--broken fills the available width, minus a deliberate 1px caret-overflow reserve', () => {
+    // Not a literal 100% — see this rule's own doc comment in
+    // MarkdownEditor.css: at width:100% the container left zero slack for
+    // CM6's own boundary-caret rendering, which measurably overflowed
+    // .cm-content's right edge (confirmed directly) and could flip
+    // .cm-scroller into horizontal-scroll mode, shifting the whole editor.
+    // `calc(100% - 1px)` is sub-pixel-imperceptible but eliminates the
+    // overflow at its source.
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const match = css.match(/\.cm-editor\s+\.cm-image-container--broken\s*\{([^}]*)\}/);
+    expect(match, '.cm-image-container--broken rule not found').not.toBeNull();
+    expect(match![1]).toMatch(/width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
+  });
+
+  it('renders the broken representation (icon + alt + hint) instead of an <img>', () => {
+    const view = mountView(IMAGE_MD);
+    expect(getImg(view)).not.toBeNull();
+
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    expect(getImg(view)).toBeNull();
+    expect(view.dom.querySelector('.cm-image-container--broken')).not.toBeNull();
+    const broken = view.dom.querySelector('.cm-image-broken');
+    expect(broken).not.toBeNull();
+    expect(broken?.querySelector('.cm-image-broken__icon-wrap')).not.toBeNull();
+    expect(broken?.querySelector('.cm-image-broken__icon-wrap .cm-image-broken__icon')).not.toBeNull();
+    expect(broken?.querySelector('.cm-image-broken__alt')?.textContent).toBe('Mountain view');
+    expect(broken?.querySelector('.cm-image-broken__hint')?.textContent).toBe('Invalid image url');
+  });
+
+  it('falls back to "Untitled image" for the alt slot when there is no alt text', () => {
+    const noAltMd = '![](https://example.com/mountain.jpg)';
+    const view = mountView(noAltMd);
+
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    expect(view.dom.querySelector('.cm-image-broken__alt')?.textContent).toBe('Untitled image');
+  });
+
+  it('shows hover controls with ONLY Edit source + Delete — no size button', () => {
+    const view = mountView(IMAGE_MD);
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    expect(view.dom.querySelector('.cm-image-control[aria-label="Edit source"]')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-image-control[aria-label="Delete image"]')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-image-control[aria-label="Image size options"]')).toBeNull();
+    // Exactly two controls — guards against a future addition silently
+    // reintroducing a size/options affordance for a broken image.
+    expect(view.dom.querySelectorAll('.cm-image-controls .cm-image-control').length).toBe(2);
+  });
+
+  it('never opens the image overlay — no image button/click-to-open wiring exists in the broken state', () => {
+    const view = mountView(IMAGE_MD);
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    expect(view.dom.querySelector('button.cm-image-button')).toBeNull();
+  });
+
+  it('Edit source reveals the raw Markdown above the still-broken representation, caret at the end', () => {
+    const view = mountView(IMAGE_MD);
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    clickEdit(view);
+
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+    const sel = view.state.selection.main;
+    expect(sel.empty).toBe(true);
+    expect(sel.from).toBe(IMAGE_MD.length);
+  });
+
+  it('Edit source auto-hides once the caret leaves the image line, same as the working state', () => {
+    const view = mountView(`Before\n${IMAGE_MD}\nAfter`);
+    getImg(view)!.dispatchEvent(new Event('error'));
+    clickEdit(view);
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+
+    const afterLineStart = view.state.doc.toString().indexOf('After');
+    view.dispatch({ selection: { anchor: afterLineStart } });
+
+    expect(view.dom.textContent).not.toContain(IMAGE_MD);
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+  });
+
+  it('Delete removes the Markdown image via a real CM6 transaction, undo/redo both work', () => {
+    // Single-line doc: computeImageDeletionRange's own "image is the
+    // document's only line" case deletes the whole line, "See: " prefix
+    // included — same behavior the existing (non-broken) Delete coverage
+    // in imageDeletion.test.ts already establishes; not special-cased for
+    // the broken state.
+    const view = mountView(`See: ${IMAGE_MD}`);
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    getDeleteButton(view).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(view.state.doc.toString()).toBe('');
+    expect(view.dom.querySelector('.cm-image-broken')).toBeNull();
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(`See: ${IMAGE_MD}`);
+    // Re-inserting the image's own line is itself an edit that touches
+    // that line, so imageUiState.ts's own `broken`-reset logic (by
+    // design, not a bug here — see that file's doc comment) gives the
+    // restored occurrence a fresh load attempt rather than remembering
+    // it was broken; a real browser would very likely re-fail against the
+    // same bad URL and re-enter the broken state on its own. What matters
+    // for Delete's own undo/redo contract is that the Markdown and a
+    // rendered occurrence both come back — asserted directly.
+    expect(view.dom.querySelector('.cm-image-container')).not.toBeNull();
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe('');
+  });
+
+  it('editing a broken image\'s own URL stays broken (our own UI, never a live <img>) until a background probe confirms the new URL actually loads', () => {
+    const view = mountView(IMAGE_MD);
+    getImg(view)!.dispatchEvent(new Event('error'));
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+
+    // Simulate fixing the URL by editing the (currently hidden) source —
+    // reveal it first, same as a real user would via the Edit button.
+    clickEdit(view);
+    const urlStart = view.state.doc.toString().indexOf('https://');
+    const urlEnd = view.state.doc.toString().indexOf(')');
+    view.dispatch({
+      changes: { from: urlStart, to: urlEnd, insert: 'https://example.com/fixed.jpg' },
+    });
+
+    // Immediately after the edit: still our own broken UI, NOT a live
+    // <img> with the new (as-yet-unverified) URL — this is the whole
+    // point of the pessimistic-until-confirmed design. A background probe
+    // was started for the new URL (captured below) but hasn't resolved.
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+    expect(getImg(view)).toBeNull();
+    expect(getImageUiState(view.state, 0).broken).toBe(true);
+
+    // The probe itself was given the corrected URL, and — critically —
+    // was never inserted into the visible DOM (never queryable via
+    // `getImg`, which only ever finds `img.tok-image` inside `view.dom`).
+    const probe = latestProbe();
+    expect(probe.src).toBe('https://example.com/fixed.jpg');
+    expect(view.dom.contains(probe)).toBe(false);
+
+    // Only once the probe's own `load` event confirms the URL genuinely
+    // resolves does the widget switch to the normal, working
+    // representation — at which point the real, visible <img> is
+    // constructed for a URL already known to load.
+    probe.dispatchEvent(new Event('load'));
+
+    expect(view.dom.querySelector('.cm-image-broken')).toBeNull();
+    expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/fixed.jpg');
+  });
+
+  it('editing a previously-WORKING image\'s URL toward a bad one also flips pessimistic immediately — the direction the earlier design never covered at all', () => {
+    const view = mountView(IMAGE_MD);
+    expect(getImg(view)).not.toBeNull();
+    expect(getImageUiState(view.state, 0).broken).toBe(false);
+
+    clickEdit(view);
+    const urlStart = view.state.doc.toString().indexOf('https://');
+    const urlEnd = view.state.doc.toString().indexOf(')');
+    view.dispatch({
+      changes: { from: urlStart, to: urlEnd, insert: 'https://example.com/now-broken.jpg' },
+    });
+
+    // No live <img> was ever mounted for the edited (unverified) URL —
+    // this is the exact mechanism that closes the "browser's native
+    // broken-image glyph flashes during rapid URL editing" report: a
+    // working image being edited toward a bad URL never gets a chance to
+    // mount a real <img> with that unverified URL in the first place.
+    expect(getImg(view)).toBeNull();
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+    expect(getImageUiState(view.state, 0).broken).toBe(true);
+
+    const probe = latestProbe();
+    expect(probe.src).toBe('https://example.com/now-broken.jpg');
+    probe.dispatchEvent(new Event('error'));
+
+    // Confirmed broken — stays on our own representation, never the
+    // browser's native one (there was never a visible <img> to show it).
+    expect(getImageUiState(view.state, 0).broken).toBe(true);
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+  });
+
+  it('a stale probe (superseded by further typing before it resolved) is discarded, never applying a stale verdict', () => {
+    const view = mountView(IMAGE_MD);
+    getImg(view)!.dispatchEvent(new Event('error'));
+    clickEdit(view);
+
+    const urlStart = view.state.doc.toString().indexOf('https://');
+    const firstUrlEnd = view.state.doc.toString().indexOf(')');
+    view.dispatch({ changes: { from: urlStart, to: firstUrlEnd, insert: 'https://example.com/first.jpg' } });
+    const firstProbe = latestProbe();
+    expect(firstProbe.src).toBe('https://example.com/first.jpg');
+
+    // Superseded by a second edit before the first probe ever resolved —
+    // exactly what rapid character-by-character typing produces.
+    const secondUrlEnd = view.state.doc.toString().indexOf(')');
+    view.dispatch({ changes: { from: urlStart, to: secondUrlEnd, insert: 'https://example.com/second.jpg' } });
+    expect(getImageUiState(view.state, 0).broken).toBe(true);
+
+    // The stale first probe finally resolves (a slow network reply
+    // arriving late) — must be silently discarded, not applied.
+    firstProbe.dispatchEvent(new Event('load'));
+
+    expect(getImageUiState(view.state, 0).broken).toBe(true);
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+    expect(getImg(view)).toBeNull();
+
+    // The second (current) probe resolving is what's actually allowed to
+    // change anything.
+    const secondProbe = latestProbe();
+    expect(secondProbe.src).toBe('https://example.com/second.jpg');
+    secondProbe.dispatchEvent(new Event('load'));
+
+    expect(getImageUiState(view.state, 0).broken).toBe(false);
+    expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/second.jpg');
+  });
+
+  it('editing a line ABOVE the image never marks it broken — the exact coordinate-space bug this whole mechanism was rewritten to fix', () => {
+    // The originally-reported bug: deleting characters on an unrelated
+    // preceding line, confirmed via a direct coordinate-space sweep
+    // against the real reducer to false-positive specifically when the
+    // deleted count was large relative to the gap before the image.
+    const view = mountView(`AB\n${IMAGE_MD}\nAfter`);
+    const imageFrom = view.state.doc.toString().indexOf('![');
+    getImg(view)!.dispatchEvent(new Event('error'));
+    expect(getImageUiState(view.state, imageFrom).broken).toBe(true);
+
+    // Delete "AB\n" entirely — the exact boundary case the coordinate-
+    // space bug mishandled (image shifts backward by the deleted count).
+    view.dispatch({ changes: { from: 0, to: 3, insert: '' } });
+    const newImageFrom = imageFrom - 3;
+
+    // The whole point: `broken` must stay exactly `true`, never reset by
+    // an edit that never touched the image's own text. (A widget
+    // reconstruction — and therefore a fresh, harmless, redundant probe —
+    // can still happen here for an unrelated reason: `ImageWidget.eq()`
+    // also compares `pos`, which genuinely did shift by 3 when the
+    // preceding line was deleted; that's expected CM6 diffing, not the
+    // bug this test guards against.)
+    expect(getImageUiState(view.state, newImageFrom).broken).toBe(true);
+  });
+
+  it('typing text immediately after a broken image does NOT reset broken: false — its own URL never changed', () => {
+    const view = mountView(IMAGE_MD);
+    getImg(view)!.dispatchEvent(new Event('error'));
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+    clickEdit(view);
+
+    // Same shape as the "completing source editing" scenario: text
+    // inserted strictly after the node's own `to`, never touching its
+    // URL — must leave `broken` alone, not hand it a fresh (and, for the
+    // same unchanged bad URL, doomed-to-fail-again) <img> just because
+    // something was typed nearby on the same line.
+    view.dispatch({
+      changes: { from: IMAGE_MD.length, insert: ' more text' },
+      selection: { anchor: IMAGE_MD.length + ' more text'.length },
+    });
+
+    expect(getImageUiState(view.state, 0).broken).toBe(true);
+  });
+});
+
+/**
+ * "Incomplete image syntax must remain plain editable Markdown" — a
+ * syntactically incomplete `![...]`/`![...](...` never satisfies
+ * `scanImage`'s own `](`+trailing-`)` check (imageScanner.ts), so
+ * `imageLivePreview.ts`'s existing `if (!match) return;` guard already
+ * excludes it before any decoration/widget is ever created — confirmed
+ * directly against the real Lezer tree (not assumed): `![Text]` parses as
+ * a genuine `Image` node (CommonMark's shortcut-reference-image syntax
+ * tentatively matches any `![...]`), but that node's own range never
+ * includes a destination, which is exactly what `scanImage` checks for.
+ * This is what makes the broken-image state's own detection (a real
+ * `<img>` `error` event) safe by construction: it can only ever apply to
+ * an occurrence that already parsed as a syntactically complete image.
+ */
+describe('Incomplete image syntax', () => {
+  function hasImageContainer(view: EditorView): boolean {
+    return view.dom.querySelector('.cm-image-container') !== null;
+  }
+
+  it.each([
+    ['![Text]', '![Text]'],
+    ['![Text](', '![Text]('],
+    ['![Text](http', '![Text](http'],
+    ['![', '!['],
+    ['![Text](  ', '![Text](  '],
+    // closeBrackets() auto-closes `(` to `()` the instant it's typed —
+    // see imageScanner.ts's own doc comment on its empty-destination
+    // check. An already-closed-but-empty destination must stay just as
+    // editable as a still-open one.
+    ['![Text]()', '![Text]()'],
+    ['![Text](   )', '![Text](   )'],
+  ])('%s remains plain editable Markdown — no widget, no broken state', (_label, doc) => {
+    const view = mountView(doc);
+    expect(hasImageContainer(view)).toBe(false);
+    expect(view.dom.textContent).toContain(doc);
+  });
+
+  it('a complete valid-looking URL renders the normal working image', () => {
+    const view = mountView('![Text](valid-url)');
+    expect(hasImageContainer(view)).toBe(true);
+    expect(view.dom.querySelector('.cm-image-container--broken')).toBeNull();
+    expect(getImg(view)?.getAttribute('src')).toBe('valid-url');
+  });
+
+  it('a complete image only goes broken after its own <img> actually fails to load, never merely from being present', () => {
+    const view = mountView('![Text](https://example.com/nonexistent.jpg)');
+    expect(view.dom.querySelector('.cm-image-container--broken')).toBeNull();
+    expect(getImg(view)).not.toBeNull();
+
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    expect(view.dom.querySelector('.cm-image-container--broken')).not.toBeNull();
+  });
+
+  it('typing an image progressively never renders a widget until the syntax is actually complete', () => {
+    const view = mountView('');
+    const steps = ['!', '![', '![Text', '![Text]', '![Text](', '![Text](https://example.com/x.png'];
+    for (const doc of steps) {
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: doc } });
+      expect(hasImageContainer(view)).toBe(false);
+    }
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: '![Text](https://example.com/x.png)' },
+    });
+    expect(hasImageContainer(view)).toBe(true);
+  });
+});
+
+/**
+ * CSS tripwires for the three display modes, same jsdom-cannot-compute-
+ * real-layout rationale as `.cm-image-container`'s own tripwire above.
+ */
+describe('MarkdownEditor.css — display mode rules', () => {
+  function ruleBody(css: string, selector: RegExp): string {
+    const match = css.match(selector);
+    expect(match, `rule not found: ${selector}`).not.toBeNull();
+    return match![1] ?? '';
+  }
+
+  it('.tok-image--fill fills a real 100%-wide, 400px-tall box via object-fit: cover (not just a max-height cap)', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const body = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fill\s*\{([^}]*)\}/);
+    // A real `height`, not `max-height` — object-fit only has a box to
+    // crop into once both dimensions are real sizes, not caps a smaller
+    // image could still shrink below (the exact bug this rule was fixed
+    // for: a `max-height` + `width: 100%` version left short images
+    // short instead of filling the box).
+    expect(body).toMatch(/height\s*:\s*400px\s*;/);
+    expect(body).not.toMatch(/max-height\s*:/);
+    expect(body).toMatch(/width\s*:\s*100%\s*;/);
+    // object-fit: cover is what makes filling both dimensions compatible
+    // with "never distort" — it crops, it never stretches the image's
+    // own aspect ratio.
+    expect(body).toMatch(/object-fit\s*:\s*cover\s*;/);
+  });
+
+  it('.tok-image--fit caps height at 400px, width follows the aspect ratio', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const body = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fit\s*\{([^}]*)\}/);
+    expect(body).toMatch(/max-height\s*:\s*400px\s*;/);
+    expect(body).toMatch(/width\s*:\s*auto\s*;/);
+    expect(body).not.toMatch(/(?<!max-)width\s*:\s*\d/);
+  });
+
+  it('.cm-image-container--fill is a full-width box, minus the same 1px caret-overflow reserve --broken uses (Fill has no narrower-than-full-width case left to center)', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const body = ruleBody(css, /\.cm-editor\s+\.cm-image-container--fill\s*\{([^}]*)\}/);
+    expect(body).toMatch(/width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
+  });
+
+  it('.cm-image-container--fit centers the shrink-wrapped container instead of stretching it full-width', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const body = ruleBody(css, /\.cm-editor\s+\.cm-image-container--fit\s*\{([^}]*)\}/);
+    expect(body).toMatch(/margin-inline\s*:\s*auto\s*;/);
+    // Unlike --fill, Fit's container must stay shrink-wrapped so
+    // .cm-image-controls still anchors to the actual (narrower) image
+    // edge, not the empty space at the editor's own right edge.
+    expect(body).not.toMatch(/width\s*:/);
+  });
+
+  it('there is no Auto mode class anywhere in the stylesheet', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    expect(css).not.toMatch(/tok-image--auto/);
+  });
+});

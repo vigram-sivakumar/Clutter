@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
 
 import {
@@ -63,7 +63,14 @@ import { taskCompletionMetadataDecoration } from './codemirror/task/taskCompleti
 // entirely, in wikiLinkLivePreview.ts (see that file's doc comment).
 // import { strikethroughMarkerDecoration } from './codemirror/highlight/strikethroughMarkerDecoration';
 import { horizontalRuleDecoration } from './codemirror/hr/horizontalRuleDecoration';
+import { computeImageDeletionRange } from './codemirror/image/imageDeletion';
+import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
+import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
+import { ImageOverlay, type ImageOverlayImage } from './codemirror/image/ImageOverlay';
+import { imageLivePreview } from './codemirror/image/imageLivePreview';
+import { getImageUiState, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
+import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 // import { tableDecoration } from './codemirror/table/tableDecoration';
 // taskCheckboxMouseHandlers.ts was deleted alongside the rest of the old
 // list-marker implementation (2026-08-28 list reset) and rebuilt in the
@@ -154,6 +161,7 @@ export const MarkdownEditor = forwardRef<
     resolveTag,
     getTagSuggestions,
     resolveDate,
+    onSetCoverImage,
   },
   ref
 ) {
@@ -204,6 +212,112 @@ export const MarkdownEditor = forwardRef<
   // Same freshness pattern, for the completion source's accessor below.
   const getWikiLinkSuggestionsRef = useRef(getWikiLinkSuggestions);
   getWikiLinkSuggestionsRef.current = getWikiLinkSuggestions;
+
+  // Image's lightbox — local, presentational state (unlike
+  // resolveWikiLink/resolveTag/resolveDate above, opening an overlay for
+  // an already-resolved image URL needs no Vault/PageOperations access,
+  // so it's owned entirely inside this component rather than composed in
+  // the app layer). Same freshness-ref pattern as every other accessor
+  // here: the extension is built once at mount and reads this getter
+  // fresh per click, so the setState setter identity (already stable,
+  // guaranteed by React) never needs the extension itself rebuilt.
+  const [imageOverlay, setImageOverlay] = useState<ImageOverlayImage | null>(null);
+  const onImageClickRef = useRef<OnImageClick>((url, alt) => setImageOverlay({ url, alt }));
+
+  // Image's size/options menu — same local, presentational-state pattern
+  // as imageOverlay above. `anchor` is a plain {current: HTMLElement}
+  // bridging ImageWidget's raw-DOM trigger button into Overlay's
+  // RefObject<HTMLElement> contract (see ImageOptionsMenu.tsx's own doc
+  // comment) — not a React-created ref, since the trigger button lives in
+  // CM6's DOM, not React's.
+  const [imageMenu, setImageMenu] = useState<{
+    anchor: { current: HTMLElement };
+    pos: number;
+    to: number;
+    alt: string;
+    url: string;
+  } | null>(null);
+  /**
+   * Sets/clears the size button's own active styling plus its container's
+   * `[data-menu-open]` (`MarkdownEditor.css`'s "entire controls area
+   * remains visible while the menu is open" rule) via **direct DOM
+   * mutation** on the exact button/container elements already in hand —
+   * never a CM6 dispatch. This is deliberate, not a shortcut: an earlier
+   * version routed this through `imageUiState.ts`'s `setImageUiState`
+   * effect, diffed by `ImageWidget.eq()` the same way `revealed`/
+   * `displayMode` are, and that broke the menu's own positioning — the
+   * `Overlay` this menu renders through is anchored directly to this same
+   * `sizeButton` element, and the instant `eq()` saw a change it made CM6
+   * destroy and recreate the widget's DOM, detaching the very button the
+   * already-open `Overlay` was anchored to (its `getBoundingClientRect()`
+   * then reads `{0,0,0,0}`, placing the menu at the viewport's top-left
+   * corner). See `imageUiState.ts`'s own doc comment for the full record.
+   * Plain DOM mutation has no such risk: it touches nothing CM6's own
+   * decoration diffing looks at, so the button's identity — and therefore
+   * `Overlay`'s anchor — is untouched by opening or closing this menu.
+   */
+  function setImageMenuButtonOpen(button: HTMLElement, open: boolean) {
+    button.classList.toggle('cm-image-control--active', open);
+    button.setAttribute('aria-expanded', String(open));
+    button.closest('.cm-image-container')?.setAttribute('data-menu-open', String(open));
+  }
+
+  const onOpenImageMenuRef = useRef<OnOpenImageMenu>(({ anchor, pos, to, alt, url }) => {
+    // Clicking the size button for the image whose menu is already open
+    // closes it — the same toggle affordance OverflowMenu's own trigger
+    // button gives (onOpenChange(!open)) — rather than always reopening.
+    setImageMenu((current) => {
+      const closingSame = current !== null && current.pos === pos;
+      if (current) {
+        setImageMenuButtonOpen(current.anchor.current, false);
+      }
+      if (!closingSame) {
+        setImageMenuButtonOpen(anchor, true);
+      }
+      return closingSame ? null : { anchor: { current: anchor }, pos, to, alt, url };
+    });
+  });
+
+  const closeImageMenu = () => {
+    if (imageMenu) {
+      setImageMenuButtonOpen(imageMenu.anchor.current, false);
+    }
+    setImageMenu(null);
+  };
+
+  const handleSelectImageDisplayMode = (mode: ImageDisplayMode) => {
+    const view = viewRef.current;
+    if (!imageMenu || !view) {
+      return;
+    }
+    const ui = getImageUiState(view.state, imageMenu.pos);
+    view.dispatch({
+      effects: setImageUiState.of({ pos: imageMenu.pos, to: imageMenu.to, state: { ...ui, displayMode: mode } }),
+    });
+  };
+
+  const handleCopyImageLink = () => {
+    if (!imageMenu) {
+      return;
+    }
+    void copyTextToClipboard(imageMenu.url);
+  };
+
+  const handleSetCoverImage = () => {
+    if (!imageMenu) {
+      return;
+    }
+    onSetCoverImage?.(imageMenu.url);
+  };
+
+  const handleDeleteImage = () => {
+    const view = viewRef.current;
+    if (!imageMenu || !view) {
+      return;
+    }
+    const { from, to } = computeImageDeletionRange(view.state, imageMenu.pos);
+    view.dispatch({ changes: { from, to, insert: '' } });
+  };
 
   // Same freshness pattern as resolveWikiLinkRef above, for Tag's decoration/mouse/keymap accessor.
   const resolveTagRef = useRef(resolveTag);
@@ -321,6 +435,14 @@ export const MarkdownEditor = forwardRef<
         // isn't governed by that shared traversal at all. See
         // wikilink/wikiLinkLivePreview.ts's own doc comment.
         wikiLinkLivePreview(() => resolveWikiLinkRef.current),
+        // Image's own standalone visibility mechanism — not a participant
+        // above (see inlineLivePreviewParticipants.ts's own comment).
+        // Required behavior: the rendered image must never be replaced by
+        // raw Markdown just because the caret enters it; only its own
+        // edit/source control does that, and even then the image stays
+        // rendered alongside the now-editable source. See
+        // image/imageLivePreview.ts's own doc comment.
+        imageLivePreview(() => onImageClickRef.current, () => onOpenImageMenuRef.current),
         // strikethroughMarkerDecoration(),
         // Bullet (-/*/+) marker rendering only — the first slice of the
         // list-rendering rebuild (2026-08-28 reset, see the comment near
@@ -559,5 +681,23 @@ export const MarkdownEditor = forwardRef<
     syncMarkdownIntoView(view, markdown);
   }, [markdown]);
 
-  return <div ref={containerRef} />;
+  const imageMenuCurrentMode = imageMenu && viewRef.current
+    ? getImageUiState(viewRef.current.state, imageMenu.pos).displayMode
+    : 'large';
+
+  return (
+    <>
+      <div ref={containerRef} />
+      <ImageOverlay image={imageOverlay} onClose={() => setImageOverlay(null)} />
+      <ImageOptionsMenu
+        anchor={imageMenu?.anchor ?? null}
+        currentMode={imageMenuCurrentMode}
+        onClose={closeImageMenu}
+        onSelectMode={handleSelectImageDisplayMode}
+        onCopyLink={handleCopyImageLink}
+        onSetCoverImage={onSetCoverImage ? handleSetCoverImage : undefined}
+        onDelete={handleDeleteImage}
+      />
+    </>
+  );
 });

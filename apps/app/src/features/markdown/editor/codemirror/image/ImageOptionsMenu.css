@@ -1,0 +1,13 @@
+/* No divider primitive exists in the project's menu system today
+   (confirmed by search — noteTopBarMenu.config.ts's own real "⋯" menu,
+   which groups a similarly danger-adjacent Delete item, renders a flat
+   list with no visible separator). One new, minimal rule, reusing the
+   project's own existing border token (design-system/theme.css). Negative
+   horizontal margin cancels .menu's own padding so the rule spans its
+   full width, not just the item column. */
+.menu__divider {
+  height: 1px;
+  margin: var(--space-4) calc(var(--space-4) * -1);
+  margin-inline: var(--space-8);
+  background: var(--border-default);
+}

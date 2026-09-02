@@ -1,0 +1,10 @@
+/* Sizing only — Overlay.css's own .overlay__content is deliberately
+   unopinionated (no default width/padding), so this is the only CSS this
+   lightbox needs beyond what Overlay/Dialog already provide. */
+.image-overlay__img {
+  display: block;
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius-lg);
+}
