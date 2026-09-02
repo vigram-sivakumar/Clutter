@@ -600,17 +600,19 @@
   cursor: pointer;
   color: var(--foreground-tertiary);
   user-select: none;
+  vertical-align: top;
+
   transition:
     opacity 150ms ease,
     color 150ms ease;
 }
 
-.cm-editor .cm-task-checkbox[aria-checked="true"] {
+.cm-editor .cm-task-checkbox[aria-checked='true'] {
   color: var(--checkbox-accent);
 }
 
 /* Strike-through completed task content */
-.cm-editor .cm-line:has(.cm-task-checkbox[aria-checked="true"]) {
+.cm-editor .cm-line:has(.cm-task-checkbox[aria-checked='true']) {
   color: var(--foreground-tertiary);
   text-decoration: line-through;
 }
@@ -625,9 +627,10 @@
 }
 
 .cm-editor .cm-task-checkbox svg {
-  width: 16px;
-  height: 16px;
+  width: var(--icon-md);
+  height: var(--icon-md);
   flex-shrink: 0;
+  stroke-width: var(--icon-stroke);
 }
 
 /*
