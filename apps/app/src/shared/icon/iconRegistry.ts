@@ -12,6 +12,7 @@ import ArrowRight from './svg/arrow-right.svg?react';
 import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import BookshelfBox from './svg/bookshelf-box.svg?react';
 import Butterfly from './svg/butterfly.svg?react';
+import BrokenImage from './svg/broken-image.svg?react';
 import CalendarBlank from './svg/calendar-blank.svg?react';
 import CalendarDot from './svg/calendar-dot.svg?react';
 import Car from './svg/car.svg?react';
@@ -33,6 +34,7 @@ import Copy from './svg/copy.svg?react';
 import CircleDashed from './svg/circle-dashed.svg?react';
 import Clock from './svg/clock.svg?react';
 import Dismiss from './svg/dismiss.svg?react';
+import Edit from './svg/edit.svg?react';
 import Description from './svg/description.svg?react';
 import FavouriteFilled from './svg/favourite-filled.svg?react';
 import FavouriteOutline from './svg/favourite-outline.svg?react';
@@ -56,6 +58,7 @@ import NotePencil from './svg/note-pencil.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
 import Question from './svg/question.svg?react';
+import Portrait from './svg/portrait.svg?react';
 import Restore from './svg/restore.svg?react';
 import RightSidebar from './svg/right-sidebar.svg?react';
 import Settings from './svg/settings.svg?react';
@@ -68,7 +71,7 @@ import SquareCheckOutline from './svg/square-check-outline.svg?react';
 import SquareDashed from './svg/square-dashed.svg?react';
 import SquareExpand from './svg/square-expand.svg?react';
 import SquareFill from './svg/square-fill.svg?react';
-import SquareHug from './svg/square-hug.svg?react';
+import SquareFit from './svg/square-fit.svg?react';
 import SquiggleLine from './svg/squiggle-line.svg?react';
 import Tabs from './svg/tabs.svg?react';
 import TabsFlat from './svg/tabs-flat.svg?react';
@@ -93,6 +96,7 @@ export const iconRegistry = {
   arrowRight: ArrowRight,
   arrowRightSmallHead: ArrowRightSmallHead,
   bookshelfBox: BookshelfBox,
+  brokenImage: BrokenImage,
   butterfly: Butterfly,
   calendar: CalendarBlank,
   calendarDot: CalendarDot,
@@ -116,6 +120,7 @@ export const iconRegistry = {
   circleDashed: CircleDashed,
   clock: Clock,
   dismiss: Dismiss,
+  edit: Edit,
   description: Description,
   favouriteFilled: FavouriteFilled,
   favouriteOutline: FavouriteOutline,
@@ -139,6 +144,7 @@ export const iconRegistry = {
   pin: Pin,
   plus: Plus,
   question: Question,
+  portrait: Portrait,
   restore: Restore,
   rightSidebar: RightSidebar,
   settings: Settings,
@@ -151,7 +157,7 @@ export const iconRegistry = {
   squareDashed: SquareDashed,
   squareExpand: SquareExpand,
   squareFill: SquareFill,
-  squareHug: SquareHug,
+  squareFit: SquareFit,
   squiggleLine: SquiggleLine,
   tabs: Tabs,
   tabsFlat: TabsFlat,
