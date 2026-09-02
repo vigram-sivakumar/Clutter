@@ -25,6 +25,7 @@ import { KnowledgeGraph } from '../../vault/models/graph/KnowledgeGraph';
 import { Workspace } from '../../workspace/Workspace';
 import type { Folder } from '../../vault/models/Folder';
 import type { Page } from '../../vault/models/Page';
+import type { VaultResource } from '../../vault/models/VaultResource';
 
 const ROOT = '/vault';
 
@@ -105,7 +106,22 @@ function makeFolderOperations(
   );
 }
 
-function setup(folders: Folder[] = [], pages: Page[] = []) {
+function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
+  return {
+    id: 'resource-1',
+    kind: 'image',
+    name: 'Cover.png',
+    path: `${ROOT}/Cover.png`,
+    parentId: null,
+    ...overrides,
+  };
+}
+
+function setup(
+  folders: Folder[] = [],
+  pages: Page[] = [],
+  resources: VaultResource[] = []
+) {
   const vault = new Vault(
     ROOT,
     pages,
@@ -114,7 +130,9 @@ function setup(folders: Folder[] = [], pages: Page[] = []) {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
   const query = new VaultQuery(vault);
   const workspace = new Workspace();
@@ -482,5 +500,109 @@ describe('MembershipSelector normal-view filtering after folder archive (ADR-026
     expect(
       membershipSelector.getWorkspaceFolders().map((f) => f.id)
     ).toEqual(['folder-unrelated']);
+  });
+});
+
+describe('MembershipSelector resources', () => {
+  it('a normal visible resource is returned as a child of its folder', () => {
+    const folder = makeFolder({ id: 'folder-1', path: `${ROOT}/Assets` });
+    const resource = makeResource({ id: 'resource-1', parentId: 'folder-1' });
+    const { membershipSelector } = setup([folder], [], [resource]);
+
+    expect(
+      membershipSelector.getVisibleChildResources('folder-1').map((r) => r.id)
+    ).toEqual(['resource-1']);
+  });
+
+  it('hides a resource whose name starts with a dot', () => {
+    const folder = makeFolder({ id: 'folder-1', path: `${ROOT}/Assets` });
+    const visible = makeResource({ id: 'resource-visible', name: 'Cover.png', parentId: 'folder-1' });
+    const hidden = makeResource({ id: 'resource-hidden', name: '.Cover.png', parentId: 'folder-1' });
+    const { membershipSelector, query } = setup([folder], [], [visible, hidden]);
+
+    // Still fully present structurally — only the presentation layer hides it.
+    expect(query.getChildResources('folder-1').map((r) => r.id)).toEqual(
+      expect.arrayContaining(['resource-visible', 'resource-hidden'])
+    );
+
+    expect(
+      membershipSelector.getVisibleChildResources('folder-1').map((r) => r.id)
+    ).toEqual(['resource-visible']);
+  });
+
+  it('hides a resource that belongs to an archived folder', () => {
+    const archived = makeFolder({
+      id: 'folder-1',
+      path: `${ROOT}/Archive/Assets`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const resource = makeResource({ id: 'resource-1', parentId: 'folder-1' });
+    const { membershipSelector } = setup([archived], [], [resource]);
+
+    expect(membershipSelector.getVisibleChildResources('folder-1')).toEqual([]);
+  });
+
+  it('hides a resource that belongs to a folder nested under an archived ancestor', () => {
+    const archivedParent = makeFolder({
+      id: 'folder-parent',
+      path: `${ROOT}/Archive/Parent`,
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const activeChild = makeFolder({
+      id: 'folder-child',
+      path: `${ROOT}/Archive/Parent/Child`,
+      parentId: 'folder-parent',
+    });
+    const resource = makeResource({ id: 'resource-1', parentId: 'folder-child' });
+    const { membershipSelector } = setup([archivedParent, activeChild], [], [resource]);
+
+    expect(membershipSelector.getVisibleChildResources('folder-child')).toEqual([]);
+  });
+
+  it('a sibling resource unaffected by the archived ancestor still renders normally', () => {
+    const archivedParent = makeFolder({
+      id: 'folder-parent',
+      path: `${ROOT}/Archive/Parent`,
+      parentId: 'folder-archive',
+      metadata: { ...defaultFolderMetadata, status: 'archived' },
+    });
+    const unrelated = makeFolder({ id: 'folder-unrelated', path: `${ROOT}/Unrelated` });
+    const resource = makeResource({ id: 'resource-1', parentId: 'folder-unrelated' });
+    const { membershipSelector } = setup([archivedParent, unrelated], [], [resource]);
+
+    expect(
+      membershipSelector.getVisibleChildResources('folder-unrelated').map((r) => r.id)
+    ).toEqual(['resource-1']);
+  });
+
+  it('returns a visible root resource (parentId: null)', () => {
+    const resource = makeResource({ id: 'resource-1', parentId: null });
+    const { membershipSelector } = setup([], [], [resource]);
+
+    expect(membershipSelector.getRootResources().map((r) => r.id)).toEqual([
+      'resource-1',
+    ]);
+  });
+
+  it('hides a dot-prefixed root resource', () => {
+    const visible = makeResource({ id: 'resource-visible', name: 'Cover.png', parentId: null });
+    const hidden = makeResource({ id: 'resource-hidden', name: '.Cover.png', parentId: null });
+    const { membershipSelector } = setup([], [], [visible, hidden]);
+
+    expect(membershipSelector.getRootResources().map((r) => r.id)).toEqual([
+      'resource-visible',
+    ]);
+  });
+
+  it('excludes a resource belonging to a different folder', () => {
+    const folderA = makeFolder({ id: 'folder-a', path: `${ROOT}/A` });
+    const folderB = makeFolder({ id: 'folder-b', path: `${ROOT}/B` });
+    const resource = makeResource({ id: 'resource-1', parentId: 'folder-a' });
+    const { membershipSelector } = setup([folderA, folderB], [], [resource]);
+
+    expect(membershipSelector.getVisibleChildResources('folder-b')).toEqual([]);
+    expect(
+      membershipSelector.getVisibleChildResources('folder-a').map((r) => r.id)
+    ).toEqual(['resource-1']);
   });
 });

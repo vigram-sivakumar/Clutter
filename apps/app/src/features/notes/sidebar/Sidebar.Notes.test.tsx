@@ -32,6 +32,7 @@ import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService
 import type { NavigationRouter } from '@core/application/navigation/NavigationRouter';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
 
 class ResizeObserverMock {
@@ -94,7 +95,22 @@ function makePage(id: string, path: string, overrides?: { favorite?: boolean }):
   });
 }
 
-function setup(folders: Folder[], pages: Page[] = []) {
+function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
+  return {
+    id: 'resource-1',
+    kind: 'image',
+    name: 'photo.png',
+    path: `${ROOT}/photo.png`,
+    parentId: null,
+    ...overrides,
+  };
+}
+
+function setup(
+  folders: Folder[],
+  pages: Page[] = [],
+  resources: VaultResource[] = []
+) {
   const vault = new Vault(
     ROOT,
     pages,
@@ -103,7 +119,9 @@ function setup(folders: Folder[], pages: Page[] = []) {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
   const query = new VaultQuery(vault);
   const fileSystem = new InMemoryVaultFileSystem();
@@ -338,6 +356,20 @@ describe('Sidebar Notes: clicking the "Workspace" section header title navigates
 
     expect(deps.workspace.isSectionExpanded('folders')).toBe(true);
     expect(deps.navigation.openWorkspace).not.toHaveBeenCalled();
+  });
+});
+
+describe('Sidebar Notes: empty-vault detection considers root resources', () => {
+  it('a vault with only a root-level resource (no folders, no pages) does not default the Workspace section to collapsed', () => {
+    const resource = makeResource({ id: 'resource-1', name: 'photo.png', parentId: null });
+    const deps = setup([], [], [resource]);
+
+    renderNotes(deps);
+
+    // If isFoldersEmpty wrongly ignored root resources, Section would
+    // default to collapsed (isEmpty && !hasBeenToggled) and render no
+    // children at all — the resource row would not be in the document.
+    expect(screen.getByText('photo.png')).toBeInTheDocument();
   });
 });
 

@@ -570,6 +570,21 @@ export class Application {
   }
 
   /**
+   * Turns a VaultResource's own absolute path into a value suitable for
+   * `<img src>` — the sidebar-resource counterpart to
+   * resolveCoverImageForDisplay above, simpler because VaultResource.path
+   * is always already an absolute vault path (unlike a persisted `cover`
+   * reference, which may be a relative `Assets/…` string or an external
+   * URL). Reuses the same injected coverImageUrlResolver instance — no new
+   * resolver, no new wiring, and registerVaultAssetScope already scopes
+   * the whole vault root, not just Assets/, so this works unmodified for a
+   * resource anywhere in the vault.
+   */
+  public resolveResourceImageUrl(path: string): string {
+    return this.coverImageUrlResolver.toLoadableUrl(path);
+  }
+
+  /**
    * Tears down the runtime graph this composition root created.
    *
    * Flushes every dirty or in-flight page first — while every session is

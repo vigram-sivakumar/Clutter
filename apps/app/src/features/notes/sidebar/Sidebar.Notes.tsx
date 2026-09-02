@@ -10,6 +10,7 @@ import type { VaultQuery } from '@core/vault/queries/VaultQuery';
 import type { Workspace } from '@core/workspace/Workspace';
 import type { EffectivePageState } from '@core/application/page/EffectivePageState';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import { buildNotesShortcutHandler } from '@features/notes/shortcuts/buildNotesShortcutHandler';
 import { NotesShortcuts } from '@features/notes/shortcuts/NotesShortcuts';
@@ -49,6 +50,13 @@ interface NotesProps {
    * fresh open (ADR-020, M3).
    */
   onOpenDraft(pageId: string): void;
+  /**
+   * Invoked when an image resource row is clicked — currently the only
+   * resource click behavior (a pdf row has none; see Resource.tsx). Absent
+   * in a caller that doesn't want the affordance, the same optionality
+   * FolderTree's own onResourceClick already has.
+   */
+  onOpenResourceImage?(resource: VaultResource): void;
 }
 
 export function Notes({
@@ -63,6 +71,7 @@ export function Notes({
   onOpen,
   onOpenFolder,
   onOpenDraft,
+  onOpenResourceImage,
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
@@ -213,6 +222,7 @@ export function Notes({
   const isFoldersEmpty =
     membershipSelector.getWorkspaceFolders().length === 0 &&
     membershipSelector.getNotesChildPages(null).length === 0 &&
+    membershipSelector.getRootResources().length === 0 &&
     pendingNewFolder?.parentId !== null;
 
   // A synchronous pre-check only (FolderOperations.canCreate()) — mirrors
@@ -318,6 +328,7 @@ export function Notes({
           onFolderClick={(folder) => {
             onOpenFolder(folder.id);
           }}
+          onResourceClick={onOpenResourceImage}
           onCreateNote={(folderId) => {
             // ADR-017: opens an unpersisted draft scoped to this folder —
             // openDraft() already opens the session/workspace itself, so

@@ -36,6 +36,7 @@ import { FolderCreator } from '@core/application/folder/FolderCreator';
 import { DailyNoteService } from '@core/application/daily-notes/DailyNoteService';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 
 afterEach(() => {
   cleanup();
@@ -95,7 +96,22 @@ function makeFolder(id: string, path: string, parentId: string | null): Folder {
   };
 }
 
-function makeVault(pages: Page[], folders: Folder[] = []): Vault {
+function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
+  return {
+    id: 'resource-1',
+    kind: 'image',
+    name: 'photo.png',
+    path: `${ROOT}/photo.png`,
+    parentId: null,
+    ...overrides,
+  };
+}
+
+function makeVault(
+  pages: Page[],
+  folders: Folder[] = [],
+  resources: VaultResource[] = []
+): Vault {
   return new Vault(
     ROOT,
     pages,
@@ -104,7 +120,9 @@ function makeVault(pages: Page[], folders: Folder[] = []): Vault {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
 }
 
@@ -126,8 +144,12 @@ function makeFolderOperations(
   );
 }
 
-function setup(initialPages: Page[] = [], initialFolders: Folder[] = []) {
-  const vault = makeVault(initialPages, initialFolders);
+function setup(
+  initialPages: Page[] = [],
+  initialFolders: Folder[] = [],
+  initialResources: VaultResource[] = []
+) {
+  const vault = makeVault(initialPages, initialFolders, initialResources);
   const query = new VaultQuery(vault);
   const fileSystem = new InMemoryVaultFileSystem();
 
@@ -187,7 +209,8 @@ function setup(initialPages: Page[] = [], initialFolders: Folder[] = []) {
 function renderTree(
   query: VaultQuery,
   membershipSelector: MembershipSelector,
-  workspace: Workspace
+  workspace: Workspace,
+  onResourceClick: (resource: VaultResource) => void = vi.fn()
 ) {
   return render(
     <FolderTree
@@ -199,6 +222,7 @@ function renderTree(
       onPageClick={vi.fn()}
       onDraftPageClick={vi.fn()}
       onFolderClick={vi.fn()}
+      onResourceClick={onResourceClick}
       onCreateNote={vi.fn()}
       pendingNewFolder={null}
       onCommitNewFolder={vi.fn()}
@@ -847,5 +871,131 @@ describe('FolderTree: create note from folder ("+" button)', () => {
     // body content, even for a draft with real, uncommitted content — but
     // they still render as two distinct rows, one under each folder.
     expect(screen.getAllByText('New Note')).toHaveLength(2);
+  });
+});
+
+describe('FolderTree: resources', () => {
+  it('a resource appears inside the folder it physically exists in', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'floorplan.png',
+      path: `${ROOT}/Projects/floorplan.png`,
+      parentId: 'folder-1',
+    });
+    const { query, workspace, membershipSelector } = setup([], [folder], [resource]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+  });
+
+  it('a resource appears at the vault root, alongside root pages', () => {
+    const page = buildPersistedPage(`${ROOT}/Ideas.md`);
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'brochure.pdf',
+      kind: 'pdf',
+      path: `${ROOT}/brochure.pdf`,
+      parentId: null,
+    });
+    const { query, workspace, membershipSelector } = setup([page], [], [resource]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.getByText('Ideas')).toBeInTheDocument();
+    expect(screen.getByText('brochure.pdf')).toBeInTheDocument();
+  });
+
+  it('a resource physically located outside Assets/ (e.g. inside a plain user folder) is visible — resources are not restricted to Assets/', () => {
+    const projects = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'floorplan.png',
+      path: `${ROOT}/Projects/floorplan.png`,
+      parentId: 'folder-1',
+    });
+    const { query, workspace, membershipSelector } = setup([], [projects], [resource]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+  });
+
+  it('a folder containing only resources (no pages, no subfolders) is not treated as empty', () => {
+    const assets = makeFolder('folder-1', `${ROOT}/Assets`, null);
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'photo.png',
+      path: `${ROOT}/Assets/photo.png`,
+      parentId: 'folder-1',
+    });
+    const { query, workspace, membershipSelector } = setup([], [assets], [resource]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    const row = screen.getByText('Assets').closest('.entry');
+    expect(row).not.toBeNull();
+    // FolderLeading (Caret.tsx) disables the caret button exactly when
+    // isEmpty is true — the most direct signal available from rendered
+    // output. A folder holding only a resource must not disable it.
+    const caretButton = row!.querySelector('.caret-slot') as HTMLButtonElement;
+    expect(caretButton).not.toBeNull();
+    expect(caretButton.disabled).toBe(false);
+  });
+
+  it('existing Markdown page rendering is unchanged when resources are also present in the same folder', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
+    const page = buildPersistedPage(`${ROOT}/Projects/House.md`, {
+      parentId: 'folder-1',
+    });
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'floorplan.png',
+      path: `${ROOT}/Projects/floorplan.png`,
+      parentId: 'folder-1',
+    });
+    const { query, workspace, membershipSelector } = setup([page], [folder], [resource]);
+
+    renderTree(query, membershipSelector, workspace);
+
+    expect(screen.getByText('House')).toBeInTheDocument();
+    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+  });
+
+  it('clicking an image resource invokes onResourceClick with the resource', () => {
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'photo.png',
+      kind: 'image',
+      path: `${ROOT}/photo.png`,
+      parentId: null,
+    });
+    const { query, workspace, membershipSelector } = setup([], [], [resource]);
+    const onResourceClick = vi.fn();
+
+    renderTree(query, membershipSelector, workspace, onResourceClick);
+
+    screen.getByText('photo.png').click();
+
+    expect(onResourceClick).toHaveBeenCalledWith(resource);
+  });
+
+  it('clicking a pdf resource does nothing', () => {
+    const resource = makeResource({
+      id: 'resource-1',
+      name: 'brochure.pdf',
+      kind: 'pdf',
+      path: `${ROOT}/brochure.pdf`,
+      parentId: null,
+    });
+    const { query, workspace, membershipSelector } = setup([], [], [resource]);
+    const onResourceClick = vi.fn();
+
+    renderTree(query, membershipSelector, workspace, onResourceClick);
+
+    screen.getByText('brochure.pdf').click();
+
+    expect(onResourceClick).not.toHaveBeenCalled();
   });
 });

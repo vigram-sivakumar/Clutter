@@ -1,5 +1,6 @@
 import type { Folder } from '../../vault/models/Folder';
 import type { Page } from '../../vault/models/Page';
+import type { VaultResource } from '../../vault/models/VaultResource';
 import type { Vault } from '../../vault/models/Vault';
 import type { VaultQuery } from '../../vault/queries/VaultQuery';
 import type { EffectivePage, EffectivePageState } from '../page/EffectivePageState';
@@ -232,5 +233,37 @@ export class MembershipSelector {
     return this.effectivePageState
       .getChildPages(parentId)
       .filter((page) => this.isVisiblePage(page));
+  }
+
+  /**
+   * Every VaultResource (image/pdf) that should currently be shown as a
+   * child of parentId — the resource-scoped counterpart to
+   * getVisibleChildPages. No EffectivePageState involved: a resource has no
+   * draft/session concept to reconcile (ADR-020's Committed/Durable merge
+   * is a Page-only question), so this reads straight from VaultQuery,
+   * narrowed by the same two presentation rules getVisibleChildPages
+   * already applies — dot-prefix hiding (isVisiblePage, already generic
+   * over any `{ name }`) and effective-archive exclusion.
+   */
+  public getVisibleChildResources(parentId: string): VaultResource[] {
+    if (this.isEffectivelyArchived(parentId)) {
+      return [];
+    }
+
+    return this.query
+      .getChildResources(parentId)
+      .filter((resource) => this.isVisiblePage(resource));
+  }
+
+  /**
+   * Every root-level VaultResource that should currently be shown — the
+   * resource-scoped counterpart to getWorkspaceFolders' root-level
+   * treatment, narrowed only by dot-prefix hiding (root itself is never
+   * archived, same as getWorkspaceFolders' own omission of that check).
+   */
+  public getRootResources(): VaultResource[] {
+    return this.query
+      .getRootResources()
+      .filter((resource) => this.isVisiblePage(resource));
   }
 }

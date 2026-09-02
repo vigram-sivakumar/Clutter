@@ -1,5 +1,6 @@
 import type { Folder } from '../models/Folder';
 import type { Page } from '../models/Page';
+import type { VaultResource } from '../models/VaultResource';
 import type { Vault } from '../models/Vault';
 
 // Vault.foldersById/pagesById (Maps) iterate in insertion order, which
@@ -49,6 +50,12 @@ function sortPages(pages: Page[]): Page[] {
   return pages.sort(compareByName);
 }
 
+// Same natural-by-name ordering as sortPages, applied to resources — no
+// sort-mode concept for resources either, same rationale as pages above.
+function sortResources(resources: VaultResource[]): VaultResource[] {
+  return resources.sort(compareByName);
+}
+
 export class VaultQuery {
   constructor(private readonly vault: Vault) {}
 
@@ -86,6 +93,25 @@ export class VaultQuery {
   public getRootPages(): Page[] {
     return sortPages(
       Array.from(this.vault.pages()).filter((page) => page.parentId === null)
+    );
+  }
+
+  // Mirrors getChildPages exactly — same filter shape, same sort — for
+  // VaultResource (image/pdf) instead of Page.
+  public getChildResources(parentId: string): VaultResource[] {
+    return sortResources(
+      Array.from(this.vault.resources()).filter(
+        (resource) => resource.parentId === parentId
+      )
+    );
+  }
+
+  // Mirrors getRootPages exactly, for VaultResource instead of Page.
+  public getRootResources(): VaultResource[] {
+    return sortResources(
+      Array.from(this.vault.resources()).filter(
+        (resource) => resource.parentId === null
+      )
     );
   }
 

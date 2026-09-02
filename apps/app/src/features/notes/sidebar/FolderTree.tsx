@@ -3,12 +3,14 @@ import { Fragment } from 'react/jsx-runtime';
 // Components
 import { Folder as FolderEntry } from './Folder';
 import { Note as NoteEntry } from './Note';
+import { Resource as ResourceEntry } from './Resource';
 import { NewFolderRow } from './NewFolderRow';
 import { buildNoteSidebarMenu } from './noteSidebarMenu.config';
 import { buildFolderSidebarMenu } from './folderSidebarMenu.config';
 import { testIds } from '@shared/testing/selectors';
 // Models
 import type { Folder } from '@core/vault/models';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 // Presentation
 import {
   getPageDisplayLabel,
@@ -173,6 +175,13 @@ interface FolderTreeProps {
    */
   onFolderClick(folder: Folder): void;
   /**
+   * Invoked when a resource entry is clicked. Resource itself only ever
+   * calls this for an image (a pdf row renders non-interactive) — see
+   * Resource.tsx's own doc comment for why the click gating lives there,
+   * not here.
+   */
+  onResourceClick?(resource: VaultResource): void;
+  /**
    * Invoked when a folder row's "+" action is clicked — opens a new draft
    * note scoped to that folder (PageOperations.openDraft({ folderId })).
    */
@@ -313,6 +322,7 @@ export function FolderTree({
   onPageClick,
   onDraftPageClick,
   onFolderClick,
+  onResourceClick,
   onCreateNote,
   pendingNewFolder,
   onCommitNewFolder,
@@ -354,6 +364,14 @@ export function FolderTree({
   // DailyNotesList now asks separately, through the same MembershipSelector.
   const rootPages = parentId === null ? membershipSelector.getNotesChildPages(null) : [];
 
+  // Same "only meaningful at the true root" shape as rootPages above — a
+  // nested folder's own resources are rendered via getVisibleChildResources
+  // below, per folder. Rendered as its own block, after root pages, not
+  // interleaved with them — matches how folders and pages themselves are
+  // already two separate, non-interleaved blocks rather than one
+  // alphabetically-merged list.
+  const rootResources = parentId === null ? membershipSelector.getRootResources() : [];
+
   const isCreatingHere =
     pendingNewFolder !== null && pendingNewFolder.parentId === parentId;
 
@@ -374,9 +392,13 @@ export function FolderTree({
         // both why draft accumulation isn't a concern here and why the
         // narrowing is necessary.
         const childPages = membershipSelector.getNotesChildPages(folder.id);
+        const childResources = membershipSelector.getVisibleChildResources(folder.id);
         const subFolders = membershipSelector.getVisibleChildFolders(folder.id);
         // Checks if the folder is empty
-        const isEmpty = subFolders.length === 0 && childPages.length === 0;
+        const isEmpty =
+          subFolders.length === 0 &&
+          childPages.length === 0 &&
+          childResources.length === 0;
         // Empty folders default to collapsed rather than Workspace's normal
         // expanded-by-default state, since there's nothing to reveal.
         const isExpanded = isEmpty ? false : workspace.isFolderExpanded(folder.id);
@@ -487,6 +509,17 @@ export function FolderTree({
                     resolveTag={resolveTag}
                   />
                 ))}
+                {/* Render all resources (image/pdf) inside this folder,
+                    after its pages — its own non-interleaved block, same
+                    convention as pages vs. subfolders. */}
+                {childResources.map((resource) => (
+                  <ResourceEntry
+                    key={resource.id}
+                    resource={resource}
+                    level={level + 1}
+                    onClick={onResourceClick}
+                  />
+                ))}
                 {/* Render this folder's child folders.
                     This is the recursive call.
                     Every child folder repeats this exact process. */}
@@ -499,6 +532,7 @@ export function FolderTree({
                   onPageClick={onPageClick}
                   onDraftPageClick={onDraftPageClick}
                   onFolderClick={onFolderClick}
+                  onResourceClick={onResourceClick}
                   onCreateNote={onCreateNote}
                   pendingNewFolder={pendingNewFolder}
                   onCommitNewFolder={onCommitNewFolder}
@@ -525,6 +559,16 @@ export function FolderTree({
           rowActions={rowActions}
           resolveWikiLink={resolveWikiLink}
           resolveTag={resolveTag}
+        />
+      ))}
+      {/* Render root-level resources, after root pages — same
+          non-interleaved-block convention as everywhere else in this tree. */}
+      {rootResources.map((resource) => (
+        <ResourceEntry
+          key={resource.id}
+          resource={resource}
+          level={level}
+          onClick={onResourceClick}
         />
       ))}
     </>

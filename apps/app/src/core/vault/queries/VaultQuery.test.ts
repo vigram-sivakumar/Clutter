@@ -5,6 +5,7 @@ import { VaultProjectionBuilder } from '../knowledge/VaultProjectionBuilder';
 import { KnowledgeGraph } from '../models/graph/KnowledgeGraph';
 import type { Folder } from '../models/Folder';
 import type { Page } from '../models/Page';
+import type { VaultResource } from '../models/VaultResource';
 
 const ROOT = '/vault';
 
@@ -67,7 +68,26 @@ function makePage(
   };
 }
 
-function makeVault(folders: Folder[] = [], pages: Page[] = []): Vault {
+function makeResource(
+  id: string,
+  name: string,
+  kind: VaultResource['kind'],
+  parentId: string | null = null
+): VaultResource {
+  return {
+    id,
+    kind,
+    name,
+    path: `${ROOT}/${name}`,
+    parentId,
+  };
+}
+
+function makeVault(
+  folders: Folder[] = [],
+  pages: Page[] = [],
+  resources: VaultResource[] = []
+): Vault {
   return new Vault(
     ROOT,
     pages,
@@ -76,7 +96,9 @@ function makeVault(folders: Folder[] = [], pages: Page[] = []): Vault {
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder()
+    new VaultProjectionBuilder(),
+    new Map(),
+    resources
   );
 }
 
@@ -290,6 +312,121 @@ describe('VaultQuery.getChildPages', () => {
       'Apple',
       'Mango',
       'Zebra',
+    ]);
+  });
+});
+
+describe('VaultQuery.getRootResources', () => {
+  it('returns resources whose parentId is null', () => {
+    const rootResource = makeResource('resource-1', 'Cover.png', 'image', null);
+    const query = new VaultQuery(makeVault([], [], [rootResource]));
+
+    expect(query.getRootResources().map((r) => r.id)).toEqual(['resource-1']);
+  });
+
+  it('excludes a resource that belongs to a folder', () => {
+    const folder = makeFolder('folder-1', 'Assets');
+    const nestedResource = makeResource('resource-1', 'Cover.png', 'image', 'folder-1');
+    const query = new VaultQuery(makeVault([folder], [], [nestedResource]));
+
+    expect(query.getRootResources()).toEqual([]);
+  });
+
+  it('returns an empty list when there are no resources', () => {
+    const query = new VaultQuery(makeVault());
+
+    expect(query.getRootResources()).toEqual([]);
+  });
+
+  it('returns resources sorted by name, independent of insertion order', () => {
+    const resources = [
+      makeResource('resource-z', 'Zebra.png', 'image', null),
+      makeResource('resource-a', 'Apple.pdf', 'pdf', null),
+      makeResource('resource-m', 'Mango.svg', 'image', null),
+    ];
+    const query = new VaultQuery(makeVault([], [], resources));
+
+    expect(query.getRootResources().map((r) => r.name)).toEqual([
+      'Apple.pdf',
+      'Mango.svg',
+      'Zebra.png',
+    ]);
+  });
+});
+
+describe('VaultQuery.getChildResources', () => {
+  it('returns exactly the supported resources belonging to a folder', () => {
+    const assets = makeFolder('assets-folder', 'Assets');
+    const resources = [
+      makeResource('house', 'house.png', 'image', 'assets-folder'),
+      makeResource('logo', 'logo.svg', 'image', 'assets-folder'),
+      makeResource('brochure', 'brochure.pdf', 'pdf', 'assets-folder'),
+    ];
+    const query = new VaultQuery(makeVault([assets], [], resources));
+
+    expect(query.getChildResources('assets-folder').map((r) => r.name)).toEqual([
+      'brochure.pdf',
+      'house.png',
+      'logo.svg',
+    ]);
+  });
+
+  it('keeps pages and resources separate within the same folder', () => {
+    const notes = makeFolder('notes-folder', 'Notes');
+    const page = makePage('page-1', 'Ideas', 'notes-folder');
+    const resource = makeResource('resource-1', 'Cover.png', 'image', 'notes-folder');
+    const query = new VaultQuery(makeVault([notes], [page], [resource]));
+
+    expect(query.getChildPages('notes-folder').map((p) => p.id)).toEqual(['page-1']);
+    expect(query.getChildResources('notes-folder').map((r) => r.id)).toEqual([
+      'resource-1',
+    ]);
+  });
+
+  it('excludes resources belonging to a different folder', () => {
+    const assets = makeFolder('assets-folder', 'Assets');
+    const notes = makeFolder('notes-folder', 'Notes');
+    const resources = [
+      makeResource('house', 'house.png', 'image', 'assets-folder'),
+      makeResource('unrelated', 'unrelated.pdf', 'pdf', 'notes-folder'),
+    ];
+    const query = new VaultQuery(makeVault([assets, notes], [], resources));
+
+    expect(query.getChildResources('assets-folder').map((r) => r.id)).toEqual(['house']);
+  });
+
+  it('does not return a nested folder\'s resources as direct children of its ancestor', () => {
+    const assets = makeFolder('assets-folder', 'Assets');
+    const nested = makeFolder('nested-folder', 'Nested', 'assets-folder');
+    const nestedResource = makeResource('nested-resource', 'deep.png', 'image', 'nested-folder');
+    const query = new VaultQuery(makeVault([assets, nested], [], [nestedResource]));
+
+    expect(query.getChildResources('assets-folder')).toEqual([]);
+    expect(query.getChildResources('nested-folder').map((r) => r.id)).toEqual([
+      'nested-resource',
+    ]);
+  });
+
+  it('returns an empty list for a folder with no resources', () => {
+    const empty = makeFolder('empty-folder', 'Empty');
+    const query = new VaultQuery(makeVault([empty]));
+
+    expect(query.getChildResources('empty-folder')).toEqual([]);
+  });
+
+  it('returns resources sorted by name, independent of insertion order', () => {
+    const folder = makeFolder('folder-1', 'Assets');
+    const resources = [
+      makeResource('resource-z', 'Zebra.png', 'image', 'folder-1'),
+      makeResource('resource-a', 'Apple.pdf', 'pdf', 'folder-1'),
+      makeResource('resource-m', 'Mango.svg', 'image', 'folder-1'),
+    ];
+    const query = new VaultQuery(makeVault([folder], [], resources));
+
+    expect(query.getChildResources('folder-1').map((r) => r.name)).toEqual([
+      'Apple.pdf',
+      'Mango.svg',
+      'Zebra.png',
     ]);
   });
 });
