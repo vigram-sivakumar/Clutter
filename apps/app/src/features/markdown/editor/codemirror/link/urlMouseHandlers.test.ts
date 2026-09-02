@@ -80,4 +80,24 @@ describe('handleUrlClick', () => {
 
     expect(handled).toBe(false);
   });
+
+  it("does NOT open an Image's own URL when clicked — its revealed raw source is plain text, not a link", () => {
+    // "Image source URL must remain plain text while editing" (2026-09-02):
+    // clicking inside `![alt](url)`'s own URL substring must never
+    // navigate — the whole point of a revealed image's raw Markdown is
+    // that it's ordinary, directly-editable text. This mirrors
+    // inlineLivePreviewParticipants.ts's own `urlRenderer` guard on the
+    // styling side, but exercises the independent click-handling path
+    // (getUrlActivation), which that guard never touched.
+    const mockOpen = vi.mocked(openExternalUrl);
+    mockOpen.mockClear();
+    const doc = '![alt](https://example.com/image.jpg)';
+    const view = mountView(doc);
+    const inside = doc.indexOf('example');
+
+    const handled = handleUrlClick(view, inside, false);
+
+    expect(handled).toBe(false);
+    expect(mockOpen).not.toHaveBeenCalled();
+  });
 });

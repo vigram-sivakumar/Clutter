@@ -395,12 +395,37 @@ const linkRenderer: ParticipantRenderer = (node) => {
  * traversal does not skip descending into a non-engaged participant's
  * children (only an *engaged* one short-circuits), so without this guard
  * a `URL` nested in either would be visited a second time and receive a
- * redundant, overlapping decoration. Checking the immediate parent node
- * name is sufficient — a `URL` node's only possible non-`Paragraph`-ish
- * parents in this grammar are exactly `Link` and `Autolink`.
+ * redundant, overlapping decoration.
+ *
+ * **`Image` added to this guard (composition-verification pass,
+ * confirmed via a real mounted `EditorView` before this fix, not
+ * assumed): a native `Image` node (`![alt](url)`) has exactly the same
+ * `URL`-child shape as `Link`, but `Image` is deliberately *not*
+ * registered in this participant map at all (it has its own standalone
+ * mechanism, `image/imageLivePreview.ts` — see that file's own doc
+ * comment for why). This traversal therefore treats `Image` as an
+ * ordinary transparent node and keeps descending into it, same as any
+ * unregistered node — which reaches its `URL` child same as any
+ * Link/Autolink's. This was **always latently true**, including before
+ * Image's own standalone extraction (when Image was still a
+ * `widgetReplaceRenderer` participant, that renderer never returned
+ * `false` from a non-engaged node either — only the engaged branch does),
+ * but was invisible then because Image's at-rest form was *always* a
+ * full-range `Decoration.replace`, with no state that ever exposed the
+ * node's own raw text (and thus its nested `URL` child) as real, visible
+ * DOM. It became visible only once Image gained a source-reveal state
+ * independent of engagement: confirmed by mounting `![Alt](https://…)`
+ * with `imageUiState`'s `revealed: true` and reading `view.dom.innerHTML`
+ * — the URL rendered as `<span class="tok-link">https://…</span>`, a
+ * real, incorrect decoration (an Image's raw URL is not a navigable link
+ * the way a genuine `Link`'s href is). Excluding `Image` here is the
+ * complete, narrowly-scoped fix — not a change to `imageLivePreview.ts`,
+ * not a change to how `Image` is registered (or not) in this map, and not
+ * a change to `Link`/`Autolink`'s own behavior.
  */
 const urlRenderer: ParticipantRenderer = (node) => {
-  if (node.node.parent?.name === 'Link' || node.node.parent?.name === 'Autolink') {
+  const parentName = node.node.parent?.name;
+  if (parentName === 'Link' || parentName === 'Autolink' || parentName === 'Image') {
     return { decorations: [] };
   }
   return {
@@ -456,6 +481,13 @@ export function createInlineLivePreviewParticipants(
     ['URL', urlRenderer],
     ['Tag', widgetReplaceRenderer((raw) => renderTag(raw, resolvers.resolveTag))],
     ['Date', widgetReplaceRenderer((raw) => renderDate(raw, resolvers.resolveDate))],
+    // Image is deliberately NOT a participant here (unlike Phase 1) — it
+    // has its own standalone visibility mechanism instead
+    // (image/imageLivePreview.ts), for the same kind of reason WikiLink
+    // does: its required behavior (never reveal raw source on selection,
+    // only on an explicit control) is not an instance of this shared
+    // reveal-on-engagement contract at all. See that file's own doc
+    // comment.
   ]);
 }
 
