@@ -541,6 +541,7 @@ export function PageHost({ application }: PageHostProps) {
               resolveTag={resolveTag}
               getTagSuggestions={getTagSuggestions}
               resolveDate={resolveDate}
+              onSetCoverImage={onSetCoverImage}
             />
           </MarkdownBody>
         }
@@ -632,6 +633,7 @@ export function PageHost({ application }: PageHostProps) {
             resolveTag={resolveTag}
             getTagSuggestions={getTagSuggestions}
             resolveDate={resolveDate}
+            onSetCoverImage={onSetCoverImage}
           />
         </MarkdownBody>
       }

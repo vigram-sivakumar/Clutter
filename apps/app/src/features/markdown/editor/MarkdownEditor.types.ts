@@ -89,6 +89,21 @@ export interface MarkdownEditorProps {
    * `activate()`.
    */
   readonly resolveDate?: ResolveDate;
+  /**
+   * "Set as cover image" (2026-09-02 UX baseline, item 9) — invoked with a
+   * rendered image's own URL when its options menu's cover item is
+   * selected. Capability-gating, same shape as
+   * `ResourceTopBarActions.onSetCoverImage?`: this editor never persists
+   * anything itself (it never imports `PageOperations`, per this file's own
+   * "editor never imports Vault/VaultQuery/EffectivePageState/
+   * PageOperations directly" boundary), so the actual
+   * `PageOperations.updateMetadata({ cover })` call lives entirely in
+   * whichever app-layer caller supplies this prop (`PageHost.tsx`, reusing
+   * its existing `onSetCoverImage` closure — the same one already wired to
+   * the top bar's own cover picker). Absent omits the image menu's cover
+   * item entirely, mirroring `onSetCoverImage`'s own optionality there.
+   */
+  readonly onSetCoverImage?: (url: string) => void;
 }
 
 /**
