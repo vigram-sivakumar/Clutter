@@ -33,6 +33,15 @@ export class IdentityResolver {
   }
 
   /**
+   * A non-Markdown vault resource (PDF/image) has no frontmatter to carry a
+   * persisted id — its identity is always path-derived, never 'frontmatter'
+   * sourced, until a future ID mechanism for binary files exists.
+   */
+  resolveResource(path: string): ResolvedIdentity {
+    return this.resolve(undefined, path);
+  }
+
+  /**
    * Resolution prefers persisted IDs.
    * Falling back to the path is a compatibility mechanism, not the preferred identity strategy.
    * Future CRUD operations should migrate path-derived identities to persisted IDs before operations such as rename or move rely on identity stability.

@@ -1,6 +1,7 @@
 import type { Page } from './Page';
 import type { Folder } from './Folder';
 import type { FolderMetadata } from './FolderMetadata';
+import type { VaultResource } from './VaultResource';
 import type { Tag, TagMetadataEntry } from './Tag';
 import type { TaskOccurrence } from './occurrences/TaskOccurrence';
 import type { Embed } from './Embed';
@@ -77,6 +78,11 @@ export class Vault {
   // Canonical lookup by the folder's current filesystem path.
   // Folder IDs remain stable, while paths may change after moves.
   private readonly foldersByPath = new Map<string, Folder>();
+  // Non-Markdown supported files (PDF/image). Read-only for now — no
+  // add/remove/move mutation methods exist yet (a later step); populated
+  // once, at construction, from VaultBuilder's initial scan.
+  private readonly resourcesById = new Map<string, VaultResource>();
+  private readonly resourcesByPath = new Map<string, VaultResource>();
   // Vault-wide projections derived from page analysis.
   //
   // Page.analysis is the canonical owner of extracted semantics. These are
@@ -111,7 +117,13 @@ export class Vault {
     embeds: Iterable<Embed>,
     knowledgeGraph: KnowledgeGraph,
     private readonly projectionBuilder: VaultProjectionBuilder,
-    tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map()
+    tagMetadata: ReadonlyMap<string, TagMetadataEntry> = new Map(),
+    // Trailing and defaulted so every existing call site across the app
+    // (production and the many test fixtures that construct a Vault with
+    // positional arguments and don't care about resources) keeps compiling
+    // unchanged — see the Step 2 report for why a required, non-trailing
+    // parameter here was rejected.
+    resources: Iterable<VaultResource> = []
   ) {
     this.tagMetadata = tagMetadata;
     this._embeds = Array.from(embeds);
@@ -124,6 +136,15 @@ export class Vault {
 
       this.foldersById.set(folder.id, folder);
       this.foldersByPath.set(folder.path, folder);
+    }
+
+    for (const resource of resources) {
+      if (this.resourcesById.has(resource.id)) {
+        throw new Error(`Duplicate resource ID: ${resource.id}`);
+      }
+
+      this.resourcesById.set(resource.id, resource);
+      this.resourcesByPath.set(resource.path, resource);
     }
 
     for (const tag of tags) {
@@ -154,6 +175,27 @@ export class Vault {
 
   getFolderByPath(path: string): Folder | undefined {
     return this.foldersByPath.get(path);
+  }
+
+  /**
+   * Read-only for now — resources are populated once, at construction, from
+   * the initial scan (VaultBuilder). No addResource/removeResource/move
+   * exists yet; that's a later step, once something consumes these reads.
+   */
+  getResource(id: string): VaultResource | undefined {
+    return this.resourcesById.get(id);
+  }
+
+  getResourceByPath(path: string): VaultResource | undefined {
+    return this.resourcesByPath.get(path);
+  }
+
+  *resources(): IterableIterator<VaultResource> {
+    yield* this.resourcesById.values();
+  }
+
+  get resourceCount(): number {
+    return this.resourcesById.size;
   }
 
   /**

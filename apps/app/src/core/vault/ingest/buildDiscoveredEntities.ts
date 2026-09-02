@@ -1,14 +1,22 @@
-import type { Folder, Page } from '../models';
+import type { Folder, Page, VaultResource } from '../models';
 import type { IdGenerator } from '../../shared/identity/IdGenerator';
 import type { ScannedDirectory, ScannedPage, VaultScanResult } from './VaultScanResult';
 import { FolderBuilder } from './FolderBuilder';
 import { PageBuilder } from './PageBuilder';
+import { ResourceBuilder } from './ResourceBuilder';
 import { IdentityResolver } from './identity/IdentityResolver';
 import { resolveDuplicateId } from './identity/resolveDuplicateId';
 
 export interface DiscoveredEntities {
   readonly folders: readonly Folder[];
   readonly pages: readonly Page[];
+  /**
+   * Non-Markdown supported files (PDF/image) discovered by the same scan,
+   * built alongside folders/pages. Not yet consumed by any caller of this
+   * function's result — VaultBuilder registers them on Vault; VaultSyncService
+   * does not act on them yet (a later step).
+   */
+  readonly resources: readonly VaultResource[];
   /**
    * Paths whose frontmatter `id` collided with an id already claimed by a
    * different path — a genuine duplicate (see resolveDuplicateId) — and
@@ -69,7 +77,11 @@ export interface DiscoveredEntitiesOptions {
 export function buildDiscoveredEntities(
   scanResult: VaultScanResult,
   options: DiscoveredEntitiesOptions,
-  builders: { readonly folderBuilder: FolderBuilder; readonly pageBuilder: PageBuilder }
+  builders: {
+    readonly folderBuilder: FolderBuilder;
+    readonly pageBuilder: PageBuilder;
+    readonly resourceBuilder: ResourceBuilder;
+  }
 ): DiscoveredEntities {
   const identityResolver = new IdentityResolver();
   const { rootPath } = scanResult;
@@ -162,5 +174,17 @@ export function buildDiscoveredEntities(
     });
   });
 
-  return { folders, pages, reassignedPagePaths, reassignedFolderPaths };
+  // No genuine-duplicate-id handling here, unlike folders/pages above:
+  // a resource's identity is always path-derived (resolveResource never
+  // consults frontmatter — there is none for a PDF/image), so within a
+  // single scan two resources can only collide if they share a path,
+  // which the filesystem itself already prevents.
+  const resources: VaultResource[] = scanResult.files.map((file) =>
+    builders.resourceBuilder.build({
+      parentId: resolveParentId(file.directoryPath),
+      file,
+    })
+  );
+
+  return { folders, pages, resources, reassignedPagePaths, reassignedFolderPaths };
 }

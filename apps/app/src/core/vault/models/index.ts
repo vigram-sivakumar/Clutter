@@ -10,6 +10,8 @@ export * from './PageMetadata';
 export * from './Folder';
 export * from './FolderMetadata';
 
+export * from './VaultResource';
+
 export * from './Tag';
 export * from './Embed';
 

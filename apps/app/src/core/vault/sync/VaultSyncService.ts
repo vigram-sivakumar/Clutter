@@ -7,6 +7,7 @@ import type { VaultFileSystem } from '../providers/VaultFileSystem';
 import { PageBuilder } from '../ingest/PageBuilder';
 import { PageRebuilder } from '../ingest/PageRebuilder';
 import { FolderBuilder } from '../ingest/FolderBuilder';
+import { ResourceBuilder } from '../ingest/ResourceBuilder';
 import { VaultScanner } from '../ingest/VaultScanner';
 import type { VaultScanResult } from '../ingest/VaultScanResult';
 import { buildDiscoveredEntities } from '../ingest/buildDiscoveredEntities';
@@ -33,6 +34,7 @@ export class VaultSyncService {
   private readonly pageBuilder: PageBuilder;
   private readonly pageRebuilder: PageRebuilder;
   private readonly folderBuilder: FolderBuilder;
+  private readonly resourceBuilder: ResourceBuilder;
   private readonly vaultScanner: VaultScanner;
   private readonly documentRegistry: DocumentRegistry;
   private readonly frontmatterParser: FrontmatterParser;
@@ -53,6 +55,7 @@ export class VaultSyncService {
     this.pageBuilder = new PageBuilder(vault.root);
     this.pageRebuilder = new PageRebuilder();
     this.folderBuilder = new FolderBuilder();
+    this.resourceBuilder = new ResourceBuilder();
     this.vaultScanner = new VaultScanner(fileSystem);
     this.documentRegistry = documentRegistry;
     this.frontmatterParser = new FrontmatterParser();
@@ -483,7 +486,11 @@ export class VaultSyncService {
         existingFolderIds,
         existingPageIds,
       },
-      { folderBuilder: this.folderBuilder, pageBuilder: this.pageBuilder }
+      {
+        folderBuilder: this.folderBuilder,
+        pageBuilder: this.pageBuilder,
+        resourceBuilder: this.resourceBuilder,
+      }
     );
 
     for (const folder of folders) {

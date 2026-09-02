@@ -2,6 +2,7 @@ import { Vault } from '../models';
 import type { VaultScanResult } from './VaultScanResult';
 import { PageBuilder } from './PageBuilder';
 import { FolderBuilder } from './FolderBuilder';
+import { ResourceBuilder } from './ResourceBuilder';
 import { buildDiscoveredEntities } from './buildDiscoveredEntities';
 import {
   TagBuilder,
@@ -29,6 +30,7 @@ export interface VaultBuildResult {
 
 export class VaultBuilder {
   private readonly folderBuilder = new FolderBuilder();
+  private readonly resourceBuilder = new ResourceBuilder();
   private readonly tagBuilder = new TagBuilder();
   private readonly taskBuilder = new TaskBuilder();
   private readonly embedBuilder = new EmbedBuilder();
@@ -50,10 +52,10 @@ export class VaultBuilder {
     // than as a field for that reason, unlike the other builders above,
     // none of which need vault-root-relative path classification.
     const pageBuilder = new PageBuilder(scanResult.rootPath);
-    const { folders, pages, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
+    const { folders, pages, resources, reassignedPagePaths, reassignedFolderPaths } = buildDiscoveredEntities(
       scanResult,
       { rootIsFolder: false, rootParentId: null, idGenerator: this.idGenerator },
-      { folderBuilder: this.folderBuilder, pageBuilder }
+      { folderBuilder: this.folderBuilder, pageBuilder, resourceBuilder: this.resourceBuilder }
     );
 
     // Pass 4:
@@ -80,6 +82,7 @@ export class VaultBuilder {
       knowledgeGraph,
       this.projectionBuilder,
       tagMetadata,
+      resources,
     );
 
     return { vault, reassignedPagePaths, reassignedFolderPaths };

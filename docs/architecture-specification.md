@@ -147,7 +147,7 @@ const page = pageBuilder.build({ parentId: folder.id, page: scan.pages[0] });
 ## 3. Vault Domain Model
 
 ### Responsibilities
-Be the single in-memory source of truth for what pages and folders exist and what is known about them.
+Be the single in-memory source of truth for what pages, folders, and supported non-Markdown resources exist and what is known about them.
 
 ### Public API
 
@@ -164,6 +164,14 @@ Be the single in-memory source of truth for what pages and folders exist and wha
     knowledgeGraph(): KnowledgeGraph;   // lazy — builds on first call after invalidation, see §3a
     embeds(): Iterable<Embed>;         // lazy, same pattern
     subscribe(listener: () => void): Unsubscribe;
+
+    // read-only resource lookup/iteration — see §3b. No mutation methods
+    // exist yet: resources are populated once, at construction, from the
+    // initial scan.
+    getResource(id: string): VaultResource | undefined;
+    getResourceByPath(path: string): VaultResource | undefined;
+    resources(): Iterable<VaultResource>;
+    get resourceCount(): number;
 
     // mutation methods — callable only from vault/persistence/ and vault/sync/, enforced by lint boundary
     addPage(page: Page): void;
@@ -192,13 +200,31 @@ Be the single in-memory source of truth for what pages and folders exist and wha
 Constructed once, at startup, by `VaultBuilder` from the initial scan. Lives for the app's entire session. Never reconstructed — every mutation is in-place plus a `notify()`, not a rebuild-from-scratch of the `Vault` object itself (only its *projections* rebuild).
 
 ### Invariants
-- No duplicate ids among pages, and none among folders (checked at construction and on every `addPage`).
+- No duplicate ids among pages, and none among folders (checked at construction and on every `addPage`). Resources are checked for duplicate ids at construction the same way.
 - `pagesByPath`/`foldersByPath` are always consistent with `pagesById`/`foldersById` — every mutation method updates both maps atomically (synchronously, no partial-update window observable to any reader).
 - `Vault` performs zero filesystem I/O — verified by the absence of any `VaultFileSystem` reference in its constructor or method signatures.
 - Live projections (tags, tasks) rebuild fully on every mutation, as today — this is a correctness-over-performance choice that stays, given current file counts.
 
 ### 3a. Lazy projection invariant
 - `knowledgeGraph()`/`embeds()` are invalidated (not rebuilt) on every mutation, and rebuilt only on the next call to either getter. Two consecutive calls with no intervening mutation return the same cached object (referential stability, so React consumers relying on the eventual backlinks UI don't over-render).
+
+### 3b. VaultResource
+A `VaultResource` represents a supported non-Markdown file discovered in the vault. Current kinds: `image`, `pdf`. It is a sibling of `Page`, deliberately not a `Page` variant — it carries no frontmatter, no Markdown source, and no analysis, and is never passed through Markdown document loading (`DocumentLoader`).
+
+Shape:
+```ts
+type VaultResourceKind = 'image' | 'pdf';
+
+interface VaultResource {
+  id: string;
+  kind: VaultResourceKind;
+  name: string;
+  path: string;
+  parentId: string | null;
+}
+```
+
+Identity is always path-derived (there is no frontmatter to carry a persisted id, unlike `Page`/`Folder`). Built once per scan by `ResourceBuilder`, alongside `PageBuilder`/`FolderBuilder`, and registered on `Vault` at construction — read-only today, with no `addResource`/`removeResource`/move mutation methods, since nothing yet needs to change a resource after the initial scan.
 
 ### Concurrency model
 Single-threaded JS, mutated synchronously by exactly two callers (Persistence Gate, Sync) — both of which serialize their own calls per-page/per-path before they ever reach `Vault`. `Vault` itself assumes it is never called reentrantly for the same page from two different mutation calls; this assumption is enforced upstream, not inside `Vault`.

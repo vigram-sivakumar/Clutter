@@ -118,3 +118,148 @@ describe('VaultBuilder duplicate ids', () => {
     expect(vault.folderCount).toBe(2);
   });
 });
+
+function scannedFile(path: string, directoryPath: string, kind: 'pdf' | 'image') {
+  return { path, directoryPath, kind };
+}
+
+describe('VaultBuilder resources', () => {
+  it('turns a scanned image file into a vault resource, not a page', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [],
+      files: [scannedFile('/vault/Cover.png', '/vault', 'image')],
+    });
+
+    expect(vault.resourceCount).toBe(1);
+    expect(vault.pageCount).toBe(0);
+
+    const resource = vault.getResourceByPath('/vault/Cover.png');
+    expect(resource).toBeDefined();
+    expect(resource!.kind).toBe('image');
+  });
+
+  it('turns a scanned pdf file into a vault resource, not a page', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [],
+      files: [scannedFile('/vault/Report.pdf', '/vault', 'pdf')],
+    });
+
+    expect(vault.resourceCount).toBe(1);
+    expect(vault.pageCount).toBe(0);
+
+    const resource = vault.getResourceByPath('/vault/Report.pdf');
+    expect(resource).toBeDefined();
+    expect(resource!.kind).toBe('pdf');
+  });
+
+  it('keeps markdown pages as pages when resources are present in the same scan', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [scannedPage('/vault/Idea.md', 'page-1')],
+      files: [scannedFile('/vault/Cover.png', '/vault', 'image')],
+    });
+
+    expect(vault.pageCount).toBe(1);
+    expect(vault.resourceCount).toBe(1);
+    expect(vault.getPageByPath('/vault/Idea.md')).toBeDefined();
+    expect(vault.getResourceByPath('/vault/Cover.png')).toBeDefined();
+  });
+
+  it('assigns a resource the id of its containing folder as parentId', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [
+        { path: '/vault/Assets', parentPath: '/vault', frontmatter: { id: 'assets-folder' } },
+      ],
+      pages: [],
+      files: [scannedFile('/vault/Assets/Cover.png', '/vault/Assets', 'image')],
+    });
+
+    const resource = vault.getResourceByPath('/vault/Assets/Cover.png');
+    expect(resource!.parentId).toBe('assets-folder');
+  });
+
+  it('assigns a null parentId to a resource scanned at the vault root', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [],
+      files: [scannedFile('/vault/Cover.png', '/vault', 'image')],
+    });
+
+    expect(vault.getResourceByPath('/vault/Cover.png')!.parentId).toBeNull();
+  });
+
+  it('derives resource identity from its path, consistent with the path-derived identity convention', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [],
+      files: [scannedFile('/vault/Cover.png', '/vault', 'image')],
+    });
+
+    expect(vault.getResourceByPath('/vault/Cover.png')!.id).toBe('/vault/Cover.png');
+  });
+
+  it('represents multiple resources in the same folder independently', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [],
+      files: [
+        scannedFile('/vault/Cover.png', '/vault', 'image'),
+        scannedFile('/vault/Report.pdf', '/vault', 'pdf'),
+      ],
+    });
+
+    expect(vault.resourceCount).toBe(2);
+    expect(vault.getResourceByPath('/vault/Cover.png')!.kind).toBe('image');
+    expect(vault.getResourceByPath('/vault/Report.pdf')!.kind).toBe('pdf');
+  });
+
+  it('does not duplicate resources when built once from a single scan result', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [],
+      files: [scannedFile('/vault/Cover.png', '/vault', 'image')],
+    });
+
+    expect(vault.resourceCount).toBe(1);
+    expect(Array.from(vault.resources())).toHaveLength(1);
+  });
+
+  it('registers no resources when scanResult.files is empty (unsupported files never reach VaultBuilder)', () => {
+    const builder = new VaultBuilder(makeIdGenerator());
+
+    const { vault } = builder.build({
+      rootPath: '/vault',
+      directories: [],
+      pages: [],
+      files: [],
+    });
+
+    expect(vault.resourceCount).toBe(0);
+  });
+});
