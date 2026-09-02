@@ -1507,13 +1507,16 @@
 
 .cm-editor .tok-date {
   color: var(--date-foreground);
-  background-color: var(--date-surface);
+  /* background-color: var(--date-surface); */
   border-radius: var(--radius-sm);
   font-size: 0.92em;
   font-weight: inherit;
-  padding: 0.2em 0.4em;
+  /* padding: 0.2em 0.4em; */
   cursor: pointer;
   font-variant-numeric: tabular-nums;
+  /* box-shadow:
+    var(--date-surface) -4px 0px 0px,
+    var(--date-surface) 2px 0px 0px; */
 }
 .cm-editor .tok-date .tok-date-prefix {
   opacity: var(--opacity-medium);
