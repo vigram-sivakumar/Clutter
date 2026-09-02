@@ -32,12 +32,41 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
       />
     );
   }
-  // Renders root, current & overflow
   const root = items[0]!;
   const current = items.at(-1)!; //Returns last item in the array
+  const overflow = useOverlay<HTMLButtonElement>();
+
+  // First / Last — no room for a distinct secondLast, so root and current
+  // are the only two crumbs.
+  if (items.length === 2) {
+    return (
+      <div className="breadcrumb">
+        <BreadcrumbItem
+          id={root.id}
+          icon={root.icon}
+          emoji={root.emoji}
+          title={root.title}
+          onClick={root.onClick}
+        />
+
+        <span className="breadcrumb__slash">
+          <AppIcon icon="slash" />
+        </span>
+
+        <BreadcrumbItem
+          id={current.id}
+          icon={current.icon}
+          emoji={current.emoji}
+          title={current.title}
+          onClick={current.onClick}
+        />
+      </div>
+    );
+  }
+
+  // Renders root, current & overflow
   const secondLast = items.at(-2)!;
   const collapsed = items.slice(1, -2)!;
-  const overflow = useOverlay<HTMLButtonElement>();
 
   return (
     <>
