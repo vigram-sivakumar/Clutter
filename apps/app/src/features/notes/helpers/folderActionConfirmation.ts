@@ -40,14 +40,33 @@ export function getFolderArchiveConfirmation(
   );
 }
 
+/**
+ * Unlike getFolderArchiveConfirmation, this is no longer gated on
+ * `hasDescendants` by its caller (PageHost.tsx) — permanent Delete is only
+ * ever reachable for a resource that is archived or a descendant of the
+ * reserved Archive folder (buildTopBarActions.tsx's isDeletable), and every
+ * such delete now requires confirmation regardless of whether the folder
+ * being deleted is empty. `hasDescendants` is still returned (unused by the
+ * delete caller today) only because describeFolderAction's shape is shared
+ * with getFolderArchiveConfirmation, which still needs it.
+ */
 export function getFolderDeleteConfirmation(
   vault: Vault,
   folderId: string
 ): FolderActionConfirmation {
-  return describeFolderAction(
-    vault,
-    folderId,
-    (folderCount, pageCount) =>
-      `Delete this folder and everything inside it? This will permanently delete ${folderCount} folder(s) and ${pageCount} page(s). This cannot be undone.`
+  return describeFolderAction(vault, folderId, (folderCount, pageCount) =>
+    folderCount === 0 && pageCount === 0
+      ? 'This cannot be undone.'
+      : `Delete this folder and everything inside it? This will permanently delete ${folderCount} folder(s) and ${pageCount} page(s). This cannot be undone.`
   );
 }
+
+/**
+ * The Note/Daily Note counterpart to getFolderDeleteConfirmation — a page
+ * is always a leaf (no descendant count to compute), so this is a plain
+ * constant rather than a function. Reached the same way: permanent Delete
+ * is only ever available for an archived/Archive-descendant page
+ * (buildTopBarActions.tsx's isDeletable), and every such delete now
+ * requires confirmation.
+ */
+export const PAGE_DELETE_CONFIRMATION_MESSAGE = 'This cannot be undone.';

@@ -50,4 +50,16 @@ describe('buildFolderTopBarMenu', () => {
       buildFolderTopBarMenu('active', true).find((i) => i.id === 'toggle-favorite')?.label
     ).toBe('Remove from Favorites');
   });
+
+  it("omits 'delete' when isDeletable is false (or omitted) — an ordinary workspace folder has no Delete entry point", () => {
+    expect(buildFolderTopBarMenu('active').map((i) => i.id)).not.toContain('delete');
+    expect(buildFolderTopBarMenu('active', false, false).map((i) => i.id)).not.toContain(
+      'delete'
+    );
+  });
+
+  it("includes 'delete' when isDeletable is true, regardless of status", () => {
+    expect(buildFolderTopBarMenu('active', false, true).map((i) => i.id)).toContain('delete');
+    expect(buildFolderTopBarMenu('archived', false, true).map((i) => i.id)).toContain('delete');
+  });
 });

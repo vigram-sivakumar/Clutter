@@ -14,13 +14,18 @@ import {
  * No favorite item: Daily Notes deliberately do not support favoriting
  * (unlike Note/Folder) — see noteTopBarMenu.config.ts/folderTopBarMenu.config.ts
  * for that capability.
+ *
+ * Delete is present only when `isDeletable` — same restriction and same
+ * caller-computed boolean as noteTopBarMenu.config.ts's buildNoteTopBarMenu;
+ * see its doc comment.
  */
 export function buildDailyNoteTopBarMenu(
-  state: TopBarPageState
+  state: TopBarPageState,
+  isDeletable: boolean = false
 ): TopBarMenuItemConfig[] {
   const persisted = state !== 'draft';
 
-  return [
+  const items: TopBarMenuItemConfig[] = [
     {
       id: 'add-a-description',
       label: 'Add a description',
@@ -58,11 +63,16 @@ export function buildDailyNoteTopBarMenu(
           icon: 'archive',
           disabled: !persisted,
         },
-    {
+  ];
+
+  if (isDeletable) {
+    items.push({
       id: 'delete',
       label: DELETE_ACTION_LABEL,
       icon: 'trash',
       disabled: !persisted,
-    },
-  ];
+    });
+  }
+
+  return items;
 }

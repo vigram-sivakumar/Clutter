@@ -32,4 +32,9 @@ describe('buildNoteSidebarMenu', () => {
         ?.label
     ).toBe('Remove from Favorites');
   });
+
+  it("never includes 'delete' — deletion-UX product decision withdraws it from the sidebar", () => {
+    expect(buildNoteSidebarMenu(false).map((i) => i.id)).not.toContain('delete');
+    expect(buildNoteSidebarMenu(false, true).map((i) => i.id)).not.toContain('delete');
+  });
 });

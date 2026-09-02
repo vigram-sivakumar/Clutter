@@ -80,8 +80,6 @@ export function FavoriteList({
                     rowActions.onToggleFavoriteNote(item.id, true);
                   } else if (id === 'archive') {
                     rowActions.onArchiveNote(item.id);
-                  } else if (id === 'delete') {
-                    rowActions.onDeleteNote(item.id);
                   }
                 }
               : undefined
@@ -130,8 +128,6 @@ export function FavoriteList({
                   rowActions.onToggleFavoriteFolder(item.id, true);
                 } else if (id === 'archive') {
                   rowActions.onArchiveFolder(item.id);
-                } else if (id === 'delete') {
-                  rowActions.onDeleteFolder(item.id);
                 }
               }
             : undefined

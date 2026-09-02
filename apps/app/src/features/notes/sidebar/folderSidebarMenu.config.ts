@@ -2,7 +2,6 @@ import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import type { FolderMetadata } from '@core/vault/models/FolderMetadata';
 import {
   ARCHIVE_ACTION_LABEL,
-  DELETE_ACTION_LABEL,
   FAVORITE_ACTION_LABEL,
   UNFAVORITE_ACTION_LABEL,
 } from '@core/presentation/resourceActionLabels';
@@ -18,7 +17,7 @@ import {
  * point for all three archivable types today — none of them expose restore
  * from a sidebar row menu. The sidebar menu is otherwise capability-driven,
  * not resource-type-driven: it shows exactly what FolderOperations backs
- * today (rename, archive, delete), not a parity-shaped placeholder. Folders
+ * today (rename, archive), not a parity-shaped placeholder. Folders
  * are never duplicable — Duplicate is a Note-only capability. Every folder
  * FolderTree renders is already non-reserved
  * (MembershipSelector.getWorkspaceFolders/query.getChildFolders never
@@ -27,6 +26,12 @@ import {
  * conditionally omitted rather than disabled — an archived folder is
  * never reachable through this menu at all, so 'move-to' needs no
  * archived-guard here beyond the Gate's own.
+ *
+ * No 'delete' item, for the same reason and the same "unconditionally
+ * absent, not gated" treatment as noteSidebarMenu.config.ts — see its doc
+ * comment. Permanent Delete now lives only in the topbar, restricted to a
+ * resource that is archived or an Archive descendant, neither of which
+ * this menu ever renders.
  *
  * 'toggle-favorite' now backs FolderOperations.updateMetadata({ favorite }),
  * the same id and shared-operation pattern the topbar's folder favorite
@@ -52,8 +57,6 @@ export function buildFolderSidebarMenu(
   if (status !== 'archived') {
     items.push({ id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' });
   }
-
-  items.push({ id: 'delete', label: DELETE_ACTION_LABEL, icon: 'trash' });
 
   return items;
 }

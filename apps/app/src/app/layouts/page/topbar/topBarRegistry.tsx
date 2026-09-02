@@ -39,10 +39,13 @@ export interface TopBarActionsOptions {
    */
   archiveConfirmationMessage?: string;
   /**
-   * Same shape as archiveConfirmationMessage, for 'delete' — set only for
-   * a non-empty folder (ADR-024's resolved product decision #1). Never
-   * set for notes: Page.delete() is deliberately confirmation-free per
-   * that same decision.
+   * Same shape as archiveConfirmationMessage, for 'delete'. Unlike
+   * archiveConfirmationMessage, this now applies to every resource type —
+   * the deletion-UX product decision (superseding ADR-024's resolved
+   * product decision #1) requires confirmation for every delete, since
+   * Delete is only ever reachable at all for a resource that is archived
+   * or a descendant of the reserved Archive folder (buildTopBarActions.tsx's
+   * isDeletable).
    */
   deleteConfirmationMessage?: string;
 }
@@ -55,6 +58,10 @@ type TopBarResourceType = PageType | 'folder' | 'reserved-folder';
 // buildTopBarActions.tsx (the one place that already narrows the resource
 // to a Page and knows its type) — this renderer only ever forwards
 // whatever menu/handlers it's given, identically for both resource types.
+// deleteConfirmationMessage is forwarded (unlike archiveConfirmationMessage,
+// which stays folder-only) — the deletion-UX product decision requires
+// confirmation for a page delete too, now that Delete is only ever
+// reachable for an archived/Archive-descendant page.
 const renderPageActions: TopBarActionsRenderer = (options) => (
   <ResourceTopBarActions
     menu={options?.menu ?? []}
@@ -65,6 +72,7 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       duplicate: options?.onDuplicate,
       'toggle-favorite': options?.onToggleFavorite,
     }}
+    deleteConfirmationMessage={options?.deleteConfirmationMessage}
     moveDestinations={options?.moveDestinations}
     onMove={options?.onMove}
     onCreateFolder={options?.onCreateFolder}

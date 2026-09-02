@@ -23,10 +23,7 @@ import {
 import { FavoriteList } from './FavoriteList';
 import { getFavoriteItems } from '../helpers/getFavoriteItems';
 import { buildMoveDestinationItems } from '../helpers/buildMoveDestinationItems';
-import {
-  getFolderArchiveConfirmation,
-  getFolderDeleteConfirmation,
-} from '../helpers/folderActionConfirmation';
+import { getFolderArchiveConfirmation } from '../helpers/folderActionConfirmation';
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
@@ -133,7 +130,6 @@ export function Notes({
       void pageOperations.updateDraftTitle(pageId, value);
     },
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
-    onDeleteNote: (pageId) => void pageOperations.delete(pageId),
     onDuplicateNote: (pageId) => void pageOperations.duplicate(pageId),
     onToggleFavoriteNote: (pageId, isFavorite) =>
       void pageOperations.updateMetadata(pageId, { favorite: !isFavorite }),
@@ -186,24 +182,6 @@ export function Notes({
       }
 
       void folderOperations.archive(folderId);
-    },
-    onDeleteFolder: (folderId) => {
-      const { hasDescendants, message } = getFolderDeleteConfirmation(
-        vault,
-        folderId
-      );
-
-      if (hasDescendants) {
-        confirmation.request({
-          title: 'Delete this folder?',
-          message,
-          confirmLabel: 'Delete',
-          onConfirm: () => void folderOperations.delete(folderId),
-        });
-        return;
-      }
-
-      void folderOperations.delete(folderId);
     },
     // Same flow as the topbar's Move (PageHost.tsx): same
     // buildMoveDestinationItems helper (excludeFolderId keeps a folder out

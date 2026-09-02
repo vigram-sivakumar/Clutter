@@ -45,4 +45,9 @@ describe('buildFolderSidebarMenu', () => {
       )?.label
     ).toBe('Remove from Favorites');
   });
+
+  it("never includes 'delete' — deletion-UX product decision withdraws it from the sidebar", () => {
+    expect(buildFolderSidebarMenu('active').map((i) => i.id)).not.toContain('delete');
+    expect(buildFolderSidebarMenu('archived').map((i) => i.id)).not.toContain('delete');
+  });
 });

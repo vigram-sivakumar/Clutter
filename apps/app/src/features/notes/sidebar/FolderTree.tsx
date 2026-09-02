@@ -71,8 +71,14 @@ export interface SidebarRowActions {
   onNoteTitleCommit(pageId: string, value: string): void | boolean;
   /** Discrete commit (PageOperations.updateDraftTitle), draft notes only. */
   onDraftTitleCommit(pageId: string, value: string): void | boolean;
+  /**
+   * No onDeleteNote/onDeleteFolder here — the sidebar menu configs
+   * (noteSidebarMenu.config.ts/folderSidebarMenu.config.ts) never include a
+   * 'delete' item (deletion-UX product decision: permanent Delete is
+   * withdrawn from every ordinary workspace resource, and this row never
+   * renders an archived one), so there is no dispatch target for it.
+   */
   onArchiveNote(pageId: string): void;
-  onDeleteNote(pageId: string): void;
   /** ADR-028 — a raw filesystem copy, see PageOperations.duplicate(). */
   onDuplicateNote(pageId: string): void;
   /**
@@ -114,7 +120,6 @@ export interface SidebarRowActions {
   onFolderTitleFlush(folderId: string): void;
   onFolderTitleCancel(folderId: string): void;
   onArchiveFolder(folderId: string): void;
-  onDeleteFolder(folderId: string): void;
   /**
    * FolderOperations.updateMetadata({ favorite }) — the folder-scoped
    * counterpart to onToggleFavoriteNote above, same shared-call shape.
@@ -275,8 +280,6 @@ function PageEntry({
                 rowActions.onToggleFavoriteNote(entry.id, entry.favorite);
               } else if (id === 'archive') {
                 rowActions.onArchiveNote(entry.id);
-              } else if (id === 'delete') {
-                rowActions.onDeleteNote(entry.id);
               }
             }
           : undefined
@@ -446,8 +449,6 @@ export function FolderTree({
                         );
                       } else if (id === 'archive') {
                         rowActions.onArchiveFolder(folder.id);
-                      } else if (id === 'delete') {
-                        rowActions.onDeleteFolder(folder.id);
                       }
                     }
                   : undefined

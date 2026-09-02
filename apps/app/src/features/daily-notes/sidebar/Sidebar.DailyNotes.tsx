@@ -51,7 +51,6 @@ export function DailyNotes({
     onCloseMenu: () => setOpenMenuId(null),
 
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
-    onDeleteNote: (pageId) => void pageOperations.delete(pageId),
   };
 
   // Same composition PageHost.tsx/Sidebar.Notes.tsx use to inject the page

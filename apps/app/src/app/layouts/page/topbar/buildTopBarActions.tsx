@@ -45,15 +45,16 @@ function getTopBarResourceType(
 function buildMenuForType(
   type: PageType,
   state: TopBarPageState,
-  isFavorite: boolean
+  isFavorite: boolean,
+  isDeletable: boolean
 ): readonly TopBarMenuItemConfig[] {
   switch (type) {
     case 'note':
-      return buildNoteTopBarMenu(state, isFavorite);
+      return buildNoteTopBarMenu(state, isFavorite, isDeletable);
     // Daily Notes deliberately do not support favoriting (unlike Note/
     // Folder) — buildDailyNoteTopBarMenu takes no isFavorite param.
     case 'daily-note':
-      return buildDailyNoteTopBarMenu(state);
+      return buildDailyNoteTopBarMenu(state, isDeletable);
     default:
       return [];
   }
@@ -121,9 +122,19 @@ export function buildTopBarActions(
   const isFavoritable = !isPage(resource) || resource.type === 'note';
   const isFavorite = isFavoritable ? resource.metadata.favorite : false;
   const hasCoverImage = resource.metadata.cover !== null;
+  // Deletion-UX product decision: permanent Delete is withdrawn from every
+  // ordinary workspace resource (Archive is its removal action instead)
+  // and preserved only for a resource that is itself archived or a
+  // descendant of the reserved Archive folder — the exact relationship
+  // MembershipSelector.isEffectivelyArchived already owns (ADR-026 §5), so
+  // this composes that existing predicate with the resource's own status
+  // rather than adding a new selector method or a parallel ad hoc check.
+  const isDeletable =
+    resource.metadata.status === 'archived' ||
+    options.membershipSelector.isEffectivelyArchived(resource.parentId);
   const menu = isPage(resource)
-    ? buildMenuForType(resource.type, resource.metadata.status, isFavorite)
-    : buildFolderTopBarMenu(resource.metadata.status, isFavorite);
+    ? buildMenuForType(resource.type, resource.metadata.status, isFavorite, isDeletable)
+    : buildFolderTopBarMenu(resource.metadata.status, isFavorite, isDeletable);
 
   return {
     actions: renderTopBarActions(resourceType, {
@@ -151,9 +162,13 @@ export function buildTopBarActions(
  * The draft (ADR-017) counterpart to buildTopBarActions: same page chrome
  * (favorite/width-fill/overflow menu — see ResourceTopBarActions), built
  * from just a PageType since a draft has no backing Page/Folder/Vault
- * entry yet. Archive/restore/delete render disabled, never omitted
- * (ADR-017 Decision item 9) — no handlers are passed because a disabled
- * MenuItem never invokes onClick (Entry's own disabled guard).
+ * entry yet. Archive/restore render disabled, never omitted (ADR-017
+ * Decision item 9) — no handlers are passed because a disabled MenuItem
+ * never invokes onClick (Entry's own disabled guard). Delete is omitted
+ * outright (isDeletable: false) rather than rendered disabled — a draft is
+ * definitionally an ordinary workspace resource (it has no Vault entry to
+ * be archived at all), the same "no Delete entry point" treatment every
+ * persisted ordinary resource now gets, see buildTopBarActions' isDeletable.
  */
 export function buildDraftTopBarActions(
   type: PageType,
@@ -167,7 +182,7 @@ export function buildDraftTopBarActions(
     actions: renderTopBarActions(type, {
       // A draft has no persisted PageMetadata (ADR-017) — favorite is
       // always false pre-promotion, same as EffectivePage's draft case.
-      menu: buildMenuForType(type, 'draft', false),
+      menu: buildMenuForType(type, 'draft', false, false),
       // A plain Note draft's add-cover-image item is never disabled
       // (buildNoteTopBarMenu) — PageOperations.updateMetadata() already
       // promotes a draft on a committed cover patch (persistDraft), the

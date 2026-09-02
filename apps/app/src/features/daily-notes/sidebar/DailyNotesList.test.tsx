@@ -702,7 +702,6 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       onArchiveNote: vi.fn(),
-      onDeleteNote: vi.fn(),
     };
 
     const { container } = renderList({ vault, query, membershipSelector, workspace, rowActions });

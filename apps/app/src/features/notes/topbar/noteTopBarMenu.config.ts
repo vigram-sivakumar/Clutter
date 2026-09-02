@@ -12,13 +12,20 @@ import {
 /**
  * Archive/Restore is a status-dependent toggle, not two statically-present
  * items: a page is only ever active or archived, never both, so the menu
- * shows exactly one of the two. Delete is always present regardless of
- * status. For a draft (`state === 'draft'`, ADR-017), neither has
- * happened yet — 'archive' is shown, alongside 'delete', but both
- * `disabled` (ADR-017 Decision item 9), never omitted.
+ * shows exactly one of the two. For a draft (`state === 'draft'`,
+ * ADR-017), neither has happened yet — 'archive' is shown `disabled`
+ * (ADR-017 Decision item 9), never omitted.
+ *
+ * Delete is present only when `isDeletable` — the new deletion-UX product
+ * decision restricts permanent Delete to a resource that is archived or a
+ * descendant of the reserved Archive folder (computed by the caller,
+ * buildTopBarActions.tsx, via MembershipSelector.isEffectivelyArchived +
+ * the resource's own status, never re-derived here). An ordinary
+ * workspace note has no Delete entry point at all — Archive is its
+ * removal action instead.
  *
  * 'move-to' (re-added — ADR-013 deferred it pending a destination-picker
- * UI, now built) is `disabled` under the same rule as archive/delete for a
+ * UI, now built) is `disabled` under the same rule as archive for a
  * draft (nothing on disk yet to move), and additionally for an archived
  * page — Move's approved contract excludes archived pages as a source,
  * enforced again at the Gate (PagePersistenceCoordinator.runMove) so this
@@ -31,11 +38,12 @@ import {
  */
 export function buildNoteTopBarMenu(
   state: TopBarPageState,
-  isFavorite: boolean = false
+  isFavorite: boolean = false,
+  isDeletable: boolean = false
 ): TopBarMenuItemConfig[] {
   const persisted = state !== 'draft';
 
-  return [
+  const items: TopBarMenuItemConfig[] = [
     {
       id: 'add-a-description',
       label: 'Add a description',
@@ -80,11 +88,16 @@ export function buildNoteTopBarMenu(
           icon: 'archive',
           disabled: !persisted,
         },
-    {
+  ];
+
+  if (isDeletable) {
+    items.push({
       id: 'delete',
       label: DELETE_ACTION_LABEL,
       icon: 'trash',
       disabled: !persisted,
-    },
-  ];
+    });
+  }
+
+  return items;
 }

@@ -18,20 +18,25 @@ describe('buildDailyNoteTopBarMenu', () => {
     expect(ids).not.toContain('archive');
   });
 
-  it("includes 'delete' regardless of status", () => {
-    expect(buildDailyNoteTopBarMenu('active').map((i) => i.id)).toContain('delete');
-    expect(buildDailyNoteTopBarMenu('archived').map((i) => i.id)).toContain('delete');
+  it("omits 'delete' when isDeletable is false (or omitted) — an ordinary workspace daily note has no Delete entry point", () => {
+    expect(buildDailyNoteTopBarMenu('active').map((i) => i.id)).not.toContain('delete');
+    expect(buildDailyNoteTopBarMenu('active', false).map((i) => i.id)).not.toContain('delete');
+  });
+
+  it("includes 'delete' when isDeletable is true, regardless of status", () => {
+    expect(buildDailyNoteTopBarMenu('active', true).map((i) => i.id)).toContain('delete');
+    expect(buildDailyNoteTopBarMenu('archived', true).map((i) => i.id)).toContain('delete');
   });
 
   it("enabled 'archive'/'delete', not disabled, for a persisted (active) page", () => {
-    const menu = buildDailyNoteTopBarMenu('active');
+    const menu = buildDailyNoteTopBarMenu('active', true);
 
     expect(menu.find((i) => i.id === 'archive')?.disabled).toBeFalsy();
     expect(menu.find((i) => i.id === 'delete')?.disabled).toBeFalsy();
   });
 
-  it("includes 'archive', not 'restore', for a draft, and disables both it and 'delete'", () => {
-    const menu = buildDailyNoteTopBarMenu('draft');
+  it("includes 'archive', not 'restore', for a draft, and disables both it and 'delete' when shown", () => {
+    const menu = buildDailyNoteTopBarMenu('draft', true);
     const ids = menu.map((item) => item.id);
 
     expect(ids).toContain('archive');

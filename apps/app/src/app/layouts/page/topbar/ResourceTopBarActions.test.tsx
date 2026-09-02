@@ -186,7 +186,7 @@ describe('ResourceTopBarActions', () => {
       fireEvent.click(screen.getByText('Delete'));
 
       expect(screen.queryByRole('menu')).toBeNull();
-      expect(screen.getByText('Delete this folder?')).toBeDefined();
+      expect(screen.getByText('Delete permanently?')).toBeDefined();
       expect(screen.getByText(DELETE_MESSAGE)).toBeDefined();
       expect(onDelete).not.toHaveBeenCalled();
     });
@@ -197,7 +197,7 @@ describe('ResourceTopBarActions', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-      expect(screen.queryByText('Delete this folder?')).toBeNull();
+      expect(screen.queryByText('Delete permanently?')).toBeNull();
       expect(onDelete).not.toHaveBeenCalled();
     });
 
@@ -209,7 +209,7 @@ describe('ResourceTopBarActions', () => {
       fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
       expect(onDelete).toHaveBeenCalledTimes(1);
-      expect(screen.queryByText('Delete this folder?')).toBeNull();
+      expect(screen.queryByText('Delete permanently?')).toBeNull();
     });
 
     it('does not open confirmation for Delete when the item is disabled', () => {
@@ -226,7 +226,7 @@ describe('ResourceTopBarActions', () => {
 
       fireEvent.click(screen.getByText('Delete'));
 
-      expect(screen.queryByText('Delete this folder?')).toBeNull();
+      expect(screen.queryByText('Delete permanently?')).toBeNull();
     });
 
     it('focuses Cancel when the confirmation dialog opens', () => {
@@ -242,7 +242,7 @@ describe('ResourceTopBarActions', () => {
 
       fireEvent.keyDown(document, { key: 'Escape' });
 
-      expect(screen.queryByText('Delete this folder?')).toBeNull();
+      expect(screen.queryByText('Delete permanently?')).toBeNull();
     });
 
     it('outside click closes the confirmation dialog', () => {
@@ -256,7 +256,7 @@ describe('ResourceTopBarActions', () => {
       }
       fireEvent.click(backdrop);
 
-      expect(screen.queryByText('Delete this folder?')).toBeNull();
+      expect(screen.queryByText('Delete permanently?')).toBeNull();
     });
   });
 
@@ -325,7 +325,7 @@ describe('ResourceTopBarActions', () => {
     fireEvent.click(screen.getByText('Archive'));
 
     expect(screen.getByText('Archive this folder?')).toBeDefined();
-    expect(screen.queryByText('Delete this folder?')).toBeNull();
+    expect(screen.queryByText('Delete permanently?')).toBeNull();
   });
 
   describe('favorite toggle', () => {

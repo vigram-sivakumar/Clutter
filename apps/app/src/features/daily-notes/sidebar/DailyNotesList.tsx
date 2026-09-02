@@ -63,8 +63,13 @@ export interface DailyNoteRowActions {
   onOpenMenu(id: string): void;
   onCloseMenu(): void;
 
+  /**
+   * No onDeleteNote — dailyNoteSidebarMenu.config.ts never includes a
+   * 'delete' item (deletion-UX product decision: permanent Delete is
+   * withdrawn from every ordinary workspace resource, and this row never
+   * renders an archived Daily Note), so there is no dispatch target for it.
+   */
   onArchiveNote(pageId: string): void;
-  onDeleteNote(pageId: string): void;
 }
 
 interface DailyNotesListProps {
@@ -341,8 +346,6 @@ export function DailyNotesList({
               ? (id) => {
                   if (id === 'archive') {
                     rowActions.onArchiveNote(entry.id);
-                  } else if (id === 'delete') {
-                    rowActions.onDeleteNote(entry.id);
                   }
                 }
               : undefined

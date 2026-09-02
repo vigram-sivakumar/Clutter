@@ -183,7 +183,6 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onNoteTitleCommit: ReturnType<typeof vi.fn>;
     onDraftTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveNote: ReturnType<typeof vi.fn>;
-    onDeleteNote: ReturnType<typeof vi.fn>;
     onDuplicateNote: ReturnType<typeof vi.fn>;
     onToggleFavoriteNote: ReturnType<typeof vi.fn>;
     onFolderTitleEdit: ReturnType<typeof vi.fn>;
@@ -191,7 +190,6 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onFolderTitleCancel: ReturnType<typeof vi.fn>;
     onFolderTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveFolder: ReturnType<typeof vi.fn>;
-    onDeleteFolder: ReturnType<typeof vi.fn>;
     onToggleFavoriteFolder: ReturnType<typeof vi.fn>;
   };
 } {
@@ -206,7 +204,6 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onNoteTitleCommit: vi.fn(),
     onDraftTitleCommit: vi.fn(),
     onArchiveNote: vi.fn(),
-    onDeleteNote: vi.fn(),
     onDuplicateNote: vi.fn(),
     onToggleFavoriteNote: vi.fn(),
     onChangeNoteIcon: vi.fn(),
@@ -216,7 +213,6 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onFolderTitleCancel: vi.fn(),
     onFolderTitleCommit: vi.fn(),
     onArchiveFolder: vi.fn(),
-    onDeleteFolder: vi.fn(),
     onToggleFavoriteFolder: vi.fn(),
     onChangeFolderIcon: vi.fn(),
     onMoveFolder: vi.fn(),
@@ -333,7 +329,9 @@ describe('FolderTree row overflow menu: open/close', () => {
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.getByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
+    // No Delete item — the sidebar never exposes it (deletion-UX product
+    // decision), see FolderTree row overflow menu: 'delete' below.
+    expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
 
   it('clicking the overflow button calls onOpenMenu with the row id, not onFolderClick/onPageClick', () => {
@@ -415,11 +413,11 @@ describe('FolderTree row overflow menu: rendering is driven purely by openMenuId
 
     renderTree(query, membershipSelector, workspace, actions);
 
-    // Both rows' Delete items would render identically, so distinguish by
+    // Both rows' Archive items would render identically, so distinguish by
     // querying each row's own overlay/menu presence via its DOM subtree —
-    // simplest reliable signal here is that exactly one "Delete" menuitem
+    // simplest reliable signal here is that exactly one "Archive" menuitem
     // exists (folder-b's Overlay renders null while its open is false).
-    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
+    expect(screen.getAllByText('Archive')).toHaveLength(1);
   });
 });
 
@@ -437,18 +435,11 @@ describe('FolderTree row overflow menu: note actions dispatch to PageOperations'
     expect(archiveSpy).toHaveBeenCalledWith(page.id);
   });
 
-  it('Delete calls pageOperations.delete for a persisted note', () => {
-    const page = buildPersistedPage(`${ROOT}/Note.md`);
-    const { query, workspace, membershipSelector, pageOperations } = setup([page]);
-    const deleteSpy = vi.spyOn(pageOperations, 'delete').mockResolvedValue(undefined);
-    const { actions } = buildRowActions({ openMenuId: page.id });
-    const rowActions: SidebarRowActions = { ...actions, onDeleteNote: (id) => void pageOperations.delete(id) };
-
-    renderTree(query, membershipSelector, workspace, rowActions);
-    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
-
-    expect(deleteSpy).toHaveBeenCalledWith(page.id);
-  });
+  // No "Delete calls pageOperations.delete for a persisted note" test — the
+  // sidebar note menu never includes a 'delete' item (deletion-UX product
+  // decision), so there is no Delete affordance here to dispatch. Permanent
+  // Delete is exercised via the topbar instead — see
+  // app/layouts/page/topbar/ResourceTopBarActions.test.tsx.
 
   it('Duplicate calls pageOperations.duplicate for a persisted note (ADR-028)', () => {
     const page = buildPersistedPage(`${ROOT}/Note.md`);
@@ -616,28 +607,13 @@ describe('FolderTree row overflow menu: a draft note has no menu at all', () => 
 });
 
 describe('FolderTree row overflow menu: folder actions dispatch to FolderOperations', () => {
-  it('Delete calls folderOperations.delete for an empty folder with no confirmation', async () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
-    const { query, workspace, membershipSelector, folderOperations, vault } = setup([], [folder]);
-    const deleteSpy = vi.spyOn(folderOperations, 'delete').mockResolvedValue(undefined);
-    const confirmSpy = vi.spyOn(window, 'confirm');
-
-    const { actions } = buildRowActions({
-      openMenuId: 'folder-1',
-      onDeleteFolder: (id) => {
-        const { folders, pages } = vault.getDescendantFoldersAndPages(id);
-        if (folders.length === 0 && pages.length === 0) {
-          void folderOperations.delete(id);
-        }
-      },
-    });
-
-    renderTree(query, membershipSelector, workspace, actions);
-    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
-
-    expect(deleteSpy).toHaveBeenCalledWith('folder-1');
-    expect(confirmSpy).not.toHaveBeenCalled();
-  });
+  // No "Delete calls folderOperations.delete for an empty folder" test —
+  // the sidebar folder menu never includes a 'delete' item (deletion-UX
+  // product decision), so there is no Delete affordance here to dispatch,
+  // and no sidebar-side confirmation flow to exercise either. Permanent
+  // Delete (with its existing hasDescendants confirmation) is exercised via
+  // the topbar instead — see
+  // app/layouts/page/topbar/ResourceTopBarActions.test.tsx.
 
   it('folder menu has an Archive item for an active folder (ADR-026)', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`, null);
@@ -648,7 +624,8 @@ describe('FolderTree row overflow menu: folder actions dispatch to FolderOperati
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Archive')).toBeInTheDocument();
-    expect(screen.getByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
+    // No Delete item — see the removed-test comment above.
+    expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
   });
 
   it('folder menu omits Archive for an already-archived folder (no Restore capability yet — ADR-026 sequencing amendment)', () => {

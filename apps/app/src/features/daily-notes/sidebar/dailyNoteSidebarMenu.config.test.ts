@@ -11,10 +11,13 @@ describe('buildDailyNoteSidebarMenu', () => {
     expect(buildDailyNoteSidebarMenu(true)).toEqual([]);
   });
 
-  it("includes 'archive' and 'delete' for a persisted daily note", () => {
+  it("includes 'archive' for a persisted daily note", () => {
     const ids = buildDailyNoteSidebarMenu(false).map((i) => i.id);
     expect(ids).toContain('archive');
-    expect(ids).toContain('delete');
+  });
+
+  it("never includes 'delete' — deletion-UX product decision withdraws it from the sidebar", () => {
+    expect(buildDailyNoteSidebarMenu(false).map((i) => i.id)).not.toContain('delete');
   });
 
   it('never includes toggle-favorite — Daily Notes do not support favoriting', () => {

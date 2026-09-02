@@ -16,6 +16,7 @@ import {
 import {
   getFolderArchiveConfirmation,
   getFolderDeleteConfirmation,
+  PAGE_DELETE_CONFIRMATION_MESSAGE,
 } from '@features/notes/helpers/folderActionConfirmation';
 import { duplicateAndOpenPage } from '@features/notes/helpers/duplicateAndOpenPage';
 import { buildMoveDestinationItems } from '@features/notes/helpers/buildMoveDestinationItems';
@@ -327,9 +328,13 @@ export function PageHost({ application }: PageHostProps) {
       archiveConfirmationMessage: archiveConfirmation.hasDescendants
         ? archiveConfirmation.message
         : undefined,
-      deleteConfirmationMessage: deleteConfirmation.hasDescendants
-        ? deleteConfirmation.message
-        : undefined,
+      // Unlike Archive above, Delete always confirms — a delete is only
+      // ever reachable here for an archived/Archive-descendant folder
+      // (buildTopBarActions.tsx's isDeletable), and the product decision is
+      // to require confirmation for every such delete regardless of
+      // whether the folder is empty (see getFolderDeleteConfirmation's own
+      // doc comment).
+      deleteConfirmationMessage: deleteConfirmation.message,
       // A reserved folder never reaches this branch's menu (buildFolderTopBarMenu
       // only renders for an ordinary folder — see topBar's own dispatch), so
       // excluding `folder.id` (and its descendants, via
@@ -583,6 +588,12 @@ export function PageHost({ application }: PageHostProps) {
     onSetCoverImage,
     onSetCoverImageFromUpload,
     onRemoveCoverImage,
+    // A note/daily-note delete is only ever reachable here for an
+    // archived/Archive-descendant page (buildTopBarActions.tsx's
+    // isDeletable) — every such delete now requires confirmation, so this
+    // is always passed rather than gated (see PAGE_DELETE_CONFIRMATION_MESSAGE's
+    // own doc comment).
+    deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
     moveDestinations:
       page.type === 'note'
         ? buildMoveDestinationItems(application.membershipSelector)

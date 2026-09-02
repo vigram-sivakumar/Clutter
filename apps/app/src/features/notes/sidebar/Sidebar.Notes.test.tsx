@@ -33,7 +33,6 @@ import type { NavigationRouter } from '@core/application/navigation/NavigationRo
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
 import { PageBuilder } from '@core/vault/ingest/PageBuilder';
-import { DELETE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 
 class ResizeObserverMock {
   observe = vi.fn();
@@ -229,13 +228,13 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
+    expect(screen.getAllByText('Archive')).toHaveLength(1);
 
     fireEvent.click(overflowButtonFor('Beta'));
 
-    // Still exactly one Delete item rendered — Alpha's menu closed when
+    // Still exactly one Archive item rendered — Alpha's menu closed when
     // Beta's opened, rather than both being open simultaneously.
-    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
+    expect(screen.getAllByText('Archive')).toHaveLength(1);
   });
 
   it('clicking the same row\'s overflow button again closes its own menu', () => {
@@ -245,10 +244,10 @@ describe('Sidebar Notes: only one row menu is open at a time', () => {
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.queryByText(DELETE_ACTION_LABEL)).toBeInTheDocument();
+    expect(screen.queryByText('Archive')).toBeInTheDocument();
 
     fireEvent.click(overflowButtonFor('Alpha'));
-    expect(screen.queryByText(DELETE_ACTION_LABEL)).not.toBeInTheDocument();
+    expect(screen.queryByText('Archive')).not.toBeInTheDocument();
   });
 });
 
@@ -268,9 +267,9 @@ describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row hav
 
     fireEvent.click(overflowButtonForEntry(favoritesRow));
 
-    // Only the Favorites row's menu opened — a single Delete item, not two
+    // Only the Favorites row's menu opened — a single Archive item, not two
     // (two would mean the Workspace row for the same page ID opened too).
-    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(1);
+    expect(screen.getAllByText('Archive')).toHaveLength(1);
 
     // The Workspace row's own overflow button opens its own menu on top of
     // the still-open Favorites one — proving the two are independently
@@ -279,7 +278,7 @@ describe('Sidebar Notes: a favorited page\'s Favorites row and Workspace row hav
     // click would have no visible effect beyond what the first already
     // caused.)
     fireEvent.click(overflowButtonForEntry(workspaceRow));
-    expect(screen.getAllByText(DELETE_ACTION_LABEL)).toHaveLength(2);
+    expect(screen.getAllByText('Archive')).toHaveLength(2);
   });
 });
 
@@ -342,25 +341,11 @@ describe('Sidebar Notes: clicking the "Workspace" section header title navigates
   });
 });
 
-describe('Sidebar Notes: folder delete wiring', () => {
-  it('deletes an empty folder without a confirm prompt and calls FolderOperations.delete', async () => {
-    const folder = makeFolder('folder-a', `${ROOT}/Alpha`);
-    const deps = setup([folder]);
-    const deleteSpy = vi.spyOn(deps.folderOperations, 'delete').mockResolvedValue(undefined);
-    const confirmSpy = vi.spyOn(window, 'confirm');
-
-    renderNotes(deps);
-
-    fireEvent.click(overflowButtonFor('Alpha'));
-    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
-
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(deleteSpy).toHaveBeenCalledWith('folder-a');
-    expect(confirmSpy).not.toHaveBeenCalled();
-  });
-});
+// No "Sidebar Notes: folder delete wiring" describe block — the sidebar
+// folder menu never includes a 'delete' item (deletion-UX product
+// decision), so there is nothing here to dispatch. Permanent Delete moved
+// entirely to the topbar — see
+// app/layouts/page/topbar/ResourceTopBarActions.test.tsx.
 
 describe('Sidebar Notes: Duplicate leaves the current selection untouched', () => {
   it('a note row\'s Duplicate calls PageOperations.duplicate but never opens or selects the result', async () => {
@@ -422,8 +407,11 @@ describe('Sidebar Notes: Duplicate leaves the current selection untouched', () =
 // Consistency fix: one confirmation mechanism (the shared Confirmation/
 // Dialog surface, never window.confirm()), one domain operation regardless
 // of entry point, and no resurrection of navigation.openWorkspace() as a
-// destructive-action fallback.
-describe('Sidebar Notes: archive/delete confirmation consistency', () => {
+// destructive-action fallback. Delete has no sidebar entry point any more
+// (deletion-UX product decision) — the delete-specific cases this
+// describe block used to cover moved to
+// app/layouts/page/topbar/ResourceTopBarActions.test.tsx.
+describe('Sidebar Notes: archive confirmation consistency', () => {
   it('note archive calls PageOperations.archive() directly, with no confirmation dialog', () => {
     const page = makePage('page-1', `${ROOT}/Note.md`);
     const deps = setup([], [page]);
@@ -434,19 +422,6 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
     fireEvent.click(screen.getByText('Archive'));
 
     expect(archiveSpy).toHaveBeenCalledWith('page-1');
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('note delete calls PageOperations.delete() directly, with no confirmation dialog', () => {
-    const page = makePage('page-1', `${ROOT}/Note.md`);
-    const deps = setup([], [page]);
-    const deleteSpy = vi.spyOn(deps.pageOperations, 'delete').mockResolvedValue(undefined);
-    renderNotes(deps);
-
-    fireEvent.click(overflowButtonFor('Note'));
-    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
-
-    expect(deleteSpy).toHaveBeenCalledWith('page-1');
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -461,19 +436,6 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
 
     expect(archiveSpy).toHaveBeenCalledWith('folder-1');
     expect(screen.queryByText(/Archive this folder/)).toBeNull();
-  });
-
-  it('empty folder delete calls FolderOperations.delete() directly, with no confirmation dialog', () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const deps = setup([folder]);
-    const deleteSpy = vi.spyOn(deps.folderOperations, 'delete').mockResolvedValue(undefined);
-    renderNotes(deps);
-
-    fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
-
-    expect(deleteSpy).toHaveBeenCalledWith('folder-1');
-    expect(screen.queryByText(/Delete this folder/)).toBeNull();
   });
 
   it('non-empty folder archive: shows the shared Confirmation dialog, Cancel does not archive', () => {
@@ -511,36 +473,11 @@ describe('Sidebar Notes: archive/delete confirmation consistency', () => {
     expect(screen.queryByText('Archive this folder?')).not.toBeInTheDocument();
   });
 
-  it('non-empty folder delete: shows the shared Confirmation dialog, Cancel does not delete, Confirm does', () => {
-    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
-    const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
-    const deps = setup([folder], [note]);
-    const deleteSpy = vi.spyOn(deps.folderOperations, 'delete').mockResolvedValue(undefined);
-    renderNotes(deps);
-
-    fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
-
-    expect(deleteSpy).not.toHaveBeenCalled();
-    expect(screen.getByText('Delete this folder?')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(deleteSpy).not.toHaveBeenCalled();
-
-    fireEvent.click(overflowButtonFor('Projects'));
-    fireEvent.click(screen.getByText(DELETE_ACTION_LABEL));
-    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
-    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
-
-    expect(deleteSpy).toHaveBeenCalledWith('folder-1');
-  });
-
-  it('never calls navigation.openWorkspace() for any archive/delete flow — the deprecated fallback must not resurface', () => {
+  it('never calls navigation.openWorkspace() for any archive flow — the deprecated fallback must not resurface', () => {
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const note = { ...makePage('page-1', `${ROOT}/Projects/Note.md`), parentId: 'folder-1' };
     const deps = setup([folder], [note]);
     vi.spyOn(deps.folderOperations, 'archive').mockResolvedValue(undefined);
-    vi.spyOn(deps.folderOperations, 'delete').mockResolvedValue(undefined);
     renderNotes(deps);
 
     fireEvent.click(overflowButtonFor('Projects'));

@@ -52,14 +52,15 @@ export interface ResourceTopBarActionsProps {
    */
   archiveConfirmationMessage?: string;
   /**
-   * Same shape as archiveConfirmationMessage, for 'delete'. Absent for
-   * notes (ADR-024's resolved product decision #1: "unlike Page.delete()
-   * — no confirmation") and an empty folder; present only for a non-empty
-   * folder. This replaces the previous unconditional "always confirm
-   * delete" behavior, which showed a dialog for every resource type but
-   * whose confirm button never invoked the real delete — fixing that stub
-   * is this prop's reason for existing, not a decision to require
-   * confirmation for notes.
+   * Same shape as archiveConfirmationMessage, for 'delete'. Unlike
+   * archiveConfirmationMessage, this is now always supplied by every
+   * caller whenever a 'delete' item is even in `menu` — the deletion-UX
+   * product decision (superseding ADR-024's resolved product decision #1)
+   * is that Delete is only ever reachable for a resource that is archived
+   * or a descendant of the reserved Archive folder, and every such delete
+   * requires confirmation regardless of whether a folder being deleted is
+   * empty (see getFolderDeleteConfirmation/PAGE_DELETE_CONFIRMATION_MESSAGE
+   * in folderActionConfirmation.ts).
    */
   deleteConfirmationMessage?: string;
   /**
@@ -180,8 +181,12 @@ export function ResourceTopBarActions({
       }
 
       if (id === 'delete' && deleteConfirmationMessage !== undefined) {
+        // A resource-type-neutral title — unlike 'Archive this folder?'
+        // below (archive confirmation stays folder-only), Delete
+        // confirmation now applies to every archived/Archive-descendant
+        // resource type (note, daily note, folder), not folders alone.
         confirmation.request({
-          title: 'Delete this folder?',
+          title: 'Delete permanently?',
           message: deleteConfirmationMessage,
           confirmLabel: 'Delete',
           onConfirm: () => handlers?.['delete']?.(),
