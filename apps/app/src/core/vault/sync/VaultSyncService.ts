@@ -446,7 +446,7 @@ export class VaultSyncService {
     const diskExists = await this.fileSystem.exists(absolutePath);
     const scanResult: VaultScanResult = diskExists
       ? await this.vaultScanner.scan(absolutePath)
-      : { rootPath: absolutePath, directories: [], pages: [] };
+      : { rootPath: absolutePath, directories: [], pages: [], files: [] };
 
     const scannedFolderPaths = new Set(scanResult.directories.map((directory) => directory.path));
     const scannedPagePaths = new Set(scanResult.pages.map((page) => page.path));

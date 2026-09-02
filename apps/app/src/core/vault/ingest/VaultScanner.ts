@@ -3,6 +3,7 @@ import type { VaultScanResult } from './VaultScanResult';
 import type { VaultFileSystem } from '../providers';
 import { DocumentLoader } from './DocumentLoader';
 import { isClutterInternalPath } from '../initialize/ReservedResources';
+import { classifySupportedResourceFile } from './SupportedResourceKind';
 
 export class VaultScanner {
   private readonly documentLoader: DocumentLoader;
@@ -22,6 +23,7 @@ export class VaultScanner {
       rootPath: vaultPath,
       directories: [],
       pages: [],
+      files: [],
     };
 
     await this.scanDirectory(vaultPath, null, result);
@@ -52,6 +54,13 @@ export class VaultScanner {
         entry.isDirectory && !isClutterInternalPath(result.rootPath, entry.path)
     );
 
+    // Non-Markdown files that match a supported resource kind (PDF/image).
+    // Cannot overlap with pageFiles/.folder.md above — those are all `.md`,
+    // and classifySupportedResourceFile never returns a kind for `.md`.
+    const resourceFiles = entries.filter(
+      (entry) => !entry.isDirectory && classifySupportedResourceFile(entry.name) !== null
+    );
+
     let frontmatter: FolderFrontmatter | null = null;
 
     if (folderMetadataFile) {
@@ -70,6 +79,12 @@ export class VaultScanner {
 
     for (const file of pageFiles) {
       await this.inspectFile(file.path, path, result);
+    }
+    for (const file of resourceFiles) {
+      const kind = classifySupportedResourceFile(file.name);
+      if (kind !== null) {
+        result.files.push({ path: file.path, directoryPath: path, kind });
+      }
     }
     for (const directory of childDirectories) {
       await this.scanDirectory(directory.path, path, result);

@@ -72,3 +72,21 @@ describe('VaultPath.pageName', () => {
     expect(VaultPath.pageName('/vault/Notes/my.md.backup')).toBe('my.md.backup');
   });
 });
+
+describe('VaultPath.extension', () => {
+  it('returns the lowercased extension including the dot', () => {
+    expect(VaultPath.extension('/vault/Assets/Cover.PNG')).toBe('.png');
+  });
+
+  it('returns an empty string for a filename with no extension', () => {
+    expect(VaultPath.extension('/vault/Notes/README')).toBe('');
+  });
+
+  it('treats a leading dot with nothing before it as no extension', () => {
+    expect(VaultPath.extension('/vault/.gitignore')).toBe('');
+  });
+
+  it('uses only the final segment when a filename has multiple dots', () => {
+    expect(VaultPath.extension('/vault/.folder.md')).toBe('.md');
+  });
+});

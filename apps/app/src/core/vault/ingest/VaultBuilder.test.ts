@@ -16,6 +16,7 @@ describe('VaultBuilder folders', () => {
     const { vault } = builder.build({
       rootPath: '/vault',
       pages: [],
+      files: [],
       directories: [
         {
           path: '/vault/Projects',
@@ -75,6 +76,7 @@ describe('VaultBuilder duplicate ids', () => {
     const { vault, reassignedPagePaths } = builder.build({
       rootPath: '/vault',
       directories: [],
+      files: [],
       pages: [
         scannedPage('/vault/Original.md', 'dup-1'),
         scannedPage('/vault/Copy.md', 'dup-1'),
@@ -98,6 +100,7 @@ describe('VaultBuilder duplicate ids', () => {
     const { vault, reassignedFolderPaths } = builder.build({
       rootPath: '/vault',
       pages: [],
+      files: [],
       directories: [
         { path: '/vault/Original', parentPath: '/vault', frontmatter: { id: 'dup-folder' } },
         { path: '/vault/Copy', parentPath: '/vault', frontmatter: { id: 'dup-folder' } },

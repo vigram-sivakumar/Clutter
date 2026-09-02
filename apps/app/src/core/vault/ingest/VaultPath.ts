@@ -57,4 +57,17 @@ export class VaultPath {
     const fileName = this.filename(path);
     return fileName.endsWith('.md') ? fileName.slice(0, -3) : fileName;
   }
+
+  /**
+   * A file's extension, lowercased and including the leading dot (e.g.
+   * `.png`), or `''` if the filename has none. A leading dot with nothing
+   * before it (`.gitignore`, `.folder`) is not an extension. Used to
+   * classify a vault entry by file type (SupportedResourceKind) without
+   * scattering ad hoc suffix checks at each call site (rule 9).
+   */
+  static extension(path: string): string {
+    const fileName = this.filename(path);
+    const dotIndex = fileName.lastIndexOf('.');
+    return dotIndex > 0 ? fileName.slice(dotIndex).toLowerCase() : '';
+  }
 }
