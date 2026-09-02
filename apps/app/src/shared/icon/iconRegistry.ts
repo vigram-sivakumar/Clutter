@@ -52,9 +52,11 @@ import MoreHorizontal from './svg/more-horizontal.svg?react';
 import MoreVertical from './svg/more-vertical.svg?react';
 import MultiLine from './svg/multi-line.svg?react';
 import Note from './svg/note.svg?react';
+import Layers from './svg/layers.svg?react';
 import Link from './svg/link.svg?react';
 import Hide from './svg/hide.svg?react';
 import NotePencil from './svg/note-pencil.svg?react';
+import PDF from './svg/pdf.svg?react';
 import Pin from './svg/pin.svg?react';
 import Plus from './svg/plus.svg?react';
 import Question from './svg/question.svg?react';
@@ -133,6 +135,8 @@ export const iconRegistry = {
   info: Info,
   keyEsc: KeyEsc,
   keyboard: Keyboard,
+  layers: Layers,
+  link: Link,
   magnifyingGlass: MagnifyingGlass,
   moreHorizontal: MoreHorizontal,
   moreVertical: MoreVertical,
@@ -140,7 +144,7 @@ export const iconRegistry = {
   hide: Hide,
   notePencil: NotePencil,
   note: Note,
-  link: Link,
+  pdf: PDF,
   pin: Pin,
   plus: Plus,
   question: Question,
