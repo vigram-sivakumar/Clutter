@@ -1,4 +1,4 @@
-import { EditorSelection } from '@codemirror/state';
+import { EditorSelection, type EditorState } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
 
 import { computeImageDeletionRange } from './imageDeletion';
@@ -49,8 +49,56 @@ export interface OpenImageMenuParams {
   /** Already-resolved alt/url — Copy link/Set as cover image use these directly, no re-parsing of the raw source needed. */
   readonly alt: string;
   readonly url: string;
+  /**
+   * What Copy link/Set as cover image should actually use, when it differs
+   * from `url` — added for local Resource embeds (embed/embedLivePreview.ts),
+   * whose `url` is a resolved, loadable file URL (what `<img src>` needs)
+   * but whose Copy link/Set-as-cover value must stay the vault-relative
+   * embed path (`Assets/hero.png`, the same text written between the
+   * embed's own `![[...]]` brackets) — never the resolved absolute
+   * filesystem URL. `undefined` for a standard Markdown image, where `url`
+   * already *is* the vault-relative-or-external value the Markdown itself
+   * carries, so there is nothing to distinguish.
+   */
+  readonly copyUrl?: string;
 }
 export type OnOpenImageMenu = (params: OpenImageMenuParams) => void;
+
+/**
+ * What a probe (`ImageWidget.probeForRecovery`) should treat as "the
+ * currently-valid image source at this position," or `null` if none
+ * exists any more. Injected via `getCurrentSource` below rather than
+ * hardcoded, so `ImageWidget` itself never needs to know whether it's
+ * rendering a standard Markdown `![alt](url)` image or a local Resource
+ * `![[path]]` embed — `currentImageSource` (below) is the standard-Markdown-
+ * Image implementation every existing call site (`imageLivePreview.ts`)
+ * already passes; `embedLivePreview.ts` injects a different one that
+ * re-resolves through `resolveResourceEmbed()`/an `Embed` node instead,
+ * without duplicating any lookup logic here.
+ */
+export interface CurrentImageSource {
+  readonly url: string;
+  /** The node's own current `to`, re-resolved fresh — see probeForRecovery's own doc comment for why this must never be the widget's stale, construction-time `to`. */
+  readonly to: number;
+}
+
+export type GetCurrentImageSource = (state: EditorState, pos: number) => CurrentImageSource | null;
+
+/**
+ * The default `GetCurrentImageSource` for a standard Markdown `![alt](url)`
+ * image — extracted verbatim from what `probeForRecovery` used to inline
+ * directly, so this is the exact same re-verification logic, now shared
+ * behind one small seam instead of assumed inside the widget itself.
+ */
+export function currentImageSource(state: EditorState, pos: number): CurrentImageSource | null {
+  const node = findEnclosingImageNode(state, pos);
+  if (!node) {
+    return null;
+  }
+  const raw = state.sliceDoc(node.from, node.to);
+  const match = scanImage(raw);
+  return match ? { url: match.url, to: node.to } : null;
+}
 
 /**
  * The rendered form of a native Markdown `![alt](url)` image. Always
@@ -128,7 +176,16 @@ export class ImageWidget extends WidgetType {
      * rendered content changed.
      */
     readonly getOnImageClick: () => OnImageClick | undefined,
-    readonly getOnOpenImageMenu: () => OnOpenImageMenu | undefined
+    readonly getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
+    /**
+     * See `CurrentImageSource`'s own doc comment. Defaults to
+     * `currentImageSource` (standard Markdown Image re-verification) so
+     * every pre-existing construction site keeps compiling and behaving
+     * identically unchanged.
+     */
+    readonly getCurrentSource: GetCurrentImageSource = currentImageSource,
+    /** See `OpenImageMenuParams.copyUrl`'s own doc comment. */
+    readonly copyUrl?: string
   ) {
     super();
   }
@@ -137,6 +194,7 @@ export class ImageWidget extends WidgetType {
     return (
       this.alt === other.alt &&
       this.url === other.url &&
+      this.copyUrl === other.copyUrl &&
       this.pos === other.pos &&
       this.to === other.to &&
       this.ui.revealed === other.ui.revealed &&
@@ -188,6 +246,7 @@ export class ImageWidget extends WidgetType {
         to: this.to,
         alt: this.alt,
         url: this.url,
+        copyUrl: this.copyUrl,
       });
     });
     sizeButton.setAttribute('aria-expanded', 'false');
@@ -348,24 +407,20 @@ export class ImageWidget extends WidgetType {
   private probeForRecovery(view: EditorView): void {
     const pos = this.pos;
     const url = this.url;
+    const getCurrentSource = this.getCurrentSource;
     const probe = new Image();
     probe.addEventListener(
       'load',
       () => {
-        const node = findEnclosingImageNode(view.state, pos);
-        if (!node) {
-          return;
-        }
-        const raw = view.state.sliceDoc(node.from, node.to);
-        const match = scanImage(raw);
-        if (!match || match.url !== url) {
+        const current = getCurrentSource(view.state, pos);
+        if (!current || current.url !== url) {
           return; // Superseded by further edits since this probe started.
         }
         const ui = getImageUiState(view.state, pos);
         if (!ui.broken) {
           return; // Already recovered via some other path.
         }
-        view.dispatch({ effects: setImageUiState.of({ pos, to: node.to, state: { ...ui, broken: false } }) });
+        view.dispatch({ effects: setImageUiState.of({ pos, to: current.to, state: { ...ui, broken: false } }) });
       },
       { once: true }
     );

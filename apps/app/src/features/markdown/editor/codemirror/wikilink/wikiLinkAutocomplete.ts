@@ -1,17 +1,19 @@
 import {
   CompletionContext,
   closeCompletion,
-  completionStatus,
   selectedCompletion,
-  startCompletion,
 } from '@codemirror/autocomplete';
 import { Prec } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 
+import { completionReactivation } from '../completionLifecycle';
 import { findWikiLinkAt } from './wikiLinkEngagement';
 import type { WikiLinkCompletion } from './wikiLinkCompletionRenderer';
-import { WIKILINK_TRIGGER_PATTERN, referenceZoneAt } from './wikiLinkCompletionSource';
+import {
+  WIKILINK_TRIGGER_PATTERN,
+  referenceZoneAt,
+} from './wikiLinkCompletionSource';
 
 /**
  * Re-skins CM6's own `.cm-tooltip-autocomplete` popup to match
@@ -62,7 +64,7 @@ export function wikiLinkAutocompleteTheme(): Extension {
     '.cm-tooltip.cm-tooltip-autocomplete > ul': {
       display: 'flex',
       flexDirection: 'column',
-      gap: 'var(--space-12)',
+      gap: 'var(--space-1)',
       maxHeight: '260px',
       // Now that the outer tooltip carries no padding, `<ul>` — CM6's own
       // scroll container — sits flush with the popup's edges, and this
@@ -195,73 +197,16 @@ export function acceptReferenceForDisplayName(view: EditorView): boolean {
 }
 
 /**
- * CM6's own `activateOnTyping` (the default heuristic `autocompletion()`
- * uses to decide whether a transaction should query sources at all) only
- * covers insertions (`getUpdateType`'s `Activate` bit is set for
- * `input.type`, never for `delete.backward`/`delete.forward`) — by
- * design, since for most completion use-cases backspacing shouldn't pop a
- * fresh completion open. That default is wrong specifically for editing
- * an existing WikiLink's reference: deleting into `News` to get `New`
- * must reactivate completion exactly as typing into it would (per the
- * feature's own spec — "editing the reference" makes no typing-vs-
- * deleting distinction). This listener is the small, targeted exception:
- * only for a doc-changing, deletion-classified transaction that leaves
- * the cursor inside a WikiLink's reference zone (`referenceZoneAt` — the
- * exact same zone definition `wikiLinkCompletionSource` itself uses, not
- * a second one), it calls the public `startCompletion` command — the same
- * command any "trigger completion" keybinding would call — rather than
- * reaching into CM6's completion state directly.
- */
-const reactivateOnReferenceDeletion = EditorView.updateListener.of((update) => {
-  if (!update.docChanged || completionStatus(update.state) !== null) {
-    return;
-  }
-
-  const isDeletion = update.transactions.some((tr) => tr.isUserEvent('delete'));
-  if (!isDeletion) {
-    return;
-  }
-
-  if (referenceZoneAt(update.state, update.state.selection.main.head)) {
-    startCompletion(update.view);
-  }
-});
-
-/**
- * Symmetric counterpart to `reactivateOnReferenceDeletion` above, for a
- * plain cursor-only move into an *empty* reference — e.g. the popup was
- * dismissed (Escape, click elsewhere) right after typing `[[`, leaving a
- * still-empty `[[]]` behind, and the user clicks or arrow-keys back into
- * it before typing anything. CM6's own `activateOnTyping` heuristic never
- * fires for a selection-only transaction (by design — this is exactly
- * what keeps "moving the cursor into an already-populated `[[Text]]`"
- * from reopening completion, and that must keep being true), so this is
- * the one narrow, explicit exception: only when `referenceZoneAt` finds a
- * zone *and* that zone is empty (`zone.from === zone.to`) — a populated
- * reference's zone is never empty, so this never fires for it, leaving
- * that existing behavior exactly as it was.
- */
-const reactivateOnEnteringEmptyReference = EditorView.updateListener.of((update) => {
-  if (!update.selectionSet || update.docChanged || completionStatus(update.state) !== null) {
-    return;
-  }
-
-  const zone = referenceZoneAt(update.state, update.state.selection.main.head);
-  if (zone && zone.from === zone.to) {
-    startCompletion(update.view);
-  }
-});
-
-/**
  * WikiLink's own non-`autocompletion()` completion extras: the `|` keymap
- * command (the reference/display-name boundary) and the reactivate-on-
- * deletion listener above. `@codemirror/autocomplete`'s own
- * `autocompletion()` call itself — triggering, popup lifecycle,
- * caret-relative positioning, keyboard navigation, dismissal, which
- * `CompletionSource`s are active, and the shared popup theme
- * (`wikiLinkAutocompleteTheme()`, exported above) — now lives in
- * `codemirror/completion.ts`, the one shared call every `@`/`[[` source
- * must register through (`@codemirror/autocomplete`'s own
+ * command (the reference/display-name boundary) and the shared
+ * deletion/empty-entry reactivation lifecycle (`completionLifecycle.ts`),
+ * parameterized with WikiLink's own `referenceZoneAt`.
+ * `@codemirror/autocomplete`'s own `autocompletion()` call itself —
+ * triggering, popup lifecycle, caret-relative positioning, keyboard
+ * navigation, dismissal, which `CompletionSource`s are active, and the
+ * shared popup theme (`wikiLinkAutocompleteTheme()`, exported above) —
+ * lives in `codemirror/completion.ts`, the one shared call every `@`/`[[`
+ * source must register through (`@codemirror/autocomplete`'s own
  * `completionConfig` facet throws a config-merge conflict if `override`
  * is set by two independent `autocompletion()` calls in the same editor —
  * confirmed by reading its `combineConfig` merge logic directly, not
@@ -278,7 +223,6 @@ export function wikiLinkAutocomplete(): Extension {
     // ordinary character insertion exactly as if this extension didn't
     // exist.
     Prec.highest(keymap.of([{ key: '|', run: acceptReferenceForDisplayName }])),
-    reactivateOnReferenceDeletion,
-    reactivateOnEnteringEmptyReference,
+    completionReactivation(referenceZoneAt),
   ];
 }

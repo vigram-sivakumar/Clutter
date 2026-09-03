@@ -32,9 +32,27 @@ function toCompletion(suggestion: WikiLinkSuggestion, insertText: (path: string)
     apply(view, _completion, from, to) {
       const insert = insertText(suggestion.path);
 
+      // Reactivating completion inside an ALREADY-CLOSED reference (see
+      // `referenceZoneAt`) replaces only the bare reference text —
+      // whatever already follows it (a bare closing `]]`, or `|alias]]`)
+      // is pre-existing, untouched document content, not part of
+      // `insert`. The product contract is that accepting ANY autocomplete
+      // suggestion — WikiLink, with or without an alias, Embed, Date —
+      // places the cursor after the complete construct, never mid-syntax;
+      // `|` is alias syntax, not a resting point. `existing` (looked up
+      // in the PRE-change state, since `from`/`to` and any node found via
+      // them are only meaningful against the document as it stood before
+      // this transaction) is that already-closed node's own end; the
+      // fresh (`[[query`, no existing brackets yet) case has no such node
+      // and falls back to `from + insert.length`, which is already
+      // correct there since `serializeWikiLink` appended its own `]]`
+      // into `insert`.
+      const existing = findWikiLinkAt(view.state, from);
+      const anchor = existing ? existing.to + (insert.length - (to - from)) : from + insert.length;
+
       view.dispatch({
         changes: { from, to, insert },
-        selection: { anchor: from + insert.length },
+        selection: { anchor },
       });
 
       if (suggestion.kind === 'create') {
@@ -189,6 +207,19 @@ export function wikiLinkCompletionSource(
 
     const match = context.matchBefore(WIKILINK_TRIGGER_PATTERN);
     if (!match) {
+      return null;
+    }
+
+    // A `![[` in progress belongs entirely to Embed's own completion
+    // source (embed/embedCompletionSource.ts) — WIKILINK_TRIGGER_PATTERN
+    // has no `!`-anchor of its own (it only needs to recognize `[[`), so
+    // without this check it would also match starting at the inner `[[`
+    // of an in-progress `![[query`, racing the Embed source for the same
+    // keystroke. Embed's own trigger pattern (EMBED_TRIGGER_PATTERN)
+    // requires the leading `!` directly, so no equivalent guard is needed
+    // in the other direction — a bare `[[query` never has a `!` immediately
+    // before it for that pattern to match.
+    if (context.state.sliceDoc(Math.max(0, match.from - 1), match.from) === '!') {
       return null;
     }
 

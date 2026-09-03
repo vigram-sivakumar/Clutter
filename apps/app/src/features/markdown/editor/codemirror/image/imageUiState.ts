@@ -159,12 +159,53 @@ export interface ImageUiState {
   readonly revealed: boolean;
   readonly displayMode: ImageDisplayMode;
   readonly broken: boolean;
+  /**
+   * Phase 2 (2026-09 rendering-lifecycle unification): true only for the
+   * brief window between "this exact Image/Embed occurrence was just
+   * created (typed, pasted, or completed) with no prior UI-state entry"
+   * and "the caret has left it for the first time since." While true, the
+   * live-preview render gate (`imageLivePreview.ts`/`embedLivePreview.ts`)
+   * keeps the raw Markdown visible instead of collapsing to a widget, even
+   * though the node is otherwise complete — "while actively editing, show
+   * raw; render on first leave."
+   *
+   * Deliberately **not** derived from `isTokenEngaged` alone (unlike the
+   * shared inline mechanism's own reveal-on-engagement). A pure
+   * engagement check can't distinguish "the caret is here because the
+   * user just typed this" from "the caret is here because it arrow-keyed
+   * or clicked past an already-at-rest widget" — both land the caret
+   * inside the node's range (confirmed directly: CM6's atomic-range
+   * navigation lands the caret exactly at a node's own boundary, which
+   * satisfies `isTokenEngaged`'s inclusive containment check identically
+   * to genuine mid-edit engagement). Without this flag, navigating past a
+   * rendered image would un-render it on every pass — the "entering a
+   * valid rendered construct via navigation must not reveal it" rule.
+   * `pendingFirstLeave` is what lets the render gate ask "is this actually
+   * still being created" instead of merely "is the caret nearby right
+   * now."
+   *
+   * Defaults to `false` (not pending) — an existing image loaded from
+   * disk, or any occurrence with no entry yet, renders immediately
+   * regardless of where the caret happens to be; only a transaction that
+   * genuinely creates a brand-new node sets this `true` (see
+   * `imageUiStateField.update`'s own "freshly created" block below), and
+   * it is cleared back to `false` the first time engagement ends
+   * afterward (the "leaving source editing" block below, extended) or
+   * explicitly by an autocomplete completion's own `apply()` (Embed's
+   * "selecting from autocomplete renders immediately" requirement —
+   * `embedCompletionSource.ts` dispatches `setImageUiState` with this
+   * already `false` in the same transaction as the insert, so the
+   * creation-detection block below never gets a chance to mark it
+   * pending in the first place).
+   */
+  readonly pendingFirstLeave: boolean;
 }
 
 export const DEFAULT_IMAGE_UI_STATE: ImageUiState = {
   revealed: false,
   displayMode: 'fill',
   broken: false,
+  pendingFirstLeave: false,
 };
 
 class ImageUiValue extends RangeValue {
@@ -189,7 +230,8 @@ class ImageUiValue extends RangeValue {
       other instanceof ImageUiValue &&
       other.state.revealed === this.state.revealed &&
       other.state.displayMode === this.state.displayMode &&
-      other.state.broken === this.state.broken
+      other.state.broken === this.state.broken &&
+      other.state.pendingFirstLeave === this.state.pendingFirstLeave
     );
   }
 }
@@ -307,9 +349,19 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
     // (`findEnclosingImageNode` returns `null`), never overrides the
     // positional check's own `true`, since this is an OR: either signal
     // agreeing "still inside" is enough.
+    // Phase 2 (2026-09 rendering-lifecycle unification): `pendingFirstLeave`
+    // clears through this exact same loop, on the exact same `stillInside`
+    // signal `revealed` already uses — "the caret has left" is one fact,
+    // not two separately-computed ones, even though it now closes out two
+    // different fields. `findEnclosingImageNode` only ever matches a node
+    // literally named `Image` (pre-existing, narrower than this field's
+    // own now-kind-agnostic storage), so `insideReparsedNode`'s fallback
+    // doesn't apply to an `Embed` entry — harmless: the primary
+    // `insidePositionalSpan` check is already purely positional, with no
+    // node-name assumption, and is what every Embed entry relies on here.
     const toClear: Array<{ from: number; state: ImageUiState }> = [];
     next.between(0, tr.state.doc.length, (from, to, value) => {
-      if (!value.state.revealed) {
+      if (!value.state.revealed && !value.state.pendingFirstLeave) {
         return;
       }
       const caretHead = tr.state.selection.main.head;
@@ -324,8 +376,62 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
     for (const { from, state } of toClear) {
       next = next.update({
         filter: (f) => f !== from,
-        add: [new ImageUiValue({ ...state, revealed: false }).range(from, from)],
+        add: [new ImageUiValue({ ...state, revealed: false, pendingFirstLeave: false }).range(from, from)],
       });
+    }
+
+    // "Freshly created" (Phase 2, 2026-09 rendering-lifecycle
+    // unification): marks a brand-new Image/Embed occurrence — one with
+    // no prior UI-state entry at all — `pendingFirstLeave: true`, so the
+    // live-preview render gate (`imageLivePreview.ts`/`embedLivePreview.ts`)
+    // keeps it raw until the caret first leaves, instead of collapsing to
+    // a widget the instant the syntax completes. Walks the **new**
+    // document's tree (unlike the `broken` block below, which walks the
+    // *old* tree for its own, different coordinate-safety reason) — the
+    // node this is looking for frequently only starts existing as a
+    // complete Lezer node as a *result* of this very transaction (e.g.
+    // typing the closing `)`/`]]`).
+    //
+    // Checks `next` — already reflecting this same transaction's own
+    // explicit `setImageUiState` effects, applied in the loop above — for
+    // an existing entry first, and does nothing if one is already there.
+    // This is what makes Embed's "selecting from autocomplete renders
+    // immediately" fall out for free with no special-casing here:
+    // `embedCompletionSource.ts`'s own `apply()` dispatches
+    // `setImageUiState` with `pendingFirstLeave: false` in the exact same
+    // transaction as the insert, so by the time this block runs, an entry
+    // already exists and this loop skips it entirely.
+    if (tr.docChanged) {
+      const freshNodes: Array<{ from: number; to: number }> = [];
+      tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+        syntaxTree(tr.state).iterate({
+          from: Math.max(0, fromB - 1),
+          to: Math.min(tr.state.doc.length, toB + 1),
+          enter: (node) => {
+            if ((node.name === 'Image' || node.name === 'Embed') && fromB < node.to && toB > node.from) {
+              freshNodes.push({ from: node.from, to: node.to });
+            }
+          },
+        });
+      });
+      for (const { from, to } of freshNodes) {
+        // Same `f !== from` adjacency guard as the `broken` block's own
+        // existing-entry lookup below — two directly-adjacent
+        // Image/Embed nodes share a boundary point the instant either one
+        // has any stored entry, and `RangeSet.between`'s point query at
+        // that shared point visits both.
+        let hasEntry = false;
+        next.between(from, from, (f) => {
+          if (f === from) {
+            hasEntry = true;
+          }
+        });
+        if (!hasEntry) {
+          next = next.update({
+            add: [new ImageUiValue({ ...DEFAULT_IMAGE_UI_STATE, pendingFirstLeave: true }).range(from, to)],
+          });
+        }
+      }
     }
 
     // `broken` forced `true` on a genuine edit to an Image node's own

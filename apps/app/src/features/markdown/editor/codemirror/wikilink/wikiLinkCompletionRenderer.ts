@@ -16,8 +16,24 @@ export interface WikiLinkCompletion extends Completion {
   readonly suggestion: WikiLinkSuggestion;
 }
 
+/**
+ * `'suggestion' in completion` alone is not enough any more: once
+ * `embed/embedCompletionRenderer.ts`'s `EmbedCompletion` started using the
+ * exact same `suggestion` property name for a completely different
+ * suggestion shape, a shared `addToOptions` array (completion.ts) calling
+ * *every* registered renderer against *every* visible completion meant an
+ * Embed-sourced completion passed this guard too — rendering a second,
+ * wrong (generic-icon) row for it, alongside `renderEmbedCompletion`'s own
+ * correct one. Checking `suggestion.kind` (WikiLinkSuggestion's own
+ * discriminant, already `'page' | 'create'`, never `'resource'`) is what
+ * actually distinguishes them, not just possessing the property.
+ */
 function isWikiLinkCompletion(completion: Completion): completion is WikiLinkCompletion {
-  return 'suggestion' in completion;
+  if (!('suggestion' in completion)) {
+    return false;
+  }
+  const kind = (completion.suggestion as WikiLinkSuggestion).kind;
+  return kind === 'page' || kind === 'create';
 }
 
 /**

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { history, redo, undo } from '@codemirror/commands';
+import { history, isolateHistory, redo, undo } from '@codemirror/commands';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { createInlineLivePreviewParticipants, type ParticipantResolvers } from '../highlight/inlineLivePreviewParticipants';
@@ -854,7 +854,7 @@ describe('Image composition / nesting', () => {
     const doc = '![Alt](https://example.com/img.jpg)';
     const view = mountView(doc);
     view.dispatch({
-      effects: setImageUiState.of({ pos: 0, to: doc.length, state: { revealed: true, displayMode: 'large', broken: false } }),
+      effects: setImageUiState.of({ pos: 0, to: doc.length, state: { revealed: true, displayMode: 'large', broken: false, pendingFirstLeave: false } }),
     });
 
     expect(view.dom.textContent).toContain(doc);
@@ -946,7 +946,7 @@ describe('MarkdownEditor.css — .cm-image-container', () => {
 describe('Image display modes', () => {
   function dispatchMode(view: EditorView, pos: number, mode: 'large' | 'fill' | 'fit', revealed = false) {
     view.dispatch({
-      effects: setImageUiState.of({ pos, to: view.state.doc.length, state: { revealed, displayMode: mode, broken: false } }),
+      effects: setImageUiState.of({ pos, to: view.state.doc.length, state: { revealed, displayMode: mode, broken: false, pendingFirstLeave: false } }),
     });
   }
 
@@ -1439,10 +1439,6 @@ describe('Adjacent images with no separator — each node has fully independent 
  * an occurrence that already parsed as a syntactically complete image.
  */
 describe('Incomplete image syntax', () => {
-  function hasImageContainer(view: EditorView): boolean {
-    return view.dom.querySelector('.cm-image-container') !== null;
-  }
-
   it.each([
     ['![Text]', '![Text]'],
     ['![Text](', '![Text]('],
@@ -1457,13 +1453,13 @@ describe('Incomplete image syntax', () => {
     ['![Text](   )', '![Text](   )'],
   ])('%s remains plain editable Markdown — no widget, no broken state', (_label, doc) => {
     const view = mountView(doc);
-    expect(hasImageContainer(view)).toBe(false);
+    expect((getImg(view) !== null)).toBe(false);
     expect(view.dom.textContent).toContain(doc);
   });
 
   it('a complete valid-looking URL renders the normal working image', () => {
     const view = mountView('![Text](valid-url)');
-    expect(hasImageContainer(view)).toBe(true);
+    expect((getImg(view) !== null)).toBe(true);
     expect(view.dom.querySelector('.cm-image-container--broken')).toBeNull();
     expect(getImg(view)?.getAttribute('src')).toBe('valid-url');
   });
@@ -1478,17 +1474,186 @@ describe('Incomplete image syntax', () => {
     expect(view.dom.querySelector('.cm-image-container--broken')).not.toBeNull();
   });
 
-  it('typing an image progressively never renders a widget until the syntax is actually complete', () => {
+  it('typing an image progressively never renders a widget while the syntax is still incomplete', () => {
     const view = mountView('');
     const steps = ['!', '![', '![Text', '![Text]', '![Text](', '![Text](https://example.com/x.png'];
     for (const doc of steps) {
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: doc } });
-      expect(hasImageContainer(view)).toBe(false);
+      expect((getImg(view) !== null)).toBe(false);
     }
+  });
+
+  it('Phase 2: completing the syntax by typing does not itself render it — the caret is still there, so raw Markdown stays visible until the caret first leaves', () => {
+    const view = mountView('');
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: '![Text](https://example.com/x.png)' },
     });
-    expect(hasImageContainer(view)).toBe(true);
+
+    expect((getImg(view) !== null)).toBe(false);
+    expect(view.dom.textContent).toContain('![Text](https://example.com/x.png)');
+
+    // The caret leaves (e.g. typing a space right after) — now it renders.
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: ' ' },
+      selection: { anchor: view.state.doc.length + 1 },
+    });
+
+    expect((getImg(view) !== null)).toBe(true);
+  });
+});
+
+/**
+ * Every dispatch below explicitly sets `selection` to track the end of
+ * whatever it just typed — this is load-bearing, not decoration. CM6's
+ * *default* selection mapping (`EditorSelection.map`'s own `assoc: -1`)
+ * does **not** advance the caret through an insertion made exactly at the
+ * caret's own old position — confirmed directly, the hard way, when an
+ * earlier version of these tests omitted `selection` and produced results
+ * that only made sense once traced back to the caret silently staying at
+ * position 0 throughout. A real keystroke always ends with the caret
+ * after what was typed; a hand-built `{changes}}`-only dispatch does not
+ * reproduce that unless told to.
+ */
+describe('Phase 2: two consecutive images (no separator) are independent through the first-leave lifecycle', () => {
+  const ONE = '![one](one.png)';
+  const TWO = '![two](two.png)';
+
+  function typeAt(view: EditorView, from: number, insert: string): void {
+    view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length } });
+  }
+
+  it('the first image completes its own first-leave lifecycle as soon as typing the second moves the caret past it — the second stays in its own initial (raw) editing state', () => {
+    const view = mountView('', 0);
+    typeAt(view, 0, ONE); // caret now at ONE.length, inside image #1
+    expect(getImg(view)).toBeNull();
+
+    typeAt(view, view.state.doc.length, TWO); // caret now at the end, inside image #2
+
+    // Image #1's own caret has moved past its `to` boundary as a direct
+    // consequence of typing #2 right after it — this IS its first leave,
+    // independent of anything about #2. #2, whose own caret is still at
+    // its own end, has not had a first leave yet.
+    const images = view.dom.querySelectorAll<HTMLImageElement>('img.tok-image');
+    expect(images.length).toBe(1);
+    expect(images[0]!.src).toContain('one.png');
+    expect(view.dom.textContent).toContain(TWO);
+  });
+
+  it('leaving the second image afterward does not re-trigger or otherwise affect the already-settled first image', () => {
+    const view = mountView('', 0);
+    typeAt(view, 0, ONE);
+    typeAt(view, view.state.doc.length, TWO);
+    const firstImgSrcAfterFirstLeave = view.dom.querySelector<HTMLImageElement>('img.tok-image')?.src;
+    expect(firstImgSrcAfterFirstLeave).toContain('one.png');
+
+    typeAt(view, view.state.doc.length, ' '); // leave #2 too
+
+    const images = view.dom.querySelectorAll<HTMLImageElement>('img.tok-image');
+    expect(images.length).toBe(2);
+    expect(images[0]!.src).toBe(firstImgSrcAfterFirstLeave);
+    expect(images[1]!.src).toContain('two.png');
+  });
+
+  it('navigating back into either already-rendered image does not reveal raw Markdown for it', () => {
+    const view = mountView('', 0);
+    typeAt(view, 0, ONE);
+    typeAt(view, view.state.doc.length, TWO);
+    typeAt(view, view.state.doc.length, ' ');
+    expect(view.dom.querySelectorAll('img.tok-image').length).toBe(2);
+
+    // Arrow-key-equivalent navigation into #1 (position 3, inside "one.png").
+    view.dispatch({ selection: { anchor: 3 } });
+    expect(view.dom.querySelectorAll('img.tok-image').length).toBe(2);
+
+    // ...and into #2 (inside "two.png").
+    view.dispatch({ selection: { anchor: ONE.length + 3 } });
+    expect(view.dom.querySelectorAll('img.tok-image').length).toBe(2);
+  });
+});
+
+describe('Phase 2: pendingFirstLeave lifecycle edge cases (does not accidentally reactivate for an already-settled occurrence)', () => {
+  function typeAt(view: EditorView, from: number, insert: string): void {
+    view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length } });
+  }
+
+  it('undo/redo across an unrelated edit does not disturb an already-settled image\'s rendering', () => {
+    const view = mountView('', 0);
+    typeAt(view, 0, IMAGE_MD);
+    typeAt(view, view.state.doc.length, ' x'); // settles it
+    expect(getImg(view)).not.toBeNull();
+
+    // An unrelated edit elsewhere, then undo it. `isolateHistory: 'before'`
+    // forces this into its own undo group, separate from the image's own
+    // creation above — otherwise CM6's own default time-based grouping
+    // (dispatches within `newGroupDelay`, 500ms, of each other) merges
+    // everything dispatched synchronously in one test into a single undo
+    // step, which is a test-harness artifact, not something a real user's
+    // spaced-out keystrokes would do.
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: 'y' },
+      selection: { anchor: view.state.doc.length + 1 },
+      annotations: isolateHistory.of('before'),
+    });
+    undo(view);
+
+    expect(view.state.doc.toString()).toContain(IMAGE_MD); // only 'y' was undone
+    expect(getImg(view)).not.toBeNull();
+
+    redo(view);
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('editing the URL of an already-settled, revealed image does not reset pendingFirstLeave — the raw source stays visible for the reason Edit-source put it there, not because it re-became "fresh"', () => {
+    const view = mountView(IMAGE_MD, 0); // mounted at rest, no entry — settled by construction
+    expect(getImg(view)).not.toBeNull();
+
+    clickEdit(view);
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+    // Edit a character inside the URL.
+    const urlPos = view.state.doc.toString().indexOf('mountain');
+    view.dispatch({ changes: { from: urlPos, insert: 'X' }, selection: { anchor: urlPos + 1 } });
+
+    // Still revealed (Edit-source's own state), not additionally re-marked pending.
+    expect(getImageUiState(view.state, 0).pendingFirstLeave).toBe(false);
+    expect(getImageUiState(view.state, 0).revealed).toBe(true);
+  });
+
+  it('deleting an image entirely and retyping an identical-looking one at the same position does not leak the old settled state into treating the new one as already-settled — OR, if it does inherit the old entry, it never regresses to showing raw Markdown for content the user never engaged (documenting actual RangeSet.map behavior, not assumed)', () => {
+    const view = mountView('', 0);
+    typeAt(view, 0, IMAGE_MD);
+    typeAt(view, view.state.doc.length, ' x');
+    expect(getImg(view)).not.toBeNull(); // settled
+
+    // Delete the image text entirely (keep the trailing " x").
+    view.dispatch({ changes: { from: 0, to: IMAGE_MD.length, insert: '' }, selection: { anchor: 0 } });
+    expect(getImg(view)).toBeNull();
+
+    // Retype an identical image at the same position.
+    typeAt(view, 0, IMAGE_MD);
+
+    // Whatever the RangeSet mapping did with the old entry, the caret is
+    // now at IMAGE_MD.length — genuinely still inside the just-retyped
+    // node. The invariant that actually matters (per the product rule)
+    // is: it must not show the *rendered* widget while the caret is still
+    // sitting inside content the user is actively retyping right now.
+    expect(getImg(view)).toBeNull();
+    expect(view.dom.textContent).toContain(IMAGE_MD);
+  });
+
+  it('moving an already-settled image through document changes (editing text before it) preserves its settled (non-pending) state — no spurious reveal on unrelated edits', () => {
+    const view = mountView('', 0);
+    typeAt(view, 0, IMAGE_MD);
+    typeAt(view, view.state.doc.length, ' x');
+    expect(getImg(view)).not.toBeNull();
+
+    // Insert unrelated text before the image, shifting its position, with
+    // the caret ending up right after that prefix — NOT inside the image.
+    typeAt(view, 0, 'prefix ');
+
+    const shiftedFrom = view.state.doc.toString().indexOf('![');
+    expect(shiftedFrom).toBe('prefix '.length);
+    expect(getImageUiState(view.state, shiftedFrom).pendingFirstLeave).toBe(false);
+    expect(getImg(view)).not.toBeNull();
   });
 });
 

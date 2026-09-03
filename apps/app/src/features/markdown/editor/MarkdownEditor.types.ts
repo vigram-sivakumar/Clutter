@@ -1,4 +1,6 @@
 import type { ResolveDate } from './codemirror/date/dateResolution';
+import type { GetEmbedSuggestions } from './codemirror/embed/embedSuggestion';
+import type { ResolveEmbedImage } from './codemirror/embed/embedImageResolution';
 import type { ResolveTag } from './codemirror/tag/tagResolution';
 import type { GetTagSuggestions } from './codemirror/tag/tagSuggestion';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
@@ -65,6 +67,23 @@ export interface MarkdownEditorProps {
    * extension list.
    */
   readonly getWikiLinkSuggestions?: GetWikiLinkSuggestions;
+  /**
+   * Supplies Embed autocomplete candidates for a given in-progress
+   * `![[query` — supplied entirely by the feature/app layer, same
+   * injected-boundary shape as `getWikiLinkSuggestions` above. This
+   * milestone (local Resource embed syntax + autocomplete) only wires
+   * this through to `embedCompletionSource`; resolving an accepted
+   * `![[path]]` into a rendered resource is a later step.
+   */
+  readonly getEmbedSuggestions?: GetEmbedSuggestions;
+  /**
+   * Resolves a completed `![[path]]` Embed's target into an image URL (or
+   * an unresolved/non-image outcome) for `embedLivePreview.ts` to render —
+   * supplied entirely by the feature/app layer, same injected-boundary
+   * shape as `resolveWikiLink` above. Composed from `resolveResourceEmbed()`
+   * + `Application.resolveResourceImageUrl()` (see resolveEmbedImage.ts).
+   */
+  readonly resolveEmbedImage?: ResolveEmbedImage;
   /**
    * Resolves a Tag's identifier into a status and activation behavior —
    * supplied entirely by the feature/app layer, same injected-boundary

@@ -3,6 +3,9 @@ import type { Extension } from '@codemirror/state';
 
 import { dateCompletionSource } from './date/dateCompletionSource';
 import { renderDateCompletion } from './date/dateCompletionRenderer';
+import { embedCompletionSource } from './embed/embedCompletionSource';
+import { renderEmbedCompletion } from './embed/embedCompletionRenderer';
+import type { GetEmbedSuggestions } from './embed/embedSuggestion';
 import { tagCompletionSource } from './tag/tagCompletionSource';
 import { renderTagCompletion } from './tag/tagCompletionRenderer';
 import type { GetTagSuggestions } from './tag/tagSuggestion';
@@ -42,11 +45,20 @@ import type { GetWikiLinkSuggestions } from './wikilink/wikiLinkSuggestion';
  */
 export function semanticCompletion(
   getWikiLinkSuggestions: () => GetWikiLinkSuggestions | undefined,
-  getTagSuggestions: () => GetTagSuggestions | undefined = () => undefined
+  getTagSuggestions: () => GetTagSuggestions | undefined = () => undefined,
+  getEmbedSuggestions: () => GetEmbedSuggestions | undefined = () => undefined
 ): Extension {
   return [
     autocompletion({
       override: [
+        // Embed's source is listed before WikiLink's: `@codemirror/
+        // autocomplete` queries every registered source for a given
+        // position and merges whichever return non-null results, so
+        // ordering here is not what prevents the two from double-firing
+        // for `![[` — wikiLinkCompletionSource.ts's own explicit
+        // preceding-`!` guard is what does that (see its doc comment).
+        // This ordering is cosmetic only.
+        embedCompletionSource(getEmbedSuggestions),
         wikiLinkCompletionSource(getWikiLinkSuggestions),
         dateCompletionSource(),
         tagCompletionSource(getTagSuggestions),
@@ -55,6 +67,7 @@ export function semanticCompletion(
       defaultKeymap: true,
       closeOnBlur: true,
       addToOptions: [
+        { render: renderEmbedCompletion, position: 50 },
         { render: renderWikiLinkCompletion, position: 50 },
         { render: renderDateCompletion, position: 50 },
         { render: renderTagCompletion, position: 50 },

@@ -28,6 +28,7 @@ import { semanticCompletion } from './codemirror/completion';
 // Ordered lists, task checklists, and hanging-indent/line-level list
 // decoration remain unimplemented; leading indentation for nested bullets
 // is already handled, construct-agnostically, by `leadingIndentDecoration.ts`.
+import { dateAutocomplete } from './codemirror/date/dateAutocomplete';
 import { dateMouseHandlers } from './codemirror/date/dateMouseHandlers';
 // import { emojiListMarkDecoration } from './codemirror/emoji-list/emojiListMarkDecoration';
 import { markdownEnterKeymap } from './codemirror/enter/markdownEnterKeymap';
@@ -68,6 +69,7 @@ import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
 import { ImageOverlay, type ImageOverlayImage } from './codemirror/image/ImageOverlay';
 import { imageLivePreview } from './codemirror/image/imageLivePreview';
+import { embedLivePreview } from './codemirror/embed/embedLivePreview';
 import { getImageUiState, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
@@ -75,8 +77,10 @@ import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 // taskCheckboxMouseHandlers.ts was deleted alongside the rest of the old
 // list-marker implementation (2026-08-28 list reset) and rebuilt in the
 // task visual-rendering slice (2026-08-31) — see the wiring site below.
+import { tagAutocomplete } from './codemirror/tag/tagAutocomplete';
 import { tagMouseHandlers } from './codemirror/tag/tagMouseHandlers';
 import { wikiLinkAutocomplete } from './codemirror/wikilink/wikiLinkAutocomplete';
+import { embedAutocomplete } from './codemirror/embed/embedAutocomplete';
 import { wikiLinkLivePreview } from './codemirror/wikilink/wikiLinkLivePreview';
 import { wikiLinkMouseHandlers } from './codemirror/wikilink/wikiLinkMouseHandlers';
 import type {
@@ -101,6 +105,15 @@ export type {
   WikiLinkPageSuggestion,
   WikiLinkCreateSuggestion,
 } from './codemirror/wikilink/wikiLinkSuggestion';
+export type {
+  GetEmbedSuggestions,
+  EmbedSuggestion,
+  EmbedResourceSuggestion,
+} from './codemirror/embed/embedSuggestion';
+export type {
+  ResolveEmbedImage,
+  EmbedImageResolution,
+} from './codemirror/embed/embedImageResolution';
 import './MarkdownEditor.css';
 
 /**
@@ -158,6 +171,8 @@ export const MarkdownEditor = forwardRef<
     onFlush,
     resolveWikiLink,
     getWikiLinkSuggestions,
+    getEmbedSuggestions,
+    resolveEmbedImage,
     resolveTag,
     getTagSuggestions,
     resolveDate,
@@ -213,6 +228,14 @@ export const MarkdownEditor = forwardRef<
   const getWikiLinkSuggestionsRef = useRef(getWikiLinkSuggestions);
   getWikiLinkSuggestionsRef.current = getWikiLinkSuggestions;
 
+  // Same freshness pattern, for Embed's completion source accessor below.
+  const getEmbedSuggestionsRef = useRef(getEmbedSuggestions);
+  getEmbedSuggestionsRef.current = getEmbedSuggestions;
+
+  // Same freshness pattern, for Embed's live-preview rendering accessor below.
+  const resolveEmbedImageRef = useRef(resolveEmbedImage);
+  resolveEmbedImageRef.current = resolveEmbedImage;
+
   // Image's lightbox — local, presentational state (unlike
   // resolveWikiLink/resolveTag/resolveDate above, opening an overlay for
   // an already-resolved image URL needs no Vault/PageOperations access,
@@ -236,6 +259,7 @@ export const MarkdownEditor = forwardRef<
     to: number;
     alt: string;
     url: string;
+    copyUrl?: string;
   } | null>(null);
   /**
    * Sets/clears the size button's own active styling plus its container's
@@ -262,7 +286,7 @@ export const MarkdownEditor = forwardRef<
     button.closest('.cm-image-container')?.setAttribute('data-menu-open', String(open));
   }
 
-  const onOpenImageMenuRef = useRef<OnOpenImageMenu>(({ anchor, pos, to, alt, url }) => {
+  const onOpenImageMenuRef = useRef<OnOpenImageMenu>(({ anchor, pos, to, alt, url, copyUrl }) => {
     // Clicking the size button for the image whose menu is already open
     // closes it — the same toggle affordance OverflowMenu's own trigger
     // button gives (onOpenChange(!open)) — rather than always reopening.
@@ -274,7 +298,7 @@ export const MarkdownEditor = forwardRef<
       if (!closingSame) {
         setImageMenuButtonOpen(anchor, true);
       }
-      return closingSame ? null : { anchor: { current: anchor }, pos, to, alt, url };
+      return closingSame ? null : { anchor: { current: anchor }, pos, to, alt, url, copyUrl };
     });
   });
 
@@ -300,14 +324,19 @@ export const MarkdownEditor = forwardRef<
     if (!imageMenu) {
       return;
     }
-    void copyTextToClipboard(imageMenu.url);
+    // `copyUrl`, when present, is what a local Resource embed wants copied
+    // instead of `url` (which for an embed is the resolved, loadable file
+    // URL, not the vault-relative text the Markdown itself carries) — see
+    // OpenImageMenuParams.copyUrl's own doc comment. `undefined` for a
+    // standard Markdown image, where `url` already is the right value.
+    void copyTextToClipboard(imageMenu.copyUrl ?? imageMenu.url);
   };
 
   const handleSetCoverImage = () => {
     if (!imageMenu) {
       return;
     }
-    onSetCoverImage?.(imageMenu.url);
+    onSetCoverImage?.(imageMenu.copyUrl ?? imageMenu.url);
   };
 
   const handleDeleteImage = () => {
@@ -443,6 +472,16 @@ export const MarkdownEditor = forwardRef<
         // rendered alongside the now-editable source. See
         // image/imageLivePreview.ts's own doc comment.
         imageLivePreview(() => onImageClickRef.current, () => onOpenImageMenuRef.current),
+        // Resource embed rendering — shares ImageWidget/the image overlay/
+        // options menu wholesale with the standard-image extension above
+        // (see embed/embedLivePreview.ts's own doc comment for why this is
+        // a separate ViewPlugin keyed on the `Embed` node rather than a
+        // change to imageLivePreview.ts itself).
+        embedLivePreview(
+          () => resolveEmbedImageRef.current,
+          () => onImageClickRef.current,
+          () => onOpenImageMenuRef.current
+        ),
         // strikethroughMarkerDecoration(),
         // Bullet (-/*/+) marker rendering only — the first slice of the
         // list-rendering rebuild (2026-08-28 reset, see the comment near
@@ -519,8 +558,11 @@ export const MarkdownEditor = forwardRef<
         // docs/editor-architecture-decisions.md for the full record.
         wikiLinkMouseHandlers(() => resolveWikiLinkRef.current),
         wikiLinkAutocomplete(),
+        embedAutocomplete(),
         tagMouseHandlers(() => resolveTagRef.current),
+        tagAutocomplete(),
         dateMouseHandlers(() => resolveDateRef.current),
+        dateAutocomplete(),
         // Explicit Markdown Link ([label](url)) and bare-URL/Autolink
         // click-to-navigate — no injected resolver needed (unlike
         // WikiLink/Tag/Date), since opening a URL has no Vault/app-layer
@@ -529,7 +571,8 @@ export const MarkdownEditor = forwardRef<
         urlMouseHandlers(),
         semanticCompletion(
           () => getWikiLinkSuggestionsRef.current,
-          () => getTagSuggestionsRef.current
+          () => getTagSuggestionsRef.current,
+          () => getEmbedSuggestionsRef.current
         ),
       ],
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),

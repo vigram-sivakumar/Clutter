@@ -9,6 +9,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 
+import { isTokenEngaged } from '../semanticToken/tokenEngagement';
 import { ImageWidget, type OnImageClick, type OnOpenImageMenu } from './ImageWidget';
 import { scanImage } from './imageScanner';
 import { getImageUiState, imageUiStateField } from './imageUiState';
@@ -16,21 +17,29 @@ import { getImageUiState, imageUiStateField } from './imageUiState';
 /**
  * Image's own standalone visibility mechanism — deliberately outside
  * `inlineLivePreviewRegion.ts`, the same reason and the same shape as
- * WikiLink's own extraction (`wikilink/wikiLinkLivePreview.ts`). Image no
- * longer implements the shared mechanism's reveal-on-engagement contract
- * at all: the required behavior (per the product correction this file
- * implements) is that the rendered image must **never** be replaced by raw
- * Markdown as a side effect of the caret entering it — only an explicit
- * user action (the widget's own edit/source button) reveals the source,
- * and when it does, the raw Markdown appears as ordinary editable text
- * *and* the rendered image remains, immediately below it. Neither of
- * those two things is expressible as "engaged region reveals raw source,"
- * which is why this needed its own extension rather than a flag on the
- * shared participant contract.
+ * WikiLink's own extraction (`wikilink/wikiLinkLivePreview.ts`). Image
+ * still doesn't implement the shared mechanism's bare reveal-on-engagement
+ * contract for an *already at-rest* image (a plain `isTokenEngaged` check
+ * would un-render it the instant the caret merely arrow-keys or clicks
+ * past it — confirmed directly against CM6's own atomic-range navigation,
+ * which lands the caret exactly at a node's boundary, satisfying
+ * `isTokenEngaged`'s inclusive containment identically to genuine
+ * editing): only an explicit user action (the widget's own edit/source
+ * button) reveals the source for an already-rendered image, and when it
+ * does, the raw Markdown appears as ordinary editable text *and* the
+ * rendered image remains, immediately below it.
  *
- * Two decoration shapes, chosen per node from `imageUiState.ts`'s
- * per-position, selection-independent UI state (not `isTokenEngaged`,
- * imported nowhere in this file):
+ * **Phase 2 (2026-09 rendering-lifecycle unification) addition**: a
+ * *freshly created* image — one that has never yet completed a full
+ * "type/paste, then the caret leaves" cycle — stays raw instead of
+ * rendering immediately, per `imageUiState.ts`'s own `pendingFirstLeave`
+ * field (see its doc comment for the full mechanism and why it isn't
+ * simply `isTokenEngaged`). This is "while actively editing, show raw
+ * Markdown; render once you leave" for a construct with no autocomplete
+ * of its own to key an explicit "completion accepted" moment off.
+ *
+ * Decoration shapes, chosen per node from `imageUiState.ts`'s per-position
+ * UI state plus (for the pending-first-leave case only) `isTokenEngaged`:
  *
  * - **Hidden source** (default): `Decoration.replace({widget})` over the
  *   whole node, exactly Phase 1's shape — the widget is the only rendered
@@ -90,6 +99,17 @@ function buildDecorations(
         }
 
         const ui = getImageUiState(view.state, node.from);
+
+        if (ui.pendingFirstLeave && !ui.revealed && isTokenEngaged(view.state, node)) {
+          // Still being typed/pasted for the first time — no widget at
+          // all yet, plain editable raw text. See this function's own doc
+          // comment. `pendingFirstLeave` (not a bare `isTokenEngaged`
+          // check) is what keeps this from also firing for an
+          // already-at-rest image the caret merely arrow-keyed/clicked
+          // past.
+          return;
+        }
+
         const widget = new ImageWidget(
           match.alt,
           match.url,

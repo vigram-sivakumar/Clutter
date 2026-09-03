@@ -1,6 +1,7 @@
 import { Autolink, Strikethrough, Table, TaskList, type MarkdownExtension } from '@lezer/markdown';
 
 import { dateSyntax } from './date/dateSyntax';
+import { embedSyntax } from './embed/embedSyntax';
 import { emojiListSyntax } from './emoji-list/emojiListSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
 import { doubleHorizontalRuleSyntax } from './hr/doubleHorizontalRuleSyntax';
@@ -59,6 +60,7 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   TaskList,
   Table,
   wikiLinkSyntax,
+  embedSyntax,
   tagSyntax,
   dateSyntax,
   taskCompletionMetadataSyntax,

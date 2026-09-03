@@ -108,6 +108,44 @@ describe('wikiLinkCompletionSource — fresh, not-yet-closed [[query', () => {
     expect(view.state.doc.toString()).toBe('x [[Brand New]]');
     expect(create).toHaveBeenCalledTimes(1);
   });
+
+  it("apply() places the cursor immediately after the closing ']]' it just inserted", () => {
+    const view = mountView('[[Brand New');
+    const getSuggestions: GetWikiLinkSuggestions = () => [
+      { kind: 'page', path: 'Brand New', title: 'Brand New', breadcrumb: null },
+    ];
+    const source = wikiLinkCompletionSource(() => getSuggestions);
+
+    const result = call(source, contextAt(view, 11));
+    const option = result?.options[0];
+
+    if (typeof option?.apply === 'function') {
+      option.apply(view, option, result?.from ?? 0, 11);
+    }
+
+    expect(view.state.doc.toString()).toBe('[[Brand New]]');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+  });
+
+  it("apply() places the cursor after the full document — including a pre-existing '|alias' — when reactivating an ALIASED, ALREADY-CLOSED reference at the end of the document", () => {
+    const view = mountView('[[Note title|My alias]]');
+    const getSuggestions: GetWikiLinkSuggestions = () => [
+      { kind: 'page', path: 'Note title', title: 'Note title', breadcrumb: null },
+    ];
+    const source = wikiLinkCompletionSource(() => getSuggestions);
+
+    const result = call(source, contextAt(view, 6)); // mid-reference, inside "Note title"
+    const option = result?.options[0];
+    expect(option).toBeDefined();
+
+    if (typeof option?.apply === 'function') {
+      option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
+    }
+
+    expect(view.state.doc.toString()).toBe('[[Note title|My alias]]');
+    expect(view.state.selection.main.head).toBe(view.state.doc.length);
+    expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
+  });
 });
 
 describe('wikiLinkCompletionSource — reactivating inside an already-closed WikiLink', () => {
@@ -238,6 +276,60 @@ describe('wikiLinkCompletionSource — reactivating inside an already-closed Wik
 
     expect(view.state.doc.toString()).toBe('x [[New Note|My news]] y');
   });
+
+  it(
+    'regression: accepting a reactivated reference completion on an ALREADY-CLOSED, alias-less WikiLink ' +
+      "places the cursor after the pre-existing ']]', not before it — the reference-zone edit itself never " +
+      'inserts brackets, so the fresh-case anchor math alone leaves the cursor short',
+    () => {
+      // "x [[2026-08-25]] y" — no alias, so `zone.to` sits right before the
+      // existing "]]" rather than at the document's own end.
+      const view = mountView('x [[2026-08-25]] y');
+      const getSuggestions: GetWikiLinkSuggestions = () => [
+        { kind: 'page', path: '2026-08-25', title: '2026-08-25', breadcrumb: null },
+      ];
+      const source = wikiLinkCompletionSource(() => getSuggestions);
+
+      const result = call(source, contextAt(view, 8)); // mid-reference
+      const option = result?.options[0];
+      expect(option).toBeDefined();
+
+      if (typeof option?.apply === 'function') {
+        option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
+      }
+
+      expect(view.state.doc.toString()).toBe('x [[2026-08-25]] y');
+      // Right after the "]]" (index 16), not right after "25" (index 14).
+      expect(view.state.selection.main.head).toBe(16);
+    }
+  );
+
+  it(
+    "regression: accepting a reactivated reference completion on an ALIASED WikiLink still places the cursor " +
+      "after the closing ']]', past the untouched alias — '|' is alias syntax, never a resting point for " +
+      'autocomplete acceptance',
+    () => {
+      // "x [[News|My news]] y" — reference "News" occupies indices 4..7.
+      const view = mountView('x [[News|My news]] y');
+      const getSuggestions: GetWikiLinkSuggestions = () => [
+        { kind: 'page', path: 'New Note', title: 'New Note', breadcrumb: null },
+      ];
+      const source = wikiLinkCompletionSource(() => getSuggestions);
+
+      const result = call(source, contextAt(view, 6));
+      const option = result?.options[0];
+      expect(option).toBeDefined();
+
+      if (typeof option?.apply === 'function') {
+        option.apply(view, option, result?.from ?? 0, result?.to ?? 0);
+      }
+
+      const doc = view.state.doc.toString();
+      expect(doc).toBe('x [[New Note|My news]] y');
+      expect(view.state.selection.main.head).toBe(doc.indexOf(']] y') + ']]'.length);
+      expect(view.state.selection.main.anchor).toBe(doc.indexOf(']] y') + ']]'.length);
+    }
+  );
 
   it('nested reference paths work when reactivating an existing reference, querying only the visible filename', () => {
     const view = mountView('x [[Projects/Project A/Note|My note]] y');
