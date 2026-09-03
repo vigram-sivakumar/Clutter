@@ -1,5 +1,3 @@
-import { Fragment } from 'react';
-
 import './Breadcrumbs.css';
 import { BreadcrumbItem } from './BreadcrumbItem';
 import { AppIcon } from '@shared/icon';
@@ -23,70 +21,35 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
     return null;
   }
 
-  // With 3 or fewer items there's never a gap to collapse — render the
-  // trail as-is, one BreadcrumbItem per entry, slash-separated.
-  if (items.length <= 3) {
+  // Current page only — no ancestors to collapse.
+  if (items.length === 1) {
+    const current = items[0]!;
+
     return (
-      <div className="breadcrumb">
-        {items.map((item, index) => (
-          <Fragment key={item.id}>
-            {index > 0 && (
-              <span className="breadcrumb__slash">
-                <AppIcon icon="slash" />
-              </span>
-            )}
-            <BreadcrumbItem
-              id={item.id}
-              icon={item.icon}
-              emoji={item.emoji}
-              title={item.title}
-              onClick={item.onClick}
-            />
-          </Fragment>
-        ))}
-      </div>
+      <BreadcrumbItem
+        id={current.id}
+        title={current.title}
+        icon={current.icon}
+        emoji={current.emoji}
+        onClick={current.onClick}
+      />
     );
   }
 
-  // 4+ items: root, an overflow menu for everything between, then the
-  // last two items.
-  const root = items[0]!;
+  // 2+ items: every ancestor goes into the overflow menu, only the
+  // current page renders inline.
   const current = items.at(-1)!;
-  const secondLast = items.at(-2)!;
-  const collapsed = items.slice(1, -2);
+  const collapsed = items.slice(0, -1);
 
   return (
     <>
       <div className="breadcrumb">
-        <BreadcrumbItem
-          id={root.id}
-          icon={root.icon}
-          emoji={root.emoji}
-          title={root.title}
-          onClick={root.onClick}
-        />
-
-        <span className="breadcrumb__slash">
-          <AppIcon icon="slash" />
-        </span>
         <BreadcrumbItem
           isIconOnly
           icon={'moreHorizontal'}
           ref={overflow.anchorRef}
           onClick={overflow.toggle}
         />
-        <span className="breadcrumb__slash">
-          <AppIcon icon="slash" />
-        </span>
-
-        <BreadcrumbItem
-          id={secondLast.id}
-          icon={secondLast.icon}
-          emoji={secondLast.emoji}
-          title={secondLast.title}
-          onClick={secondLast.onClick}
-        />
-
         <span className="breadcrumb__slash">
           <AppIcon icon="slash" />
         </span>
