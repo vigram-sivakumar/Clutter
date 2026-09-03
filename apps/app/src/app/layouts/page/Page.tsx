@@ -40,6 +40,18 @@ type PageProps = {
   isSidebarVisible?: boolean;
   onToggleSidebarVisible?(): void;
   /**
+   * Forwarded to PageTopBar's history buttons — the Workspace-owned
+   * navigation-history state and NavigationRouter.back()/forward() handlers
+   * of ADR-027, which PageHost resolves and passes down. Optional for the
+   * same reason the sidebar-toggle pair above is: Page's own tests and any
+   * caller that doesn't care about history state shouldn't be forced to
+   * supply them.
+   */
+  canNavigateBack?: boolean;
+  canNavigateForward?: boolean;
+  onNavigateBack?(): void;
+  onNavigateForward?(): void;
+  /**
    * React key for the title's EditableText, not for Page itself — PageHost
    * used to key the whole <Page> by activePageId so a fresh PageTitle
    * remounts per page (EditableText's autoFocus is deliberately mount-once,
@@ -69,6 +81,13 @@ export function Page({
   onTitleCancel,
   isSidebarVisible,
   onToggleSidebarVisible,
+  // PageTopBar requires these four, so the defaults stand in for a caller
+  // that omitted them: "no history in either direction," which renders both
+  // buttons disabled and therefore makes the no-op handlers unreachable.
+  canNavigateBack = false,
+  canNavigateForward = false,
+  onNavigateBack = () => {},
+  onNavigateForward = () => {},
   titleKey,
 }: PageProps) {
   // The one place "is this entity missing its title" is decided for the
@@ -88,6 +107,10 @@ export function Page({
           actions={actions}
           isSidebarVisible={isSidebarVisible}
           onToggleSidebarVisible={onToggleSidebarVisible}
+          canNavigateBack={canNavigateBack}
+          canNavigateForward={canNavigateForward}
+          onNavigateBack={onNavigateBack}
+          onNavigateForward={onNavigateForward}
         />
         <div className="page__content">
           <header className="page__header">

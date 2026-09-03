@@ -36,6 +36,15 @@
   border-radius: var(--radius-lg);
   padding: var(--space-2);
 }
+
+/* Moved here verbatim from Controls.css when ADR-027's history buttons
+   relocated from Controls into this topbar — the topbar is now their only
+   consumer, so the rule no longer relies on Controls' stylesheet happening
+   to be imported somewhere in the tree. */
+.history-controls {
+  display: flex;
+  gap: var(--space-2);
+}
 .topbar__sidebar-toggle {
   display: none;
 }

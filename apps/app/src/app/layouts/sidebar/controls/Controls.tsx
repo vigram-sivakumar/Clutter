@@ -5,26 +5,22 @@ import { AppIcon } from '@shared/icon';
 interface ControlsProps {
   isSidebarVisible: boolean;
   onToggleSidebarVisible(): void;
-  canNavigateBack: boolean;
-  canNavigateForward: boolean;
-  onNavigateBack(): void;
-  onNavigateForward(): void;
 }
 
 /**
  * The sidebar-toggle button's backing state is Workspace.isSidebarVisible
- * (ADR-021, M4). The history (back/forward) buttons' backing state is
- * Workspace's navigation-history stacks, and their handlers are
- * NavigationRouter.back()/forward() (ADR-027) — no longer the disabled
- * placeholders ADR-016 kept them as.
+ * (ADR-021, M4). The history (back/forward) buttons ADR-027 wired here now
+ * render in PageTopBar instead — that move relocated the buttons only, and
+ * left their backing state where ADR-027 put it (Workspace's
+ * navigation-history stacks, NavigationRouter.back()/forward()).
+ *
+ * The create buttons below remain placeholders — unlike the history buttons
+ * before ADR-027, they are deliberately *not* disabled, since no backing
+ * state exists yet to derive a disabled condition from.
  */
 export function Controls({
   isSidebarVisible,
   onToggleSidebarVisible,
-  canNavigateBack,
-  canNavigateForward,
-  onNavigateBack,
-  onNavigateForward,
 }: ControlsProps) {
   return (
     <div className="controls" data-tauri-drag-region>
@@ -40,24 +36,18 @@ export function Controls({
           <AppIcon icon="sidebar" />
         </Button>
       </div>
-      <div className="history-controls">
-        <Button
-          isIconOnly
-          size="medium"
-          variant="ghost"
-          disabled={!canNavigateBack}
-          onClick={onNavigateBack}
-        >
-          <AppIcon icon="arrowLeft" />
+      <div className="create-controls">
+        <Button isIconOnly size="medium" variant="ghost" onClick={() => {}}>
+          <AppIcon icon="plus" />
         </Button>
         <Button
+          className="create-dropdown"
           isIconOnly
           size="medium"
           variant="ghost"
-          disabled={!canNavigateForward}
-          onClick={onNavigateForward}
+          onClick={() => {}}
         >
-          <AppIcon icon="arrowRight" />
+          <AppIcon icon="caretDown" size={12} />
         </Button>
       </div>
     </div>

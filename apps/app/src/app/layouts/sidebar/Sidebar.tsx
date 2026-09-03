@@ -143,10 +143,6 @@ export function Sidebar({ application }: SidebarProps) {
       <Controls
         isSidebarVisible={workspace.isSidebarVisible}
         onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
-        canNavigateBack={workspace.canNavigateBack}
-        canNavigateForward={workspace.canNavigateForward}
-        onNavigateBack={() => navigation.back()}
-        onNavigateForward={() => navigation.forward()}
       />
       <div className="sidebar--tabs">
         <Tabs

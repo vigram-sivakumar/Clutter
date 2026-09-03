@@ -12,10 +12,6 @@ function renderControls(overrides: Partial<Parameters<typeof Controls>[0]> = {})
   const props = {
     isSidebarVisible: true,
     onToggleSidebarVisible: vi.fn(),
-    canNavigateBack: false,
-    canNavigateForward: false,
-    onNavigateBack: vi.fn(),
-    onNavigateForward: vi.fn(),
     ...overrides,
   };
 
@@ -24,92 +20,8 @@ function renderControls(overrides: Partial<Parameters<typeof Controls>[0]> = {})
   return { ...result, props };
 }
 
-describe('Controls history buttons (ADR-027)', () => {
-  it('both buttons are disabled when history is empty', () => {
-    const { container } = renderControls();
-
-    const buttons = container.querySelectorAll<HTMLButtonElement>('.history-controls button');
-    expect(buttons).toHaveLength(2);
-    for (const button of buttons) {
-      expect(button.disabled).toBe(true);
-    }
-  });
-
-  it('Previous is enabled exactly when canNavigateBack is true', () => {
-    const { container, rerender } = render(
-      <Controls
-        isSidebarVisible
-        onToggleSidebarVisible={vi.fn()}
-        canNavigateBack={false}
-        canNavigateForward={false}
-        onNavigateBack={vi.fn()}
-        onNavigateForward={vi.fn()}
-      />
-    );
-    const [previousButton] = container.querySelectorAll<HTMLButtonElement>(
-      '.history-controls button'
-    );
-    expect(previousButton!.disabled).toBe(true);
-
-    rerender(
-      <Controls
-        isSidebarVisible
-        onToggleSidebarVisible={vi.fn()}
-        canNavigateBack={true}
-        canNavigateForward={false}
-        onNavigateBack={vi.fn()}
-        onNavigateForward={vi.fn()}
-      />
-    );
-    const [previousButtonAfter] = container.querySelectorAll<HTMLButtonElement>(
-      '.history-controls button'
-    );
-    expect(previousButtonAfter!.disabled).toBe(false);
-  });
-
-  it('Next is enabled exactly when canNavigateForward is true', () => {
-    const { container } = renderControls({ canNavigateForward: true });
-
-    const [, nextButton] = container.querySelectorAll<HTMLButtonElement>(
-      '.history-controls button'
-    );
-    expect(nextButton!.disabled).toBe(false);
-  });
-
-  it('clicking Previous calls onNavigateBack when enabled', () => {
-    const onNavigateBack = vi.fn();
-    const { container } = renderControls({ canNavigateBack: true, onNavigateBack });
-
-    const [previousButton] = container.querySelectorAll('.history-controls button');
-    fireEvent.click(previousButton!);
-
-    expect(onNavigateBack).toHaveBeenCalledTimes(1);
-  });
-
-  it('clicking Next calls onNavigateForward when enabled', () => {
-    const onNavigateForward = vi.fn();
-    const { container } = renderControls({ canNavigateForward: true, onNavigateForward });
-
-    const [, nextButton] = container.querySelectorAll('.history-controls button');
-    fireEvent.click(nextButton!);
-
-    expect(onNavigateForward).toHaveBeenCalledTimes(1);
-  });
-
-  it('clicking a disabled Previous/Next does not call its handler', () => {
-    const onNavigateBack = vi.fn();
-    const onNavigateForward = vi.fn();
-    const { container } = renderControls({ onNavigateBack, onNavigateForward });
-
-    const [previousButton, nextButton] = container.querySelectorAll('.history-controls button');
-    fireEvent.click(previousButton!);
-    fireEvent.click(nextButton!);
-
-    expect(onNavigateBack).not.toHaveBeenCalled();
-    expect(onNavigateForward).not.toHaveBeenCalled();
-  });
-
-  it('the sidebar-toggle button is unaffected by history state', () => {
+describe('Controls sidebar toggle (ADR-021, M4)', () => {
+  it('clicking the sidebar-toggle button calls onToggleSidebarVisible', () => {
     const onToggleSidebarVisible = vi.fn();
     const { container } = renderControls({ onToggleSidebarVisible });
 
@@ -117,5 +29,40 @@ describe('Controls history buttons (ADR-027)', () => {
     fireEvent.click(toggleButton);
 
     expect(onToggleSidebarVisible).toHaveBeenCalledTimes(1);
+  });
+
+  it('reflects isSidebarVisible via aria-pressed rather than a visual active state', () => {
+    const { container, rerender } = render(
+      <Controls isSidebarVisible onToggleSidebarVisible={vi.fn()} />
+    );
+    const toggleButton = container.querySelector('.sidebar-toggle button')!;
+    expect(toggleButton.getAttribute('aria-pressed')).toBe('true');
+
+    rerender(
+      <Controls isSidebarVisible={false} onToggleSidebarVisible={vi.fn()} />
+    );
+    expect(
+      container.querySelector('.sidebar-toggle button')!.getAttribute('aria-pressed')
+    ).toBe('false');
+  });
+});
+
+describe('Controls no longer renders navigation history (relocated to PageTopBar)', () => {
+  it('renders no history-controls group — the arrows live in the topbar now', () => {
+    const { container } = renderControls();
+
+    expect(container.querySelector('.history-controls')).toBeNull();
+  });
+
+  it('leaves the create buttons enabled, no longer gated on navigation history', () => {
+    const { container } = renderControls();
+
+    const buttons = container.querySelectorAll<HTMLButtonElement>(
+      '.create-controls button'
+    );
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect(button.disabled).toBe(false);
+    }
   });
 });

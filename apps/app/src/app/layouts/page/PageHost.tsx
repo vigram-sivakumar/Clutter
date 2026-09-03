@@ -35,6 +35,8 @@ import { createDateResolver } from '@app/layouts/page/resolveDate';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
+import { createEmbedSuggester } from '@app/layouts/page/embedSuggestions';
+import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
 import {
   getCollectionPageTitleProps,
@@ -126,6 +128,16 @@ export function PageHost({ application }: PageHostProps) {
     vault,
     application.pageOperations,
     application.folderOperations
+  );
+  // Same per-render, stateless-glue composition as resolveWikiLink above.
+  // Resource embed autocomplete only, this milestone — no resolver for a
+  // renderer to call yet (resolveResourceEmbed.ts exists but isn't wired
+  // through as an injected prop until a rendering milestone needs it).
+  const getEmbedSuggestions = createEmbedSuggester(vault, application.membershipSelector);
+  // Same per-render, stateless-glue composition as resolveWikiLink above —
+  // this milestone's rendering counterpart to getEmbedSuggestions.
+  const resolveEmbedImage = createEmbedImageResolver(vault, (path) =>
+    application.resolveResourceImageUrl(path)
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveTag = createTagResolver(application.navigation, vault);
@@ -380,6 +392,10 @@ export function PageHost({ application }: PageHostProps) {
         <Page
           isSidebarVisible={workspace.isSidebarVisible}
           onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+          canNavigateBack={workspace.canNavigateBack}
+          canNavigateForward={workspace.canNavigateForward}
+          onNavigateBack={() => application.navigation.back()}
+          onNavigateForward={() => application.navigation.forward()}
           title={model.title}
           description={model.description}
           titleEditable={isRenameable}
@@ -454,6 +470,10 @@ export function PageHost({ application }: PageHostProps) {
         <Page
           isSidebarVisible={workspace.isSidebarVisible}
           onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+          canNavigateBack={workspace.canNavigateBack}
+          canNavigateForward={workspace.canNavigateForward}
+          onNavigateBack={() => application.navigation.back()}
+          onNavigateForward={() => application.navigation.forward()}
           title={getSystemLocationPresentation('assets').label}
           titleEditable={false}
           breadcrumbs={<Breadcrumbs items={[]} />}
@@ -507,6 +527,10 @@ export function PageHost({ application }: PageHostProps) {
       <Page
         isSidebarVisible={workspace.isSidebarVisible}
         onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+        canNavigateBack={workspace.canNavigateBack}
+        canNavigateForward={workspace.canNavigateForward}
+        onNavigateBack={() => application.navigation.back()}
+        onNavigateForward={() => application.navigation.forward()}
         title={getSystemLocationPresentation(view).label}
         titleEditable={false}
         breadcrumbs={<Breadcrumbs items={[]} />}
@@ -567,6 +591,10 @@ export function PageHost({ application }: PageHostProps) {
       <Page
         isSidebarVisible={workspace.isSidebarVisible}
         onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+        canNavigateBack={workspace.canNavigateBack}
+        canNavigateForward={workspace.canNavigateForward}
+        onNavigateBack={() => application.navigation.back()}
+        onNavigateForward={() => application.navigation.forward()}
         title={titleProps.title}
         description={model.description}
         titleEditable={titleProps.titleEditable}
@@ -630,6 +658,10 @@ export function PageHost({ application }: PageHostProps) {
         titleKey={activePageId}
         isSidebarVisible={workspace.isSidebarVisible}
         onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+        canNavigateBack={workspace.canNavigateBack}
+        canNavigateForward={workspace.canNavigateForward}
+        onNavigateBack={() => application.navigation.back()}
+        onNavigateForward={() => application.navigation.forward()}
         title={model.title}
         description={model.description}
         titleEditable
@@ -655,6 +687,8 @@ export function PageHost({ application }: PageHostProps) {
               onFlush={() => model.requestSave()}
               resolveWikiLink={resolveWikiLink}
               getWikiLinkSuggestions={getWikiLinkSuggestions}
+              getEmbedSuggestions={getEmbedSuggestions}
+              resolveEmbedImage={resolveEmbedImage}
               resolveTag={resolveTag}
               getTagSuggestions={getTagSuggestions}
               resolveDate={resolveDate}
@@ -729,6 +763,10 @@ export function PageHost({ application }: PageHostProps) {
       titleKey={activePageId}
       isSidebarVisible={workspace.isSidebarVisible}
       onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+      canNavigateBack={workspace.canNavigateBack}
+      canNavigateForward={workspace.canNavigateForward}
+      onNavigateBack={() => application.navigation.back()}
+      onNavigateForward={() => application.navigation.forward()}
       title={model.title}
       description={model.description}
       titleEditable={isRenameable}
@@ -753,6 +791,8 @@ export function PageHost({ application }: PageHostProps) {
             onFlush={() => model.requestSave()}
             resolveWikiLink={resolveWikiLink}
             getWikiLinkSuggestions={getWikiLinkSuggestions}
+            getEmbedSuggestions={getEmbedSuggestions}
+            resolveEmbedImage={resolveEmbedImage}
             resolveTag={resolveTag}
             getTagSuggestions={getTagSuggestions}
             resolveDate={resolveDate}
