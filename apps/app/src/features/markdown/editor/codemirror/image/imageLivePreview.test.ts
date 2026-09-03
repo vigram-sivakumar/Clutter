@@ -953,6 +953,39 @@ describe('MarkdownEditor.css — .cm-image-container', () => {
 
     expect(body).toMatch(/display\s*:\s*inline-flex\s*;/);
   });
+
+  it('is vertical-align: top — an inline-flex box defaults to vertical-align: baseline, which reserves descender space below it (the classic "mystery gap under an inline image" gap), the ~6.5px-per-image remainder measured after the inline-flex fix alone', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const match = css.match(/\.cm-editor\s+\.cm-image-container\s*\{([^}]*)\}/);
+
+    expect(match, '.cm-image-container rule not found').not.toBeNull();
+    const body = match![1];
+
+    expect(body).toMatch(/vertical-align\s*:\s*top\s*;/);
+  });
+
+  it('no other rule re-overrides .cm-line padding-block for a line containing an image — the exact regression that reintroduced ~12px of extra top+bottom space (6px extra per side) after the inline-flex fix already landed; .cm-line must stay at its own plain padding-block: 3px for every line, image or not', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+
+    expect(css).not.toMatch(/\.cm-line\s*:\s*has\(\s*\.cm-image-container\s*\)\s*\{/);
+    expect(css).not.toMatch(/\.cm-image-container[^{]*\{[^}]*padding-block/);
+  });
+});
+
+describe('MarkdownEditor.css — .cm-content min-width (narrow-viewport horizontal scroll)', () => {
+  it('is min-width: 0 — .cm-content is a flex item of .cm-scroller (flex: 2 1 auto, set by CM6 itself), and flex items default to min-width: auto, which floors an item at its content\'s max-content width regardless of viewport. An unbreakable run inside a line (e.g. the broken-image hint\'s nowrap URL text) was bubbling all the way up to permanently floor .cm-content, overflowing .cm-scroller below ~478px and simultaneously preventing that hint\'s own text-overflow: ellipsis from ever engaging. Confirmed by live measurement: without this rule .cm-scroller.scrollWidth > .cm-scroller.clientWidth at narrow widths; with it, they match at every tested width.', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    // Strip block comments first: this rule's own doc comment prose
+    // contains a literal `{ font-family: monospace }` example, which
+    // would otherwise terminate a naive `[^}]*` match early.
+    const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const match = cssWithoutComments.match(/\.markdown__editor\s+\.cm-content\s*\{([^}]*)\}/);
+
+    expect(match, '.cm-content rule not found').not.toBeNull();
+    const body = match![1];
+
+    expect(body).toMatch(/min-width\s*:\s*0\s*;/);
+  });
 });
 
 /**
@@ -1081,7 +1114,21 @@ describe('Broken image fallback', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
     const match = css.match(/\.cm-editor\s+\.cm-image-container--broken\s*\{([^}]*)\}/);
     expect(match, '.cm-image-container--broken rule not found').not.toBeNull();
-    expect(match![1]).toMatch(/width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
+    // `(?<!max-)` is load-bearing, not decorative — regression test for a
+    // real bug: `max-width: calc(100% - 1px)` only *caps* the container's
+    // width, it doesn't set it, so with the base `.cm-image-container`
+    // rule's own `width: fit-content` (the widget-buffer spacing fix)
+    // still in effect, the broken bar silently shrink-wrapped to its own
+    // content instead of filling the line. A bare `/width\s*:.../` regex
+    // (no lookbehind) doesn't catch this — "max-width: calc(...)" still
+    // *contains* the substring "width: calc(...)", so the assertion kept
+    // passing throughout that regression. Confirmed directly (live
+    // browser measurement) that switching this back to `max-width` was
+    // NOT what caused a separately-observed horizontal-scroll issue —
+    // that reproduced identically with or without this property, from an
+    // unrelated general narrow-viewport `.cm-content` sizing issue.
+    expect(match![1]).toMatch(/(?<!max-)width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
+    expect(match![1]).not.toMatch(/max-width\s*:/);
   });
 
   it('renders the broken representation (icon + alt + hint) instead of an <img>', () => {

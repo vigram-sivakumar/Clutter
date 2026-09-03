@@ -64,4 +64,23 @@ describe('buildDailyNoteTopBarMenu', () => {
       expect(item?.disabled).toBeFalsy();
     }
   });
+
+  it("includes an enabled 'reveal-in-finder' and 'copy-path' (with As Markdown) for a persisted, active daily note", () => {
+    const menu = buildDailyNoteTopBarMenu('active');
+
+    expect(menu.find((i) => i.id === 'reveal-in-finder')?.disabled).toBeFalsy();
+    const copyPath = menu.find((i) => i.id === 'copy-path');
+    expect(copyPath?.disabled).toBeFalsy();
+    expect(copyPath?.submenu?.map((leaf) => leaf.id)).toContain('copy-path-as-markdown');
+  });
+
+  it("disables (not omits) 'reveal-in-finder'/'copy-path' for a draft, like add-cover-image is NOT — no path exists yet", () => {
+    const menu = buildDailyNoteTopBarMenu('draft');
+    const ids = menu.map((i) => i.id);
+
+    expect(ids).toContain('reveal-in-finder');
+    expect(ids).toContain('copy-path');
+    expect(menu.find((i) => i.id === 'reveal-in-finder')?.disabled).toBe(true);
+    expect(menu.find((i) => i.id === 'copy-path')?.disabled).toBe(true);
+  });
 });

@@ -27,6 +27,33 @@ export class VaultPath {
   }
 
   /**
+   * `path` relative to `root` (e.g. `/vault/Assets/hero.png` + `/vault` ->
+   * `Assets/hero.png`) — the inverse of the `${root}/${relative}` join
+   * already scattered at call sites like `Vault.getReservedFolder`/
+   * `isReservedTopLevelFolderPath`. Returns `path` unchanged if it isn't
+   * actually rooted under `root`, rather than producing a nonsensical
+   * slice.
+   */
+  static relativeTo(path: string, root: string): string {
+    return this.isDescendantOf(path, root) ? path.slice(root.length + 1) : path;
+  }
+
+  /**
+   * `path` with its extension (per `extension()`) removed, preserving
+   * every directory segment — unlike `pageName()`/`stemName()`, which both
+   * discard the directory because their only callers ever needed the bare
+   * filename for display. A canonical WikiLink target
+   * (`docs/editor-architecture-decisions.md`'s "vault-relative, no
+   * extension") needs the full relative path with `.md` stripped, e.g.
+   * `Projects/Roadmap.md` -> `Projects/Roadmap`, so this keeps everything
+   * before the extension rather than re-deriving just the filename.
+   */
+  static withoutExtension(path: string): string {
+    const extension = this.extension(path);
+    return extension ? path.slice(0, -extension.length) : path;
+  }
+
+  /**
    * Whether two paths refer to the same filesystem entry on a
    * case-insensitive (but case-preserving) filesystem — the default for
    * both macOS (APFS) and Windows (NTFS), which LocalVaultProvider writes

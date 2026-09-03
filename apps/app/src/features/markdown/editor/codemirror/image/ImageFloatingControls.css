@@ -1,0 +1,64 @@
+/* The shared floating image-control visual system — container chrome
+   (background/radius/shadow/padding) and button chrome
+   (sizing/radius/color/hover/active/icon), relocated verbatim (same
+   selectors' declarations, same values, same class names) out of
+   MarkdownEditor.css so it no longer requires a `.cm-editor` ancestor.
+   `.cm-image-controls`/`.cm-image-control`/`.cm-image-control--active`
+   keep their exact original names (ImageWidget.ts's raw CM6 DOM already
+   uses them, as do imageLivePreview.test.ts's own class-name assertions —
+   neither needed to change) so this file is the *only* thing that moved,
+   not the classes themselves.
+
+   Two consumers:
+   - The inline Markdown image/embed controls (ImageWidget.ts's raw DOM) —
+     MarkdownEditor.css keeps only its own CM6-specific concerns on top of
+     these classes (absolute positioning within `.cm-image-container`, the
+     hover/focus-within/`data-menu-open` opacity toggle for reveal-on-
+     engagement) — everything about the button/container's own appearance
+     lives here instead.
+   - ImageOverlay's own floating control (ImageFloatingControls.tsx below,
+     used by ImageOverlayMoreActions.tsx) — always visible, so it never
+     needs (or references) the opacity-toggle rules at all; it gets the
+     exact same container/button chrome by using the same class names. */
+
+.cm-image-controls {
+  display: flex;
+  padding: var(--space-2);
+  background: var(--surface-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  box-shadow: var(--shadow-inset-thin), var(--shadow-lg);
+}
+
+.cm-image-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--height-md);
+  aspect-ratio: 1;
+  padding: 1;
+  border: none;
+  color: var(--foreground-primary);
+  border-radius: var(--radius-md);
+
+  cursor: pointer;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+.cm-image-control:hover {
+  background: var(--state-hover);
+  color: var(--foreground-primary);
+}
+
+.cm-image-control--active {
+  background: var(--state-selected);
+}
+
+.cm-image-control svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  stroke-width: var(--icon-stroke);
+}

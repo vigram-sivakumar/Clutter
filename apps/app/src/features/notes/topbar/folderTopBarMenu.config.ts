@@ -6,6 +6,7 @@ import {
   FAVORITE_ACTION_LABEL,
   UNFAVORITE_ACTION_LABEL,
 } from '@core/presentation/resourceActionLabels';
+import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
 
 // 'move-to' (re-added — FolderOperations.move() and its Folder Picker UI
 // now exist; ADR-013/ADR-024's implementation-sequencing amendment
@@ -57,6 +58,11 @@ export function buildFolderTopBarMenu(
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
+    // No 'as-markdown' leaf — no folder-linking syntax exists anywhere in
+    // the parser/resolver (getLocationPathRepresentations.ts). No `draft`
+    // concept for a Folder (FolderOperations.create() is eager/
+    // immediate-persist), so no `disabled` gate is needed here either.
+    ...buildLocationActionMenuItems('folder'),
     status === 'archived'
       ? { id: 'restore', label: 'Restore', icon: 'restore' }
       : { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },

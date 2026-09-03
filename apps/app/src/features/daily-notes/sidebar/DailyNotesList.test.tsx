@@ -2,7 +2,7 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { DailyNotesList } from './DailyNotesList';
 import { useWorkspace } from '@app/hooks/useWorkspace';
@@ -33,6 +33,25 @@ import { Workspace } from '@core/workspace/Workspace';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
+
+// Overlay's positioning logic observes anchor/surface size via
+// ResizeObserver, which jsdom doesn't implement — stubbed the same way
+// OverflowMenu.test.tsx/FolderTree.resourceFileSystemActions.test.tsx do.
+// Only needed once a row's overflow menu actually opens (the location-
+// actions describe block below), but harmless for every other test here.
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+beforeAll(() => {
+  vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+});
+
+afterAll(() => {
+  vi.unstubAllGlobals();
+});
 
 afterEach(() => {
   cleanup();
@@ -702,6 +721,8 @@ describe('DailyNotesList — virtual Today entry (Today is always represented)',
       onOpenMenu: vi.fn(),
       onCloseMenu: vi.fn(),
       onArchiveNote: vi.fn(),
+      onRevealPageInFinder: vi.fn(),
+      onCopyPagePath: vi.fn(),
     };
 
     const { container } = renderList({ vault, query, membershipSelector, workspace, rowActions });
@@ -779,5 +800,72 @@ describe('DailyNotesList — "All Daily Notes" collapsed state (session-scoped v
     renderList({ vault, query, membershipSelector, workspace: freshWorkspace });
 
     expect(screen.queryByText(monthNameOf(pastMonthIso), { exact: false })).toBeNull();
+  });
+});
+
+describe('DailyNotesList — location actions (Reveal in Finder / Copy path)', () => {
+  function setupPersistedDailyNote() {
+    const dailyNotesRoot = makeFolder('root', `${ROOT}/Daily Notes`, null);
+    const year = makeFolder('year', `${ROOT}/Daily Notes/${TODAY_YEAR}`, 'root');
+    const month = makeMonthFolder('month', TODAY, 'year');
+    const persisted = makeDailyNote('daily-1', dayInMonth(TODAY, 5), 'month');
+
+    return { ...setup([persisted], [dailyNotesRoot, year, month]), persisted };
+  }
+
+  function buildRowActions(overrides: Partial<Record<string, unknown>> = {}) {
+    const spies = {
+      onOpenMenu: vi.fn(),
+      onCloseMenu: vi.fn(),
+      onArchiveNote: vi.fn(),
+      onRevealPageInFinder: vi.fn(),
+      onCopyPagePath: vi.fn(),
+    };
+
+    return { openMenuId: null, ...spies, ...overrides };
+  }
+
+  it('a persisted daily note row shows Reveal in Finder and a Copy path submenu (with As Markdown)', () => {
+    const { vault, query, membershipSelector, workspace, persisted } =
+      setupPersistedDailyNote();
+    const rowActions = buildRowActions({ openMenuId: persisted.id });
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+
+    expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Copy path'));
+    expect(screen.getByText('As Markdown')).toBeInTheDocument();
+  });
+
+  it('selecting Reveal in Finder calls onRevealPageInFinder with the page id', () => {
+    const { vault, query, membershipSelector, workspace, persisted } =
+      setupPersistedDailyNote();
+    const rowActions = buildRowActions({ openMenuId: persisted.id });
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+    fireEvent.click(screen.getByText('Reveal in Finder'));
+
+    expect(rowActions.onRevealPageInFinder).toHaveBeenCalledWith('daily-1');
+  });
+
+  it('selecting "As Markdown" calls onCopyPagePath with the page id and as-markdown format', () => {
+    const { vault, query, membershipSelector, workspace, persisted } =
+      setupPersistedDailyNote();
+    const rowActions = buildRowActions({ openMenuId: persisted.id });
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+    fireEvent.click(screen.getByText('Copy path'));
+    fireEvent.click(screen.getByText('As Markdown'));
+
+    expect(rowActions.onCopyPagePath).toHaveBeenCalledWith('daily-1', 'as-markdown');
+  });
+
+  it('the virtual Today row never dispatches a location action — it has no menu at all', () => {
+    const { vault, query, membershipSelector, workspace } = setup([], []);
+    const rowActions = buildRowActions();
+
+    renderList({ vault, query, membershipSelector, workspace, rowActions });
+
+    expect(screen.queryByText('Reveal in Finder')).not.toBeInTheDocument();
   });
 });

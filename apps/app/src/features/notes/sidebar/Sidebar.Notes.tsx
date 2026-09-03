@@ -35,6 +35,16 @@ import { getSystemLocationPresentation } from '@core/presentation/systemPresenta
 import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
+import { revealInFinder } from '@shared/helpers/revealInFinder';
+import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import {
+  getLocationPathRepresentations,
+  pickLocationPathRepresentation,
+} from '@core/presentation/getLocationPathRepresentations';
+import type {
+  LocationEntityKind,
+  LocationPathFormat,
+} from '@core/presentation/getLocationPathRepresentations';
 
 interface NotesProps {
   vault: Vault;
@@ -114,6 +124,34 @@ export function Notes({
   // window.confirm()-based helpers, which did not reliably render in the
   // Tauri desktop shell.
   const confirmation = useConfirmationSurface();
+
+  // Location-actions pipeline glue, shared by every onReveal*InFinder/
+  // onCopy*Path pair below — the one place "look up the entity's absolute
+  // path, then reveal/pick-and-copy" is implemented, rather than each of
+  // Note/Folder/Resource repeating the same two lines. Closes over `vault`
+  // for `vault.root` (the "At Vault"/Markdown representations both need).
+  function revealLocationInFinder(entityPath: string | undefined): void {
+    if (entityPath) {
+      void revealInFinder(entityPath);
+    }
+  }
+
+  function copyLocationPath(
+    entity: { path: string } | undefined,
+    kind: LocationEntityKind,
+    format: LocationPathFormat
+  ): void {
+    if (!entity) {
+      return;
+    }
+
+    const representations = getLocationPathRepresentations(entity, kind, vault.root);
+    const value = pickLocationPathRepresentation(representations, format);
+
+    if (value !== null) {
+      void copyTextToClipboard(value);
+    }
+  }
 
   const rowActions: SidebarRowActions = {
     openMenuId,
@@ -224,6 +262,24 @@ export function Notes({
     resourceMoveDestinations: buildResourceMoveDestinationItems(membershipSelector, query),
     onMoveResource: (resourceId, destinationFolderId) =>
       void resourceOperations.moveResource(resourceId, destinationFolderId),
+
+    // Location-actions pipeline — read-only OS/clipboard actions, so they
+    // read straight from `vault` (getPage/getFolder/getResource + the
+    // already-public `vault.root`) rather than going through
+    // PageOperations/FolderOperations/ResourceOperations/the Gate, which
+    // own writes, not this. revealLocationInFinder/copyLocationPath (below)
+    // are the one shared implementation for all three entity kinds.
+    onRevealPageInFinder: (pageId) => revealLocationInFinder(vault.getPage(pageId)?.path),
+    onCopyPagePath: (pageId, format) =>
+      copyLocationPath(vault.getPage(pageId), 'page', format),
+    onRevealFolderInFinder: (folderId) =>
+      revealLocationInFinder(vault.getFolder(folderId)?.path),
+    onCopyFolderPath: (folderId, format) =>
+      copyLocationPath(vault.getFolder(folderId), 'folder', format),
+    onRevealResourceInFinder: (resourceId) =>
+      revealLocationInFinder(vault.getResource(resourceId)?.path),
+    onCopyResourcePath: (resourceId, format) =>
+      copyLocationPath(vault.getResource(resourceId), 'resource', format),
   };
   // Everything but "which row's menu is open" is still the shared
   // rowActions object above — archive/delete/duplicate/move/toggle-favorite

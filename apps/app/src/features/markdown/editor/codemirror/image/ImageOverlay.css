@@ -1,10 +1,34 @@
+.image-overlay {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  overflow: hidden;
+}
+/* Positioning context for the More Actions control (ImageOverlayMoreActions,
+   `.cm-image-controls` from ImageFloatingControls.css) — the exact same
+   role `.cm-image-container` plays for the inline widget's own controls
+   (MarkdownEditor.css). `display: block` (not `flex`/`grid`): the `<img>`
+   is this frame's only sizing input, same shrink-to-fit relationship
+   `.cm-image-container`'s own `width: fit-content` establishes. */
+.image-overlay__frame {
+  position: relative;
+  display: block;
+}
 /* Sizing only — Overlay.css's own .overlay__content is deliberately
    unopinionated (no default width/padding), so this is the only CSS this
    lightbox needs beyond what Overlay/Dialog already provide. */
 .image-overlay__img {
   display: block;
   max-width: 90vw;
-  max-height: 90vh;
+  max-height: calc(100vh - 104px);
   object-fit: contain;
-  border-radius: var(--radius-lg);
+}
+/* Always visible (no opacity toggle — see ImageOverlay.tsx's own doc
+   comment) — positioned the same top-right inset as the inline widget's
+   own `.cm-editor .cm-image-controls` (MarkdownEditor.css), just without
+   that rule's CM6-specific ancestor requirement or hover/focus-within/
+   data-menu-open gating. */
+.image-overlay__frame .cm-image-controls {
+  position: absolute;
+  top: var(--space-6);
+  right: var(--space-6);
 }

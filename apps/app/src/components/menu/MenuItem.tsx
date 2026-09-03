@@ -5,8 +5,12 @@ import './MenuItem.css';
 
 export interface MenuItemProps extends EntryProps {}
 
-export function MenuItem(props: MenuItemProps) {
-  const id = useId();
+export function MenuItem({ id: idProp, ...props }: MenuItemProps) {
+  const generatedId = useId();
+  // A caller that needs to correlate keyboard activity back to a specific
+  // item (OverflowMenu resolving ArrowRight against its own item configs)
+  // supplies a stable id itself; everyone else keeps the auto-generated one.
+  const id = idProp ?? generatedId;
   const { activeId, setActiveId } = useMenuContext();
   const isKeyboardActive = activeId === id;
   return (

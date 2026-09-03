@@ -8,6 +8,7 @@ import {
   FAVORITE_ACTION_LABEL,
   UNFAVORITE_ACTION_LABEL,
 } from '@core/presentation/resourceActionLabels';
+import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
 
 /**
  * Archive/Restore is a status-dependent toggle, not two statically-present
@@ -75,6 +76,11 @@ export function buildNoteTopBarMenu(
       label: 'Version history',
       icon: 'clock',
     },
+    // 'page' — a Note is a Page (Vault.resolvePageType), same as Daily
+    // Note; see getLocationPathRepresentations.ts's LocationEntityKind.
+    // `disabled` (not omitted) for a draft, matching move-to/archive's own
+    // convention above.
+    ...buildLocationActionMenuItems('page', { disabled: !persisted }),
     state === 'archived'
       ? {
           id: 'restore',

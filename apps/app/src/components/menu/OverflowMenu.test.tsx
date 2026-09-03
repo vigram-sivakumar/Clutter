@@ -273,4 +273,228 @@ describe('OverflowMenu', () => {
       expect(document.activeElement).not.toBe(trigger);
     });
   });
+
+  describe('submenu', () => {
+    const itemsWithSubmenu: OverflowMenuItemConfig[] = [
+      { id: 'rename', label: 'Rename', icon: 'notePencil' },
+      {
+        id: 'copy-path',
+        label: 'Copy path',
+        icon: 'copy',
+        submenu: [
+          { id: 'at-vault', label: 'From vault' },
+          { id: 'full-path', label: 'Full path' },
+        ],
+      },
+      { id: 'archive', label: 'Archive', icon: 'archive' },
+    ];
+
+    it('opens on hover, without needing a click', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.queryByText('From vault')).not.toBeInTheDocument();
+
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+
+      expect(screen.getByText('From vault')).toBeInTheDocument();
+      expect(screen.getByText('Full path')).toBeInTheDocument();
+    });
+
+    it('also opens on click, for a mouse user who clicks without hovering first', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.click(screen.getByText('Copy path'));
+
+      expect(screen.getByText('From vault')).toBeInTheDocument();
+    });
+
+    it('the parent menu stays open and visible while the submenu is open', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+
+      expect(screen.getByText('Rename')).toBeInTheDocument();
+      expect(screen.getByText('Archive')).toBeInTheDocument();
+      expect(screen.getByText('Copy path')).toBeInTheDocument();
+    });
+
+    it('hovering a different top-level item closes the open submenu', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+      expect(screen.getByText('From vault')).toBeInTheDocument();
+
+      fireEvent.mouseEnter(screen.getByText('Archive'));
+
+      expect(screen.queryByText('From vault')).not.toBeInTheDocument();
+    });
+
+    it('selecting a submenu leaf calls onSelect with the leaf id and closes the whole menu', () => {
+      const onSelect = vi.fn();
+      render(<Harness onSelect={onSelect} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+      fireEvent.click(screen.getByText('From vault'));
+
+      expect(onSelect).toHaveBeenCalledWith('at-vault');
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    });
+
+    it('closing the parent menu closes any open submenu — it does not stay open the next time the menu opens', () => {
+      render(
+        <div>
+          <Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />
+        </div>
+      );
+
+      const trigger = screen.getByRole('button');
+      fireEvent.click(trigger);
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+      expect(screen.getByText('From vault')).toBeInTheDocument();
+
+      // An outside click closes everything in one shot (the parent's own
+      // backdrop covers this submenu too) — unlike Escape, see below, which
+      // is scoped to the innermost open overlay.
+      const backdrop = document.querySelector('.overlay__backdrop');
+      if (!backdrop) {
+        throw new Error('expected a backdrop element for outside-click handling');
+      }
+      fireEvent.click(backdrop);
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+
+      fireEvent.click(trigger);
+
+      expect(screen.getByText('Rename')).toBeInTheDocument();
+      expect(screen.queryByText('From vault')).not.toBeInTheDocument();
+    });
+
+    it('Escape closes only the open submenu first, then the parent menu on a second press — standard nested-menu behavior', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      const trigger = screen.getByRole('button');
+      fireEvent.click(trigger);
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+      expect(screen.getByText('From vault')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByText('From vault')).not.toBeInTheDocument();
+      expect(screen.getByText('Rename')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    });
+
+    it('opening the submenu does not move keyboard ownership to whatever is behind the menu — focus stays inside the menu system', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const parentMenu = screen.getByRole('menu');
+
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+
+      const menus = screen.getAllByRole('menu');
+      expect(menus).toHaveLength(2);
+      expect(document.activeElement).not.toBe(document.body);
+      expect(menus).toContain(document.activeElement);
+      expect(document.activeElement).not.toBe(parentMenu);
+    });
+
+    it('ArrowDown while the submenu is focused navigates only the submenu — it does not also move the parent menu\'s own active item', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const parentMenu = screen.getByRole('menu');
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+
+      const parentActiveBefore = parentMenu.getAttribute('aria-activedescendant');
+
+      const submenu = screen
+        .getAllByRole('menu')
+        .find((menu) => menu !== parentMenu)!;
+      fireEvent.keyDown(submenu, { key: 'ArrowDown' });
+
+      expect(submenu.getAttribute('aria-activedescendant')).not.toBeNull();
+      // The parent's own active item (still "Copy path", from the hover)
+      // must be untouched by a keystroke the submenu already owns and
+      // handled — this is the regression test for the bug where a single
+      // ArrowDown, while the submenu had focus, silently also advanced the
+      // parent's own activeId via React's fiber-tree event bubbling.
+      expect(parentMenu.getAttribute('aria-activedescendant')).toBe(
+        parentActiveBefore
+      );
+    });
+
+    it('Right Arrow on a submenu-trigger item opens and focuses its submenu', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const parentMenu = screen.getByRole('menu');
+
+      fireEvent.keyDown(parentMenu, { key: 'ArrowDown' }); // Rename
+      fireEvent.keyDown(parentMenu, { key: 'ArrowDown' }); // Copy path
+      expect(screen.queryByText('From vault')).not.toBeInTheDocument();
+
+      fireEvent.keyDown(parentMenu, { key: 'ArrowRight' });
+
+      expect(screen.getByText('From vault')).toBeInTheDocument();
+      const submenu = screen
+        .getAllByRole('menu')
+        .find((menu) => menu !== parentMenu)!;
+      expect(document.activeElement).toBe(submenu);
+    });
+
+    it('Left Arrow in the submenu closes it and returns focus to the parent menu', () => {
+      render(<Harness onSelect={vi.fn()} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const parentMenu = screen.getByRole('menu');
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+
+      const submenu = screen
+        .getAllByRole('menu')
+        .find((menu) => menu !== parentMenu)!;
+      fireEvent.keyDown(submenu, { key: 'ArrowLeft' });
+
+      expect(screen.queryByText('From vault')).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(parentMenu);
+    });
+
+    it('Enter selects the currently focused submenu item', () => {
+      const onSelect = vi.fn();
+      render(<Harness onSelect={onSelect} itemsOverride={itemsWithSubmenu} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const parentMenu = screen.getByRole('menu');
+      fireEvent.mouseEnter(screen.getByText('Copy path'));
+
+      const submenu = screen
+        .getAllByRole('menu')
+        .find((menu) => menu !== parentMenu)!;
+      fireEvent.keyDown(submenu, { key: 'ArrowDown' });
+      fireEvent.keyDown(submenu, { key: 'Enter' });
+
+      expect(onSelect).toHaveBeenCalledWith('at-vault');
+      expect(screen.queryByText('Rename')).not.toBeInTheDocument();
+    });
+
+    it('existing non-submenu menus are unaffected — ArrowLeft/ArrowRight do nothing without a submenu present', () => {
+      const onSelect = vi.fn();
+      render(<Harness onSelect={onSelect} />);
+
+      fireEvent.click(screen.getByRole('button'));
+      const menu = screen.getByRole('menu');
+
+      fireEvent.keyDown(menu, { key: 'ArrowDown' });
+      fireEvent.keyDown(menu, { key: 'ArrowRight' });
+      fireEvent.keyDown(menu, { key: 'ArrowLeft' });
+      fireEvent.keyDown(menu, { key: 'Enter' });
+
+      expect(onSelect).toHaveBeenCalledWith('rename');
+    });
+  });
 });

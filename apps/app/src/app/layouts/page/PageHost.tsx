@@ -38,7 +38,15 @@ import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { createEmbedSuggester } from '@app/layouts/page/embedSuggestions';
 import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
+import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
+import { revealInFinder } from '@shared/helpers/revealInFinder';
+import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import {
+  getLocationPathRepresentations,
+  pickLocationPathRepresentation,
+  type LocationPathFormat,
+} from '@core/presentation/getLocationPathRepresentations';
 import {
   getCollectionPageTitleProps,
   createTagCollectionRenameHandler,
@@ -140,6 +148,36 @@ export function PageHost({ application }: PageHostProps) {
   const resolveEmbedImage = createEmbedImageResolver(vault, (path) =>
     application.resolveResourceImageUrl(path)
   );
+  // Same per-render, stateless-glue composition as resolveWikiLink above —
+  // MarkdownEditor.tsx's own ImageOverlay More Actions gate: whether a
+  // clicked image resolves to a local VaultResource at all.
+  const resolveImageResource = createImageResourceResolver(vault);
+  // ImageOverlay's own More Actions dispatch (MarkdownEditor.tsx) — the
+  // exact same operations/helpers Sidebar.Notes.tsx's own resource row menu
+  // already dispatches through (ResourceOperations.archiveResource/
+  // moveResource, revealInFinder, getLocationPathRepresentations +
+  // copyTextToClipboard), composed fresh here as a second entry point into
+  // them, never a second implementation. Read-only location actions
+  // (reveal/copy path) go straight to `vault`, same as every other
+  // location-action call site — they never touch ResourceOperations/the
+  // Gate, which own writes, not this.
+  function revealResourceInFinder(resourceId: string): void {
+    const path = vault.getResource(resourceId)?.path;
+    if (path) {
+      void revealInFinder(path);
+    }
+  }
+  function copyResourcePath(resourceId: string, format: LocationPathFormat): void {
+    const resource = vault.getResource(resourceId);
+    if (!resource) {
+      return;
+    }
+    const representations = getLocationPathRepresentations(resource, 'resource', vault.root);
+    const value = pickLocationPathRepresentation(representations, format);
+    if (value !== null) {
+      void copyTextToClipboard(value);
+    }
+  }
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveTag = createTagResolver(application.navigation, vault);
   // Same per-render, stateless-glue composition as resolveWikiLink above.
@@ -334,6 +372,7 @@ export function PageHost({ application }: PageHostProps) {
     const deleteConfirmation = getFolderDeleteConfirmation(vault, folder.id);
     const topBar = buildTopBarActions(folder, {
       membershipSelector: application.membershipSelector,
+      vaultRoot: vault.root,
       onArchive: () => void application.folderOperations.archive(folder.id),
       onRestore: () => void application.folderOperations.restore(folder.id),
       onDelete: () => void application.folderOperations.delete(folder.id),
@@ -694,6 +733,20 @@ export function PageHost({ application }: PageHostProps) {
               getTagSuggestions={getTagSuggestions}
               resolveDate={resolveDate}
               onSetCoverImage={onSetCoverImage}
+              resolveImageResource={resolveImageResource}
+              onArchiveResource={(id) =>
+                void application.resourceOperations.archiveResource(id)
+              }
+              onRevealResourceInFinder={revealResourceInFinder}
+              onCopyResourcePath={copyResourcePath}
+              resourceMoveDestinations={buildResourceMoveDestinationItems(
+                application.membershipSelector,
+                application.query
+              )}
+              onMoveResource={(id, destinationFolderId) =>
+                void application.resourceOperations.moveResource(id, destinationFolderId)
+              }
+              onCreateFolder={(name) => application.folderOperations.create(name, null)}
             />
           </MarkdownBody>
         }
@@ -727,6 +780,7 @@ export function PageHost({ application }: PageHostProps) {
   // real Note, never for a Daily Note.
   const topBar = buildTopBarActions(page, {
     membershipSelector: application.membershipSelector,
+    vaultRoot: vault.root,
     onArchive,
     onRestore,
     onDelete,
@@ -798,6 +852,20 @@ export function PageHost({ application }: PageHostProps) {
             getTagSuggestions={getTagSuggestions}
             resolveDate={resolveDate}
             onSetCoverImage={onSetCoverImage}
+            resolveImageResource={resolveImageResource}
+            onArchiveResource={(id) =>
+              void application.resourceOperations.archiveResource(id)
+            }
+            onRevealResourceInFinder={revealResourceInFinder}
+            onCopyResourcePath={copyResourcePath}
+            resourceMoveDestinations={buildResourceMoveDestinationItems(
+              application.membershipSelector,
+              application.query
+            )}
+            onMoveResource={(id, destinationFolderId) =>
+              void application.resourceOperations.moveResource(id, destinationFolderId)
+            }
+            onCreateFolder={(name) => application.folderOperations.create(name, null)}
           />
         </MarkdownBody>
       }

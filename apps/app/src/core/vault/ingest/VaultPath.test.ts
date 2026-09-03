@@ -59,6 +59,65 @@ describe('VaultPath.isDescendantOf', () => {
   });
 });
 
+describe('VaultPath.relativeTo', () => {
+  it('strips the root and its trailing slash', () => {
+    expect(VaultPath.relativeTo('/vault/Assets/image.png', '/vault')).toBe(
+      'Assets/image.png'
+    );
+  });
+
+  it('strips the root for a nested resource', () => {
+    expect(
+      VaultPath.relativeTo(
+        '/vault/Projects/Website/assets/hero.png',
+        '/vault'
+      )
+    ).toBe('Projects/Website/assets/hero.png');
+  });
+
+  it('returns the path unchanged when it is not rooted under root', () => {
+    expect(VaultPath.relativeTo('/other/Assets/image.png', '/vault')).toBe(
+      '/other/Assets/image.png'
+    );
+  });
+
+  it('returns the path unchanged for the root itself (no trailing-slash boundary)', () => {
+    expect(VaultPath.relativeTo('/vault', '/vault')).toBe('/vault');
+  });
+});
+
+describe('VaultPath.withoutExtension', () => {
+  it('strips a trailing extension while preserving every directory segment', () => {
+    expect(VaultPath.withoutExtension('Projects/Roadmap.md')).toBe(
+      'Projects/Roadmap'
+    );
+  });
+
+  it('strips a nested resource extension, preserving its directories', () => {
+    expect(
+      VaultPath.withoutExtension('Projects/Website/assets/hero.png')
+    ).toBe('Projects/Website/assets/hero');
+  });
+
+  it('leaves a path with no extension unchanged', () => {
+    expect(VaultPath.withoutExtension('Notes/README')).toBe('Notes/README');
+  });
+
+  it('leaves a root-level filename unchanged when it has no extension', () => {
+    expect(VaultPath.withoutExtension('README')).toBe('README');
+  });
+
+  it('is case-insensitive about the extension it strips, mirroring extension()', () => {
+    expect(VaultPath.withoutExtension('Notes/Idea.MD')).toBe('Notes/Idea');
+  });
+
+  it('strips only the final extension when a filename has multiple dots', () => {
+    expect(VaultPath.withoutExtension('Backups/archive.tar.gz')).toBe(
+      'Backups/archive.tar'
+    );
+  });
+});
+
 describe('VaultPath.pageName', () => {
   it('strips a trailing .md from the filename', () => {
     expect(VaultPath.pageName('/vault/Notes/Idea.md')).toBe('Idea');

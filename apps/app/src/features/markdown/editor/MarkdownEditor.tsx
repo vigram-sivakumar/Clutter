@@ -114,7 +114,17 @@ export type {
   ResolveEmbedImage,
   EmbedImageResolution,
 } from './codemirror/embed/embedImageResolution';
+export type { ResolveImageResource } from './codemirror/image/imageResourceResolution';
 import './MarkdownEditor.css';
+// The inline image widget's own floating controls (ImageWidget.ts, raw CM6
+// DOM) style themselves via `.cm-image-controls`/`.cm-image-control` —
+// MarkdownEditor.css only carries this file's own CM6-specific rules on
+// top of those classes now; the shared chrome itself lives here, imported
+// explicitly so the inline widget's styling doesn't depend on whichever
+// other component happens to import it (currently ImageOverlay, but that's
+// an implementation detail this file's own raw-DOM consumer shouldn't rely
+// on transitively).
+import './codemirror/image/ImageFloatingControls.css';
 
 /**
  * Walks up from `el` to find the nearest ancestor that's actually the
@@ -177,6 +187,13 @@ export const MarkdownEditor = forwardRef<
     getTagSuggestions,
     resolveDate,
     onSetCoverImage,
+    resolveImageResource,
+    onArchiveResource,
+    onRevealResourceInFinder,
+    onCopyResourcePath,
+    resourceMoveDestinations,
+    onMoveResource,
+    onCreateFolder,
   },
   ref
 ) {
@@ -245,7 +262,17 @@ export const MarkdownEditor = forwardRef<
   // fresh per click, so the setState setter identity (already stable,
   // guaranteed by React) never needs the extension itself rebuilt.
   const [imageOverlay, setImageOverlay] = useState<ImageOverlayImage | null>(null);
-  const onImageClickRef = useRef<OnImageClick>((url, alt) => setImageOverlay({ url, alt }));
+  // Same freshness pattern as resolveEmbedImageRef above — this one IS an
+  // injected Vault-backed boundary function (unlike opening the overlay
+  // itself, which needs none): resolving "does this image have a local
+  // VaultResource behind it" is what gates ImageOverlay's own More Actions
+  // control (see imageResourceResolution.ts's doc comment).
+  const resolveImageResourceRef = useRef(resolveImageResource);
+  resolveImageResourceRef.current = resolveImageResource;
+  const onImageClickRef = useRef<OnImageClick>((url, alt, copyUrl) => {
+    const resource = resolveImageResourceRef.current?.(copyUrl ?? url);
+    setImageOverlay({ url, alt, resourceId: resource?.resourceId, copyUrl });
+  });
 
   // Image's size/options menu — same local, presentational-state pattern
   // as imageOverlay above. `anchor` is a plain {current: HTMLElement}
@@ -337,6 +364,17 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     onSetCoverImage?.(imageMenu.copyUrl ?? imageMenu.url);
+  };
+
+  // ImageOverlay's own "Set as cover image" — same rule as
+  // handleSetCoverImage above (copyUrl, the vault-relative embed path, when
+  // present; otherwise the raw url), just reading imageOverlay's state
+  // instead of imageMenu's.
+  const handleSetCoverImageFromOverlay = () => {
+    if (!imageOverlay) {
+      return;
+    }
+    onSetCoverImage?.(imageOverlay.copyUrl ?? imageOverlay.url);
   };
 
   const handleDeleteImage = () => {
@@ -731,7 +769,17 @@ export const MarkdownEditor = forwardRef<
   return (
     <>
       <div ref={containerRef} />
-      <ImageOverlay image={imageOverlay} onClose={() => setImageOverlay(null)} />
+      <ImageOverlay
+        image={imageOverlay}
+        onClose={() => setImageOverlay(null)}
+        onArchiveResource={onArchiveResource}
+        onRevealResourceInFinder={onRevealResourceInFinder}
+        onCopyResourcePath={onCopyResourcePath}
+        resourceMoveDestinations={resourceMoveDestinations}
+        onMoveResource={onMoveResource}
+        onCreateFolder={onCreateFolder}
+        onSetCoverImage={onSetCoverImage ? handleSetCoverImageFromOverlay : undefined}
+      />
       <ImageOptionsMenu
         anchor={imageMenu?.anchor ?? null}
         currentMode={imageMenuCurrentMode}

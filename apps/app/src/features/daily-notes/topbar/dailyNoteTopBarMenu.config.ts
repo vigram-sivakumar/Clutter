@@ -6,6 +6,7 @@ import {
   ARCHIVE_ACTION_LABEL,
   DELETE_ACTION_LABEL,
 } from '@core/presentation/resourceActionLabels';
+import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
 
 /**
  * Archive/Restore is a status-dependent toggle, not two statically-present
@@ -50,6 +51,12 @@ export function buildDailyNoteTopBarMenu(
       label: 'Version history',
       icon: 'clock',
     },
+    // 'page' — a Daily Note is a Page, same as an ordinary Note. Unlike
+    // add-cover-image above, Reveal in Finder/Copy path have nothing to
+    // act on for a draft (no path until first save), so — like archive/
+    // restore/delete — they're `disabled`, not omitted, for `state ===
+    // 'draft'`.
+    ...buildLocationActionMenuItems('page', { disabled: !persisted }),
     state === 'archived'
       ? {
           id: 'restore',

@@ -4,6 +4,7 @@ import {
   FAVORITE_ACTION_LABEL,
   UNFAVORITE_ACTION_LABEL,
 } from '@core/presentation/resourceActionLabels';
+import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
 
 /**
  * The sidebar row's overflow menu is deliberately narrower than
@@ -52,6 +53,9 @@ export function buildNoteSidebarMenu(
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
+    // 'page' — a Note is a Page (Vault.resolvePageType), same as Daily
+    // Note; see getLocationPathRepresentations.ts's LocationEntityKind.
+    ...buildLocationActionMenuItems('page'),
     { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },
   ];
 }

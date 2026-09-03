@@ -62,4 +62,16 @@ describe('buildFolderTopBarMenu', () => {
     expect(buildFolderTopBarMenu('active', false, true).map((i) => i.id)).toContain('delete');
     expect(buildFolderTopBarMenu('archived', false, true).map((i) => i.id)).toContain('delete');
   });
+
+  it("includes an enabled 'reveal-in-finder' and a Copy path submenu WITHOUT As Markdown", () => {
+    const menu = buildFolderTopBarMenu('active');
+
+    expect(menu.find((i) => i.id === 'reveal-in-finder')?.disabled).toBeFalsy();
+    const copyPath = menu.find((i) => i.id === 'copy-path');
+    expect(copyPath?.disabled).toBeFalsy();
+    expect(copyPath?.submenu?.map((leaf) => leaf.id)).toEqual([
+      'copy-path-at-vault',
+      'copy-path-full-path',
+    ]);
+  });
 });

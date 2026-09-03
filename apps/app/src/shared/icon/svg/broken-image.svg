@@ -1,12 +1,17 @@
 <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
   <path
-    d="M13 9.25V10C13 11.6569 11.6569 13 10 13H5.5M13 9.25V6C13 4.34315 11.6569 3 10 3H6C4.34315 3 3 4.34315 3 6V10.5C3 11.8807 4.11929 13 5.5 13M13 9.25C11.1897 7.89231 8.6106 8.3341 7.35542 10.2169L5.5 13"
-    stroke="currentColor"
-    stroke-linecap="round"
-  />
-  <path
     d="M2 2L14 14"
     stroke="currentColor"
     stroke-linecap="round"
   />
+  <path
+    d="M5 2H11C12.6569 2 14 3.34315 14 5V9.5V11M5 14H11C11.8284 14 12.5783 13.6643 13.1212 13.1215L9.03648 9.05728M5 14L7.2265 10.6603C7.69922 9.95118 8.32842 9.41242 9.03648 9.05728M5 14C3.34315 14 2 12.6569 2 11V5C2 4.18477 2.32517 3.44549 2.8529 2.90478L9.03648 9.05728"
+    stroke="currentColor"
+    stroke-linecap="round"
+  />
+  <path
+    d="M5 7C5.55228 7 6 6.55228 6 6C6 5.44772 5.55228 5 5 5C4.44772 5 4 5.44772 4 6C4 6.55228 4.44772 7 5 7Z"
+    stroke="currentColor"
+    stroke-linecap="round"
+   />
 </svg>

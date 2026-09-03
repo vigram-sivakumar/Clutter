@@ -5,6 +5,7 @@ import {
   FAVORITE_ACTION_LABEL,
   UNFAVORITE_ACTION_LABEL,
 } from '@core/presentation/resourceActionLabels';
+import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
 
 /**
  * 'archive' is status-dependent (ADR-026): shown for an active folder,
@@ -52,6 +53,10 @@ export function buildFolderSidebarMenu(
       label: isFavorite ? UNFAVORITE_ACTION_LABEL : FAVORITE_ACTION_LABEL,
       icon: isFavorite ? 'favouriteFilled' : 'favouriteOutline',
     },
+    // No 'as-markdown' leaf for a folder — see
+    // getLocationPathRepresentations.ts's LocationEntityKind doc comment:
+    // no folder-linking syntax exists anywhere in the parser/resolver.
+    ...buildLocationActionMenuItems('folder'),
   ];
 
   if (status !== 'archived') {

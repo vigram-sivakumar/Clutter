@@ -476,6 +476,26 @@ describe('embedLivePreview — controls: copyUrl threading', () => {
     expect(captured).not.toBeNull();
     expect(captured!.copyUrl).toBeUndefined();
   });
+
+  it("clicking the image (opening ImageOverlay) also receives copyUrl as its own image-click callback's third argument — what ImageOverlay's own resource resolution resolves against", () => {
+    const calls: Array<[string, string, string | undefined]> = [];
+    const view = mountView(
+      'x ![[Projects/A/hero.png]]',
+      resolverFor({
+        'Projects/A/hero.png': imageResolution('app://vault/Projects/A/hero.png', 'Projects/A/hero.png', 'hero.png'),
+      }),
+      0,
+      (url, alt, copyUrl) => calls.push([url, alt, copyUrl])
+    );
+
+    const button = view.dom.querySelector<HTMLButtonElement>('button.cm-image-button')!;
+    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(calls).toEqual([
+      ['app://vault/Projects/A/hero.png', 'hero.png', 'Projects/A/hero.png'],
+    ]);
+  });
 });
 
 describe('embedLivePreview — consecutive embeds are independent', () => {

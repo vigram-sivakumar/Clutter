@@ -50,4 +50,23 @@ describe('buildFolderSidebarMenu', () => {
     expect(buildFolderSidebarMenu('active').map((i) => i.id)).not.toContain('delete');
     expect(buildFolderSidebarMenu('archived').map((i) => i.id)).not.toContain('delete');
   });
+
+  it('includes Reveal in Finder and a Copy path submenu WITHOUT As Markdown — no folder-linking syntax exists', () => {
+    const items = buildFolderSidebarMenu('active');
+    const ids = items.map((i) => i.id);
+
+    expect(ids).toContain('reveal-in-finder');
+    expect(ids).toContain('copy-path');
+
+    const copyPath = items.find((i) => i.id === 'copy-path');
+    expect(copyPath?.submenu?.map((leaf) => leaf.id)).toEqual([
+      'copy-path-at-vault',
+      'copy-path-full-path',
+    ]);
+  });
+
+  it('Copy path/Reveal in Finder come before the conditional Archive item', () => {
+    const ids = buildFolderSidebarMenu('active').map((i) => i.id);
+    expect(ids.indexOf('copy-path')).toBeLessThan(ids.indexOf('archive'));
+  });
 });

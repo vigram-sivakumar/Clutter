@@ -6,6 +6,13 @@ import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.ty
 import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { buildNoteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 import { buildFolderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
+import { revealInFinder } from '@shared/helpers/revealInFinder';
+import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import {
+  getLocationPathRepresentations,
+  pickLocationPathRepresentation,
+} from '@core/presentation/getLocationPathRepresentations';
+import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { renderTopBarActions } from './topBarRegistry';
 import type { TopBarMenuItemConfig, TopBarPageState } from './ResourceTopBarActions';
@@ -66,6 +73,14 @@ export interface TopBarParts {
 
 export interface BuildTopBarActionsOptions {
   membershipSelector: MembershipSelector;
+  /**
+   * The vault's own root — needed only for the location-actions pipeline
+   * below (`getLocationPathRepresentations`'s "At Vault"/Markdown
+   * representations). `resource.path` itself is already directly
+   * available (this function's own `resource` param), so no other
+   * `vault` access is needed here.
+   */
+  vaultRoot: string;
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
@@ -136,6 +151,26 @@ export function buildTopBarActions(
     ? buildMenuForType(resource.type, resource.metadata.status, isFavorite, isDeletable)
     : buildFolderTopBarMenu(resource.metadata.status, isFavorite, isDeletable);
 
+  // Location-actions pipeline — pure reads of `resource.path`/`options.
+  // vaultRoot`, so built directly here rather than requiring every caller
+  // (PageHost.tsx's folder/page branches) to construct the same two
+  // closures themselves. No Gate/PageOperations/FolderOperations
+  // involvement, same reasoning as the sidebar's identical handlers
+  // (Sidebar.Notes.tsx/Sidebar.DailyNotes.tsx).
+  const onRevealInFinder = () => void revealInFinder(resource.path);
+  const onCopyPath = (format: LocationPathFormat) => {
+    const representations = getLocationPathRepresentations(
+      resource,
+      isPage(resource) ? 'page' : 'folder',
+      options.vaultRoot
+    );
+    const value = pickLocationPathRepresentation(representations, format);
+
+    if (value !== null) {
+      void copyTextToClipboard(value);
+    }
+  };
+
   return {
     actions: renderTopBarActions(resourceType, {
       menu,
@@ -154,6 +189,8 @@ export function buildTopBarActions(
       onSetCoverImageFromUpload: options.onSetCoverImageFromUpload,
       onRemoveCoverImage: options.onRemoveCoverImage,
       hasCoverImage,
+      onRevealInFinder,
+      onCopyPath,
     }),
   };
 }

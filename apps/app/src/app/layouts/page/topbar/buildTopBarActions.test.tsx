@@ -37,6 +37,19 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: vi.fn().mockResolvedValue('/tmp/photo.png'),
 }));
 
+// buildTopBarActions builds the location-action closures directly (see its
+// own doc comment) — mocked here so these tests assert dispatch without
+// hitting the real native/clipboard APIs, the same way ResourceTopBarActions'
+// own suite mocks native-adjacent dependencies.
+const revealInFinderMock = vi.fn();
+const copyTextToClipboardMock = vi.fn();
+vi.mock('@shared/helpers/revealInFinder', () => ({
+  revealInFinder: (path: string) => revealInFinderMock(path),
+}));
+vi.mock('@shared/helpers/copyTextToClipboard', () => ({
+  copyTextToClipboard: (value: string) => copyTextToClipboardMock(value),
+}));
+
 // Overlay's positioning logic observes anchor/surface size via
 // ResizeObserver, which jsdom doesn't implement — same stub
 // ResourceTopBarActions.test.tsx already uses.
@@ -190,7 +203,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
     const page = makePage('page-1', `${ROOT}/Note.md`);
     const { membershipSelector } = setup([], [page]);
 
-    const { actions } = buildTopBarActions(page, { membershipSelector });
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
     render(<>{actions}</>);
     openOverflowMenu();
 
@@ -201,7 +214,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
     const page = makePage('page-1', `${ROOT}/Archive/Note.md`, null, 'archived');
     const { membershipSelector } = setup([], [page]);
 
-    const { actions } = buildTopBarActions(page, { membershipSelector });
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
     render(<>{actions}</>);
     openOverflowMenu();
 
@@ -215,7 +228,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
     const page = makePage('page-1', `${ROOT}/Archive/Projects/Note.md`, 'folder-1', 'active');
     const { membershipSelector } = setup([archivedFolder], [page]);
 
-    const { actions } = buildTopBarActions(page, { membershipSelector });
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
     render(<>{actions}</>);
     openOverflowMenu();
 
@@ -226,7 +239,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
     const folder = makeFolder('folder-1', `${ROOT}/Projects`);
     const { membershipSelector } = setup([folder]);
 
-    const { actions } = buildTopBarActions(folder, { membershipSelector });
+    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
     render(<>{actions}</>);
     openOverflowMenu();
 
@@ -237,7 +250,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
     const folder = makeFolder('folder-1', `${ROOT}/Archive/Projects`, null, 'archived');
     const { membershipSelector } = setup([folder]);
 
-    const { actions } = buildTopBarActions(folder, { membershipSelector });
+    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
     render(<>{actions}</>);
     openOverflowMenu();
 
@@ -249,7 +262,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
     const nestedFolder = makeFolder('folder-2', `${ROOT}/Archive/Projects/Sub`, 'folder-1', 'active');
     const { membershipSelector } = setup([archivedParent, nestedFolder]);
 
-    const { actions } = buildTopBarActions(nestedFolder, { membershipSelector });
+    const { actions } = buildTopBarActions(nestedFolder, { membershipSelector, vaultRoot: ROOT });
     render(<>{actions}</>);
     openOverflowMenu();
 
@@ -264,6 +277,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
 
     const { actions } = buildTopBarActions(archivedFolder, {
       membershipSelector,
+      vaultRoot: ROOT,
       onDelete: () => void folderOperations.delete(archivedFolder.id),
       deleteConfirmationMessage:
         'Delete this folder and everything inside it? This will permanently delete 0 folder(s) and 1 page(s). This cannot be undone.',
@@ -290,6 +304,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
 
     const { actions } = buildTopBarActions(archivedFolder, {
       membershipSelector,
+      vaultRoot: ROOT,
       onDelete: () => void folderOperations.delete(archivedFolder.id),
       deleteConfirmationMessage: 'This cannot be undone.',
     });
@@ -314,6 +329,7 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
 
     const { actions } = buildTopBarActions(page, {
       membershipSelector,
+      vaultRoot: ROOT,
       onDelete: () => void pageOperations.delete(page.id),
       deleteConfirmationMessage: 'This cannot be undone.',
     });
@@ -329,5 +345,116 @@ describe('buildTopBarActions: isDeletable (deletion-UX product decision)', () =>
     fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
 
     expect(deleteSpy).toHaveBeenCalledWith('page-1');
+  });
+});
+
+describe('buildTopBarActions: location actions (Reveal in Finder / Copy path)', () => {
+  it('a note shows Reveal in Finder and a Copy path submenu with As Markdown', () => {
+    const page = makePage('page-1', `${ROOT}/Projects/Roadmap.md`);
+    const { membershipSelector } = setup([], [page]);
+
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Copy path'));
+    expect(screen.getByText('As Markdown')).toBeInTheDocument();
+  });
+
+  it('selecting Reveal in Finder calls revealInFinder with the note\'s absolute path', () => {
+    const page = makePage('page-1', `${ROOT}/Projects/Roadmap.md`);
+    const { membershipSelector } = setup([], [page]);
+
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Reveal in Finder'));
+
+    expect(revealInFinderMock).toHaveBeenCalledWith(`${ROOT}/Projects/Roadmap.md`);
+  });
+
+  it('selecting "As Markdown" for a note copies a WikiLink target — vault-relative, extension stripped', () => {
+    const page = makePage('page-1', `${ROOT}/Projects/Roadmap.md`);
+    const { membershipSelector } = setup([], [page]);
+
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Copy path'));
+    fireEvent.click(screen.getByText('As Markdown'));
+
+    expect(copyTextToClipboardMock).toHaveBeenCalledWith('[[Projects/Roadmap]]');
+  });
+
+  it('selecting "From vault" for a note copies the vault-relative path', () => {
+    const page = makePage('page-1', `${ROOT}/Projects/Roadmap.md`);
+    const { membershipSelector } = setup([], [page]);
+
+    const { actions } = buildTopBarActions(page, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Copy path'));
+    fireEvent.click(screen.getByText('From vault'));
+
+    expect(copyTextToClipboardMock).toHaveBeenCalledWith('Projects/Roadmap.md');
+  });
+
+  it('a folder shows Reveal in Finder and a Copy path submenu WITHOUT As Markdown', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { membershipSelector } = setup([folder]);
+
+    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+
+    expect(screen.getByText('Reveal in Finder')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Copy path'));
+    expect(screen.getByText('From vault')).toBeInTheDocument();
+    expect(screen.getByText('Full path')).toBeInTheDocument();
+    expect(screen.queryByText('As Markdown')).not.toBeInTheDocument();
+  });
+
+  it('selecting Reveal in Finder for a folder calls revealInFinder with the folder\'s absolute path', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { membershipSelector } = setup([folder]);
+
+    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Reveal in Finder'));
+
+    expect(revealInFinderMock).toHaveBeenCalledWith(`${ROOT}/Projects`);
+  });
+
+  it('selecting "Full path" for a folder copies its absolute path', () => {
+    const folder = makeFolder('folder-1', `${ROOT}/Projects`);
+    const { membershipSelector } = setup([folder]);
+
+    const { actions } = buildTopBarActions(folder, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Copy path'));
+    fireEvent.click(screen.getByText('Full path'));
+
+    expect(copyTextToClipboardMock).toHaveBeenCalledWith(`${ROOT}/Projects`);
+  });
+
+  it('a Daily Note (a Page whose type is daily-note) gets the same WikiLink "As Markdown" treatment as a Note', () => {
+    const dailyNote = {
+      ...makePage('daily-1', `${ROOT}/Daily Notes/2026/September/2026-09-03.md`),
+      type: 'daily-note' as const,
+    };
+    const { membershipSelector } = setup([], [dailyNote]);
+
+    const { actions } = buildTopBarActions(dailyNote, { membershipSelector, vaultRoot: ROOT });
+    render(<>{actions}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Copy path'));
+    fireEvent.click(screen.getByText('As Markdown'));
+
+    expect(copyTextToClipboardMock).toHaveBeenCalledWith(
+      '[[Daily Notes/2026/September/2026-09-03]]'
+    );
   });
 });

@@ -30,6 +30,24 @@
   font-family: var(--font-sans);
   font-size: var(--cm-content);
   line-height: var(--lh-cm-content);
+  /* `.cm-content` is a flex item of `.cm-scroller` (`flex: 2 1 auto`, set
+   * by CM6 itself). Flex items default to `min-width: auto`, which floors
+   * an item at its content's max-content width — it will never shrink
+   * below that no matter how narrow `.cm-scroller` gets. When a line
+   * contains an unbreakable run (e.g. the broken-image hint's
+   * `white-space: nowrap` URL text), that run's full width becomes
+   * `.cm-content`'s permanent floor, overflowing `.cm-scroller` at narrow
+   * viewports and simultaneously preventing that hint's own
+   * `text-overflow: ellipsis` from ever engaging (it's never handed a
+   * width smaller than its content to truncate against). Confirmed by
+   * live measurement: without this rule, `.cm-content` was stuck at
+   * 357.48px regardless of viewport width, `.cm-scroller` overflowed by
+   * that same delta below a 478px window, and the hint's `clientWidth`
+   * equalled its `scrollWidth` (never actually truncated). Setting
+   * `min-width: 0` here removes the flex-item floor and lets `.cm-content`
+   * shrink to `.cm-scroller`'s actual available width, which in turn lets
+   * the hint's existing `text-overflow: ellipsis` do its job. */
+  min-width: 0;
 }
 
 .markdown__editor .cm-line {
@@ -1160,9 +1178,61 @@
    relies on elsewhere on the web. `max-width: 100%` stays alongside it
    so the *container* itself still caps at the editor's width when the
    image's natural size would otherwise exceed it — `fit-content`'s own
-   sizing algorithm already respects `max-width` as its outer bound. */
+   sizing algorithm already respects `max-width` as its outer bound.
+
+   `display: inline-flex` (2026-09-03 widget-buffer spacing fix) — was a
+   plain block box (the implicit `display: block` of a bare `<div>`)
+   until this change. A `display: block` widget root forces CM6's own
+   `cm-widgetBuffer` cursor-anchor `<img>` elements (inserted as this
+   element's siblings inside the same `.cm-line`, by `@codemirror/view`
+   itself — not this codebase) onto their *own* separate inline line
+   boxes instead of sharing this element's, each contributing a full
+   extra `line-height` (~24px) above and below the widget — confirmed by
+   live `getBoundingClientRect()` measurement (a broken-state widget's
+   own `.cm-line` measured 94px: 3px padding + ~24px buffer box + 40px
+   widget + ~24px buffer box + 3px padding), identical for a working
+   image and reproducible with zero Markdown blank lines around the
+   embed. Exactly the same mechanism `.cm-hr-labeled`
+   (horizontalRuleDecoration.ts's labeled-divider widget) was already
+   fixed for — see that rule's own comment for the "stacking three
+   ~24px boxes into a 72px line" account of the same bug in a different
+   widget. `inline-flex` (not `inline-block`): this container's own
+   children are unaffected either way (`.cm-image-controls` is
+   `position: absolute`, excluded from flex-item participation
+   entirely; `.cm-image-button` is the only real flex item, and a
+   single item's layout is identical under row-flex or block flow) —
+   `inline-flex` is chosen only to match the already-established
+   `.cm-hr-labeled` precedent for this exact fix, not for any flex
+   layout this container itself needs. `width: fit-content`/
+   `max-width: 100%` above are unaffected: `width` (including the
+   `fit-content` keyword) applies to inline-flex containers exactly as
+   it does to block boxes — this isn't one of the "non-replaced inline
+   element" cases CSS2.1 exempts `width` from. See
+   `.cm-image-container--fit` below for the one knock-on consequence
+   this display change *does* have (its previous `margin-inline: auto`
+   centering no longer applies to an inline-level box).
+
+   `vertical-align: top` is a second, separate piece of the same fix, not
+   decorative: an inline-level box's default `vertical-align: baseline`
+   aligns its own bottom edge to the *text baseline* of the surrounding
+   line, not the line's true bottom — reserving descender space below it
+   (room for where a letter like "g"/"y" would hang below the baseline)
+   the same way an inline `<img>` with no `vertical-align` override
+   famously does. Confirmed as the exact remaining source by direct
+   measurement after the `display: inline-flex` change above: a working
+   Large-mode image's own `.cm-line` still measured ~6.5px taller than
+   `padding-block + container height` on the bottom side only (top side
+   matched padding exactly) — the classic inline-baseline gap, not
+   anything `cm-widgetBuffer`- or padding-related. `top` (rather than
+   `bottom`/`middle`) aligns this box's own top edge to the line's, which
+   is what removes the reserved space below it entirely; the broken-state
+   container inherits this same base rule too, harmlessly (its own
+   `.cm-image-broken` content already reached the container's edges
+   exactly, so this had no visible effect there either way). */
 .cm-editor .cm-image-container {
   position: relative;
+  display: inline-flex;
+  vertical-align: top;
   width: fit-content;
   max-width: 100%;
 }
@@ -1287,10 +1357,9 @@
 /* Fit's own container modifier — centers the shrink-wrapped
    `.cm-image-container` (still `width: fit-content`, from the base rule
    above; deliberately *not* switched to a real `100%` the way Fill's own
-   modifier is) horizontally within the full editor width via the
-   standard `width: fit-content` + `margin-inline: auto` CSS idiom. This
-   is why Fit needs its own modifier rather than reusing `--fill`'s: Fill
-   makes the container itself full-width because its *image* is always
+   modifier is) horizontally within the full editor width. This is why
+   Fit needs its own modifier rather than reusing `--fill`'s: Fill makes
+   the container itself full-width because its *image* is always
    full-width; Fit's image is (almost always) narrower than the editor,
    so making the container full-width too would anchor
    `.cm-image-controls`'s `position: absolute; right: ...` to the empty
@@ -1298,24 +1367,38 @@
    centered image's corner. Keeping the container shrink-wrapped and
    centering *it* keeps controls anchored to the real image, matching
    Large's own (already-correct) behavior, while still achieving the
-   item 6 "centered horizontally" requirement Large never needed. */
-.cm-editor .cm-image-container--fit {
-  margin-inline: auto;
+   item 6 "centered horizontally" requirement Large never needed.
+
+   Centered via the containing `.cm-line`'s own `text-align: center`
+   (below), not `margin-inline: auto` on this element directly — the
+   widget-buffer spacing fix above (`.cm-image-container`'s own comment)
+   made this an inline-level (`inline-flex`) box, and `margin: auto`
+   self-centering only ever applies to a block-level box in normal flow;
+   on an inline-level box it silently computes to `0`, which is exactly
+   what centering via the parent's `text-align` avoids needing to rely
+   on. Scoped with `:has()` to only the line actually containing a Fit
+   widget, not every `.cm-line` in the editor — an Embed/Image node
+   already occupies its entire line by itself (nothing else on the same
+   line to be affected by centering its inline content). */
+.cm-editor .cm-line:has(> .cm-image-container--fit) {
+  text-align: center;
 }
 
+/* Container appearance (background/radius/shadow/padding) and button
+   chrome (sizing/color/hover/active/icon) now live in
+   `codemirror/image/ImageFloatingControls.css` — the shared visual
+   primitive also used by ImageOverlay's own floating control
+   (ImageOverlayMoreActions.tsx). This file keeps only what's genuinely
+   specific to being anchored inside a CM6 widget: absolute positioning
+   within `.cm-image-container`, and the hover/focus-within/`data-menu-open`
+   reveal-on-engagement opacity toggle — ImageOverlay's own control needs
+   neither (it's always visible, positioned relative to the overlay's own
+   image frame instead). */
 .cm-editor .cm-image-controls {
   position: absolute;
   top: var(--space-6);
   right: var(--space-6);
-  display: flex;
-  padding: var(--space-2);
   opacity: 0;
-  transition: opacity 100ms ease;
-  background: var(--surface-primary);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-
-  box-shadow: var(--shadow-inset-thin), var(--shadow-lg);
   transition: opacity 150ms ease;
 }
 
@@ -1337,46 +1420,19 @@
   opacity: 1;
 }
 
-.cm-editor .cm-image-control {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--height-md);
-  aspect-ratio: 1;
-  padding: 1;
-  border: none;
-  color: var(--foreground-primary);
-  border-radius: var(--radius-md);
-
-  cursor: pointer;
-  transition:
-    opacity 150ms ease,
-    background 150ms ease,
-    color 150ms ease;
-}
-.cm-editor .cm-image-control:hover {
-  background: var(--state-hover);
-  color: var(--foreground-primary);
-}
-
 /* Item 5 (2026-09-02 UX baseline): "the menu button may have an
    active/open state" — the same size button that opens ImageOptionsMenu,
    styled the same way any other toggled-on control in this codebase is
    (`--state-selected`, e.g. Breadcrumb.css/ImagePicker.css's own
-   selected-item rules). Toggled by the same direct-DOM-mutation mechanism
-   as `[data-menu-open]` above, not a CSS-only `:focus`/`:active`
+   selected-item rules), via the shared `.cm-image-control--active` class
+   (ImageFloatingControls.css). Toggled by the same direct-DOM-mutation
+   mechanism as `[data-menu-open]` above, not a CSS-only `:focus`/`:active`
    pseudo-class — the menu itself is a portal-rendered Overlay, so this
    button's own DOM focus state doesn't reliably track "is my menu
-   actually open" once focus moves into it. */
-.cm-editor .cm-image-control--active {
-  background: var(--state-selected);
-}
-
-.cm-editor .cm-image-control svg {
-  width: var(--icon-md);
-  height: var(--icon-md);
-  stroke-width: var(--icon-stroke);
-}
+   actually open" once focus moves into it. Button chrome itself
+   (dimensions/radius/color/hover/icon sizing) is defined once in
+   ImageFloatingControls.css, not repeated here — see that file's own doc
+   comment. */
 
 /* Broken/invalid image (2026-09-02 UX baseline, "Broken / Invalid Image
    UX") — ImageWidget.renderBroken()'s own dedicated representation,
@@ -1430,11 +1486,15 @@
   width: calc(100% - 1px);
   overflow: hidden;
 }
+.cm-image-container--broken .cm-image-controls {
+  top: var(--space-4);
+  right: var(--space-4);
+}
 
 .cm-editor .cm-image-broken {
   display: flex;
   align-items: center;
-  max-width: 100%;
+  width: 100%;
   gap: var(--space-6);
   padding: var(--space-8) var(--space-10);
   border-radius: var(--radius-lg);
@@ -1469,7 +1529,7 @@
   color: var(--foreground-primary);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
+  /* text-overflow: ellipsis; */
 }
 
 .cm-editor .cm-image-broken__hint {

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import type { PageType } from '@core/vault/models/Page';
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 import { ResourceTopBarActions } from './ResourceTopBarActions';
 import type { TopBarMenuItemConfig } from './ResourceTopBarActions';
@@ -48,6 +49,10 @@ export interface TopBarActionsOptions {
    * isDeletable).
    */
   deleteConfirmationMessage?: string;
+  /** Location-actions pipeline — forwarded straight to ResourceTopBarActions' handlers map, see the renderers below. */
+  onRevealInFinder?: () => void;
+  /** Same pipeline as onRevealInFinder — a single callback, fanned out to the three `copy-path-*` handler ids below. */
+  onCopyPath?: (format: LocationPathFormat) => void;
 }
 
 type TopBarActionsRenderer = (options?: TopBarActionsOptions) => ReactNode;
@@ -71,6 +76,10 @@ const renderPageActions: TopBarActionsRenderer = (options) => (
       delete: options?.onDelete,
       duplicate: options?.onDuplicate,
       'toggle-favorite': options?.onToggleFavorite,
+      'reveal-in-finder': options?.onRevealInFinder,
+      'copy-path-at-vault': () => options?.onCopyPath?.('at-vault'),
+      'copy-path-full-path': () => options?.onCopyPath?.('full-path'),
+      'copy-path-as-markdown': () => options?.onCopyPath?.('as-markdown'),
     }}
     deleteConfirmationMessage={options?.deleteConfirmationMessage}
     moveDestinations={options?.moveDestinations}
@@ -104,6 +113,12 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
       restore: options?.onRestore,
       delete: options?.onDelete,
       'toggle-favorite': options?.onToggleFavorite,
+      'reveal-in-finder': options?.onRevealInFinder,
+      'copy-path-at-vault': () => options?.onCopyPath?.('at-vault'),
+      'copy-path-full-path': () => options?.onCopyPath?.('full-path'),
+      // No 'copy-path-as-markdown' — folderTopBarMenu.config.ts never
+      // offers the item (no folder-linking syntax exists), so this id
+      // never reaches handleMenuSelect for a folder.
     }}
     archiveConfirmationMessage={options?.archiveConfirmationMessage}
     deleteConfirmationMessage={options?.deleteConfirmationMessage}

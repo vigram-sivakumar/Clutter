@@ -1,5 +1,6 @@
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { ARCHIVE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
+import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
 
 /**
  * Same action-building pattern as noteSidebarMenu.config.ts's
@@ -29,5 +30,11 @@ export function buildDailyNoteSidebarMenu(isDraft: boolean): OverflowMenuItemCon
     return [];
   }
 
-  return [{ id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' }];
+  return [
+    // 'page' — a Daily Note is a Page (Vault.resolvePageType), same as an
+    // ordinary Note; see getLocationPathRepresentations.ts's
+    // LocationEntityKind.
+    ...buildLocationActionMenuItems('page'),
+    { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },
+  ];
 }

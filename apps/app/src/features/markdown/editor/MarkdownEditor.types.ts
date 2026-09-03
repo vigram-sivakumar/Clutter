@@ -1,6 +1,10 @@
+import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
+import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
+
 import type { ResolveDate } from './codemirror/date/dateResolution';
 import type { GetEmbedSuggestions } from './codemirror/embed/embedSuggestion';
 import type { ResolveEmbedImage } from './codemirror/embed/embedImageResolution';
+import type { ResolveImageResource } from './codemirror/image/imageResourceResolution';
 import type { ResolveTag } from './codemirror/tag/tagResolution';
 import type { GetTagSuggestions } from './codemirror/tag/tagSuggestion';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
@@ -123,6 +127,45 @@ export interface MarkdownEditorProps {
    * item entirely, mirroring `onSetCoverImage`'s own optionality there.
    */
   readonly onSetCoverImage?: (url: string) => void;
+  /**
+   * Resolves a clicked image's own path (a Resource embed's vault-relative
+   * `copyUrl`, or — for a standard Markdown image — its raw `url`, see
+   * `ImageWidget.ts`'s `OnImageClick` doc comment) into a local
+   * `VaultResource` id, if one exists — supplied entirely by the feature/
+   * app layer, same injected-boundary shape as `resolveWikiLink` above.
+   * Absent (or resolving to nothing, e.g. an external URL) omits
+   * `ImageOverlay`'s More Actions control entirely — see
+   * `imageResourceResolution.ts`'s own doc comment.
+   */
+  readonly resolveImageResource?: ResolveImageResource;
+  /**
+   * The five props below back `ImageOverlay`'s More Actions menu — the
+   * same actions/dispatch shape `SidebarRowActions`' own resource-scoped
+   * members already use (`onArchiveResource`/`onRevealResourceInFinder`/
+   * `onCopyResourcePath`/`resourceMoveDestinations`/`onMoveResource`),
+   * reused here rather than re-derived: this editor never imports
+   * `ResourceOperations`/`Vault` itself, so every one of these is a plain
+   * callback the app layer (`PageHost.tsx`) composes from its own already-
+   * existing `resourceOperations`/`vault` access — the exact same
+   * operations Sidebar's own resource row menu already dispatches through,
+   * just a second entry point into them, never a second implementation.
+   * All five are omitted together (no image ever resolves a resource) for
+   * any embedding context that doesn't wire this up, e.g. every existing
+   * test call site.
+   */
+  readonly onArchiveResource?: (resourceId: string) => void;
+  readonly onRevealResourceInFinder?: (resourceId: string) => void;
+  readonly onCopyResourcePath?: (
+    resourceId: string,
+    format: LocationPathFormat
+  ) => void;
+  readonly resourceMoveDestinations?: FolderPickerItem[];
+  readonly onMoveResource?: (
+    resourceId: string,
+    destinationFolderId: string | null
+  ) => void;
+  /** Present alongside resourceMoveDestinations — see MoveDestinationPicker's matching prop. */
+  readonly onCreateFolder?: (name: string) => Promise<string>;
 }
 
 /**

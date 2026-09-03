@@ -22,6 +22,7 @@ import type {
   ResolveTag,
   ResolveWikiLink,
 } from '@features/markdown/editor/MarkdownEditor';
+import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
 
 // The Workspace session-state id for the "All Daily Notes" collapsible
 // section (see Workspace.collapsedSectionIds) — seeded collapsed there by
@@ -70,6 +71,20 @@ export interface DailyNoteRowActions {
    * renders an archived Daily Note), so there is no dispatch target for it.
    */
   onArchiveNote(pageId: string): void;
+  /**
+   * Location-actions pipeline (`core/presentation/
+   * getLocationPathRepresentations.ts`) — a Daily Note is a `Page`, same as
+   * an ordinary Note, so this dispatches through the exact same
+   * `getLocationPathRepresentations`/`revealInFinder` implementation
+   * Sidebar.Notes.tsx's `onRevealPageInFinder`/`onCopyPagePath` use, just
+   * wired here for this list's own row menus. Never reachable for the
+   * virtual "Today" placeholder row (renderPages below never wires a menu
+   * for `entry.isVirtual`) or a draft — dailyNoteSidebarMenu.config.ts
+   * returns an empty item list entirely for `isDraft` (unlike the topbar's
+   * disabled-not-omitted convention), so there is no row to click at all.
+   */
+  onRevealPageInFinder(pageId: string): void;
+  onCopyPagePath(pageId: string, format: LocationPathFormat): void;
 }
 
 interface DailyNotesListProps {
@@ -346,6 +361,14 @@ export function DailyNotesList({
               ? (id) => {
                   if (id === 'archive') {
                     rowActions.onArchiveNote(entry.id);
+                  } else if (id === 'reveal-in-finder') {
+                    rowActions.onRevealPageInFinder(entry.id);
+                  } else if (id === 'copy-path-at-vault') {
+                    rowActions.onCopyPagePath(entry.id, 'at-vault');
+                  } else if (id === 'copy-path-full-path') {
+                    rowActions.onCopyPagePath(entry.id, 'full-path');
+                  } else if (id === 'copy-path-as-markdown') {
+                    rowActions.onCopyPagePath(entry.id, 'as-markdown');
                   }
                 }
               : undefined

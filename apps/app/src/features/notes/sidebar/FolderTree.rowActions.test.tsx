@@ -194,6 +194,12 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onResourceTitleCommit: ReturnType<typeof vi.fn>;
     onArchiveResource: ReturnType<typeof vi.fn>;
     onMoveResource: ReturnType<typeof vi.fn>;
+    onRevealResourceInFinder: ReturnType<typeof vi.fn>;
+    onCopyResourcePath: ReturnType<typeof vi.fn>;
+    onRevealPageInFinder: ReturnType<typeof vi.fn>;
+    onCopyPagePath: ReturnType<typeof vi.fn>;
+    onRevealFolderInFinder: ReturnType<typeof vi.fn>;
+    onCopyFolderPath: ReturnType<typeof vi.fn>;
   };
 } {
   const spies = {
@@ -224,6 +230,12 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onResourceTitleCommit: vi.fn(),
     onArchiveResource: vi.fn(),
     onMoveResource: vi.fn(),
+    onRevealResourceInFinder: vi.fn(),
+    onCopyResourcePath: vi.fn(),
+    onRevealPageInFinder: vi.fn(),
+    onCopyPagePath: vi.fn(),
+    onRevealFolderInFinder: vi.fn(),
+    onCopyFolderPath: vi.fn(),
   };
 
   const actions: SidebarRowActions = {

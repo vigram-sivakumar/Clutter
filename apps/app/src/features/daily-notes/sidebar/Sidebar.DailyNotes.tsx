@@ -10,6 +10,12 @@ import type { FolderOperations } from '@core/application/folder/FolderOperations
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { createTagResolver } from '@app/layouts/page/resolveTag';
 import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
+import { revealInFinder } from '@shared/helpers/revealInFinder';
+import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
+import {
+  getLocationPathRepresentations,
+  pickLocationPathRepresentation,
+} from '@core/presentation/getLocationPathRepresentations';
 
 import { DailyNotesList, type DailyNoteRowActions } from './DailyNotesList';
 
@@ -51,6 +57,29 @@ export function DailyNotes({
     onCloseMenu: () => setOpenMenuId(null),
 
     onArchiveNote: (pageId) => void pageOperations.archive(pageId),
+
+    // Same location-actions pipeline Sidebar.Notes.tsx's onRevealPageInFinder/
+    // onCopyPagePath use — a Daily Note is a Page, so this is the exact
+    // same implementation, just closed over this component's own `vault`.
+    onRevealPageInFinder: (pageId) => {
+      const page = vault.getPage(pageId);
+      if (page) {
+        void revealInFinder(page.path);
+      }
+    },
+    onCopyPagePath: (pageId, format) => {
+      const page = vault.getPage(pageId);
+      if (!page) {
+        return;
+      }
+
+      const representations = getLocationPathRepresentations(page, 'page', vault.root);
+      const value = pickLocationPathRepresentation(representations, format);
+
+      if (value !== null) {
+        void copyTextToClipboard(value);
+      }
+    },
   };
 
   // Same composition PageHost.tsx/Sidebar.Notes.tsx use to inject the page
