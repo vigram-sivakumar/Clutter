@@ -9,6 +9,7 @@ import { Tabs, Tab } from '@components/tabs/Tabs';
 import { AppIcon } from '@shared/icon';
 import type { SystemIcon } from '@shared/icon';
 import { getSystemLocationPresentation } from '@core/presentation/systemPresentation';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 
 import { Notes } from '@features/notes/sidebar/Sidebar.Notes';
 import { DailyNotes } from '@features/daily-notes/sidebar/Sidebar.DailyNotes';
@@ -101,7 +102,7 @@ export function Sidebar({ application }: SidebarProps) {
           onOpenResourceImage={(resource) =>
             setResourceImage({
               url: application.resolveResourceImageUrl(resource.path),
-              alt: resource.name,
+              alt: getResourceDisplayName(resource),
             })
           }
         />

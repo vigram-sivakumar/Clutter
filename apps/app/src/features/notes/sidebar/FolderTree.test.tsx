@@ -887,7 +887,7 @@ describe('FolderTree: resources', () => {
 
     renderTree(query, membershipSelector, workspace);
 
-    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
   });
 
   it('a resource appears at the vault root, alongside root pages', () => {
@@ -904,7 +904,7 @@ describe('FolderTree: resources', () => {
     renderTree(query, membershipSelector, workspace);
 
     expect(screen.getByText('Ideas')).toBeInTheDocument();
-    expect(screen.getByText('brochure.pdf')).toBeInTheDocument();
+    expect(screen.getByText('brochure')).toBeInTheDocument();
   });
 
   it('a resource physically located outside Assets/ (e.g. inside a plain user folder) is visible — resources are not restricted to Assets/', () => {
@@ -919,7 +919,7 @@ describe('FolderTree: resources', () => {
 
     renderTree(query, membershipSelector, workspace);
 
-    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
   });
 
   it('an archived resource (relocated into the reserved Archive/ folder) does not appear in the normal workspace tree', () => {
@@ -938,7 +938,7 @@ describe('FolderTree: resources', () => {
 
     renderTree(query, membershipSelector, workspace);
 
-    expect(screen.queryByText('hero.png')).toBeNull();
+    expect(screen.queryByText('hero')).toBeNull();
   });
 
   it('a folder containing only resources (no pages, no subfolders) is not treated as empty', () => {
@@ -979,7 +979,7 @@ describe('FolderTree: resources', () => {
     renderTree(query, membershipSelector, workspace);
 
     expect(screen.getByText('House')).toBeInTheDocument();
-    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
   });
 
   it('clicking an image resource invokes onResourceClick with the resource', () => {
@@ -995,7 +995,7 @@ describe('FolderTree: resources', () => {
 
     renderTree(query, membershipSelector, workspace, onResourceClick);
 
-    screen.getByText('photo.png').click();
+    screen.getByText('photo').click();
 
     expect(onResourceClick).toHaveBeenCalledWith(resource);
   });
@@ -1013,7 +1013,7 @@ describe('FolderTree: resources', () => {
 
     renderTree(query, membershipSelector, workspace, onResourceClick);
 
-    screen.getByText('brochure.pdf').click();
+    screen.getByText('brochure').click();
 
     expect(onResourceClick).not.toHaveBeenCalled();
   });
@@ -1041,7 +1041,7 @@ describe('FolderTree: physical Assets/ folder is hidden from the normal tree', (
 
     renderTree(query, membershipSelector, workspace);
 
-    expect(screen.queryByText('house.png')).not.toBeInTheDocument();
+    expect(screen.queryByText('house')).not.toBeInTheDocument();
   });
 
   it('existing Notes/folder sidebar behavior is unchanged — an ordinary root folder still renders normally alongside the hidden Assets folder', () => {

@@ -7,7 +7,7 @@ import { useMoveDestinationTrigger } from '@components/move-destination-picker/u
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 import { AppIcon } from '@shared/icon';
 import { getResourceIcon } from '@core/presentation/getResourceIcon';
-import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import './Resource.css';
@@ -110,7 +110,7 @@ export function Resource({
   // The user should never need to type (or see) the resource's extension —
   // ResourceOperations.renameResource()/the Gate's resolveResourceRenameDestination
   // always preserve the resource's own real extension, never the caller's.
-  const editingStem = VaultPath.stemName(resource.name);
+  const editingStem = getResourceDisplayName(resource);
   const moveTrigger = useMoveDestinationTrigger(moveDestinations);
 
   return (
@@ -148,7 +148,7 @@ export function Resource({
             onEditingEnd={onTitleEditingEnd}
           />
         ) : (
-          <span className="resource__title">{resource.name}</span>
+          <span className="resource__title">{editingStem}</span>
         )}
       </Entry>
       {moveDestinations !== undefined && (

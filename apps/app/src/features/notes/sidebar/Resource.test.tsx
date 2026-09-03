@@ -63,10 +63,23 @@ describe('Resource — icon selection', () => {
 });
 
 describe('Resource — title rendering', () => {
-  it('renders the resource name verbatim', () => {
+  it('renders the resource name minus its extension — the user never sees the file extension', () => {
     render(<Resource resource={makeResource({ name: 'floorplan.png' })} />);
 
-    expect(screen.getByText('floorplan.png')).toBeDefined();
+    expect(screen.getByText('floorplan')).toBeDefined();
+    expect(screen.queryByText('floorplan.png')).toBeNull();
+  });
+
+  it('does not strip anything from a filename with no extension', () => {
+    render(<Resource resource={makeResource({ name: 'README' })} />);
+
+    expect(screen.getByText('README')).toBeDefined();
+  });
+
+  it('preserves internal dots — only the true extension is stripped', () => {
+    render(<Resource resource={makeResource({ name: 'my.photo.png' })} />);
+
+    expect(screen.getByText('my.photo')).toBeDefined();
   });
 });
 
@@ -269,7 +282,7 @@ describe('Resource — click behavior', () => {
     const onClick = vi.fn();
     render(<Resource resource={makeResource({ kind: 'pdf' })} onClick={onClick} />);
 
-    fireEvent.click(screen.getByText('photo.png').closest('.entry')!);
+    fireEvent.click(screen.getByText('photo').closest('.entry')!);
 
     expect(onClick).not.toHaveBeenCalled();
   });
@@ -279,7 +292,7 @@ describe('Resource — click behavior', () => {
     const resource = makeResource({ kind: 'image' });
     render(<Resource resource={resource} onClick={onClick} />);
 
-    fireEvent.click(screen.getByText('photo.png').closest('.entry')!);
+    fireEvent.click(screen.getByText('photo').closest('.entry')!);
 
     expect(onClick).toHaveBeenCalledWith(resource);
   });

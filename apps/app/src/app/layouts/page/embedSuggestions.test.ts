@@ -167,6 +167,17 @@ describe('createEmbedSuggester — duplicate filenames', () => {
 });
 
 describe('createEmbedSuggester — suggestion shape', () => {
+  it('titles a suggestion with the extension-free display name, while path keeps the real extension', () => {
+    const resources = [makeResource('r1', `${ROOT}/Projects/hero.png`, 'image', 'folder-projects')];
+    const vault = makeVault(resources);
+    const suggest = createEmbedSuggester(vault, fakeMembershipSelector(resources));
+
+    const result = suggest('')[0];
+
+    expect(result?.title).toBe('hero');
+    expect(result?.path).toBe('Projects/hero.png');
+  });
+
   it('carries the resource kind through for icon selection, never re-derived from the filename extension', () => {
     const resources = [makeResource('r1', `${ROOT}/spec.pdf`, 'pdf')];
     const vault = makeVault(resources);

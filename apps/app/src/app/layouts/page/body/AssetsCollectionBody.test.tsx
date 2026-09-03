@@ -69,9 +69,9 @@ describe('AssetsCollectionBody: membership', () => {
 
     renderAssets({ resources });
 
-    expect(screen.getByText('house.png')).toBeInTheDocument();
-    expect(screen.getByText('manual.pdf')).toBeInTheDocument();
-    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+    expect(screen.getByText('house')).toBeInTheDocument();
+    expect(screen.getByText('manual')).toBeInTheDocument();
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
   });
 
   it('renders a resource physically inside Assets/', () => {
@@ -79,7 +79,7 @@ describe('AssetsCollectionBody: membership', () => {
 
     renderAssets({ resources: [resource] });
 
-    expect(screen.getByText('house.png')).toBeInTheDocument();
+    expect(screen.getByText('house')).toBeInTheDocument();
   });
 
   it('renders a resource physically outside Assets/ — membership is not location-scoped', () => {
@@ -91,7 +91,7 @@ describe('AssetsCollectionBody: membership', () => {
 
     renderAssets({ resources: [resource] });
 
-    expect(screen.getByText('floorplan.png')).toBeInTheDocument();
+    expect(screen.getByText('floorplan')).toBeInTheDocument();
   });
 
   it('distinguishes image and pdf resources by icon', () => {
@@ -102,8 +102,8 @@ describe('AssetsCollectionBody: membership', () => {
 
     renderAssets({ resources });
 
-    const imageIcon = screen.getByText('house.png').closest('.entry')?.querySelector('.resource__icon svg')?.outerHTML;
-    const pdfIcon = screen.getByText('manual.pdf').closest('.entry')?.querySelector('.resource__icon svg')?.outerHTML;
+    const imageIcon = screen.getByText('house').closest('.entry')?.querySelector('.resource__icon svg')?.outerHTML;
+    const pdfIcon = screen.getByText('manual').closest('.entry')?.querySelector('.resource__icon svg')?.outerHTML;
 
     expect(imageIcon).toBeTruthy();
     expect(pdfIcon).toBeTruthy();
@@ -144,7 +144,7 @@ describe('AssetsCollectionBody: image/pdf click behavior', () => {
 
     renderAssets({ resources: [resource], onOpenImage });
 
-    fireEvent.click(screen.getByText('house.png').closest('.entry')!);
+    fireEvent.click(screen.getByText('house').closest('.entry')!);
 
     expect(onOpenImage).toHaveBeenCalledWith(resource);
   });
@@ -155,7 +155,7 @@ describe('AssetsCollectionBody: image/pdf click behavior', () => {
 
     renderAssets({ resources: [resource], onOpenImage });
 
-    fireEvent.click(screen.getByText('manual.pdf').closest('.entry')!);
+    fireEvent.click(screen.getByText('manual').closest('.entry')!);
 
     expect(onOpenImage).not.toHaveBeenCalled();
   });
@@ -167,7 +167,7 @@ describe('AssetsCollectionBody: actions menu', () => {
 
     renderAssets({ resources: [resource] });
 
-    openMenuFor('house.png');
+    openMenuFor('house');
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
@@ -183,7 +183,7 @@ describe('AssetsCollectionBody: actions menu', () => {
 
     renderAssets({ resources: [resource] });
 
-    openMenuFor('manual.pdf');
+    openMenuFor('manual');
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe('AssetsCollectionBody: move', () => {
       ],
     });
 
-    openMenuFor('house.png');
+    openMenuFor('house');
     fireEvent.click(screen.getByText('Move to…'));
     fireEvent.click(screen.getByText('Projects'));
 
@@ -218,7 +218,7 @@ describe('AssetsCollectionBody: rename', () => {
 
     renderAssets({ resources: [resource] });
 
-    openMenuFor('house.png');
+    openMenuFor('house');
     fireEvent.click(screen.getByText('Rename'));
 
     expect(screen.getByRole('textbox')).toHaveTextContent('house');
@@ -230,7 +230,7 @@ describe('AssetsCollectionBody: rename', () => {
 
     renderAssets({ resources: [resource], onRenameResource });
 
-    openMenuFor('house.png');
+    openMenuFor('house');
     fireEvent.click(screen.getByText('Rename'));
     const field = screen.getByRole('textbox');
     fireEvent.input(field, { target: { textContent: 'cottage' } });
@@ -254,7 +254,7 @@ describe('AssetsCollectionBody: rename', () => {
 
     renderAssets({ resources: [resource], onRenameResource });
 
-    openMenuFor('house.png');
+    openMenuFor('house');
     fireEvent.click(screen.getByText('Rename'));
     const field = screen.getByRole('textbox');
     fireEvent.input(field, { target: { textContent: 'cottage' } });
@@ -270,7 +270,7 @@ describe('AssetsCollectionBody: rename', () => {
 
     renderAssets({ resources: [resource], onRenameResource });
 
-    openMenuFor('manual.pdf');
+    openMenuFor('manual');
     fireEvent.click(screen.getByText('Rename'));
     const field = screen.getByRole('textbox');
     fireEvent.input(field, { target: { textContent: 'guide' } });
@@ -285,7 +285,7 @@ describe('AssetsCollectionBody: rename', () => {
 
     renderAssets({ resources: [resource], onOpenImage });
 
-    openMenuFor('house.png');
+    openMenuFor('house');
     fireEvent.click(screen.getByText('Rename'));
     fireEvent.click(screen.getByRole('textbox'));
 
@@ -300,7 +300,7 @@ describe('AssetsCollectionBody: archive', () => {
 
     renderAssets({ resources: [resource], onArchiveResource });
 
-    openMenuFor('house.png');
+    openMenuFor('house');
     fireEvent.click(screen.getByText('Archive'));
 
     expect(onArchiveResource).toHaveBeenCalledWith('resource-1');
@@ -313,7 +313,7 @@ describe('AssetsCollectionBody: archive', () => {
 
     renderAssets({ resources: [resource], onArchiveResource });
 
-    openMenuFor('manual.pdf');
+    openMenuFor('manual');
     fireEvent.click(screen.getByText('Archive'));
 
     expect(onArchiveResource).toHaveBeenCalledWith('resource-1');
@@ -343,11 +343,11 @@ describe('AssetsCollectionBody: archive', () => {
 
     render(<Harness />);
 
-    expect(screen.getByText('house.png')).toBeInTheDocument();
+    expect(screen.getByText('house')).toBeInTheDocument();
 
-    openMenuFor('house.png');
+    openMenuFor('house');
     fireEvent.click(screen.getByText('Archive'));
 
-    expect(screen.queryByText('house.png')).toBeNull();
+    expect(screen.queryByText('house')).toBeNull();
   });
 });

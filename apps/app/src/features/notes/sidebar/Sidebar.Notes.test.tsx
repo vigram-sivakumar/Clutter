@@ -428,7 +428,7 @@ describe('Sidebar Notes: empty-vault detection considers root resources', () => 
     // If isFoldersEmpty wrongly ignored root resources, Section would
     // default to collapsed (isEmpty && !hasBeenToggled) and render no
     // children at all — the resource row would not be in the document.
-    expect(screen.getByText('photo.png')).toBeInTheDocument();
+    expect(screen.getByText('photo')).toBeInTheDocument();
   });
 });
 
@@ -624,7 +624,7 @@ describe('Sidebar Notes: overflow → Rename focus transition', () => {
     const deps = setup([], [], [resource]);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(overflowButtonFor('floorplan'));
     fireEvent.click(screen.getByText('Rename'));
 
     const field = screen.getByRole('textbox');
@@ -639,7 +639,7 @@ describe('Sidebar Notes: Resource menu — exactly Rename, Move to, and Archive'
     const deps = setup([], [], [resource]);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(overflowButtonFor('floorplan'));
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
@@ -657,7 +657,7 @@ describe('Sidebar Notes: Resource menu — exactly Rename, Move to, and Archive'
     const deps = setup([], [], [resource]);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('contract.pdf'));
+    fireEvent.click(overflowButtonFor('contract'));
 
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
@@ -675,7 +675,7 @@ describe('Sidebar Notes: Resource move', () => {
       .mockResolvedValue(undefined);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(overflowButtonFor('floorplan'));
     fireEvent.click(screen.getByText('Move to…'));
     const picker = document.querySelector<HTMLElement>('.folder-picker')!;
     fireEvent.click(within(picker).getByText('Projects'));
@@ -693,7 +693,7 @@ describe('Sidebar Notes: Resource rename', () => {
       .mockResolvedValue(undefined);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(overflowButtonFor('floorplan'));
     fireEvent.click(screen.getByText('Rename'));
 
     const field = screen.getByRole('textbox');
@@ -711,7 +711,7 @@ describe('Sidebar Notes: Resource rename', () => {
       .mockResolvedValue(undefined);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(overflowButtonFor('floorplan'));
     fireEvent.click(screen.getByText('Rename'));
 
     const field = screen.getByRole('textbox');
@@ -729,7 +729,7 @@ describe('Sidebar Notes: Resource rename', () => {
       .mockResolvedValue(undefined);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('contract.pdf'));
+    fireEvent.click(overflowButtonFor('contract'));
     fireEvent.click(screen.getByText('Rename'));
 
     const field = screen.getByRole('textbox');
@@ -749,7 +749,7 @@ describe('Sidebar Notes: Resource archive', () => {
       .mockResolvedValue(undefined);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('floorplan.png'));
+    fireEvent.click(overflowButtonFor('floorplan'));
     fireEvent.click(screen.getByText('Archive'));
 
     expect(archiveSpy).toHaveBeenCalledWith('resource-1');
@@ -764,7 +764,7 @@ describe('Sidebar Notes: Resource archive', () => {
       .mockResolvedValue(undefined);
     renderNotes(deps);
 
-    fireEvent.click(overflowButtonFor('contract.pdf'));
+    fireEvent.click(overflowButtonFor('contract'));
     fireEvent.click(screen.getByText('Archive'));
 
     expect(archiveSpy).toHaveBeenCalledWith('resource-1');
@@ -795,7 +795,7 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('photo.png').closest('.entry')!);
+    fireEvent.click(screen.getByText('photo').closest('.entry')!);
 
     expect(onOpenResourceImage).toHaveBeenCalledWith(resource);
   });
@@ -823,7 +823,7 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('contract.pdf').closest('.entry')!);
+    fireEvent.click(screen.getByText('contract').closest('.entry')!);
 
     expect(onOpenResourceImage).not.toHaveBeenCalled();
   });

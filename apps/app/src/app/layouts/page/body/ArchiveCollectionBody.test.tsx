@@ -139,8 +139,8 @@ describe('ArchiveCollectionBody: rendering every entry shape', () => {
 
     expect(screen.getByText('Old Project')).toBeInTheDocument();
     expect(screen.getByText('Old Note')).toBeInTheDocument();
-    expect(screen.getByText('hero.png')).toBeInTheDocument();
-    expect(screen.getByText('spec.pdf')).toBeInTheDocument();
+    expect(screen.getByText('hero')).toBeInTheDocument();
+    expect(screen.getByText('spec')).toBeInTheDocument();
   });
 
   it('the existing folder row click behavior is unchanged', () => {
@@ -489,7 +489,7 @@ describe('ArchiveCollectionBody: existing image/pdf click behavior preserved', (
 
     renderArchive({ resources: [resource], onOpenImage });
 
-    fireEvent.click(screen.getByText('hero.png').closest('.entry')!);
+    fireEvent.click(screen.getByText('hero').closest('.entry')!);
 
     expect(onOpenImage).toHaveBeenCalledWith(resource);
   });
@@ -500,7 +500,7 @@ describe('ArchiveCollectionBody: existing image/pdf click behavior preserved', (
 
     renderArchive({ resources: [resource], onOpenImage });
 
-    fireEvent.click(screen.getByText('spec.pdf').closest('.entry')!);
+    fireEvent.click(screen.getByText('spec').closest('.entry')!);
 
     expect(onOpenImage).not.toHaveBeenCalled();
   });

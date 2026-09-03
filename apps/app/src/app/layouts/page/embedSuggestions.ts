@@ -2,6 +2,7 @@ import type { Vault } from '@core/vault/models/Vault';
 import type { VaultResource } from '@core/vault/models/VaultResource';
 import type { MembershipSelector } from '@core/application/membership/MembershipSelector';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import type {
   EmbedResourceSuggestion,
   GetEmbedSuggestions,
@@ -80,7 +81,7 @@ function toResourceSuggestion(vault: Vault, resource: VaultResource): EmbedResou
   return {
     kind: 'resource',
     path,
-    title: resource.name,
+    title: getResourceDisplayName(resource),
     breadcrumb: VaultPath.parentDirectory(path) || null,
     resourceKind: resource.kind,
   };

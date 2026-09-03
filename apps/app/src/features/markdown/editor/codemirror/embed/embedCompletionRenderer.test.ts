@@ -40,12 +40,12 @@ describe('renderEmbedCompletion', () => {
     const row = render({
       kind: 'resource',
       path: 'hero.png',
-      title: 'hero.png',
+      title: 'hero',
       breadcrumb: null,
       resourceKind: 'image',
     });
 
-    expect(titleText(row)).toBe('hero.png');
+    expect(titleText(row)).toBe('hero');
     expect(pathText(row)).toBeNull();
   });
 
@@ -53,12 +53,12 @@ describe('renderEmbedCompletion', () => {
     const row = render({
       kind: 'resource',
       path: 'Projects/A/hero.png',
-      title: 'hero.png',
+      title: 'hero',
       breadcrumb: 'Projects/A',
       resourceKind: 'image',
     });
 
-    expect(titleText(row)).toBe('hero.png');
+    expect(titleText(row)).toBe('hero');
     expect(pathText(row)).toBe('Projects / A');
   });
 
@@ -66,14 +66,14 @@ describe('renderEmbedCompletion', () => {
     const imageRow = render({
       kind: 'resource',
       path: 'hero.png',
-      title: 'hero.png',
+      title: 'hero',
       breadcrumb: null,
       resourceKind: 'image',
     });
     const pdfRow = render({
       kind: 'resource',
       path: 'spec.pdf',
-      title: 'spec.pdf',
+      title: 'spec',
       breadcrumb: null,
       resourceKind: 'pdf',
     });

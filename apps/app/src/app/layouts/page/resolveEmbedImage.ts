@@ -1,5 +1,6 @@
 import type { Vault } from '@core/vault/models/Vault';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import type { ResolveEmbedImage } from '@features/markdown/editor/MarkdownEditor';
 
 import { resolveResourceEmbed } from './resolveResourceEmbed';
@@ -33,14 +34,13 @@ export function createEmbedImageResolver(
       // alias, else the bare target's own display name) rather than the
       // raw vault-relative path, for the same reason: a folder-qualified
       // path leaking into rendered UI is exactly what that precedent
-      // avoids. `VaultPath.filename` (not `.pageName` — an unresolved
-      // Embed target keeps its extension, unlike a WikiLink's `.md`-less
-      // page path) is the same "path → display name" step every other
-      // resolved case here already takes via `resource.name`
-      // (ResourceBuilder.ts derives that identically); the only reason
-      // this one branch needs to call it explicitly is that there is no
-      // `VaultResource` to read `.name` off in the first place.
-      return { status: 'unresolved', alt: alias ?? VaultPath.filename(path) };
+      // avoids. `VaultPath.stemName` (the extension-stripping presentation
+      // rule — see getResourceDisplayName.ts) is the same "path → display
+      // name" step every other resolved case here already takes via
+      // `getResourceDisplayName(resource)`; the only reason this one
+      // branch calls it directly is that there is no `VaultResource` to
+      // read `.name` off in the first place.
+      return { status: 'unresolved', alt: alias ?? VaultPath.stemName(path) };
     }
 
     if (resource.kind !== 'image') {
@@ -59,7 +59,7 @@ export function createEmbedImageResolver(
       // link/Set-as-cover-image (ImageWidget.ts's OpenImageMenuParams.copyUrl
       // doc comment has the full reasoning).
       copyUrl: path,
-      alt: alias ?? resource.name,
+      alt: alias ?? getResourceDisplayName(resource),
     };
   };
 }

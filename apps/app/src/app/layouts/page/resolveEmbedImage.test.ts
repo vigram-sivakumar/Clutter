@@ -53,7 +53,7 @@ describe('createEmbedImageResolver — image resources', () => {
       status: 'image',
       url: 'app://vault/hero.png',
       copyUrl: 'hero.png',
-      alt: 'hero.png',
+      alt: 'hero',
     });
   });
 
@@ -68,7 +68,7 @@ describe('createEmbedImageResolver — image resources', () => {
       status: 'image',
       url: 'app://vault/Projects/A/hero.png',
       copyUrl: 'Projects/A/hero.png',
-      alt: 'hero.png',
+      alt: 'hero',
     });
   });
 
@@ -78,7 +78,7 @@ describe('createEmbedImageResolver — image resources', () => {
     const resolve = createEmbedImageResolver(vault, () => 'app://vault/hero.png');
 
     expect(resolve('hero.png', 'My Caption')).toMatchObject({ alt: 'My Caption' });
-    expect(resolve('hero.png', null)).toMatchObject({ alt: 'hero.png' });
+    expect(resolve('hero.png', null)).toMatchObject({ alt: 'hero' });
   });
 
   it('copyUrl is always the vault-relative path as embedded, never the resolved app:// URL', () => {
@@ -112,7 +112,7 @@ describe('createEmbedImageResolver — unresolved', () => {
     const vault = makeVault([]);
     const resolve = createEmbedImageResolver(vault, () => '');
 
-    expect(resolve('missing.png', null)).toEqual({ status: 'unresolved', alt: 'missing.png' });
+    expect(resolve('missing.png', null)).toEqual({ status: 'unresolved', alt: 'missing' });
   });
 
   it('uses the local alias as the unresolved alt text when present', () => {
@@ -128,11 +128,11 @@ describe('createEmbedImageResolver — unresolved', () => {
     const vault = makeVault([a, b]);
     const resolve = createEmbedImageResolver(vault, () => 'app://resolved.png');
 
-    expect(resolve('hero.png', null)).toEqual({ status: 'unresolved', alt: 'hero.png' });
+    expect(resolve('hero.png', null)).toEqual({ status: 'unresolved', alt: 'hero' });
   });
 
   it(
-    'regression: an unresolved target under a nested folder shows only the bare filename as its alt text, ' +
+    'regression: an unresolved target under a nested folder shows only the extension-free bare filename as its alt text, ' +
       "never the folder-qualified path — mirrors resolveWikiLink.ts's identical rule for an unresolved WikiLink",
     () => {
       const vault = makeVault([]);
@@ -140,7 +140,7 @@ describe('createEmbedImageResolver — unresolved', () => {
 
       expect(resolve('Projects/Images/missing.png', null)).toEqual({
         status: 'unresolved',
-        alt: 'missing.png',
+        alt: 'missing',
       });
     }
   );
@@ -156,7 +156,7 @@ describe('createEmbedImageResolver — lifecycle (rename/move/delete/restore)', 
 
     vault.updateResourcePath('r1', `${ROOT}/hero-final.png`, null);
 
-    expect(resolve('hero.png', null)).toEqual({ status: 'unresolved', alt: 'hero.png' });
+    expect(resolve('hero.png', null)).toEqual({ status: 'unresolved', alt: 'hero' });
   });
 
   it('move: an embed pointing at the old path becomes unresolved once the resource moves to a different folder', () => {

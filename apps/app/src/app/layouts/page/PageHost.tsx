@@ -5,6 +5,7 @@ import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
 import { buildBreadcrumbs, buildBreadcrumbsForDraft } from '@core/presentation/buildBreadcrumbs';
+import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import {
   getPageTitlePlaceholder,
   getFolderTitlePlaceholder,
@@ -418,7 +419,7 @@ export function PageHost({ application }: PageHostProps) {
                 onOpenImage={(resource) =>
                   setAssetsImageOverlay({
                     url: application.resolveResourceImageUrl(resource.path),
-                    alt: resource.name,
+                    alt: getResourceDisplayName(resource),
                   })
                 }
                 onRestoreResource={(id) =>
@@ -483,7 +484,7 @@ export function PageHost({ application }: PageHostProps) {
               onOpenImage={(resource) =>
                 setAssetsImageOverlay({
                   url: application.resolveResourceImageUrl(resource.path),
-                  alt: resource.name,
+                  alt: getResourceDisplayName(resource),
                 })
               }
               onRenameResource={(id, name) =>
