@@ -27,7 +27,7 @@ export function getPageIcon(
     case 'note':
       return 'squiggleLine';
     case 'daily-note':
-      return isToday ? 'calendarDot' : 'calendar';
+      return isToday ? 'calendarDot' : 'calendarNote';
     case 'folder':
       return 'folder';
     case 'tag':

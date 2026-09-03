@@ -27,6 +27,7 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-tertiary: var(--neutral-700);
   --surface-subtle: rgba(255, 255, 255, 0.035);
   --overlay-scrim: rgba(20, 20, 20, 0.55);
+  --overlay-scrim-strong: rgba(20, 20, 20, 0.7);
   --surface-inverse: var(--neutral-50);
 
   /* Text & icons */
@@ -46,7 +47,7 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Markdown foreground */
   --marker-foreground: var(--foreground-placeholder);
-  --link-foreground: Indianred;
+  --link-foreground: var(--foreground-primary);
   --tag-foreground: orange;
   --date-foreground: #999999;
 
@@ -119,6 +120,7 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-tertiary: var(--neutral-200);
   --surface-subtle: rgba(0, 0, 0, 0.03);
   --overlay-scrim: rgba(80, 80, 80, 0.25);
+  --overlay-scrim-strong: rgba(80, 80, 80, 0.5);
   --surface-inverse: var(--neutral-900);
 
   /* Text & icons */

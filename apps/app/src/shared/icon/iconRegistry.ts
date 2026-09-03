@@ -16,6 +16,7 @@ import BrokenImage from './svg/broken-image.svg?react';
 import CalendarBlank from './svg/calendar-blank.svg?react';
 import CalendarDot from './svg/calendar-dot.svg?react';
 import CalendarDots from './svg/calendar-dots.svg?react';
+import CalendarNote from './svg/calendar-note.svg?react';
 import Car from './svg/car.svg?react';
 import CaretDown from './svg/caret-down.svg?react';
 import CaretLeft from './svg/caret-left.svg?react';
@@ -36,6 +37,7 @@ import CircleDashed from './svg/circle-dashed.svg?react';
 import Clock from './svg/clock.svg?react';
 import Dismiss from './svg/dismiss.svg?react';
 import Edit from './svg/edit.svg?react';
+import Exclamation from './svg/exclamation.svg?react';
 import Description from './svg/description.svg?react';
 import FavouriteFilled from './svg/favourite-filled.svg?react';
 import FavouriteOutline from './svg/favourite-outline.svg?react';
@@ -104,7 +106,9 @@ export const iconRegistry = {
   calendar: CalendarBlank,
   calendarDot: CalendarDot,
   calendarDots: CalendarDots,
+  calendarNote: CalendarNote,
   calendarToday: CalendarTodayIcon,
+  exclamation: Exclamation,
   car: Car,
   caretDown: CaretDown,
   caretLeft: CaretLeft,
