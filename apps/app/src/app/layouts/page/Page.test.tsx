@@ -187,24 +187,3 @@ describe('Page — title commit', () => {
     expect(() => fireEvent.blur(title)).not.toThrow();
   });
 });
-
-describe('Page — omitted title (Image Resource Page)', () => {
-  it('renders no title section at all when `title` is omitted', () => {
-    render(<Page body={<div>image body</div>} />);
-
-    expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.queryByRole('heading')).toBeNull();
-  });
-
-  it('still renders the title (with its placeholder) for an empty-string title — omission and emptiness are distinct', () => {
-    render(<Page title="" titleEditable body={<div />} />);
-
-    expect(screen.queryByRole('textbox')).not.toBeNull();
-  });
-
-  it('does not autofocus anything when title is omitted, even with titleEditable set', () => {
-    render(<Page titleEditable body={<div />} />);
-
-    expect(document.activeElement).toBe(document.body);
-  });
-});

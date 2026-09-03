@@ -1,26 +1,13 @@
 import { Entry } from '@components/entry/Entry';
 import { AppIcon } from '@shared/icon';
-import { Resource } from '@features/notes/sidebar/Resource';
 import type { CollectionEntryModel } from '@features/collection/page/CollectionEntryModel';
 import { renderCompactMarkdown, type CompactMarkdownResolvers } from '@features/markdown/render/renderCompactMarkdown';
-import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import { PageBody } from './Page.Body';
 
 export interface CollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
-  /**
-   * VaultResources (image/pdf) directly inside this folder — see
-   * CollectionPageModel's own doc comment. Rendered read-only here (no
-   * rename/move/archive menu, no click for a pdf): unlike
-   * AssetsCollectionBody, this is a plain browse listing, not a
-   * resource-management surface — mutation stays the sidebar/Assets
-   * collection's job, this only needs to open the Image Resource Page.
-   */
-  resources?: readonly VaultResource[];
-  /** ResourceOperations.open(id) — only ever invoked for an image resource, see Resource.tsx's own isClickable guard. */
-  onOpenResource?: (resource: VaultResource) => void;
   /**
    * Same injected resolution boundary the page editor uses — see Note's
    * own prop doc comment. A note entry's title is markdown-bearing
@@ -65,8 +52,6 @@ export function renderEntry(
 export function CollectionBody({
   folders = [],
   notes = [],
-  resources = [],
-  onOpenResource,
   resolveWikiLink,
   resolveTag,
 }: CollectionBodyProps) {
@@ -76,9 +61,6 @@ export function CollectionBody({
     <PageBody className="collection__content">
       {folders.map((entry) => renderEntry(entry, resolvers))}
       {notes.map((entry) => renderEntry(entry, resolvers))}
-      {resources.map((resource) => (
-        <Resource key={resource.id} resource={resource} onClick={onOpenResource} />
-      ))}
     </PageBody>
   );
 }

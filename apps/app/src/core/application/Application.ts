@@ -317,7 +317,7 @@ export class Application {
     // needs only the Gate itself (rename-resource/archive-resource/
     // restore-resource are already fully self-contained there, per Step 4),
     // so it has no construction-order dependency on anything below.
-    this.resourceOperations = new ResourceOperations(vault, this.workspace, persistenceCoordinator);
+    this.resourceOperations = new ResourceOperations(persistenceCoordinator);
 
     // Constructed before PageOperations: PageOperations' Daily Note persist
     // path (DailyNoteService.ensureFolderChain) needs a real FolderOperations
@@ -371,7 +371,6 @@ export class Application {
     this.navigation = new NavigationRouter(
       this.folderOperations,
       this.pageOperations,
-      this.resourceOperations,
       vault,
       this.workspace
     );

@@ -28,7 +28,6 @@ import { KnowledgeGraph } from '@core/vault/models/graph/KnowledgeGraph';
 import { Workspace } from '@core/workspace/Workspace';
 import type { Folder } from '@core/vault/models/Folder';
 import type { Page } from '@core/vault/models/Page';
-import type { VaultResource } from '@core/vault/models/VaultResource';
 
 const ROOT = '/vault';
 
@@ -109,18 +108,7 @@ function makeFolderOperations(
   );
 }
 
-function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
-  return {
-    id: 'resource-1',
-    kind: 'image',
-    name: 'photo.png',
-    path: `${ROOT}/photo.png`,
-    parentId: 'folder-1',
-    ...overrides,
-  };
-}
-
-function setup(folders: Folder[], pages: Page[], resources: VaultResource[] = []) {
+function setup(folders: Folder[], pages: Page[]) {
   // Mirrors VaultBuilder: tags are derived from pages, not hand-supplied,
   // so a fixture page with #tag occurrences in its analysis is reflected
   // in vault.tags()/getTagByName() exactly like a real scan would.
@@ -133,9 +121,7 @@ function setup(folders: Folder[], pages: Page[], resources: VaultResource[] = []
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder(),
-    new Map(),
-    resources
+    new VaultProjectionBuilder()
   );
   const query = new VaultQuery(vault);
   const workspace = new Workspace();
@@ -213,33 +199,6 @@ describe('toCollectionPageModel — browse surface (Category A)', () => {
     expect(model.folders).toEqual([
       expect.objectContaining({ id: 'folder-2', title: 'Subfolder' }),
     ]);
-  });
-
-  it('includes VaultResources directly inside the folder, via the same selector the sidebar already uses (Image Resource Page)', () => {
-    const active = makeFolder({ id: 'folder-1', name: 'Root' });
-    const resource = makeResource({ id: 'resource-1', parentId: 'folder-1' });
-    const { vault, query, effectivePageState, membershipSelector, workspace } = setup(
-      [active],
-      [],
-      [resource]
-    );
-
-    const model = toCollectionPageModel(
-      active,
-      vault,
-      query,
-      effectivePageState,
-      membershipSelector,
-      workspace,
-      {
-        onOpenFolder: vi.fn(),
-        onOpenNote: vi.fn(),
-        onOpenDraftNote: vi.fn(),
-        onOpenResource: vi.fn(),
-      }
-    );
-
-    expect(model.resources).toEqual([resource]);
   });
 
   it('uses the real filename for a deliberately-named note', () => {

@@ -43,7 +43,6 @@ export type FilteredViewKind = FilteredView['kind'];
 export type ActiveView =
   | { readonly type: 'page'; readonly id: string }
   | { readonly type: 'folder'; readonly id: string }
-  | { readonly type: 'resource'; readonly id: string }
   | { readonly type: 'filtered-view'; readonly view: FilteredView };
 
 /**
@@ -57,7 +56,7 @@ function activeViewsEqual(a: ActiveView, b: ActiveView): boolean {
     return false;
   }
 
-  if (a.type === 'page' || a.type === 'folder' || a.type === 'resource') {
+  if (a.type === 'page' || a.type === 'folder') {
     return a.id === (b as typeof a).id;
   }
 
@@ -225,22 +224,6 @@ export class Workspace implements Observable {
   public openFolder(folderId: string, options?: { readonly recordHistory?: boolean }): void {
     this.recordNavigation({ type: 'folder', id: folderId }, options?.recordHistory);
     this._activeView = { type: 'folder', id: folderId };
-    this._activeViewRecordable = true;
-    this.notify();
-  }
-
-  /**
-   * Opens a resource (image/pdf) within the workspace — the Image/PDF
-   * Resource Page's entry point. See openFolder() for `recordHistory`.
-   * Resources have no draft concept (same as folders), so always
-   * recordable.
-   */
-  public openResource(
-    resourceId: string,
-    options?: { readonly recordHistory?: boolean }
-  ): void {
-    this.recordNavigation({ type: 'resource', id: resourceId }, options?.recordHistory);
-    this._activeView = { type: 'resource', id: resourceId };
     this._activeViewRecordable = true;
     this.notify();
   }
@@ -485,13 +468,6 @@ export class Workspace implements Observable {
    */
   public get activeFolderId(): string | null {
     return this._activeView?.type === 'folder' ? this._activeView.id : null;
-  }
-
-  /**
-   * The currently active resource. Derived from activeView.
-   */
-  public get activeResourceId(): string | null {
-    return this._activeView?.type === 'resource' ? this._activeView.id : null;
   }
 
   /**

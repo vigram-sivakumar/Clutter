@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  buildBreadcrumbs,
-  buildBreadcrumbsForDraft,
-  buildBreadcrumbsForResource,
-} from './buildBreadcrumbs';
+import { buildBreadcrumbs, buildBreadcrumbsForDraft } from './buildBreadcrumbs';
 import { getPageIcon } from './getPageIcon';
-import { getResourceIcon } from './getResourceIcon';
 import { getSystemLocationPresentation } from './systemPresentation';
 import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { Vault } from '../vault/models/Vault';
@@ -14,7 +9,6 @@ import { VaultProjectionBuilder } from '../vault/knowledge/VaultProjectionBuilde
 import { KnowledgeGraph } from '../vault/models/graph/KnowledgeGraph';
 import type { Folder } from '../vault/models/Folder';
 import type { Page } from '../vault/models/Page';
-import type { VaultResource } from '../vault/models/VaultResource';
 import { MembershipSelector } from '../application/membership/MembershipSelector';
 import { EffectivePageState } from '../application/page/EffectivePageState';
 import { PageOperations } from '../application/page/PageOperations';
@@ -97,7 +91,7 @@ function makePage(overrides: Partial<Page> = {}): Page {
   };
 }
 
-function makeVault(folders: Folder[] = [], resources: VaultResource[] = []): Vault {
+function makeVault(folders: Folder[] = []): Vault {
   return new Vault(
     ROOT,
     [],
@@ -106,21 +100,8 @@ function makeVault(folders: Folder[] = [], resources: VaultResource[] = []): Vau
     [],
     [],
     new KnowledgeGraph([]),
-    new VaultProjectionBuilder(),
-    new Map(),
-    resources
+    new VaultProjectionBuilder()
   );
-}
-
-function makeResource(overrides: Partial<VaultResource> = {}): VaultResource {
-  return {
-    id: 'resource-1',
-    kind: 'image',
-    name: 'photo.png',
-    path: `${ROOT}/photo.png`,
-    parentId: null,
-    ...overrides,
-  };
 }
 
 // ADR-023: buildBreadcrumbs/buildBreadcrumbsForDraft route their
@@ -247,60 +228,6 @@ describe('buildBreadcrumbsForDraft — root visibility policy', () => {
     );
 
     expect(crumbs).toEqual([]);
-  });
-});
-
-describe('buildBreadcrumbsForResource — root visibility policy', () => {
-  it('returns no breadcrumb trail for a root-level resource', () => {
-    const resource = makeResource({ parentId: null });
-    const crumbs = buildBreadcrumbsForResource(
-      resource,
-      makeVault(),
-      makeMembershipSelector(makeVault()),
-      vi.fn()
-    );
-
-    expect(crumbs).toEqual([]);
-  });
-});
-
-describe('buildBreadcrumbsForResource — nested resource renders the full chain', () => {
-  it('walks the ancestor folder chain and appends a trailing crumb with no onClick', () => {
-    const ancestor = makeFolder({ id: 'ancestor-folder', name: 'Ancestor', parentId: null });
-    const resource = makeResource({ parentId: 'ancestor-folder' });
-    const vault = makeVault([ancestor], [resource]);
-    const onOpenFolder = vi.fn();
-
-    const crumbs = buildBreadcrumbsForResource(
-      resource,
-      vault,
-      makeMembershipSelector(vault),
-      onOpenFolder
-    );
-
-    expect(crumbs).toHaveLength(2);
-    expect(crumbs[0]).toMatchObject({ id: 'ancestor-folder', title: 'Ancestor' });
-    expect(crumbs[1]).toMatchObject({
-      id: 'resource-1',
-      title: 'photo.png',
-      icon: getResourceIcon('image'),
-    });
-    expect(crumbs[1]!.onClick).toBeUndefined();
-  });
-
-  it('uses getResourceIcon for the trailing crumb, per resource kind', () => {
-    const ancestor = makeFolder({ id: 'ancestor-folder', name: 'Ancestor', parentId: null });
-    const resource = makeResource({ kind: 'pdf', name: 'report.pdf', parentId: 'ancestor-folder' });
-    const vault = makeVault([ancestor], [resource]);
-
-    const crumbs = buildBreadcrumbsForResource(
-      resource,
-      vault,
-      makeMembershipSelector(vault),
-      vi.fn()
-    );
-
-    expect(crumbs[1]!.icon).toBe(getResourceIcon('pdf'));
   });
 });
 

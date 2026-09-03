@@ -24,7 +24,6 @@ import { FolderCreator } from '../folder/FolderCreator';
 import { DailyNoteService } from '../daily-notes/DailyNoteService';
 import { DailyNotePath } from '../../vault/ingest/DailyNotePath';
 import { NavigationRouter } from '../navigation/NavigationRouter';
-import { ResourceOperations } from '../resource/ResourceOperations';
 import type { Page } from '../../vault/models/Page';
 
 const ROOT = '/vault';
@@ -106,8 +105,6 @@ function setup(pages: Page[]) {
     () => {}
   );
 
-  const resourceOperations = new ResourceOperations(vault, workspace, coordinator);
-
   return {
     vault,
     inner,
@@ -116,7 +113,6 @@ function setup(pages: Page[]) {
     coordinator,
     pageOperations,
     folderOperations,
-    resourceOperations,
   };
 }
 
@@ -461,7 +457,6 @@ describe('Navigation history: plain Note drafts are excluded, Daily Note drafts 
     const navigation = new NavigationRouter(
       rest.folderOperations,
       rest.pageOperations,
-      rest.resourceOperations,
       rest.vault,
       rest.workspace
     );
@@ -627,7 +622,6 @@ describe('An empty Daily Note draft referenced by navigation history is not auto
     const navigation = new NavigationRouter(
       rest.folderOperations,
       rest.pageOperations,
-      rest.resourceOperations,
       rest.vault,
       rest.workspace
     );

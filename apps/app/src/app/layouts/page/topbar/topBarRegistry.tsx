@@ -9,8 +9,6 @@ import { ReservedFolderTopBarActions } from './ReservedFolderTopBarActions';
 
 export interface TopBarActionsOptions {
   menu?: readonly TopBarMenuItemConfig[];
-  /** The Image/PDF Resource Page's 'rename' menu item — opens RenameResourceDialog, see buildResourceTopBarActions. Unused by every other resource type's renderer. */
-  onRename?: () => void;
   onArchive?: () => void;
   onRestore?: () => void;
   onDelete?: () => void;
@@ -54,7 +52,7 @@ export interface TopBarActionsOptions {
 
 type TopBarActionsRenderer = (options?: TopBarActionsOptions) => ReactNode;
 
-type TopBarResourceType = PageType | 'folder' | 'reserved-folder' | 'resource';
+type TopBarResourceType = PageType | 'folder' | 'reserved-folder';
 
 // Note and daily-note both resolve their status-aware menu upstream, in
 // buildTopBarActions.tsx (the one place that already narrows the resource
@@ -121,28 +119,6 @@ const renderFolderActions: TopBarActionsRenderer = (options) => (
   />
 );
 
-// The Image/PDF Resource Page's renderer — same shape as renderPageActions,
-// minus favorite/cover-image wiring (a VaultResource has neither): 'rename'
-// gains its own handler (unlike every other resource type, which renames
-// inline via its own title field — this page has none, see
-// RenameResourceDialog), and 'restore' is forwarded the same way 'archive'/
-// 'delete' already are.
-const renderResourceActions: TopBarActionsRenderer = (options) => (
-  <ResourceTopBarActions
-    menu={options?.menu ?? []}
-    handlers={{
-      rename: options?.onRename,
-      archive: options?.onArchive,
-      restore: options?.onRestore,
-      delete: options?.onDelete,
-    }}
-    deleteConfirmationMessage={options?.deleteConfirmationMessage}
-    moveDestinations={options?.moveDestinations}
-    onMove={options?.onMove}
-    onCreateFolder={options?.onCreateFolder}
-  />
-);
-
 export const topBarActionsRegistry: Record<
   TopBarResourceType,
   TopBarActionsRenderer
@@ -151,7 +127,6 @@ export const topBarActionsRegistry: Record<
   'reserved-folder': () => <ReservedFolderTopBarActions />,
   note: renderPageActions,
   'daily-note': renderPageActions,
-  resource: renderResourceActions,
 };
 
 export function renderTopBarActions(

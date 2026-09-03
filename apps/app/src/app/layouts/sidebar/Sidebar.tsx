@@ -1,6 +1,7 @@
 import type { Application } from '@core/application/Application';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import { DailyNotePath } from '@core/vault/ingest/DailyNotePath';
 import { getActiveDailyNoteDate } from '@features/daily-notes/helpers/getActiveDailyNoteDate';
 import './Sidebar.css';
@@ -35,6 +36,15 @@ export function Sidebar({ application }: SidebarProps) {
     membershipSelector,
   } = application;
   const workspace = useWorkspace(application.workspace);
+  // Sidebar-owned instance of the same lightbox a clicked Markdown image
+  // opens (MarkdownEditor.tsx's own imageOverlay state) — ImageOverlay is
+  // already a plain, stateless component parameterized only by
+  // { url, alt }, so mounting a second instance here is reuse, not a
+  // second implementation. resolveResourceImageUrl reuses the same
+  // injected CoverImageUrlResolver the cover-image path already uses.
+  const [resourceImage, setResourceImage] = useState<ImageOverlayImage | null>(
+    null
+  );
   const activeDailyNoteDate = getActiveDailyNoteDate(
     vault,
     workspace.activePageId,
@@ -88,7 +98,12 @@ export function Sidebar({ application }: SidebarProps) {
           onOpen={(pageId) => pageOperations.open(pageId)}
           onOpenFolder={(folderId) => folderOperations.open(folderId)}
           onOpenDraft={(pageId) => workspace.openPage(pageId)}
-          onOpenResourceImage={(resource) => resourceOperations.open(resource.id)}
+          onOpenResourceImage={(resource) =>
+            setResourceImage({
+              url: application.resolveResourceImageUrl(resource.path),
+              alt: resource.name,
+            })
+          }
         />
       ),
     },
@@ -146,6 +161,7 @@ export function Sidebar({ application }: SidebarProps) {
         {tabs.find((tab) => tab.value === workspace.activeSidebarTab)?.panel}
       </div>
       <Footer onOpenArchive={() => navigation.openArchive()} />
+      <ImageOverlay image={resourceImage} onClose={() => setResourceImage(null)} />
     </aside>
   );
 }
