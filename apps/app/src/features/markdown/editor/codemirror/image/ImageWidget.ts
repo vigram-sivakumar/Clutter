@@ -39,7 +39,21 @@ const TRASH_ICON =
 const BROKEN_IMAGE_ICON =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 9.25V10C13 11.6569 11.6569 13 10 13H5.5M13 9.25V6C13 4.34315 11.6569 3 10 3H6C4.34315 3 3 4.34315 3 6V10.5C3 11.8807 4.11929 13 5.5 13M13 9.25C11.1897 7.89231 8.6106 8.3341 7.35542 10.2169L5.5 13" stroke="currentColor" stroke-linecap="round"/><path d="M2 2L14 14" stroke="currentColor" stroke-linecap="round"/></svg>';
 
-export type OnImageClick = (url: string, alt: string) => void;
+/**
+ * `copyUrl` mirrors `OpenImageMenuParams.copyUrl` below — present (and a
+ * vault-relative path) only for a local Resource embed, `undefined` for a
+ * standard Markdown image (whose `url` already *is* the value to resolve
+ * against). This is the one piece of information `ImageOverlay` needs to
+ * ask "does this image have a `VaultResource` behind it" without this
+ * widget/the editor layer ever resolving that question itself — see
+ * `MarkdownEditor.tsx`'s own `onImageClickRef` for where `copyUrl ?? url`
+ * gets handed to the injected `resolveImageResource`.
+ */
+export type OnImageClick = (
+  url: string,
+  alt: string,
+  copyUrl?: string
+) => void;
 
 export interface OpenImageMenuParams {
   readonly anchor: HTMLElement;
@@ -137,7 +151,8 @@ export function currentImageSource(state: EditorState, pos: number): CurrentImag
  * when/how that flips, and why it's safe to store in CM6 state unlike
  * `menuOpen`). Broken:
  * - Shows a dedicated `.cm-image-broken` representation (broken-image icon
- *   + alt text + an "Invalid image url" hint) instead of an `<img>` — never
+ *   + a static "Unable to load" label + the exact invalid reference — the
+ *   vault-relative path or URL that failed) instead of an `<img>` — never
  *   the *native* (browser-drawn) broken-image icon, never the plain
  *   `tok-link`-styled fallback an earlier revision of this file used
  *   (superseded: that version lost the controls entirely, which this UX
@@ -301,7 +316,7 @@ export class ImageWidget extends WidgetType {
     imageButton.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.getOnImageClick()?.(this.url, this.alt);
+      this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
     });
 
     // Broken-image transition (class doc comment): a genuine `<img>` load
@@ -359,12 +374,12 @@ export class ImageWidget extends WidgetType {
 
     const altSpan = document.createElement('span');
     altSpan.classList.add('cm-image-broken__alt');
-    altSpan.textContent = this.alt || 'Untitled image';
+    altSpan.textContent = 'Unable to load';
     broken.append(altSpan);
 
     const hintSpan = document.createElement('span');
     hintSpan.classList.add('cm-image-broken__hint');
-    hintSpan.textContent = 'Invalid image url';
+    hintSpan.textContent = this.copyUrl ?? this.url;
     broken.append(hintSpan);
 
     this.probeForRecovery(view);

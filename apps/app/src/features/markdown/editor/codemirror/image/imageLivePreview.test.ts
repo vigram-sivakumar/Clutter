@@ -579,6 +579,21 @@ describe('Image click behavior', () => {
     expect(clicks).toEqual([{ url: 'https://example.com/mountain.jpg', alt: 'Mountain view' }]);
   });
 
+  it("4b. a standard Markdown image's click callback receives no copyUrl (undefined) — only a Resource embed has one; ImageOverlay's own resource resolution falls back to `url` for this case", () => {
+    const calls: Array<[string, string, string | undefined]> = [];
+    const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt, copyUrl) =>
+      calls.push([url, alt, copyUrl])
+    );
+
+    const button = getImageButton(view);
+    button.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(calls).toEqual([
+      ['https://example.com/mountain.jpg', 'Mountain view', undefined],
+    ]);
+  });
+
   it('5. clicking the size button does not open the overlay', () => {
     const clicks: Array<{ url: string; alt: string }> = [];
     const view = mountView(`See: ${IMAGE_MD}`, 0, (url, alt) => clicks.push({ url, alt }));
@@ -928,6 +943,16 @@ describe('MarkdownEditor.css — .cm-image-container', () => {
     expect(body).toMatch(/max-width\s*:\s*100%\s*;/);
     expect(body).toMatch(/position\s*:\s*relative\s*;/);
   });
+
+  it('is display: inline-flex — a plain block box would force CM6\'s own cm-widgetBuffer cursor-anchor <img>s (siblings inside the same .cm-line) onto separate ~24px line boxes above and below the widget instead of sharing this one (the exact mechanism already fixed once for .cm-hr-labeled)', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const match = css.match(/\.cm-editor\s+\.cm-image-container\s*\{([^}]*)\}/);
+
+    expect(match, '.cm-image-container rule not found').not.toBeNull();
+    const body = match![1];
+
+    expect(body).toMatch(/display\s*:\s*inline-flex\s*;/);
+  });
 });
 
 /**
@@ -1071,17 +1096,10 @@ describe('Broken image fallback', () => {
     expect(broken).not.toBeNull();
     expect(broken?.querySelector('.cm-image-broken__icon-wrap')).not.toBeNull();
     expect(broken?.querySelector('.cm-image-broken__icon-wrap .cm-image-broken__icon')).not.toBeNull();
-    expect(broken?.querySelector('.cm-image-broken__alt')?.textContent).toBe('Mountain view');
-    expect(broken?.querySelector('.cm-image-broken__hint')?.textContent).toBe('Invalid image url');
-  });
-
-  it('falls back to "Untitled image" for the alt slot when there is no alt text', () => {
-    const noAltMd = '![](https://example.com/mountain.jpg)';
-    const view = mountView(noAltMd);
-
-    getImg(view)!.dispatchEvent(new Event('error'));
-
-    expect(view.dom.querySelector('.cm-image-broken__alt')?.textContent).toBe('Untitled image');
+    expect(broken?.querySelector('.cm-image-broken__alt')?.textContent).toBe('Unable to load');
+    expect(broken?.querySelector('.cm-image-broken__hint')?.textContent).toBe(
+      'https://example.com/mountain.jpg'
+    );
   });
 
   it('shows hover controls with ONLY Edit source + Delete — no size button', () => {
@@ -1699,14 +1717,24 @@ describe('MarkdownEditor.css — display mode rules', () => {
     expect(body).toMatch(/width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
   });
 
-  it('.cm-image-container--fit centers the shrink-wrapped container instead of stretching it full-width', () => {
+  it('.cm-image-container--fit centers via the containing .cm-line\'s text-align, not margin-inline: auto (an inline-flex box, per the widget-buffer spacing fix, ignores margin: auto self-centering)', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
-    const body = ruleBody(css, /\.cm-editor\s+\.cm-image-container--fit\s*\{([^}]*)\}/);
-    expect(body).toMatch(/margin-inline\s*:\s*auto\s*;/);
+    const centerBody = ruleBody(
+      css,
+      /\.cm-editor\s+\.cm-line:has\(>\s*\.cm-image-container--fit\)\s*\{([^}]*)\}/
+    );
+    expect(centerBody).toMatch(/text-align\s*:\s*center\s*;/);
+
     // Unlike --fill, Fit's container must stay shrink-wrapped so
     // .cm-image-controls still anchors to the actual (narrower) image
-    // edge, not the empty space at the editor's own right edge.
-    expect(body).not.toMatch(/width\s*:/);
+    // edge, not the empty space at the editor's own right edge — this
+    // rule (still present, just no longer the centering mechanism) must
+    // never reintroduce a width override.
+    const containerMatch = css.match(/\.cm-editor\s+\.cm-image-container--fit\s*\{([^}]*)\}/);
+    if (containerMatch) {
+      expect(containerMatch[1]).not.toMatch(/width\s*:/);
+      expect(containerMatch[1]).not.toMatch(/margin-inline\s*:\s*auto\s*;/);
+    }
   });
 
   it('there is no Auto mode class anywhere in the stylesheet', () => {

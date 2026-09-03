@@ -212,7 +212,12 @@ function buildDecorations(
             : baseUi;
         const url = resolution.status === 'unresolved' ? '' : resolution.url;
         const alt = resolution.alt;
-        const copyUrl = resolution.status === 'image' ? resolution.copyUrl : undefined;
+        const copyUrl =
+          resolution.status === 'image'
+            ? resolution.copyUrl
+            : resolution.status === 'unresolved'
+              ? match.path
+              : undefined;
 
         const widget = new ImageWidget(
           alt,

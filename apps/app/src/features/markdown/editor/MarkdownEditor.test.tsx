@@ -412,6 +412,79 @@ describe('MarkdownEditor: image overlay', () => {
   });
 });
 
+describe('MarkdownEditor: image overlay — resolveImageResource / More Actions', () => {
+  const IMAGE_MD = '![Mountain view](https://example.com/mountain.jpg)';
+
+  function clickImage() {
+    const imageButton = document.querySelector('button.cm-image-button') as HTMLButtonElement;
+    fireEvent.mouseDown(imageButton);
+    fireEvent.click(imageButton);
+  }
+
+  it('calls resolveImageResource with the image url (no copyUrl for a standard image) when the overlay opens', () => {
+    const resolveImageResource = vi.fn(() => undefined);
+    render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={`See: ${IMAGE_MD}`}
+        resolveImageResource={resolveImageResource}
+      />
+    );
+
+    clickImage();
+
+    expect(resolveImageResource).toHaveBeenCalledWith('https://example.com/mountain.jpg');
+  });
+
+  it('shows the More Actions control when resolveImageResource resolves a resource', () => {
+    const resolveImageResource = vi.fn(() => ({ resourceId: 'resource-1' }));
+    render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={`See: ${IMAGE_MD}`}
+        resolveImageResource={resolveImageResource}
+      />
+    );
+
+    clickImage();
+
+    expect(
+      document.querySelector('[aria-label="More actions"]')
+    ).not.toBeNull();
+  });
+
+  it('omits the control when resolveImageResource is absent (default, every existing call site unaffected)', () => {
+    render(<MarkdownEditor pageId="test-page" markdown={`See: ${IMAGE_MD}`} />);
+
+    clickImage();
+
+    expect(document.querySelector('[aria-label="More actions"]')).toBeNull();
+  });
+
+  it('More Actions\' own "Set as cover image" forwards the same url onSetCoverImage receives from the inline menu', () => {
+    const onSetCoverImage = vi.fn();
+    const resolveImageResource = vi.fn(() => ({ resourceId: 'resource-1' }));
+    render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={`See: ${IMAGE_MD}`}
+        resolveImageResource={resolveImageResource}
+        onSetCoverImage={onSetCoverImage}
+      />
+    );
+
+    clickImage();
+    fireEvent.click(document.querySelector('[aria-label="More actions"]')!);
+    const item = Array.from(document.querySelectorAll('[role="menuitem"]')).find(
+      (el) => el.textContent === 'Set as cover image'
+    );
+    expect(item).not.toBeUndefined();
+    fireEvent.click(item!);
+
+    expect(onSetCoverImage).toHaveBeenCalledWith('https://example.com/mountain.jpg');
+  });
+});
+
 /**
  * 2026-09-02 UX baseline, item 9: "Set as cover image" is a capability-
  * gated menu entry point into whatever single cover-writing owner the app
@@ -519,7 +592,10 @@ describe('MarkdownEditor: broken image fallback', () => {
     expect(document.querySelector('button.cm-image-button')).toBeNull();
     const broken = document.querySelector('.cm-image-broken');
     expect(broken).not.toBeNull();
-    expect(broken?.querySelector('.cm-image-broken__alt')?.textContent).toBe('Mountain view');
+    expect(broken?.querySelector('.cm-image-broken__alt')?.textContent).toBe('Unable to load');
+    expect(broken?.querySelector('.cm-image-broken__hint')?.textContent).toBe(
+      'https://example.com/mountain.jpg'
+    );
 
     expect(document.querySelector('.cm-image-control[aria-label="Edit source"]')).not.toBeNull();
     expect(document.querySelector('.cm-image-control[aria-label="Delete image"]')).not.toBeNull();
