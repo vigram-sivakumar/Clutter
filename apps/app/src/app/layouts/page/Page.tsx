@@ -7,7 +7,13 @@ import { PageTitle } from './header/Page.Title';
 import { PageDescription } from './header/Page.Description';
 
 type PageProps = {
-  title: string;
+  /**
+   * Omitted entirely (not empty-string) renders no title section at all —
+   * for a resource viewer page (e.g. Image Resource Page), which has no
+   * document identity to name/edit. An empty string still renders the
+   * title field with its placeholder, unchanged from today's behavior.
+   */
+  title?: string;
   description?: string;
   titleEditable?: boolean;
   titlePlaceholder?: string;
@@ -97,6 +103,7 @@ export function Page({
   // getPageDisplayLabel/getFolderDisplayLabel each apply), not by any
   // page-type knowledge Page itself would otherwise need.
   const shouldAutoFocusTitle = Boolean(titleEditable) && title === '';
+  const hasTitle = title !== undefined;
 
   return (
     <div className="page">
@@ -113,24 +120,26 @@ export function Page({
           onNavigateForward={onNavigateForward}
         />
         <div className="page__content">
-          <header className="page__header">
-            <PageTitleSection>
-              <PageTitle
-                key={titleKey}
-                editable={titleEditable}
-                placeholder={titlePlaceholder}
-                autoFocus={shouldAutoFocusTitle}
-                onSubmit={() => bodyFocusRef?.current?.focus()}
-                onCommit={onTitleCommit}
-                onEdit={onTitleEdit}
-                onFlush={onTitleFlush}
-                onCancel={onTitleCancel}
-              >
-                {title}
-              </PageTitle>
-              {description && <PageDescription>{description}</PageDescription>}
-            </PageTitleSection>
-          </header>
+          {hasTitle && (
+            <header className="page__header">
+              <PageTitleSection>
+                <PageTitle
+                  key={titleKey}
+                  editable={titleEditable}
+                  placeholder={titlePlaceholder}
+                  autoFocus={shouldAutoFocusTitle}
+                  onSubmit={() => bodyFocusRef?.current?.focus()}
+                  onCommit={onTitleCommit}
+                  onEdit={onTitleEdit}
+                  onFlush={onTitleFlush}
+                  onCancel={onTitleCancel}
+                >
+                  {title}
+                </PageTitle>
+                {description && <PageDescription>{description}</PageDescription>}
+              </PageTitleSection>
+            </header>
+          )}
           <main className="page__body">{body}</main>
         </div>
       </div>

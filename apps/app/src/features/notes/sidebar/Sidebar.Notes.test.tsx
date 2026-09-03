@@ -162,7 +162,7 @@ function setup(
     new DailyNoteService(),
     () => {}
   );
-  const resourceOperations = new ResourceOperations(coordinator);
+  const resourceOperations = new ResourceOperations(vault, workspace, coordinator);
   const effectivePageState = new EffectivePageState(vault, query, pageOperations, workspace);
   const membershipSelector = new MembershipSelector(vault, query, effectivePageState);
   const navigation = {

@@ -113,6 +113,7 @@ function toFilteredCollectionPageModel(
       coverImage: null,
       folders: [],
       notes,
+      resources: [],
     };
   }
 
@@ -141,6 +142,7 @@ function toFilteredCollectionPageModel(
     notes: rawNotes.map((child) =>
       toCollectionEntry(child, actions, workspace.activePageId === child.id)
     ),
+    resources: [],
   };
 }
 
@@ -166,6 +168,12 @@ function toFolderCollectionPageModel(
     .map((child) =>
       toCollectionEntry(child, actions, workspace.activePageId === child.id)
     );
+
+  // VaultResources (image/pdf) directly inside this folder — the same
+  // selector the sidebar's own FolderTree already uses, exposed to this
+  // page-body consumer for the first time (ARCHITECTURE_RULES.md rule 4:
+  // extend the existing selector, never recompute this membership here).
+  const resources = membershipSelector.getVisibleChildResources(folder.id);
 
   // A reserved folder (Archive, Inbox, Templates, Daily Notes) viewed
   // directly gets its canonical system-location label instead of the raw
@@ -196,6 +204,7 @@ function toFolderCollectionPageModel(
     coverImage: folder.metadata.cover,
     folders,
     notes,
+    resources,
   };
 }
 

@@ -10,6 +10,7 @@ import { FrontmatterSerializer } from '../../vault/ingest/FrontmatterSerializer'
 import { FrontmatterParser } from '../../vault/ingest/FrontmatterParser';
 import { PageRebuilder } from '../../vault/ingest/PageRebuilder';
 import { InMemoryVaultFileSystem } from '../../vault/testing/InMemoryVaultFileSystem';
+import { Workspace } from '../../workspace/Workspace';
 import type { Folder } from '../../vault/models/Folder';
 import type { VaultResource } from '../../vault/models/VaultResource';
 
@@ -79,9 +80,10 @@ function setup(resources: VaultResource[] = [], folders: Folder[] = []) {
     moveService,
     resourceArchiveStore
   );
-  const resourceOperations = new ResourceOperations(coordinator);
+  const workspace = new Workspace();
+  const resourceOperations = new ResourceOperations(vault, workspace, coordinator);
 
-  return { vault, fileSystem, resourceArchiveStore, coordinator, resourceOperations };
+  return { vault, fileSystem, resourceArchiveStore, coordinator, workspace, resourceOperations };
 }
 
 describe('ResourceOperations.renameResource', () => {
@@ -318,9 +320,39 @@ describe('ResourceOperations: responsibility boundaries', () => {
     enqueueSpy.mockRestore();
   });
 
-  it('holds no VaultFileSystem or ResourceArchiveMetadataStore dependency at all — constructible from just the Gate', () => {
-    const { coordinator } = setup([]);
+  it('holds no VaultFileSystem or ResourceArchiveMetadataStore dependency at all — constructible from just the Vault, Workspace, and the Gate', () => {
+    const { vault, workspace, coordinator } = setup([]);
 
-    expect(() => new ResourceOperations(coordinator)).not.toThrow();
+    expect(() => new ResourceOperations(vault, workspace, coordinator)).not.toThrow();
+  });
+});
+
+describe('ResourceOperations.open', () => {
+  it('opens the resource in the workspace when it exists', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const { workspace, resourceOperations } = setup([resource]);
+
+    resourceOperations.open('resource-1');
+
+    expect(workspace.activeView).toEqual({ type: 'resource', id: 'resource-1' });
+    expect(workspace.activeResourceId).toBe('resource-1');
+  });
+
+  it('throws "Resource not found" for a missing resource id and does not touch the workspace', () => {
+    const { workspace, resourceOperations } = setup([]);
+
+    expect(() => resourceOperations.open('missing')).toThrow('Resource not found: missing');
+    expect(workspace.activeView).toBeNull();
+  });
+
+  it('forwards recordHistory through to Workspace.openResource', () => {
+    const resource = makeResource('resource-1', `${ROOT}/photo.png`);
+    const { workspace, resourceOperations } = setup([resource]);
+    const openResourceSpy = vi.spyOn(workspace, 'openResource');
+
+    resourceOperations.open('resource-1', { recordHistory: false });
+
+    expect(openResourceSpy).toHaveBeenCalledWith('resource-1', { recordHistory: false });
+    openResourceSpy.mockRestore();
   });
 });

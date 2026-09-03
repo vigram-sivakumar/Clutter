@@ -1,5 +1,6 @@
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { PageOperations } from '../page/PageOperations';
+import type { ResourceOperations } from '../resource/ResourceOperations';
 import type { Vault } from '../../vault/models/Vault';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
 import type { ActiveView, Workspace } from '../../workspace/Workspace';
@@ -27,17 +28,20 @@ import type { ActiveView, Workspace } from '../../workspace/Workspace';
 export class NavigationRouter {
   private readonly folderOperations: FolderOperations;
   private readonly pageOperations: PageOperations;
+  private readonly resourceOperations: ResourceOperations;
   private readonly vault: Vault;
   private readonly workspace: Workspace;
 
   constructor(
     folderOperations: FolderOperations,
     pageOperations: PageOperations,
+    resourceOperations: ResourceOperations,
     vault: Vault,
     workspace: Workspace
   ) {
     this.folderOperations = folderOperations;
     this.pageOperations = pageOperations;
+    this.resourceOperations = resourceOperations;
     this.vault = vault;
     this.workspace = workspace;
   }
@@ -116,6 +120,10 @@ export class NavigationRouter {
       return this.vault.getFolder(entry.id) !== undefined;
     }
 
+    if (entry.type === 'resource') {
+      return this.vault.getResource(entry.id) !== undefined;
+    }
+
     // Filtered views have no id to go stale — an empty result set is a
     // normal, already-handled render state, not a missing-resource case.
     return true;
@@ -132,6 +140,8 @@ export class NavigationRouter {
       void this.pageOperations.open(entry.id, { recordHistory: false });
     } else if (entry.type === 'folder') {
       void this.folderOperations.open(entry.id, { recordHistory: false });
+    } else if (entry.type === 'resource') {
+      this.resourceOperations.open(entry.id, { recordHistory: false });
     } else {
       this.workspace.openFilteredView(entry.view, { recordHistory: false });
     }

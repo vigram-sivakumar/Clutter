@@ -4,6 +4,7 @@ import type { Page } from '../../vault/models/Page';
 import { NavigationRouter } from './NavigationRouter';
 import type { FolderOperations } from '../folder/FolderOperations';
 import type { PageOperations } from '../page/PageOperations';
+import type { ResourceOperations } from '../resource/ResourceOperations';
 import type { Vault } from '../../vault/models/Vault';
 import type { ActiveView, Workspace } from '../../workspace/Workspace';
 import type { ReservedFolderId } from '../../vault/initialize/ReservedResources';
@@ -22,7 +23,8 @@ type WorkspaceHistoryMethods =
 function createNavigationRouter(options: {
   folderOperations?: Partial<Pick<FolderOperations, 'open' | 'ensureReservedFolder'>>;
   pageOperations?: Partial<Pick<PageOperations, 'open' | 'getDraft'>>;
-  vault?: Partial<Pick<Vault, 'getReservedFolder' | 'getPage' | 'getFolder'>>;
+  resourceOperations?: Partial<Pick<ResourceOperations, 'open'>>;
+  vault?: Partial<Pick<Vault, 'getReservedFolder' | 'getPage' | 'getFolder' | 'getResource'>>;
   workspace?: Partial<Pick<Workspace, WorkspaceHistoryMethods>>;
 }): NavigationRouter {
   return new NavigationRouter(
@@ -31,6 +33,7 @@ function createNavigationRouter(options: {
       getDraft: () => undefined,
       ...options.pageOperations,
     } as PageOperations,
+    options.resourceOperations as ResourceOperations,
     options.vault as Vault,
     options.workspace as Workspace
   );

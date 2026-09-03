@@ -2,9 +2,14 @@ import { useRef, useState } from 'react';
 import type { Application } from '@core/application/Application';
 
 import { useActivePage } from '@app/hooks/useActivePage';
+import { useActiveResource } from '@app/hooks/useActiveResource';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
 import { useWorkspace } from '@app/hooks/useWorkspace';
-import { buildBreadcrumbs, buildBreadcrumbsForDraft } from '@core/presentation/buildBreadcrumbs';
+import {
+  buildBreadcrumbs,
+  buildBreadcrumbsForDraft,
+  buildBreadcrumbsForResource,
+} from '@core/presentation/buildBreadcrumbs';
 import {
   getPageTitlePlaceholder,
   getFolderTitlePlaceholder,
@@ -12,7 +17,9 @@ import {
 import {
   buildTopBarActions,
   buildDraftTopBarActions,
+  buildResourceTopBarActions,
 } from '@app/layouts/page/topbar/buildTopBarActions';
+import { RenameResourceDialog } from '@app/layouts/page/topbar/RenameResourceDialog';
 import {
   getFolderArchiveConfirmation,
   getFolderDeleteConfirmation,
@@ -46,11 +53,11 @@ import { MarkdownBody } from '@app/layouts/page/body/MarkdownBody';
 import { CollectionBody } from '@app/layouts/page/body/CollectionBody';
 import { ArchiveCollectionBody } from '@app/layouts/page/body/ArchiveCollectionBody';
 import { AssetsCollectionBody } from '@app/layouts/page/body/AssetsCollectionBody';
+import { ImageResourceBody } from '@app/layouts/page/body/ImageResourceBody';
 import {
   TasksCollectionBody,
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
-import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
 import {
   MarkdownEditor,
   type MarkdownEditorHandle,
@@ -101,13 +108,10 @@ export function PageHost({ application }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
 
-  // The Assets collection's own instance of the same lightbox a clicked
-  // Markdown image opens (MarkdownEditor.tsx's own imageOverlay state, and
-  // Sidebar.tsx's identical sidebar-scoped instance) — ImageOverlay is a
-  // plain, stateless component parameterized only by { url, alt }, so a
-  // third mount site is reuse, not a second implementation.
-  const [assetsImageOverlay, setAssetsImageOverlay] =
-    useState<ImageOverlayImage | null>(null);
+  // Local to the Image Resource Page branch below — whether the rename
+  // prompt (RenameResourceDialog) is currently open. Resets naturally
+  // whenever the branch's own `key={resource.id}` remounts.
+  const [isRenamingResource, setIsRenamingResource] = useState(false);
 
   // One handle, reused across the draft/note/daily-note branches below —
   // only one of them ever renders per render, and each gets a fresh
@@ -148,7 +152,9 @@ export function PageHost({ application }: PageHostProps) {
 
   const activePageId = workspace.activePageId;
   const activeFolderId = workspace.activeFolderId;
+  const activeResourceId = workspace.activeResourceId;
   const page = useActivePage(vault, activePageId);
+  const activeResource = useActiveResource(vault, activeResourceId);
 
   const rawSession = activePageId
     ? application.pageOperations.getSession(activePageId)
@@ -159,6 +165,7 @@ export function PageHost({ application }: PageHostProps) {
   const session = useDocumentSession(rawSession);
 
   const onOpenFolder = (id: string) => application.folderOperations.open(id);
+  const onOpenResource = (id: string): void => application.resourceOperations.open(id);
   // Committed-stage only (autosave-execution-model.md §3.1) — no Gate call,
   // no persistence. Durable-stage persistence is a separate, payload-free
   // request (onRequestSave below), fired on blur.
@@ -317,6 +324,7 @@ export function PageHost({ application }: PageHostProps) {
         onOpenFolder,
         onOpenNote: (id: string) => application.pageOperations.open(id),
         onOpenDraftNote: (id: string) => application.workspace.openPage(id),
+        onOpenResource,
       }
     );
 
@@ -415,12 +423,7 @@ export function PageHost({ application }: PageHostProps) {
                 folders={model.folders}
                 notes={model.notes}
                 resources={application.membershipSelector.getArchivedResources()}
-                onOpenImage={(resource) =>
-                  setAssetsImageOverlay({
-                    url: application.resolveResourceImageUrl(resource.path),
-                    alt: resource.name,
-                  })
-                }
+                onOpenImage={(resource) => onOpenResource(resource.id)}
                 onRestoreResource={(id) =>
                   void application.resourceOperations.restoreResource(id)
                 }
@@ -438,16 +441,91 @@ export function PageHost({ application }: PageHostProps) {
               <CollectionBody
                 folders={model.folders}
                 notes={model.notes}
+                resources={model.resources}
+                onOpenResource={(resource) => onOpenResource(resource.id)}
                 resolveWikiLink={resolveWikiLink}
                 resolveTag={resolveTag}
               />
             )
           }
         />
-        {isArchiveView && (
-          <ImageOverlay
-            image={assetsImageOverlay}
-            onClose={() => setAssetsImageOverlay(null)}
+      </>
+    );
+  }
+
+  // The Image/PDF Resource Page (ADR-pending, this milestone: image only)
+  // — opened from Sidebar/Assets/Archive/a folder's own body via
+  // ResourceOperations.open(). A first-class ActiveView type, not nested
+  // under 'filtered-view' — a resource is a single concrete entity, the
+  // same shape 'page'/'folder' already are, not a query-defined view.
+  if (workspace.activeView?.type === 'resource') {
+    const resourceId = workspace.activeView.id;
+
+    if (!activeResource) {
+      throw new Error(`Resource not found: ${resourceId}`);
+    }
+
+    const isArchived = application.membershipSelector.isResourceArchived(activeResource);
+    const resourceBreadcrumbs = buildBreadcrumbsForResource(
+      activeResource,
+      vault,
+      application.membershipSelector,
+      onOpenFolder
+    );
+    // Delete is the one resource action that removes it from the Vault
+    // entirely (unlike archive/restore/move/rename, which relocate/rename
+    // it but never change its id's resolvability) — there's no ADR-025-
+    // style fallback-page mechanism wired for resources, so this call
+    // site navigates to Assets itself after a successful delete, rather
+    // than leaving the page pointed at an id that no longer resolves.
+    const onDeleteResource = (): void => {
+      void application.resourceOperations
+        .deleteResource(resourceId)
+        .then(() => application.workspace.openFilteredView({ kind: 'assets' }));
+    };
+    const resourceTopBar = buildResourceTopBarActions({
+      isArchived,
+      onRename: () => setIsRenamingResource(true),
+      onArchive: () => void application.resourceOperations.archiveResource(resourceId),
+      onRestore: () => void application.resourceOperations.restoreResource(resourceId),
+      onDelete: onDeleteResource,
+      deleteConfirmationMessage: PAGE_DELETE_CONFIRMATION_MESSAGE,
+      moveDestinations: buildResourceMoveDestinationItems(
+        application.membershipSelector,
+        application.query
+      ),
+      onMove: (destinationFolderId) =>
+        void application.resourceOperations.moveResource(resourceId, destinationFolderId),
+      onCreateFolder: (name) => application.folderOperations.create(name, null),
+    });
+
+    return (
+      <>
+        <Page
+          isSidebarVisible={workspace.isSidebarVisible}
+          onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+          canNavigateBack={workspace.canNavigateBack}
+          canNavigateForward={workspace.canNavigateForward}
+          onNavigateBack={() => application.navigation.back()}
+          onNavigateForward={() => application.navigation.forward()}
+          breadcrumbs={<Breadcrumbs items={resourceBreadcrumbs} />}
+          actions={resourceTopBar.actions}
+          body={
+            <ImageResourceBody
+              key={activeResource.id}
+              imageUrl={application.resolveResourceImageUrl(activeResource.path)}
+              alt={activeResource.name}
+            />
+          }
+        />
+        {isRenamingResource && (
+          <RenameResourceDialog
+            currentName={activeResource.name}
+            onCommit={(name) => {
+              setIsRenamingResource(false);
+              void application.resourceOperations.renameResource(resourceId, name);
+            }}
+            onCancel={() => setIsRenamingResource(false)}
           />
         )}
       </>
@@ -480,12 +558,7 @@ export function PageHost({ application }: PageHostProps) {
           body={
             <AssetsCollectionBody
               resources={resources}
-              onOpenImage={(resource) =>
-                setAssetsImageOverlay({
-                  url: application.resolveResourceImageUrl(resource.path),
-                  alt: resource.name,
-                })
-              }
+              onOpenImage={(resource) => onOpenResource(resource.id)}
               onRenameResource={(id, name) =>
                 void application.resourceOperations.renameResource(id, name)
               }
@@ -502,10 +575,6 @@ export function PageHost({ application }: PageHostProps) {
               onCreateFolder={(name) => application.folderOperations.create(name, null)}
             />
           }
-        />
-        <ImageOverlay
-          image={assetsImageOverlay}
-          onClose={() => setAssetsImageOverlay(null)}
         />
       </>
     );

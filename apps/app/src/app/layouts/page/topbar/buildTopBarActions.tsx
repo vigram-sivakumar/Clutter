@@ -6,6 +6,7 @@ import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.ty
 import { buildDailyNoteTopBarMenu } from '@features/daily-notes/topbar/dailyNoteTopBarMenu.config';
 import { buildNoteTopBarMenu } from '@features/notes/topbar/noteTopBarMenu.config';
 import { buildFolderTopBarMenu } from '@features/notes/topbar/folderTopBarMenu.config';
+import { buildResourceTopBarMenu } from '@features/notes/topbar/resourceTopBarMenu.config';
 
 import { renderTopBarActions } from './topBarRegistry';
 import type { TopBarMenuItemConfig, TopBarPageState } from './ResourceTopBarActions';
@@ -194,6 +195,46 @@ export function buildDraftTopBarActions(
       onSetCoverImageFromUpload: options?.onSetCoverImageFromUpload,
       onRemoveCoverImage: options?.onRemoveCoverImage,
       hasCoverImage: false,
+    }),
+  };
+}
+
+export interface BuildResourceTopBarActionsOptions {
+  isArchived: boolean;
+  /** Opens RenameResourceDialog — a resource rename is never a direct mutation from this menu, see resourceTopBarMenu.config.ts. */
+  onRename?: () => void;
+  onArchive?: () => void;
+  onRestore?: () => void;
+  onDelete?: () => void;
+  /** Delete is always reachable (and therefore always confirmed) for an archived resource — see buildResourceTopBarMenu. */
+  deleteConfirmationMessage?: string;
+  moveDestinations?: FolderPickerItem[];
+  onMove?: (destinationFolderId: string | null) => void;
+  onCreateFolder?: (name: string) => Promise<string>;
+}
+
+/**
+ * The Image/PDF Resource Page's counterpart to buildTopBarActions — a
+ * third sibling function in this file (alongside buildDraftTopBarActions),
+ * since a VaultResource is neither a Page nor a Folder and has no status
+ * field to route through getTopBarResourceType. Menu is entirely
+ * status-driven (buildResourceTopBarMenu), same reasoning buildMenuForType
+ * already establishes for pages.
+ */
+export function buildResourceTopBarActions(
+  options: BuildResourceTopBarActionsOptions
+): TopBarParts {
+  return {
+    actions: renderTopBarActions('resource', {
+      menu: buildResourceTopBarMenu(options.isArchived),
+      onRename: options.onRename,
+      onArchive: options.onArchive,
+      onRestore: options.onRestore,
+      onDelete: options.onDelete,
+      deleteConfirmationMessage: options.deleteConfirmationMessage,
+      moveDestinations: options.moveDestinations,
+      onMove: options.onMove,
+      onCreateFolder: options.onCreateFolder,
     }),
   };
 }

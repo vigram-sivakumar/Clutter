@@ -125,3 +125,89 @@ describe('topBarRegistry — folder resource type (ADR-024)', () => {
     expect(screen.queryByText('Delete')).not.toBeInTheDocument();
   });
 });
+
+describe('topBarRegistry — resource type (Image/PDF Resource Page)', () => {
+  const activeResourceMenu: TopBarMenuItemConfig[] = [
+    { id: 'rename', label: 'Rename', icon: 'notePencil' },
+    { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
+    { id: 'archive', label: 'Archive', icon: 'archive' },
+  ];
+
+  const archivedResourceMenu: TopBarMenuItemConfig[] = [
+    { id: 'restore', label: 'Restore', icon: 'restore' },
+    { id: 'delete', label: 'Delete permanently', icon: 'trash' },
+  ];
+
+  it("wires onRename to the resource menu's Rename item", () => {
+    const onRename = vi.fn();
+
+    render(<>{renderTopBarActions('resource', { menu: activeResourceMenu, onRename })}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Rename'));
+
+    expect(onRename).toHaveBeenCalledTimes(1);
+  });
+
+  it("wires onArchive to the resource menu's Archive item, with no confirmation (unlike folder/page archive with descendants)", () => {
+    const onArchive = vi.fn();
+
+    render(<>{renderTopBarActions('resource', { menu: activeResourceMenu, onArchive })}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Archive'));
+
+    expect(onArchive).toHaveBeenCalledTimes(1);
+  });
+
+  it("wires onRestore to the archived resource menu's Restore item", () => {
+    const onRestore = vi.fn();
+
+    render(<>{renderTopBarActions('resource', { menu: archivedResourceMenu, onRestore })}</>);
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Restore'));
+
+    expect(onRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it("wires onDelete to the archived resource menu's Delete item, gated by confirmation when deleteConfirmationMessage is set", () => {
+    const onDelete = vi.fn();
+
+    render(
+      <>
+        {renderTopBarActions('resource', {
+          menu: archivedResourceMenu,
+          onDelete,
+          deleteConfirmationMessage: 'Delete this resource permanently?',
+        })}
+      </>
+    );
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Delete permanently'));
+
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.getByText('Delete this resource permanently?')).toBeInTheDocument();
+
+    const confirmButtons = screen.getAllByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("wires onMove through the move-to item, same as a note/folder row's Move flow", () => {
+    const onMove = vi.fn();
+
+    render(
+      <>
+        {renderTopBarActions('resource', {
+          menu: activeResourceMenu,
+          moveDestinations: [{ id: 'folder-1', title: 'Projects', level: 0, parentId: null }],
+          onMove,
+        })}
+      </>
+    );
+    openOverflowMenu();
+    fireEvent.click(screen.getByText('Move to…'));
+    fireEvent.click(screen.getByText('Projects'));
+
+    expect(onMove).toHaveBeenCalledWith('folder-1');
+  });
+});

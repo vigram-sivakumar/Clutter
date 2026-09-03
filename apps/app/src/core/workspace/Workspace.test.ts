@@ -138,6 +138,17 @@ describe('Workspace.activeView (ADR-022)', () => {
     expect(workspace.activePageId).toBeNull();
   });
 
+  it('openResource sets a resource-typed activeView, derived activePageId/activeFolderId/activeResourceId agree', () => {
+    const workspace = new Workspace();
+
+    workspace.openResource('resource-1');
+
+    expect(workspace.activeView).toEqual({ type: 'resource', id: 'resource-1' });
+    expect(workspace.activeResourceId).toBe('resource-1');
+    expect(workspace.activePageId).toBeNull();
+    expect(workspace.activeFolderId).toBeNull();
+  });
+
   it('openFilteredView sets a filtered-view-typed activeView, clearing any active page/folder', () => {
     const workspace = new Workspace();
     workspace.openFolder('folder-1');
@@ -269,6 +280,19 @@ describe('Workspace navigation history (ADR-027)', () => {
     expect(workspace.peekBack()).toEqual({ type: 'folder', id: 'folder-1' });
     workspace.popBackForReplay();
     expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+  });
+
+  it('a resource participates in history the same way a folder does (ADR-027, Image Resource Page)', () => {
+    const workspace = new Workspace();
+    workspace.openPage('page-1');
+    workspace.openResource('resource-1');
+
+    expect(workspace.canNavigateBack).toBe(true);
+    expect(workspace.peekBack()).toEqual({ type: 'page', id: 'page-1' });
+
+    workspace.openPage('page-2');
+
+    expect(workspace.peekBack()).toEqual({ type: 'resource', id: 'resource-1' });
   });
 
   it('navigating to the already-active view does not push a duplicate entry', () => {

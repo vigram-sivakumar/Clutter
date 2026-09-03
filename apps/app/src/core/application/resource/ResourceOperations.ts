@@ -1,3 +1,5 @@
+import type { Vault } from '../../vault/models/Vault';
+import type { Workspace } from '../../workspace/Workspace';
 import type { PagePersistenceCoordinator } from '../../vault/persistence/PagePersistenceCoordinator';
 
 /**
@@ -31,7 +33,29 @@ import type { PagePersistenceCoordinator } from '../../vault/persistence/PagePer
  * one error-reporting convention below.
  */
 export class ResourceOperations {
-  constructor(private readonly coordinator: PagePersistenceCoordinator) {}
+  constructor(
+    private readonly vault: Vault,
+    private readonly workspace: Workspace,
+    private readonly coordinator: PagePersistenceCoordinator
+  ) {}
+
+  /**
+   * Opens a resource (image/pdf) in the workspace — the Image/PDF Resource
+   * Page's entry point (the resource-scoped counterpart to
+   * PageOperations.open()/FolderOperations.open()). Not a bare forward:
+   * checks the Vault for existence first, same shape as
+   * FolderOperations.open(), since resources have no document-session
+   * concept to otherwise justify a dedicated method.
+   */
+  public open(resourceId: string, options?: { readonly recordHistory?: boolean }): void {
+    const resource = this.vault.getResource(resourceId);
+
+    if (!resource) {
+      throw new Error(`Resource not found: ${resourceId}`);
+    }
+
+    this.workspace.openResource(resourceId, options);
+  }
 
   /**
    * Renames a VaultResource in place. `name` is passed through unchanged
