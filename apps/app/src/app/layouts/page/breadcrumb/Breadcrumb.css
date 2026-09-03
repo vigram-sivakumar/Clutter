@@ -28,9 +28,13 @@
   letter-spacing: var(--ls-label);
 }
 
-.breadcrumb-item:hover {
+.breadcrumb-item:not(.breadcrumb-item--current):hover {
   background: var(--state-hover);
   color: var(--foreground-primary);
+}
+
+.breadcrumb-item--current {
+  cursor: default;
 }
 
 .breadcrumb-item--icon {

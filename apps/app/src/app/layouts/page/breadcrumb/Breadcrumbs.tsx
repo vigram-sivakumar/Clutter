@@ -32,6 +32,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
         icon={current.icon}
         emoji={current.emoji}
         onClick={current.onClick}
+        isCurrentPage
       />
     );
   }
@@ -60,6 +61,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           emoji={current.emoji}
           title={current.title}
           onClick={current.onClick}
+          isCurrentPage
         />
       </div>
 
