@@ -357,7 +357,7 @@ export class ImageWidget extends WidgetType {
     // a broken image never offers Large/Fill/Fit/Copy link/Set as cover
     // image/etc., not merely that those items are hidden/disabled once a
     // menu is somehow open.
-    controls.append(this.makeEditButton(view), deleteButton);
+    controls.append(deleteButton, this.makeEditButton(view));
 
     const broken = document.createElement('div');
     broken.classList.add('cm-image-broken');
