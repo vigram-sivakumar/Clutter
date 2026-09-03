@@ -15,6 +15,7 @@ import Butterfly from './svg/butterfly.svg?react';
 import BrokenImage from './svg/broken-image.svg?react';
 import CalendarBlank from './svg/calendar-blank.svg?react';
 import CalendarDot from './svg/calendar-dot.svg?react';
+import CalendarDots from './svg/calendar-dots.svg?react';
 import Car from './svg/car.svg?react';
 import CaretDown from './svg/caret-down.svg?react';
 import CaretLeft from './svg/caret-left.svg?react';
@@ -102,6 +103,7 @@ export const iconRegistry = {
   butterfly: Butterfly,
   calendar: CalendarBlank,
   calendarDot: CalendarDot,
+  calendarDots: CalendarDots,
   calendarToday: CalendarTodayIcon,
   car: Car,
   caretDown: CaretDown,
