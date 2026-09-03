@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 6px;
+  width: 12px;
   height: 100%;
   color: var(--foreground-tertiary);
   opacity: var(--opacity-strong);

@@ -51,7 +51,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           onClick={overflow.toggle}
         />
         <span className="breadcrumb__slash">
-          <AppIcon icon="slash" />
+          <AppIcon icon="caretRight" />
         </span>
 
         <BreadcrumbItem
@@ -70,7 +70,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
         side="bottom"
         alignment="start"
       >
-        <Menu size="small">
+        <Menu size="medium">
           {collapsed.map((item) => (
             <MenuItem
               key={item.id}

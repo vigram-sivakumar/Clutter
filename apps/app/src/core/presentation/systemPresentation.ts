@@ -73,7 +73,7 @@ export const SYSTEM_LOCATION_PRESENTATION: Readonly<
     id: 'daily-notes',
     label: 'Daily Notes',
     icon: 'calendarToday',
-    collectionIcon: 'calendar',
+    collectionIcon: 'calendarDots',
   },
   tasks: { id: 'tasks', label: 'Tasks', icon: 'squareCheckOutline' },
   'tasks-today': {
