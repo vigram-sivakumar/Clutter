@@ -20,7 +20,7 @@ import {
 } from 'vitest';
 
 import { Overlay } from './Overlay';
-import type { OverlayAlignment, OverlaySide } from './Overlay.types';
+import type { OverlayAlignment, OverlayScrim, OverlaySide } from './Overlay.types';
 
 type RectInput = {
   top: number;
@@ -55,6 +55,7 @@ type HarnessProps = {
   alignment?: OverlayAlignment;
   offset?: number;
   backdrop?: false | 'transparent' | 'tinted';
+  scrim?: OverlayScrim;
   animate?: boolean;
   onClose?: () => void;
 };
@@ -65,6 +66,7 @@ function Harness({
   alignment,
   offset,
   backdrop,
+  scrim,
   animate,
   onClose,
 }: HarnessProps) {
@@ -89,6 +91,7 @@ function Harness({
         alignment={alignment}
         offset={offset}
         backdrop={backdrop}
+        scrim={scrim}
         animate={animate}
         onClose={() => {
           onClose?.();
@@ -296,6 +299,33 @@ describe('Overlay', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onAncestorClick).not.toHaveBeenCalled();
+  });
+
+  it('defaults to the default scrim strength without an explicit scrim class', () => {
+    render(<Harness backdrop="tinted" />);
+
+    const backdrop = document.body.querySelector(
+      '.overlay__backdrop'
+    ) as HTMLDivElement;
+
+    expect(backdrop.classList.contains('overlay__backdrop--tinted')).toBe(
+      true
+    );
+    expect(
+      backdrop.classList.contains('overlay__backdrop--scrim-strong')
+    ).toBe(false);
+  });
+
+  it('applies the strong scrim class when scrim="strong"', () => {
+    render(<Harness backdrop="tinted" scrim="strong" />);
+
+    const backdrop = document.body.querySelector(
+      '.overlay__backdrop'
+    ) as HTMLDivElement;
+
+    expect(
+      backdrop.classList.contains('overlay__backdrop--scrim-strong')
+    ).toBe(true);
   });
 
   it('does not render a backdrop when backdrop is disabled', () => {

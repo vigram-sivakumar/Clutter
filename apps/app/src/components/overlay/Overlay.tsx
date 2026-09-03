@@ -18,6 +18,7 @@ export function Overlay(props: OverlayProps) {
     onClose,
     children,
     backdrop = 'transparent',
+    scrim = 'default',
     animate = true,
     className,
     returnFocusRef,
@@ -66,7 +67,13 @@ export function Overlay(props: OverlayProps) {
     <div className="overlay">
       {backdrop !== false && (
         <div
-          className={`overlay__backdrop overlay__backdrop--${backdrop}`}
+          className={[
+            'overlay__backdrop',
+            `overlay__backdrop--${backdrop}`,
+            scrim === 'strong' && 'overlay__backdrop--scrim-strong',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           onClick={(event) => {
             event.stopPropagation();
             onClose();

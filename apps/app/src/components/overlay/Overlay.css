@@ -24,6 +24,10 @@
   background: var(--overlay-scrim);
 }
 
+.overlay__backdrop--tinted.overlay__backdrop--scrim-strong {
+  background: var(--overlay-scrim-strong);
+}
+
 .overlay__content {
   --overlay-x: 0px;
   --overlay-y: 0px;

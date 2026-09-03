@@ -8,6 +8,8 @@ export type OverlayAlignment = 'start' | 'end';
 
 export type OverlayBackdrop = false | 'transparent' | 'tinted';
 
+export type OverlayScrim = 'default' | 'strong';
+
 export interface OverlayLayout {
   top: number;
   left: number;
@@ -20,6 +22,7 @@ interface OverlayBaseProps {
   onClose: () => void;
 
   backdrop?: OverlayBackdrop;
+  scrim?: OverlayScrim;
   animate?: boolean;
 
   children: ReactNode;
