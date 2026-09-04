@@ -278,13 +278,14 @@ describe('Resource — rename editing', () => {
 });
 
 describe('Resource — click behavior', () => {
-  it('a pdf resource does nothing on click, even when onClick is provided', () => {
+  it('a pdf resource invokes onClick with the resource, reaching the PdfOverlay wiring', () => {
     const onClick = vi.fn();
-    render(<Resource resource={makeResource({ kind: 'pdf' })} onClick={onClick} />);
+    const resource = makeResource({ kind: 'pdf', name: 'contract.pdf' });
+    render(<Resource resource={resource} onClick={onClick} />);
 
-    fireEvent.click(screen.getByText('photo').closest('.entry')!);
+    fireEvent.click(screen.getByText('contract').closest('.entry')!);
 
-    expect(onClick).not.toHaveBeenCalled();
+    expect(onClick).toHaveBeenCalledWith(resource);
   });
 
   it('an image resource invokes onClick with the resource, reaching the existing image-overlay wiring', () => {
@@ -299,6 +300,12 @@ describe('Resource — click behavior', () => {
 
   it('an image resource with no onClick provided renders non-interactive', () => {
     const { container } = render(<Resource resource={makeResource({ kind: 'image' })} />);
+
+    expect(container.querySelector('.entry-interactive')).toBeNull();
+  });
+
+  it('a pdf resource with no onClick provided renders non-interactive', () => {
+    const { container } = render(<Resource resource={makeResource({ kind: 'pdf' })} />);
 
     expect(container.querySelector('.entry-interactive')).toBeNull();
   });

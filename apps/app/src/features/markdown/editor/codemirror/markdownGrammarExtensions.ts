@@ -4,6 +4,7 @@ import { dateSyntax } from './date/dateSyntax';
 import { embedSyntax } from './embed/embedSyntax';
 import { emojiListSyntax } from './emoji-list/emojiListSyntax';
 import { highlightSyntax } from './highlight/highlightSyntax';
+import { imageSpacedDestinationSyntax } from './image/imageSyntax';
 import { doubleHorizontalRuleSyntax } from './hr/doubleHorizontalRuleSyntax';
 import { dottedHorizontalRuleSyntax } from './hr/dottedHorizontalRuleSyntax';
 import { labeledHorizontalRuleSyntax } from './hr/labeledHorizontalRuleSyntax';
@@ -61,6 +62,7 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   Table,
   wikiLinkSyntax,
   embedSyntax,
+  imageSpacedDestinationSyntax,
   tagSyntax,
   dateSyntax,
   taskCompletionMetadataSyntax,

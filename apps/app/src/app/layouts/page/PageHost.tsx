@@ -825,68 +825,94 @@ export function PageHost({ application }: PageHostProps) {
     });
 
     return (
-      <Page
-        titleKey={activePageId}
-        isSidebarVisible={workspace.isSidebarVisible}
-        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
-        canNavigateBack={workspace.canNavigateBack}
-        canNavigateForward={workspace.canNavigateForward}
-        onNavigateBack={() => application.navigation.back()}
-        onNavigateForward={() => application.navigation.forward()}
-        title={model.title}
-        description={model.description}
-        titleEditable
-        titlePlaceholder={getPageTitlePlaceholder(draft.type)}
-        breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
-        // Same page chrome as a persisted page (ADR-017 Decision item 9) —
-        // archive/restore/delete render disabled, not omitted, since they
-        // don't apply until this draft is actually persisted.
-        actions={draftTopBar.actions}
-        bodyFocusRef={editorRef}
-        onTitleCommit={(title) =>
-          void application.pageOperations.updateDraftTitle(activePageId, title)
-        }
-        body={
-          <MarkdownBody>
-            <MarkdownEditor
-              key={activePageId}
-              pageId={activePageId}
-              ref={editorRef}
-              markdown={model.markdown}
-              focusOnOpen={focusEditorOnOpen(model.title)}
-              onEdit={(markdown) => model.updateMarkdown(markdown)}
-              onFlush={() => model.requestSave()}
-              resolveWikiLink={resolveWikiLink}
-              getWikiLinkSuggestions={getWikiLinkSuggestions}
-              getEmbedSuggestions={getEmbedSuggestions}
-              resolveEmbedImage={resolveEmbedImage}
-              resolveEmbedPdf={resolveEmbedPdf}
-              onPdfEmbedClick={onPdfEmbedClick}
-              resolveImageSrc={resolveImageSrc}
-              resolveTag={resolveTag}
-              getTagSuggestions={getTagSuggestions}
-              resolveDate={resolveDate}
-              onSetCoverImage={onSetCoverImage}
-              onDownloadImage={downloadImageFromEditor}
-              resolveImageResource={resolveImageResource}
-              onArchiveResource={(id) =>
-                void application.resourceOperations.archiveResource(id)
-              }
-              onRevealResourceInFinder={revealResourceInFinder}
-              onCopyResourcePath={copyResourcePath}
-              onDownloadResource={downloadResourceById}
-              resourceMoveDestinations={buildResourceMoveDestinationItems(
-                application.membershipSelector,
-                application.query
-              )}
-              onMoveResource={(id, destinationFolderId) =>
-                void application.resourceOperations.moveResource(id, destinationFolderId)
-              }
-              onCreateFolder={(name) => application.folderOperations.create(name, null)}
-            />
-          </MarkdownBody>
-        }
-      />
+      <>
+        <Page
+          titleKey={activePageId}
+          isSidebarVisible={workspace.isSidebarVisible}
+          onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+          canNavigateBack={workspace.canNavigateBack}
+          canNavigateForward={workspace.canNavigateForward}
+          onNavigateBack={() => application.navigation.back()}
+          onNavigateForward={() => application.navigation.forward()}
+          title={model.title}
+          description={model.description}
+          titleEditable
+          titlePlaceholder={getPageTitlePlaceholder(draft.type)}
+          breadcrumbs={<Breadcrumbs items={draftBreadcrumbs} />}
+          // Same page chrome as a persisted page (ADR-017 Decision item 9) —
+          // archive/restore/delete render disabled, not omitted, since they
+          // don't apply until this draft is actually persisted.
+          actions={draftTopBar.actions}
+          bodyFocusRef={editorRef}
+          onTitleCommit={(title) =>
+            void application.pageOperations.updateDraftTitle(activePageId, title)
+          }
+          body={
+            <MarkdownBody>
+              <MarkdownEditor
+                key={activePageId}
+                pageId={activePageId}
+                ref={editorRef}
+                markdown={model.markdown}
+                focusOnOpen={focusEditorOnOpen(model.title)}
+                onEdit={(markdown) => model.updateMarkdown(markdown)}
+                onFlush={() => model.requestSave()}
+                resolveWikiLink={resolveWikiLink}
+                getWikiLinkSuggestions={getWikiLinkSuggestions}
+                getEmbedSuggestions={getEmbedSuggestions}
+                resolveEmbedImage={resolveEmbedImage}
+                resolveEmbedPdf={resolveEmbedPdf}
+                onPdfEmbedClick={onPdfEmbedClick}
+                resolveImageSrc={resolveImageSrc}
+                resolveTag={resolveTag}
+                getTagSuggestions={getTagSuggestions}
+                resolveDate={resolveDate}
+                onSetCoverImage={onSetCoverImage}
+                onDownloadImage={downloadImageFromEditor}
+                resolveImageResource={resolveImageResource}
+                onArchiveResource={(id) =>
+                  void application.resourceOperations.archiveResource(id)
+                }
+                onRevealResourceInFinder={revealResourceInFinder}
+                onCopyResourcePath={copyResourcePath}
+                onDownloadResource={downloadResourceById}
+                resourceMoveDestinations={buildResourceMoveDestinationItems(
+                  application.membershipSelector,
+                  application.query
+                )}
+                onMoveResource={(id, destinationFolderId) =>
+                  void application.resourceOperations.moveResource(id, destinationFolderId)
+                }
+                onCreateFolder={(name) => application.folderOperations.create(name, null)}
+              />
+            </MarkdownBody>
+          }
+        />
+        {/* The inline PDF embed's Expand control (PdfEmbedWidget.ts →
+            onPdfEmbedClick → openResourceOverlay, above) sets this same
+            resourceOverlay state — same discriminated state, same
+            PdfOverlay mount, as the Archive/Assets collection branches
+            below. Without this mount here, Expand had nothing listening
+            for that state change while editing a draft. */}
+        <PdfOverlay
+          resource={resourceOverlay?.kind === 'pdf' ? resourceOverlay.resource : null}
+          onClose={() => setResourceOverlay(null)}
+          resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
+          onArchiveResource={(id) =>
+            void application.resourceOperations.archiveResource(id)
+          }
+          onRevealResourceInFinder={revealResourceInFinder}
+          onCopyResourcePath={copyResourcePath}
+          resourceMoveDestinations={buildResourceMoveDestinationItems(
+            application.membershipSelector,
+            application.query
+          )}
+          onMoveResource={(id, destinationFolderId) =>
+            void application.resourceOperations.moveResource(id, destinationFolderId)
+          }
+          onCreateFolder={(name) => application.folderOperations.create(name, null)}
+        />
+      </>
     );
   }
 
@@ -950,66 +976,89 @@ export function PageHost({ application }: PageHostProps) {
   const isRenameable = page.type !== 'daily-note';
 
   return (
-    <Page
-      titleKey={activePageId}
-      isSidebarVisible={workspace.isSidebarVisible}
-      onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
-      canNavigateBack={workspace.canNavigateBack}
-      canNavigateForward={workspace.canNavigateForward}
-      onNavigateBack={() => application.navigation.back()}
-      onNavigateForward={() => application.navigation.forward()}
-      title={model.title}
-      description={model.description}
-      titleEditable={isRenameable}
-      onTitleEdit={isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined}
-      onTitleFlush={isRenameable ? () => onFlushPageTitle(page.id) : undefined}
-      onTitleCancel={isRenameable ? () => onCancelPageTitle(page.id) : undefined}
-      breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
-      actions={topBar.actions}
-      coverImage={
-        application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
-      }
-      bodyFocusRef={editorRef}
-      body={
-        <MarkdownBody>
-          <MarkdownEditor
-            key={activePageId}
-            pageId={activePageId}
-            ref={editorRef}
-            markdown={model.markdown}
-            focusOnOpen={focusEditorOnOpen(model.title)}
-            onEdit={(markdown) => model.updateMarkdown(markdown)}
-            onFlush={() => model.requestSave()}
-            resolveWikiLink={resolveWikiLink}
-            getWikiLinkSuggestions={getWikiLinkSuggestions}
-            getEmbedSuggestions={getEmbedSuggestions}
-            resolveEmbedImage={resolveEmbedImage}
-            resolveEmbedPdf={resolveEmbedPdf}
-            onPdfEmbedClick={onPdfEmbedClick}
-            resolveImageSrc={resolveImageSrc}
-            resolveTag={resolveTag}
-            getTagSuggestions={getTagSuggestions}
-            resolveDate={resolveDate}
-            onSetCoverImage={onSetCoverImage}
-            onDownloadImage={downloadImageFromEditor}
-            resolveImageResource={resolveImageResource}
-            onArchiveResource={(id) =>
-              void application.resourceOperations.archiveResource(id)
-            }
-            onRevealResourceInFinder={revealResourceInFinder}
-            onCopyResourcePath={copyResourcePath}
-            onDownloadResource={downloadResourceById}
-            resourceMoveDestinations={buildResourceMoveDestinationItems(
-              application.membershipSelector,
-              application.query
-            )}
-            onMoveResource={(id, destinationFolderId) =>
-              void application.resourceOperations.moveResource(id, destinationFolderId)
-            }
-            onCreateFolder={(name) => application.folderOperations.create(name, null)}
-          />
-        </MarkdownBody>
-      }
-    />
+    <>
+      <Page
+        titleKey={activePageId}
+        isSidebarVisible={workspace.isSidebarVisible}
+        onToggleSidebarVisible={() => workspace.toggleSidebarVisible()}
+        canNavigateBack={workspace.canNavigateBack}
+        canNavigateForward={workspace.canNavigateForward}
+        onNavigateBack={() => application.navigation.back()}
+        onNavigateForward={() => application.navigation.forward()}
+        title={model.title}
+        description={model.description}
+        titleEditable={isRenameable}
+        onTitleEdit={isRenameable ? (title) => onEditPageTitle(page.id, title) : undefined}
+        onTitleFlush={isRenameable ? () => onFlushPageTitle(page.id) : undefined}
+        onTitleCancel={isRenameable ? () => onCancelPageTitle(page.id) : undefined}
+        breadcrumbs={<Breadcrumbs items={breadcrumbs} />}
+        actions={topBar.actions}
+        coverImage={
+          application.resolveCoverImageForDisplay(model.coverImage) ?? undefined
+        }
+        bodyFocusRef={editorRef}
+        body={
+          <MarkdownBody>
+            <MarkdownEditor
+              key={activePageId}
+              pageId={activePageId}
+              ref={editorRef}
+              markdown={model.markdown}
+              focusOnOpen={focusEditorOnOpen(model.title)}
+              onEdit={(markdown) => model.updateMarkdown(markdown)}
+              onFlush={() => model.requestSave()}
+              resolveWikiLink={resolveWikiLink}
+              getWikiLinkSuggestions={getWikiLinkSuggestions}
+              getEmbedSuggestions={getEmbedSuggestions}
+              resolveEmbedImage={resolveEmbedImage}
+              resolveEmbedPdf={resolveEmbedPdf}
+              onPdfEmbedClick={onPdfEmbedClick}
+              resolveImageSrc={resolveImageSrc}
+              resolveTag={resolveTag}
+              getTagSuggestions={getTagSuggestions}
+              resolveDate={resolveDate}
+              onSetCoverImage={onSetCoverImage}
+              onDownloadImage={downloadImageFromEditor}
+              resolveImageResource={resolveImageResource}
+              onArchiveResource={(id) =>
+                void application.resourceOperations.archiveResource(id)
+              }
+              onRevealResourceInFinder={revealResourceInFinder}
+              onCopyResourcePath={copyResourcePath}
+              onDownloadResource={downloadResourceById}
+              resourceMoveDestinations={buildResourceMoveDestinationItems(
+                application.membershipSelector,
+                application.query
+              )}
+              onMoveResource={(id, destinationFolderId) =>
+                void application.resourceOperations.moveResource(id, destinationFolderId)
+              }
+              onCreateFolder={(name) => application.folderOperations.create(name, null)}
+            />
+          </MarkdownBody>
+        }
+      />
+      {/* Same missing-mount fix as the draft branch above — this is the
+          persisted Note/Daily Note branch, the actual one the reported bug
+          was observed in (an existing page's ![[document.pdf]] embed). */}
+      <PdfOverlay
+        resource={resourceOverlay?.kind === 'pdf' ? resourceOverlay.resource : null}
+        onClose={() => setResourceOverlay(null)}
+        resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
+        onArchiveResource={(id) =>
+          void application.resourceOperations.archiveResource(id)
+        }
+        onRevealResourceInFinder={revealResourceInFinder}
+        onCopyResourcePath={copyResourcePath}
+        resourceMoveDestinations={buildResourceMoveDestinationItems(
+          application.membershipSelector,
+          application.query
+        )}
+        onMoveResource={(id, destinationFolderId) =>
+          void application.resourceOperations.moveResource(id, destinationFolderId)
+        }
+        onCreateFolder={(name) => application.folderOperations.create(name, null)}
+      />
+    </>
   );
 }

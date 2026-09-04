@@ -772,10 +772,10 @@ describe('Sidebar Notes: Resource archive', () => {
 });
 
 describe('Sidebar Notes: Resource existing behavior unchanged', () => {
-  it('clicking an image resource row still opens the existing image overlay wiring (onOpenResourceImage)', () => {
+  it('clicking an image resource row still opens the existing image overlay wiring (onOpenResource)', () => {
     const resource = makeResource({ id: 'resource-1', kind: 'image', name: 'photo.png' });
     const deps = setup([], [], [resource]);
-    const onOpenResourceImage = vi.fn();
+    const onOpenResource = vi.fn();
 
     render(
       <Notes
@@ -791,19 +791,19 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
         onOpen={vi.fn()}
         onOpenFolder={vi.fn()}
         onOpenDraft={vi.fn()}
-        onOpenResourceImage={onOpenResourceImage}
+        onOpenResource={onOpenResource}
       />
     );
 
     fireEvent.click(screen.getByText('photo').closest('.entry')!);
 
-    expect(onOpenResourceImage).toHaveBeenCalledWith(resource);
+    expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
 
-  it('clicking a pdf resource row remains a no-op — no overlay, no navigation', () => {
+  it('clicking a pdf resource row invokes onOpenResource, reaching the PdfOverlay wiring', () => {
     const resource = makeResource({ id: 'resource-1', kind: 'pdf', name: 'contract.pdf' });
     const deps = setup([], [], [resource]);
-    const onOpenResourceImage = vi.fn();
+    const onOpenResource = vi.fn();
 
     render(
       <Notes
@@ -819,12 +819,12 @@ describe('Sidebar Notes: Resource existing behavior unchanged', () => {
         onOpen={vi.fn()}
         onOpenFolder={vi.fn()}
         onOpenDraft={vi.fn()}
-        onOpenResourceImage={onOpenResourceImage}
+        onOpenResource={onOpenResource}
       />
     );
 
     fireEvent.click(screen.getByText('contract').closest('.entry')!);
 
-    expect(onOpenResourceImage).not.toHaveBeenCalled();
+    expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
 });

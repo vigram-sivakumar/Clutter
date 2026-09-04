@@ -25,7 +25,7 @@
   display: flex;
   padding: var(--space-2);
   background: var(--surface-primary);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 
   box-shadow: var(--shadow-inset-thin), var(--shadow-lg);
@@ -35,12 +35,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--height-md);
+  width: var(--height-sm);
   aspect-ratio: 1;
   padding: 1;
   border: none;
-  color: var(--foreground-primary);
-  border-radius: var(--radius-md);
+  color: var(--foreground-secondary);
+  border-radius: var(--radius-xs);
 
   cursor: pointer;
   transition:
@@ -50,11 +50,10 @@
 }
 .cm-image-control:hover {
   background: var(--state-hover);
-  color: var(--foreground-primary);
 }
 
 .cm-image-control--active {
-  background: var(--state-selected);
+  background: var(--state-hover);
 }
 
 .cm-image-control svg {

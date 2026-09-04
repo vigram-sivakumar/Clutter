@@ -1000,7 +1000,7 @@ describe('FolderTree: resources', () => {
     expect(onResourceClick).toHaveBeenCalledWith(resource);
   });
 
-  it('clicking a pdf resource does nothing', () => {
+  it('clicking a pdf resource invokes onResourceClick with the resource', () => {
     const resource = makeResource({
       id: 'resource-1',
       name: 'brochure.pdf',
@@ -1015,7 +1015,7 @@ describe('FolderTree: resources', () => {
 
     screen.getByText('brochure').click();
 
-    expect(onResourceClick).not.toHaveBeenCalled();
+    expect(onResourceClick).toHaveBeenCalledWith(resource);
   });
 });
 

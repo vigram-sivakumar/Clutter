@@ -70,7 +70,8 @@ import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidg
 import { ImageOverlay, type ImageOverlayImage } from './codemirror/image/ImageOverlay';
 import { imageLivePreview } from './codemirror/image/imageLivePreview';
 import { embedLivePreview } from './codemirror/embed/embedLivePreview';
-import type { OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
+import type { OnOpenPdfMenu, OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
+import { PdfEmbedMoreActions, type PdfEmbedMoreActionsAnchor } from './codemirror/pdf/PdfEmbedMoreActions';
 import { getImageUiState, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
@@ -360,6 +361,40 @@ export const MarkdownEditor = forwardRef<
     setImageMenu(null);
   };
 
+  // The inline PDF embed's own floating "More actions" control — same
+  // bridged-anchor/toggle pattern as imageMenu above, a separate piece of
+  // state since a PDF embed's menu is the Resource menu
+  // (`PdfEmbedMoreActions`), not the image size/options menu.
+  const [pdfMenu, setPdfMenu] = useState<{
+    anchor: PdfEmbedMoreActionsAnchor;
+    resourceId: string;
+  } | null>(null);
+
+  function setPdfMenuButtonOpen(button: HTMLElement, open: boolean) {
+    button.classList.toggle('cm-image-control--active', open);
+    button.setAttribute('aria-expanded', String(open));
+  }
+
+  const onOpenPdfMenuRef = useRef<OnOpenPdfMenu>(({ anchor, resourceId }) => {
+    setPdfMenu((current) => {
+      const closingSame = current !== null && current.anchor.current === anchor;
+      if (current) {
+        setPdfMenuButtonOpen(current.anchor.current, false);
+      }
+      if (!closingSame) {
+        setPdfMenuButtonOpen(anchor, true);
+      }
+      return closingSame ? null : { anchor: { current: anchor }, resourceId };
+    });
+  });
+
+  const closePdfMenu = () => {
+    if (pdfMenu) {
+      setPdfMenuButtonOpen(pdfMenu.anchor.current, false);
+    }
+    setPdfMenu(null);
+  };
+
   const handleSelectImageDisplayMode = (mode: ImageDisplayMode) => {
     const view = viewRef.current;
     if (!imageMenu || !view) {
@@ -559,7 +594,8 @@ export const MarkdownEditor = forwardRef<
           () => onImageClickRef.current,
           () => onOpenImageMenuRef.current,
           () => resolveEmbedPdfRef.current,
-          () => onPdfEmbedClickRef.current
+          () => onPdfEmbedClickRef.current,
+          () => onOpenPdfMenuRef.current
         ),
         // strikethroughMarkerDecoration(),
         // Bullet (-/*/+) marker rendering only — the first slice of the
@@ -831,6 +867,17 @@ export const MarkdownEditor = forwardRef<
         onSetCoverImage={onSetCoverImage ? handleSetCoverImage : undefined}
         onDownload={handleDownloadImage}
         onDelete={handleDeleteImage}
+      />
+      <PdfEmbedMoreActions
+        anchor={pdfMenu?.anchor ?? null}
+        resourceId={pdfMenu?.resourceId ?? null}
+        onClose={closePdfMenu}
+        onArchiveResource={onArchiveResource}
+        onRevealResourceInFinder={onRevealResourceInFinder}
+        onCopyResourcePath={onCopyResourcePath}
+        resourceMoveDestinations={resourceMoveDestinations}
+        onMoveResource={onMoveResource}
+        onCreateFolder={onCreateFolder}
       />
     </>
   );

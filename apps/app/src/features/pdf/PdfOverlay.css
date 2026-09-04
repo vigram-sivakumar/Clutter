@@ -1,0 +1,7 @@
+/* Sizing only — Overlay.css's own .overlay__content is deliberately
+   unopinionated, same reasoning ImageOverlay.css's own top comment gives.
+   All real sizing lives on .pdf-viewer itself (PdfViewer.css); this rule
+   only prevents this box from clipping PdfViewer's own border-radius. */
+.pdf-overlay {
+  overflow: hidden;
+}

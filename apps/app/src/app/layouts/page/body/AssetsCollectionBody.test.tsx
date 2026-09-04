@@ -139,26 +139,26 @@ describe('AssetsCollectionBody: membership', () => {
 });
 
 describe('AssetsCollectionBody: image/pdf click behavior', () => {
-  it('clicking an image resource invokes onOpenImage with the resource, reaching the existing image overlay', () => {
-    const onOpenImage = vi.fn();
+  it('clicking an image resource invokes onOpenResource with the resource, reaching the existing image overlay', () => {
+    const onOpenResource = vi.fn();
     const resource = makeResource({ id: 'house', name: 'house.png', kind: 'image' });
 
-    renderAssets({ resources: [resource], onOpenImage });
+    renderAssets({ resources: [resource], onOpenResource });
 
     fireEvent.click(screen.getByText('house').closest('.entry')!);
 
-    expect(onOpenImage).toHaveBeenCalledWith(resource);
+    expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
 
-  it('clicking a pdf resource does nothing — no PDF viewer exists yet', () => {
-    const onOpenImage = vi.fn();
+  it('clicking a pdf resource invokes onOpenResource with the resource, reaching PdfOverlay', () => {
+    const onOpenResource = vi.fn();
     const resource = makeResource({ id: 'manual', name: 'manual.pdf', kind: 'pdf' });
 
-    renderAssets({ resources: [resource], onOpenImage });
+    renderAssets({ resources: [resource], onOpenResource });
 
     fireEvent.click(screen.getByText('manual').closest('.entry')!);
 
-    expect(onOpenImage).not.toHaveBeenCalled();
+    expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
 });
 
@@ -304,16 +304,16 @@ describe('AssetsCollectionBody: rename', () => {
   });
 
   it('a row mid-rename does not open the image overlay on click', () => {
-    const onOpenImage = vi.fn();
+    const onOpenResource = vi.fn();
     const resource = makeResource({ kind: 'image', name: 'house.png' });
 
-    renderAssets({ resources: [resource], onOpenImage });
+    renderAssets({ resources: [resource], onOpenResource });
 
     openMenuFor('house');
     fireEvent.click(screen.getByText('Rename'));
     fireEvent.click(screen.getByRole('textbox'));
 
-    expect(onOpenImage).not.toHaveBeenCalled();
+    expect(onOpenResource).not.toHaveBeenCalled();
   });
 });
 

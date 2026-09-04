@@ -40,6 +40,10 @@ export function createEmbedPdfResolver(
       // layer to re-resolve into the real `VaultResource` `PdfOverlay` needs
       // (see PageHost.tsx's onPdfEmbedClick composition).
       path,
+      // Already resolved right above — the inline embed's own "More
+      // actions" control dispatches against this directly, no separate
+      // click-time resolution step (unlike ImageOverlay's resourceId gate).
+      resourceId: resource.id,
     };
   };
 }

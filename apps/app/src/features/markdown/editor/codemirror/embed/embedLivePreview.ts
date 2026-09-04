@@ -20,7 +20,7 @@ import { getImageUiState, imageUiStateField } from '../image/imageUiState';
 import { scanEmbed } from './embedScanner';
 import { findEmbedAt, isEngaged } from './embedEngagement';
 import type { ResolveEmbedImage } from './embedImageResolution';
-import { PdfEmbedWidget, type OnPdfEmbedClick } from '../pdf/PdfEmbedWidget';
+import { PdfEmbedWidget, type OnOpenPdfMenu, type OnPdfEmbedClick } from '../pdf/PdfEmbedWidget';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 import { createPdfDocumentCache, type PdfDocumentCache } from '../pdf/pdfDocumentCache';
 
@@ -153,6 +153,7 @@ function buildDecorations(
   getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
   getResolveEmbedPdf: () => ResolveEmbedPdf | undefined,
   getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined,
+  getOnOpenPdfMenu: () => OnOpenPdfMenu | undefined,
   pdfDocumentCache: PdfDocumentCache
 ): { decorations: DecorationSet; atomic: DecorationSet } {
   const ranges: Range<Decoration>[] = [];
@@ -225,10 +226,12 @@ function buildDecorations(
             pdfResolution.title,
             pdfResolution.url,
             pdfResolution.path,
+            pdfResolution.resourceId,
             baseUi,
             node.from,
             node.to,
             getOnPdfEmbedClick,
+            getOnOpenPdfMenu,
             pdfDocumentCache
           );
 
@@ -292,17 +295,18 @@ interface EmbedLivePreviewPlugin extends PluginValue {
  * options menu wholesale, per this milestone's own architectural
  * constraint (one `ImageWidget`, not a parallel one).
  *
- * `getResolveEmbedPdf`/`getOnPdfEmbedClick` are the PDF-embed counterparts
- * (Stage 2) — consulted only when `getResolveEmbedImage`'s own resolution
- * says `'non-image'` for a target, see `buildDecorations`'s own doc
- * comment on that branch.
+ * `getResolveEmbedPdf`/`getOnPdfEmbedClick`/`getOnOpenPdfMenu` are the
+ * PDF-embed counterparts — consulted only when `getResolveEmbedImage`'s own
+ * resolution says `'non-image'` for a target, see `buildDecorations`'s own
+ * doc comment on that branch.
  */
 export function embedLivePreview(
   getResolveEmbedImage: () => ResolveEmbedImage | undefined,
   getOnImageClick: () => OnImageClick | undefined,
   getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
   getResolveEmbedPdf: () => ResolveEmbedPdf | undefined,
-  getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined
+  getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined,
+  getOnOpenPdfMenu: () => OnOpenPdfMenu | undefined
 ): Extension {
   const plugin = ViewPlugin.fromClass<EmbedLivePreviewPlugin>(
     class implements EmbedLivePreviewPlugin {
@@ -323,6 +327,7 @@ export function embedLivePreview(
           getOnOpenImageMenu,
           getResolveEmbedPdf,
           getOnPdfEmbedClick,
+          getOnOpenPdfMenu,
           this.pdfDocumentCache
         ));
       }
@@ -337,6 +342,7 @@ export function embedLivePreview(
             getOnOpenImageMenu,
             getResolveEmbedPdf,
             getOnPdfEmbedClick,
+            getOnOpenPdfMenu,
             this.pdfDocumentCache
           ));
         }

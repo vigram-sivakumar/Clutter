@@ -8,6 +8,7 @@ import Archive from './svg/archive.svg?react';
 import ArrowDownRight from './svg/arrow-down-right.svg?react';
 import ArrowLeft from './svg/arrow-left.svg?react';
 import ArrowLeftSmallHead from './svg/arrow-left-small-head.svg?react';
+import ArrowRightDouble from './svg/arrow-right-double.svg';
 import ArrowRight from './svg/arrow-right.svg?react';
 import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import BookshelfBox from './svg/bookshelf-box.svg?react';
@@ -40,6 +41,7 @@ import Download from './svg/download.svg?react';
 import Edit from './svg/edit.svg?react';
 import Exclamation from './svg/exclamation.svg?react';
 import Description from './svg/description.svg?react';
+import ExpandDiagonal from './svg/expand-diagonal.svg?react';
 import FavouriteFilled from './svg/favourite-filled.svg?react';
 import FavouriteOutline from './svg/favourite-outline.svg?react';
 import Flag from './svg/flag.svg?react';
@@ -52,6 +54,7 @@ import Info from './svg/info.svg?react';
 import KeyEsc from './svg/key-esc.svg?react';
 import Keyboard from './svg/keyboard.svg?react';
 import MagnifyingGlass from './svg/magnifying-glass.svg?react';
+import Minus from './svg/minus.svg?react';
 import MoreHorizontal from './svg/more-horizontal.svg?react';
 import MoreVertical from './svg/more-vertical.svg?react';
 import MultiLine from './svg/multi-line.svg?react';
@@ -99,6 +102,7 @@ export const iconRegistry = {
   arrowDownRight: ArrowDownRight,
   arrowLeft: ArrowLeft,
   arrowLeftSmallHead: ArrowLeftSmallHead,
+  arrowRightDouble: ArrowRightDouble,
   arrowRight: ArrowRight,
   arrowRightSmallHead: ArrowRightSmallHead,
   bookshelfBox: BookshelfBox,
@@ -132,6 +136,7 @@ export const iconRegistry = {
   download: Download,
   edit: Edit,
   description: Description,
+  expandDiagonal: ExpandDiagonal,
   favouriteFilled: FavouriteFilled,
   favouriteOutline: FavouriteOutline,
   flag: Flag,
@@ -146,6 +151,7 @@ export const iconRegistry = {
   layers: Layers,
   link: Link,
   magnifyingGlass: MagnifyingGlass,
+  minus: Minus,
   moreHorizontal: MoreHorizontal,
   moreVertical: MoreVertical,
   multiLine: MultiLine,

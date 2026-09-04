@@ -136,7 +136,7 @@ export function ImageOverlayMoreActions({
           setOpen(!open);
         }}
       >
-        <AppIcon icon="moreVertical" />
+        <AppIcon icon="moreHorizontal" />
       </Button>
       <Overlay
         open={open}

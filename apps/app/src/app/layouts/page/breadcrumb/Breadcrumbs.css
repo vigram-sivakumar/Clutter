@@ -9,7 +9,7 @@
   justify-content: center;
   width: 12px;
   height: 100%;
-  color: var(--foreground-tertiary);
+  color: var(--foreground-secondary);
   opacity: var(--opacity-strong);
 }
 .breadcrumb__slash svg {

@@ -1,26 +1,182 @@
-/* The inline Markdown PDF embed (`PdfEmbedWidget.ts`) — visually the same
-   PDF viewer presentation `PdfOverlay` renders (`PdfViewer.css`'s
-   `.pdf-viewer__toolbar`/`__title`/`__toolbar-controls`/`__control-group`/
-   `__zoom-indicator`/`__page-indicator`/`__scroll`/`__page`/
-   `__page-canvas`/`__status`/`__spinner`, plus `Button`/`AppIcon`-matching
-   button markup — all reused as-is, imported explicitly by
-   `PdfEmbedWidget.ts` itself), just constrained to the editor's own width
-   instead of a fixed overlay panel. `.cm-image-container--broken`/
-   `.cm-image-broken*` (the broken/unresolved state) are likewise
-   deliberately NOT redefined here — see `PdfEmbedWidget.ts`'s own class doc
-   comment for why that state reuses `ImageFloatingControls.css`/
-   `MarkdownEditor.css`'s existing rules verbatim.
+/* The inline Markdown PDF embed (`PdfEmbedWidget.ts`) — a **single-page
+   preview with pagination**, not a miniature PDF reader (`PdfOverlay`/
+   `PdfViewer.css` own that instead, untouched by this file). Per-page
+   rendering CSS (`.pdf-viewer__page`/`__page-canvas`/`.textLayer`), the
+   title's own text styling (`.pdf-viewer__title`), and the page-indicator's
+   own text styling (`.pdf-viewer__page-indicator`) are all reused verbatim
+   from `PdfViewer.css`, imported explicitly by `PdfEmbedWidget.ts` itself —
+   only this file's own container/control-row/pagination *layout* rules are
+   genuinely embed-specific.
 
-   Only the outer container below is embed-specific — the legitimate
-   "surrounding container can differ" case (a rounded, shadowed inline card
-   vs. a full overlay panel), never the toolbar/page chrome inside it. */
+   `.cm-image-container--broken`/`.cm-image-broken*` (the broken/unresolved
+   state) and the top row's action-button chrome (`.cm-image-controls`/
+   `.cm-image-control`, background/radius/shadow/button styling) are
+   likewise deliberately NOT redefined here — see `PdfEmbedWidget.ts`'s own
+   class doc comment for why this widget reuses `ImageFloatingControls.css`/
+   `MarkdownEditor.css`'s existing rules verbatim, the same visual system
+   `ImageWidget.ts`'s own floating controls use. Unlike the image widget,
+   the top row's `.cm-image-controls` is NOT an absolute overlay on top of
+   the page — it sits in normal flow above it, alongside the (always
+   visible) title — but it keeps the same reveal-on-hover/focus behavior
+   `ImageWidget`'s own overlay controls have (see the hover rule below).
+   Reveal is driven by a JS-toggled `.cm-pdf-embed-container--hover` class,
+   not bare CSS `:hover` — see that rule's own doc comment for why.
+
+   Page navigation (`.cm-pdf-embed-pagination`) is a second, deliberately
+   *different* floating control — its own dedicated class, not
+   `.cm-image-controls` — since it has different reveal semantics: the pill
+   itself and its page-indicator text are always visible, and only the
+   Previous/Next arrow buttons inside it reveal on hover/focus of the whole
+   embed container (not just the small pill itself — the arrows should
+   already be visible by the time the pointer reaches them). */
 
 .cm-editor .cm-pdf-embed-container {
+  position: relative;
   display: block;
-  width: calc(100% - 1px); /* 1px reserve — same caret-overflow fix `.cm-image-container--broken` documents for the same reason: a full-width block-shaped widget needs slack for the caret's own drawn box at its boundary. */
+  /* 1px reserve — same caret-overflow fix `.cm-image-container--broken`
+     documents for the same reason: a full-width block-shaped widget needs
+     slack for the caret's own drawn box at its boundary. */
+  width: calc(100% - 1px);
   max-width: 100%;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--surface-secondary);
-  box-shadow: var(--shadow-inset-thin);
+  border: 1px solid var(--border-default);
+}
+
+/* The single current-page host — every page render replaces this
+   element's content in place (`PdfEmbedWidget.ts`'s own `renderCurrentPage`),
+   fit to this element's own available width
+   (`getAvailableViewerWidth`/`computeFitScale`). No `overflow`/`max-height`
+   here at all: the page's own natural height at the fit-width scale is
+   whatever it is — nothing here crops it or scrolls it, per the product
+   requirement that a single page must be fully visible with no vertical
+   PDF scroll region. */
+.cm-pdf-embed-page {
+  padding: var(--space-8);
+  display: flex;
+  justify-content: center;
+}
+
+/* `.pdf-viewer__status`'s own `height: 100%` (PdfViewer.css) has nothing to
+   resolve against in this auto-height flex container without this —
+   reserves enough room for the loading spinner to actually center instead
+   of collapsing to zero height. */
+.cm-pdf-embed-page:has(.pdf-viewer__status) {
+  min-height: 160px;
+  align-items: center;
+}
+
+/* The top row — title (left, always visible, `.pdf-viewer__title`'s own
+   styling) + the Expand/Edit source/More actions cluster (right,
+   hover/focus-reveal). `space-between` puts the title flush left and the
+   actions flush right, mirroring `PdfViewer`'s own toolbar layout. */
+.cm-pdf-embed-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-8) 0;
+}
+
+/* Overrides `MarkdownEditor.css`'s `.cm-editor .cm-image-controls` rule —
+   that rule is scoped to *any* `.cm-image-controls` in the editor (not to
+   `.cm-image-container` specifically), so without this override `position`
+   would stay `absolute` here too, collapsing the actions cluster's own
+   layout space (it's meant to sit in normal flow next to the title, not
+   overlaid on top of the page — see the class doc comment). `opacity` is
+   deliberately NOT reset to a flat `1` here: this widget keeps the same
+   reveal-on-hover/focus behavior `ImageWidget`'s own overlay controls
+   already have (`opacity: 0` at rest, `1` on hover/focus-within of the
+   container, below) — only `position` differs from that shared rule.
+   Three class selectors deep beats that rule's two, so this wins on
+   specificity without `!important`. */
+.cm-editor .cm-pdf-embed-controls .cm-image-controls {
+  position: static;
+}
+
+/* `.cm-pdf-embed-container--hover` (not `:hover`) — see `PdfEmbedWidget.ts`'s
+   own `mouseenter`/`mouseleave` listeners for why: bare CSS `:hover` got
+   stuck permanently true after the first hover here, a browser "sticky
+   hover" quirk triggered by `renderCurrentPage()` mutating `pageHost`'s
+   DOM while the pointer sits over it. `:focus-within` is kept as-is
+   (keyboard-driven, no such DOM-mutation-under-pointer timing issue). */
+.cm-editor
+  .cm-pdf-embed-container.cm-pdf-embed-container--hover
+  .cm-pdf-embed-controls
+  .cm-image-controls,
+.cm-editor
+  .cm-pdf-embed-container:focus-within
+  .cm-pdf-embed-controls
+  .cm-image-controls {
+  opacity: 1;
+}
+
+/* The page-navigation pill — floating, centered at the bottom of the page.
+   Its own dedicated chrome (not `.cm-image-controls`/
+   `ImageFloatingControls.css`, deliberately — see the class doc comment):
+   the pill and its page-indicator text stay visible unconditionally; only
+   the arrow buttons inside it fade in on hover/focus — of the *container*,
+   below, not the pill itself (a hover/focus rule scoped to the pill alone
+   is a chicken-and-egg bug: the arrows would need to already be visible
+   for the pointer to reach them and trigger their own reveal).
+
+   `z-index: 1` is load-bearing, the same reason it was for the earlier
+   overlay iteration of this widget's controls: `.textLayer` (PdfViewer.css)
+   sets an *explicit* `z-index: 0` on itself, which — being a positioned
+   element with a non-auto z-index — creates its own stacking context. This
+   pill is `position: absolute` with an implicit `z-index: auto` otherwise,
+   which would land it at the same stacking level as that text-layer
+   context, ordered by DOM tree order — and since the pill is appended
+   after `.cm-pdf-embed-page` (containing the current page's own
+   `.textLayer`), it would paint *underneath* the page's text layer without
+   this. An explicit z-index above 0 sidesteps that DOM-order tiebreak. */
+.cm-pdf-embed-pagination {
+  bottom: var(--space-8);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+}
+
+.cm-pdf-embed-pagination .cm-image-control {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.cm-editor
+  .cm-pdf-embed-container.cm-pdf-embed-container--hover
+  .cm-pdf-embed-pagination
+  .cm-image-control,
+.cm-editor
+  .cm-pdf-embed-container:focus-within
+  .cm-pdf-embed-pagination
+  .cm-image-control {
+  opacity: 1;
+}
+
+/* Visual-only dimming for Previous/Next's `aria-disabled` state
+   (`PdfEmbedWidget.ts`'s `setButtonDisabled`) — `filter: opacity(...)`,
+   deliberately not the `opacity` property itself: `opacity` on this same
+   element is already the hover-reveal toggle (0 at rest, 1 revealed,
+   above); a second `opacity` declaration here would just overwrite it
+   instead of combining with it. `filter`'s own opacity function composes
+   multiplicatively on top of the element's real opacity instead, so a
+   disabled arrow dims correctly *within* whatever the reveal state already
+   is, never overriding it (confirmed directly: a live harness measuring
+   real `transitionend` timestamps showed Previous/Next always start and
+   end their opacity transition within ~0.5ms of each other, disabled or
+   not — this rule does not reintroduce that coupling). `cursor: default`
+   matches the native `:disabled` cursor these buttons would have gotten if
+   this were a real `disabled` control. */
+.cm-pdf-embed-pagination .cm-image-control--disabled {
+  filter: opacity(var(--opacity-disabled));
+  cursor: default;
+}
+
+.cm-pdf-embed-pagination .cm-image-control--disabled:hover {
+  background: none;
 }

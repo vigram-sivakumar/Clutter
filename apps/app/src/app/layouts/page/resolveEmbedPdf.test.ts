@@ -54,6 +54,7 @@ describe('createEmbedPdfResolver — pdf resources', () => {
       url: 'app://vault/document.pdf',
       title: 'document',
       path: 'document.pdf',
+      resourceId: 'r1',
     });
   });
 
@@ -69,6 +70,7 @@ describe('createEmbedPdfResolver — pdf resources', () => {
       url: 'app://vault/Documents/Leadership%20workshop.pdf',
       title: 'Leadership workshop',
       path: 'Documents/Leadership workshop.pdf',
+      resourceId: 'r1',
     });
   });
 

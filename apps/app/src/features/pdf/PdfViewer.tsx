@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@components/button/Button';
 import { AppIcon } from '@shared/icon';
@@ -8,7 +8,17 @@ import type { LocationPathFormat } from '@core/presentation/getLocationPathRepre
 import { usePdfDocument } from './usePdfDocument';
 import { PdfPageCanvas } from './PdfPageCanvas';
 import { PdfViewerMoreActions } from './PdfViewerMoreActions';
-import { DEFAULT_ZOOM_INDEX, ZOOM_LEVELS_PERCENT, stepZoomIndex, zoomPercentAt } from './pdfZoom';
+import { getAvailableViewerWidth } from './pdfFitWidth';
+import {
+  computeFitScale,
+  fitZoomState,
+  isZoomInDisabled,
+  isZoomOutDisabled,
+  stepZoomState,
+  zoomStateDisplayPercent,
+  zoomStateScale,
+  type PdfZoomState,
+} from './pdfZoom';
 
 import './PdfViewer.css';
 
@@ -45,9 +55,10 @@ export interface PdfViewerProps {
  * the split `ImageOverlay`/its plain `<img>` already keep.
  *
  * Stage 1 scope: loading/error states, multi-page vertical scroll, a
- * canonical zoom sequence (`ZOOM_LEVELS_PERCENT`, default 100%) with a
- * percentage indicator, page navigation with a current-page indicator, and
- * a real selectable/copyable text layer (`PdfPageCanvas`'s own
+ * Fit-Width default (recalculated on resize until the user manually zooms,
+ * then a canonical zoom sequence — `ZOOM_LEVELS_PERCENT`, see `pdfZoom.ts`)
+ * with a percentage indicator, page navigation with a current-page
+ * indicator, and a real selectable/copyable text layer (`PdfPageCanvas`'s own
  * `TextLayerBuilder`, kept aligned with the canvas at every scale) — not a
  * flattened bitmap.
  * No search UI yet (the underlying text layer this would search is in
@@ -75,24 +86,77 @@ export function PdfViewer({
   const state = usePdfDocument(url);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // The canonical zoom level is an INDEX into ZOOM_LEVELS_PERCENT, never a
-  // freestanding float — this is what makes "zoom in" / "zoom out" a pure
-  // step between fixed, predefined values instead of a repeated
-  // multiply/divide of the previous scale (the source of the old 98%/96%
-  // drift). Starts at exactly 100% on every mount — a fresh `PdfViewer`
-  // mount is exactly what happens each time a PDF is opened (`PdfOverlay`
-  // only ever renders one at a time, always via `resource: null → real
-  // resource`, never swapping `url` under a persisting instance), so no
-  // separate "reset zoom when the document changes" effect is needed.
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  // Zoom starts in `'fit'` state (Fit-Width) on every mount — a fresh
+  // `PdfViewer` mount is exactly what happens each time a PDF is opened
+  // (`PdfOverlay` only ever renders one at a time, always via
+  // `resource: null → real resource`, never swapping `url` under a
+  // persisting instance), so no separate "reset zoom when the document
+  // changes" effect is needed. `zoomIn`/`zoomOut` (`stepZoomState`) always
+  // transition it to `'manual'` and it never transitions back — see
+  // `pdfZoom.ts`'s own `PdfZoomState` doc comment.
+  const [zoomState, setZoomState] = useState<PdfZoomState>(fitZoomState(1));
   const [currentPage, setCurrentPage] = useState(1);
 
+  // The page's own natural width at scale 1 (`page.getViewport({ scale: 1
+  // }).width`) — the `pageBaseWidth` half of the Fit-Width calculation
+  // (`computeFitScale`). Fetched once per document (page 1's size is used
+  // for the whole document — every page in the stack shares one `scale`
+  // already, see the `scale` prop passed to every `PdfPageCanvas` below).
+  const [pageBaseWidth, setPageBaseWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (state.status !== 'ready') {
+      setPageBaseWidth(null);
+      return;
+    }
+    let cancelled = false;
+    void state.doc.getPage(1).then((page) => {
+      if (cancelled) {
+        return;
+      }
+      setPageBaseWidth(page.getViewport({ scale: 1 }).width);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state]);
+
+  // The `availableWidth` half of the Fit-Width calculation — the scroll
+  // container's own content width, kept live via `ResizeObserver` so
+  // resizing the overlay/window while still in `'fit'` state recalculates
+  // and re-renders at the new fit scale (product requirement: resize).
+  const [availableWidth, setAvailableWidth] = useState(0);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) {
+      return;
+    }
+    const measure = () => setAvailableWidth(getAvailableViewerWidth(container));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  // Recomputes the fit scale whenever either half of the calculation
+  // changes — but only while still in `'fit'` state; once the user has
+  // manually zoomed (`'manual'`), resize must never override their choice.
+  useEffect(() => {
+    setZoomState((current) => {
+      if (current.kind !== 'fit') {
+        return current;
+      }
+      return fitZoomState(computeFitScale(availableWidth, pageBaseWidth ?? 0));
+    });
+  }, [availableWidth, pageBaseWidth]);
+
   const zoomIn = useCallback(() => {
-    setZoomIndex((current) => stepZoomIndex(current, 'in'));
+    setZoomState((current) => stepZoomState(current, 'in'));
   }, []);
 
   const zoomOut = useCallback(() => {
-    setZoomIndex((current) => stepZoomIndex(current, 'out'));
+    setZoomState((current) => stepZoomState(current, 'out'));
   }, []);
 
   const goToPage = useCallback((pageNumber: number) => {
@@ -107,14 +171,15 @@ export function PdfViewer({
   }, []);
 
   const numPages = state.status === 'ready' ? state.numPages : 0;
-  // The canonical percentage IS the displayed value — never derived from
-  // `scale` (which is itself derived FROM this, one line below, for the
-  // one place PDF.js actually needs a fraction: `getViewport({scale})`).
-  // `zoomIndex` is always kept in [0, length-1] by zoomIn/zoomOut/the
-  // initial state, so this index access is always defined — the `?? 100`
-  // is a type-level safety net only, never an actual runtime fallback.
-  const zoomPercent = zoomPercentAt(zoomIndex);
-  const scale = zoomPercent / 100;
+  // Toolbar/pages stay gated behind `pageBaseWidth` being known, not just
+  // `status === 'ready'` — rendering before the Fit-Width calculation's
+  // second half resolves would flash an incorrect 100% (or any other
+  // placeholder) before snapping to the real fit scale, which the product
+  // requirement explicitly rules out ("Do NOT force the initial view to
+  // 100%").
+  const ready = state.status === 'ready' && pageBaseWidth !== null;
+  const zoomPercent = zoomStateDisplayPercent(zoomState);
+  const scale = zoomStateScale(zoomState);
 
   return (
     <div className="pdf-viewer">
@@ -124,7 +189,7 @@ export function PdfViewer({
         </span>
 
         <div className="pdf-viewer__toolbar-controls">
-          {state.status === 'ready' && (
+          {ready && (
             <>
               <div className="pdf-viewer__control-group">
                 <Button
@@ -133,7 +198,7 @@ export function PdfViewer({
                   interaction="subtle"
                   isIconOnly
                   onClick={zoomOut}
-                  disabled={zoomIndex <= 0}
+                  disabled={isZoomOutDisabled(zoomState)}
                   aria-label="Zoom out"
                 >
                   <AppIcon icon="minus" />
@@ -145,7 +210,7 @@ export function PdfViewer({
                   interaction="subtle"
                   isIconOnly
                   onClick={zoomIn}
-                  disabled={zoomIndex >= ZOOM_LEVELS_PERCENT.length - 1}
+                  disabled={isZoomInDisabled(zoomState)}
                   aria-label="Zoom in"
                 >
                   <AppIcon icon="plus" />
@@ -203,7 +268,7 @@ export function PdfViewer({
       </div>
 
       <div className="pdf-viewer__scroll" ref={scrollRef}>
-        {state.status === 'loading' && (
+        {(state.status === 'loading' || (state.status === 'ready' && !ready)) && (
           <div className="pdf-viewer__status">
             <span className="pdf-viewer__spinner" aria-hidden="true" />
             <span>Loading PDF…</span>
@@ -218,6 +283,7 @@ export function PdfViewer({
         )}
 
         {state.status === 'ready' &&
+          ready &&
           Array.from({ length: state.numPages }, (_, index) => index + 1).map(
             (pageNumber) => (
               <PdfPageCanvas

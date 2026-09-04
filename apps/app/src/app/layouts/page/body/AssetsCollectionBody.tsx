@@ -8,8 +8,8 @@ import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.ty
 
 export interface AssetsCollectionBodyProps {
   readonly resources: readonly VaultResource[];
-  /** Only ever invoked for an image resource — see Resource.tsx. */
-  readonly onOpenImage?: (resource: VaultResource) => void;
+  /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
+  readonly onOpenResource?: (resource: VaultResource) => void;
   /**
    * ResourceOperations.renameResource(resourceId, name) — the caller's
    * job, not this component's, per rule 11 (UI never imports a concrete
@@ -73,7 +73,7 @@ export interface AssetsCollectionBodyProps {
  */
 export function AssetsCollectionBody({
   resources,
-  onOpenImage,
+  onOpenResource,
   onRenameResource,
   onArchiveResource,
   onDownloadResource,
@@ -93,7 +93,7 @@ export function AssetsCollectionBody({
           <Resource
             key={resource.id}
             resource={resource}
-            onClick={isEditing ? undefined : onOpenImage}
+            onClick={isEditing ? undefined : onOpenResource}
             isEditing={isEditing}
             onTitleCommit={(value) => onRenameResource(resource.id, value)}
             onTitleEditingEnd={() => setEditingId(null)}

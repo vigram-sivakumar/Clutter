@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import { Prec, type Extension, type Range } from '@codemirror/state';
+import { Prec, type EditorState, type Extension, type Range } from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -10,9 +10,48 @@ import {
 } from '@codemirror/view';
 
 import { isTokenEngaged } from '../semanticToken/tokenEngagement';
-import { ImageWidget, type OnImageClick, type OnOpenImageMenu } from './ImageWidget';
+import {
+  ImageWidget,
+  type CurrentImageSource,
+  type GetCurrentImageSource,
+  type OnImageClick,
+  type OnOpenImageMenu,
+} from './ImageWidget';
 import { scanImage } from './imageScanner';
-import { getImageUiState, imageUiStateField } from './imageUiState';
+import { findEnclosingImageNode, getImageUiState, imageUiStateField } from './imageUiState';
+import type { ResolveImageSrc } from './imageSrcResolution';
+
+/**
+ * Standard Markdown Image's own `GetCurrentImageSource` — the counterpart
+ * to `embedLivePreview.ts`'s `currentEmbedImageSource`, and to
+ * `ImageWidget.ts`'s own `currentImageSource` default (which this
+ * *replaces* at every call site below, never supplements — see this file's
+ * `buildDecorations`). Re-resolves through the exact same injected
+ * `ResolveImageSrc` function `buildDecorations` already uses, so the
+ * broken-image recovery probe's "is this still the current URL" staleness
+ * check (`ImageWidget.probeForRecovery`) compares against the same resolved
+ * URL a rebuild would produce — necessary once a local Vault path's
+ * `ImageWidget.url` is a resolved file URL rather than the raw Markdown
+ * destination text `currentImageSource` alone would re-derive.
+ */
+function currentImageSrcSource(
+  getResolveImageSrc: () => ResolveImageSrc | undefined
+): GetCurrentImageSource {
+  return (state: EditorState, pos: number): CurrentImageSource | null => {
+    const node = findEnclosingImageNode(state, pos);
+    if (!node) {
+      return null;
+    }
+    const raw = state.sliceDoc(node.from, node.to);
+    const match = scanImage(raw);
+    if (!match) {
+      return null;
+    }
+    const resolution = getResolveImageSrc()?.(match.url);
+    const url = resolution?.status === 'resolved' ? resolution.url : match.url;
+    return { url, to: node.to };
+  };
+}
 
 /**
  * Image's own standalone visibility mechanism — deliberately outside
@@ -69,10 +108,12 @@ import { getImageUiState, imageUiStateField } from './imageUiState';
 function buildDecorations(
   view: EditorView,
   getOnImageClick: () => OnImageClick | undefined,
-  getOnOpenImageMenu: () => OnOpenImageMenu | undefined
+  getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
+  getResolveImageSrc: () => ResolveImageSrc | undefined
 ): { decorations: DecorationSet; atomic: DecorationSet } {
   const ranges: Range<Decoration>[] = [];
   const atomicRanges: Range<Decoration>[] = [];
+  const getCurrentSource = currentImageSrcSource(getResolveImageSrc);
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
@@ -110,14 +151,29 @@ function buildDecorations(
           return;
         }
 
+        // Local Vault path resolution (Assets/image.jpg -> a loadable file
+        // URL) — the standard-Markdown-image counterpart to
+        // embedLivePreview.ts's own `resolveEmbedImage(match.path, ...)`
+        // call, reusing the same resolver contract shape. `undefined`
+        // (never wired) or `'unresolved'` (external URL, missing local
+        // path, non-image resource) both fall through to exactly today's
+        // behavior: `match.url` passed straight through, no `copyUrl` —
+        // see ImageSrcResolution's own doc comment for why a failed local
+        // lookup is never itself evidence of a broken image.
+        const resolution = getResolveImageSrc()?.(match.url);
+        const url = resolution?.status === 'resolved' ? resolution.url : match.url;
+        const copyUrl = resolution?.status === 'resolved' ? resolution.copyUrl : undefined;
+
         const widget = new ImageWidget(
           match.alt,
-          match.url,
+          url,
           ui,
           node.from,
           node.to,
           getOnImageClick,
-          getOnOpenImageMenu
+          getOnOpenImageMenu,
+          getCurrentSource,
+          copyUrl
         );
 
         if (ui.revealed) {
@@ -164,7 +220,14 @@ interface ImageLivePreviewPlugin extends PluginValue {
  */
 export function imageLivePreview(
   getOnImageClick: () => OnImageClick | undefined,
-  getOnOpenImageMenu: () => OnOpenImageMenu | undefined
+  getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
+  // Optional, same shape/default-absent pattern as getOnImageClick/
+  // getOnOpenImageMenu — an existing call site that never passes this
+  // (e.g. a test harness) keeps compiling and behaving identically
+  // unchanged: `buildDecorations` treats a `getResolveImageSrc` that
+  // returns `undefined` the exact same as an `ResolveImageSrc` call
+  // returning `'unresolved'`.
+  getResolveImageSrc: () => ResolveImageSrc | undefined = () => undefined
 ): Extension {
   const plugin = ViewPlugin.fromClass<ImageLivePreviewPlugin>(
     class implements ImageLivePreviewPlugin {
@@ -175,7 +238,8 @@ export function imageLivePreview(
         ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(
           view,
           getOnImageClick,
-          getOnOpenImageMenu
+          getOnOpenImageMenu,
+          getResolveImageSrc
         ));
       }
 
@@ -185,7 +249,8 @@ export function imageLivePreview(
           ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(
             update.view,
             getOnImageClick,
-            getOnOpenImageMenu
+            getOnOpenImageMenu,
+            getResolveImageSrc
           ));
         }
       }

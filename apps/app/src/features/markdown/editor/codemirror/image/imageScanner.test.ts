@@ -30,6 +30,27 @@ describe('scanImage', () => {
     expect(scanImage('[Alt](https://example.com)')).toBeNull();
   });
 
+  it('keeps a raw, unencoded space in a local Vault path as part of the url, not truncated to the first token', () => {
+    expect(scanImage('![Testing](Delete me.jpg)')).toEqual({
+      alt: 'Testing',
+      url: 'Delete me.jpg',
+    });
+  });
+
+  it('keeps multiple raw spaces in a nested local path', () => {
+    expect(scanImage('![Testing](Assets/My Photos/Delete me.jpg)')).toEqual({
+      alt: 'Testing',
+      url: 'Assets/My Photos/Delete me.jpg',
+    });
+  });
+
+  it('still discards a genuine quoted title after a space-containing local path', () => {
+    expect(scanImage('![Testing](Delete me.jpg "A title")')).toEqual({
+      alt: 'Testing',
+      url: 'Delete me.jpg',
+    });
+  });
+
   it('returns null for an empty or whitespace-only destination (auto-closed `()` mid-typing)', () => {
     // closeBrackets() auto-inserts the matching `)` the instant a user
     // types `(` after `![alt]`, so `![alt]()` is what the document

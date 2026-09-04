@@ -1,14 +1,13 @@
 .image-overlay {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-strong);
+  /* border-radius: var(--radius-lg); */
+  /* border: 0.5px solid var(--border-strong); */
   overflow: hidden;
 }
-/* Positioning context for the More Actions control (ImageOverlayMoreActions,
-   `.cm-image-controls` from ImageFloatingControls.css) — the exact same
-   role `.cm-image-container` plays for the inline widget's own controls
-   (MarkdownEditor.css). `display: block` (not `flex`/`grid`): the `<img>`
-   is this frame's only sizing input, same shrink-to-fit relationship
-   `.cm-image-container`'s own `width: fit-content` establishes. */
+/* Sizing only, NOT the More Actions control's positioning context (see
+   ImageOverlay.tsx's own doc comment for why) — `display: block` (not
+   `flex`/`grid`): the `<img>` is this frame's only sizing input, same
+   shrink-to-fit relationship `.cm-image-container`'s own `width:
+   fit-content` establishes. */
 .image-overlay__frame {
   position: relative;
   display: block;
@@ -22,13 +21,53 @@
   max-height: calc(100vh - 104px);
   object-fit: contain;
 }
-/* Always visible (no opacity toggle — see ImageOverlay.tsx's own doc
-   comment) — positioned the same top-right inset as the inline widget's
-   own `.cm-editor .cm-image-controls` (MarkdownEditor.css), just without
-   that rule's CM6-specific ancestor requirement or hover/focus-within/
-   data-menu-open gating. */
-.image-overlay__frame .cm-image-controls {
+/* The More Actions control's real positioning context — portaled straight
+   to document.body (ImageOverlay.tsx), sibling to Overlay's own portal,
+   specifically to escape `.image-overlay__frame`'s image-sized box and
+   `.overlay__content--animated`'s permanent post-animation `transform`
+   (which would otherwise hijack a plain `position: fixed` on a nested
+   descendant — see ImageOverlay.tsx's own doc comment for the full
+   mechanism). Mirrors `Overlay.css`'s own `.overlay` box (`position:
+   fixed; inset: 0`, same `pointer-events: none` +
+   auto-on-the-interactive-child pattern `.overlay`/`.overlay__backdrop`
+   already establish) so this container's own top-right corner is always
+   the real viewport's top-right corner, independent of the image's size,
+   aspect ratio, or position.
+   `z-index` is deliberately ONE HIGHER than `--z-overlay`, not equal to
+   it: confirmed directly (real browser) that with an equal z-index, this
+   portal and `.overlay`'s own (both siblings under `document.body`, same
+   stacking context) fall back to plain DOM order to break the tie — this
+   portal's own `createPortal` call is evaluated as *part of* `Overlay`'s
+   own children, which commits before `Overlay`'s wrapping portal insertion
+   completes, so this element actually lands *before* `.overlay` in the
+   DOM, not after. That put `.overlay__backdrop` (same effective stacking
+   level, later in DOM within `.overlay`) visually and pointer-events-wise
+   on top of the button — clickable-looking but silently swallowed by the
+   backdrop's own `pointer-events: auto`. A strictly higher z-index removes
+   the dependency on that DOM-order tiebreak entirely. */
+.image-overlay__controls-viewport {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-overlay, 1000) + 1);
+  pointer-events: none;
+}
+/* The More Actions control's own class — deliberately NOT `.cm-image-control`
+   (the inline Markdown-image widget's own class, ImageFloatingControls.css):
+   this is a top-right-of-screen overlay affordance, not an inline image
+   control, and the two are independent controls that happen to render the
+   same icon, not one shared visual construct wearing two different
+   positioning contexts. This rule owns only positioning — top-right inset
+   within the viewport-mirroring container above, same `--space-6` inset
+   the inline widget's own controls use, purely coincidental shared design
+   token, not shared CSS. Every other visual property (color, hover,
+   active, icon sizing) comes from `Button`/`Button.css`, completely
+   unmodified — see ImageOverlayMoreActions.tsx's own doc comment. */
+.image-overlay__controls-viewport .image-overlay__control {
   position: absolute;
-  top: var(--space-6);
-  right: var(--space-6);
+  top: var(--space-16);
+  right: var(--space-16);
+  pointer-events: auto;
+}
+.image-overlay__control-button {
+  color: var(--foreground-primary);
 }

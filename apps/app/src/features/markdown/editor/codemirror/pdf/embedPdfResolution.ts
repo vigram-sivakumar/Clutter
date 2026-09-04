@@ -18,9 +18,25 @@
  * the embed's own vault-relative target exactly as written between
  * `![[...]]`'s brackets — what the "Open" action hands back to the app
  * layer to re-resolve into the real `VaultResource` `PdfOverlay` needs.
+ *
+ * `resourceId` is the one exception to "never a `VaultResource`" — a plain
+ * `string` id (not the resource object itself), included directly because
+ * every `'pdf'` outcome already came from a real, resolved `VaultResource`
+ * (unlike a standard Markdown image, which may name an external URL with
+ * no resource behind it at all — see `imageResourceResolution.ts`'s own,
+ * separate click-time resolver for that case). This is what lets the
+ * inline embed's own floating "More actions" control dispatch against the
+ * same resource `PdfOverlay`/the Sidebar row already do, without a second
+ * resolution step.
  */
 export type EmbedPdfResolution =
-  | { readonly status: 'pdf'; readonly url: string; readonly title: string; readonly path: string }
+  | {
+      readonly status: 'pdf';
+      readonly url: string;
+      readonly title: string;
+      readonly path: string;
+      readonly resourceId: string;
+    }
   | { readonly status: 'unresolved'; readonly title: string }
   | { readonly status: 'non-pdf' };
 

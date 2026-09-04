@@ -21,8 +21,8 @@ export interface ArchiveCollectionBodyProps {
   folders?: readonly CollectionEntryModel[];
   notes?: readonly CollectionEntryModel[];
   resources: readonly VaultResource[];
-  /** Only ever invoked for an image resource — see Resource.tsx. */
-  onOpenImage?(resource: VaultResource): void;
+  /** Invoked for both resource kinds (image, pdf) — see Resource.tsx. */
+  onOpenResource?(resource: VaultResource): void;
   onRestoreResource(resourceId: string): void;
   onDeleteResource(resourceId: string): void;
   /**
@@ -86,7 +86,7 @@ export function ArchiveCollectionBody({
   folders = [],
   notes = [],
   resources,
-  onOpenImage,
+  onOpenResource,
   onRestoreResource,
   onDeleteResource,
   onRestoreFolder,
@@ -172,7 +172,7 @@ export function ArchiveCollectionBody({
           <Resource
             key={resource.id}
             resource={resource}
-            onClick={onOpenImage}
+            onClick={onOpenResource}
             archiveActions={hoverActions(
               () => onRestoreResource(resource.id),
               () =>

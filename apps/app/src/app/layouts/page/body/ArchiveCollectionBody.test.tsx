@@ -258,14 +258,14 @@ describe('ArchiveCollectionBody: Restore', () => {
   });
 
   it('resource: clicking Restore does not also trigger the row click (image overlay)', () => {
-    const onOpenImage = vi.fn();
+    const onOpenResource = vi.fn();
     const resource = makeResource({ kind: 'image' });
 
-    renderArchive({ resources: [resource], onOpenImage });
+    renderArchive({ resources: [resource], onOpenResource });
 
     fireEvent.click(screen.getByRole('button', { name: 'Restore' }));
 
-    expect(onOpenImage).not.toHaveBeenCalled();
+    expect(onOpenResource).not.toHaveBeenCalled();
   });
 
   it('resource: works identically for a pdf resource', () => {
@@ -348,14 +348,14 @@ describe('ArchiveCollectionBody: Delete (permanent) — resources', () => {
   });
 
   it('clicking Delete does not also trigger the row click (image overlay)', () => {
-    const onOpenImage = vi.fn();
+    const onOpenResource = vi.fn();
     const resource = makeResource({ kind: 'image' });
 
-    renderArchive({ resources: [resource], onOpenImage });
+    renderArchive({ resources: [resource], onOpenResource });
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete permanently' }));
 
-    expect(onOpenImage).not.toHaveBeenCalled();
+    expect(onOpenResource).not.toHaveBeenCalled();
   });
 
   it('works identically for a pdf resource', () => {
@@ -483,25 +483,25 @@ describe('ArchiveCollectionBody: Delete (permanent) — folders reuse the existi
 });
 
 describe('ArchiveCollectionBody: existing image/pdf click behavior preserved', () => {
-  it('clicking an archived image resource row invokes onOpenImage', () => {
-    const onOpenImage = vi.fn();
+  it('clicking an archived image resource row invokes onOpenResource', () => {
+    const onOpenResource = vi.fn();
     const resource = makeResource({ kind: 'image' });
 
-    renderArchive({ resources: [resource], onOpenImage });
+    renderArchive({ resources: [resource], onOpenResource });
 
     fireEvent.click(screen.getByText('hero').closest('.entry')!);
 
-    expect(onOpenImage).toHaveBeenCalledWith(resource);
+    expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
 
-  it('clicking an archived pdf resource row remains a no-op', () => {
-    const onOpenImage = vi.fn();
+  it('clicking an archived pdf resource row invokes onOpenResource, reaching PdfOverlay', () => {
+    const onOpenResource = vi.fn();
     const resource = makeResource({ kind: 'pdf', name: 'spec.pdf' });
 
-    renderArchive({ resources: [resource], onOpenImage });
+    renderArchive({ resources: [resource], onOpenResource });
 
     fireEvent.click(screen.getByText('spec').closest('.entry')!);
 
-    expect(onOpenImage).not.toHaveBeenCalled();
+    expect(onOpenResource).toHaveBeenCalledWith(resource);
   });
 });

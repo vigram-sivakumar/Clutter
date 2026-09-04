@@ -1487,8 +1487,8 @@
   overflow: hidden;
 }
 .cm-image-container--broken .cm-image-controls {
-  top: var(--space-4);
-  right: var(--space-4);
+  top: var(--space-2);
+  right: var(--space-2);
 }
 
 .cm-editor .cm-image-broken {
@@ -1496,10 +1496,13 @@
   align-items: center;
   width: 100%;
   gap: var(--space-6);
-  padding: var(--space-8) var(--space-10);
+  padding: var(--space-6);
   border-radius: var(--radius-lg);
+  /* background: var(--surface-secondary); */
+  /* box-shadow: var(--shadow-inset-thin); */
+}
+.cm-editor .cm-image-broken:hover {
   background: var(--surface-secondary);
-  box-shadow: var(--shadow-inset-thin);
 }
 
 /* 24x24 wrapper, 16x16 icon centered inside it — matches
@@ -1524,7 +1527,6 @@
 
 .cm-editor .cm-image-broken__alt {
   font-size: var(--text-body-small);
-  font-weight: var(--fw-bold);
   line-height: var(--lh-cm-content);
   color: var(--foreground-primary);
   white-space: nowrap;

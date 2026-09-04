@@ -53,11 +53,19 @@ export function scanImage(raw: string): ImageMatch | null {
   }
 
   const alt = raw.slice(2, labelClose);
-  const destination = raw.slice(labelClose + 2, -1);
+  const destination = raw.slice(labelClose + 2, -1).trim();
 
-  // A link title, if present, is separated from the URL by whitespace
-  // (`url "title"` or `url 'title'`) — take only the first token.
-  const url = destination.trim().split(/\s+/)[0] ?? '';
+  // A link title, if present, is separated from the URL by whitespace and
+  // wrapped in matching quotes (`url "title"` or `url 'title'`) — only
+  // strip it when that exact trailing shape is actually present. A local
+  // Vault path containing a literal, unencoded space (e.g. "Delete
+  // me.jpg", imageSyntax.ts's own space-tolerant Image node) has no
+  // quotes anywhere and must keep its space(s) as part of the url — an
+  // earlier version of this line (`destination.split(/\s+/)[0]`) took
+  // only the first whitespace-delimited token unconditionally, which
+  // silently truncated exactly this case down to "Delete".
+  const titleMatch = destination.match(/^(.*\S)\s+(["'])[\s\S]*\2$/);
+  const url = titleMatch ? titleMatch[1]! : destination;
 
   if (!url) {
     return null;
