@@ -150,9 +150,10 @@ function getPdfEmbed(view: EditorView): HTMLElement | null {
   return view.dom.querySelector('.cm-pdf-embed');
 }
 
+/** The working-state Edit source control lives in the `.pdf-viewer__toolbar` (the same button styling `PdfViewer`'s own toolbar uses — see `PdfEmbedWidget.makeToolbarButton`), distinct from the broken-card's `.cm-image-control` variant. */
 function getEditButton(view: EditorView): HTMLButtonElement {
   const button = view.dom.querySelector<HTMLButtonElement>(
-    '.cm-image-control[aria-label="Edit source"], .cm-image-control[aria-label="Hide source"]'
+    '.cm-pdf-embed button[aria-label="Edit source"], .cm-pdf-embed button[aria-label="Hide source"]'
   );
   if (!button) {
     throw new Error('edit/source control not found');
@@ -171,7 +172,7 @@ describe('embedLivePreview — PDF embeds, rendering (at rest)', () => {
     );
 
     expect(getPdfEmbed(view)).not.toBeNull();
-    expect(view.dom.querySelector('.cm-pdf-embed__title')?.textContent).toBe('document');
+    expect(view.dom.querySelector('.cm-pdf-embed .pdf-viewer__title')?.textContent).toBe('document');
 
     await flush();
 
@@ -333,7 +334,7 @@ describe('embedLivePreview — PDF embeds, Open control', () => {
       onPdfEmbedClick
     );
 
-    const openButton = view.dom.querySelector<HTMLButtonElement>('.cm-image-control[aria-label="Open in PDF viewer"]');
+    const openButton = view.dom.querySelector<HTMLButtonElement>('.cm-pdf-embed button[aria-label="Open in PDF viewer"]');
     expect(openButton).not.toBeNull();
     openButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
@@ -362,7 +363,7 @@ describe('embedLivePreview — PDF embeds, consecutive and mixed-content indepen
     // the other — same independence contract imageLivePreview.test.ts's
     // own consecutive-image tests already establish for images.
     const editButtons = view.dom.querySelectorAll<HTMLButtonElement>(
-      '.cm-image-control[aria-label="Edit source"]'
+      '.cm-pdf-embed button[aria-label="Edit source"]'
     );
     expect(editButtons.length).toBe(2);
     editButtons[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -394,5 +395,134 @@ describe('embedLivePreview — PDF embeds, consecutive and mixed-content indepen
     expect(workingImageContainers.length).toBe(1);
     expect(view.dom.querySelectorAll('.cm-pdf-embed').length).toBe(1);
     expect(view.dom.querySelectorAll('.cm-image-container--broken').length).toBe(1);
+  });
+});
+
+describe('embedLivePreview — PDF embeds, PdfOverlay presentation parity', () => {
+  it('uses the exact same viewer presentation classes PdfOverlay/PdfViewer render — no second toolbar/page design', async () => {
+    const view = mountView(
+      `x ${PDF}`,
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+
+    const embed = getPdfEmbed(view)!;
+    expect(embed.querySelector('.pdf-viewer__toolbar')).not.toBeNull();
+    expect(embed.querySelector('.pdf-viewer__title')).not.toBeNull();
+    expect(embed.querySelector('.pdf-viewer__toolbar-controls')).not.toBeNull();
+    expect(embed.querySelector('.pdf-viewer__scroll')).not.toBeNull();
+    expect(embed.querySelector('.pdf-viewer__status')).not.toBeNull();
+    expect(embed.querySelector('.pdf-viewer__spinner')).not.toBeNull();
+    // No PDF-embed-specific header/title/zoom-indicator classes left behind
+    // — those would be a second, parallel design instead of reuse.
+    expect(embed.querySelector('.cm-pdf-embed__header')).toBeNull();
+    expect(embed.querySelector('.cm-pdf-embed__title')).toBeNull();
+    expect(embed.querySelector('.cm-pdf-embed__zoom-indicator')).toBeNull();
+
+    await flush();
+
+    expect(embed.querySelector('.pdf-viewer__page')).not.toBeNull();
+    expect(embed.querySelector('.pdf-viewer__page-canvas')).not.toBeNull();
+  });
+
+  it('zoom controls are hidden until the document is ready, then use the canonical zoom sequence starting at 100%', async () => {
+    const view = mountView(
+      `x ${PDF}`,
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+
+    const embed = getPdfEmbed(view)!;
+    const zoomIndicator = () => embed.querySelector('.pdf-viewer__zoom-indicator');
+    const zoomInButton = () =>
+      embed.querySelector<HTMLButtonElement>('button[aria-label="Zoom in"]');
+    const zoomOutButton = () =>
+      embed.querySelector<HTMLButtonElement>('button[aria-label="Zoom out"]');
+
+    expect(zoomInButton()!.closest<HTMLElement>('.pdf-viewer__control-group')!.hidden).toBe(true);
+
+    await flush();
+
+    expect(zoomInButton()!.closest<HTMLElement>('.pdf-viewer__control-group')!.hidden).toBe(false);
+    expect(zoomIndicator()?.textContent).toBe('100%');
+
+    zoomInButton()!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(zoomIndicator()?.textContent).toBe('125%');
+
+    zoomOutButton()!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    zoomOutButton()!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(zoomIndicator()?.textContent).toBe('75%');
+  });
+
+  it('page navigation appears only for multi-page documents and moves the page indicator', async () => {
+    pdfjsMock.state.numPages = 3;
+    try {
+      const view = mountView(
+        `x ${PDF}`,
+        imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+        pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+      );
+
+      const embed = getPdfEmbed(view)!;
+      const pageIndicator = () => embed.querySelector('.pdf-viewer__page-indicator');
+      const nextPageButton = () =>
+        embed.querySelector<HTMLButtonElement>('button[aria-label="Next page"]');
+      const prevPageButton = () =>
+        embed.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]');
+
+      expect(nextPageButton()!.closest<HTMLElement>('.pdf-viewer__control-group')!.hidden).toBe(true);
+
+      await flush();
+
+      expect(nextPageButton()!.closest<HTMLElement>('.pdf-viewer__control-group')!.hidden).toBe(false);
+      expect(pageIndicator()?.textContent).toBe('1 / 3');
+      expect(prevPageButton()!.disabled).toBe(true);
+
+      nextPageButton()!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await flush();
+      expect(pageIndicator()?.textContent).toBe('2 / 3');
+      expect(prevPageButton()!.disabled).toBe(false);
+    } finally {
+      pdfjsMock.state.numPages = 1;
+    }
+  });
+
+  it('Edit Markdown (Edit source) and Open sit in the toolbar as PdfViewer-styled buttons, not the broken-card control', () => {
+    const view = mountView(
+      `x ${PDF}`,
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+
+    const editButton = getEditButton(view);
+    const openButton = view.dom.querySelector<HTMLButtonElement>(
+      '.cm-pdf-embed button[aria-label="Open in PDF viewer"]'
+    )!;
+
+    for (const button of [editButton, openButton]) {
+      expect(button.closest('.pdf-viewer__toolbar')).not.toBeNull();
+      expect(button.classList.contains('button')).toBe(true);
+      expect(button.classList.contains('button--ghost')).toBe(true);
+      expect(button.classList.contains('cm-image-control')).toBe(false);
+    }
+  });
+
+  it('the embed container stays within the editor width so the CodeMirror line never overflows horizontally', () => {
+    const view = mountView(
+      `x ${PDF}`,
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+
+    // `.cm-pdf-embed-container`'s own `max-width: 100%` rule (PdfEmbedWidget.css)
+    // is what bounds the widget to the editor's width — this asserts the
+    // widget carries that class (the actual CSS rule is exercised by the
+    // real stylesheet, not by jsdom's non-rendering layout engine). The
+    // zoomable page lives inside its own scroller, never the container
+    // itself — that scroller is what may grow past the editor's width when
+    // zoomed, not the editor line.
+    const container = view.dom.querySelector('.cm-pdf-embed-container');
+    expect(container).not.toBeNull();
+    expect(container!.querySelector('.pdf-viewer__scroll')).not.toBeNull();
   });
 });

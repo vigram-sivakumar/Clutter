@@ -3,15 +3,27 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import '@features/pdf/pdfWorker';
-// `.pdf-viewer__page`/`.pdf-viewer__page-canvas`/`.textLayer` are flat,
-// un-namespaced class selectors (no `.pdf-viewer` ancestor requirement,
-// confirmed by reading PdfViewer.css directly) — this widget reuses that
-// exact DOM/CSS contract for its own single-page render rather than
-// inventing a second one. Imported explicitly here, mirroring
+// `.pdf-viewer__toolbar`/`.pdf-viewer__title`/`.pdf-viewer__toolbar-controls`/
+// `.pdf-viewer__control-group`/`.pdf-viewer__zoom-indicator`/
+// `.pdf-viewer__page-indicator`/`.pdf-viewer__scroll`/`.pdf-viewer__page`/
+// `.pdf-viewer__page-canvas`/`.pdf-viewer__status`/`.pdf-viewer__spinner`/
+// `.textLayer` are flat, un-namespaced class selectors (no `.pdf-viewer`
+// ancestor requirement, confirmed by reading PdfViewer.css directly) — this
+// widget reuses that exact DOM/CSS contract (the same one `PdfOverlay`'s
+// `PdfViewer` renders) for its own toolbar/page chrome rather than inventing
+// a second visual design. Imported explicitly here, mirroring
 // MarkdownEditor.tsx's own stated reason for explicitly importing
 // ImageFloatingControls.css: this widget's styling must not depend on
 // whichever other component happens to import PdfViewer.css first.
 import '@features/pdf/PdfViewer.css';
+// `.button`/`.button--ghost`/`.button--small`/`.button--subtle`/
+// `.button--icon`/`.button__content` and `.app-icon` are the exact classes
+// `Button`/`AppIcon` apply — reused verbatim (hand-built markup, since no
+// React tree is available inside a CM6 `WidgetType`) so the embed's zoom/
+// page/Edit/Open controls render as the same buttons `PdfViewer`'s toolbar
+// uses, not a second icon-button design.
+import '@components/button/Button.css';
+import '@shared/icon/AppIcon.css';
 import { renderPdfPage, type RenderPdfPageHandle } from '@features/pdf/pdfPageRenderer';
 import { DEFAULT_ZOOM_INDEX, ZOOM_LEVELS_PERCENT, stepZoomIndex, zoomPercentAt } from '@features/pdf/pdfZoom';
 
@@ -23,15 +35,12 @@ import './PdfEmbedWidget.css';
 
 // Hand-copied inline SVGs, same raw-DOM-widget convention ImageWidget.ts
 // already establishes (no React tree is available inside a CM6 WidgetType,
-// so the app's real AppIcon component system can't mount here). PDF_ICON
-// is the exact same markup embedCompletionRenderer.ts already inlines for
-// a PDF suggestion row, reused verbatim for visual consistency between the
-// autocomplete row and the rendered embed. EDIT_ICON/TRASH_ICON are the
-// exact same paths ImageWidget.ts already hand-copies from
-// shared/icon/svg/{pen... }/trash.svg; MINUS/PLUS/ARROW_LEFT/ARROW_RIGHT/
-// LINK/BROKEN_IMAGE are hand-copied from their own shared/icon/svg sources.
-const PDF_ICON =
-  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 13.3571H3.11111C3.47947 13.3571 3.83274 13.2066 4.0932 12.9387C4.35367 12.6708 4.5 12.3075 4.5 11.9286C4.5 11.5497 4.35367 11.1863 4.0932 10.9184C3.83274 10.6505 3.47947 10.5 3.11111 10.5H2V14.5" stroke="currentColor" stroke-linecap="round"/><path d="M6.75 10.5V14.5H7.65909C8.08103 14.5 8.48568 14.2893 8.78403 13.9142C9.08239 13.5391 9.25 13.0304 9.25 12.5C9.25 11.9696 9.08239 11.4609 8.78403 11.0858C8.48568 10.7107 8.08103 10.5 7.65909 10.5H6.75Z" stroke="currentColor" stroke-linecap="round"/><path d="M11.5 14.5V12.4429M11.5 12.4429V10.5H14M11.5 12.4429H13.5238" stroke="currentColor" stroke-linecap="round"/><path d="M14 8.5V7V6M2 8.5V4C2 2.34315 3.34315 1 5 1H6H8H9M9 1V3C9 4.65685 10.3431 6 12 6H14M9 1C9.64029 1 10.2544 1.25435 10.7071 1.70711L13.2929 4.29289C13.7456 4.74565 14 5.35971 14 6" stroke="currentColor" stroke-linecap="round"/></svg>';
+// so the app's real AppIcon component system can't mount here). EDIT_ICON/
+// TRASH_ICON are the exact same paths ImageWidget.ts already hand-copies
+// from shared/icon/svg/{pen... }/trash.svg; MINUS/PLUS/ARROW_LEFT/
+// ARROW_RIGHT/LINK/BROKEN_IMAGE are hand-copied from their own
+// shared/icon/svg sources. No header icon — `PdfViewer`'s own toolbar
+// (the design being matched here) shows only a title, never a PDF glyph.
 
 const EDIT_ICON =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.625 4L3.64738 9.30947C3.22603 9.7589 2.95326 10.3272 2.86614 10.937L2.64142 12.5101C2.57071 13.005 2.99497 13.4293 3.48995 13.3586L4.95655 13.1491C5.63195 13.0526 6.25428 12.7288 6.7209 12.231L11.625 7M8.625 4L9.79364 2.75345C10.18 2.34132 10.831 2.33098 11.2304 2.73044C11.7865 3.28654 12.2541 3.75413 12.8152 4.31518C13.1968 4.69683 13.2069 5.31263 12.8378 5.70638L11.625 7M8.625 4L11.625 7" stroke="currentColor" stroke-linecap="round"/><path d="M8 13.5H13.5" stroke="currentColor" stroke-linecap="round"/></svg>';
@@ -94,10 +103,19 @@ export type OnPdfEmbedClick = (path: string) => void;
  * elsewhere in the document) reuses this widget's existing DOM — and its
  * live page/zoom — rather than recreating it from scratch.
  *
- * Deliberately minimal inline chrome (page nav + zoom only) — richer
- * resource actions (Move/Archive/Reveal/Copy path) stay exclusively in the
- * full `PdfOverlay`, reached via the "Open" control
- * (`getOnPdfEmbedClick`), never duplicated here.
+ * The working-state toolbar/page chrome deliberately reuses `PdfViewer`'s
+ * own CSS contract verbatim — `.pdf-viewer__toolbar`/`__title`/
+ * `__toolbar-controls`/`__control-group`/`__zoom-indicator`/
+ * `__page-indicator`/`__scroll`/`__page`/`__page-canvas`/`__status`/
+ * `__spinner`, plus hand-built markup matching `Button`'s/`AppIcon`'s own
+ * classes for every button — so the inline embed is the same PDF viewer
+ * presentation as `PdfOverlay`, not a second, simplified visual language.
+ * Only two things are genuinely embed-specific, both additive: the Edit
+ * source and Open controls (`makeEditToolbarButton`/the Open button below),
+ * which sit in their own trailing `.pdf-viewer__control-group` using that
+ * same button styling. Richer resource actions (Move/Archive/Reveal/Copy
+ * path) still stay exclusively in the full `PdfOverlay`, reached via the
+ * "Open" control (`getOnPdfEmbedClick`), never duplicated here.
  */
 export class PdfEmbedWidget extends WidgetType {
   constructor(
@@ -180,76 +198,83 @@ export class PdfEmbedWidget extends WidgetType {
   private renderWorking(container: HTMLElement, view: EditorView): HTMLElement {
     container.classList.add('cm-pdf-embed-container');
 
-    const header = document.createElement('div');
-    header.classList.add('cm-pdf-embed__header');
-    header.contentEditable = 'false';
-
-    const icon = document.createElement('span');
-    icon.classList.add('cm-pdf-embed__icon');
-    icon.innerHTML = PDF_ICON;
+    // Same DOM shape/classes as `PdfViewer`'s own toolbar
+    // (`title` + `.pdf-viewer__toolbar-controls`, space-between) — no
+    // separate header row, no second toolbar design.
+    const toolbar = document.createElement('div');
+    toolbar.classList.add('pdf-viewer__toolbar');
+    toolbar.contentEditable = 'false';
 
     const title = document.createElement('span');
-    title.classList.add('cm-pdf-embed__title');
+    title.classList.add('pdf-viewer__title');
     title.textContent = this.title;
     title.title = this.title;
 
+    const toolbarControls = document.createElement('div');
+    toolbarControls.classList.add('pdf-viewer__toolbar-controls');
+
+    const zoomGroup = document.createElement('div');
+    zoomGroup.classList.add('pdf-viewer__control-group');
     const zoomIndicator = document.createElement('span');
-    zoomIndicator.classList.add('cm-pdf-embed__zoom-indicator');
+    zoomIndicator.classList.add('pdf-viewer__zoom-indicator');
+    const zoomOutButton = this.makeToolbarButton(MINUS_ICON, 'Zoom out', () => zoomBy('out'));
+    const zoomInButton = this.makeToolbarButton(PLUS_ICON, 'Zoom in', () => zoomBy('in'));
+    zoomGroup.append(zoomOutButton, zoomIndicator, zoomInButton);
+    // Hidden until the document is ready, mirroring `PdfViewer`'s own
+    // `state.status === 'ready'` gate around these same controls — never
+    // shown mid-load as disabled chrome.
+    zoomGroup.hidden = true;
 
+    const pageGroup = document.createElement('div');
+    pageGroup.classList.add('pdf-viewer__control-group');
     const pageIndicator = document.createElement('span');
-    pageIndicator.classList.add('cm-pdf-embed__page-indicator');
-    pageIndicator.hidden = true;
+    pageIndicator.classList.add('pdf-viewer__page-indicator');
+    const prevPageButton = this.makeToolbarButton(ARROW_LEFT_ICON, 'Previous page', () => goToPage(-1));
+    const nextPageButton = this.makeToolbarButton(ARROW_RIGHT_ICON, 'Next page', () => goToPage(1));
+    pageGroup.append(prevPageButton, pageIndicator, nextPageButton);
+    pageGroup.hidden = true;
 
-    const controls = document.createElement('div');
-    controls.classList.add('cm-image-controls');
-    controls.contentEditable = 'false';
-
-    const zoomOutButton = this.makeButton(MINUS_ICON, 'Zoom out', () => zoomBy('out'));
-    const zoomInButton = this.makeButton(PLUS_ICON, 'Zoom in', () => zoomBy('in'));
-    const prevPageButton = this.makeButton(ARROW_LEFT_ICON, 'Previous page', () => goToPage(-1));
-    prevPageButton.hidden = true;
-    const nextPageButton = this.makeButton(ARROW_RIGHT_ICON, 'Next page', () => goToPage(1));
-    nextPageButton.hidden = true;
-    const openButton = this.makeButton(LINK_ICON, 'Open in PDF viewer', () => {
+    // The two embed-specific controls (section 3 of the design brief) —
+    // additive to `PdfViewer`'s own toolbar, using the exact same button
+    // styling as the zoom/page controls above, never a distinct look.
+    const inlineGroup = document.createElement('div');
+    inlineGroup.classList.add('pdf-viewer__control-group');
+    const openButton = this.makeToolbarButton(LINK_ICON, 'Open in PDF viewer', () => {
       this.getOnPdfEmbedClick()?.(this.path);
     });
+    inlineGroup.append(this.makeEditToolbarButton(view), openButton);
 
-    controls.append(
-      zoomOutButton,
-      zoomIndicator,
-      zoomInButton,
-      prevPageButton,
-      pageIndicator,
-      nextPageButton,
-      openButton,
-      this.makeEditButton(view)
-    );
-
-    header.append(icon, title);
+    toolbarControls.append(zoomGroup, pageGroup, inlineGroup);
+    toolbar.append(title, toolbarControls);
 
     const scroll = document.createElement('div');
-    scroll.classList.add('cm-pdf-embed__scroll');
+    scroll.classList.add('pdf-viewer__scroll');
     const status = document.createElement('div');
-    status.classList.add('cm-pdf-embed__status');
-    status.textContent = 'Loading PDF…';
+    status.classList.add('pdf-viewer__status');
+    const spinner = document.createElement('span');
+    spinner.classList.add('pdf-viewer__spinner');
+    spinner.setAttribute('aria-hidden', 'true');
+    const statusText = document.createElement('span');
+    statusText.textContent = 'Loading PDF…';
+    status.append(spinner, statusText);
     scroll.append(status);
 
-    container.append(header, controls, scroll);
+    container.append(toolbar, scroll);
 
     let destroyed = false;
     let doc: PDFDocumentProxy | null = null;
+    let ready = false;
     let numPages = 0;
     let currentPage = 1;
     let zoomIndex = DEFAULT_ZOOM_INDEX;
     let renderHandle: RenderPdfPageHandle | null = null;
 
     const updateChrome = () => {
+      zoomGroup.hidden = !ready;
       zoomIndicator.textContent = `${zoomPercentAt(zoomIndex)}%`;
       zoomOutButton.disabled = zoomIndex <= 0;
       zoomInButton.disabled = zoomIndex >= ZOOM_LEVELS_PERCENT.length - 1;
-      pageIndicator.hidden = numPages <= 1;
-      prevPageButton.hidden = numPages <= 1;
-      nextPageButton.hidden = numPages <= 1;
+      pageGroup.hidden = !ready || numPages <= 1;
       pageIndicator.textContent = `${currentPage} / ${numPages}`;
       prevPageButton.disabled = currentPage <= 1;
       nextPageButton.disabled = currentPage >= numPages;
@@ -304,6 +329,7 @@ export class PdfEmbedWidget extends WidgetType {
         }
         doc = loadedDoc;
         numPages = loadedDoc.numPages;
+        ready = true;
         renderCurrentPage();
       },
       () => {
@@ -336,24 +362,78 @@ export class PdfEmbedWidget extends WidgetType {
     (dom as HTMLElement & { [PDF_EMBED_DESTROY]?: () => void })[PDF_EMBED_DESTROY]?.();
   }
 
-  /** Shared by both renderWorking/renderBroken — same Edit-source contract `ImageWidget.makeEditButton` establishes. */
+  /** Shared dispatch behind every Edit/Hide source control — same reveal-toggle contract `ImageWidget.makeEditButton` establishes, factored out so both the broken card's control (`.cm-image-control`) and the working toolbar's control (`makeToolbarButton`) trigger the exact same effect. */
+  private toggleRevealed(view: EditorView): void {
+    const revealing = !this.ui.revealed;
+    view.dispatch({
+      effects: setImageUiState.of({
+        pos: this.pos,
+        to: this.to,
+        state: { ...this.ui, revealed: revealing },
+      }),
+      selection: revealing ? EditorSelection.cursor(this.to) : undefined,
+      scrollIntoView: revealing,
+    });
+  }
+
+  /** Used only by the broken-state card — reuses `ImageWidget`'s own `.cm-image-control` broken-card button styling verbatim (see the class doc comment). */
   private makeEditButton(view: EditorView): HTMLButtonElement {
-    return this.makeButton(
-      EDIT_ICON,
-      this.ui.revealed ? 'Hide source' : 'Edit source',
-      () => {
-        const revealing = !this.ui.revealed;
-        view.dispatch({
-          effects: setImageUiState.of({
-            pos: this.pos,
-            to: this.to,
-            state: { ...this.ui, revealed: revealing },
-          }),
-          selection: revealing ? EditorSelection.cursor(this.to) : undefined,
-          scrollIntoView: revealing,
-        });
-      }
+    return this.makeButton(EDIT_ICON, this.ui.revealed ? 'Hide source' : 'Edit source', () =>
+      this.toggleRevealed(view)
     );
+  }
+
+  /** Used only by the working-state toolbar — same `Edit source`/`Hide source` action as `makeEditButton`, styled as a `PdfViewer`-toolbar button (`makeToolbarButton`) instead of the broken-card's `.cm-image-control`. */
+  private makeEditToolbarButton(view: EditorView): HTMLButtonElement {
+    return this.makeToolbarButton(EDIT_ICON, this.ui.revealed ? 'Hide source' : 'Edit source', () =>
+      this.toggleRevealed(view)
+    );
+  }
+
+  /**
+   * Builds a toolbar button matching `Button`'s (`variant="ghost" size="small"
+   * interaction="subtle" isIconOnly`) exact markup/classes and `AppIcon`'s
+   * exact icon-wrapper markup/classes — hand-built because no React tree is
+   * available inside a CM6 `WidgetType`, but pixel-identical to every zoom/
+   * page-nav button `PdfViewer`'s own toolbar renders via those two
+   * components. Used for every working-state toolbar control (zoom, page
+   * nav, Edit source, Open).
+   */
+  private makeToolbarButton(iconHtml: string, label: string, onActivate: () => void): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.classList.add('button', 'button--ghost', 'button--small', 'button--subtle', 'button--icon');
+    button.setAttribute('aria-label', label);
+    button.title = label;
+
+    const content = document.createElement('span');
+    content.classList.add('button__content');
+
+    const iconWrap = document.createElement('span');
+    iconWrap.classList.add('app-icon');
+    iconWrap.style.setProperty('--app-icon-size', '20px');
+    iconWrap.innerHTML = iconHtml;
+    const svg = iconWrap.querySelector('svg');
+    svg?.setAttribute('width', '16');
+    svg?.setAttribute('height', '16');
+    svg?.style.setProperty('stroke-width', '1.2');
+
+    content.append(iconWrap);
+    button.append(content);
+
+    button.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (button.disabled) {
+        return;
+      }
+      onActivate();
+    });
+    return button;
   }
 
   private makeButton(iconHtml: string, label: string, onActivate: () => void): HTMLButtonElement {
