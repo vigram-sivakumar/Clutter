@@ -128,6 +128,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onRevealResourceInFinder: ReturnType<typeof vi.fn>;
     onCopyResourcePath: ReturnType<typeof vi.fn>;
     onArchiveResource: ReturnType<typeof vi.fn>;
+    onDownloadResource: ReturnType<typeof vi.fn>;
   };
 } {
   const spies = {
@@ -140,6 +141,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onMoveResource: vi.fn(),
     onRevealResourceInFinder: vi.fn(),
     onCopyResourcePath: vi.fn(),
+    onDownloadResource: vi.fn(),
   };
 
   const actions = {
@@ -295,7 +297,41 @@ describe('FolderTree — resource location actions (Reveal in Finder / Copy path
       'Move to…',
       'Reveal in Finder',
       'Copy path',
+      'Download',
       'Archive',
     ]);
+  });
+});
+
+describe('FolderTree — resource Download action', () => {
+  it('an image resource row shows Download', () => {
+    const resource = makeResource({ id: 'img-1', kind: 'image' });
+    const { query, workspace, membershipSelector } = setup([resource]);
+    const { actions } = buildRowActions({ openMenuId: resource.id });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    expect(screen.getByText('Download')).toBeInTheDocument();
+  });
+
+  it('a pdf resource row does NOT show Download', () => {
+    const resource = makeResource({ id: 'pdf-1', kind: 'pdf', name: 'contract.pdf' });
+    const { query, workspace, membershipSelector } = setup([resource]);
+    const { actions } = buildRowActions({ openMenuId: resource.id });
+
+    renderTree(query, membershipSelector, workspace, actions);
+
+    expect(screen.queryByText('Download')).not.toBeInTheDocument();
+  });
+
+  it('selecting Download calls onDownloadResource with the resource id', () => {
+    const resource = makeResource({ id: 'img-1' });
+    const { query, workspace, membershipSelector } = setup([resource]);
+    const { actions, spies } = buildRowActions({ openMenuId: resource.id });
+
+    renderTree(query, membershipSelector, workspace, actions);
+    fireEvent.click(screen.getByText('Download'));
+
+    expect(spies.onDownloadResource).toHaveBeenCalledWith('img-1');
   });
 });

@@ -196,6 +196,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onMoveResource: ReturnType<typeof vi.fn>;
     onRevealResourceInFinder: ReturnType<typeof vi.fn>;
     onCopyResourcePath: ReturnType<typeof vi.fn>;
+    onDownloadResource: ReturnType<typeof vi.fn>;
     onRevealPageInFinder: ReturnType<typeof vi.fn>;
     onCopyPagePath: ReturnType<typeof vi.fn>;
     onRevealFolderInFinder: ReturnType<typeof vi.fn>;
@@ -232,6 +233,7 @@ function buildRowActions(overrides: Partial<SidebarRowActions> = {}): {
     onMoveResource: vi.fn(),
     onRevealResourceInFinder: vi.fn(),
     onCopyResourcePath: vi.fn(),
+    onDownloadResource: vi.fn(),
     onRevealPageInFinder: vi.fn(),
     onCopyPagePath: vi.fn(),
     onRevealFolderInFinder: vi.fn(),

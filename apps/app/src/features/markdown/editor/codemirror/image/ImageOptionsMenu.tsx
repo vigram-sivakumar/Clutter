@@ -32,6 +32,17 @@ export interface ImageOptionsMenuProps {
    * one write path, never a second implementation of it.
    */
   readonly onSetCoverImage?: () => void;
+  /**
+   * Downloads a copy of this image (embedded local Resource or a plain
+   * external URL alike) to a user-chosen destination via the native Save
+   * dialog — always present, unlike `onSetCoverImage`'s capability-gating,
+   * since every image the editor renders is a download candidate
+   * regardless of whether it resolves to a local `VaultResource`
+   * (`MarkdownEditor.tsx`'s `handleDownloadImage` picks between
+   * `downloadResource.ts`/`downloadRemoteImage.ts` accordingly, at the app
+   * layer — this menu itself has no opinion on which).
+   */
+  readonly onDownload: () => void;
   readonly onDelete: () => void;
 }
 
@@ -84,6 +95,7 @@ export function ImageOptionsMenu({
   onSelectMode,
   onCopyLink,
   onSetCoverImage,
+  onDownload,
   onDelete,
 }: ImageOptionsMenuProps) {
   return (
@@ -134,6 +146,16 @@ export function ImageOptionsMenu({
             Set as cover image
           </MenuItem>
         )}
+        <MenuItem
+          leading={<AppIcon icon="download" />}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDownload();
+            onClose();
+          }}
+        >
+          Download
+        </MenuItem>
 
         <div className="menu__divider" role="separator" />
 

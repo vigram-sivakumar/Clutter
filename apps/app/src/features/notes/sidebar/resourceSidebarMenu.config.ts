@@ -1,6 +1,7 @@
 import type { OverflowMenuItemConfig } from '@components/menu/OverflowMenu';
 import { ARCHIVE_ACTION_LABEL } from '@core/presentation/resourceActionLabels';
 import { buildLocationActionMenuItems } from '@core/presentation/getLocationPathRepresentations';
+import type { VaultResourceKind } from '@core/vault/models/VaultResource';
 
 /**
  * The sidebar row's overflow menu for a VaultResource (image/pdf) —
@@ -30,12 +31,21 @@ import { buildLocationActionMenuItems } from '@core/presentation/getLocationPath
  * `reveal-in-finder`/`copy-path-*` are read-only OS/clipboard actions, not
  * a ResourceOperations capability — they never touch the Gate or `Vault`,
  * so they carry no ownership conflict with Rename/Move/Archive above.
+ *
+ * `download` is image-only (see `downloadResource.ts`'s own doc comment for
+ * why it isn't a ResourceOperations capability either) — grouped with the
+ * other read-only OS actions, right after them and still before Archive.
+ * PDF gets no Download item yet; that's a deliberate, separate follow-up,
+ * not an oversight.
  */
-export function buildResourceSidebarMenu(): OverflowMenuItemConfig[] {
+export function buildResourceSidebarMenu(kind: VaultResourceKind): OverflowMenuItemConfig[] {
   return [
     { id: 'rename', label: 'Rename', icon: 'notePencil', opensInlineEdit: true },
     { id: 'move-to', label: 'Move to…', icon: 'arrowDownRight' },
     ...buildLocationActionMenuItems('resource'),
+    ...(kind === 'image'
+      ? [{ id: 'download', label: 'Download', icon: 'download' } as const]
+      : []),
     // Archive is always last — a destructive-adjacent action grouped apart
     // from the read-only/organizational items above it.
     { id: 'archive', label: ARCHIVE_ACTION_LABEL, icon: 'archive' },

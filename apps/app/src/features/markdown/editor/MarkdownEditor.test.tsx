@@ -483,6 +483,38 @@ describe('MarkdownEditor: image overlay — resolveImageResource / More Actions'
 
     expect(onSetCoverImage).toHaveBeenCalledWith('https://example.com/mountain.jpg');
   });
+
+  it('standard Markdown image, local Vault path: resolveImageResource receives the raw Markdown path (copyUrl), not the resolved file URL — the ImageOverlay More Actions gate works identically to an embed', () => {
+    const LOCAL_MD = '![Alt name](Assets/image.jpg)';
+    const resolveImageResource = vi.fn(() => ({ resourceId: 'resource-1' }));
+    const resolveImageSrc = vi.fn((path: string) =>
+      path === 'Assets/image.jpg'
+        ? { status: 'resolved' as const, url: 'app://vault/Assets/image.jpg', copyUrl: 'Assets/image.jpg' }
+        : { status: 'unresolved' as const }
+    );
+    render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={`See: ${LOCAL_MD}`}
+        resolveImageSrc={resolveImageSrc}
+        resolveImageResource={resolveImageResource}
+      />
+    );
+
+    const imageButton = document.querySelector('button.cm-image-button') as HTMLButtonElement;
+    fireEvent.mouseDown(imageButton);
+    fireEvent.click(imageButton);
+
+    // The click handler receives (url, alt, copyUrl) — resolveImageResource
+    // must be asked about `copyUrl ?? url`, i.e. the raw vault-relative
+    // path, never the resolved app:// URL (MarkdownEditor.tsx's own
+    // onImageClickRef doc comment).
+    expect(resolveImageResource).toHaveBeenCalledWith('Assets/image.jpg');
+    expect(document.querySelector('[aria-label="More actions"]')).not.toBeNull();
+
+    const overlayImg = document.querySelector('.image-overlay__img') as HTMLImageElement | null;
+    expect(overlayImg?.getAttribute('src')).toBe('app://vault/Assets/image.jpg');
+  });
 });
 
 /**
@@ -571,6 +603,49 @@ describe('MarkdownEditor: image options menu — Set as cover image', () => {
 
     expect(onSetCoverImage).toHaveBeenCalledWith('https://example.com/mountain.jpg');
     expect(findMenuItem('Set as cover image')).toBeNull();
+  });
+
+  it('Download is always present, unlike the capability-gated Set as cover image', () => {
+    render(<MarkdownEditor pageId="test-page" markdown={IMAGE_MD} />);
+    openSizeMenu();
+
+    expect(findMenuItem('Download')).not.toBeNull();
+  });
+
+  it('selecting Download forwards the image URL to onDownloadImage and closes the menu', () => {
+    const onDownloadImage = vi.fn();
+    render(<MarkdownEditor pageId="test-page" markdown={IMAGE_MD} onDownloadImage={onDownloadImage} />);
+    openSizeMenu();
+
+    const item = findMenuItem('Download');
+    expect(item).not.toBeNull();
+    fireEvent.click(item!);
+
+    expect(onDownloadImage).toHaveBeenCalledWith('https://example.com/mountain.jpg');
+    expect(findMenuItem('Download')).toBeNull();
+  });
+
+  it('a local Resource embed forwards its vault-relative copyUrl, not the resolved file URL — same rule as Set as cover image', () => {
+    const LOCAL_MD = '![Alt name](Assets/image.jpg)';
+    const onDownloadImage = vi.fn();
+    const resolveImageSrc = vi.fn((path: string) =>
+      path === 'Assets/image.jpg'
+        ? { status: 'resolved' as const, url: 'app://vault/Assets/image.jpg', copyUrl: 'Assets/image.jpg' }
+        : { status: 'unresolved' as const }
+    );
+    render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={`See: ${LOCAL_MD}`}
+        resolveImageSrc={resolveImageSrc}
+        onDownloadImage={onDownloadImage}
+      />
+    );
+    openSizeMenu();
+
+    fireEvent.click(findMenuItem('Download')!);
+
+    expect(onDownloadImage).toHaveBeenCalledWith('Assets/image.jpg');
   });
 });
 

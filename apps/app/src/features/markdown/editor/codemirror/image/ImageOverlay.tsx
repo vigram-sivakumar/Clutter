@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+
 import type { FolderPickerItem } from '@components/folder-picker/FolderPicker.types';
 import { Overlay } from '@components/overlay/Overlay';
 import type { LocationPathFormat } from '@core/presentation/getLocationPathRepresentations';
@@ -43,6 +45,8 @@ export interface ImageOverlayProps {
     resourceId: string,
     format: LocationPathFormat
   ) => void;
+  /** Same shape/reasoning as onRevealResourceInFinder above — see downloadResource.ts. */
+  readonly onDownloadResource?: (resourceId: string) => void;
   readonly resourceMoveDestinations?: FolderPickerItem[];
   readonly onMoveResource?: (
     resourceId: string,
@@ -85,16 +89,40 @@ export interface ImageOverlayProps {
  * when `open` is false, so there's nothing to gate here — matches how
  * `Dialog`/`Confirmation` consumers already use `Overlay` elsewhere.
  *
- * **More Actions control** (resource-action enhancement): a `.image-
- * overlay__frame` wraps the `<img>` purely to give the floating control a
- * `position: relative` box to anchor into — the same role
- * `.cm-image-container` plays for the inline widget's own controls
- * (ImageFloatingControls.css). Rendered only when `image.resourceId` is
- * present (never an empty/disabled control for an external URL with no
- * resource behind it), and — unlike the inline widget's hover-reveal
- * control — always visible: no opacity toggle, no `:hover`/`:focus-within`
- * rule, since there is no underlying document to accidentally engage the
- * way CM6's own reveal-on-engagement contract cares about.
+ * **More Actions control** (resource-action enhancement): positioned at the
+ * *overlay's own* top-right corner — the viewport-fixed `.overlay` box
+ * `Overlay` itself renders — never the image/frame's own top-right corner,
+ * which would otherwise move with the image's own dimensions/aspect ratio
+ * (a tall/narrow image would put the button close to a narrow edge, a wide
+ * image somewhere else entirely). `.image-overlay__frame` is `position:
+ * relative` but is deliberately *not* this control's containing block: it
+ * shrink-wraps to the image's own natural size (`useOverlayCenteredPosition`
+ * measures exactly that box to center it), and `Overlay.css`'s
+ * `.overlay__content--animated` rule leaves a permanent, non-`none`
+ * `transform` applied after its entrance animation completes (confirmed
+ * directly — `animation-fill-mode` defaults to `forwards`-equivalent
+ * retention of the final keyframe's `transform: translate(0, 0) scale(1)`,
+ * which computes to `matrix(1, 0, 0, 1, 0, 0)`, not the keyword `none`),
+ * which per the CSS spec makes `.overlay__content` a containing block for
+ * any `position: fixed` descendant — so a plain `position: fixed` button
+ * left inside `.image-overlay__frame` would still track the image-sized
+ * box, not the true viewport, exactly the bug this fixes. Portaling
+ * straight to `document.body` (sibling to `Overlay`'s own portal, not
+ * nested inside it) is what actually escapes that containing block — its
+ * own `.image-overlay__controls-viewport` wrapper mirrors `Overlay.css`'s
+ * `.overlay` box exactly (`position: fixed; inset: 0`), so the button's
+ * `top`/`right` are always relative to the real screen corner, regardless
+ * of image size, aspect ratio, or viewport size. `Overlay`'s own submenu/
+ * move-destination-picker positioning (inside `ImageOverlayMoreActions`)
+ * is unaffected by this move — both already anchor via `anchorRef`'s real
+ * measured `getBoundingClientRect()`, never DOM nesting.
+ *
+ * Rendered only when `image.resourceId` is present (never an empty/
+ * disabled control for an external URL with no resource behind it), and —
+ * unlike the inline widget's hover-reveal control — always visible: no
+ * opacity toggle, no `:hover`/`:focus-within` rule, since there is no
+ * underlying document to accidentally engage the way CM6's own
+ * reveal-on-engagement contract cares about.
  */
 export function ImageOverlay({
   image,
@@ -102,6 +130,7 @@ export function ImageOverlay({
   onArchiveResource,
   onRevealResourceInFinder,
   onCopyResourcePath,
+  onDownloadResource,
   resourceMoveDestinations,
   onMoveResource,
   onCreateFolder,
@@ -123,20 +152,26 @@ export function ImageOverlay({
             alt={image.alt}
             className="image-overlay__img"
           />
-          {image.resourceId && (
+        </div>
+      )}
+      {image &&
+        image.resourceId &&
+        createPortal(
+          <div className="image-overlay__controls-viewport">
             <ImageOverlayMoreActions
               resourceId={image.resourceId}
               onArchiveResource={onArchiveResource}
               onRevealResourceInFinder={onRevealResourceInFinder}
               onCopyResourcePath={onCopyResourcePath}
+              onDownloadResource={onDownloadResource}
               resourceMoveDestinations={resourceMoveDestinations}
               onMoveResource={onMoveResource}
               onCreateFolder={onCreateFolder}
               onSetCoverImage={onSetCoverImage}
             />
-          )}
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </Overlay>
   );
 }

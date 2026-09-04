@@ -167,6 +167,18 @@ export interface MarkdownEditorProps {
    */
   readonly onSetCoverImage?: (url: string) => void;
   /**
+   * Backs both the inline `ImageOptionsMenu`'s and `ImageOverlay`'s own
+   * Download item — takes the same `copyUrl ?? url` string
+   * `onSetCoverImage` above already takes, for the exact same reason (a
+   * local Resource embed's vault-relative `copyUrl` vs. a standard
+   * image's raw `url`). The app layer (`PageHost.tsx`) decides whether
+   * that string resolves to a local `VaultResource` (`downloadResource.ts`)
+   * or a genuinely external URL (`downloadRemoteImage.ts`) — this editor
+   * has no opinion on which, same boundary reasoning as every other prop
+   * in this group.
+   */
+  readonly onDownloadImage?: (url: string) => void;
+  /**
    * Resolves a clicked image's own path (a Resource embed's vault-relative
    * `copyUrl`, or — for a standard Markdown image — its raw `url`, see
    * `ImageWidget.ts`'s `OnImageClick` doc comment) into a local
@@ -198,6 +210,8 @@ export interface MarkdownEditorProps {
     resourceId: string,
     format: LocationPathFormat
   ) => void;
+  /** Same shape/reasoning as onRevealResourceInFinder above — see downloadResource.ts. */
+  readonly onDownloadResource?: (resourceId: string) => void;
   readonly resourceMoveDestinations?: FolderPickerItem[];
   readonly onMoveResource?: (
     resourceId: string,

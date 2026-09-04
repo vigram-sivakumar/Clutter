@@ -45,6 +45,8 @@ import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
+import { downloadResource } from '@shared/helpers/downloadResource';
+import { downloadRemoteImage } from '@shared/helpers/downloadRemoteImage';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import {
   getLocationPathRepresentations,
@@ -251,6 +253,31 @@ export function PageHost({ application }: PageHostProps) {
     if (value !== null) {
       void copyTextToClipboard(value);
     }
+  }
+  // Assets collection body's own Download dispatch — same read-only,
+  // straight-from-`vault` shape as revealResourceInFinder/copyResourcePath
+  // above (only ever called for an image resource; see
+  // AssetsCollectionBody's onDownloadResource doc comment).
+  function downloadResourceById(resourceId: string): void {
+    const resource = vault.getResource(resourceId);
+    if (resource) {
+      void downloadResource(resource.path, resource.name);
+    }
+  }
+  // MarkdownEditor's inline image options menu — Download, for both a
+  // local Resource embed/image (resolves via the same resolveImageResource
+  // boundary onImageClickRef already uses) and a genuinely external URL
+  // image (no local VaultResource at all): the former reuses
+  // downloadResourceById above, the latter falls back to a fetch-based
+  // save (downloadRemoteImage.ts) — this editor-facing handler is the one
+  // place that decision is made, never the editor itself.
+  function downloadImageFromEditor(url: string): void {
+    const resolved = resolveImageResource(url);
+    if (resolved) {
+      downloadResourceById(resolved.resourceId);
+      return;
+    }
+    void downloadRemoteImage(url);
   }
   // Same per-render, stateless-glue composition as resolveWikiLink above.
   const resolveTag = createTagResolver(application.navigation, vault);
@@ -603,6 +630,7 @@ export function PageHost({ application }: PageHostProps) {
               onArchiveResource={(id) =>
                 void application.resourceOperations.archiveResource(id)
               }
+              onDownloadResource={downloadResourceById}
               resourceMoveDestinations={buildResourceMoveDestinationItems(
                 application.membershipSelector,
                 application.query
@@ -622,6 +650,7 @@ export function PageHost({ application }: PageHostProps) {
           }
           onRevealResourceInFinder={revealResourceInFinder}
           onCopyResourcePath={copyResourcePath}
+          onDownloadResource={downloadResourceById}
           resourceMoveDestinations={buildResourceMoveDestinationItems(
             application.membershipSelector,
             application.query
@@ -838,12 +867,14 @@ export function PageHost({ application }: PageHostProps) {
               getTagSuggestions={getTagSuggestions}
               resolveDate={resolveDate}
               onSetCoverImage={onSetCoverImage}
+              onDownloadImage={downloadImageFromEditor}
               resolveImageResource={resolveImageResource}
               onArchiveResource={(id) =>
                 void application.resourceOperations.archiveResource(id)
               }
               onRevealResourceInFinder={revealResourceInFinder}
               onCopyResourcePath={copyResourcePath}
+              onDownloadResource={downloadResourceById}
               resourceMoveDestinations={buildResourceMoveDestinationItems(
                 application.membershipSelector,
                 application.query
@@ -960,12 +991,14 @@ export function PageHost({ application }: PageHostProps) {
             getTagSuggestions={getTagSuggestions}
             resolveDate={resolveDate}
             onSetCoverImage={onSetCoverImage}
+            onDownloadImage={downloadImageFromEditor}
             resolveImageResource={resolveImageResource}
             onArchiveResource={(id) =>
               void application.resourceOperations.archiveResource(id)
             }
             onRevealResourceInFinder={revealResourceInFinder}
             onCopyResourcePath={copyResourcePath}
+            onDownloadResource={downloadResourceById}
             resourceMoveDestinations={buildResourceMoveDestinationItems(
               application.membershipSelector,
               application.query

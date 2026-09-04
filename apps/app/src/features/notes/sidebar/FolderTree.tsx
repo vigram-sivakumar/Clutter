@@ -183,6 +183,16 @@ export interface SidebarRowActions {
   /** Copies one of the three location representations — see onRevealResourceInFinder above. */
   onCopyResourcePath(resourceId: string, format: LocationPathFormat): void;
   /**
+   * Exports a copy of an image resource's original file to a user-chosen
+   * destination via the native Save dialog (`downloadResource.ts`) — read-only
+   * from the Vault's perspective (reads the source file, never touches
+   * `VaultFileSystem` or creates a new `VaultResource`), so it carries the
+   * same no-Gate-involvement reasoning as onRevealResourceInFinder above.
+   * Image-only — buildResourceSidebarMenu only renders this item for
+   * `resource.kind === 'image'`, so a pdf row's menu never dispatches here.
+   */
+  onDownloadResource(resourceId: string): void;
+  /**
    * Location-actions pipeline, page-scoped (Note and Daily Note — both a
    * `Page`, see `getLocationPathRepresentations.ts`'s `LocationEntityKind`
    * doc comment). Same no-Gate-involvement reasoning as
@@ -235,10 +245,8 @@ interface FolderTreeProps {
    */
   onFolderClick(folder: Folder): void;
   /**
-   * Invoked when a resource entry is clicked. Resource itself only ever
-   * calls this for an image (a pdf row renders non-interactive) — see
-   * Resource.tsx's own doc comment for why the click gating lives there,
-   * not here.
+   * Invoked when a resource entry (image or pdf) is clicked — the caller
+   * (Sidebar.tsx) decides which overlay to open based on `resource.kind`.
    */
   onResourceClick?(resource: VaultResource): void;
   /**
@@ -409,7 +417,7 @@ function ResourceRow({
           : undefined
       }
       onTitleEditingEnd={rowActions ? () => rowActions.onRenameEnd() : undefined}
-      menuItems={rowActions ? buildResourceSidebarMenu() : undefined}
+      menuItems={rowActions ? buildResourceSidebarMenu(resource.kind) : undefined}
       menuOpen={rowActions?.openMenuId === resource.id}
       onMenuOpenChange={
         rowActions
@@ -425,6 +433,8 @@ function ResourceRow({
                 rowActions.onArchiveResource(resource.id);
               } else if (id === 'reveal-in-finder') {
                 rowActions.onRevealResourceInFinder(resource.id);
+              } else if (id === 'download') {
+                rowActions.onDownloadResource(resource.id);
               } else if (id === 'copy-path-at-vault') {
                 rowActions.onCopyResourcePath(resource.id, 'at-vault');
               } else if (id === 'copy-path-full-path') {

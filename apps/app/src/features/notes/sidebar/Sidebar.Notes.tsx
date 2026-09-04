@@ -36,6 +36,7 @@ import { Dialog } from '@components/dialog/Dialog';
 import { Confirmation } from '@components/confirmation/Confirmation';
 import { useConfirmationSurface } from '@components/confirmation/useConfirmationSurface';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
+import { downloadResource } from '@shared/helpers/downloadResource';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 import {
   getLocationPathRepresentations,
@@ -66,12 +67,12 @@ interface NotesProps {
    */
   onOpenDraft(pageId: string): void;
   /**
-   * Invoked when an image resource row is clicked — currently the only
-   * resource click behavior (a pdf row has none; see Resource.tsx). Absent
-   * in a caller that doesn't want the affordance, the same optionality
+   * Invoked when a resource row (image or pdf) is clicked — the caller
+   * decides which overlay to open based on `resource.kind`. Absent in a
+   * caller that doesn't want the affordance, the same optionality
    * FolderTree's own onResourceClick already has.
    */
-  onOpenResourceImage?(resource: VaultResource): void;
+  onOpenResource?(resource: VaultResource): void;
 }
 
 export function Notes({
@@ -87,7 +88,7 @@ export function Notes({
   onOpen,
   onOpenFolder,
   onOpenDraft,
-  onOpenResourceImage,
+  onOpenResource,
 }: NotesProps) {
   const [pendingNewFolder, setPendingNewFolder] =
     useState<PendingNewFolder | null>(null);
@@ -280,6 +281,15 @@ export function Notes({
       revealLocationInFinder(vault.getResource(resourceId)?.path),
     onCopyResourcePath: (resourceId, format) =>
       copyLocationPath(vault.getResource(resourceId), 'resource', format),
+    // Read-only export, same reasoning as onRevealResourceInFinder above —
+    // reads straight from `vault` rather than going through
+    // ResourceOperations/the Gate, which own writes, not this.
+    onDownloadResource: (resourceId) => {
+      const resource = vault.getResource(resourceId);
+      if (resource) {
+        void downloadResource(resource.path, resource.name);
+      }
+    },
   };
   // Everything but "which row's menu is open" is still the shared
   // rowActions object above — archive/delete/duplicate/move/toggle-favorite
@@ -409,7 +419,7 @@ export function Notes({
           onFolderClick={(folder) => {
             onOpenFolder(folder.id);
           }}
-          onResourceClick={onOpenResourceImage}
+          onResourceClick={onOpenResource}
           onCreateNote={(folderId) => {
             // ADR-017: opens an unpersisted draft scoped to this folder —
             // openDraft() already opens the session/workspace itself, so

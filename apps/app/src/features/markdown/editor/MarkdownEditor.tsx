@@ -197,10 +197,12 @@ export const MarkdownEditor = forwardRef<
     getTagSuggestions,
     resolveDate,
     onSetCoverImage,
+    onDownloadImage,
     resolveImageResource,
     onArchiveResource,
     onRevealResourceInFinder,
     onCopyResourcePath,
+    onDownloadResource,
     resourceMoveDestinations,
     onMoveResource,
     onCreateFolder,
@@ -397,6 +399,17 @@ export const MarkdownEditor = forwardRef<
       return;
     }
     onSetCoverImage?.(imageOverlay.copyUrl ?? imageOverlay.url);
+  };
+
+  // Same copyUrl-vs-url rule as handleSetCoverImage above — reads
+  // imageMenu's state (the inline size/options menu), not imageOverlay's
+  // (ImageOverlay's own Download is a separate, resourceId-based prop —
+  // see ImageOverlay.tsx's onDownloadResource).
+  const handleDownloadImage = () => {
+    if (!imageMenu) {
+      return;
+    }
+    onDownloadImage?.(imageMenu.copyUrl ?? imageMenu.url);
   };
 
   const handleDeleteImage = () => {
@@ -803,6 +816,7 @@ export const MarkdownEditor = forwardRef<
         onArchiveResource={onArchiveResource}
         onRevealResourceInFinder={onRevealResourceInFinder}
         onCopyResourcePath={onCopyResourcePath}
+        onDownloadResource={onDownloadResource}
         resourceMoveDestinations={resourceMoveDestinations}
         onMoveResource={onMoveResource}
         onCreateFolder={onCreateFolder}
@@ -815,6 +829,7 @@ export const MarkdownEditor = forwardRef<
         onSelectMode={handleSelectImageDisplayMode}
         onCopyLink={handleCopyImageLink}
         onSetCoverImage={onSetCoverImage ? handleSetCoverImage : undefined}
+        onDownload={handleDownloadImage}
         onDelete={handleDeleteImage}
       />
     </>

@@ -22,6 +22,15 @@ export interface AssetsCollectionBodyProps {
   /** ResourceOperations.archiveResource(resourceId) — same reasoning. */
   readonly onArchiveResource: (resourceId: string) => void;
   /**
+   * Exports a copy of an image resource's original file via the native Save
+   * dialog (`downloadResource.ts`) — same read-only-from-the-Vault's-
+   * perspective reasoning as the sidebar's own SidebarRowActions.
+   * onDownloadResource (FolderTree.tsx). Only ever dispatched for an image
+   * resource — buildResourceSidebarMenu only renders the item for
+   * `resource.kind === 'image'`.
+   */
+  readonly onDownloadResource: (resourceId: string) => void;
+  /**
    * The same shared destination list the sidebar's own resource row uses
    * (buildResourceMoveDestinationItems), computed by the caller — this
    * component never builds its own list, same reasoning onRenameResource/
@@ -67,6 +76,7 @@ export function AssetsCollectionBody({
   onOpenImage,
   onRenameResource,
   onArchiveResource,
+  onDownloadResource,
   resourceMoveDestinations,
   onMoveResource,
   onCreateFolder,
@@ -87,7 +97,7 @@ export function AssetsCollectionBody({
             isEditing={isEditing}
             onTitleCommit={(value) => onRenameResource(resource.id, value)}
             onTitleEditingEnd={() => setEditingId(null)}
-            menuItems={buildResourceSidebarMenu()}
+            menuItems={buildResourceSidebarMenu(resource.kind)}
             menuOpen={openMenuId === resource.id}
             onMenuOpenChange={(open) => setOpenMenuId(open ? resource.id : null)}
             onMenuSelect={(id) => {
@@ -96,6 +106,8 @@ export function AssetsCollectionBody({
                 setEditingId(resource.id);
               } else if (id === 'archive') {
                 onArchiveResource(resource.id);
+              } else if (id === 'download') {
+                onDownloadResource(resource.id);
               }
             }}
             moveDestinations={resourceMoveDestinations}

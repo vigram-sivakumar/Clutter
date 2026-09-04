@@ -46,6 +46,7 @@ function renderAssets(
     <AssetsCollectionBody
       onRenameResource={vi.fn()}
       onArchiveResource={vi.fn()}
+      onDownloadResource={vi.fn()}
       resourceMoveDestinations={[]}
       onMoveResource={vi.fn()}
       onCreateFolder={vi.fn(async () => 'created-folder')}
@@ -178,7 +179,7 @@ describe('AssetsCollectionBody: actions menu', () => {
     expect(screen.queryByText('Delete permanently')).toBeNull();
   });
 
-  it('a pdf resource shows the same menu as an image resource', () => {
+  it('a pdf resource shows the same base menu as an image resource, minus Download', () => {
     const resource = makeResource({ kind: 'pdf', name: 'manual.pdf' });
 
     renderAssets({ resources: [resource] });
@@ -188,6 +189,29 @@ describe('AssetsCollectionBody: actions menu', () => {
     expect(screen.getByText('Rename')).toBeInTheDocument();
     expect(screen.getByText('Move to…')).toBeInTheDocument();
     expect(screen.getByText('Archive')).toBeInTheDocument();
+    expect(screen.queryByText('Download')).not.toBeInTheDocument();
+  });
+
+  it('an image resource additionally shows Download', () => {
+    const resource = makeResource({ kind: 'image', name: 'house.png' });
+
+    renderAssets({ resources: [resource] });
+
+    openMenuFor('house');
+
+    expect(screen.getByText('Download')).toBeInTheDocument();
+  });
+
+  it('selecting Download calls onDownloadResource with the resource id', () => {
+    const onDownloadResource = vi.fn();
+    const resource = makeResource({ kind: 'image', name: 'house.png' });
+
+    renderAssets({ resources: [resource], onDownloadResource });
+
+    openMenuFor('house');
+    fireEvent.click(screen.getByText('Download'));
+
+    expect(onDownloadResource).toHaveBeenCalledWith('resource-1');
   });
 });
 
@@ -334,6 +358,7 @@ describe('AssetsCollectionBody: archive', () => {
           resources={resources}
           onRenameResource={vi.fn()}
           onArchiveResource={() => setResources([])}
+          onDownloadResource={vi.fn()}
           resourceMoveDestinations={[]}
           onMoveResource={vi.fn()}
           onCreateFolder={vi.fn(async () => 'created-folder')}

@@ -36,6 +36,7 @@ import Copy from './svg/copy.svg?react';
 import CircleDashed from './svg/circle-dashed.svg?react';
 import Clock from './svg/clock.svg?react';
 import Dismiss from './svg/dismiss.svg?react';
+import Download from './svg/download.svg?react';
 import Edit from './svg/edit.svg?react';
 import Exclamation from './svg/exclamation.svg?react';
 import Description from './svg/description.svg?react';
@@ -128,6 +129,7 @@ export const iconRegistry = {
   circleDashed: CircleDashed,
   clock: Clock,
   dismiss: Dismiss,
+  download: Download,
   edit: Edit,
   description: Description,
   favouriteFilled: FavouriteFilled,
