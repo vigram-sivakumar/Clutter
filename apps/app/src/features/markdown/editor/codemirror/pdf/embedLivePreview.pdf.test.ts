@@ -323,8 +323,8 @@ describe('embedLivePreview — PDF embeds, edit-source reveal/hide lifecycle', (
   });
 });
 
-describe('embedLivePreview — PDF embeds, Open control', () => {
-  it('clicking Open invokes the injected callback with the embed’s own vault-relative path', () => {
+describe('embedLivePreview — PDF embeds, Expand control', () => {
+  it('clicking Expand invokes the injected callback with the embed’s own vault-relative path', () => {
     const onPdfEmbedClick = vi.fn();
     const view = mountView(
       `x ${PDF}`,
@@ -334,11 +334,27 @@ describe('embedLivePreview — PDF embeds, Open control', () => {
       onPdfEmbedClick
     );
 
-    const openButton = view.dom.querySelector<HTMLButtonElement>('.cm-pdf-embed button[aria-label="Open in PDF viewer"]');
-    expect(openButton).not.toBeNull();
-    openButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const expandButton = view.dom.querySelector<HTMLButtonElement>('.cm-pdf-embed button[aria-label="Expand"]');
+    expect(expandButton).not.toBeNull();
+    expandButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
     expect(onPdfEmbedClick).toHaveBeenCalledWith('document.pdf');
+  });
+
+  it('Expand appears before Edit source in the toolbar', () => {
+    const view = mountView(
+      `x ${PDF}`,
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+
+    const group = view.dom.querySelector('.cm-pdf-embed .pdf-viewer__toolbar-controls')!;
+    const labels = Array.from(group.querySelectorAll<HTMLButtonElement>('button')).map((button) =>
+      button.getAttribute('aria-label')
+    );
+
+    expect(labels.indexOf('Expand')).toBeGreaterThanOrEqual(0);
+    expect(labels.indexOf('Edit source')).toBeGreaterThan(labels.indexOf('Expand'));
   });
 });
 
@@ -487,7 +503,7 @@ describe('embedLivePreview — PDF embeds, PdfOverlay presentation parity', () =
     }
   });
 
-  it('Edit Markdown (Edit source) and Open sit in the toolbar as PdfViewer-styled buttons, not the broken-card control', () => {
+  it('Edit Markdown (Edit source) and Expand sit in the toolbar as PdfViewer-styled buttons, not the broken-card control', () => {
     const view = mountView(
       `x ${PDF}`,
       imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
@@ -495,11 +511,11 @@ describe('embedLivePreview — PDF embeds, PdfOverlay presentation parity', () =
     );
 
     const editButton = getEditButton(view);
-    const openButton = view.dom.querySelector<HTMLButtonElement>(
-      '.cm-pdf-embed button[aria-label="Open in PDF viewer"]'
+    const expandButton = view.dom.querySelector<HTMLButtonElement>(
+      '.cm-pdf-embed button[aria-label="Expand"]'
     )!;
 
-    for (const button of [editButton, openButton]) {
+    for (const button of [editButton, expandButton]) {
       expect(button.closest('.pdf-viewer__toolbar')).not.toBeNull();
       expect(button.classList.contains('button')).toBe(true);
       expect(button.classList.contains('button--ghost')).toBe(true);

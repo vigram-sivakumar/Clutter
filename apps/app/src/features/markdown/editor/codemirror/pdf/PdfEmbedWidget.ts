@@ -20,7 +20,7 @@ import '@features/pdf/PdfViewer.css';
 // `.button--icon`/`.button__content` and `.app-icon` are the exact classes
 // `Button`/`AppIcon` apply — reused verbatim (hand-built markup, since no
 // React tree is available inside a CM6 `WidgetType`) so the embed's zoom/
-// page/Edit/Open controls render as the same buttons `PdfViewer`'s toolbar
+// page/Edit/Expand controls render as the same buttons `PdfViewer`'s toolbar
 // uses, not a second icon-button design.
 import '@components/button/Button.css';
 import '@shared/icon/AppIcon.css';
@@ -38,9 +38,11 @@ import './PdfEmbedWidget.css';
 // so the app's real AppIcon component system can't mount here). EDIT_ICON/
 // TRASH_ICON are the exact same paths ImageWidget.ts already hand-copies
 // from shared/icon/svg/{pen... }/trash.svg; MINUS/PLUS/ARROW_LEFT/
-// ARROW_RIGHT/LINK/BROKEN_IMAGE are hand-copied from their own
-// shared/icon/svg sources. No header icon — `PdfViewer`'s own toolbar
-// (the design being matched here) shows only a title, never a PDF glyph.
+// ARROW_RIGHT/EXPAND/BROKEN_IMAGE are hand-copied from their own
+// shared/icon/svg sources (EXPAND_ICON from square-expand.svg, the same
+// glyph `iconRegistry.ts` registers as `squareExpand`). No header icon —
+// `PdfViewer`'s own toolbar (the design being matched here) shows only a
+// title, never a PDF glyph.
 
 const EDIT_ICON =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.625 4L3.64738 9.30947C3.22603 9.7589 2.95326 10.3272 2.86614 10.937L2.64142 12.5101C2.57071 13.005 2.99497 13.4293 3.48995 13.3586L4.95655 13.1491C5.63195 13.0526 6.25428 12.7288 6.7209 12.231L11.625 7M8.625 4L9.79364 2.75345C10.18 2.34132 10.831 2.33098 11.2304 2.73044C11.7865 3.28654 12.2541 3.75413 12.8152 4.31518C13.1968 4.69683 13.2069 5.31263 12.8378 5.70638L11.625 7M8.625 4L11.625 7" stroke="currentColor" stroke-linecap="round"/><path d="M8 13.5H13.5" stroke="currentColor" stroke-linecap="round"/></svg>';
@@ -60,8 +62,12 @@ const ARROW_LEFT_ICON =
 const ARROW_RIGHT_ICON =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 4C9 4 12 6.94592 12 8M12 8C12 9.05408 9 12 9 12M12 8H4" stroke="currentColor" stroke-linecap="round"/></svg>';
 
-const LINK_ICON =
-  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.66666 8.81942C6.76106 8.97402 6.87313 9.12035 7.0028 9.25528C7.8078 10.0931 9.0348 10.2241 9.97173 9.64822C10.1453 9.54148 10.3089 9.41055 10.4581 9.25528L12.6177 7.00768C13.5719 6.01464 13.5719 4.40459 12.6177 3.41154C11.6635 2.41848 10.1165 2.41849 9.16233 3.41154L8.68666 3.9066" stroke="currentColor" stroke-linecap="round"/><path d="M7.31353 12.0933L6.83767 12.5885C5.88351 13.5816 4.33647 13.5816 3.3823 12.5885C2.42812 11.5955 2.42812 9.98546 3.3823 8.9924L5.54191 6.7448C6.49609 5.75174 8.04313 5.75173 8.99727 6.7448C9.12693 6.87966 9.23893 7.026 9.33333 7.18053" stroke="currentColor" stroke-linecap="round"/></svg>';
+// Same glyph `iconRegistry.ts` registers as `squareExpand` — hand-copied
+// verbatim (no React tree available here, so `AppIcon icon="squareExpand"`
+// itself can't mount) so the Expand control's icon matches the app's own
+// "open in a bigger surface" affordance rather than a generic link glyph.
+const EXPAND_ICON =
+  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 2H11C12.6569 2 14 3.34315 14 5V11C14 12.6569 12.6569 14 11 14H5C3.34315 14 2 12.6569 2 11V5C2 3.34315 3.34315 2 5 2Z" stroke="currentColor" stroke-linecap="round"/><path d="M5.17161 10.9498C4.71109 10.4893 4.78769 8.53282 4.78769 8.53282M5.17161 10.9498C5.63213 11.4103 7.58854 11.3337 7.58854 11.3337M5.17161 10.9498L7.29294 8.82847" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.8284 5.29292C10.3679 4.8324 8.41151 4.90899 8.41151 4.90899M10.8284 5.29292C11.289 5.75344 11.2123 7.70985 11.2123 7.70985M10.8284 5.29292L8.70712 7.41423" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 const BROKEN_ICON =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 2L14 14" stroke="currentColor" stroke-linecap="round"/><path d="M5 2H11C12.6569 2 14 3.34315 14 5V9.5V11M5 14H11C11.8284 14 12.5783 13.6643 13.1212 13.1215L9.03648 9.05728M5 14L7.2265 10.6603C7.69922 9.95118 8.32842 9.41242 9.03648 9.05728M5 14C3.34315 14 2 12.6569 2 11V5C2 4.18477 2.32517 3.44549 2.8529 2.90478L9.03648 9.05728" stroke="currentColor" stroke-linecap="round"/><path d="M5 7C5.55228 7 6 6.55228 6 6C6 5.44772 5.55228 5 5 5C4.44772 5 4 5.44772 4 6C4 6.55228 4.44772 7 5 7Z" stroke="currentColor" stroke-linecap="round"/></svg>';
@@ -69,7 +75,7 @@ const BROKEN_ICON =
 /**
  * Invoked with the embed's own vault-relative target path (never a
  * `VaultResource` — see `embedPdfResolution.ts`'s own doc comment on why
- * this widget only ever deals in plain strings) when the "Open" control is
+ * this widget only ever deals in plain strings) when the "Expand" control is
  * activated. The app layer (`PageHost.tsx`) re-resolves that path into the
  * real `VaultResource` and opens the existing `PdfOverlay` — this widget
  * never opens an overlay itself and never touches `Vault`.
@@ -111,11 +117,11 @@ export type OnPdfEmbedClick = (path: string) => void;
  * classes for every button — so the inline embed is the same PDF viewer
  * presentation as `PdfOverlay`, not a second, simplified visual language.
  * Only two things are genuinely embed-specific, both additive: the Edit
- * source and Open controls (`makeEditToolbarButton`/the Open button below),
+ * source and Expand controls (`makeEditToolbarButton`/the Expand button below),
  * which sit in their own trailing `.pdf-viewer__control-group` using that
  * same button styling. Richer resource actions (Move/Archive/Reveal/Copy
  * path) still stay exclusively in the full `PdfOverlay`, reached via the
- * "Open" control (`getOnPdfEmbedClick`), never duplicated here.
+ * "Expand" control (`getOnPdfEmbedClick`), never duplicated here.
  */
 export class PdfEmbedWidget extends WidgetType {
   constructor(
@@ -237,12 +243,15 @@ export class PdfEmbedWidget extends WidgetType {
     // The two embed-specific controls (section 3 of the design brief) —
     // additive to `PdfViewer`'s own toolbar, using the exact same button
     // styling as the zoom/page controls above, never a distinct look.
+    // Expand comes first (leftmost of the pair) — the more common action
+    // (jump to the full viewer) sits ahead of the less common one (peek at
+    // the raw Markdown).
     const inlineGroup = document.createElement('div');
     inlineGroup.classList.add('pdf-viewer__control-group');
-    const openButton = this.makeToolbarButton(LINK_ICON, 'Open in PDF viewer', () => {
+    const expandButton = this.makeToolbarButton(EXPAND_ICON, 'Expand', () => {
       this.getOnPdfEmbedClick()?.(this.path);
     });
-    inlineGroup.append(this.makeEditToolbarButton(view), openButton);
+    inlineGroup.append(expandButton, this.makeEditToolbarButton(view));
 
     toolbarControls.append(zoomGroup, pageGroup, inlineGroup);
     toolbar.append(title, toolbarControls);
@@ -397,7 +406,7 @@ export class PdfEmbedWidget extends WidgetType {
    * available inside a CM6 `WidgetType`, but pixel-identical to every zoom/
    * page-nav button `PdfViewer`'s own toolbar renders via those two
    * components. Used for every working-state toolbar control (zoom, page
-   * nav, Edit source, Open).
+   * nav, Edit source, Expand).
    */
   private makeToolbarButton(iconHtml: string, label: string, onActivate: () => void): HTMLButtonElement {
     const button = document.createElement('button');
