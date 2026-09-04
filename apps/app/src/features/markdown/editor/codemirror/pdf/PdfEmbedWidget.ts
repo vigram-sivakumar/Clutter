@@ -1,6 +1,6 @@
 import { EditorSelection } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
-import { getDocument, type PDFDocumentProxy } from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import '@features/pdf/pdfWorker';
 // `.pdf-viewer__page`/`.pdf-viewer__page-canvas`/`.textLayer` are flat,
@@ -17,6 +17,7 @@ import { DEFAULT_ZOOM_INDEX, ZOOM_LEVELS_PERCENT, stepZoomIndex, zoomPercentAt }
 
 import { computeImageDeletionRange } from '../image/imageDeletion';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
+import type { PdfDocumentCache } from './pdfDocumentCache';
 
 import './PdfEmbedWidget.css';
 
@@ -107,7 +108,9 @@ export class PdfEmbedWidget extends WidgetType {
     readonly ui: ImageUiState,
     readonly pos: number,
     readonly to: number,
-    readonly getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined
+    readonly getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined,
+    /** Shared across every `PdfEmbedWidget` reconstruction for this editor — see `pdfDocumentCache.ts`'s own doc comment for why this exists (the reveal-toggle flicker fix) and why individual widgets never destroy the document themselves. */
+    readonly docCache: PdfDocumentCache
   ) {
     super();
   }
@@ -294,7 +297,7 @@ export class PdfEmbedWidget extends WidgetType {
 
     updateChrome();
 
-    getDocument(this.url).promise.then(
+    this.docCache.get(this.url).then(
       (loadedDoc) => {
         if (destroyed) {
           return;
@@ -321,7 +324,9 @@ export class PdfEmbedWidget extends WidgetType {
     (container as HTMLElement & { [PDF_EMBED_DESTROY]?: () => void })[PDF_EMBED_DESTROY] = () => {
       destroyed = true;
       renderHandle?.cancel();
-      void doc?.destroy();
+      // Deliberately does NOT destroy `doc` — it's owned by `docCache`,
+      // shared across every reconstruction of this same URL for this
+      // editor's lifetime. See pdfDocumentCache.ts's own doc comment.
     };
 
     return container;

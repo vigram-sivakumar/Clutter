@@ -22,6 +22,7 @@ import { findEmbedAt, isEngaged } from './embedEngagement';
 import type { ResolveEmbedImage } from './embedImageResolution';
 import { PdfEmbedWidget, type OnPdfEmbedClick } from '../pdf/PdfEmbedWidget';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
+import { createPdfDocumentCache, type PdfDocumentCache } from '../pdf/pdfDocumentCache';
 
 /**
  * Resource embeds' own `GetCurrentImageSource` — the Embed-scoped
@@ -151,7 +152,8 @@ function buildDecorations(
   getOnImageClick: () => OnImageClick | undefined,
   getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
   getResolveEmbedPdf: () => ResolveEmbedPdf | undefined,
-  getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined
+  getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined,
+  pdfDocumentCache: PdfDocumentCache
 ): { decorations: DecorationSet; atomic: DecorationSet } {
   const ranges: Range<Decoration>[] = [];
   const atomicRanges: Range<Decoration>[] = [];
@@ -226,7 +228,8 @@ function buildDecorations(
             baseUi,
             node.from,
             node.to,
-            getOnPdfEmbedClick
+            getOnPdfEmbedClick,
+            pdfDocumentCache
           );
 
           if (baseUi.revealed) {
@@ -305,6 +308,12 @@ export function embedLivePreview(
     class implements EmbedLivePreviewPlugin {
       decorations: DecorationSet;
       atomic: DecorationSet;
+      // One cache per EditorView instance (this ViewPlugin's own lifetime),
+      // shared by every PdfEmbedWidget reconstruction in this document —
+      // see pdfDocumentCache.ts's own doc comment for why this exists (the
+      // reveal-toggle flicker fix) and destroyAll()'s call site below for
+      // its teardown.
+      pdfDocumentCache: PdfDocumentCache = createPdfDocumentCache();
 
       constructor(view: EditorView) {
         ({ decorations: this.decorations, atomic: this.atomic } = buildDecorations(
@@ -313,7 +322,8 @@ export function embedLivePreview(
           getOnImageClick,
           getOnOpenImageMenu,
           getResolveEmbedPdf,
-          getOnPdfEmbedClick
+          getOnPdfEmbedClick,
+          this.pdfDocumentCache
         ));
       }
 
@@ -326,9 +336,14 @@ export function embedLivePreview(
             getOnImageClick,
             getOnOpenImageMenu,
             getResolveEmbedPdf,
-            getOnPdfEmbedClick
+            getOnPdfEmbedClick,
+            this.pdfDocumentCache
           ));
         }
+      }
+
+      destroy() {
+        this.pdfDocumentCache.destroyAll();
       }
     },
     { decorations: (p) => p.decorations }

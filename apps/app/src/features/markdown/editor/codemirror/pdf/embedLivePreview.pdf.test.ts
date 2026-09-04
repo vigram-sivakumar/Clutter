@@ -294,6 +294,32 @@ describe('embedLivePreview — PDF embeds, edit-source reveal/hide lifecycle', (
     expect(view.dom.textContent).not.toContain(PDF);
     expect(getPdfEmbed(view)).not.toBeNull();
   });
+
+  it('regression (2026-09 edit-source flicker fix): reveal/hide toggles never re-fetch an already-loaded PDF document', async () => {
+    pdfjsMock.state.getDocumentUrls.length = 0;
+    const view = mountView(
+      `x ${PDF}`,
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+    await flush();
+    expect(pdfjsMock.state.getDocumentUrls).toEqual(['app://vault/document.pdf']);
+
+    // Reveal (destroys the replace-decoration widget, mounts a fresh
+    // widget-after one — an inherent, shared consequence of the
+    // Decoration.replace -> Decoration.widget type change, not a bug on
+    // its own) then hide again (destroys that widget, mounts a fresh
+    // replace-decoration one). Each reconstruction must reuse the cached
+    // document rather than issuing a second/third getDocument() call —
+    // that redundant network+parse round trip was the actual root cause
+    // of the visible flicker.
+    getEditButton(view).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flush();
+    getEditButton(view).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flush();
+
+    expect(pdfjsMock.state.getDocumentUrls).toEqual(['app://vault/document.pdf']);
+  });
 });
 
 describe('embedLivePreview — PDF embeds, Open control', () => {
