@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Application } from '@core/application/Application';
+import type { VaultResource } from '@core/vault/models/VaultResource';
 
 import { useActivePage } from '@app/hooks/useActivePage';
 import { useDocumentSession } from '@app/hooks/useDocumentSession';
@@ -38,6 +39,9 @@ import { createWikiLinkResolver } from '@app/layouts/page/resolveWikiLink';
 import { createWikiLinkSuggester } from '@app/layouts/page/wikiLinkSuggestions';
 import { createEmbedSuggester } from '@app/layouts/page/embedSuggestions';
 import { createEmbedImageResolver } from '@app/layouts/page/resolveEmbedImage';
+import { createEmbedPdfResolver } from '@app/layouts/page/resolveEmbedPdf';
+import { resolveResourceEmbed } from '@app/layouts/page/resolveResourceEmbed';
+import { createImageSrcResolver } from '@app/layouts/page/resolveImageSrc';
 import { createImageResourceResolver } from '@app/layouts/page/resolveImageResource';
 import { createTagSuggester } from '@app/layouts/page/tagSuggestions';
 import { revealInFinder } from '@shared/helpers/revealInFinder';
@@ -59,7 +63,9 @@ import {
   TasksCollectionBody,
   type TasksCollectionView,
 } from '@features/tasks/page/TasksCollectionBody';
-import { ImageOverlay, type ImageOverlayImage } from '@features/markdown/editor/codemirror/image/ImageOverlay';
+import { ImageOverlay } from '@features/markdown/editor/codemirror/image/ImageOverlay';
+import { PdfOverlay } from '@features/pdf/PdfOverlay';
+import type { ResourceOverlayState } from '@app/layouts/resourceOverlay';
 import {
   MarkdownEditor,
   type MarkdownEditorHandle,
@@ -110,13 +116,56 @@ export function PageHost({ application }: PageHostProps) {
   const workspace = useWorkspace(application.workspace);
   const vault = application.vault;
 
-  // The Assets collection's own instance of the same lightbox a clicked
-  // Markdown image opens (MarkdownEditor.tsx's own imageOverlay state, and
-  // Sidebar.tsx's identical sidebar-scoped instance) — ImageOverlay is a
-  // plain, stateless component parameterized only by { url, alt }, so a
-  // third mount site is reuse, not a second implementation.
-  const [assetsImageOverlay, setAssetsImageOverlay] =
-    useState<ImageOverlayImage | null>(null);
+  // The Assets/Archive collections' own instance of the same lightbox a
+  // clicked Markdown image opens (MarkdownEditor.tsx's own imageOverlay
+  // state, and Sidebar.tsx's identical sidebar-scoped instance) —
+  // ImageOverlay is a plain, stateless component parameterized only by
+  // { url, alt }, so a third mount site is reuse, not a second
+  // implementation. Shared across the Archive and Assets branches below
+  // (only one of which ever renders per return), same as before.
+  //
+  // One discriminated ResourceOverlayState (image | pdf | null), same
+  // reasoning as Sidebar.tsx's identical replacement of its own two
+  // independent useStates — see that file's doc comment.
+  const [resourceOverlay, setResourceOverlay] = useState<ResourceOverlayState>(
+    null
+  );
+  // Assets: includes resourceId, exactly as before — this is what gates
+  // ImageOverlay's own More Actions control on.
+  function openResourceOverlay(resource: VaultResource): void {
+    if (resource.kind === 'image') {
+      setResourceOverlay({
+        kind: 'image',
+        image: {
+          url: application.resolveResourceImageUrl(resource.path),
+          alt: getResourceDisplayName(resource),
+          resourceId: resource.id,
+        },
+      });
+    } else {
+      setResourceOverlay({ kind: 'pdf', resource });
+    }
+  }
+  // Archive: deliberately omits resourceId for an image, unchanged from
+  // before — an archived image's ImageOverlay never showed More Actions
+  // (Archive/Move-to/Set-as-cover don't apply to an already-archived
+  // resource; Restore/Delete already live on the row's own hover actions
+  // instead), and this preserves that exactly. PdfOverlay has no More
+  // Actions control at all in Stage 1, so the pdf branch is identical to
+  // openResourceOverlay above.
+  function openArchivedResourceOverlay(resource: VaultResource): void {
+    if (resource.kind === 'image') {
+      setResourceOverlay({
+        kind: 'image',
+        image: {
+          url: application.resolveResourceImageUrl(resource.path),
+          alt: getResourceDisplayName(resource),
+        },
+      });
+    } else {
+      setResourceOverlay({ kind: 'pdf', resource });
+    }
+  }
 
   // One handle, reused across the draft/note/daily-note branches below —
   // only one of them ever renders per render, and each gets a fresh
@@ -146,6 +195,31 @@ export function PageHost({ application }: PageHostProps) {
   // Same per-render, stateless-glue composition as resolveWikiLink above —
   // this milestone's rendering counterpart to getEmbedSuggestions.
   const resolveEmbedImage = createEmbedImageResolver(vault, (path) =>
+    application.resolveResourceImageUrl(path)
+  );
+  // Same per-render, stateless-glue composition as resolveEmbedImage above —
+  // the PDF-embed counterpart (Stage 2). embedLivePreview.ts only ever
+  // consults this after resolveEmbedImage says a target is a real
+  // VaultResource that isn't an image.
+  const resolveEmbedPdf = createEmbedPdfResolver(vault, (path) =>
+    application.resolveResourceImageUrl(path)
+  );
+  // The inline PDF embed's "Open" control (PdfEmbedWidget.ts) — re-resolves
+  // the embed's own vault-relative path through the exact same
+  // resolveResourceEmbed() lookup every other embed composer here already
+  // uses, then reuses openResourceOverlay's own existing 'pdf' branch
+  // (below) rather than a second PdfOverlay-opening implementation.
+  const onPdfEmbedClick = (path: string): void => {
+    const resource = resolveResourceEmbed(vault, path);
+    if (resource) {
+      openResourceOverlay(resource);
+    }
+  };
+  // Same per-render, stateless-glue composition as resolveEmbedImage above —
+  // the standard-Markdown-image counterpart: `![alt](Assets/image.jpg)`'s
+  // own local-path resolution, sharing the exact same resolveResourceEmbed()
+  // lookup, never a second one.
+  const resolveImageSrc = createImageSrcResolver(vault, (path) =>
     application.resolveResourceImageUrl(path)
   );
   // Same per-render, stateless-glue composition as resolveWikiLink above —
@@ -455,12 +529,7 @@ export function PageHost({ application }: PageHostProps) {
                 folders={model.folders}
                 notes={model.notes}
                 resources={application.membershipSelector.getArchivedResources()}
-                onOpenImage={(resource) =>
-                  setAssetsImageOverlay({
-                    url: application.resolveResourceImageUrl(resource.path),
-                    alt: getResourceDisplayName(resource),
-                  })
-                }
+                onOpenResource={openArchivedResourceOverlay}
                 onRestoreResource={(id) =>
                   void application.resourceOperations.restoreResource(id)
                 }
@@ -485,10 +554,17 @@ export function PageHost({ application }: PageHostProps) {
           }
         />
         {isArchiveView && (
-          <ImageOverlay
-            image={assetsImageOverlay}
-            onClose={() => setAssetsImageOverlay(null)}
-          />
+          <>
+            <ImageOverlay
+              image={resourceOverlay?.kind === 'image' ? resourceOverlay.image : null}
+              onClose={() => setResourceOverlay(null)}
+            />
+            <PdfOverlay
+              resource={resourceOverlay?.kind === 'pdf' ? resourceOverlay.resource : null}
+              onClose={() => setResourceOverlay(null)}
+              resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
+            />
+          </>
         )}
       </>
     );
@@ -520,12 +596,7 @@ export function PageHost({ application }: PageHostProps) {
           body={
             <AssetsCollectionBody
               resources={resources}
-              onOpenImage={(resource) =>
-                setAssetsImageOverlay({
-                  url: application.resolveResourceImageUrl(resource.path),
-                  alt: getResourceDisplayName(resource),
-                })
-              }
+              onOpenResource={openResourceOverlay}
               onRenameResource={(id, name) =>
                 void application.resourceOperations.renameResource(id, name)
               }
@@ -544,8 +615,39 @@ export function PageHost({ application }: PageHostProps) {
           }
         />
         <ImageOverlay
-          image={assetsImageOverlay}
-          onClose={() => setAssetsImageOverlay(null)}
+          image={resourceOverlay?.kind === 'image' ? resourceOverlay.image : null}
+          onClose={() => setResourceOverlay(null)}
+          onArchiveResource={(id) =>
+            void application.resourceOperations.archiveResource(id)
+          }
+          onRevealResourceInFinder={revealResourceInFinder}
+          onCopyResourcePath={copyResourcePath}
+          resourceMoveDestinations={buildResourceMoveDestinationItems(
+            application.membershipSelector,
+            application.query
+          )}
+          onMoveResource={(id, destinationFolderId) =>
+            void application.resourceOperations.moveResource(id, destinationFolderId)
+          }
+          onCreateFolder={(name) => application.folderOperations.create(name, null)}
+        />
+        <PdfOverlay
+          resource={resourceOverlay?.kind === 'pdf' ? resourceOverlay.resource : null}
+          onClose={() => setResourceOverlay(null)}
+          resolveResourceUrl={(path) => application.resolveResourceImageUrl(path)}
+          onArchiveResource={(id) =>
+            void application.resourceOperations.archiveResource(id)
+          }
+          onRevealResourceInFinder={revealResourceInFinder}
+          onCopyResourcePath={copyResourcePath}
+          resourceMoveDestinations={buildResourceMoveDestinationItems(
+            application.membershipSelector,
+            application.query
+          )}
+          onMoveResource={(id, destinationFolderId) =>
+            void application.resourceOperations.moveResource(id, destinationFolderId)
+          }
+          onCreateFolder={(name) => application.folderOperations.create(name, null)}
         />
       </>
     );
@@ -729,6 +831,9 @@ export function PageHost({ application }: PageHostProps) {
               getWikiLinkSuggestions={getWikiLinkSuggestions}
               getEmbedSuggestions={getEmbedSuggestions}
               resolveEmbedImage={resolveEmbedImage}
+              resolveEmbedPdf={resolveEmbedPdf}
+              onPdfEmbedClick={onPdfEmbedClick}
+              resolveImageSrc={resolveImageSrc}
               resolveTag={resolveTag}
               getTagSuggestions={getTagSuggestions}
               resolveDate={resolveDate}
@@ -848,6 +953,9 @@ export function PageHost({ application }: PageHostProps) {
             getWikiLinkSuggestions={getWikiLinkSuggestions}
             getEmbedSuggestions={getEmbedSuggestions}
             resolveEmbedImage={resolveEmbedImage}
+            resolveEmbedPdf={resolveEmbedPdf}
+            onPdfEmbedClick={onPdfEmbedClick}
+            resolveImageSrc={resolveImageSrc}
             resolveTag={resolveTag}
             getTagSuggestions={getTagSuggestions}
             resolveDate={resolveDate}

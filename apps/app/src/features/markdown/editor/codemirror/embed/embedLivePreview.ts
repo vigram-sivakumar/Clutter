@@ -20,6 +20,8 @@ import { getImageUiState, imageUiStateField } from '../image/imageUiState';
 import { scanEmbed } from './embedScanner';
 import { findEmbedAt, isEngaged } from './embedEngagement';
 import type { ResolveEmbedImage } from './embedImageResolution';
+import { PdfEmbedWidget, type OnPdfEmbedClick } from '../pdf/PdfEmbedWidget';
+import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 
 /**
  * Resource embeds' own `GetCurrentImageSource` — the Embed-scoped
@@ -147,7 +149,9 @@ function buildDecorations(
   view: EditorView,
   getResolveEmbedImage: () => ResolveEmbedImage | undefined,
   getOnImageClick: () => OnImageClick | undefined,
-  getOnOpenImageMenu: () => OnOpenImageMenu | undefined
+  getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
+  getResolveEmbedPdf: () => ResolveEmbedPdf | undefined,
+  getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined
 ): { decorations: DecorationSet; atomic: DecorationSet } {
   const ranges: Range<Decoration>[] = [];
   const atomicRanges: Range<Decoration>[] = [];
@@ -203,6 +207,35 @@ function buildDecorations(
 
         const resolution = resolveEmbedImage(match.path, match.alias);
         if (resolution.status === 'non-image') {
+          // Not an image — resolveResourceEmbed() already found a real
+          // VaultResource here (an 'unresolved' target never reaches this
+          // branch, see the guard above), so the only other possibility
+          // given VaultResourceKind = 'pdf' | 'image' is a PDF. Consulted
+          // only here, never in place of the image resolution above — see
+          // embedPdfResolution.ts's own doc comment.
+          const resolveEmbedPdf = getResolveEmbedPdf();
+          const pdfResolution = resolveEmbedPdf?.(match.path, match.alias);
+          if (pdfResolution?.status !== 'pdf') {
+            return;
+          }
+
+          const pdfWidget = new PdfEmbedWidget(
+            pdfResolution.title,
+            pdfResolution.url,
+            pdfResolution.path,
+            baseUi,
+            node.from,
+            node.to,
+            getOnPdfEmbedClick
+          );
+
+          if (baseUi.revealed) {
+            ranges.push(Decoration.widget({ widget: pdfWidget, side: 1 }).range(node.to));
+          } else {
+            const range = Decoration.replace({ widget: pdfWidget }).range(node.from, node.to);
+            ranges.push(range);
+            atomicRanges.push(range);
+          }
           return;
         }
 
@@ -255,11 +288,18 @@ interface EmbedLivePreviewPlugin extends PluginValue {
  * getters `imageLivePreview()` uses — embeds share the image overlay and
  * options menu wholesale, per this milestone's own architectural
  * constraint (one `ImageWidget`, not a parallel one).
+ *
+ * `getResolveEmbedPdf`/`getOnPdfEmbedClick` are the PDF-embed counterparts
+ * (Stage 2) — consulted only when `getResolveEmbedImage`'s own resolution
+ * says `'non-image'` for a target, see `buildDecorations`'s own doc
+ * comment on that branch.
  */
 export function embedLivePreview(
   getResolveEmbedImage: () => ResolveEmbedImage | undefined,
   getOnImageClick: () => OnImageClick | undefined,
-  getOnOpenImageMenu: () => OnOpenImageMenu | undefined
+  getOnOpenImageMenu: () => OnOpenImageMenu | undefined,
+  getResolveEmbedPdf: () => ResolveEmbedPdf | undefined,
+  getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined
 ): Extension {
   const plugin = ViewPlugin.fromClass<EmbedLivePreviewPlugin>(
     class implements EmbedLivePreviewPlugin {
@@ -271,7 +311,9 @@ export function embedLivePreview(
           view,
           getResolveEmbedImage,
           getOnImageClick,
-          getOnOpenImageMenu
+          getOnOpenImageMenu,
+          getResolveEmbedPdf,
+          getOnPdfEmbedClick
         ));
       }
 
@@ -282,7 +324,9 @@ export function embedLivePreview(
             update.view,
             getResolveEmbedImage,
             getOnImageClick,
-            getOnOpenImageMenu
+            getOnOpenImageMenu,
+            getResolveEmbedPdf,
+            getOnPdfEmbedClick
           ));
         }
       }

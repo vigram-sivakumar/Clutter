@@ -4,7 +4,10 @@ import type { LocationPathFormat } from '@core/presentation/getLocationPathRepre
 import type { ResolveDate } from './codemirror/date/dateResolution';
 import type { GetEmbedSuggestions } from './codemirror/embed/embedSuggestion';
 import type { ResolveEmbedImage } from './codemirror/embed/embedImageResolution';
+import type { ResolveEmbedPdf } from './codemirror/pdf/embedPdfResolution';
+import type { OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
 import type { ResolveImageResource } from './codemirror/image/imageResourceResolution';
+import type { ResolveImageSrc } from './codemirror/image/imageSrcResolution';
 import type { ResolveTag } from './codemirror/tag/tagResolution';
 import type { GetTagSuggestions } from './codemirror/tag/tagSuggestion';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
@@ -88,6 +91,42 @@ export interface MarkdownEditorProps {
    * + `Application.resolveResourceImageUrl()` (see resolveEmbedImage.ts).
    */
   readonly resolveEmbedImage?: ResolveEmbedImage;
+  /**
+   * Resolves a completed `![[path]]` Embed's target into a PDF URL/title
+   * (or an unresolved/non-pdf outcome) for `embedLivePreview.ts` to
+   * render — the PDF-scoped counterpart to `resolveEmbedImage` above, same
+   * injected-boundary shape, supplied entirely by the feature/app layer.
+   * Consulted only when `resolveEmbedImage` says the target is a real
+   * `VaultResource` that isn't an image (see `embedPdfResolution.ts`'s own
+   * doc comment). Composed from the same `resolveResourceEmbed()` +
+   * a resolved file URL (see `resolveEmbedPdf.ts`) — never a second
+   * resource lookup.
+   */
+  readonly resolveEmbedPdf?: ResolveEmbedPdf;
+  /**
+   * Invoked with a rendered PDF embed's own vault-relative target path
+   * when its "Open" control is activated — supplied entirely by the
+   * feature/app layer, which re-resolves that path into the real
+   * `VaultResource` and opens the existing `PdfOverlay` (the same
+   * `ResourceOverlayState` mechanism `Sidebar.tsx`/`PageHost.tsx` already
+   * use for a sidebar-click PDF open). This editor never opens `PdfOverlay`
+   * itself and never imports `Vault`, per this file's own boundary.
+   */
+  readonly onPdfEmbedClick?: OnPdfEmbedClick;
+  /**
+   * Resolves a standard Markdown `![alt](url)` image's own destination
+   * into a loadable file URL when it happens to name a local Vault path —
+   * supplied entirely by the feature/app layer, same injected-boundary
+   * shape as `resolveEmbedImage` above, for `imageLivePreview.ts` to
+   * render. Composed from the *same* `resolveResourceEmbed()`
+   * `resolveEmbedImage` uses + `Application.resolveResourceImageUrl()`
+   * (see resolveImageSrc.ts) — never a second resolution mechanism.
+   * `undefined`/omitted, or a destination this resolver can't place in the
+   * Vault (an external URL, the overwhelmingly common case), both leave
+   * the destination exactly as-is — see `ImageSrcResolution`'s own doc
+   * comment.
+   */
+  readonly resolveImageSrc?: ResolveImageSrc;
   /**
    * Resolves a Tag's identifier into a status and activation behavior —
    * supplied entirely by the feature/app layer, same injected-boundary

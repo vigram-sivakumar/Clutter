@@ -70,6 +70,7 @@ import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidg
 import { ImageOverlay, type ImageOverlayImage } from './codemirror/image/ImageOverlay';
 import { imageLivePreview } from './codemirror/image/imageLivePreview';
 import { embedLivePreview } from './codemirror/embed/embedLivePreview';
+import type { OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
 import { getImageUiState, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
@@ -114,7 +115,13 @@ export type {
   ResolveEmbedImage,
   EmbedImageResolution,
 } from './codemirror/embed/embedImageResolution';
+export type {
+  ResolveEmbedPdf,
+  EmbedPdfResolution,
+} from './codemirror/pdf/embedPdfResolution';
+export type { OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
 export type { ResolveImageResource } from './codemirror/image/imageResourceResolution';
+export type { ResolveImageSrc, ImageSrcResolution } from './codemirror/image/imageSrcResolution';
 import './MarkdownEditor.css';
 // The inline image widget's own floating controls (ImageWidget.ts, raw CM6
 // DOM) style themselves via `.cm-image-controls`/`.cm-image-control` —
@@ -183,6 +190,9 @@ export const MarkdownEditor = forwardRef<
     getWikiLinkSuggestions,
     getEmbedSuggestions,
     resolveEmbedImage,
+    resolveEmbedPdf,
+    onPdfEmbedClick,
+    resolveImageSrc,
     resolveTag,
     getTagSuggestions,
     resolveDate,
@@ -252,6 +262,18 @@ export const MarkdownEditor = forwardRef<
   // Same freshness pattern, for Embed's live-preview rendering accessor below.
   const resolveEmbedImageRef = useRef(resolveEmbedImage);
   resolveEmbedImageRef.current = resolveEmbedImage;
+
+  // Same freshness pattern, for Embed's PDF-branch live-preview rendering
+  // accessor below (Stage 2 — see embedLivePreview.ts's own doc comment).
+  const resolveEmbedPdfRef = useRef(resolveEmbedPdf);
+  resolveEmbedPdfRef.current = resolveEmbedPdf;
+  const onPdfEmbedClickRef = useRef<OnPdfEmbedClick | undefined>(onPdfEmbedClick);
+  onPdfEmbedClickRef.current = onPdfEmbedClick;
+
+  // Same freshness pattern, for standard Image's own live-preview local-
+  // path resolution accessor below.
+  const resolveImageSrcRef = useRef(resolveImageSrc);
+  resolveImageSrcRef.current = resolveImageSrc;
 
   // Image's lightbox — local, presentational state (unlike
   // resolveWikiLink/resolveTag/resolveDate above, opening an overlay for
@@ -509,7 +531,11 @@ export const MarkdownEditor = forwardRef<
         // edit/source control does that, and even then the image stays
         // rendered alongside the now-editable source. See
         // image/imageLivePreview.ts's own doc comment.
-        imageLivePreview(() => onImageClickRef.current, () => onOpenImageMenuRef.current),
+        imageLivePreview(
+          () => onImageClickRef.current,
+          () => onOpenImageMenuRef.current,
+          () => resolveImageSrcRef.current
+        ),
         // Resource embed rendering — shares ImageWidget/the image overlay/
         // options menu wholesale with the standard-image extension above
         // (see embed/embedLivePreview.ts's own doc comment for why this is
@@ -518,7 +544,9 @@ export const MarkdownEditor = forwardRef<
         embedLivePreview(
           () => resolveEmbedImageRef.current,
           () => onImageClickRef.current,
-          () => onOpenImageMenuRef.current
+          () => onOpenImageMenuRef.current,
+          () => resolveEmbedPdfRef.current,
+          () => onPdfEmbedClickRef.current
         ),
         // strikethroughMarkerDecoration(),
         // Bullet (-/*/+) marker rendering only — the first slice of the

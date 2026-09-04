@@ -1,0 +1,97 @@
+/* The inline Markdown PDF embed (`PdfEmbedWidget.ts`) — a native Clutter
+   resource block, styled to feel like one, not like an unrelated
+   application window. `.cm-image-container--broken`/`.cm-image-broken*`
+   (the broken/unresolved state) are deliberately NOT redefined here — see
+   `PdfEmbedWidget.ts`'s own class doc comment for why that state reuses
+   `ImageFloatingControls.css`/`MarkdownEditor.css`'s existing rules
+   verbatim. `.pdf-viewer__page`/`.pdf-viewer__page-canvas`/`.textLayer`
+   (the actual rendered page) are likewise reused as-is from
+   `PdfViewer.css`, imported explicitly by `PdfEmbedWidget.ts` itself. */
+
+.cm-editor .cm-pdf-embed-container {
+  display: block;
+  width: calc(100% - 1px); /* 1px reserve — same caret-overflow fix `.cm-image-container--broken` documents for the same reason: a full-width block-shaped widget needs slack for the caret's own drawn box at its boundary. */
+  max-width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-inset-thin);
+}
+
+.cm-editor .cm-pdf-embed__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  background: var(--surface-tertiary);
+}
+
+.cm-editor .cm-pdf-embed__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  color: var(--foreground-secondary);
+}
+.cm-editor .cm-pdf-embed__icon svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: var(--icon-stroke);
+}
+
+.cm-editor .cm-pdf-embed__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-body-small);
+  font-weight: var(--fw-medium);
+  color: var(--foreground-primary);
+}
+
+/* The embed's own controls row is always visible (unlike the reveal-on-
+   hover behavior `MarkdownEditor.css` gives the same `.cm-image-controls`
+   class inside `.cm-image-container`) — a PDF embed's page/zoom controls
+   are core reading chrome, not an incidental affordance, so they should
+   never disappear the instant the pointer leaves. Scoped to this widget's
+   own container so the reveal-on-hover rule elsewhere is unaffected. */
+.cm-editor .cm-pdf-embed .cm-image-controls {
+  position: static;
+  opacity: 1;
+  flex-wrap: wrap;
+  box-shadow: none;
+  background: transparent;
+  padding: 0 var(--space-12) var(--space-8);
+}
+
+.cm-editor .cm-pdf-embed__zoom-indicator,
+.cm-editor .cm-pdf-embed__page-indicator {
+  color: var(--foreground-secondary);
+  font-size: var(--text-label-small);
+  min-width: 36px;
+  text-align: center;
+  user-select: none;
+}
+
+/* Horizontal scroll only engages once zoomed past the embed's own width —
+   real, necessary overflow at that zoom level, contained to this one
+   scroller so it never forces the surrounding editor line to overflow
+   (section 8/11's own "never create unwanted horizontal overflow, pay
+   attention to narrow widths" requirement). */
+.cm-editor .cm-pdf-embed__scroll {
+  overflow-x: auto;
+  background: var(--surface-tertiary);
+  padding: var(--space-16);
+}
+
+.cm-editor .cm-pdf-embed__status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  color: var(--foreground-secondary);
+  font-size: var(--text-body-small);
+}
