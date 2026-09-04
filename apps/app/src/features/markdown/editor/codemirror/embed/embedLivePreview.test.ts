@@ -65,7 +65,16 @@ function mountView(
       embedLivePreview(() => resolveEmbedImage, () => onImageClick, () => onOpenImageMenu, () => undefined, () => undefined),
     ],
   });
-  return new EditorView({ state, parent });
+  const view = new EditorView({ state, parent });
+  // ImageWidget.renderWorking() (2026-09 native-broken-icon fix, shared by
+  // Embed image rendering too) probes before ever mounting a real `<img>`
+  // — see imageLivePreview.test.ts's own `mountView` doc comment for the
+  // full rationale. Auto-resolving here keeps every test that just wants
+  // "a rendered, working image" working exactly as before that fix.
+  for (const probe of capturedProbes) {
+    probe.dispatchEvent(new Event('load'));
+  }
+  return view;
 }
 
 /** Mounts the full stack (live preview + completion + reactivation listeners) — for Flow A/B/C interaction tests, where autocomplete behavior itself is under test, not only rendering. */
@@ -89,6 +98,21 @@ function mountFullView(
     ],
   });
   return new EditorView({ state, parent });
+}
+
+/**
+ * Resolves every probe captured so far to 'load', in creation order — see
+ * imageLivePreview.test.ts's own identical helper doc comment (2026-09
+ * native-broken-icon fix: `ImageWidget.renderWorking()` now probes before
+ * ever mounting a real `<img>`, so any action that reconstructs a widget —
+ * Edit-source toggle, undo/redo, a sibling embed's own broken transition —
+ * needs settling before asserting the resulting rendered state). Safe to
+ * call repeatedly.
+ */
+function settleAllProbes(): void {
+  for (const probe of capturedProbes) {
+    probe.dispatchEvent(new Event('load'));
+  }
 }
 
 function getImg(view: EditorView): HTMLImageElement | null {
@@ -307,6 +331,7 @@ describe('embedLivePreview — first-leave rendering lifecycle (Flow A/B/C style
     expect(getImg(view)).toBeNull();
 
     view.dispatch({ selection: { anchor: HERO.length + 2 } }); // past the trailing " x"
+    settleAllProbes();
 
     expect(getImg(view)?.src).toBe('app://vault/hero.png');
   });
@@ -329,6 +354,7 @@ describe('embedLivePreview — first-leave rendering lifecycle (Flow A/B/C style
     );
     // Leave once — this is what "settles" it (pendingFirstLeave -> false).
     view.dispatch({ selection: { anchor: 0 } });
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
 
     // Navigate back inside via a pure selection change (click/arrow-key
@@ -347,6 +373,7 @@ describe('embedLivePreview — Edit source still works exactly like standard ima
     const view = mountView(`x ${HERO}`, resolve);
 
     clickEdit(view);
+    settleAllProbes();
 
     expect(view.dom.textContent).toContain(HERO);
     expect(getImg(view)).not.toBeNull(); // both representations coexist, per the shared ImageWidget contract
@@ -372,6 +399,7 @@ describe('embedLivePreview — Edit source still works exactly like standard ima
 
     const afterLineStart = view.state.doc.toString().indexOf('After');
     view.dispatch({ selection: { anchor: afterLineStart } });
+    settleAllProbes();
 
     expect(view.dom.textContent).not.toContain(HERO);
     expect(getImg(view)).not.toBeNull();
@@ -541,6 +569,7 @@ describe('embedLivePreview — consecutive embeds are independent', () => {
     );
 
     view.dispatch({ changes: { from: 0, to: 'x ![[one.png]]\n'.length, insert: '' } });
+    settleAllProbes();
 
     expect(view.state.doc.toString()).toBe('y ![[two.png]]');
     expect(getImg(view)?.src).toBe('app://vault/two.png');
@@ -564,6 +593,7 @@ describe('embedLivePreview — consecutive embeds are independent', () => {
     expect(getImg(view)).toBeNull();
 
     view.dispatch({ changes: { from: ONE.length, insert: TWO }, selection: { anchor: ONE.length + TWO.length } });
+    settleAllProbes();
 
     // #1's caret moved past its own boundary as a direct consequence of
     // typing #2 right after it — its own first leave, independent of #2.
@@ -578,6 +608,7 @@ describe('embedLivePreview — consecutive embeds are independent', () => {
       changes: { from: view.state.doc.length, insert: ' ' },
       selection: { anchor: view.state.doc.length + 1 },
     });
+    settleAllProbes();
     const bothImages = view.dom.querySelectorAll<HTMLImageElement>('img.tok-image');
     expect(bothImages.length).toBe(2);
     expect(bothImages[0]!.src).toBe('app://vault/one.png');
@@ -633,6 +664,7 @@ describe('embedLivePreview — lifecycle (Resource Sync/Reconciliation implicati
 
     resolve = resolverFor({ 'hero.png': imageResolution('app://vault/hero.png', 'hero.png', 'hero.png') });
     view.dispatch({ selection: { anchor: 0 } });
+    settleAllProbes();
 
     expect(getImg(view)?.src).toBe('app://vault/hero.png');
   });
@@ -678,6 +710,7 @@ describe('embedLivePreview — Flow A: new Embed (type ![[, select, leave)', () 
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     const accepted = acceptCompletion(view);
+    settleAllProbes();
     expect(accepted).toBe(true);
 
     expect(view.state.doc.toString()).toBe(HERO);
@@ -694,6 +727,7 @@ describe('embedLivePreview — Flow A: new Embed (type ![[, select, leave)', () 
     expect(getImg(view)).toBeNull();
 
     view.dispatch({ selection: { anchor: HERO.length + 1 } }); // next line
+    settleAllProbes();
 
     expect(getImg(view)?.src).toBe('app://vault/hero.png');
   });
@@ -755,6 +789,7 @@ describe('embedLivePreview — Flow C: editing an existing Embed (![[image.png]]
     // Force a rebuild so the widget actually renders before re-entry (the
     // real interaction: an at-rest, already-rendered embed).
     view.dispatch({ selection: { anchor: 0 } });
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
 
     view.dispatch({ selection: { anchor: 5 } }); // inside "hero.png"

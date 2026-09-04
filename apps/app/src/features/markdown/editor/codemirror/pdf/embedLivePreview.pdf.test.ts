@@ -384,7 +384,14 @@ describe('embedLivePreview — PDF embeds, consecutive and mixed-content indepen
       })
     );
 
-    expect(view.dom.querySelector('img.tok-image')).not.toBeNull();
+    // The image embed's own real <img> mount is now gated behind a
+    // load-confirmation probe (ImageWidget.ts's 2026-09 native-broken-icon
+    // fix) that this PDF-focused test file doesn't intercept/settle — its
+    // *container* still mounts synchronously either way, which is enough
+    // to confirm the image embed rendered as a working (non-broken) image
+    // construct, independent of the PDF/missing-PDF embeds alongside it.
+    const workingImageContainers = view.dom.querySelectorAll('.cm-image-container:not(.cm-image-container--broken)');
+    expect(workingImageContainers.length).toBe(1);
     expect(view.dom.querySelectorAll('.cm-pdf-embed').length).toBe(1);
     expect(view.dom.querySelectorAll('.cm-image-container--broken').length).toBe(1);
   });

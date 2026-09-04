@@ -12,6 +12,7 @@ import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { imageLivePreview } from './imageLivePreview';
 import type { OnImageClick, OnOpenImageMenu, OpenImageMenuParams } from './ImageWidget';
 import { getImageUiState, setImageUiState } from './imageUiState';
+import type { ImageSrcResolution, ResolveImageSrc } from './imageSrcResolution';
 
 /**
  * Captures every `new Image()` created by `ImageWidget.probeForRecovery`'s
@@ -53,6 +54,42 @@ function latestProbe(): HTMLImageElement {
 }
 
 /**
+ * Resolves every probe captured so far to 'load', in creation order — for
+ * tests that don't care about the pre-load window itself (2026-09
+ * native-broken-icon fix — see `ImageWidget.ts`'s own `probeThenMount` doc
+ * comment), just want "whatever is currently rendering settle into its
+ * final, loaded state" after an action (Edit-source toggle, undo/redo,
+ * typing a fresh image) that reconstructs a widget and therefore starts a
+ * fresh probe. Safe to call repeatedly: each probe's own listeners are
+ * `{once: true}`, so re-dispatching 'load' on an already-resolved probe is
+ * a silent no-op, not a double-apply.
+ */
+function settleAllProbes(): void {
+  for (const probe of capturedProbes) {
+    probe.dispatchEvent(new Event('load'));
+  }
+}
+
+/**
+ * Same as `settleAllProbes`, but skips any probe attempting `excludedUrl` —
+ * for a test that just triggered a genuine failure for that exact URL
+ * (via a real `<img>`'s `error` event) and wants to observe the resulting
+ * broken state, while still settling an unrelated *sibling* construct's
+ * own incidental rebuild (see the "Adjacent images" describe block's own
+ * tests for why a sibling can rebuild too). Without the exclusion, a blind
+ * `settleAllProbes()` would also resolve the just-broken node's own fresh
+ * `probeForRecovery` probe to 'load', silently flipping it back to
+ * "working" before the test ever gets to assert the broken state at all.
+ */
+function settleAllProbesExceptUrl(excludedUrl: string): void {
+  for (const probe of capturedProbes) {
+    if (probe.src !== excludedUrl) {
+      probe.dispatchEvent(new Event('load'));
+    }
+  }
+}
+
+/**
  * Integration coverage for the interaction-behavior correction: Image is
  * no longer a reveal-on-engagement participant (removed from
  * `inlineLivePreviewParticipants.ts` — see that file's own comment) and
@@ -72,7 +109,8 @@ function mountView(
   doc: string,
   anchor = 0,
   onImageClick: OnImageClick = () => {},
-  onOpenImageMenu: OnOpenImageMenu = () => {}
+  onOpenImageMenu: OnOpenImageMenu = () => {},
+  resolveImageSrc?: ResolveImageSrc
 ): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
@@ -83,10 +121,39 @@ function mountView(
       history(),
       markdownLanguageExtension(),
       inlineLivePreviewRegion(createInlineLivePreviewParticipants(noResolvers)),
-      imageLivePreview(() => onImageClick, () => onOpenImageMenu),
+      imageLivePreview(
+        () => onImageClick,
+        () => onOpenImageMenu,
+        resolveImageSrc ? () => resolveImageSrc : undefined
+      ),
     ],
   });
-  return new EditorView({ state, parent });
+  const view = new EditorView({ state, parent });
+  // ImageWidget.renderWorking() (2026-09 native-broken-icon fix) now
+  // probes a URL with a detached, never-inserted `Image()` before ever
+  // creating the real, visible `<img>` — see ImageWidget.ts's own
+  // `probeThenMount` doc comment. Auto-resolving every probe this mount
+  // just created to 'load' mirrors the overwhelmingly common real case (an
+  // already-cached image resolves near-instantly) and keeps every test
+  // below that just wants "a rendered, working image" working exactly as
+  // it did before that fix, with no per-test changes needed. Tests that
+  // specifically want to exercise the pre-load or failure window instead
+  // call `latestProbe()`/`capturedProbes` themselves before this point, or
+  // fire a *later* probe (created by a subsequent edit/recovery attempt)
+  // after this initial one has already resolved.
+  for (const probe of capturedProbes) {
+    probe.dispatchEvent(new Event('load'));
+  }
+  return view;
+}
+
+/** A resolver reporting a fixed outcome for `path`, `'unresolved'` for anything else — mirrors what createImageSrcResolver would produce for a single-resource fixture (embedLivePreview.test.ts's identical resolverFor). */
+function resolverFor(entries: Record<string, ImageSrcResolution>): ResolveImageSrc {
+  return (path) => entries[path] ?? { status: 'unresolved' };
+}
+
+function resolvedSrc(url: string, copyUrl: string): ImageSrcResolution {
+  return { status: 'resolved', url, copyUrl };
 }
 
 function getImg(view: EditorView): HTMLImageElement | null {
@@ -149,6 +216,7 @@ describe('Image interaction behavior', () => {
   it('4 & 5. clicking edit reveals raw Markdown positioned above the still-rendered image', () => {
     const view = mountView(IMAGE_MD);
     clickEdit(view);
+    settleAllProbes();
 
     expect(view.dom.textContent).toContain(IMAGE_MD);
     const img = getImg(view);
@@ -168,6 +236,7 @@ describe('Image interaction behavior', () => {
   it('6. the image remains rendered while the source is visible (both coexist)', () => {
     const view = mountView(IMAGE_MD);
     clickEdit(view);
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
     expect(view.dom.textContent).toContain('![Mountain view](https://example.com/mountain.jpg)');
   });
@@ -175,6 +244,7 @@ describe('Image interaction behavior', () => {
   it('7. moving the cursor without changing the source does not remove the image', () => {
     const view = mountView(IMAGE_MD);
     clickEdit(view);
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
 
     view.dispatch({ selection: { anchor: 3 } });
@@ -195,6 +265,7 @@ describe('Image interaction behavior', () => {
     // accepted cost, not a defect).
     const view = mountView(IMAGE_MD);
     clickEdit(view);
+    settleAllProbes();
     expect(getImg(view)?.getAttribute('alt')).toBe('Mountain view');
 
     const altStart = view.state.doc.toString().indexOf('Mountain view');
@@ -206,7 +277,13 @@ describe('Image interaction behavior', () => {
     expect(getImg(view)).toBeNull();
     expect(getImageUiState(view.state, 0).broken).toBe(true);
 
+    // Resolving the recovery probe flips `broken: false`, which rebuilds
+    // into `renderWorking()` — which, under the native-broken-icon fix,
+    // itself starts a *fresh* probe before mounting a real `<img>` (never
+    // trusting the just-recovered URL blindly). A second settle pass
+    // resolves that follow-up probe too.
     latestProbe().dispatchEvent(new Event('load'));
+    settleAllProbes();
 
     expect(getImg(view)?.getAttribute('alt')).toBe('Mountain sunset');
     // Still coexisting with the (now-updated) raw source.
@@ -224,7 +301,13 @@ describe('Image interaction behavior', () => {
     });
 
     expect(getImg(view)).toBeNull();
+    // Resolving the recovery probe flips `broken: false`, which rebuilds
+    // into `renderWorking()` — which, under the native-broken-icon fix,
+    // itself starts a *fresh* probe before mounting a real `<img>` (never
+    // trusting the just-recovered URL blindly). A second settle pass
+    // resolves that follow-up probe too.
     latestProbe().dispatchEvent(new Event('load'));
+    settleAllProbes();
 
     expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/other-image.jpg');
   });
@@ -235,6 +318,7 @@ describe('Image interaction behavior', () => {
     expect(getImg(view)).toBeNull();
 
     undo(view);
+    settleAllProbes();
     expect(view.state.doc.toString()).toBe(`See: ${IMAGE_MD}`);
     expect(getImg(view)).not.toBeNull();
 
@@ -288,6 +372,7 @@ describe('Edit source: cursor placement and leaving-source auto-hide', () => {
 
     view.dispatch({ selection: { anchor: imageFrom } });
     view.dispatch({ selection: { anchor: imageFrom + 5 } });
+    settleAllProbes();
 
     expect(view.dom.textContent).toContain(IMAGE_MD);
     expect(getImg(view)).not.toBeNull();
@@ -300,6 +385,7 @@ describe('Edit source: cursor placement and leaving-source auto-hide', () => {
 
     const afterLineStart = view.state.doc.toString().indexOf('After');
     view.dispatch({ selection: { anchor: afterLineStart } });
+    settleAllProbes();
 
     expect(view.dom.textContent).not.toContain(IMAGE_MD);
     // The image itself is unaffected — still rendered, just back to its
@@ -344,6 +430,7 @@ describe('Edit source: cursor placement and leaving-source auto-hide', () => {
       changes: { from: IMAGE_MD.length, insert: ' ' },
       selection: { anchor: IMAGE_MD.length + 1 },
     });
+    settleAllProbes();
 
     expect(getImageUiState(view.state, 0).revealed).toBe(false);
     // Not the "hidden and revealed coexist" DOM shape any more — a single
@@ -633,6 +720,7 @@ describe('Image click behavior', () => {
   it('8. source-reveal behavior still works after this change', () => {
     const view = mountView(IMAGE_MD);
     clickEdit(view);
+    settleAllProbes();
     expect(view.dom.textContent).toContain(IMAGE_MD);
     expect(getImg(view)).not.toBeNull();
   });
@@ -650,7 +738,13 @@ describe('Image click behavior', () => {
     view.dispatch({
       changes: { from: altStart, to: altStart + 'Mountain view'.length, insert: 'Updated alt' },
     });
+    // Resolving the recovery probe flips `broken: false`, which rebuilds
+    // into `renderWorking()` — which, under the native-broken-icon fix,
+    // itself starts a *fresh* probe before mounting a real `<img>` (never
+    // trusting the just-recovered URL blindly). A second settle pass
+    // resolves that follow-up probe too.
     latestProbe().dispatchEvent(new Event('load'));
+    settleAllProbes();
     expect(getImg(view)?.getAttribute('alt')).toBe('Updated alt');
   });
 
@@ -659,6 +753,7 @@ describe('Image click behavior', () => {
     view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
     expect(getImg(view)).toBeNull();
     undo(view);
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
   });
 
@@ -1034,6 +1129,7 @@ describe('Image display modes', () => {
   it('Fit applies the fit class and the container gets the horizontal-centering modifier (not --fill)', () => {
     const view = mountView(IMAGE_MD);
     dispatchMode(view, 0, 'fit');
+    settleAllProbes();
 
     expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
     expect(view.dom.querySelector('.cm-image-container--fit')).not.toBeNull();
@@ -1057,6 +1153,7 @@ describe('Image display modes', () => {
     const view = mountView(IMAGE_MD);
     clickEdit(view);
     dispatchMode(view, 0, 'fit', true);
+    settleAllProbes();
 
     expect(view.dom.textContent).toContain(IMAGE_MD);
     expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
@@ -1258,6 +1355,10 @@ describe('Broken image fallback', () => {
     // representation — at which point the real, visible <img> is
     // constructed for a URL already known to load.
     probe.dispatchEvent(new Event('load'));
+    // The now-recovered widget's own renderWorking() starts a fresh probe
+    // of its own before mounting a real <img> — see settleAllProbes's doc
+    // comment.
+    settleAllProbes();
 
     expect(view.dom.querySelector('.cm-image-broken')).toBeNull();
     expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/fixed.jpg');
@@ -1324,6 +1425,7 @@ describe('Broken image fallback', () => {
     const secondProbe = latestProbe();
     expect(secondProbe.src).toBe('https://example.com/second.jpg');
     secondProbe.dispatchEvent(new Event('load'));
+    settleAllProbes();
 
     expect(getImageUiState(view.state, 0).broken).toBe(false);
     expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/second.jpg');
@@ -1431,6 +1533,15 @@ describe('Adjacent images with no separator — each node has fully independent 
     const images = getImages(view);
 
     images[0]!.dispatchEvent(new Event('error'));
+    // The first image's own broken transition also happens to rebuild the
+    // second image's widget (an existing, harmless CM6 decoration-diffing
+    // detail this fixture already exercises — the second image's own
+    // content/state is genuinely unchanged) — under the native-broken-icon
+    // fix, that rebuild starts a fresh probe of its own before showing a
+    // real <img> again, so it needs settling too. Excludes the first
+    // image's own URL — settling *that* probe would silently recover it
+    // before this test gets to assert it's broken.
+    settleAllProbesExceptUrl('https://example.com/invalid.jpg');
 
     const containers = getContainers(view);
     expect(containers[0]!.classList.contains('cm-image-container--broken')).toBe(true);
@@ -1443,6 +1554,7 @@ describe('Adjacent images with no separator — each node has fully independent 
     const images = getImages(view);
 
     images[0]!.dispatchEvent(new Event('error'));
+    settleAllProbesExceptUrl('https://example.com/bad1.jpg');
     // Only the first has failed so far — the second must still be a real,
     // working <img> (this is the exact case the reported bug's DOM
     // evidence came from: the second rendering via renderWorking()).
@@ -1470,6 +1582,7 @@ describe('Adjacent images with no separator — each node has fully independent 
     // conflates without the `from === pos` guard this fix adds.
     const view = mountAdjacent('https://example.com/valid.jpg', 'https://example.com/invalid.jpg');
     clickEdit(view); // toggles the FIRST image's own edit button (first in DOM order)
+    settleAllProbes();
 
     getImages(view)[1]!.dispatchEvent(new Event('error'));
 
@@ -1562,6 +1675,7 @@ describe('Incomplete image syntax', () => {
       changes: { from: view.state.doc.length, insert: ' ' },
       selection: { anchor: view.state.doc.length + 1 },
     });
+    settleAllProbes();
 
     expect((getImg(view) !== null)).toBe(true);
   });
@@ -1593,6 +1707,7 @@ describe('Phase 2: two consecutive images (no separator) are independent through
     expect(getImg(view)).toBeNull();
 
     typeAt(view, view.state.doc.length, TWO); // caret now at the end, inside image #2
+    settleAllProbes();
 
     // Image #1's own caret has moved past its `to` boundary as a direct
     // consequence of typing #2 right after it — this IS its first leave,
@@ -1608,10 +1723,12 @@ describe('Phase 2: two consecutive images (no separator) are independent through
     const view = mountView('', 0);
     typeAt(view, 0, ONE);
     typeAt(view, view.state.doc.length, TWO);
+    settleAllProbes();
     const firstImgSrcAfterFirstLeave = view.dom.querySelector<HTMLImageElement>('img.tok-image')?.src;
     expect(firstImgSrcAfterFirstLeave).toContain('one.png');
 
     typeAt(view, view.state.doc.length, ' '); // leave #2 too
+    settleAllProbes();
 
     const images = view.dom.querySelectorAll<HTMLImageElement>('img.tok-image');
     expect(images.length).toBe(2);
@@ -1624,6 +1741,7 @@ describe('Phase 2: two consecutive images (no separator) are independent through
     typeAt(view, 0, ONE);
     typeAt(view, view.state.doc.length, TWO);
     typeAt(view, view.state.doc.length, ' ');
+    settleAllProbes();
     expect(view.dom.querySelectorAll('img.tok-image').length).toBe(2);
 
     // Arrow-key-equivalent navigation into #1 (position 3, inside "one.png").
@@ -1645,6 +1763,7 @@ describe('Phase 2: pendingFirstLeave lifecycle edge cases (does not accidentally
     const view = mountView('', 0);
     typeAt(view, 0, IMAGE_MD);
     typeAt(view, view.state.doc.length, ' x'); // settles it
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
 
     // An unrelated edit elsewhere, then undo it. `isolateHistory: 'before'`
@@ -1660,11 +1779,13 @@ describe('Phase 2: pendingFirstLeave lifecycle edge cases (does not accidentally
       annotations: isolateHistory.of('before'),
     });
     undo(view);
+    settleAllProbes();
 
     expect(view.state.doc.toString()).toContain(IMAGE_MD); // only 'y' was undone
     expect(getImg(view)).not.toBeNull();
 
     redo(view);
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
   });
 
@@ -1687,6 +1808,7 @@ describe('Phase 2: pendingFirstLeave lifecycle edge cases (does not accidentally
     const view = mountView('', 0);
     typeAt(view, 0, IMAGE_MD);
     typeAt(view, view.state.doc.length, ' x');
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull(); // settled
 
     // Delete the image text entirely (keep the trailing " x").
@@ -1709,11 +1831,13 @@ describe('Phase 2: pendingFirstLeave lifecycle edge cases (does not accidentally
     const view = mountView('', 0);
     typeAt(view, 0, IMAGE_MD);
     typeAt(view, view.state.doc.length, ' x');
+    settleAllProbes();
     expect(getImg(view)).not.toBeNull();
 
     // Insert unrelated text before the image, shifting its position, with
     // the caret ending up right after that prefix — NOT inside the image.
     typeAt(view, 0, 'prefix ');
+    settleAllProbes();
 
     const shiftedFrom = view.state.doc.toString().indexOf('![');
     expect(shiftedFrom).toBe('prefix '.length);
@@ -1787,5 +1911,349 @@ describe('MarkdownEditor.css — display mode rules', () => {
   it('there is no Auto mode class anywhere in the stylesheet', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
     expect(css).not.toMatch(/tok-image--auto/);
+  });
+});
+
+/**
+ * Standard Markdown Image, local Vault path: `![Alt name](Assets/image.jpg)`.
+ * Distinct from `![[Assets/image.jpg]]` (Embed, embedLivePreview.test.ts's
+ * own coverage) — same shared `ImageWidget`/`imageUiState`/broken-image/
+ * Edit-source/display-mode infrastructure every test above already covers
+ * for external-URL standard images, just with `resolveImageSrc` now wired
+ * so a local path resolves to a real, loadable file URL instead of being
+ * handed to `<img src>` verbatim. Nothing here duplicates infrastructure
+ * coverage already established above — only what changes once local-path
+ * resolution is wired in.
+ */
+describe('Standard Markdown image, local Vault path — resolveImageSrc', () => {
+  const LOCAL_MD = '![Alt name](Assets/image.jpg)';
+  const resolveLocal = resolverFor({
+    'Assets/image.jpg': resolvedSrc('app://vault/Assets/image.jpg', 'Assets/image.jpg'),
+  });
+
+  it('renders using the existing ImageWidget — real <img> src is the resolved file URL, not the raw Markdown path', () => {
+    const view = mountView(`See: ${LOCAL_MD}`, 0, () => {}, () => {}, resolveLocal);
+
+    const container = view.dom.querySelector('.cm-image-container');
+    expect(container).not.toBeNull();
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Assets/image.jpg');
+  });
+
+  it('the Alt text remains the Markdown alt text — never a caption, never overwritten by the resolved resource', () => {
+    const view = mountView(LOCAL_MD, 0, () => {}, () => {}, resolveLocal);
+
+    expect(getImg(view)?.getAttribute('alt')).toBe('Alt name');
+    // No separate caption element exists anywhere in this construct.
+    expect(view.dom.querySelector('[class*="caption"]')).toBeNull();
+  });
+
+  it('an unresolved local path (missing/renamed resource) is passed through unchanged — the real <img> attempt fails naturally, same as today, never a pre-guessed broken state', () => {
+    const view = mountView(`See: ${LOCAL_MD}`, 0, () => {}, () => {}, resolverFor({}));
+
+    // Not pre-determined broken — a real <img> was attempted with the raw path.
+    expect(getImg(view)?.getAttribute('src')).toBe('Assets/image.jpg');
+    expect(view.dom.querySelector('.cm-image-broken')).toBeNull();
+  });
+
+  it('broken state for an unresolved local path shows "Unable to load" + the exact failed path, e.g. "Unable to load Assets/image.jpg"', () => {
+    const view = mountView(LOCAL_MD, 0, () => {}, () => {}, resolverFor({}));
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    const broken = view.dom.querySelector('.cm-image-broken');
+    expect(broken?.querySelector('.cm-image-broken__alt')?.textContent).toBe('Unable to load');
+    expect(broken?.querySelector('.cm-image-broken__hint')?.textContent).toBe('Assets/image.jpg');
+  });
+
+  it('broken state for a resolved-but-unloadable local path shows the raw Markdown path as the hint, not the resolved file URL', () => {
+    const view = mountView(LOCAL_MD, 0, () => {}, () => {}, resolveLocal);
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    const broken = view.dom.querySelector('.cm-image-broken');
+    expect(broken?.querySelector('.cm-image-broken__hint')?.textContent).toBe('Assets/image.jpg');
+  });
+
+  it('external URLs continue to work exactly as before — a resolver that reports every local path unresolved never touches an external URL\'s rendering', () => {
+    const view = mountView(`See: ${IMAGE_MD}`, 0, () => {}, () => {}, resolveLocal);
+
+    expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/mountain.jpg');
+    expect(view.dom.querySelector('.cm-image-broken')).toBeNull();
+  });
+
+  it('does not rewrite the Markdown source — the document text is untouched by resolution', () => {
+    const view = mountView(`See: ${LOCAL_MD}`, 0, () => {}, () => {}, resolveLocal);
+    expect(view.state.doc.toString()).toBe(`See: ${LOCAL_MD}`);
+  });
+
+  function typeAt(view: EditorView, from: number, insert: string): void {
+    view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length } });
+  }
+
+  it('while actively editing (first-leave pending), raw Markdown is shown, same as any standard image', () => {
+    const view = mountView('', 0, () => {}, () => {}, resolveLocal);
+    typeAt(view, 0, LOCAL_MD);
+
+    // Still mid-typing (pendingFirstLeave, caret still engaged) — raw text, no widget yet.
+    expect(view.dom.textContent).toContain(LOCAL_MD);
+    expect(getImg(view)).toBeNull();
+  });
+
+  it('after leaving the syntax, it renders normally (resolved)', () => {
+    const view = mountView('', 0, () => {}, () => {}, resolveLocal);
+    typeAt(view, 0, LOCAL_MD);
+    typeAt(view, view.state.doc.length, ' '); // caret leaves
+    settleAllProbes();
+
+    expect(view.dom.textContent).not.toContain(LOCAL_MD);
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Assets/image.jpg');
+  });
+
+  it('cursor navigation into an at-rest rendered image does not unnecessarily reveal Markdown', () => {
+    const view = mountView(`See: ${LOCAL_MD}`, 5, () => {}, () => {}, resolveLocal); // anchor inside the image node
+    expect(view.dom.textContent).not.toContain(LOCAL_MD);
+    expect(getImg(view)).not.toBeNull();
+  });
+
+  it('Edit Source reveals the existing raw Markdown editing state, image stays rendered alongside it', () => {
+    const view = mountView(LOCAL_MD, 0, () => {}, () => {}, resolveLocal);
+    clickEdit(view);
+    settleAllProbes();
+
+    expect(view.dom.textContent).toContain(LOCAL_MD);
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Assets/image.jpg');
+  });
+
+  it('Large/Fill/Fit apply identically to a resolved local image', () => {
+    const view = mountView(LOCAL_MD, 0, () => {}, () => {}, resolveLocal);
+    const container = () => view.dom.querySelector('.cm-image-container')!;
+
+    view.dispatch({
+      effects: setImageUiState.of({
+        pos: 0,
+        to: LOCAL_MD.length,
+        state: { ...getImageUiState(view.state, 0), displayMode: 'fill' },
+      }),
+    });
+    expect(container().classList.contains('cm-image-container--fill')).toBe(true);
+
+    view.dispatch({
+      effects: setImageUiState.of({
+        pos: 0,
+        to: LOCAL_MD.length,
+        state: { ...getImageUiState(view.state, 0), displayMode: 'fit' },
+      }),
+    });
+    expect(container().classList.contains('cm-image-container--fit')).toBe(true);
+  });
+
+  it('floating controls open ImageOptionsMenu with the resolved url AND the raw-path copyUrl, so Copy link/Set as cover keep using the Markdown path', () => {
+    let received: OpenImageMenuParams | undefined;
+    const view = mountView(LOCAL_MD, 0, () => {}, (params) => (received = params), resolveLocal);
+
+    getSizeButton(view).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(received).toMatchObject({
+      alt: 'Alt name',
+      url: 'app://vault/Assets/image.jpg',
+      copyUrl: 'Assets/image.jpg',
+    });
+  });
+
+  it('clicking the rendered image opens the existing ImageOverlay dispatch with the resolved url and raw-path copyUrl', () => {
+    let clicked: [string, string, string | undefined] | undefined;
+    const view = mountView(LOCAL_MD, 0, (url, alt, copyUrl) => (clicked = [url, alt, copyUrl]), () => {}, resolveLocal);
+
+    getImageButton(view).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(clicked).toEqual(['app://vault/Assets/image.jpg', 'Alt name', 'Assets/image.jpg']);
+  });
+
+  it('undo/redo: deleting and restoring a resolved local image round-trips through the document', () => {
+    // Same "See: " prefix imageLivePreview.test.ts's own established
+    // Delete/undo/redo coverage uses (Broken image fallback describe,
+    // "Delete removes the Markdown image...") — keeps position 0 genuinely
+    // outside the Image node both before and after undo re-inserts it, so
+    // this doesn't hit imageUiState.ts's own boundary-inclusive engagement
+    // check (a caret sitting exactly at a node's own `from` counts as
+    // "engaged," which a re-inserted-at-position-0 node's fresh
+    // pendingFirstLeave would otherwise keep raw — a test-construction
+    // detail, not a product bug).
+    const view = mountView(`See: ${LOCAL_MD}`, 0, () => {}, () => {}, resolveLocal);
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Assets/image.jpg');
+
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
+    expect(view.state.doc.toString()).toBe('');
+    expect(getImg(view)).toBeNull();
+
+    undo(view);
+    expect(view.state.doc.toString()).toBe(`See: ${LOCAL_MD}`);
+    // Re-inserting is itself an edit touching the node, so — same as the
+    // existing Delete/undo/redo coverage documents for the broken state —
+    // this asserts a rendered occurrence exists, not that it's necessarily
+    // still resolved-and-working on the very first frame back.
+    expect(view.dom.querySelector('.cm-image-container')).not.toBeNull();
+
+    redo(view);
+    expect(view.state.doc.toString()).toBe('');
+  });
+
+  it('the broken-image recovery probe re-resolves through resolveImageSrc, not the raw Markdown text — a resolved local image\'s probe uses the resolved URL', () => {
+    const view = mountView(LOCAL_MD, 0, () => {}, () => {}, resolveLocal);
+    getImg(view)!.dispatchEvent(new Event('error'));
+    expect(view.dom.querySelector('.cm-image-broken')).not.toBeNull();
+
+    const probe = latestProbe();
+    // The probe itself attempts the resolved file URL (what a real retry
+    // needs), never the raw vault-relative path.
+    expect(probe.src).toBe('app://vault/Assets/image.jpg');
+
+    probe.dispatchEvent(new Event('load'));
+    settleAllProbes();
+
+    expect(view.dom.querySelector('.cm-image-broken')).toBeNull();
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Assets/image.jpg');
+  });
+
+  it('no resolveImageSrc supplied at all (prop omitted) behaves exactly like today — a local path is passed through raw', () => {
+    const view = mountView(`See: ${LOCAL_MD}`);
+    expect(getImg(view)?.getAttribute('src')).toBe('Assets/image.jpg');
+  });
+});
+
+/**
+ * `![Testing](Delete me.jpg)` — a local Vault path containing a literal,
+ * unencoded space. Root cause was one layer above `scanImage()`: native
+ * `@lezer/markdown` breaks its own destination scan at the first raw
+ * whitespace (CommonMark spec, confirmed directly against `parseURL`'s own
+ * source), so `Image:0-10 "![Testing]"` was the entire node — the rest was
+ * left as plain surrounding text, never reaching `scanImage()` at all.
+ * `imageSyntax.ts`'s `imageSpacedDestinationSyntax` (wired into
+ * `markdownGrammarExtensions.ts`, so exercised here through the real
+ * `markdownLanguageExtension()` this file's own `mountView` already uses)
+ * fixes this at the parser layer — activating only for the one destination
+ * shape native parsing rejects outright, deferring to native for every
+ * other case (titles, angle-bracket/percent-encoded destinations,
+ * reference-style links, `![[...]]` Embeds — all covered by
+ * `embedSyntax.test.ts`'s own suite, confirmed unaffected).
+ */
+describe('Standard Markdown image, local Vault path with a raw space — imageSpacedDestinationSyntax + scanImage', () => {
+  const SPACED_MD = '![Testing](Delete me.jpg)';
+  const NESTED_SPACED_MD = '![Testing](Assets/My Photos/Delete me.jpg)';
+  const resolveSpaced = resolverFor({
+    'Delete me.jpg': resolvedSrc('app://vault/Delete%20me.jpg', 'Delete me.jpg'),
+    'Assets/My Photos/Delete me.jpg': resolvedSrc(
+      'app://vault/Assets/My%20Photos/Delete%20me.jpg',
+      'Assets/My Photos/Delete me.jpg'
+    ),
+  });
+
+  it('resolves and renders a local path containing a space — the canonical Markdown is untouched, never rewritten/encoded', () => {
+    const view = mountView(SPACED_MD, 0, () => {}, () => {}, resolveSpaced);
+
+    expect(view.state.doc.toString()).toBe(SPACED_MD);
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Delete%20me.jpg');
+    expect(getImg(view)?.getAttribute('alt')).toBe('Testing');
+  });
+
+  it('resolves a nested local path containing a space, if supported by the existing resource model — same resolveResourceEmbed lookup as every other local path', () => {
+    const view = mountView(NESTED_SPACED_MD, 0, () => {}, () => {}, resolveSpaced);
+
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Assets/My%20Photos/Delete%20me.jpg');
+  });
+
+  it('external URL behavior is unchanged — a destination with no raw space still goes through native Image parsing untouched', () => {
+    const view = mountView(`See: ${IMAGE_MD}`, 0, () => {}, () => {}, resolveSpaced);
+
+    expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/mountain.jpg');
+    expect(view.dom.querySelector('.cm-image-broken')).toBeNull();
+  });
+
+  it('an unresolved local path with a space produces the existing broken state — "Unable to load" + the exact raw path, spaces included', () => {
+    const view = mountView(SPACED_MD, 0, () => {}, () => {}, resolverFor({}));
+    getImg(view)!.dispatchEvent(new Event('error'));
+
+    const broken = view.dom.querySelector('.cm-image-broken');
+    expect(broken?.querySelector('.cm-image-broken__alt')?.textContent).toBe('Unable to load');
+    expect(broken?.querySelector('.cm-image-broken__hint')?.textContent).toBe('Delete me.jpg');
+  });
+
+  it('raw Markdown editing still works — while actively typing, the space-containing destination shows as plain editable text, same first-leave lifecycle as any standard image', () => {
+    function typeAt(view: EditorView, from: number, insert: string): void {
+      view.dispatch({ changes: { from, insert }, selection: { anchor: from + insert.length } });
+    }
+
+    const view = mountView('', 0, () => {}, () => {}, resolveSpaced);
+    typeAt(view, 0, SPACED_MD);
+
+    expect(view.dom.textContent).toContain(SPACED_MD);
+    expect(getImg(view)).toBeNull();
+
+    typeAt(view, view.state.doc.length, ' '); // caret leaves
+    settleAllProbes();
+    expect(view.dom.textContent).not.toContain(SPACED_MD);
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Delete%20me.jpg');
+  });
+
+  it('Edit Source still reveals the exact raw Markdown, space included', () => {
+    const view = mountView(SPACED_MD, 0, () => {}, () => {}, resolveSpaced);
+    clickEdit(view);
+    settleAllProbes();
+
+    expect(view.dom.textContent).toContain(SPACED_MD);
+    expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Delete%20me.jpg');
+  });
+
+  it('ImageOverlay still works — clicking dispatches the resolved url and the raw, space-containing path as copyUrl', () => {
+    let clicked: [string, string, string | undefined] | undefined;
+    const view = mountView(
+      SPACED_MD,
+      0,
+      (url, alt, copyUrl) => (clicked = [url, alt, copyUrl]),
+      () => {},
+      resolveSpaced
+    );
+
+    getImageButton(view).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(clicked).toEqual(['app://vault/Delete%20me.jpg', 'Testing', 'Delete me.jpg']);
+  });
+
+  it('existing Large/Fill/Fit behavior remains unchanged for a space-containing local image', () => {
+    const view = mountView(SPACED_MD, 0, () => {}, () => {}, resolveSpaced);
+    const container = () => view.dom.querySelector('.cm-image-container')!;
+
+    view.dispatch({
+      effects: setImageUiState.of({
+        pos: 0,
+        to: SPACED_MD.length,
+        state: { ...getImageUiState(view.state, 0), displayMode: 'fill' },
+      }),
+    });
+    expect(container().classList.contains('cm-image-container--fill')).toBe(true);
+
+    view.dispatch({
+      effects: setImageUiState.of({
+        pos: 0,
+        to: SPACED_MD.length,
+        state: { ...getImageUiState(view.state, 0), displayMode: 'fit' },
+      }),
+    });
+    expect(container().classList.contains('cm-image-container--fit')).toBe(true);
+  });
+
+  it('a genuine title after a space-free destination still works — native title parsing is untouched by the space-tolerant fallback', () => {
+    const view = mountView('![Alt](https://example.com/image.png "A title")');
+
+    expect(getImg(view)?.getAttribute('src')).toBe('https://example.com/image.png');
+    expect(getImg(view)?.getAttribute('alt')).toBe('Alt');
+  });
+
+  it('![[...]] Embed syntax with a space in its path is unaffected by this fix — still its own distinct construct, never routed through Image', () => {
+    const view = mountView('![[Delete me.jpg]]');
+
+    // Embed has no resolver wired in this file's mountView at all — the
+    // point here is only that this doesn't crash or get misparsed as a
+    // (broken) standard Image; embedLivePreview.test.ts owns Embed's own
+    // full resolution/rendering coverage.
+    expect(view.dom.textContent).toContain('![[Delete me.jpg]]');
   });
 });

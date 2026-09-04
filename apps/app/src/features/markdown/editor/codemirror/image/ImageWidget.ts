@@ -267,11 +267,6 @@ export class ImageWidget extends WidgetType {
     sizeButton.setAttribute('aria-expanded', 'false');
     controls.append(sizeButton, this.makeEditButton(view));
 
-    const img = document.createElement('img');
-    img.classList.add('tok-image', `tok-image--${this.ui.displayMode}`);
-    img.src = this.url;
-    img.alt = this.alt;
-
     // The image itself is a clickable UI affordance (opens ImageOverlay),
     // not editable text. A real <button> wrapping the <img> — not
     // role="button"+tabindex+manual keydown on the <img> itself (an
@@ -291,6 +286,11 @@ export class ImageWidget extends WidgetType {
     // guarantee, not something this file has to coordinate itself), which
     // is what rules out double-firing between a manual keydown handler
     // and a separate click handler.
+    //
+    // No `<img>` is created here — see `probeThenMount`'s own doc comment
+    // (2026-09, "native broken-image icon" fix) for why the real `<img>`
+    // is only ever created once a detached probe has already confirmed
+    // `this.url` loads.
     const imageButton = document.createElement('button');
     imageButton.type = 'button';
     imageButton.classList.add('cm-image-button');
@@ -298,7 +298,6 @@ export class ImageWidget extends WidgetType {
       'aria-label',
       `Open image: ${this.alt || this.url}`
     );
-    imageButton.append(img);
 
     // Same pattern as makeButton's own listeners: preventDefault on
     // mousedown stops CM6's own click-to-position default outright (this
@@ -319,27 +318,72 @@ export class ImageWidget extends WidgetType {
       this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
     });
 
-    // Broken-image transition (class doc comment): a genuine `<img>` load
-    // failure — never a guess from the raw Markdown text — flips `broken`
-    // via the exact same `setImageUiState` mechanism `revealed`/
-    // `displayMode` already use, which makes CM6 recreate this widget via
-    // `eq()`/`toDOM()` into the branch below. `{ once: true }` because a
-    // load that already failed once has no reason to retry/re-fire for
-    // this same <img> element's lifetime (a fresh attempt, if the URL is
-    // later fixed, gets a brand-new <img> element from a fresh `toDOM()`
-    // call instead — see imageUiState.ts's `broken`-reset comment).
-    img.addEventListener(
-      'error',
+    container.append(controls, imageButton);
+
+    this.probeThenMount(imageButton, view);
+
+    return container;
+  }
+
+  /**
+   * Never creates a real, visible `<img>` until an invisible, detached
+   * probe (`new Image()`, never inserted into the DOM) confirms `this.url`
+   * actually loads — the exact same established mechanism
+   * `probeForRecovery` already uses for a *broken* image's silent retry,
+   * now also applied to the very first render (2026-09, "native
+   * broken-image icon" fix).
+   *
+   * Before this fix, `renderWorking()` created a real, visible `<img
+   * src>` immediately and only reacted *after* the browser's own `error`
+   * event fired on it — which left a real, unavoidable-by-CSS window,
+   * however brief, during which a genuinely resolved-but-failing-to-load
+   * URL (a deleted/renamed file whose Vault entry hasn't caught up yet, a
+   * broken external link, a transient network failure) could paint the
+   * browser's own native broken-image glyph before this widget's error
+   * handler ever got a chance to replace it with the custom
+   * broken-resource UI (`renderBroken`). Probing first makes that
+   * structurally impossible: the only `<img>` this method ever creates is
+   * one already confirmed to succeed, so its own `src` assignment can
+   * never itself produce a failed paint.
+   *
+   * On success, the real `<img>` is appended directly to the already-
+   * mounted `imageButton` — a plain DOM mutation, not a CM6 dispatch, the
+   * same "ephemeral, widget-local" reasoning `PdfEmbedWidget`'s own
+   * page/zoom state and `MarkdownEditor.tsx`'s `menuOpen` already
+   * establish (this doesn't need to persist as document state; the next
+   * `eq()`-equal rebuild simply reuses this same DOM, real `<img>` and
+   * all). A second `error` listener on that real `<img>` is kept anyway,
+   * purely as defense-in-depth for the vanishingly rare case where the
+   * exact same URL somehow fails on its second (real) request after
+   * succeeding on the probe's first one — same fallback path, `broken:
+   * true` via `setImageUiState`.
+   *
+   * On failure, the existing `broken` mechanism fires exactly as it did
+   * before this fix — dispatched through `setImageUiState`, causing the
+   * next rebuild to construct this widget via `renderBroken()` instead.
+   */
+  private probeThenMount(imageButton: HTMLElement, view: EditorView): void {
+    const dispatchBroken = () => {
+      view.dispatch({
+        effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, broken: true } }),
+      });
+    };
+
+    const probe = new Image();
+    probe.addEventListener(
+      'load',
       () => {
-        view.dispatch({
-          effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, broken: true } }),
-        });
+        const img = document.createElement('img');
+        img.classList.add('tok-image', `tok-image--${this.ui.displayMode}`);
+        img.alt = this.alt;
+        img.addEventListener('error', dispatchBroken, { once: true });
+        img.src = this.url;
+        imageButton.append(img);
       },
       { once: true }
     );
-
-    container.append(controls, imageButton);
-    return container;
+    probe.addEventListener('error', dispatchBroken, { once: true });
+    probe.src = this.url;
   }
 
   private renderBroken(container: HTMLElement, view: EditorView): HTMLElement {
