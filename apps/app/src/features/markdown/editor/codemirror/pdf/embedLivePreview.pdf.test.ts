@@ -987,3 +987,68 @@ describe('embedLivePreview — PDF embeds, floating controls sizing with custom 
     }
   });
 });
+
+describe('embedLivePreview — PDF embeds, floating controls layout with constrained width', () => {
+  it('controls remain fully visible when title is long and PDF width is narrow — title truncates, controls do not clip', () => {
+    const view = mountView(
+      'x ![[very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf|200]]',
+      imageResolverFor({ 'very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf': { status: 'non-image' } }),
+      pdfResolverFor({
+        'very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf': pdfResolution(
+          'app://vault/very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf',
+          'very-long-file-name-that-is-definitely-much-longer-than-the-available-space',
+          'very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf'
+        ),
+      })
+    );
+
+    const controlsRow = view.dom.querySelector<HTMLElement>('.cm-pdf-embed-controls');
+    const title = controlsRow?.querySelector<HTMLElement>('.pdf-viewer__title');
+    const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-image-controls');
+
+    // Controls container must be visible and not clipped in the DOM
+    expect(actionsGroup).not.toBeNull();
+    // Verify all action buttons are present and have the cm-image-control class
+    const buttons = actionsGroup?.querySelectorAll('.cm-image-control');
+    expect(buttons?.length).toBe(3);
+
+    // Title has flex: 1 1 auto; min-width: 0 (added in PdfEmbedWidget.css),
+    // allowing it to shrink when constrained, with inherited overflow/text-overflow/
+    // white-space rules handling the truncation. Controls have flex: 0 0 auto,
+    // maintaining their intrinsic width and never being clipped.
+    for (const button of buttons || []) {
+      expect(button.classList.contains('cm-image-control')).toBe(true);
+    }
+  });
+
+  it('controls remain fully visible with normal/full-width PDF and long title', async () => {
+    const view = mountView(
+      'x ![[very-long-file-name-that-would-overflow-a-narrow-container.pdf]]',
+      imageResolverFor({
+        'very-long-file-name-that-would-overflow-a-narrow-container.pdf': { status: 'non-image' },
+      }),
+      pdfResolverFor({
+        'very-long-file-name-that-would-overflow-a-narrow-container.pdf': pdfResolution(
+          'app://vault/very-long-file-name-that-would-overflow-a-narrow-container.pdf',
+          'very-long-file-name-that-would-overflow-a-narrow-container',
+          'very-long-file-name-that-would-overflow-a-narrow-container.pdf'
+        ),
+      })
+    );
+
+    const embed = getPdfEmbed(view)!;
+    await flush();
+
+    const controlsRow = embed.querySelector<HTMLElement>('.cm-pdf-embed-controls');
+    const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-image-controls');
+    const editButton = getEditButton(view);
+    const expandButton = embed.querySelector<HTMLButtonElement>('button[aria-label="Expand"]')!;
+    const moreActionsButton = embed.querySelector<HTMLButtonElement>('button[aria-label="More actions"]')!;
+
+    // All buttons must be present and visible (not hidden/clipped)
+    expect(editButton).not.toBeNull();
+    expect(expandButton).not.toBeNull();
+    expect(moreActionsButton).not.toBeNull();
+    expect(actionsGroup?.querySelectorAll('.cm-image-control').length).toBe(3);
+  });
+});

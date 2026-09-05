@@ -105,13 +105,35 @@
 /* The top row — title (left, always visible, `.pdf-viewer__title`'s own
    styling) + the Expand/Edit source/More actions cluster (right,
    hover/focus-reveal). `space-between` puts the title flush left and the
-   actions flush right, mirroring `PdfViewer`'s own toolbar layout. */
+   actions flush right, mirroring `PdfViewer`'s own toolbar layout.
+
+   When width is constrained: the title shrinks and truncates (flex: 1 1 auto
+   with min-width: 0 and the inherited overflow/text-overflow/white-space),
+   while the control buttons maintain their full intrinsic width (flex: 0 0 auto).
+   This ensures controls are never clipped or hidden, and the title is the
+   flexible element that gives up space. */
 .cm-pdf-embed-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-8);
   padding: var(--space-8) var(--space-8) 0;
+}
+
+/* Title flex: 1 1 auto allows shrinking when space is constrained,
+   min-width: 0 removes flex item's default min-width: auto (which would floor
+   the item at its content width and defeat the shrinking), so the title can
+   shrink below its content width and the inherited overflow/text-overflow/
+   white-space rules then truncate it with ellipsis. */
+.cm-pdf-embed-controls .pdf-viewer__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Controls flex: 0 0 auto prevents shrinking — the control group maintains
+   its intrinsic (max-content) width regardless of available space. */
+.cm-pdf-embed-controls .cm-image-controls {
+  flex: 0 0 auto;
 }
 
 /* Overrides `MarkdownEditor.css`'s `.cm-editor .cm-image-controls` rule —
