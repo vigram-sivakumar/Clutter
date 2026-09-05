@@ -102,53 +102,55 @@
   align-items: center;
 }
 
-/* The top row — title (left, always visible, occupies full available width)
-   + the Expand/Edit source/More actions cluster (right, absolutely positioned
-   overlay, hover/focus-reveal). The title occupies the full header width and
-   does NOT share it with the controls — controls are absolutely positioned
-   on top of the right side and do not participate in the flex layout.
+/* The top row — title (left, always visible) + the Expand/Edit source/More
+   actions cluster (right, hidden/shown via flex-basis toggle). The title and
+   controls share the available width via flex layout. When hidden, controls
+   occupy 0 width; when visible (on hover), they expand to their intrinsic width
+   and the title truncates if needed with the remaining available width.
    This ensures:
-   - Title gets full available width without early truncation
-   - Controls never reserve space and never cause layout shift
-   - Controls appear on hover without changing title's allocated width
-   - Title may naturally truncate based on available space, but only when needed */
+   - Title gets full available width when controls hidden
+   - Controls don't shrink or clip when visible
+   - Title truncates naturally with remaining space when controls visible
+   - Showing controls does not resize the PDF or content below
+   - No layout shift outside the header area */
 .cm-pdf-embed-controls {
-  position: relative;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
   padding: var(--space-8) var(--space-8) 0;
 }
 
-/* Title occupies the full available width of the header. Inherits
-   overflow/text-overflow/white-space from `.pdf-viewer__title` (PdfViewer.css)
-   to handle truncation when needed based on full available width. */
+/* Title occupies available width, shrinking when controls appear.
+   flex: 1 1 auto allows growth and shrinking.
+   min-width: 0 removes the flex-item default min-width: auto, allowing
+   the title to shrink below its content width.
+   Inherits overflow/text-overflow/white-space from `.pdf-viewer__title`
+   (PdfViewer.css) to truncate with ellipsis when needed. */
 .cm-pdf-embed-controls .pdf-viewer__title {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-/* Floating controls are absolutely positioned over the header's right side.
-   Do NOT participate in flex layout — they overlay without reserving space.
-   `position: absolute; right: ...` positions them relative to `.cm-pdf-embed-controls`
-   (position: relative parent). They remain fully visible and at fixed 24px size,
-   and showing them on hover does not cause any layout shift since they don't
-   affect the flex layout or title's width. */
+/* Floating controls are flex items that toggle between hidden and visible width.
+   At rest: flex: 0 0 0 (zero width, don't reserve space)
+            overflow: hidden (prevent buttons from visible during transition)
+   On hover: flex: 0 0 auto (intrinsic width, hug their buttons)
+            overflow: visible (buttons fully visible)
+   This layout-aware approach allows the title to use the full width when controls
+   are hidden, and truncate appropriately when controls become visible. */
 .cm-pdf-embed-controls .cm-image-controls {
-  position: absolute;
-  right: var(--space-8);
-  top: var(--space-8);
+  flex: 0 0 0;
+  overflow: hidden;
 }
 
-/* The `.cm-image-controls` rule in MarkdownEditor.css sets position: absolute,
-   which is exactly what we want here too — controls overlay the header without
-   reserving space. No position override needed. The shared opacity reveal-on-
-   hover/focus behavior is applied by the rules below. */
-
-/* `.cm-pdf-embed-container--hover` (not `:hover`) — see `PdfEmbedWidget.ts`'s
-   own `mouseenter`/`mouseleave` listeners for why: bare CSS `:hover` got
-   stuck permanently true after the first hover here, a browser "sticky
-   hover" quirk triggered by `renderCurrentPage()` mutating `pageHost`'s
-   DOM while the pointer sits over it. `:focus-within` is kept as-is
+/* Reveal controls on hover/focus: make them layout-aware and visible.
+   flex: 0 0 auto — controls expand to their intrinsic width
+   overflow: visible — buttons are fully visible (not clipped during reveal)
+   opacity: 1 — controls fade in
+   The `.cm-pdf-embed-container--hover` class is used instead of bare `:hover`
+   to avoid a browser "sticky hover" quirk triggered by `renderCurrentPage()`
+   mutating the DOM while the pointer sits over it. `:focus-within` is kept as-is
    (keyboard-driven, no such DOM-mutation-under-pointer timing issue). */
 .cm-editor
   .cm-pdf-embed-container.cm-pdf-embed-container--hover
@@ -158,6 +160,8 @@
   .cm-pdf-embed-container:focus-within
   .cm-pdf-embed-controls
   .cm-image-controls {
+  flex: 0 0 auto;
+  overflow: visible;
   opacity: 1;
 }
 
