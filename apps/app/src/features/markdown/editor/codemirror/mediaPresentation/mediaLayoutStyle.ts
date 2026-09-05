@@ -204,6 +204,36 @@ export interface FlipDimensionEntry {
  * switch that happens to leave the image's own width unchanged, only its
  * height differing) are skipped entirely: no pin is ever set for them
  * and no `transitionend` is ever awaited, since none would fire.
+ *
+ * **Cleanup also fires on `transitioncancel`, not only `transitionend`
+ * (2026-09, fixing a real stuck-inline-style bug).** A *running*
+ * transition that gets interrupted — this same function called again
+ * for the same element/property before the first one finishes, e.g. a
+ * second mode toggle inside the 160ms window — never fires
+ * `transitionend` for the interrupted one; per the CSS Transitions spec,
+ * an interrupted transition fires `transitioncancel` instead, and
+ * `transitionend` simply never happens for it. The interrupted call's
+ * own cleanup closure was therefore leaking, permanently: its pin was
+ * already overwritten by the second call's own pin/release (harmless on
+ * its own), but its listener stayed attached, unfired, forever. That's
+ * not just a leak — it's what let a *later, unrelated* switch's own
+ * measurement get poisoned: `measureBox` (`ImageWidget.ts`) reads the
+ * container's actual rendered box, and once *any* switch fails to clean
+ * up its own inline `height`/`width` pin, every subsequent switch's own
+ * `getBoundingClientRect()` reads that stale inline value as the
+ * *current, real* size — including for the "before" measurement of the
+ * next switch. If the stale value happens to equal what the next
+ * switch's own "after" measurement would otherwise be different from
+ * has drifted, `|from - to|` can land back under this function's own
+ * `0.5` change threshold, silently skipping the property entirely —
+ * leaving the stale inline value in place, forever, confirmed to
+ * reproduce the exact reported symptom (`.cm-image-container` stuck at
+ * `height: 400px` after switching to Fit, indefinitely). Listening for
+ * `transitioncancel` alongside `transitionend`, both driving the exact
+ * same cleanup, closes this without any new state: whichever fires
+ * first still only runs the cleanup once (removing both listeners
+ * together) — `entry.el.style.removeProperty(entry.property)` is
+ * idempotent regardless of which event triggered it.
  */
 export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]): void {
   const changing = entries.filter((entry) => Math.abs(entry.from - entry.to) > 0.5);
@@ -223,14 +253,16 @@ export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]):
   void changing[0]!.el.offsetHeight;
 
   for (const entry of changing) {
-    const onTransitionEnd = (event: TransitionEvent) => {
+    const onSettled = (event: TransitionEvent) => {
       if (event.target !== entry.el || event.propertyName !== entry.property) {
         return;
       }
-      entry.el.removeEventListener('transitionend', onTransitionEnd);
+      entry.el.removeEventListener('transitionend', onSettled);
+      entry.el.removeEventListener('transitioncancel', onSettled);
       entry.el.style.removeProperty(entry.property);
     };
-    entry.el.addEventListener('transitionend', onTransitionEnd);
+    entry.el.addEventListener('transitionend', onSettled);
+    entry.el.addEventListener('transitioncancel', onSettled);
   }
 
   for (const entry of changing) {

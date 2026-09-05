@@ -359,8 +359,19 @@ export class ImageWidget extends WidgetType {
     const endContainer = measureBox(container);
     const endImg = measureBox(img);
 
+    // Container `height` is FLIP-animated too (2026-09, fixing a real
+    // Fit→Fill asymmetry) — see `.cm-image-container`'s own CSS doc
+    // comment (MarkdownEditor.css) for the full mechanism: without this,
+    // `.cm-image-container--fill`'s `height: 400px` + `overflow: hidden`
+    // took effect the instant the class swapped, clipping a taller
+    // Fit-mode image to exactly 400px before its own height transition
+    // had moved at all — a real snap, not merely fast. Pinning the
+    // container's height the same way its width already is gives
+    // `overflow: hidden` a correctly-animating boundary to clip against
+    // in both directions, not one that already jumped to its final size.
     flipDimensionTransition([
       { el: container, property: 'width', from: startContainer.width, to: endContainer.width },
+      { el: container, property: 'height', from: startContainer.height, to: endContainer.height },
       { el: img, property: 'width', from: startImg.width, to: endImg.width },
       { el: img, property: 'height', from: startImg.height, to: endImg.height },
     ]);

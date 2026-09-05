@@ -2010,9 +2010,26 @@ describe('MarkdownEditor.css — display mode rules', () => {
     expect(body).not.toMatch(/max-height\s*:/);
     expect(body).toMatch(/width\s*:\s*100%\s*;/);
     // object-fit: cover is what makes filling both dimensions compatible
-    // with "never distort" — it crops, it never stretches the image's
-    // own aspect ratio.
+    // with "never distort" — it uniformly scales the image (its own
+    // proportions never altered) and crops whatever doesn't fit; it
+    // never stretches the image to match the *container's* aspect
+    // ratio, which is a structurally different thing `object-fit: fill`
+    // (a different keyword, never used here) would do instead.
     expect(body).toMatch(/object-fit\s*:\s*cover\s*;/);
+    expect(body).not.toMatch(/object-fit\s*:\s*fill\s*;/);
+  });
+
+  it('.tok-image--fill anchors its crop at mathematical center — a real "subject pushed to the bottom edge" bug was a missing height:100% relay on .cm-image-button, not an object-position problem, so center stays correct once the box itself is the right size', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const body = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fill\s*\{([^}]*)\}/);
+    expect(body).toMatch(/object-position\s*:\s*center\s*;/);
+  });
+
+  it('.cm-image-button relays height:100% down to the <img> alongside its existing width:100% relay — the actual root cause of the "subject pushed to the bottom edge" Fill-crop bug: without it, this button (and therefore the height:100% <img> inside it) stayed shrink-wrapped to the image\'s own natural height instead of the container\'s real 400px, so object-fit: cover cropped into the wrong box regardless of object-position', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const body = ruleBody(css, /\.cm-editor\s+\.cm-image-button\s*\{([^}]*)\}/);
+    expect(body).toMatch(/width\s*:\s*100%\s*;/);
+    expect(body).toMatch(/height\s*:\s*100%\s*;/);
   });
 
   it('Fit and Fill both render a full-width container; the image is always width:100%, and Fit never crops or fixes a height', () => {

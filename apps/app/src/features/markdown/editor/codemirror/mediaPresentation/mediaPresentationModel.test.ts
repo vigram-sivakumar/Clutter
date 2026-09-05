@@ -157,6 +157,45 @@ describe('serializeImagePresentationTokens', () => {
     const presentation: ImagePresentation = { mode: 'fit', width: 6, alignment: 'center' };
     expect(serializeImagePresentationTokens(presentation)).toBe('6,center,fit');
   });
+
+  it('serializes back to fill (changing from fit): width + fill', () => {
+    expect(serializeImagePresentationTokens({ width: 6, alignment: 'left', mode: 'fill' })).toBe('6');
+  });
+
+  it('serializes back to fill (changing from fit): alignment + fill', () => {
+    expect(serializeImagePresentationTokens({ width: 11, alignment: 'center', mode: 'fill' })).toBe('center');
+  });
+
+  it('serializes back to fill (changing from fit): width + alignment + fill', () => {
+    expect(serializeImagePresentationTokens({ width: 6, alignment: 'center', mode: 'fill' })).toBe('6,center');
+  });
+
+  it('fill is the default and omitted when all fields are default', () => {
+    expect(serializeImagePresentationTokens({ width: 11, alignment: 'left', mode: 'fill' })).toBe('');
+  });
+
+  it('round-trip: fit,320 parses and serializes back to 320,fit (order-independent)', () => {
+    const parsed = resolveImagePresentation(['fit', '320']);
+    expect(parsed).toEqual({ width: 320, alignment: 'left', mode: 'fit' });
+    expect(serializeImagePresentationTokens(parsed)).toBe('320,fit');
+  });
+
+  it('round-trip: fill,320 parses and serializes back (fill is omitted when default)', () => {
+    const parsed = resolveImagePresentation(['fill', '320']);
+    expect(parsed).toEqual({ width: 320, alignment: 'left', mode: 'fill' });
+    expect(serializeImagePresentationTokens(parsed)).toBe('320');
+  });
+
+  it('round-trip: 320,center,fit parses and serializes identically', () => {
+    const parsed = resolveImagePresentation(['320', 'center', 'fit']);
+    expect(serializeImagePresentationTokens(parsed)).toBe('320,center,fit');
+  });
+
+  it('round-trip: 320,center,fill parses and serializes (fill omitted since default)', () => {
+    const parsed = resolveImagePresentation(['320', 'center', 'fill']);
+    expect(parsed).toEqual({ width: 320, alignment: 'center', mode: 'fill' });
+    expect(serializeImagePresentationTokens(parsed)).toBe('320,center');
+  });
 });
 
 describe('serializePdfPresentationTokens', () => {

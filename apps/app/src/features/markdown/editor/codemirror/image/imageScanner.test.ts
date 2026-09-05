@@ -105,5 +105,34 @@ describe('scanImage', () => {
         presentationTokens: ['6'],
       });
     });
+
+    it('splits alt from fill mode alone', () => {
+      expect(scanImage('![Mountain view|fill](photo.jpg)')).toEqual({
+        alt: 'Mountain view',
+        url: 'photo.jpg',
+        presentationTokens: ['fill'],
+      });
+    });
+
+    it('splits alt from width + fill in both orders', () => {
+      expect(scanImage('![Photo|230,fill](photo.jpg)')).toEqual({
+        alt: 'Photo',
+        url: 'photo.jpg',
+        presentationTokens: ['230', 'fill'],
+      });
+      expect(scanImage('![Photo|fill,230](photo.jpg)')).toEqual({
+        alt: 'Photo',
+        url: 'photo.jpg',
+        presentationTokens: ['fill', '230'],
+      });
+    });
+
+    it('splits alt from width + alignment + fill', () => {
+      expect(scanImage('![Photo|230,center,fill](photo.jpg)')).toEqual({
+        alt: 'Photo',
+        url: 'photo.jpg',
+        presentationTokens: ['230', 'center', 'fill'],
+      });
+    });
   });
 });

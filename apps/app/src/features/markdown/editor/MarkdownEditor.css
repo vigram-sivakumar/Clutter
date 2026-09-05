@@ -1271,13 +1271,37 @@
   width: fit-content;
   max-width: 100%;
   /* Presentation-update flicker fix — a subtle, fast transition on the
-     dimension `applyMediaWidth`/`ImageWidget.updateDOM` actually mutate
+     dimensions `applyMediaWidth`/`ImageWidget.updateDOM` actually mutate
      via inline style, so a width/mode change reads as continuous layout
      motion rather than an instant jump. Only meaningful now that
      `updateDOM` keeps the same DOM element alive across the change (see
      that method's own doc comment) — animating a property on an element
-     that gets destroyed and recreated has no visible effect at all. */
-  transition: width 160ms ease;
+     that gets destroyed and recreated has no visible effect at all.
+     `height`, not just `width` (2026-09, fixing a real Fit→Fill
+     asymmetry): `.cm-image-container--fill` (below) is the only modifier
+     that declares an explicit `height` (a fixed `400px`) *and*
+     `overflow: hidden` together — Fit's own container never declares a
+     height at all (content-driven `auto`). Going Fill→Fit, the missing
+     `height` transition was invisible by accident: `auto` continuously
+     re-derives from the `<img>`'s own height, which the FLIP mechanism
+     below already animates, so the container's box visually shrank right
+     along with it, frame by frame, with no transition of its own needed.
+     Going Fit→Fill, that accident doesn't help: `height: 400px` and
+     `overflow: hidden` both take effect the instant the class swaps —
+     if the Fit-mode image was taller than 400px, the container clips to
+     exactly 400px from the very first frame, before the image's own
+     (still-correctly-animating) height transition has moved at all, so
+     nothing above 400px was ever visible to interpolate — a real snap,
+     not merely a fast transition. `ImageWidget.ts`'s `updateDOM` now
+     FLIP-pins this element's own `height` the same way it already pins
+     `width` (and the `<img>`'s own width/height) — see that method's own
+     comment — giving this `transition` a real "from" size to play
+     against in both directions, so `overflow: hidden` only ever clips
+     whatever the container's own animating height doesn't cover *at that
+     instant*, not a value that already jumped to its final size. */
+  transition:
+    width 160ms ease,
+    height 160ms ease;
 }
 
 /* Fill and Fit's own boxes (below) are both the full available width by
@@ -1349,11 +1373,33 @@
    underlying intrinsic size (here, the `<img>`'s natural pixel dimensions),
    not the circular percentage itself, at every level of the chain. Verified
    directly in the real app for both an under- and an over-available-width
-   natural image, not merely assumed. */
+   natural image, not merely assumed.
+
+   **`height: 100%` is the same relay, for height (root cause of a real
+   Fill-crop bug).** Without it, this button's own height stayed `auto` —
+   shrink-wrapped to the `<img>`'s own rendered height, which for a
+   `height: 100%` image is itself derived from *this* element's height,
+   a circular reference that resolves to the image's natural (intrinsic)
+   height at its current width, not the container's real 400px. `.tok-
+   image--fill`'s `object-fit: cover` was therefore cropping into that
+   wrong, natural-height box instead of the container's actual 400px one
+   — confirmed directly (real mounted app): the image rendered at close
+   to its full natural scaled height inside the 400px, `overflow: hidden`
+   container, so only a sliver near the *top* of that oversized render
+   was ever visible, regardless of `object-position`. Relaying `height:
+   100%` down from the container (already `height: 100%` on the `<img>`
+   itself, see `.tok-image--fill` below) gives Fill's `cover`/`center`
+   crop an actual, correctly-sized 400px box to crop into — no
+   `object-position` offset needed at all. Fit is unaffected: its own
+   container has no fixed height (`height: auto`, driven by `.tok-image
+   --fit`'s intrinsic-aspect-ratio sizing), so `height: 100%` on this
+   button resolves against that same auto value, a no-op. */
 .cm-editor .cm-image-button {
   display: block;
   width: 100%;
   max-width: 100%;
+  height: 100%;
+  max-height: 100%;
   padding: 0;
   border: none;
   background: none;
@@ -1409,19 +1455,40 @@
    image could still shrink below (confirmed directly — an earlier
    `max-height` + `width: 100%` version left a short image short instead
    of filling the box, since nothing was forcing the height dimension to
-   be anything but auto). `object-fit: cover` still preserves the image's
-   own aspect ratio internally (it crops, it never stretches/distorts)
-   and centers the crop by its own default `object-position: center` —
-   satisfying "never distort" and "center" from this construct's own
-   spec without a second, separate centering rule. `.cm-image-container
-   --fill` (below `.cm-image-container` above) sets the container's own
-   `width: 100%` to match — Fill's box is always the full available
-   width by design, so there is no narrower-than-full-width case left to
-   center as a *box*, unlike this rule's own earlier revision. */
+   be anything but auto).
+
+   **Contract, stated precisely**: the image is never stretched or
+   distorted — its own intrinsic proportions are never altered, only
+   uniformly scaled up/down as needed so it fully covers the box, with
+   whatever doesn't fit cropped away. "Preserves aspect ratio" here means
+   exactly that (the image's own proportions stay intact) — never "the
+   image is resized/stretched to match the *container's* aspect ratio,"
+   which `object-fit: cover` structurally cannot do in the first place
+   (unlike `fill`, the one `object-fit` keyword that *would* distort).
+   `.cm-image-container--fill` (below `.cm-image-container` above) sets
+   the container's own `width: 100%` to match — Fill's box is always the
+   full available width by design, so there is no narrower-than-full-
+   width case left to center as a *box*, unlike this rule's own earlier
+   revision.
+
+   **`object-position: center` is correct as-is — a real reported "subject
+   pushed to the bottom edge, mostly empty space above" bug was NOT an
+   `object-position` problem.** Root cause: `.cm-image-button` (the
+   intermediate wrapper between this container and the `<img>`, above)
+   was missing its own `height: 100%` relay, so `object-fit: cover` was
+   cropping into a wrong, natural-height box instead of the container's
+   real 400px one — see `.cm-image-button`'s own doc comment for the
+   full mechanism. Once that box is actually 400px, a centered crop
+   anchor is the correct, content-agnostic default: no heuristic bias is
+   needed or justified without real subject/focal-point detection, which
+   this codebase deliberately does not have. Do not reintroduce a
+   non-center `object-position` here to compensate for a height-chain
+   bug elsewhere — confirm the box itself is the right size first. */
 .cm-editor .tok-image.tok-image--fill {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
 }
 
 /* Alignment (resize milestone) — generic across both display modes, keyed

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
-import { applyMediaWidth, type ResizeObserverHolder } from './mediaLayoutStyle';
+import { applyMediaWidth, flipDimensionTransition, type ResizeObserverHolder } from './mediaLayoutStyle';
 
 /**
  * Regression coverage for a real, confirmed "ResizeObserver loop completed
@@ -117,5 +117,89 @@ describe('applyMediaWidth — the editor-width clamp observer only ever acts on 
     }
 
     expect(target.style.width).toBe('999px'); // never touched by any of the 20 firings
+  });
+});
+
+/**
+ * Regression coverage for a real, confirmed bug: `.cm-image-container`
+ * stuck permanently at an inline `height: 400px` (Fill's own fixed
+ * height) after switching to Fit, which should rely on `height: auto`.
+ * Root cause: `flipDimensionTransition` only ever cleaned up its own
+ * inline pin on `transitionend`. A transition that gets *interrupted* —
+ * this function called again for the same element/property before the
+ * first call's transition finishes, e.g. a second mode toggle inside the
+ * 160ms window — never fires `transitionend` for the interrupted one;
+ * per the CSS Transitions spec, an interrupted transition fires
+ * `transitioncancel` instead. The interrupted call's own cleanup closure
+ * therefore never ran, leaking its listener forever and — critically —
+ * leaving whatever inline value it last wrote in place. Once any switch
+ * fails to clean up, every later switch's own `getBoundingClientRect()`
+ * measurement reads that stale inline value as the element's *actual*
+ * current size, which can make a later, otherwise-genuine size change
+ * measure as "unchanged" (under this function's own `0.5`px threshold)
+ * — permanently skipping the property and leaving the stale value stuck
+ * for good. Fixed by also listening for `transitioncancel`, running the
+ * exact same cleanup either way.
+ */
+describe('flipDimensionTransition — cleanup fires on transitioncancel, not only transitionend', () => {
+  function fire(el: HTMLElement, type: 'transitionend' | 'transitioncancel', propertyName: string): void {
+    el.dispatchEvent(new TransitionEvent(type, { propertyName }));
+  }
+
+  it('a normal, uninterrupted transition still cleans up on transitionend (baseline, unchanged)', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 400, to: 300 }]);
+    expect(el.style.height).toBe('300px');
+
+    fire(el, 'transitionend', 'height');
+    expect(el.style.height).toBe('');
+  });
+
+  it('an interrupted transition cleans up on transitioncancel instead — the actual event a real browser fires when a transition never reaches its own transitionend', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 400, to: 300 }]);
+    expect(el.style.height).toBe('300px');
+
+    // No transitionend ever fires for this one (it was interrupted) —
+    // only transitioncancel, which must still remove the pin.
+    fire(el, 'transitioncancel', 'height');
+    expect(el.style.height).toBe('');
+  });
+
+  it('reproduces the exact reported bug pre-fix scenario: an interrupted transition that never cleans up poisons a later switch\'s own measurement, permanently stuck at the interrupted value', () => {
+    const el = document.createElement('div');
+
+    // First switch: Fill (400) -> Fit (300). Interrupted before its own
+    // cleanup ever fires (neither transitionend nor transitioncancel —
+    // simulating a call this test never resolves, e.g. because a second
+    // switch supersedes it before either event arrives).
+    flipDimensionTransition([{ el, property: 'height', from: 400, to: 300 }]);
+    expect(el.style.height).toBe('300px');
+
+    // Second switch: Fit (300) -> Fill (400) — a completely ordinary,
+    // independent call; nothing about it is itself "interrupted."
+    flipDimensionTransition([{ el, property: 'height', from: 300, to: 400 }]);
+    expect(el.style.height).toBe('400px');
+
+    // The second (valid) transition completes normally.
+    fire(el, 'transitionend', 'height');
+    expect(el.style.height).toBe('');
+
+    // A third switch back to Fit must not be poisoned by anything the
+    // first, never-cleaned-up call left behind — it measures its own
+    // fresh from/to and animates/cleans up exactly as any first switch
+    // would.
+    flipDimensionTransition([{ el, property: 'height', from: 400, to: 300 }]);
+    expect(el.style.height).toBe('300px');
+    fire(el, 'transitionend', 'height');
+    expect(el.style.height).toBe('');
+  });
+
+  it('entries whose from/to are equal are still skipped entirely — no pin, no listener, unaffected by the transitioncancel addition', () => {
+    const el = document.createElement('div');
+    flipDimensionTransition([{ el, property: 'height', from: 400, to: 400 }]);
+    expect(el.style.height).toBe('');
+    fire(el, 'transitioncancel', 'height');
+    expect(el.style.height).toBe(''); // no-op — nothing was ever pinned
   });
 });

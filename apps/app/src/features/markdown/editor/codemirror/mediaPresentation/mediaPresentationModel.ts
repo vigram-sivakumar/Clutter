@@ -20,13 +20,13 @@
  *   `![Mountain view|6,center,fit](photo.jpg)` — native Markdown image
  *   `![[document.pdf|6,center]]` — local PDF embed
  *
- * Recognized tokens (unchanged from the earlier design):
+ * Recognized tokens:
  * - width: an integer token. 1–11 = proportional (Nths of available
  *   content width, 11 = full width); 12+ = a literal pixel width. Only
  *   these two buckets exist — a token outside both (e.g. `0`) is
  *   unrecognized.
  * - alignment: `left` | `center` | `right`.
- * - mode (Image only): `fill` | `large` | `fit`. Never valid for a PDF —
+ * - mode (Image only): `fill` | `fit`. Never valid for a PDF —
  *   `resolvePdfPresentation` below simply never reads it.
  * Unknown tokens (e.g. `banana`) are ignored, never an error. Duplicate
  * recognized values: **last one wins** — `parseMediaPresentationTokens`
