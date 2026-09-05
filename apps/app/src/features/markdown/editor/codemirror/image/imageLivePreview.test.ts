@@ -609,6 +609,54 @@ describe('Edit source: presentation mode (Fit/Fill) must be preserved', () => {
     expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
     expect(view.dom.textContent).not.toContain(fitImageMd);
   });
+
+  it('DIAGNOSTIC: instrument exact rendering path for Fit -> Edit Source -> should remain Fit', () => {
+    const fitImageMd = '![Mountain|230,fit](https://example.com/image.jpg)';
+    const view = mountView(fitImageMd);
+    settleAllProbes();
+
+    const imageTo = fitImageMd.length;
+
+    // Before Edit Source
+    console.log('=== BEFORE EDIT SOURCE ===');
+    const uiBefore = getImageUiState(view.state, 0, imageTo);
+    console.log('getImageUiState(0, imageTo):', uiBefore);
+    const imgBefore = getImg(view);
+    console.log('img.classList:', imgBefore?.className);
+    console.log('tok-image--fit present?', imgBefore?.classList.contains('tok-image--fit'));
+    console.log('tok-image--fill present?', imgBefore?.classList.contains('tok-image--fill'));
+
+    // Click Edit Source - capture state right before dispatch
+    const editButton = getEditButton(view);
+    console.log('\n=== CLICK EDIT SOURCE ===');
+
+    // Dispatch the click
+    editButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    settleAllProbes();
+
+    // After Edit Source
+    console.log('\n=== AFTER EDIT SOURCE ===');
+    const uiAfter = getImageUiState(view.state, 0, imageTo);
+    console.log('getImageUiState(0, imageTo):', uiAfter);
+    const imgAfter = getImg(view);
+    console.log('img.classList:', imgAfter?.className);
+    console.log('tok-image--fit present?', imgAfter?.classList.contains('tok-image--fit'));
+    console.log('tok-image--fill present?', imgAfter?.classList.contains('tok-image--fill'));
+
+    // Also check WITHOUT passing imageTo to see what happens
+    console.log('\n=== ALTERNATIVE: getImageUiState WITHOUT to parameter ===');
+    const uiNoTo = getImageUiState(view.state, 0);  // NO imageTo
+    console.log('getImageUiState(0) [no to]:', uiNoTo);
+
+    // Assertions
+    expect(uiBefore.displayMode).toBe('fit');
+    expect(imgBefore?.classList.contains('tok-image--fit')).toBe(true);
+
+    expect(uiAfter.displayMode).toBe('fit');
+    expect(uiAfter.revealed).toBe(true);
+    expect(imgAfter?.classList.contains('tok-image--fit')).toBe(true);
+    expect(view.dom.textContent).toContain(fitImageMd);
+  });
 });
 
 /**
