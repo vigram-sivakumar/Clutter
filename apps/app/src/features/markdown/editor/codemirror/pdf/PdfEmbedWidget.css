@@ -138,9 +138,15 @@
    On hover: flex: 0 0 auto (intrinsic width, hug their buttons)
             overflow: visible (buttons fully visible)
    This layout-aware approach allows the title to use the full width when controls
-   are hidden, and truncate appropriately when controls become visible. */
-.cm-pdf-embed-controls .cm-image-controls {
+   are hidden, and truncate appropriately when controls become visible.
+
+   CRITICAL: Must override `.cm-editor .cm-image-controls` rule in MarkdownEditor.css
+   which sets `position: absolute`. Added `.cm-editor` prefix for higher specificity
+   and explicit `position: static` to remove absolute positioning. */
+.cm-editor .cm-pdf-embed-controls .cm-image-controls {
+  position: static;
   flex: 0 0 0;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
@@ -148,18 +154,14 @@
    flex: 0 0 auto — controls expand to their intrinsic width
    overflow: visible — buttons are fully visible (not clipped during reveal)
    opacity: 1 — controls fade in
+   position: static — ensures no absolute positioning even on hover
    The `.cm-pdf-embed-container--hover` class is used instead of bare `:hover`
    to avoid a browser "sticky hover" quirk triggered by `renderCurrentPage()`
    mutating the DOM while the pointer sits over it. `:focus-within` is kept as-is
    (keyboard-driven, no such DOM-mutation-under-pointer timing issue). */
-.cm-editor
-  .cm-pdf-embed-container.cm-pdf-embed-container--hover
-  .cm-pdf-embed-controls
-  .cm-image-controls,
-.cm-editor
-  .cm-pdf-embed-container:focus-within
-  .cm-pdf-embed-controls
-  .cm-image-controls {
+.cm-editor .cm-pdf-embed-container.cm-pdf-embed-container--hover .cm-pdf-embed-controls .cm-image-controls,
+.cm-editor .cm-pdf-embed-container:focus-within .cm-pdf-embed-controls .cm-image-controls {
+  position: static;
   flex: 0 0 auto;
   overflow: visible;
   opacity: 1;
