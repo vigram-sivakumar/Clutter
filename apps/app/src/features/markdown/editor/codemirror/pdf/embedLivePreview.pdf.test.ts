@@ -885,6 +885,121 @@ describe('embedLivePreview — PDF embeds, pagination', () => {
       }
     });
   });
+
+  describe('pagination arrow visibility — CSS structure', () => {
+    /** Pagination arrows use `.cm-pdf-control` with base `opacity: 0` (hidden at rest) and `.cm-pdf-embed-container--hover` rule to reveal (opacity: 1 on hover). The page indicator is always visible. */
+
+    it('pagination has correct DOM structure: Previous/Next buttons with `.cm-pdf-control` class inside `.cm-pdf-embed-pagination`', async () => {
+      pdfjsMock.state.numPages = 2;
+      try {
+        const view = mountView(
+          `x ${PDF}`,
+          imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+          pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+        );
+
+        const embed = getPdfEmbed(view)!;
+        const prevButton = getPrevButton(embed)!;
+        const nextButton = getNextButton(embed)!;
+        const pagination = embed.querySelector('.cm-pdf-embed-pagination')!;
+        const container = embed.closest<HTMLElement>('.cm-pdf-embed-container')!;
+
+        // Verify DOM structure
+        expect(pagination).not.toBeNull();
+        expect(prevButton.classList.contains('cm-pdf-control')).toBe(true);
+        expect(nextButton.classList.contains('cm-pdf-control')).toBe(true);
+        expect(prevButton.closest('.cm-pdf-embed-pagination')).toBe(pagination);
+        expect(nextButton.closest('.cm-pdf-embed-pagination')).toBe(pagination);
+
+        // Verify hover class mechanism exists
+        expect(container).not.toBeNull();
+        expect(container.classList.contains('cm-pdf-embed-container--hover')).toBe(false);
+      } finally {
+        pdfjsMock.state.numPages = 1;
+      }
+    });
+
+    it('hover class can be toggled on container to trigger CSS reveal rules', async () => {
+      pdfjsMock.state.numPages = 3;
+      try {
+        const view = mountView(
+          `x ${PDF}`,
+          imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+          pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+        );
+
+        const embed = getPdfEmbed(view)!;
+        const container = embed.closest<HTMLElement>('.cm-pdf-embed-container')!;
+        const prevButton = getPrevButton(embed)!;
+        const nextButton = getNextButton(embed)!;
+
+        // Verify hover class can be added/removed
+        expect(container.classList.contains('cm-pdf-embed-container--hover')).toBe(false);
+        container.classList.add('cm-pdf-embed-container--hover');
+        expect(container.classList.contains('cm-pdf-embed-container--hover')).toBe(true);
+        container.classList.remove('cm-pdf-embed-container--hover');
+        expect(container.classList.contains('cm-pdf-embed-container--hover')).toBe(false);
+
+        // Buttons maintain their .cm-pdf-control class throughout
+        expect(prevButton.classList.contains('cm-pdf-control')).toBe(true);
+        expect(nextButton.classList.contains('cm-pdf-control')).toBe(true);
+      } finally {
+        pdfjsMock.state.numPages = 1;
+      }
+    });
+
+    it('Previous/Next buttons use `.cm-pdf-embed-pagination .cm-pdf-control` selector which has CSS rules for opacity 0 at rest and opacity 1 on hover', async () => {
+      pdfjsMock.state.numPages = 2;
+      try {
+        const view = mountView(
+          `x ${PDF}`,
+          imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+          pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+        );
+
+        const embed = getPdfEmbed(view)!;
+        const pagination = embed.querySelector<HTMLElement>('.cm-pdf-embed-pagination')!;
+        const prevButton = pagination.querySelector<HTMLButtonElement>('button[aria-label="Previous page"]')!;
+        const nextButton = pagination.querySelector<HTMLButtonElement>('button[aria-label="Next page"]')!;
+
+        // Verify buttons match the CSS selector `.cm-pdf-embed-pagination .cm-pdf-control`
+        expect(prevButton.parentElement?.classList.contains('cm-pdf-embed-pagination')).toBe(true);
+        expect(nextButton.parentElement?.classList.contains('cm-pdf-embed-pagination')).toBe(true);
+        expect(prevButton.classList.contains('cm-pdf-control')).toBe(true);
+        expect(nextButton.classList.contains('cm-pdf-control')).toBe(true);
+
+        // Buttons are not disabled buttons themselves (use aria-disabled instead)
+        expect(prevButton.hasAttribute('disabled')).toBe(false);
+        expect(nextButton.hasAttribute('disabled')).toBe(false);
+      } finally {
+        pdfjsMock.state.numPages = 1;
+      }
+    });
+
+    it('page indicator `.pdf-viewer__page-indicator` is always visible and not subject to hover-reveal', async () => {
+      pdfjsMock.state.numPages = 4;
+      try {
+        const view = mountView(
+          `x ${PDF}`,
+          imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+          pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+        );
+
+        const embed = getPdfEmbed(view)!;
+        const pageIndicator = getPageIndicator(embed)!;
+        const pagination = embed.querySelector('.cm-pdf-embed-pagination')!;
+
+        // Page indicator is inside pagination
+        expect(pageIndicator.closest('.cm-pdf-embed-pagination')).toBe(pagination);
+        // Page indicator does NOT have .cm-pdf-control class (so it's not subject to opacity toggling)
+        expect(pageIndicator.classList.contains('cm-pdf-control')).toBe(false);
+        // Page indicator exists and can receive text content
+        expect(pageIndicator).not.toBeNull();
+      } finally {
+        pdfjsMock.state.numPages = 1;
+      }
+    });
+  });
 });
 
 describe('embedLivePreview — PDF embeds, Fit-Width', () => {

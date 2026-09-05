@@ -369,10 +369,18 @@ export class PdfEmbedWidget extends WidgetType {
     // the way `:hover` is, so they aren't susceptible to the same
     // staleness — see PdfEmbedWidget.css's own matching selector.
     container.addEventListener('mouseenter', () => {
+      // DIAGNOSTICS: Trace hover state changes
+      console.log('[PDF Embed] mouseenter: adding hover class');
       container.classList.add('cm-pdf-embed-container--hover');
+      const hasClass = container.classList.contains('cm-pdf-embed-container--hover');
+      console.log('[PDF Embed] hover class added:', hasClass);
     });
     container.addEventListener('mouseleave', () => {
+      // DIAGNOSTICS: Trace hover state changes
+      console.log('[PDF Embed] mouseleave: removing hover class');
       container.classList.remove('cm-pdf-embed-container--hover');
+      const hasClass = container.classList.contains('cm-pdf-embed-container--hover');
+      console.log('[PDF Embed] hover class removed, still present:', hasClass);
     });
 
     let destroyed = false;
@@ -395,6 +403,10 @@ export class PdfEmbedWidget extends WidgetType {
       // behavior, not anything CSS-side.
       this.setButtonDisabled(prevButton, currentPage <= 1);
       this.setButtonDisabled(nextButton, currentPage >= numPages);
+
+      // DIAGNOSTICS: Check if hover state is preserved during updateChrome
+      const hasHoverClass = container.classList.contains('cm-pdf-embed-container--hover');
+      console.log('[PDF Embed] updateChrome: hover class present:', hasHoverClass);
     };
 
     const renderCurrentPage = () => {

@@ -8,19 +8,15 @@
    only this file's own container/control-row/pagination *layout* rules are
    genuinely embed-specific.
 
-   `.cm-image-container--broken`/`.cm-image-broken*` (the broken/unresolved
-   state) and the top row's action-button chrome (`.cm-image-controls`/
-   `.cm-image-control`, background/radius/shadow/button styling) are
-   likewise deliberately NOT redefined here — see `PdfEmbedWidget.ts`'s own
-   class doc comment for why this widget reuses `ImageFloatingControls.css`/
-   `MarkdownEditor.css`'s existing rules verbatim, the same visual system
-   `ImageWidget.ts`'s own floating controls use. Unlike the image widget,
-   the top row's `.cm-image-controls` is NOT an absolute overlay on top of
-   the page — it sits in normal flow above it, alongside the (always
-   visible) title — but it keeps the same reveal-on-hover/focus behavior
-   `ImageWidget`'s own overlay controls have (see the hover rule below).
-   Reveal is driven by a JS-toggled `.cm-pdf-embed-container--hover` class,
-   not bare CSS `:hover` — see that rule's own doc comment for why.
+   `.cm-image-container--broken` (broken/unresolved state) uses shared styling
+   from `ImageFloatingControls.css`. The top row's action-button chrome uses
+   PDF-specific `.cm-pdf-controls`/`.cm-pdf-control` classes with complete
+   self-contained styling independent of image controls. Unlike image-widget
+   overlays, the top row's `.cm-pdf-controls` sits in normal flow above the
+   page alongside the title, participating in the header's flex layout. Control
+   visibility is driven by a JS-toggled `.cm-pdf-embed-container--hover` class
+   (not bare CSS `:hover`) to avoid a browser "sticky hover" quirk when
+   `renderCurrentPage()` mutates the DOM while the pointer sits over it.
 
    Page navigation (`.cm-pdf-embed-pagination`) is a second, deliberately
    *different* floating control — its own dedicated class, not
@@ -151,9 +147,8 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2);
-  background: var(--surface-primary);
+  background: transparent;
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-inset-thin), var(--shadow-lg);
   flex: 0 0 0;
   overflow: hidden;
 }
@@ -207,8 +202,8 @@
 }
 
 /* Show controls on hover: toggle flex-basis to expand container from 0 to intrinsic width. */
-.cm-editor .cm-pdf-embed-container.cm-pdf-embed-container--hover .cm-pdf-embed-controls .cm-pdf-controls,
-.cm-editor .cm-pdf-embed-container:focus-within .cm-pdf-embed-controls .cm-pdf-controls {
+.cm-pdf-embed-container--hover .cm-pdf-controls,
+.cm-pdf-embed-container:focus-within .cm-pdf-controls {
   flex: 0 0 auto;
   overflow: visible;
 }
@@ -219,36 +214,9 @@
   transition: opacity 150ms ease;
 }
 
-.cm-editor .cm-pdf-embed-container.cm-pdf-embed-container--hover .cm-pdf-controls .cm-pdf-control,
-.cm-editor .cm-pdf-embed-container:focus-within .cm-pdf-controls .cm-pdf-control {
+.cm-pdf-embed-container--hover .cm-pdf-controls .cm-pdf-control,
+.cm-pdf-embed-container:focus-within .cm-pdf-controls .cm-pdf-control {
   opacity: 1;
-}
-
-/* Reveal controls on hover/focus: make them layout-aware and visible.
-   flex: 0 0 auto — controls expand to their intrinsic width
-   overflow: visible — buttons are fully visible (not clipped during reveal)
-   opacity: 1 — controls fade in
-   position: static — ensures no absolute positioning even on hover
-   The `.cm-pdf-embed-container--hover` class is used instead of bare `:hover`
-   to avoid a browser "sticky hover" quirk triggered by `renderCurrentPage()`
-   mutating the DOM while the pointer sits over it. `:focus-within` is kept as-is
-   (keyboard-driven, no such DOM-mutation-under-pointer timing issue). */
-.cm-editor
-  .cm-pdf-embed-container.cm-pdf-embed-container--hover
-  .cm-pdf-embed-controls
-  .cm-image-controls,
-.cm-editor
-  .cm-pdf-embed-container:focus-within
-  .cm-pdf-embed-controls
-  .cm-image-controls {
-  position: static;
-  flex: 0 0 auto;
-  overflow: visible;
-  opacity: 1;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
 }
 
 /* The page-navigation pill — floating, centered at the bottom of the page.
@@ -277,7 +245,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  padding: 0 var(--space-8) var(--space-8);
   border-radius: var(--radius-lg);
 }
 
@@ -286,14 +254,7 @@
   transition: opacity 150ms ease;
 }
 
-.cm-editor
-  .cm-pdf-embed-container.cm-pdf-embed-container--hover
-  .cm-pdf-embed-pagination
-  .cm-pdf-control,
-.cm-editor
-  .cm-pdf-embed-container:focus-within
-  .cm-pdf-embed-pagination
-  .cm-pdf-control {
+.cm-pdf-embed-container--hover .cm-pdf-embed-pagination .cm-pdf-control {
   opacity: 1;
 }
 
