@@ -29,6 +29,23 @@ import type { ImageSrcResolution, ResolveImageSrc } from './imageSrcResolution';
 let capturedProbes: HTMLImageElement[] = [];
 let OriginalImage: typeof Image;
 
+/**
+ * jsdom has no real `ResizeObserver` — needed by `applyMediaWidth`
+ * (mediaLayoutStyle.ts) for a non-default *pixel* (12+) custom width,
+ * which watches `view.contentDOM` to re-clamp against the editor's own
+ * column width. A plain no-op stub is enough here: these tests assert
+ * the immediately-applied inline width, never the observer's own
+ * re-clamp-on-editor-resize behavior (see mediaLayoutStyle.test.ts for
+ * that dedicated coverage, with its own more complete fake).
+ */
+class NoopResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
+const OriginalResizeObserver = window.ResizeObserver;
+
 beforeEach(() => {
   capturedProbes = [];
   OriginalImage = window.Image;
@@ -39,10 +56,12 @@ beforeEach(() => {
     }
   }
   vi.stubGlobal('Image', CapturingImage);
+  vi.stubGlobal('ResizeObserver', NoopResizeObserver);
 });
 
 afterEach(() => {
   vi.stubGlobal('Image', OriginalImage);
+  vi.stubGlobal('ResizeObserver', OriginalResizeObserver);
 });
 
 function latestProbe(): HTMLImageElement {
@@ -1157,6 +1176,66 @@ describe('Image display modes', () => {
 
     expect(view.dom.textContent).toContain(IMAGE_MD);
     expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+  });
+});
+
+/**
+ * Custom numeric width — always applied to the *container*, never the
+ * `<img>`, per `applyMediaWidth`'s own doc comment. `mediaPresentation
+ * Model.ts`'s `parseMediaPresentationTokens` already classifies tokens by
+ * shape (a run of digits vs. a recognized keyword), so width and mode
+ * were already order-independent at the parse layer before this
+ * milestone — these tests cover that the *rendered DOM* (container
+ * class, inline width, `<img>` class) is identical regardless of which
+ * order the Markdown actually wrote them in, for both Fit and Fill.
+ */
+describe('Custom numeric width — applied to the container, order-independent from mode', () => {
+  function getContainer(view: EditorView): HTMLElement {
+    const container = view.dom.querySelector<HTMLElement>('.cm-image-container');
+    if (!container) throw new Error('image container not found');
+    return container;
+  }
+
+  it('320,fit and fit,320 render identically: container width 320px + fit class, image fit class, no inline height anywhere', () => {
+    const a = mountView('![Photo|320,fit](https://example.com/a.jpg)');
+    const b = mountView('![Photo|fit,320](https://example.com/a.jpg)');
+
+    for (const view of [a, b]) {
+      const container = getContainer(view);
+      expect(container.classList.contains('cm-image-container--fit')).toBe(true);
+      expect(container.classList.contains('cm-image-container--fill')).toBe(false);
+      expect(container.style.width).toBe('320px');
+      expect(container.style.height).toBe('');
+      expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+      expect(getImg(view)?.style.width).toBe('');
+      expect(getImg(view)?.style.height).toBe('');
+    }
+  });
+
+  it('320,fill and fill,320 render identically: container width 320px + fill class (height stays the fixed 400px from CSS, never inline)', () => {
+    const a = mountView('![Photo|320,fill](https://example.com/a.jpg)');
+    const b = mountView('![Photo|fill,320](https://example.com/a.jpg)');
+
+    for (const view of [a, b]) {
+      const container = getContainer(view);
+      expect(container.classList.contains('cm-image-container--fill')).toBe(true);
+      expect(container.classList.contains('cm-image-container--fit')).toBe(false);
+      expect(container.style.width).toBe('320px');
+      // Fill's 400px height is exclusively `.cm-image-container--fill`'s
+      // own CSS (MarkdownEditor.css) — a custom width never adds an
+      // inline height of any kind, for either mode.
+      expect(container.style.height).toBe('');
+      expect(getImg(view)?.classList.contains('tok-image--fill')).toBe(true);
+      expect(getImg(view)?.style.width).toBe('');
+      expect(getImg(view)?.style.height).toBe('');
+    }
+  });
+
+  it('a default-width Fit/Fill image (no numeric token) never carries an inline width — pure CSS fallback', () => {
+    const fit = mountView('![Photo|fit](https://example.com/a.jpg)');
+    const fill = mountView('![Photo|fill](https://example.com/a.jpg)');
+    expect(getContainer(fit).style.width).toBe('');
+    expect(getContainer(fill).style.width).toBe('');
   });
 });
 

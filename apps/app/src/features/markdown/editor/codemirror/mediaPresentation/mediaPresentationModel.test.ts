@@ -65,6 +65,20 @@ describe('parseMediaPresentationTokens', () => {
       mode: 'fill',
     });
   });
+
+  it('width + mode are independent and order never matters: 320,fit === fit,320', () => {
+    expect(parseMediaPresentationTokens(['320', 'fit'])).toEqual({ width: 320, alignment: null, mode: 'fit' });
+    expect(parseMediaPresentationTokens(['fit', '320'])).toEqual({ width: 320, alignment: null, mode: 'fit' });
+  });
+
+  it('width + mode are independent and order never matters: 320,fill === fill,320', () => {
+    expect(parseMediaPresentationTokens(['320', 'fill'])).toEqual({ width: 320, alignment: null, mode: 'fill' });
+    expect(parseMediaPresentationTokens(['fill', '320'])).toEqual({ width: 320, alignment: null, mode: 'fill' });
+  });
+
+  it('a bare numeric token alone is width only, no mode implied', () => {
+    expect(parseMediaPresentationTokens(['320'])).toEqual({ width: 320, alignment: null, mode: null });
+  });
 });
 
 describe('resolveImagePresentation', () => {
@@ -80,6 +94,16 @@ describe('resolveImagePresentation', () => {
 
   it('resolves a fully-specified suffix', () => {
     expect(resolveImagePresentation(['620', 'center', 'fit'])).toEqual({ width: 620, alignment: 'center', mode: 'fit' });
+  });
+
+  it('320,fit and fit,320 resolve to the exact same presentation', () => {
+    expect(resolveImagePresentation(['320', 'fit'])).toEqual(resolveImagePresentation(['fit', '320']));
+    expect(resolveImagePresentation(['320', 'fit'])).toEqual({ width: 320, alignment: 'left', mode: 'fit' });
+  });
+
+  it('320,fill and fill,320 resolve to the exact same presentation', () => {
+    expect(resolveImagePresentation(['320', 'fill'])).toEqual(resolveImagePresentation(['fill', '320']));
+    expect(resolveImagePresentation(['320', 'fill'])).toEqual({ width: 320, alignment: 'left', mode: 'fill' });
   });
 });
 

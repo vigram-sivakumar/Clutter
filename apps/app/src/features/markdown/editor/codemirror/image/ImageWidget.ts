@@ -11,8 +11,11 @@ import {
 import { scanImage } from './imageScanner';
 import {
   applyMediaAlignment,
+  applyMediaWidth,
+  disconnectMediaWidthObserver,
   flipDimensionTransition,
   measureBox,
+  type ResizeObserverHolder,
 } from '../mediaPresentation/mediaLayoutStyle';
 import type { ImagePresentation } from '../mediaPresentation/mediaPresentationModel';
 
@@ -228,6 +231,22 @@ export class ImageWidget extends WidgetType {
     super();
   }
 
+  /**
+   * Owns the live pixel-width `ResizeObserver` `applyMediaWidth` creates
+   * for a non-default numeric width (`mediaPresentationModel.ts`'s
+   * `width` encoding: 1–10 proportional, 11 = default/full, 12+ pixel) —
+   * see that function's own doc comment. Applied to the *container*, for
+   * both Fill and Fit alike (the custom-width feature is mode-agnostic —
+   * only the container's own height/crop behavior differs by mode, per
+   * `.cm-image-container--fill`/`--fit` in MarkdownEditor.css). Never a
+   * drag/pointer interaction — purely a static value read from the
+   * persisted Markdown; the observer here only ever reacts to the
+   * *editor's* own column resizing, not a user resize gesture. Disconnected
+   * in `destroy()`; a fresh one is created per `toDOM()` call, never
+   * shared across widget instances.
+   */
+  private readonly widthObserver: ResizeObserverHolder = { current: null };
+
   override eq(other: ImageWidget): boolean {
     return (
       this.alt === other.alt &&
@@ -267,7 +286,7 @@ export class ImageWidget extends WidgetType {
    * edits, reveal toggling, and broken/recovery all keep behaving
    * exactly as before this method existed.
    */
-  override updateDOM(dom: HTMLElement, _view: EditorView, from: ImageWidget): boolean {
+  override updateDOM(dom: HTMLElement, view: EditorView, from: ImageWidget): boolean {
     // Deliberately does NOT compare `this.to`/`from.to` — the node's own
     // `to` legitimately shifts on a pure presentation update (`{6}` vs
     // `{620}` vs no pipe segment at all are different text lengths), so
@@ -307,6 +326,14 @@ export class ImageWidget extends WidgetType {
     // against the *old*, now-shifted position.
     container.dataset.nodeTo = String(this.to);
 
+    // `from`'s own live-width `ResizeObserver` (if any — only a 12+ pixel
+    // width ever creates one) would otherwise leak: `this` is a brand-new
+    // instance with its own, currently-empty `widthObserver`, so nothing
+    // would ever disconnect `from`'s the way `destroy()` normally would
+    // — except `destroy()` is never called here (the DOM, and therefore
+    // ownership, transfers to `this` without a teardown).
+    disconnectMediaWidthObserver(from.widthObserver);
+
     // FLIP measurement — capture the *rendered* box before touching any
     // class/style, since that's the only reliable "from" a CSS transition
     // can interpolate against (see `flipDimensionTransition`'s own doc
@@ -320,13 +347,15 @@ export class ImageWidget extends WidgetType {
     img.className = `tok-image tok-image--${this.ui.displayMode}`;
     applyMediaAlignment(container, this.presentation.alignment);
 
-    // No width/height is ever applied here in code — both modes are pure
-    // CSS now (`.cm-image-container--fill`/`--fit`, `.tok-image--fill`/
-    // `--fit`, MarkdownEditor.css): Fill is a fixed 100%/400px cover box,
-    // Fit is `width: 100%; height: auto`, letting the browser derive the
-    // rendered height from the image's own intrinsic aspect ratio. The
-    // measuring below gives the genuine target box the class toggle above
-    // already produced, never hand-computed.
+    // The persisted width is always applied to the *container*, for
+    // either mode — `.tok-image--fill`/`--fit` never receive their own
+    // width, so the `<img>` simply fills whatever box the container
+    // resolves to. Fit's height still always follows from `height: auto`
+    // (never computed here); Fill's stays a fixed 400px regardless of
+    // width (`.cm-image-container--fill`'s own CSS). The measuring below
+    // gives the genuine target box this produced, never hand-computed.
+    applyMediaWidth(container, null, this.presentation.width, view, this.widthObserver);
+
     const endContainer = measureBox(container);
     const endImg = measureBox(img);
 
@@ -364,11 +393,13 @@ export class ImageWidget extends WidgetType {
   }
 
   private renderWorking(container: HTMLElement, view: EditorView): HTMLElement {
-    // Both modes are a full-width box (`.cm-image-container--fill`/
-    // `--fit`, MarkdownEditor.css) — they differ only in height: Fill is
-    // a fixed 400px cover-cropped box, Fit's height is `auto`, derived by
-    // the browser from the `<img>`'s own intrinsic aspect ratio. Neither
-    // is ever computed here — pure CSS, no JS width/height application.
+    // Both modes are a full-width-by-default box (`.cm-image-container
+    // --fill`/`--fit`, MarkdownEditor.css) — they differ only in height:
+    // Fill is a fixed 400px cover-cropped box, Fit's height is `auto`,
+    // derived by the browser from the `<img>`'s own intrinsic aspect
+    // ratio. Neither height is ever computed here — pure CSS. A
+    // non-default persisted width (below) narrows the container itself;
+    // neither mode's own `<img>` ever receives a width of its own.
     container.classList.add(this.ui.displayMode === 'fill' ? 'cm-image-container--fill' : 'cm-image-container--fit');
 
     applyMediaAlignment(container, this.presentation.alignment);
@@ -449,11 +480,22 @@ export class ImageWidget extends WidgetType {
       this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
     });
 
+    // Applied synchronously here, before the `<img>` itself even exists
+    // yet (`probeThenMount` mounts it once the probe confirms `this.url`
+    // loads) — there is no image-specific width target left to wait for
+    // any more; the container is the only element a numeric width ever
+    // touches.
+    applyMediaWidth(container, null, this.presentation.width, view, this.widthObserver);
+
     container.append(controls, imageButton);
 
     this.probeThenMount(imageButton, view);
 
     return container;
+  }
+
+  override destroy(): void {
+    disconnectMediaWidthObserver(this.widthObserver);
   }
 
   /**

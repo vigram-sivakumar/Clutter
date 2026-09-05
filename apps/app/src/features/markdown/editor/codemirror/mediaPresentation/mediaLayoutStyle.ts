@@ -5,16 +5,19 @@ import { getAvailableViewerWidth } from '@features/pdf/pdfFitWidth';
 import type { MediaAlignment } from './mediaPresentationModel';
 
 /**
- * Applies a persisted/live-preview `width` value (`mediaPresentationModel.ts`'s
- * encoding: 1–11 proportional, 12+ pixel, 11 = full/default) to `target` —
- * the element that should actually carry the width. `ImageWidget.ts` only
- * ever calls this for Fit (natural-size/aspect-ratio-driven, so it needs
- * an explicit width to shrink below its intrinsic size) — Fill is a
- * fixed, non-adjustable 100%-wide/400px-tall box handled entirely by CSS
- * (`.cm-image-container--fill`/`.tok-image--fill`), so `ImageWidget.ts`
- * never calls this function for it (see `applyWidthForMode`'s own doc
- * comment). `PdfEmbedWidget.ts` always passes its outer container (a PDF
- * has no per-mode sizing mechanism to interact with).
+ * Applies a persisted `width` value (`mediaPresentationModel.ts`'s
+ * encoding: 1–10 proportional, 11 = full/default, 12+ pixel) to `target` —
+ * the element that should actually carry the width. `ImageWidget.ts`
+ * always passes its outer container, for both Fill and Fit alike — the
+ * custom-width feature is mode-agnostic; only the container's own
+ * height/crop behavior differs by mode (`.cm-image-container--fill`/
+ * `--fit`, MarkdownEditor.css). Neither mode's own `<img>` ever receives
+ * a width of its own — it's always `width: 100%` of whatever the
+ * container resolves to. `PdfEmbedWidget.ts` likewise always passes its
+ * outer container (a PDF has no per-mode sizing mechanism to interact
+ * with). Purely a static value read from persisted Markdown — never a
+ * drag/pointer interaction; the `ResizeObserver` below only ever reacts
+ * to the *editor's* own column resizing.
  *
  * Three cases, matching the locked width encoding:
  * - **11 (full/default)**: clears any inline width — falls back to

@@ -89,6 +89,31 @@ describe('getImagePresentation / getPdfPresentation — native Image', () => {
     const state = stateFor('![Photo|6,large](photo.jpg)');
     expect(getImagePresentation(state, nodeTo(state, 'Image'))).toEqual({ width: 6, alignment: 'left', mode: 'fill' });
   });
+
+  it.each([
+    ['![Photo|320,fit](photo.jpg)', '![Photo|fit,320](photo.jpg)'],
+    ['![Photo|320,fill](photo.jpg)', '![Photo|fill,320](photo.jpg)'],
+  ])('width + mode order never matters: "%s" and "%s" parse identically', (docA, docB) => {
+    const a = stateFor(docA);
+    const b = stateFor(docB);
+    expect(getImagePresentation(a, nodeTo(a, 'Image'))).toEqual(getImagePresentation(b, nodeTo(b, 'Image')));
+  });
+});
+
+describe('getImagePresentation — Embed (local asset image), width + mode order independence', () => {
+  it.each([
+    ['![[image.png|320,fit]]', '![[image.png|fit,320]]'],
+    ['![[image.png|320,fill]]', '![[image.png|fill,320]]'],
+  ])('"%s" and "%s" parse identically', (docA, docB) => {
+    const a = stateFor(docA);
+    const b = stateFor(docB);
+    expect(getImagePresentation(a, nodeTo(a, 'Embed'))).toEqual(getImagePresentation(b, nodeTo(b, 'Embed')));
+  });
+
+  it('320,fit resolves to width 320px + Fit mode for an asset embed', () => {
+    const state = stateFor('![[image.png|fit,320]]');
+    expect(getImagePresentation(state, nodeTo(state, 'Embed'))).toEqual({ width: 320, alignment: 'left', mode: 'fit' });
+  });
 });
 
 describe('getPdfPresentation — PDF Embed', () => {

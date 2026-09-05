@@ -22,6 +22,19 @@ import type { GetEmbedSuggestions } from './embedSuggestion';
 let capturedProbes: HTMLImageElement[] = [];
 let OriginalImage: typeof Image;
 
+/**
+ * jsdom has no real `ResizeObserver` — needed by `applyMediaWidth`
+ * (mediaLayoutStyle.ts) for a non-default *pixel* (12+) custom width. A
+ * plain no-op stub is enough — see imageLivePreview.test.ts's identical
+ * one for the full rationale.
+ */
+class NoopResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+const OriginalResizeObserver = window.ResizeObserver;
+
 beforeEach(() => {
   capturedProbes = [];
   OriginalImage = window.Image;
@@ -32,10 +45,12 @@ beforeEach(() => {
     }
   }
   vi.stubGlobal('Image', CapturingImage);
+  vi.stubGlobal('ResizeObserver', NoopResizeObserver);
 });
 
 afterEach(() => {
   vi.stubGlobal('Image', OriginalImage);
+  vi.stubGlobal('ResizeObserver', OriginalResizeObserver);
 });
 
 /**
@@ -235,6 +250,42 @@ describe('embedLivePreview — rendering (cursor already outside — "at rest")'
 
     expect(getImg(view)).toBeNull();
     expect(view.dom.textContent).toContain(HERO);
+  });
+});
+
+describe('embedLivePreview — custom numeric width, order-independent from mode (parity with a native Image, imageLivePreview.test.ts)', () => {
+  function getContainer(view: EditorView): HTMLElement {
+    const container = view.dom.querySelector<HTMLElement>('.cm-image-container');
+    if (!container) throw new Error('image container not found');
+    return container;
+  }
+
+  it('320,fit and fit,320 render identically: container width 320px + fit class', () => {
+    const resolve = resolverFor({ 'image.png': imageResolution('app://vault/image.png', 'image.png', 'image.png') });
+    const a = mountView('![[image.png|320,fit]]', resolve);
+    const b = mountView('![[image.png|fit,320]]', resolve);
+
+    for (const view of [a, b]) {
+      const container = getContainer(view);
+      expect(container.classList.contains('cm-image-container--fit')).toBe(true);
+      expect(container.classList.contains('cm-image-container--fill')).toBe(false);
+      expect(container.style.width).toBe('320px');
+      expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+    }
+  });
+
+  it('320,fill and fill,320 render identically: container width 320px + fill class', () => {
+    const resolve = resolverFor({ 'image.png': imageResolution('app://vault/image.png', 'image.png', 'image.png') });
+    const a = mountView('![[image.png|320,fill]]', resolve);
+    const b = mountView('![[image.png|fill,320]]', resolve);
+
+    for (const view of [a, b]) {
+      const container = getContainer(view);
+      expect(container.classList.contains('cm-image-container--fill')).toBe(true);
+      expect(container.classList.contains('cm-image-container--fit')).toBe(false);
+      expect(container.style.width).toBe('320px');
+      expect(getImg(view)?.classList.contains('tok-image--fill')).toBe(true);
+    }
   });
 });
 
