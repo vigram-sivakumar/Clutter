@@ -249,9 +249,10 @@
   border-radius: var(--radius-lg);
 }
 
+/* DIAGNOSTIC: Temporarily disable transition to observe final computed opacity without animation */
 .cm-pdf-embed-pagination .cm-pdf-control {
   opacity: 0;
-  transition: opacity 150ms ease;
+  /* transition: opacity 150ms ease; */ /* DISABLED FOR DIAGNOSTICS */
 }
 
 .cm-pdf-embed-container--hover .cm-pdf-embed-pagination .cm-pdf-control {
