@@ -142,7 +142,22 @@ export function renderPdfPage({
     textLayerBuilder = new TextLayerBuilder({ pdfPage: page });
     textLayerContainer.replaceChildren(textLayerBuilder.div);
 
-    await textLayerBuilder.render(viewport);
+    try {
+      await textLayerBuilder.render(viewport);
+    } catch {
+      // Same "a cancelled in-flight render rejects by design" contract as
+      // `renderTask.promise.catch(() => {})` above, now applied to the
+      // text-layer half too — confirmed as a real, pre-existing bug (not
+      // hypothetical): `textLayerBuilder.cancel()` (this handle's own
+      // `cancel()`, below) rejects this exact `await` with pdf.js's own
+      // `AbortException: TextLayer task cancelled`, and because this whole
+      // function body is an async IIFE invoked via `void (async () =>
+      // {...})()`, an unguarded rejection here had nowhere to go but an
+      // unhandled promise rejection — reproducible on every legitimate
+      // cancellation (a resize commit's own `renderHandle?.cancel()` +
+      // fresh `renderCurrentPage()`, a fast page-nav, a widget teardown),
+      // not just a resize-specific one.
+    }
   })();
 
   return {

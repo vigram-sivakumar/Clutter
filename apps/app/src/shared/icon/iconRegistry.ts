@@ -8,7 +8,6 @@ import Archive from './svg/archive.svg?react';
 import ArrowDownRight from './svg/arrow-down-right.svg?react';
 import ArrowLeft from './svg/arrow-left.svg?react';
 import ArrowLeftSmallHead from './svg/arrow-left-small-head.svg?react';
-import ArrowRightDouble from './svg/arrow-right-double.svg';
 import ArrowRight from './svg/arrow-right.svg?react';
 import ArrowRightSmallHead from './svg/arrow-right-small-head.svg?react';
 import BookshelfBox from './svg/bookshelf-box.svg?react';
@@ -21,6 +20,7 @@ import CalendarNote from './svg/calendar-note.svg?react';
 import Car from './svg/car.svg?react';
 import CaretDown from './svg/caret-down.svg?react';
 import CaretLeft from './svg/caret-left.svg?react';
+import CaretRightDouble from './svg/caret-right-double.svg?react';
 import CaretRight from './svg/caret-right.svg?react';
 import CaretUp from './svg/caret-up.svg?react';
 import CheckboxChecked from './svg/checkbox-checked.svg?react';
@@ -102,7 +102,7 @@ export const iconRegistry = {
   arrowDownRight: ArrowDownRight,
   arrowLeft: ArrowLeft,
   arrowLeftSmallHead: ArrowLeftSmallHead,
-  arrowRightDouble: ArrowRightDouble,
+  caretRightDouble: CaretRightDouble,
   arrowRight: ArrowRight,
   arrowRightSmallHead: ArrowRightSmallHead,
   bookshelfBox: BookshelfBox,

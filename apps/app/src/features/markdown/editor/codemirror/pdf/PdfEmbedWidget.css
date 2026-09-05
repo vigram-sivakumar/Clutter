@@ -35,13 +35,36 @@
   display: block;
   /* 1px reserve — same caret-overflow fix `.cm-image-container--broken`
      documents for the same reason: a full-width block-shaped widget needs
-     slack for the caret's own drawn box at its boundary. */
+     slack for the caret's own drawn box at its boundary. Only the natural,
+     unconstrained-width case relies on this: `applyMediaWidth`
+     (mediaLayoutStyle.ts) sets an explicit inline `width` for any
+     non-default persisted width, which — having higher specificity than
+     this class rule — overrides it outright. */
   width: calc(100% - 1px);
   max-width: 100%;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--surface-secondary);
   border: 1px solid var(--border-default);
+  /* Presentation-update flicker fix — see MarkdownEditor.css's own
+     `.cm-image-container` rule for the full rationale; identical here,
+     for `PdfEmbedWidget.updateDOM`. */
+  transition: width 160ms ease;
+}
+
+/* Alignment (resize milestone) — unlike `.cm-image-container` (inline-flex,
+   see `MarkdownEditor.css`'s matching rule for its own `translateX`-based
+   technique), this container is a plain `display: block` box, so a direct
+   margin rule centers/right-aligns it normally — scoped to the container
+   element alone, same as the Image side, so the raw Markdown line's own
+   alignment is never touched. Left (no `data-align` attribute) is the
+   implicit default — no rule needed, same convention as the Image side. */
+.cm-editor .cm-pdf-embed-container[data-align='center'] {
+  margin-inline: auto;
+}
+.cm-editor .cm-pdf-embed-container[data-align='right'] {
+  margin-left: auto;
+  margin-right: 0;
 }
 
 /* The single current-page host — every page render replaces this

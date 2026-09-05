@@ -51,9 +51,8 @@ const MODE_ITEMS: ReadonlyArray<{
   label: string;
   icon: SystemIcon;
 }> = [
-  { mode: 'large', label: 'Large', icon: 'squareExpand' },
-  { mode: 'fill', label: 'Fill', icon: 'widthFill' },
   { mode: 'fit', label: 'Fit', icon: 'portrait' },
+  { mode: 'fill', label: 'Fill', icon: 'widthFill' },
 ];
 
 /**

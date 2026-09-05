@@ -1,14 +1,24 @@
 export interface ImageMatch {
+  /** Display alt text only — the portion of the bracket before an unescaped `|`, if any. Never includes presentation metadata. */
   readonly alt: string;
   readonly url: string;
+  /**
+   * Raw, unclassified tokens from an Obsidian-style `|token,token,...`
+   * presentation segment inside the alt bracket (`mediaPresentationModel.ts`'s
+   * `parseMediaPresentationTokens` classifies them) — empty when no `|` is
+   * present in the bracket at all. `![Mountain view|6,center,fit](photo.jpg)`
+   * yields `alt: 'Mountain view'`, `presentationTokens: ['6','center','fit']`.
+   */
+  readonly presentationTokens: readonly string[];
 }
 
 /**
  * Parses a native CommonMark `Image` node's own raw text
- * (`![alt](url)`/`![alt](url "title")`) into alt/url. Deliberately a raw-
- * text scan, not a syntax-tree read — mirrors `scanTag`/`scanDate`'s own
- * shape, which is what makes this pluggable into `widgetReplaceRenderer`'s
- * `(raw: string) => WidgetType | null` contract unchanged.
+ * (`![alt](url)`/`![alt](url "title")`) into alt/url/presentation tokens.
+ * Deliberately a raw-text scan, not a syntax-tree read — mirrors
+ * `scanTag`/`scanDate`'s own shape, which is what makes this pluggable
+ * into `widgetReplaceRenderer`'s `(raw: string) => WidgetType | null`
+ * contract unchanged.
  *
  * Only ever called with a node the Lezer grammar has already validated as
  * a well-formed `Image` (native CommonMark, not a Clutter grammar
@@ -17,6 +27,18 @@ export interface ImageMatch {
  * title (`(url "title")`) is recognized and discarded: the title is not
  * part of Phase 1's scope (no caption/tooltip UI yet), only the URL itself
  * is used as `<img src>`.
+ *
+ * **Presentation metadata (`|6,center,fit`)**: the bracket content is
+ * split at the *first* unescaped-nothing `|` (no backslash-escaping is
+ * recognized here — presentation tokens are plain `[A-Za-z0-9]+`, so
+ * nothing inside them could ever need escaping, and an alt-text author
+ * who genuinely wants a literal `|` in their alt text has no way to do so
+ * under this syntax — a deliberate, disclosed tradeoff of putting
+ * metadata inside the bracket at all, not an oversight). Everything before
+ * the pipe is the display alt; everything after, comma-split, is handed
+ * to `mediaPresentationModel.ts`'s `parseMediaPresentationTokens` by the
+ * caller unclassified — this function has no opinion on what the tokens
+ * mean, only on where the boundary is.
  *
  * **An empty (or whitespace-only) destination — `![alt]()` — is treated as
  * incomplete, returning `null` the same as a missing `)` would.** This is
@@ -52,7 +74,11 @@ export function scanImage(raw: string): ImageMatch | null {
     return null;
   }
 
-  const alt = raw.slice(2, labelClose);
+  const bracketContent = raw.slice(2, labelClose);
+  const pipeIndex = bracketContent.indexOf('|');
+  const alt = pipeIndex === -1 ? bracketContent : bracketContent.slice(0, pipeIndex);
+  const presentationTokens = pipeIndex === -1 ? [] : bracketContent.slice(pipeIndex + 1).split(',');
+
   const destination = raw.slice(labelClose + 2, -1).trim();
 
   // A link title, if present, is separated from the URL by whitespace and
@@ -71,5 +97,5 @@ export function scanImage(raw: string): ImageMatch | null {
     return null;
   }
 
-  return { alt, url };
+  return { alt, url, presentationTokens };
 }

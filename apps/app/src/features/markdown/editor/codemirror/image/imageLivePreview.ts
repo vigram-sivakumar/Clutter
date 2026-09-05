@@ -19,6 +19,7 @@ import {
 } from './ImageWidget';
 import { scanImage } from './imageScanner';
 import { findEnclosingImageNode, getImageUiState, imageUiStateField } from './imageUiState';
+import { resolveImagePresentation } from '../mediaPresentation/mediaPresentationModel';
 import type { ResolveImageSrc } from './imageSrcResolution';
 
 /**
@@ -139,7 +140,7 @@ function buildDecorations(
           return;
         }
 
-        const ui = getImageUiState(view.state, node.from);
+        const ui = getImageUiState(view.state, node.from, node.to);
 
         if (ui.pendingFirstLeave && !ui.revealed && isTokenEngaged(view.state, node)) {
           // Still being typed/pasted for the first time — no widget at
@@ -147,7 +148,13 @@ function buildDecorations(
           // comment. `pendingFirstLeave` (not a bare `isTokenEngaged`
           // check) is what keeps this from also firing for an
           // already-at-rest image the caret merely arrow-keyed/clicked
-          // past.
+          // past. The presentation metadata (`|6,center,fit`) lives
+          // *inside* the alt-text bracket now (Obsidian-style pipe
+          // syntax, `mediaPresentationModel.ts`), so it's already part of
+          // this same Image node's own `[from, to)` — no separate
+          // construct-span extension is needed for it to stay raw while
+          // being typed; it's just more characters of the one node
+          // that's already engaged.
           return;
         }
 
@@ -173,7 +180,8 @@ function buildDecorations(
           getOnImageClick,
           getOnOpenImageMenu,
           getCurrentSource,
-          copyUrl
+          copyUrl,
+          resolveImagePresentation(match.presentationTokens)
         );
 
         if (ui.revealed) {

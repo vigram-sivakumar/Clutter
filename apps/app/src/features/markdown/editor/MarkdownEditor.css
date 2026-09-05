@@ -1235,6 +1235,14 @@
   vertical-align: top;
   width: fit-content;
   max-width: 100%;
+  /* Presentation-update flicker fix — a subtle, fast transition on the
+     dimension `applyMediaWidth`/`ImageWidget.updateDOM` actually mutate
+     via inline style, so a width/mode change reads as continuous layout
+     motion rather than an instant jump. Only meaningful now that
+     `updateDOM` keeps the same DOM element alive across the change (see
+     that method's own doc comment) — animating a property on an element
+     that gets destroyed and recreated has no visible effect at all. */
+  transition: width 160ms ease;
 }
 
 /* Fill's own box (below) is always the full available width by design —
@@ -1261,35 +1269,44 @@
    put it there. */
 .cm-editor .cm-image-container--fill {
   width: calc(100% - 1px);
+  height: 400px;
+  /* Crops the `<img>` to this fixed box — `object-fit: cover` below only
+     has something to crop *into* once the box itself clips overflow;
+     without this, an image whose natural aspect ratio doesn't match
+     400px at the container's width would render past this box's own
+     edges instead of being cropped. */
+  overflow: hidden;
 }
 
 /* The intermediate `<button class="cm-image-button">` wrapping the `<img>`
-   (ImageWidget.ts) is `display: block` with no `width` override of its
-   own — normally that means "fill the containing block," but confirmed
-   directly (real mounted app, computed styles) that inside a *sibling*
-   rule chain it was instead shrink-wrapping to the `<img>`'s own
-   rendered size, so `.tok-image--fill`'s `width: 100%` below resolved
-   against that shrunk button, not the container's real full width — the
-   image never actually reached "fill," only the container did. Scoped
-   to `.cm-image-container--fill` specifically (not applied to
-   `.cm-image-button` unconditionally): giving the button `width: 100%`
-   in Large/Fit mode, where the container is still `width: fit-content`
-   (above), would create the same width-vs-fit-content circularity the
-   container fix itself exists to avoid — undoing the controls-tracking
-   fix for those two modes. Fill's own container is never fit-content
-   (the rule above already makes it a real 100%), so no such circularity
-   exists here. */
-.cm-editor .cm-image-container--fill .cm-image-button {
-  width: 100%;
-}
+   (ImageWidget.ts) is `display: block` — normally that means "fill the
+   containing block," but confirmed directly (real mounted app, computed
+   styles) that inside a *sibling* rule chain it was instead shrink-wrapping
+   to the `<img>`'s own rendered size, so a `width: 100%` `<img>` inside it
+   resolved against that shrunk button, not the container's real width — the
+   image never actually reached "fill" (or, since the Fit/Fill wrapper-owned-
+   width unification, "100% of the container" in Fit either).
 
-/* Resets the native <button> chrome ImageWidget wraps the <img> in
-   (border/background/padding/font) — see ImageWidget.ts's own comment for
-   why a real button, not role="button"+tabindex+manual keydown on the
-   <img> itself. Purely a reset: no visual button affordance is added
-   (background/border stay none), only interactive semantics. */
+   **Wrapper-owned width, both modes (Fit/Fill unification)**: this used to
+   be scoped to `.cm-image-container--fill .cm-image-button` only — Fit's
+   `<img>` carried its own inline width directly (`ImageWidget.ts`'s
+   `applyMediaWidth(img, img, ...)`), so nothing here needed to reach it,
+   and unconditionally forcing the button to `width: 100%` while the
+   container was still `width: fit-content` in Fit would have been a real
+   width-vs-fit-content circularity. That's no longer a concern: the
+   container is the single width authority for *both* modes now (`<img>` is
+   always `width: 100%` — see `.tok-image--fit`/`.tok-image--fill` below —
+   so the button needs to relay that same `100%` down to it in both modes
+   too), and a `width: fit-content` ancestor with a chain of `width: 100%`
+   descendants is a well-defined, standard CSS pattern — the browser
+   resolves the *ancestor's* own shrink-to-fit size using the descendants'
+   underlying intrinsic size (here, the `<img>`'s natural pixel dimensions),
+   not the circular percentage itself, at every level of the chain. Verified
+   directly in the real app for both an under- and an over-available-width
+   natural image, not merely assumed. */
 .cm-editor .cm-image-button {
   display: block;
+  width: 100%;
   max-width: 100%;
   padding: 0;
   border: none;
@@ -1304,6 +1321,30 @@
   max-width: 100%;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-inset-strong);
+  /* Same presentation-update flicker fix as `.cm-image-container`'s own
+     `transition` — width AND height, since Fill's fixed 400px vs. Fit's
+     aspect-ratio-driven `auto` is exactly the other dimension
+     `ImageWidget.ts`'s `updateDOM`/`flipDimensionTransition` bridge
+     between two concrete measured pixel values — this is what actually
+     plays once that bridge sets them. Width itself now lives on the
+     *container* for both modes (wrapper-owned width) — this rule's own
+     `width` transition still matters here because the `<img>` is a
+     `width: 100%` child of a width-transitioning container, so its own
+     rendered width changes continuously right along with it. */
+  transition:
+    width 160ms ease,
+    height 160ms ease;
+}
+
+/* Fit: the container is the sole width authority (wrapper-owned width) —
+   the image simply fills whatever box the container resolves to, natural
+   aspect ratio preserved via `height: auto`, nothing cropped. Mirrors
+   `.tok-image--fill` below exactly, just with `height: auto` instead of a
+   fixed 400px + `object-fit: cover` — the same "wrapper owns width, image
+   is a passive 100%/auto fill" model both modes now share. */
+.cm-editor .tok-image.tok-image--fit {
+  width: 100%;
+  height: auto;
 }
 
 /* Display modes (image-options-menu task) — ephemeral UI state
@@ -1333,55 +1374,69 @@
    center as a *box*, unlike this rule's own earlier revision. */
 .cm-editor .tok-image.tok-image--fill {
   width: 100%;
-  height: 400px;
+  height: 100%;
   object-fit: cover;
 }
 
-/* Fit (2026-09-02 UX baseline, item 6): capped at 400px *tall* — not
-   wide, unlike this rule's own earlier revision — width follows
-   automatically from the image's own aspect ratio (`width: auto`, the
-   same no-override-preserves-intrinsic-ratio mechanism every other mode
-   already relies on). `max-width: 100%` stays alongside it purely as a
-   safety net for an unusually wide-but-short image, where a 400px height
-   cap alone could otherwise compute a wider-than-the-editor box — it
-   never engages for an ordinary image.
+/* `.tok-image--fit`'s own rule now lives just above (`.cm-editor
+   .tok-image.tok-image--fit`) — see that rule's own comment. This used to
+   say Fit needed no modifier class at all (natural sizing came for free
+   from the base `.tok-image`/`.cm-image-container` rules); the Fit/Fill
+   wrapper-owned-width unification changed that — Fit now needs its own
+   explicit `width: 100%; height: auto;`, the same way Fill always has. */
 
-   Centering is a *container*-level concern, not this rule's: see
-   `.cm-image-container--fit` below for why. */
-.cm-editor .tok-image.tok-image--fit {
-  max-height: 400px;
-  max-width: 100%;
-  width: auto;
+/* Alignment (resize milestone) — generic across both display modes, keyed
+   off `applyMediaAlignment`'s own `data-align` attribute
+   (mediaLayoutStyle.ts), left as the implicit default (no attribute, no
+   rule needed) per the persistence model's own "defaults stay implicit"
+   convention.
+
+   **Scoped to the widget container alone — never `.cm-line`/`.cm-content`.**
+   A prior version of this rule set `text-align` on the containing `.cm-line`
+   via `:has()`, which visually centers/right-aligns the widget but ALSO
+   text-aligns the line's own raw Markdown source the moment it's revealed
+   for editing (the line is the same DOM node in both states — only the
+   widget decoration comes and goes). That coupling was wrong: alignment is
+   a property of the rendered *media*, never of the raw text position, so
+   raw editing must always stay flush-left regardless of the media's chosen
+   alignment. Fixed by aligning the container against its own line using
+   `position: relative` (already set, unconditionally, above — needed for
+   `.cm-image-controls`'s absolute overlay) plus the standard
+   unknown-width centering technique: `left: 50%` offsets the box's normal
+   (static, flush-left) position rightward by half the *line's* width, and
+   `transform: translateX(-50%)` then offsets it back left by half the
+   *box's own* rendered width — net effect: centered, computed by the
+   browser from actual layout, no JS width math needed. Right-alignment is
+   the same idea at 100%: `left: 100%` moves the box's normal left edge to
+   the line's right edge, `translateX(-100%)` then pulls the box fully
+   back by its own width, landing its right edge flush with the line's.
+   Both are pure paint-time offsets — the box's *static* (in-flow) position
+   and size, which is what `.cm-line` reserves height/width for, are
+   completely unchanged, so this can't perturb layout the way swapping
+   `.cm-image-container`'s own `display` away from `inline-flex` would (see
+   that rule's own widget-buffer comment for why `inline-flex` is load-
+   bearing here). `margin: auto` remains unusable for the reason the prior
+   version of this comment already established: it never self-centers an
+   inline-level box.
+
+   **Behavior change, disclosed, not silent**: this replaces the previous
+   `.cm-image-container--fit`-keyed rule, which unconditionally centered
+   every Fit-mode image regardless of any alignment setting (there was
+   none to set). Fit-mode images with no explicit alignment now render
+   left-aligned, matching the locked persistence model's own default
+   (`alignment: left` for every mode, Fit included) — an existing Fit-mode
+   image with no presentation metadata will visually shift from centered
+   to left-aligned the first time this ships. Flagged for product
+   confirmation rather than preserved via a mode-specific default, which
+   would have reintroduced exactly the "conflate width/alignment with
+   mode" coupling the locked spec explicitly rules out. */
+.cm-editor .cm-image-container[data-align='center'] {
+  left: 50%;
+  transform: translateX(-50%);
 }
-
-/* Fit's own container modifier — centers the shrink-wrapped
-   `.cm-image-container` (still `width: fit-content`, from the base rule
-   above; deliberately *not* switched to a real `100%` the way Fill's own
-   modifier is) horizontally within the full editor width. This is why
-   Fit needs its own modifier rather than reusing `--fill`'s: Fill makes
-   the container itself full-width because its *image* is always
-   full-width; Fit's image is (almost always) narrower than the editor,
-   so making the container full-width too would anchor
-   `.cm-image-controls`'s `position: absolute; right: ...` to the empty
-   space at the editor's own right edge instead of the actual, narrower,
-   centered image's corner. Keeping the container shrink-wrapped and
-   centering *it* keeps controls anchored to the real image, matching
-   Large's own (already-correct) behavior, while still achieving the
-   item 6 "centered horizontally" requirement Large never needed.
-
-   Centered via the containing `.cm-line`'s own `text-align: center`
-   (below), not `margin-inline: auto` on this element directly — the
-   widget-buffer spacing fix above (`.cm-image-container`'s own comment)
-   made this an inline-level (`inline-flex`) box, and `margin: auto`
-   self-centering only ever applies to a block-level box in normal flow;
-   on an inline-level box it silently computes to `0`, which is exactly
-   what centering via the parent's `text-align` avoids needing to rely
-   on. Scoped with `:has()` to only the line actually containing a Fit
-   widget, not every `.cm-line` in the editor — an Embed/Image node
-   already occupies its entire line by itself (nothing else on the same
-   line to be affected by centering its inline content). */
-.cm-editor .cm-line:has(> .cm-image-container--fit) {
-  text-align: center;
+.cm-editor .cm-image-container[data-align='right'] {
+  left: 100%;
+  transform: translateX(-100%);
 }
 
 /* Container appearance (background/radius/shadow/padding) and button

@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dev",
+      "name": "clutter-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/app", "run", "dev"],
+      "runtimeArgs": ["run", "dev:web"],
       "port": 5173
     }
   ]

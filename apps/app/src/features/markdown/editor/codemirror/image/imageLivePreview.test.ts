@@ -964,7 +964,7 @@ describe('Image composition / nesting', () => {
     const doc = '![Alt](https://example.com/img.jpg)';
     const view = mountView(doc);
     view.dispatch({
-      effects: setImageUiState.of({ pos: 0, to: doc.length, state: { revealed: true, displayMode: 'large', broken: false, pendingFirstLeave: false } }),
+      effects: setImageUiState.of({ pos: 0, to: doc.length, state: { revealed: true, displayMode: 'fit', broken: false, pendingFirstLeave: false } }),
     });
 
     expect(view.dom.textContent).toContain(doc);
@@ -1097,7 +1097,7 @@ describe('MarkdownEditor.css — .cm-content min-width (narrow-viewport horizont
  * task's manual verification).
  */
 describe('Image display modes', () => {
-  function dispatchMode(view: EditorView, pos: number, mode: 'large' | 'fill' | 'fit', revealed = false) {
+  function dispatchMode(view: EditorView, pos: number, mode: 'fill' | 'fit', revealed = false) {
     view.dispatch({
       effects: setImageUiState.of({ pos, to: view.state.doc.length, state: { revealed, displayMode: mode, broken: false, pendingFirstLeave: false } }),
     });
@@ -1126,17 +1126,17 @@ describe('Image display modes', () => {
     expect(view.dom.querySelector('.cm-image-container--fill')).not.toBeNull();
   });
 
-  it('Fit applies the fit class and the container gets the horizontal-centering modifier (not --fill)', () => {
+  it('Fit applies the fit class to the image and no modifier class to the container (natural size, same as the removed Large mode used to render)', () => {
     const view = mountView(IMAGE_MD);
     dispatchMode(view, 0, 'fit');
     settleAllProbes();
 
     expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
-    expect(view.dom.querySelector('.cm-image-container--fit')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-image-container--fit')).toBeNull();
     expect(view.dom.querySelector('.cm-image-container--fill')).toBeNull();
   });
 
-  it('switching Large → Fill → Fit never modifies the Markdown source', () => {
+  it('switching Fill → Fit → Fill never modifies the Markdown source', () => {
     const view = mountView(IMAGE_MD);
 
     dispatchMode(view, 0, 'fill');
@@ -1145,7 +1145,7 @@ describe('Image display modes', () => {
     dispatchMode(view, 0, 'fit');
     expect(view.state.doc.toString()).toBe(IMAGE_MD);
 
-    dispatchMode(view, 0, 'large');
+    dispatchMode(view, 0, 'fill');
     expect(view.state.doc.toString()).toBe(IMAGE_MD);
   });
 
@@ -1857,15 +1857,17 @@ describe('MarkdownEditor.css — display mode rules', () => {
     return match![1] ?? '';
   }
 
-  it('.tok-image--fill fills a real 100%-wide, 400px-tall box via object-fit: cover (not just a max-height cap)', () => {
+  it('.tok-image--fill fills a real 100%-wide, 100%-tall box (of its 400px-tall container) via object-fit: cover (not just a max-height cap)', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
     const body = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fill\s*\{([^}]*)\}/);
     // A real `height`, not `max-height` — object-fit only has a box to
     // crop into once both dimensions are real sizes, not caps a smaller
     // image could still shrink below (the exact bug this rule was fixed
     // for: a `max-height` + `width: 100%` version left short images
-    // short instead of filling the box).
-    expect(body).toMatch(/height\s*:\s*400px\s*;/);
+    // short instead of filling the box). The fixed 400px length itself
+    // lives on `.cm-image-container--fill` (below) — the image is
+    // `height: 100%` of that box, not a literal `400px` of its own.
+    expect(body).toMatch(/height\s*:\s*100%\s*;/);
     expect(body).not.toMatch(/max-height\s*:/);
     expect(body).toMatch(/width\s*:\s*100%\s*;/);
     // object-fit: cover is what makes filling both dimensions compatible
@@ -1874,33 +1876,57 @@ describe('MarkdownEditor.css — display mode rules', () => {
     expect(body).toMatch(/object-fit\s*:\s*cover\s*;/);
   });
 
-  it('.tok-image--fit caps height at 400px, width follows the aspect ratio', () => {
+  it('Fit and Fill share the same wrapper-owned-width model: the container is the sole width authority, the image is always width:100% (Fit/Fill unification)', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
-    const body = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fit\s*\{([^}]*)\}/);
-    expect(body).toMatch(/max-height\s*:\s*400px\s*;/);
-    expect(body).toMatch(/width\s*:\s*auto\s*;/);
-    expect(body).not.toMatch(/(?<!max-)width\s*:\s*\d/);
+    const fitBody = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fit\s*\{([^}]*)\}/);
+    expect(fitBody).toMatch(/width\s*:\s*100%\s*;/);
+    expect(fitBody).toMatch(/height\s*:\s*auto\s*;/);
+    // Fit still has no container-level modifier class of its own — only
+    // the image gets one; the container relies on the base
+    // `.cm-image-container` rule (`width: fit-content`, overridden by an
+    // inline style for any explicit/dragged width) for both modes.
+    expect(css).not.toMatch(/\.cm-image-container--fit\s*\{/);
   });
 
-  it('.cm-image-container--fill is a full-width box, minus the same 1px caret-overflow reserve --broken uses (Fill has no narrower-than-full-width case left to center)', () => {
+  it('.cm-image-container--fill is a full-width, fixed 400px-tall box (minus the same 1px caret-overflow reserve --broken uses), clipping overflow so object-fit: cover has a real box to crop into', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
     const body = ruleBody(css, /\.cm-editor\s+\.cm-image-container--fill\s*\{([^}]*)\}/);
     expect(body).toMatch(/width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
+    expect(body).toMatch(/height\s*:\s*400px\s*;/);
+    expect(body).toMatch(/overflow\s*:\s*hidden\s*;/);
   });
 
-  it('.cm-image-container--fit centers via the containing .cm-line\'s text-align, not margin-inline: auto (an inline-flex box, per the widget-buffer spacing fix, ignores margin: auto self-centering)', () => {
+  it("alignment (resize milestone) centers/right-aligns the widget container itself via position:relative + translateX, keyed off data-align — never the containing .cm-line's own text-align (raw Markdown must never move)", () => {
+    // Supersedes the pre-resize-milestone rule that unconditionally
+    // centered every Fit-mode image regardless of any alignment setting —
+    // see MarkdownEditor.css's own comment at this rule's location for the
+    // disclosed behavior change (a Fit image with no explicit alignment
+    // now renders left, matching the locked persistence model's default
+    // for every mode, Fit included).
+    //
+    // Also supersedes an intermediate version of this same rule that used
+    // `.cm-line:has(> .cm-image-container[data-align=...])` to set
+    // `text-align` on the *line* — that visually aligned the widget but
+    // also text-aligned the line's own raw Markdown source once revealed
+    // for editing, which is exactly the bug the alignment-UX fix corrects.
+    // Alignment must be scoped to the widget container element alone.
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
-    const centerBody = ruleBody(
-      css,
-      /\.cm-editor\s+\.cm-line:has\(>\s*\.cm-image-container--fit\)\s*\{([^}]*)\}/
-    );
-    expect(centerBody).toMatch(/text-align\s*:\s*center\s*;/);
+    const centerBody = ruleBody(css, /\.cm-editor\s+\.cm-image-container\[data-align='center'\]\s*\{([^}]*)\}/);
+    expect(centerBody).toMatch(/left\s*:\s*50%\s*;/);
+    expect(centerBody).toMatch(/transform\s*:\s*translateX\(-50%\)\s*;/);
 
-    // Unlike --fill, Fit's container must stay shrink-wrapped so
-    // .cm-image-controls still anchors to the actual (narrower) image
-    // edge, not the empty space at the editor's own right edge — this
-    // rule (still present, just no longer the centering mechanism) must
-    // never reintroduce a width override.
+    const rightBody = ruleBody(css, /\.cm-editor\s+\.cm-image-container\[data-align='right'\]\s*\{([^}]*)\}/);
+    expect(rightBody).toMatch(/left\s*:\s*100%\s*;/);
+    expect(rightBody).toMatch(/transform\s*:\s*translateX\(-100%\)\s*;/);
+
+    // Never text-align the line or the editing surface for media alignment.
+    expect(css).not.toMatch(/\.cm-line:has\(>\s*\.cm-image-container\[data-align/);
+    expect(css).not.toMatch(/\.cm-line:has\(>\s*\.cm-image-container--fit\)/);
+
+    // The container itself must stay shrink-wrapped (no width override
+    // reintroduced here) so .cm-image-controls still anchors to the actual
+    // (narrower) image edge, not the empty space at the editor's own right
+    // edge — unaffected by this milestone.
     const containerMatch = css.match(/\.cm-editor\s+\.cm-image-container--fit\s*\{([^}]*)\}/);
     if (containerMatch) {
       expect(containerMatch[1]).not.toMatch(/width\s*:/);
@@ -2022,7 +2048,7 @@ describe('Standard Markdown image, local Vault path — resolveImageSrc', () => 
     expect(getImg(view)?.getAttribute('src')).toBe('app://vault/Assets/image.jpg');
   });
 
-  it('Large/Fill/Fit apply identically to a resolved local image', () => {
+  it('Fill/Fit apply identically to a resolved local image', () => {
     const view = mountView(LOCAL_MD, 0, () => {}, () => {}, resolveLocal);
     const container = () => view.dom.querySelector('.cm-image-container')!;
 
@@ -2042,7 +2068,8 @@ describe('Standard Markdown image, local Vault path — resolveImageSrc', () => 
         state: { ...getImageUiState(view.state, 0), displayMode: 'fit' },
       }),
     });
-    expect(container().classList.contains('cm-image-container--fit')).toBe(true);
+    expect(container().classList.contains('cm-image-container--fit')).toBe(false);
+    expect(container().classList.contains('cm-image-container--fill')).toBe(false);
   });
 
   it('floating controls open ImageOptionsMenu with the resolved url AND the raw-path copyUrl, so Copy link/Set as cover keep using the Markdown path', () => {
@@ -2217,7 +2244,7 @@ describe('Standard Markdown image, local Vault path with a raw space — imageSp
     expect(clicked).toEqual(['app://vault/Delete%20me.jpg', 'Testing', 'Delete me.jpg']);
   });
 
-  it('existing Large/Fill/Fit behavior remains unchanged for a space-containing local image', () => {
+  it('existing Fill/Fit behavior remains unchanged for a space-containing local image', () => {
     const view = mountView(SPACED_MD, 0, () => {}, () => {}, resolveSpaced);
     const container = () => view.dom.querySelector('.cm-image-container')!;
 
@@ -2237,7 +2264,8 @@ describe('Standard Markdown image, local Vault path with a raw space — imageSp
         state: { ...getImageUiState(view.state, 0), displayMode: 'fit' },
       }),
     });
-    expect(container().classList.contains('cm-image-container--fit')).toBe(true);
+    expect(container().classList.contains('cm-image-container--fit')).toBe(false);
+    expect(container().classList.contains('cm-image-container--fill')).toBe(false);
   });
 
   it('a genuine title after a space-free destination still works — native title parsing is untouched by the space-tolerant fallback', () => {

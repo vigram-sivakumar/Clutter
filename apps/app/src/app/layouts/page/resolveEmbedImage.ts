@@ -2,6 +2,7 @@ import type { Vault } from '@core/vault/models/Vault';
 import { VaultPath } from '@core/vault/ingest/VaultPath';
 import { getResourceDisplayName } from '@core/presentation/getResourceDisplayName';
 import type { ResolveEmbedImage } from '@features/markdown/editor/MarkdownEditor';
+import { resolveEmbedAliasFields } from '@features/markdown/editor/codemirror/mediaPresentation/mediaPresentationUpdate';
 
 import { resolveResourceEmbed } from './resolveResourceEmbed';
 
@@ -26,6 +27,11 @@ export function createEmbedImageResolver(
   resolveResourceImageUrl: (path: string) => string
 ): ResolveEmbedImage {
   return (path, alias) => {
+    // A metadata-shaped alias (`|6,center,fit`, Obsidian-style pipe
+    // presentation syntax — mediaPresentationUpdate.ts's
+    // `resolveEmbedAliasFields`) is never a real display name; only a
+    // genuine, non-metadata-shaped alias ever reaches `alt` below.
+    const displayAlias = resolveEmbedAliasFields(alias).displayAlias;
     const resource = resolveResourceEmbed(vault, path);
 
     if (!resource) {
@@ -40,7 +46,7 @@ export function createEmbedImageResolver(
       // `getResourceDisplayName(resource)`; the only reason this one
       // branch calls it directly is that there is no `VaultResource` to
       // read `.name` off in the first place.
-      return { status: 'unresolved', alt: alias ?? VaultPath.stemName(path) };
+      return { status: 'unresolved', alt: displayAlias ?? VaultPath.stemName(path) };
     }
 
     if (resource.kind !== 'image') {
@@ -59,7 +65,7 @@ export function createEmbedImageResolver(
       // link/Set-as-cover-image (ImageWidget.ts's OpenImageMenuParams.copyUrl
       // doc comment has the full reasoning).
       copyUrl: path,
-      alt: alias ?? getResourceDisplayName(resource),
+      alt: displayAlias ?? getResourceDisplayName(resource),
     };
   };
 }

@@ -7,6 +7,7 @@ describe('scanImage', () => {
     expect(scanImage('![Mountain view](https://example.com/mountain.jpg)')).toEqual({
       alt: 'Mountain view',
       url: 'https://example.com/mountain.jpg',
+      presentationTokens: [],
     });
   });
 
@@ -14,6 +15,7 @@ describe('scanImage', () => {
     expect(scanImage('![](https://example.com/image.png)')).toEqual({
       alt: '',
       url: 'https://example.com/image.png',
+      presentationTokens: [],
     });
   });
 
@@ -21,6 +23,7 @@ describe('scanImage', () => {
     expect(scanImage('![Alt](https://example.com/image.png "A title")')).toEqual({
       alt: 'Alt',
       url: 'https://example.com/image.png',
+      presentationTokens: [],
     });
   });
 
@@ -34,6 +37,7 @@ describe('scanImage', () => {
     expect(scanImage('![Testing](Delete me.jpg)')).toEqual({
       alt: 'Testing',
       url: 'Delete me.jpg',
+      presentationTokens: [],
     });
   });
 
@@ -41,6 +45,7 @@ describe('scanImage', () => {
     expect(scanImage('![Testing](Assets/My Photos/Delete me.jpg)')).toEqual({
       alt: 'Testing',
       url: 'Assets/My Photos/Delete me.jpg',
+      presentationTokens: [],
     });
   });
 
@@ -48,6 +53,7 @@ describe('scanImage', () => {
     expect(scanImage('![Testing](Delete me.jpg "A title")')).toEqual({
       alt: 'Testing',
       url: 'Delete me.jpg',
+      presentationTokens: [],
     });
   });
 
@@ -61,5 +67,43 @@ describe('scanImage', () => {
     // comment for the full account.
     expect(scanImage('![Alt]()')).toBeNull();
     expect(scanImage('![Alt](   )')).toBeNull();
+  });
+
+  describe('Obsidian-style presentation metadata (|token,token,...)', () => {
+    it('splits alt from a single width token', () => {
+      expect(scanImage('![Mountain view|290](photo.jpg)')).toEqual({
+        alt: 'Mountain view',
+        url: 'photo.jpg',
+        presentationTokens: ['290'],
+      });
+    });
+
+    it('splits alt from a full width,alignment,mode list', () => {
+      expect(scanImage('![Mountain view|6,center,fit](photo.jpg)')).toEqual({
+        alt: 'Mountain view',
+        url: 'photo.jpg',
+        presentationTokens: ['6', 'center', 'fit'],
+      });
+    });
+
+    it('arbitrary token order is preserved as raw tokens (classification happens elsewhere)', () => {
+      expect(scanImage('![Photo|fit,center,6](photo.jpg)')!.presentationTokens).toEqual(['fit', 'center', '6']);
+    });
+
+    it('an alt with no "|" at all has no presentation tokens', () => {
+      expect(scanImage('![Photo](photo.jpg)')!.presentationTokens).toEqual([]);
+    });
+
+    it('an empty alt with only a pipe segment splits to empty alt + tokens', () => {
+      expect(scanImage('![|6,center](photo.jpg)')).toEqual({ alt: '', url: 'photo.jpg', presentationTokens: ['6', 'center'] });
+    });
+
+    it('a title is still preserved alongside presentation metadata', () => {
+      expect(scanImage('![Photo|6](photo.jpg "A title")')).toEqual({
+        alt: 'Photo',
+        url: 'photo.jpg',
+        presentationTokens: ['6'],
+      });
+    });
   });
 });

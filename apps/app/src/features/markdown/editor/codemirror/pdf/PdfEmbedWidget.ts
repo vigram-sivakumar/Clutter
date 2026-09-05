@@ -23,6 +23,8 @@ import { computeFitScale } from '@features/pdf/pdfZoom';
 import { computeImageDeletionRange } from '../image/imageDeletion';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
 import type { PdfDocumentCache } from './pdfDocumentCache';
+import { applyMediaAlignment, applyMediaWidth, disconnectMediaWidthObserver, type ResizeObserverHolder } from '../mediaPresentation/mediaLayoutStyle';
+import type { PdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 
 import './PdfEmbedWidget.css';
 
@@ -168,10 +170,15 @@ export class PdfEmbedWidget extends WidgetType {
     readonly getOnPdfEmbedClick: () => OnPdfEmbedClick | undefined,
     readonly getOnOpenPdfMenu: () => OnOpenPdfMenu | undefined,
     /** Shared across every `PdfEmbedWidget` reconstruction for this editor — see `pdfDocumentCache.ts`'s own doc comment for why this exists (the reveal-toggle flicker fix) and why individual widgets never destroy the document themselves. */
-    readonly docCache: PdfDocumentCache
+    readonly docCache: PdfDocumentCache,
+    /** Persisted width/alignment (resize milestone) — a PDF embed has no mode concept, unlike `ImageWidget`'s `presentation`. Defaulted so every pre-existing construction site keeps compiling unchanged. */
+    readonly presentation: PdfPresentation = { width: 11, alignment: 'left' }
   ) {
     super();
   }
+
+  /** See `ImageWidget.ts`'s own `widthObserver` doc comment — identical role, identical lifecycle. */
+  private readonly widthObserver: ResizeObserverHolder = { current: null };
 
   override eq(other: PdfEmbedWidget): boolean {
     return (
@@ -182,8 +189,46 @@ export class PdfEmbedWidget extends WidgetType {
       this.pos === other.pos &&
       this.to === other.to &&
       this.ui.revealed === other.ui.revealed &&
-      this.ui.broken === other.ui.broken
+      this.ui.broken === other.ui.broken &&
+      this.presentation.width === other.presentation.width &&
+      this.presentation.alignment === other.presentation.alignment
     );
+  }
+
+  /**
+   * See `ImageWidget.ts`'s own `updateDOM` doc comment for the full
+   * account (same flicker bug, same CM6 pattern, same fix) — this is its
+   * PDF counterpart. Simpler here: there is no mode/`<img>` swap to
+   * reconcile, only the container's own width/alignment, and the
+   * existing per-page fit-scale `ResizeObserver` already watching
+   * `pageHost` (`renderWorking`'s own, unrelated to this method) picks up
+   * a width change and re-renders the current page at the new scale on
+   * its own — this method never needs to touch PDF rendering directly.
+   */
+  override updateDOM(dom: HTMLElement, view: EditorView, from: PdfEmbedWidget): boolean {
+    // See `ImageWidget.ts`'s own `updateDOM` doc comment for why `to` is
+    // deliberately excluded from this comparison (it legitimately shifts
+    // on a pure presentation update) and why `dom.dataset.nodeTo` — kept
+    // current below — is what every surviving control's closure reads
+    // instead of `this.to` directly.
+    if (
+      this.ui.broken ||
+      from.ui.broken ||
+      this.title !== from.title ||
+      this.url !== from.url ||
+      this.path !== from.path ||
+      this.resourceId !== from.resourceId ||
+      this.pos !== from.pos ||
+      this.ui.revealed !== from.ui.revealed
+    ) {
+      return false;
+    }
+
+    dom.dataset.nodeTo = String(this.to);
+    disconnectMediaWidthObserver(from.widthObserver);
+    applyMediaAlignment(dom, this.presentation.alignment);
+    applyMediaWidth(dom, null, this.presentation.width, view, this.widthObserver);
+    return true;
   }
 
   override toDOM(view: EditorView): HTMLElement {
@@ -238,6 +283,13 @@ export class PdfEmbedWidget extends WidgetType {
 
   private renderWorking(container: HTMLElement, view: EditorView): HTMLElement {
     container.classList.add('cm-pdf-embed-container');
+    applyMediaAlignment(container, this.presentation.alignment);
+    applyMediaWidth(container, null, this.presentation.width, view, this.widthObserver);
+
+    // See `ImageWidget.ts`'s own `makeEditButton` doc comment — the same
+    // live-`to` reasoning applies here (`toggleRevealed`).
+    container.dataset.nodeTo = String(this.to);
+    const getCurrentTo = () => Number(container.dataset.nodeTo);
 
     // The single current-page host — this is what `getAvailableViewerWidth`
     // measures (a stable, full-width element; the `.pdf-viewer__page`
@@ -279,7 +331,7 @@ export class PdfEmbedWidget extends WidgetType {
     // Expand, then Edit source, then More actions last (far right) — the
     // two direct content-manipulation actions read left-to-right before
     // the catch-all overflow menu.
-    actionsGroup.append(expandButton, this.makeEditButton(view), moreActionsButton);
+    actionsGroup.append(expandButton, this.makeEditButton(view, getCurrentTo), moreActionsButton);
 
     controlsRow.append(titleSpan, actionsGroup);
 
@@ -436,27 +488,37 @@ export class PdfEmbedWidget extends WidgetType {
   }
 
   override destroy(dom: HTMLElement): void {
+    disconnectMediaWidthObserver(this.widthObserver);
     (dom as HTMLElement & { [PDF_EMBED_DESTROY]?: () => void })[PDF_EMBED_DESTROY]?.();
   }
 
-  /** Shared dispatch behind every Edit/Hide source control — same reveal-toggle contract `ImageWidget.makeEditButton` establishes. */
-  private toggleRevealed(view: EditorView): void {
+  /** Shared dispatch behind every Edit/Hide source control — same reveal-toggle contract `ImageWidget.makeEditButton` establishes. `to` is read live (see `makeEditButton`'s own `getTo` parameter) rather than `this.to` directly — see `ImageWidget.ts`'s `makeEditButton` doc comment for why. */
+  private toggleRevealed(view: EditorView, getTo: () => number): void {
     const revealing = !this.ui.revealed;
+    const to = getTo();
     view.dispatch({
       effects: setImageUiState.of({
         pos: this.pos,
-        to: this.to,
+        to,
         state: { ...this.ui, revealed: revealing },
       }),
-      selection: revealing ? EditorSelection.cursor(this.to) : undefined,
+      selection: revealing ? EditorSelection.cursor(to) : undefined,
       scrollIntoView: revealing,
     });
   }
 
-  /** Shared by both the broken card's controls and the working state's floating controls — see the class doc comment for why Edit source must behave identically in both. */
-  private makeEditButton(view: EditorView): HTMLButtonElement {
+  /**
+   * Shared by both the broken card's controls and the working state's
+   * floating controls — see the class doc comment for why Edit source
+   * must behave identically in both. `getTo` (default `() => this.to`)
+   * mirrors `ImageWidget.ts`'s own `makeEditButton` parameter — the
+   * broken card never goes through `updateDOM` (always a full rebuild),
+   * so it keeps the simple default; `renderWorking` passes its own live
+   * `container.dataset.nodeTo` reader instead.
+   */
+  private makeEditButton(view: EditorView, getTo: () => number = () => this.to): HTMLButtonElement {
     return this.makeButton(EDIT_ICON, this.ui.revealed ? 'Hide source' : 'Edit source', () =>
-      this.toggleRevealed(view)
+      this.toggleRevealed(view, getTo)
     );
   }
 

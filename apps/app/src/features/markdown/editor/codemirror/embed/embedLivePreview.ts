@@ -17,6 +17,8 @@ import {
   type GetCurrentImageSource,
 } from '../image/ImageWidget';
 import { getImageUiState, imageUiStateField } from '../image/imageUiState';
+import { resolveEmbedAliasFields } from '../mediaPresentation/mediaPresentationUpdate';
+import { resolveImagePresentation, resolvePdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 import { scanEmbed } from './embedScanner';
 import { findEmbedAt, isEngaged } from './embedEngagement';
 import type { ResolveEmbedImage } from './embedImageResolution';
@@ -184,7 +186,7 @@ function buildDecorations(
           return;
         }
 
-        const baseUi = getImageUiState(view.state, node.from);
+        const baseUi = getImageUiState(view.state, node.from, node.to);
 
         if (baseUi.pendingFirstLeave && isEngaged(view.state, node) && !baseUi.revealed) {
           // Still being typed for the first time — no widget at all yet,
@@ -232,7 +234,8 @@ function buildDecorations(
             node.to,
             getOnPdfEmbedClick,
             getOnOpenPdfMenu,
-            pdfDocumentCache
+            pdfDocumentCache,
+            resolvePdfPresentation(resolveEmbedAliasFields(match.alias).tokens)
           );
 
           if (baseUi.revealed) {
@@ -267,7 +270,8 @@ function buildDecorations(
           getOnImageClick,
           getOnOpenImageMenu,
           getCurrentSource,
-          copyUrl
+          copyUrl,
+          resolveImagePresentation(resolveEmbedAliasFields(match.alias).tokens)
         );
 
         if (ui.revealed) {

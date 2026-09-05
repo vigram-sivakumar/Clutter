@@ -8,6 +8,8 @@ import {
 } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+import { getImagePresentation } from '../mediaPresentation/mediaPresentationUpdate';
+
 /**
  * Per-`Image`-node UI state — whether its raw Markdown source is currently
  * revealed alongside the rendered widget, and which display mode it's
@@ -153,7 +155,8 @@ import type { SyntaxNode } from '@lezer/common';
  * called with a node's own `from`), which a span still answers correctly
  * since a query point exactly at a range's own `from` still finds it.
  */
-export type ImageDisplayMode = 'large' | 'fill' | 'fit';
+/** `'large'` was removed (product decision) — `'fit'` now covers what `'large'` used to mean (natural size). See `mediaPresentationModel.ts`'s `MediaPresentationMode` for the full account. */
+export type ImageDisplayMode = 'fill' | 'fit';
 
 export interface ImageUiState {
   readonly revealed: boolean;
@@ -242,6 +245,37 @@ export const setImageUiState = StateEffect.define<{
   to: number;
   state: ImageUiState;
 }>();
+
+/**
+ * Marks a transaction as a *presentation-only* edit — its `changes`
+ * rewrite an Image/Embed node's own `|width,alignment,mode` pipe segment
+ * (`mediaPresentationUpdate.ts`'s `computeImagePresentationUpdate`/
+ * `computePdfPresentationUpdate`), never the alt text, URL, title, or
+ * WikiLink path/alias. Every dispatch site that changes presentation
+ * (`MarkdownEditor.tsx`'s `handleSelectImageDisplayMode`, `ImageWidget.ts`/
+ * `PdfEmbedWidget.ts`'s own resize-commit handlers) includes this
+ * alongside its `changes`.
+ *
+ * **Why this exists (root cause of a real flicker bug)**: the `broken`
+ * pessimistic-marking block below used to treat *any* `docChanged`
+ * transaction that overlapped an Image node's own range as "a genuine
+ * edit to the image's content" and forced `broken: true` — correct for an
+ * actual alt/URL/title edit (the whole reason that block is pessimistic
+ * at all, per this field's own top-level doc comment), but a presentation
+ * change is a docChanged edit too, *because the pipe segment lives inside
+ * the same node's own `[from, to)` range* (Obsidian-style syntax,
+ * `mediaPresentationModel.ts`). Without this marker, switching Fill→Fit
+ * via the options menu forced the working image straight into its broken
+ * card, which then had to probe and recover back to working in a
+ * *second*, separate transaction — two full widget teardown/rebuild
+ * cycles for what the user experiences as one instantaneous toggle,
+ * which is the actual mechanism behind the reported "image disappears
+ * and then renders again" flicker and layout jump. The `broken` block
+ * now skips its detection entirely for a transaction carrying this
+ * effect — content edits (typing in the URL, alt text, etc.) are
+ * completely unaffected, since those dispatch sites never include it.
+ */
+export const presentationOnlyEdit = StateEffect.define<null>();
 
 /**
  * Walks up from whatever node starts exactly at `pos` (an Image node's own
@@ -401,7 +435,21 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
     // `setImageUiState` with `pendingFirstLeave: false` in the exact same
     // transaction as the insert, so by the time this block runs, an entry
     // already exists and this loop skips it entirely.
-    if (tr.docChanged) {
+    //
+    // Also skipped entirely for a transaction carrying `presentationOnlyEdit`
+    // (flicker-fix follow-on, found via a resize/mode-change on an image
+    // with no prior UI entry — e.g. never touched this session): the pipe
+    // segment rewrite this block would otherwise see as "an Image/Embed
+    // node overlapping the edit" is a genuine `docChanged` edit to the
+    // node's own text, exactly like the `broken`-forcing block below has
+    // its own copy of this same guard for — without it, a presentation-only
+    // commit on such an image would mark it `pendingFirstLeave: true`,
+    // which (if the caret happened to still be inside the node's range —
+    // not unusual right after opening its size menu) makes
+    // `imageLivePreview.ts`'s own render gate keep it fully raw instead of
+    // rendering the widget at all, the same "image vanishes" symptom the
+    // `broken`-forcing fix addresses for a different code path.
+    if (tr.docChanged && !tr.effects.some((effect) => effect.is(presentationOnlyEdit))) {
       const freshNodes: Array<{ from: number; to: number }> = [];
       tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
         syntaxTree(tr.state).iterate({
@@ -427,8 +475,29 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
           }
         });
         if (!hasEntry) {
+          // Seeds `displayMode` from whatever the just-completed node's own
+          // `|token,...` presentation segment already says (resize
+          // milestone; syntax later reworked to the Obsidian-style
+          // in-bracket pipe — mediaPresentationModel.ts) — not always
+          // `DEFAULT_IMAGE_UI_STATE`'s hardcoded `'fill'`. Without this, an
+          // image pasted with metadata already present in one transaction
+          // (e.g. `![Alt|6,center,fit](url)`) would still render Fill: this
+          // "freshly created" block runs before `getImageUiState`'s own
+          // persisted-mode fallback ever gets a chance to — an entry
+          // already exists the instant this block writes one, so that
+          // fallback's own "no entry yet" precondition never fires for a
+          // node created this way. Harmless to call for an `Embed` node
+          // that turns out to be a PDF, not an image: `getImagePresentation`
+          // only ever reads the segment's own tokens (kind-agnostic), and
+          // `PdfEmbedWidget` never reads `displayMode` at all.
           next = next.update({
-            add: [new ImageUiValue({ ...DEFAULT_IMAGE_UI_STATE, pendingFirstLeave: true }).range(from, to)],
+            add: [
+              new ImageUiValue({
+                ...DEFAULT_IMAGE_UI_STATE,
+                displayMode: getImagePresentation(tr.state, to).mode,
+                pendingFirstLeave: true,
+              }).range(from, to),
+            ],
           });
         }
       }
@@ -479,7 +548,14 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
     // already existed, or `DEFAULT_IMAGE_UI_STATE`'s otherwise) is what
     // covers that direction, symmetric with the already-broken-being-
     // edited direction, through this one mechanism rather than two.
-    if (tr.docChanged) {
+    //
+    // Skips entirely for a transaction carrying `presentationOnlyEdit` —
+    // see that effect's own doc comment for the flicker bug this guard
+    // fixes: a presentation-only rewrite of the pipe segment is a
+    // `docChanged` edit that overlaps the node's own range exactly like a
+    // real content edit would, but it never touches alt/URL/title, so it
+    // must never pessimistically flip a working image to broken.
+    if (tr.docChanged && !tr.effects.some((effect) => effect.is(presentationOnlyEdit))) {
       const touchedImages: Array<{ from: number; to: number }> = [];
       tr.changes.iterChangedRanges((fromA, toA) => {
         syntaxTree(tr.startState).iterate({
@@ -560,8 +636,26 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
  * below (`imageUiStateField.update`): reject any hit whose own `from`
  * doesn't exactly equal the queried `pos`, rather than trusting
  * `between`'s coarser overlap semantics to have found the right entry.
+ *
+ * `to`, when given, seeds a not-yet-toggled node's `displayMode` from its
+ * *persisted* mode (`mediaPresentation/mediaPresentationUpdate.ts`'s
+ * `getImagePresentation`) instead of this field's own hardcoded `'fill'`
+ * default — added for the resize milestone, once mode became something
+ * `MarkdownEditor.tsx`'s `handleSelectImageDisplayMode` actually writes to
+ * the Markdown source rather than only to this ephemeral field (see that
+ * function's own doc comment). Without this, a `{6,center,large}` image
+ * would render as Large only after the user reopened the size menu once in
+ * this session — reloading a note (a fresh `EditorState`, empty
+ * `RangeSet`, this file's own documented reason display mode used to reset
+ * to Fill on reopen) would otherwise silently drop back to Fill despite
+ * the Markdown itself saying `large`. Every other field
+ * (`revealed`/`broken`/`pendingFirstLeave`) still defaults exactly as
+ * before — only `displayMode` has a persisted source to fall back to.
+ * `to` is optional and only consulted on this miss path so every
+ * pre-existing call site (none of which pass it) keeps compiling and
+ * behaving identically unchanged.
  */
-export function getImageUiState(state: EditorState, pos: number): ImageUiState {
+export function getImageUiState(state: EditorState, pos: number, to?: number): ImageUiState {
   let found: ImageUiState | null = null;
   state
     .field(imageUiStateField, false)
@@ -572,5 +666,12 @@ export function getImageUiState(state: EditorState, pos: number): ImageUiState {
       found = value.state;
       return false;
     });
-  return found ?? DEFAULT_IMAGE_UI_STATE;
+  if (found) {
+    return found;
+  }
+  if (to === undefined) {
+    return DEFAULT_IMAGE_UI_STATE;
+  }
+  const persistedMode = getImagePresentation(state, to).mode;
+  return { ...DEFAULT_IMAGE_UI_STATE, displayMode: persistedMode };
 }

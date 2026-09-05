@@ -72,7 +72,8 @@ import { imageLivePreview } from './codemirror/image/imageLivePreview';
 import { embedLivePreview } from './codemirror/embed/embedLivePreview';
 import type { OnOpenPdfMenu, OnPdfEmbedClick } from './codemirror/pdf/PdfEmbedWidget';
 import { PdfEmbedMoreActions, type PdfEmbedMoreActionsAnchor } from './codemirror/pdf/PdfEmbedMoreActions';
-import { getImageUiState, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
+import { getImageUiState, presentationOnlyEdit, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
+import { getImagePresentation, computeImagePresentationUpdate } from './codemirror/mediaPresentation/mediaPresentationUpdate';
 import { markdownLanguageExtension } from './codemirror/markdownLanguage';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
 // import { tableDecoration } from './codemirror/table/tableDecoration';
@@ -400,9 +401,34 @@ export const MarkdownEditor = forwardRef<
     if (!imageMenu || !view) {
       return;
     }
-    const ui = getImageUiState(view.state, imageMenu.pos);
+    const ui = getImageUiState(view.state, imageMenu.pos, imageMenu.to);
+    // Persists mode into the Markdown source alongside the ephemeral CM6
+    // state, one transaction — closing the gap `imageUiState.ts`'s own
+    // `displayMode` doc comment used to describe as "an explicit, separate,
+    // not-yet-decided later concern." Without this, a selected mode
+    // would render correctly for the rest of this session but silently
+    // fall back to Fill the moment the note is reopened (a fresh
+    // `EditorState`), and a subsequent resize commit would have no
+    // persisted mode of its own to preserve. Width/alignment are read fresh
+    // and passed through unchanged — this dispatch's only intended effect
+    // is the mode field.
+    //
+    // `presentationOnlyEdit` (flicker fix): this transaction's `changes`
+    // rewrite the image's own `|width,alignment,mode` pipe segment, which
+    // lives inside the Image node's own range — without this marker,
+    // `imageUiState.ts`'s pessimistic `broken`-forcing block would treat
+    // it as a genuine content edit and flash the working image through
+    // its broken card before a recovery probe resolved it back, which is
+    // what actually caused the reported "image disappears and then
+    // renders again" flicker. See that effect's own doc comment for the
+    // full mechanism.
+    const current = getImagePresentation(view.state, imageMenu.to);
     view.dispatch({
-      effects: setImageUiState.of({ pos: imageMenu.pos, to: imageMenu.to, state: { ...ui, displayMode: mode } }),
+      effects: [
+        setImageUiState.of({ pos: imageMenu.pos, to: imageMenu.to, state: { ...ui, displayMode: mode } }),
+        presentationOnlyEdit.of(null),
+      ],
+      changes: computeImagePresentationUpdate(view.state, imageMenu.to, { ...current, mode }),
     });
   };
 
@@ -841,7 +867,7 @@ export const MarkdownEditor = forwardRef<
 
   const imageMenuCurrentMode = imageMenu && viewRef.current
     ? getImageUiState(viewRef.current.state, imageMenu.pos).displayMode
-    : 'large';
+    : 'fill';
 
   return (
     <>

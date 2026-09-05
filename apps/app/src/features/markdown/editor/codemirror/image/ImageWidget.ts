@@ -2,8 +2,22 @@ import { EditorSelection, type EditorState } from '@codemirror/state';
 import { WidgetType, type EditorView } from '@codemirror/view';
 
 import { computeImageDeletionRange } from './imageDeletion';
-import { findEnclosingImageNode, getImageUiState, setImageUiState, type ImageUiState } from './imageUiState';
+import {
+  findEnclosingImageNode,
+  getImageUiState,
+  setImageUiState,
+  type ImageUiState,
+} from './imageUiState';
 import { scanImage } from './imageScanner';
+import {
+  applyMediaAlignment,
+  applyMediaWidth,
+  disconnectMediaWidthObserver,
+  flipDimensionTransition,
+  measureBox,
+  type ResizeObserverHolder,
+} from '../mediaPresentation/mediaLayoutStyle';
+import type { ImagePresentation } from '../mediaPresentation/mediaPresentationModel';
 
 // Temporary icons only (per this change's own scope) — plain inline SVG
 // following TaskCheckboxWidget.ts's exact established convention for
@@ -200,10 +214,25 @@ export class ImageWidget extends WidgetType {
      */
     readonly getCurrentSource: GetCurrentImageSource = currentImageSource,
     /** See `OpenImageMenuParams.copyUrl`'s own doc comment. */
-    readonly copyUrl?: string
+    readonly copyUrl?: string,
+    /**
+     * Persisted width/alignment (resize milestone) — `mode` is
+     * deliberately never read off this for rendering; `this.ui.displayMode`
+     * stays the single source of truth for which mode is showing (see
+     * `imageUiState.ts`'s own `getImageUiState` doc comment for how that
+     * field now seeds itself from this same presentation's `mode` when no
+     * ephemeral entry exists yet — this widget never needs to reconcile
+     * two different "current mode" values because only one is ever read).
+     * Defaulted so every pre-existing construction site (tests included)
+     * keeps compiling unchanged.
+     */
+    readonly presentation: ImagePresentation = { width: 11, alignment: 'left', mode: 'fill' }
   ) {
     super();
   }
+
+  /** Owns the live pixel-width `ResizeObserver` `applyMediaWidth` creates for a freeform (12+) width — see that function's own doc comment. Disconnected in `destroy()`; a fresh one is created per `toDOM()` call, never shared across widget instances. */
+  private readonly widthObserver: ResizeObserverHolder = { current: null };
 
   override eq(other: ImageWidget): boolean {
     return (
@@ -214,8 +243,112 @@ export class ImageWidget extends WidgetType {
       this.to === other.to &&
       this.ui.revealed === other.ui.revealed &&
       this.ui.displayMode === other.ui.displayMode &&
-      this.ui.broken === other.ui.broken
+      this.ui.broken === other.ui.broken &&
+      this.presentation.width === other.presentation.width &&
+      this.presentation.alignment === other.presentation.alignment
     );
+  }
+
+  /**
+   * The CM6 "lightweight DOM update" pattern (`WidgetType.updateDOM`,
+   * called on the *new* widget instance with the *old* DOM and the *old*
+   * widget instance as `from`) — this is what actually fixes the
+   * Fill↔Fit/width/alignment flicker, not `eq()`. `eq()` still correctly
+   * returns `false` whenever presentation changes (the render genuinely
+   * needs to differ), which is what makes CM6 consider replacing the
+   * widget at all; without overriding `updateDOM`, `WidgetType`'s own
+   * default (`return false`) would force CM6 straight to
+   * `destroy(oldDom)` + a fresh `toDOM()` for every single presentation
+   * change — a real DOM teardown/rebuild (a new container, a new
+   * `<img>`, a fresh probe-then-mount cycle), which is the actual
+   * mechanism behind "the image disappears and then renders again."
+   *
+   * Handles only the narrow case that's actually safe to patch in place:
+   * a working→working update (never a broken transition either
+   * direction — `renderBroken`'s own probe/DOM shape is different enough
+   * not to worth special-casing) where alt/url/copyUrl/pos/to/`revealed`
+   * are all unchanged — i.e. *only* `presentation`/`ui.displayMode`
+   * differ. Anything else returns `false`, falling back to the normal,
+   * fully-safe rebuild path (still correct, just not fast) — content
+   * edits, reveal toggling, and broken/recovery all keep behaving
+   * exactly as before this method existed.
+   */
+  override updateDOM(dom: HTMLElement, view: EditorView, from: ImageWidget): boolean {
+    // Deliberately does NOT compare `this.to`/`from.to` — the node's own
+    // `to` legitimately shifts on a pure presentation update (`{6}` vs
+    // `{620}` vs no pipe segment at all are different text lengths), so
+    // requiring equality here would make this method never fire for the
+    // exact case it exists to handle. `pos` (`from`, in Lezer's sense —
+    // unfortunately named the same as this parameter) never moves for a
+    // presentation-only edit, so it stays a safe same-node-identity check
+    // on its own. See `makeEditButton`'s own doc comment for how every
+    // *other* piece of this DOM that still needs an accurate `to` reads
+    // it live off `container.dataset.nodeTo` instead of a captured field,
+    // precisely because this method reuses `dom`/`this` are the ones the
+    // page keeps, not `from`.
+    if (
+      this.ui.broken ||
+      from.ui.broken ||
+      this.alt !== from.alt ||
+      this.url !== from.url ||
+      this.copyUrl !== from.copyUrl ||
+      this.pos !== from.pos ||
+      this.ui.revealed !== from.ui.revealed
+    ) {
+      return false;
+    }
+
+    const container = dom;
+    const img = container.querySelector<HTMLImageElement>('img.tok-image');
+    if (!img) {
+      // Still mid-probe (no confirmed-good <img> mounted yet, per
+      // `probeThenMount`'s own doc comment) — nothing safe to patch in
+      // place; let the normal rebuild path handle it.
+      return false;
+    }
+
+    // Keeps every existing control's own live `to` reader
+    // (`container.dataset.nodeTo`, set up in `renderWorking`) current —
+    // without this, Edit-source/the size button/a subsequent resize would
+    // keep dispatching against the *old*, now-shifted position.
+    container.dataset.nodeTo = String(this.to);
+
+    // `from`'s own live-width `ResizeObserver` (if any — only a 12+ pixel
+    // width ever creates one) would otherwise leak: `this` is a brand-new
+    // instance with its own, currently-empty `widthObserver`, so nothing
+    // would ever disconnect `from`'s the way `destroy()` normally would
+    // — except `destroy()` is never called here (the DOM, and therefore
+    // ownership, transfers to `this` without a teardown).
+    disconnectMediaWidthObserver(from.widthObserver);
+
+    // FLIP measurement — capture the *rendered* box before touching any
+    // class/style, since that's the only reliable "from" a CSS transition
+    // can interpolate against (see `flipDimensionTransition`'s own doc
+    // comment for why the raw `auto`/`fit-content`/`100%` keywords
+    // involved here never animate on their own).
+    const startContainer = measureBox(container);
+    const startImg = measureBox(img);
+
+    container.classList.toggle('cm-image-container--fill', this.ui.displayMode === 'fill');
+    img.className = `tok-image tok-image--${this.ui.displayMode}`;
+    applyMediaAlignment(container, this.presentation.alignment);
+
+    this.applyWidthForMode(container, view);
+
+    // The declarative CSS above is now already fully correct for the new
+    // mode/width/alignment — measuring now gives the genuine target box,
+    // never hand-computed (Fill's cover-crop math and Fit's aspect-ratio
+    // math both stay owned by CSS, not duplicated here).
+    const endContainer = measureBox(container);
+    const endImg = measureBox(img);
+
+    flipDimensionTransition([
+      { el: container, property: 'width', from: startContainer.width, to: endContainer.width },
+      { el: img, property: 'width', from: startImg.width, to: endImg.width },
+      { el: img, property: 'height', from: startImg.height, to: endImg.height },
+    ]);
+
+    return true;
   }
 
   override toDOM(view: EditorView): HTMLElement {
@@ -243,12 +376,24 @@ export class ImageWidget extends WidgetType {
   }
 
   private renderWorking(container: HTMLElement, view: EditorView): HTMLElement {
+    // Fill is the only mode needing a container-level modifier class
+    // (a real, full-width fixed-height box) — Fit is natural size, the
+    // base `.cm-image-container`/`.tok-image` rules already give it with
+    // no modifier of its own (`'large'` used to work identically before
+    // it was removed as a mode; `'fit'` now covers that same behavior).
     if (this.ui.displayMode === 'fill') {
       container.classList.add('cm-image-container--fill');
     }
-    if (this.ui.displayMode === 'fit') {
-      container.classList.add('cm-image-container--fit');
-    }
+
+    applyMediaAlignment(container, this.presentation.alignment);
+
+    // Live source of truth for this node's own `to`, read by every
+    // control whose closure outlives a single `updateDOM` patch — see
+    // `makeEditButton`'s own doc comment for exactly why `this.to` alone
+    // isn't safe to close over here. Kept in sync by `updateDOM` on every
+    // presentation-only patch.
+    container.dataset.nodeTo = String(this.to);
+    const getCurrentTo = () => Number(container.dataset.nodeTo);
 
     const controls = document.createElement('div');
     controls.classList.add('cm-image-controls');
@@ -258,14 +403,14 @@ export class ImageWidget extends WidgetType {
       this.getOnOpenImageMenu()?.({
         anchor: sizeButton,
         pos: this.pos,
-        to: this.to,
+        to: getCurrentTo(),
         alt: this.alt,
         url: this.url,
         copyUrl: this.copyUrl,
       });
     });
     sizeButton.setAttribute('aria-expanded', 'false');
-    controls.append(sizeButton, this.makeEditButton(view));
+    controls.append(sizeButton, this.makeEditButton(view, getCurrentTo));
 
     // The image itself is a clickable UI affordance (opens ImageOverlay),
     // not editable text. A real <button> wrapping the <img> — not
@@ -318,11 +463,41 @@ export class ImageWidget extends WidgetType {
       this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
     });
 
+    // Applied synchronously here, before the `<img>` itself even exists
+    // yet (`probeThenMount` mounts it once the probe confirms `this.url`
+    // loads) — there is no image-specific width target left to wait for
+    // any more.
+    this.applyWidthForMode(container, view);
+
     container.append(controls, imageButton);
 
     this.probeThenMount(imageButton, view);
 
     return container;
+  }
+
+  /**
+   * Fill is a fixed, non-adjustable 100%-wide/400px-tall box — entirely
+   * CSS (`.cm-image-container--fill`/`.tok-image--fill`, MarkdownEditor.css)
+   * — so the persisted `width` value is never applied to it, and no
+   * `ResizeObserver` is ever created for it. This is a deliberate
+   * simplification, not an oversight: interactive resizing has been
+   * removed, so a stale non-default `width` a document may still carry
+   * from before that removal has no UI path to set it again for Fill —
+   * only Fit still reads it (natural-size aspect ratio, needs an explicit
+   * width to shrink below its intrinsic size).
+   */
+  private applyWidthForMode(container: HTMLElement, view: EditorView): void {
+    if (this.ui.displayMode === 'fill') {
+      disconnectMediaWidthObserver(this.widthObserver);
+      container.style.removeProperty('width');
+      return;
+    }
+    applyMediaWidth(container, null, this.presentation.width, view, this.widthObserver);
+  }
+
+  override destroy(): void {
+    disconnectMediaWidthObserver(this.widthObserver);
   }
 
   /**
@@ -379,6 +554,13 @@ export class ImageWidget extends WidgetType {
         img.addEventListener('error', dispatchBroken, { once: true });
         img.src = this.url;
         imageButton.append(img);
+        // No width application here any more — wrapper-owned width
+        // (both modes) is already applied to the *container* synchronously
+        // in `renderWorking`, before this `<img>` even existed. The image
+        // itself carries no inline width/height of its own; its CSS is
+        // always `width: 100%` (`.tok-image--fill`/`.tok-image--fit`), so
+        // it simply fills whatever box the container resolves to, the
+        // moment it mounts.
       },
       { once: true }
     );
@@ -491,17 +673,31 @@ export class ImageWidget extends WidgetType {
    * comment for why Edit source must behave identically in both states,
    * which this single implementation is what actually guarantees rather
    * than merely documents.
+   *
+   * `getTo` (default `() => this.to`) exists for `updateDOM`'s own sake:
+   * `renderWorking` passes a live reader off the container's own
+   * `data-node-to` attribute instead, since the button element itself
+   * (and its closure, permanently bound to whichever widget instance
+   * created it) survives a presentation-only `updateDOM` patch — the
+   * *node's* own `to` genuinely shifts whenever the pipe segment's own
+   * text length changes (`{6}` vs `{620}` vs no segment at all are
+   * different lengths), so a closure that captured `this.to` once at
+   * construction time would silently dispatch against a stale position
+   * after such a patch. `renderBroken` never goes through `updateDOM`
+   * (broken transitions always get a full rebuild — see that method's
+   * own doc comment), so it keeps the simpler default unchanged.
    */
-  private makeEditButton(view: EditorView): HTMLButtonElement {
+  private makeEditButton(view: EditorView, getTo: () => number = () => this.to): HTMLButtonElement {
     return this.makeButton(
       EDIT_ICON,
       this.ui.revealed ? 'Hide source' : 'Edit source',
       () => {
         const revealing = !this.ui.revealed;
+        const to = getTo();
         view.dispatch({
           effects: setImageUiState.of({
             pos: this.pos,
-            to: this.to,
+            to,
             state: { ...this.ui, revealed: revealing },
           }),
           // Cursor at the end of the raw Markdown, never a range
@@ -510,7 +706,7 @@ export class ImageWidget extends WidgetType {
           // automatically" requirements (items 3). Only set when
           // revealing: hiding via this same button never needs to move
           // the caret anywhere.
-          selection: revealing ? EditorSelection.cursor(this.to) : undefined,
+          selection: revealing ? EditorSelection.cursor(to) : undefined,
           scrollIntoView: revealing,
         });
       }
