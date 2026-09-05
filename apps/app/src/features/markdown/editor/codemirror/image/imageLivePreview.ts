@@ -141,6 +141,7 @@ function buildDecorations(
         }
 
         const ui = getImageUiState(view.state, node.from, node.to);
+        console.log(`[imageLivePreview.buildDecorations] node.from=${node.from} node.to=${node.to} getImageUiState.displayMode=${ui.displayMode} revealed=${ui.revealed}`);
 
         if (ui.pendingFirstLeave && !ui.revealed && isTokenEngaged(view.state, node)) {
           // Still being typed/pasted for the first time — no widget at
@@ -171,6 +172,8 @@ function buildDecorations(
         const url = resolution?.status === 'resolved' ? resolution.url : match.url;
         const copyUrl = resolution?.status === 'resolved' ? resolution.copyUrl : undefined;
 
+        const presentation = resolveImagePresentation(match.presentationTokens);
+        console.log(`[imageLivePreview] creating widget node.from=${node.from} ui.displayMode=${ui.displayMode} presentation.mode=${presentation.mode}`);
         const widget = new ImageWidget(
           match.alt,
           url,
@@ -181,7 +184,7 @@ function buildDecorations(
           getOnOpenImageMenu,
           getCurrentSource,
           copyUrl,
-          resolveImagePresentation(match.presentationTokens)
+          presentation
         );
 
         if (ui.revealed) {

@@ -326,6 +326,7 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
     for (const effect of tr.effects) {
       if (effect.is(setImageUiState)) {
         const { pos, to, state } = effect.value;
+        console.log(`[imageUiStateField.update] setImageUiState effect pos=${pos} to=${to} displayMode=${state.displayMode} revealed=${state.revealed}`);
         next = next.update({
           filter: (from) => from !== pos,
           add: [new ImageUiValue(state).range(pos, to)],
@@ -691,11 +692,14 @@ export function getImageUiState(state: EditorState, pos: number, to?: number): I
       return false;
     });
   if (found) {
+    console.log(`[getImageUiState] pos=${pos} FOUND entry displayMode=${(found as ImageUiState).displayMode} revealed=${(found as ImageUiState).revealed}`);
     return found;
   }
   if (to === undefined) {
+    console.log(`[getImageUiState] pos=${pos} NO ENTRY and to=undefined, returning DEFAULT displayMode='fill'`);
     return DEFAULT_IMAGE_UI_STATE;
   }
   const persistedMode = getImagePresentation(state, to).mode;
+  console.log(`[getImageUiState] pos=${pos} NO ENTRY but to=${to}, reading persisted displayMode=${persistedMode}`);
   return { ...DEFAULT_IMAGE_UI_STATE, displayMode: persistedMode };
 }

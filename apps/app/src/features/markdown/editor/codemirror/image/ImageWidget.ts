@@ -229,6 +229,7 @@ export class ImageWidget extends WidgetType {
     readonly presentation: ImagePresentation = { width: 11, alignment: 'left', mode: 'fill' }
   ) {
     super();
+    console.log(`[ImageWidget] constructor pos=${this.pos} displayMode=${this.ui.displayMode} presentation.mode=${this.presentation.mode} revealed=${this.ui.revealed}`);
   }
 
   /**
@@ -287,6 +288,8 @@ export class ImageWidget extends WidgetType {
    * exactly as before this method existed.
    */
   override updateDOM(dom: HTMLElement, view: EditorView, from: ImageWidget): boolean {
+    console.log(`[ImageWidget.updateDOM] pos=${this.pos} from.displayMode=${from.ui.displayMode} → this.displayMode=${this.ui.displayMode} from.revealed=${from.ui.revealed} → this.revealed=${this.ui.revealed}`);
+
     // Deliberately does NOT compare `this.to`/`from.to` — the node's own
     // `to` legitimately shifts on a pure presentation update (`{6}` vs
     // `{620}` vs no pipe segment at all are different text lengths), so
@@ -308,6 +311,7 @@ export class ImageWidget extends WidgetType {
       this.pos !== from.pos ||
       this.ui.revealed !== from.ui.revealed
     ) {
+      console.log(`[ImageWidget.updateDOM] returning false - full rebuild needed`);
       return false;
     }
 
@@ -333,6 +337,39 @@ export class ImageWidget extends WidgetType {
     // — except `destroy()` is never called here (the DOM, and therefore
     // ownership, transfers to `this` without a teardown).
     disconnectMediaWidthObserver(from.widthObserver);
+
+    // Self-heals a stale inline `height` pin from a *previous* FLIP cycle
+    // before measuring anything (2026-09, real bug — confirmed live in
+    // WebKit/Tauri's own webview, not reproducible in Chromium or jsdom).
+    // `flipDimensionTransition`'s own cleanup (`mediaLayoutStyle.ts`) only
+    // ever runs in response to a `transitionend`/`transitioncancel` event
+    // — but WebKit does not reliably fire *either* event for this
+    // container's own `height` transition specifically (confirmed by
+    // directly instrumenting all four transition events live: `<img>`'s
+    // own height transition settles and cleans up every time; the
+    // *container's* does not, non-deterministically, with no interruption
+    // or rapid toggling involved). `width` never showed this symptom only
+    // because `applyMediaWidth` (below) unconditionally re-asserts the
+    // correct width on every single call regardless of FLIP's own pin
+    // state — width is self-healing every call; height had no equivalent,
+    // so a single missed cleanup event left it stuck forever: once
+    // `container.style.height` holds a stale value, it *is* the box's
+    // real rendered height (inline always wins over the class-driven
+    // rule, regardless of which class is active), so both this method's
+    // own `startContainer`/`endContainer` measurements read that same
+    // stale number — `flipDimensionTransition`'s `|from - to| > 0.5`
+    // check then sees no change at all and skips the property entirely,
+    // perpetuating the stuck value on every subsequent switch too.
+    // Removing it *first*, unconditionally, before either measurement,
+    // makes this self-correcting regardless of whether any given
+    // transition's own end/cancel event ever fires — the same
+    // "authoritative value re-applied every call" property `width`
+    // already has, now extended to `height`. Never removes a *width*
+    // pin (custom pixel widths are meant to stay inline permanently, not
+    // just during a transition — clearing it here would be wrong, not
+    // merely unnecessary), and never touches the `<img>`'s own height
+    // (already confirmed reliable — see above).
+    container.style.removeProperty('height');
 
     // FLIP measurement — capture the *rendered* box before touching any
     // class/style, since that's the only reliable "from" a CSS transition
@@ -380,6 +417,7 @@ export class ImageWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
+    console.log(`[ImageWidget.toDOM] pos=${this.pos} displayMode=${this.ui.displayMode} presentation.mode=${this.presentation.mode} revealed=${this.ui.revealed}`);
     const container = document.createElement('div');
     // `cm-media-block` — the shared global media/embed block-flow
     // contract (MarkdownEditor.css) every media widget opts into: this
@@ -410,6 +448,7 @@ export class ImageWidget extends WidgetType {
   }
 
   private renderWorking(container: HTMLElement, view: EditorView): HTMLElement {
+    console.log(`[ImageWidget.renderWorking] pos=${this.pos} displayMode=${this.ui.displayMode} applying class: cm-image-container--${this.ui.displayMode}`);
     // Both modes are a full-width-by-default box (`.cm-image-container
     // --fill`/`--fit`, MarkdownEditor.css) — they differ only in height:
     // Fill is a fixed 400px cover-cropped box, Fit's height is `auto`,
@@ -706,6 +745,7 @@ export class ImageWidget extends WidgetType {
       () => {
         const revealing = !this.ui.revealed;
         const to = getTo();
+        console.log(`[ImageWidget.makeEditButton] pos=${this.pos} BEFORE dispatch: displayMode=${this.ui.displayMode} revealed=${this.ui.revealed} → revealing=${revealing}`);
         view.dispatch({
           effects: setImageUiState.of({
             pos: this.pos,

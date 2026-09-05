@@ -234,6 +234,31 @@ export interface FlipDimensionEntry {
  * first still only runs the cleanup once (removing both listeners
  * together) — `entry.el.style.removeProperty(entry.property)` is
  * idempotent regardless of which event triggered it.
+ *
+ * **Confirmed insufficient on its own (2026-09, same bug report,
+ * continued investigation) — event-based cleanup cannot be the *only*
+ * defense.** Reproducing live in a real WebKit engine (Playwright's
+ * `webkit`, matching this app's own Tauri/WKWebView runtime — never
+ * reproducible in Chromium or jsdom) and instrumenting all four
+ * transition events directly on the element showed WebKit not reliably
+ * firing *either* `transitionend` or `transitioncancel` for
+ * `.cm-image-container`'s own `height` transition specifically — with no
+ * interruption, no rapid toggling, a single ordinary Fit↔Fill switch,
+ * non-deterministically across otherwise-identical runs (the `<img>`'s
+ * own height transition on the same element tree settled reliably every
+ * time; only the container's did not). Once neither event fires, this
+ * function's own inline pin is permanently stuck, and — per this
+ * function's own doc comment above — poisons every later measurement
+ * too. The actual fix is in `ImageWidget.ts`'s `updateDOM`: it now
+ * proactively clears any stale inline `height` on the container *before*
+ * measuring anything, on every call, regardless of whether a previous
+ * transition's own end/cancel event ever fired — the same
+ * "authoritative value re-applied unconditionally every call" property
+ * `applyMediaWidth` already gives `width`, extended to `height`. This
+ * function's own `transitioncancel` listener is kept as reasonable
+ * defense-in-depth for the *documented*, spec-true interrupted-transition
+ * case (still correct, still worth having) — just not sufficient by
+ * itself for the specific WebKit non-firing behavior found here.
  */
 export function flipDimensionTransition(entries: readonly FlipDimensionEntry[]): void {
   const changing = entries.filter((entry) => Math.abs(entry.from - entry.to) > 0.5);

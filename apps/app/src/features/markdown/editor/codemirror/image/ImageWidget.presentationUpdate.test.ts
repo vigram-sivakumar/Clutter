@@ -411,3 +411,126 @@ describe('Fill ↔ Fit — no stale inline height survives after the transition 
     expect(container.classList.contains('cm-image-container--fill')).toBe(true);
   });
 });
+
+/**
+ * Regression coverage for the *actual*, confirmed root cause behind a
+ * persistent "second Fill → Fit stuck at height: 400px" report — the
+ * `transitioncancel` fix above turned out to be real but insufficient.
+ * Reproduced live in a real WebKit engine (Playwright's `webkit`,
+ * matching this app's own Tauri/WKWebView runtime — never reproducible
+ * in Chromium or jsdom's synthetic event dispatch) with a plain,
+ * non-rapid Fill → Fit → Fill → Fit sequence and no interruption at all:
+ * instrumenting all four CSS transition events directly on the element
+ * showed WebKit not reliably firing *either* `transitionend` or
+ * `transitioncancel` for `.cm-image-container`'s own `height` transition
+ * specifically (the `<img>`'s own height transition on the same tree
+ * settled correctly every time; only the container's did not,
+ * non-deterministically). Once neither event fires, `flipDimensionTransition`'s
+ * cleanup never runs, and the stale inline `height` poisons every later
+ * `measureBox` call: since an inline style always wins over the
+ * class-driven rule regardless of which class is active, `startContainer`
+ * and `endContainer` on the *next* switch both read the same stale
+ * number, `|from - to|` reads as "unchanged," and the property is
+ * skipped entirely — the value never gets a chance to update again.
+ *
+ * Fixed in `ImageWidget.ts`'s `updateDOM`: it now unconditionally clears
+ * any existing inline `height` on the container *before* measuring
+ * anything, every single call, regardless of whether a previous
+ * transition's own end/cancel event ever fired — giving `height` the
+ * same "authoritative value re-applied every call, no event dependency"
+ * property `applyMediaWidth` already gives `width` (which never showed
+ * this symptom for exactly that reason).
+ *
+ * These tests simulate the *confirmed* WebKit failure mode directly:
+ * `transitionend`/`transitioncancel` are never fired at all, for any
+ * step — the worst case actually observed, not merely a theoretical one.
+ */
+describe('Fill ↔ Fit — self-heals a stale inline height even when no transition event ever fires (the confirmed WebKit root cause)', () => {
+  /**
+   * Unlike the simpler `stubRect` helpers elsewhere in this file (which
+   * always return a fixed, mode-based rect regardless of inline style),
+   * this one models the one real-browser fact the actual bug and its fix
+   * both hinge on: **an inline style always wins over the class-driven
+   * declarative rule, for whichever dimension it's set on** — reading
+   * `el.style.width`/`el.style.height` first, falling back to the
+   * mode-based canned rect only when no inline value is set. Without
+   * this, a test can never distinguish "the fix correctly ignores/heals
+   * a stale inline value" from "the stub itself never modeled the value
+   * mattering in the first place" — confirmed directly: the simpler
+   * always-class-based stub made every test in this `describe` block
+   * pass identically whether or not the real fix (`ImageWidget.ts`'s
+   * `container.style.removeProperty('height')`) was present, since it
+   * silently discarded the very stale value the bug depends on.
+   */
+  function stubRect(el: HTMLElement, rects: { fit: { width: number; height: number }; fill: { width: number; height: number } }): void {
+    el.getBoundingClientRect = () => {
+      const isFill = el.classList.contains('cm-image-container--fill') || el.classList.contains('tok-image--fill');
+      const base = isFill ? rects.fill : rects.fit;
+      const width = el.style.width ? parseFloat(el.style.width) : base.width;
+      const height = el.style.height ? parseFloat(el.style.height) : base.height;
+      return { width, height, x: 0, y: 0, top: 0, left: 0, right: width, bottom: height, toJSON: () => ({}) } as DOMRect;
+    };
+  }
+
+  it('a pre-existing stale inline height (simulating an earlier cycle whose transitionend/transitioncancel never fired) does not prevent the very next switch from measuring and animating correctly', () => {
+    const view = mountView('![Photo|fill](https://example.com/a.jpg)');
+    const container = getContainer(view);
+    const img = getImg(view);
+    stubRect(container, { fit: { width: 600, height: 900 }, fill: { width: 600, height: 400 } });
+    stubRect(img, { fit: { width: 600, height: 900 }, fill: { width: 600, height: 400 } });
+
+    // Simulate the confirmed bug's own precondition directly: a stale
+    // inline height left over from some earlier, never-cleaned-up cycle
+    // — set by hand here rather than via a real (unreproducible in
+    // jsdom) WebKit transition-event failure.
+    container.style.height = '400px';
+
+    selectMode(view, 0, view.state.doc.length, 'fit');
+
+    // Without the fix, `startContainer`/`endContainer` both read the
+    // stale 400px (inline always wins over the class rule), measure as
+    // "unchanged," and skip the property — leaving it stuck at 400px
+    // forever, reproducing the exact reported bug.
+    expect(container.style.height).toBe('900px');
+  });
+
+  it('Fill → Fit → Fill → Fit, with transitionend/transitioncancel NEVER firing for any step (the actual confirmed WebKit behavior) — every Fit state still measures and animates to its correct natural height, never stuck at Fill\'s 400px', () => {
+    const view = mountView('![Photo|fill](https://example.com/a.jpg)');
+    const container = getContainer(view);
+    const img = getImg(view);
+    stubRect(container, { fit: { width: 600, height: 900 }, fill: { width: 600, height: 400 } });
+    stubRect(img, { fit: { width: 600, height: 900 }, fill: { width: 600, height: 400 } });
+
+    selectMode(view, 0, view.state.doc.length, 'fit');
+    expect(container.style.height).toBe('900px'); // correct — first Fill→Fit always worked, even pre-fix
+
+    selectMode(view, 0, view.state.doc.length, 'fill');
+    expect(container.style.height).toBe('400px'); // Fit→Fill also always worked
+
+    // The exact reported failure point: the SECOND Fill→Fit, with
+    // neither prior transition's own event ever having fired.
+    selectMode(view, 0, view.state.doc.length, 'fit');
+    expect(container.style.height).toBe('900px'); // previously stuck at '400px' — this is the actual regression
+
+    selectMode(view, 0, view.state.doc.length, 'fill');
+    expect(container.style.height).toBe('400px');
+
+    selectMode(view, 0, view.state.doc.length, 'fit');
+    expect(container.style.height).toBe('900px');
+  });
+
+  it('the fix never touches a legitimate custom-width inline style — only height is cleared, width keeps whatever applyMediaWidth already set', () => {
+    const view = mountView('![Photo|220,fill](https://example.com/a.jpg)');
+    const container = getContainer(view);
+    const img = getImg(view);
+    stubRect(container, { fit: { width: 220, height: 900 }, fill: { width: 220, height: 400 } });
+    stubRect(img, { fit: { width: 220, height: 900 }, fill: { width: 220, height: 400 } });
+
+    container.style.height = '400px'; // simulate the same stale precondition
+
+    selectMode(view, 0, view.state.doc.length, 'fit');
+
+    expect(container.style.width).toBe('220px'); // untouched, correct, persists by design
+    expect(container.style.height).toBe('900px'); // healed and correctly animated
+  });
+});
