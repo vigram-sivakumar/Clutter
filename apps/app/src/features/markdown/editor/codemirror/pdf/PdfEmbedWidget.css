@@ -208,15 +208,16 @@
   overflow: visible;
 }
 
-/* Fade in control buttons on hover. */
+/* Header control buttons hidden at rest — no transition so opacity drops immediately when hover ends */
 .cm-pdf-controls .cm-pdf-control {
   opacity: 0;
-  transition: opacity 150ms ease;
+  transition: none;
 }
 
 .cm-pdf-embed-container--hover .cm-pdf-controls .cm-pdf-control,
 .cm-pdf-embed-container:focus-within .cm-pdf-controls .cm-pdf-control {
   opacity: 1;
+  transition: opacity 150ms ease; /* Smooth fade-in */
 }
 
 /* The page-navigation pill — floating, centered at the bottom of the page.
@@ -249,14 +250,14 @@
   border-radius: var(--radius-lg);
 }
 
-/* DIAGNOSTIC: Temporarily disable transition to observe final computed opacity without animation */
 .cm-pdf-embed-pagination .cm-pdf-control {
   opacity: 0;
-  /* transition: opacity 150ms ease; */ /* DISABLED FOR DIAGNOSTICS */
+  transition: none; /* No transition at rest — opacity must drop immediately to 0 when hover class removed */
 }
 
 .cm-pdf-embed-container--hover .cm-pdf-embed-pagination .cm-pdf-control {
   opacity: 1;
+  transition: opacity 150ms ease; /* Smooth fade-in on hover reveal */
 }
 
 /* Visual-only dimming for Previous/Next's `aria-disabled` state

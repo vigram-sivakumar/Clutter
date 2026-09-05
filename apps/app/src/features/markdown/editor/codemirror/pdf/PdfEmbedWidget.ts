@@ -369,38 +369,10 @@ export class PdfEmbedWidget extends WidgetType {
     // the way `:hover` is, so they aren't susceptible to the same
     // staleness — see PdfEmbedWidget.css's own matching selector.
     container.addEventListener('mouseenter', () => {
-      // DIAGNOSTICS: Trace hover state changes
-      console.log('[PDF Embed] mouseenter: adding hover class');
       container.classList.add('cm-pdf-embed-container--hover');
-      const hasClass = container.classList.contains('cm-pdf-embed-container--hover');
-      console.log('[PDF Embed] hover class added:', hasClass);
     });
     container.addEventListener('mouseleave', () => {
-      // DIAGNOSTICS: Trace hover state changes
-      console.log('[PDF Embed] mouseleave: removing hover class');
       container.classList.remove('cm-pdf-embed-container--hover');
-      const hasClass = container.classList.contains('cm-pdf-embed-container--hover');
-      console.log('[PDF Embed] hover class removed, still present:', hasClass);
-
-      // DIAGNOSTICS: Check if buttons are still visible after hover class is removed
-      setTimeout(() => {
-        const nextButton = pagination.querySelector<HTMLButtonElement>('button[aria-label="Next page"]');
-        if (nextButton) {
-          const computed = getComputedStyle(nextButton);
-          console.log('[PDF Embed] After mouseleave:');
-          console.log('  - Button opacity:', computed.opacity);
-          console.log('  - Button display:', computed.display);
-          console.log('  - Button visibility:', computed.visibility);
-          console.log('  - Hover class present:', container.classList.contains('cm-pdf-embed-container--hover'));
-          console.log('  - Pagination visible:', !pagination.hidden);
-
-          // Log matching selectors by inspecting styles
-          if (computed.opacity !== '0') {
-            console.warn('[PDF Embed] ⚠️  OPACITY IS NOT 0 AFTER MOUSELEAVE! Button is still visible.');
-            console.log('[PDF Embed] This indicates a CSS rule is overriding the base opacity: 0 rule.');
-          }
-        }
-      }, 0); // Run after transition would complete
     });
 
     let destroyed = false;
@@ -423,10 +395,6 @@ export class PdfEmbedWidget extends WidgetType {
       // behavior, not anything CSS-side.
       this.setButtonDisabled(prevButton, currentPage <= 1);
       this.setButtonDisabled(nextButton, currentPage >= numPages);
-
-      // DIAGNOSTICS: Check if hover state is preserved during updateChrome
-      const hasHoverClass = container.classList.contains('cm-pdf-embed-container--hover');
-      console.log('[PDF Embed] updateChrome: hover class present:', hasHoverClass);
     };
 
     const renderCurrentPage = () => {
