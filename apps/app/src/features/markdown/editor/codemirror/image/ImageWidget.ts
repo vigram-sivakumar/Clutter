@@ -396,107 +396,6 @@ export class ImageWidget extends WidgetType {
     const endContainer = measureBox(container);
     const endImg = measureBox(img);
 
-    // DIAGNOSTIC: Log all measurements to diagnose the 800px line height issue
-    if (this.ui.displayMode === 'fill') {
-      const cmLine = container.closest('.cm-line') as HTMLElement | null;
-      const button = container.querySelector<HTMLElement>('.cm-image-button');
-      const buffers = container.closest('.cm-line')?.querySelectorAll('.cm-widgetBuffer') ?? [];
-
-      console.log(`\n[ImageWidget.updateDOM] DIAGNOSTIC: Fill mode measurement`);
-      console.log(`  displayMode: ${this.ui.displayMode}`);
-
-      if (cmLine) {
-        const lineStyles = window.getComputedStyle(cmLine);
-        console.log(`\n  .cm-line:`);
-        console.log(`    offsetHeight: ${cmLine.offsetHeight}px`);
-        console.log(`    scrollHeight: ${cmLine.scrollHeight}px`);
-        console.log(`    getBoundingClientRect().height: ${cmLine.getBoundingClientRect().height.toFixed(0)}px`);
-        console.log(`    computed height: ${lineStyles.height}`);
-        console.log(`    computed min-height: ${lineStyles.minHeight}`);
-        console.log(`    computed max-height: ${lineStyles.maxHeight}`);
-        console.log(`    computed display: ${lineStyles.display}`);
-        console.log(`    computed line-height: ${lineStyles.lineHeight}`);
-        console.log(`    children count: ${cmLine.children.length}`);
-
-        // Log each direct child
-        let childrenHeightSum = 0;
-        for (let i = 0; i < cmLine.children.length; i++) {
-          const child = cmLine.children[i] as HTMLElement;
-          childrenHeightSum += child.offsetHeight;
-          console.log(`      [${i}] ${child.className || child.tagName}: offsetHeight=${child.offsetHeight}px`);
-        }
-        console.log(`    sum of children: ${childrenHeightSum}px`);
-      }
-
-      const containerStyles = window.getComputedStyle(container);
-      console.log(`\n  .cm-image-container:`);
-      console.log(`    offsetHeight: ${container.offsetHeight}px`);
-      console.log(`    scrollHeight: ${container.scrollHeight}px`);
-      console.log(`    getBoundingClientRect().height: ${container.getBoundingClientRect().height.toFixed(0)}px`);
-      console.log(`    computed height: ${containerStyles.height}`);
-      console.log(`    computed min-height: ${containerStyles.minHeight}`);
-      console.log(`    computed max-height: ${containerStyles.maxHeight}`);
-      console.log(`    computed display: ${containerStyles.display}`);
-      console.log(`    computed overflow: ${containerStyles.overflow}`);
-      console.log(`    inline style.height: '${container.style.height || '(empty)'}'`);
-      console.log(`    inline style.width: '${container.style.width || '(empty)'}'`);
-      console.log(`    FLIP startContainer: ${startContainer.width.toFixed(0)}x${startContainer.height.toFixed(0)}px`);
-      console.log(`    FLIP endContainer: ${endContainer.width.toFixed(0)}x${endContainer.height.toFixed(0)}px`);
-
-      if (button) {
-        const buttonStyles = window.getComputedStyle(button);
-        console.log(`\n  .cm-image-button:`);
-        console.log(`    offsetHeight: ${button.offsetHeight}px`);
-        console.log(`    getBoundingClientRect().height: ${button.getBoundingClientRect().height.toFixed(0)}px`);
-        console.log(`    computed height: ${buttonStyles.height}`);
-        console.log(`    computed max-height: ${buttonStyles.maxHeight}`);
-        console.log(`    computed display: ${buttonStyles.display}`);
-        console.log(`    inline style.height: '${(button as HTMLElement).style.height || '(empty)'}'`);
-      }
-
-      const imgStyles = window.getComputedStyle(img);
-      console.log(`\n  img.tok-image:`);
-      console.log(`    offsetHeight: ${img.offsetHeight}px`);
-      console.log(`    getBoundingClientRect().height: ${img.getBoundingClientRect().height.toFixed(0)}px`);
-      console.log(`    computed height: ${imgStyles.height}`);
-      console.log(`    computed display: ${imgStyles.display}`);
-      console.log(`    inline style.height: '${img.style.height || '(empty)'}'`);
-      console.log(`    naturalWidth: ${img.naturalWidth}px, naturalHeight: ${img.naturalHeight}px`);
-      console.log(`    rendered width: ${img.width}px, height: ${img.height}px`);
-      console.log(`    FLIP startImg: ${startImg.width.toFixed(0)}x${startImg.height.toFixed(0)}px`);
-      console.log(`    FLIP endImg: ${endImg.width.toFixed(0)}x${endImg.height.toFixed(0)}px`);
-
-      if (buffers.length > 0) {
-        console.log(`\n  .cm-widgetBuffer (${buffers.length}):`);
-        let bufferHeightSum = 0;
-        for (let idx = 0; idx < buffers.length; idx++) {
-          const buffer = buffers[idx] as HTMLElement;
-          const bufferStyles = window.getComputedStyle(buffer);
-          bufferHeightSum += buffer.offsetHeight;
-          console.log(`    [${idx}] offsetHeight: ${buffer.offsetHeight}px, computed height: ${bufferStyles.height}, computed display: ${bufferStyles.display}`);
-        }
-        console.log(`    total buffers height: ${bufferHeightSum}px`);
-      }
-
-      if (cmLine) {
-        const lineHeight = cmLine.offsetHeight;
-        const containerHeight = container.offsetHeight;
-        const extra = lineHeight - containerHeight;
-        console.log(`\n  ANALYSIS:`);
-        console.log(`    line height: ${lineHeight}px`);
-        console.log(`    container height: ${containerHeight}px`);
-        console.log(`    extra height: ${extra}px`);
-        if (extra > 350) {
-          console.log(`    ⚠️  PROBLEM: Extra height is significant (>350px)`);
-          if (Math.abs(extra - containerHeight) < 50) {
-            console.log(`    💡 Extra height ≈ container height: possible double rendering`);
-          }
-        }
-      }
-
-      console.log('');
-    }
-
     // Container `height` is FLIP-animated too (2026-09, fixing a real
     // Fit→Fill asymmetry) — see `.cm-image-container`'s own CSS doc
     // comment (MarkdownEditor.css) for the full mechanism: without this,
@@ -713,11 +612,130 @@ export class ImageWidget extends WidgetType {
         // (`.tok-image--fill`/`.tok-image--fit`, MarkdownEditor.css): the
         // image carries no inline sizing of its own, it simply fills
         // whatever box its mode's own rule describes the moment it mounts.
+
+        // DIAGNOSTIC: Measure layout after widget mounts and image loads
+        // Deferred to next microtask to ensure CodeMirror has positioned the widget
+        Promise.resolve().then(() => {
+          this.logLayoutMeasurements(imageButton, img);
+        });
       },
       { once: true }
     );
     probe.addEventListener('error', dispatchBroken, { once: true });
     probe.src = this.url;
+  }
+
+  private logLayoutMeasurements(imageButton: HTMLElement, img: HTMLImageElement): void {
+    const container = imageButton.closest('.cm-image-container') as HTMLElement | null;
+    const cmLine = container?.closest('.cm-line') as HTMLElement | null;
+
+    if (!container || !cmLine) {
+      console.log('[ImageWidget.logLayoutMeasurements] Could not find container or line in DOM');
+      return;
+    }
+
+    console.log(`\n${'='.repeat(100)}`);
+    console.log(`[ImageWidget LAYOUT DIAGNOSTIC] Fill Image: ${this.ui.displayMode}`);
+    console.log(`${'='.repeat(100)}`);
+
+    const rect = cmLine.getBoundingClientRect();
+    const lineStyles = window.getComputedStyle(cmLine);
+    console.log(`\n.cm-line:`);
+    console.log(`  bounding height: ${rect.height.toFixed(0)}px`);
+    console.log(`  offsetHeight: ${cmLine.offsetHeight}px`);
+    console.log(`  scrollHeight: ${cmLine.scrollHeight}px`);
+    console.log(`  computed height: ${lineStyles.height}`);
+    console.log(`  computed min-height: ${lineStyles.minHeight}`);
+    console.log(`  computed max-height: ${lineStyles.maxHeight}`);
+    console.log(`  computed display: ${lineStyles.display}`);
+    console.log(`  computed line-height: ${lineStyles.lineHeight}`);
+
+    // Log direct children
+    console.log(`\n.cm-line direct children (${cmLine.children.length}):`);
+    let childrenBoundingHeightSum = 0;
+    for (let i = 0; i < cmLine.children.length; i++) {
+      const child = cmLine.children[i] as HTMLElement;
+      const childRect = child.getBoundingClientRect();
+      childrenBoundingHeightSum += childRect.height;
+      console.log(
+        `  [${i}] ${child.className || child.tagName}: bounding=${childRect.height.toFixed(0)}px, offset=${child.offsetHeight}px`
+      );
+    }
+    console.log(`  sum of bounding heights: ${childrenBoundingHeightSum.toFixed(0)}px`);
+
+    const containerRect = container.getBoundingClientRect();
+    const containerStyles = window.getComputedStyle(container);
+    console.log(`\n.cm-image-container:`);
+    console.log(`  bounding height: ${containerRect.height.toFixed(0)}px`);
+    console.log(`  offsetHeight: ${container.offsetHeight}px`);
+    console.log(`  scrollHeight: ${container.scrollHeight}px`);
+    console.log(`  computed height: ${containerStyles.height}`);
+    console.log(`  computed min-height: ${containerStyles.minHeight}`);
+    console.log(`  computed max-height: ${containerStyles.maxHeight}`);
+    console.log(`  computed display: ${containerStyles.display}`);
+    console.log(`  computed overflow: ${containerStyles.overflow}`);
+    console.log(`  inline style.height: '${container.style.height || '(empty)'}'`);
+    console.log(`  inline style.width: '${container.style.width || '(empty)'}'`);
+
+    const buttonRect = imageButton.getBoundingClientRect();
+    const buttonStyles = window.getComputedStyle(imageButton);
+    console.log(`\n.cm-image-button:`);
+    console.log(`  bounding height: ${buttonRect.height.toFixed(0)}px`);
+    console.log(`  offsetHeight: ${imageButton.offsetHeight}px`);
+    console.log(`  computed height: ${buttonStyles.height}`);
+    console.log(`  computed display: ${buttonStyles.display}`);
+    console.log(`  inline style.height: '${imageButton.style.height || '(empty)'}'`);
+
+    const imgRect = img.getBoundingClientRect();
+    const imgStyles = window.getComputedStyle(img);
+    console.log(`\nimg.tok-image:`);
+    console.log(`  bounding height: ${imgRect.height.toFixed(0)}px`);
+    console.log(`  offsetHeight: ${img.offsetHeight}px`);
+    console.log(`  computed height: ${imgStyles.height}`);
+    console.log(`  computed display: ${imgStyles.display}`);
+    console.log(`  inline style.height: '${img.style.height || '(empty)'}'`);
+    console.log(`  naturalWidth: ${img.naturalWidth}px`);
+    console.log(`  naturalHeight: ${img.naturalHeight}px`);
+    console.log(`  rendered width: ${img.width}px`);
+    console.log(`  rendered height: ${img.height}px`);
+
+    // Measure widget buffers
+    const buffers = cmLine.querySelectorAll('.cm-widgetBuffer');
+    console.log(`\n.cm-widgetBuffer (count: ${buffers.length}):`);
+    let bufferHeightSum = 0;
+    for (let idx = 0; idx < buffers.length; idx++) {
+      const buffer = buffers[idx] as HTMLElement;
+      const bufferRect = buffer.getBoundingClientRect();
+      const bufferStyles = window.getComputedStyle(buffer);
+      bufferHeightSum += bufferRect.height;
+      console.log(
+        `  [${idx}] bounding=${bufferRect.height.toFixed(0)}px, offset=${buffer.offsetHeight}px, computed height=${bufferStyles.height}, display=${bufferStyles.display}`
+      );
+    }
+    console.log(`  total buffer bounding height: ${bufferHeightSum.toFixed(0)}px`);
+
+    // Analysis
+    console.log(`\n${'─'.repeat(100)}`);
+    console.log('ANALYSIS:');
+    console.log(`${'-'.repeat(100)}`);
+    console.log(`\nLine vs Container:`);
+    console.log(`  line bounding height: ${rect.height.toFixed(0)}px`);
+    console.log(`  container bounding height: ${containerRect.height.toFixed(0)}px`);
+    console.log(`  EXTRA HEIGHT: ${(rect.height - containerRect.height).toFixed(0)}px`);
+    console.log(`\nChildren Analysis:`);
+    console.log(`  sum of direct children bounding heights: ${childrenBoundingHeightSum.toFixed(0)}px`);
+    console.log(`  line bounding height: ${rect.height.toFixed(0)}px`);
+    console.log(`  difference: ${(rect.height - childrenBoundingHeightSum).toFixed(0)}px`);
+
+    if (Math.abs(rect.height - 800) < 10 && Math.abs(containerRect.height - 400) < 10) {
+      console.log(`\n⚠️  CONFIRMED: Line ~800px, Container ~400px`);
+      const extraHeight = rect.height - containerRect.height;
+      if (Math.abs(extraHeight - containerRect.height) < 50) {
+        console.log(`⚠️  HYPOTHESIS: Extra height ≈ container height (double rendering?)`);
+      }
+    }
+
+    console.log(`\n${'='.repeat(100)}\n`);
   }
 
   private renderBroken(container: HTMLElement, view: EditorView): HTMLElement {
