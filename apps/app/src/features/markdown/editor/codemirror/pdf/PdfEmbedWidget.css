@@ -132,22 +132,96 @@
   min-width: 0;
 }
 
-/* Floating controls are flex items that toggle between hidden and visible width.
+/* PDF-specific floating controls — independent of image-control styling.
+   The control group and individual buttons use their own `.cm-pdf-controls`/
+   `.cm-pdf-control` classes with complete self-contained styling that does NOT
+   depend on image-control CSS. This ensures clean architectural separation:
+   image controls own image styling, PDF controls own PDF styling. */
+
+/* PDF floating control container — aggregates buttons, participates in flex layout.
    At rest: flex: 0 0 0 (zero width, don't reserve space)
             overflow: hidden (prevent buttons from visible during transition)
    On hover: flex: 0 0 auto (intrinsic width, hug their buttons)
             overflow: visible (buttons fully visible)
    This layout-aware approach allows the title to use the full width when controls
    are hidden, and truncate appropriately when controls become visible.
-
-   CRITICAL: Must override `.cm-editor .cm-image-controls` rule in MarkdownEditor.css
-   which sets `position: absolute`. Added `.cm-editor` prefix for higher specificity
-   and explicit `position: static` to remove absolute positioning. */
-.cm-editor .cm-pdf-embed-controls .cm-image-controls {
-  position: static;
+   No dependency on image-control styles. */
+.cm-pdf-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--surface-primary);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset-thin), var(--shadow-lg);
   flex: 0 0 0;
-  flex-shrink: 0;
   overflow: hidden;
+}
+
+/* PDF floating action buttons — complete self-contained styling.
+   24×24px buttons with padding, colors, and hover states. No dependency on
+   `.cm-image-control` or ImageFloatingControls.css. */
+.cm-pdf-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--height-sm);
+  height: var(--height-sm);
+  aspect-ratio: 1;
+  padding: 1px;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--foreground-secondary);
+  flex-shrink: 0;
+  cursor: pointer;
+  transition:
+    opacity 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.cm-pdf-control:hover {
+  background: var(--state-hover);
+}
+
+.cm-pdf-control--active {
+  background: var(--state-hover);
+}
+
+.cm-pdf-control--disabled {
+  cursor: default;
+}
+
+.cm-pdf-control svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  stroke-width: var(--icon-stroke);
+}
+
+/* Broken-state PDF controls — positioned in the broken card, static flex sizing. */
+.cm-image-container--broken .cm-pdf-controls {
+  position: static;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* Show controls on hover: toggle flex-basis to expand container from 0 to intrinsic width. */
+.cm-editor .cm-pdf-embed-container.cm-pdf-embed-container--hover .cm-pdf-embed-controls .cm-pdf-controls,
+.cm-editor .cm-pdf-embed-container:focus-within .cm-pdf-embed-controls .cm-pdf-controls {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* Fade in control buttons on hover. */
+.cm-pdf-controls .cm-pdf-control {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.cm-editor .cm-pdf-embed-container.cm-pdf-embed-container--hover .cm-pdf-controls .cm-pdf-control,
+.cm-editor .cm-pdf-embed-container:focus-within .cm-pdf-controls .cm-pdf-control {
+  opacity: 1;
 }
 
 /* Reveal controls on hover/focus: make them layout-aware and visible.
@@ -159,12 +233,22 @@
    to avoid a browser "sticky hover" quirk triggered by `renderCurrentPage()`
    mutating the DOM while the pointer sits over it. `:focus-within` is kept as-is
    (keyboard-driven, no such DOM-mutation-under-pointer timing issue). */
-.cm-editor .cm-pdf-embed-container.cm-pdf-embed-container--hover .cm-pdf-embed-controls .cm-image-controls,
-.cm-editor .cm-pdf-embed-container:focus-within .cm-pdf-embed-controls .cm-image-controls {
+.cm-editor
+  .cm-pdf-embed-container.cm-pdf-embed-container--hover
+  .cm-pdf-embed-controls
+  .cm-image-controls,
+.cm-editor
+  .cm-pdf-embed-container:focus-within
+  .cm-pdf-embed-controls
+  .cm-image-controls {
   position: static;
   flex: 0 0 auto;
   overflow: visible;
   opacity: 1;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 /* The page-navigation pill — floating, centered at the bottom of the page.
@@ -197,7 +281,7 @@
   border-radius: var(--radius-lg);
 }
 
-.cm-pdf-embed-pagination .cm-image-control {
+.cm-pdf-embed-pagination .cm-pdf-control {
   opacity: 0;
   transition: opacity 150ms ease;
 }
@@ -205,11 +289,11 @@
 .cm-editor
   .cm-pdf-embed-container.cm-pdf-embed-container--hover
   .cm-pdf-embed-pagination
-  .cm-image-control,
+  .cm-pdf-control,
 .cm-editor
   .cm-pdf-embed-container:focus-within
   .cm-pdf-embed-pagination
-  .cm-image-control {
+  .cm-pdf-control {
   opacity: 1;
 }
 
@@ -227,11 +311,11 @@
    not — this rule does not reintroduce that coupling). `cursor: default`
    matches the native `:disabled` cursor these buttons would have gotten if
    this were a real `disabled` control. */
-.cm-pdf-embed-pagination .cm-image-control--disabled {
+.cm-pdf-embed-pagination .cm-pdf-control--disabled {
   filter: opacity(var(--opacity-disabled));
   cursor: default;
 }
 
-.cm-pdf-embed-pagination .cm-image-control--disabled:hover {
+.cm-pdf-embed-pagination .cm-pdf-control--disabled:hover {
   background: none;
 }

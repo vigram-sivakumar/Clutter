@@ -252,7 +252,7 @@ export class PdfEmbedWidget extends WidgetType {
     container.classList.add('cm-image-container--broken');
 
     const controls = document.createElement('div');
-    controls.classList.add('cm-image-controls');
+    controls.classList.add('cm-pdf-controls');
     controls.contentEditable = 'false';
 
     const deleteButton = this.makeButton(TRASH_ICON, 'Delete embed', () => {
@@ -324,7 +324,7 @@ export class PdfEmbedWidget extends WidgetType {
     titleSpan.title = this.title;
 
     const actionsGroup = document.createElement('div');
-    actionsGroup.classList.add('cm-image-controls');
+    actionsGroup.classList.add('cm-pdf-controls');
     const moreActionsButton = this.makeButton(MORE_ICON, 'More actions', () => {
       this.getOnOpenPdfMenu()?.({ anchor: moreActionsButton, resourceId: this.resourceId });
     });
@@ -525,11 +525,11 @@ export class PdfEmbedWidget extends WidgetType {
     );
   }
 
-  /** Builds one floating control button — `ImageWidget.ts`'s own `makeButton`, reused verbatim (same classes/markup/event-handling), not a second button implementation. */
+  /** Builds one floating control button using PDF-specific `.cm-pdf-control` class with independent styling. */
   private makeButton(iconHtml: string, label: string, onActivate: () => void): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
-    button.classList.add('cm-image-control');
+    button.classList.add('cm-pdf-control');
     button.setAttribute('aria-label', label);
     button.title = label;
     button.innerHTML = iconHtml;
@@ -588,7 +588,7 @@ export class PdfEmbedWidget extends WidgetType {
     button.setAttribute('aria-disabled', String(disabled));
     // Visual dimming only (PdfEmbedWidget.css) — deliberately a class, not
     // the native `disabled` property; see this method's own doc comment.
-    button.classList.toggle('cm-image-control--disabled', disabled);
+    button.classList.toggle('cm-pdf-control--disabled', disabled);
   }
 }
 

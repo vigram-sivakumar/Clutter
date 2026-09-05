@@ -190,7 +190,7 @@ function getPdfEmbed(view: EditorView): HTMLElement | null {
   return view.dom.querySelector('.cm-pdf-embed');
 }
 
-/** The working-state Edit source control is one of the floating controls (`.cm-image-controls`/`.cm-image-control` — the exact same floating-control system `ImageWidget.ts`'s own controls use), distinct from the broken-card's `.cm-image-control` variant only in which container it sits inside. */
+/** The working-state Edit source control is one of the floating controls (`.cm-pdf-controls`/`.cm-pdf-control` — the exact same floating-control system `ImageWidget.ts`'s own controls use), distinct from the broken-card's `.cm-pdf-control` variant only in which container it sits inside. */
 function getEditButton(view: EditorView): HTMLButtonElement {
   const button = view.dom.querySelector<HTMLButtonElement>(
     '.cm-pdf-embed button[aria-label="Edit source"], .cm-pdf-embed button[aria-label="Hide source"]'
@@ -591,7 +591,7 @@ describe('embedLivePreview — PDF embeds, single-page preview presentation (not
     expect(pagination.hidden).toBe(true);
   });
 
-  it('page navigation is its own dedicated `.cm-pdf-embed-pagination` control — not the shared `.cm-image-controls` chrome the top-row actions use', async () => {
+  it('page navigation is its own dedicated `.cm-pdf-embed-pagination` control — not the shared `.cm-pdf-controls` chrome the top-row actions use', async () => {
     pdfjsMock.state.numPages = 4;
     try {
       const view = mountView(
@@ -609,14 +609,14 @@ describe('embedLivePreview — PDF embeds, single-page preview presentation (not
       expect(getNextButton(embed)!.closest('.cm-pdf-embed-pagination')).toBe(pagination);
       expect(getPageIndicator(embed)!.closest('.cm-pdf-embed-pagination')).toBe(pagination);
       // Not nested inside the top row's shared action-button chrome.
-      expect(pagination.closest('.cm-image-controls')).toBeNull();
-      expect(pagination.querySelector('.cm-image-controls')).toBeNull();
+      expect(pagination.closest('.cm-pdf-controls')).toBeNull();
+      expect(pagination.querySelector('.cm-pdf-controls')).toBeNull();
     } finally {
       pdfjsMock.state.numPages = 1;
     }
   });
 
-  it('the page indicator stays visible unconditionally — only the arrow buttons carry the hover-reveal `.cm-image-control` class', async () => {
+  it('the page indicator stays visible unconditionally — only the arrow buttons carry the hover-reveal `.cm-pdf-control` class', async () => {
     pdfjsMock.state.numPages = 4;
     try {
       const view = mountView(
@@ -628,15 +628,15 @@ describe('embedLivePreview — PDF embeds, single-page preview presentation (not
       const embed = getPdfEmbed(view)!;
       await flush();
 
-      expect(getPageIndicator(embed)!.classList.contains('cm-image-control')).toBe(false);
-      expect(getPrevButton(embed)!.classList.contains('cm-image-control')).toBe(true);
-      expect(getNextButton(embed)!.classList.contains('cm-image-control')).toBe(true);
+      expect(getPageIndicator(embed)!.classList.contains('cm-pdf-control')).toBe(false);
+      expect(getPrevButton(embed)!.classList.contains('cm-pdf-control')).toBe(true);
+      expect(getNextButton(embed)!.classList.contains('cm-pdf-control')).toBe(true);
     } finally {
       pdfjsMock.state.numPages = 1;
     }
   });
 
-  it('More actions, Expand, and Edit source are floating `.cm-image-control` buttons — the exact same visual system ImageWidget’s own controls use, not a PdfViewer-toolbar button', () => {
+  it('More actions, Expand, and Edit source are floating `.cm-pdf-control` buttons — the exact same visual system ImageWidget’s own controls use, not a PdfViewer-toolbar button', () => {
     const view = mountView(
       `x ${PDF}`,
       imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
@@ -650,8 +650,8 @@ describe('embedLivePreview — PDF embeds, single-page preview presentation (not
     )!;
 
     for (const button of [editButton, expandButton, moreActionsButton]) {
-      expect(button.closest('.cm-image-controls')).not.toBeNull();
-      expect(button.classList.contains('cm-image-control')).toBe(true);
+      expect(button.closest('.cm-pdf-controls')).not.toBeNull();
+      expect(button.classList.contains('cm-pdf-control')).toBe(true);
       expect(button.closest('.pdf-viewer__toolbar')).toBeNull();
     }
   });
@@ -853,8 +853,8 @@ describe('embedLivePreview — PDF embeds, pagination', () => {
           const next = getNextButton(embed)!;
           expect(prev.closest('.cm-pdf-embed-pagination')).toBe(paginationEl);
           expect(next.closest('.cm-pdf-embed-pagination')).toBe(paginationEl);
-          expect(prev.classList.contains('cm-image-control')).toBe(true);
-          expect(next.classList.contains('cm-image-control')).toBe(true);
+          expect(prev.classList.contains('cm-pdf-control')).toBe(true);
+          expect(next.classList.contains('cm-pdf-control')).toBe(true);
         }
       } finally {
         pdfjsMock.state.numPages = 1;
@@ -939,7 +939,7 @@ describe('embedLivePreview — PDF embeds, Fit-Width', () => {
 });
 
 describe('embedLivePreview — PDF embeds, floating controls sizing with custom widths', () => {
-  it('floating action controls use the shared .cm-image-control class which has flex-shrink: 0 — preventing shrinking with custom PDF width', () => {
+  it('floating action controls use the shared .cm-pdf-control class which has flex-shrink: 0 — preventing shrinking with custom PDF width', () => {
     const view = mountView(
       'x ![[document.pdf|320]]',
       imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
@@ -954,16 +954,16 @@ describe('embedLivePreview — PDF embeds, floating controls sizing with custom 
 
     // Regression test for: floating action controls shrinking from 24px to ~21px
     // when a custom PDF width is applied. The fix is `flex-shrink: 0` on
-    // `.cm-image-control` in ImageFloatingControls.css. All three action buttons
+    // `.cm-pdf-control` in ImageFloatingControls.css. All three action buttons
     // must have this class to prevent flex shrinking in the constrained parent
-    // (.cm-image-controls flex container with limited available width).
+    // (.cm-pdf-controls flex container with limited available width).
     for (const button of [editButton, expandButton, moreActionsButton]) {
-      expect(button.classList.contains('cm-image-control')).toBe(true);
-      expect(button.closest('.cm-image-controls')).not.toBeNull();
+      expect(button.classList.contains('cm-pdf-control')).toBe(true);
+      expect(button.closest('.cm-pdf-controls')).not.toBeNull();
     }
   });
 
-  it('pagination arrow buttons also use .cm-image-control with custom PDF width', async () => {
+  it('pagination arrow buttons also use .cm-pdf-control with custom PDF width', async () => {
     pdfjsMock.state.numPages = 2;
     try {
       const view = mountView(
@@ -980,7 +980,7 @@ describe('embedLivePreview — PDF embeds, floating controls sizing with custom 
 
       // Both navigation buttons must have the same class to get the flex-shrink: 0 fix
       for (const button of [prevButton, nextButton]) {
-        expect(button.classList.contains('cm-image-control')).toBe(true);
+        expect(button.classList.contains('cm-pdf-control')).toBe(true);
       }
     } finally {
       pdfjsMock.state.numPages = 1;
@@ -998,7 +998,7 @@ describe('embedLivePreview — PDF embeds, floating controls layout-aware visibi
 
     const controlsRow = view.dom.querySelector<HTMLElement>('.cm-pdf-embed-controls');
     const title = controlsRow?.querySelector<HTMLElement>('.pdf-viewer__title');
-    const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-image-controls');
+    const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-pdf-controls');
 
     // Controls and title are both present in the DOM
     expect(title).not.toBeNull();
@@ -1007,11 +1007,11 @@ describe('embedLivePreview — PDF embeds, floating controls layout-aware visibi
     // Hidden state: controls have flex: 0 0 0 (zero width)
     // Title has flex: 1 1 auto; min-width: 0 (gets full available width)
     // Controls are in the flex layout but don't reserve space when hidden
-    const buttons = actionsGroup?.querySelectorAll('.cm-image-control');
+    const buttons = actionsGroup?.querySelectorAll('.cm-pdf-control');
     expect(buttons?.length).toBe(3);
 
     for (const button of buttons || []) {
-      expect(button.classList.contains('cm-image-control')).toBe(true);
+      expect(button.classList.contains('cm-pdf-control')).toBe(true);
     }
   });
 
@@ -1034,7 +1034,7 @@ describe('embedLivePreview — PDF embeds, floating controls layout-aware visibi
 
     const controlsRow = view.dom.querySelector<HTMLElement>('.cm-pdf-embed-controls');
     const title = controlsRow?.querySelector<HTMLElement>('.pdf-viewer__title');
-    const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-image-controls');
+    const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-pdf-controls');
 
     // When controls are hidden (flex: 0 0 0), the title's full flex: 1 1 auto
     // means it receives all available width and can truncate naturally with
@@ -1051,8 +1051,8 @@ describe('embedLivePreview — PDF embeds, floating controls layout-aware visibi
     );
 
     const container = view.dom.querySelector<HTMLElement>('.cm-pdf-embed-container');
-    const actionsGroup = container?.querySelector<HTMLElement>('.cm-image-controls');
-    const buttons = actionsGroup?.querySelectorAll('.cm-image-control');
+    const actionsGroup = container?.querySelector<HTMLElement>('.cm-pdf-controls');
+    const buttons = actionsGroup?.querySelectorAll('.cm-pdf-control');
 
     // Simulate hover by adding the hover class
     container?.classList.add('cm-pdf-embed-container--hover');
@@ -1064,7 +1064,7 @@ describe('embedLivePreview — PDF embeds, floating controls layout-aware visibi
     expect(buttons?.length).toBe(3);
 
     for (const button of buttons || []) {
-      expect(button.classList.contains('cm-image-control')).toBe(true);
+      expect(button.classList.contains('cm-pdf-control')).toBe(true);
     }
   });
 });
