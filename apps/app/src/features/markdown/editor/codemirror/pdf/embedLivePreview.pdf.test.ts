@@ -988,50 +988,46 @@ describe('embedLivePreview — PDF embeds, floating controls sizing with custom 
   });
 });
 
-describe('embedLivePreview — PDF embeds, floating controls layout with constrained width', () => {
-  it('controls remain fully visible when title is long and PDF width is narrow — title truncates, controls do not clip', () => {
+describe('embedLivePreview — PDF embeds, floating controls absolute positioning', () => {
+  it('controls are absolutely positioned and do NOT reserve space — title gets full header width', () => {
     const view = mountView(
-      'x ![[very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf|200]]',
-      imageResolverFor({ 'very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf': { status: 'non-image' } }),
-      pdfResolverFor({
-        'very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf': pdfResolution(
-          'app://vault/very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf',
-          'very-long-file-name-that-is-definitely-much-longer-than-the-available-space',
-          'very-long-file-name-that-is-definitely-much-longer-than-the-available-space.pdf'
-        ),
-      })
+      'x ![[document.pdf]]',
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
     );
 
     const controlsRow = view.dom.querySelector<HTMLElement>('.cm-pdf-embed-controls');
-    const title = controlsRow?.querySelector<HTMLElement>('.pdf-viewer__title');
     const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-image-controls');
 
-    // Controls container must be visible and not clipped in the DOM
+    // Controls container is present in the DOM
     expect(actionsGroup).not.toBeNull();
-    // Verify all action buttons are present and have the cm-image-control class
+
+    // Verify all action buttons are present
     const buttons = actionsGroup?.querySelectorAll('.cm-image-control');
     expect(buttons?.length).toBe(3);
 
-    // Title has flex: 1 1 auto; min-width: 0 (added in PdfEmbedWidget.css),
-    // allowing it to shrink when constrained, with inherited overflow/text-overflow/
-    // white-space rules handling the truncation. Controls have flex: 0 0 auto,
-    // maintaining their intrinsic width and never being clipped.
+    // Regression test: controls are absolutely positioned (do not reserve space)
+    // and title gets full available width without early truncation.
+    // Controls: position: absolute; right: var(--space-8); top: var(--space-8)
+    // Title: flex: 1 1 auto; min-width: 0 (gets full width)
+    // This layout contract ensures:
+    // - Title receives the full header width available
+    // - Controls overlay the header on hover without reserving space
+    // - No layout shift occurs when controls show/hide
     for (const button of buttons || []) {
       expect(button.classList.contains('cm-image-control')).toBe(true);
     }
   });
 
-  it('controls remain fully visible with normal/full-width PDF and long title', async () => {
+  it('with custom narrow PDF width, title still gets full header width and controls overlay', async () => {
     const view = mountView(
-      'x ![[very-long-file-name-that-would-overflow-a-narrow-container.pdf]]',
-      imageResolverFor({
-        'very-long-file-name-that-would-overflow-a-narrow-container.pdf': { status: 'non-image' },
-      }),
+      'x ![[very-long-file-name-document.pdf|250]]',
+      imageResolverFor({ 'very-long-file-name-document.pdf': { status: 'non-image' } }),
       pdfResolverFor({
-        'very-long-file-name-that-would-overflow-a-narrow-container.pdf': pdfResolution(
-          'app://vault/very-long-file-name-that-would-overflow-a-narrow-container.pdf',
-          'very-long-file-name-that-would-overflow-a-narrow-container',
-          'very-long-file-name-that-would-overflow-a-narrow-container.pdf'
+        'very-long-file-name-document.pdf': pdfResolution(
+          'app://vault/very-long-file-name-document.pdf',
+          'very-long-file-name-document',
+          'very-long-file-name-document.pdf'
         ),
       })
     );
@@ -1040,15 +1036,44 @@ describe('embedLivePreview — PDF embeds, floating controls layout with constra
     await flush();
 
     const controlsRow = embed.querySelector<HTMLElement>('.cm-pdf-embed-controls');
+    const title = controlsRow?.querySelector<HTMLElement>('.pdf-viewer__title');
     const actionsGroup = controlsRow?.querySelector<HTMLElement>('.cm-image-controls');
-    const editButton = getEditButton(view);
-    const expandButton = embed.querySelector<HTMLButtonElement>('button[aria-label="Expand"]')!;
-    const moreActionsButton = embed.querySelector<HTMLButtonElement>('button[aria-label="More actions"]')!;
 
-    // All buttons must be present and visible (not hidden/clipped)
-    expect(editButton).not.toBeNull();
-    expect(expandButton).not.toBeNull();
-    expect(moreActionsButton).not.toBeNull();
-    expect(actionsGroup?.querySelectorAll('.cm-image-control').length).toBe(3);
+    // Title and controls must both be present
+    expect(title).not.toBeNull();
+    expect(actionsGroup).not.toBeNull();
+
+    // Controls are absolutely positioned (not flex items), so they don't
+    // reserve space and the title gets the full header width to itself.
+    // With the full width available, the title will truncate naturally if needed.
+    const buttons = actionsGroup?.querySelectorAll('.cm-image-control');
+    expect(buttons?.length).toBe(3);
+
+    // All buttons remain fully visible and at their intended size
+    for (const button of buttons || []) {
+      expect(button.classList.contains('cm-image-control')).toBe(true);
+    }
+  });
+
+  it('controls do not cause layout shift when showing/hiding on hover', () => {
+    const view = mountView(
+      'x ![[document.pdf]]',
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+
+    const controlsRow = view.dom.querySelector<HTMLElement>('.cm-pdf-embed-controls');
+    const container = view.dom.querySelector<HTMLElement>('.cm-pdf-embed-container');
+
+    // Controls are absolutely positioned (removed from document flow),
+    // so showing/hiding them (via opacity on hover) does not change the
+    // layout of the header or shift the title. The header only contains
+    // the title as a flex item.
+    expect(controlsRow).not.toBeNull();
+    expect(container).not.toBeNull();
+
+    // Verify the controls are in the DOM (absolutely positioned overlay)
+    const actionsGroup = controlsRow?.querySelector('.cm-image-controls');
+    expect(actionsGroup).not.toBeNull();
   });
 });

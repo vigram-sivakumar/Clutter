@@ -102,55 +102,47 @@
   align-items: center;
 }
 
-/* The top row — title (left, always visible, `.pdf-viewer__title`'s own
-   styling) + the Expand/Edit source/More actions cluster (right,
-   hover/focus-reveal). `space-between` puts the title flush left and the
-   actions flush right, mirroring `PdfViewer`'s own toolbar layout.
-
-   When width is constrained: the title shrinks and truncates (flex: 1 1 auto
-   with min-width: 0 and the inherited overflow/text-overflow/white-space),
-   while the control buttons maintain their full intrinsic width (flex: 0 0 auto).
-   This ensures controls are never clipped or hidden, and the title is the
-   flexible element that gives up space. */
+/* The top row — title (left, always visible, occupies full available width)
+   + the Expand/Edit source/More actions cluster (right, absolutely positioned
+   overlay, hover/focus-reveal). The title occupies the full header width and
+   does NOT share it with the controls — controls are absolutely positioned
+   on top of the right side and do not participate in the flex layout.
+   This ensures:
+   - Title gets full available width without early truncation
+   - Controls never reserve space and never cause layout shift
+   - Controls appear on hover without changing title's allocated width
+   - Title may naturally truncate based on available space, but only when needed */
 .cm-pdf-embed-controls {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-8);
   padding: var(--space-8) var(--space-8) 0;
 }
 
-/* Title flex: 1 1 auto allows shrinking when space is constrained,
-   min-width: 0 removes flex item's default min-width: auto (which would floor
-   the item at its content width and defeat the shrinking), so the title can
-   shrink below its content width and the inherited overflow/text-overflow/
-   white-space rules then truncate it with ellipsis. */
+/* Title occupies the full available width of the header. Inherits
+   overflow/text-overflow/white-space from `.pdf-viewer__title` (PdfViewer.css)
+   to handle truncation when needed based on full available width. */
 .cm-pdf-embed-controls .pdf-viewer__title {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-/* Controls flex: 0 0 auto prevents shrinking — the control group maintains
-   its intrinsic (max-content) width regardless of available space. */
+/* Floating controls are absolutely positioned over the header's right side.
+   Do NOT participate in flex layout — they overlay without reserving space.
+   `position: absolute; right: ...` positions them relative to `.cm-pdf-embed-controls`
+   (position: relative parent). They remain fully visible and at fixed 24px size,
+   and showing them on hover does not cause any layout shift since they don't
+   affect the flex layout or title's width. */
 .cm-pdf-embed-controls .cm-image-controls {
-  flex: 0 0 auto;
+  position: absolute;
+  right: var(--space-8);
+  top: var(--space-8);
 }
 
-/* Overrides `MarkdownEditor.css`'s `.cm-editor .cm-image-controls` rule —
-   that rule is scoped to *any* `.cm-image-controls` in the editor (not to
-   `.cm-image-container` specifically), so without this override `position`
-   would stay `absolute` here too, collapsing the actions cluster's own
-   layout space (it's meant to sit in normal flow next to the title, not
-   overlaid on top of the page — see the class doc comment). `opacity` is
-   deliberately NOT reset to a flat `1` here: this widget keeps the same
-   reveal-on-hover/focus behavior `ImageWidget`'s own overlay controls
-   already have (`opacity: 0` at rest, `1` on hover/focus-within of the
-   container, below) — only `position` differs from that shared rule.
-   Three class selectors deep beats that rule's two, so this wins on
-   specificity without `!important`. */
-.cm-editor .cm-pdf-embed-controls .cm-image-controls {
-  position: static;
-}
+/* The `.cm-image-controls` rule in MarkdownEditor.css sets position: absolute,
+   which is exactly what we want here too — controls overlay the header without
+   reserving space. No position override needed. The shared opacity reveal-on-
+   hover/focus behavior is applied by the rules below. */
 
 /* `.cm-pdf-embed-container--hover` (not `:hover`) — see `PdfEmbedWidget.ts`'s
    own `mouseenter`/`mouseleave` listeners for why: bare CSS `:hover` got
