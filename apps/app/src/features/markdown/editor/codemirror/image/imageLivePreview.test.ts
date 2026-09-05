@@ -492,6 +492,126 @@ describe('Edit source: cursor placement and leaving-source auto-hide', () => {
 });
 
 /**
+ * Regression coverage: Edit Source must preserve the presentation mode
+ * (Fit/Fill) parsed from the existing Markdown. Entering edit mode must NOT
+ * reset the presentation to the default Fill mode merely because the image
+ * is temporarily being edited. The mode must be preserved through the entire
+ * edit-reveal -> source-visible -> edit-hide cycle.
+ */
+describe('Edit source: presentation mode (Fit/Fill) must be preserved', () => {
+  it('standard Markdown image with fit mode: clicking Edit Source preserves fit mode', () => {
+    const fitImageMd = '![Mountain|fit](https://example.com/image.jpg)';
+    const view = mountView(fitImageMd);
+    settleAllProbes();
+
+    // Get the Image node to find its `to` position
+    const imageTo = fitImageMd.length;
+
+    // Before Edit Source: image should be Fit
+    let ui = getImageUiState(view.state, 0, imageTo);
+    expect(ui.displayMode).toBe('fit');
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+
+    // Click Edit Source
+    clickEdit(view);
+    settleAllProbes();
+
+    // After Edit Source: source should be visible AND mode should still be Fit
+    ui = getImageUiState(view.state, 0, imageTo);
+    expect(ui.revealed).toBe(true);
+    expect(ui.displayMode).toBe('fit');
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+    expect(view.dom.textContent).toContain(fitImageMd);
+  });
+
+  it('standard Markdown image with fill mode: clicking Edit Source preserves fill mode', () => {
+    const fillImageMd = '![Mountain|fill](https://example.com/image.jpg)';
+    const view = mountView(fillImageMd);
+    settleAllProbes();
+
+    // Before Edit Source: image should be Fill
+    let ui = getImageUiState(view.state, 0);
+    expect(ui.displayMode).toBe('fill');
+    expect(getImg(view)?.classList.contains('tok-image--fill')).toBe(true);
+
+    // Click Edit Source
+    clickEdit(view);
+    settleAllProbes();
+
+    // After Edit Source: source should be visible AND mode should still be Fill
+    ui = getImageUiState(view.state, 0);
+    expect(ui.revealed).toBe(true);
+    expect(ui.displayMode).toBe('fill');
+    expect(getImg(view)?.classList.contains('tok-image--fill')).toBe(true);
+    expect(view.dom.textContent).toContain(fillImageMd);
+  });
+
+  it('standard Markdown image with width + fit: clicking Edit Source preserves fit mode with width', () => {
+    const fitImageMd = '![Mountain|230,fit](https://example.com/image.jpg)';
+    const view = mountView(fitImageMd);
+    settleAllProbes();
+
+    const imageTo = fitImageMd.length;
+    let ui = getImageUiState(view.state, 0, imageTo);
+    expect(ui.displayMode).toBe('fit');
+
+    clickEdit(view);
+    settleAllProbes();
+
+    ui = getImageUiState(view.state, 0, imageTo);
+    expect(ui.revealed).toBe(true);
+    expect(ui.displayMode).toBe('fit');
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+  });
+
+  it('hiding the source (clicking Edit again) preserves the presentation mode', () => {
+    const fitImageMd = '![Mountain|fit](https://example.com/image.jpg)';
+    const view = mountView(fitImageMd);
+    settleAllProbes();
+
+    const imageTo = fitImageMd.length;
+    clickEdit(view);
+    settleAllProbes();
+    let ui = getImageUiState(view.state, 0, imageTo);
+    expect(ui.displayMode).toBe('fit');
+
+    // Click Edit again to hide source
+    clickEdit(view);
+    settleAllProbes();
+
+    ui = getImageUiState(view.state, 0, imageTo);
+    expect(ui.revealed).toBe(false);
+    expect(ui.displayMode).toBe('fit');
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+  });
+
+  it('full round trip: Fit -> Edit -> Hide preserves Fit throughout', () => {
+    const fitImageMd = '![Mountain|230,fit](https://example.com/image.jpg)';
+    const view = mountView(fitImageMd);
+    settleAllProbes();
+
+    const imageTo = fitImageMd.length;
+    // Initial state: Fit
+    expect(getImageUiState(view.state, 0, imageTo).displayMode).toBe('fit');
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+
+    // Reveal
+    clickEdit(view);
+    settleAllProbes();
+    expect(getImageUiState(view.state, 0, imageTo).displayMode).toBe('fit');
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+    expect(view.dom.textContent).toContain(fitImageMd);
+
+    // Hide
+    clickEdit(view);
+    settleAllProbes();
+    expect(getImageUiState(view.state, 0, imageTo).displayMode).toBe('fit');
+    expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
+    expect(view.dom.textContent).not.toContain(fitImageMd);
+  });
+});
+
+/**
  * Regression coverage for a reported Link/Image inconsistency: Link's own
  * source-editing lifecycle (`inlineLivePreviewRegion.ts`'s shared
  * "engaged region -> fully raw source" contract) stays visible through any
