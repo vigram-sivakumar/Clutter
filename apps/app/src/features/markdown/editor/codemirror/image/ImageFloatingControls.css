@@ -41,6 +41,7 @@
   border: none;
   color: var(--foreground-secondary);
   border-radius: var(--radius-xs);
+  flex-shrink: 0;
 
   cursor: pointer;
   transition:

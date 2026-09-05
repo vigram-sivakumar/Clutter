@@ -937,3 +937,53 @@ describe('embedLivePreview — PDF embeds, Fit-Width', () => {
     }
   });
 });
+
+describe('embedLivePreview — PDF embeds, floating controls sizing with custom widths', () => {
+  it('floating action controls use the shared .cm-image-control class which has flex-shrink: 0 — preventing shrinking with custom PDF width', () => {
+    const view = mountView(
+      'x ![[document.pdf|320]]',
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+
+    const editButton = getEditButton(view);
+    const expandButton = view.dom.querySelector<HTMLButtonElement>('.cm-pdf-embed button[aria-label="Expand"]')!;
+    const moreActionsButton = view.dom.querySelector<HTMLButtonElement>(
+      '.cm-pdf-embed button[aria-label="More actions"]'
+    )!;
+
+    // Regression test for: floating action controls shrinking from 24px to ~21px
+    // when a custom PDF width is applied. The fix is `flex-shrink: 0` on
+    // `.cm-image-control` in ImageFloatingControls.css. All three action buttons
+    // must have this class to prevent flex shrinking in the constrained parent
+    // (.cm-image-controls flex container with limited available width).
+    for (const button of [editButton, expandButton, moreActionsButton]) {
+      expect(button.classList.contains('cm-image-control')).toBe(true);
+      expect(button.closest('.cm-image-controls')).not.toBeNull();
+    }
+  });
+
+  it('pagination arrow buttons also use .cm-image-control with custom PDF width', async () => {
+    pdfjsMock.state.numPages = 2;
+    try {
+      const view = mountView(
+        'x ![[document.pdf|320]]',
+        imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+        pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+      );
+
+      const embed = getPdfEmbed(view)!;
+      await flush();
+
+      const prevButton = getPrevButton(embed)!;
+      const nextButton = getNextButton(embed)!;
+
+      // Both navigation buttons must have the same class to get the flex-shrink: 0 fix
+      for (const button of [prevButton, nextButton]) {
+        expect(button.classList.contains('cm-image-control')).toBe(true);
+      }
+    } finally {
+      pdfjsMock.state.numPages = 1;
+    }
+  });
+});
