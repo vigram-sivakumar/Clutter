@@ -1058,24 +1058,15 @@ describe('MarkdownEditor.css — .cm-image-container', () => {
     expect(body).toMatch(/position\s*:\s*relative\s*;/);
   });
 
-  it('is display: inline-flex — a plain block box would force CM6\'s own cm-widgetBuffer cursor-anchor <img>s (siblings inside the same .cm-line) onto separate ~24px line boxes above and below the widget instead of sharing this one (the exact mechanism already fixed once for .cm-hr-labeled)', () => {
+  it('does NOT declare its own display — governed exclusively by the shared .cm-media-block class (global block-flow contract), never a per-widget inline-flex/block declaration', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
     const match = css.match(/\.cm-editor\s+\.cm-image-container\s*\{([^}]*)\}/);
 
     expect(match, '.cm-image-container rule not found').not.toBeNull();
     const body = match![1];
 
-    expect(body).toMatch(/display\s*:\s*inline-flex\s*;/);
-  });
-
-  it('is vertical-align: top — an inline-flex box defaults to vertical-align: baseline, which reserves descender space below it (the classic "mystery gap under an inline image" gap), the ~6.5px-per-image remainder measured after the inline-flex fix alone', () => {
-    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
-    const match = css.match(/\.cm-editor\s+\.cm-image-container\s*\{([^}]*)\}/);
-
-    expect(match, '.cm-image-container rule not found').not.toBeNull();
-    const body = match![1];
-
-    expect(body).toMatch(/vertical-align\s*:\s*top\s*;/);
+    expect(body).not.toMatch(/display\s*:/);
+    expect(body).not.toMatch(/vertical-align\s*:/);
   });
 
   it('no other rule re-overrides .cm-line padding-block for a line containing an image — the exact regression that reintroduced ~12px of extra top+bottom space (6px extra per side) after the inline-flex fix already landed; .cm-line must stay at its own plain padding-block: 3px for every line, image or not', () => {
@@ -1083,6 +1074,75 @@ describe('MarkdownEditor.css — .cm-image-container', () => {
 
     expect(css).not.toMatch(/\.cm-line\s*:\s*has\(\s*\.cm-image-container\s*\)\s*\{/);
     expect(css).not.toMatch(/\.cm-image-container[^{]*\{[^}]*padding-block/);
+  });
+});
+
+/**
+ * GLOBAL media/embed block-flow contract (`.cm-media-block`,
+ * MarkdownEditor.css) — regression coverage for a real reported bug: a
+ * narrow/custom-width image could render beside adjacent Markdown text
+ * on the same source line whenever there was horizontal room, because
+ * `.cm-image-container` used to be `display: inline-flex` (an
+ * inline-level display, which can always share a line with other
+ * inline content given enough space, regardless of its own width).
+ *
+ * jsdom performs no real layout, so these tests can't literally observe
+ * text wrapping beside the widget (same limitation every other CSS
+ * tripwire in this file already works around) — they assert the two
+ * things that, together, *cause* block isolation instead: the shared
+ * `.cm-media-block` rule is genuinely `display: block` in the real
+ * stylesheet (a raw-text CSS tripwire, this file's own established
+ * pattern), and every rendered widget root — every mode, every state,
+ * even mid-paragraph with real text on both sides — actually carries
+ * that class. See embedLivePreview.test.ts for the PDF-embed side of
+ * this same shared contract.
+ */
+describe('Global media/embed block-flow contract — every ImageWidget root carries the shared .cm-media-block class', () => {
+  function getContainer(view: EditorView): HTMLElement {
+    const container = view.dom.querySelector<HTMLElement>('.cm-image-container');
+    if (!container) throw new Error('image container not found');
+    return container;
+  }
+
+  it('.cm-media-block itself is display: block in the stylesheet — the one shared rule every media widget opts into', () => {
+    const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
+    const match = css.match(/\.cm-media-block\s*\{([^}]*)\}/);
+    expect(match, '.cm-media-block rule not found').not.toBeNull();
+    expect(match![1]).toMatch(/display\s*:\s*block\s*;/);
+  });
+
+  it('every rendered ImageWidget root carries .cm-media-block, regardless of mode', () => {
+    for (const mode of ['fill', 'fit'] as const) {
+      const view = mountView(`![Photo|320,${mode}](https://example.com/a.jpg)`);
+      expect(getContainer(view).classList.contains('cm-media-block')).toBe(true);
+    }
+  });
+
+  it('a broken image root also carries .cm-media-block — the contract applies in every state, not just working Fit/Fill', () => {
+    const view = mountView(IMAGE_MD);
+    const img = getImg(view);
+    img?.dispatchEvent(new Event('error'));
+    const container = getContainer(view);
+    expect(container.classList.contains('cm-image-container--broken')).toBe(true);
+    expect(container.classList.contains('cm-media-block')).toBe(true);
+  });
+
+  it('a narrow custom-width image still carries .cm-media-block even mid-paragraph, with real text immediately before and after it on the same Markdown line', () => {
+    // The exact reported shape: an embed with real text immediately
+    // before and after it, all on one Markdown line/one Paragraph — the
+    // scenario where an inline-level container could visually sit
+    // beside the surrounding text. Presence of the class is what a
+    // jsdom test can actually verify; real block isolation itself is a
+    // real-browser-layout guarantee (the CSS rule's own doc comment).
+    const view = mountView('Some text here. ![Image|320](https://example.com/a.jpg) More text here.');
+    expect(view.dom.textContent).toContain('Some text here.');
+    expect(view.dom.textContent).toContain('More text here.');
+    expect(getContainer(view).classList.contains('cm-media-block')).toBe(true);
+  });
+
+  it('the same holds for Fill mode mid-paragraph', () => {
+    const view = mountView('Some text here. ![Image|320,fill](https://example.com/a.jpg) More text here.');
+    expect(getContainer(view).classList.contains('cm-media-block')).toBe(true);
   });
 });
 

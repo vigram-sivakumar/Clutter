@@ -32,6 +32,14 @@
 
 .cm-editor .cm-pdf-embed-container {
   position: relative;
+  /* Redundant with the shared `.cm-media-block` class this widget's own
+     root always also carries (PdfEmbedWidget.ts's `toDOM`) — declared
+     directly here too, unlike `.cm-image-container`, simply because this
+     rule predates that shared class and there's no correctness reason to
+     remove a correct, matching declaration. See MarkdownEditor.css's own
+     `.cm-media-block` doc comment for the global block-flow contract
+     this enforces (every embed/media widget, this one included, must
+     never share a line with surrounding Markdown text, at any width). */
   display: block;
   /* 1px reserve — same caret-overflow fix `.cm-image-container--broken`
      documents for the same reason: a full-width block-shaped widget needs
@@ -52,13 +60,17 @@
   transition: width 160ms ease;
 }
 
-/* Alignment (resize milestone) — unlike `.cm-image-container` (inline-flex,
-   see `MarkdownEditor.css`'s matching rule for its own `translateX`-based
-   technique), this container is a plain `display: block` box, so a direct
-   margin rule centers/right-aligns it normally — scoped to the container
-   element alone, same as the Image side, so the raw Markdown line's own
-   alignment is never touched. Left (no `data-align` attribute) is the
-   implicit default — no rule needed, same convention as the Image side. */
+/* Alignment (resize milestone) — a direct margin rule centers/right-aligns
+   this container normally (both this widget's and `.cm-image-container`'s
+   own root are equally `display: block` now, via `.cm-media-block` —
+   see MarkdownEditor.css's own doc comment); Image instead uses a
+   `left`/`transform: translateX` technique (`MarkdownEditor.css`'s
+   matching rule) for reasons unrelated to display type — historical,
+   not required by this container's own display value. Scoped to the
+   container element alone, same as the Image side, so the raw Markdown
+   line's own alignment is never touched. Left (no `data-align`
+   attribute) is the implicit default — no rule needed, same convention
+   as the Image side. */
 .cm-editor .cm-pdf-embed-container[data-align='center'] {
   margin-inline: auto;
 }

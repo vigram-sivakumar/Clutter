@@ -423,12 +423,41 @@ export const MarkdownEditor = forwardRef<
     // renders again" flicker. See that effect's own doc comment for the
     // full mechanism.
     const current = getImagePresentation(view.state, imageMenu.to);
+    const changes = computeImagePresentationUpdate(view.state, imageMenu.to, { ...current, mode });
+    // `setImageUiState`'s own `pos`/`to` must be given in *this
+    // transaction's post-change* coordinate space — `imageUiStateField.
+    // update()` inserts an effect's `pos`/`to` directly into `next`
+    // (already `value.map(tr.changes)`, i.e. post-change), with no
+    // mapping of its own applied (correctly so: every *other* dispatch
+    // site fires effect-only, with no `changes` at all, so pre-change and
+    // post-change coordinates are identical there and no mapping is ever
+    // needed). `imageMenu.pos`/`imageMenu.to` are resolved against
+    // `view.state` *before* this dispatch — the pre-change document — so
+    // passing them through unmapped was a real, confirmed bug: `changes`
+    // rewrites the pipe segment *inside* the node's own range, which
+    // almost always changes its length (`fit` vs `fill` alone differ by a
+    // character, and adding/removing the segment entirely is a bigger
+    // delta), so the stale pre-change `to` silently corrupts the stored
+    // RangeSet entry — not throwing immediately, but the *next* transaction
+    // to touch the field (`value.map(tr.changes)`, at the top of `update`)
+    // calls `mapPos` on that stale position against a changeset whose own
+    // recorded pre-change length no longer reaches it, throwing exactly
+    // "Position N is out of range for changeset of length M." Mapping both
+    // through the same `changes` this transaction is already dispatching
+    // (via `EditorState.changes()`, which builds the identical `ChangeSet`
+    // CM6 itself will apply) keeps every position in the one coordinate
+    // space the field actually expects.
+    const mappedChanges = view.state.changes(changes);
     view.dispatch({
       effects: [
-        setImageUiState.of({ pos: imageMenu.pos, to: imageMenu.to, state: { ...ui, displayMode: mode } }),
+        setImageUiState.of({
+          pos: mappedChanges.mapPos(imageMenu.pos),
+          to: mappedChanges.mapPos(imageMenu.to, 1),
+          state: { ...ui, displayMode: mode },
+        }),
         presentationOnlyEdit.of(null),
       ],
-      changes: computeImagePresentationUpdate(view.state, imageMenu.to, { ...current, mode }),
+      changes,
     });
   };
 

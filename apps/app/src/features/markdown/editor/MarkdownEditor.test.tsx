@@ -7,6 +7,7 @@ import { EditorView } from '@codemirror/view';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
 import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
+import type { ResolveEmbedImage } from './codemirror/embed/embedImageResolution';
 
 // Many tests below reuse the same `pageId="test-page"` (and often the same
 // markdown text) across independent `it()` blocks. Since a restorable
@@ -646,6 +647,192 @@ describe('MarkdownEditor: image options menu — Set as cover image', () => {
     fireEvent.click(findMenuItem('Download')!);
 
     expect(onDownloadImage).toHaveBeenCalledWith('Assets/image.jpg');
+  });
+});
+
+/**
+ * Regression coverage for a real crash: `RangeError: Position N is out
+ * of range for changeset of length M`, thrown from `imageUiStateField`'s
+ * `update()` (`value.map(tr.changes)`) on the transaction *after* a
+ * Fit/Fill mode toggle. Root cause: `handleSelectImageDisplayMode`
+ * (MarkdownEditor.tsx) dispatched `setImageUiState`'s `pos`/`to` using
+ * `imageMenu.pos`/`imageMenu.to` — positions resolved against `view.state`
+ * *before* the dispatch — directly, in the same transaction as `changes`
+ * that rewrite the image's own `|width,alignment,mode` pipe segment.
+ * `imageUiStateField.update()` inserts an effect's `pos`/`to` straight
+ * into `next` (already `value.map(tr.changes)` — *post*-change
+ * coordinates) with no mapping of its own, so a pre-change `to` silently
+ * corrupted the stored `RangeSet` entry whenever the rewrite changed the
+ * segment's length (near-guaranteed: `fit`/`fill` differ in character
+ * count, and adding/removing the segment is a bigger delta) — not
+ * throwing immediately, but on the *next* transaction that maps the
+ * field's `RangeSet`, once the stale position fell outside that later
+ * changeset's own recorded length. Fixed by mapping `imageMenu.pos`/
+ * `imageMenu.to` through `view.state.changes(changes)` before building
+ * the effect, so both positions land in the same post-change coordinate
+ * space the field's own `update()` already assumes.
+ */
+describe('MarkdownEditor: Fit/Fill toggle never corrupts imageUiState position mapping', () => {
+  function openSizeMenu() {
+    const sizeButton = document.querySelector<HTMLButtonElement>(
+      '.cm-image-control[aria-label="Image size options"]'
+    )!;
+    fireEvent.mouseDown(sizeButton);
+    fireEvent.click(sizeButton);
+  }
+
+  function findMenuItem(label: string): HTMLElement | null {
+    return Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
+      (el) => el.textContent === label
+    ) ?? null;
+  }
+
+  /** Reopens the size menu (it closes on every selection) and clicks the given mode's item — the exact click sequence `handleSelectImageDisplayMode` fires from. */
+  function selectMode(label: 'Fit' | 'Fill'): void {
+    openSizeMenu();
+    const item = findMenuItem(label);
+    if (!item) {
+      throw new Error(`menu item not found: ${label}`);
+    }
+    fireEvent.click(item);
+  }
+
+  function getContainer(): HTMLElement {
+    const container = document.querySelector<HTMLElement>('.cm-image-container');
+    if (!container) throw new Error('image container not found');
+    return container;
+  }
+
+  // Deliberately no trailing content *after* the image in most fixtures
+  // below (only leading text, so the image is not at position 0) — this
+  // is exactly the shape that reproduces the crash reliably rather than
+  // "intermittently." A stale pre-change `to` stored by a *shrinking*
+  // toggle only exceeds the document's real length once mapped through a
+  // later transaction if there isn't enough trailing content past the
+  // image to absorb the discrepancy; with generous trailing text (e.g. a
+  // full paragraph after the image), the same underlying bug silently
+  // stores a *wrong* position without ever exceeding bounds, so it never
+  // throws — which is the actual reason this bug reads as "intermittent"
+  // rather than "always." Confirmed directly: a scratch repro with a
+  // trailing paragraph never threw across repeated toggles; removing the
+  // trailing paragraph reproduced `RangeError: Position 59 is out of
+  // range for changeset of length 55` on the very next transaction after
+  // exactly one grow-then-shrink pair, matching the reported shape
+  // ("Position 209... length 207") precisely.
+  it('URL image, not at position 0, nothing after it: Fit → Fill → Fit → Fill never throws, and every step persists the correct mode', () => {
+    const { container: root } = render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={'Some text before.\n\n![Mountain view](https://example.com/mountain.jpg)'}
+      />
+    );
+    const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+
+    for (const label of ['Fit', 'Fill', 'Fit', 'Fill'] as const) {
+      expect(() => selectMode(label)).not.toThrow();
+
+      const token = label.toLowerCase();
+      if (token === 'fill') {
+        // Fill is the default mode — a default-only change removes the
+        // pipe segment entirely (`serializeImagePresentationTokens`), so
+        // "fill" itself never appears literally in the Markdown.
+        expect(view.state.doc.toString()).not.toContain('|fit');
+        expect(view.state.doc.toString()).not.toContain('|fill');
+      } else {
+        expect(view.state.doc.toString()).toContain(`|${token}`);
+      }
+      expect(view.state.doc.toString()).toContain('Some text before.');
+      expect(getContainer().classList.contains(`cm-image-container--${token}`)).toBe(true);
+      expect(getContainer().classList.contains('cm-image-container--broken')).toBe(false);
+    }
+  });
+
+  it('URL image, WITH generous trailing content: Fit → Fill → Fit → Fill still never throws (the same fix covers both shapes, not just the reliably-reproducing one)', () => {
+    const { container: root } = render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={'Some text before.\n\n![Mountain view](https://example.com/mountain.jpg)\n\nSome text after.'}
+      />
+    );
+    const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+
+    for (const label of ['Fit', 'Fill', 'Fit', 'Fill'] as const) {
+      expect(() => selectMode(label)).not.toThrow();
+      expect(view.state.doc.toString()).toContain('Some text before.');
+      expect(view.state.doc.toString()).toContain('Some text after.');
+    }
+  });
+
+  it('URL image: width and alignment metadata survive repeated Fit/Fill toggles untouched', () => {
+    const { container: root } = render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={'Prefix text.\n\n![Photo|320,center](https://example.com/a.jpg)'}
+      />
+    );
+    const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+
+    selectMode('Fit');
+    expect(view.state.doc.toString()).toContain('320,center,fit');
+    selectMode('Fill');
+    expect(view.state.doc.toString()).toContain('320,center');
+    expect(view.state.doc.toString()).not.toContain('fit');
+    selectMode('Fit');
+    expect(view.state.doc.toString()).toContain('320,center,fit');
+  });
+
+  it('local asset embed (![[image.png]]), not at position 0, nothing after it: Fit → Fill → Fit → Fill never throws, and every step persists the correct mode', () => {
+    const resolveEmbedImage: ResolveEmbedImage = (path) =>
+      path === 'image.png'
+        ? { status: 'image', url: 'app://vault/image.png', copyUrl: 'image.png', alt: 'image.png' }
+        : { status: 'unresolved', alt: path };
+
+    const { container: root } = render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={'Some text before.\n\n![[image.png]]'}
+        resolveEmbedImage={resolveEmbedImage}
+      />
+    );
+    const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+
+    for (const label of ['Fit', 'Fill', 'Fit', 'Fill'] as const) {
+      expect(() => selectMode(label)).not.toThrow();
+
+      const token = label.toLowerCase();
+      if (token === 'fill') {
+        expect(view.state.doc.toString()).toBe('Some text before.\n\n![[image.png]]');
+      } else {
+        expect(view.state.doc.toString()).toContain(`image.png|${token}`);
+      }
+      expect(getContainer().classList.contains(`cm-image-container--${token}`)).toBe(true);
+      expect(getContainer().classList.contains('cm-image-container--broken')).toBe(false);
+    }
+  });
+
+  it('repeated toggling leaves imageUiState queryable and consistent — a subsequent unrelated edit elsewhere in the document (which also maps the field\'s RangeSet) never throws either', () => {
+    const { container: root } = render(
+      <MarkdownEditor
+        pageId="test-page"
+        markdown={'Some text before.\n\n![Mountain view](https://example.com/mountain.jpg)'}
+      />
+    );
+    const view = EditorView.findFromDOM(root as unknown as HTMLElement)!;
+
+    selectMode('Fit');
+    selectMode('Fill');
+    selectMode('Fit');
+
+    // An entirely unrelated transaction elsewhere in the document also
+    // calls `imageUiStateField`'s own `value.map(tr.changes)` — this is
+    // exactly the call that threw in the original bug report, once a
+    // prior toggle had already stored a stale, unmapped position.
+    expect(() => {
+      view.dispatch({ changes: { from: 0, insert: 'X' } });
+    }).not.toThrow();
+
+    expect(view.state.doc.toString().startsWith('XSome text before.')).toBe(true);
+    expect(getContainer().classList.contains('cm-image-container--fit')).toBe(true);
   });
 });
 

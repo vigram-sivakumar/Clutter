@@ -239,9 +239,33 @@ class ImageUiValue extends RangeValue {
   }
 }
 
+/**
+ * **Coordinate-space contract (load-bearing, confirmed by a real crash):**
+ * `pos`/`to` must always be given in the *dispatching transaction's own
+ * post-change* coordinate space — i.e. valid positions in `tr.state`, not
+ * `tr.startState`. `imageUiStateField.update()` (below) applies this
+ * effect by inserting `new ImageUiValue(state).range(pos, to)` directly
+ * into `next`, which is already `value.map(tr.changes)` — post-change
+ * coordinates — with no mapping of its own applied to the effect's own
+ * `pos`/`to`. For a dispatch site with no `changes` at all (the common
+ * case: `revealed` toggle, `broken` flag), pre-change and post-change
+ * coordinates are identical, so this was never visibly wrong. For a
+ * dispatch site that *also* includes `changes` overlapping the node's own
+ * range (`MarkdownEditor.tsx`'s `handleSelectImageDisplayMode`, rewriting
+ * the `|width,alignment,mode` pipe segment), passing pre-change positions
+ * silently corrupts the stored `RangeSet` entry — not immediately, but on
+ * the *next* transaction that touches this field, when `value.map(tr.
+ * changes)` (top of `update`, below) calls `mapPos` on the stale position
+ * against a changeset whose own recorded pre-change length no longer
+ * reaches it, throwing `RangeError: Position N is out of range for
+ * changeset of length M`. Fixed at that one call site by mapping through
+ * `view.state.changes(changes)` before building the effect — see that
+ * function's own comment for the full account. Any future dispatch site
+ * combining this effect with `changes` must do the same.
+ */
 export const setImageUiState = StateEffect.define<{
   pos: number;
-  /** The Image node's own current `to` at dispatch time — always resolved fresh by the caller (never stale), since every dispatch site only ever fires when a widget for this occurrence currently exists or a probe just re-resolved the node. Used to (re)seat this entry's own stored `[pos, to)` span; see the field's own doc comment for why the span, not just `pos`, needs to be tracked. */
+  /** The Image node's own current `to`, in post-change coordinates (see this effect's own coordinate-space contract, above) — always resolved fresh by the caller (never stale), since every dispatch site only ever fires when a widget for this occurrence currently exists or a probe just re-resolved the node. Used to (re)seat this entry's own stored `[pos, to)` span; see the field's own doc comment for why the span, not just `pos`, needs to be tracked. */
   to: number;
   state: ImageUiState;
 }>();

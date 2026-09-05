@@ -277,6 +277,45 @@ describe('embedLivePreview — PDF embeds, rendering (at rest)', () => {
   });
 });
 
+/**
+ * GLOBAL media/embed block-flow contract (`.cm-media-block`,
+ * MarkdownEditor.css) — the PDF-embed side of the same shared contract
+ * imageLivePreview.test.ts covers for native/asset images. A PDF embed's
+ * own container was already `display: block` before this contract
+ * existed (`.cm-pdf-embed-container`'s own CSS), so this is mainly
+ * confirming the shared class is present everywhere the contract
+ * requires it (including the broken state, and mid-paragraph with a
+ * custom width) rather than fixing a PDF-specific regression.
+ */
+describe('embedLivePreview — PDF embeds, global media/embed block-flow contract (.cm-media-block)', () => {
+  it('a working PDF embed root carries .cm-media-block', () => {
+    const view = mountView(
+      `x ${PDF}`,
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+    expect(getPdfEmbed(view)?.classList.contains('cm-media-block')).toBe(true);
+  });
+
+  it('a broken PDF embed root also carries .cm-media-block — the contract applies in every state', () => {
+    const view = mountView('x ![[missing.pdf]]', imageResolverFor({}), pdfResolverFor({}));
+    const broken = view.dom.querySelector('.cm-image-container--broken');
+    expect(broken).not.toBeNull();
+    expect(broken?.classList.contains('cm-media-block')).toBe(true);
+  });
+
+  it('a custom-width PDF embed mid-paragraph (real text immediately before and after, one Markdown line) still carries .cm-media-block', () => {
+    const view = mountView(
+      'Some text here. ![[document.pdf|320]] More text here.',
+      imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
+      pdfResolverFor({ 'document.pdf': pdfResolution('app://vault/document.pdf', 'document', 'document.pdf') })
+    );
+    expect(view.dom.textContent).toContain('Some text here.');
+    expect(view.dom.textContent).toContain('More text here.');
+    expect(getPdfEmbed(view)?.classList.contains('cm-media-block')).toBe(true);
+  });
+});
+
 describe('embedLivePreview — PDF embeds, empty/incomplete syntax stays raw (shared universal rule)', () => {
   it('![[]] never renders a PDF widget or broken state', () => {
     const view = mountView('x ![[]]', imageResolverFor({}), pdfResolverFor({}));

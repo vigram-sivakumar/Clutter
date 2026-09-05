@@ -289,6 +289,46 @@ describe('embedLivePreview — custom numeric width, order-independent from mode
   });
 });
 
+/**
+ * GLOBAL media/embed block-flow contract (`.cm-media-block`,
+ * MarkdownEditor.css) — the local-asset-image-embed side of the same
+ * shared contract imageLivePreview.test.ts covers for native `![]()`
+ * images and embedLivePreview.pdf.test.ts covers for PDF embeds. Regression
+ * coverage for a real reported bug: a narrow/custom-width embed could
+ * render beside adjacent Markdown text on the same source line whenever
+ * there was horizontal room.
+ */
+describe('embedLivePreview — global media/embed block-flow contract (.cm-media-block)', () => {
+  function getContainer(view: EditorView): HTMLElement {
+    const container = view.dom.querySelector<HTMLElement>('.cm-image-container');
+    if (!container) throw new Error('image container not found');
+    return container;
+  }
+
+  it('every rendered image-asset embed root carries .cm-media-block, regardless of mode', () => {
+    const resolve = resolverFor({ 'image.png': imageResolution('app://vault/image.png', 'image.png', 'image.png') });
+    for (const mode of ['fill', 'fit'] as const) {
+      const view = mountView(`![[image.png|320,${mode}]]`, resolve);
+      expect(getContainer(view).classList.contains('cm-media-block')).toBe(true);
+    }
+  });
+
+  it('a broken asset-embed root also carries .cm-media-block — the contract applies in every state', () => {
+    const view = mountView('x ![[missing.png]]', resolverFor({}));
+    const broken = view.dom.querySelector('.cm-image-container--broken');
+    expect(broken).not.toBeNull();
+    expect(broken?.classList.contains('cm-media-block')).toBe(true);
+  });
+
+  it('a narrow custom-width asset embed still carries .cm-media-block mid-paragraph, with real text immediately before and after it on the same Markdown line', () => {
+    const resolve = resolverFor({ 'image.png': imageResolution('app://vault/image.png', 'image.png', 'image.png') });
+    const view = mountView('Some text here. ![[image.png|320]] More text here.', resolve);
+    expect(view.dom.textContent).toContain('Some text here.');
+    expect(view.dom.textContent).toContain('More text here.');
+    expect(getContainer(view).classList.contains('cm-media-block')).toBe(true);
+  });
+});
+
 describe('embedLivePreview — empty/incomplete targets never render, in any state, forever (universal rule)', () => {
   it('![[]] (fully empty) never shows a broken widget, cursor outside', () => {
     const view = mountView('x ![[]]', resolverFor({}));

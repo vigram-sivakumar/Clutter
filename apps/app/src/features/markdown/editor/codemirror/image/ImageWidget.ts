@@ -370,7 +370,13 @@ export class ImageWidget extends WidgetType {
 
   override toDOM(view: EditorView): HTMLElement {
     const container = document.createElement('div');
-    container.classList.add('cm-image-container');
+    // `cm-media-block` — the shared global media/embed block-flow
+    // contract (MarkdownEditor.css) every media widget opts into: this
+    // element must always occupy its own block position in the document
+    // flow, regardless of its own width or a broken/working state, never
+    // sharing a line with surrounding Markdown text. See that class's
+    // own doc comment for the full rationale/mechanism.
+    container.classList.add('cm-image-container', 'cm-media-block');
     container.dataset.imageSourceRevealed = String(this.ui.revealed);
     // Starts closed unconditionally — a freshly-rendered widget is never
     // mid-open (there is no CM6-tracked "menu is open" state for this to

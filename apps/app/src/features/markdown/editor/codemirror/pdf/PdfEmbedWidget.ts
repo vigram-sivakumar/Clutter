@@ -233,7 +233,10 @@ export class PdfEmbedWidget extends WidgetType {
 
   override toDOM(view: EditorView): HTMLElement {
     const container = document.createElement('div');
-    container.classList.add('cm-pdf-embed');
+    // `cm-media-block` — see `ImageWidget.ts`'s own `toDOM` doc comment
+    // and MarkdownEditor.css's own doc comment for the shared global
+    // media/embed block-flow contract this class enforces.
+    container.classList.add('cm-pdf-embed', 'cm-media-block');
     container.dataset.sourceRevealed = String(this.ui.revealed);
 
     if (this.ui.broken) {

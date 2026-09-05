@@ -1155,6 +1155,77 @@
   opacity: var(--opacity-medium);
 }
 
+/*
+ * GLOBAL media/embed block-flow contract (`.cm-media-block`). Any
+ * rendered embed/media widget — a native Markdown image, a local asset
+ * image embed, a PDF embed, any future embed kind — must always occupy
+ * its own block position in the document flow:
+ *
+ *   text/content before
+ *         ↓
+ *   embed/media
+ *         ↓
+ *   text/content after
+ *
+ * never `text content  |  embed`, regardless of the embed's own width
+ * or how much horizontal room is left on its source line. `Image`/
+ * `Embed` are inline Markdown nodes — `Some text ![img](url) more text`
+ * is one Paragraph, one `.cm-line`, and the image can legitimately sit
+ * mid-sentence in the *source* — but the *rendered* widget must never
+ * visually share that line with the surrounding text once it's a
+ * decoration. `ImageWidget.ts`'s/`PdfEmbedWidget.ts`'s own `toDOM()`
+ * each add this ONE shared class to their root element (in every state,
+ * working/broken/Fit/Fill alike) — this is the single, shared place the
+ * rule lives, rather than each widget declaring its own `display`.
+ *
+ * `display: block` is what actually guarantees this, per the CSS
+ * spec's own "block-in-inline" behavior: a block-level box appearing
+ * amid inline content always splits the surrounding inline runs into
+ * anonymous block boxes before and after itself — text can stack
+ * above/below, never beside, no matter how narrow the block's own
+ * width is. This is the direct, structural fix for a real reported
+ * bug: `.cm-image-container` used to declare `display: inline-flex`
+ * directly (an inline-level display, chosen for an unrelated reason —
+ * see that rule's own doc comment), which let a narrow/custom-width
+ * image share its line with adjacent text whenever there was
+ * horizontal room, because inline-level boxes can always sit beside
+ * other inline content given enough space — no width, however small,
+ * changes that.
+ *
+ * Reintroduces a real, previously-fixed side effect, addressed below
+ * rather than avoided: CM6 (`@codemirror/view`) inserts its own
+ * `.cm-widgetBuffer` cursor-anchor `<img>` elements as direct siblings
+ * of every inline replace-decoration widget — unconditionally, based on
+ * the decoration's own flags, never on this class's `display` value
+ * (confirmed by reading `@codemirror/view`'s own `addInlineWidget`/
+ * `getBuffer` — the buffer is inserted before this stylesheet is ever
+ * consulted). Those buffers are themselves CM6's own `display: inline`
+ * (its baseline theme) — once a `.cm-media-block` sibling blockifies
+ * its own line, the *inline formatting context* those buffers used to
+ * share with it is split too, so each buffer alone forms its own
+ * anonymous block whose line box still inherits a font-metric "strut"
+ * (a minimum line-box height derived from the line's own font/
+ * line-height, generated for any inline formatting context even when
+ * its only content is a near-zero-sized replaced element) — the exact
+ * ~24px-per-side inflation `.cm-image-container`'s own prior
+ * `inline-flex` fix already diagnosed once (see that rule's own doc
+ * comment), now confirmed to recur unconditionally for a block-level
+ * `.cm-media-block` too. Neutralized by blockifying the buffer siblings
+ * *themselves*, which removes them from any inline formatting context
+ * entirely — a `display: block` box's own height is exactly what its
+ * box model says, no font-strut mechanism applies — rather than
+ * reverting `.cm-media-block`'s own `display: block`.
+ */
+.cm-media-block {
+  display: block;
+}
+
+.cm-widgetBuffer:has(+ .cm-media-block),
+.cm-media-block + .cm-widgetBuffer {
+  display: block;
+  height: 0;
+}
+
 /* ImageWidget's own wrapper — establishes the positioning context for
    .cm-image-controls (top-right overlay) per the interaction-correction
    change. Still bare containment beyond that: no caption, no filename
@@ -1180,59 +1251,23 @@
    image's natural size would otherwise exceed it — `fit-content`'s own
    sizing algorithm already respects `max-width` as its outer bound.
 
-   `display: inline-flex` (2026-09-03 widget-buffer spacing fix) — was a
-   plain block box (the implicit `display: block` of a bare `<div>`)
-   until this change. A `display: block` widget root forces CM6's own
-   `cm-widgetBuffer` cursor-anchor `<img>` elements (inserted as this
-   element's siblings inside the same `.cm-line`, by `@codemirror/view`
-   itself — not this codebase) onto their *own* separate inline line
-   boxes instead of sharing this element's, each contributing a full
-   extra `line-height` (~24px) above and below the widget — confirmed by
-   live `getBoundingClientRect()` measurement (a broken-state widget's
-   own `.cm-line` measured 94px: 3px padding + ~24px buffer box + 40px
-   widget + ~24px buffer box + 3px padding), identical for a working
-   image and reproducible with zero Markdown blank lines around the
-   embed. Exactly the same mechanism `.cm-hr-labeled`
-   (horizontalRuleDecoration.ts's labeled-divider widget) was already
-   fixed for — see that rule's own comment for the "stacking three
-   ~24px boxes into a 72px line" account of the same bug in a different
-   widget. `inline-flex` (not `inline-block`): this container's own
-   children are unaffected either way (`.cm-image-controls` is
-   `position: absolute`, excluded from flex-item participation
-   entirely; `.cm-image-button` is the only real flex item, and a
-   single item's layout is identical under row-flex or block flow) —
-   `inline-flex` is chosen only to match the already-established
-   `.cm-hr-labeled` precedent for this exact fix, not for any flex
-   layout this container itself needs. `width: fit-content`/
-   `max-width: 100%` above are unaffected: `width` (including the
-   `fit-content` keyword) applies to inline-flex containers exactly as
-   it does to block boxes — this isn't one of the "non-replaced inline
-   element" cases CSS2.1 exempts `width` from. See
-   `.cm-image-container--fit` below for the one knock-on consequence
-   this display change *does* have (its previous `margin-inline: auto`
-   centering no longer applies to an inline-level box).
-
-   `vertical-align: top` is a second, separate piece of the same fix, not
-   decorative: an inline-level box's default `vertical-align: baseline`
-   aligns its own bottom edge to the *text baseline* of the surrounding
-   line, not the line's true bottom — reserving descender space below it
-   (room for where a letter like "g"/"y" would hang below the baseline)
-   the same way an inline `<img>` with no `vertical-align` override
-   famously does. Confirmed as the exact remaining source by direct
-   measurement after the `display: inline-flex` change above: a working
-   Large-mode image's own `.cm-line` still measured ~6.5px taller than
-   `padding-block + container height` on the bottom side only (top side
-   matched padding exactly) — the classic inline-baseline gap, not
-   anything `cm-widgetBuffer`- or padding-related. `top` (rather than
-   `bottom`/`middle`) aligns this box's own top edge to the line's, which
-   is what removes the reserved space below it entirely; the broken-state
-   container inherits this same base rule too, harmlessly (its own
-   `.cm-image-broken` content already reached the container's edges
-   exactly, so this had no visible effect there either way). */
+   **`display` is deliberately NOT declared here — see `.cm-media-block`'s
+   own doc comment, just above.** This rule used to declare
+   `display: inline-flex; vertical-align: top;` directly (2026-09-03
+   widget-buffer spacing fix: an inline-level box avoids CM6's own
+   `cm-widgetBuffer` cursor-anchor `<img>` siblings each ballooning onto
+   their own separate ~24px line box). That fix is superseded, not
+   merely moved: an inline-level container is exactly what let a
+   narrow/custom-width image share its line with adjacent Markdown text
+   whenever there was horizontal room (a real reported layout bug) — the
+   global media/embed block-flow contract below requires `display: block`
+   unconditionally instead, and separately re-solves the widget-buffer
+   ballooning this reintroduces (`.cm-widgetBuffer`'s own rule below
+   `.cm-media-block`). `vertical-align` is dropped for the same reason:
+   it only ever matters for an inline-level box sharing a line with
+   siblings, which this container structurally cannot do anymore. */
 .cm-editor .cm-image-container {
   position: relative;
-  display: inline-flex;
-  vertical-align: top;
   width: fit-content;
   max-width: 100%;
   /* Presentation-update flicker fix — a subtle, fast transition on the
@@ -1415,13 +1450,18 @@
    the line's right edge, `translateX(-100%)` then pulls the box fully
    back by its own width, landing its right edge flush with the line's.
    Both are pure paint-time offsets — the box's *static* (in-flow) position
-   and size, which is what `.cm-line` reserves height/width for, are
-   completely unchanged, so this can't perturb layout the way swapping
-   `.cm-image-container`'s own `display` away from `inline-flex` would (see
-   that rule's own widget-buffer comment for why `inline-flex` is load-
-   bearing here). `margin: auto` remains unusable for the reason the prior
-   version of this comment already established: it never self-centers an
-   inline-level box.
+   and size are completely unchanged, so this can't perturb layout the
+   way changing `display` outright would. `position: relative`'s own
+   `left`/`transform` offsetting works identically regardless of the
+   container's own `display` value (inline-level or block-level — both
+   resolve `left`'s percentage against the same containing block), so
+   this technique needed no change when `.cm-image-container` stopped
+   declaring `display` itself (`.cm-media-block`'s own doc comment).
+   `margin: auto` remains unusable for the reason the prior version of
+   this comment already established: it never self-centers an
+   inline-level box (and today's block-level box is always effectively
+   full-width — `.cm-image-container--fill`/`--fit` below — leaving no
+   room for `margin: auto` to visibly shift regardless).
 
    **Behavior change, disclosed, not silent**: this replaces the previous
    `.cm-image-container--fit`-keyed rule, which unconditionally centered
