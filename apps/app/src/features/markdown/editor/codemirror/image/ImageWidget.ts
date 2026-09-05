@@ -396,6 +396,107 @@ export class ImageWidget extends WidgetType {
     const endContainer = measureBox(container);
     const endImg = measureBox(img);
 
+    // DIAGNOSTIC: Log all measurements to diagnose the 800px line height issue
+    if (this.ui.displayMode === 'fill') {
+      const cmLine = container.closest('.cm-line') as HTMLElement | null;
+      const button = container.querySelector<HTMLElement>('.cm-image-button');
+      const buffers = container.closest('.cm-line')?.querySelectorAll('.cm-widgetBuffer') ?? [];
+
+      console.log(`\n[ImageWidget.updateDOM] DIAGNOSTIC: Fill mode measurement`);
+      console.log(`  displayMode: ${this.ui.displayMode}`);
+
+      if (cmLine) {
+        const lineStyles = window.getComputedStyle(cmLine);
+        console.log(`\n  .cm-line:`);
+        console.log(`    offsetHeight: ${cmLine.offsetHeight}px`);
+        console.log(`    scrollHeight: ${cmLine.scrollHeight}px`);
+        console.log(`    getBoundingClientRect().height: ${cmLine.getBoundingClientRect().height.toFixed(0)}px`);
+        console.log(`    computed height: ${lineStyles.height}`);
+        console.log(`    computed min-height: ${lineStyles.minHeight}`);
+        console.log(`    computed max-height: ${lineStyles.maxHeight}`);
+        console.log(`    computed display: ${lineStyles.display}`);
+        console.log(`    computed line-height: ${lineStyles.lineHeight}`);
+        console.log(`    children count: ${cmLine.children.length}`);
+
+        // Log each direct child
+        let childrenHeightSum = 0;
+        for (let i = 0; i < cmLine.children.length; i++) {
+          const child = cmLine.children[i] as HTMLElement;
+          childrenHeightSum += child.offsetHeight;
+          console.log(`      [${i}] ${child.className || child.tagName}: offsetHeight=${child.offsetHeight}px`);
+        }
+        console.log(`    sum of children: ${childrenHeightSum}px`);
+      }
+
+      const containerStyles = window.getComputedStyle(container);
+      console.log(`\n  .cm-image-container:`);
+      console.log(`    offsetHeight: ${container.offsetHeight}px`);
+      console.log(`    scrollHeight: ${container.scrollHeight}px`);
+      console.log(`    getBoundingClientRect().height: ${container.getBoundingClientRect().height.toFixed(0)}px`);
+      console.log(`    computed height: ${containerStyles.height}`);
+      console.log(`    computed min-height: ${containerStyles.minHeight}`);
+      console.log(`    computed max-height: ${containerStyles.maxHeight}`);
+      console.log(`    computed display: ${containerStyles.display}`);
+      console.log(`    computed overflow: ${containerStyles.overflow}`);
+      console.log(`    inline style.height: '${container.style.height || '(empty)'}'`);
+      console.log(`    inline style.width: '${container.style.width || '(empty)'}'`);
+      console.log(`    FLIP startContainer: ${startContainer.width.toFixed(0)}x${startContainer.height.toFixed(0)}px`);
+      console.log(`    FLIP endContainer: ${endContainer.width.toFixed(0)}x${endContainer.height.toFixed(0)}px`);
+
+      if (button) {
+        const buttonStyles = window.getComputedStyle(button);
+        console.log(`\n  .cm-image-button:`);
+        console.log(`    offsetHeight: ${button.offsetHeight}px`);
+        console.log(`    getBoundingClientRect().height: ${button.getBoundingClientRect().height.toFixed(0)}px`);
+        console.log(`    computed height: ${buttonStyles.height}`);
+        console.log(`    computed max-height: ${buttonStyles.maxHeight}`);
+        console.log(`    computed display: ${buttonStyles.display}`);
+        console.log(`    inline style.height: '${(button as HTMLElement).style.height || '(empty)'}'`);
+      }
+
+      const imgStyles = window.getComputedStyle(img);
+      console.log(`\n  img.tok-image:`);
+      console.log(`    offsetHeight: ${img.offsetHeight}px`);
+      console.log(`    getBoundingClientRect().height: ${img.getBoundingClientRect().height.toFixed(0)}px`);
+      console.log(`    computed height: ${imgStyles.height}`);
+      console.log(`    computed display: ${imgStyles.display}`);
+      console.log(`    inline style.height: '${img.style.height || '(empty)'}'`);
+      console.log(`    naturalWidth: ${img.naturalWidth}px, naturalHeight: ${img.naturalHeight}px`);
+      console.log(`    rendered width: ${img.width}px, height: ${img.height}px`);
+      console.log(`    FLIP startImg: ${startImg.width.toFixed(0)}x${startImg.height.toFixed(0)}px`);
+      console.log(`    FLIP endImg: ${endImg.width.toFixed(0)}x${endImg.height.toFixed(0)}px`);
+
+      if (buffers.length > 0) {
+        console.log(`\n  .cm-widgetBuffer (${buffers.length}):`);
+        let bufferHeightSum = 0;
+        for (let idx = 0; idx < buffers.length; idx++) {
+          const buffer = buffers[idx] as HTMLElement;
+          const bufferStyles = window.getComputedStyle(buffer);
+          bufferHeightSum += buffer.offsetHeight;
+          console.log(`    [${idx}] offsetHeight: ${buffer.offsetHeight}px, computed height: ${bufferStyles.height}, computed display: ${bufferStyles.display}`);
+        }
+        console.log(`    total buffers height: ${bufferHeightSum}px`);
+      }
+
+      if (cmLine) {
+        const lineHeight = cmLine.offsetHeight;
+        const containerHeight = container.offsetHeight;
+        const extra = lineHeight - containerHeight;
+        console.log(`\n  ANALYSIS:`);
+        console.log(`    line height: ${lineHeight}px`);
+        console.log(`    container height: ${containerHeight}px`);
+        console.log(`    extra height: ${extra}px`);
+        if (extra > 350) {
+          console.log(`    ⚠️  PROBLEM: Extra height is significant (>350px)`);
+          if (Math.abs(extra - containerHeight) < 50) {
+            console.log(`    💡 Extra height ≈ container height: possible double rendering`);
+          }
+        }
+      }
+
+      console.log('');
+    }
+
     // Container `height` is FLIP-animated too (2026-09, fixing a real
     // Fit→Fill asymmetry) — see `.cm-image-container`'s own CSS doc
     // comment (MarkdownEditor.css) for the full mechanism: without this,

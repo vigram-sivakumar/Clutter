@@ -63,6 +63,7 @@ function hasCheckboxAt(view: EditorView, lineIndex: number, isChecked: boolean):
   const lines = Array.from(view.dom.querySelectorAll('.cm-line'));
   if (lineIndex >= lines.length) return false;
   const line = lines[lineIndex];
+  if (!line) return false;
   const button = line.querySelector('.cm-task-checkbox');
   if (!button) return false;
   const ariaChecked = button.getAttribute('aria-checked');
