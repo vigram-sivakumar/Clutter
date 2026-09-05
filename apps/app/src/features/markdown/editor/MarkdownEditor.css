@@ -1245,18 +1245,19 @@
   transition: width 160ms ease;
 }
 
-/* Fill's own box (below) is always the full available width by design —
-   `.cm-image-container`'s own `width: fit-content` above would otherwise
-   try to shrink-wrap a `width: 100%` child, an ambiguous case not worth
-   relying on browsers to resolve consistently. This overrides it back to
-   a real full-width box for Fill only, so `.cm-image-controls`'s own
-   `position: absolute; right: 8px` still lands at the actual rendered
-   image's own top-right corner (the full editor width, in this mode) —
-   unaffected by *why* the container is that width, only by what it
-   actually is. Large/Fit never add this class: Large's image already
-   fills the full width by the same mechanism as `.tok-image` itself
-   (`max-width: 100%` on an auto-width box), and Fit is deliberately
-   left-aligned/narrower like the rest of the editor's inline content.
+/* Fill and Fit's own boxes (below) are both the full available width by
+   design — `.cm-image-container`'s own `width: fit-content` above would
+   otherwise try to shrink-wrap a `width: 100%` child, an ambiguous case
+   not worth relying on browsers to resolve consistently. These two
+   modifier classes override it back to a real full-width box, so
+   `.cm-image-controls`'s own `position: absolute; right: 8px` still lands
+   at the actual rendered image's own top-right corner regardless of mode
+   — unaffected by *why* the container is that width, only by what it
+   actually is. They differ only in height: Fill's is a fixed 400px
+   (below); Fit's is left unset entirely, so `.tok-image--fit`'s own
+   `height: auto` (further below) is what actually determines it, derived
+   by the browser from the `<img>`'s intrinsic aspect ratio at this
+   box's resolved width — never computed in code.
 
    `calc(100% - 1px)`, not a literal `100%` — the identical caret-overflow
    bug `.cm-image-container--broken` has its own full account of below
@@ -1276,6 +1277,16 @@
      400px at the container's width would render past this box's own
      edges instead of being cropped. */
   overflow: hidden;
+}
+
+/* No `height`/`overflow` here, unlike `--fill` above — Fit never crops.
+   `.tok-image--fit`'s own `width: 100%; height: auto` (further below) is
+   what actually sizes the `<img>`, and this box's own height simply
+   follows the image's rendered height (an ordinary block-level child
+   sizing its parent), which is however tall this exact width makes the
+   image at its own intrinsic aspect ratio. */
+.cm-editor .cm-image-container--fit {
+  width: calc(100% - 1px);
 }
 
 /* The intermediate `<button class="cm-image-button">` wrapping the `<img>`
@@ -1336,12 +1347,12 @@
     height 160ms ease;
 }
 
-/* Fit: the container is the sole width authority (wrapper-owned width) —
-   the image simply fills whatever box the container resolves to, natural
-   aspect ratio preserved via `height: auto`, nothing cropped. Mirrors
-   `.tok-image--fill` below exactly, just with `height: auto` instead of a
-   fixed 400px + `object-fit: cover` — the same "wrapper owns width, image
-   is a passive 100%/auto fill" model both modes now share. */
+/* Fit: `width: 100%` of `.cm-image-container--fit` (above), `height: auto`
+   — the browser derives the rendered height from the `<img>`'s own
+   intrinsic (natural) width/height at this resolved width, nothing
+   computed in code, nothing cropped, aspect ratio always preserved. No
+   `object-fit` here at all — that's `.tok-image--fill`'s own concern
+   (below), never Fit's. */
 .cm-editor .tok-image.tok-image--fit {
   width: 100%;
   height: auto;
@@ -1377,13 +1388,6 @@
   height: 100%;
   object-fit: cover;
 }
-
-/* `.tok-image--fit`'s own rule now lives just above (`.cm-editor
-   .tok-image.tok-image--fit`) — see that rule's own comment. This used to
-   say Fit needed no modifier class at all (natural sizing came for free
-   from the base `.tok-image`/`.cm-image-container` rules); the Fit/Fill
-   wrapper-owned-width unification changed that — Fit now needs its own
-   explicit `width: 100%; height: auto;`, the same way Fill always has. */
 
 /* Alignment (resize milestone) — generic across both display modes, keyed
    off `applyMediaAlignment`'s own `data-align` attribute

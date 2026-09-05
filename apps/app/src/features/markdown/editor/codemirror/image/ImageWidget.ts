@@ -11,11 +11,8 @@ import {
 import { scanImage } from './imageScanner';
 import {
   applyMediaAlignment,
-  applyMediaWidth,
-  disconnectMediaWidthObserver,
   flipDimensionTransition,
   measureBox,
-  type ResizeObserverHolder,
 } from '../mediaPresentation/mediaLayoutStyle';
 import type { ImagePresentation } from '../mediaPresentation/mediaPresentationModel';
 
@@ -231,9 +228,6 @@ export class ImageWidget extends WidgetType {
     super();
   }
 
-  /** Owns the live pixel-width `ResizeObserver` `applyMediaWidth` creates for a freeform (12+) width — see that function's own doc comment. Disconnected in `destroy()`; a fresh one is created per `toDOM()` call, never shared across widget instances. */
-  private readonly widthObserver: ResizeObserverHolder = { current: null };
-
   override eq(other: ImageWidget): boolean {
     return (
       this.alt === other.alt &&
@@ -273,7 +267,7 @@ export class ImageWidget extends WidgetType {
    * edits, reveal toggling, and broken/recovery all keep behaving
    * exactly as before this method existed.
    */
-  override updateDOM(dom: HTMLElement, view: EditorView, from: ImageWidget): boolean {
+  override updateDOM(dom: HTMLElement, _view: EditorView, from: ImageWidget): boolean {
     // Deliberately does NOT compare `this.to`/`from.to` — the node's own
     // `to` legitimately shifts on a pure presentation update (`{6}` vs
     // `{620}` vs no pipe segment at all are different text lengths), so
@@ -309,17 +303,9 @@ export class ImageWidget extends WidgetType {
 
     // Keeps every existing control's own live `to` reader
     // (`container.dataset.nodeTo`, set up in `renderWorking`) current —
-    // without this, Edit-source/the size button/a subsequent resize would
-    // keep dispatching against the *old*, now-shifted position.
+    // without this, Edit-source/the size button would keep dispatching
+    // against the *old*, now-shifted position.
     container.dataset.nodeTo = String(this.to);
-
-    // `from`'s own live-width `ResizeObserver` (if any — only a 12+ pixel
-    // width ever creates one) would otherwise leak: `this` is a brand-new
-    // instance with its own, currently-empty `widthObserver`, so nothing
-    // would ever disconnect `from`'s the way `destroy()` normally would
-    // — except `destroy()` is never called here (the DOM, and therefore
-    // ownership, transfers to `this` without a teardown).
-    disconnectMediaWidthObserver(from.widthObserver);
 
     // FLIP measurement — capture the *rendered* box before touching any
     // class/style, since that's the only reliable "from" a CSS transition
@@ -330,15 +316,17 @@ export class ImageWidget extends WidgetType {
     const startImg = measureBox(img);
 
     container.classList.toggle('cm-image-container--fill', this.ui.displayMode === 'fill');
+    container.classList.toggle('cm-image-container--fit', this.ui.displayMode === 'fit');
     img.className = `tok-image tok-image--${this.ui.displayMode}`;
     applyMediaAlignment(container, this.presentation.alignment);
 
-    this.applyWidthForMode(container, view);
-
-    // The declarative CSS above is now already fully correct for the new
-    // mode/width/alignment — measuring now gives the genuine target box,
-    // never hand-computed (Fill's cover-crop math and Fit's aspect-ratio
-    // math both stay owned by CSS, not duplicated here).
+    // No width/height is ever applied here in code — both modes are pure
+    // CSS now (`.cm-image-container--fill`/`--fit`, `.tok-image--fill`/
+    // `--fit`, MarkdownEditor.css): Fill is a fixed 100%/400px cover box,
+    // Fit is `width: 100%; height: auto`, letting the browser derive the
+    // rendered height from the image's own intrinsic aspect ratio. The
+    // measuring below gives the genuine target box the class toggle above
+    // already produced, never hand-computed.
     const endContainer = measureBox(container);
     const endImg = measureBox(img);
 
@@ -376,14 +364,12 @@ export class ImageWidget extends WidgetType {
   }
 
   private renderWorking(container: HTMLElement, view: EditorView): HTMLElement {
-    // Fill is the only mode needing a container-level modifier class
-    // (a real, full-width fixed-height box) — Fit is natural size, the
-    // base `.cm-image-container`/`.tok-image` rules already give it with
-    // no modifier of its own (`'large'` used to work identically before
-    // it was removed as a mode; `'fit'` now covers that same behavior).
-    if (this.ui.displayMode === 'fill') {
-      container.classList.add('cm-image-container--fill');
-    }
+    // Both modes are a full-width box (`.cm-image-container--fill`/
+    // `--fit`, MarkdownEditor.css) — they differ only in height: Fill is
+    // a fixed 400px cover-cropped box, Fit's height is `auto`, derived by
+    // the browser from the `<img>`'s own intrinsic aspect ratio. Neither
+    // is ever computed here — pure CSS, no JS width/height application.
+    container.classList.add(this.ui.displayMode === 'fill' ? 'cm-image-container--fill' : 'cm-image-container--fit');
 
     applyMediaAlignment(container, this.presentation.alignment);
 
@@ -463,41 +449,11 @@ export class ImageWidget extends WidgetType {
       this.getOnImageClick()?.(this.url, this.alt, this.copyUrl);
     });
 
-    // Applied synchronously here, before the `<img>` itself even exists
-    // yet (`probeThenMount` mounts it once the probe confirms `this.url`
-    // loads) — there is no image-specific width target left to wait for
-    // any more.
-    this.applyWidthForMode(container, view);
-
     container.append(controls, imageButton);
 
     this.probeThenMount(imageButton, view);
 
     return container;
-  }
-
-  /**
-   * Fill is a fixed, non-adjustable 100%-wide/400px-tall box — entirely
-   * CSS (`.cm-image-container--fill`/`.tok-image--fill`, MarkdownEditor.css)
-   * — so the persisted `width` value is never applied to it, and no
-   * `ResizeObserver` is ever created for it. This is a deliberate
-   * simplification, not an oversight: interactive resizing has been
-   * removed, so a stale non-default `width` a document may still carry
-   * from before that removal has no UI path to set it again for Fill —
-   * only Fit still reads it (natural-size aspect ratio, needs an explicit
-   * width to shrink below its intrinsic size).
-   */
-  private applyWidthForMode(container: HTMLElement, view: EditorView): void {
-    if (this.ui.displayMode === 'fill') {
-      disconnectMediaWidthObserver(this.widthObserver);
-      container.style.removeProperty('width');
-      return;
-    }
-    applyMediaWidth(container, null, this.presentation.width, view, this.widthObserver);
-  }
-
-  override destroy(): void {
-    disconnectMediaWidthObserver(this.widthObserver);
   }
 
   /**
@@ -554,13 +510,10 @@ export class ImageWidget extends WidgetType {
         img.addEventListener('error', dispatchBroken, { once: true });
         img.src = this.url;
         imageButton.append(img);
-        // No width application here any more — wrapper-owned width
-        // (both modes) is already applied to the *container* synchronously
-        // in `renderWorking`, before this `<img>` even existed. The image
-        // itself carries no inline width/height of its own; its CSS is
-        // always `width: 100%` (`.tok-image--fill`/`.tok-image--fit`), so
-        // it simply fills whatever box the container resolves to, the
-        // moment it mounts.
+        // No width/height application here — both modes are pure CSS
+        // (`.tok-image--fill`/`.tok-image--fit`, MarkdownEditor.css): the
+        // image carries no inline sizing of its own, it simply fills
+        // whatever box its mode's own rule describes the moment it mounts.
       },
       { once: true }
     );

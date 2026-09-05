@@ -151,6 +151,60 @@ describe('computeImagePresentationUpdate — preserves alt/url/title/surrounding
   });
 });
 
+describe('computeImagePresentationUpdate — Embed (local asset image, e.g. ![[image.png]])', () => {
+  // Regression coverage for a real bug: computeImagePresentationUpdate
+  // used to return a no-op change for anything that wasn't an `Image`
+  // node, so a mode/width/alignment change on an image-asset Embed was
+  // silently dropped — the Markdown never changed, even though
+  // getImagePresentation()/ImageWidget's own rendering already read an
+  // Embed's alias-segment metadata correctly. Fixed by making
+  // computeImagePresentationUpdate kind-dispatch internally (Image vs.
+  // Embed), reusing the exact same alias-segment rewrite
+  // computePdfPresentationUpdate already used for PDF Embeds
+  // (computeEmbedPresentationChange) — not a parallel, asset-specific
+  // implementation.
+  it('inserts a pipe segment, preserving the path', () => {
+    const state = stateFor('![[image.png]]');
+    const to = nodeTo(state, 'Embed');
+    const change = computeImagePresentationUpdate(state, to, { width: 6, alignment: 'left', mode: 'fill' });
+    const next = state.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![[image.png|6]]');
+  });
+
+  it('updates mode alone, preserving width/alignment already present', () => {
+    const state = stateFor('![[image.png|6,center,fill]]');
+    const to = nodeTo(state, 'Embed');
+    const current = getImagePresentation(state, to);
+    const change = computeImagePresentationUpdate(state, to, { ...current, mode: 'fit' });
+    const next = state.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![[image.png|6,center,fit]]');
+  });
+
+  it('overwrites an existing real alias with metadata (documented tradeoff — one pipe slot, same as a PDF embed)', () => {
+    const state = stateFor('![[image.png|My Photo]]');
+    const to = nodeTo(state, 'Embed');
+    const change = computeImagePresentationUpdate(state, to, { width: 6, alignment: 'left', mode: 'fill' });
+    const next = state.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![[image.png|6]]');
+  });
+
+  it('removes the pipe segment entirely once every field returns to default', () => {
+    const state = stateFor('![[image.png|6,center,fit]]');
+    const to = nodeTo(state, 'Embed');
+    const change = computeImagePresentationUpdate(state, to, DEFAULT_IMAGE_PRESENTATION);
+    const next = state.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![[image.png]]');
+  });
+
+  it('preserves surrounding document content before and after the embed', () => {
+    const state = stateFor('Before text.\n\n![[image.png]]\n\nAfter text.');
+    const to = nodeTo(state, 'Embed');
+    const change = computeImagePresentationUpdate(state, to, { width: 6, alignment: 'center', mode: 'fill' });
+    const next = state.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('Before text.\n\n![[image.png|6,center]]\n\nAfter text.');
+  });
+});
+
 describe('computePdfPresentationUpdate — preserves the WikiLink path', () => {
   it('inserts a pipe segment, preserving the path', () => {
     const state = stateFor('![[document.pdf]]');
@@ -210,6 +264,98 @@ describe('regression — WikiLink and native-image/embed behavior unaffected whe
   it('a local PDF embed with no pipe resolves to exactly the default presentation', () => {
     const state = stateFor('![[document.pdf]]');
     expect(getPdfPresentation(state, nodeTo(state, 'Embed'))).toEqual(DEFAULT_PDF_PRESENTATION);
+  });
+});
+
+describe('Fill ↔ Fit persistence parity between a native Image and an image-asset Embed', () => {
+  it('URL image: Fill → Fit persists "fit" in the Markdown', () => {
+    const state = stateFor('![Photo](https://example.com/a.jpg)');
+    const to = nodeTo(state, 'Image');
+    const current = getImagePresentation(state, to);
+    expect(current.mode).toBe('fill');
+    const change = computeImagePresentationUpdate(state, to, { ...current, mode: 'fit' });
+    const next = state.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![Photo|fit](https://example.com/a.jpg)');
+    expect(next.doc.toString()).toContain('fit');
+  });
+
+  it('asset embed: Fill → Fit persists "fit" in the Markdown (previously silently dropped)', () => {
+    const state = stateFor('![[image.png]]');
+    const to = nodeTo(state, 'Embed');
+    const current = getImagePresentation(state, to);
+    expect(current.mode).toBe('fill');
+    const change = computeImagePresentationUpdate(state, to, { ...current, mode: 'fit' });
+    const next = state.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![[image.png|fit]]');
+    expect(next.doc.toString()).toContain('fit');
+  });
+
+  it('URL image: Fit → Fill removes the mode token again (fill is default)', () => {
+    const fitState = stateFor('![Photo|fit](https://example.com/a.jpg)');
+    const fitTo = nodeTo(fitState, 'Image');
+    expect(getImagePresentation(fitState, fitTo).mode).toBe('fit');
+
+    const current = getImagePresentation(fitState, fitTo);
+    const change = computeImagePresentationUpdate(fitState, fitTo, { ...current, mode: 'fill' });
+    const next = fitState.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![Photo](https://example.com/a.jpg)');
+    expect(getImagePresentation(next, nodeTo(next, 'Image'))).toEqual(DEFAULT_IMAGE_PRESENTATION);
+  });
+
+  it('asset embed: Fit → Fill removes the mode token again (fill is default)', () => {
+    const fitState = stateFor('![[image.png|fit]]');
+    const fitTo = nodeTo(fitState, 'Embed');
+    expect(getImagePresentation(fitState, fitTo).mode).toBe('fit');
+
+    const current = getImagePresentation(fitState, fitTo);
+    const change = computeImagePresentationUpdate(fitState, fitTo, { ...current, mode: 'fill' });
+    const next = fitState.update({ changes: change }).state;
+    expect(next.doc.toString()).toBe('![[image.png]]');
+    expect(getImagePresentation(next, nodeTo(next, 'Embed'))).toEqual(DEFAULT_IMAGE_PRESENTATION);
+  });
+
+  it('URL image: existing width/alignment survive a full Fill → Fit → Fill round trip', () => {
+    let state = stateFor('![Photo|6,center](https://example.com/a.jpg)');
+    let to = nodeTo(state, 'Image');
+    expect(getImagePresentation(state, to)).toEqual({ width: 6, alignment: 'center', mode: 'fill' });
+
+    state = state.update({
+      changes: computeImagePresentationUpdate(state, to, { ...getImagePresentation(state, to), mode: 'fit' }),
+    }).state;
+    to = nodeTo(state, 'Image');
+    expect(state.doc.toString()).toBe('![Photo|6,center,fit](https://example.com/a.jpg)');
+    expect(getImagePresentation(state, to)).toEqual({ width: 6, alignment: 'center', mode: 'fit' });
+
+    state = state.update({
+      changes: computeImagePresentationUpdate(state, to, { ...getImagePresentation(state, to), mode: 'fill' }),
+    }).state;
+    to = nodeTo(state, 'Image');
+    expect(state.doc.toString()).toBe('![Photo|6,center](https://example.com/a.jpg)');
+    expect(getImagePresentation(state, to)).toEqual({ width: 6, alignment: 'center', mode: 'fill' });
+  });
+
+  it('asset embed: existing width/alignment survive a full Fill → Fit → Fill round trip', () => {
+    let state = stateFor('![[image.png|6,center]]');
+    let to = nodeTo(state, 'Embed');
+    expect(getImagePresentation(state, to)).toEqual({ width: 6, alignment: 'center', mode: 'fill' });
+
+    state = state.update({
+      changes: computeImagePresentationUpdate(state, to, { ...getImagePresentation(state, to), mode: 'fit' }),
+    }).state;
+    to = nodeTo(state, 'Embed');
+    expect(state.doc.toString()).toBe('![[image.png|6,center,fit]]');
+    expect(getImagePresentation(state, to)).toEqual({ width: 6, alignment: 'center', mode: 'fit' });
+
+    state = state.update({
+      changes: computeImagePresentationUpdate(state, to, { ...getImagePresentation(state, to), mode: 'fill' }),
+    }).state;
+    to = nodeTo(state, 'Embed');
+    expect(state.doc.toString()).toBe('![[image.png|6,center]]');
+    expect(getImagePresentation(state, to)).toEqual({ width: 6, alignment: 'center', mode: 'fill' });
+  });
+
+  it('WikiLink alias semantics are unaffected: a real alias round-trips through resolveEmbedAliasFields exactly as before this fix', () => {
+    expect(resolveEmbedAliasFields('My Photo')).toEqual({ displayAlias: 'My Photo', tokens: [] });
   });
 });
 

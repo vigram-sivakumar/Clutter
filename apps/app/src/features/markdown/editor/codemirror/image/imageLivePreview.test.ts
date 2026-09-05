@@ -1126,13 +1126,13 @@ describe('Image display modes', () => {
     expect(view.dom.querySelector('.cm-image-container--fill')).not.toBeNull();
   });
 
-  it('Fit applies the fit class to the image and no modifier class to the container (natural size, same as the removed Large mode used to render)', () => {
+  it('Fit applies the fit class to the image and the full-width modifier class to the container (not the fill class)', () => {
     const view = mountView(IMAGE_MD);
     dispatchMode(view, 0, 'fit');
     settleAllProbes();
 
     expect(getImg(view)?.classList.contains('tok-image--fit')).toBe(true);
-    expect(view.dom.querySelector('.cm-image-container--fit')).toBeNull();
+    expect(view.dom.querySelector('.cm-image-container--fit')).not.toBeNull();
     expect(view.dom.querySelector('.cm-image-container--fill')).toBeNull();
   });
 
@@ -1876,16 +1876,21 @@ describe('MarkdownEditor.css — display mode rules', () => {
     expect(body).toMatch(/object-fit\s*:\s*cover\s*;/);
   });
 
-  it('Fit and Fill share the same wrapper-owned-width model: the container is the sole width authority, the image is always width:100% (Fit/Fill unification)', () => {
+  it('Fit and Fill both render a full-width container; the image is always width:100%, and Fit never crops or fixes a height', () => {
     const css = readFileSync(join(__dirname, '..', '..', 'MarkdownEditor.css'), 'utf8');
-    const fitBody = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fit\s*\{([^}]*)\}/);
-    expect(fitBody).toMatch(/width\s*:\s*100%\s*;/);
-    expect(fitBody).toMatch(/height\s*:\s*auto\s*;/);
-    // Fit still has no container-level modifier class of its own — only
-    // the image gets one; the container relies on the base
-    // `.cm-image-container` rule (`width: fit-content`, overridden by an
-    // inline style for any explicit/dragged width) for both modes.
-    expect(css).not.toMatch(/\.cm-image-container--fit\s*\{/);
+    const fitImgBody = ruleBody(css, /\.cm-editor\s+\.tok-image\.tok-image--fit\s*\{([^}]*)\}/);
+    expect(fitImgBody).toMatch(/width\s*:\s*100%\s*;/);
+    expect(fitImgBody).toMatch(/height\s*:\s*auto\s*;/);
+    expect(fitImgBody).not.toMatch(/object-fit\s*:/);
+
+    // Fit's own container rule: full-width, same 1px caret-overflow reserve
+    // as Fill, but no fixed height and no overflow clipping — the browser
+    // derives the box's height entirely from the image's own intrinsic
+    // aspect ratio at this width, never a value computed in code.
+    const fitContainerBody = ruleBody(css, /\.cm-editor\s+\.cm-image-container--fit\s*\{([^}]*)\}/);
+    expect(fitContainerBody).toMatch(/width\s*:\s*calc\(100%\s*-\s*1px\)\s*;/);
+    expect(fitContainerBody).not.toMatch(/height\s*:/);
+    expect(fitContainerBody).not.toMatch(/overflow\s*:/);
   });
 
   it('.cm-image-container--fill is a full-width, fixed 400px-tall box (minus the same 1px caret-overflow reserve --broken uses), clipping overflow so object-fit: cover has a real box to crop into', () => {
@@ -1923,15 +1928,11 @@ describe('MarkdownEditor.css — display mode rules', () => {
     expect(css).not.toMatch(/\.cm-line:has\(>\s*\.cm-image-container\[data-align/);
     expect(css).not.toMatch(/\.cm-line:has\(>\s*\.cm-image-container--fit\)/);
 
-    // The container itself must stay shrink-wrapped (no width override
-    // reintroduced here) so .cm-image-controls still anchors to the actual
-    // (narrower) image edge, not the empty space at the editor's own right
-    // edge — unaffected by this milestone.
-    const containerMatch = css.match(/\.cm-editor\s+\.cm-image-container--fit\s*\{([^}]*)\}/);
-    if (containerMatch) {
-      expect(containerMatch[1]).not.toMatch(/width\s*:/);
-      expect(containerMatch[1]).not.toMatch(/margin-inline\s*:\s*auto\s*;/);
-    }
+    // `margin-inline: auto` (the old, since-superseded Fit-centering
+    // mechanism) must never be reintroduced — alignment is exclusively
+    // the `data-align` + `left`/`transform` mechanism above, for every
+    // mode, Fit's own full-width container included.
+    expect(css).not.toMatch(/margin-inline\s*:\s*auto\s*;/);
   });
 
   it('there is no Auto mode class anywhere in the stylesheet', () => {
@@ -2068,7 +2069,7 @@ describe('Standard Markdown image, local Vault path — resolveImageSrc', () => 
         state: { ...getImageUiState(view.state, 0), displayMode: 'fit' },
       }),
     });
-    expect(container().classList.contains('cm-image-container--fit')).toBe(false);
+    expect(container().classList.contains('cm-image-container--fit')).toBe(true);
     expect(container().classList.contains('cm-image-container--fill')).toBe(false);
   });
 
@@ -2264,7 +2265,7 @@ describe('Standard Markdown image, local Vault path with a raw space — imageSp
         state: { ...getImageUiState(view.state, 0), displayMode: 'fit' },
       }),
     });
-    expect(container().classList.contains('cm-image-container--fit')).toBe(false);
+    expect(container().classList.contains('cm-image-container--fit')).toBe(true);
     expect(container().classList.contains('cm-image-container--fill')).toBe(false);
   });
 

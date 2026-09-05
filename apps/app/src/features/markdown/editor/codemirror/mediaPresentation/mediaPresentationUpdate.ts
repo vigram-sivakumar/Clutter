@@ -3,7 +3,7 @@ import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { scanImage } from '../image/imageScanner';
-import { scanEmbed } from '../embed/embedScanner';
+import { scanEmbed, type EmbedMatch } from '../embed/embedScanner';
 import {
   resolveImagePresentation,
   resolvePdfPresentation,
@@ -133,66 +133,38 @@ export interface MediaPresentationChange {
 const NO_OP_CHANGE = (at: number): MediaPresentationChange => ({ from: at, to: at, insert: '' });
 
 /**
- * Rewrites a native Markdown Image's own alt bracket to reflect `next`,
- * preserving the display alt text, the URL, and any title exactly.
- * Removes the `|tokens` segment entirely when `next` is all-default
- * (`serializeImagePresentationTokens` returns `''`), restoring
- * `![alt](url)`'s normal, implicit-defaults form.
- */
-export function computeImagePresentationUpdate(
-  state: EditorState,
-  to: number,
-  next: ImagePresentation
-): MediaPresentationChange {
-  const found = findMediaNodeEndingAt(state, to);
-  if (!found || found.kind !== 'Image') {
-    return NO_OP_CHANGE(to);
-  }
-  const raw = state.sliceDoc(found.from, found.to);
-  const match = scanImage(raw);
-  if (!match) {
-    return NO_OP_CHANGE(to);
-  }
-  const labelClose = raw.indexOf('](', 2);
-  const tokenString = serializeImagePresentationTokens(next);
-  const insert = tokenString === '' ? match.alt : `${match.alt}|${tokenString}`;
-  return { from: found.from + 2, to: found.from + labelClose, insert };
-}
-
-/**
- * Rewrites a local PDF Embed's own alias/pipe segment to reflect `next`.
- * **Overwrites any existing real display alias** when `next` is
- * non-default — see this module's own doc comment (`resolveEmbedAliasFields`)
- * for why: the single WikiLink pipe slot cannot hold both a real alias
- * and presentation metadata at once, and this function is only ever
- * invoked by an explicit user presentation-changing action (mode
- * selection, a future resize commit), never automatically — an alias the
- * user never touches this way is never touched at all. When `next` is
- * all-default, preserves whatever real alias the *current* document text
- * still has (or removes the pipe segment entirely if there is none, or
- * it's itself metadata-shaped), matching "defaults remain implicit." This
- * only preserves an alias that survived untouched — once a real alias has
- * already been overwritten by a prior call to this function, it is
- * genuinely gone (the pipe slot now holds metadata-shaped text, which
+ * Rewrites an `Embed`'s own alias/pipe segment to reflect `tokenString`
+ * (already serialized by the caller — this function has no opinion on
+ * which capability's tokens they are, image or PDF). **Overwrites any
+ * existing real display alias** when `tokenString` is non-empty — see
+ * this module's own doc comment (`resolveEmbedAliasFields`) for why: the
+ * single WikiLink pipe slot cannot hold both a real alias and
+ * presentation metadata at once, and this is only ever invoked by an
+ * explicit user presentation-changing action (mode selection, a future
+ * resize commit), never automatically — an alias the user never touches
+ * this way is never touched at all. When `tokenString` is empty (`next`
+ * was all-default), preserves whatever real alias the *current* document
+ * text still has (or removes the pipe segment entirely if there is none,
+ * or it's itself metadata-shaped), matching "defaults remain implicit."
+ * This only preserves an alias that survived untouched — once a real
+ * alias has already been overwritten by a prior call to this function, it
+ * is genuinely gone (the pipe slot now holds metadata-shaped text, which
  * `resolveEmbedAliasFields` can never distinguish back into the original
  * alias), not merely hidden.
+ *
+ * Shared by both `computeImagePresentationUpdate` (an image-asset Embed,
+ * e.g. `![[image.png]]`) and `computePdfPresentationUpdate` (a PDF
+ * Embed) — the alias-segment rewrite is identical WikiLink-alias
+ * mechanics either way; only which serializer produced `tokenString`
+ * differs, which is already resolved by the caller before this function
+ * is ever reached.
  */
-export function computePdfPresentationUpdate(
-  state: EditorState,
-  to: number,
-  next: PdfPresentation
+function computeEmbedPresentationChange(
+  found: MediaNodeRange,
+  match: EmbedMatch,
+  tokenString: string
 ): MediaPresentationChange {
-  const found = findMediaNodeEndingAt(state, to);
-  if (!found || found.kind !== 'Embed') {
-    return NO_OP_CHANGE(to);
-  }
-  const raw = state.sliceDoc(found.from, found.to);
-  const match = scanEmbed(raw, 0);
-  if (!match) {
-    return NO_OP_CHANGE(to);
-  }
   const { displayAlias } = resolveEmbedAliasFields(match.alias);
-  const tokenString = serializePdfPresentationTokens(next);
 
   let bracketContent: string;
   if (tokenString !== '') {
@@ -208,4 +180,68 @@ export function computePdfPresentationUpdate(
   // within `raw` (embedScanner.ts's own contract), so the bracket content
   // itself is `raw.slice(3, match.end - 2)`.
   return { from: found.from + 3, to: found.from + match.end - 2, insert: bracketContent };
+}
+
+/**
+ * Rewrites the Image/Embed node ending at `to` to reflect `next` — a
+ * native Markdown Image's own alt bracket (`![alt|tokens](url)`) for an
+ * `Image` node, or an image-asset Embed's alias/pipe segment
+ * (`![[path|tokens]]`) for an `Embed` node, via the shared
+ * `computeEmbedPresentationChange` both this function and
+ * `computePdfPresentationUpdate` use. Both node kinds render through the
+ * same `ImageWidget` (`imageLivePreview.ts`/`embedLivePreview.ts`) and
+ * must persist a mode/width/alignment change identically — dispatching to
+ * the wrong shape here (or silently no-op'ing for one kind) is exactly
+ * the bug this kind-dispatch exists to prevent.
+ *
+ * For an `Image` node: removes the `|tokens` segment entirely when `next`
+ * is all-default (`serializeImagePresentationTokens` returns `''`),
+ * restoring `![alt](url)`'s normal, implicit-defaults form, preserving
+ * the display alt text, the URL, and any title exactly.
+ */
+export function computeImagePresentationUpdate(
+  state: EditorState,
+  to: number,
+  next: ImagePresentation
+): MediaPresentationChange {
+  const found = findMediaNodeEndingAt(state, to);
+  if (!found) {
+    return NO_OP_CHANGE(to);
+  }
+  const raw = state.sliceDoc(found.from, found.to);
+  const tokenString = serializeImagePresentationTokens(next);
+
+  if (found.kind === 'Embed') {
+    const match = scanEmbed(raw, 0);
+    if (!match) {
+      return NO_OP_CHANGE(to);
+    }
+    return computeEmbedPresentationChange(found, match, tokenString);
+  }
+
+  const match = scanImage(raw);
+  if (!match) {
+    return NO_OP_CHANGE(to);
+  }
+  const labelClose = raw.indexOf('](', 2);
+  const insert = tokenString === '' ? match.alt : `${match.alt}|${tokenString}`;
+  return { from: found.from + 2, to: found.from + labelClose, insert };
+}
+
+/** PDF counterpart to `computeImagePresentationUpdate` — only ever meaningful for an `Embed` node (a native `Image` node has no PDF interpretation), a no-op otherwise. See `computeEmbedPresentationChange`'s own doc comment for the shared alias-rewrite mechanics. */
+export function computePdfPresentationUpdate(
+  state: EditorState,
+  to: number,
+  next: PdfPresentation
+): MediaPresentationChange {
+  const found = findMediaNodeEndingAt(state, to);
+  if (!found || found.kind !== 'Embed') {
+    return NO_OP_CHANGE(to);
+  }
+  const raw = state.sliceDoc(found.from, found.to);
+  const match = scanEmbed(raw, 0);
+  if (!match) {
+    return NO_OP_CHANGE(to);
+  }
+  return computeEmbedPresentationChange(found, match, serializePdfPresentationTokens(next));
 }
