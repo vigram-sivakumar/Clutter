@@ -25,6 +25,7 @@ import {
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
+import { foldAwareArrowKeymap } from './fold/foldAwareArrowKeymap';
 import { foldToggleDecoration } from './fold/foldToggleDecoration';
 import { indentedParagraphFoldService } from './fold/indentedParagraphFoldService';
 import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
@@ -307,11 +308,24 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // — omitted for the same `readOnly` reason `codeFolding()`/
       // `foldToggleDecoration()` are above: no fold commands left to bind a
       // shortcut to inside a note embed's own nested view.
+      //
+      // foldAwareArrowKeymap (codemirror/fold/foldAwareArrowKeymap.ts) —
+      // ahead of defaultKeymap for the same reason closeBracketsKeymap is:
+      // it only overrides ArrowLeft/ArrowRight for the one case that
+      // actually needs different behavior (the caret's next step would
+      // land inside a folded range — skip over the fold instead of
+      // @codemirror/language's own default auto-unfold-on-entry), and
+      // explicitly declines (returns `false`) for every other keypress,
+      // letting defaultKeymap's own cursorCharLeft/cursorCharRight handle
+      // it completely unmodified. Same `readOnly` omission as the other
+      // fold extensions — nothing to skip over inside a note embed's own
+      // nested view, which never has fold state at all.
       keymap.of([
         indentWithTab,
         ...closeBracketsKeymap,
         ...historyKeymap,
         ...(readOnly ? [] : foldKeymap),
+        ...(readOnly ? [] : foldAwareArrowKeymap),
         ...defaultKeymap,
       ]),
   ];
