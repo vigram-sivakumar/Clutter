@@ -1,8 +1,18 @@
 import { foldEffect, unfoldEffect } from '@codemirror/language';
 import { WidgetType, type EditorView } from '@codemirror/view';
 
-const CHEVRON_RIGHT_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3.5L11 8L6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const CHEVRON_DOWN_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.5 6L8 11L12.5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+/**
+ * Exported (not module-private) so `NoteEmbedWidget.ts`'s own collapse
+ * toggle can render the identical glyph — a note embed's collapse
+ * control is a different *mechanism* (widget-level DOM state, never CM6
+ * `foldEffect`/fold state — see that file's own "Collapse/expand" doc
+ * comment) but is deliberately the same *visual affordance*, sharing
+ * both this icon and the `.cm-fold-toggle` CSS class rather than
+ * inventing a second chevron/button style for what reads as the same
+ * control to the user.
+ */
+export const CHEVRON_RIGHT_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3.5L11 8L6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+export const CHEVRON_DOWN_ICON = `<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.5 6L8 11L12.5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 /**
  * The Clutter-authored replacement for `@codemirror/language`'s own

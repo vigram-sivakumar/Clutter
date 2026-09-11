@@ -512,8 +512,18 @@ describe('note embed rendering trims leading/trailing blank lines, never interna
   });
 });
 
-describe('note embeds have no fold toggle/folding — the embed always reads as one continuous, fully-expanded passage', () => {
-  it('a note embed\'s own nested view has no fold toggle, through the real embedLivePreview → NoteEmbedWidget → createEditorView pipeline (not just a direct createEditorView call)', () => {
+describe('note embeds have no CM6 fold toggle/folding inside their own nested content — the embed always reads as one continuous, fully-expanded passage', () => {
+  // `.cm-fold-toggle` is no longer a "never appears inside a note embed at
+  // all" signal as of the embed's own collapse control (positioned like
+  // `FoldToggleWidget`, sharing its class — see `NoteEmbedWidget.ts`'s own
+  // "Positioned like the standalone fold toggle" doc comment): exactly one
+  // legitimately exists per embed, as `.cm-note-embed__header`'s own first
+  // child. These tests scope past that to `.cm-note-embed__content
+  // .cm-content` — the nested read-only `EditorView`'s own content — which
+  // is where a genuine CM6 heading/list/fenced-code toggle would have to
+  // render if `createEditorView`'s `readOnly` gate weren't correctly
+  // omitting `foldToggleDecoration()`/`codeFolding()` there.
+  it('a note embed\'s own nested view has no CM6 fold toggle for its heading, through the real embedLivePreview → NoteEmbedWidget → createEditorView pipeline (not just a direct createEditorView call)', () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -522,14 +532,17 @@ describe('note embeds have no fold toggle/folding — the embed always reads as 
     );
 
     const card = view.dom.querySelector('.cm-note-embed')!;
-    expect(card.querySelector('.cm-fold-toggle')).toBeNull();
+    expect(card.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
+    // The embed's own collapse control is still exactly one real
+    // `.cm-fold-toggle`, living in the header, not the nested content.
+    expect(card.querySelector(':scope > .cm-note-embed__header > .cm-fold-toggle')).not.toBeNull();
     // The nested view's own content is real, not the top-level editor's —
-    // confirms this checked the embed's own toggle-less view, not merely
-    // the absence of a toggle somewhere unrelated.
+    // confirms this checked the embed's own toggle-less nested view, not
+    // merely the absence of a toggle somewhere unrelated.
     expect(card.querySelector('.cm-content')?.textContent).toContain('Heading');
   });
 
-  it('a note embedded inside another note embed also has no fold toggle — the same behavior at every nesting depth, with no depth-specific logic', () => {
+  it('a note embedded inside another note embed also has no CM6 fold toggle for its own heading — the same behavior at every nesting depth, with no depth-specific logic', () => {
     const view = mountView(
       '![[Outer]]',
       resolverFor({
@@ -539,11 +552,21 @@ describe('note embeds have no fold toggle/folding — the embed always reads as 
     );
 
     const outerCard = view.dom.querySelector('.cm-note-embed')!;
-    expect(outerCard.querySelector(':scope > .cm-note-embed__content .cm-fold-toggle')).toBeNull();
+    expect(outerCard.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
 
     const innerCard = outerCard.querySelector('.cm-note-embed')!;
     expect(innerCard).not.toBeNull();
-    expect(innerCard.querySelector('.cm-fold-toggle')).toBeNull();
+    // Deliberately `:scope >`, not a bare descendant selector — a bare
+    // `.cm-note-embed__content .cm-content .cm-fold-toggle` matches
+    // against the *full document* ancestor chain, not one scoped to
+    // `innerCard`'s own subtree, so it would incorrectly also match the
+    // inner embed's own header toggle via the *outer* embed's
+    // `.cm-note-embed__content .cm-content` ancestors sitting above
+    // `innerCard` in the real DOM (confirmed directly — a first version
+    // of this test using the bare form failed for exactly this reason).
+    expect(innerCard.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
+    // The inner embed's own collapse control is still present.
+    expect(innerCard.querySelector(':scope > .cm-note-embed__header > .cm-fold-toggle')).not.toBeNull();
     expect(innerCard.querySelector('.cm-content')?.textContent).toContain('Inner heading');
   });
 });
@@ -774,11 +797,15 @@ describe('note embed collapse/expand (Phase 2)', () => {
     const outerCard = view.dom.querySelector('.cm-note-embed')!;
     const innerCard = outerCard.querySelector('.cm-note-embed')!;
 
-    // No Phase 1 fold toggle anywhere inside the nested read-only view,
-    // collapsed or not — createEditorView's own `readOnly` gate already
-    // omits `foldToggleDecoration()`/`codeFolding()` entirely, unrelated
-    // to and unaffected by this collapse mechanism.
-    expect(outerCard.querySelector('.cm-fold-toggle')).toBeNull();
+    // No CM6 fold toggle anywhere inside the nested read-only view's own
+    // content, collapsed or not — createEditorView's own `readOnly` gate
+    // already omits `foldToggleDecoration()`/`codeFolding()` entirely,
+    // unrelated to and unaffected by this collapse mechanism. (The outer
+    // embed's own `.cm-fold-toggle` collapse control, and the inner
+    // embed's own, both legitimately exist elsewhere in this tree — see
+    // the "no CM6 fold toggle inside their own nested content" describe
+    // block above for that distinction.)
+    expect(outerCard.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
 
     collapseButtonOf(innerCard).dispatchEvent(new MouseEvent('click', { bubbles: true }));
 

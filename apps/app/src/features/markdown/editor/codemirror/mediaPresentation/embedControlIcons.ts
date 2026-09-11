@@ -16,11 +16,3 @@ export const EXPAND_ICON =
 /** Same glyph `iconRegistry.ts` registers as `moreHorizontal` — for a "More actions" control. */
 export const MORE_ICON =
   '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="3.5" cy="8" r="1.25" fill="currentColor"/><circle cx="8" cy="8" r="1.25" fill="currentColor"/><circle cx="12.5" cy="8" r="1.25" fill="currentColor"/></svg>';
-
-/** Same glyph `iconRegistry.ts` registers as `chevronUp` — shown while expanded, on a control that collapses. */
-export const COLLAPSE_CHEVRON_ICON =
-  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9.5C12 9.5 9.05408 6.5 8 6.5C6.94592 6.5 4 9.5 4 9.5" stroke="currentColor" stroke-linecap="round"/></svg>';
-
-/** Same glyph `iconRegistry.ts` registers as `chevronDown` — shown while collapsed, on a control that expands. */
-export const EXPAND_CHEVRON_ICON =
-  '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 6.5C12 6.5 9.05408 9.5 8 9.5C6.94592 9.5 4 6.5 4 6.5" stroke="currentColor" stroke-linecap="round"/></svg>';

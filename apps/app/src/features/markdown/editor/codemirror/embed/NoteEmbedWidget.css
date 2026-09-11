@@ -126,6 +126,22 @@
   opacity: 1;
 }
 
+/*
+ * The collapse toggle's own hover-reveal — same contract as
+ * `.cm-note-embed__controls` above, but scoped separately since the
+ * toggle (`NoteEmbedWidget.ts`'s own "Positioned like the standalone
+ * fold toggle" doc comment) is `header`'s own first child, not a member
+ * of `.cm-note-embed__controls`. `.cm-fold-toggle`'s own base rule
+ * (`MarkdownEditor.css`) already handles at-rest opacity and the
+ * "stay visible while folded" `[data-folded='true']` case globally, for
+ * every fold toggle in the app; this is only the `.cm-line:hover`
+ * equivalent for a construct that has no `.cm-line` ancestor to key off.
+ */
+.cm-note-embed:hover .cm-fold-toggle,
+.cm-note-embed:focus-within .cm-fold-toggle {
+  opacity: 1;
+}
+
 /* "The entire controls area remains visible" while this note embed's own
  * More actions menu is open — same requirement, same mechanism Image's own
  * size menu already establishes (`ImageWidget.css`'s own

@@ -4,8 +4,9 @@ import type { Extension } from '@codemirror/state';
 
 import './NoteEmbedWidget.css';
 import { createEditorView } from '../createEditorView';
+import { CHEVRON_DOWN_ICON, CHEVRON_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
-import { COLLAPSE_CHEVRON_ICON, EXPAND_CHEVRON_ICON, EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
+import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
 import { EDIT_ICON, renderInvalidEmbedCard } from '../mediaPresentation/invalidEmbedCard';
 import { computeEmbedRemovalRange } from '../mediaPresentation/embedRemovalRange';
 import { PAGE_IDENTITY_ICON_BY_KIND } from '../mediaPresentation/pageIdentityIcons';
@@ -164,10 +165,25 @@ export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
  * and never routed through, the outer editor's own CM6 folding
  * (`codemirror/fold/foldToggleDecoration.ts`): this widget's body is not a
  * range of the *outer* document at all, so there is no `foldService`/
- * `foldEffect`/fold state applicable to it here). The new chevron control
- * in the header toggles whether `content` (the nested `EditorView`'s own
- * container) is visible — the top/bottom dividers and the header itself
- * (icon, title, every control including this one) are never affected.
+ * `foldEffect`/fold state applicable to it here). The chevron toggles
+ * whether `content` (the nested `EditorView`'s own container) is visible
+ * — the top/bottom dividers and the header itself (icon, title, every
+ * button including this one) are never affected.
+ *
+ * **Positioned like the standalone fold toggle (`FoldToggleWidget.ts`),
+ * not in the `controls` row with Expand/Edit source/More actions** — the
+ * very first child of `header`, before the icon, sharing that widget's
+ * exact `.cm-fold-toggle` class and `CHEVRON_RIGHT_ICON`/
+ * `CHEVRON_DOWN_ICON` glyphs (imported from there rather than
+ * re-hand-copied) and its `dataset.folded` hook (so the same generic
+ * "stay visible while folded" CSS rule applies here for free). This is
+ * still a genuinely different *mechanism* from that widget — no
+ * `foldEffect`/`unfoldEffect`, no CM6 fold state, just this button's own
+ * DOM mutation below — only the visual affordance is shared, because a
+ * note embed's collapse reads to the user as the same kind of control as
+ * a heading/list/fenced-code fold, not as a fourth peer of Expand/Edit
+ * source/More actions.
+ *
  * Persisted the same way `revealed` is, via `ImageUiState.collapsed`
  * (`imageUiState.ts`) — but, unlike every other button here, this one
  * mutates the already-rendered DOM directly (`content.hidden`, this
@@ -350,40 +366,59 @@ export class NoteEmbedWidget extends WidgetType {
     container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
 
     // See this class's own "Collapse/expand" doc comment — direct DOM
-    // mutation (`content.hidden`, this button's own icon/label/aria-label)
-    // is the actual, immediate effect; `setImageUiState` only persists the
-    // fact for whenever this widget genuinely rebuilds next.
+    // mutation (`content.hidden`, this button's own icon/label/aria-label/
+    // `dataset.folded`) is the actual, immediate effect; `setImageUiState`
+    // only persists the fact for whenever this widget genuinely rebuilds
+    // next.
     //
-    // Labeled "Collapse/Expand note", not the bare "Collapse"/"Expand" the
-    // task's own mockup used verbatim — `expandButton` above already owns
+    // Built like `FoldToggleWidget.toDOM()`, not `makeButton()` — a plain
+    // `.cm-fold-toggle` button, not `.cm-media-control`, and placed as
+    // `header`'s own first child (below), not appended to `controls`.
+    //
+    // Labeled "Collapse/Expand note", not the bare "Collapse"/"Expand"
+    // `FoldToggleWidget` itself uses — `expandButton` above already owns
     // the unqualified "Expand" label for a *different* action (navigate to
     // the real source note), and both controls are reachable in the same
-    // header at the same time once this one reads "Expand" while
-    // collapsed, so a bare, identical label on two different buttons
+    // header at once, so a bare, identical label on two different buttons
     // would be a genuine accessibility ambiguity, not a cosmetic one.
-    const collapseButton = this.makeButton(
-      this.ui.collapsed ? EXPAND_CHEVRON_ICON : COLLAPSE_CHEVRON_ICON,
-      this.ui.collapsed ? 'Expand note' : 'Collapse note',
-      () => {
-        const collapsing = !content.hidden;
-        content.hidden = collapsing;
-        container.classList.toggle('cm-note-embed--collapsed', collapsing);
-        collapseButton.innerHTML = collapsing ? EXPAND_CHEVRON_ICON : COLLAPSE_CHEVRON_ICON;
-        const label = collapsing ? 'Expand note' : 'Collapse note';
-        collapseButton.setAttribute('aria-label', label);
-        collapseButton.title = label;
-        view.dispatch({
-          effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, collapsed: collapsing } }),
-        });
-      }
-    );
-    // Expand, then Edit source, then More actions, then Collapse/expand
-    // last — matching PdfEmbedWidget.ts's own corrected control order for
-    // the first three; Collapse/expand is the newest control and sits at
-    // the end of the row.
-    controls.append(expandButton, editButton, moreActionsButton, collapseButton);
+    const collapseButton = document.createElement('button');
+    collapseButton.type = 'button';
+    collapseButton.className = 'cm-fold-toggle';
+    collapseButton.dataset.folded = String(this.ui.collapsed);
+    const setCollapseButtonLabel = (collapsed: boolean) => {
+      const label = collapsed ? 'Expand note' : 'Collapse note';
+      collapseButton.setAttribute('aria-label', label);
+      collapseButton.title = label;
+      collapseButton.innerHTML = collapsed ? CHEVRON_RIGHT_ICON : CHEVRON_DOWN_ICON;
+    };
+    setCollapseButtonLabel(this.ui.collapsed);
+    collapseButton.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    collapseButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const collapsing = !content.hidden;
+      content.hidden = collapsing;
+      container.classList.toggle('cm-note-embed--collapsed', collapsing);
+      collapseButton.dataset.folded = String(collapsing);
+      setCollapseButtonLabel(collapsing);
+      view.dispatch({
+        effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, collapsed: collapsing } }),
+      });
+    });
 
-    header.append(iconWrap, titleSpan, controls);
+    // Expand, then Edit source, then More actions — unchanged order,
+    // matching `PdfEmbedWidget.ts`'s own corrected control order.
+    // Collapse/expand is no longer part of this row — see above.
+    controls.append(expandButton, editButton, moreActionsButton);
+
+    // The fold toggle is `header`'s own first child — the same
+    // "belongs at the very start of the construct it owns" position
+    // every other fold toggle in this codebase already uses (before the
+    // `#`/marker/opening fence), here meaning before the identity icon.
+    header.append(collapseButton, iconWrap, titleSpan, controls);
 
     // The excerpt boundaries — a passage-from-another-document feel, not a
     // card: the wavy divider above the header marks the very start of the

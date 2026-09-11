@@ -1802,7 +1802,7 @@
   vertical-align: -2px;
   cursor: pointer;
   opacity: 0;
-  pointer-events: none;
+  pointer-events: pointer;
 }
 .cm-fold-toggle svg {
   width: 12px;
@@ -1811,15 +1811,39 @@
 .cm-line:hover .cm-fold-toggle,
 .cm-fold-toggle:focus-visible {
   opacity: 1;
-  pointer-events: auto;
+}
+/*
+ * A fenced code block's own toggle lives only on its opening line (per
+ * `foldToggleDecoration.ts`'s own placement — one toggle per owning
+ * line, never one per line inside the block), but the block itself is
+ * a single visual unit spanning every line down to the closing fence
+ * (`fencedCodeBlockWrapper.ts`'s `.cm-code-block`, a real DOM ancestor
+ * of every line CM6 renders for it). Hovering *any* of those lines
+ * should reveal that one toggle, not only its own opening line — the
+ * exact same "hover the whole block, reveal its own chrome" contract
+ * `.cm-code-block:hover .cm-code-block-copy` (above) already
+ * establishes for Copy/Format/Actions, extended to this toggle rather
+ * than reinventing a second hover-scoping mechanism. `.cm-line:hover`
+ * above still covers headings/lists/paragraphs, which have no such
+ * multi-line wrapper to hover instead.
+ */
+.cm-code-block:hover .cm-fold-toggle {
+  opacity: 1;
 }
 /* Collapsed lines keep their toggle visible unconditionally — it's the
    only affordance left to reopen them, so it must not depend on hover. */
 .cm-fold-toggle[data-folded='true'] {
   opacity: 1;
-  pointer-events: auto;
 }
 
 .cm-editor.cm-focused .cm-cursor {
   border-left-color: var(--foreground-primary);
+}
+.cm-foldPlaceholder {
+  margin-inline-start: var(--space-6) !important;
+  background: transparent !important;
+  border: 0 solid transparent !important;
+  vertical-align: baseline;
+  font-weight: var(--fw-extrabold);
+  user-select: none;
 }
