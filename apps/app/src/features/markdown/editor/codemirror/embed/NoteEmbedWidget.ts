@@ -4,7 +4,7 @@ import type { Extension } from '@codemirror/state';
 
 import './NoteEmbedWidget.css';
 import { createEditorView } from '../createEditorView';
-import { CHEVRON_DOWN_ICON, CHEVRON_RIGHT_ICON } from '../fold/FoldToggleWidget';
+import { CARET_DOWN_ICON, CARET_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
 import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
 import { EDIT_ICON, renderInvalidEmbedCard } from '../mediaPresentation/invalidEmbedCard';
@@ -173,8 +173,8 @@ export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
  * **Positioned like the standalone fold toggle (`FoldToggleWidget.ts`),
  * not in the `controls` row with Expand/Edit source/More actions** — the
  * very first child of `header`, before the icon, sharing that widget's
- * exact `.cm-fold-toggle` class and `CHEVRON_RIGHT_ICON`/
- * `CHEVRON_DOWN_ICON` glyphs (imported from there rather than
+ * exact `.cm-fold-toggle` class and `CARET_RIGHT_ICON`/
+ * `CARET_DOWN_ICON` glyphs (imported from there rather than
  * re-hand-copied) and its `dataset.folded` hook (so the same generic
  * "stay visible while folded" CSS rule applies here for free). This is
  * still a genuinely different *mechanism* from that widget — no
@@ -389,7 +389,7 @@ export class NoteEmbedWidget extends WidgetType {
       const label = collapsed ? 'Expand note' : 'Collapse note';
       collapseButton.setAttribute('aria-label', label);
       collapseButton.title = label;
-      collapseButton.innerHTML = collapsed ? CHEVRON_RIGHT_ICON : CHEVRON_DOWN_ICON;
+      collapseButton.innerHTML = collapsed ? CARET_RIGHT_ICON : CARET_DOWN_ICON;
     };
     setCollapseButtonLabel(this.ui.collapsed);
     collapseButton.addEventListener('mousedown', (event) => {
