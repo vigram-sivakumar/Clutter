@@ -1,12 +1,16 @@
 import { foldable, foldedRanges, foldState, syntaxTree } from '@codemirror/language';
-import type { EditorState, Extension, Range } from '@codemirror/state';
+import type { EditorState, Extension, Line, Range } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
+import { resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { computeIndentedParagraphFold } from './indentedParagraphFoldService';
 import { FoldToggleWidget } from './FoldToggleWidget';
 
 /**
- * Phase 1 scope allowlist — headings, list items, fenced code only.
+ * Phase 1/3 scope allowlist — headings, list items, fenced code, and
+ * (via `computeIndentedParagraphFold`, checked separately below, never
+ * through this allowlist) genuinely-qualifying paragraphs.
  *
  * **Why this exists (a real bug, not a hypothetical)**: `@codemirror/
  * lang-markdown`'s own generic `foldNodeProp` branch (confirmed against
@@ -27,15 +31,19 @@ import { FoldToggleWidget } from './FoldToggleWidget';
  * have the identical problem the moment a multi-line instance of either
  * exists — excluded here for the same reason, not yet in scope either.
  *
- * Indentation-hierarchy paragraph folding is an explicitly separate,
- * later phase (see the investigation's own §C) with its own, still-
- * undecided algorithm — "this paragraph happens to span multiple
- * physical lines" must never stand in for it.
+ * **`Paragraph` is deliberately never added to this set** (Phase 3):
+ * doing so would re-admit the exact bug above, since `foldable()` would
+ * still fall through to the generic branch for any *non*-qualifying
+ * multi-line paragraph the moment `computeOwnedRange` (below) allowed a
+ * paragraph line through this allowlist at all. Instead, a `kind:
+ * 'paragraph'` line is routed to `computeIndentedParagraphFold` directly,
+ * completely bypassing `foldable()`'s own native fallback — see
+ * `computeOwnedRange`'s own doc comment.
  *
  * Deliberately narrower than "does `foldable()` return non-null" — this
  * walks the syntax tree at the candidate line's own start to confirm the
  * *construct* actually producing that range is one of the three this
- * phase ships, not a blanket trust of whatever `foldable()` says.
+ * covers, not a blanket trust of whatever `foldable()` says.
  */
 const HEADING_NODE_NAMES: ReadonlySet<string> = new Set([
   'ATXHeading1',
@@ -78,6 +86,24 @@ function findFold(state: EditorState, from: number, to: number): { from: number;
 }
 
 /**
+ * The single "is this line an owner, and if so what does folding it
+ * hide" query for the *offer-to-fold* path — never called for a line
+ * that's already folded (see both call sites below, which check
+ * `findFold` first). Paragraphs are routed to `computeIndentedParagraphFold`
+ * directly, never through `foldable()`'s own native `foldNodeProp`
+ * fallback — see `isInScopeFoldOwner`'s own doc comment for why that
+ * distinction is load-bearing, not stylistic. Headings/lists/fenced-code
+ * are unchanged from Phase 1: `isInScopeFoldOwner` gates a call to the
+ * native `foldable()`, which is correct and sufficient for those three.
+ */
+function computeOwnedRange(state: EditorState, line: Line): { from: number; to: number } | null {
+  if (resolveLineIndentContext(state, line).kind === 'paragraph') {
+    return computeIndentedParagraphFold(state, line);
+  }
+  return isInScopeFoldOwner(state, line.from) ? foldable(state, line.from, line.to) : null;
+}
+
+/**
  * Resolves the *current* fold/foldable range for the line starting at
  * `linePos`, at whatever moment this is called — never from a value
  * captured earlier. Shared by both decoration placement (below) and
@@ -90,11 +116,12 @@ function resolveFoldToggleRange(view: EditorView, linePos: number): { from: numb
   if (folded) {
     return folded;
   }
-  // Same allowlist as `buildFoldToggleDecorations` — belt-and-suspenders
-  // against a click racing a decoration rebuild (e.g. an edit lands
-  // between this widget's construction and the user's click): never fold
-  // an out-of-scope construct even if a stale toggle briefly remained.
-  return isInScopeFoldOwner(view.state, line.from) ? foldable(view.state, line.from, line.to) : null;
+  // Same `computeOwnedRange` as `buildFoldToggleDecorations` —
+  // belt-and-suspenders against a click racing a decoration rebuild
+  // (e.g. an edit lands between this widget's construction and the
+  // user's click): never fold an out-of-scope/non-qualifying line even
+  // if a stale toggle briefly remained.
+  return computeOwnedRange(view.state, line);
 }
 
 /**
@@ -103,24 +130,27 @@ function resolveFoldToggleRange(view: EditorView, linePos: number): { from: numb
  * `FoldToggleWidget.ts`'s own doc comment for the full division of labor.
  * Mirrors `foldGutter()`'s own reference algorithm line for line (confirmed
  * against the installed source): for every visible line, an existing fold
- * wins over a fresh `foldable()` query, and a line with neither gets no
- * decoration at all — this is a query-only pass over `foldable()`/
- * `foldedRanges()`, never a second fold-detection mechanism.
+ * wins over a fresh ownership query, and a line with neither gets no
+ * decoration at all — this is a query-only pass, never a second
+ * fold-detection mechanism for headings/lists/fenced-code (Phase 3's
+ * paragraph case is the one genuine exception — see `computeOwnedRange`).
  *
- * The Phase 1 scope allowlist (`isInScopeFoldOwner`, above) is checked
- * only on the *offer-to-fold* path (`foldable()`), never on the
- * *already-folded* path (`findFold()`): a range folded some other way
- * (`foldAll`/`Ctrl-Alt-[`, a restored serialized fold state) must always
- * keep a working toggle to unfold it, regardless of which construct it
- * covers — this allowlist only ever narrows what this UI *offers to
- * create*, never strands an existing fold with no way back.
+ * The scope narrowing (`isInScopeFoldOwner`/`computeIndentedParagraphFold`,
+ * inside `computeOwnedRange`) is checked only on the *offer-to-fold* path,
+ * never on the *already-folded* path (`findFold()`): a range folded some
+ * other way (`foldAll`/`Ctrl-Alt-[`, a restored serialized fold state)
+ * must always keep a working toggle to unfold it, regardless of which
+ * construct it covers — this narrowing only ever limits what this UI
+ * *offers to create*, never strands an existing fold with no way back.
  */
 function buildFoldToggleDecorations(view: EditorView): DecorationSet {
   const ranges: Range<Decoration>[] = [];
 
   for (const { from, to } of view.viewportLineBlocks) {
+    const line = view.state.doc.lineAt(from);
     const folded = findFold(view.state, from, to);
-    if (!folded && (!isInScopeFoldOwner(view.state, from) || !foldable(view.state, from, to))) {
+    const ownedRange = folded ?? computeOwnedRange(view.state, line);
+    if (!ownedRange) {
       continue;
     }
     ranges.push(

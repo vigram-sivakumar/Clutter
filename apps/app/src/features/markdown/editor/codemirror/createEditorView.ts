@@ -26,6 +26,7 @@ import {
 
 import { editorTheme } from './editorTheme';
 import { foldToggleDecoration } from './fold/foldToggleDecoration';
+import { indentedParagraphFoldService } from './fold/indentedParagraphFoldService';
 import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
 // `headingMarkerDecoration()` is wired for real now, via `MarkdownEditor.tsx`'s
 // own extension list, not here. `markdownHighlighting()`/`markdownHighlightStyle`
@@ -264,11 +265,15 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // hover-revealed toggle UI for it, replacing @codemirror/language's
       // native foldGutter() column entirely — see that file's own doc
       // comment for the full division of labor (CM6 owns fold state/
-      // mechanics unmodified; this only places/dispatches). Both consume
-      // exactly the foldNodeProp/foldService data markdownLanguageExtension()
-      // already gets for free from @codemirror/lang-markdown (headings,
-      // fenced code blocks, blockquotes, tables); no Clutter-authored fold
-      // *detection*.
+      // mechanics unmodified; this only places/dispatches). Headings/
+      // lists/fenced-code consume exactly the foldNodeProp/foldService
+      // data markdownLanguageExtension() already gets for free from
+      // @codemirror/lang-markdown; indentedParagraphFoldService() (Phase
+      // 3) is the one genuinely Clutter-authored fold *detection* surface
+      // — indentation-based paragraph hierarchy has no CommonMark/parser
+      // backing at all, so nothing upstream could provide it — see that
+      // file's own doc comment for why it's a physical-line scan, not a
+      // syntax-tree-boundary one.
       //
       // Omitted entirely (not merely hidden) for a read-only view —
       // `readOnly` has exactly one consumer, a note embed's own nested
@@ -282,7 +287,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // the extensions means there is no fold *state* to expand either —
       // genuinely unfoldable, not just visually hiding a control a keyboard
       // shortcut (`foldKeymap`, below) could still reach.
-      ...(readOnly ? [] : [codeFolding(), foldToggleDecoration()]),
+      ...(readOnly ? [] : [codeFolding(), indentedParagraphFoldService(), foldToggleDecoration()]),
       ...extensions,
       // Lowest-priority keymap (added last), so any higher-precedence
       // binding in `extensions` above still wins when it applies. Without

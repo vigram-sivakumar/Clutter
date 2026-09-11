@@ -64,9 +64,11 @@ describe('foldToggleDecoration — Phase 1 scope: headings, foldable list items,
    * in half" control the moment two source lines merged into one
    * `Paragraph` node, which happens for perfectly ordinary continuation
    * text with no blank line between two lines — not just for genuinely
-   * indented content. Indentation-hierarchy paragraph folding is a
-   * separate, later phase with its own algorithm; until it ships, no
-   * paragraph of any shape gets a toggle from this extension.
+   * indented content. Phase 3 (`indentedParagraphFoldService.ts`, tested
+   * separately below) now legitimately makes a paragraph foldable when it
+   * genuinely owns more-indented content — this test only pins down that
+   * *this* case, an ordinary same-indentation continuation, must never be
+   * mistaken for that.
    */
   it('two ordinary consecutive lines merged into one Paragraph node get no toggle (the reported bug)', () => {
     const view = mount('This is a new line\nThis is another line below the paragraph');
@@ -75,11 +77,6 @@ describe('foldToggleDecoration — Phase 1 scope: headings, foldable list items,
 
   it('two independent paragraphs separated by a blank line get no toggle', () => {
     const view = mount('Parent paragraph\n\nAnother paragraph');
-    expect(toggleTextsByOwner(view)).toEqual([]);
-  });
-
-  it('a paragraph with genuinely indented continuation lines still gets no toggle — paragraph folding is out of scope for this phase regardless of indentation', () => {
-    const view = mount('Parent with child\n    Child paragraph\n    More child content');
     expect(toggleTextsByOwner(view)).toEqual([]);
   });
 
@@ -96,5 +93,104 @@ describe('foldToggleDecoration — Phase 1 scope: headings, foldable list items,
     expect(collapsedToggle.dataset.folded).toBe('true');
     collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(view.dom.querySelector('.cm-content')?.textContent).toContain('body line');
+  });
+});
+
+/**
+ * Phase 3: indentation-based paragraph folding
+ * (`indentedParagraphFoldService.ts`). Every case here mirrors the bug
+ * report's own required-behavior list verbatim, plus the blank-line and
+ * indentation-threshold decisions that report explicitly asked to be
+ * investigated rather than guessed at (see that file's own doc comment
+ * for the reasoning behind each).
+ */
+describe('foldToggleDecoration — Phase 3: indentation-based paragraph folding', () => {
+  it('two ordinary paragraphs (no indentation relationship) get no toggle', () => {
+    const view = mount('Parent paragraph\n\nAnother paragraph');
+    expect(toggleTextsByOwner(view)).toEqual([]);
+  });
+
+  it('consecutive non-indented lines (one merged Paragraph node) get no toggle', () => {
+    const view = mount('This is a new line\nThis is another line below the paragraph');
+    expect(toggleTextsByOwner(view)).toEqual([]);
+  });
+
+  it('a parent paragraph with one indented child gets a toggle, on the parent\'s own first line', () => {
+    const view = mount('Parent with child\n    Child paragraph');
+    expect(toggleTextsByOwner(view)).toEqual(['Parent with child']);
+  });
+
+  it('a parent paragraph with multiple indented children (no blank lines between them) still gets exactly one toggle, on the parent', () => {
+    const view = mount('Parent with child\n    Child paragraph\n    More child content');
+    expect(toggleTextsByOwner(view)).toEqual(['Parent with child']);
+  });
+
+  it('a parent, then a blank line, then a normal (non-indented) paragraph gets no toggle', () => {
+    const view = mount('Parent blank normal\n\nNormal paragraph after blank');
+    expect(toggleTextsByOwner(view)).toEqual([]);
+  });
+
+  it('a blank line always ends the run, even toward a more-indented paragraph on the other side of it — no accidental foldability from "content exists below"', () => {
+    const view = mount('Parent blank indented\n\n    Indented after blank');
+    expect(toggleTextsByOwner(view)).toEqual([]);
+  });
+
+  it('the indentation threshold is "strictly greater than the parent\'s own," not a multiple of the 4-space indent unit', () => {
+    const view = mount('Parent\n Child indented by one space only');
+    expect(toggleTextsByOwner(view)).toEqual(['Parent']);
+  });
+
+  it('a sibling line back at the parent\'s own indentation level ends the fold — only the genuinely deeper lines are hidden', () => {
+    const view = mount('Parent\n    Child\nSibling back at column 0');
+    expect(toggleTextsByOwner(view)).toEqual(['Parent']);
+
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const text = view.dom.querySelector('.cm-content')?.textContent ?? '';
+    expect(text).toContain('Parent');
+    expect(text).not.toContain('Child');
+    expect(text).toContain('Sibling back at column 0');
+  });
+
+  it('folding a parent paragraph hides only the indented descendants, leaving the parent line itself visible', () => {
+    const view = mount('Parent with child\n    Child paragraph\n    More child content');
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const text = view.dom.querySelector('.cm-content')?.textContent ?? '';
+    expect(text).toContain('Parent with child');
+    expect(text).not.toContain('Child paragraph');
+    expect(text).not.toContain('More child content');
+    expect(view.state.doc.toString()).toBe('Parent with child\n    Child paragraph\n    More child content');
+  });
+
+  it('unfolding restores the indented content exactly', () => {
+    const view = mount('Parent with child\n    Child paragraph');
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const collapsedToggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(view.dom.querySelector('.cm-content')?.textContent).toContain('Child paragraph');
+  });
+
+  it('does not interfere with headings, lists, or fenced code in the same document', () => {
+    const view = mount(
+      '# Heading\nheading body\n\n- Item\n    - Nested\n\n```ts\ncode\n```\n\nParent with child\n    Child paragraph'
+    );
+    const owners = toggleTextsByOwner(view);
+    expect(owners).toContain('# Heading');
+    expect(owners).toContain('- Item');
+    expect(owners).toContain('```ts');
+    expect(owners).toContain('Parent with child');
+    expect(owners).toHaveLength(4);
+  });
+
+  it('a list item\'s own indented content is never mistaken for a paragraph-fold owner — resolveLineIndentContext already routes it to `kind: \'list\'`', () => {
+    const view = mount('- Item\n    Continuation of the item, still indented');
+    // Only the ListItem's own generic foldable range is offered here (its
+    // marker line owns a fold hiding the continuation) — never a second,
+    // competing paragraph-fold toggle for the same content.
+    expect(toggleTextsByOwner(view)).toEqual(['- Item']);
   });
 });

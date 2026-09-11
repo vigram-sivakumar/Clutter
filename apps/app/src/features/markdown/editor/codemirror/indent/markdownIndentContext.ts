@@ -88,7 +88,16 @@ const HEADING_NODE_NAMES = new Set([
   'SetextHeading2',
 ]);
 
-function firstNonWhitespaceOffset(text: string): number {
+/**
+ * Exported for `codemirror/fold/indentedParagraphFoldService.ts` (Phase 3,
+ * indentation-based paragraph folding) — that module's own fold-boundary
+ * scan needs the exact same "leading whitespace, as a plain character
+ * count" primitive this file already established for Tab/Shift-Tab, per
+ * this file's own stated indentation model (space-driven, never
+ * column-aware). Reused rather than redefined so the two features can
+ * never silently disagree about what "more indented" means.
+ */
+export function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
 }
 
