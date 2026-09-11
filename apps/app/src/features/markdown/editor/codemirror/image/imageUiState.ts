@@ -202,6 +202,28 @@ export interface ImageUiState {
    * pending in the first place).
    */
   readonly pendingFirstLeave: boolean;
+  /**
+   * Note-embed-only (Phase 2, embedded-note collapse): whether
+   * `NoteEmbedWidget`'s own body — its nested read-only `EditorView`,
+   * never the top/bottom boundary dividers or header — is currently
+   * hidden. Meaningless for a plain `Image`/PDF `Embed` occurrence (never
+   * read there), reusing this shared field for the same reason `revealed`/
+   * `broken`/`pendingFirstLeave` already are: one per-position UI-state
+   * mechanism for every occurrence this state field tracks, not a second,
+   * note-embed-specific `RangeSet`.
+   *
+   * Included normally in `ImageUiValue.eq()` below, same as every other
+   * field — that equality check governs this state *field*'s own RangeSet
+   * diffing, not whether `NoteEmbedWidget` rebuilds. **The widget-rebuild
+   * decision is `NoteEmbedWidget.eq()`'s own separate, explicit field
+   * list, which deliberately does *not* compare `collapsed`** — see that
+   * file's own doc comment for why: unlike `revealed` (which switches
+   * between two structurally different decoration shapes and genuinely
+   * needs a rebuild), collapsing only ever hides an already-constructed
+   * DOM subtree, applied directly by the click handler without touching
+   * the nested `EditorView` at all.
+   */
+  readonly collapsed: boolean;
 }
 
 export const DEFAULT_IMAGE_UI_STATE: ImageUiState = {
@@ -209,6 +231,7 @@ export const DEFAULT_IMAGE_UI_STATE: ImageUiState = {
   displayMode: 'fill',
   broken: false,
   pendingFirstLeave: false,
+  collapsed: false,
 };
 
 class ImageUiValue extends RangeValue {
@@ -234,7 +257,8 @@ class ImageUiValue extends RangeValue {
       other.state.revealed === this.state.revealed &&
       other.state.displayMode === this.state.displayMode &&
       other.state.broken === this.state.broken &&
-      other.state.pendingFirstLeave === this.state.pendingFirstLeave
+      other.state.pendingFirstLeave === this.state.pendingFirstLeave &&
+      other.state.collapsed === this.state.collapsed
     );
   }
 }

@@ -599,3 +599,194 @@ describe("a note embed's own extra content indent applies only when it's nested 
     expect(innerContent.closest("[contenteditable='false']")).not.toBeNull();
   });
 });
+
+/**
+ * Phase 2: embedded-note collapse. Deliberately independent of CM6's own
+ * fold state (`codemirror/fold/foldToggleDecoration.ts`) — a note embed's
+ * body is DOM synthesized by `NoteEmbedWidget.toDOM()`, not a range of the
+ * *outer* document, so there is nothing for `foldService`/`foldEffect`/
+ * `findFold()` to act on here at all. See `ImageUiState.collapsed`'s and
+ * `NoteEmbedWidget`'s own "Collapse/expand" doc comments for why this is
+ * widget-level DOM state, not a decoration/`eq()`-driven rebuild.
+ */
+describe('note embed collapse/expand (Phase 2)', () => {
+  beforeEach(() => {
+    class NoopResizeObserver {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    }
+    vi.stubGlobal('ResizeObserver', NoopResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function collapseButtonOf(card: Element): HTMLButtonElement {
+    return card.querySelector('[aria-label="Collapse note"], [aria-label="Expand note"]') as HTMLButtonElement;
+  }
+
+  it('renders expanded by default: content visible, dividers and header present, button reads "Collapse note"', () => {
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body text.', icon: 'note', emoji: null },
+      })
+    );
+
+    const card = view.dom.querySelector('.cm-note-embed')!;
+    const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
+    expect(content.hidden).toBe(false);
+    expect(content.textContent).toContain('Body text.');
+    expect(card.querySelectorAll('.cm-note-embed__divider')).toHaveLength(2);
+    expect(card.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note');
+    expect(collapseButtonOf(card).getAttribute('aria-label')).toBe('Collapse note');
+  });
+
+  it('clicking Collapse hides the body only — top divider, header/title, and bottom divider all stay visible', () => {
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body text.', icon: 'note', emoji: null },
+      })
+    );
+
+    const card = view.dom.querySelector('.cm-note-embed')!;
+    collapseButtonOf(card).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
+    expect(content.hidden).toBe(true);
+    // The dividers, header, icon, and title are separate DOM elements from
+    // `.cm-note-embed__content` — hiding it must not remove or hide them.
+    expect(card.querySelectorAll('.cm-note-embed__divider')).toHaveLength(2);
+    expect((card.querySelector('.cm-note-embed__divider') as HTMLElement | null)?.hidden).toBeFalsy();
+    expect(card.querySelector('.cm-note-embed__header')).not.toBeNull();
+    expect(card.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note');
+    expect(card.querySelector('.cm-note-embed__icon-wrap')).not.toBeNull();
+    expect(collapseButtonOf(card).getAttribute('aria-label')).toBe('Expand note');
+  });
+
+  it('clicking Expand after Collapse restores the content exactly as it was', () => {
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body text.', icon: 'note', emoji: null },
+      })
+    );
+
+    const card = view.dom.querySelector('.cm-note-embed')!;
+    collapseButtonOf(card).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    collapseButtonOf(card).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
+    expect(content.hidden).toBe(false);
+    expect(content.textContent).toContain('Body text.');
+    expect(collapseButtonOf(card).getAttribute('aria-label')).toBe('Collapse note');
+  });
+
+  it('collapsing never changes the document text — this is a display-only toggle', () => {
+    const doc = '![[Other Note]]';
+    const view = mountView(
+      doc,
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body text.', icon: 'note', emoji: null },
+      })
+    );
+
+    const card = view.dom.querySelector('.cm-note-embed')!;
+    collapseButtonOf(card).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(view.state.doc.toString()).toBe(doc);
+  });
+
+  it('collapsing does not tear down and recreate the nested EditorView — the same nested .cm-content DOM node survives the toggle', () => {
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body text.', icon: 'note', emoji: null },
+      })
+    );
+
+    const card = view.dom.querySelector('.cm-note-embed')!;
+    const nestedContentBefore = card.querySelector('.cm-note-embed__content .cm-content');
+    expect(nestedContentBefore).not.toBeNull();
+
+    collapseButtonOf(card).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    // Same DOM node identity, not merely an equivalent-looking new one —
+    // proves the collapse toggle never went through `toDOM()` again.
+    const nestedContentAfter = card.querySelector('.cm-note-embed__content .cm-content');
+    expect(nestedContentAfter).toBe(nestedContentBefore);
+  });
+
+  it('the other header controls (Expand to source, Edit source, More actions) remain present and clickable after collapsing', () => {
+    const onOpenPage = vi.fn();
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Body text.', icon: 'note', emoji: null },
+      }),
+      { onOpenPage }
+    );
+
+    const card = view.dom.querySelector('.cm-note-embed')!;
+    collapseButtonOf(card).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    const expandToSourceButton = card.querySelector('[aria-label="Expand"]') as HTMLButtonElement;
+    expect(expandToSourceButton).not.toBeNull();
+    expandToSourceButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onOpenPage).toHaveBeenCalledWith('page-other');
+
+    expect(card.querySelector('[aria-label="Edit source"]')).not.toBeNull();
+    expect(card.querySelector('[aria-label="More actions"]')).not.toBeNull();
+  });
+
+  it('multiple embeds in the same document maintain independent collapsed states', () => {
+    const view = mountView(
+      '![[First]]\n\n![[Second]]',
+      resolverFor({
+        First: { status: 'resolved', pageId: 'page-first', title: 'First', markdown: 'First body.', icon: 'note', emoji: null },
+        Second: { status: 'resolved', pageId: 'page-second', title: 'Second', markdown: 'Second body.', icon: 'note', emoji: null },
+      })
+    );
+
+    const cards = Array.from(view.dom.querySelectorAll('.cm-note-embed'));
+    expect(cards).toHaveLength(2);
+    const [firstCard, secondCard] = cards;
+
+    collapseButtonOf(firstCard!).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(firstCard!.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
+    expect(secondCard!.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
+    expect(secondCard!.querySelector<HTMLElement>('.cm-note-embed__content')?.textContent).toContain('Second body.');
+  });
+
+  it('a note embedded inside another note embed collapses independently, at any depth, with the read-only nested editor left fully expanded internally (no Phase 1 fold toggles inside it)', () => {
+    const view = mountView(
+      '![[Outer]]',
+      resolverFor({
+        Outer: { status: 'resolved', pageId: 'page-outer', title: 'Outer', markdown: '# Heading\n\nbody\n\n![[Inner]]', icon: 'note', emoji: null },
+        Inner: { status: 'resolved', pageId: 'page-inner', title: 'Inner', markdown: 'Inner body', icon: 'note', emoji: null },
+      })
+    );
+
+    const outerCard = view.dom.querySelector('.cm-note-embed')!;
+    const innerCard = outerCard.querySelector('.cm-note-embed')!;
+
+    // No Phase 1 fold toggle anywhere inside the nested read-only view,
+    // collapsed or not — createEditorView's own `readOnly` gate already
+    // omits `foldToggleDecoration()`/`codeFolding()` entirely, unrelated
+    // to and unaffected by this collapse mechanism.
+    expect(outerCard.querySelector('.cm-fold-toggle')).toBeNull();
+
+    collapseButtonOf(innerCard).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(innerCard.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
+    // The outer embed's own content (which contains this inner card) is a
+    // structurally different element from the inner embed's own content —
+    // collapsing the inner one must not collapse the outer one.
+    const outerOwnContent = outerCard.querySelector(':scope > .cm-note-embed__content') as HTMLElement;
+    expect(outerOwnContent.hidden).toBe(false);
+  });
+});

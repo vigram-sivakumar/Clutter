@@ -5,7 +5,7 @@ import type { Extension } from '@codemirror/state';
 import './NoteEmbedWidget.css';
 import { createEditorView } from '../createEditorView';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
-import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
+import { COLLAPSE_CHEVRON_ICON, EXPAND_CHEVRON_ICON, EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
 import { EDIT_ICON, renderInvalidEmbedCard } from '../mediaPresentation/invalidEmbedCard';
 import { computeEmbedRemovalRange } from '../mediaPresentation/embedRemovalRange';
 import { PAGE_IDENTITY_ICON_BY_KIND } from '../mediaPresentation/pageIdentityIcons';
@@ -160,6 +160,33 @@ export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
  * source-resource menu, since a note embed has no `VaultResource` behind
  * it at all.
  *
+ * **Collapse/expand** (Phase 2, embedded-note collapse — independent of,
+ * and never routed through, the outer editor's own CM6 folding
+ * (`codemirror/fold/foldToggleDecoration.ts`): this widget's body is not a
+ * range of the *outer* document at all, so there is no `foldService`/
+ * `foldEffect`/fold state applicable to it here). The new chevron control
+ * in the header toggles whether `content` (the nested `EditorView`'s own
+ * container) is visible — the top/bottom dividers and the header itself
+ * (icon, title, every control including this one) are never affected.
+ * Persisted the same way `revealed` is, via `ImageUiState.collapsed`
+ * (`imageUiState.ts`) — but, unlike every other button here, this one
+ * mutates the already-rendered DOM directly (`content.hidden`, this
+ * button's own icon/label) instead of relying on a `toDOM()` rebuild:
+ * `eq()` below deliberately excludes `collapsed`, so a collapse/expand
+ * click never destroys and recreates `this.nestedView` — see
+ * `ImageUiState.collapsed`'s own doc comment for the full reasoning. The
+ * dispatched `setImageUiState` effect exists purely so the *next* genuine
+ * rebuild (triggered by some other field actually changing) reads the
+ * correct `this.ui.collapsed` to set `content.hidden`'s initial value
+ * from — not to drive this interaction's own visible feedback, which the
+ * direct DOM mutation already provides immediately.
+ *
+ * Never marked `--mutating`: like Expand, collapsing changes no document
+ * text and has nothing to do with the read-only/editable distinction
+ * requirement 6 (below) governs — a note embedded inside another note
+ * embed's own nested read-only view stays independently collapsible at
+ * every depth, the same way Expand stays reachable there.
+ *
  * **Read-only nested embeds** (requirement 6): when this widget itself
  * renders inside another permanently read-only note embed's own nested
  * view, Edit source and More actions must hide while Expand stays —
@@ -202,6 +229,14 @@ export class NoteEmbedWidget extends WidgetType {
     // factory's own doc comment) or the getter closures (fresh per
     // rebuild too, same freshness pattern every other widget's injected
     // callback already follows).
+    //
+    // Also deliberately not comparing `ui.collapsed` — see this class's
+    // own "Collapse/expand" doc comment and `ImageUiState.collapsed`'s:
+    // collapsing never needs a `toDOM()` rebuild (unlike `revealed`, which
+    // switches between two structurally different decoration shapes), so
+    // including it here would destroy and recreate `this.nestedView` on
+    // every collapse/expand click for no reason — the collapse button's
+    // own click handler updates the already-rendered DOM directly instead.
     if (
       this.path !== other.path ||
       this.pos !== other.pos ||
@@ -308,14 +343,47 @@ export class NoteEmbedWidget extends WidgetType {
     // source note) — see this class's own doc comment, requirement 6.
     editButton.classList.add('cm-note-embed-control--mutating');
     moreActionsButton.classList.add('cm-note-embed-control--mutating');
-    // Expand, then Edit source, then More actions last — matching
-    // PdfEmbedWidget.ts's own corrected control order.
-    controls.append(expandButton, editButton, moreActionsButton);
-
-    header.append(iconWrap, titleSpan, controls);
 
     const content = document.createElement('div');
     content.classList.add('cm-note-embed__content');
+    content.hidden = this.ui.collapsed;
+    container.classList.toggle('cm-note-embed--collapsed', this.ui.collapsed);
+
+    // See this class's own "Collapse/expand" doc comment — direct DOM
+    // mutation (`content.hidden`, this button's own icon/label/aria-label)
+    // is the actual, immediate effect; `setImageUiState` only persists the
+    // fact for whenever this widget genuinely rebuilds next.
+    //
+    // Labeled "Collapse/Expand note", not the bare "Collapse"/"Expand" the
+    // task's own mockup used verbatim — `expandButton` above already owns
+    // the unqualified "Expand" label for a *different* action (navigate to
+    // the real source note), and both controls are reachable in the same
+    // header at the same time once this one reads "Expand" while
+    // collapsed, so a bare, identical label on two different buttons
+    // would be a genuine accessibility ambiguity, not a cosmetic one.
+    const collapseButton = this.makeButton(
+      this.ui.collapsed ? EXPAND_CHEVRON_ICON : COLLAPSE_CHEVRON_ICON,
+      this.ui.collapsed ? 'Expand note' : 'Collapse note',
+      () => {
+        const collapsing = !content.hidden;
+        content.hidden = collapsing;
+        container.classList.toggle('cm-note-embed--collapsed', collapsing);
+        collapseButton.innerHTML = collapsing ? EXPAND_CHEVRON_ICON : COLLAPSE_CHEVRON_ICON;
+        const label = collapsing ? 'Expand note' : 'Collapse note';
+        collapseButton.setAttribute('aria-label', label);
+        collapseButton.title = label;
+        view.dispatch({
+          effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, collapsed: collapsing } }),
+        });
+      }
+    );
+    // Expand, then Edit source, then More actions, then Collapse/expand
+    // last — matching PdfEmbedWidget.ts's own corrected control order for
+    // the first three; Collapse/expand is the newest control and sits at
+    // the end of the row.
+    controls.append(expandButton, editButton, moreActionsButton, collapseButton);
+
+    header.append(iconWrap, titleSpan, controls);
 
     // The excerpt boundaries — a passage-from-another-document feel, not a
     // card: the wavy divider above the header marks the very start of the

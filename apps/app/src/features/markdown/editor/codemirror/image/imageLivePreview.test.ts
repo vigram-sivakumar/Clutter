@@ -1163,7 +1163,7 @@ describe('Image composition / nesting', () => {
     const doc = '![Alt](https://example.com/img.jpg)';
     const view = mountView(doc);
     view.dispatch({
-      effects: setImageUiState.of({ pos: 0, to: doc.length, state: { revealed: true, displayMode: 'fit', broken: false, pendingFirstLeave: false } }),
+      effects: setImageUiState.of({ pos: 0, to: doc.length, state: { revealed: true, displayMode: 'fit', broken: false, pendingFirstLeave: false, collapsed: false } }),
     });
 
     expect(view.dom.textContent).toContain(doc);
@@ -1363,7 +1363,7 @@ describe('MarkdownEditor.css — .cm-content min-width (narrow-viewport horizont
 describe('Image display modes', () => {
   function dispatchMode(view: EditorView, pos: number, mode: 'fill' | 'fit', revealed = false) {
     view.dispatch({
-      effects: setImageUiState.of({ pos, to: view.state.doc.length, state: { revealed, displayMode: mode, broken: false, pendingFirstLeave: false } }),
+      effects: setImageUiState.of({ pos, to: view.state.doc.length, state: { revealed, displayMode: mode, broken: false, pendingFirstLeave: false, collapsed: false } }),
     });
   }
 
