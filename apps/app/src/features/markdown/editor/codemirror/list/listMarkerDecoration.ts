@@ -5,6 +5,7 @@ import {
   type DecorationSet,
   EditorView,
   ViewPlugin,
+  WidgetType,
   type PluginValue,
   type ViewUpdate,
 } from '@codemirror/view';
@@ -333,6 +334,62 @@ const MARKER_MARK_DOT = Decoration.mark({
   attributes: { 'data-marker-glyph': '•' },
 });
 
+/**
+ * A zero-content DOM anchor inserted immediately after an *empty* list
+ * item's own marker+separator (nothing else on that physical line) — the
+ * fix for a real, reported bug: the caret rendered visibly too close to
+ * the marker for a brand-new empty item (e.g. right after typing `* `),
+ * correcting itself only once the first real character was typed.
+ *
+ * Root cause, already independently established twice elsewhere in this
+ * codebase for the identical reason (`leadingIndentDecoration.ts`'s and
+ * `IndentTokenWidget.ts`'s own doc comments): CM6's `coordsAtPos` (caret
+ * placement) resolves a `Decoration.mark`'s own trailing boundary via a
+ * DOM `Range` over the *real* wrapped characters — here, the marker's
+ * own `color: transparent` text — never the mark's CSS `width`
+ * (`--marker-width`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker`
+ * in `MarkdownEditor.css`). For a *non-empty* item, content-start's own
+ * `coordsAtPos` is already correct because it resolves via the
+ * *following* real text node's own layout start instead — an ordinary
+ * inline-block boundary, which genuinely does sit at the marker box's
+ * full `--marker-width`. An empty item has no such following text to
+ * resolve via, so `coordsAtPos` falls back to the marker's own short
+ * *natural* (invisible) glyph width instead of the box's full reserved
+ * width — visibly too close to the marker.
+ *
+ * The fix adds exactly the kind of real, empty DOM boundary a *non-empty*
+ * item already gets for free from its own following text — mirroring
+ * CM6's own internal `cm-widgetBuffer` mechanism (confirmed in this
+ * codebase's own `docs/editor-architecture-decisions.md`, "Caret
+ * visually jumps to Copy/Format/Actions buttons") — rather than
+ * widening the marker's own `Decoration.mark` into a `Decoration.replace`
+ * widget, which would reopen the exact click-position regression this
+ * file's own top doc comment already recorded as the reason the prior
+ * `ListBulletWidget.ts`/`Decoration.replace` architecture was retired.
+ * Genuinely zero-width and zero-content (an empty `<span>`, not even the
+ * indentation widget's own placeholder character) — its only job is to
+ * exist at this exact position so `coordsAtPos` measures an
+ * element-to-element boundary instead of falling back to the marker's
+ * own internal text-node end.
+ */
+class ListMarkerCaretAnchorWidget extends WidgetType {
+  override eq(): boolean {
+    return true;
+  }
+
+  override toDOM(): HTMLElement {
+    const span = document.createElement('span');
+    span.setAttribute('aria-hidden', 'true');
+    return span;
+  }
+
+  override ignoreEvent(): boolean {
+    return false;
+  }
+}
+
+const LIST_MARKER_CARET_ANCHOR = new ListMarkerCaretAnchorWidget();
+
 function bulletMarkerMark(raw: string): Decoration {
   if (raw === '*') {
     return MARKER_MARK_DOT;
@@ -426,12 +483,18 @@ function buildDecorations(view: EditorView): DecorationSet {
   // after its parent's own marker, but iteration order across levels isn't
   // guaranteed strictly ascending by construction.
   return Decoration.set(
-    pending.map(({ from, to, kind }) => {
-      if (kind === 'ordered') {
-        return MARKER_MARK_ORDERED.range(from, to);
+    pending.flatMap(({ from, to, kind }) => {
+      const mark =
+        kind === 'ordered' ? MARKER_MARK_ORDERED.range(from, to) : bulletMarkerMark(view.state.sliceDoc(from, from + 1)).range(from, to);
+
+      // Empty item (nothing else on this physical line after the marker
+      // and its separator) — see `ListMarkerCaretAnchorWidget`'s own doc
+      // comment for why content-start's own caret position needs this
+      // real, empty DOM anchor specifically in this case.
+      if (to !== view.state.doc.lineAt(from).to) {
+        return [mark];
       }
-      const raw = view.state.sliceDoc(from, from + 1);
-      return bulletMarkerMark(raw).range(from, to);
+      return [mark, Decoration.widget({ widget: LIST_MARKER_CARET_ANCHOR, side: 1 }).range(to)];
     }),
     true
   );

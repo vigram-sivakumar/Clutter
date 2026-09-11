@@ -589,3 +589,78 @@ describe('listMarkerDecoration', () => {
     });
   });
 });
+
+/**
+ * Regression coverage for a real, reported bug: a brand-new *empty* list
+ * item's caret rendered visibly too close to the marker (correcting
+ * itself only once the first real character was typed) — see
+ * `ListMarkerCaretAnchorWidget`'s own doc comment in
+ * `listMarkerDecoration.ts` for the full root-cause account (CM6's
+ * `coordsAtPos` resolves a `Decoration.mark`'s own trailing boundary via
+ * the real, wrapped — here invisible — text, never the mark's CSS
+ * `width`; a non-empty item's content-start is already correct only
+ * because it resolves via the *following* real text node instead).
+ *
+ * These tests assert DOM structure (the anchor's presence/absence),
+ * never actual pixel geometry — jsdom applies no real CSS layout, so the
+ * *visual* symptom itself isn't reproducible or provable in a unit test;
+ * that would need live-app verification, per this codebase's own
+ * established convention for CSS-geometry bugs (e.g. the fenced-code
+ * caret-jump fix's own test file).
+ */
+describe('ListMarkerCaretAnchorWidget — a real, empty DOM boundary for an empty item\'s content-start', () => {
+  function anchorAfter(view: EditorView, markerClass = '.cm-bullet-list-marker'): Element | null {
+    const marker = view.dom.querySelector(markerClass);
+    return marker?.nextElementSibling ?? null;
+  }
+
+  it('an empty bullet item ("- ") gets the anchor immediately after its marker', () => {
+    const view = mountView('- ', null);
+
+    const anchor = anchorAfter(view);
+    expect(anchor).not.toBeNull();
+    expect(anchor?.hasAttribute('aria-hidden')).toBe(true);
+    expect(anchor?.textContent).toBe('');
+  });
+
+  it('a non-empty bullet item ("- Text") gets no anchor at all — the existing, already-correct case is untouched', () => {
+    const view = mountView('- Text', null);
+
+    const marker = view.dom.querySelector('.cm-bullet-list-marker')!;
+    // The marker's very next sibling is the real "Text" node, not an
+    // anchor span — confirms this fix adds nothing for the case that
+    // was never broken.
+    expect(marker.nextSibling?.textContent).toBe('Text');
+    expect(view.dom.querySelectorAll('.cm-bullet-list-marker + span[aria-hidden]')).toHaveLength(0);
+  });
+
+  it('an empty ordered item ("1. ") also gets the anchor — kind-agnostic, matching the marker decoration itself', () => {
+    const view = mountView('1. ', null);
+
+    const anchor = anchorAfter(view, '.cm-ordered-list-marker');
+    expect(anchor).not.toBeNull();
+    expect(anchor?.textContent).toBe('');
+  });
+
+  it('a non-empty ordered item ("1. Text") gets no anchor', () => {
+    const view = mountView('1. Text', null);
+
+    const marker = view.dom.querySelector('.cm-ordered-list-marker')!;
+    expect(marker.nextSibling?.textContent).toBe('Text');
+  });
+
+  it('a parent item whose only content is a nested list (nothing on its own line) gets the anchor too — same "nothing else on this physical line" rule, regardless of what follows on a later line', () => {
+    const view = mountView('- \n  - Nested', null);
+
+    const outerMarker = view.dom.querySelectorAll('.cm-bullet-list-marker')[0]!;
+    expect(outerMarker.nextElementSibling?.hasAttribute('aria-hidden')).toBe(true);
+  });
+
+  it('does not change the document or selection — purely a rendering addition', () => {
+    const doc = '- ';
+    const view = mountView(doc, 2);
+
+    expect(view.state.doc.toString()).toBe(doc);
+    expect(view.state.selection.main.head).toBe(2);
+  });
+});
