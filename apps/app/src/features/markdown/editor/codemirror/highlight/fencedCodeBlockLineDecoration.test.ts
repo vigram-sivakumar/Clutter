@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { EditorState } from '@codemirror/state';
+import { codeFolding, forceParsing } from '@codemirror/language';
+import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { foldToggleDecoration } from '../fold/foldToggleDecoration';
 import { fencedCodeBlockLineDecoration } from './fencedCodeBlockLineDecoration';
 import { fencedCodeBlockWrapper } from './fencedCodeBlockWrapper';
 
-function mountView(doc: string): EditorView {
+function mountView(doc: string, extraExtensions: readonly Extension[] = []): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
@@ -16,6 +18,7 @@ function mountView(doc: string): EditorView {
       markdownLanguageExtension(),
       fencedCodeBlockWrapper(),
       fencedCodeBlockLineDecoration(),
+      ...extraExtensions,
     ],
   });
   return new EditorView({ state, parent });
@@ -159,5 +162,40 @@ describe('fencedCodeBlockLineDecoration — active line', () => {
     const view = mountView('```css');
     view.dispatch({ selection: { anchor: view.state.doc.line(1).from } }); // "```css"
     expect(activeLineTexts(view)).toEqual([]);
+  });
+});
+
+/**
+ * Regression coverage for a real, reported bug: once a fenced code block's
+ * body/closing-fence is folded (`codemirror/fold/foldToggleDecoration.ts`),
+ * the opening fence line is the *only* line CM6 still renders for that
+ * block — before `isFencedCodeBodyFolded`'s fix, it only ever carried
+ * `--first`, so the card lost its bottom border/radius the moment it was
+ * collapsed. This composes `fencedCodeBlockLineDecoration()` with the real
+ * `codeFolding()` + `foldToggleDecoration()` extensions (not a hand-rolled
+ * fold effect) so the test exercises the exact same path a real click does.
+ */
+describe('fencedCodeBlockLineDecoration — composed with folding: the visible line keeps both --first and --last while collapsed', () => {
+  function mountFoldable(doc: string): EditorView {
+    const view = mountView(doc, [codeFolding(), foldToggleDecoration()]);
+    forceParsing(view);
+    return view;
+  }
+
+  it('a multi-line block\'s opening line gains --last once its body is folded, and loses it again once unfolded', () => {
+    const view = mountFoldable('```ts\nconst x = 1\nconst y = 2\n```');
+
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    expect(toggle).not.toBeNull();
+    expect(edgeMarks(view)).toEqual(['first', 'middle', 'middle', 'last']);
+
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const collapsedLine = view.dom.querySelector('.cm-code-block-line') as HTMLElement;
+    expect(collapsedLine.classList.contains('cm-code-block-line--first')).toBe(true);
+    expect(collapsedLine.classList.contains('cm-code-block-line--last')).toBe(true);
+
+    const collapsedToggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(edgeMarks(view)).toEqual(['first', 'middle', 'middle', 'last']);
   });
 });

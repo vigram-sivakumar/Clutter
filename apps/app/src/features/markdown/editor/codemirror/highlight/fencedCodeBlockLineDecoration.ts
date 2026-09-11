@@ -1,4 +1,4 @@
-import { syntaxTree } from '@codemirror/language';
+import { foldedRanges, foldState, syntaxTree } from '@codemirror/language';
 import { RangeSetBuilder, type EditorState, type Extension } from '@codemirror/state';
 import {
   Decoration,
@@ -41,7 +41,13 @@ import type { SyntaxNode } from '@lezer/common';
  * containing the node's own `.to` gets `cm-code-block-line--last` (bottom
  * border + bottom corners). A single-line-body block's one line carries
  * both modifiers at once, which composes correctly since the two rules
- * touch disjoint edges.
+ * touch disjoint edges — the same composition `isFencedCodeBodyFolded`
+ * (below) reuses for a *folded* block: once the toggle
+ * (codemirror/fold/foldToggleDecoration.ts) hides everything from the
+ * opening fence line onward, that line is the only one CM6 still renders
+ * at all, so it needs `--last` too, or the card loses its bottom
+ * border/radius the moment it's collapsed — confirmed as a real, reported
+ * visual bug, not a hypothetical.
  *
  * **`cm-code-block-line--active` (2026-09-11, code-content-only 2026-09-12):**
  * the one *code-content* line containing `state.selection.main.head` —
@@ -102,6 +108,31 @@ function nearestFencedCode(state: EditorState, probePos: number): SyntaxNode | n
   return null;
 }
 
+/**
+ * True when `owner`'s own body/closing-fence is currently folded away by
+ * `codemirror/fold/foldToggleDecoration.ts`'s toggle (or any other fold
+ * covering the identical native range — `foldable()`'s own generic
+ * `foldNodeProp` shape for a `FencedCode` node: `{from: <first line>.to,
+ * to: owner.to}`). When true, the opening fence line is the *only* line
+ * of this block CM6 still renders at all (`view.visibleRanges` skips
+ * folded content entirely, so the loop in `buildFencedCodeLineDecorations`
+ * below never visits — and therefore never marks `--last` on — the real
+ * last line), so this line needs both `--first` and `--last` at once, the
+ * same border/radius composition a genuine single-physical-line block
+ * already gets. A read-only query over the public `foldedRanges()`
+ * `RangeSet` — never a second fold-tracking mechanism.
+ */
+function isFencedCodeBodyFolded(state: EditorState, owner: SyntaxNode): boolean {
+  const bodyStart = state.doc.lineAt(owner.from).to;
+  let folded = false;
+  foldedRanges(state).between(bodyStart, bodyStart, (from) => {
+    if (from === bodyStart) {
+      folded = true;
+    }
+  });
+  return folded;
+}
+
 function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const seenLines = new Set<number>();
@@ -133,7 +164,9 @@ function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
           // last real character — always lands back inside the real last
           // line, regardless of whether the doc has a trailing newline.
           const lastRealPos = owner.to > owner.from ? owner.to - 1 : owner.to;
-          const isLast = line.from <= lastRealPos && lastRealPos <= line.to;
+          const isLast =
+            (line.from <= lastRealPos && lastRealPos <= line.to) ||
+            (isFirst && isFencedCodeBodyFolded(view.state, owner));
           // Compared by range, not object identity: separate
           // `resolveInner` calls (even against the same immutable syntax
           // tree) aren't guaranteed to hand back the same `SyntaxNode`
@@ -180,7 +213,19 @@ export function fencedCodeBlockLineDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          update.selectionSet ||
+          // Folding/unfolding a fenced code block (codemirror/fold/
+          // foldToggleDecoration.ts) doesn't necessarily set
+          // `viewportChanged` on its own — this is the same explicit
+          // `foldState` comparison that extension's own `update()` uses,
+          // so `isFencedCodeBodyFolded`'s border/radius composition stays
+          // correct the moment a fold toggles, not just on the next
+          // unrelated doc/viewport/selection change.
+          update.startState.field(foldState, false) !== update.state.field(foldState, false)
+        ) {
           this.decorations = buildFencedCodeLineDecorations(update.view);
         }
       }
