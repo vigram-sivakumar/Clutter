@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
 import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
+import { forceParsing } from '@codemirror/language';
 import { Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
@@ -17,6 +18,7 @@ import {
   getCachedEditorSession,
   setCachedEditorSession,
 } from './editorHistoryCache';
+import { markdownLanguageExtension } from './markdownLanguage';
 
 describe('createEditorView — initial cursor position', () => {
   it('places a collapsed selection at doc.length, not position 0', () => {
@@ -566,34 +568,54 @@ describe('Per-document undo/redo history preservation (editorHistoryCache + rest
 });
 
 /**
- * Fold gutter/folding commands are omitted entirely for a read-only view
+ * Fold toggle/folding commands are omitted entirely for a read-only view
  * (`NoteEmbedWidget.ts`'s own nested `EditorView`, the only `readOnly: true`
  * consumer) — never merely hidden with CSS. A note embed already has its
  * own presentation/boundaries; it should always read as one continuous,
  * fully-expanded passage, not a second, independently-foldable outline
  * nested inside the top-level editor. The top-level (non-read-only)
  * editor's own folding is unaffected.
+ *
+ * `.cm-fold-toggle` (`codemirror/fold/FoldToggleWidget.ts`) replaces the
+ * former `.cm-foldGutter` assertions here — `@codemirror/language`'s own
+ * `foldGutter()` was removed in favor of Clutter's inline toggle (see
+ * `createEditorView.ts`'s own doc comment), but the read-only/writable
+ * behavioral contract these tests exist to lock down is unchanged.
  */
-describe('createEditorView — fold gutter/folding omitted for a read-only view, present for the top-level editor', () => {
-  it('the top-level (writable) editor gets a real fold gutter DOM element', () => {
+describe('createEditorView — fold toggle/folding omitted for a read-only view, present for the top-level editor', () => {
+  it('the top-level (writable) editor gets a real fold toggle for a foldable line', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
-    const view = createEditorView({ doc: '# Heading\n\nBody', parent });
+    // `createEditorView()` itself carries no Markdown language (it's the
+    // plain-text CM6 foundation — see its own doc comment); `foldable()`
+    // needs a real parser to have anything to say, so this test supplies
+    // `markdownLanguageExtension()` explicitly, the same way every real
+    // caller (`buildEditorExtensions.ts`) always does.
+    const view = createEditorView({ doc: '# Heading\n\nBody', parent, extensions: [markdownLanguageExtension()] });
+    // `foldToggleDecoration()` (like `foldable()`/`headerIndent`'s own fold
+    // service it queries) depends on a fully parsed syntax tree — freshly
+    // constructed, CM6's own background parse worker hasn't necessarily run
+    // yet. `forceParsing` (the same `@codemirror/language` helper CM6 tests
+    // itself use for exactly this) completes the parse synchronously and
+    // dispatches the empty transaction that lets this view's own plugins
+    // (including the toggle decoration) rebuild against it — matching what
+    // happens naturally, just later, in the real running app.
+    forceParsing(view);
 
-    expect(view.dom.querySelector('.cm-foldGutter')).not.toBeNull();
+    expect(view.dom.querySelector('.cm-fold-toggle')).not.toBeNull();
   });
 
-  it('a read-only view (matching NoteEmbedWidget.ts\'s own nested EditorView construction) has no fold gutter DOM element at all', () => {
+  it('a read-only view (matching NoteEmbedWidget.ts\'s own nested EditorView construction) has no fold toggle DOM element at all', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
     const view = createEditorView({ doc: '# Heading\n\nBody', parent, readOnly: true });
 
-    expect(view.dom.querySelector('.cm-foldGutter')).toBeNull();
+    expect(view.dom.querySelector('.cm-fold-toggle')).toBeNull();
   });
 
-  it('a read-only view has no fold *state* either — Ctrl-Shift-[ (foldKeymap\'s own binding) is a genuine no-op, not just an invisible gutter', () => {
+  it('a read-only view has no fold *state* either — Ctrl-Shift-[ (foldKeymap\'s own binding) is a genuine no-op, not just an invisible toggle', () => {
     const parent = document.createElement('div');
     document.body.appendChild(parent);
 
@@ -612,15 +634,21 @@ describe('createEditorView — fold gutter/folding omitted for a read-only view,
     expect(view.dom.querySelector('.cm-content')!.textContent).toBe(before);
   });
 
-  it('the top-level (writable) editor keeps its own fold gutter/folding regardless of what a nested read-only view does — the two never share state', () => {
+  it('the top-level (writable) editor keeps its own fold toggle/folding regardless of what a nested read-only view does — the two never share state', () => {
     const topParent = document.createElement('div');
     document.body.appendChild(topParent);
-    const topView = createEditorView({ doc: '# Heading\n\nBody', parent: topParent });
+    const topView = createEditorView({
+      doc: '# Heading\n\nBody',
+      parent: topParent,
+      extensions: [markdownLanguageExtension()],
+    });
 
     const nestedParent = document.createElement('div');
     document.body.appendChild(nestedParent);
     createEditorView({ doc: '# Heading\n\nBody', parent: nestedParent, readOnly: true });
 
-    expect(topView.dom.querySelector('.cm-foldGutter')).not.toBeNull();
+    forceParsing(topView);
+
+    expect(topView.dom.querySelector('.cm-fold-toggle')).not.toBeNull();
   });
 });

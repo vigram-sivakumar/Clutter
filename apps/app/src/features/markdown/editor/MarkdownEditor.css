@@ -1766,33 +1766,58 @@
 }
 
 /*
- * `width: 10px` (not `min-width`) is load-bearing, not cosmetic. Left
- * unset, `.cm-gutters` auto-sizes to its fold-gutter glyph's natural
- * content width, which renders at a sub-pixel value (measured: 9.828125px
- * for the default "⌄"/"›" glyphs) — but `@codemirror/language`'s own
- * `foldGutter()` reports that same box's width to `@codemirror/view`'s
- * `scrollMargins` facet via `dom.offsetWidth`, which the CSSOM always
- * rounds to the nearest integer (10px). That 0.171875px gap between the
- * rounded scroll-margin CM6 believes in and the real, fractional left
- * edge of `.cm-content` is wider than `@codemirror/autocomplete`'s own
- * tooltip clip-check tolerance (0.1px) — so any completion popup anchored
- * at column 0 of a line (typing `[[`, `![[`, `@`, or `#` as the very
- * first character of an empty document) reads as fractionally outside
- * the "visible" region and gets permanently clipped to CM6's off-screen
- * sentinel position, never appearing. Confirmed by direct live
- * measurement of the real `writeMeasure` inputs, not inferred.
- * `width: 10px` forces this box to resolve to a whole pixel — matching
- * `offsetWidth` exactly — eliminating the rounding gap at its source, for
- * every construct that can trigger at column 0, not just one. 10px is
- * comfortably wider than the marker's own natural content (9.828125px),
- * so the glyph is never clipped. Fold gutter functionality (click to
- * fold/unfold headings, code fences, blockquotes, tables) is unaffected —
- * this only fixes the box's own width, not its content or click handling.
+ * The inline fold toggle (`codemirror/fold/FoldToggleWidget.ts`) —
+ * replaces `@codemirror/language`'s own `foldGutter()` column entirely
+ * (see `createEditorView.ts`'s own doc comment on that removal). The old
+ * `.ͼ2 .cm-gutters` sub-pixel-rounding fix that used to live here is gone
+ * along with `foldGutter()` itself: with no `gutter()`/`gutters()` mounted
+ * anywhere in this editor any more (fenced-code line numbers were always
+ * plain CSS counters, never a real gutter — see
+ * docs/editor-architecture-decisions.md's Locked entry on that), there is
+ * no `.cm-gutters` element left for that fix to apply to.
+ *
+ * A real `<button>`, always present in the DOM for every foldable line —
+ * `opacity`/`pointer-events` (never `display`) drive visibility, so the
+ * toggle never affects layout/line-height by appearing or disappearing,
+ * matching the same hover-reveal technique this file's own fenced-code
+ * Copy/Format/Actions buttons already establish (`.cm-code-block:hover
+ * .cm-code-block-copy`, above). Placed by CM6 as an ordinary child of the
+ * real `.cm-line` it belongs to — this rule targets the button's own class
+ * only, never `.cm-line` itself, per this file's permanent CSS rule.
  */
-.ͼ2 .cm-gutters {
-  background: transparent;
+.cm-fold-toggle {
+  display: inline-flex;
+  position: absolute;
+  left: -24px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--marker-width);
+  height: var(--marker-height);
+  margin-inline-end: 2px;
+  padding: 0;
   border: none;
-  width: 10px;
+  background: transparent;
+  color: var(--foreground-tertiary);
+  vertical-align: -2px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+.cm-fold-toggle svg {
+  width: 12px;
+  height: 12px;
+}
+.cm-line:hover .cm-fold-toggle,
+.cm-fold-toggle:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Collapsed lines keep their toggle visible unconditionally — it's the
+   only affordance left to reopen them, so it must not depend on hover. */
+.cm-fold-toggle[data-folded='true'] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .cm-editor.cm-focused .cm-cursor {

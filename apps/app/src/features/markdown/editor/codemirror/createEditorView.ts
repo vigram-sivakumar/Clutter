@@ -7,7 +7,7 @@ import {
   indentWithTab,
   undoDepth,
 } from '@codemirror/commands';
-import { codeFolding, foldGutter, foldKeymap, indentUnit } from '@codemirror/language';
+import { codeFolding, foldKeymap, indentUnit } from '@codemirror/language';
 import {
   Annotation,
   EditorState,
@@ -25,6 +25,7 @@ import {
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
+import { foldToggleDecoration } from './fold/foldToggleDecoration';
 import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
 // `headingMarkerDecoration()` is wired for real now, via `MarkdownEditor.tsx`'s
 // own extension list, not here. `markdownHighlighting()`/`markdownHighlightStyle`
@@ -258,27 +259,30 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // own `[[`-trigger detection is unaffected since it reads the text
       // immediately before the cursor, which still reads `[[` either way.
       closeBrackets(),
-      // codeFolding() is the fold state/commands; foldGutter() is CM6's
-      // own standard gutter UI for it — the first gutter this editor has.
-      // Both consume exactly the foldNodeProp data markdownLanguageExtension()
+      // codeFolding() is the fold state/commands; foldToggleDecoration()
+      // (codemirror/fold/foldToggleDecoration.ts) is Clutter's own inline,
+      // hover-revealed toggle UI for it, replacing @codemirror/language's
+      // native foldGutter() column entirely — see that file's own doc
+      // comment for the full division of labor (CM6 owns fold state/
+      // mechanics unmodified; this only places/dispatches). Both consume
+      // exactly the foldNodeProp/foldService data markdownLanguageExtension()
       // already gets for free from @codemirror/lang-markdown (headings,
       // fenced code blocks, blockquotes, tables); no Clutter-authored fold
-      // detection or gutter rendering.
+      // *detection*.
       //
       // Omitted entirely (not merely hidden) for a read-only view —
       // `readOnly` has exactly one consumer, a note embed's own nested
       // `EditorView` (this option's own doc comment) — never the top-level
       // editor. A note embed already has its own presentation/boundaries
       // (header, wavy start/end dividers, `NoteEmbedWidget.ts`); a fold
-      // gutter and collapsible headings inside it would add UI noise and
+      // toggle and collapsible headings inside it would add UI noise and
       // indentation for a passage that should always read as one
       // continuous, fully-expanded piece of content, not a second,
       // independently-foldable outline nested inside the first. Omitting
-      // the extensions (rather than hiding `.cm-foldGutter` with CSS)
-      // means there is no fold *state* to expand either — genuinely
-      // unfoldable, not just visually hiding a gutter a keyboard shortcut
-      // (`foldKeymap`, below) could still reach.
-      ...(readOnly ? [] : [codeFolding(), foldGutter()]),
+      // the extensions means there is no fold *state* to expand either —
+      // genuinely unfoldable, not just visually hiding a control a keyboard
+      // shortcut (`foldKeymap`, below) could still reach.
+      ...(readOnly ? [] : [codeFolding(), foldToggleDecoration()]),
       ...extensions,
       // Lowest-priority keymap (added last), so any higher-precedence
       // binding in `extensions` above still wins when it applies. Without
@@ -296,7 +300,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // Backspace press exactly as before. foldKeymap adds
       // Ctrl-Shift-[/Ctrl-Shift-] (fold/unfold), which nothing else binds
       // — omitted for the same `readOnly` reason `codeFolding()`/
-      // `foldGutter()` are above: no fold commands left to bind a
+      // `foldToggleDecoration()` are above: no fold commands left to bind a
       // shortcut to inside a note embed's own nested view.
       keymap.of([
         indentWithTab,

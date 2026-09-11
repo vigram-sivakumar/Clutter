@@ -512,8 +512,8 @@ describe('note embed rendering trims leading/trailing blank lines, never interna
   });
 });
 
-describe('note embeds have no fold gutter/folding — the embed always reads as one continuous, fully-expanded passage', () => {
-  it('a note embed\'s own nested view has no fold gutter, through the real embedLivePreview → NoteEmbedWidget → createEditorView pipeline (not just a direct createEditorView call)', () => {
+describe('note embeds have no fold toggle/folding — the embed always reads as one continuous, fully-expanded passage', () => {
+  it('a note embed\'s own nested view has no fold toggle, through the real embedLivePreview → NoteEmbedWidget → createEditorView pipeline (not just a direct createEditorView call)', () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -522,14 +522,14 @@ describe('note embeds have no fold gutter/folding — the embed always reads as 
     );
 
     const card = view.dom.querySelector('.cm-note-embed')!;
-    expect(card.querySelector('.cm-foldGutter')).toBeNull();
+    expect(card.querySelector('.cm-fold-toggle')).toBeNull();
     // The nested view's own content is real, not the top-level editor's —
-    // confirms this checked the embed's own gutter-less view, not merely
-    // the absence of a gutter somewhere unrelated.
+    // confirms this checked the embed's own toggle-less view, not merely
+    // the absence of a toggle somewhere unrelated.
     expect(card.querySelector('.cm-content')?.textContent).toContain('Heading');
   });
 
-  it('a note embedded inside another note embed also has no fold gutter — the same behavior at every nesting depth, with no depth-specific logic', () => {
+  it('a note embedded inside another note embed also has no fold toggle — the same behavior at every nesting depth, with no depth-specific logic', () => {
     const view = mountView(
       '![[Outer]]',
       resolverFor({
@@ -539,11 +539,11 @@ describe('note embeds have no fold gutter/folding — the embed always reads as 
     );
 
     const outerCard = view.dom.querySelector('.cm-note-embed')!;
-    expect(outerCard.querySelector(':scope > .cm-note-embed__content .cm-foldGutter')).toBeNull();
+    expect(outerCard.querySelector(':scope > .cm-note-embed__content .cm-fold-toggle')).toBeNull();
 
     const innerCard = outerCard.querySelector('.cm-note-embed')!;
     expect(innerCard).not.toBeNull();
-    expect(innerCard.querySelector('.cm-foldGutter')).toBeNull();
+    expect(innerCard.querySelector('.cm-fold-toggle')).toBeNull();
     expect(innerCard.querySelector('.cm-content')?.textContent).toContain('Inner heading');
   });
 });
