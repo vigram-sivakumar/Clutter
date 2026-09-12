@@ -998,7 +998,7 @@
 .cm-editor .cm-bullet-list-marker {
   display: inline-block;
   width: var(--marker-width);
-  text-align: center;
+  /* text-align: center; */
   text-indent: 0;
 }
 
@@ -1048,7 +1048,7 @@
 .cm-editor .cm-ordered-list-marker {
   display: inline-block;
   min-width: var(--marker-width);
-  text-align: right;
+  /* text-align: right; */
   text-indent: 0;
 }
 
@@ -1231,18 +1231,18 @@
 
 .cm-editor .cm-bullet-list-marker--dot::before {
   font-size: 1.5em;
-  left: 3px;
+  /* left: 3px; */
   bottom: 3px;
   line-height: 0;
 }
 
 .cm-editor .cm-bullet-list-marker--plus::before {
-  left: 3px;
+  /* left: 3px; */
   bottom: 1.5px;
 }
 
 .cm-editor .cm-bullet-list-marker--dash::before {
-  left: 3.5px;
+  /* left: 3.5px; */
   bottom: 2px;
 }
 
@@ -1788,25 +1788,56 @@
 .cm-fold-toggle {
   display: inline-flex;
   position: absolute;
-  left: -24px;
+  left: calc(-1 * var(--marker-width));
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
   width: var(--marker-width);
-  height: var(--marker-height);
-  margin-inline-end: 2px;
-  padding: 0;
+  height: 1lh;
   border: none;
   background: transparent;
-  color: var(--foreground-tertiary);
+  color: var(--foreground-placeholder);
   vertical-align: -2px;
   cursor: pointer;
   opacity: 0;
   pointer-events: pointer;
 }
 .cm-fold-toggle svg {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+/*
+ * Heading-specific fold toggle typography (`FoldToggleWidget.ts`'s
+ * `headingFoldClass`, `foldToggleDecoration.ts`'s
+ * `HEADING_FOLD_CLASS_BY_NODE_NAME`) — `line-height` only, reusing the
+ * exact same `--lh-heading-1`..`-6` variables `.tok-heading1`-
+ * `.tok-heading6` already reference above (no duplicate values, no new
+ * tokens). `.cm-fold-toggle` is `position: absolute`, so it never
+ * inherits a heading's line-height from its real DOM ancestors the way
+ * ordinary inline content does; without this, its own `height: 1lh`
+ * (above) always resolved against the body line-height regardless of
+ * which heading level it was anchored to. Scoped to headings only, per
+ * this change's own narrow scope — every other fold owner (list item,
+ * fenced code, indented paragraph) has no `cm-fold-heading-*` class and
+ * is unaffected.
+ */
+.cm-fold-toggle.cm-fold-heading-1 {
+  line-height: var(--lh-heading-1);
+}
+.cm-fold-toggle.cm-fold-heading-2 {
+  line-height: var(--lh-heading-2);
+}
+.cm-fold-toggle.cm-fold-heading-3 {
+  line-height: var(--lh-heading-3);
+}
+.cm-fold-toggle.cm-fold-heading-4 {
+  line-height: var(--lh-heading-4);
+}
+.cm-fold-toggle.cm-fold-heading-5 {
+  line-height: var(--lh-heading-5);
+}
+.cm-fold-toggle.cm-fold-heading-6 {
+  line-height: var(--lh-heading-6);
 }
 .cm-line:hover .cm-fold-toggle,
 .cm-fold-toggle:focus-visible {
@@ -1834,16 +1865,21 @@
    only affordance left to reopen them, so it must not depend on hover. */
 .cm-fold-toggle[data-folded='true'] {
   opacity: 1;
+  color: var(--foreground-primary);
 }
 
 .cm-editor.cm-focused .cm-cursor {
   border-left-color: var(--foreground-primary);
 }
-.cm-foldPlaceholder {
-  margin-inline-start: var(--space-6) !important;
-  background: transparent !important;
-  border: 0 solid transparent !important;
-  vertical-align: baseline;
+
+.markdown__editor .cm-editor .cm-foldPlaceholder {
+  font-family: var(--font-sans);
+  margin-inline: var(--space-6);
+  background: transparent;
+  border: 0 solid transparent;
+  font-size: var(--text-body);
   font-weight: var(--fw-extrabold);
+  color: var(--foreground-placeholder);
   user-select: none;
+  cursor: pointer;
 }

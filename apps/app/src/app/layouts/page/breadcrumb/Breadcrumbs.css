@@ -10,6 +10,7 @@
   width: 12px;
   height: 100%;
   color: var(--foreground-tertiary);
+  opacity: var(--opacity-strong);
 }
 .breadcrumb__slash svg {
   flex-shrink: 0;

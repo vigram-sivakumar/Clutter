@@ -56,13 +56,81 @@ const HEADING_NODE_NAMES: ReadonlySet<string> = new Set([
   'SetextHeading2',
 ]);
 
-function isInScopeFoldOwner(state: EditorState, linePos: number): boolean {
+/**
+ * Fold-specific semantic class, appended only to a heading's own fold
+ * toggle (`FoldToggleWidget`'s `headingFoldClass`) — never to `.cm-line`
+ * and never a change to the existing `tok-heading1`-`tok-heading6` token
+ * classes (`inlineLivePreviewRegion.ts`'s `HEADING_CLASS_BY_NODE_NAME`,
+ * left untouched). `.cm-fold-toggle` is `position: absolute` (see
+ * `MarkdownEditor.css`), so it never inherits a heading's font size from
+ * its real DOM ancestors the way ordinary inline content does — this
+ * class is what lets `.cm-fold-toggle`'s own `height: 1lh` resolve
+ * against the correct heading typography (`--lh-heading-1`..`-6`) instead
+ * of always falling back to the body line-height. Deliberately scoped to
+ * headings only for now: list items, fenced code, and every other fold
+ * owner keep exactly the bare `.cm-fold-toggle` class until a similar
+ * need is confirmed for them separately.
+ */
+const HEADING_FOLD_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
+  ['ATXHeading1', 'cm-fold-heading-1'],
+  ['ATXHeading2', 'cm-fold-heading-2'],
+  ['ATXHeading3', 'cm-fold-heading-3'],
+  ['ATXHeading4', 'cm-fold-heading-4'],
+  ['ATXHeading5', 'cm-fold-heading-5'],
+  ['ATXHeading6', 'cm-fold-heading-6'],
+  ['SetextHeading1', 'cm-fold-heading-1'],
+  ['SetextHeading2', 'cm-fold-heading-2'],
+]);
+
+/**
+ * Pure extraction of `isInScopeFoldOwner`'s own tree walk — same start
+ * expression, same continuation condition, same matched node-name set
+ * (heading names ∪ `ListItem` ∪ `FencedCode`), same "earliest matching
+ * ancestor wins" stopping rule. The only change from the walk this
+ * replaces is *what* a match returns: the matched node's own `name`
+ * instead of an immediate `true`. This is what lets
+ * `resolveHeadingFoldClass` (below) reuse the exact same ownership
+ * result `isInScopeFoldOwner` already computed, rather than running a
+ * second, potentially-diverging tree walk of its own.
+ */
+function resolveFoldOwnerNodeName(state: EditorState, linePos: number): string | null {
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(linePos, 1); node; node = node.parent) {
     if (HEADING_NODE_NAMES.has(node.name) || node.name === 'ListItem' || node.name === 'FencedCode') {
-      return true;
+      return node.name;
     }
   }
-  return false;
+  return null;
+}
+
+/**
+ * Provably equivalent to the original inline implementation: a non-null
+ * `resolveFoldOwnerNodeName` result only ever occurs where the original
+ * walk returned `true` (the exact same matched-branch condition), and
+ * falling through to `null` only ever occurs where the original walk
+ * ran off the end of the loop and returned `false`. No eligibility
+ * behavior changes for any existing call site (`computeOwnedRange`).
+ */
+function isInScopeFoldOwner(state: EditorState, linePos: number): boolean {
+  return resolveFoldOwnerNodeName(state, linePos) !== null;
+}
+
+/**
+ * `null` for every non-heading fold owner (list item, fenced code —
+ * neither has an entry in `HEADING_FOLD_CLASS_BY_NODE_NAME`) and for any
+ * line `resolveFoldOwnerNodeName` doesn't recognize as an owner at all
+ * (e.g. a Phase 3 indented-paragraph fold owner, which never matches this
+ * walk's node-name set in the first place). This is the single gate that
+ * keeps the new `cm-fold-heading-*` class scoped to heading fold toggles
+ * only, per this change's own narrow scope. Checked the same way for both
+ * the already-folded path (`findFold`) and the offer-to-fold path
+ * (`computeOwnedRange`) at their one shared call site below — a folded
+ * heading's own toggle keeps its heading typography class for exactly as
+ * long as the line it's anchored to remains a heading, regardless of
+ * which path produced the fold range.
+ */
+function resolveHeadingFoldClass(state: EditorState, linePos: number): string | null {
+  const ownerNodeName = resolveFoldOwnerNodeName(state, linePos);
+  return ownerNodeName ? HEADING_FOLD_CLASS_BY_NODE_NAME.get(ownerNodeName) ?? null : null;
 }
 
 /**
@@ -153,9 +221,10 @@ function buildFoldToggleDecorations(view: EditorView): DecorationSet {
     if (!ownedRange) {
       continue;
     }
+    const headingFoldClass = resolveHeadingFoldClass(view.state, line.from);
     ranges.push(
       Decoration.widget({
-        widget: new FoldToggleWidget(from, !!folded, resolveFoldToggleRange),
+        widget: new FoldToggleWidget(from, !!folded, resolveFoldToggleRange, headingFoldClass),
         side: -1,
       }).range(from)
     );

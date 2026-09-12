@@ -61,19 +61,24 @@ export class FoldToggleWidget extends WidgetType {
   constructor(
     private readonly linePos: number,
     private readonly folded: boolean,
-    private readonly resolve: (view: EditorView, linePos: number) => { from: number; to: number } | null
+    private readonly resolve: (view: EditorView, linePos: number) => { from: number; to: number } | null,
+    // `null` for every non-heading fold owner — see
+    // `foldToggleDecoration.ts`'s `resolveHeadingFoldClass` doc comment
+    // for the full gate. Appended alongside (never in place of)
+    // `.cm-fold-toggle` in `toDOM`, and never applied to `.cm-line`.
+    private readonly headingFoldClass: string | null = null
   ) {
     super();
   }
 
   override eq(other: FoldToggleWidget): boolean {
-    return this.folded === other.folded;
+    return this.folded === other.folded && this.headingFoldClass === other.headingFoldClass;
   }
 
   override toDOM(view: EditorView): HTMLElement {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'cm-fold-toggle';
+    button.className = this.headingFoldClass ? `cm-fold-toggle ${this.headingFoldClass}` : 'cm-fold-toggle';
     button.dataset.folded = String(this.folded);
     button.setAttribute('aria-label', this.folded ? 'Expand' : 'Collapse');
     button.title = this.folded ? 'Expand' : 'Collapse';

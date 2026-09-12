@@ -52,7 +52,7 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           onClick={overflow.toggle}
         />
         <span className="breadcrumb__slash">
-          <AppIcon icon="caretRight" />
+          <AppIcon icon="slash" />
         </span>
 
         <BreadcrumbItem

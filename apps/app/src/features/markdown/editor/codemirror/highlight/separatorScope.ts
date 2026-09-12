@@ -1,6 +1,8 @@
 import { syntaxTree } from '@codemirror/language';
-import type { EditorState } from '@codemirror/state';
+import type { EditorState, Line } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
+
+import { firstNonWhitespaceOffset, resolveLineIndentContext } from '../indent/markdownIndentContext';
 
 /**
  * Node names that group their own content tightly (6px) rather than at
@@ -23,10 +25,6 @@ const GROUPING_NODE_NAMES = new Set(['BulletList', 'OrderedList', 'Blockquote'])
 const ATOMIC_NODE_NAMES = new Set(['Table', 'FencedCode']);
 
 export type SeparatorHeight = 12 | 6 | 0;
-
-function firstNonWhitespaceOffset(text: string): number {
-  return text.length - text.trimStart().length;
-}
 
 /** The document position used to resolve a physical line's own owning syntax nodes — its first non-whitespace character, so leading indentation never resolves into the wrong nesting level. */
 export function lineProbePos(state: EditorState, lineNumber: number): number {

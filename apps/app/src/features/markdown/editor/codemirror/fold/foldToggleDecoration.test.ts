@@ -20,6 +20,17 @@ function toggleTextsByOwner(view: EditorView): string[] {
   );
 }
 
+/** Owning line text -> that toggle's own `cm-fold-heading-*` class, or `null` if it has none. */
+function headingFoldClassesByOwner(view: EditorView): Record<string, string | null> {
+  const result: Record<string, string | null> = {};
+  for (const el of Array.from(view.dom.querySelectorAll('.cm-fold-toggle'))) {
+    const owner = el.closest('.cm-line')?.textContent ?? '';
+    const headingClass = Array.from(el.classList).find((cls) => cls.startsWith('cm-fold-heading-')) ?? null;
+    result[owner] = headingClass;
+  }
+  return result;
+}
+
 describe('foldToggleDecoration — Phase 1 scope: headings, foldable list items, fenced code only', () => {
   it('every ATX heading level (1-6) with content beneath it gets a toggle', () => {
     const view = mount('# H1\nbody\n\n## H2\nbody\n\n###### H6\nbody');
@@ -78,6 +89,48 @@ describe('foldToggleDecoration — Phase 1 scope: headings, foldable list items,
   it('two independent paragraphs separated by a blank line get no toggle', () => {
     const view = mount('Parent paragraph\n\nAnother paragraph');
     expect(toggleTextsByOwner(view)).toEqual([]);
+  });
+
+  it('every ATX heading level (1-6) toggle gets its own cm-fold-heading-{n} class', () => {
+    const view = mount('# H1\nbody\n\n## H2\nbody\n\n### H3\nbody\n\n#### H4\nbody\n\n##### H5\nbody\n\n###### H6\nbody');
+    const classes = headingFoldClassesByOwner(view);
+    expect(classes['# H1']).toBe('cm-fold-heading-1');
+    expect(classes['## H2']).toBe('cm-fold-heading-2');
+    expect(classes['### H3']).toBe('cm-fold-heading-3');
+    expect(classes['#### H4']).toBe('cm-fold-heading-4');
+    expect(classes['##### H5']).toBe('cm-fold-heading-5');
+    expect(classes['###### H6']).toBe('cm-fold-heading-6');
+  });
+
+  it('Setext heading toggles (level 1 and 2) also get the matching cm-fold-heading-{n} class', () => {
+    const view = mount('H1 Title\n========\nbody\n\nH2 Title\n--------\nbody');
+    const classes = headingFoldClassesByOwner(view);
+    expect(classes['H1 Title']).toBe('cm-fold-heading-1');
+    expect(classes['H2 Title']).toBe('cm-fold-heading-2');
+  });
+
+  it('non-heading fold owners (list items, fenced code) get no cm-fold-heading-* class', () => {
+    const view = mount('- Parent\n    - Nested\n- Leaf\n\n```ts\nconst x = 1\n```');
+    const classes = headingFoldClassesByOwner(view);
+    expect(classes['- Parent']).toBeNull();
+    expect(classes['```ts']).toBeNull();
+  });
+
+  it('an indented-paragraph fold owner (Phase 3) gets no cm-fold-heading-* class', () => {
+    const view = mount('Parent with child\n    Child paragraph');
+    const classes = headingFoldClassesByOwner(view);
+    expect(classes['Parent with child']).toBeNull();
+  });
+
+  it('a folded heading keeps its cm-fold-heading-{n} class (already-folded path, not just offer-to-fold)', () => {
+    const view = mount('## H2\nbody line');
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    expect(toggle.classList.contains('cm-fold-heading-2')).toBe(true);
+
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const collapsedToggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    expect(collapsedToggle.dataset.folded).toBe('true');
+    expect(collapsedToggle.classList.contains('cm-fold-heading-2')).toBe(true);
   });
 
   it('clicking a heading\'s toggle folds it, and clicking again unfolds it', () => {

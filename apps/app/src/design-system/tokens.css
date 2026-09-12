@@ -82,7 +82,7 @@
 
   /* icon size */
   --icon-md: var(--space-16);
-  --icon-sm: var(--space-6);
+  --icon-sm: var(--space-12);
   --icon-stroke: 1.2px;
   --icon-wrapper-sm: var(--space-20);
   --icon-wrapper-md: var(--space-24);
@@ -134,7 +134,7 @@
   --lh-heading-3: 28px;
   --lh-heading-4: 24px;
   --lh-heading-5: 24px;
-  --lh-heading-6: 20px;
+  --lh-heading-6: 24px;
   --lh-cm-content: 1.5;
 
   --lh-body: 24px;
