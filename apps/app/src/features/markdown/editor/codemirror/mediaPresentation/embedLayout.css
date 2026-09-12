@@ -78,7 +78,6 @@
   height: 0;
 }
 
-
 /* Custom resize handle — a generic media primitive shared by every
    resizable media widget (Image, `image/imageResizeHandle.ts`; PDF,
    `pdf/pdfResizeHandle.ts`), not owned by either one. Replaces the
@@ -132,8 +131,8 @@
   bottom: var(--space-2);
   width: 12px;
   height: 12px;
-  border-inline-end: 2px solid var(--resize-handle);
-  border-block-end: 2px solid var(--resize-handle);
+  border-inline-end: 2px solid var--md-img-resize-handle;
+  border-block-end: 2px solid var--md-img-resize-handle;
   border-end-end-radius: var(--radius-sm);
   display: block;
 }
@@ -142,8 +141,8 @@
   bottom: var(--space-2);
   width: 12px;
   height: 12px;
-  border-inline-start: 2px solid var(--resize-handle);
-  border-block-end: 2px solid var(--resize-handle);
+  border-inline-start: 2px solid var--md-img-resize-handle;
+  border-block-end: 2px solid var--md-img-resize-handle;
   border-end-start-radius: var(--radius-sm);
   display: block;
 }
@@ -188,7 +187,6 @@ body.cm-pdf-resizing-nesw,
 body.cm-pdf-resizing-nesw * {
   cursor: nesw-resize !important;
 }
-
 
 /* Container appearance (background/radius/shadow/padding) and button
    chrome (sizing/color/hover/active/icon) live in
@@ -254,4 +252,3 @@ body.cm-pdf-resizing-nesw * {
   cursor: default;
   pointer-events: none;
 }
-

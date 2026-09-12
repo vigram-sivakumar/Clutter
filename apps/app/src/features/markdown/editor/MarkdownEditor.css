@@ -1,6 +1,6 @@
 .markdown__editor {
-  width: var(--content-width);
-  max-width: var(--content-max-width);
+  width: var(--editor-width);
+  max-width: var(--editor-width-max);
   height: fit-content;
   padding-bottom: 30vh;
 }
@@ -216,12 +216,11 @@
  */
 .cm-editor .tok-strike {
   text-decoration: line-through;
-  /* color: var(--strikethrough-color); */
 }
 
 .cm-editor .tok-highlight {
-  background: var(--highlight-surface);
-  box-shadow: var(--highlight-shadow);
+  background: var(--md-highlight-surface);
+  box-shadow: var(--md-highlight-shadow-inline);
 }
 
 /*
@@ -300,13 +299,13 @@
  *
  * Engaged (no `--concealed` modifier, and no widget at all — a fully
  * different code path, `revealedMarkerRanges`): the marker renders as its
- * own real, source-backed text, at normal size, in `--marker-foreground`
+ * own real, source-backed text, at normal size, in `--md-marker-foreground`
  * via the `cm-marker` rule below — see `revealedMarkerRanges` in
  * `inlineLivePreviewParticipants.ts` for why engaged is the one state an
  * inline marker's real text is present in the DOM at all for this family.
  */
 .cm-editor .cm-marker {
-  color: var(--marker-foreground);
+  color: var(--md-marker-foreground);
 }
 
 .cm-editor .cm-marker--concealed {
@@ -399,13 +398,13 @@
  * by `blockquoteLineDecoration.ts`; the pixel value is pure CSS
  * arithmetic from there.
  *
- * `--quote-depth * var(--marker-width)` is exact, not an estimate: unlike
+ * `--quote-depth * var(--md-marker-width)` is exact, not an estimate: unlike
  * an ordered-list marker (real, variable-width text — no safe way to
  * learn its pixel width without a DOM measurement CM6 doesn't allow
  * mid-decoration-build, per the list-block research), a blockquote
- * marker's own box is CSS-forced to exactly `var(--marker-width)`
+ * marker's own box is CSS-forced to exactly `var(--md-marker-width)`
  * regardless of its text (`.cm-quote-marker`'s own `display: inline-block;
- * width: var(--marker-width)` below) — so the total marker footprint at
+ * width: var(--md-marker-width)` below) — so the total marker footprint at
  * depth N really is N copies of that same fixed box, with zero gap
  * between them (no margin on `.cm-quote-marker`), confirmed by direct
  * inspection of the rendered DOM, not assumed. No JS pixel measurement,
@@ -420,8 +419,8 @@
  */
 .cm-editor .cm-quote-line {
   position: relative;
-  padding-left: calc(var(--quote-depth, 0) * var(--marker-width));
-  text-indent: calc(-1 * var(--quote-depth, 0) * var(--marker-width));
+  padding-left: calc(var(--quote-depth, 0) * var(--md-marker-width));
+  text-indent: calc(-1 * var(--quote-depth, 0) * var(--md-marker-width));
 }
 
 .cm-editor .cm-quote-line::before {
@@ -432,7 +431,7 @@
   bottom: 0;
   width: 4px;
   background: var(--foreground-primary);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 
 /*
@@ -463,7 +462,7 @@
  */
 .cm-editor .cm-quote-marker {
   display: inline-block;
-  width: var(--marker-width);
+  width: var(--md-marker-width);
   text-align: end;
   text-indent: 0;
 }
@@ -950,7 +949,7 @@
  * real marker text is rendered `color: transparent`, with a substitute
  * glyph painted via a `::before` pseudo-element that cannot itself carry a
  * class — see `.cm-bullet-list-marker--glyph::before` below for why that
- * one rule keeps its own explicit `color: var(--marker-foreground)`
+ * one rule keeps its own explicit `color: var(--md-marker-foreground)`
  * declaration rather than composing this class).
  *
  * Color: composed from the shared `.cm-marker` rule above —
@@ -982,7 +981,7 @@
  * widget that rendered a `•` glyph in its place; see that file's own doc
  * comment for the caret-boundary defect this fixed and the live
  * verification performed). Styled identically to `.cm-quote-marker` above
- * (same `--marker-width` token, same `text-indent: 0` reset) for visual
+ * (same `--md-marker-width` token, same `text-indent: 0` reset) for visual
  * consistency with every other marker in the editor — this only
  * tints/positions the real characters, it never substitutes a different
  * glyph for them: `- Bullet` still reads `-` followed by the separator and
@@ -997,7 +996,7 @@
  */
 .cm-editor .cm-bullet-list-marker {
   display: inline-block;
-  width: var(--marker-width);
+  width: var(--md-marker-width);
   /* text-align: center; */
   text-indent: 0;
 }
@@ -1012,7 +1011,7 @@
  * intent this session's own investigation confirmed and implemented (was
  * previously proposed-but-unverified, tracked in
  * docs/list-item-architecture-odr.md), `1.`/`2.`/... sit at the same
- * `--marker-width` (20px) floor bullets use, while a wider marker
+ * `--md-marker-width` (20px) floor bullets use, while a wider marker
  * (`10.`/`100.`) simply grows the box past that floor — pure CSS, no JS
  * measurement, since `min-width` is a floor an inline-block's own natural
  * content width can always exceed.
@@ -1047,7 +1046,7 @@
  */
 .cm-editor .cm-ordered-list-marker {
   display: inline-block;
-  min-width: var(--marker-width);
+  min-width: var(--md-marker-width);
   /* text-align: right; */
   text-indent: 0;
 }
@@ -1068,11 +1067,11 @@
  * Button element (not just the span) — allows proper semantic HTML
  * (`type="button"`) and native keyboard/focus affordances. `display:
  * inline-flex` centers the SVG icon via flexbox's `align-items: center` +
- * `justify-content: center`. `width`/`height` both set to `--marker-width`
+ * `justify-content: center`. `width`/`height` both set to `--md-marker-width`
  * to align with every other list marker in the editor (bullets, ordered
  * numbers) — the checkbox occupies the same box as those markers, so they
  * all have consistent column alignment across mixed-list lines. `aspect-ratio: 1`
- * ensures square geometry regardless of rounding in `--marker-width` calculations.
+ * ensures square geometry regardless of rounding in `--md-marker-width` calculations.
  * `padding: 0`, `margin: 0`, `border: none`, `background: transparent`:
  * explicit reset for browser default button styling.
  *
@@ -1082,7 +1081,7 @@
  * checkbox's color changes based on the button's own `color` style, same
  * pattern the Checkbox component uses.
  *
- * Reusing `--marker-width`, `--checkbox-accent`, and other CSS variables from
+ * Reusing `--md-marker-width`, `--checkbox-accent`, and other CSS variables from
  * the design system ensures this widget remains visually synchronized with
  * the app's existing checkboxes and list markers if those variables are ever
  * updated. `transition` matches the Checkbox component's own smooth color
@@ -1226,7 +1225,7 @@
   inset: 0;
   display: flex;
   align-items: center;
-  color: var(--marker-foreground);
+  color: var(--md-marker-foreground);
 }
 
 .cm-editor .cm-bullet-list-marker--dot::before {
@@ -1624,11 +1623,14 @@
 .cm-editor .tok-code {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  color: var(--syntax-inline-code-foreground);
-  background: var(--syntax-inline-code-background);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-inset-default);
-  padding: 0.2em 0.4em;
+  color: var(--md-inline-code-foreground);
+  background: var(--md-inline-code-surface);
+  border-radius: var(--md-badge-radius);
+  padding: var(--md-badge-padding);
+  box-shadow: var(--md-inline-code-inset);
+
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .cm-editor .tok-wikilink {
@@ -1636,7 +1638,7 @@
   align-items: center;
   gap: var(--space-4);
   vertical-align: bottom;
-  color: var(--link-foreground);
+  color: var(--md-link-foreground);
   cursor: pointer;
   text-indent: 0;
   padding-inline: var(--space-3);
@@ -1701,26 +1703,26 @@
   width: 1em;
   height: 1em;
   stroke-width: var(--icon-stroke);
-  color: var(--foreground-secondary);
+  color: var(--md-link-icon-foreground);
 }
 
 .tok-wikilink__title {
   min-width: 0;
   text-decoration: underline;
   text-decoration-thickness: 0.05em;
-  text-decoration-color: var(--cm-link-underline);
-  text-underline-offset: var(--cm-text-underline-offset);
+  text-decoration-color: var(--md-link-underline);
+  text-underline-offset: var(--md-link-underline-offset);
 }
 
 /* Markdown [label](url), bare URL, and Autolink — click activates/navigates
    (link/linkMouseHandlers.ts, link/urlMouseHandlers.ts), so cursor: pointer
    like tok-wikilink/tok-tag. */
 .cm-editor .tok-link {
-  color: var(--link-foreground);
+  color: var(--md-link-foreground);
   text-decoration: underline;
   text-decoration-thickness: 0.05em;
-  text-decoration-color: var(--cm-link-underline);
-  text-underline-offset: var(--cm-text-underline-offset);
+  text-decoration-color: var(--md-link-underline);
+  text-underline-offset: var(--md-link-underline-offset);
   cursor: pointer;
 }
 .tok-wikilink[data-wikilink-status='unresolved'] {
@@ -1728,15 +1730,15 @@
 }
 
 .cm-editor .tok-tag {
-  color: var(--tag-foreground);
-  background-color: var(--tag-surface);
-  /* box-shadow:
-    rgba(46, 109, 233, 0.24) -2px 0px 0px,
-    rgba(46, 109, 233, 0.24) 2px 0px 0px; */
-  border-radius: var(--radius-sm);
-  padding: 0.2em 0.4em;
-  /* font-size: 0.92em; */
+  color: var(--md-tag-foreground);
+  background-color: var(--md-tag-surface);
+  border-radius: var(--md-badge-radius);
+  padding: var(--md-badge-padding);
   font-weight: inherit;
+
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+
   cursor: pointer;
 }
 .cm-editor .tok-tag .tok-tag-prefix {
@@ -1748,14 +1750,12 @@
 }
 
 .cm-editor .tok-date {
-  color: var(--date-foreground);
-  background-color: var(--date-surface);
-  border-radius: var(--radius-sm);
-  /* font-size: 0.92em; */
   font-weight: inherit;
-  /* padding: 0.2em 0.4em; */
+  color: var(--md-date-foreground);
+  /* background-color: var(--md-date-surface); */
+  /* border-radius: var(--radius-sm); */
+  /* padding: var(--md-badge-padding); */
   cursor: pointer;
-  font-variant-numeric: tabular-nums;
 }
 .cm-editor .tok-date .tok-date-prefix {
   opacity: var(--opacity-medium);
@@ -1788,11 +1788,11 @@
 .cm-fold-toggle {
   display: inline-flex;
   position: absolute;
-  left: calc(-1 * var(--marker-width));
+  left: calc(-1 * var(--md-marker-width));
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: var(--marker-width);
+  width: var(--md-marker-width);
   height: 1lh;
   border: none;
   background: transparent;

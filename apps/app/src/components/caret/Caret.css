@@ -2,8 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--height-xs);
-  height: var(--height-xs);
+  width: var(--icon-wrapper-sm);
+  height: var(--icon-wrapper-sm);
   padding: 0;
   border: 0;
   background: transparent;

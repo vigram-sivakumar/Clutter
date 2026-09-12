@@ -6,7 +6,10 @@ import { renderDate } from '../date/dateDecorations';
 import type { ResolveDate } from '../date/dateResolution';
 import { renderTag } from '../tag/tagDecorations';
 import type { ResolveTag } from '../tag/tagResolution';
-import { isNodeOnCompletedTask, TASK_COMPLETED_CLASS } from '../task/taskEngagement';
+import {
+  isNodeOnCompletedTask,
+  TASK_COMPLETED_CLASS,
+} from '../task/taskEngagement';
 import type { ResolveWikiLink } from '../wikilink/wikiLinkResolution';
 import { ConcealedMarkerWidget } from './ConcealedMarkerWidget';
 
@@ -143,7 +146,9 @@ function delimitedInlineRenderer(
       ? Decoration.replace({ widget: new ConcealedMarkerWidget(markerClass) })
       : Decoration.replace({});
 
-    const decorations: Range<Decoration>[] = [markerDecoration.range(openMark.from, openMark.to)];
+    const decorations: Range<Decoration>[] = [
+      markerDecoration.range(openMark.from, openMark.to),
+    ];
     // An empty construct (`****`) has its two marks adjacent, with no
     // content range between them to class.
     if (openMark.to < closeMark.from) {
@@ -159,12 +164,15 @@ function delimitedInlineRenderer(
       // wrapper at all. Ordinary (non-widget) content is unaffected: plain
       // text and concealed zero-width marker ranges compose into this mark
       // the same way regardless of inclusivity, so this is purely additive.
-      const classes = [contentClass, ...collectActiveStrikeClass(node)].join(' ');
+      const classes = [contentClass, ...collectActiveStrikeClass(node)].join(
+        ' '
+      );
       decorations.push(
-        Decoration.mark({ class: classes, inclusiveStart: true, inclusiveEnd: true }).range(
-          openMark.to,
-          closeMark.from
-        )
+        Decoration.mark({
+          class: classes,
+          inclusiveStart: true,
+          inclusiveEnd: true,
+        }).range(openMark.to, closeMark.from)
       );
     }
     decorations.push(markerDecoration.range(closeMark.from, closeMark.to));
@@ -192,7 +200,13 @@ function delimitedInlineRenderer(
 export function isDelimitedMarkConstruct(node: SyntaxNode): boolean {
   const first = node.firstChild;
   const last = node.lastChild;
-  return !!first && !!last && first !== last && first.name === last.name && first.name.endsWith('Mark');
+  return (
+    !!first &&
+    !!last &&
+    first !== last &&
+    first.name === last.name &&
+    first.name.endsWith('Mark')
+  );
 }
 
 /**
@@ -241,7 +255,9 @@ const INLINE_CONTENT_CLASS_BY_NODE_NAME: ReadonlyMap<string, string> = new Map([
  * needs a `contentClass` entry above, the same one its own participant
  * registration already needs.
  */
-export function collectActiveInlineClasses(node: SyntaxNodeRef): readonly string[] {
+export function collectActiveInlineClasses(
+  node: SyntaxNodeRef
+): readonly string[] {
   const classes: string[] = [];
   let ancestor = node.node.parent;
   while (ancestor && isDelimitedMarkConstruct(ancestor)) {
@@ -294,16 +310,30 @@ function collectActiveStrikeClass(node: SyntaxNodeRef): readonly string[] {
  * entry in this map, same shape as the `participants` map itself; it never
  * requires touching another construct's entry.
  */
-const MARKER_CONSTRUCTS: ReadonlyMap<string, { readonly markNodeName: string; readonly markerClass: string }> =
-  new Map([
-    ['Emphasis', { markNodeName: 'EmphasisMark', markerClass: 'cm-emphasis-marker' }],
-    ['StrongEmphasis', { markNodeName: 'EmphasisMark', markerClass: 'cm-strong-marker' }],
-    ['Strikethrough', { markNodeName: 'StrikethroughMark', markerClass: 'cm-strike-marker' }],
-    ['Highlight', { markNodeName: 'HighlightMark', markerClass: 'cm-highlight-marker' }],
-    ['InlineCode', { markNodeName: 'CodeMark', markerClass: 'cm-code-marker' }],
-    ['Link', { markNodeName: 'LinkMark', markerClass: 'cm-link-marker' }],
-    ['Autolink', { markNodeName: 'LinkMark', markerClass: 'cm-link-marker' }],
-  ]);
+const MARKER_CONSTRUCTS: ReadonlyMap<
+  string,
+  { readonly markNodeName: string; readonly markerClass: string }
+> = new Map([
+  [
+    'Emphasis',
+    { markNodeName: 'EmphasisMark', markerClass: 'cm-emphasis-marker' },
+  ],
+  [
+    'StrongEmphasis',
+    { markNodeName: 'EmphasisMark', markerClass: 'cm-strong-marker' },
+  ],
+  [
+    'Strikethrough',
+    { markNodeName: 'StrikethroughMark', markerClass: 'cm-strike-marker' },
+  ],
+  [
+    'Highlight',
+    { markNodeName: 'HighlightMark', markerClass: 'cm-highlight-marker' },
+  ],
+  ['InlineCode', { markNodeName: 'CodeMark', markerClass: 'cm-code-marker' }],
+  ['Link', { markNodeName: 'LinkMark', markerClass: 'cm-link-marker' }],
+  ['Autolink', { markNodeName: 'LinkMark', markerClass: 'cm-link-marker' }],
+]);
 
 /**
  * Discovers every marker-contract construct's own marker ranges within an
@@ -328,7 +358,7 @@ const MARKER_CONSTRUCTS: ReadonlyMap<string, { readonly markNodeName: string; re
  * exactly `firstChild`/`lastChild`) become `cm-marker cm-{construct}-marker`
  * spans with no `--concealed` modifier — engaged is the one state an
  * inline marker is actually visible in, so it's the one state
- * `--marker-foreground` needs to reach (same reasoning the retired
+ * `--md-marker-foreground` needs to reach (same reasoning the retired
  * `delimitedMarkerOnlyRenderer` doc comment already established).
  *
  * Nesting depth is never inspected or branched on: `***bold italic***`'s
@@ -339,13 +369,17 @@ const MARKER_CONSTRUCTS: ReadonlyMap<string, { readonly markNodeName: string; re
  * engaged content is a property of what this function *doesn't* do, not
  * something it enforces separately.
  */
-export function revealedMarkerRanges(root: SyntaxNode): readonly Range<Decoration>[] {
+export function revealedMarkerRanges(
+  root: SyntaxNode
+): readonly Range<Decoration>[] {
   const ranges: Range<Decoration>[] = [];
   const cursor = root.cursor();
   do {
     const spec = MARKER_CONSTRUCTS.get(cursor.name);
     if (!spec) continue;
-    const decoration = Decoration.mark({ class: `cm-marker ${spec.markerClass}` });
+    const decoration = Decoration.mark({
+      class: `cm-marker ${spec.markerClass}`,
+    });
     for (let child = cursor.node.firstChild; child; child = child.nextSibling) {
       if (child.name === spec.markNodeName) {
         ranges.push(decoration.range(child.from, child.to));
@@ -475,24 +509,30 @@ const linkRenderer: ParticipantRenderer = (node) => {
     // portion (`](url "title")`) stays concealed as one combined range,
     // exactly as it always has.
     decorations.push(
-      Decoration.mark({ class: linkClasses, inclusiveStart: true, inclusiveEnd: true }).range(
-        openMark.to,
-        labelCloseMark.from
-      )
+      Decoration.mark({
+        class: linkClasses,
+        inclusiveStart: true,
+        inclusiveEnd: true,
+      }).range(openMark.to, labelCloseMark.from)
     );
-    decorations.push(Decoration.replace({}).range(labelCloseMark.from, linkNode.to));
+    decorations.push(
+      Decoration.replace({}).range(labelCloseMark.from, linkNode.to)
+    );
   } else {
     // Empty label: conceal `](` up to the URL's own start, class the URL
     // itself as the visible content, then conceal from the URL's own end
     // through the closing `)` (swallowing any optional title). `(` always
     // separates `]` from the URL in this grammar, and `)` always follows
     // the URL, so both replace ranges are always non-empty.
-    decorations.push(Decoration.replace({}).range(labelCloseMark.from, urlNode.from));
     decorations.push(
-      Decoration.mark({ class: linkClasses, inclusiveStart: true, inclusiveEnd: true }).range(
-        urlNode.from,
-        urlNode.to
-      )
+      Decoration.replace({}).range(labelCloseMark.from, urlNode.from)
+    );
+    decorations.push(
+      Decoration.mark({
+        class: linkClasses,
+        inclusiveStart: true,
+        inclusiveEnd: true,
+      }).range(urlNode.from, urlNode.to)
     );
     decorations.push(Decoration.replace({}).range(urlNode.to, linkNode.to));
   }
@@ -547,12 +587,18 @@ const linkRenderer: ParticipantRenderer = (node) => {
  */
 const urlRenderer: ParticipantRenderer = (node) => {
   const parentName = node.node.parent?.name;
-  if (parentName === 'Link' || parentName === 'Autolink' || parentName === 'Image') {
+  if (
+    parentName === 'Link' ||
+    parentName === 'Autolink' ||
+    parentName === 'Image'
+  ) {
     return { decorations: [] };
   }
   const classes = ['tok-link', ...collectActiveStrikeClass(node)].join(' ');
   return {
-    decorations: [Decoration.mark({ class: classes }).range(node.from, node.to)],
+    decorations: [
+      Decoration.mark({ class: classes }).range(node.from, node.to),
+    ],
   };
 };
 
@@ -586,11 +632,38 @@ export function createInlineLivePreviewParticipants(
   resolvers: ParticipantResolvers
 ): ReadonlyMap<string, ParticipantRenderer> {
   return new Map<string, ParticipantRenderer>([
-    ['Emphasis', delimitedInlineRenderer('EmphasisMark', 'tok-emphasis', 'cm-emphasis-marker')],
-    ['StrongEmphasis', delimitedInlineRenderer('EmphasisMark', 'tok-strong', 'cm-strong-marker')],
-    ['Strikethrough', delimitedInlineRenderer('StrikethroughMark', 'tok-strike', 'cm-strike-marker')],
-    ['Highlight', delimitedInlineRenderer('HighlightMark', 'tok-highlight', 'cm-highlight-marker')],
-    ['InlineCode', delimitedInlineRenderer('CodeMark', 'tok-code', 'cm-code-marker')],
+    [
+      'Emphasis',
+      delimitedInlineRenderer(
+        'EmphasisMark',
+        'tok-emphasis',
+        'cm-emphasis-marker'
+      ),
+    ],
+    [
+      'StrongEmphasis',
+      delimitedInlineRenderer('EmphasisMark', 'tok-strong', 'cm-strong-marker'),
+    ],
+    [
+      'Strikethrough',
+      delimitedInlineRenderer(
+        'StrikethroughMark',
+        'tok-strike',
+        'cm-strike-marker'
+      ),
+    ],
+    [
+      'Highlight',
+      delimitedInlineRenderer(
+        'HighlightMark',
+        'tok-highlight',
+        'cm-highlight-marker'
+      ),
+    ],
+    [
+      'InlineCode',
+      delimitedInlineRenderer('CodeMark', 'tok-code', 'cm-code-marker'),
+    ],
     ['Link', linkRenderer],
     // Autolink (`<https://...>`) fits delimitedInlineRenderer's own
     // 2-same-named-mark-child shape exactly (`Autolink > [LinkMark, URL,
@@ -601,10 +674,23 @@ export function createInlineLivePreviewParticipants(
     // (invisible) `ConcealedMarkerWidget` carries for test-query continuity;
     // engaged, it's what makes `revealedMarkerRanges` paint `<`/`>` via the
     // shared `cm-marker` contract, matching `Link`'s own registration above.
-    ['Autolink', delimitedInlineRenderer('LinkMark', 'tok-link', 'cm-link-marker')],
+    [
+      'Autolink',
+      delimitedInlineRenderer('LinkMark', 'tok-link', 'cm-link-marker'),
+    ],
     ['URL', urlRenderer],
-    ['Tag', widgetReplaceRenderer((raw, extraClasses) => renderTag(raw, resolvers.resolveTag, extraClasses))],
-    ['Date', widgetReplaceRenderer((raw, extraClasses) => renderDate(raw, resolvers.resolveDate, extraClasses))],
+    [
+      'Tag',
+      widgetReplaceRenderer((raw, extraClasses) =>
+        renderTag(raw, resolvers.resolveTag, extraClasses)
+      ),
+    ],
+    [
+      'Date',
+      widgetReplaceRenderer((raw, extraClasses) =>
+        renderDate(raw, resolvers.resolveDate, extraClasses)
+      ),
+    ],
     // Image is deliberately NOT a participant here (unlike Phase 1) — it
     // has its own standalone visibility mechanism instead
     // (image/imageLivePreview.ts), for the same kind of reason WikiLink
@@ -614,4 +700,3 @@ export function createInlineLivePreviewParticipants(
     // comment.
   ]);
 }
-

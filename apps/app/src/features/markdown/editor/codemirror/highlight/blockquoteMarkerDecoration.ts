@@ -1,5 +1,9 @@
 import { syntaxTree } from '@codemirror/language';
-import { RangeSetBuilder, type EditorState, type Extension } from '@codemirror/state';
+import {
+  RangeSetBuilder,
+  type EditorState,
+  type Extension,
+} from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -52,7 +56,8 @@ import { isPhysicalLineEngaged } from './liveMarkDecoration';
  * continuation; see that function's own callers elsewhere for the full
  * trace). Reused here, not re-derived.
  */
-const isBlockquoteNode = (nodeName: string): boolean => nodeName === 'Blockquote';
+const isBlockquoteNode = (nodeName: string): boolean =>
+  nodeName === 'Blockquote';
 
 function markerRanges(node: SyntaxNode, state: EditorState): TokenNodeRange[] {
   const ranges: TokenNodeRange[] = [];
@@ -67,7 +72,8 @@ function markerRanges(node: SyntaxNode, state: EditorState): TokenNodeRange[] {
     const separatorFrom = mark.to;
     const separatorTo = separatorFrom + 1;
     const hasSeparator =
-      separatorTo <= state.doc.length && state.sliceDoc(separatorFrom, separatorTo) === ' ';
+      separatorTo <= state.doc.length &&
+      state.sliceDoc(separatorFrom, separatorTo) === ' ';
 
     ranges.push({ from: mark.from, to: hasSeparator ? separatorTo : mark.to });
   }
@@ -86,7 +92,11 @@ function markerRanges(node: SyntaxNode, state: EditorState): TokenNodeRange[] {
     // Lazy continuation: a later line's `QuoteMark` lands inside the
     // Paragraph its text belongs to, one level deeper than the first
     // line's own `QuoteMark`.
-    for (let grandchild = child.firstChild; grandchild; grandchild = grandchild.nextSibling) {
+    for (
+      let grandchild = child.firstChild;
+      grandchild;
+      grandchild = grandchild.nextSibling
+    ) {
       if (grandchild.name === 'QuoteMark') {
         withSeparator(grandchild);
       }
@@ -98,7 +108,7 @@ function markerRanges(node: SyntaxNode, state: EditorState): TokenNodeRange[] {
 
 // `cm-marker` (marker-color unification): the same universal color hook
 // every other marker in the editor carries, composed here rather than a
-// second, duplicated `color: var(--marker-foreground)` declaration on
+// second, duplicated `color: var(--md-marker-foreground)` declaration on
 // `.cm-quote-marker` itself (MarkdownEditor.css). The concealed variant
 // carries it too — harmless, since `.cm-quote-marker--concealed`'s own
 // `color: transparent` rule is declared later in the stylesheet and wins
@@ -166,7 +176,10 @@ function buildDecorations(view: EditorView): DecorationSet {
 
       let owned = false;
       for (
-        let node: SyntaxNode | null = syntaxTree(view.state).resolveInner(probePos, 1);
+        let node: SyntaxNode | null = syntaxTree(view.state).resolveInner(
+          probePos,
+          1
+        );
         node;
         node = node.parent
       ) {
@@ -179,7 +192,11 @@ function buildDecorations(view: EditorView): DecorationSet {
       if (owned) {
         const contentFrom = markerEndByLine.get(line.from) ?? line.from;
         if (contentFrom < line.to) {
-          pending.push({ from: contentFrom, to: line.to, decoration: CONTENT_MARK });
+          pending.push({
+            from: contentFrom,
+            to: line.to,
+            decoration: CONTENT_MARK,
+          });
         }
       }
 
@@ -188,7 +205,9 @@ function buildDecorations(view: EditorView): DecorationSet {
   }
 
   const builder = new RangeSetBuilder<Decoration>();
-  for (const { from, to, decoration } of pending.sort((a, b) => a.from - b.from || a.to - b.to)) {
+  for (const { from, to, decoration } of pending.sort(
+    (a, b) => a.from - b.from || a.to - b.to
+  )) {
     builder.add(from, to, decoration);
   }
   return builder.finish();
@@ -208,7 +227,11 @@ export function blockquoteMarkerDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          update.selectionSet
+        ) {
           this.decorations = buildDecorations(update.view);
         }
       }

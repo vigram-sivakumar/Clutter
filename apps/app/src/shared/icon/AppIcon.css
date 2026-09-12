@@ -5,7 +5,7 @@
 }
 
 .app-icon {
-  width: var(--height-xs);
+  width: var(--icon-wrapper-sm);
   aspect-ratio: 1;
   display: inline-flex;
   justify-content: center;

@@ -150,7 +150,6 @@ put it there. */
   /* Do not use transition for height and width because it causes resizing issues and the element doesn't follow the cursor */
 }
 
-
 /* Suppresses `.cm-image-container`'s own `transition: width, height` above
    for the duration of an active drag only — see that rule's own doc
    comment for why: `imageResizeHandle.ts`'s `pointermove` writes this same
@@ -166,15 +165,14 @@ body.cm-image-resizing-nesw .cm-image-container {
 }
 
 .cm-editor .cm-image-container .cm-media-resize-handle--corner-right {
-  border-inline-end-color: var(--resize-handle-img);
-  border-block-end-color: var(--resize-handle-img);
+  border-inline-end-color: var--md-pdf-resize-handle;
+  border-block-end-color: var--md-pdf-resize-handle;
 }
 
 .cm-editor .cm-image-container .cm-media-resize-handle--corner-left {
-  border-inline-start-color: var(--resize-handle-img);
-  border-block-end-color: var(--resize-handle-img);
+  border-inline-start-color: var--md-pdf-resize-handle;
+  border-block-end-color: var--md-pdf-resize-handle;
 }
-
 
 /* The intermediate `<button class="cm-image-button">` wrapping the `<img>`
    (ImageWidget.ts) is `display: block` — normally that means "fill the
@@ -377,7 +375,6 @@ body.cm-image-resizing-nesw .cm-image-container {
   left: 100%;
   transform: translateX(-100%);
 }
-
 
 /* Item 5 (2026-09-02 UX baseline): "the entire controls area remains
    visible" while this image's own options menu is open. Needed as its

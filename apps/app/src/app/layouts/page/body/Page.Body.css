@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
 
-  width: var(--content-width);
-  max-width: var(--content-max-width);
+  width: var(--editor-width);
+  max-width: var(--editor-width-max);
   height: 100%;
 }

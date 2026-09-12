@@ -66,9 +66,6 @@
 .button:not(:disabled):hover {
   background: var(--state-hover);
 }
-.button:not(:disabled):active {
-  background: var(--state-pressed);
-}
 .button--active {
   background: var(--state-selected);
 }
@@ -85,3 +82,5 @@
   color: var(--foreground-tertiary);
   justify-content: start;
 }
+/* .button:not(:disabled):active {
+} */

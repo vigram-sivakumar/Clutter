@@ -114,9 +114,8 @@ button.clutter-interactive:hover {
   background: var(--state-hover);
 }
 
-button.clutter-interactive:active {
-  background: var(--state-pressed);
-}
+/* button.clutter-interactive:active {
+} */
 
 button.clutter-interactive:focus-visible {
   outline: 2px solid var(--border-strong);

@@ -26,10 +26,11 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-secondary: var(--neutral-800);
   --surface-tertiary: var(--neutral-700);
   --surface-subtle: rgba(255, 255, 255, 0.035);
+  --surface-inverse: var(--neutral-50);
+
+  /* Overlay scrim */
   --overlay-scrim: rgba(20, 20, 20, 0.55);
   --overlay-scrim-strong: rgba(20, 20, 20, 0.8);
-
-  --surface-inverse: var(--neutral-50);
 
   /* Text & icons */
   --foreground-primary: #f7f7f7;
@@ -37,35 +38,44 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-tertiary: #737373;
   --foreground-placeholder: #575757;
   --foreground-inverse: var(--neutral-700);
+
+  /* Global decoration */
   --link-underline: rgb(
     from var(--foreground-tertiary) r g b / var(--opacity-medium)
   );
 
-  /* Markdown surface */
-  --highlight-surface: #504425;
-  --highlight-shadow:
-    var(--highlight-surface) -2px 0 0, var(--highlight-surface) 2px 0 0;
+  /* Markdown */
+  --md-marker-foreground: var(--foreground-placeholder);
 
-  /* Markdown foreground */
-  --marker-foreground: var(--foreground-placeholder);
-  --link-foreground: var(--foreground-primary);
-  --cm-link-underline: var(--link-underline);
-  --tag-foreground: var(--foreground-secondary);
-  --tag-surface: var(--surface-tertiary);
-  --date-foreground: #999999;
-  --resize-handle: rgba(244, 244, 244, 0.5);
-  --resize-handle-img: rgba(244, 244, 244, 0.7);
+  --md-highlight-surface: rgba(255, 210, 0, 0.26);
+  --md-highlight-surface-2: #627800;
+  --md-highlight-shadow-inline:
+    var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
+
+  --md-link-foreground: var(--foreground-primary);
+  --md-link-icon-foreground: var(--foreground-secondary);
+  --md-link-underline: var(--link-underline);
+
+  --md-tag-surface: var(--surface-tertiary);
+  --md-tag-foreground: var(--foreground-secondary);
+
+  --md-date-surface: var(--surface-tertiary);
+  --md-date-foreground: #999999;
+
+  --md-inline-code-surface: var(--border-subtle);
+  --md-inline-code-foreground: var(--foreground-secondary);
+  --md-inline-code-inset: var(--shadow-inset-default);
+
+  --md-img-resize-handle: rgba(244, 244, 244, 0.7);
+  --md-pdf-resize-handle: rgba(244, 244, 244, 0.5);
+
   --folder-card-surface: var(--surface-secondary);
   --folder-card-surface-hover: rgb(var(--state-base) / 5%);
 
-  /* Text decoration */
-  --strikethrough-color: #595757;
-
   /* Interactive states */
   --state-base: 255 255 255;
-
+  --state-hover-strong: rgb(var(--state-base) / 5%);
   --state-hover: rgb(var(--state-base) / 3.5%);
-  --state-pressed: rgb(var(--state-base) / 3.5%);
   --state-selected: rgb(var(--state-base) / 7%);
   --opacity-disabled: var(--opacity-strong);
 
@@ -154,14 +164,36 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-tertiary: #747474;
   --foreground-placeholder: #cccccc;
   --foreground-inverse: #d4d4d4;
+
+  /* Global decoration */
   --link-underline: rgb(
     from var(--foreground-tertiary) r g b / var(--opacity-medium)
   );
 
-  /* Markdown surface */
-  --highlight-surface: rgba(255, 241, 0, 0.4);
-  --highlight-shadow:
-    var(--highlight-surface) -2px 0 0, var(--highlight-surface) 2px 0 0;
+  /* Markdown */
+  --md-marker-foreground: var(--foreground-tertiary);
+
+  --md-highlight-surface: rgba(255, 230, 0, 0.42);
+  --md-highlight-surface-2: #cdfe06;
+  --md-highlight-shadow-inline:
+    var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
+
+  --md-link-foreground: var(--foreground-primary);
+  --md-link-icon-foreground: var(--foreground-secondary);
+  --md-link-underline: var(--link-underline);
+
+  --md-tag-surface: var(--surface-tertiary);
+  --md-tag-foreground: var(--foreground-secondary);
+
+  --md-date-surface: var(--surface-tertiary);
+  --md-date-foreground: #999999;
+
+  --md-inline-code-surface: var(--border-subtle);
+  --md-inline-code-foreground: var(--foreground-secondary);
+  --md-inline-code-inset: var(--shadow-inset-default);
+
+  --md-img-resize-handle: rgba(244, 244, 244, 0.7);
+  --md-pdf-resize-handle: rgba(52, 52, 51, 0.5);
 
   /* Markdown foreground colors */
   --marker-foreground: var(--foreground-tertiary);
@@ -169,8 +201,6 @@ html.theme-transitioning [data-themeable] *::after {
   --cm-link-underline: rgba(46, 109, 233, 0.2);
   --tag-foreground: rgb(46, 109, 233);
   --tag-surface: rgba(46, 109, 233, 0.12);
-  --resize-handle: rgba(52, 52, 51, 0.5);
-  --resize-handle-img: rgba(244, 244, 244, 0.7);
   --folder-card-surface: var(--surface-primary);
   --folder-card-surface-hover: rgb(var(--state-base) / 5%);
 
@@ -185,7 +215,7 @@ html.theme-transitioning [data-themeable] *::after {
   --state-base: 0 0 0;
 
   --state-hover: rgb(var(--state-base) / 3.5%);
-  --state-pressed: rgb(var(--state-base) / 3.5%);
+  --state-hover-strong: rgb(var(--state-base) / 5%);
   --state-selected: rgb(var(--state-base) / 7%);
   --opacity-disabled: var(--opacity-medium);
 

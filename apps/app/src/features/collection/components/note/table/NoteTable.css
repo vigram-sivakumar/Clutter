@@ -1,6 +1,6 @@
 .note-table {
   width: 100%;
-  max-width: var(--content-max-width);
+  max-width: var(--editor-width-max);
   margin-top: var(--space-32);
   overflow-y: auto;
 }

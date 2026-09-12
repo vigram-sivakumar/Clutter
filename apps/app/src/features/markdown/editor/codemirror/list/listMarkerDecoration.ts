@@ -1,5 +1,10 @@
 import { syntaxTree } from '@codemirror/language';
-import { EditorSelection, EditorState, Transaction, type Extension } from '@codemirror/state';
+import {
+  EditorSelection,
+  EditorState,
+  Transaction,
+  type Extension,
+} from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -84,7 +89,7 @@ import type { SyntaxNode } from '@lezer/common';
  *
  * The marker carries its own construct-specific class
  * (`cm-bullet-list-marker`, `MarkdownEditor.css`) styled identically to
- * blockquote's own marker (`--marker-width`/`text-indent: 0`) for visual
+ * blockquote's own marker (`--md-marker-width`/`text-indent: 0`) for visual
  * consistency with every other marker in the editor — a color tint and a
  * predictable column width, never a character substitution. It carries the
  * shared `cm-marker` naming-contract hook directly (marker-color
@@ -195,7 +200,11 @@ function separatorRangeAfter(
 ): { from: number; to: number } | null {
   const from = marker.to;
   const lineEnd = state.doc.lineAt(from).to;
-  const to = Math.min(marker.nextSibling ? marker.nextSibling.from : from + 1, lineEnd, state.doc.length);
+  const to = Math.min(
+    marker.nextSibling ? marker.nextSibling.from : from + 1,
+    lineEnd,
+    state.doc.length
+  );
 
   if (to <= from) {
     return null;
@@ -222,7 +231,10 @@ interface ListMarkRange {
   readonly kind: ListMarkerKind;
 }
 
-function getListMarkRange(node: SyntaxNode, state: EditorState): ListMarkRange | null {
+function getListMarkRange(
+  node: SyntaxNode,
+  state: EditorState
+): ListMarkRange | null {
   const marker = node.firstChild;
   if (!marker || marker.name !== 'ListMark') {
     return null;
@@ -270,7 +282,10 @@ function getListMarkRange(node: SyntaxNode, state: EditorState): ListMarkRange |
  * `- Parent` / `  - Child` — Parent's own marker sits on a different
  * physical line than Child's, so only Child's counts, length stays 1).
  */
-export function firstSameLineListMark(state: EditorState, pos: number): ListMarkRange | null {
+export function firstSameLineListMark(
+  state: EditorState,
+  pos: number
+): ListMarkRange | null {
   const line = state.doc.lineAt(pos);
   const sameLine: ListMarkRange[] = [];
 
@@ -322,15 +337,18 @@ export function firstSameLineListMark(state: EditorState, pos: number): ListMark
 // the same single contract as every other marker in the editor rather than
 // carrying no color hook of its own.
 const MARKER_MARK_DASH = Decoration.mark({
-  class: 'cm-marker cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dash',
+  class:
+    'cm-marker cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dash',
   attributes: { 'data-marker-glyph': '-' },
 });
 const MARKER_MARK_PLUS = Decoration.mark({
-  class: 'cm-marker cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--plus',
+  class:
+    'cm-marker cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--plus',
   attributes: { 'data-marker-glyph': '+' },
 });
 const MARKER_MARK_DOT = Decoration.mark({
-  class: 'cm-marker cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dot',
+  class:
+    'cm-marker cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dot',
   attributes: { 'data-marker-glyph': '•' },
 });
 
@@ -347,12 +365,12 @@ const MARKER_MARK_DOT = Decoration.mark({
  * placement) resolves a `Decoration.mark`'s own trailing boundary via a
  * DOM `Range` over the *real* wrapped characters — here, the marker's
  * own `color: transparent` text — never the mark's CSS `width`
- * (`--marker-width`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker`
+ * (`--md-marker-width`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker`
  * in `MarkdownEditor.css`). For a *non-empty* item, content-start's own
  * `coordsAtPos` is already correct because it resolves via the
  * *following* real text node's own layout start instead — an ordinary
  * inline-block boundary, which genuinely does sit at the marker box's
- * full `--marker-width`. An empty item has no such following text to
+ * full `--md-marker-width`. An empty item has no such following text to
  * resolve via, so `coordsAtPos` falls back to the marker's own short
  * *natural* (invisible) glyph width instead of the box's full reserved
  * width — visibly too close to the marker.
@@ -485,7 +503,12 @@ function buildDecorations(view: EditorView): DecorationSet {
   return Decoration.set(
     pending.flatMap(({ from, to, kind }) => {
       const mark =
-        kind === 'ordered' ? MARKER_MARK_ORDERED.range(from, to) : bulletMarkerMark(view.state.sliceDoc(from, from + 1)).range(from, to);
+        kind === 'ordered'
+          ? MARKER_MARK_ORDERED.range(from, to)
+          : bulletMarkerMark(view.state.sliceDoc(from, from + 1)).range(
+              from,
+              to
+            );
 
       // Empty item (nothing else on this physical line after the marker
       // and its separator) — see `ListMarkerCaretAnchorWidget`'s own doc
@@ -494,7 +517,12 @@ function buildDecorations(view: EditorView): DecorationSet {
       if (to !== view.state.doc.lineAt(from).to) {
         return [mark];
       }
-      return [mark, Decoration.widget({ widget: LIST_MARKER_CARET_ANCHOR, side: 1 }).range(to)];
+      return [
+        mark,
+        Decoration.widget({ widget: LIST_MARKER_CARET_ANCHOR, side: 1 }).range(
+          to
+        ),
+      ];
     }),
     true
   );
@@ -583,7 +611,11 @@ export function listMarkerCaretAssoc(): Extension {
     }
 
     const range = tr.selection.main;
-    if (!range.empty || range.assoc !== -1 || !listContentStart(tr.state, range.head)) {
+    if (
+      !range.empty ||
+      range.assoc !== -1 ||
+      !listContentStart(tr.state, range.head)
+    ) {
       return tr;
     }
 

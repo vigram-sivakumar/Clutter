@@ -3,7 +3,6 @@
   --entry-muted-foreground: var(--foreground-tertiary);
 
   --entry-hover-surface: var(--state-hover);
-  --entry-pressed-surface: var(--state-pressed);
   --entry-selected-surface: var(--state-selected);
   --entry-selected-foreground: var(--foreground-primary);
 }
@@ -39,9 +38,8 @@
   background: var(--entry-hover-surface);
 }
 
-.entry-interactive:active:not(.entry-selected):not(:has(button:active)) {
-  background: var(--entry-pressed-surface);
-}
+/* .entry-interactive:active:not(.entry-selected):not(:has(button:active)) {
+} */
 
 .entry__leading,
 .entry__trailing {

@@ -122,9 +122,13 @@ export type MarkEngagementPredicate = (
   getMarkRanges: MarkRangeSelector
 ) => boolean;
 
-export type MarkEngagementMode = 'node-range' | 'physical-line' | MarkEngagementPredicate;
+export type MarkEngagementMode =
+  'node-range' | 'physical-line' | MarkEngagementPredicate;
 
-export function isPhysicalLineEngaged(state: EditorState, ranges: readonly TokenNodeRange[]): boolean {
+export function isPhysicalLineEngaged(
+  state: EditorState,
+  ranges: readonly TokenNodeRange[]
+): boolean {
   // Same read-only guard as `isTokenEngaged` (semanticToken/tokenEngagement.ts)
   // — a permanently read-only view (a note embed's nested `EditorView`)
   // must never reveal a construct's markers just because a click landed
@@ -236,7 +240,9 @@ function buildDecorations(
         }
 
         for (const mark of getMarkRanges(node, view.state)) {
-          if (isMarkEngaged(view.state, node, getMarkRanges, engagementMode, mark)) {
+          if (
+            isMarkEngaged(view.state, node, getMarkRanges, engagementMode, mark)
+          ) {
             if (markerClass) {
               revealed.push(mark);
             }
@@ -255,7 +261,10 @@ function buildDecorations(
   // marks, which RangeSetBuilder's strictly-ascending insertion rejects.
   const ranges = [
     ...collapsed.map(({ from, to, widget }) =>
-      (widget ? Decoration.replace({ widget }) : Decoration.replace({})).range(from, to)
+      (widget ? Decoration.replace({ widget }) : Decoration.replace({})).range(
+        from,
+        to
+      )
     ),
     ...revealed.map(({ from, to }) =>
       Decoration.mark({ class: `cm-marker ${markerClass}` }).range(from, to)
@@ -273,7 +282,7 @@ interface LiveMarkPlugin extends PluginValue {
  * marker range (one `getMarkRanges` returns but `isMarkEngaged` says is
  * currently revealed, not collapsed) is painted `Decoration.mark({class:
  * 'cm-marker <markerClass>'})` instead of receiving no decoration at all —
- * the same `cm-marker` → `--marker-foreground` contract every inline
+ * the same `cm-marker` → `--md-marker-foreground` contract every inline
  * marker-hiding participant already uses
  * (`inlineLivePreviewParticipants.ts`'s `revealedMarkerRanges`), just
  * reached from this file's own block/line-scoped mechanism instead. Omitted
@@ -295,11 +304,21 @@ export function liveMarkDecoration(
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = buildDecorations(view, isConstructNode, getMarkRanges, engagementMode, markerClass);
+        this.decorations = buildDecorations(
+          view,
+          isConstructNode,
+          getMarkRanges,
+          engagementMode,
+          markerClass
+        );
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          update.selectionSet
+        ) {
           this.decorations = buildDecorations(
             update.view,
             isConstructNode,
@@ -320,5 +339,8 @@ export function liveMarkDecoration(
   // (isConstructNode, getMarkRanges, engagementMode) it already supplies
   // for hiding the markers in the first place — no construct-specific
   // wiring anywhere.
-  return [decorations, liveMarkSelectionSnap(isConstructNode, getMarkRanges, engagementMode)];
+  return [
+    decorations,
+    liveMarkSelectionSnap(isConstructNode, getMarkRanges, engagementMode),
+  ];
 }

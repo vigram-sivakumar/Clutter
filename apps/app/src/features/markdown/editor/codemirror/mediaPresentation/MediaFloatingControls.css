@@ -43,7 +43,7 @@
 .cm-media-controls,
 .cm-invalid-embed__controls {
   display: flex;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -57,6 +57,7 @@
 .cm-media-controls {
   background: var(--surface-primary);
   padding: var(--space-2);
+  gap: var(--btn-gap-xs);
   box-shadow: var(--shadow-inset-thin);
 }
 
@@ -70,7 +71,7 @@
   padding: 1;
   border: none;
   color: var(--foreground-secondary);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 
   cursor: pointer;
   transition:
@@ -80,7 +81,7 @@
 }
 .cm-media-control:hover,
 .cm-invalid-embed__control:hover {
-  background: var(--state-hover);
+  background: var(--state-hover-strong);
 }
 
 /* `.cm-media-control--active` carries no background of its own (2026-09-11

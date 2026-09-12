@@ -39,12 +39,12 @@ conversation that produced them.
 Everything below is **currently wired and active** in
 [`MarkdownEditor.tsx`](../apps/app/src/features/markdown/editor/MarkdownEditor.tsx):
 
-| Extension | File | Status |
-|---|---|---|
-| `listMarkerDecoration()` | `codemirror/list/listMarkerDecoration.ts` | **Enabled** — renders both bullet and ordered markers (§13), sharing one same-line-first-marker-only policy across both kinds (§7/§13) and the bullet-only `*→•` substitution (§3) |
-| `listMarkerCaretAssoc()` | `codemirror/list/listMarkerDecoration.ts` | **Enabled** — the content-start caret-touch fix (§4), kind-agnostic since §13 (queried for ordered content-start too, though ordered markers are not expected to actually need it — see §13) |
-| `markdownEnterKeymap()` | `codemirror/enter/markdownEnterKeymap.ts` | **Enabled** — bundles every Enter/Backspace policy in §6, §8, and §13, including `continueFirstSameLineListLevel` (§6/§13, renamed from `continueFirstSameLineBulletLevel`), `preserveListMarkerOnContentStartSplit` (renamed from `preserveBulletMarkerOnContentStartSplit`, now bullet+ordered), and `deleteBulletMarkerSeparator` (§8/§13, now bullet+ordered despite its retained bullet-era name) |
-| `markdownIndentKeymap()` | `codemirror/indent/markdownIndentKeymap.ts` | **Enabled** — the uniform per-line Tab/Shift-Tab described in §9, already construct-agnostic and unchanged by §13 |
+| Extension                | File                                        | Status                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `listMarkerDecoration()` | `codemirror/list/listMarkerDecoration.ts`   | **Enabled** — renders both bullet and ordered markers (§13), sharing one same-line-first-marker-only policy across both kinds (§7/§13) and the bullet-only `*→•` substitution (§3)                                                                                                                                                                                                                     |
+| `listMarkerCaretAssoc()` | `codemirror/list/listMarkerDecoration.ts`   | **Enabled** — the content-start caret-touch fix (§4), kind-agnostic since §13 (queried for ordered content-start too, though ordered markers are not expected to actually need it — see §13)                                                                                                                                                                                                           |
+| `markdownEnterKeymap()`  | `codemirror/enter/markdownEnterKeymap.ts`   | **Enabled** — bundles every Enter/Backspace policy in §6, §8, and §13, including `continueFirstSameLineListLevel` (§6/§13, renamed from `continueFirstSameLineBulletLevel`), `preserveListMarkerOnContentStartSplit` (renamed from `preserveBulletMarkerOnContentStartSplit`, now bullet+ordered), and `deleteBulletMarkerSeparator` (§8/§13, now bullet+ordered despite its retained bullet-era name) |
+| `markdownIndentKeymap()` | `codemirror/indent/markdownIndentKeymap.ts` | **Enabled** — the uniform per-line Tab/Shift-Tab described in §9, already construct-agnostic and unchanged by §13                                                                                                                                                                                                                                                                                      |
 
 Nothing described in this document as "current" is behind a flag, a
 prototype toggle, or commented out. Where a document comment in the source
@@ -101,14 +101,14 @@ removed — see that file for the full extension list and why
   (`listMarkerDecoration.ts`) computes this gap directly from the
   document, bounded to the marker's own physical line — confirmed by
   direct inspection of a real parsed tree (`"-\n  - nested"`) that a
-  nested list can be `ListMark`'s next sibling starting on a *later*
+  nested list can be `ListMark`'s next sibling starting on a _later_
   physical line, which an ungated "whitespace-only gap" check would
   misidentify as separator whitespace.
 - **Content-start** = the end of that separator range (`separator.to` in
   `getBulletMarkRange`'s return value). For `"- Text"`, content-start is
   document position `2` — immediately before `T`.
 - A **bare marker** (`"-"`, nothing after it — mid-keystroke, before the
-  separator space is typed) is a syntactically valid, complete, *empty*
+  separator space is typed) is a syntactically valid, complete, _empty_
   `ListItem` per CommonMark. Confirmed directly: `ListMark[0,1)` for
   `"-"` is byte-identical to `ListMark[0,1)` for `"- "`. Clutter's
   rendering deliberately does **not** decorate a bare marker (§2) — a
@@ -116,7 +116,7 @@ removed — see that file for the full extension list and why
 - CommonMark permits 1–4 spaces of separator before the marker "gives
   up" and the line stops being that item's own first line at all.
   `-  Text`/`-   Text` (2–3 space separators) are valid, non-canonical
-  Markdown; `getBulletMarkRange` marks the *actual* separator width, not
+  Markdown; `getBulletMarkRange` marks the _actual_ separator width, not
   an assumed single space.
 
 ### Genuine multi-line nesting vs. same-line collapsing (the critical ambiguity)
@@ -125,7 +125,7 @@ This is the single most important parser fact this document exists to
 record precisely, because it drives §6 and §7 entirely.
 
 **A `- ` line is a syntactically complete, empty list item.** CommonMark
-permits an empty item's own content to immediately be *another* list —
+permits an empty item's own content to immediately be _another_ list —
 no newline, no indentation required. So:
 
 ```
@@ -159,11 +159,11 @@ This is **correct, standard CommonMark** — not a Lezer bug, not a grammar
 misconfiguration. Every `ListMark` above is a real, independently valid
 node.
 
-**A related, separately-discovered ambiguity**: a line of *exactly*
+**A related, separately-discovered ambiguity**: a line of _exactly_
 dashes-and-spaces with **no other content** does not always parse as
 nested lists at all. `"- - - "` (three dashes, trailing space, nothing
 else) parses as a single `HorizontalRule` — GFM's thematic-break rule
-wins over "three empty nested list items" whenever the *entire* line
+wins over "three empty nested list items" whenever the _entire_ line
 matches only that repeating-character-and-space pattern. Add real content
 (`"- - - - hey"`) and the thematic-break reading is no longer possible
 (a thematic break cannot have trailing text), so the nested-list reading
@@ -193,7 +193,7 @@ elsewhere in this codebase before this investigation began
    it parses whatever `state.doc` currently contains. `"- - - - Text"` is
    four nested `BulletList`s whether it was typed one keystroke at a
    time, pasted in one operation, or loaded from disk. Any attempt to
-   make the *parser* treat repeated same-line markers differently would
+   make the _parser_ treat repeated same-line markers differently would
    require it to remember typing history, which no Lezer parser does or
    should do — this was the deciding argument against typing-time
    interception in §7 as well.
@@ -252,7 +252,7 @@ this:
    an intervening blank line). This is why `* `/`+ ` — which aren't
    Setext underline characters, so rule 1 never applies to them — still
    don't produce a `ListItem`: they fall back to ordinary lazy
-   continuation of the *same* `Paragraph` instead.
+   continuation of the _same_ `Paragraph` instead.
 
 **The moment real content follows the marker, both effects vanish and a
 genuine `ListItem`/`ListMark` appears immediately, even with no blank
@@ -300,13 +300,13 @@ once there's real content to disambiguate with.
      parse). A list item, unlike a paragraph, can freely have an empty
      sibling item follow it — the paragraph-interruption restriction in
      rule 2 above only applies to a list attempting to interrupt a
-     *different* block kind.
+     _different_ block kind.
    - **(d) after a blank line** (`"Some paragraph text\n\n- "`): **yes** —
      a blank line always ends the preceding paragraph outright, so there
      is no paragraph left to "interrupt"; `"- "` starts a fresh
      `BulletList → ListItem → ListMark` exactly as case (a) does
      (confirmed by direct parse: `BulletList [21,23) → ListItem [21,23) →
-     ListMark [21,22)`, no `Paragraph` sibling, separator gap trailing to
+ListMark [21,22)`, no `Paragraph` sibling, separator gap trailing to
      end of document).
 4. `listMarkerDecoration.ts` never receives a `ListMark` node for case
    (b) — there is none to receive, because `buildDecorations`'s tree walk
@@ -325,17 +325,17 @@ once there's real content to disambiguate with.
    "marker + separator (no content yet) IS marked"). Traced through the
    function directly: `separatorRangeAfter` computes `to` as
    `Math.min(marker.nextSibling?.from ?? marker.to + 1, lineEnd,
-   docLength)` — when a `ListItem` has no sibling after `ListMark` at all
+docLength)` — when a `ListItem` has no sibling after `ListMark` at all
    (the empty-item shape in cases a/c/d), this correctly resolves to "one
    character past the marker, capped at end of line," and the resulting
    gap text (a single space) passes the `gapText.trim() === ''` check, so
    `getListMarkRange` returns a valid, non-null range and the item **is**
-   decorated. The only thing `getListMarkRange` refuses is a truly *bare*
+   decorated. The only thing `getListMarkRange` refuses is a truly _bare_
    marker with no separator whitespace at all (`"-"` with nothing after
    it, mid-keystroke) — a distinct, already-documented gate (§1's "bare
    marker" paragraph, §2), not related to this investigation's symptom.
 7. The `seenLines`/first-marker-per-physical-line logic (§7) is **not
-   involved** in case (b) at all — it only ever suppresses a *later*
+   involved** in case (b) at all — it only ever suppresses a _later_
    `ListMark` on a line that already had an earlier one claimed within
    the same `buildDecorations` pass. Case (b) never reaches
    `buildDecorations`'s tree walk with any `ListItem` node on that line to
@@ -358,7 +358,7 @@ once there's real content to disambiguate with.
     (Enter pressed after `- `) still parses as `SetextHeading2` covering
     both lines, unchanged in kind. Continuing to type more marker
     characters can change the outcome again — e.g. `"Some paragraph
-    text\n- -"` parses as `Paragraph` + `BulletList` (two nested empty
+text\n- -"` parses as `Paragraph` + `BulletList` (two nested empty
     items) once a second `-` makes the line no longer a valid Setext
     underline or thematic break — but this is the parser responding to
     the new document content each time, not any special "empty bullet"
@@ -405,7 +405,7 @@ dependent decoration)?
 **Traced directly against the installed `@lezer/markdown@1.7.2` source**
 (`node_modules/@lezer/markdown/dist/index.js` — the actual code this
 investigation is about, not its published docs) to find every lever the
-*public* extension API (`MarkdownExtension`/`parser.configure(...)`, the
+_public_ extension API (`MarkdownExtension`/`parser.configure(...)`, the
 same mechanism already used for `wikiLinkSyntax`/`tagSyntax`/`dateSyntax`/
 the HR variants/`{ remove: ['IndentedCode'] }`) actually exposes over
 this behavior — as opposed to a hand-patched fork, which stays out of
@@ -416,9 +416,14 @@ Lezer/parser behavior" reasoning.
 
 ```js
 function isBulletList(line, cx, breaking) {
-    return (line.next == 45 || line.next == 43 || line.next == 42) &&
-        (line.pos == line.text.length - 1 || space(line.text.charCodeAt(line.pos + 1))) &&
-        (!breaking || inList(cx, Type.BulletList) || line.skipSpace(line.pos + 2) < line.text.length) ? 1 : -1;
+  return (line.next == 45 || line.next == 43 || line.next == 42) &&
+    (line.pos == line.text.length - 1 ||
+      space(line.text.charCodeAt(line.pos + 1))) &&
+    (!breaking ||
+      inList(cx, Type.BulletList) ||
+      line.skipSpace(line.pos + 2) < line.text.length)
+    ? 1
+    : -1;
 }
 ```
 
@@ -429,7 +434,7 @@ only for (b)/(c), and `inList(cx, Type.BulletList)` is what makes (c) pass
 despite `breaking`). The third clause is the exact CommonMark "empty item
 cannot interrupt a paragraph" rule from §1: when `breaking` is true and
 we're not already inside a list, `line.skipSpace(line.pos + 2) <
-line.text.length` requires *real content* after the marker+separator —
+line.text.length` requires _real content_ after the marker+separator —
 this is the single line of logic responsible for the `*`/`+` half of the
 symptom. `isOrderedList` (same file) has the identical shape of
 restriction for ordered markers.
@@ -482,7 +487,7 @@ supported heading form, confirmed by direct source search, not
 assumption). Any change that makes `text\n- ` become a list by default
 means a user who deliberately types a Setext H2 heading exactly that way
 (`Heading\n---` differs only in whether real heading text or nothing
-precedes the marker on the underline — but an *empty* Setext underline
+precedes the marker on the underline — but an _empty_ Setext underline
 attempt, `Heading\n-`, mid-keystroke before the rest of `---` is typed, is
 indistinguishable from an attempted empty bullet at the exact instant
 being asked about) would instead see a bullet appear. There is no way to
@@ -499,7 +504,7 @@ disproportionate for now**: a brand-new, additive, low-priority
 only the exact narrow shape "line is exactly `-`/`* `/`+ ` and nothing
 else, directly under a `Paragraph`, otherwise unclaimed" and emits a
 distinct, Clutter-only lookalike node for `listMarkerDecoration.ts` to
-optionally also decorate — without trying to make it a *real*,
+optionally also decorate — without trying to make it a _real_,
 continuable, nestable list at the parser level at all. This avoids
 reimplementing list continuation/nesting, but for `-` it would still need
 `before: "SetextHeading"` precedence to win the line at all, which is the
@@ -547,24 +552,33 @@ see below):
 
 ```html
 <div class="cm-line">
-  <span class="cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dash"
-        data-marker-glyph="-">- </span>Text
+  <span
+    class="cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dash"
+    data-marker-glyph="-"
+    >- </span
+  >Text
 </div>
 ```
 
 For `+ Text`:
 
 ```html
-<span class="cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--plus"
-      data-marker-glyph="+">+ </span>Text
+<span
+  class="cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--plus"
+  data-marker-glyph="+"
+  >+ </span
+>Text
 ```
 
 For `* Text` (see §3 for why the glyph and class differ from the literal
 character):
 
 ```html
-<span class="cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dot"
-      data-marker-glyph="•">* </span>Text
+<span
+  class="cm-bullet-list-marker cm-bullet-list-marker--glyph cm-bullet-list-marker--dot"
+  data-marker-glyph="•"
+  >* </span
+>Text
 ```
 
 In every case the text node inside the span is the **real, unmodified**
@@ -585,15 +599,15 @@ behaved exactly like ordinary undecorated text).
 
 ### 20px marker column
 
-`--marker-width` (`design-system/tokens.css`) resolves
-`--marker-width → --height-xs → --space-20 → 20px`. The marker span is:
+`--md-marker-width` (`design-system/tokens.css`) resolves
+`--md-marker-width → --height-xs → --space-20 → 20px`. The marker span is:
 
 ```css
 .cm-editor .cm-bullet-list-marker {
   display: inline-block;
-  width: var(--marker-width);   /* 20px */
-  color: var(--marker-foreground);
-  text-align: left;             /* see §5 for why this is `left`, not `center` */
+  width: var(--md-marker-width); /* 20px */
+  color: var(--md-marker-foreground);
+  text-align: left; /* see §5 for why this is `left`, not `center` */
   text-indent: 0;
 }
 ```
@@ -654,7 +668,7 @@ for bullets:
   (§5) — that gap's root cause is `coordsAtPos` tracking the real glyph's
   rendered position, which is unaffected by how many spans wrap it.
 - Blockquote's own marker (`blockquoteMarkerDecoration.ts`) explicitly
-  tried and rejected a two-span split for a *different* reason (it wants
+  tried and rejected a two-span split for a _different_ reason (it wants
   one continuous background/border band across marker+separator) — see
   that file's own doc comment: splitting produced two sibling spans
   instead of the desired single continuous box. Bullets never needed that
@@ -693,7 +707,7 @@ as originally shipped.**
   inset: 0;
   display: flex;
   align-items: center;
-  color: var(--marker-foreground);
+  color: var(--md-marker-foreground);
 }
 
 .cm-editor .cm-bullet-list-marker--dot::before {
@@ -725,9 +739,9 @@ regardless of its own `font-size`.
 This is a secondary, later fix layered onto the same rule, not part of
 the original `*→•` work: `.cm-bullet-list-marker`'s `text-align` was
 changed from `center` to `left` to fix the §5 selection-gap defect. That
-change only matters if the real text's *visual* position no longer needs
-to match its *layout* position — which requires the real text to be
-invisible (`color: transparent`) and *something else* to paint the
+change only matters if the real text's _visual_ position no longer needs
+to match its _layout_ position — which requires the real text to be
+invisible (`color: transparent`) and _something else_ to paint the
 visible glyph at the old, correct-looking spot. So `-`/`+` needed the
 identical transparent-text-plus-painted-pseudo-element treatment as `*`,
 purely to preserve their existing visual appearance after the layout
@@ -739,9 +753,9 @@ literal characters, painted instead of laid out.
 
 These offsets exist **only because the real, transparent text now lays
 out flush-left** (via the `text-align: left` fix in §5), not centered.
-Before that fix, `text-align: center` positioned each glyph's *visual*
+Before that fix, `text-align: center` positioned each glyph's _visual_
 center automatically; after it, the glyph's layout anchor moved to the
-box's left edge, so the *painted* glyph needs an explicit offset to land
+box's left edge, so the _painted_ glyph needs an explicit offset to land
 back where it visually looked correct before the layout change.
 
 Each glyph has its own tuned value because **each real character has a
@@ -750,10 +764,10 @@ position depended on that width. Measured directly (`Range.getBoundingClientRect
 on the real, pre-fix centered text) before the layout change:
 
 | Marker | Measured `text-align: center` position (inset from box's left edge) |
-|---|---|
-| `-` | ~4.29px |
-| `*` | ~4.29px (same real advance width as `-` in this font) |
-| `+` | ~3.02px (a visibly wider glyph needs less centering padding) |
+| ------ | ------------------------------------------------------------------- |
+| `-`    | ~4.29px                                                             |
+| `*`    | ~4.29px (same real advance width as `-` in this font)               |
+| `+`    | ~3.02px (a visibly wider glyph needs less centering padding)        |
 
 The **current, shipped** per-glyph `left`/`bottom` values (re-read from
 `MarkdownEditor.css` at the time of this writing) are hand-tuned from
@@ -804,7 +818,7 @@ independently re-confirmed inapplicable here:
   previously by direct measurement (Cmd+A painting no selection
   background for a line starting with a near-zero-font-size marker).
 - **`transform: scaleX()` on the real text**: paints small but a CSS
-  `transform` never changes an element's *layout* box, only its painted
+  `transform` never changes an element's _layout_ box, only its painted
   one — the marker would still reserve its full original glyph width in
   the line's horizontal layout, causing progressively more indentation
   the more/longer markers a line has (confirmed previously, this exact
@@ -861,7 +875,7 @@ comment: "Nesting requires no special handling").
 
 At the exact document position immediately before `Text` in `- |Text`
 (content-start), the **same integer document position** rendered the
-caret at two visually different spots depending on *how* the cursor
+caret at two visually different spots depending on _how_ the cursor
 arrived there:
 
 - Arriving via **ArrowLeft** (from inside `Text`, moving backward): caret
@@ -880,9 +894,9 @@ let pos = view.coordsAtPos(range.head, range.assoc || 1);
 ```
 
 `SelectionRange.assoc` (`-1`/`0`/`1`) tells `coordsAtPos` which side of
-the position to measure: `-1` resolves to wherever the *preceding*
+the position to measure: `-1` resolves to wherever the _preceding_
 content's real text visually ends; `1`/`0` resolves to wherever the
-*following* content's real text visually begins. At an inline-block
+_following_ content's real text visually begins. At an inline-block
 marker boundary, these can be genuinely different pixels, because the
 marker's real (centered, pre-§5-fix) text ends well before the box's own
 right edge.
@@ -891,13 +905,17 @@ Arrow-key motion sets `assoc` itself, unconditionally, in `moveVisually`
 (`@codemirror/view`):
 
 ```js
-return EditorSelection.cursor(nextIndex + line.from, span.forward(forward, dir) ? -1 : 1, span.level);
+return EditorSelection.cursor(
+  nextIndex + line.from,
+  span.forward(forward, dir) ? -1 : 1,
+  span.level
+);
 ```
 
 For plain LTR text, `span.forward(forward, dir) === forward`. So
 **ArrowRight (`forward: true`) always produces `assoc: -1`**, and
 **ArrowLeft (`forward: false`) always produces `assoc: 1`** — this is
-generic CM6 behavior for *any* boundary with a real visual gap between
+generic CM6 behavior for _any_ boundary with a real visual gap between
 where a preceding run's real content ends and where a box/following run
 begins, not something introduced by Clutter's own CSS. Confirmed via
 `BidiSpan.forward`'s own one-line implementation
@@ -907,14 +925,14 @@ assumed.
 A useful, easily-missed fact: `EditorSelection.cursor(pos)` with no
 explicit `assoc` defaults to `0`, and `range.assoc || 1` treats `0`
 identically to `1` — so the "good" (touching-`T`) rendering was already
-the *default* whenever nothing else overrides it; only the explicit `-1`
+the _default_ whenever nothing else overrides it; only the explicit `-1`
 from rightward motion produced the gap.
 
 ### The fix
 
 `listMarkerCaretAssoc()` (`listMarkerDecoration.ts`) is an
 `EditorState.transactionFilter` that intercepts a transaction's
-*resulting* selection: if it is an empty cursor exactly at a bullet
+_resulting_ selection: if it is an empty cursor exactly at a bullet
 item's own content-start (`bulletContentStart()`, walking `ListItem`
 ancestors and comparing to `getBulletMarkRange(...).to`) with
 `assoc === -1`, it is replaced with the identical position at `assoc: 1`.
@@ -931,17 +949,16 @@ semantics, and (after the fix below) does not.
 **The regression was real, confirmed, and traced to a different, more
 general defect than the `assoc` fix's own logic.** `EditorState`'s
 `filterTransaction` (`@codemirror/state`), when a transaction filter
-returns anything that is *not* a `Transaction` instance, resolves it via
+returns anything that is _not_ a `Transaction` instance, resolves it via
 `resolveTransaction(state, ...)` — against the transaction's **pre-edit**
 `startState**, using only the fields the filter supplied. The filter's
-first version returned a bare `{ selection: ..., scrollIntoView: ... }`
-object with no `changes` field — which silently discarded whatever real
+first version returned a bare `{ selection: ..., scrollIntoView: ... }`object with no`changes` field — which silently discarded whatever real
 document edit the intercepted transaction carried.
 
 Concretely reproduced: pressing Backspace to join `- ` with a following
 plain-text line (`"- \nText"` → expected `"- Text"`) instead left the
 document completely unchanged while moving the caret to where it would
-have landed *had* the join happened — because the join itself was
+have landed _had_ the join happened — because the join itself was
 resolved away. This is not a hypothetical: it was directly observed live
 (document unchanged, cursor moved to the post-join position anyway) and
 is fully explained by the `resolveTransaction`/`filterTransaction`
@@ -1007,7 +1024,7 @@ in this document were re-verified with the correct key name.
 Selecting multiple list lines (e.g. via `Cmd+A` or a multi-line
 `Shift`+arrow selection) shows the selection background starting a few
 pixels **inside** the 20px marker column — not flush at its left edge —
-specifically on whichever line is the selection's own *boundary* row
+specifically on whichever line is the selection's own _boundary_ row
 (the line containing `selection.from` or `.to`).
 
 ### Root cause, traced to source
@@ -1041,7 +1058,7 @@ rendering).
 
 Blockquote's own marker (`.cm-quote-marker`) uses `text-align: end`
 (right-aligned, not centered) inside the identical 20px box — a
-*different* alignment, but the same underlying mechanism (real text,
+_different_ alignment, but the same underlying mechanism (real text,
 `Decoration.mark`, no widget). Direct measurement (this session)
 confirmed blockquote has the **identical class of gap**, and in fact a
 **larger** one in the case measured: `6.05px` (quote marker's own real
@@ -1079,7 +1096,7 @@ an existing, supported mechanism:
 - **The one real, supported extension point**: `layer` and
   `RectangleMarker`, both public exports of `@codemirror/view` — the
   exact primitives `drawSelection()`'s own internals are built from. A
-  small, additive `layer()` extension *could* draw a supplementary
+  small, additive `layer()` extension _could_ draw a supplementary
   rectangle patching this gap on marker-line boundaries specifically,
   running alongside (not replacing) the default selection rendering.
 
@@ -1104,7 +1121,7 @@ changed from `center` to `left` on `.cm-bullet-list-marker` specifically
 to close this gap (§2/§3), and this **is** shipped and active — the real
 (now-invisible) marker text lays out flush against the box's true left
 edge, so `coordsAtPos`/selection agree with the box edge unconditionally
-for the *painted* result. This works precisely because the real text is
+for the _painted_ result. This works precisely because the real text is
 already `color: transparent` for the `*→•` mechanism (§3) — its layout
 position no longer needs to match anything visible. **This means the
 selection gap described above, as measured against the ORIGINAL
@@ -1114,7 +1131,7 @@ bullet markers** — re-verified live: `Cmd+A` selection across `- Bullet`/
 edge) on every row, including boundary rows, at every font size tested.
 
 **A separate, later attempt to also fix the underlying caret position**
-(making `text-align: left` apply to real, *visible* — not
+(making `text-align: left` apply to real, _visible_ — not
 `*→•`-transparent — marker text, so no pseudo-element rendering trick
 would be needed at all) was tried and reverted: it created a real
 caret/Backspace mismatch (`-|Text` visually vs. the actual caret sitting
@@ -1172,7 +1189,7 @@ document's scope, but visible in the same file.)
 **IMPLEMENTED + VERIFIED, unchanged by any bullet-specific work in this
 document.** `continueMarkup`'s own `getContext` walk correctly finds
 `Child`'s own `ListItem` as the innermost context and continues at
-*that* level, not `Parent`'s shallower one:
+_that_ level, not `Parent`'s shallower one:
 
 ```
 "- Parent\n  - Child" + Enter → "- Parent\n  - Child\n  - "
@@ -1211,27 +1228,32 @@ faithfully follows.
 ### The fix — `continueFirstSameLineBulletLevel`
 
 ```ts
-const continueFirstSameLineBulletLevel: StateCommand = ({ state, dispatch }) => {
+const continueFirstSameLineBulletLevel: StateCommand = ({
+  state,
+  dispatch,
+}) => {
   const { selection } = state;
   if (selection.ranges.length !== 1 || !selection.main.empty) return false;
 
   const pos = selection.main.head;
   const line = state.doc.lineAt(pos);
-  if (pos !== line.to) return false;                    // guard 2: end-of-line only
+  if (pos !== line.to) return false; // guard 2: end-of-line only
 
   const first = firstSameLineBulletMark(state, pos);
-  if (!first) return false;                              // guard 3: real same-line collapse only
+  if (!first) return false; // guard 3: real same-line collapse only
 
   const indent = state.sliceDoc(line.from, first.from);
   const markerAndSeparator = state.sliceDoc(first.from, first.to);
   const insert = state.lineBreak + indent + markerAndSeparator;
 
-  dispatch(state.update({
-    changes: { from: pos, to: pos, insert },
-    selection: EditorSelection.cursor(pos + insert.length),
-    scrollIntoView: true,
-    userEvent: 'input',
-  }));
+  dispatch(
+    state.update({
+      changes: { from: pos, to: pos, insert },
+      selection: EditorSelection.cursor(pos + insert.length),
+      scrollIntoView: true,
+      userEvent: 'input',
+    })
+  );
   return true;
 };
 ```
@@ -1259,12 +1281,12 @@ behavior changes with it automatically, with no second place to update.
 
 ### Exact before/after (all live-verified, this session)
 
-| Input | Before this fix | After this fix |
-|---|---|---|
-| `- Text` + Enter | `"- Text\n- "` | unchanged: `"- Text\n- "` |
-| `- Parent`/`  - Child` + Enter | `"- Parent\n  - Child\n  - "` | unchanged |
-| `- - Text` + Enter | `"- - Text\n  - "` (deepest level) | **`"- - Text\n- "`** (first level) |
-| `- - - - Text` + Enter | `"- - - - Text\n      - "` (deepest level) | **`"- - - - Text\n- "`** (first level) |
+| Input                          | Before this fix                            | After this fix                         |
+| ------------------------------ | ------------------------------------------ | -------------------------------------- |
+| `- Text` + Enter               | `"- Text\n- "`                             | unchanged: `"- Text\n- "`              |
+| `- Parent`/`  - Child` + Enter | `"- Parent\n  - Child\n  - "`              | unchanged                              |
+| `- - Text` + Enter             | `"- - Text\n  - "` (deepest level)         | **`"- - Text\n- "`** (first level)     |
+| `- - - - Text` + Enter         | `"- - - - Text\n      - "` (deepest level) | **`"- - - - Text\n- "`** (first level) |
 
 Both resulting lines, after the fix, render with exactly one visible
 marker each — a self-consistent visual model (verified via DOM
@@ -1299,7 +1321,7 @@ accumulated fresh on every `buildDecorations()` call
 const seenLines = new Set<number>();
 // ...
 const lineFrom = view.state.doc.lineAt(range.from).from;
-if (seenLines.has(lineFrom)) return;   // later same-line marker: skip
+if (seenLines.has(lineFrom)) return; // later same-line marker: skip
 seenLines.add(lineFrom);
 pending.push(range);
 ```
@@ -1321,11 +1343,11 @@ visual choice, reversible on every rebuild, with zero effect on
 
 **Not to be confused with §1's "empty marker directly after a paragraph"
 finding**: that case (a bare `- `/`* `/`+ ` typed right after a paragraph,
-no blank line) is a *different* phenomenon — the parser produces **no**
+no blank line) is a _different_ phenomenon — the parser produces **no**
 `ListItem`/`ListMark` at all for it (absorbed into `SetextHeading2` or
 ordinary paragraph lazy-continuation), so `seenLines` and this policy
 never even run for it. This section's own same-line-collapse policy only
-ever operates on markers the parser *did* produce.
+ever operates on markers the parser _did_ produce.
 
 ### Why typing interception was rejected — INVESTIGATED + REJECTED
 
@@ -1334,7 +1356,7 @@ satisfy together:
 
 - Lezer's parser has no memory of keystroke order — it parses whatever
   `state.doc` currently contains. Given `"- - - - hey"` as a final
-  document, four nested `BulletList`s is the *only* valid parse,
+  document, four nested `BulletList`s is the _only_ valid parse,
   regardless of whether that string was typed one key at a time, pasted,
   or loaded from disk.
 - So "prevent the newly typed `- ` from becoming a nested list" can only
@@ -1378,7 +1400,7 @@ behave differently based on how the current document state was reached.
 ### Why decoration-level suppression is deterministic and source-preserving
 
 Because it depends only on two things, both purely functions of the
-*current* document state: the current syntax tree (Lezer's own, already
+_current_ document state: the current syntax tree (Lezer's own, already
 re-parsed on every edit) and physical line boundaries (`state.doc.lineAt`).
 Neither depends on typing history, so the same document always renders
 the same way, satisfying the parser-driven-rendering principle this
@@ -1387,22 +1409,22 @@ infer 'this looks like a bullet' from raw text").
 
 ### Verified live (this session)
 
-| Input | `state.doc` (unchanged) | Marker count rendered |
-|---|---|---|
-| `- - hey` | `"- - hey"` | 1 |
-| `- - - hey` | `"- - - hey"` | 1 |
-| `- - - - hey` | `"- - - - hey"` | 1 |
-| `- - - - - hey` (5×) | `"- - - - - hey"` | 1 |
-| `- - - - - - - - - - hey` (10×) | `"- - - - - - - - - - hey"` | 1 |
-| `- Parent` / `  - Child` (different lines) | unchanged | 2 — both render normally |
-| `- Text`, `+ Text`, `* Text` (normal, single-level) | unchanged | each renders its own marker |
-| 10 bare `- ` with no trailing text | unchanged | **0** — parses as `HorizontalRule` (§1's thematic-break ambiguity, not caused by this rule) |
+| Input                                               | `state.doc` (unchanged)     | Marker count rendered                                                                       |
+| --------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------- |
+| `- - hey`                                           | `"- - hey"`                 | 1                                                                                           |
+| `- - - hey`                                         | `"- - - hey"`               | 1                                                                                           |
+| `- - - - hey`                                       | `"- - - - hey"`             | 1                                                                                           |
+| `- - - - - hey` (5×)                                | `"- - - - - hey"`           | 1                                                                                           |
+| `- - - - - - - - - - hey` (10×)                     | `"- - - - - - - - - - hey"` | 1                                                                                           |
+| `- Parent` / `  - Child` (different lines)          | unchanged                   | 2 — both render normally                                                                    |
+| `- Text`, `+ Text`, `* Text` (normal, single-level) | unchanged                   | each renders its own marker                                                                 |
+| 10 bare `- ` with no trailing text                  | unchanged                   | **0** — parses as `HorizontalRule` (§1's thematic-break ambiguity, not caused by this rule) |
 
 Ordinary editing on the now-undecorated later `- ` runs was also directly
 verified unaffected: `ArrowRight` steps one character at a time through
 them, `Shift+ArrowRight` selects real text there, and Backspace-on-
 selection deletes normally — all exactly as on any ordinary plain text,
-because it *is* ordinary, undecorated text with no special handling
+because it _is_ ordinary, undecorated text with no special handling
 attached.
 
 ### Test coverage
@@ -1457,19 +1479,19 @@ unintended state."
 
 ### Precise boundary distinctions (do not conflate these)
 
-| Position | Example | Backspace result |
-|---|---|---|
-| Before the marker | `\|- Text` | **Declines** — falls through to `deleteMarkupBackward`/default char deletion |
-| Immediately after the marker, before any separator | `-\| Text` | **Declines** — this is mid-marker/pre-separator, not the boundary this override targets |
-| Mid-separator (3-space separator, caret after the first space) | `- \| _Text` | **Declines** |
-| **Content-start** (the marker+separator boundary, real content follows) | `- \|Text` | **Fires** — separator removed, marker kept: `-\|Text` |
-| **Empty item** (marker+separator boundary, nothing follows on the line) | `- \|` | **Fires** — marker+separator removed together: `\|` |
-| Inside content | `- Te\|xt` | **Declines** — generic character deletion, not this override |
-| End of content | `- Text\|` | **Declines** |
-| First item | `- \|Text` (only item) | Identical rule to any other position — no first-item special case |
-| Later item | `- One\n- \|Two` | Identical rule — `- One\n-\|Two` |
-| Nested item | `- Parent\n  - \|Child` | Identical rule, leading indentation before the marker untouched — `- Parent\n  -\|Child` |
-| Non-empty selection overlapping marker/content | any | **Declines** — this is a single-cursor-only rule; any selection falls through |
+| Position                                                                | Example                 | Backspace result                                                                         |
+| ----------------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| Before the marker                                                       | `\|- Text`              | **Declines** — falls through to `deleteMarkupBackward`/default char deletion             |
+| Immediately after the marker, before any separator                      | `-\| Text`              | **Declines** — this is mid-marker/pre-separator, not the boundary this override targets  |
+| Mid-separator (3-space separator, caret after the first space)          | `- \| _Text`            | **Declines**                                                                             |
+| **Content-start** (the marker+separator boundary, real content follows) | `- \|Text`              | **Fires** — separator removed, marker kept: `-\|Text`                                    |
+| **Empty item** (marker+separator boundary, nothing follows on the line) | `- \|`                  | **Fires** — marker+separator removed together: `\|`                                      |
+| Inside content                                                          | `- Te\|xt`              | **Declines** — generic character deletion, not this override                             |
+| End of content                                                          | `- Text\|`              | **Declines**                                                                             |
+| First item                                                              | `- \|Text` (only item)  | Identical rule to any other position — no first-item special case                        |
+| Later item                                                              | `- One\n- \|Two`        | Identical rule — `- One\n-\|Two`                                                         |
+| Nested item                                                             | `- Parent\n  - \|Child` | Identical rule, leading indentation before the marker untouched — `- Parent\n  -\|Child` |
+| Non-empty selection overlapping marker/content                          | any                     | **Declines** — this is a single-cursor-only rule; any selection falls through            |
 
 ### Ordered vs. bullet symmetry — explicitly NOT symmetric
 
@@ -1550,9 +1572,9 @@ before treating anything below as current.** The active contract is the
 "Final decision: uniform per-line indentation" section immediately
 below this one, which is no longer superseded by anything here.
 
-*(Original framing, kept verbatim below for the historical record —
+_(Original framing, kept verbatim below for the historical record —
 "supersedes," "IMPLEMENTED," etc. describe this amendment's own
-now-ended lifecycle, not the current state of the codebase.)*
+now-ended lifecycle, not the current state of the codebase.)_
 
 **This supersedes the "Final decision: uniform per-line indentation"
 section immediately below for list items specifically.** That section's
@@ -1587,7 +1609,7 @@ selected line, with zero coupling between lines.
 
 **New contract**: for a physical line that is a `ListItem`'s own marker
 line (in the pre-edit tree) and is explicitly selected, Tab/Shift-Tab
-set *that one line's* leading whitespace to a **target column computed
+set _that one line's_ leading whitespace to a **target column computed
 from the current syntax tree**, not a fixed constant — independently of
 every other selected line:
 
@@ -1614,7 +1636,7 @@ every other selected line:
   for the same reason — there is no shared state to keep separate.
 - **Only the explicitly selected line moves.** A `ListItem`'s own
   continuation content or nested descendants are touched only if their
-  own physical line is *also* part of the selection — and if a
+  own physical line is _also_ part of the selection — and if a
   continuation line is selected, it is not itself a `ListItem`'s own
   marker line, so it uses the flat fallback below, independently of
   whatever its owning item's own marker line did.
@@ -1628,7 +1650,7 @@ every other selected line:
   the old flat 10-space/`MAX_INDENT_SPACES` column ceiling, which no
   longer has a consistent meaning once the column-per-level varies by
   marker width) — an item already at ancestor-`ListItem` depth 5 has no
-  further *logical* Tab target (though see §18.14: it may still grow via
+  further _logical_ Tab target (though see §18.14: it may still grow via
   the free-indentation fallback). This is a **judgment call made during
   implementation, not something §18 explicitly specified** — flagged
   here rather than silently decided; it preserves the old ceiling's
@@ -1685,7 +1707,7 @@ paragraph — because A (previously a guaranteed no-op) now also moves,
 but B's own target is still correctly computed from A's **pre-edit**
 column (per §18.13's own per-line-independence requirement, which is
 not being relaxed), landing in the gap between A's old and new geometry.
-Also reproduced for bullets (landing at the *same* column as the
+Also reproduced for bullets (landing at the _same_ column as the
 following item instead of nesting, since a bullet's fallback step
 happens to equal its own content-column offset) and more severely for
 3+-digit markers. This is not a rare edge case — it reproduces for any
@@ -1737,22 +1759,22 @@ instruction. This entry documents the investigation and the fix.
 **Investigation — what was and wasn't the cause**. The hard constraint
 was reaffirmed unconditionally throughout: no subtree movement, no
 moving an unselected line, every explicitly selected line still
-independently editable. The question posed was whether a *selected*
-item's target may legitimately account for another *selected* item's
+independently editable. The question posed was whether a _selected_
+item's target may legitimately account for another _selected_ item's
 actual resulting (post-edit) column, rather than only ever reading a
 stale pre-edit one — which is a question about the correctness of the
-target *arithmetic* for lines that are already being edited, not about
+target _arithmetic_ for lines that are already being edited, not about
 which lines get edited (that set is unaffected either way).
 
 Two genuinely distinct bugs were found, both the same root shape (an
-item's target computed from an ancestor/sibling's *stale* column, once
+item's target computed from an ancestor/sibling's _stale_ column, once
 that ancestor/sibling also moves in the very same operation) but via
 two different relationships, needing two different fixes:
 
 1. **Tab — sibling chains.** A flat run of touched siblings within one
    container (e.g. items 2–15 of a 15-item list, all selected) each
    independently recomputing `contentColumnOf(precedingSibling)` from
-   that sibling's *pre-edit* column is fine only while none of them have
+   that sibling's _pre-edit_ column is fine only while none of them have
    moved yet. Across repeated presses, once a sibling in the middle of
    the chain hits the logical depth ceiling and reverts to "no target,
    stays put," the next sibling's independently-computed target — still
@@ -1764,16 +1786,16 @@ two different relationships, needing two different fixes:
    instead of the already-shipped, already-tested "all touched siblings
    become mutual siblings of each other" behavior (§18.13's own tests
    depend on this). The fix actually needed is the narrower, already-
-   proven-correct one: **same-container delta *propagation*** — once one
+   proven-correct one: **same-container delta _propagation_** — once one
    item in a contiguous touched run establishes a real delta (because
    its own true preceding sibling has a fixed, unmoving destination),
    every immediately-following touched sibling in that same container
-   reuses that *exact* delta rather than recomputing its own target from
+   reuses that _exact_ delta rather than recomputing its own target from
    a now-stale column. Implemented in `tabChangesForContainer`.
 2. **Shift-Tab — ancestor chains.** Independently discovered while
    testing item 7's own boundary cases with digit-width-crossing markers
    (98.–107., nested via Tab, then select-all Shift-Tab): each item's
-   target is its *parent's* column, and if that parent is *also*
+   target is its _parent's_ column, and if that parent is _also_
    selected and dedenting in the same keypress, using the parent's stale
    pre-edit column produces the identical gap-swallow, just through the
    ancestor relationship instead of the sibling one. Delta propagation
@@ -1787,7 +1809,7 @@ two different relationships, needing two different fixes:
    decided. Implemented in `logicalShiftTabTarget`/`logicalShiftTabChange`.
 
 **Why neither fix touches the locked invariant**: both only change how
-an *already-selected* line's own target number is computed. Neither
+an _already-selected_ line's own target number is computed. Neither
 reads, infers, or acts on anything about a line that was not itself
 independently and explicitly selected; neither emits a `ChangeSpec` for
 any line beyond the one it was already going to touch. The "gap" that
@@ -1801,7 +1823,7 @@ touched — only what each already-touched line computes as its target.
 **Verification — exhaustive, not spot-checked**: a temporary stress
 probe (not committed — findings captured as permanent regression tests
 instead) ran full Tab-then-Shift-Tab round trips, checking for any
-swallowed `ListItem` after *every single press*, across: 15- and 20-item
+swallowed `ListItem` after _every single press_, across: 15- and 20-item
 flat ordered and bullet lists (8 Tabs, 10 Shift-Tabs each), a 3-item
 baseline, a 6-item run straddling the exact depth-ceiling boundary, and
 two digit-width-crossing runs (98.–107., 995.–1004., crossing the 2→3
@@ -1845,9 +1867,9 @@ target column at all.** The corrected contract, stated explicitly:
 fix — though itself correctly scoped and non-violating on its own
 terms — is the wrong direction to keep building on**: every version of
 the logical-target model, no matter how carefully the target arithmetic
-was scoped to avoid touching unselected lines, was still *computing a
+was scoped to avoid touching unselected lines, was still _computing a
 different delta for different selected lines based on their parsed
-structural role* (a line's own marker width, its preceding sibling's
+structural role_ (a line's own marker width, its preceding sibling's
 marker width, whether it was "first" or "established," its ancestor's
 column). That is itself the thing being rejected — not because it ever
 moved an unselected line (it didn't, at any point in §18–§18.15), but
@@ -1877,7 +1899,7 @@ not deleted — they document real parser behavior, real formulas
 CommonMark nesting math, independent of whether Clutter's own Tab
 command uses it), and a real, instructive example of a design that
 satisfied every constraint it was explicitly asked to satisfy and was
-still the wrong direction. §16's ordered-list *numbering* investigation
+still the wrong direction. §16's ordered-list _numbering_ investigation
 is entirely unaffected by this reversion — it was already, and remains,
 a separate, still-undecided question with no implementation.
 
@@ -1896,9 +1918,13 @@ parser-hierarchy preservation, no reparse/validation step.
 function lineIndentChange(line: Line, direction: 1 | -1): ChangeSpec | null {
   const leadingEnd = line.from + /^[ \t]*/.exec(line.text)![0].length;
   const current = leadingEnd - line.from;
-  const target = direction === 1
-    ? Math.max(current, Math.min(current + INDENT_STEP_SPACES, MAX_INDENT_SPACES))
-    : Math.max(0, current - INDENT_STEP_SPACES);
+  const target =
+    direction === 1
+      ? Math.max(
+          current,
+          Math.min(current + INDENT_STEP_SPACES, MAX_INDENT_SPACES)
+        )
+      : Math.max(0, current - INDENT_STEP_SPACES);
   if (target === current) return null;
   return { from: line.from, to: leadingEnd, insert: ' '.repeat(target) };
 }
@@ -1925,12 +1951,12 @@ list's own marker position specifically for `list`-classified lines.
 
 **Investigation finding that led to simplification**: this
 construct-aware version produced **byte-identical results to plain CM6
-`indentMore`/`indentLess`** in every tested case *except* two narrow,
+`indentMore`/`indentLess`** in every tested case _except_ two narrow,
 cosmetic ones (skipping non-list/paragraph lines in a mixed selection,
 and skipping blank lines) — and a genuinely stronger guarantee
 ("indenting list lines without ever letting the parser
 reclassify/reparent them") was found to be **not achievable at all**
-while staying valid CommonMark, because indentation depth *is* what
+while staying valid CommonMark, because indentation depth _is_ what
 determines list nesting in CommonMark — there is no way to change a
 line's leading whitespace without it potentially being reparsed into a
 different structural position on the next parse. Given that, the extra
@@ -2001,9 +2027,9 @@ of what follows it.
 
 **Why it's needed**: `state.update({ changes, userEvent })` with no
 explicit `selection` resolves the post-transaction selection via
-`Transaction.newSelection`, which maps the *old* selection through the
+`Transaction.newSelection`, which maps the _old_ selection through the
 change with CM6's own default `assoc = -1`. That default keeps a
-collapsed caret sitting *behind* text inserted exactly at its own
+collapsed caret sitting _behind_ text inserted exactly at its own
 position — correct for nothing this feature does, since Tab's insertion
 point and a caret at true content-start (column 0, before any existing
 indentation) coincide exactly in the one case that matters most: a
@@ -2021,7 +2047,8 @@ if (changes.length) {
   dispatch(
     state.update({
       changes: changeSet,
-      selection: direction === 1 ? state.selection.map(changeSet, 1) : undefined,
+      selection:
+        direction === 1 ? state.selection.map(changeSet, 1) : undefined,
       userEvent: direction === 1 ? 'input.indent' : 'delete.dedent',
     })
   );
@@ -2090,7 +2117,7 @@ built, is two-phase:
    never modified by the addendum.
 2. **Phase B — provisional post-indent state.** Before dispatching,
    build the state Phase A's change would produce (`state.update({
-   changes })`, not yet dispatched) and read its `syntaxTree` — never
+changes })`, not yet dispatched) and read its `syntaxTree` — never
    the pre-edit tree, per this document's own repeated "the parser is
    stateless, ask it after the edit, never predict structure ahead of
    it" principle (§1, §7, §9's own text above).
@@ -2120,7 +2147,7 @@ built, is two-phase:
    bug demonstrates can corrupt structure if unguarded.
 5. **Phase D — one transaction.** Phase A's `ChangeSet` and Phase C's
    normalization `ChangeSet` (computed against the Phase B provisional
-   *document*, not the original) are combined via `ChangeSet.compose`
+   _document_, not the original) are combined via `ChangeSet.compose`
    (confirmed present and semantically exact for this — "if `this` goes
    docA→docB and `other` represents docB→docC, the result represents
    docA→docC," read directly from `@codemirror/state`'s own source) and
@@ -2136,7 +2163,7 @@ Verified directly against the installed parser this session: a nested
 ordered list interrupting its parent's own open paragraph — the exact
 shape a newly-Tab-nested item produces — accepts **any** starting number
 without a blank line, not just `1` (`"1. A\n   5. B"` nests exactly like
-`"1. A\n   2. B"`); only a *top-level* paragraph interruption requires
+`"1. A\n   2. B"`); only a _top-level_ paragraph interruption requires
 `1` in Clutter's own configured `@lezer/markdown@1.7.2`. Whether strict
 CommonMark's spec text extends the same top-level-only restriction to
 nested contexts was not conclusively established (a spec lookup
@@ -2152,7 +2179,7 @@ continues correctly; existing destination children are never
 renumbered to collide with the moved item; source run closes its own
 gap; deliberately irregular numbering is left alone; `.`/`)` preserved;
 multi-line Tab (several items moved at once) normalizes the whole
-affected run, not just one item; Shift-Tab uses the *same* normalization
+affected run, not just one item; Shift-Tab uses the _same_ normalization
 planner as Tab (not a separate, ad-hoc inverse algorithm); mixed bullet/
 ordered nesting only ever normalizes the ordered side; undo/redo revert
 the whitespace and numbering changes together, as the single composed
@@ -2166,19 +2193,19 @@ Legend: **✓ tested** (this document's own investigation or an existing
 automated test) / **NOT TESTED** (explicitly not verified — do not infer
 behavior from adjacent rows).
 
-| Key | Before marker | Inside marker | After marker/separator (content-start) | Mid-content | End-of-line | Empty item | First item | Later item | Genuine nested item (different line) | Same-line nested ambiguity | Selection |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Enter** | NOT TESTED | NOT TESTED | ✓ preserves marker+separator on original line, splits correctly (`preserveBulletMarkerOnContentStartSplit`, §6/test suite) | ✓ ordinary split via `continueMarkup` (upstream, untested by name here but exercised by adjacent cases) | ✓ `- Text` → `"- Text\n- "` (§6) | ✓ empty item + Enter is `continueMarkup`'s own "exit the list" gesture, unwinds one level (`markdownEnterKeymap.test.ts`) | ✓ (§6 table) | ✓ (§6 table) | ✓ continues at genuine child level (§6) | ✓ **fixed**: continues at first same-line level (§6) | NOT TESTED (multi-range Enter) |
-| **Backspace** | ✓ declines, falls through (§8 table) | ✓ declines (§8 table) | ✓ removes separator only, keeps marker (§8) | ✓ declines, ordinary char deletion (§8) | ✓ declines (§8) | ✓ removes marker+separator together (§8, locked decision) | ✓ identical rule to any position (§8) | ✓ identical rule (§8) | ✓ identical rule, leading indentation untouched (§8) | NOT TESTED (Backspace at a same-line-collapsed later marker specifically — §8's rule is position-based and would presumably decline the same way it does for a genuine later item, since the same-line collapse doesn't change tree structure, but this exact combination was not separately exercised) | ✓ non-empty selection always declines, falls through to CM6 (§8) |
-| **Delete (forward)** | NOT TESTED | NOT TESTED | ACCEPTED LIMITATION — plain `deleteCharForward`, zero Markdown awareness, can orphan a leading space (§8) | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED |
-| **Tab** | N/A (whole-line operation) | N/A | N/A | N/A | N/A | ✓ indents the line like any other (uniform rule, §9) | ✓ (§9) | ✓ (§9, sibling-independence tested) | ✓ (§9, Parent/Child independence tested) | NOT TESTED explicitly for a same-line-collapsed line (the uniform per-line rule would indent the whole physical line's leading whitespace regardless, per §9's own "no construct distinction" design, but this exact input was not separately exercised) | ✓ multi-line selection indents every explicitly selected line (§9) |
-| **Shift-Tab** | N/A | N/A | N/A | N/A | N/A | ✓ (§9, floors at 0) | ✓ (§9) | ✓ (§9) | ✓ (§9) | NOT TESTED (same caveat as Tab above) | ✓ (§9) |
-| **ArrowLeft** | NOT TESTED | ✓ steps one character at a time, ordinary text behavior (`listMarkerDecoration.ts`'s own probe verification, §2) | ✓ lands caret correctly, touching following content (§4 — this is the direction that was already correct before the `assoc` fix) | ✓ ordinary | NOT TESTED | N/A | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED (multi-range) |
-| **ArrowRight** | NOT TESTED | ✓ steps one character at a time (§2, §3) | ✓ **fixed** by `listMarkerCaretAssoc` — previously showed a visual gap, now touches content correctly (§4) | ✓ ordinary | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED |
-| **ArrowUp** | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED |
-| **ArrowDown** | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED |
-| **Home** | ✓ used throughout this session's own test setup to reach true line-start reliably (behavior itself not the subject of investigation) | N/A | N/A | N/A | N/A | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED |
-| **End** | N/A | N/A | N/A | N/A | ✓ used throughout this session to reach end-of-line reliably (behavior itself not the subject of investigation) | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED |
+| Key                  | Before marker                                                                                                                        | Inside marker                                                                                                    | After marker/separator (content-start)                                                                                           | Mid-content                                                                                             | End-of-line                                                                                                     | Empty item                                                                                                                | First item                            | Later item                          | Genuine nested item (different line)                 | Same-line nested ambiguity                                                                                                                                                                                                                                                                              | Selection                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Enter**            | NOT TESTED                                                                                                                           | NOT TESTED                                                                                                       | ✓ preserves marker+separator on original line, splits correctly (`preserveBulletMarkerOnContentStartSplit`, §6/test suite)       | ✓ ordinary split via `continueMarkup` (upstream, untested by name here but exercised by adjacent cases) | ✓ `- Text` → `"- Text\n- "` (§6)                                                                                | ✓ empty item + Enter is `continueMarkup`'s own "exit the list" gesture, unwinds one level (`markdownEnterKeymap.test.ts`) | ✓ (§6 table)                          | ✓ (§6 table)                        | ✓ continues at genuine child level (§6)              | ✓ **fixed**: continues at first same-line level (§6)                                                                                                                                                                                                                                                    | NOT TESTED (multi-range Enter)                                     |
+| **Backspace**        | ✓ declines, falls through (§8 table)                                                                                                 | ✓ declines (§8 table)                                                                                            | ✓ removes separator only, keeps marker (§8)                                                                                      | ✓ declines, ordinary char deletion (§8)                                                                 | ✓ declines (§8)                                                                                                 | ✓ removes marker+separator together (§8, locked decision)                                                                 | ✓ identical rule to any position (§8) | ✓ identical rule (§8)               | ✓ identical rule, leading indentation untouched (§8) | NOT TESTED (Backspace at a same-line-collapsed later marker specifically — §8's rule is position-based and would presumably decline the same way it does for a genuine later item, since the same-line collapse doesn't change tree structure, but this exact combination was not separately exercised) | ✓ non-empty selection always declines, falls through to CM6 (§8)   |
+| **Delete (forward)** | NOT TESTED                                                                                                                           | NOT TESTED                                                                                                       | ACCEPTED LIMITATION — plain `deleteCharForward`, zero Markdown awareness, can orphan a leading space (§8)                        | NOT TESTED                                                                                              | NOT TESTED                                                                                                      | NOT TESTED                                                                                                                | NOT TESTED                            | NOT TESTED                          | NOT TESTED                                           | NOT TESTED                                                                                                                                                                                                                                                                                              | NOT TESTED                                                         |
+| **Tab**              | N/A (whole-line operation)                                                                                                           | N/A                                                                                                              | N/A                                                                                                                              | N/A                                                                                                     | N/A                                                                                                             | ✓ indents the line like any other (uniform rule, §9)                                                                      | ✓ (§9)                                | ✓ (§9, sibling-independence tested) | ✓ (§9, Parent/Child independence tested)             | NOT TESTED explicitly for a same-line-collapsed line (the uniform per-line rule would indent the whole physical line's leading whitespace regardless, per §9's own "no construct distinction" design, but this exact input was not separately exercised)                                                | ✓ multi-line selection indents every explicitly selected line (§9) |
+| **Shift-Tab**        | N/A                                                                                                                                  | N/A                                                                                                              | N/A                                                                                                                              | N/A                                                                                                     | N/A                                                                                                             | ✓ (§9, floors at 0)                                                                                                       | ✓ (§9)                                | ✓ (§9)                              | ✓ (§9)                                               | NOT TESTED (same caveat as Tab above)                                                                                                                                                                                                                                                                   | ✓ (§9)                                                             |
+| **ArrowLeft**        | NOT TESTED                                                                                                                           | ✓ steps one character at a time, ordinary text behavior (`listMarkerDecoration.ts`'s own probe verification, §2) | ✓ lands caret correctly, touching following content (§4 — this is the direction that was already correct before the `assoc` fix) | ✓ ordinary                                                                                              | NOT TESTED                                                                                                      | N/A                                                                                                                       | NOT TESTED                            | NOT TESTED                          | NOT TESTED                                           | NOT TESTED                                                                                                                                                                                                                                                                                              | NOT TESTED (multi-range)                                           |
+| **ArrowRight**       | NOT TESTED                                                                                                                           | ✓ steps one character at a time (§2, §3)                                                                         | ✓ **fixed** by `listMarkerCaretAssoc` — previously showed a visual gap, now touches content correctly (§4)                       | ✓ ordinary                                                                                              | NOT TESTED                                                                                                      | NOT TESTED                                                                                                                | NOT TESTED                            | NOT TESTED                          | NOT TESTED                                           | NOT TESTED                                                                                                                                                                                                                                                                                              | NOT TESTED                                                         |
+| **ArrowUp**          | NOT TESTED                                                                                                                           | NOT TESTED                                                                                                       | NOT TESTED                                                                                                                       | NOT TESTED                                                                                              | NOT TESTED                                                                                                      | NOT TESTED                                                                                                                | NOT TESTED                            | NOT TESTED                          | NOT TESTED                                           | NOT TESTED                                                                                                                                                                                                                                                                                              | NOT TESTED                                                         |
+| **ArrowDown**        | NOT TESTED                                                                                                                           | NOT TESTED                                                                                                       | NOT TESTED                                                                                                                       | NOT TESTED                                                                                              | NOT TESTED                                                                                                      | NOT TESTED                                                                                                                | NOT TESTED                            | NOT TESTED                          | NOT TESTED                                           | NOT TESTED                                                                                                                                                                                                                                                                                              | NOT TESTED                                                         |
+| **Home**             | ✓ used throughout this session's own test setup to reach true line-start reliably (behavior itself not the subject of investigation) | N/A                                                                                                              | N/A                                                                                                                              | N/A                                                                                                     | N/A                                                                                                             | NOT TESTED                                                                                                                | NOT TESTED                            | NOT TESTED                          | NOT TESTED                                           | NOT TESTED                                                                                                                                                                                                                                                                                              | NOT TESTED                                                         |
+| **End**              | N/A                                                                                                                                  | N/A                                                                                                              | N/A                                                                                                                              | N/A                                                                                                     | ✓ used throughout this session to reach end-of-line reliably (behavior itself not the subject of investigation) | NOT TESTED                                                                                                                | NOT TESTED                            | NOT TESTED                          | NOT TESTED                                           | NOT TESTED                                                                                                                                                                                                                                                                                              | NOT TESTED                                                         |
 
 **Read this matrix literally.** A cell marked ✓ means the specific
 combination named in this document was actually observed (live or via an
@@ -2198,6 +2225,7 @@ otherwise.
 ```
 "* Text" --(Enter)--> "* Text\n* " --(Backspace)--> "* Text\n"
 ```
+
 One Backspace on the freshly-created empty item removes exactly what
 Enter added (marker+separator), leaving the line break Enter inserted
 untouched. ✓ (§8, automated test coverage in `markdownBulletBackspace.test.ts`)
@@ -2220,6 +2248,7 @@ confirmed beyond what the cited single-step tests establish.**
 ```
 "- Text" --(Tab)--> "  - Text" --(Enter at end)--> "  - Text\n  - "
 ```
+
 ✓ Tested directly (`markdownIndentKeymap.test.ts`, "Tab → Enter: Enter
 reads the tree Tab produced, with no Enter-specific changes needed") —
 the new sibling line appears at the post-Tab column with zero
@@ -2243,6 +2272,7 @@ flagged here rather than silently assumed.
 ```
 "- - - - Text" --(Enter)--> "- - - - Text\n- " --(Backspace at content-start of new line)--> ?
 ```
+
 **NOT TESTED as a full sequence.** The Enter step is fully verified
 (§6). The follow-on Backspace step would land at the new line's own
 content-start (`"- |"`, an empty item — per §8's rule this should remove
@@ -2257,6 +2287,7 @@ verified rules, not a directly observed result.
 "- Text", Home, ArrowRight×2 (0→1→2) reaches content-start;
 ArrowLeft×2 returns to 0 — byte-identical single-character steps each way.
 ```
+
 ✓ Directly verified, multiple times, across `-`/`+`/`*` markers and at
 different font sizes (§2, §3, §4).
 
@@ -2266,6 +2297,7 @@ different font sizes (§2, §3, §4).
 "* Bullet", Home, Shift+End → selects the literal "* Bullet" (real
 asterisk, not the painted dot) — non-zero selection-background rectangle.
 ```
+
 ✓ Directly verified (§3).
 
 ---
@@ -2282,14 +2314,14 @@ asterisk, not the painted dot) — non-zero selection-background rectangle.
   zero-width hit-testing ambiguity, independently, twice (once for the
   original bullet widget, once considered again for `*→•` before
   settling on the pseudo-element approach).
-- **The 20px marker-column model** (`--marker-width`, `display:
-  inline-block`, `width: var(--marker-width)`) — construct-agnostic,
+- **The 20px marker-column model** (`--md-marker-width`, `display:
+inline-block`, `width: var(--md-marker-width)`) — construct-agnostic,
   already shared with blockquote's own marker.
 - **"First `ListMark` per physical line is the real marker; render/Enter
   policy, never a parser change" (§7)** — the same same-line-empty-item
   CommonMark ambiguity exists identically for ordered lists (`1. 1. 1.
-  Text` is exactly as valid and exactly as nested, by the same
-  CommonMark rule). The `firstSameLineBulletMark`-style helper's *shape*
+Text` is exactly as valid and exactly as nested, by the same
+  CommonMark rule). The `firstSameLineBulletMark`-style helper's _shape_
   (walk ancestors, filter to same physical line, take the smallest
   `.from`) generalizes directly — only the node-matching predicate
   (`isBulletListItemNode`/`getBulletMarkRange`'s character-set check)
@@ -2308,7 +2340,7 @@ asterisk, not the painted dot) — non-zero selection-background rectangle.
 - **Tab/Shift-Tab's uniform, construct-agnostic per-line indentation**
   (§9) already applies to every line regardless of construct, ordered
   lists included, today — no future work needed there specifically for
-  ordered lists' *indentation*.
+  ordered lists' _indentation_.
 
 ### What is bullet-specific (do not silently generalize)
 
@@ -2325,16 +2357,16 @@ asterisk, not the painted dot) — non-zero selection-background rectangle.
   **excluded** from all of them (confirmed: `deleteBulletMarkerSeparator`
   explicitly declines for `1.`/`1)`, keeping unmodified upstream
   behavior — §8).
-- **`ListBulletWidget`'s retirement (§2)** is a decision about *this*
+- **`ListBulletWidget`'s retirement (§2)** is a decision about _this_
   construct's chosen final architecture, not a blanket ban on widgets
   everywhere — task checkboxes (below) are a case where a real,
-  clickable widget may be the *correct* choice, for reasons bullets
+  clickable widget may be the _correct_ choice, for reasons bullets
   never had (bullets are never interactive).
 
 ### For ordered lists — the expected 20px marker-column model
 
 Per the earlier architectural investigation this document consolidates:
-minimum width `20px` (same `--marker-width` token), **growing naturally**
+minimum width `20px` (same `--md-marker-width` token), **growing naturally**
 for wider numerals (`1.` vs. `10.` vs. `100.`) via `min-width` rather
 than bullets' fixed `width` — `min-width` is a floor, so `100.` simply
 expands the box past 20px with zero JS measurement needed, while `1.`
@@ -2352,10 +2384,10 @@ purposes, and must not be assumed from the bullet work above:
 - **Source-preserving Markdown**: `- [ ] Text`/`- [x] Text` must stay
   literal in `state.doc`, per the same non-negotiable principle
   governing every construct in this document — not in question, but
-  *how* a checkbox widget composes with that principle (below) is.
+  _how_ a checkbox widget composes with that principle (below) is.
 - **Checkbox rendering — widget vs. mark**: unlike `-`/`+`/`*`, a
   checkbox is a genuinely interactive control with two discrete visual
-  states that must be *clicked*, not *typed into* — a categorically
+  states that must be _clicked_, not _typed into_ — a categorically
   different requirement from any bullet marker, which is never clicked.
   A prior, now-deleted prototype (`TaskCheckboxWidget.ts`, git history
   only, not in the current tree) built exactly this — a real
@@ -2399,6 +2431,7 @@ architecture shares, propose the smallest change, implement, test, and
 verify live — never assume transfer.
 
 ### 13.1 Parser investigation (done first, per the ODR's own required
+
 workflow)
 
 Verified directly against the installed `@lezer/markdown` grammar (a
@@ -2407,7 +2440,7 @@ mirroring §1's own methodology):
 
 - **Node shape**: identical to bullets — `ListItem`'s `firstChild` is
   always `ListMark`, whether the item is bullet or ordered. `"1. A\n2.
-  B\n3. C"` parses as one `OrderedList` containing three `ListItem`s, each
+B\n3. C"` parses as one `OrderedList` containing three `ListItem`s, each
   with its own `ListMark` (`"1."`, `"2."`, `"3."`) and `Paragraph`.
 - **No parser-level renumbering, ever**: `"5. A\n5. B\n5. C"` (repeated
   number) parses as three ordinary sibling `ListItem`s with `ListMark`
@@ -2419,7 +2452,7 @@ mirroring §1's own methodology):
 - **CommonMark's own start-number limit**: 1–9 digits. A 10th digit
   (`"1234567890. Text"`) does not parse as a list at all — confirmed
   directly, falls back to a plain `Paragraph`. `ORDERED_MARKER_PATTERN =
-  /^\d{1,9}[.)]$/` in `listMarkerDecoration.ts` encodes this limit exactly,
+/^\d{1,9}[.)]$/` in `listMarkerDecoration.ts` encodes this limit exactly,
   not an arbitrary cap.
 - **Two independent delimiter styles, `.` and `)`**, each a complete,
   valid ordered marker (`"1."`/`"1)"`) — both handled uniformly by the
@@ -2439,20 +2472,20 @@ mirroring §1's own methodology):
 - **The ambiguity also crosses marker kinds** — this was the one
   genuinely new, shared architectural issue this investigation surfaced
   (see §13.3): `"- 1. Text"` parses as `BulletList > ListItem > OrderedList
-  > ListItem > Paragraph`, all one physical line; `"1. - Text"` and `"1. -
+  > ListItem > Paragraph`, all one physical line; `"1. - Text"`and`"1. -
   1. Text"` are the symmetric and three-deep mixed-kind cases, confirmed
-  the same way.
+     the same way.
 - **Ordered task-list items parse identically to bullet task-list
   items**: `TaskList` (the GFM extension already enabled at the grammar
   level, per `markdownGrammarExtensions.ts`) applies to ordered items too
   — `"1. [ ] task"` produces a `Task`/`TaskMarker` child exactly like `"-
-  [ ] task"`, confirmed directly (the grammar config used in this probe
+[ ] task"`, confirmed directly (the grammar config used in this probe
   included `TaskList`, unlike the bare `markdown()` config used for the
   other probes above, which silently omits it and would otherwise
   misleadingly show `[ ] task` as plain paragraph text).
 - **Upstream CM6 auto-increments end-of-line continuation, for free**:
   `insertNewlineContinueMarkupCommand` (`@codemirror/lang-markdown`,
-  already wired as `continueMarkup` — see §6) computes a *new* line's
+  already wired as `continueMarkup` — see §6) computes a _new_ line's
   ordered marker as "the immediately preceding item's own literal number,
   plus one" — confirmed directly: `"5. A\n5. B"` + Enter (at end of `B`)
   produces `"5. A\n5. B\n6. "`, not `"5. A\n5. B\n3. "` (item count) and
@@ -2467,7 +2500,7 @@ mirroring §1's own methodology):
 Confirming §12's own predictions, checked one at a time rather than
 assumed:
 
-- **`Decoration.mark` over real source text — reused as-is**, and *more*
+- **`Decoration.mark` over real source text — reused as-is**, and _more_
   simply than bullets: ordered markers need no glyph substitution at all
   (no `*→•`-style pseudo-element, no `color: transparent` layering — see
   §13.4), so ordered rendering is architecturally simpler than bullets',
@@ -2525,7 +2558,7 @@ added as a **second**, independent `ViewPlugin` with its **own**
 prediction), a mixed-kind same-line-collapsed line like `"- 1. Text"`
 would have been decorated by **both** plugins — the bullet plugin
 decorating `"-"` (the first bullet `ListMark` it sees) and the ordered
-plugin decorating `"1."` (the first ordered `ListMark` *it* sees,
+plugin decorating `"1."` (the first ordered `ListMark` _it_ sees,
 independently) — rendering **two** visible markers where the policy
 established in §7 calls for exactly one.
 
@@ -2544,7 +2577,7 @@ outermost).
 
 `firstSameLineListMark` (the generalized, exported query function `Enter`
 consumes — formerly `firstSameLineBulletMark`) needed the identical
-treatment for the same reason: it now walks and collects *both* kinds of
+treatment for the same reason: it now walks and collects _both_ kinds of
 `ListMark` ancestor and returns whichever starts first, so
 `continueFirstSameLineListLevel` continues the correct (outermost) marker
 of a mixed-kind chain on Enter, not just a same-kind one.
@@ -2571,10 +2604,10 @@ Implemented in `listMarkerDecoration.ts` (`MARKER_MARK_ORDERED`,
 - **Tint via the pre-existing shared `cm-list-marker` class** (already
   anticipated in `MarkdownEditor.css`'s own comment on that class before
   this session, per §2's record) — ordered numbers get
-  `--marker-foreground` coloring, unlike bullets which deliberately don't
+  `--md-marker-foreground` coloring, unlike bullets which deliberately don't
   (§2's own "render exactly as written, never tinted" requirement is
   bullet-specific; ordered numbers were always meant to get a tint).
-- **`min-width: var(--marker-width)` (20px), not bullets' fixed `width`**
+- **`min-width: var(--md-marker-width)` (20px), not bullets' fixed `width`**
   — the carried-forward design intent from §12, now implemented: `1.`/
   `2.`/single-digit markers sit at the same 20px floor bullets use;
   `10.`/`100.` grow the box past that floor via ordinary CSS, no JS
@@ -2583,12 +2616,12 @@ Implemented in `listMarkerDecoration.ts` (`MARKER_MARK_ORDERED`,
   exactly 20px, `10.` at ~24.9px, `100.` at ~34.6px — never clipped,
   confirmed both by automated test and live in the running app.
 - **`text-align: right`, not bullets' `center`**: flushes each marker's
-  own separator-end (content-start) against *that marker's own* box's
+  own separator-end (content-start) against _that marker's own_ box's
   right edge — the same convention `.cm-quote-marker` already uses
   (`text-align: end`), for the same "flush the boundary against the box
   edge" reason.
 - **ACCEPTED LIMITATION, measured and documented, not silently
-  discovered later**: this does **not** unify content-start *across*
+  discovered later**: this does **not** unify content-start _across_
   sibling items of different digit counts on separate physical lines —
   `1.`/`2.` both start content at the same measured x (both at the 20px
   floor), but `10.`'s content starts a few pixels further right and
@@ -2596,7 +2629,7 @@ Implemented in `listMarkerDecoration.ts` (`MARKER_MARK_ORDERED`,
   `445.83px`/`450.70px`/`460.47px` respectively for `1.`/`10.`/`100.` in
   one test document). A real browser `<ol>` avoids this via native list
   layout that reserves one shared column sized to the widest marker in
-  the *whole* list — not achievable here without measuring every sibling
+  the _whole_ list — not achievable here without measuring every sibling
   `ListItem`'s marker width up front and forcing a uniform box width
   across the block, which no per-line `Decoration.mark` in this codebase
   (bullets' or this one) does today. This was investigated, not
@@ -2630,7 +2663,7 @@ identically to ordered markers.**
 
 - **Non-empty item** (`1. |Text`): removes only the separator, keeping
   the marker — `1.|Text`. Verified live: content-start Backspace on `"10.
-  |Wide"` produced `"10.|Wide"` in the running app, and by automated test
+|Wide"` produced `"10.|Wide"` in the running app, and by automated test
   for `1.`/`10.`/`1)` (paren-style) and a later-item case.
 - **Empty item** (`1. |`): removes marker and separator together — `|`
   (blank line), for the identical "never leave a bare marker that looks
@@ -2674,14 +2707,14 @@ on which command produces the new line:
    (both lines read `1.`), not `"1.\n2. |Text"`.
 3. **Existing lines are never renumbered by anything in this codebase**,
    ever, for any reason — confirmed at the parser level (§13.1: `"5. A\n5.
-   B\n5. C"` parses and stays exactly as typed) and at the editing-command
+B\n5. C"` parses and stays exactly as typed) and at the editing-command
    level (no command in `markdownEnterKeymap.ts`/`listMarkerDecoration.ts`
    rewrites a marker on a line the cursor isn't creating).
 
 **Why (2) deliberately does not match (1)**, stated explicitly so a
 future reader does not "fix" this into false consistency: a content-start
 split is not "continuing the list with a new entry" (the case upstream's
-own auto-increment is designed for) — it is dividing one line's *existing*
+own auto-increment is designed for) — it is dividing one line's _existing_
 marker between two lines. The correct number for both resulting lines is
 the one the user actually typed, copied verbatim; inventing an
 incremented number here would silently author content the user never
@@ -2713,14 +2746,14 @@ mirroring the bullet case.
   verbatim rendering (`5. A`/`5. B`/`5. C`), paren-style markers, wider
   markers (`10.`/`100.`) not truncated, nested ordered items, the
   10-digit CommonMark limit, ordered task-list exclusion, and a `'mixed
-  bullet + ordered'` sub-block covering independent adjacent lists and
+bullet + ordered'` sub-block covering independent adjacent lists and
   all three same-line-collapse-crosses-kinds shapes (§13.3). The stale
   pre-extension exclusion test ("ordered-list markers are never marked")
   was replaced, not left alongside the new behavior.
 - `markdownEnterKeymap.test.ts`: ordered and paren-style content-start
   split (verbatim marker, not incremented — §13.6), and a new `'same-line
-  marker collapse'` describe block closing the pre-existing "live-verified
-  only" gap (§6/§12's open-questions list) for bullets *and* adding first
+marker collapse'` describe block closing the pre-existing "live-verified
+  only" gap (§6/§12's open-questions list) for bullets _and_ adding first
   coverage for the ordered and mixed-kind cases — two-deep and four-deep
   bullet chains, a three-deep ordered chain, two mixed-kind chains (bullet-
   first and ordered-first), genuine multi-line nesting (unaffected,
@@ -2768,7 +2801,7 @@ mirroring the bullet case.
   new gap specific to ordered).
 - **The 20px selection-column gap (§5)** — not re-investigated for
   ordered markers specifically in this session; ordered markers' own
-  flush-right-within-own-box layout (§13.4) means the *mechanism* that
+  flush-right-within-own-box layout (§13.4) means the _mechanism_ that
   caused §5's gap for bullets (centered real text vs. box edge) does not
   apply the same way, but a dedicated live measurement of
   `drawSelection()`'s boundary-row behavior across an ordered list was
@@ -2798,7 +2831,7 @@ grammar):
 
 parses as **two sibling `ListItem`s in the same top-level `OrderedList`**
 — `"  2. Text"`'s own `ListMark` is still a direct child of the
-*original* list, not a new nested one. The 2-space indent is real (it
+_original_ list, not a new nested one. The 2-space indent is real (it
 renders visually shifted right, via the construct-agnostic
 `leadingIndentDecoration.ts`), but it does **not** cross CommonMark's own
 nesting threshold for a `"1. "`-prefixed parent, which requires the
@@ -2837,11 +2870,11 @@ addressed by any renumbering decision — flagging it here so it isn't
 conflated with, or mistaken for evidence about, the renumbering question
 itself.
 
-The renumbering question below is therefore precisely scoped to: *once
+The renumbering question below is therefore precisely scoped to: _once
 enough Tab presses have crossed the nesting threshold and a line's own
 `OrderedList` has become a new, genuinely nested list, should its sole
 (or first) item's literal number be rewritten to reflect its new
-position?* — not to "does Tab visually indent the line" (it always
+position?_ — not to "does Tab visually indent the line" (it always
 does, correctly, per §9, regardless of nesting).
 
 **§14.9–§14.16 (below, after §14.8) is a follow-up investigation session
@@ -2862,8 +2895,7 @@ is superseded in precision by §14.9's measurements.
 Confirmed by reading the installed `@codemirror/lang-markdown` source
 directly (`node_modules/@codemirror/lang-markdown/dist/index.js`):
 
-- A `renumberList(after, doc, changes, offset)` function exists (line
-  163) — it rewrites the literal digit run of every `ListItem` following
+- A `renumberList(after, doc, changes, offset)` function exists (line 163) — it rewrites the literal digit run of every `ListItem` following
   a given node, so that each is the previous one's number + 1. It is a
   real, precedent-setting example of an upstream editing command
   legitimately rewriting ordinal digits as a side effect of maintaining
@@ -2885,7 +2917,7 @@ any renumbering code of its own. If Tab-triggered renumbering is wanted,
 Clutter would have to build it — there is no upstream primitive to
 delegate to, though `renumberList`'s own approach (regex-extract the
 digit run via `itemNumber`, replace with a computed value) is a proven,
-reusable *pattern* even though the function itself isn't exported for
+reusable _pattern_ even though the function itself isn't exported for
 reuse (`itemNumber`/`renumberList` are both module-private in
 `@codemirror/lang-markdown`'s bundle — confirmed via the package's
 public `export` list, which only exposes `commonmarkLanguage,
@@ -2898,7 +2930,7 @@ markdownLanguage, pasteURLAsLink`).
 CommonMark does not require, recommend, or even discuss renumbering on
 indentation change, because it has no concept of "indenting an existing
 item" as an operation at all — it only defines how to parse whatever
-literal text exists. What CommonMark *does* define, confirmed directly
+literal text exists. What CommonMark _does_ define, confirmed directly
 against the parser (§13.1's own methodology, re-applied here):
 
 - **A list's "start" is whatever number its first item literally has.**
@@ -2907,8 +2939,8 @@ against the parser (§13.1's own methodology, re-applied here):
   directly here: a nested list whose sole item reads `"2."` is, per
   CommonMark, a real, valid list starting at 2 — if rendered to real
   HTML by a spec-compliant renderer, `<ol start="2">`, not `<ol
-  start="1">`. Renumbering it to `1` on nesting is a *Clutter UX
-  decision*, not a CommonMark correctness requirement, and — if
+start="1">`. Renumbering it to `1` on nesting is a _Clutter UX
+  decision_, not a CommonMark correctness requirement, and — if
   implemented — would produce a **different serialized document** than a
   strict CommonMark round-trip would produce, in exchange for a UX
   convenience.
@@ -2940,7 +2972,7 @@ against the parser (§13.1's own methodology, re-applied here):
   spec-portability as its justification.
 
 **Conclusion**: nothing in CommonMark recommends the behavior the
-original request wants. It is a reasonable *editor UX* convention (many
+original request wants. It is a reasonable _editor UX_ convention (many
 outliner-style editors visually restart nested numbering at 1), but it
 is not a Markdown-semantics recommendation, and literal preservation
 (Clutter's current behavior) is, if anything, the more strictly
@@ -3004,7 +3036,7 @@ made, can cite this section rather than re-deriving it:
   question (§14.7) that Option A doesn't have to answer.
 - **Option C — renumber the whole newly-nested run relative to a new
   start of `1`,** not just a single fixed item, to also handle the case
-  where *multiple* consecutive items are indented together in one
+  where _multiple_ consecutive items are indented together in one
   multi-line Tab press (e.g. selecting `"2. B"`+`"3. C"` under `"1. A"`
   and Tabbing both at once) — a strict superset of Option B's scope, and
   the only one of the three that stays internally consistent for that
@@ -3032,7 +3064,7 @@ Locked contract" — yes, this would be a genuine, deliberate expansion,
 not a small tweak.** §9 is explicit and repeatedly reinforced throughout
 this document:
 
-> "This function only ever computes and returns a change for the *one*
+> "This function only ever computes and returns a change for the _one_
 > line it was called with... List hierarchy... is a consequence the
 > parser derives from the resulting source on the next reparse, not
 > something this function tracks, preserves, or requires."
@@ -3046,7 +3078,7 @@ transaction — a change Tab has never made, in any form, at any point in
 this document's history, including the earlier, more construct-aware
 `markdownIndentContext.ts` predecessor that §9 itself records as
 "investigated and rejected" (that predecessor, even at its most
-construct-aware, only ever computed indentation *position*, never wrote
+construct-aware, only ever computed indentation _position_, never wrote
 to a marker's own text — this would go further than that rejected
 version ever did).
 
@@ -3070,7 +3102,7 @@ an ordinary sibling. Confirmed directly: `"1. First\n1. Text"` (two
 literal `"1."`s at the same top level — the exact shape produced by
 dedenting a renumbered item without a matching Shift-Tab-side fix) is
 valid CommonMark, parses as two ordinary sibling `ListItem`s, no error —
-so nothing *breaks*, but the result is a numerically nonsensical
+so nothing _breaks_, but the result is a numerically nonsensical
 document (two first items) unless Shift-Tab also renumbers on the way
 out (to, e.g., "previous sibling's number + 1", mirroring
 `renumberList`'s own logic). **Not investigated further than this
@@ -3107,8 +3139,8 @@ structure ahead of the parser":
    document must not depend on how it was typed... the parser is
    stateless... indentation is derived from the resulting source on the
    next reparse") applies exactly here: whether a given Tab press
-   actually crosses the nesting threshold for *this specific* marker
-   width can only be known by asking the parser against the *prospective*
+   actually crosses the nesting threshold for _this specific_ marker
+   width can only be known by asking the parser against the _prospective_
    post-whitespace-change document, never by computing it analytically
    from `getBulletMarkRange`/the ordered equivalent's own content-column
    math ahead of time — the same class of bug this whole document
@@ -3116,7 +3148,7 @@ structure ahead of the parser":
    Lezer/parser behavior," §7's rejection of typing-time interception).
    Concretely: build a candidate `EditorState` (or reuse
    `tr.state`/`state.update` against just the whitespace change) and read
-   `syntaxTree` off *that*, not the original.
+   `syntaxTree` off _that_, not the original.
 3. **Guard narrowly**: only consider a line whose own `ListMark` is
    `OrderedList`-parented, and only fire when the post-edit tree shows
    that `ListItem` is now the **first child** of an `OrderedList` that
@@ -3163,20 +3195,20 @@ CommonMark spec (v0.31.2) text directly, not from memory:
 
 - **Rule #4 ("Indentation")**: a list marker itself may be preceded by
   **up to three spaces** and still start a valid new item — "the result
-  of preceding each line of *Ls* by up to three spaces of indentation...
+  of preceding each line of _Ls_ by up to three spaces of indentation...
   also constitutes a list item with the same contents and attributes."
   This is an **absolute cap of 3, independent of the parent's own marker
-  width** — it governs how much a *new* marker line may be indented and
+  width** — it governs how much a _new_ marker line may be indented and
   still be recognized as starting a fresh item (a sibling, if it's
   immediately after another item of the same list; a wholly separate new
   list if the marker kind/delimiter differs — §13.1, §14.10).
-- **Rule #1 ("Basic case")**: a list marker of width *W* (the marker's
-  own characters — `"1."` → *W*=2, `"10."` → *W*=3, `"100."` → *W*=4;
+- **Rule #1 ("Basic case")**: a list marker of width _W_ (the marker's
+  own characters — `"1."` → _W_=2, `"10."` → _W_=3, `"100."` → _W_=4;
   confirmed this is character count of the marker glyph run only, not
-  including the separator) followed by 1–4 spaces of indentation *N*
-  requires continuation content to be indented by *W + N* spaces to
+  including the separator) followed by 1–4 spaces of indentation _N_
+  requires continuation content to be indented by _W + N_ spaces to
   remain **inside** that item as a nested block. The practical minimum
-  (one canonical separator space, *N*=1) is *W*+1 — confirmed empirically
+  (one canonical separator space, _N_=1) is _W_+1 — confirmed empirically
   to match this document's own "content column" (§1, §2): 3 for `"1. "`,
   4 for `"10. "`, 5 for `"100. "`.
 - **Rule #5 ("Laziness")**: once a paragraph is open inside a list item,
@@ -3189,12 +3221,12 @@ CommonMark spec (v0.31.2) text directly, not from memory:
 
 **The two thresholds (0–3 for a new marker, ≥*W*+1 for nested content)
 are independent numbers that do not always meet.** For `"1."`/`"10."`
-(*W*+1 = 3 or 4), they're adjacent or overlapping — every indentation
+(_W_+1 = 3 or 4), they're adjacent or overlapping — every indentation
 amount is classified as either "new sibling" or "nested," with no gap.
-For `"100."` and wider (*W*+1 ≥ 5), there is a **real gap**: indentation
-amounts from 4 up to *W* (exclusive of the nesting threshold) are
+For `"100."` and wider (_W_+1 ≥ 5), there is a **real gap**: indentation
+amounts from 4 up to _W_ (exclusive of the nesting threshold) are
 **neither** a valid new sibling **nor** nested content — Rule #5's
-laziness swallows them into the *preceding* item's own open paragraph
+laziness swallows them into the _preceding_ item's own open paragraph
 instead. See §14.11 for the measured boundaries per marker width and why
 this matters concretely for Clutter's own 2-space Tab step.
 
@@ -3211,36 +3243,36 @@ document.
 
 **`1. A` → indent `2. B`, swept 0–8 spaces** (content column 3):
 
-| Spaces | Result |
-|---|---|
-| 0–2 | Sibling `ListItem` in the same top-level `OrderedList` (within Rule #4's 0–3 tolerance) |
-| 3–6 | Genuinely nested: new child `OrderedList` inside item 1, sole item `"2. B"` (content column 3, tolerance window extends to column+3 = 6) |
-| 7+ | Lazy-continuation: `"2. B"` is swallowed as literal text of item 1's own `Paragraph` (`"A\n       2. B"`) — no `ListItem`, no `ListMark`, for the second line at all |
+| Spaces | Result                                                                                                                                                               |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0–2    | Sibling `ListItem` in the same top-level `OrderedList` (within Rule #4's 0–3 tolerance)                                                                              |
+| 3–6    | Genuinely nested: new child `OrderedList` inside item 1, sole item `"2. B"` (content column 3, tolerance window extends to column+3 = 6)                             |
+| 7+     | Lazy-continuation: `"2. B"` is swallowed as literal text of item 1's own `Paragraph` (`"A\n       2. B"`) — no `ListItem`, no `ListMark`, for the second line at all |
 
 **`10. A` → indent `2. B`, swept 0–9 spaces** (content column 4):
 
-| Spaces | Result |
-|---|---|
-| 0–3 | Sibling (within the 0–3 tolerance) |
-| 4–7 | Nested (content column 4, window extends to 7) |
-| 8+ | Lazy-continuation |
+| Spaces | Result                                         |
+| ------ | ---------------------------------------------- |
+| 0–3    | Sibling (within the 0–3 tolerance)             |
+| 4–7    | Nested (content column 4, window extends to 7) |
+| 8+     | Lazy-continuation                              |
 
 **`100. A` → indent `2. B`, swept 0–10 spaces** (content column 5) — **this is where the two thresholds stop meeting**:
 
-| Spaces | Result |
-|---|---|
-| 0–3 | Sibling (the 0–3 tolerance is unchanged — absolute, not scaled to marker width) |
-| **4** | **Neither** — lazy-continuation of item 1's paragraph (`"A\n    2. B"`), confirmed directly: `listItemCount` drops from 2 to 1, the second line's own `"2. B"` text is absorbed with zero list structure of its own |
-| 5–8 | Nested (content column 5, window extends to 8) |
-| 9+ | Lazy-continuation again |
+| Spaces | Result                                                                                                                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0–3    | Sibling (the 0–3 tolerance is unchanged — absolute, not scaled to marker width)                                                                                                                                     |
+| **4**  | **Neither** — lazy-continuation of item 1's paragraph (`"A\n    2. B"`), confirmed directly: `listItemCount` drops from 2 to 1, the second line's own `"2. B"` text is absorbed with zero list structure of its own |
+| 5–8    | Nested (content column 5, window extends to 8)                                                                                                                                                                      |
+| 9+     | Lazy-continuation again                                                                                                                                                                                             |
 
 **`1000. A`/`10000. A`, swept for confirmation** (content columns 6, 7): the gap widens exactly as predicted by Rule #4's fixed 3-space cap vs. Rule #1's marker-width-scaled column — gap = `[4, contentColumn − 1]`, width = `contentColumn − 4`. Confirmed: 2 gap positions (4–5) for `"1000."`, 3 gap positions (4–6) for `"10000."`. **This gap exists for every marker with 3 or more digits** (content column ≥ 5, i.e. numbers 100 and above) — not a corner case limited to one specific width.
 
-**Nested ordered → bullet** (`"1. A"` + indented `"- B"`, content column 3): identical threshold to same-kind nesting — 0–2 spaces stays a **wholly separate, independent top-level `BulletList`** (not a sibling within the `OrderedList` — different marker *kind* never produces a same-list sibling, confirmed distinctly from the same-kind case, matching §13.1's "changing delimiter starts a new list" finding generalized one step further: changing *kind* does too, unconditionally, at any under-indentation); 3+ spaces nests the bullet inside item 1's `OrderedList` `ListItem`, same mechanism, same threshold, only the child's own node names differ (`BulletList`/`ListItem`/`ListMark` "-" instead of `OrderedList`/`ListItem`/`ListMark` "2.").
+**Nested ordered → bullet** (`"1. A"` + indented `"- B"`, content column 3): identical threshold to same-kind nesting — 0–2 spaces stays a **wholly separate, independent top-level `BulletList`** (not a sibling within the `OrderedList` — different marker _kind_ never produces a same-list sibling, confirmed distinctly from the same-kind case, matching §13.1's "changing delimiter starts a new list" finding generalized one step further: changing _kind_ does too, unconditionally, at any under-indentation); 3+ spaces nests the bullet inside item 1's `OrderedList` `ListItem`, same mechanism, same threshold, only the child's own node names differ (`BulletList`/`ListItem`/`ListMark` "-" instead of `OrderedList`/`ListItem`/`ListMark` "2.").
 
 **Nested bullet → ordered** (`"- A"` + indented `"1. B"`, content column 2): symmetric — 0–1 spaces produces a separate top-level `OrderedList` (not a "sibling" of the bullet item, since bullets have no numbered-sibling concept and different kinds never share a list regardless); 2+ spaces nests.
 
-**Conclusion**: the nesting threshold is governed **entirely by the parent item's own content column** (Rule #1, *W*+*N*) regardless of what kind of marker the child uses — mixing kinds changes what happens on *under*-indentation (a wholly separate list, not a sibling) but not the *nesting* threshold itself, which is identical to the same-kind case.
+**Conclusion**: the nesting threshold is governed **entirely by the parent item's own content column** (Rule #1, _W_+_N_) regardless of what kind of marker the child uses — mixing kinds changes what happens on _under_-indentation (a wholly separate list, not a sibling) but not the _nesting_ threshold itself, which is identical to the same-kind case.
 
 ### 14.11 `@codemirror/lang-markdown`'s own indentation logic — INVESTIGATED, read directly from the installed source
 
@@ -3278,7 +3310,7 @@ Confirmed by reading `node_modules/@codemirror/lang-markdown/dist/index.js` dire
 ### 14.12 Does CM6 have a reusable "required content column" concept?
 
 **Not as a ready-made indent-service API a Tab command could simply
-call.** But the *information* is fully derivable, and — critically —
+call.** But the _information_ is fully derivable, and — critically —
 **Clutter already derives and has it**, independently of
 `lang-markdown`'s own private `Context` class: `getListMarkRange(node,
 state)` in `listMarkerDecoration.ts` (§2, generalized to ordered markers
@@ -3303,11 +3335,11 @@ Explicitly separated per the request, because the codebase keeps them in
 three unrelated places today and nothing currently connects any two of
 them:
 
-| Concept | Where it lives | What it actually is | Varies with digit count? |
-|---|---|---|---|
-| **Visual marker-column width** | `MarkdownEditor.css`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker` (§2, §13.4) | A CSS pixel value (`--marker-width`, 20px `width`/`min-width`) — purely a rendering-layer concept, has no relationship to character counts at all | No — it's a floor in *pixels*, not characters; a wide marker's *box* grows (§13.4), but this token itself never changes |
-| **Parser's required content column** | `@lezer/markdown`'s own grammar (structural fact, not Clutter code) + independently computed by `getListMarkRange(...).to` (`listMarkerDecoration.ts`) and by `lang-markdown`'s own private `Context.to` | A **character-count** column on one specific physical line — `marker width (W) + separator width (N, 1–4)`, per Rule #1 (§14.9) | **Yes** — 3 for `"1. "`, 4 for `"10. "`, 5 for `"100. "`, ... |
-| **Tab step size** | `markdownIndentContext.ts`, `INDENT_STEP_SPACES = 2` | Clutter's own arbitrary editing-UX constant — a flat, per-press character count, chosen for uniformity (§9), never read by or connected to either of the other two | No — always exactly 2, by explicit design (§9) |
+| Concept                              | Where it lives                                                                                                                                                                                           | What it actually is                                                                                                                                                | Varies with digit count?                                                                                                |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| **Visual marker-column width**       | `MarkdownEditor.css`, `.cm-bullet-list-marker`/`.cm-ordered-list-marker` (§2, §13.4)                                                                                                                     | A CSS pixel value (`--md-marker-width`, 20px `width`/`min-width`) — purely a rendering-layer concept, has no relationship to character counts at all               | No — it's a floor in _pixels_, not characters; a wide marker's _box_ grows (§13.4), but this token itself never changes |
+| **Parser's required content column** | `@lezer/markdown`'s own grammar (structural fact, not Clutter code) + independently computed by `getListMarkRange(...).to` (`listMarkerDecoration.ts`) and by `lang-markdown`'s own private `Context.to` | A **character-count** column on one specific physical line — `marker width (W) + separator width (N, 1–4)`, per Rule #1 (§14.9)                                    | **Yes** — 3 for `"1. "`, 4 for `"10. "`, 5 for `"100. "`, ...                                                           |
+| **Tab step size**                    | `markdownIndentContext.ts`, `INDENT_STEP_SPACES = 2`                                                                                                                                                     | Clutter's own arbitrary editing-UX constant — a flat, per-press character count, chosen for uniformity (§9), never read by or connected to either of the other two | No — always exactly 2, by explicit design (§9)                                                                          |
 
 **Confirmed by tracing, not asserted**: no import, no shared constant, no
 function call connects any two rows of this table today. The CSS token
@@ -3321,14 +3353,14 @@ component-of-3... actually row 2 for bullets is content column `2`
 exactly, matching row 3's `2` exactly, §14.0) is coincidence, not a
 designed relationship — there is no code path that would keep them in
 sync if either changed independently (e.g. if `INDENT_STEP_SPACES` were
-ever changed to 3, bullet nesting would *stop* working in one press,
+ever changed to 3, bullet nesting would _stop_ working in one press,
 with nothing in the codebase to notice or warn).
 
 ### 14.14 Should the uniform 2-space Tab policy remain completely uniform?
 
 **Findings only — no decision made here, per the request.**
 
-The case *for* keeping it uniform (i.e., Option "leave §9 exactly as-is"):
+The case _for_ keeping it uniform (i.e., Option "leave §9 exactly as-is"):
 §9's own investigation of an earlier, construct-aware
 `markdownIndentContext.ts` predecessor found it "produced byte-identical
 results to plain CM6 `indentMore`/`indentLess` in every tested case
@@ -3336,7 +3368,7 @@ except two narrow, cosmetic ones," and that a genuinely stronger
 guarantee ("indenting list lines without the parser ever reclassifying
 them") was "found to be not achievable at all while staying valid
 CommonMark." If a future construct-aware Tab redesign is evaluated
-against *that same finding*, it would need to explain why this case is
+against _that same finding_, it would need to explain why this case is
 different.
 
 **It is different, concretely, and this session's own measurements are
@@ -3355,12 +3387,12 @@ could not have evaluated:
    (§14.9's Rule #5 gap, §14.10's `"100."`/`"1000."`/`"10000."` sweeps):
    for any 3+-digit ordered marker, **exactly landing on 2 Tab presses
    (4 spaces) — Clutter's own step size — silently absorbs the intended
-   child item into the *parent's own paragraph* as plain text**, not
+   child item into the _parent's own paragraph_ as plain text**, not
    merely "fails to nest." The child's own `ListMark`/`ListItem`
    structure is **destroyed**, not deferred — a user pressing Tab twice
    on a line under a `"100."`-`"999."` parent does not get "not yet
    nested, press Tab again" (Option A's implicit assumption); they get a
-   line that is no longer a list item *at all*, merged into the
+   line that is no longer a list item _at all_, merged into the
    preceding paragraph's own text, until edited back out. This was not
    previously documented anywhere in this ODR and is a materially
    different, more severe class of finding than "the numbering is
@@ -3377,10 +3409,12 @@ open architectural question this section surfaces — not answered here.
 Recorded as a comparison, not a recommendation, per the request:
 
 **A — current, flat 2-space Tab, unaffected by construct**:
+
 ```
 1. Parent
   2. Child        (after 1 Tab — still a sibling, not nested)
 ```
+
 requires a second Tab (4 spaces total) to actually nest, and — per
 §14.9/§14.10 — for 3+ digit markers, that same second Tab press can
 instead silently destroy the child's own list-item structure (§14.14).
@@ -3393,17 +3427,19 @@ regardless of whether real nesting occurred, which is itself a
 source of the mismatch between what's shown and what's true structurally).
 
 **B — marker-width-aware, nests in exactly one press**:
+
 ```
 1. Parent
   1. Child        (would need construct-aware step sizing to reach the exact content column in one press — this specific rendering choice is a *renumbering* question, not an indent-mechanics one; the mechanics-only version of "B" would show "2." here, only the *step size* changes, not the digits — see §14.0's own scoping note)
 ```
+
 would require Tab's own step size to vary per line, computed from that
-line's *own governing parent's* content column (via §14.12's
+line's _own governing parent's_ content column (via §14.12's
 `getListMarkRange(...).to`) rather than a flat constant — a genuinely
 new, construct-aware code path, not a tweak to `INDENT_STEP_SPACES`'s
 value (raising it to 3 or 4 would fix single-digit ordered lists but
 immediately break bullets' own reliable one-press nesting, since row 3
-of §14.13's table would no longer coincidentally match row 2 for *either*
+of §14.13's table would no longer coincidentally match row 2 for _either_
 kind uniformly). Benefit: Tab always "does what it visually shows" in
 one press, for every marker width, and structurally eliminates the
 Rule #5 gap hazard (§14.14) entirely, since a width-aware step would
@@ -3415,22 +3451,22 @@ the dangerous 4-spaces-exactly case for 3+ digit markers.
 This is a **different specific clause** of §9's contract than the one
 §14.5 already examined for renumbering. §14.5 asked "may Tab write
 outside the line's own leading-whitespace range" (relevant only to
-*renumbering*, Option B/C). This section asks a narrower, logically prior
-question: **may Tab's own *step size* — how many spaces one press adds —
+_renumbering_, Option B/C). This section asks a narrower, logically prior
+question: **may Tab's own _step size_ — how many spaces one press adds —
 vary by construct or by a specific line's own marker width**, while
 still only ever writing to that line's own leading-whitespace range (no
 digit-rewriting at all, orthogonal to §14.5).
 
-§9 states its contract explicitly: *"every physical document line...
+§9 states its contract explicitly: _"every physical document line...
 gets the same `INDENT_STEP_SPACES` (2) added to... its own leading
 whitespace, **independently of every other line and regardless of what
 construct it is** — no paragraph/list/heading/blockquote/code
-distinction, no syntax-tree lookup..."* A Tab whose step size depends on
-whether the touched line sits under an ordered-list parent, and *which*
+distinction, no syntax-tree lookup..."_ A Tab whose step size depends on
+whether the touched line sits under an ordered-list parent, and _which_
 ordered marker width that parent has, is **definitionally** a violation
 of "independently of... regardless of what construct it is" and "no
 syntax-tree lookup" — even though it would never touch a byte outside
-the leading-whitespace range (so it does *not* violate the narrower,
+the leading-whitespace range (so it does _not_ violate the narrower,
 separate "whitespace-only" invariant §14.5 examined). These are two
 independently violable clauses of the same section, and a width-aware
 step size would violate only the first, not the second.
@@ -3441,7 +3477,7 @@ syntax tree" rule stated elsewhere in this codebase in general terms —
 `resolveLineIndentContext` (used today, by Tab itself, for
 classification, and by the Enter/Backspace handlers) already does
 syntax-tree lookups from the "Tab-adjacent" code path, so the
-*mechanism* of consulting the tree from indent-related code is not
+_mechanism_ of consulting the tree from indent-related code is not
 itself new or forbidden. What would be new is Tab's own step-size
 computation depending on that lookup's result — a direct amendment to
 §9's own quoted contract sentence above, not an implementation detail
@@ -3506,7 +3542,7 @@ applied to the first 10 characters of the item's own text) and converts
 it through a bare `+match[2]` (`Number(...)`) — **losing any leading-zero
 padding immediately**, before any renumbering decision is even made.
 `renumberList(after, doc, changes, offset)` then walks `after` and its
-`nextSibling`s at the *same tree level only* (never recursing into
+`nextSibling`s at the _same tree level only_ (never recursing into
 nested lists): the first node is the anchor (its own literal number is
 read but never rewritten); each subsequent sibling is rewritten to
 `String(prev + 2 + offset)` **only if** its own current literal number
@@ -3519,6 +3555,7 @@ of "safe" beyond that.
 broader than "crossing a power-of-10 numerically": any rewrite where
 `String(newNumber).length !== oldLiteralDigitRun.length`. Two
 independent causes, both verified directly:
+
 1. **Numeric boundary crossing** — `9→10`, `99→100`, `999→1000`, all
    confirmed live with nested content, all three reproducing the
    identical corruption class.
@@ -3553,7 +3590,7 @@ parent) or **silently absorbed as lazy-continuation text** of the
 renumbered item's own paragraph (`99→100`/`999→1000` cases: the stale
 indentation now lands in the "neither sibling nor nested" gap §14.9
 measured for a different, Tab-driven scenario) depends purely on exactly
-how far short the child's *old* indentation falls of the *new* content
+how far short the child's _old_ indentation falls of the _new_ content
 column — the same formula, not a second mechanism.
 
 **Root cause classification**: confirmed to be an **interaction**, not a
@@ -3564,7 +3601,7 @@ separately correct and unrelated to renumbering. The corruption is an
 emergent property of composing them: `renumberList`'s edit lands
 correctly, and Lezer's reparse then correctly (per its own unrelated
 rules) reinterprets a child's already-existing, unrelated-line
-indentation against the *new* width — exactly the same framing this
+indentation against the _new_ width — exactly the same framing this
 document already uses for the Rule #5 "gap" finding in §14.9.
 
 **Shrink direction and the other two call sites**: `renumberList` has
@@ -3573,7 +3610,7 @@ three internal call sites, all inside `insertNewlineContinueMarkupCommand`
 more inside the "empty item unwinds one level" branch (Clutter's own
 `nonTightLists: false` configuration means this branch always fires on
 an empty-item Enter), one of which passes `offset: -2` (a
-shrink-direction rewrite). All three call the *same* shared function, so
+shrink-direction rewrite). All three call the _same_ shared function, so
 the identical risk applies to all three by construction — but a clean,
 minimal, independently-confirmed **shrink-specific** corruption
 reproduction proved fiddly to construct this session (every attempted
@@ -3607,7 +3644,7 @@ codebase's own test helpers already use), inspects that transaction's
 own `changes` via `ChangeSet.iterChanges`, and for each individual
 change asks: does this exact `[fromA, toA)` range match some
 `ListMark`'s own digit run (`[marker.from, marker.to - 1)`, confirmed
-exact via `renumberList`'s own position math) in the *pre-edit* tree,
+exact via `renumberList`'s own position math) in the _pre-edit_ tree,
 and does that `ListMark`'s own `ListItem` span more than one physical
 line (a cheap, conservative proxy for "owns descendant content that
 could be indentation-calibrated to the current width" — a single-line
@@ -3640,11 +3677,11 @@ fix is exactly the kind of new, deliberately-designed editing behavior
 the ordered-list-normalization addendum (§9/§14) is scoped to consider
 separately, not something to fold into a narrow corruption guard.
 
-The selection position is reused directly from the *original,
-unmodified* transaction's own resolved head (`transaction.state.selection.main.head`)
+The selection position is reused directly from the _original,
+unmodified_ transaction's own resolved head (`transaction.state.selection.main.head`)
 — valid for the reduced transaction too, since every dropped change sits
 strictly after that position in the document (renumbering only ever
-touches *later* siblings), so the document up to and including the
+touches _later_ siblings), so the document up to and including the
 cursor's own resting point is byte-identical between the full and
 reduced versions.
 
@@ -3661,7 +3698,7 @@ the confirmed `9→10`/`99→100`/`999→1000` boundaries with nested children
 count in the resulting tree, not just document text); paren-style
 markers (structure survives, delimiter never flips to `.`); the
 leading-zero-padding-loss case (verified against a fixture whose child
-is genuinely nested in the *pre-edit* tree — an earlier draft of this
+is genuinely nested in the _pre-edit_ tree — an earlier draft of this
 test used an under-indented fixture that was already lazy-continuation-
 absorbed before any edit, which doesn't exercise the guard at all and
 was corrected once the mistake was caught by a failing assertion, not
@@ -3706,7 +3743,7 @@ internal call sites (§15.2) sit inside `insertNewlineContinueMarkupCommand`'s
 "empty item unwinds one level" branch — reached whenever Enter is pressed
 on an empty list item, which `nonTightLists: false` (Clutter's own
 configuration) makes unconditional. One of those two calls passes
-`offset: -2`, decrementing the *deleted* item's own remaining list —
+`offset: -2`, decrementing the _deleted_ item's own remaining list —
 confirmed live by construction, not merely by reading the source: typing
 `9. X`, Enter, `Y`, Tab×2, `Child` (nesting `Child` under `Y`), then
 deleting `X` and pressing Enter on the now-empty `9.` item, renumbers
@@ -3718,17 +3755,17 @@ whether the existing (growth-only) guard already handled it**: a
 programmatic sweep, deleting a zero-padded `"9"`-valued empty item
 whose following sibling is the equivalent `"10"`-valued item at
 increasing padding widths (content columns 4 through 9), each with a
-descendant at that sibling's own *correct* pre-edit content column —
+descendant at that sibling's own _correct_ pre-edit content column —
 
-| digits | old content col. | new content col. (always `"9."` = 3) | delta (shrink magnitude) | descendant survives (raw, unguarded `continueMarkup`) |
-|---|---|---|---|---|
-| 1 (`9`/`10`) | 4 | 3 | 1 | ✓ nested |
-| 2 (`09`/`10`) | 4 | 3 | 1 | ✓ nested |
-| 3 (`009`/`010`) | 5 | 3 | 2 | ✓ nested |
-| 4 (`0009`/`0010`) | 6 | 3 | 3 | ✓ nested |
-| 5 (`00009`/`00010`) | 7 | 3 | 4 | ✗ absorbed as lazy-continuation text |
-| 6 (`000009`/`000010`) | 8 | 3 | 5 | ✗ absorbed |
-| 7 (`0000009`/`0000010`) | 9 | 3 | 6 | ✗ absorbed |
+| digits                  | old content col. | new content col. (always `"9."` = 3) | delta (shrink magnitude) | descendant survives (raw, unguarded `continueMarkup`) |
+| ----------------------- | ---------------- | ------------------------------------ | ------------------------ | ----------------------------------------------------- |
+| 1 (`9`/`10`)            | 4                | 3                                    | 1                        | ✓ nested                                              |
+| 2 (`09`/`10`)           | 4                | 3                                    | 1                        | ✓ nested                                              |
+| 3 (`009`/`010`)         | 5                | 3                                    | 2                        | ✓ nested                                              |
+| 4 (`0009`/`0010`)       | 6                | 3                                    | 3                        | ✓ nested                                              |
+| 5 (`00009`/`00010`)     | 7                | 3                                    | 4                        | ✗ absorbed as lazy-continuation text                  |
+| 6 (`000009`/`000010`)   | 8                | 3                                    | 5                        | ✗ absorbed                                            |
+| 7 (`0000009`/`0000010`) | 9                | 3                                    | 6                        | ✗ absorbed                                            |
 
 **Confirmed, precisely, not assumed**: the safe/unsafe boundary is
 **magnitude ≤ 3 safe, magnitude ≥ 4 unsafe** — an exact match for the
@@ -3739,18 +3776,18 @@ content column up to 3 columns past it; beyond that, CommonMark's Rule
 #5 laziness absorbs it as plain continuation text). This is the same
 constant reappearing in a second, independently-discovered context, not
 a coincidence requiring its own separate explanation — shrinking an
-item's content column by *M* has the identical effect on a stale
+item's content column by _M_ has the identical effect on a stale
 descendant's relative indentation as widening it would, just with the
 sign reversed, so the identical tolerance window governs both
 directions.
 
 **Also confirmed**: pure numeric shrinks with no zero-padding (`10→9`,
-`100→99`, `1000→999`) are *always* magnitude-1 shrinks (a single-item
+`100→99`, `1000→999`) are _always_ magnitude-1 shrinks (a single-item
 deletion only ever changes a sequential run's digit count by the amount
 the literal numbers themselves differ by, and consecutive integers
 differ by exactly 1 digit only at a power-of-10 boundary) — always
 within the safe tolerance, confirmed for all three boundaries. The
-*dangerous* magnitudes only arise from zero-padding (a padded marker's
+_dangerous_ magnitudes only arise from zero-padding (a padded marker's
 lexical width is decoupled from its numeric value, so `renumberList`'s
 own `Number(...)`-and-`String(...)` round-trip can drop far more
 characters than the numeric shift alone would suggest) or, in principle,
@@ -3763,7 +3800,7 @@ become reachable by some other future editing operation).
 ### 15.6 Refinement: the existing guard already covered shrink, but was more aggressive than necessary — IMPLEMENTED + VERIFIED
 
 Checking the confirmed-corrupting shrink cases (§15.5's table, magnitude
-≥4) against the *already-shipped* guard (§15.3, unmodified) found it
+≥4) against the _already-shipped_ guard (§15.3, unmodified) found it
 **already declines every one of them** — `isRiskyRenumberRewrite`
 inspects only the final `ChangeSet`, cross-referenced against the
 pre-edit tree, with no branch that inspects which of `continueMarkup`'s
@@ -3774,7 +3811,7 @@ via the real `markdownEnterCommand`, not merely inferred from the code's
 own shape.
 
 **But inspecting the exact `ChangeSet` `continueMarkup` produces (per
-this investigation's own required step) found the *original* guard was
+this investigation's own required step) found the _original_ guard was
 itself more aggressive than the stated invariant allows.** For
 `"8. A"` + Enter with `"9. B"` (owns a child, risky) followed by
 `"10. C"`/`"11. D"` (no descendants, individually safe), upstream's own
@@ -3792,12 +3829,12 @@ D specifically.
 
 **Fix**: `continueMarkupPreservingStructure` now evaluates every change
 in the transaction independently (no early-exit `corrupting` flag) and
-skips *only* the specific rewrites `isRiskyRenumberRewrite` flags,
+skips _only_ the specific rewrites `isRiskyRenumberRewrite` flags,
 keeping every other change — including a later, unrelated sibling's own
 safe renumber — exactly as upstream computed it. This is sound because
 each renumbering edit targets an independent, non-overlapping digit-run
 position, and `renumberList` itself already computes every rewritten
-value from each sibling's own *original* literal number, never from
+value from each sibling's own _original_ literal number, never from
 another rewrite in the same walk — so which subset of edits ends up
 applied has no bearing on whether any individual one remains correct on
 its own. The selection-reuse logic (`transaction.state.selection.main.head`)
@@ -3809,12 +3846,13 @@ identical regardless of which later edits are kept or dropped.
 **Also refined the digit-width classification itself** to match §15.5's
 asymmetric findings precisely, rather than treating any width change on
 a multi-line item as uniformly risky:
+
 - **Growth** (`insertedLength > oldWidth`): always risky for a multi-line
   item — unchanged from §15.3's original reasoning. A descendant
   authored at exactly the old content column (the common case — nothing
   in this codebase or upstream ever leaves intentional slack there) has
   zero margin against any growth at all; this function doesn't attempt
-  to measure a descendant's *actual* slack, which would require
+  to measure a descendant's _actual_ slack, which would require
   inspecting the specific descendant range rather than the cheap
   "does this item span more than one line" check — investigated and
   judged not worth the added complexity for a case (deliberately
@@ -3829,14 +3867,14 @@ a multi-line item as uniformly risky:
 Representative cases, current (fixed) Clutter behavior vs. unmodified
 upstream `continueMarkup`:
 
-| Case | Upstream (unguarded) | Clutter (guarded) | Guard's effect |
-|---|---|---|---|
-| `1. A` + Enter, `2. B` follows (no width change) | `1. A / 2. / 3. B` | identical | none — safe, untouched |
-| `8. A` + Enter, `9. B` follows, no descendants | `8. A / 9. / 10. B` | identical | none — nothing to protect |
-| `8. A` + Enter, `9. B` (has child) follows | `8. A / 9. / 10. B / [child flattened]` | `8. A / 9. / 9. B / [child intact]` | declines B's own rewrite only |
-| same, with safe `10. C`/`11. D` after | `... / 11. C / 12. D` (C, D also shifted) | `... / 11. C / 12. D` (identical) | **none for C/D** — confirmed independently kept, not dropped as collateral (§15.6) |
-| Empty-item unwind, `10. Y` (has child) follows, safe magnitude | `[unwind] / 9. Y / [child intact]` | identical | none — safe shrink, unaffected |
-| same, unsafe magnitude (heavy zero-padding) | `[unwind] / 9. Y / [child absorbed]` | `[unwind] / 00010. Y / [child intact]` | declines Y's own rewrite |
+| Case                                                           | Upstream (unguarded)                      | Clutter (guarded)                      | Guard's effect                                                                     |
+| -------------------------------------------------------------- | ----------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- |
+| `1. A` + Enter, `2. B` follows (no width change)               | `1. A / 2. / 3. B`                        | identical                              | none — safe, untouched                                                             |
+| `8. A` + Enter, `9. B` follows, no descendants                 | `8. A / 9. / 10. B`                       | identical                              | none — nothing to protect                                                          |
+| `8. A` + Enter, `9. B` (has child) follows                     | `8. A / 9. / 10. B / [child flattened]`   | `8. A / 9. / 9. B / [child intact]`    | declines B's own rewrite only                                                      |
+| same, with safe `10. C`/`11. D` after                          | `... / 11. C / 12. D` (C, D also shifted) | `... / 11. C / 12. D` (identical)      | **none for C/D** — confirmed independently kept, not dropped as collateral (§15.6) |
+| Empty-item unwind, `10. Y` (has child) follows, safe magnitude | `[unwind] / 9. Y / [child intact]`        | identical                              | none — safe shrink, unaffected                                                     |
+| same, unsafe magnitude (heavy zero-padding)                    | `[unwind] / 9. Y / [child absorbed]`      | `[unwind] / 00010. Y / [child intact]` | declines Y's own rewrite                                                           |
 
 **The invariant holds**: every declined rewrite is one this session
 independently reproduced as corrupting via the raw, unguarded upstream
@@ -3858,7 +3896,7 @@ descendant content (renumbers normally, nothing to protect); and the
 assertion (a declined middle sibling no longer suppresses later,
 independently-safe siblings' own correct renumbers). The original
 leading-zero-padding growth test was corrected once the refined guard's
-own more-precise classification revealed it was actually a *safe*
+own more-precise classification revealed it was actually a _safe_
 magnitude-2 shrink, not risky growth as originally (incorrectly)
 labeled — the test's expectation was updated to the verified-correct
 behavior, not adjusted to preserve a stale expectation.
@@ -3899,7 +3937,7 @@ structure, not just document text.
   Tab/Shift-Tab ordered-list-normalization addendum** (§9's "PENDING
   ADDENDUM", §14) — that feature's own Phase C would introduce new
   renumbering writes of the same general shape this section's fix
-  protects against; nothing in *this* session implements, sketches
+  protects against; nothing in _this_ session implements, sketches
   further, or otherwise advances that separate, still-unbuilt feature.
 
 ---
@@ -3942,7 +3980,7 @@ All confirmed via fresh probes against `markdownLanguageExtension()`
 - **A paragraph separated by a blank line does split the list** —
   `"1. A\n2. B\n\nParagraph\n\n1. C\n2. D"` produces two independent
   `OrderedList`s with a `Paragraph` node between them.
-- **A paragraph with *no* blank line does not split the list at all** —
+- **A paragraph with _no_ blank line does not split the list at all** —
   it is absorbed as lazy-continuation text of the preceding item's own
   `Paragraph`, and the line after it (`"1. C"` in the tested fixture)
   becomes a **third sibling `ListItem` of the same original list**, not
@@ -3951,7 +3989,7 @@ All confirmed via fresh probes against `markdownLanguageExtension()`
   reading `"B\nParagraph"`. This is the one case where the surface
   appearance most resembles the Obsidian screenshot's "paragraph breaks
   the list, next block restarts at 1" behavior — but the parser's own
-  structural fact is the *opposite* of a break: no new list exists here
+  structural fact is the _opposite_ of a break: no new list exists here
   at all in Clutter's own parse tree.
 - **A bullet marker or blockquote marker splits the list immediately**,
   no blank line required — `"1. A\n2. B\n- Bullet\n3. C"` produces an
@@ -3986,7 +4024,7 @@ hypothetical future command.
 - **One Tab never nests an ordered item, regardless of parent width** —
   re-confirmed directly through the live command (previously only shown
   against the bare grammar in §14.9/§14.10): 1 Tab (2 spaces) on `"2.
-  B"` under `"1. A"`, `"10. A"`, `"100. A"`, or `"999. A"` leaves `B` a
+B"` under `"1. A"`, `"10. A"`, `"100. A"`, or `"999. A"` leaves `B` a
   top-level sibling every time.
 - **Two Tabs (4 spaces) produce three different outcomes depending on
   the parent's own content column** — this is the single most
@@ -3999,7 +4037,7 @@ hypothetical future command.
   - Parent `"100."`/`"999."` (content column 5): `B` is **not** nested
     and **not** a sibling — it is absorbed as lazy-continuation text of
     `A`'s own `Paragraph` (`Paragraph:"A\n    2. B"`). This is §14.9's
-    Rule #5 "gap" reproducing *without any renumbering at all* — pure
+    Rule #5 "gap" reproducing _without any renumbering at all_ — pure
     Tab, on a pristine document, lands exactly in the gap for any
     3+-digit parent at exactly 2 presses. Already flagged as the
     highest-priority open item in this document (Open Questions item 8,
@@ -4015,7 +4053,7 @@ hypothetical future command.
 - **Selecting a list's own first item together with later items produces
   a degenerate, non-nesting result — a genuinely hazardous edge case,
   not previously documented.** Tab-ing `A`+`B` together (both lines
-  selected) twice does *not* nest `B` under `A`; it re-indents `A`
+  selected) twice does _not_ nest `B` under `A`; it re-indents `A`
   itself by 4 spaces. Because Clutter's grammar removes `IndentedCode`
   (`markdownGrammarExtensions.ts`), a document-initial line indented 4+
   spaces does not fall back to a code block the way strict CommonMark
@@ -4033,34 +4071,34 @@ hypothetical future command.
   Tab-selected line is still list-structured afterward.
 - **Joining an existing destination list works correctly, in document
   order, with literal numbers preserved** — Tab-ing `B` (from `"1.
-  A\n    1. Existing\n2. B\n3. C"`) twice correctly inserts `B` as
+A\n    1. Existing\n2. B\n3. C"`) twice correctly inserts `B` as
   `Existing`'s own new sibling inside the pre-existing nested
   `OrderedList`, `B`'s own literal `"2."` completely untouched.
   Confirmed the ordering is purely document-position-driven, not
   semantic: when the pre-existing destination item instead appears
-  *after* the newly-nested one in source order, the newly-nested item
+  _after_ the newly-nested one in source order, the newly-nested item
   becomes the nested list's own first item and the pre-existing one
   becomes its second — the parser has no concept of "which one arrived
   first," only textual position, which any normalizer must treat as
   the sole ordering authority.
-- **Shift-Tab on a *complete* nested group re-attaches every item
+- **Shift-Tab on a _complete_ nested group re-attaches every item
   correctly as top-level siblings, literal numbers preserved** —
   dedenting `B`+`C` together (from `"1. A\n    1. B\n    2. C\n2.
-  D"`) produces `A`/`B`("1.")/`C`("2.")/`D`("2.") as four ordinary
+D"`) produces `A`/`B`("1.")/`C`("2.")/`D`("2.") as four ordinary
   top-level `ListItem`s in one `OrderedList`, no corruption.
-- **Shift-Tab on only *part* of a nested group is a second, genuinely
+- **Shift-Tab on only _part_ of a nested group is a second, genuinely
   hazardous edge case — also not previously documented.** Dedenting
   only `B` (leaving `C` in place, from the same starting document)
   produces `A`(unchanged) / a new top-level `ListItem` for `B` reading
   `"  1. B\n    2. C"` — **`C` has been absorbed into `B`'s own
   `Paragraph` as lazy-continuation text**, losing its own `ListItem`/
-  `ListMark` identity entirely. This is structurally the same *shape*
+  `ListMark` identity entirely. This is structurally the same _shape_
   of defect §15 fixed for Enter (a sibling's own descendant losing its
   list-item-hood because of an edit to something else nearby), but
   reached through Shift-Tab's own uniform, per-line, selection-scoped
   mechanics (§9) rather than through digit-width renumbering — `C` was
   never renumbered at all here; it was simply left at its old
-  indentation while `B`'s own new indentation changed the *context* `C`
+  indentation while `B`'s own new indentation changed the _context_ `C`
   is interpreted relative to. **This is a pre-existing hazard in
   today's shipped Shift-Tab, unrelated to ordered-list numbering, not
   discovered or introduced by this investigation's own subject matter**
@@ -4072,10 +4110,10 @@ hypothetical future command.
 
 Already fully characterized in §15.2 from the Enter investigation, not
 repeated in depth here: walks siblings at one tree level only, uses
-each sibling's own *original* literal number (never a just-rewritten
+each sibling's own _original_ literal number (never a just-rewritten
 one) to check `next == prev + 1`, stops at the first discontinuity,
 never touches delimiters, and never reproduces zero-padding (converts
-through a bare `Number`). This is the *policy* worth copying — "only
+through a bare `Number`). This is the _policy_ worth copying — "only
 extend an already-sequential run, stop at the first break, never
 invent a fresh sequence over irregular numbers" — not the private
 function itself, which remains unexported and unreachable regardless
@@ -4132,11 +4170,11 @@ direction (§9's addendum): normalize only when the post-edit tree
 proves an explicitly-touched item's `OrderedList` identity genuinely
 changed (§16.1/§16.2's own findings give the exact vocabulary for "genuinely
 changed" — including the §16.2-confirmed need to also verify the item
-is *still a `ListItem` at all*, not just check its ancestor identity);
+is _still a `ListItem` at all_, not just check its ancestor identity);
 identify the specific source and destination lists; normalize only an
 already-sequential run within each (mirroring §16.3's `renumberList`
 precedent); preserve delimiter always; preserve arbitrary starts and
-zero-padding *except* where the normalization's own arithmetic requires
+zero-padding _except_ where the normalization's own arithmetic requires
 writing a new number (at which point §16.5's width-safety check gates
 whether that specific write is even attempted); never touch bullet
 markers; share one planner between Tab and Shift-Tab (§16.2's own
@@ -4153,7 +4191,7 @@ reason, and because §16.1's own findings show the underlying parser
 model doesn't naturally support several of the Obsidian behaviors
 observed (a paragraph with no blank line doesn't structurally break the
 list at all in Clutter's parser, so "restart numbering after a
-paragraph" would require *inventing* a break the parser itself doesn't
+paragraph" would require _inventing_ a break the parser itself doesn't
 recognize — a much larger, more speculative undertaking than Option B,
 and one this session found no evidence Clutter's product goals actually
 require).
@@ -4184,7 +4222,7 @@ specific hooks this session's findings pin down:
    addendum already specifies (`state.update({ changes })`, not
    dispatched), with `ensureSyntaxTree` covering at least the affected
    region before Phase C reads it — deferred to implementation time
-   whether the *whole* provisional document needs coverage or just the
+   whether the _whole_ provisional document needs coverage or just the
    affected lines' own containing blocks; not decided here.
 3. **Phase C — membership + validity check, per explicitly-touched
    item**: for each `ListItem` the selection actually touched (not
@@ -4221,32 +4259,32 @@ cases this session already has direct parser/command evidence for
 once Option B is actually built (marked —, meaning "no normalization
 exists yet to test," not "untested"):
 
-| Case | Structural evidence this session | Normalization behavior |
-|---|---|---|
-| First nesting transition (1 Tab, no membership change) | ✓ §16.2 | — no-op expected |
-| Second Tab, genuine nesting | ✓ §16.2 | — new item, plan `1.` or continue destination |
-| Second Tab, lands in the Rule #5 gap (3+-digit parent) | ✓ §16.2 | — must detect "no longer a ListItem" and skip |
-| Shift-Tab, complete nested group | ✓ §16.2 | — plan source-list closing normalization |
-| Shift-Tab, partial group (hazard) | ✓ §16.2 (pre-existing bug) | — must not be silently "fixed" by the normalizer as a side effect |
-| Single item Tab/Shift-Tab | ✓ §16.2 | — |
-| Multi-item selection (2, 3 items) | ✓ §16.2 | — plan whole affected run together, not per-item |
-| Existing destination list | ✓ §16.2 | — continue destination's own sequence, don't reset to `1` |
-| Empty destination (genuinely new list) | ✓ §16.2 (the base nesting case) | — start at `1` only here |
-| Source-list renumbering after departure | not directly probed this session | — NOT YET INVESTIGATED |
-| Arbitrary starts (`5,6,7`) | ✓ (Tab preserves unconditionally, §16.4) | — must preserve start, only close internal gaps |
-| Irregular numbering (`1,7,42`) | ✓ §16.1 (one list regardless) | — must not "repair," per §16.3's policy |
-| `.` delimiter / `)` delimiter | ✓ §16.1 (both split lists identically; Tab preserves either unconditionally) | — never rewrite the delimiter |
-| Mixed bullet/ordered nesting | ✓ §16.1/§16.2 | — normalizer must never touch a `BulletList`'s own markers |
-| Separate ordered lists (delimiter-split) | ✓ §16.1 | — normalizer must never conflate two lists sharing a delimiter coincidentally |
-| Paragraph-separated lists (blank line) | ✓ §16.1 | — confirmed genuinely separate; no cross-list normalization expected |
-| Paragraph, no blank line | ✓ §16.1 (does not split at all) | — no separate case; already one list |
-| Width boundaries (9→10, 99→100, etc.) | ✓ §15 (Enter), §16.5 (the constraint) | — must reuse or re-derive the identical safety gate |
-| Zero-padding | ✓ §15 (Enter) | — must reuse or re-derive the identical width-from-literal-length computation |
-| 9-digit maximum | ✓ §14.1 (confirmed the parser's own cutoff) | — normalizer must never generate a 10-digit marker |
-| Undo / redo | not directly probed this session (Phase D's one-transaction design implies single-step undo, same reasoning as §15.8) | — NOT YET INVESTIGATED, but low-risk given the composed-transaction design |
-| Cursor / selection mapping | not directly probed this session | — NOT YET INVESTIGATED |
-| One transaction | design-level only (§9's addendum, §16.8) | — NOT YET INVESTIGATED empirically |
-| Paste/load/source-preservation consistency | not directly probed this session | — NOT YET INVESTIGATED |
+| Case                                                   | Structural evidence this session                                                                                      | Normalization behavior                                                        |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| First nesting transition (1 Tab, no membership change) | ✓ §16.2                                                                                                               | — no-op expected                                                              |
+| Second Tab, genuine nesting                            | ✓ §16.2                                                                                                               | — new item, plan `1.` or continue destination                                 |
+| Second Tab, lands in the Rule #5 gap (3+-digit parent) | ✓ §16.2                                                                                                               | — must detect "no longer a ListItem" and skip                                 |
+| Shift-Tab, complete nested group                       | ✓ §16.2                                                                                                               | — plan source-list closing normalization                                      |
+| Shift-Tab, partial group (hazard)                      | ✓ §16.2 (pre-existing bug)                                                                                            | — must not be silently "fixed" by the normalizer as a side effect             |
+| Single item Tab/Shift-Tab                              | ✓ §16.2                                                                                                               | —                                                                             |
+| Multi-item selection (2, 3 items)                      | ✓ §16.2                                                                                                               | — plan whole affected run together, not per-item                              |
+| Existing destination list                              | ✓ §16.2                                                                                                               | — continue destination's own sequence, don't reset to `1`                     |
+| Empty destination (genuinely new list)                 | ✓ §16.2 (the base nesting case)                                                                                       | — start at `1` only here                                                      |
+| Source-list renumbering after departure                | not directly probed this session                                                                                      | — NOT YET INVESTIGATED                                                        |
+| Arbitrary starts (`5,6,7`)                             | ✓ (Tab preserves unconditionally, §16.4)                                                                              | — must preserve start, only close internal gaps                               |
+| Irregular numbering (`1,7,42`)                         | ✓ §16.1 (one list regardless)                                                                                         | — must not "repair," per §16.3's policy                                       |
+| `.` delimiter / `)` delimiter                          | ✓ §16.1 (both split lists identically; Tab preserves either unconditionally)                                          | — never rewrite the delimiter                                                 |
+| Mixed bullet/ordered nesting                           | ✓ §16.1/§16.2                                                                                                         | — normalizer must never touch a `BulletList`'s own markers                    |
+| Separate ordered lists (delimiter-split)               | ✓ §16.1                                                                                                               | — normalizer must never conflate two lists sharing a delimiter coincidentally |
+| Paragraph-separated lists (blank line)                 | ✓ §16.1                                                                                                               | — confirmed genuinely separate; no cross-list normalization expected          |
+| Paragraph, no blank line                               | ✓ §16.1 (does not split at all)                                                                                       | — no separate case; already one list                                          |
+| Width boundaries (9→10, 99→100, etc.)                  | ✓ §15 (Enter), §16.5 (the constraint)                                                                                 | — must reuse or re-derive the identical safety gate                           |
+| Zero-padding                                           | ✓ §15 (Enter)                                                                                                         | — must reuse or re-derive the identical width-from-literal-length computation |
+| 9-digit maximum                                        | ✓ §14.1 (confirmed the parser's own cutoff)                                                                           | — normalizer must never generate a 10-digit marker                            |
+| Undo / redo                                            | not directly probed this session (Phase D's one-transaction design implies single-step undo, same reasoning as §15.8) | — NOT YET INVESTIGATED, but low-risk given the composed-transaction design    |
+| Cursor / selection mapping                             | not directly probed this session                                                                                      | — NOT YET INVESTIGATED                                                        |
+| One transaction                                        | design-level only (§9's addendum, §16.8)                                                                              | — NOT YET INVESTIGATED empirically                                            |
+| Paste/load/source-preservation consistency             | not directly probed this session                                                                                      | — NOT YET INVESTIGATED                                                        |
 
 ### 16.10 What remains genuinely open — NOT YET INVESTIGATED
 
@@ -4256,7 +4294,7 @@ exists yet to test," not "untested"):
   non-list result. Neither is fixed, scoped, or assigned to a phase by
   this document yet.
 - **Source-list-side normalization mechanics specifically** — §16.2
-  confirmed the *structural* fact that Shift-Tab-ing a group correctly
+  confirmed the _structural_ fact that Shift-Tab-ing a group correctly
   re-attaches it with literal numbers preserved, but no probe this
   session specifically exercised "the departure leaves a gap in the
   source list that a normalizer would need to close" against a live
@@ -4280,12 +4318,13 @@ Case C (see §17.7) — a fix would require reopening the already-reverted
 subtree-repair design §9 documents, so none was implemented.**
 
 Scope: the two hazards §16.2 surfaced while investigating ordered-list
-Tab/Shift-Tab *numbering* — (1) Tab selecting a list's first item
+Tab/Shift-Tab _numbering_ — (1) Tab selecting a list's first item
 together with later items, (2) Shift-Tab on only part of a nested group.
 Both are investigated here on their own terms, independent of numbering,
 per the explicit instruction that produced this section.
 
 ### 17.1 Hazard 1 — Tab: first item + later items — IMPLEMENTED... no,
+
 INVESTIGATED + REPRODUCED
 
 Reproduction (`1. A\n2. B\n3. C`, select `A+B`, press Tab twice — 4
@@ -4302,7 +4341,7 @@ and a `Paragraph` whose text is literally `"A\n    2. B"`. B's own `2.`
 never becomes a `ListMark` at all; B has no `ListItem`-hood left. `3. C`
 (untouched, still at column 0) becomes a second, correctly-parsed
 top-level `ListItem`, a sibling of the merged A+B item — so the
-resulting `OrderedList` now has *two* real items instead of three, and
+resulting `OrderedList` now has _two_ real items instead of three, and
 one of them silently contains two lines of un-nested source text.
 
 **Confirmed not selection-count-specific**: the identical swallow
@@ -4332,24 +4371,24 @@ that item has no real container to be nested "into" — see §17.4.
 Reproduction (`1. A\n    1. B\n    2. C\n    3. D\n2. E`, all four
 possible single/pair Shift-Tab selections tested):
 
-| Selection | Result | B/C/D fate |
-|---|---|---|
-| B only | `1. A\n  1. B\n    2. C\n    3. D\n2. E` | **C and D both swallowed** into B's own `Paragraph` as plain continuation text — neither keeps `ListItem`/`ListMark` status |
-| C only | `1. A\n    1. B\n  2. C\n    3. D\n2. E` | B stays correctly nested under A; **D is swallowed** into C's `Paragraph` |
-| D only | `1. A\n    1. B\n    2. C\n  3. D\n2. E` | B and C stay correctly nested under A; D cleanly becomes its own top-level sibling — **nothing swallowed** |
-| B+C | dedent both, leave D | D (untouched) is **swallowed** into C's `Paragraph` |
-| C+D | dedent both, leave nothing after | B stays nested; C and D both become correct top-level siblings — **nothing swallowed** |
-| B+C+D | dedent all three | all three become correct top-level siblings — **nothing swallowed** |
+| Selection | Result                                   | B/C/D fate                                                                                                                  |
+| --------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| B only    | `1. A\n  1. B\n    2. C\n    3. D\n2. E` | **C and D both swallowed** into B's own `Paragraph` as plain continuation text — neither keeps `ListItem`/`ListMark` status |
+| C only    | `1. A\n    1. B\n  2. C\n    3. D\n2. E` | B stays correctly nested under A; **D is swallowed** into C's `Paragraph`                                                   |
+| D only    | `1. A\n    1. B\n    2. C\n  3. D\n2. E` | B and C stay correctly nested under A; D cleanly becomes its own top-level sibling — **nothing swallowed**                  |
+| B+C       | dedent both, leave D                     | D (untouched) is **swallowed** into C's `Paragraph`                                                                         |
+| C+D       | dedent both, leave nothing after         | B stays nested; C and D both become correct top-level siblings — **nothing swallowed**                                      |
+| B+C+D     | dedent all three                         | all three become correct top-level siblings — **nothing swallowed**                                                         |
 
 **Precise invariant, derived from this table**: Shift-Tab-ing item X out
 of a nested group corrupts an untouched item Y **only when Y
 immediately follows X in document order, was at X's old (deeper)
-column, and X was dedented while Y was not.** Dedenting the *entire*
+column, and X was dedented while Y was not.** Dedenting the _entire_
 tail of a nested group (a contiguous suffix through the group's last
-item), or dedenting only the group's *last* item, never corrupts
+item), or dedenting only the group's _last_ item, never corrupts
 anything — there is nothing after the touched item left behind at the
 old column. This is not "any partial Shift-Tab is dangerous" — it is
-specifically "a partial *prefix* Shift-Tab, or a scattered non-suffix
+specifically "a partial _prefix_ Shift-Tab, or a scattered non-suffix
 selection, leaves an orphan."
 
 **Confirmed for bullets too, but with a materially better failure
@@ -4368,7 +4407,7 @@ Both hazards reduce to the same arithmetic. After a dedent (or an
 initial over-indent) moves item X to a new column `c`, whether an
 untouched item Y sitting at the old column `oldCol` still parses
 correctly depends on where `oldCol` falls relative to two thresholds
-computed from X's *new* position:
+computed from X's _new_ position:
 
 - **X's new content column** = `c + markerWidth(X) + 1` (the minimum
   column for `oldCol` to still qualify as X's own nested child).
@@ -4414,14 +4453,14 @@ Directly tested by re-running Hazard 1's reproduction through a second,
 identical:
 
 - **A lone, document-initial `1. A` item, indented to 4 spaces (two
-  Tabs) under the *production* grammar**: parses as `OrderedList` >
+  Tabs) under the _production_ grammar**: parses as `OrderedList` >
   `ListItem` > `ListMark "1."` — a real list item, per §17.1.
-- **The identical text under the *baseline* grammar (`IndentedCode`
+- **The identical text under the _baseline_ grammar (`IndentedCode`
   present)**: parses as `CodeBlock` > `CodeText "1. A"` — not a list at
   all. This is exactly CommonMark's standard behavior: 4+ columns of
   leading indentation with no established container is an indented code
   block, full stop.
-- **The full `A+B` reproduction under baseline**: the *entire* two-line
+- **The full `A+B` reproduction under baseline**: the _entire_ two-line
   span becomes one `CodeBlock` (`CodeText "1. A\n"` + `CodeText "2. B"`)
   followed by `3. C` as a normal, untouched sibling `ListItem`. Under
   baseline, both A and B lose list-item-hood **together, consistently**
@@ -4429,7 +4468,7 @@ identical:
   triple-Tabs a list into oblivion gets a code block, not corruption).
 
 **Conclusion: `IndentedCode` removal is directly causal for Hazard 1's
-*existence as a partial, asymmetric corruption* rather than a clean,
+_existence as a partial, asymmetric corruption_ rather than a clean,
 consistent (if surprising) code-block reclassification.** Without the
 removal, over-indenting a document-initial list produces a different,
 arguably more defensible outcome (uniform code-block reclassification)
@@ -4504,7 +4543,7 @@ Evaluating the four candidate invariants against the evidence above:
   edit, i.e., cannot be achieved without violating §9's Locked contract.
 - **Invariant D** ("the current physical-line model is fundamentally
   insufficient for this operation") — is the conclusion this
-  investigation actually supports, not because the model is *wrong*,
+  investigation actually supports, not because the model is _wrong_,
   but because it is a **direct, documented consequence of the same
   design tradeoff §9 already made deliberately**, and because §17.5
   shows generic CM6 has the identical limitation given the same
@@ -4513,8 +4552,8 @@ Evaluating the four candidate invariants against the evidence above:
   preservation" — the prior investigation already searched that space.
 
 **This is Case C** (per the investigation framework's own three
-options): *the operation cannot be made structurally safe without
-violating the existing §9 physical-line contract.* Per the explicit
+options): _the operation cannot be made structurally safe without
+violating the existing §9 physical-line contract._ Per the explicit
 instruction governing this phase, this means: **stop and report, do not
 implement.**
 
@@ -4534,23 +4573,23 @@ here is more implementable today than those already-deferred items.
 
 ### 17.9 Regression test matrix (proposed, not implemented)
 
-| Case | Source shape | Selection | Expected today (per this investigation) |
-|---|---|---|---|
-| Tab: first item alone | `1. A` doc-initial | A only | stays a lone top-level `ListItem`, no corruption possible (nothing follows) |
-| Tab: first + second | `1. A\n2. B\n3. C` | A+B, 2 presses | **B swallowed into A's paragraph** — corruption |
-| Tab: first + all | same | A+B+C, 2 presses | **B swallowed**, C untouched and safe |
-| Tab: second + third only | same | B+C, 2 presses | correctly nested under A — **no corruption** |
-| Tab: first + nested descendants | `1. A\n2. B\n   1. Child\n3. C` | A+B | B (and its own child) swallowed the same way |
-| Tab: bullet equivalent, first+second | `- A\n- B\n- C` | A+B, 2 presses | **not swallowed — re-parented** as B's real nested child (structurally valid, different hierarchy than before) |
-| Tab: mixed paragraph/list, first+second | `1. A\n2. B\n3. C\nPara` | A+B | same swallow, Para unaffected |
-| Shift-Tab: first nested item alone | `1. A\n    1. B\n    2. C\n    3. D\n2. E` | B only | **C and D swallowed** into B's paragraph |
-| Shift-Tab: middle nested item alone | same | C only | **D swallowed** into C's paragraph; B safe |
-| Shift-Tab: last nested item alone | same | D only | **no corruption** — B, C stay nested, D becomes a clean sibling |
-| Shift-Tab: first+middle | same | B+C | **D swallowed** |
-| Shift-Tab: middle+last (suffix) | same | C+D | **no corruption** |
-| Shift-Tab: whole nested group | same | B+C+D | **no corruption** |
-| Shift-Tab: bullet equivalent, first alone | `- A\n  - B\n  - C\n  - D\n- E` | B only | **not swallowed — re-parented**, C/D become B's real nested children |
-| Native CM6 cross-check | any of the above | same | byte-identical to Clutter's own command (already confirmed, §17.5) |
+| Case                                      | Source shape                               | Selection        | Expected today (per this investigation)                                                                        |
+| ----------------------------------------- | ------------------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| Tab: first item alone                     | `1. A` doc-initial                         | A only           | stays a lone top-level `ListItem`, no corruption possible (nothing follows)                                    |
+| Tab: first + second                       | `1. A\n2. B\n3. C`                         | A+B, 2 presses   | **B swallowed into A's paragraph** — corruption                                                                |
+| Tab: first + all                          | same                                       | A+B+C, 2 presses | **B swallowed**, C untouched and safe                                                                          |
+| Tab: second + third only                  | same                                       | B+C, 2 presses   | correctly nested under A — **no corruption**                                                                   |
+| Tab: first + nested descendants           | `1. A\n2. B\n   1. Child\n3. C`            | A+B              | B (and its own child) swallowed the same way                                                                   |
+| Tab: bullet equivalent, first+second      | `- A\n- B\n- C`                            | A+B, 2 presses   | **not swallowed — re-parented** as B's real nested child (structurally valid, different hierarchy than before) |
+| Tab: mixed paragraph/list, first+second   | `1. A\n2. B\n3. C\nPara`                   | A+B              | same swallow, Para unaffected                                                                                  |
+| Shift-Tab: first nested item alone        | `1. A\n    1. B\n    2. C\n    3. D\n2. E` | B only           | **C and D swallowed** into B's paragraph                                                                       |
+| Shift-Tab: middle nested item alone       | same                                       | C only           | **D swallowed** into C's paragraph; B safe                                                                     |
+| Shift-Tab: last nested item alone         | same                                       | D only           | **no corruption** — B, C stay nested, D becomes a clean sibling                                                |
+| Shift-Tab: first+middle                   | same                                       | B+C              | **D swallowed**                                                                                                |
+| Shift-Tab: middle+last (suffix)           | same                                       | C+D              | **no corruption**                                                                                              |
+| Shift-Tab: whole nested group             | same                                       | B+C+D            | **no corruption**                                                                                              |
+| Shift-Tab: bullet equivalent, first alone | `- A\n  - B\n  - C\n  - D\n- E`            | B only           | **not swallowed — re-parented**, C/D become B's real nested children                                           |
+| Native CM6 cross-check                    | any of the above                           | same             | byte-identical to Clutter's own command (already confirmed, §17.5)                                             |
 
 Every row marked "no corruption" or "re-parented" above has direct
 parser-tree evidence from this session (§17.1/§17.2/§17.5); every row
@@ -4603,17 +4642,17 @@ outside the text itself).
 ### 18.2 What source indentation one logical level actually requires — IMPLEMENTED + VERIFIED (empirically swept against the real parser)
 
 Swept, for a parent at column 0, the minimum/maximum child indentation
-that the *installed* `@lezer/markdown@1.7.2` parser (through Clutter's
+that the _installed_ `@lezer/markdown@1.7.2` parser (through Clutter's
 own `markdownLanguageExtension()`) recognizes as genuinely nested under
 that parent, for every marker width in play:
 
-| Parent marker | `markerWidth` | Content column (nesting floor) | Nested window | Swallow gap before the floor |
-|---|---|---|---|---|
-| `-` / `*` / `+` (bullet) | 1 | 2 | [2, 5] | none (0–3 sibling tolerance meets the floor exactly) |
-| `1.` (1-digit) | 2 | 3 | [3, 6] | none |
-| `10.` (2-digit) | 3 | 4 | [4, 7] | none |
-| `100.` (3-digit) | 4 | 5 | [5, 8] | **column 4 is an orphan gap** — too indented to be a sibling (>3), too shallow to nest (<5) |
-| `1)` (paren-style) | 2 | 3 | [3, 6] | none (identical to `.`-style) |
+| Parent marker            | `markerWidth` | Content column (nesting floor) | Nested window | Swallow gap before the floor                                                                |
+| ------------------------ | ------------- | ------------------------------ | ------------- | ------------------------------------------------------------------------------------------- |
+| `-` / `*` / `+` (bullet) | 1             | 2                              | [2, 5]        | none (0–3 sibling tolerance meets the floor exactly)                                        |
+| `1.` (1-digit)           | 2             | 3                              | [3, 6]        | none                                                                                        |
+| `10.` (2-digit)          | 3             | 4                              | [4, 7]        | none                                                                                        |
+| `100.` (3-digit)         | 4             | 5                              | [5, 8]        | **column 4 is an orphan gap** — too indented to be a sibling (>3), too shallow to nest (<5) |
+| `1)` (paren-style)       | 2             | 3                              | [3, 6]        | none (identical to `.`-style)                                                               |
 
 **The formula, confirmed exactly for every row above and for a second
 nesting level (§18's grandchild sweep, `1. Parent` → `1. Child` at
@@ -4628,11 +4667,11 @@ this section's contribution is confirming it holds identically at a
 second nesting level (parent→child→grandchild), not just parent→child,
 and confirming the swallow-gap-vs-clean-floor split correlates exactly
 with `markerWidth ≥ 4` (3+ digit ordered markers only) — 1–2 digit
-ordered markers and all bullet styles have *no* gap at all, matching
+ordered markers and all bullet styles have _no_ gap at all, matching
 §14's own finding that the practical severity is digit-width-specific.
 
 **Consequence for the product question**: "one logical level" requires
-a *different* number of columns depending on the parent's own marker
+a _different_ number of columns depending on the parent's own marker
 width — 2 for bullets, 3 for 1-digit ordered, 4 for 2-digit ordered, 5
 for 3-digit ordered, and so on (`markerWidth + 1`, uncapped as digit
 count grows, matching §14.1's already-confirmed up-to-9-digit ceiling).
@@ -4674,22 +4713,22 @@ formula. Shift by exactly that delta.
 Tested and confirmed **exactly one structural level crossed**, before
 and after tree checked in every case:
 
-| Case | Result |
-|---|---|
-| 1-digit parent → child | depth 0 → 1, delta computed = 3 |
-| 2-digit parent → child | depth 0 → 1, delta computed = 4 |
-| 3-digit parent → child | depth 0 → 1, delta computed = 5 |
-| Bullet parent → child | depth 0 → 1, delta computed = 2 |
-| Level-1 item → level-2 (nest under its own preceding level-1 sibling) | depth 1 → 2, delta computed fresh from the *level-1* sibling's own marker, not the top-level parent's |
-| Existing destination list already present | new item joins the *existing* nested list at its established column — does not create a redundant second nested list |
-| First item of a list (no preceding sibling anywhere) | **correctly a no-op** — there is nothing to nest under, matching standard outliner UX (Workflowy/Notion/OneNote all refuse to indent a list's first item) |
-| Item with multiline continuation content | continuation moves by the *same* delta as the marker line, staying aligned to the item's new content column — confirmed only when the edit is scoped to the item's full node span (`item.to`), not just the touched line; a single-line-only scope left continuation mis-aligned (relatively harmless for plain text, since CommonMark's paragraph-laziness rule doesn't require any specific column for continuation text — but this **would** matter if continuation itself contained a marker-like line, so real correctness requires span-aware, not line-only, application) |
-| Item with its own nested descendants | descendants shift by the same delta, staying valid, tested directly |
-| `1)` marker parent | identical formula and result to `.`-style (§18.2's table already covers this — no separate transition table needed, the geometry is delimiter-agnostic) |
-| Ordered parent, bullet-marker line immediately after it at column 0 | **not a valid "mixed same-level" case at all** — §16.1 already established a delimiter/kind change always splits into two independent top-level lists; the bullet line has no preceding sibling *in its own list* (it's the first and only item of a brand-new `BulletList`), so Model C correctly reports "no target," which is the right answer for a case that cannot occur as a real nested-vs-sibling ambiguity in the first place |
+| Case                                                                  | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1-digit parent → child                                                | depth 0 → 1, delta computed = 3                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2-digit parent → child                                                | depth 0 → 1, delta computed = 4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 3-digit parent → child                                                | depth 0 → 1, delta computed = 5                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Bullet parent → child                                                 | depth 0 → 1, delta computed = 2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Level-1 item → level-2 (nest under its own preceding level-1 sibling) | depth 1 → 2, delta computed fresh from the _level-1_ sibling's own marker, not the top-level parent's                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Existing destination list already present                             | new item joins the _existing_ nested list at its established column — does not create a redundant second nested list                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| First item of a list (no preceding sibling anywhere)                  | **correctly a no-op** — there is nothing to nest under, matching standard outliner UX (Workflowy/Notion/OneNote all refuse to indent a list's first item)                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Item with multiline continuation content                              | continuation moves by the _same_ delta as the marker line, staying aligned to the item's new content column — confirmed only when the edit is scoped to the item's full node span (`item.to`), not just the touched line; a single-line-only scope left continuation mis-aligned (relatively harmless for plain text, since CommonMark's paragraph-laziness rule doesn't require any specific column for continuation text — but this **would** matter if continuation itself contained a marker-like line, so real correctness requires span-aware, not line-only, application) |
+| Item with its own nested descendants                                  | descendants shift by the same delta, staying valid, tested directly                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `1)` marker parent                                                    | identical formula and result to `.`-style (§18.2's table already covers this — no separate transition table needed, the geometry is delimiter-agnostic)                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Ordered parent, bullet-marker line immediately after it at column 0   | **not a valid "mixed same-level" case at all** — §16.1 already established a delimiter/kind change always splits into two independent top-level lists; the bullet line has no preceding sibling _in its own list_ (it's the first and only item of a brand-new `BulletList`), so Model C correctly reports "no target," which is the right answer for a case that cannot occur as a real nested-vs-sibling ambiguity in the first place                                                                                                                                          |
 
 **Multi-item selection (including the exact Phase 17 Hazard 1 shape)**:
-extended the prototype to walk *all* top-level selected `ListItem`s in
+extended the prototype to walk _all_ top-level selected `ListItem`s in
 document order, computing the first one's delta from its true (possibly
 unselected) preceding sibling, and reusing that same delta for
 subsequent selected siblings so they stay siblings of each other (if the
@@ -4704,8 +4743,7 @@ after:  1. A / "   2. B" / 3. C   — B correctly depth 1 under A, A unmoved, C 
 ```
 
 and the 3-digit worst case (`100. A` / `101. B` / `102. C`, same
-selection) produces the identical clean result with delta 5 instead of
-3. **Neither reproduces Phase 17's swallow.** See §18.7.
+selection) produces the identical clean result with delta 5 instead of 3. **Neither reproduces Phase 17's swallow.** See §18.7.
 
 ### 18.5 Shift-Tab as the inverse — tested, confirmed asymmetric-but-sound
 
@@ -4716,18 +4754,18 @@ exactly (become a sibling of your own current parent). Tested against
 Phase 17's own Hazard 2 fixture (`1. A` with nested `1. B` / `2. C` /
 `3. D`, then `2. E`):
 
-| Selection | Result under the logical model |
-|---|---|
-| B only | B moves to column 0 (sibling of A). **C and D are not swallowed — they are correctly re-parented as B's own nested children** (a real, valid `BulletList`/`OrderedList` under B) |
-| C only | B stays nested under A; C moves to column 0; **D is re-parented under C**, not swallowed |
-| D only (last child) | B, C stay under A; D cleanly becomes a top-level sibling — matches Phase 17's finding that dedenting the last item was always safe |
-| Top-level item | correctly a no-op (no parent to become a sibling of) |
-| 3-digit nested marker (`100.` nested under a 1-digit parent) | moves from column 5 to column 0 in one step, no intermediate mis-parse |
+| Selection                                                    | Result under the logical model                                                                                                                                                   |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B only                                                       | B moves to column 0 (sibling of A). **C and D are not swallowed — they are correctly re-parented as B's own nested children** (a real, valid `BulletList`/`OrderedList` under B) |
+| C only                                                       | B stays nested under A; C moves to column 0; **D is re-parented under C**, not swallowed                                                                                         |
+| D only (last child)                                          | B, C stay under A; D cleanly becomes a top-level sibling — matches Phase 17's finding that dedenting the last item was always safe                                               |
+| Top-level item                                               | correctly a no-op (no parent to become a sibling of)                                                                                                                             |
+| 3-digit nested marker (`100.` nested under a 1-digit parent) | moves from column 5 to column 0 in one step, no intermediate mis-parse                                                                                                           |
 
 This is standard outliner semantics (Workflowy/OneNote/Word: outdenting
 a middle item takes its remaining younger siblings with it as its own
 new children) — not a compromise invented to dodge Phase 17, but the
-behavior a *deliberate*, full jump to the parent's column produces
+behavior a _deliberate_, full jump to the parent's column produces
 naturally, instead of an arbitrary partial jump landing in the gap
 between "sibling" and "child" that §17.3 identified as the actual
 defect. **Shift-Tab is not a naive mirror of Tab's delta** — Tab's delta
@@ -4739,12 +4777,12 @@ of tree geometry.
 
 ### 18.6 Model comparison
 
-| Model | Verdict |
-|---|---|
-| **A — fixed 2 spaces (current)** | Confirmed insufficient: only correct for bullets and coincidentally for 1-digit-ordered-into-bullet transitions; wrong for every ordered marker width ≥ 2 digits (§18.2), and is the direct mechanism behind both Phase 17 hazards (§17.3). |
-| **B — fixed 4 spaces** | Tested against the same table: correct only for exactly `markerWidth = 3` (2-digit ordered, content column 4); wrong (over-shoots into the swallow gap or beyond) for bullets, 1-digit ordered, and 3+-digit ordered alike. **Confirmed, not assumed, to be no better than Model A** — a different wrong constant is still wrong. |
-| **C — marker/content-column-aware (this section's prototype)** | Feasible with a closed-form, single-pass calculation, using only public Lezer tree geometry (§18.3). Produces exactly one logical level in every tested transition (§18.4/§18.5) and, as a side effect, does not reproduce either Phase 17 hazard in any tested case. |
-| **D — provisional-edit + reparse-and-retry** | **Not needed.** §18.2's formula is deterministic and closed-form; there is no case in this investigation where the correct target column had to be *discovered* by trial edits rather than *computed* directly from the existing tree. Model D would add a second parse pass and rollback logic for a problem Model C already solves without it. |
+| Model                                                          | Verdict                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **A — fixed 2 spaces (current)**                               | Confirmed insufficient: only correct for bullets and coincidentally for 1-digit-ordered-into-bullet transitions; wrong for every ordered marker width ≥ 2 digits (§18.2), and is the direct mechanism behind both Phase 17 hazards (§17.3).                                                                                                      |
+| **B — fixed 4 spaces**                                         | Tested against the same table: correct only for exactly `markerWidth = 3` (2-digit ordered, content column 4); wrong (over-shoots into the swallow gap or beyond) for bullets, 1-digit ordered, and 3+-digit ordered alike. **Confirmed, not assumed, to be no better than Model A** — a different wrong constant is still wrong.                |
+| **C — marker/content-column-aware (this section's prototype)** | Feasible with a closed-form, single-pass calculation, using only public Lezer tree geometry (§18.3). Produces exactly one logical level in every tested transition (§18.4/§18.5) and, as a side effect, does not reproduce either Phase 17 hazard in any tested case.                                                                            |
+| **D — provisional-edit + reparse-and-retry**                   | **Not needed.** §18.2's formula is deterministic and closed-form; there is no case in this investigation where the correct target column had to be _discovered_ by trial edits rather than _computed_ directly from the existing tree. Model D would add a second parse pass and rollback logic for a problem Model C already solves without it. |
 
 ### 18.7 Effect on the Phase 17 hazards
 
@@ -4757,7 +4795,7 @@ whether a logical-level model naturally eliminates them:
   produced the gap in the first place; the list's own first item
   legitimately has no logical target and is left alone (a UX
   improvement in its own right, matching every mainstream outliner),
-  and every other selected item gets a delta *sufficient* to clear its
+  and every other selected item gets a delta _sufficient_ to clear its
   own content-column floor, never an arbitrary fixed amount that might
   fall short.
 - **Hazard 2 (Shift-Tab: partial nested-group dedent)** — **eliminated
@@ -4766,10 +4804,10 @@ whether a logical-level model naturally eliminates them:
   a left-behind sibling either stays correctly nested under the
   now-more-deeply-indented item that got dedented past it (re-parented,
   structurally valid) or, if it's the last item in the chain, needs no
-  reattachment at all. There is no case where the jump is *too small*
+  reattachment at all. There is no case where the jump is _too small_
   to clear the recomputed content-column floor, which was the exact
   cause of the swallow in §17.3.
-- **3+-digit ordered markers** — the model's delta is *derived from* the
+- **3+-digit ordered markers** — the model's delta is _derived from_ the
   marker width, so it is correct by construction at every digit count
   tested (1, 2, 3 digits); nothing in the formula caps out or degrades
   as digit count grows, consistent with §14.1's 9-digit ceiling.
@@ -4781,7 +4819,7 @@ whether a logical-level model naturally eliminates them:
   column (0 relative offset) — it never lands inside the gap the way a
   fixed, marker-width-blind step can.
 - **`IndentedCode` removal** — orthogonal. §17.4 traced Hazard 1 to this
-  removal specifically in the *document-initial, no-container* case,
+  removal specifically in the _document-initial, no-container_ case,
   which the logical model sidesteps entirely by refusing to move the
   first item of any list (there is no scenario left where a first item
   gets pushed to 4+ columns by this command). Removing `IndentedCode`
@@ -4789,7 +4827,7 @@ whether a logical-level model naturally eliminates them:
   logical model does not depend on it being reversed or retained either
   way.
 - **Multiline descendants / mixed selections** — handled correctly
-  *only* when the implementation moves an item's full node span
+  _only_ when the implementation moves an item's full node span
   (marker line + continuation + nested descendants), not just the
   explicitly-touched line (§18.4's continuation-content finding). This
   is a **scope requirement for any real implementation**, not a
@@ -4874,13 +4912,13 @@ implementation would need automated coverage for:
   arithmetic but not its shape).
 - Selections spanning **multiple, unrelated lists** (not just multiple
   items of one list) — not tested this session.
-- Interaction with the still-unresolved ordered-list *numbering*
+- Interaction with the still-unresolved ordered-list _numbering_
   question (§16) — explicitly out of scope per this phase's own
   instructions; whatever numbering policy is eventually approved would
   need to be layered on top of whichever indentation model is approved,
   not the reverse.
 - The already-identified `MAX_INDENT_LEVELS` ceiling (§9) — a variable-
-  width delta changes how many *Tab presses* are needed to reach the
+  width delta changes how many _Tab presses_ are needed to reach the
   ceiling from a given marker width; the ceiling's own column value
   (10 spaces) was not re-examined against a variable-delta model this
   session.
@@ -4930,7 +4968,7 @@ third is a genuine design decision, not a technical blocker:
 
 - **Multiple independent lists in one selection** (e.g. a selection
   spanning two lists separated by a blank line) — the §18.4 prototype
-  only walked the *first* selected item's own container and silently
+  only walked the _first_ selected item's own container and silently
   ignored a second, unrelated list also touched by the same selection.
   **Required fix**: the real implementation must identify every
   distinct top-level list container touched by the selection and run
@@ -4966,7 +5004,7 @@ mapping logic, special-casing, or variable-delta-aware code is required.
 CM6's `ChangeSet` position-mapping is delta-magnitude-agnostic by
 design; today's code already builds one `ChangeSet` from a list of
 per-line `ChangeSpec`s and maps the selection through it once, and nothing
-about that step depends on every `ChangeSpec` inserting the *same* number
+about that step depends on every `ChangeSpec` inserting the _same_ number
 of characters. **This item is resolved: no open risk.**
 
 **4. Interaction with the existing Enter width-boundary fix (§15).**
@@ -4986,7 +5024,7 @@ implementation constrains the other.**
 **5. Numbering remains untouched.** Confirmed by construction, not by a
 new probe: every change emitted by the §18.4/§18.5/§18.9 design is a
 `{ from, to, insert: ' '.repeat(n) }` replacement scoped to a line's
-*leading whitespace range only* — it never touches a `ListMark` node's
+_leading whitespace range only_ — it never touches a `ListMark` node's
 own character range, and no code path in the recommended architecture
 reads or writes a marker's digits, delimiter, or numeric value.
 Numbering (§16) remains a fully separate, still-undecided concern, to
@@ -5020,7 +5058,7 @@ renumber.
 - **Enter's renumber**: CM6's own `insertNewlineContinueMarkupCommand`
   (`@codemirror/lang-markdown@6.5.2`), in its "empty item, exit list"
   branch — confirmed by direct source read: `if (inner.node.name ==
-  "OrderedList") renumberList(inner.item, doc, changes, -2);`. Not
+"OrderedList") renumberList(inner.item, doc, changes, -2);`. Not
   Clutter's code at all; upstream, built-in convention.
 - **Backspace's (previous) non-renumber**: `deleteMarkupBackward`
   (same package) never references `renumberList`/`itemNumber` anywhere —
@@ -5037,17 +5075,17 @@ renumber.
 Reusing upstream `renumberList`'s own exact semantics (confirmed by
 direct source read of `itemNumber`/`renumberList`, not assumed):
 
-- Compares each sibling's number against the *immediately preceding*
+- Compares each sibling's number against the _immediately preceding_
   sibling's own **original, never-rewritten** literal number — starting
   the comparison base at the deleted item's own original number.
 - Stops at the first sibling whose number isn't exactly one more than
   expected. **This means an intentionally irregular sequence (`1. / 5. /
-  9.`) is preserved by construction, not by a special case bolted on**:
+9.`) is preserved by construction, not by a special case bolted on**:
   deleting the empty `5.` leaves `9.` exactly as `9.`, because the walk
   never gets far enough to consider it sequential in the first place.
 - Every kept sibling renumbers to exactly one less than its own original
   number — algebraically identical to upstream's `String(prev + 2 +
-  offset)` with `offset = -2` (verified by hand-expansion).
+offset)` with `offset = -2` (verified by hand-expansion).
 - Loses zero-padding on rewrite (`"008."` → `"8."` if renumbered),
   matching Enter's own already-documented lossy behavior (§15.2) — a
   deliberate consistency choice, not a new inconsistency.
@@ -5085,18 +5123,18 @@ All confirmed via permanent regression tests
 (`markdownBulletBackspace.test.ts`, new describe block, 16 tests) and
 live in the webapp:
 
-| Case | Result |
-|---|---|
-| `1. / 2. / 3.` → delete empty `2.` | → `1. / 2.` (matches Enter byte-for-byte, verified by direct comparison in the same test) |
-| `8. / 9. / 10.` → delete empty `9.` | → `8. / 9.` (single-digit-width shrink, safe) |
-| `99. / 100. / 101.` → delete empty `100.` | → `99. / 100.` |
-| `.` and `)` delimiters | Symmetric, both verified |
-| Nested ordered lists | Renumbering scoped strictly to the deleted item's own container — confirmed an outer list's own numbering is untouched by an inner deletion |
-| Irregular numbering (`1. / 5. / 9.`) | Preserved — `9.` stays `9.`, confirmed as a direct consequence of §19.2's walk, not a special case |
-| Width-boundary shrink + nested child | A child correctly re-parented onto the renamed item survives intact (`8./9./10.` with a nested child under `10.`, renamed to `9.`) |
-| **Guard proof** | A large-magnitude padded shrink (`000003.` → `2`, magnitude 6) on a genuinely multi-line item (with a validly-nested child) is **declined** — item stays unchanged, child stays intact. The identical rewrite on a single-line item (no descendant) **is** applied — confirms the reused guard is actually gating something at this call site, not passively never triggering |
-| Bullet lists | Never attempt renumbering (no digits) |
-| First/last item in a sequence | Deleting the first correctly shifts everything after down by one; deleting the last needs no renumbering (nothing follows) |
+| Case                                      | Result                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `1. / 2. / 3.` → delete empty `2.`        | → `1. / 2.` (matches Enter byte-for-byte, verified by direct comparison in the same test)                                                                                                                                                                                                                                                                                     |
+| `8. / 9. / 10.` → delete empty `9.`       | → `8. / 9.` (single-digit-width shrink, safe)                                                                                                                                                                                                                                                                                                                                 |
+| `99. / 100. / 101.` → delete empty `100.` | → `99. / 100.`                                                                                                                                                                                                                                                                                                                                                                |
+| `.` and `)` delimiters                    | Symmetric, both verified                                                                                                                                                                                                                                                                                                                                                      |
+| Nested ordered lists                      | Renumbering scoped strictly to the deleted item's own container — confirmed an outer list's own numbering is untouched by an inner deletion                                                                                                                                                                                                                                   |
+| Irregular numbering (`1. / 5. / 9.`)      | Preserved — `9.` stays `9.`, confirmed as a direct consequence of §19.2's walk, not a special case                                                                                                                                                                                                                                                                            |
+| Width-boundary shrink + nested child      | A child correctly re-parented onto the renamed item survives intact (`8./9./10.` with a nested child under `10.`, renamed to `9.`)                                                                                                                                                                                                                                            |
+| **Guard proof**                           | A large-magnitude padded shrink (`000003.` → `2`, magnitude 6) on a genuinely multi-line item (with a validly-nested child) is **declined** — item stays unchanged, child stays intact. The identical rewrite on a single-line item (no descendant) **is** applied — confirms the reused guard is actually gating something at this call site, not passively never triggering |
+| Bullet lists                              | Never attempt renumbering (no digits)                                                                                                                                                                                                                                                                                                                                         |
+| First/last item in a sequence             | Deleting the first correctly shifts everything after down by one; deleting the last needs no renumbering (nothing follows)                                                                                                                                                                                                                                                    |
 
 **Full verification**: 67/67 tests in `markdownBulletBackspace.test.ts`
 (51 pre-existing + 16 new, all passing, zero regressions to the
@@ -5130,7 +5168,7 @@ Two confirmed bugs came out of that audit; only this one (the smaller,
 more architecturally consistent of the two) was approved for
 implementation. The other — manual digit retyping (e.g. selecting `"9"`
 in a multi-line item and typing `"10"`) silently demoting a nested
-descendant, with no guard at all since no *Clutter-computed* rewrite
+descendant, with no guard at all since no _Clutter-computed_ rewrite
 exists for a transaction filter to inspect — was deliberately left open,
 pending a product decision on whether Clutter should ever intercept a
 user's own literal keystrokes (something no existing guard does).
@@ -5170,8 +5208,8 @@ Two changes, both additive to §19's existing mechanism, not a new one:
    while `to` genuinely reaches past each one — accepting `to` as a valid
    boundary only when it lands exactly on the last accumulated item's own
    `.to` (selection excludes the trailing line break) **or** exactly on
-   the *next* sibling's `.from` (selection includes it) — never on
-   arithmetic/character counting, so a selection that merely *looks* like
+   the _next_ sibling's `.from` (selection includes it) — never on
+   arithmetic/character counting, so a selection that merely _looks_ like
    it spans whole items but actually clips into one (mid-content,
    mid-nested-child) can't accidentally pass. Any gap in the walk (the
    selection would have to cross into a different list/construct to
@@ -5190,7 +5228,7 @@ Two changes, both additive to §19's existing mechanism, not a new one:
 
 **A first implementation attempt had a real bug**, caught by the test
 suite itself, not by inspection: the boundary walk advanced into the next
-sibling *before* checking whether `to` already matched that sibling's own
+sibling _before_ checking whether `to` already matched that sibling's own
 `.from` — meaning it always overshot the reported scenario's exact
 boundary by one item and declined every case that should have matched.
 Fixed by checking both boundary conditions (`cur.to === to` and
@@ -5200,9 +5238,9 @@ Fixed by checking both boundary conditions (`cur.to === to` and
 
 `.`/`)` delimiters, arbitrary/irregular numbering, `9→10`/`99→100` width
 boundaries, first/middle/last item, multi-item runs (shifts by the run's
-own length, not a hardcoded one), a nested list under a *surviving*
+own length, not a hardcoded one), a nested list under a _surviving_
 sibling (preserved, guard reused unchanged), deleting an item that
-*owns* a nested list (whole subtree removed, no orphan), two independent
+_owns_ a nested list (whole subtree removed, no orphan), two independent
 lists (second untouched), mixed ordered/bullet siblings (never crossed
 into), bullet-only runs (never attempts renumbering), three shapes of
 decline (partial-content selection, selection not starting at an item
@@ -5271,7 +5309,7 @@ than living inside the Enter keymap.
 1. **Phase A** (unchanged): the existing per-line `±INDENT_STEP_SPACES`
    edits.
 2. **Candidate collection**: of the touched lines, only those that were,
-   in the *original* tree, an `OrderedList` item's own marker line
+   in the _original_ tree, an `OrderedList` item's own marker line
    (`resolveLineIndentContext` + an `OrderedList`-parent check) are
    candidates — a touched paragraph, heading, or bullet-list line is
    never considered.
@@ -5286,21 +5324,21 @@ than living inside the Enter keymap.
 5. **Isolated-relocation guard** (§21.3 — the one real bug this
    implementation's own test suite caught): before generating any edit,
    confirm at least one of the source list(s) left or destination list(s)
-   joined has a member *besides* the touched items themselves. If neither
+   joined has a member _besides_ the touched items themselves. If neither
    does, the touched items are a closed set relocating with zero external
    context — skip entirely.
 6. **Source-side**: `renumberSequentialTail(state, lastDepartedOriginalItem, -departedCount)`
    — reused with zero new logic, exactly as anticipated in §16.8.
 7. **Destination-side** (`planDestinationRenumbering`, genuinely new): one
-   forward walk of the destination list's children *in the provisional
-   tree* — a run of pre-existing items before the joined block seeds a
+   forward walk of the destination list's children _in the provisional
+   tree_ — a run of pre-existing items before the joined block seeds a
    `baseline` (never rewritten); each joined item is assigned
    `baseline + its own 1-based position` (defaulting to `1` when no
    pre-existing item precedes it — covers both "brand new list" and
    "joining at an existing list's own front" with one formula, per the
    product decision's own example: `2. B`+`3. C` → `1. B`+`2. C`); any
-   pre-existing item *after* the joined block shifts by the joined count
-   if — and only if — it's still sequential relative to the *previous*
+   pre-existing item _after_ the joined block shifts by the joined count
+   if — and only if — it's still sequential relative to the _previous_
    pre-existing item's own original number. Every rewrite, either side of
    the joined block, is filtered through `isRiskyRenumberRewrite` before
    being kept.
@@ -5309,7 +5347,7 @@ than living inside the Enter keymap.
    this codebase — no `ChangeSet.compose` needed, confirmed (again) that
    CM6 composes multiple non-overlapping `{from,to,insert}` entries
    correctly regardless of document order, including two entries on the
-   *same* original line (Phase A's own whitespace insert and a joined
+   _same_ original line (Phase A's own whitespace insert and a joined
    item's own digit rewrite).
 
 ### 21.3 The one real bug found, and why
@@ -5320,20 +5358,20 @@ press — caught by two **pre-existing** tests (`markdownIndentKeymap.test.ts`'s
 own "ordered 2-digit"/"ordered 3-digit: Tab progression... plateaus"
 cases), not by new ones, confirming the regression suite's own value.
 Root cause: a Lezer `OrderedList` node's `.from` tracks its own first
-child's start — for a lone item that is *both* first and only child,
+child's start — for a lone item that is _both_ first and only child,
 editing its own leading whitespace necessarily moves the list's own
 `.from` too, so the naive "does the mapped-forward old `.from` still
 equal the new `.from`" check always reported "changed," even though
 nothing about sibling relationships changed (there were none, before or
 after). Fixed by `listHasOtherMembers` (§21.2 step 5) — not a special
 case for "solo items," but the general rule that a genuine departure or
-join requires *some* untouched member on at least one side; a solo
+join requires _some_ untouched member on at least one side; a solo
 item's own list, by construction, never has one on either side. This
 also uncovered and corrected a wrong assumption in this session's own
 test authoring (a "fully-vacated nested source list" case initially
 expected the destination's existing tail to stay unshifted — the correct
 behavior, confirmed once the fix was in place, is the pre-existing tail
-*does* shift, since a genuine insertion into a real list occurred).
+_does_ shift, since a genuine insertion into a real list occurred).
 
 ### 21.4 Verification
 
@@ -5364,7 +5402,7 @@ reverted one Tab press.
 
 ### 21.5 Known, accepted limitation (not fixed, documented)
 
-Across multiple *separate* Tab presses on a marker wide enough that some
+Across multiple _separate_ Tab presses on a marker wide enough that some
 intermediate press count lands exactly in the already-documented Rule #5
 gap (§14.9), the touched line can briefly stop being recognized as a
 `ListItem` at all (absorbed as paragraph continuation text) before a
@@ -5408,23 +5446,24 @@ facet; every CM6-internal command reads the facet and never touches the
 constant. Changing the unit again in the future is one line
 (`INDENT_STEP_SPACES`'s value) — confirmed, not merely designed for, by
 this migration itself only ever touching that one constant plus six
-files' worth of *derived* fixtures/comments.
+files' worth of _derived_ fixtures/comments.
 
 ### 22.2 Full dependency footprint, as actually found (not assumed)
 
 Read real source, not just grepped names, for every reachable command:
+
 - **Clutter's own**: `markdownIndentKeymap.ts` (`lineIndentChange`) —
   reads the constant directly.
 - **CM6-internal, reads the facet** (confirmed by reading
   `@codemirror/commands`/`@codemirror/language`'s own source, not
   inferred): `deleteCharBackward` (Backspace's whitespace-only-prefix
-  "remove one indentation level" — found only on a *second* audit pass,
+  "remove one indentation level" — found only on a _second_ audit pass,
   after the first pass wrongly concluded no Backspace path touched
   leading whitespace at all; this was corrected by the user, not caught
   by the audit itself, and is recorded here as the miss it was),
   `exitEmptyIndentContinuation` (`markdownEnterKeymap.ts`, Enter's
   empty-continuation dedent), `insertNewlineAndIndent` (Enter's fallback
-  for ordinary text — confirmed to only ever *copy* the current line's
+  for ordinary text — confirmed to only ever _copy_ the current line's
   own existing column via `indentString`, never invent a new unit, so it
   needed no code change despite reading the facet), `indentMore`/
   `indentLess`/`indentSelection` (reachable directly via Cmd+]/Cmd+[/
@@ -5442,21 +5481,21 @@ Read real source, not just grepped names, for every reachable command:
   at all), marker-boundary Backspace (`deleteBulletMarkerSeparator`),
   whole-item-selection Backspace/Delete, `orderedListRenumbering.ts`/
   `orderedListTabNormalization.ts` (confirmed representation-agnostic
-  *before* this migration, by testing with a literal-tab Phase A change —
+  _before_ this migration, by testing with a literal-tab Phase A change —
   a strictly larger representation change than 2→4 spaces — and getting
   correct output with zero code modification), `SPACE_PX`/`TAB_PX`
-  (per-character, not per-level, scales automatically), `--marker-width`/
+  (per-character, not per-level, scales automatically), `--md-marker-width`/
   `--quote-depth` CSS (a different, marker-glyph-width concept entirely).
 
 ### 22.3 One genuine behavioral divergence, surfaced and not papered over
 
 `deleteCharBackward`'s actual algorithm (read directly:
 `drop = col % getIndentUnit(state) || getIndentUnit(state)`) snaps to the
-*nearest lower multiple* of the indent unit, not "delete one character
+_nearest lower multiple_ of the indent unit, not "delete one character
 below a full unit." Under the old 2-space unit, any odd column (1, 3, 5,
 …) coincidentally behaved like "delete one ordinary space," because the
 gap between consecutive multiples of 2 is only 1. Under the new 4-space
-unit, that gap is 3 — so 1, 2, *and* 3 leading spaces all now collapse
+unit, that gap is 3 — so 1, 2, _and_ 3 leading spaces all now collapse
 straight to 0 in a single Backspace press, not just 1. This was flagged
 explicitly against the product's own stated expectation ("1/2/3 spaces →
 delete one ordinary space") rather than silently implemented to match a
@@ -5465,7 +5504,7 @@ unmodified algorithm, confirmed via direct source reading and a
 regression test (`markdownIndentKeymap.test.ts`, "CM6 indentUnit
 synchronization" describe block), not a bug introduced by this
 migration. Overriding it would mean writing new, bespoke Backspace logic
-specifically to preserve a side effect of the *old* unit size that was
+specifically to preserve a side effect of the _old_ unit size that was
 never a deliberate product decision — not done without an explicit
 follow-up decision.
 
@@ -5474,7 +5513,7 @@ follow-up decision.
 `markdownIndentKeymap.test.ts`: 92/92 (79 pre-existing fixtures updated
 — not mechanically, each one individually recomputed against the real
 command's actual output, including several nested/multi-press cases
-whose *press count* changed, not just the numbers, since a 4-space step
+whose _press count_ changed, not just the numbers, since a 4-space step
 now reaches several markers' nesting windows in one press instead of
 two; 13 new, covering the Cmd+]/Cmd+[/Cmd-Alt-\\ shortcuts, the full
 Backspace boundary matrix (0/1/2/3/4/8 spaces, nested-list demotion),
@@ -5559,7 +5598,7 @@ Evidence label: **IMPLEMENTED + VERIFIED**.
    Tab **exactly twice** (Clutter's own step size landing exactly on 4
    spaces) does not "fail to nest" — it silently **destroys** the second
    item's own list-item structure, merging it as plain lazy-continuation
-   text into the *parent's* paragraph (§14.9's Rule #5, §14.10's swept
+   text into the _parent's_ paragraph (§14.9's Rule #5, §14.10's swept
    probe tables, §14.14). This is a real, reproducible CommonMark
    consequence of the current uniform step size, not a hypothetical edge
    case — flagged as the single highest-priority finding among the
@@ -5584,7 +5623,7 @@ Evidence label: **IMPLEMENTED + VERIFIED**.
    reachable via Enter; descendant-slack-aware growth handling,
    investigated and deliberately not built).
 10. The ordered-list Tab/Shift-Tab normalization addendum (§9's "PENDING
-    ADDENDUM", superseding items 7/8 above) is an approved *direction*,
+    ADDENDUM", superseding items 7/8 above) is an approved _direction_,
     not yet implemented. Its own stated prerequisite (item 9's bug fix)
     is now satisfied — this does not mean the addendum itself is ready
     to build, only that the specific blocker recorded against it has

@@ -1,5 +1,9 @@
 import { syntaxTree } from '@codemirror/language';
-import { RangeSetBuilder, type EditorState, type Extension } from '@codemirror/state';
+import {
+  RangeSetBuilder,
+  type EditorState,
+  type Extension,
+} from '@codemirror/state';
 import {
   Decoration,
   type DecorationSet,
@@ -32,13 +36,13 @@ import type { SyntaxNode } from '@lezer/common';
  * different concern from the bar, added alongside it on the same line
  * class: the owning `Blockquote`'s own nesting depth (1 for a plain
  * `> quote`, 2 for `> > quote`, …), read by `.cm-quote-line`'s CSS to
- * reserve `--quote-depth * var(--marker-width)` of hanging indent — see
+ * reserve `--quote-depth * var(--md-marker-width)` of hanging indent — see
  * that CSS rule's own doc comment for why this is safe to compute as a
  * pure depth multiplier (unlike list markers, a blockquote marker's
- * rendered box is a fixed, CSS-forced `var(--marker-width)` regardless of
+ * rendered box is a fixed, CSS-forced `var(--md-marker-width)` regardless of
  * nesting level, confirmed in `blockquoteMarkerDecoration.ts`'s own
  * `.cm-quote-marker` rule — `display: inline-block; width:
- * var(--marker-width)` — so no real-DOM measurement is needed, only a
+ * var(--md-marker-width)` — so no real-DOM measurement is needed, only a
  * depth count from the syntax tree).
  *
  * Line-ownership algorithm is a direct reuse of `listLineDecoration.ts`'s
@@ -91,7 +95,10 @@ function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
 }
 
-function nearestBlockquote(state: EditorState, probePos: number): SyntaxNode | null {
+function nearestBlockquote(
+  state: EditorState,
+  probePos: number
+): SyntaxNode | null {
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(probePos, 1);
   for (; node; node = node.parent) {
     if (node.name === 'Blockquote') {
@@ -106,7 +113,7 @@ function nearestBlockquote(state: EditorState, probePos: number): SyntaxNode | n
  * 1-indexed (a plain, non-nested `> quote` is depth 1, not 0) — the count
  * of `.cm-quote-marker` boxes `blockquoteMarkerDecoration.ts` actually
  * renders on *this line*, which the CSS multiplier this feeds
- * (`--quote-depth * var(--marker-width)`) must reserve space for.
+ * (`--quote-depth * var(--md-marker-width)`) must reserve space for.
  *
  * Deliberately walks **down** from `outerNode` (the shallowest enclosing
  * `Blockquote`, already found by `nearestBlockquote`'s upward walk from a
@@ -130,7 +137,11 @@ function nearestBlockquote(state: EditorState, probePos: number): SyntaxNode | n
  * of `> outer\n> > nested`, where the nested quote only begins on line 2)
  * must not be counted for line 1's own depth.
  */
-function quoteDepth(outerNode: SyntaxNode, lineFrom: number, lineTo: number): number {
+function quoteDepth(
+  outerNode: SyntaxNode,
+  lineFrom: number,
+  lineTo: number
+): number {
   let depth = 0;
   let node: SyntaxNode | null = outerNode;
 
@@ -138,8 +149,16 @@ function quoteDepth(outerNode: SyntaxNode, lineFrom: number, lineTo: number): nu
     depth++;
 
     let next: SyntaxNode | null = null;
-    for (let child: SyntaxNode | null = node.firstChild; child; child = child.nextSibling) {
-      if (child.name === 'Blockquote' && child.from >= lineFrom && child.from < lineTo) {
+    for (
+      let child: SyntaxNode | null = node.firstChild;
+      child;
+      child = child.nextSibling
+    ) {
+      if (
+        child.name === 'Blockquote' &&
+        child.from >= lineFrom &&
+        child.from < lineTo
+      ) {
         next = child;
         break;
       }
@@ -164,7 +183,11 @@ function buildBlockquoteLineDecorations(view: EditorView): DecorationSet {
         const probePos = line.from + firstNonWhitespaceOffset(line.text);
         const blockquote = nearestBlockquote(view.state, probePos);
         if (blockquote) {
-          builder.add(line.from, line.from, quoteLineMark(quoteDepth(blockquote, line.from, line.to)));
+          builder.add(
+            line.from,
+            line.from,
+            quoteLineMark(quoteDepth(blockquote, line.from, line.to))
+          );
         }
       }
 

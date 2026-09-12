@@ -18,7 +18,7 @@
  *      `docs/editor-architecture-decisions.md`'s code-surface-tokens entry,
  *      following the same construct-scoped-alias convention theme.css
  *      already uses for Tag/Date/Link/blockquote-marker
- *      (--tag-foreground/--tag-surface etc.). Every one of these is
+ *      (--md-tag-foreground/--md-tag-foreground etc.). Every one of these is
  *      currently just an alias onto an existing theme.css primitive — this
  *      file is a semantic layer over those values, not a new palette.
  *
