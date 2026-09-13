@@ -13,7 +13,7 @@
   font-family: ui-monospace, monospace;
   font-size: var(--text-label-small);
   background: var(--surface-subtle);
-  color: var(--foreground-secondary);
+  color: var(--md-inline-code-foreground);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-inset-default);
   padding: 0.2em 0.4em;
@@ -45,7 +45,7 @@
 }
 
 .compact-markdown-date {
-  color: var(--md-tag-foreground);
+  color: inherit;
 }
 
 .compact-markdown-date .compact-markdown-date-prefix {
