@@ -76,7 +76,7 @@
   --md-badge-padding: 0.15em 0.4em;
 
   /* Editor width */
-  --editor-width: calc(100% - 96px);
+  --editor-width: calc(100% - 80px);
   --editor-width-max: 720px;
 
   /* icon size */

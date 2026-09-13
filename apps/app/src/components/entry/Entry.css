@@ -2,7 +2,7 @@
   --entry-foreground: var(--foreground-secondary);
   --entry-muted-foreground: var(--foreground-tertiary);
 
-  --entry-hover-surface: var(--state-hover);
+  --entry-hover-surface: var(--state-hover-medium);
   --entry-selected-surface: var(--state-selected);
   --entry-selected-foreground: var(--foreground-primary);
 }

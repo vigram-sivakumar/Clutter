@@ -27,6 +27,7 @@ html.theme-transitioning [data-themeable] *::after {
   --surface-tertiary: var(--neutral-700);
   --surface-subtle: rgba(255, 255, 255, 0.035);
   --surface-inverse: var(--neutral-50);
+  --surface-brand: #187cf6;
 
   /* Overlay scrim */
   --overlay-scrim: rgba(20, 20, 20, 0.55);
@@ -38,6 +39,7 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-tertiary: #737373;
   --foreground-placeholder: #575757;
   --foreground-inverse: var(--neutral-700);
+  --foreground-brand: white;
 
   /* Global decoration */
   --link-underline: rgb(
@@ -53,7 +55,7 @@ html.theme-transitioning [data-themeable] *::after {
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
   --md-link-foreground: var(--foreground-primary);
-  --md-link-icon-foreground: var(--foreground-secondary);
+  --md-link-icon-foreground: var(--foreground-tertiary);
   --md-link-underline: var(--link-underline);
 
   --md-tag-surface: var(--surface-tertiary);
@@ -63,20 +65,33 @@ html.theme-transitioning [data-themeable] *::after {
   --md-date-foreground: #999999;
 
   --md-inline-code-surface: var(--border-subtle);
-  --md-inline-code-foreground: var(--foreground-secondary);
+  --md-inline-code-foreground: #d95662;
+  --md-inline-code-foreground-1: var(
+    --foreground-secondary
+  ); /* #e65d5c other option */
   --md-inline-code-inset: var(--shadow-inset-default);
 
   --md-img-resize-handle: rgba(244, 244, 244, 0.7);
   --md-pdf-resize-handle: rgba(244, 244, 244, 0.5);
+
+  --md-hr-line: var(--border-strong);
 
   --folder-card-surface: var(--surface-secondary);
   --folder-card-surface-hover: rgb(var(--state-base) / 5%);
 
   /* Interactive states */
   --state-base: 255 255 255;
-  --state-hover-strong: rgb(var(--state-base) / 5%);
-  --state-hover: rgb(var(--state-base) / 3.5%);
-  --state-selected: rgb(var(--state-base) / 7%);
+  --state-hover-strength-medium: 3.5%;
+  --state-hover-strength-strong: 7%;
+  --state-selected-strength: 7%;
+
+  --state-hover-medium: rgb(
+    var(--state-base) / var(--state-hover-strength-medium)
+  );
+  --state-hover-strong: rgb(
+    var(--state-base) / var(--state-hover-strength-strong)
+  );
+  --state-selected: rgb(var(--state-base) / var(--state-selected-strength));
   --opacity-disabled: var(--opacity-strong);
 
   /* Secondary button */
@@ -107,24 +122,9 @@ html.theme-transitioning [data-themeable] *::after {
   --border-subtle: rgba(255, 255, 255, 0.04);
   --border-default: rgba(255, 255, 255, 0.06);
   --border-strong: rgba(255, 255, 255, 0.1);
-  --border-hover: rgba(255, 255, 255, 0.14);
+  --border-stronger: rgba(255, 255, 255, 0.15);
   --border-active: var(--accent-dark);
   --border-focus: var(--accent-dark);
-
-  /* Accent — semantic ramp built on tokens.css's accent-dark/hover/light
-     primitives; --checkbox-accent and --shadow-inset-focus below already
-     used accent-dark for this theme, this just names the same ramp for
-     general reuse. */
-  --accent: var(--accent-dark);
-  --accent-hover: #008acc;
-  --accent-active: #00acff;
-  --accent-badge: var(--accent);
-
-  /* Semantic status */
-  --success: #3fb950;
-  --warning: #d29922;
-  --error: #f85149;
-  --info: #58a6ff;
 
   /* Inset borders */
   --shadow-inset-default: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
@@ -132,6 +132,7 @@ html.theme-transitioning [data-themeable] *::after {
   --shadow-inset-strong: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
   --shadow-inset-focus: inset 0 0 0 1px var(--accent-dark);
   --shadow-inset-thin: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(255, 255, 255, 0.15);
 
   /* Shadows */
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.06);
@@ -157,6 +158,7 @@ html.theme-transitioning [data-themeable] *::after {
   --overlay-scrim: rgba(80, 80, 80, 0.25);
   --overlay-scrim-strong: rgba(80, 80, 80, 0.6);
   --surface-inverse: var(--neutral-900);
+  --surface-brand: #0a67db;
 
   /* Text & icons */
   --foreground-primary: #333333;
@@ -164,6 +166,7 @@ html.theme-transitioning [data-themeable] *::after {
   --foreground-tertiary: #747474;
   --foreground-placeholder: #cccccc;
   --foreground-inverse: #d4d4d4;
+  --foreground-brand: white;
 
   /* Global decoration */
   --link-underline: rgb(
@@ -179,7 +182,7 @@ html.theme-transitioning [data-themeable] *::after {
     var(--md-highlight-surface) -2px 0 0, var(--md-highlight-surface) 2px 0 0;
 
   --md-link-foreground: var(--foreground-primary);
-  --md-link-icon-foreground: var(--foreground-secondary);
+  --md-link-icon-foreground: var(--foreground-tertiary);
   --md-link-underline: var(--link-underline);
 
   --md-tag-surface: var(--surface-tertiary);
@@ -189,34 +192,30 @@ html.theme-transitioning [data-themeable] *::after {
   --md-date-foreground: #999999;
 
   --md-inline-code-surface: var(--border-subtle);
-  --md-inline-code-foreground: var(--foreground-secondary);
-  --md-inline-code-inset: var(--shadow-inset-default);
+  --md-inline-code-foreground: #b63f4e;
+  --md-inline-code-foreground-1: var(
+    --foreground-secondary
+  ); /* #c01a16 other option */
+  --md-inline-code-inset: var(--shadow-inset-thin-strong);
 
   --md-img-resize-handle: rgba(244, 244, 244, 0.7);
   --md-pdf-resize-handle: rgba(52, 52, 51, 0.5);
 
-  /* Markdown foreground colors */
-  --marker-foreground: var(--foreground-tertiary);
-  --link-foreground: rgb(46, 109, 233);
-  --cm-link-underline: rgba(46, 109, 233, 0.2);
-  --tag-foreground: rgb(46, 109, 233);
-  --tag-surface: rgba(46, 109, 233, 0.12);
-  --folder-card-surface: var(--surface-primary);
-  --folder-card-surface-hover: rgb(var(--state-base) / 5%);
-
-  /* --date-foreground: #767676; */
-  --date-foreground: rgb(46, 109, 233);
-  --date-surface: rgba(46, 109, 233, 0.12);
-
-  /* Text decoration */
-  --strikethrough-color: var(--neutral-600);
+  --md-hr-line: var(--border-strong);
 
   /* Interactive states */
   --state-base: 0 0 0;
+  --state-hover-strength-medium: 3.5%;
+  --state-hover-strength-strong: 7%;
+  --state-selected-strength: 7%;
 
-  --state-hover: rgb(var(--state-base) / 3.5%);
-  --state-hover-strong: rgb(var(--state-base) / 5%);
-  --state-selected: rgb(var(--state-base) / 7%);
+  --state-hover-medium: rgb(
+    var(--state-base) / var(--state-hover-strength-medium)
+  );
+  --state-hover-strong: rgb(
+    var(--state-base) / var(--state-hover-strength-strong)
+  );
+  --state-selected: rgb(var(--state-base) / var(--state-selected-strength));
   --opacity-disabled: var(--opacity-medium);
 
   /* Secondary button */
@@ -247,24 +246,9 @@ html.theme-transitioning [data-themeable] *::after {
   --border-subtle: rgba(0, 0, 0, 0.04);
   --border-default: rgba(0, 0, 0, 0.06);
   --border-strong: rgba(0, 0, 0, 0.12);
-  --border-hover: rgba(0, 0, 0, 0.16);
+  --border-strong: rgba(0, 0, 0, 0.16);
   --border-active: var(--accent-light);
   --border-focus: var(--accent-light);
-
-  /* Accent — same ramp as dark theme, mirrored: accent-light is the resting
-     color here (matches --checkbox-accent below), accent-dark is the
-     pressed/active end since light themes want more contrast, not less, on
-     press. */
-  --accent: var(--accent-light);
-  --accent-hover: #008acc;
-  --accent-active: #007aff;
-  --accent-badge: var(--accent);
-
-  /* Semantic status */
-  --success: #1a7f37;
-  --warning: #9a6700;
-  --error: #cf222e;
-  --info: #0969da;
 
   /* Inset borders */
   --shadow-inset-default: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
@@ -272,6 +256,7 @@ html.theme-transitioning [data-themeable] *::after {
   --shadow-inset-strong: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
   --shadow-inset-focus: inset 0 0 0 1px var(--accent-light);
   --shadow-inset-thin: inset 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+  --shadow-inset-thin-strong: inset 0 0 0 0.5px rgba(0, 0, 0, 0.16);
 
   /* Shadows */
   --shadow-sm: 0 2px 6px rgba(25, 25, 25, 0.04);

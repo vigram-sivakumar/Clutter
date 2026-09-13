@@ -5,7 +5,7 @@
   --calendar-today-foreground: var(--calendar-accent);
   --calendar-weekday-foreground: var(--foreground-tertiary);
 
-  --calendar-hover-surface: var(--state-hover);
+  --calendar-hover-surface: var(--state-hover-medium);
   --calendar-selected-surface: var(--state-selected);
   --calendar-selected-foreground: var(--foreground-primary);
   --calendar-today-selected-surface: var(--calendar-accent);

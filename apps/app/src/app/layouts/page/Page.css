@@ -34,6 +34,7 @@
 } */
 
 .page__content {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -68,3 +69,27 @@
   flex: 1;
   min-height: 0;
 }
+
+/* Creates a gradient fade at the bottom */
+.page__document::before {
+  content: '';
+  position: absolute;
+  left: var(--sidebar-padding-inline);
+  right: var(--sidebar-padding-inline);
+  bottom: 0;
+  height: 48px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--surface-primary));
+  z-index: 2;
+}
+/* .page__document::after {
+  content: '';
+  position: absolute;
+  left: var(--sidebar-padding-inline);
+  right: var(--sidebar-padding-inline);
+  top: 44px;
+  height: 36px;
+  pointer-events: none;
+  background: linear-gradient(to top, transparent, var(--surface-primary));
+  z-index: 2;
+} */

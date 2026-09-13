@@ -5,12 +5,13 @@
 .pdf-viewer {
   display: flex;
   flex-direction: column;
+  gap: 16px;
   width: min(920px, 92vw);
   height: min(88vh, 1200px);
   background: var(--surface-secondary);
   border-radius: var(--radius-lg);
-  border: 0.5px solid var(--border-strong);
   overflow: hidden;
+  box-shadow: var(--shadow-inset-thin-strong);
 }
 
 /* Stable while the document scrolls — flex-shrink: 0 keeps this row fixed
@@ -21,9 +22,8 @@
   justify-content: space-between;
   gap: var(--space-16);
   flex-shrink: 0;
-  padding: var(--space-8) var(--space-16);
-  background: var(--surface-tertiary);
-  /* border-bottom: 0.5px solid var(--border-default); */
+  padding: var(--space-12) var(--space-16);
+  padding-bottom: 0;
 }
 
 .pdf-viewer__title {
@@ -69,8 +69,8 @@
 .pdf-viewer__scroll {
   flex: 1;
   overflow: auto;
-  background: var(--surface-tertiary);
   padding: var(--space-16);
+  padding-top: 0;
 }
 
 .pdf-viewer__page {

@@ -1278,51 +1278,56 @@ describe('inlineLivePreviewRegion', () => {
   // ===================================================================
   // Editor/task-state composition (docs/editor-architecture-decisions.md's
   // "Inline formatting composition at the token level", extended):
-  // `cm-task-completed` — a genuinely different, independent state source
-  // from the tree-only `collectActiveInlineClasses` above
-  // (`isNodeOnCompletedTask` in `taskEngagement.ts` additionally reads the
-  // document text of the enclosing Task's own TaskMarker) — composes onto
-  // a widget-family element the same way, alongside its own `tok-*`
-  // class and any enclosing delimited-mark classes. No `taskCheckboxDecoration()`
-  // is mounted here: `isNodeOnCompletedTask` is derived purely from the
-  // syntax tree and document text, never from the checkbox widget's own
-  // rendered DOM.
+  // **Removed 2026-09-13.** `widgetReplaceRenderer` (this file) no longer
+  // reads `isNodeOnCompletedTask`/composes `TASK_COMPLETED_CLASS` onto a
+  // widget-family element's own root — that direct injection produced a
+  // real, reported bug (a completed task's WikiLink/Tag/Date widget and
+  // its enclosing `taskCompletedContentDecoration.ts` ancestor mark both
+  // carried the class at once, on two nested elements for the same
+  // logical occurrence, which compounds `opacity`/`color-mix(...
+  // currentColor ...)`-style styling in a way plain CSS specificity can't
+  // resolve). `taskCompletedContentDecoration.ts`'s ancestor
+  // `Decoration.mark` (untouched by this removal) is now the *only* place
+  // `cm-task-completed` is ever applied, for every construct including
+  // the widget family — a Tag/Date widget still visually sits inside that
+  // ancestor span when actually composed in the real editor (see
+  // `taskCompletedContentDecoration.test.ts`), it just no longer also
+  // carries the class directly on its own root. This file's own
+  // `widgetReplaceRenderer` is not aware of task state at all anymore, so
+  // the tests below assert the negative: a widget mounted here (with no
+  // `taskCompletedContentDecoration()` extension present) never carries
+  // `cm-task-completed`, regardless of the task's checked state.
   // ===================================================================
-  describe('editor/task-state composition: widget participants carry cm-task-completed when on a completed task line', () => {
+  describe('editor/task-state composition: widget participants never carry cm-task-completed directly (that class is exclusively the ancestor mark\'s responsibility now)', () => {
     function widgetClasses(view: EditorView, widgetSelector: string): string[] {
       const widget = view.dom.querySelector(widgetSelector);
       expect(widget, `expected to find widget matching ${widgetSelector}`).not.toBeNull();
       return Array.from(widget!.classList);
     }
 
-    it('- [x] #tag: the Tag widget carries cm-task-completed', () => {
+    it('- [x] #tag: the Tag widget does not carry cm-task-completed on its own root', () => {
       const view = mountView('- [x] #tag');
-      expect(widgetClasses(view, '[data-tag-status]')).toEqual(
-        expect.arrayContaining(['tok-tag', 'cm-task-completed'])
-      );
+      expect(widgetClasses(view, '[data-tag-status]')).toEqual(['tok-tag']);
     });
 
-    it('- [ ] #tag: an unchecked task never adds cm-task-completed', () => {
+    it('- [ ] #tag: an unchecked task never adds cm-task-completed either', () => {
       const view = mountView('- [ ] #tag');
       expect(widgetClasses(view, '[data-tag-status]')).toEqual(['tok-tag']);
     });
 
-    it('- [x] @2026-09-10: the Date widget carries cm-task-completed', () => {
+    it('- [x] @2026-09-10: the Date widget does not carry cm-task-completed on its own root', () => {
       const view = mountView('- [x] @2026-09-10', {
         ...noResolvers,
         resolveDate: () => () => ({ activate: () => {} }),
       });
-      expect(widgetClasses(view, '[data-date-status]')).toEqual(
-        expect.arrayContaining(['tok-date', 'cm-task-completed'])
-      );
+      expect(widgetClasses(view, '[data-date-status]')).toEqual(['tok-date']);
     });
 
-    it('- [x] ~~**x #tag**~~: task-completion composes alongside inline formatting, regardless of depth/order', () => {
+    it('- [x] ~~**x #tag**~~: inline formatting still composes onto a completed task\'s Tag widget, without cm-task-completed alongside it', () => {
       const view = mountView('- [x] ~~**x #tag**~~');
       const classes = widgetClasses(view, '[data-tag-status]');
-      expect(classes).toEqual(
-        expect.arrayContaining(['tok-tag', 'tok-strong', 'tok-strike', 'cm-task-completed'])
-      );
+      expect(classes).toEqual(expect.arrayContaining(['tok-tag', 'tok-strong', 'tok-strike']));
+      expect(classes).not.toContain('cm-task-completed');
     });
 
     it('a Tag outside any task (ordinary paragraph) never carries cm-task-completed', () => {

@@ -29,7 +29,7 @@
 }
 
 .breadcrumb-item:not(.breadcrumb-item--current):hover {
-  background: var(--state-hover);
+  background: var(--state-hover-medium);
   color: var(--foreground-primary);
 }
 

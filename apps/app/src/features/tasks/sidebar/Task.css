@@ -1,6 +1,6 @@
 .is-completed {
+  color: var(--foreground-tertiary);
   text-decoration: line-through;
-  text-decoration-thickness: 0.09em;
 }
 .task__due-date {
   font-size: var(--text-label-small);

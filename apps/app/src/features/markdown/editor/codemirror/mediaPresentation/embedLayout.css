@@ -131,8 +131,8 @@
   bottom: var(--space-2);
   width: 12px;
   height: 12px;
-  border-inline-end: 2px solid var--md-img-resize-handle;
-  border-block-end: 2px solid var--md-img-resize-handle;
+  border-inline-end: 2px solid var(--md-img-resize-handle);
+  border-block-end: 2px solid var(--md-img-resize-handle);
   border-end-end-radius: var(--radius-sm);
   display: block;
 }
@@ -141,8 +141,8 @@
   bottom: var(--space-2);
   width: 12px;
   height: 12px;
-  border-inline-start: 2px solid var--md-img-resize-handle;
-  border-block-end: 2px solid var--md-img-resize-handle;
+  border-inline-start: 2px solid var(--md-img-resize-handle);
+  border-block-end: 2px solid var(--md-img-resize-handle);
   border-end-start-radius: var(--radius-sm);
   display: block;
 }

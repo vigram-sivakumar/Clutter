@@ -514,16 +514,21 @@
  * element, and the wrapper carries `padding-block` instead** (real,
  * uncollapsed spacing — unlike margin, sibling `padding` never collapses,
  * so two adjacent wrappers' own `--space-12` sums to a real, visible gap).
- * The visual card itself (background/border/radius) moved back onto
- * `.cm-code-block-line` — decorating `.cm-line` was never actually the
- * problem (blockquote/table/horizontal-rule below all do it safely); only
- * `margin`, on *either* element, was.
+ * The visual card's background moved back onto `.cm-code-block-line` —
+ * decorating `.cm-line` was never actually the problem (blockquote/table/
+ * horizontal-rule below all do it safely); only `margin`, on *either*
+ * element, was. Border/radius, however, now live here on `.cm-code-block`
+ * itself (below) rather than per-line: a single wrapper element that's
+ * always rendered — regardless of how many child lines are currently
+ * visible — needs no per-line `--first`/`--last` composition to keep its
+ * border/radius intact when the block is folded down to one visible line.
  *
  * `.cm-code-block` is a real DOM element CM6 itself creates via the native
  * `EditorView.blockWrappers` API (confirmed against the installed
  * `@codemirror/view@6.43.9` source), wrapping every `.cm-line` a
- * `FencedCode` node owns as actual DOM children — its only remaining job
- * is the external gap between adjacent cards, via `padding-block`.
+ * `FencedCode` node owns as actual DOM children — besides the external gap
+ * between adjacent cards (`padding-block`), it now also owns the block's
+ * complete border treatment.
  */
 .cm-editor .cm-code-block {
   font-family:
@@ -532,7 +537,7 @@
   font-size: var(--text-label);
   border-radius: var(--radius-md);
   line-height: 24px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
   /* Line-number gutter (2026-09-11) — one native CSS counter per block,
      reset here so every block numbers its own lines starting at 1,
      independent of any other block or the document's own line numbers.
@@ -558,23 +563,24 @@
      bug regardless of which element it's applied to, since the problem is
      CM6's coordinate model, not this specific rule. */
 }
+.cm-editor .cm-code-block:has(.cm-foldPlaceholder) {
+  box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
+}
 
 /*
- * The visual card — background, left/right borders, rounded top/bottom
- * corners — via `Decoration.line` classes, the same native mechanism
- * `.cm-quote-line`/`.cm-table-row`/`.cm-hr-line` already use for their own
- * line-level presentation. `position: relative` scopes the language label
- * and Copy button (both `position: absolute`, below) to the *first* line's
- * own box — they're only ever inserted on that line, so every line having
- * `position: relative` (not just `--first`) is harmless and keeps this
- * rule uniform.
+ * The visual card's per-line background — via `Decoration.line` classes,
+ * the same native mechanism `.cm-quote-line`/`.cm-table-row`/`.cm-hr-line`
+ * already use for their own line-level presentation. `position: relative`
+ * scopes the language label and Copy button (both `position: absolute`,
+ * below) to the *first* line's own box — they're only ever inserted on
+ * that line, so every line having `position: relative` (not just `--first`)
+ * is harmless and keeps this rule uniform.
  *
- * No `--first`/`--last`-vs-adjacent-block ambiguity to resolve here: the
- * `blockWrappers` structural grouping above already keeps two independent,
- * back-to-back `FencedCode` blocks (no blank line between them) in two
- * separate DOM subtrees, so `--first`/`--last` only ever need to place the
- * correct border/radius within one already-correctly-grouped block, not
- * additionally guard against merging with a neighboring block's lines.
+ * Border/radius live on `.cm-code-block` (above), not here — `--first`/
+ * `--last` below only ever place the correct padding/gutter treatment
+ * within an already-correctly-grouped block (the `blockWrappers` structural
+ * grouping already keeps two independent, back-to-back `FencedCode` blocks,
+ * no blank line between them, in two separate DOM subtrees).
  */
 .cm-editor .cm-code-block-line {
   position: relative;
@@ -598,8 +604,6 @@
     var(--syntax-code-background) 55%,
     transparent
   );
-  border-left: 0.5px solid var(--border-strong);
-  border-right: 0.5px solid var(--border-strong);
   padding-inline: var(--space-12);
   /* Line-number gutter (2026-09-11) — reserves a column, sized to this
      block's own largest number (`--code-gutter-digits`, set per-block on
@@ -718,17 +722,6 @@
   padding-block: var(--space-6);
 }
 
-.cm-editor .cm-code-block-line--first {
-  border-top: 0.5px solid var(--border-strong);
-  border-top-left-radius: var(--radius-md);
-  border-top-right-radius: var(--radius-md);
-}
-
-.cm-editor .cm-code-block-line--last {
-  border-bottom: 0.5px solid var(--border-strong);
-  border-bottom-left-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
-}
 .cm-editor
   .cm-code-block-line:not(.cm-code-block-line--first):not(
     .cm-code-block-line--last
@@ -1112,27 +1105,47 @@
   color: var(--checkbox-accent);
 }
 
-/* Strike-through completed task content. Superseded from a
+/* Dim completed task content. Superseded from a
  * `.cm-line:has(.cm-task-checkbox[aria-checked='true'])` line-level rule
- * (removed) to a plain, unqualified class — `cm-task-completed` is now
- * composed directly onto every text-painting rendered element on a
- * completed task line (`taskCompletedContentDecoration.ts` for plain
- * text; `isNodeOnCompletedTask` in `taskEngagement.ts`, consumed by
- * WikiLink/Tag/Date's own widget renderers, for the widget family), per
- * docs/editor-architecture-decisions.md's "Inline formatting composition
- * at the token level". No `:has()`, no per-construct descendant selector:
- * this rule looks exactly like `.tok-strike`'s own, on purpose — same
- * mechanism, different state source (editor/task state vs. syntax-tree
- * ancestry). Deliberately drops the old rule's `color: var(--foreground-tertiary)`
- * dimming — not required for correct rendering (the line-through is the
- * semantic signal that matters) and, unlike `text-decoration-line`, `color`
- * genuinely conflicts with `.tok-wikilink`/`.tok-tag`/`.tok-date`'s own
- * `color` when this class lands on the same element, which would need a
- * deliberate specificity decision to resolve correctly — left for a
- * follow-up if the dimmed appearance for plain task text is wanted back. */
-.cm-task-completed {
-  text-decoration-line: line-through;
+ * to `cm-task-completed`, a single ancestor `Decoration.mark` applied by
+ * `taskCompletedContentDecoration.ts` over the checked `Task` node's
+ * whole content range — plain text and the WikiLink/Tag/Date widget
+ * family alike sit *inside* this one mark; none of them additionally
+ * carry the class on their own root (a widget-level composition of this
+ * class via `isNodeOnCompletedTask` used to exist in each widget's own
+ * renderer, per docs/editor-architecture-decisions.md's "Inline
+ * formatting composition at the token level" — **removed 2026-09-13**:
+ * it doubled up the class on two nested elements for one occurrence,
+ * which compounds non-idempotent styling like this rule's `color`/`opacity`
+ * in a way plain specificity can't resolve; `cm-task-completed` is now
+ * exclusively this ancestor mark, for every construct).
+ *
+ * Because of that, `color` alone would only dim plain text for free
+ * (`color` is inherited) — it would silently lose to `.tok-wikilink`/
+ * `.tok-tag`/`.tok-date`'s own explicit `color` declarations, which sit on
+ * the widget's own root `<span>`, a descendant of the mark, not the mark
+ * itself. The `span:not(.tok-code)` descendant selector exists to reach
+ * those roots deliberately: two classes beat their one-class `color` rule
+ * on specificity, so the dimming actually shows up on the widget family
+ * too, without either widget needing its own `cm-task-completed`.
+ * `.tok-code` is carved out because inline code already has its own
+ * background/foreground pairing that a flat `color` override would break
+ * inside a completed task; `opacity` dims it instead, uniformly, without
+ * touching either color. */
+.cm-editor .cm-task-completed,
+.cm-editor .cm-task-completed span {
+  color: var(--foreground-tertiary);
 }
+
+/* use the below if you want code block accent color */
+
+/* .cm-editor .cm-task-completed,
+.cm-editor .cm-task-completed span:not(.tok-code) {
+  color: var(--foreground-tertiary);
+}
+.cm-editor .cm-task-completed .tok-code {
+  opacity: var(--opacity-subtle);
+} */
 
 .cm-editor .cm-task-checkbox:disabled {
   opacity: var(--opacity-disabled);
@@ -1275,7 +1288,7 @@
   right: 0;
   top: 50%;
   height: 1px;
-  background: var(--border-strong);
+  background: var(--md-hr-line);
   transform: translateY(-50%);
 }
 
@@ -1313,7 +1326,7 @@
   top: 50%;
   height: 6px;
   transform: translateY(-50%);
-  background-color: var(--border-strong);
+  background: var(--md-hr-line);
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
   -webkit-mask-repeat: repeat-x;
@@ -1356,8 +1369,8 @@
   right: 0;
   top: 50%;
   height: 6px;
-  border-top: 1px solid var(--border-strong);
-  border-bottom: 1px solid var(--border-strong);
+  border-top: 1px solid var(--md-hr-line);
+  border-bottom: 1px solid var(--md-hr-line);
   transform: translateY(-50%);
 }
 
@@ -1391,7 +1404,7 @@
   top: 50%;
   height: 2px;
   transform: translateY(-50%);
-  background-color: var(--border-strong);
+  background-color: var(--md-hr-line);
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
   -webkit-mask-repeat: repeat-x;
@@ -1531,14 +1544,14 @@
 .cm-editor .cm-hr-labeled__rule {
   flex: 1 1 auto;
   height: 1px;
-  background: var(--border-strong);
+  background: var(--md-hr-line);
 }
 
 /* Wavy kind's rule segment — identical mask technique to `.cm-hr-line-wavy::after` above, applied to the real flex child instead of a pseudo-element. */
 .cm-editor .cm-hr-labeled--wavy .cm-hr-labeled__rule {
   height: 6px;
   background: none;
-  background-color: var(--border-strong);
+  background-color: var(--md-hr-line);
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='6'%3E%3Cpath d='M0 3 C4 3, 4 1, 8 1 S12 3, 16 3' fill='none' stroke='white' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
   -webkit-mask-repeat: repeat-x;
@@ -1562,7 +1575,7 @@
 .cm-editor .cm-hr-labeled--dotted .cm-hr-labeled__rule {
   height: 2px;
   background: none;
-  background-color: var(--border-strong);
+  background-color: var(--md-hr-line);
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='2'%3E%3Ccircle cx='1' cy='1' r='1' fill='white'/%3E%3C/svg%3E");
   -webkit-mask-repeat: repeat-x;
@@ -1623,11 +1636,12 @@
 .cm-editor .tok-code {
   font-family: var(--font-mono);
   font-size: 0.85em;
+  font-weight: var(--fw-medium);
+  padding: var(--md-badge-padding);
+  border-radius: var(--md-badge-radius);
   color: var(--md-inline-code-foreground);
   background: var(--md-inline-code-surface);
-  border-radius: var(--md-badge-radius);
-  padding: var(--md-badge-padding);
-  box-shadow: var(--md-inline-code-inset);
+  box-shadow: var(--md-inline-code-inset), var(--shadow-sm);
 
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
@@ -1649,25 +1663,37 @@
  * ancestor — e.g. `~~[[Page]]~~` struck through "normal link" but not the
  * WikiLink widget itself. **Superseded by inline-formatting composition at
  * the token level (see docs/editor-architecture-decisions.md, "Inline
- * formatting composition at the token level")**: two construct-specific
- * descendant-selector rules used to live here — `.tok-strike .tok-wikilink`
- * for `~~~~` Strikethrough, and `.cm-line:has(.cm-task-checkbox
- * [aria-checked='true']) .tok-wikilink` for a completed task's line-level
- * strikethrough (the latter based on an incorrect assumption at the time
- * that task-completion wasn't syntax-tree-derivable — corrected: `Task`'s
- * own children, per `@lezer/markdown`'s `TaskList` extension, include the
- * line's entire parsed inline content, so it's exactly as tree-derivable
- * as any other ancestor, via `isNodeOnCompletedTask` in `taskEngagement.ts`).
- * Both are gone: WikiLink/Tag/Date's own widgets now carry every
- * applicable class — enclosing delimited-mark content classes
- * (`collectActiveInlineClasses`) and, independently, `cm-task-completed`
- * when checked (`isNodeOnCompletedTask`) — directly on their own root
- * element, so the plain, unqualified `.tok-strike`/`.cm-task-completed`
- * rules already apply with no ancestor selector at all, correct at any
- * nesting depth/order/combination by construction. Verified live across
- * `~~[[Page]]~~`/`~~**[[Page]]**~~`/`**~~[[Page]]~~**`/`~~==**[[Page]]**==~~`
- * and `- [x] ~~**[[Page]]**~~` (WikiLink), and the equivalent Tag/Date
- * cases. */
+ * formatting composition at the token level")** for the `~~~~`
+ * Strikethrough case specifically: a `.tok-strike .tok-wikilink`
+ * descendant-selector rule used to live here; it's gone because
+ * WikiLink/Tag/Date's own widgets now carry `collectActiveInlineClasses`'s
+ * enclosing delimited-mark content classes (including `tok-strike`)
+ * directly on their own root element, so the plain, unqualified
+ * `.tok-strike` rule already applies with no ancestor selector at all,
+ * correct at any nesting depth/order/combination by construction.
+ *
+ * A second rule used to live here for the completed-task case —
+ * `.cm-line:has(.cm-task-checkbox[aria-checked='true']) .tok-wikilink` —
+ * removed for the same "compose directly" reason at the time
+ * (`isNodeOnCompletedTask` in `taskEngagement.ts` made `cm-task-completed`
+ * exactly as tree-derivable as `collectActiveInlineClasses`'s own classes,
+ * via `Task`'s own children per `@lezer/markdown`'s `TaskList` extension).
+ * That direct composition was itself later removed (2026-09-13): putting
+ * `cm-task-completed` on both the widget's own root *and*
+ * `taskCompletedContentDecoration.ts`'s ancestor mark double-applied it
+ * for one occurrence, breaking non-idempotent styling (`color`/`opacity`,
+ * unlike this file's `text-decoration-line` cases, which are idempotent
+ * under double application). The completed-task case is now handled by
+ * that ancestor mark's own `span:not(.tok-code)` descendant-selector rule
+ * (below, near `.cm-task-completed`'s definition) reaching the widget's
+ * root from the outside — a deliberate return to a descendant selector,
+ * not a regression, since `color` (unlike `text-decoration-line`) needs
+ * one to beat the widget's own explicit `color` on specificity anyway.
+ *
+ * Verified live across `~~[[Page]]~~`/`~~**[[Page]]**~~`/
+ * `**~~[[Page]]~~**`/`~~==**[[Page]]**==~~` (Strikethrough composition)
+ * and `- [x] ~~**[[Page]]**~~` (completed-task dimming), and the
+ * equivalent Tag/Date cases. */
 
 /* A resolved WikiLink's own identity icon — emoji if assigned, else its
  * page type's default icon (`WikiLinkWidget.ts`'s own `PAGE_IDENTITY_ICON_BY_KIND`
@@ -1679,12 +1705,13 @@
  * `unresolved`/`ambiguous` WikiLinks render no icon-wrap at all
  * (`WikiLinkWidget.ts`'s own `toDOM`), so no icon rule is needed for them. */
 .tok-wikilink__icon-wrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 1em;
-  height: 1em;
+  width: var(--icon-wrapper-sm);
+  height: var(--icon-wrapper-sm);
 }
 
 /* Emoji icon-wraps keep the SAME `1em`×`1em` layout box as the SVG icon-wrap
@@ -1696,12 +1723,12 @@
  * `.tok-wikilink__emoji` below. */
 .tok-wikilink__emoji {
   transform: scale(0.9);
-  line-height: 1;
+  line-height: 1lh;
 }
 
 .tok-wikilink__icon {
-  width: 1em;
-  height: 1em;
+  width: var(--icon-md);
+  height: var(--icon-md);
   stroke-width: var(--icon-stroke);
   color: var(--md-link-icon-foreground);
 }
@@ -1753,8 +1780,8 @@
   font-weight: inherit;
   color: var(--md-date-foreground);
   /* background-color: var(--md-date-surface); */
-  /* border-radius: var(--radius-sm); */
-  /* padding: var(--md-badge-padding); */
+  border-radius: var(--radius-sm);
+  padding-block: 0.15em;
   cursor: pointer;
 }
 .cm-editor .tok-date .tok-date-prefix {
@@ -1764,6 +1791,12 @@
   opacity: var(--opacity-medium);
   cursor: default;
 }
+/* .cm-editor .tok-date:hover {
+  background: var(--md-date-surface);
+  box-shadow:
+    var(--md-date-surface) -2px 0 0,
+    var(--md-date-surface) 2px 0 0;
+} */
 
 /*
  * The inline fold toggle (`codemirror/fold/FoldToggleWidget.ts`) —
@@ -1879,7 +1912,9 @@
   border: 0 solid transparent;
   font-size: var(--text-body);
   font-weight: var(--fw-extrabold);
+  line-height: 1;
   color: var(--foreground-placeholder);
+  -webkit-user-select: none;
   user-select: none;
   cursor: pointer;
 }

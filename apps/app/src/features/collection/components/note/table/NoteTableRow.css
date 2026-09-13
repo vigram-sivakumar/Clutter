@@ -11,7 +11,7 @@
 }
 .note-table-row:hover,
 .note-table__new-note:hover {
-  background: var(--state-hover);
+  background: var(--state-hover-medium);
 }
 .note-table-row::after,
 .note-table__new-note::after {

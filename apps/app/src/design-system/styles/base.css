@@ -111,7 +111,7 @@ a::after {
 
 /* Opt-in hover / pressed / focus ring for buttons (see sidebar controls). */
 button.clutter-interactive:hover {
-  background: var(--state-hover);
+  background: var(--state-hover-medium);
 }
 
 /* button.clutter-interactive:active {

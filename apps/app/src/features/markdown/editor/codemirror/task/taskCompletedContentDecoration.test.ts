@@ -9,16 +9,26 @@ import { taskCompletedContentDecoration } from './taskCompletedContentDecoration
 import { isNodeOnCompletedTask, TASK_COMPLETED_CLASS } from './taskEngagement';
 
 /**
- * Coverage for the plain-text half of docs/editor-architecture-decisions.md's
- * "Inline formatting composition at the token level" entry, extended to
- * editor/task state: a completed task's rendered text (no `tok-*` class
- * of its own) must carry `cm-task-completed` directly, replacing the old
- * `.cm-line:has(.cm-task-checkbox[aria-checked='true'])` line-level CSS
- * rule. Widget-family (WikiLink/Tag/Date) composition of the same class
- * is covered in `inlineLivePreviewRegion.test.ts` (Tag/Date) and
- * `wikilink/wikiLinkLivePreview.test.ts` (WikiLink); this file covers the
- * plain-text mark and the shared `isNodeOnCompletedTask` state source
- * both consume.
+ * Coverage for docs/editor-architecture-decisions.md's "Inline formatting
+ * composition at the token level" entry, extended to editor/task state: a
+ * completed task's rendered content must carry `cm-task-completed`,
+ * replacing the old `.cm-line:has(.cm-task-checkbox[aria-checked='true'])`
+ * line-level CSS rule.
+ *
+ * **Sole source of the class as of 2026-09-13**: this file's own ancestor
+ * `Decoration.mark` is now the *only* place `cm-task-completed` is ever
+ * applied — a direct, additional composition onto the WikiLink/Tag/Date
+ * widget family's own root elements used to also exist
+ * (`inlineLivePreviewParticipants.ts`'s `widgetReplaceRenderer`,
+ * `wikilink/wikiLinkLivePreview.ts`), but was removed: it put the class on
+ * two nested elements for the same logical occurrence (this mark's own
+ * wrapping `<span>` *and* the widget's own root), which compounds
+ * `opacity`/`color-mix(... currentColor ...)`-style styling in a way
+ * plain CSS specificity can't resolve. `inlineLivePreviewRegion.test.ts`
+ * (Tag/Date) and `wikilink/wikiLinkLivePreview.test.ts` (WikiLink) now
+ * assert the negative — those widgets never carry the class directly —
+ * while this file covers the one real source: the ancestor mark, and the
+ * shared `isNodeOnCompletedTask` state source it consumes.
  */
 function mountView(doc: string): EditorView {
   const parent = document.createElement('div');

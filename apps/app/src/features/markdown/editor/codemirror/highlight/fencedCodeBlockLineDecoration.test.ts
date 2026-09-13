@@ -166,23 +166,27 @@ describe('fencedCodeBlockLineDecoration — active line', () => {
 });
 
 /**
- * Regression coverage for a real, reported bug: once a fenced code block's
- * body/closing-fence is folded (`codemirror/fold/foldToggleDecoration.ts`),
- * the opening fence line is the *only* line CM6 still renders for that
- * block — before `isFencedCodeBodyFolded`'s fix, it only ever carried
- * `--first`, so the card lost its bottom border/radius the moment it was
- * collapsed. This composes `fencedCodeBlockLineDecoration()` with the real
- * `codeFolding()` + `foldToggleDecoration()` extensions (not a hand-rolled
- * fold effect) so the test exercises the exact same path a real click does.
+ * Coverage for folding composed with this decoration: once a fenced code
+ * block's body/closing-fence is folded (`codemirror/fold/
+ * foldToggleDecoration.ts`), the opening fence line is the *only* line CM6
+ * still renders for that block, so it correctly keeps just `--first` (never
+ * gaining `--last`, since it isn't the block's structural last line) —
+ * `.cm-code-block`'s own border/radius (`MarkdownEditor.css`) are painted
+ * unconditionally on the always-present wrapper, independent of how many
+ * child lines are currently visible, so no per-line `--last` workaround is
+ * needed to keep the card's border/radius intact while collapsed. This
+ * composes `fencedCodeBlockLineDecoration()` with the real `codeFolding()` +
+ * `foldToggleDecoration()` extensions (not a hand-rolled fold effect) so the
+ * test exercises the exact same path a real click does.
  */
-describe('fencedCodeBlockLineDecoration — composed with folding: the visible line keeps both --first and --last while collapsed', () => {
+describe('fencedCodeBlockLineDecoration — composed with folding: the visible line keeps only --first while collapsed', () => {
   function mountFoldable(doc: string): EditorView {
     const view = mountView(doc, [codeFolding(), foldToggleDecoration()]);
     forceParsing(view);
     return view;
   }
 
-  it('a multi-line block\'s opening line gains --last once its body is folded, and loses it again once unfolded', () => {
+  it('a multi-line block\'s opening line stays --first-only once its body is folded, and unfolding restores the full --first/middle/middle/--last set', () => {
     const view = mountFoldable('```ts\nconst x = 1\nconst y = 2\n```');
 
     const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
@@ -192,7 +196,7 @@ describe('fencedCodeBlockLineDecoration — composed with folding: the visible l
     toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     const collapsedLine = view.dom.querySelector('.cm-code-block-line') as HTMLElement;
     expect(collapsedLine.classList.contains('cm-code-block-line--first')).toBe(true);
-    expect(collapsedLine.classList.contains('cm-code-block-line--last')).toBe(true);
+    expect(collapsedLine.classList.contains('cm-code-block-line--last')).toBe(false);
 
     const collapsedToggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
     collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));

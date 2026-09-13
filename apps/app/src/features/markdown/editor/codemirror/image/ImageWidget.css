@@ -165,13 +165,13 @@ body.cm-image-resizing-nesw .cm-image-container {
 }
 
 .cm-editor .cm-image-container .cm-media-resize-handle--corner-right {
-  border-inline-end-color: var--md-pdf-resize-handle;
-  border-block-end-color: var--md-pdf-resize-handle;
+  border-inline-end-color: var(--md-pdf-resize-handle);
+  border-block-end-color: var(--md-pdf-resize-handle);
 }
 
 .cm-editor .cm-image-container .cm-media-resize-handle--corner-left {
-  border-inline-start-color: var--md-pdf-resize-handle;
-  border-block-end-color: var--md-pdf-resize-handle;
+  border-inline-start-color: var(--md-pdf-resize-handle);
+  border-block-end-color: var(--md-pdf-resize-handle);
 }
 
 /* The intermediate `<button class="cm-image-button">` wrapping the `<img>`

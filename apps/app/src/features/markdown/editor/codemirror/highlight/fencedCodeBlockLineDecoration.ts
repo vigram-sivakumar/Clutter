@@ -1,4 +1,4 @@
-import { foldedRanges, foldState, syntaxTree } from '@codemirror/language';
+import { foldState, syntaxTree } from '@codemirror/language';
 import { RangeSetBuilder, type EditorState, type Extension } from '@codemirror/state';
 import {
   Decoration,
@@ -11,43 +11,40 @@ import {
 import type { SyntaxNode } from '@lezer/common';
 
 /**
- * The visual code-block *card* — background, left/right borders, and
- * rounded top/bottom corners — via `Decoration.line` classes on `.cm-line`,
- * the same native mechanism `blockquoteLineDecoration.ts`/`tableDecoration.ts`/
- * `horizontalRuleDecoration.ts` already use for their own line-level
- * presentation (confirmed as a legitimate, precedented Clutter pattern by
- * this feature's own architecture investigation — decorating `.cm-line` was
- * never the problem; `margin` specifically was).
+ * The visual code-block *card's* per-line background — via `Decoration.line`
+ * classes on `.cm-line`, the same native mechanism `blockquoteLineDecoration.ts`/
+ * `tableDecoration.ts`/`horizontalRuleDecoration.ts` already use for their own
+ * line-level presentation (confirmed as a legitimate, precedented Clutter
+ * pattern by this feature's own architecture investigation — decorating
+ * `.cm-line` was never the problem; `margin` specifically was).
  *
  * **Deliberately reinstated 2026-09-10, narrower than its own first
- * version: this file owns the visual card only, never structural
- * grouping.** `highlight/fencedCodeBlockWrapper.ts`'s `EditorView.blockWrappers`
- * already gives every `FencedCode` node its own real `<div class="cm-code-block">`
- * parent, so two independent, back-to-back blocks (no blank line between
- * them) are already two separate DOM subtrees *before* this file runs —
- * the `--first`/`--last` computation below only needs to place the correct
- * border/radius on the correct line *within* an already-correctly-grouped
- * block, not additionally prevent two different blocks' lines from reading
- * as one merged run (an earlier version of this file, predating the
- * wrapper, had to solve that problem itself; it no longer needs to).
+ * version: this file owns per-line presentation only, never structural
+ * grouping, and (as of the border/radius move onto `.cm-code-block`) never
+ * the card's border/radius either.** `highlight/fencedCodeBlockWrapper.ts`'s
+ * `EditorView.blockWrappers` already gives every `FencedCode` node its own
+ * real `<div class="cm-code-block">` parent, so two independent, back-to-back
+ * blocks (no blank line between them) are already two separate DOM subtrees
+ * *before* this file runs — the `--first`/`--last` computation below only
+ * needs to place the correct padding/gutter treatment on the correct line
+ * *within* an already-correctly-grouped block, not additionally prevent two
+ * different blocks' lines from reading as one merged run (an earlier version
+ * of this file, predating the wrapper, had to solve that problem itself; it
+ * no longer needs to).
  *
  * Every owned line still gets the shared `cm-code-block-line` class
- * (background, left/right border, horizontal `padding-inline` — safe per
- * `.cm-hr-line`'s own existing vertical-padding precedent, and confirmed
- * directly this session: `padding` does not reproduce the `margin`
- * cursor/navigation corruption on either `.cm-line` or `.cm-code-block`).
+ * (background, horizontal `padding-inline` — safe per `.cm-hr-line`'s own
+ * existing vertical-padding precedent, and confirmed directly this session:
+ * `padding` does not reproduce the `margin` cursor/navigation corruption on
+ * either `.cm-line` or `.cm-code-block`).
  * The line containing the owning node's own `.from` additionally gets
- * `cm-code-block-line--first` (top border + top corners); the line
- * containing the node's own `.to` gets `cm-code-block-line--last` (bottom
- * border + bottom corners). A single-line-body block's one line carries
- * both modifiers at once, which composes correctly since the two rules
- * touch disjoint edges — the same composition `isFencedCodeBodyFolded`
- * (below) reuses for a *folded* block: once the toggle
- * (codemirror/fold/foldToggleDecoration.ts) hides everything from the
- * opening fence line onward, that line is the only one CM6 still renders
- * at all, so it needs `--last` too, or the card loses its bottom
- * border/radius the moment it's collapsed — confirmed as a real, reported
- * visual bug, not a hypothetical.
+ * `cm-code-block-line--first`; the line containing the node's own `.to`
+ * gets `cm-code-block-line--last`. A single-line-body block's one line
+ * carries both modifiers at once. Border/radius are no longer painted via
+ * these modifiers at all — `.cm-code-block` (the block-level wrapper,
+ * `fencedCodeBlockWrapper.ts`) owns the complete visual border treatment
+ * unconditionally now, so `--first`/`--last` here only ever drive the
+ * remaining per-line concerns below (padding, gutter-number exclusion).
  *
  * **`cm-code-block-line--active` (2026-09-11, code-content-only 2026-09-12):**
  * the one *code-content* line containing `state.selection.main.head` —
@@ -108,31 +105,6 @@ function nearestFencedCode(state: EditorState, probePos: number): SyntaxNode | n
   return null;
 }
 
-/**
- * True when `owner`'s own body/closing-fence is currently folded away by
- * `codemirror/fold/foldToggleDecoration.ts`'s toggle (or any other fold
- * covering the identical native range — `foldable()`'s own generic
- * `foldNodeProp` shape for a `FencedCode` node: `{from: <first line>.to,
- * to: owner.to}`). When true, the opening fence line is the *only* line
- * of this block CM6 still renders at all (`view.visibleRanges` skips
- * folded content entirely, so the loop in `buildFencedCodeLineDecorations`
- * below never visits — and therefore never marks `--last` on — the real
- * last line), so this line needs both `--first` and `--last` at once, the
- * same border/radius composition a genuine single-physical-line block
- * already gets. A read-only query over the public `foldedRanges()`
- * `RangeSet` — never a second fold-tracking mechanism.
- */
-function isFencedCodeBodyFolded(state: EditorState, owner: SyntaxNode): boolean {
-  const bodyStart = state.doc.lineAt(owner.from).to;
-  let folded = false;
-  foldedRanges(state).between(bodyStart, bodyStart, (from) => {
-    if (from === bodyStart) {
-      folded = true;
-    }
-  });
-  return folded;
-}
-
 function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const seenLines = new Set<number>();
@@ -164,9 +136,7 @@ function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
           // last real character — always lands back inside the real last
           // line, regardless of whether the doc has a trailing newline.
           const lastRealPos = owner.to > owner.from ? owner.to - 1 : owner.to;
-          const isLast =
-            (line.from <= lastRealPos && lastRealPos <= line.to) ||
-            (isFirst && isFencedCodeBodyFolded(view.state, owner));
+          const isLast = line.from <= lastRealPos && lastRealPos <= line.to;
           // Compared by range, not object identity: separate
           // `resolveInner` calls (even against the same immutable syntax
           // tree) aren't guaranteed to hand back the same `SyntaxNode`
@@ -178,9 +148,9 @@ function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
           // and closing (` ``` `) fence lines are structural Markdown
           // syntax, not code content — they never get the active-line
           // background, even while the caret sits on one of them. A
-          // single-line/empty block (`isFirst && isLast` on its one line,
-          // per the border-composition fix above) has no code-content line
-          // at all, so it's correctly never active either.
+          // single-line/empty block (`isFirst && isLast` both true on its
+          // one line) has no code-content line at all, so it's correctly
+          // never active either.
           const isActive =
             !isFirst &&
             !isLast &&
@@ -221,9 +191,9 @@ export function fencedCodeBlockLineDecoration(): Extension {
           // foldToggleDecoration.ts) doesn't necessarily set
           // `viewportChanged` on its own — this is the same explicit
           // `foldState` comparison that extension's own `update()` uses,
-          // so `isFencedCodeBodyFolded`'s border/radius composition stays
-          // correct the moment a fold toggles, not just on the next
-          // unrelated doc/viewport/selection change.
+          // so this decoration set (isFirst/isLast/isActive, gutter
+          // numbering) stays correct the moment a fold toggles, not just
+          // on the next unrelated doc/viewport/selection change.
           update.startState.field(foldState, false) !== update.state.field(foldState, false)
         ) {
           this.decorations = buildFencedCodeLineDecorations(update.view);

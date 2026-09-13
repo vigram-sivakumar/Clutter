@@ -557,34 +557,46 @@ describe('wikiLinkLivePreview', () => {
   // ===================================================================
   // Editor/task-state composition (docs/editor-architecture-decisions.md's
   // "Inline formatting composition at the token level", extended):
-  // `cm-task-completed` composes onto the WikiLink widget the same way as
-  // any enclosing delimited-mark's content class, via `isNodeOnCompletedTask`
-  // in `taskEngagement.ts` — a genuinely different, independent state
-  // source (reads the enclosing Task's own TaskMarker text, not the
-  // syntax-tree-only ancestry `collectActiveInlineClasses` walks).
+  // **Removed 2026-09-13.** This file no longer reads `isNodeOnCompletedTask`/
+  // composes `TASK_COMPLETED_CLASS` onto the WikiLink widget's own root —
+  // that direct injection produced a real, reported bug (a completed
+  // task's WikiLink widget and its enclosing `taskCompletedContentDecoration.ts`
+  // ancestor mark both carried the class at once, on two nested elements
+  // for the same logical occurrence, which compounds `opacity`/
+  // `color-mix(... currentColor ...)`-style styling in a way plain CSS
+  // specificity can't resolve). `taskCompletedContentDecoration.ts`'s
+  // ancestor `Decoration.mark` (untouched by this removal) is now the
+  // *only* place `cm-task-completed` is ever applied — a WikiLink still
+  // visually sits inside that ancestor span when actually composed in the
+  // real editor (see `taskCompletedContentDecoration.test.ts`), it just no
+  // longer also carries the class directly on its own root. This file's
+  // `mountView` never includes `taskCompletedContentDecoration()`, so the
+  // tests below assert the negative: the WikiLink widget mounted here
+  // never carries `cm-task-completed`, regardless of the task's checked
+  // state.
   // ===================================================================
-  describe('editor/task-state composition: the WikiLink widget carries cm-task-completed when on a completed task line', () => {
+  describe('editor/task-state composition: the WikiLink widget never carries cm-task-completed directly (that class is exclusively the ancestor mark\'s responsibility now)', () => {
     function widgetClasses(view: EditorView): string[] {
       const widget = view.dom.querySelector('[data-wikilink-status]');
       expect(widget, 'expected to find the WikiLink widget').not.toBeNull();
       return Array.from(widget!.classList);
     }
 
-    it('- [x] [[Page]]: carries cm-task-completed directly', () => {
+    it('- [x] [[Page]]: does not carry cm-task-completed on its own root', () => {
       const view = mountView('- [x] [[Page]]', resolvedAs('Page'));
-      expect(widgetClasses(view)).toEqual(expect.arrayContaining(['tok-wikilink', 'cm-task-completed']));
+      expect(widgetClasses(view)).toEqual(['tok-wikilink']);
     });
 
-    it('- [ ] [[Page]]: an unchecked task never adds cm-task-completed', () => {
+    it('- [ ] [[Page]]: an unchecked task never adds cm-task-completed either', () => {
       const view = mountView('- [ ] [[Page]]', resolvedAs('Page'));
       expect(widgetClasses(view)).toEqual(['tok-wikilink']);
     });
 
-    it('- [x] **~~[[Page]]~~**: task-completion composes alongside inline formatting, regardless of nesting order', () => {
+    it('- [x] **~~[[Page]]~~**: inline formatting still composes onto a completed task\'s WikiLink, without cm-task-completed alongside it', () => {
       const view = mountView('- [x] **~~[[Page]]~~**', resolvedAs('Page'), true);
-      expect(widgetClasses(view)).toEqual(
-        expect.arrayContaining(['tok-wikilink', 'tok-strong', 'tok-strike', 'cm-task-completed'])
-      );
+      const classes = widgetClasses(view);
+      expect(classes).toEqual(expect.arrayContaining(['tok-wikilink', 'tok-strong', 'tok-strike']));
+      expect(classes).not.toContain('cm-task-completed');
     });
 
     it('a WikiLink outside any task never carries cm-task-completed', () => {

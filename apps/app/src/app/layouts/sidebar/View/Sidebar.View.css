@@ -1,4 +1,5 @@
 .view {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
@@ -18,7 +19,22 @@
   overflow-y: auto;
   gap: var(--space-8);
   padding-inline: var(--sidebar-padding-inline);
+  padding-bottom: 36px;
 }
+
 .view--navigation .section--expanded {
   padding-bottom: var(--space-0);
+}
+
+/* Creates a gradient fade at the bottom */
+.view::before {
+  content: '';
+  position: absolute;
+  left: var(--sidebar-padding-inline);
+  right: var(--sidebar-padding-inline);
+  bottom: 0;
+  height: 36px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--surface-secondary));
+  z-index: 2;
 }

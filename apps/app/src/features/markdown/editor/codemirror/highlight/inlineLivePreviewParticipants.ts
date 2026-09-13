@@ -6,10 +6,6 @@ import { renderDate } from '../date/dateDecorations';
 import type { ResolveDate } from '../date/dateResolution';
 import { renderTag } from '../tag/tagDecorations';
 import type { ResolveTag } from '../tag/tagResolution';
-import {
-  isNodeOnCompletedTask,
-  TASK_COMPLETED_CLASS,
-} from '../task/taskEngagement';
 import type { ResolveWikiLink } from '../wikilink/wikiLinkResolution';
 import { ConcealedMarkerWidget } from './ConcealedMarkerWidget';
 
@@ -402,26 +398,32 @@ export function revealedMarkerRanges(
  *
  * `render` receives the node's raw matched text plus the composed set of
  * extra classes this occurrence should carry — `collectActiveInlineClasses(node)`
- * (its enclosing delimited-mark ancestors) plus, independently,
- * `TASK_COMPLETED_CLASS` when `isNodeOnCompletedTask` says this occurrence
- * sits on a checked task line (`taskEngagement.ts`) — every renderer
+ * (its enclosing delimited-mark ancestors) — which every renderer
  * registered through this factory (`renderWikiLink`/`renderTag`/
- * `renderDate`) threads this straight into its widget's constructor so the
+ * `renderDate`) threads straight into its widget's constructor so the
  * widget's own root element carries every applicable class directly (see
- * `collectActiveInlineClasses`'s and `isNodeOnCompletedTask`'s own doc
- * comments for why each is its own independent state source, composed
- * here rather than merged into one function). Nothing else about
- * `node`/`view` is needed by any of them (confirmed by inspecting each),
- * so this factory doesn't thread through anything else.
+ * `collectActiveInlineClasses`'s own doc comment for why it's a
+ * self-contained, syntax-tree-only state source). Nothing else about
+ * `node`/`view` is needed (confirmed by inspecting each), so this factory
+ * doesn't thread through anything else.
+ *
+ * **Deliberately excludes `TASK_COMPLETED_CLASS` (removed 2026-09-13).**
+ * This factory used to also compose `TASK_COMPLETED_CLASS` in here,
+ * independently, whenever `isNodeOnCompletedTask` (`taskEngagement.ts`)
+ * said the occurrence sat on a checked task line — putting the class on
+ * the widget's own root *in addition to* `taskCompletedContentDecoration.ts`'s
+ * ancestor `Decoration.mark`, which already wraps the widget in the real
+ * editor. Two nested elements carrying the same class for one logical
+ * occurrence compounds `opacity`/`color-mix(... currentColor ...)`-style
+ * styling in a way plain CSS specificity can't resolve, so the ancestor
+ * mark is now the sole source of `cm-task-completed` for every construct,
+ * including this widget family.
  */
 function widgetReplaceRenderer(
   render: (raw: string, extraClasses: readonly string[]) => WidgetType | null
 ): ParticipantRenderer {
   return (node, state) => {
-    const extraClasses = [
-      ...collectActiveInlineClasses(node),
-      ...(isNodeOnCompletedTask(node, state) ? [TASK_COMPLETED_CLASS] : []),
-    ];
+    const extraClasses = [...collectActiveInlineClasses(node)];
     const widget = render(state.sliceDoc(node.from, node.to), extraClasses);
     if (!widget) {
       return { decorations: [] };

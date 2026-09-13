@@ -19,3 +19,20 @@
 
   border-radius: inherit;
 }
+.page__cover__change {
+  --cover-change-bg: rgb(255 255 255 / 90%);
+  --state-hover-medium: var(--cover-change-bg);
+
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--cover-change-bg);
+  color: black;
+  border-radius: 50%;
+  opacity: 0;
+
+  transition: opacity 160ms ease;
+}
+.page__cover:hover .page__cover__change {
+  opacity: 1;
+}

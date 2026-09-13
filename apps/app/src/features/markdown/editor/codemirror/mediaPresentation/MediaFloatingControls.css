@@ -58,7 +58,7 @@
   background: var(--surface-primary);
   padding: var(--space-2);
   gap: var(--btn-gap-xs);
-  box-shadow: var(--shadow-inset-thin);
+  box-shadow: var(--shadow-inset-thin-strong);
 }
 
 .cm-media-control,
