@@ -5,7 +5,7 @@
   border-radius: var(--radius-xxl);
   padding: var(--space-12);
 
-  box-shadow: var(--shadow-inset-default), var(--shadow-md);
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
   gap: var(--space-12);
 }
 
@@ -26,7 +26,7 @@
   flex-direction: column;
 }
 .create__icon {
-  color: var(--sidebar-icon-foreground);
+  color: var(--foreground-secondary);
 }
 .folder-picker__title {
   color: var(--foreground-primary);

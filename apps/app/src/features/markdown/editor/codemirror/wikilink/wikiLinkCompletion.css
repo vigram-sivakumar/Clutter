@@ -33,7 +33,7 @@
   height: var(--height-xs);
   aspect-ratio: 1;
   flex-shrink: 0;
-  color: var(--foreground-tertiary);
+  color: var(--foreground-secondary);
 }
 
 .wikilink-completion__icon svg {
@@ -52,12 +52,12 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: var(--foreground-secondary);
+  color: var(--foreground-primary);
 }
 
 .wikilink-completion__path {
-  font-size: var(--text-caption);
-  line-height: var(--lh-caption);
+  font-size: var(--text-label-small);
+  line-height: var(--lh-label-small);
   color: var(--foreground-tertiary);
   overflow: hidden;
   white-space: nowrap;

@@ -162,8 +162,8 @@ html.theme-transitioning [data-themeable] *::after {
 
   /* Text & icons */
   --foreground-primary: #333333;
-  --foreground-secondary: hsl(0, 0%, 34%);
-  --foreground-tertiary: #747474;
+  --foreground-secondary: #575757;
+  --foreground-tertiary: #a6a6a6;
   --foreground-placeholder: #cccccc;
   --foreground-inverse: #d4d4d4;
   --foreground-brand: white;

@@ -98,6 +98,110 @@ describe('blockSeparatorDecoration — lists', () => {
   });
 });
 
+describe('blockSeparatorDecoration — unordered-list marker family', () => {
+  it('1. gives 6px between adjacent BulletList instances that use different markers, with no blank lines', () => {
+    const view = mountView('- A\n+ B\n* C');
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
+
+  it('2. gives 6px throughout a run of multiple marker-change groups, each with multiple items', () => {
+    const view = mountView('- A\n- B\n+ C\n+ D\n* E\n* F');
+    expect(separatorHeights(view)).toEqual([6, 6, 6, 6, 6]);
+    view.destroy();
+  });
+
+  it('3. bridges a marker change across a single blank line — the family relationship survives the blank line, not just adjacency', () => {
+    const view = mountView('- A\n\n+ B\n\n* C');
+    expect(separatorHeights(view)).toEqual([6, 6, 6, 6]);
+    view.destroy();
+  });
+
+  it('4. bridges a marker change across multiple consecutive blank lines — no accidental 12px break', () => {
+    const view = mountView('- A\n\n\n+ B');
+    expect(separatorHeights(view)).toEqual([6, 6, 6]);
+    view.destroy();
+  });
+
+  it('5. a same-marker list (single BulletList instance, the pre-existing case) is unaffected: still 6px internally', () => {
+    const view = mountView('- A\n- B\n- C\n- D');
+    expect(separatorHeights(view)).toEqual([6, 6, 6]);
+    view.destroy();
+  });
+
+  it('6. an unordered list exiting to a paragraph still gets normal 12px — the family rule never fires on a real exit', () => {
+    const view = mountView('- A\n- B\n\nParagraph');
+    expect(separatorHeights(view)).toEqual([6, 12, 12]);
+    view.destroy();
+  });
+
+  it('7. a paragraph entering an unordered list still gets normal 12px — the family rule never fires on a real entry', () => {
+    const view = mountView('Paragraph\n\n- A\n- B');
+    expect(separatorHeights(view)).toEqual([12, 12, 6]);
+    view.destroy();
+  });
+
+  it('8. BulletList -> OrderedList is unaffected by the family rule (different families; ordered-list behavior is out of scope for this change)', () => {
+    const noBlank = mountView('- A\n1. B');
+    expect(separatorHeights(noBlank)).toEqual([12]);
+    noBlank.destroy();
+
+    const withBlank = mountView('- A\n\n1. B');
+    expect(separatorHeights(withBlank)).toEqual([12, 12]);
+    withBlank.destroy();
+  });
+
+  it('9. OrderedList -> BulletList is unaffected by the family rule (different families; ordered-list behavior is out of scope for this change)', () => {
+    const noBlank = mountView('1. A\n- B');
+    expect(separatorHeights(noBlank)).toEqual([12]);
+    noBlank.destroy();
+
+    const withBlank = mountView('1. A\n\n- B');
+    expect(separatorHeights(withBlank)).toEqual([12, 12]);
+    withBlank.destroy();
+  });
+
+  it('10. does not bridge across a heading sitting between two BulletList instances — the heading is real, non-blank content', () => {
+    const view = mountView('- A\n# Heading\n+ B');
+    // "- A" -> "# Heading": the heading is genuinely entered (36), not a
+    // family bridge. "# Heading" -> "+ B": a normal heading-exit, 12 —
+    // never 6, since the family rule's blank-line branch never applies
+    // to a real content line.
+    expect(separatorHeights(view)).toEqual([36, 12]);
+    view.destroy();
+  });
+
+  it('11. does not bridge across an ordinary paragraph sitting between two BulletList instances', () => {
+    // Blank lines on both sides are required to make "Paragraph" a real,
+    // separate top-level `Paragraph` node — without them, unindented text
+    // immediately after a list item with no blank line lazily continues
+    // that item's own paragraph per CommonMark (see the list-family test
+    // just below this one), which is a different, already-correct case
+    // handled by rule 1, not this rule.
+    const view = mountView('- A\n\nParagraph\n\n+ B');
+    expect(separatorHeights(view)).toEqual([12, 12, 12, 12]);
+    view.destroy();
+  });
+
+  it('a paragraph lazily continuing a list item (no blank line) is unaffected — this is rule 1 (shared instance), not the family rule', () => {
+    const view = mountView('- A\nParagraph\n+ B');
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
+
+  it('12. nested lists remain governed by the existing shared-ancestor 6px behavior, unaffected by the new family rule', () => {
+    const view = mountView('- Parent item\n  - Nested item 1\n  - Nested item 2\n- Parent item 2');
+    expect(separatorHeights(view)).toEqual([6, 6, 6]);
+    view.destroy();
+  });
+
+  it('a mixed-marker list nested inside a blockquote stays 6px throughout via the shared-ancestor rule', () => {
+    const view = mountView('> Quote\n> - Item 1\n> + Item 2');
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
+});
+
 describe('blockSeparatorDecoration — blockquotes', () => {
   it('gives 6px between blockquote continuation lines, 12px before/after the whole quote', () => {
     const view = mountView('Above\n> Quote line 1\n> Quote line 2\n> Quote line 3\n\nBelow');
@@ -173,6 +277,96 @@ describe('blockSeparatorDecoration — Image/Embed', () => {
   it('inserts only a trailing separator when text follows the image but nothing precedes it on that line', () => {
     const view = mountView('![alt](https://example.com/a.png) after');
     expect(separatorHeights(view)).toEqual([12]);
+    view.destroy();
+  });
+});
+
+describe('blockSeparatorDecoration — heading hierarchy', () => {
+  it('gives 36px above an H1 (ATX), and normal 12px below it', () => {
+    const view = mountView('Paragraph\n# Heading 1\nParagraph');
+    expect(separatorHeights(view)).toEqual([36, 12]);
+    view.destroy();
+  });
+
+  it('gives 30px above an H2 (ATX)', () => {
+    const view = mountView('Paragraph\n## Heading 2\nParagraph');
+    expect(separatorHeights(view)).toEqual([30, 12]);
+    view.destroy();
+  });
+
+  it('gives 24px above an H3 (ATX)', () => {
+    const view = mountView('Paragraph\n### Heading 3\nParagraph');
+    expect(separatorHeights(view)).toEqual([24, 12]);
+    view.destroy();
+  });
+
+  it('gives 18px above H4/H5/H6 (ATX)', () => {
+    const h4 = mountView('Paragraph\n#### Heading 4\nParagraph');
+    expect(separatorHeights(h4)).toEqual([18, 12]);
+    h4.destroy();
+
+    const h5 = mountView('Paragraph\n##### Heading 5\nParagraph');
+    expect(separatorHeights(h5)).toEqual([18, 12]);
+    h5.destroy();
+
+    const h6 = mountView('Paragraph\n###### Heading 6\nParagraph');
+    expect(separatorHeights(h6)).toEqual([18, 12]);
+    h6.destroy();
+  });
+
+  it('resolves consecutive headings by the heading being entered, not the one being left', () => {
+    const view = mountView('# Heading 1\n## Heading 2\n### Heading 3');
+    // Line 1 gets no leading separator (first line of doc). Line 2 enters
+    // H2 (30), line 3 enters H3 (24) — never the departing heading's own
+    // height.
+    expect(separatorHeights(view)).toEqual([30, 24]);
+    view.destroy();
+  });
+
+  it('a Setext H1 gets 36px above it, and its own internal text/underline boundary stays 12px', () => {
+    const view = mountView('Paragraph\n\nHeading 1\n=========\n\nParagraph');
+    // Boundaries: Paragraph->blank (12), blank->"Heading 1" text line
+    // (entering SetextHeading1, 36), "Heading 1"->"=========" (internal
+    // Setext boundary, unaffected, 12), "========="->blank (12),
+    // blank->Paragraph (12).
+    expect(separatorHeights(view)).toEqual([12, 36, 12, 12, 12]);
+    view.destroy();
+  });
+
+  it('a Setext H2 gets 30px above it', () => {
+    const view = mountView('Paragraph\n\nHeading 2\n---------\n\nParagraph');
+    expect(separatorHeights(view)).toEqual([12, 30, 12, 12, 12]);
+    view.destroy();
+  });
+
+  it('a heading immediately after a list stays list-exit 12px, and the heading nested inside a list item stays 6px (list grouping wins over heading hierarchy)', () => {
+    const nested = mountView('- Item\n  # Heading');
+    expect(separatorHeights(nested)).toEqual([6]);
+    nested.destroy();
+
+    // "Item"->blank (list-exit, 12, matching the existing list-exit rule
+    // exercised elsewhere in this file), then blank->"# Heading" (no
+    // shared list ancestor any more, so heading hierarchy applies: 36).
+    const afterExit = mountView('- Item\n\n# Heading');
+    expect(separatorHeights(afterExit)).toEqual([12, 36]);
+    afterExit.destroy();
+  });
+
+  it('a heading nested inside a blockquote stays 6px (blockquote grouping wins over heading hierarchy)', () => {
+    const view = mountView('> Quote\n> # Heading');
+    expect(separatorHeights(view)).toEqual([6]);
+    view.destroy();
+  });
+
+  it('does not apply heading hierarchy to a "#" line inside a fenced code block — atomic 0px is preserved', () => {
+    const view = mountView('Above\n```\n# not a heading\nmore code\n```\nBelow');
+    expect(separatorHeights(view)).toEqual([12, 12]);
+    view.destroy();
+  });
+
+  it('does not apply heading hierarchy to a "#"-led row inside a table', () => {
+    const view = mountView('Above\n| a | b |\n| - | - |\n| # | 2 |\n\nBelow');
+    expect(separatorHeights(view)).toEqual([12, 12, 12]);
     view.destroy();
   });
 });

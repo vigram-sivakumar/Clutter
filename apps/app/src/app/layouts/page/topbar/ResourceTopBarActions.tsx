@@ -220,9 +220,6 @@ export function ResourceTopBarActions({
           <AppIcon icon={isFavorite ? 'favouriteFilled' : 'favouriteOutline'} />
         </Button>
       )}
-      <Button size="medium" isIconOnly>
-        <AppIcon icon={'rightSidebar'} />
-      </Button>
       <OverflowMenu
         items={menu}
         triggerRef={moveTrigger.triggerRef}

@@ -6,15 +6,19 @@
  */
 .date-completion {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-8);
   padding-inline: var(--space-8);
   width: 100%;
+  height: var(--height-lg);
 }
 
 .date-completion__label {
-  color: var(--entry-foreground);
-  font: var(--text-label);
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  line-height: var(--lh-label);
+  letter-spacing: var(--ls-label);
+  color: var(--foreground-primary);
 }
 
 .date-completion__iso {

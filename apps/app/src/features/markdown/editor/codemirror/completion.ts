@@ -5,7 +5,10 @@ import { dateCompletionSource } from './date/dateCompletionSource';
 import { renderDateCompletion } from './date/dateCompletionRenderer';
 import { embedCompletionSource } from './embed/embedCompletionSource';
 import { renderEmbedCompletion } from './embed/embedCompletionRenderer';
-import type { GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './embed/embedSuggestion';
+import type {
+  GetEmbedHeadingSuggestions,
+  GetEmbedSuggestions,
+} from './embed/embedSuggestion';
 import { tagCompletionSource } from './tag/tagCompletionSource';
 import { renderTagCompletion } from './tag/tagCompletionRenderer';
 import type { GetTagSuggestions } from './tag/tagSuggestion';
@@ -47,7 +50,8 @@ export function semanticCompletion(
   getWikiLinkSuggestions: () => GetWikiLinkSuggestions | undefined,
   getTagSuggestions: () => GetTagSuggestions | undefined = () => undefined,
   getEmbedSuggestions: () => GetEmbedSuggestions | undefined = () => undefined,
-  getEmbedHeadingSuggestions: () => GetEmbedHeadingSuggestions | undefined = () => undefined
+  getEmbedHeadingSuggestions: () =>
+    GetEmbedHeadingSuggestions | undefined = () => undefined
 ): Extension {
   return [
     autocompletion({
@@ -66,7 +70,7 @@ export function semanticCompletion(
       ],
       icons: false,
       defaultKeymap: true,
-      closeOnBlur: true,
+      closeOnBlur: false,
       addToOptions: [
         { render: renderEmbedCompletion, position: 50 },
         { render: renderWikiLinkCompletion, position: 50 },
