@@ -142,6 +142,92 @@ function isGenuinelyGrouped(state: EditorState, pos: number, ancestorNode: Synta
 }
 
 /**
+ * The `Paragraph` a physical *line* (not an arbitrary document position)
+ * belongs to, or `null` if it isn't inside one at all. Probes at the
+ * line's own end with a backward-leaning `resolveInner` bias (`-1`),
+ * never at its start — confirmed directly against the real parsed tree
+ * that a continuation line's own leading `QuoteMark` is a *sibling* of
+ * the `Blockquote`'s `Paragraph` for that line's own content, but the
+ * quote's very *first* content line has its `QuoteMark` positioned
+ * *before* the `Paragraph` node even starts (`Blockquote`'s own direct
+ * child, not the `Paragraph`'s), so probing at the line's first
+ * non-whitespace character (i.e. the marker itself) inconsistently
+ * misses that first line's own paragraph membership while correctly
+ * finding it for every later line. Probing at the line's end lands
+ * inside the actual paragraph text for every line uniformly, first line
+ * included, and stops the walk at the first `Blockquote` ancestor
+ * (rather than climbing past it) so a blank quoted line, or a line
+ * belonging to some other nested construct (a list/heading inside the
+ * quote), correctly resolves to `null` instead of reaching an *outer*
+ * paragraph the quote itself isn't part of.
+ *
+ * Also disqualifies (returns `null` for) a paragraph that turns out to
+ * live inside a `BulletList`/`OrderedList` nested in the quote — found by
+ * continuing the walk *past* the first `Paragraph` match and bailing if a
+ * list node shows up before the enclosing `Blockquote` does. This is what
+ * keeps a list's own last item lazily continuing into unindented
+ * top-level-looking text right after it (the same CommonMark quirk
+ * {@link isGenuinelyGrouped} exists to reject for the list-spacing fix)
+ * from being treated as "plain quote paragraph continuity": that
+ * transition is a real structural boundary — exiting the nested list back
+ * to the blockquote's own flow — even though the raw parse tree happens
+ * to fold the trailing text into the same `Paragraph` node as the list
+ * item's own text.
+ */
+function lineEnclosingParagraph(state: EditorState, line: { from: number; to: number }): SyntaxNode | null {
+  let node: SyntaxNode | null = syntaxTree(state).resolveInner(line.to, -1);
+  let paragraph: SyntaxNode | null = null;
+  for (; node; node = node.parent) {
+    if (!paragraph && node.name === 'Paragraph') {
+      paragraph = node;
+      continue;
+    }
+    if (paragraph && (node.name === 'BulletList' || node.name === 'OrderedList')) {
+      return null;
+    }
+    if (node.name === 'Blockquote') {
+      return paragraph;
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether `prevPos` and `pos` are two *different* physical lines of the
+ * same `Paragraph` node inside a blockquote — i.e. genuinely contiguous
+ * quoted text with no block-level break between them at all, as opposed
+ * to two separate paragraphs inside the same quote (split by a blank
+ * quoted line, or by some other nested construct). Used to keep the
+ * quote's own vertical bar (`blockquoteLineDecoration.ts`'s
+ * `.cm-quote-line` border) visually unbroken: any separator widget —
+ * even a small one — sits between the two `.cm-line` elements as its own
+ * DOM node with no border of its own, which reads as a gap in the bar. A
+ * *real* break inside the quote (a blank quoted line marking a new
+ * paragraph, or a nested list/heading) still needs its own visible
+ * separation, so this only ever suppresses the separator for the
+ * genuinely-contiguous, cross-line case, never for an actual paragraph
+ * break within the quote.
+ *
+ * Requires `prevPos`/`pos` to resolve to different physical lines —
+ * `resolveBoundaryHeight` is also used for a same-line boundary (an
+ * inline `Image`/`Embed` flanked by text on one physical line, from
+ * `blockSeparatorDecoration.ts`'s own same-line caller), which has
+ * nothing to do with the *vertical bar between lines* this rule exists
+ * to protect, so that case is deliberately left to fall through to the
+ * normal 6px grouping height instead.
+ */
+function isContiguousBlockquoteParagraph(state: EditorState, prevPos: number, pos: number): boolean {
+  const prevLine = state.doc.lineAt(prevPos);
+  const line = state.doc.lineAt(pos);
+  if (prevLine.from === line.from) {
+    return false;
+  }
+  const prevParagraph = lineEnclosingParagraph(state, prevLine);
+  const paragraph = lineEnclosingParagraph(state, line);
+  return prevParagraph !== null && paragraph !== null && sameNode(prevParagraph, paragraph);
+}
+
+/**
  * Node names that make up the "unordered list" visual family — every
  * marker variant (`-`/`+`/`*`) parses as a plain `BulletList` node (the
  * Lezer grammar carries no marker-specific node name), so this is
@@ -285,7 +371,13 @@ function headingEntryHeight(state: EditorState, pos: number): SeparatorHeight | 
  *   structurally nests inside that item's own trailing paragraph even
  *   though it reads as unrelated top-level content) is *not* treated as
  *   genuine grouping — see {@link isGenuinelyGrouped} — and the search
- *   continues outward instead of stopping here.
+ *   continues outward instead of stopping here. For a shared `Blockquote`
+ *   specifically, genuine grouping is further refined to 0 rather than 6
+ *   when the two positions are physical lines of the exact same inner
+ *   `Paragraph` (see {@link isContiguousBlockquoteParagraph}) — keeping
+ *   the quote's own vertical bar visually unbroken across a wrapped
+ *   paragraph's own lines, while a real break inside the quote (a blank
+ *   quoted line, or a nested list/heading) still gets its normal 6px.
  * - One position inside a construct the other isn't in at all (crossing
  *   the construct's own boundary in either direction) → no common
  *   ancestor found → 12, which is exactly "spacing before/after the
@@ -353,6 +445,9 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
         return 0;
       }
       if (isGenuinelyGrouped(state, pos, node)) {
+        if (node.name === 'Blockquote' && isContiguousBlockquoteParagraph(state, prevPos, pos)) {
+          return 0;
+        }
         return 6;
       }
       // Shares this ancestor only via CommonMark's lazy-continuation quirk

@@ -239,13 +239,25 @@ describe('blockSeparatorDecoration — unordered-list marker family', () => {
 });
 
 describe('blockSeparatorDecoration — blockquotes', () => {
-  it('gives 6px between blockquote continuation lines, 12px before/after the whole quote', () => {
+  it('gives no separator at all (0px — no widget) between physical lines of the same contiguous quoted paragraph, keeping the vertical quote bar visually unbroken; still 12px before/after the whole quote', () => {
     const view = mountView('Above\n> Quote line 1\n> Quote line 2\n> Quote line 3\n\nBelow');
-    expect(separatorHeights(view)).toEqual([12, 6, 6, 12, 12]);
+    // Only 3 elements, not 5 — the two contiguous-paragraph boundaries
+    // between the quote lines emit no `.cm-block-separator` at all (0px
+    // means no widget, same as the Table/FencedCode atomic case), so
+    // they simply don't appear here rather than showing up as `0`.
+    expect(separatorHeights(view)).toEqual([12, 12, 12]);
     view.destroy();
   });
 
-  it('keeps a nested blockquote at 6px throughout', () => {
+  it('keeps a genuine break inside a quote (a blank quoted line starting a new paragraph) at 6px — only genuinely contiguous lines get no separator at all', () => {
+    const view = mountView('> Quote line one\n> Quote line two\n>\n> Quote line three');
+    // Line 1 -> line 2 is the contiguous case (no element, see the test
+    // above); the other two boundaries are real breaks and keep 6px.
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
+
+  it('keeps a nested blockquote at 6px throughout — every boundary here crosses a real break (a blank quoted line or a nested-quote transition), never two lines of one contiguous paragraph', () => {
     const view = mountView('> Quote\n>\n> > Nested quote\n> >\n> > More nested\n>\n> Back to outer');
     expect(separatorHeights(view)).toEqual([6, 6, 6, 6, 6, 6]);
     view.destroy();
