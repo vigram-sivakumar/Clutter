@@ -3,7 +3,7 @@ import { WidgetType, type EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 
 import './NoteEmbedWidget.css';
-import { createEditorView } from '../createEditorView';
+import { createEditorView, serializeFoldState } from '../createEditorView';
 import { CARET_DOWN_ICON, CARET_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
 import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
@@ -91,6 +91,38 @@ export interface OpenNoteEmbedMenuParams {
 export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
 
 /**
+ * ADR-033's amendment — the editor layer's own, structural view of
+ * `FoldStateStore`'s public surface (`core/application/editor/FoldStateStore.ts`),
+ * not an import of that concrete class: `codemirror/embed/`'s own boundary
+ * rule (`boundary.test.ts`, "Editor/persistence boundary" —
+ * docs/editor-architecture-decisions.md) forbids reaching into
+ * `core/application` at all, the same way every other Vault-backed
+ * capability here (resolution, suggestions) is injected as a plain
+ * function rather than a concrete class reference. `FoldStateStore`
+ * structurally satisfies this interface already — `MarkdownEditor.tsx`
+ * (a feature-layer file, not subject to this boundary) passes the real
+ * instance straight through with no adapter needed.
+ */
+export interface FoldStatePersistence {
+  get(pageId: string): { readonly doc: string; readonly fold: readonly number[] } | undefined;
+  set(pageId: string, entry: { readonly doc: string; readonly fold: readonly number[] }): void;
+  /**
+   * ADR-033's second amendment — the outer "collapse this whole embedded
+   * note card" toggle (this file's own `collapseButton`, below) is a
+   * completely different mechanism from CM6 `foldState` (it's
+   * `ImageUiState.collapsed`, a plain per-position flag in the *host*
+   * document's own `imageUiStateField`), so it is persisted through a
+   * second, independent key — `hostPageId` (whichever document's own
+   * Markdown contains this `![[...]]` reference) mapped to
+   * `embeddedPageId` (`resolution.pageId`) mapped to the flag — never
+   * folded into `get`/`set` above, which own only the embedded page's own
+   * *internal* CM6 fold ranges.
+   */
+  getEmbedCollapse(hostPageId: string, embeddedPageId: string): boolean | undefined;
+  setEmbedCollapse(hostPageId: string, embeddedPageId: string, collapsed: boolean): void;
+}
+
+/**
  * A note embed (`![[Page]]`, `![[Page#Heading]]`) — renders the resolved
  * page's (or page section's) content through a real, nested, permanently
  * read-only CM6 `EditorView`, not a hand-built parallel DOM renderer.
@@ -165,8 +197,17 @@ export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
  * and never routed through, the outer editor's own CM6 folding
  * (`codemirror/fold/foldToggleDecoration.ts`): this widget's body is not a
  * range of the *outer* document at all, so there is no `foldService`/
- * `foldEffect`/fold state applicable to it here). The chevron toggles
- * whether `content` (the nested `EditorView`'s own container) is visible
+ * `foldEffect`/fold state applicable to *this widget's own collapse
+ * toggle* here — that claim is unchanged by ADR-033's amendment below).
+ * The chevron toggles whether `content` (the nested `EditorView`'s own
+ * container) is visible — a different, pre-existing mechanism from the
+ * *nested view's own* CM6 fold state (ADR-033's amendment: `toDOM()`'s
+ * `createEditorView({ enableFolding: true, restoreFoldJSON, ... })` call
+ * and `destroy()`'s capture, below) — collapsing hides the whole rendered
+ * embed; folding (now possible inside it) hides one heading/list/fenced-
+ * code section of the embedded note's own content, exactly as it would if
+ * that note were open directly, keyed and persisted by its own `pageId`,
+ * independent of this widget's own collapse state
  * — the top/bottom dividers and the header itself (icon, title, every
  * button including this one) are never affected.
  *
@@ -184,8 +225,11 @@ export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
  * a heading/list/fenced-code fold, not as a fourth peer of Expand/Edit
  * source/More actions.
  *
- * Persisted the same way `revealed` is, via `ImageUiState.collapsed`
- * (`imageUiState.ts`) — but, unlike every other button here, this one
+ * Persisted the same way `revealed` is *within the live session*, via
+ * `ImageUiState.collapsed` (`imageUiState.ts`) — and, as of ADR-033's
+ * second amendment, also across app restarts, via `getFoldStateStore()`'s
+ * `setEmbedCollapse(hostPageId, resolution.pageId, collapsed)`, written
+ * directly in the click handler below. But, unlike every other button here, this one
  * mutates the already-rendered DOM directly (`content.hidden`, this
  * button's own icon/label) instead of relying on a `toDOM()` rebuild:
  * `eq()` below deliberately excludes `collapsed`, so a collapse/expand
@@ -234,7 +278,30 @@ export class NoteEmbedWidget extends WidgetType {
     readonly pos: number,
     readonly to: number,
     readonly getOnOpenPage: () => ((pageId: string) => void) | undefined,
-    readonly getOnOpenNoteEmbedMenu: () => OnOpenNoteEmbedMenu | undefined
+    readonly getOnOpenNoteEmbedMenu: () => OnOpenNoteEmbedMenu | undefined,
+    /**
+     * ADR-033's amendment — restores/persists CM6 fold state for this
+     * embed's nested view, keyed by the *embedded* page's own `pageId`
+     * (`resolution.pageId`, never the host note's). `undefined` for a
+     * broken embed (`resolution === null`) — nothing to key by, so
+     * `toDOM()`/`destroy()` below simply skip both restore and capture in
+     * that case. Same injected-getter/freshness convention as
+     * `getOnOpenPage`/`getOnOpenNoteEmbedMenu` above.
+     */
+    readonly getFoldStateStore: () => FoldStatePersistence | undefined,
+    /**
+     * ADR-033's second amendment — whichever document's own Markdown
+     * contains *this* `![[...]]` reference (never the top-level session
+     * root when this embed itself sits inside another embed's own nested
+     * view — see `embedLivePreview.ts`'s own doc comment for how this is
+     * threaded one level deeper at each recursion, the same way
+     * `ancestry` already is). Used only for the collapse-toggle's own
+     * `getFoldStateStore().setEmbedCollapse(hostPageId, resolution.pageId,
+     * ...)` call below — the embedded page's own CM6 fold state
+     * (`getFoldStateStore().get`/`set` above) is keyed by
+     * `resolution.pageId` alone and never needs this.
+     */
+    readonly hostPageId: string
   ) {
     super();
   }
@@ -407,6 +474,13 @@ export class NoteEmbedWidget extends WidgetType {
       view.dispatch({
         effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, collapsed: collapsing } }),
       });
+      // ADR-033's second amendment: written immediately, at the click
+      // itself — unlike CM6 fold state (only capturable at `destroy()`),
+      // this toggle already has a discrete user-action moment, so there's
+      // no need to wait for a rebuild/teardown that may never come before
+      // the host note closes (`eq()` deliberately excludes `collapsed`,
+      // so this widget instance can live for the rest of the session).
+      this.getFoldStateStore()?.setEmbedCollapse(this.hostPageId, resolution.pageId, collapsing);
     });
 
     // Expand, then Edit source, then More actions — unchanged order,
@@ -420,25 +494,36 @@ export class NoteEmbedWidget extends WidgetType {
     // `#`/marker/opening fence), here meaning before the identity icon.
     header.append(collapseButton, iconWrap, titleSpan, controls);
 
-    // The excerpt boundaries — a passage-from-another-document feel, not a
-    // card: the wavy divider above the header marks the very start of the
-    // embed, and the matching one after the nested view (with "End of
-    // note" set into its center) marks where it ends — the header and its
-    // controls sit *inside* that top-to-bottom boundary pair, not above
-    // it. Both reuse `buildDivider`'s own wavy-rule construction, itself
-    // the same mask-image technique `hr/horizontalRuleDecoration.ts`'s own
-    // `.cm-hr-labeled--wavy` renders for a real `~---~` Markdown divider —
-    // see `NoteEmbedWidget.css`'s own doc comment for why this is a
-    // deliberate reuse of that existing visual system, not a new one.
-    const startDivider = this.buildDivider();
+    // The excerpt's own closing boundary — a passage-from-another-document
+    // feel, not a card: the wavy "End of note" divider after the nested
+    // view marks where the excerpt ends. Reuses `buildDivider`'s own
+    // wavy-rule construction, itself the same mask-image technique
+    // `hr/horizontalRuleDecoration.ts`'s own `.cm-hr-labeled--wavy` renders
+    // for a real `~---~` Markdown divider — see `NoteEmbedWidget.css`'s own
+    // doc comment for why this is a deliberate reuse of that existing
+    // visual system, not a new one. No matching divider above the header
+    // — a bare boundary with no label there read as visual noise with
+    // nothing to mark; CSS hides this one too whenever the card is
+    // collapsed (`.cm-note-embed--collapsed`, below), since there is no
+    // content between the header and it to mark the end of.
     const endDivider = this.buildDivider('End of note');
 
-    container.append(startDivider, header, content, endDivider);
+    container.append(header, content, endDivider);
 
+    // ADR-033's amendment: `enableFolding: true` alongside `readOnly: true`
+    // — folding is non-mutating, so this embed's own headings/lists/
+    // fenced-code become independently foldable without becoming editable.
+    // `restoreFoldJSON` is gated (inside `createEditorView`) by the same
+    // `docTextMatches` staleness check the top-level editor already uses,
+    // keyed here by the *embedded* page's own `pageId` — never the host
+    // note's — so a stale/changed embedded document never restores
+    // invalid fold ranges onto it.
     this.nestedView = createEditorView({
       doc: trimEmptyEdgeLines(resolution.markdown),
       parent: content,
       readOnly: true,
+      enableFolding: true,
+      restoreFoldJSON: this.getFoldStateStore()?.get(resolution.pageId),
       extensions: this.extensions,
     });
 
@@ -446,31 +531,21 @@ export class NoteEmbedWidget extends WidgetType {
   }
 
   /**
-   * One wavy boundary — a plain full-width wavy rule with no `label`
-   * (the start boundary, directly below the header), or the same rule
-   * split in two around a centered label (the end boundary, "End of
-   * note"). Deliberately not `DividerLabelWidget` itself (`hr/
-   * DividerLabelWidget.ts`) — that widget replaces a real `~---~` line
-   * inside a *document's own* flow (`inline-flex`, `contain: inline-size`,
-   * `vertical-align: top` all exist solely to cooperate with CM6's
-   * `cm-widgetBuffer` siblings and a real line box, per that file's own
-   * doc comment) — this is a plain block child inside this widget's own
-   * already-isolated DOM subtree, with none of that to cooperate with, so
-   * a simpler block-level flex row is all it needs. The wavy rule
-   * *segments* still reuse the exact same mask-image technique/geometry
-   * that widget's own `--wavy` modifier applies — see this file's own CSS
-   * doc comment.
+   * A wavy boundary rule split in two around a centered `label`.
+   * Deliberately not `DividerLabelWidget` itself (`hr/DividerLabelWidget.ts`)
+   * — that widget replaces a real `~---~` line inside a *document's own*
+   * flow (`inline-flex`, `contain: inline-size`, `vertical-align: top` all
+   * exist solely to cooperate with CM6's `cm-widgetBuffer` siblings and a
+   * real line box, per that file's own doc comment) — this is a plain
+   * block child inside this widget's own already-isolated DOM subtree,
+   * with none of that to cooperate with, so a simpler block-level flex row
+   * is all it needs. The wavy rule *segments* still reuse the exact same
+   * mask-image technique/geometry that widget's own `--wavy` modifier
+   * applies — see this file's own CSS doc comment.
    */
-  private buildDivider(label?: string): HTMLElement {
+  private buildDivider(label: string): HTMLElement {
     const divider = document.createElement('div');
     divider.classList.add('cm-note-embed__divider');
-
-    if (label === undefined) {
-      const rule = document.createElement('span');
-      rule.classList.add('cm-note-embed__divider-rule');
-      divider.append(rule);
-      return divider;
-    }
 
     const left = document.createElement('span');
     left.classList.add('cm-note-embed__divider-rule');
@@ -522,6 +597,16 @@ export class NoteEmbedWidget extends WidgetType {
   }
 
   override destroy(): void {
+    // ADR-033's amendment: captured before destroy() (which invalidates
+    // the view), keyed by the embedded page's own `pageId` — mirrors
+    // `MarkdownEditor.tsx`'s own unmount cleanup, but this is *this
+    // widget's own* lifecycle hook, since a nested view can be destroyed
+    // and recreated far more often than the host note switches (any
+    // change that fails `eq()` above, not just a host note close). No-op
+    // for a broken embed (`this.resolution === null`) — nothing to key by.
+    if (this.resolution && this.nestedView) {
+      this.getFoldStateStore()?.set(this.resolution.pageId, serializeFoldState(this.nestedView));
+    }
     this.nestedView?.destroy();
     this.nestedView = null;
   }

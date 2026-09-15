@@ -52,9 +52,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
-  padding: var(--space-8);
-  padding-left: var(--space-0);
+  gap: var(--md-marker-text-gap);
+  padding-block: var(--space-6);
 }
 
 /* The resolved page's own identity icon — emoji if assigned, else the
@@ -73,8 +72,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: var(--icon-wrapper-md);
-  height: var(--icon-wrapper-md);
+  width: var(--md-marker-width);
+  height: var(--md-marker-height);
 }
 
 .cm-note-embed__icon-wrap--emoji {
@@ -191,11 +190,9 @@
 }
 
 /*
- * The excerpt boundaries (`NoteEmbedWidget.ts`'s own `buildDivider`) — a
- * plain wavy rule *above* the header marks the very start of the embed
- * (the header/controls sit inside the boundary pair, not above it); the
- * matching one after the nested view, with "End of note" set into its
- * center, marks where it ends. Deliberately reuses the
+ * The excerpt's own closing boundary (`NoteEmbedWidget.ts`'s own
+ * `buildDivider`) — a wavy rule after the nested view, with "End of note"
+ * set into its center, marks where the excerpt ends. Deliberately reuses the
  * *exact* wavy-rule mask-image technique `hr/horizontalRuleDecoration.ts`
  * + `hr/DividerLabelWidget.ts` already render for a real `~---~` Markdown
  * divider at rest (`.cm-hr-line-wavy::after` / `.cm-hr-labeled--wavy
@@ -262,21 +259,35 @@
 
 /*
  * Nested note embeds (a note embed rendered inside another note embed's
- * own nested view) never show these boundaries — only the top-level
- * embed's own excerpt is bracketed by them. A nested rendering already
- * reads as "inside a passage" by virtue of being physically inside the
- * outer one's own start/end pair; repeating another wavy start/end
- * boundary one level down would visually nest excerpts inside excerpts
- * rather than reading as one continuous passage, and clutters depth the
- * header/controls' own `--mutating` hiding (below) already declutters for
- * every other affordance. Same `.cm-content[contenteditable='false']`
- * signal `mediaPresentation/embedLayout.css`'s own read-only rule keys
- * off — a nested `NoteEmbedWidget` is, by construction, always rendered
- * inside the nested `EditorView`'s own `.cm-content` (`createEditorView.ts`'s
+ * own nested view) never show this boundary — only the top-level embed's
+ * own excerpt is closed off by it. A nested rendering already reads as
+ * "inside a passage" by virtue of being physically inside the outer one's
+ * own content; repeating another "end of note" boundary one level down
+ * would visually nest excerpts inside excerpts rather than reading as one
+ * continuous passage, and clutters depth the header/controls' own
+ * `--mutating` hiding (below) already declutters for every other
+ * affordance. Same `.cm-content[contenteditable='false']` signal
+ * `mediaPresentation/embedLayout.css`'s own read-only rule keys off — a
+ * nested `NoteEmbedWidget` is, by construction, always rendered inside the
+ * nested `EditorView`'s own `.cm-content` (`createEditorView.ts`'s
  * `readOnly: true` sets `contenteditable="false"` there), so this is
  * exactly "not the top level," at any nesting depth, with no separate
  * per-widget depth-tracking needed.
  */
 .cm-content[contenteditable='false'] .cm-note-embed__divider {
+  display: none;
+}
+
+/*
+ * Collapsed at the top level: with `.cm-note-embed__content` hidden,
+ * there is nothing between the header and this boundary for "End of note"
+ * to mark the end *of* — showing it directly under a collapsed header
+ * reads as a stray label, not a genuine passage boundary, so it hides
+ * along with the content. `.cm-note-embed--collapsed` is the same class
+ * `NoteEmbedWidget.ts`'s collapse toggle already maintains on the
+ * container (`content.hidden`'s own sibling state), not a second,
+ * independent collapsed signal introduced for this rule.
+ */
+.cm-note-embed--collapsed .cm-note-embed__divider {
   display: none;
 }

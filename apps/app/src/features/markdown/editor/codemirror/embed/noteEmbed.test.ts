@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { history } from '@codemirror/commands';
+import { foldEffect, foldState, forceParsing } from '@codemirror/language';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { embedLivePreview } from './embedLivePreview';
@@ -12,7 +13,7 @@ import type { ResolveEmbedImage } from './embedImageResolution';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 import type { PageEmbedResolution, ResolvePageEmbed } from '../../../render/blocks/pageEmbedResolution';
 import type { NoteEmbedAncestry } from './noteEmbedAncestry';
-import { trimEmptyEdgeLines, type OnOpenNoteEmbedMenu } from './NoteEmbedWidget';
+import { trimEmptyEdgeLines, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
 
 /** Every fixture here targets a page (never a real Vault resource) — both resolvers always decline, matching real production wiring. */
 const declineImage: ResolveEmbedImage = () => ({ status: 'unresolved', alt: '' });
@@ -25,6 +26,8 @@ function mountView(
     onOpenPage?: (pageId: string) => void;
     onOpenNoteEmbedMenu?: OnOpenNoteEmbedMenu;
     ancestry?: NoteEmbedAncestry;
+    getFoldStateStore?: () => FoldStatePersistence | undefined;
+    hostPageId?: string;
   } = {}
 ): EditorView {
   const parent = document.createElement('div');
@@ -35,6 +38,7 @@ function mountView(
       history(),
       markdownLanguageExtension(),
       embedLivePreview({
+        hostPageId: options.hostPageId ?? 'test-host-page',
         resolveEmbedImage: () => declineImage,
         onImageClick: () => undefined,
         onOpenImageMenu: () => undefined,
@@ -45,10 +49,37 @@ function mountView(
         onOpenPage: () => options.onOpenPage,
         onOpenNoteEmbedMenu: () => options.onOpenNoteEmbedMenu,
         ancestry: options.ancestry,
+        getFoldStateStore: options.getFoldStateStore,
       }),
     ],
   });
   return new EditorView({ state, parent });
+}
+
+/**
+ * A minimal, real `FoldStatePersistence` implementation — a plain
+ * `Map<pageId, entry>`, the same shape `FoldStateStore`'s own in-memory
+ * map already is (`core/application/editor/FoldStateStore.ts`). Tests
+ * below construct one directly rather than importing the concrete
+ * `FoldStateStore` class, matching this module's own boundary rule (no
+ * `core/application` import inside `codemirror/embed/`).
+ */
+function createInMemoryFoldStatePersistence(): FoldStatePersistence {
+  const entries = new Map<string, { readonly doc: string; readonly fold: readonly number[] }>();
+  const embedCollapse = new Map<string, Map<string, boolean>>();
+  return {
+    get: (pageId) => entries.get(pageId),
+    set: (pageId, entry) => entries.set(pageId, entry),
+    getEmbedCollapse: (hostPageId, embeddedPageId) => embedCollapse.get(hostPageId)?.get(embeddedPageId),
+    setEmbedCollapse: (hostPageId, embeddedPageId, collapsed) => {
+      let hostMap = embedCollapse.get(hostPageId);
+      if (!hostMap) {
+        hostMap = new Map();
+        embedCollapse.set(hostPageId, hostMap);
+      }
+      hostMap.set(embeddedPageId, collapsed);
+    },
+  };
 }
 
 function resolverFor(pages: Record<string, PageEmbedResolution>): ResolvePageEmbed {
@@ -342,6 +373,7 @@ describe('embed target classification — extension decides type, never a failed
         history(),
         markdownLanguageExtension(),
         embedLivePreview({
+          hostPageId: 'test-host-page',
           resolveEmbedImage: () => declineImage,
           onImageClick: () => undefined,
           onOpenImageMenu: () => undefined,
@@ -512,18 +544,46 @@ describe('note embed rendering trims leading/trailing blank lines, never interna
   });
 });
 
-describe('note embeds have no CM6 fold toggle/folding inside their own nested content — the embed always reads as one continuous, fully-expanded passage', () => {
-  // `.cm-fold-toggle` is no longer a "never appears inside a note embed at
-  // all" signal as of the embed's own collapse control (positioned like
-  // `FoldToggleWidget`, sharing its class — see `NoteEmbedWidget.ts`'s own
-  // "Positioned like the standalone fold toggle" doc comment): exactly one
-  // legitimately exists per embed, as `.cm-note-embed__header`'s own first
-  // child. These tests scope past that to `.cm-note-embed__content
-  // .cm-content` — the nested read-only `EditorView`'s own content — which
-  // is where a genuine CM6 heading/list/fenced-code toggle would have to
-  // render if `createEditorView`'s `readOnly` gate weren't correctly
-  // omitting `foldToggleDecoration()`/`codeFolding()` there.
-  it('a note embed\'s own nested view has no CM6 fold toggle for its heading, through the real embedLivePreview → NoteEmbedWidget → createEditorView pipeline (not just a direct createEditorView call)', () => {
+describe('note embeds have their own independent CM6 fold toggle/folding inside their nested content (ADR-033 amendment)', () => {
+  // `.cm-fold-toggle` legitimately appears in TWO different roles inside
+  // one embed card: the embed's own whole-card collapse control
+  // (`.cm-note-embed__header`'s own first child — see `NoteEmbedWidget.ts`'s
+  // "Positioned like the standalone fold toggle" doc comment) and, as of
+  // ADR-033's amendment, a genuine CM6 heading/list/fenced-code fold
+  // toggle *inside* the nested read-only `EditorView`'s own content
+  // (`.cm-note-embed__content .cm-content`) — `createEditorView`'s
+  // `enableFolding: true` (independent of `readOnly: true`) is what
+  // NoteEmbedWidget.ts now passes for exactly this.
+  /**
+   * Finds the nested read-only EditorView directly inside `container` (not
+   * a further-nested one) and force-completes its parse —
+   * `foldToggleDecoration()` needs a fully parsed syntax tree, same
+   * requirement `createEditorView.test.ts`'s own top-level fold-toggle
+   * tests already establish.
+   */
+  function nestedViewOf(container: Element): EditorView {
+    const dom = container.querySelector(':scope > .cm-note-embed__content > .cm-editor')!;
+    const nestedView = EditorView.findFromDOM(dom as HTMLElement)!;
+    forceParsing(nestedView);
+    return nestedView;
+  }
+
+  /**
+   * A fold toggle belonging to `nestedView`'s OWN top-level content —
+   * never a further-nested embed's own toggle, which (confirmed directly:
+   * a note-embed widget is itself rendered as a descendant of `.cm-line`)
+   * would otherwise also match a bare `.cm-content .cm-fold-toggle`
+   * descendant selector. The real DOM chain a genuine top-level fold
+   * toggle sits in is `.cm-editor > .cm-scroller > .cm-content >
+   * .cm-line > .cm-fold-toggle` (every step a direct child) — a further-
+   * nested embed's own toggle is always at least one extra wrapper level
+   * deeper than that, so this exact chain excludes it.
+   */
+  function ownFoldToggle(nestedView: EditorView): HTMLElement | null {
+    return nestedView.dom.querySelector(':scope > .cm-scroller > .cm-content > .cm-line > .cm-fold-toggle');
+  }
+
+  it("a note embed's own nested view has a real CM6 fold toggle for its heading, through the real embedLivePreview → NoteEmbedWidget → createEditorView pipeline (not just a direct createEditorView call)", () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -532,17 +592,16 @@ describe('note embeds have no CM6 fold toggle/folding inside their own nested co
     );
 
     const card = view.dom.querySelector('.cm-note-embed')!;
-    expect(card.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
-    // The embed's own collapse control is still exactly one real
+    const nestedView = nestedViewOf(card);
+
+    expect(ownFoldToggle(nestedView)).not.toBeNull();
+    // The embed's own collapse control is a second, distinct
     // `.cm-fold-toggle`, living in the header, not the nested content.
     expect(card.querySelector(':scope > .cm-note-embed__header > .cm-fold-toggle')).not.toBeNull();
-    // The nested view's own content is real, not the top-level editor's —
-    // confirms this checked the embed's own toggle-less nested view, not
-    // merely the absence of a toggle somewhere unrelated.
     expect(card.querySelector('.cm-content')?.textContent).toContain('Heading');
   });
 
-  it('a note embedded inside another note embed also has no CM6 fold toggle for its own heading — the same behavior at every nesting depth, with no depth-specific logic', () => {
+  it('a note embedded inside another note embed also has a real CM6 fold toggle for its own heading — the same behavior at every nesting depth, with no depth-specific logic', () => {
     const view = mountView(
       '![[Outer]]',
       resolverFor({
@@ -552,22 +611,42 @@ describe('note embeds have no CM6 fold toggle/folding inside their own nested co
     );
 
     const outerCard = view.dom.querySelector('.cm-note-embed')!;
-    expect(outerCard.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
+    const outerNestedView = nestedViewOf(outerCard);
+    expect(ownFoldToggle(outerNestedView)).not.toBeNull();
 
     const innerCard = outerCard.querySelector('.cm-note-embed')!;
     expect(innerCard).not.toBeNull();
-    // Deliberately `:scope >`, not a bare descendant selector — a bare
-    // `.cm-note-embed__content .cm-content .cm-fold-toggle` matches
-    // against the *full document* ancestor chain, not one scoped to
-    // `innerCard`'s own subtree, so it would incorrectly also match the
-    // inner embed's own header toggle via the *outer* embed's
-    // `.cm-note-embed__content .cm-content` ancestors sitting above
-    // `innerCard` in the real DOM (confirmed directly — a first version
-    // of this test using the bare form failed for exactly this reason).
-    expect(innerCard.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
-    // The inner embed's own collapse control is still present.
+    const innerNestedView = nestedViewOf(innerCard);
+    expect(ownFoldToggle(innerNestedView)).not.toBeNull();
+    // The inner embed's own collapse control is still present, distinct
+    // from its nested heading's own fold toggle.
     expect(innerCard.querySelector(':scope > .cm-note-embed__header > .cm-fold-toggle')).not.toBeNull();
     expect(innerCard.querySelector('.cm-content')?.textContent).toContain('Inner heading');
+  });
+
+  it('folding a heading inside the nested view hides its own content but never mutates the embedded document text', () => {
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': {
+          status: 'resolved',
+          pageId: 'page-other',
+          title: 'Other Note',
+          markdown: '# Heading\n\nBody under heading',
+          icon: 'note', emoji: null,
+        },
+      })
+    );
+
+    const card = view.dom.querySelector('.cm-note-embed')!;
+    const nestedView = nestedViewOf(card);
+
+    const toggle = ownFoldToggle(nestedView) as HTMLButtonElement;
+    toggle.click();
+
+    expect(nestedView.dom.textContent).not.toContain('Body under heading');
+    // Still non-mutating — the embedded document's own text is unchanged.
+    expect(nestedView.state.doc.toString()).toBe('# Heading\n\nBody under heading');
   });
 });
 
@@ -650,7 +729,7 @@ describe('note embed collapse/expand (Phase 2)', () => {
     return card.querySelector('[aria-label="Collapse note"], [aria-label="Expand note"]') as HTMLButtonElement;
   }
 
-  it('renders expanded by default: content visible, dividers and header present, button reads "Collapse note"', () => {
+  it('renders expanded by default: content visible, one closing divider and header present, button reads "Collapse note"', () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -662,12 +741,18 @@ describe('note embed collapse/expand (Phase 2)', () => {
     const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
     expect(content.hidden).toBe(false);
     expect(content.textContent).toContain('Body text.');
-    expect(card.querySelectorAll('.cm-note-embed__divider')).toHaveLength(2);
+    // Exactly one divider — the closing "End of note" boundary. No bare
+    // wavy rule above the header (removed; see NoteEmbedWidget.ts's own
+    // doc comment for why a label-less divider there was visual noise).
+    const dividers = card.querySelectorAll('.cm-note-embed__divider');
+    expect(dividers).toHaveLength(1);
+    expect(dividers[0]!.textContent).toContain('End of note');
+    expect(card.classList.contains('cm-note-embed--collapsed')).toBe(false);
     expect(card.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note');
     expect(collapseButtonOf(card).getAttribute('aria-label')).toBe('Collapse note');
   });
 
-  it('clicking Collapse hides the body only — top divider, header/title, and bottom divider all stay visible', () => {
+  it('clicking Collapse hides the body and the "End of note" divider (nothing left for it to mark the end of); header/title stay visible', () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -680,17 +765,20 @@ describe('note embed collapse/expand (Phase 2)', () => {
 
     const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
     expect(content.hidden).toBe(true);
-    // The dividers, header, icon, and title are separate DOM elements from
+    // `.cm-note-embed--collapsed` is what NoteEmbedWidget.css keys its own
+    // `.cm-note-embed--collapsed .cm-note-embed__divider { display: none }`
+    // rule off — jsdom doesn't apply that external stylesheet, so this
+    // class is the DOM-observable proxy for "the divider is now hidden."
+    expect(card.classList.contains('cm-note-embed--collapsed')).toBe(true);
+    // Header/title/icon are separate DOM elements from
     // `.cm-note-embed__content` — hiding it must not remove or hide them.
-    expect(card.querySelectorAll('.cm-note-embed__divider')).toHaveLength(2);
-    expect((card.querySelector('.cm-note-embed__divider') as HTMLElement | null)?.hidden).toBeFalsy();
     expect(card.querySelector('.cm-note-embed__header')).not.toBeNull();
     expect(card.querySelector('.cm-note-embed__title')?.textContent).toBe('Other Note');
     expect(card.querySelector('.cm-note-embed__icon-wrap')).not.toBeNull();
     expect(collapseButtonOf(card).getAttribute('aria-label')).toBe('Expand note');
   });
 
-  it('clicking Expand after Collapse restores the content exactly as it was', () => {
+  it('clicking Expand after Collapse restores the content exactly as it was, and removes cm-note-embed--collapsed again', () => {
     const view = mountView(
       '![[Other Note]]',
       resolverFor({
@@ -705,6 +793,7 @@ describe('note embed collapse/expand (Phase 2)', () => {
     const content = card.querySelector<HTMLElement>('.cm-note-embed__content')!;
     expect(content.hidden).toBe(false);
     expect(content.textContent).toContain('Body text.');
+    expect(card.classList.contains('cm-note-embed--collapsed')).toBe(false);
     expect(collapseButtonOf(card).getAttribute('aria-label')).toBe('Collapse note');
   });
 
@@ -785,7 +874,7 @@ describe('note embed collapse/expand (Phase 2)', () => {
     expect(secondCard!.querySelector<HTMLElement>('.cm-note-embed__content')?.textContent).toContain('Second body.');
   });
 
-  it('a note embedded inside another note embed collapses independently, at any depth, with the read-only nested editor left fully expanded internally (no Phase 1 fold toggles inside it)', () => {
+  it('a note embedded inside another note embed collapses independently, at any depth, without disturbing the read-only nested editor\'s own (now independently foldable, per ADR-033) internal content', () => {
     const view = mountView(
       '![[Outer]]',
       resolverFor({
@@ -797,16 +886,6 @@ describe('note embed collapse/expand (Phase 2)', () => {
     const outerCard = view.dom.querySelector('.cm-note-embed')!;
     const innerCard = outerCard.querySelector('.cm-note-embed')!;
 
-    // No CM6 fold toggle anywhere inside the nested read-only view's own
-    // content, collapsed or not — createEditorView's own `readOnly` gate
-    // already omits `foldToggleDecoration()`/`codeFolding()` entirely,
-    // unrelated to and unaffected by this collapse mechanism. (The outer
-    // embed's own `.cm-fold-toggle` collapse control, and the inner
-    // embed's own, both legitimately exist elsewhere in this tree — see
-    // the "no CM6 fold toggle inside their own nested content" describe
-    // block above for that distinction.)
-    expect(outerCard.querySelector(':scope > .cm-note-embed__content > .cm-content .cm-fold-toggle')).toBeNull();
-
     collapseButtonOf(innerCard).dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
     expect(innerCard.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
@@ -815,5 +894,336 @@ describe('note embed collapse/expand (Phase 2)', () => {
     // collapsing the inner one must not collapse the outer one.
     const outerOwnContent = outerCard.querySelector(':scope > .cm-note-embed__content') as HTMLElement;
     expect(outerOwnContent.hidden).toBe(false);
+  });
+});
+
+/**
+ * Regression coverage for ADR-033's amendment — fold-state persistence for
+ * note embeds, keyed by the *embedded* page's own `pageId`, through the
+ * same `FoldStatePersistence` shape `FoldStateStore` implements. Case 1
+ * from the original request ("fold inside a normal note → close/reopen →
+ * remains folded") is covered by `createEditorView.test.ts`'s own
+ * "fold-state persistence" describe block and `MarkdownEditor.test.tsx`'s
+ * "fold-state persistence (ADR-033)" describe block — this file covers
+ * cases 2-5, specific to the embed lifecycle (`NoteEmbedWidget.destroy()`'s
+ * capture hook / `toDOM()`'s restore).
+ */
+describe('note-embed fold-state persistence (ADR-033 amendment)', () => {
+  /** A fold toggle belonging to `nestedView`'s OWN top-level content — see this file's own `ownFoldToggle` above (duplicated here since it's declared inside a sibling `describe`'s closure, not exported). */
+  function ownFoldToggle(nestedView: EditorView): HTMLElement | null {
+    return nestedView.dom.querySelector(':scope > .cm-scroller > .cm-content > .cm-line > .cm-fold-toggle');
+  }
+
+  function nestedViewOf(container: Element): EditorView {
+    const dom = container.querySelector(':scope > .cm-note-embed__content > .cm-editor')!;
+    const nestedView = EditorView.findFromDOM(dom as HTMLElement)!;
+    forceParsing(nestedView);
+    return nestedView;
+  }
+
+  function foldedRanges(view: EditorView): Array<{ from: number; to: number }> {
+    const ranges: Array<{ from: number; to: number }> = [];
+    view.state.field(foldState).between(0, view.state.doc.length, (from, to) => {
+      ranges.push({ from, to });
+    });
+    return ranges;
+  }
+
+  it('fold inside an embedded note, then close/reopen the host note (destroy/recreate the outer EditorView) — the embed reopens with the same section still folded', () => {
+    const store = createInMemoryFoldStatePersistence();
+    const doc = '![[Other Note]]';
+    const resolvePageEmbed = resolverFor({
+      'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: '# Section A\ncontent A\n# Section B\ncontent B', icon: 'note', emoji: null },
+    });
+
+    const before = mountView(doc, resolvePageEmbed, { getFoldStateStore: () => store });
+    const beforeNested = nestedViewOf(before.dom.querySelector('.cm-note-embed')!);
+    const headingLine = beforeNested.state.doc.line(1);
+    beforeNested.dispatch({ effects: [foldEffect.of({ from: headingLine.to, to: beforeNested.state.doc.line(2).to })] });
+
+    // "Close the host note" — destroy the entire outer EditorView, which
+    // cascades WidgetType.destroy() for the embed widget, capturing fold
+    // state into `store` keyed by 'page-other'.
+    before.destroy();
+
+    // "Reopen the host note" — a genuinely fresh outer EditorView, same
+    // store (as if it were the same app session, later).
+    const after = mountView(doc, resolvePageEmbed, { getFoldStateStore: () => store });
+    const afterNested = nestedViewOf(after.dom.querySelector('.cm-note-embed')!);
+
+    expect(foldedRanges(afterNested)).toEqual([{ from: headingLine.to, to: beforeNested.state.doc.line(2).to }]);
+    expect(ownFoldToggle(afterNested)?.dataset.folded).toBe('true');
+  });
+
+  it('a note with no persisted fold entry opens its embed unfolded — the ordinary default', () => {
+    const store = createInMemoryFoldStatePersistence();
+    const view = mountView(
+      '![[Other Note]]',
+      resolverFor({
+        'Other Note': { status: 'resolved', pageId: 'page-never-folded', title: 'Other Note', markdown: '# Heading\ncontent', icon: 'note', emoji: null },
+      }),
+      { getFoldStateStore: () => store }
+    );
+    const nestedView = nestedViewOf(view.dom.querySelector('.cm-note-embed')!);
+
+    expect(foldedRanges(nestedView)).toEqual([]);
+  });
+
+  it('multiple different embedded notes maintain independent persisted fold states', () => {
+    const store = createInMemoryFoldStatePersistence();
+    const doc = '![[First]]\n\n![[Second]]';
+    const resolvePageEmbed = resolverFor({
+      First: { status: 'resolved', pageId: 'page-first', title: 'First', markdown: '# First heading\nfirst body', icon: 'note', emoji: null },
+      Second: { status: 'resolved', pageId: 'page-second', title: 'Second', markdown: '# Second heading\nsecond body', icon: 'note', emoji: null },
+    });
+
+    const before = mountView(doc, resolvePageEmbed, { getFoldStateStore: () => store });
+    const [firstCardBefore, secondCardBefore] = Array.from(before.dom.querySelectorAll('.cm-note-embed'));
+    const firstNestedBefore = nestedViewOf(firstCardBefore!);
+    // Only "First" is folded — "Second" is left expanded.
+    const firstHeadingLine = firstNestedBefore.state.doc.line(1);
+    firstNestedBefore.dispatch({ effects: [foldEffect.of({ from: firstHeadingLine.to, to: firstNestedBefore.state.doc.length })] });
+    void secondCardBefore;
+
+    before.destroy();
+
+    const after = mountView(doc, resolvePageEmbed, { getFoldStateStore: () => store });
+    const [firstCardAfter, secondCardAfter] = Array.from(after.dom.querySelectorAll('.cm-note-embed'));
+    const firstNestedAfter = nestedViewOf(firstCardAfter!);
+    const secondNestedAfter = nestedViewOf(secondCardAfter!);
+
+    expect(foldedRanges(firstNestedAfter)).toEqual([{ from: firstHeadingLine.to, to: firstNestedBefore.state.doc.length }]);
+    expect(foldedRanges(secondNestedAfter)).toEqual([]);
+  });
+
+  it('the same embedded note appearing twice in the same host note both restore the same persisted fold state — no conflicting entries', () => {
+    const store = createInMemoryFoldStatePersistence();
+    const doc = '![[Other Note]]\n\n![[Other Note]]';
+    const resolvePageEmbed = resolverFor({
+      'Other Note': { status: 'resolved', pageId: 'page-shared', title: 'Other Note', markdown: '# Heading\nbody', icon: 'note', emoji: null },
+    });
+
+    const before = mountView(doc, resolvePageEmbed, { getFoldStateStore: () => store });
+    const [firstOccurrenceBefore, secondOccurrenceBefore] = Array.from(
+      before.dom.querySelectorAll('.cm-note-embed')
+    ).map(nestedViewOf);
+    // Both occurrences folded identically — the natural case, since a user
+    // seeing the same note embedded twice folding one the same way as the
+    // other doesn't create any real divergence to resolve. (ADR-033's
+    // amendment separately documents, as an accepted, unsolved race, the
+    // case where two simultaneous occurrences of the same page are folded
+    // *differently* at once — not exercised here, since the product
+    // requirement this test covers is "no *conflicting* persisted state,"
+    // not "resolve genuinely divergent simultaneous edits.")
+    const headingLine = firstOccurrenceBefore!.state.doc.line(1);
+    const range = { from: headingLine.to, to: firstOccurrenceBefore!.state.doc.length };
+    firstOccurrenceBefore!.dispatch({ effects: [foldEffect.of(range)] });
+    secondOccurrenceBefore!.dispatch({ effects: [foldEffect.of(range)] });
+
+    // Destroying the outer view tears down BOTH occurrences — both capture
+    // the identical fold state to the one persisted entry for
+    // 'page-shared', so destroy order doesn't matter here.
+    before.destroy();
+
+    const after = mountView(doc, resolvePageEmbed, { getFoldStateStore: () => store });
+    const [firstAfter, secondAfter] = Array.from(after.dom.querySelectorAll('.cm-note-embed'));
+    const firstOccurrenceAfter = nestedViewOf(firstAfter!);
+    const secondOccurrenceAfter = nestedViewOf(secondAfter!);
+
+    // Both occurrences, at their own construction, read the same
+    // FoldStateStore entry — restoring consistently, never conflicting.
+    expect(foldedRanges(firstOccurrenceAfter)).toEqual([range]);
+    expect(foldedRanges(secondOccurrenceAfter)).toEqual([range]);
+  });
+
+  it('stale/changed embedded document content does not restore invalid fold ranges — the embed opens unfolded instead', () => {
+    const store = createInMemoryFoldStatePersistence();
+    const resolvePageEmbedBefore = resolverFor({
+      'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: '# Section A\ncontent A\n# Section B\ncontent B', icon: 'note', emoji: null },
+    });
+
+    const before = mountView('![[Other Note]]', resolvePageEmbedBefore, { getFoldStateStore: () => store });
+    const beforeNested = nestedViewOf(before.dom.querySelector('.cm-note-embed')!);
+    const headingLine = beforeNested.state.doc.line(1);
+    beforeNested.dispatch({ effects: [foldEffect.of({ from: headingLine.to, to: beforeNested.state.doc.line(2).to })] });
+    before.destroy();
+
+    // The embedded page's content changed between capture and reopen (an
+    // edit made directly to it, or via a different embed occurrence) —
+    // same page id, different markdown.
+    const resolvePageEmbedAfter = resolverFor({
+      'Other Note': { status: 'resolved', pageId: 'page-other', title: 'Other Note', markdown: 'Something completely different now', icon: 'note', emoji: null },
+    });
+    const after = mountView('![[Other Note]]', resolvePageEmbedAfter, { getFoldStateStore: () => store });
+    const afterNested = nestedViewOf(after.dom.querySelector('.cm-note-embed')!);
+
+    expect(foldedRanges(afterNested)).toEqual([]);
+    expect(afterNested.state.doc.toString()).toBe('Something completely different now');
+  });
+});
+
+/**
+ * Regression coverage for ADR-033's second amendment — the *outer*
+ * "collapse this whole embedded note card" toggle (`ImageUiState.
+ * collapsed`, a completely different mechanism from CM6 `foldState`; see
+ * that amendment's own investigation finding). Persisted independently of
+ * — and must never conflict with — the *inner* CM6 fold state the first
+ * amendment (tested above) already covers.
+ */
+describe("note-embed OUTER collapse persistence (ADR-033's second amendment)", () => {
+  function nestedViewOf(container: Element): EditorView {
+    const dom = container.querySelector(':scope > .cm-note-embed__content > .cm-editor')!;
+    const nestedView = EditorView.findFromDOM(dom as HTMLElement)!;
+    forceParsing(nestedView);
+    return nestedView;
+  }
+
+  function foldedRanges(view: EditorView): Array<{ from: number; to: number }> {
+    const ranges: Array<{ from: number; to: number }> = [];
+    view.state.field(foldState).between(0, view.state.doc.length, (from, to) => {
+      ranges.push({ from, to });
+    });
+    return ranges;
+  }
+
+  function collapseButtonOf(card: Element): HTMLButtonElement {
+    return card.querySelector('[aria-label="Collapse note"], [aria-label="Expand note"]') as HTMLButtonElement;
+  }
+
+  const singleEmbedDoc = '![[Other Note]]';
+  const singleEmbedResolver = () =>
+    resolverFor({
+      'Other Note': {
+        status: 'resolved',
+        pageId: 'page-other',
+        title: 'Other Note',
+        markdown: '# Heading\ncontent',
+        icon: 'note',
+        emoji: null,
+      },
+    });
+
+  it('outer embed collapsed, then close/reopen the host note — the embed reopens still collapsed', () => {
+    const store = createInMemoryFoldStatePersistence();
+
+    const before = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    const cardBefore = before.dom.querySelector('.cm-note-embed')!;
+    collapseButtonOf(cardBefore).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(cardBefore.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
+    before.destroy();
+
+    const after = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    const cardAfter = after.dom.querySelector('.cm-note-embed')!;
+    expect(cardAfter.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
+    expect(collapseButtonOf(cardAfter).getAttribute('aria-label')).toBe('Expand note');
+  });
+
+  it('outer embed left expanded (never toggled), then close/reopen — remains expanded, the ordinary default', () => {
+    const store = createInMemoryFoldStatePersistence();
+
+    const before = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    before.destroy();
+
+    const after = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    const cardAfter = after.dom.querySelector('.cm-note-embed')!;
+    expect(cardAfter.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
+    expect(collapseButtonOf(cardAfter).getAttribute('aria-label')).toBe('Collapse note');
+  });
+
+  it('outer collapsed AND inner content folded — both independently survive close/reopen', () => {
+    const store = createInMemoryFoldStatePersistence();
+
+    const before = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    const cardBefore = before.dom.querySelector('.cm-note-embed')!;
+    const nestedBefore = nestedViewOf(cardBefore);
+    const headingLine = nestedBefore.state.doc.line(1);
+    nestedBefore.dispatch({ effects: [foldEffect.of({ from: headingLine.to, to: nestedBefore.state.doc.length })] });
+    collapseButtonOf(cardBefore).dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    before.destroy();
+
+    const after = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    const cardAfter = after.dom.querySelector('.cm-note-embed')!;
+    expect(cardAfter.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
+    const nestedAfter = nestedViewOf(cardAfter);
+    expect(foldedRanges(nestedAfter)).toEqual([{ from: headingLine.to, to: nestedBefore.state.doc.length }]);
+  });
+
+  it('outer left expanded, only inner content folded — after reopen, only the inner fold is present, the outer card stays expanded', () => {
+    const store = createInMemoryFoldStatePersistence();
+
+    const before = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    const cardBefore = before.dom.querySelector('.cm-note-embed')!;
+    const nestedBefore = nestedViewOf(cardBefore);
+    const headingLine = nestedBefore.state.doc.line(1);
+    nestedBefore.dispatch({ effects: [foldEffect.of({ from: headingLine.to, to: nestedBefore.state.doc.length })] });
+    // Outer collapse control deliberately never clicked.
+    before.destroy();
+
+    const after = mountView(singleEmbedDoc, singleEmbedResolver(), { getFoldStateStore: () => store });
+    const cardAfter = after.dom.querySelector('.cm-note-embed')!;
+    expect(cardAfter.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
+    expect(collapseButtonOf(cardAfter).getAttribute('aria-label')).toBe('Collapse note');
+    const nestedAfter = nestedViewOf(cardAfter);
+    expect(foldedRanges(nestedAfter)).toEqual([{ from: headingLine.to, to: nestedBefore.state.doc.length }]);
+  });
+
+  it('two different host notes embedding the same note do not share outer-collapse state — collapsing it in one host leaves the other host\'s own occurrence expanded', () => {
+    const store = createInMemoryFoldStatePersistence();
+
+    const hostA = mountView(singleEmbedDoc, singleEmbedResolver(), {
+      getFoldStateStore: () => store,
+      hostPageId: 'host-a',
+    });
+    collapseButtonOf(hostA.dom.querySelector('.cm-note-embed')!).dispatchEvent(
+      new MouseEvent('click', { bubbles: true })
+    );
+    hostA.destroy();
+
+    // A different host note, embedding the exact same page, never toggled
+    // in this session at all.
+    const hostB = mountView(singleEmbedDoc, singleEmbedResolver(), {
+      getFoldStateStore: () => store,
+      hostPageId: 'host-b',
+    });
+    const cardB = hostB.dom.querySelector('.cm-note-embed')!;
+    expect(cardB.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
+    expect(collapseButtonOf(cardB).getAttribute('aria-label')).toBe('Collapse note');
+    hostB.destroy();
+
+    // Reopening host A still shows its own collapsed state, independent of
+    // host B ever having been opened in between.
+    const hostAReopened = mountView(singleEmbedDoc, singleEmbedResolver(), {
+      getFoldStateStore: () => store,
+      hostPageId: 'host-a',
+    });
+    const cardAReopened = hostAReopened.dom.querySelector('.cm-note-embed')!;
+    expect(cardAReopened.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(true);
+  });
+
+  it("the embedded note's own inner fold state stays keyed by its own pageId, independent of which host embeds it or that host's own outer-collapse state", () => {
+    const store = createInMemoryFoldStatePersistence();
+
+    const hostA = mountView(singleEmbedDoc, singleEmbedResolver(), {
+      getFoldStateStore: () => store,
+      hostPageId: 'host-a',
+    });
+    const nestedA = nestedViewOf(hostA.dom.querySelector('.cm-note-embed')!);
+    const headingLine = nestedA.state.doc.line(1);
+    nestedA.dispatch({ effects: [foldEffect.of({ from: headingLine.to, to: nestedA.state.doc.length })] });
+    hostA.destroy();
+
+    // A different host note embedding the same page — the inner fold
+    // (keyed by the embedded page's own pageId, per the first amendment)
+    // restores identically regardless of which host is rendering it.
+    const hostB = mountView(singleEmbedDoc, singleEmbedResolver(), {
+      getFoldStateStore: () => store,
+      hostPageId: 'host-b',
+    });
+    const nestedB = nestedViewOf(hostB.dom.querySelector('.cm-note-embed')!);
+    expect(foldedRanges(nestedB)).toEqual([{ from: headingLine.to, to: nestedA.state.doc.length }]);
+    // And host B's own outer card is still expanded — host B never
+    // toggled its own collapse, and the shared embedded-pageId fold state
+    // has no bearing on either host's own independent outer-collapse flag.
+    expect(hostB.dom.querySelector<HTMLElement>('.cm-note-embed__content')!.hidden).toBe(false);
   });
 });
