@@ -291,3 +291,20 @@
 .cm-note-embed--collapsed .cm-note-embed__divider {
   display: none;
 }
+
+/*
+ * Collapsed background — top-level only. Reuses `--surface-secondary`,
+ * the exact token `mediaPresentation/invalidEmbedCard.css`'s own
+ * `.cm-invalid-embed__row` already uses, rather than a second background
+ * token invented for this one state. Nested embeds (inside another
+ * embed's own read-only view) reset back to no background, same
+ * `.cm-content[contenteditable='false']` nested signal every other
+ * top-level-only rule in this file already keys off.
+ */
+.cm-note-embed--collapsed {
+  background: var(--surface-secondary);
+}
+
+.cm-content[contenteditable='false'] .cm-note-embed--collapsed {
+  background: none;
+}
