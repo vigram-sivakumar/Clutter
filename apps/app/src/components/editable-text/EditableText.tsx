@@ -81,6 +81,18 @@ function placeCaretAtEnd(element: HTMLDivElement | null) {
 
   selection.removeAllRanges();
   selection.addRange(range);
+
+  // The caret is now at the very end of the content, but placing a Range
+  // via script (unlike typing) does not reliably trigger the browser's
+  // own "scroll the caret into view" behavior — confirmed the gap this
+  // exists to close: a long value autoFocused into a `.editable-text`
+  // narrower than its content left the caret positioned correctly but
+  // scrolled out of view, at the start of the text, until the user typed
+  // a character or manually scrolled. Since the caret always sits at the
+  // rightmost edge of the content here, scrolling fully right reveals it
+  // directly — a no-op when the content already fits (`scrollWidth`
+  // equals the visible width).
+  element.scrollLeft = element.scrollWidth;
 }
 
 /** How long the reject-shake CSS animation (EditableText.css) plays. */

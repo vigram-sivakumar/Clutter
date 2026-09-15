@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act, createRef } from 'react';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -453,5 +455,99 @@ describe('EditableText imperative focus handle', () => {
     ref.current?.focus();
 
     expect(document.activeElement).toBe(getEditable());
+  });
+});
+
+// Single-line, never-wrap CSS — jsdom does not compute real layout/paint,
+// so `.editable-text`'s own overflow/white-space declarations are
+// verified against the stylesheet source itself, the same convention
+// `wikiLinkStrikethroughComposition.test.ts` uses for CSS-only assertions
+// elsewhere in this codebase. Behavioral proof that a caret placed at the
+// end is actually scrolled into view lives in the "scroll to caret" block
+// below, which exercises the real placeCaretAtEnd code path.
+describe('EditableText.css — single-line, no-wrap, scrollable overflow', () => {
+  const css = readFileSync(join(__dirname, 'EditableText.css'), 'utf8');
+  const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  function rule(selector: string): string {
+    const escaped = selector.replace(/[.]/g, '\\$&');
+    const match = cssWithoutComments.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`));
+    expect(match, `${selector} rule not found`).not.toBeNull();
+    return match![1] ?? '';
+  }
+
+  it('never wraps — white-space is nowrap, not pre-wrap/normal', () => {
+    expect(rule('.editable-text')).toMatch(/white-space\s*:\s*nowrap\s*;/);
+  });
+
+  it('is horizontally scrollable, not hard-clipped, so both native and scripted scroll-to-caret work', () => {
+    expect(rule('.editable-text')).toMatch(/overflow-x\s*:\s*auto\s*;/);
+  });
+
+  it('never grows a second line — vertical overflow is clipped', () => {
+    expect(rule('.editable-text')).toMatch(/overflow-y\s*:\s*hidden\s*;/);
+  });
+
+  it('hides the horizontal scrollbar so scrolling reads as plain text, not a visible scroll widget', () => {
+    expect(rule('.editable-text')).toMatch(/scrollbar-width\s*:\s*none\s*;/);
+    expect(cssWithoutComments).toMatch(/\.editable-text::-webkit-scrollbar\s*\{\s*display\s*:\s*none\s*;\s*\}/);
+  });
+});
+
+// Scroll-to-caret on rename — the bug this section is a regression test
+// for: `placeCaretAtEnd` correctly placed the Range/Selection at the end
+// of the content, but placing a Range via script (unlike typing a
+// character) does not reliably trigger the browser's own "scroll the
+// caret into view" behavior, so a long value stayed scrolled to its start
+// with the caret positioned, but not visible, at the end.
+describe('EditableText — scrolls the caret into view when placed at the end', () => {
+  it('a long autoFocused value scrolls fully right so the end of the text (where the caret is) is visible', () => {
+    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(500);
+    const value = '#very-long-project-name-that-does-not-fit';
+
+    render(<EditableText value={value} onCommit={vi.fn()} autoFocus />);
+    const editable = getEditable() as HTMLDivElement;
+
+    expect(editable.scrollLeft).toBe(500);
+
+    scrollWidthSpy.mockRestore();
+  });
+
+  it('a short value that already fits is unaffected — scrolling to the end is a no-op when there is nothing to scroll', () => {
+    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(0);
+    render(<EditableText value="short" onCommit={vi.fn()} autoFocus />);
+    const editable = getEditable() as HTMLDivElement;
+
+    expect(editable.scrollLeft).toBe(0);
+
+    scrollWidthSpy.mockRestore();
+  });
+
+  it('a rejected Enter submit re-scrolls to the end too, not just the initial autoFocus', () => {
+    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(500);
+    const onCommit = vi.fn(() => false);
+    render(<EditableText value="Original" onCommit={onCommit} />);
+
+    const editable = getEditable() as HTMLDivElement;
+    editable.focus();
+    typeText(editable, '#very-long-project-name-that-does-not-fit');
+    editable.scrollLeft = 0; // simulate the field having scrolled back to the start while typing
+    fireEvent.keyDown(editable, { key: 'Enter' });
+
+    expect(editable.scrollLeft).toBe(500);
+
+    scrollWidthSpy.mockRestore();
+  });
+
+  it('does not disturb the caret position itself — still collapsed at the exact end of the text', () => {
+    const scrollWidthSpy = vi.spyOn(Element.prototype, 'scrollWidth', 'get').mockReturnValue(500);
+    const value = '#very-long-project-name-that-does-not-fit';
+    render(<EditableText value={value} onCommit={vi.fn()} autoFocus />);
+
+    const selection = window.getSelection();
+    expect(selection?.isCollapsed).toBe(true);
+    expect(selection?.anchorOffset).toBe(value.length);
+
+    scrollWidthSpy.mockRestore();
   });
 });

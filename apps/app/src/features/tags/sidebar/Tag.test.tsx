@@ -113,6 +113,23 @@ describe('Tag — sidebar Change icon wiring', () => {
   });
 });
 
+describe('Tag — non-editing title truncation', () => {
+  // Regression: the static title was a bare text node directly inside
+  // .entry__content, which CSS cannot target at all (an anonymous flex
+  // item has no selector), so it could never actually ellipsize — it
+  // either overflowed the row or was hard-clipped with no `…`. Wrapping
+  // it in a <span> is what lets Entry.css's `.entry__content span` rule
+  // (overflow/white-space/text-overflow, plus the min-width: 0 fix —
+  // see Entry.test.tsx's own CSS-source coverage) reach it at all, the
+  // same way Note/Folder's titles already do.
+  it('renders the static title inside a <span>, matching the Note/Folder title convention', () => {
+    render(<TagHarness />);
+
+    const title = screen.getByText('project');
+    expect(title.tagName).toBe('SPAN');
+  });
+});
+
 describe('Tag — sidebar Rename wiring', () => {
   it("the overflow menu offers a 'Rename' action", () => {
     render(<TagHarness />);

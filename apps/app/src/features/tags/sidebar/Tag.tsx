@@ -93,7 +93,7 @@ export function Tag({
             onEditingEnd={onTitleEditingEnd}
           />
         ) : (
-          title
+          <span className="tag__title">{title}</span>
         )}
       </Entry>
       {onChangeIcon !== undefined && (

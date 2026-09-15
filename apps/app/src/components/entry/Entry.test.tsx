@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -101,5 +103,32 @@ describe('Entry: mouse click behavior is unchanged', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
 
     expect(onClick).not.toHaveBeenCalled();
+  });
+});
+
+// Regression: a long title span never actually ellipsized — it either
+// overflowed unclipped or was hard-clipped by `.entry__content`'s own
+// `overflow: hidden` with no `…` ever rendered, because a flex item's
+// default `min-width: auto` refuses to shrink below its own content's
+// width, so `.entry__content span` never got narrow enough for its own
+// `text-overflow: ellipsis` to trigger. jsdom computes no real layout, so
+// this is CSS-source-only, matching the convention
+// wikiLinkStrikethroughComposition.test.ts already uses; DOM-level proof
+// that a title actually renders inside a `<span>` (so this rule reaches
+// it at all) lives in Tag.test.tsx/Note.test.tsx/Folder.test.tsx.
+describe('Entry.css — long titles actually ellipsize, not just get clipped', () => {
+  const css = readFileSync(join(__dirname, 'Entry.css'), 'utf8');
+  const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const match = cssWithoutComments.match(/\.entry__content span\s*\{([^}]*)\}/);
+
+  it('declares min-width: 0 so the title span can shrink below its content width and actually ellipsize', () => {
+    expect(match, '.entry__content span rule not found').not.toBeNull();
+    expect(match![1]).toMatch(/min-width\s*:\s*0\s*;/);
+  });
+
+  it('still declares the ellipsis truncation trio unchanged', () => {
+    expect(match![1]).toMatch(/overflow\s*:\s*hidden\s*;/);
+    expect(match![1]).toMatch(/white-space\s*:\s*nowrap\s*;/);
+    expect(match![1]).toMatch(/text-overflow\s*:\s*ellipsis\s*;/);
   });
 });

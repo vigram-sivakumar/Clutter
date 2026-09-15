@@ -85,6 +85,18 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 
+  /*
+   * Without this, a flex item's default `min-width: auto` refuses to
+   * shrink below its own content's natural width — the title span never
+   * actually becomes narrower than the text itself, so it overflows
+   * `.entry__content` untruncated (hard-clipped by that ancestor's own
+   * `overflow: hidden`, with no ellipsis ever rendered) instead of
+   * shrinking to the available space and showing `text-overflow` on
+   * itself. This is what lets a long title actually ellipsize rather
+   * than merely getting cut off.
+   */
+  min-width: 0;
+
   height: fit-content;
 }
 
