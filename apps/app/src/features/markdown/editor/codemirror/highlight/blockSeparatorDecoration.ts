@@ -4,6 +4,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemir
 import type { SyntaxNode } from '@lezer/common';
 
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
+import { nearestFencedCode } from './fencedCodeBlockLineDecoration';
 import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './separatorScope';
 
 /**
@@ -65,6 +66,62 @@ function nearestParticipant(state: EditorState, probePos: number): SyntaxNode | 
 }
 
 /**
+ * The document position at which a *leading* separator immediately
+ * before physical line `n` should actually be anchored — normally
+ * `state.doc.line(n).from`, **except** when line `n` is the exact
+ * physical line a `FencedCode` node's own `.from` sits on (i.e. line `n`
+ * opens a fenced code block with no leading indentation), in which case
+ * it is the previous line's own `.to` instead.
+ *
+ * **Why**: `fencedCodeBlockWrapper.ts`'s `EditorView.blockWrappers` gives
+ * every `FencedCode` node a real DOM wrapper for its own `[from, to)`
+ * range. CM6's block-tiling (confirmed directly against the installed
+ * `@codemirror/view` source, `TileBuilder.getBlockPos`/
+ * `updateBlockWrappers`) only *reuses* an already-open wrapper tile for a
+ * later block when that block's own position has strictly advanced past
+ * the wrapper's `.from` (`wrap.from < this.pos`); a `block: true` widget
+ * decoration anchored at exactly `wrap.from` is processed *before* the
+ * wrapper's own position has advanced at all (a widget consumes no
+ * document characters), so both it *and* the fenced block's own first
+ * line that immediately follows — still at that same, unadvanced
+ * position — each fail that check and each open their *own* new wrapper
+ * tile. The result: two independent `.cm-code-block` DOM elements for
+ * one logical block — an empty one (just the separator widget) sitting
+ * on top of the real, bordered one — reproduced directly (this is the
+ * exact shape of the reported bug: a rounded, empty bar floating above
+ * the fenced code card).
+ *
+ * Anchoring one position earlier — the previous line's own `.to` (the
+ * newline immediately before the block starts) — sidesteps this
+ * entirely: at that position the wrapper's own `cur.from <= this.pos`
+ * check hasn't even started matching yet (`wrap.from` is one past this
+ * position), so the widget renders as an ordinary top-level block with
+ * no wrapper at all, exactly as intended, and the fenced block's own
+ * first line goes on to open its own single wrapper tile immediately
+ * after, undisturbed.
+ *
+ * Only the *entry* side needs this: a separator anchored at
+ * `state.doc.line(n).from` when line `n` is instead the line *after* a
+ * `FencedCode`'s own closing fence never coincides with that node's own
+ * `.to` (the closing fence's `.to` sits one position *earlier*, inside
+ * the previous line, before that line's own trailing newline) — already
+ * a different integer position, so no collision exists there and no
+ * adjustment is needed. An indented fence (nested inside a list item)
+ * doesn't collide either: the node's own `.from` sits *after* the line's
+ * leading whitespace, at a position `state.doc.line(n).from` doesn't
+ * reach in the first place — same reasoning as `isFirst`'s own
+ * `line.from <= owner.from` bound in `fencedCodeBlockLineDecoration.ts`.
+ */
+function leadingSeparatorAnchor(state: EditorState, n: number): number {
+  const line = state.doc.line(n);
+  const owner = nearestFencedCode(state, line.from);
+  if (owner && owner.from === line.from) {
+    return state.doc.line(n - 1).to;
+  }
+  return line.from;
+}
+
+/**
  * Every physical-line boundary in the document — the general case,
  * covering ordinary paragraphs (including a `Paragraph`'s own multiple
  * physical lines, which get no special treatment here — see
@@ -91,7 +148,7 @@ function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
     const prevProbe = lineProbePos(state, n - 1);
     const probe = lineProbePos(state, n);
     const height = resolveBoundaryHeight(state, prevProbe, probe);
-    const separator = separatorRange(height, state.doc.line(n).from, -1);
+    const separator = separatorRange(height, leadingSeparatorAnchor(state, n), -1);
     if (separator) {
       ranges.push(separator);
     }
