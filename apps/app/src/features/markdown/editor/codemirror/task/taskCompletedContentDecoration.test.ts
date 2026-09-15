@@ -7,6 +7,10 @@ import { describe, expect, it } from 'vitest';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { taskCompletedContentDecoration } from './taskCompletedContentDecoration';
 import { isNodeOnCompletedTask, TASK_COMPLETED_CLASS } from './taskEngagement';
+import { embedLivePreview } from '../embed/embedLivePreview';
+import type { ResolveEmbedImage } from '../embed/embedImageResolution';
+import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
+import type { PageEmbedResolution, ResolvePageEmbed } from '../../../render/blocks/pageEmbedResolution';
 
 /**
  * Coverage for docs/editor-architecture-decisions.md's "Inline formatting
@@ -96,6 +100,110 @@ describe('taskCompletedContentDecoration', () => {
     const marked = view.dom.querySelector(`.${TASK_COMPLETED_CLASS}`);
     expect(marked).not.toBeNull();
     expect(marked?.textContent).toContain('bold');
+  });
+
+  /**
+   * Regression coverage for the 2026-09-15 dimming bug: `buildDecorations`
+   * used to trust the `Task` node's raw `.to` directly, which CommonMark
+   * lazy continuation can inflate past the task's own line — the *exact*
+   * boundary problem `listItemFoldService.ts` already found and fixed for
+   * folding. Every test in this block uses a **single newline, no blank
+   * line** between the task and the following content — the lazy-
+   * continuation-triggering shape the earlier "does not leak... on a later
+   * line" test (blank-line-separated, genuinely independent per CommonMark)
+   * does not exercise at all.
+   */
+  it('task-completion does not leak to an unrelated paragraph with no blank line before it (lazy continuation)', () => {
+    const view = mountView('- [x] Done\nNot part of the task at all.');
+    const lines = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
+    expect(lines).toHaveLength(2);
+    expect(lines[0]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).not.toBeNull();
+    expect(lines[1]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
+  });
+
+  it('task-completion does not leak across several unrelated lazy-continued block types at once', () => {
+    const view = mountView(
+      ['- [x] Done', 'A plain paragraph', '# A heading', '- another bullet', '1. an ordered item'].join('\n')
+    );
+    const lines = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
+    expect(lines[0]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).not.toBeNull();
+    for (const line of lines.slice(1)) {
+      expect(line.querySelector(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
+    }
+  });
+
+  it('genuinely nested (indented) content under a completed task keeps the completed-task styling, but a following unindented sibling does not', () => {
+    const view = mountView('- [x] Done\n    Nested continuation\nSibling paragraph');
+    const lines = Array.from(view.dom.querySelectorAll<HTMLElement>('.cm-line'));
+    expect(lines).toHaveLength(3);
+    expect(lines[0]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).not.toBeNull();
+    expect(lines[1]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).not.toBeNull();
+    expect(lines[2]!.querySelector(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
+  });
+});
+
+/**
+ * The reported symptom itself: a note embed sitting on a lazily-continued
+ * line right after a completed task must never render inside (or under)
+ * the `.cm-task-completed` ancestor mark — confirmed at the DOM level,
+ * not just by range math, since the actual bug was CM6 composing the
+ * (over-wide) mark and the embed's `Decoration.replace` into nested DOM.
+ */
+describe('taskCompletedContentDecoration — embed adjacency', () => {
+  const declineImage: ResolveEmbedImage = () => ({ status: 'unresolved', alt: '' });
+  const declinePdf: ResolveEmbedPdf = () => ({ status: 'non-pdf' });
+
+  function resolverFor(pages: Record<string, PageEmbedResolution>): ResolvePageEmbed {
+    return (path) => pages[path] ?? { status: 'unresolved', displayLabel: path };
+  }
+
+  function mountWithEmbed(doc: string): EditorView {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const resolvePageEmbed = resolverFor({
+      Target: { status: 'resolved', pageId: 'page-target', title: 'Target', markdown: 'Body.', icon: 'note', emoji: null },
+    });
+    const state = EditorState.create({
+      doc,
+      extensions: [
+        markdownLanguageExtension(),
+        taskCompletedContentDecoration(),
+        embedLivePreview({
+          hostPageId: 'test-host-page',
+          resolveEmbedImage: () => declineImage,
+          onImageClick: () => undefined,
+          onOpenImageMenu: () => undefined,
+          resolveEmbedPdf: () => declinePdf,
+          onPdfEmbedClick: () => undefined,
+          onOpenPdfMenu: () => undefined,
+          resolvePageEmbed: () => resolvePageEmbed,
+          onOpenPage: () => undefined,
+          onOpenNoteEmbedMenu: () => undefined,
+        }),
+      ],
+    });
+    return new EditorView({ state, parent });
+  }
+
+  it('an embed lazily continued right after a completed task (no blank line) is never nested inside cm-task-completed', () => {
+    const view = mountWithEmbed('- [x] Done\n![[Target]]');
+    const embedWidget = view.dom.querySelector('.cm-note-embed');
+    expect(embedWidget).not.toBeNull();
+    expect(embedWidget!.closest(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
+  });
+
+  it('the same embed with a blank line before it (genuinely independent per CommonMark) is also never nested inside cm-task-completed', () => {
+    const view = mountWithEmbed('- [x] Done\n\n![[Target]]');
+    const embedWidget = view.dom.querySelector('.cm-note-embed');
+    expect(embedWidget).not.toBeNull();
+    expect(embedWidget!.closest(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
+  });
+
+  it('control case: the same embed with no task anywhere in the document never sits inside cm-task-completed (it does not exist at all)', () => {
+    const view = mountWithEmbed('![[Target]]');
+    const embedWidget = view.dom.querySelector('.cm-note-embed');
+    expect(embedWidget).not.toBeNull();
+    expect(view.dom.querySelector(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
   });
 });
 
