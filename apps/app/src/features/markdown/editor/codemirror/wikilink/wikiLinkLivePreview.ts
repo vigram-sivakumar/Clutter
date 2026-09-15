@@ -8,51 +8,10 @@ import {
   type PluginValue,
   type ViewUpdate,
 } from '@codemirror/view';
-import type { SyntaxNodeRef } from '@lezer/common';
-
-import { collectActiveInlineClasses, isDelimitedMarkConstruct } from '../highlight/inlineLivePreviewParticipants';
-import { isTokenEngaged, type TokenNodeRange } from '../semanticToken/tokenEngagement';
+import { collectActiveInlineClasses } from '../highlight/inlineLivePreviewParticipants';
+import { isTokenEngaged, widenToEnclosingDelimitedRegion } from '../semanticToken/tokenEngagement';
 import { getWikiLinkMarkerRanges, renderWikiLink } from './wikiLinkDecorations';
 import type { ResolveWikiLink } from './wikiLinkResolution';
-
-/**
- * Widens WikiLink's own engagement boundary to include any directly
- * enclosing chain of delimited-inline-formatting ancestors (Emphasis,
- * StrongEmphasis, Strikethrough, Highlight, InlineCode — every construct
- * `delimitedInlineRenderer` in `inlineLivePreviewParticipants.ts` handles),
- * without naming any of them: `isDelimitedMarkConstruct` (imported from
- * `inlineLivePreviewParticipants.ts`, shared with `collectActiveInlineClasses`'s
- * own ancestor walk below) is the same structural fact `delimitedInlineRenderer`
- * itself keys off (`firstChild`/`lastChild` same-name check). Reusing that
- * fact here, rather than a list of node names, is what keeps this generic:
- * it composes with any current or future participant following the same
- * grammar convention with zero new knowledge added about what that
- * participant is.
- *
- * Stops at the first ancestor that doesn't match — ordinary block
- * containers (Paragraph, Document, ListItem, TableCell, ...) never have
- * two identically-`Mark`-named children bracketing their content, so the
- * walk naturally terminates at the paragraph boundary rather than
- * reaching the document root.
- *
- * Without this, `**[[Page]]**` has a real two-character gap on each side
- * (the `**` runs) where StrongEmphasis's own, separately-computed
- * engagement is true but WikiLink's own (narrower) node range isn't yet —
- * producing a `**Page**` state that shouldn't exist. This makes WikiLink's
- * engagement track the *outermost* enclosing region that visually reveals
- * around it, exactly like nested delimited constructs already track each
- * other via `inlineLivePreviewRegion.ts`'s own short-circuit — just
- * computed bottom-up here, since WikiLink sits outside that traversal.
- */
-function widenToEnclosingLivePreviewRegion(node: SyntaxNodeRef): TokenNodeRange {
-  let widest: TokenNodeRange = { from: node.from, to: node.to };
-  let ancestor = node.node.parent;
-  while (ancestor && isDelimitedMarkConstruct(ancestor)) {
-    widest = { from: ancestor.from, to: ancestor.to };
-    ancestor = ancestor.parent;
-  }
-  return widest;
-}
 
 /**
  * WikiLink's own, standalone visibility mechanism — deliberately outside
@@ -109,7 +68,7 @@ function buildDecorations(
           return;
         }
 
-        if (isTokenEngaged(view.state, widenToEnclosingLivePreviewRegion(node))) {
+        if (isTokenEngaged(view.state, widenToEnclosingDelimitedRegion(node.node))) {
           // Engaged: the raw source stays ordinary, undecorated document
           // text — see this function's own doc comment above — except for
           // its own `[[`/`|`/`]]` punctuation, which now paints via the

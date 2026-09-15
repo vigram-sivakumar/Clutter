@@ -89,6 +89,66 @@ describe('handleWikiLinkClick', () => {
   });
 });
 
+// Regression: a WikiLink nested inside an enclosing delimited-mark
+// construct (StrongEmphasis/Strikethrough/Highlight/Emphasis/InlineCode)
+// must decline to activate when the cursor is engaging that *enclosing*
+// construct, even though the click itself lands inside the WikiLink's own
+// (narrower) node range — not just when the cursor sits directly inside
+// the WikiLink's own range, which the "already-engaged" test above already
+// covers. Before this fix, `findAtRestTokenAt` checked only the WikiLink's
+// bare node range, so `**[[Page]]**` rendered as raw/editable text (per
+// wikiLinkLivePreview.ts's own, independently-widened engagement check)
+// while a click anywhere inside the still-visible `[[Page]]` text
+// incorrectly activated navigation instead of just placing the caret.
+describe('handleWikiLinkClick — cursor inside an enclosing formatting construct but outside the WikiLink itself', () => {
+  it('does not activate a click inside the WikiLink text when the selection sits between the ** and the [[', () => {
+    const activate = vi.fn();
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const doc = '**[[Projects/Page]]**';
+    const view = mountView(doc, resolver);
+
+    // Selection between "**" and "[[" — inside StrongEmphasis, outside
+    // WikiLink's own node range entirely.
+    view.dispatch({ selection: { anchor: 2 } });
+
+    // Click lands well inside the WikiLink's own text ("Page"), not at
+    // either boundary.
+    const clickPos = doc.indexOf('Page') + 2;
+    const handled = handleWikiLinkClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(false);
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('does not activate through a Strikethrough ancestor either — the guard is generic, not WikiLink/StrongEmphasis-specific', () => {
+    const activate = vi.fn();
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const doc = '~~[[Projects/Page]]~~';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside the "~~", outside the WikiLink
+    const clickPos = doc.indexOf('Page') + 2;
+    const handled = handleWikiLinkClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(false);
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('still activates a click on the same nested WikiLink when the selection is elsewhere entirely — the guard only fires while genuinely editing', () => {
+    const activate = vi.fn();
+    const resolver: ResolveWikiLink = () => ({ status: 'resolved', icon: 'note', emoji: null, displayLabel: 'X', activate });
+    const doc = 'Before **[[Projects/Page]]** after';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 0 } }); // nowhere near the construct
+    const clickPos = doc.indexOf('Page') + 2;
+    const handled = handleWikiLinkClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(true);
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+});
+
 // Regression: clicking an empty/whitespace-only WikiLink must not
 // create-and-open a page (activate() previously ran through resolveWikiLink's
 // ordinary `unresolved` branch with an empty title). Not handled at all —

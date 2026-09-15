@@ -83,3 +83,44 @@ describe('handleTagClick', () => {
     expect(() => handleTagClick(view, nodeFrom + 2, false, () => undefined)).not.toThrow();
   });
 });
+
+// Regression: a Tag nested inside an enclosing delimited-mark construct
+// must decline to activate while the cursor is engaging that enclosing
+// construct — see wikiLinkMouseHandlers.test.ts's identical regression
+// block for the shared root cause (findAtRestTokenAt used to check only
+// the bare node's own range).
+describe('handleTagClick — cursor inside an enclosing formatting construct but outside the Tag itself', () => {
+  // "x " keeps a valid tag-preceding context (a `#` must be preceded by
+  // whitespace/line-start, isValidTagPrecedingContext) while also keeping
+  // "**" left-flanking (CommonMark requires the character right after an
+  // opening "**" to be non-whitespace) — same doc shape
+  // inlineLivePreviewRegion.test.ts's own Tag/StrongEmphasis composition
+  // tests already use for the identical reason.
+  it('does not activate a click inside the tag text when the selection sits between the ** and the #', () => {
+    const activate = vi.fn();
+    const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
+    const doc = '**x #project**';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside "**x ", outside the Tag
+    const clickPos = doc.indexOf('project') + 2;
+    const handled = handleTagClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(false);
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('still activates when the selection is elsewhere entirely', () => {
+    const activate = vi.fn();
+    const resolver: ResolveTag = () => ({ status: 'resolved', displayLabel: 'project', activate });
+    const doc = 'Before **x #project** after';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 0 } });
+    const clickPos = doc.indexOf('project') + 2;
+    const handled = handleTagClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(true);
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+});

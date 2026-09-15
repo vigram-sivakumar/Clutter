@@ -101,3 +101,51 @@ describe('handleUrlClick', () => {
     expect(mockOpen).not.toHaveBeenCalled();
   });
 });
+
+// Regression: an Autolink/bare URL nested inside an enclosing
+// delimited-mark construct must decline to open while the cursor is
+// engaging that enclosing construct — see wikiLinkMouseHandlers.test.ts's
+// identical regression block for the shared root cause.
+describe('handleUrlClick — cursor inside an enclosing formatting construct but outside the URL/Autolink itself', () => {
+  it('does not open an Autolink when the selection sits between the ** and the <', () => {
+    const mockOpen = vi.mocked(openExternalUrl);
+    mockOpen.mockClear();
+    const doc = '**<https://example.com/a>**';
+    const view = mountView(doc);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside "**", outside the Autolink
+    const inside = doc.indexOf('example');
+    const handled = handleUrlClick(view, inside, false);
+
+    expect(handled).toBe(false);
+    expect(mockOpen).not.toHaveBeenCalled();
+  });
+
+  it('does not open a bare URL when the selection sits inside an enclosing Strikethrough', () => {
+    const mockOpen = vi.mocked(openExternalUrl);
+    mockOpen.mockClear();
+    const doc = '~~https://example.com/a~~';
+    const view = mountView(doc);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside "~~", outside the URL
+    const inside = doc.indexOf('example');
+    const handled = handleUrlClick(view, inside, false);
+
+    expect(handled).toBe(false);
+    expect(mockOpen).not.toHaveBeenCalled();
+  });
+
+  it('still opens the Autolink when the selection is elsewhere entirely', () => {
+    const mockOpen = vi.mocked(openExternalUrl);
+    mockOpen.mockClear();
+    const doc = 'Before **<https://example.com/a>** after';
+    const view = mountView(doc);
+
+    view.dispatch({ selection: { anchor: 0 } });
+    const inside = doc.indexOf('example');
+    const handled = handleUrlClick(view, inside, false);
+
+    expect(handled).toBe(true);
+    expect(mockOpen).toHaveBeenCalledWith('https://example.com/a');
+  });
+});

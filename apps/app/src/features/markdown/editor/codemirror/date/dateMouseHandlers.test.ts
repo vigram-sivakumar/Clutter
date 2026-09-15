@@ -148,3 +148,41 @@ describe('handleDateClick', () => {
     });
   });
 });
+
+// Regression: a Date nested inside an enclosing delimited-mark construct
+// must decline to activate while the cursor is engaging that enclosing
+// construct — see wikiLinkMouseHandlers.test.ts's identical regression
+// block for the shared root cause (findAtRestTokenAt used to check only
+// the bare node's own range).
+describe('handleDateClick — cursor inside an enclosing formatting construct but outside the Date itself', () => {
+  // "x " keeps a valid date-preceding context (isValidDatePrecedingContext
+  // mirrors the Tag rule) while also keeping "**" left-flanking, same
+  // reasoning as tagMouseHandlers.test.ts's identical regression block.
+  it('does not activate a click inside the date text when the selection sits between the ** and the @', () => {
+    const activate = vi.fn();
+    const resolver: ResolveDate = () => ({ activate });
+    const doc = '**x @2026-08-20**';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside "**x ", outside the Date
+    const clickPos = doc.indexOf('2026') + 2;
+    const handled = handleDateClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(false);
+    expect(activate).not.toHaveBeenCalled();
+  });
+
+  it('still activates when the selection is elsewhere entirely', () => {
+    const activate = vi.fn();
+    const resolver: ResolveDate = () => ({ activate });
+    const doc = 'Before **x @2026-08-20** after';
+    const view = mountView(doc, resolver);
+
+    view.dispatch({ selection: { anchor: 0 } });
+    const clickPos = doc.indexOf('2026') + 2;
+    const handled = handleDateClick(view, clickPos, false, () => resolver);
+
+    expect(handled).toBe(true);
+    expect(activate).toHaveBeenCalledTimes(1);
+  });
+});

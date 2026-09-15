@@ -91,3 +91,39 @@ describe('handleLinkClick', () => {
     expect(mockOpen).toHaveBeenCalledWith('https://example.com');
   });
 });
+
+// Regression: a Link nested inside an enclosing delimited-mark construct
+// must decline to open its URL while the cursor is engaging that
+// enclosing construct, even though the click lands inside the Link's own
+// (narrower) node range — see wikiLinkMouseHandlers.test.ts's identical
+// regression block for the shared root cause (findAtRestTokenAt used to
+// check only the bare node's own range).
+describe('handleLinkClick — cursor inside an enclosing formatting construct but outside the Link itself', () => {
+  it('does not open the URL for a click inside the link label when the selection sits between the ** and the [', () => {
+    const mockOpen = vi.mocked(openExternalUrl);
+    mockOpen.mockClear();
+    const doc = '**[Google](https://google.com)**';
+    const view = mountView(doc);
+
+    view.dispatch({ selection: { anchor: 1 } }); // inside "**", outside the Link
+    const labelInside = doc.indexOf('Google') + 2;
+    const handled = handleLinkClick(view, labelInside, false);
+
+    expect(handled).toBe(false);
+    expect(mockOpen).not.toHaveBeenCalled();
+  });
+
+  it('still opens the URL when the selection is elsewhere entirely', () => {
+    const mockOpen = vi.mocked(openExternalUrl);
+    mockOpen.mockClear();
+    const doc = 'Before **[Google](https://google.com)** after';
+    const view = mountView(doc);
+
+    view.dispatch({ selection: { anchor: 0 } });
+    const labelInside = doc.indexOf('Google') + 2;
+    const handled = handleLinkClick(view, labelInside, false);
+
+    expect(handled).toBe(true);
+    expect(mockOpen).toHaveBeenCalledWith('https://google.com');
+  });
+});
