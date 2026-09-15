@@ -311,6 +311,9 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
     // (see clearCachedEditorSession's own doc comment) that can only
     // ever make this a no-op, never cause incorrect behavior.
     clearCachedEditorSession(activePageId);
+    // ADR-033: same rationale as clearCachedEditorSession above, applied
+    // to the durable fold-state store instead of the session cache.
+    application.foldStateStore.clear(activePageId);
     void application.pageOperations.delete(activePageId);
   };
 
@@ -768,6 +771,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
               ref={editorRef}
               markdown={model.markdown}
               focusOnOpen={focusEditorOnOpen(model.title)}
+              foldStateStore={application.foldStateStore}
               onEdit={(markdown) => model.updateMarkdown(markdown)}
               onFlush={() => model.requestSave()}
               resolveWikiLink={resolveWikiLink}
@@ -896,6 +900,7 @@ export function PageHost({ application, onOpenResource, onOpenImageOverlay }: Pa
             ref={editorRef}
             markdown={model.markdown}
             focusOnOpen={focusEditorOnOpen(model.title)}
+            foldStateStore={application.foldStateStore}
             onEdit={(markdown) => model.updateMarkdown(markdown)}
             onFlush={() => model.requestSave()}
             resolveWikiLink={resolveWikiLink}

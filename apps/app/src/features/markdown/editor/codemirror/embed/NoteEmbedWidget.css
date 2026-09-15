@@ -41,11 +41,26 @@
  * between the flex children (header/divider/content/divider) is the only
  * internal spacing.
  */
-.cm-note-embed {
+.cm-media-block.cm-note-embed {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  /* padding: var(--space-6);
+  background: color-mix(
+    in srgb,
+    var(--syntax-code-background) 55%,
+    transparent
+  );
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+  isolation: isolate; */
+}
+.cm-content[contenteditable='false'] .cm-note-embed {
+  padding: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
 }
 
 .cm-note-embed__header {
@@ -53,7 +68,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--md-marker-text-gap);
-  padding-block: var(--space-6);
 }
 
 /* The resolved page's own identity icon — emoji if assigned, else the
@@ -92,14 +106,21 @@
   flex: 1 1 auto;
   min-width: 0;
   color: var(--foreground-secondary);
-  font-size: var(--text-label);
-  font-weight: var(--fw-medium);
-  line-height: var(--lh-label);
+  font-size: var(--text-body-small);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body-small);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
 }
+
+/* .cm-note-embed--collapsed .cm-note-embed__title {
+  color: var(--foreground-primary);
+  font-size: var(--text-body);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-body);
+} */
 
 /* Hidden at rest, revealed on hover/focus of the whole card — same
  * reveal contract as Image's `.cm-media-controls`/PDF's
@@ -116,7 +137,6 @@
   gap: var(--space-2);
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity 150ms ease;
 }
 
 .cm-note-embed:hover .cm-note-embed__controls,
@@ -160,7 +180,7 @@
 /* Base rule — applies to EVERY .cm-note-embed__content, top-level included */
 .cm-note-embed__content {
   /* top-level-only styling goes here */
-  margin-bottom: var(--space-12);
+  padding-left: calc(var(--md-marker-width) + var(--md-marker-text-gap));
 }
 
 /* Extra indent — nested note embeds only (a note embed rendered *inside*
@@ -177,7 +197,7 @@
  * ancestor check.
  */
 .cm-content[contenteditable='false'] .cm-note-embed__content {
-  padding-left: 30px;
+  padding-left: 0px;
   /* Resets the base rule's own `margin-bottom` for the nested case —
      overriding via higher specificity only affects properties actually
      re-declared here; anything not repeated (like margin-bottom would be
@@ -220,10 +240,12 @@
 .cm-note-embed__divider {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-12);
   /* pick whatever width you want */
   /* max-width: 200px;
   margin-inline: auto; */
+  display: none;
 }
 
 .cm-note-embed__divider-rule {
@@ -301,10 +323,35 @@
  * `.cm-content[contenteditable='false']` nested signal every other
  * top-level-only rule in this file already keys off.
  */
-.cm-note-embed--collapsed {
-  background: var(--surface-secondary);
+.cm-note-embed::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: var(--space-0);
+  top: -3px;
+  bottom: -3px;
+  left: -3px;
+  right: -3px;
+  background: color-mix(in srgb, var(--surface-subtle) 50%, transparent);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+  z-index: -1;
+  cursor: default;
+  user-select: none;
+
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.cm-note-embed:hover::before {
+  opacity: 1;
+}
+.cm-note-embed--collapsed:hover::before {
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-sm);
+  opacity: 1;
 }
 
-.cm-content[contenteditable='false'] .cm-note-embed--collapsed {
-  background: none;
+.cm-content[contenteditable='false'] .cm-note-embed::before {
+  opacity: 0;
+}
+.cm-content[contenteditable='false'] .cm-note-embed:hover::before {
+  opacity: 0;
 }

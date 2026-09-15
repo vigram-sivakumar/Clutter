@@ -113,6 +113,7 @@ function mountView(doc: string, resolveEmbedPdf: ResolveEmbedPdf): EditorView {
       history(),
       markdownLanguageExtension(),
       embedLivePreview({
+        hostPageId: 'test-host-page',
         resolveEmbedImage: () => imageResolverFor({ 'document.pdf': { status: 'non-image' } }),
         onImageClick: () => undefined,
         onOpenImageMenu: () => undefined,

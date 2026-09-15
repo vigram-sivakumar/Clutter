@@ -125,6 +125,7 @@ function mountPdfView(doc: string, anchor = 0): EditorView {
       history(),
       markdownLanguageExtension(),
       embedLivePreview({
+        hostPageId: 'test-host-page',
         resolveEmbedImage: () => resolveEmbedImage,
         onImageClick: () => undefined,
         onOpenImageMenu: () => undefined,

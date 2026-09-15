@@ -7,7 +7,10 @@ import { createEditorView, serializeFoldState } from '../createEditorView';
 import { CARET_DOWN_ICON, CARET_RIGHT_ICON } from '../fold/FoldToggleWidget';
 import { setImageUiState, type ImageUiState } from '../image/imageUiState';
 import { EXPAND_ICON, MORE_ICON } from '../mediaPresentation/embedControlIcons';
-import { EDIT_ICON, renderInvalidEmbedCard } from '../mediaPresentation/invalidEmbedCard';
+import {
+  EDIT_ICON,
+  renderInvalidEmbedCard,
+} from '../mediaPresentation/invalidEmbedCard';
 import { computeEmbedRemovalRange } from '../mediaPresentation/embedRemovalRange';
 import { PAGE_IDENTITY_ICON_BY_KIND } from '../mediaPresentation/pageIdentityIcons';
 import type { PageEmbedResolution } from '../../../render/blocks/pageEmbedResolution';
@@ -104,8 +107,13 @@ export type OnOpenNoteEmbedMenu = (params: OpenNoteEmbedMenuParams) => void;
  * instance straight through with no adapter needed.
  */
 export interface FoldStatePersistence {
-  get(pageId: string): { readonly doc: string; readonly fold: readonly number[] } | undefined;
-  set(pageId: string, entry: { readonly doc: string; readonly fold: readonly number[] }): void;
+  get(
+    pageId: string
+  ): { readonly doc: string; readonly fold: readonly number[] } | undefined;
+  set(
+    pageId: string,
+    entry: { readonly doc: string; readonly fold: readonly number[] }
+  ): void;
   /**
    * ADR-033's second amendment — the outer "collapse this whole embedded
    * note card" toggle (this file's own `collapseButton`, below) is a
@@ -118,8 +126,15 @@ export interface FoldStatePersistence {
    * folded into `get`/`set` above, which own only the embedded page's own
    * *internal* CM6 fold ranges.
    */
-  getEmbedCollapse(hostPageId: string, embeddedPageId: string): boolean | undefined;
-  setEmbedCollapse(hostPageId: string, embeddedPageId: string, collapsed: boolean): void;
+  getEmbedCollapse(
+    hostPageId: string,
+    embeddedPageId: string
+  ): boolean | undefined;
+  setEmbedCollapse(
+    hostPageId: string,
+    embeddedPageId: string,
+    collapsed: boolean
+  ): void;
 }
 
 /**
@@ -270,7 +285,10 @@ export class NoteEmbedWidget extends WidgetType {
 
   constructor(
     /** `null` for a broken embed — the target never resolved to a real page (or resolved but was rejected for a cycle/depth reason), rendered via `renderBroken` below instead of the resolved-page working state. */
-    readonly resolution: Extract<PageEmbedResolution, { status: 'resolved' }> | null,
+    readonly resolution: Extract<
+      PageEmbedResolution,
+      { status: 'resolved' }
+    > | null,
     /** The raw, unresolved embed target text (`match.path` from `embedLivePreview.ts`'s own scan) — always present, but only ever shown to the user as the broken card's own secondary text (`renderBroken` below); the working state shows `resolution.title` instead. */
     readonly path: string,
     readonly extensions: readonly Extension[],
@@ -409,16 +427,28 @@ export class NoteEmbedWidget extends WidgetType {
     const expandButton = this.makeButton(EXPAND_ICON, 'Expand', () => {
       this.getOnOpenPage()?.(resolution.pageId);
     });
-    const editButton = this.makeButton(EDIT_ICON, this.ui.revealed ? 'Hide source' : 'Edit source', () => {
-      const revealing = !this.ui.revealed;
-      view.dispatch({
-        effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, revealed: revealing } }),
-        selection: revealing ? EditorSelection.cursor(this.to) : undefined,
-        scrollIntoView: revealing,
-      });
-    });
+    const editButton = this.makeButton(
+      EDIT_ICON,
+      this.ui.revealed ? 'Hide source' : 'Edit source',
+      () => {
+        const revealing = !this.ui.revealed;
+        view.dispatch({
+          effects: setImageUiState.of({
+            pos: this.pos,
+            to: this.to,
+            state: { ...this.ui, revealed: revealing },
+          }),
+          selection: revealing ? EditorSelection.cursor(this.to) : undefined,
+          scrollIntoView: revealing,
+        });
+      }
+    );
     const moreActionsButton = this.makeButton(MORE_ICON, 'More actions', () => {
-      this.getOnOpenNoteEmbedMenu()?.({ anchor: moreActionsButton, pos: this.pos, to: this.to });
+      this.getOnOpenNoteEmbedMenu()?.({
+        anchor: moreActionsButton,
+        pos: this.pos,
+        to: this.to,
+      });
     });
     // `--mutating` distinguishes the two content-changing controls (Edit
     // source reveals editable raw Markdown; More actions includes Turn
@@ -472,7 +502,11 @@ export class NoteEmbedWidget extends WidgetType {
       collapseButton.dataset.folded = String(collapsing);
       setCollapseButtonLabel(collapsing);
       view.dispatch({
-        effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, collapsed: collapsing } }),
+        effects: setImageUiState.of({
+          pos: this.pos,
+          to: this.to,
+          state: { ...this.ui, collapsed: collapsing },
+        }),
       });
       // ADR-033's second amendment: written immediately, at the click
       // itself — unlike CM6 fold state (only capturable at `destroy()`),
@@ -480,7 +514,11 @@ export class NoteEmbedWidget extends WidgetType {
       // no need to wait for a rebuild/teardown that may never come before
       // the host note closes (`eq()` deliberately excludes `collapsed`,
       // so this widget instance can live for the rest of the session).
-      this.getFoldStateStore()?.setEmbedCollapse(this.hostPageId, resolution.pageId, collapsing);
+      this.getFoldStateStore()?.setEmbedCollapse(
+        this.hostPageId,
+        resolution.pageId,
+        collapsing
+      );
     });
 
     // Expand, then Edit source, then More actions — unchanged order,
@@ -506,7 +544,7 @@ export class NoteEmbedWidget extends WidgetType {
     // nothing to mark; CSS hides this one too whenever the card is
     // collapsed (`.cm-note-embed--collapsed`, below), since there is no
     // content between the header and it to mark the end of.
-    const endDivider = this.buildDivider('End of note');
+    const endDivider = this.buildDivider('End of embeded note');
 
     container.append(header, content, endDivider);
 
@@ -586,7 +624,11 @@ export class NoteEmbedWidget extends WidgetType {
       onEdit: () => {
         const revealing = !this.ui.revealed;
         view.dispatch({
-          effects: setImageUiState.of({ pos: this.pos, to: this.to, state: { ...this.ui, revealed: revealing } }),
+          effects: setImageUiState.of({
+            pos: this.pos,
+            to: this.to,
+            state: { ...this.ui, revealed: revealing },
+          }),
           selection: revealing ? EditorSelection.cursor(this.to) : undefined,
           scrollIntoView: revealing,
         });
@@ -605,7 +647,10 @@ export class NoteEmbedWidget extends WidgetType {
     // change that fails `eq()` above, not just a host note close). No-op
     // for a broken embed (`this.resolution === null`) — nothing to key by.
     if (this.resolution && this.nestedView) {
-      this.getFoldStateStore()?.set(this.resolution.pageId, serializeFoldState(this.nestedView));
+      this.getFoldStateStore()?.set(
+        this.resolution.pageId,
+        serializeFoldState(this.nestedView)
+      );
     }
     this.nestedView?.destroy();
     this.nestedView = null;
@@ -616,7 +661,11 @@ export class NoteEmbedWidget extends WidgetType {
   }
 
   /** Builds one floating control button using the shared `.cm-media-control` chrome (`MediaFloatingControls.css`) — the same visual system `ImageWidget.ts`'s own working-state controls use, not a note-embed-specific button style. */
-  private makeButton(iconHtml: string, label: string, onActivate: () => void): HTMLButtonElement {
+  private makeButton(
+    iconHtml: string,
+    label: string,
+    onActivate: () => void
+  ): HTMLButtonElement {
     const button = document.createElement('button');
     button.type = 'button';
     button.classList.add('cm-media-control');

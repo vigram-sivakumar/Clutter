@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest';
 import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands';
-import { forceParsing } from '@codemirror/language';
+import { foldEffect, foldState, forceParsing } from '@codemirror/language';
 import { Transaction } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
@@ -10,6 +10,7 @@ import {
   docTextMatches,
   hasEstablishedEditingPosition,
   serializeEditorHistory,
+  serializeFoldState,
   syncMarkdownIntoView,
 } from './createEditorView';
 import {
@@ -634,6 +635,42 @@ describe('createEditorView — fold toggle/folding omitted for a read-only view,
     expect(view.dom.querySelector('.cm-content')!.textContent).toBe(before);
   });
 
+  it('ADR-033 amendment: a read-only view with enableFolding: true gets a real fold toggle and real fold state — folding and read-only-ness are independent', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+
+    const view = createEditorView({
+      doc: '# Heading\n\nBody',
+      parent,
+      readOnly: true,
+      enableFolding: true,
+      extensions: [markdownLanguageExtension()],
+    });
+    forceParsing(view);
+
+    expect(view.dom.querySelector('.cm-fold-toggle')).not.toBeNull();
+
+    // foldCode (foldKeymap's own command) folds the innermost foldable
+    // range containing the *selection* — createEditorView's own default
+    // selection sits at doc.length (the "Body" line), which has nothing
+    // foldable, so the selection is moved onto the heading line first.
+    view.dispatch({ selection: { anchor: 0 } });
+
+    const before = view.dom.querySelector('.cm-content')!.textContent;
+    const handled = view.contentDOM.dispatchEvent(
+      new KeyboardEvent('keydown', { key: '[', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true })
+    );
+    // foldKeymap IS bound now — Ctrl-Shift-[ actually folds, unlike the
+    // enableFolding-omitted case above.
+    expect(handled).toBe(false); // preventDefault() was called — the shortcut fired
+    expect(view.dom.querySelector('.cm-content')!.textContent).not.toBe(before);
+
+    // Still genuinely read-only — folding is non-mutating, but document
+    // edits remain fully blocked.
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'x' } });
+    expect(view.state.doc.toString()).toBe('# Heading\n\nBody');
+  });
+
   it('the top-level (writable) editor keeps its own fold toggle/folding regardless of what a nested read-only view does — the two never share state', () => {
     const topParent = document.createElement('div');
     document.body.appendChild(topParent);
@@ -650,5 +687,162 @@ describe('createEditorView — fold toggle/folding omitted for a read-only view,
     forceParsing(topView);
 
     expect(topView.dom.querySelector('.cm-fold-toggle')).not.toBeNull();
+  });
+});
+
+/**
+ * Regression coverage for ADR-033's fold-state persistence mechanics:
+ * `serializeFoldState()`/`restoreFoldJSON` — the CM6-level counterpart to
+ * `FoldStateStore.test.ts`'s storage-level coverage. `FoldStateStore`
+ * itself and `MarkdownEditor.tsx`'s wiring are exercised in their own test
+ * files; these tests exercise `createEditorView` directly, at the level a
+ * note switch/app restart actually operates: "close a folded note" is
+ * `serializeFoldState(view)`; "reopen it" is
+ * `createEditorView({..., restoreFoldJSON})`.
+ */
+describe('createEditorView — fold-state persistence (serializeFoldState + restoreFoldJSON, ADR-033)', () => {
+  function readFoldedRanges(view: EditorView): Array<{ from: number; to: number }> {
+    const ranges: Array<{ from: number; to: number }> = [];
+    view.state.field(foldState).between(0, view.state.doc.length, (from, to) => {
+      ranges.push({ from, to });
+    });
+    return ranges;
+  }
+
+  it('serializeFoldState captures the doc and every currently-folded range', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const doc = 'line0\nline1\nline2\nline3\nline4';
+    const view = createEditorView({ doc, parent });
+
+    view.dispatch({ effects: [foldEffect.of({ from: 6, to: 11 })] });
+
+    const snapshot = serializeFoldState(view);
+    expect(snapshot.doc).toBe(doc);
+    expect(snapshot.fold).toEqual([6, 11]);
+  });
+
+  it('serializeFoldState on a freshly-created, unfolded view captures an empty fold array', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const doc = 'just one line, nothing folded';
+    const view = createEditorView({ doc, parent });
+
+    expect(serializeFoldState(view).fold).toEqual([]);
+  });
+
+  it('restoreFoldJSON restores a single folded region into a freshly-constructed view', () => {
+    const doc = 'line0\nline1\nline2\nline3\nline4';
+
+    const closingParent = document.createElement('div');
+    document.body.appendChild(closingParent);
+    const closingView = createEditorView({ doc, parent: closingParent });
+    closingView.dispatch({ effects: [foldEffect.of({ from: 6, to: 11 })] });
+    const persisted = serializeFoldState(closingView);
+    closingView.destroy();
+
+    const reopeningParent = document.createElement('div');
+    document.body.appendChild(reopeningParent);
+    const reopenedView = createEditorView({
+      doc,
+      parent: reopeningParent,
+      restoreFoldJSON: persisted,
+    });
+
+    expect(readFoldedRanges(reopenedView)).toEqual([{ from: 6, to: 11 }]);
+  });
+
+  it('restoreFoldJSON restores multiple independently-folded regions', () => {
+    const doc = 'line0\nline1\nline2\nline3\nline4\nline5';
+
+    const closingParent = document.createElement('div');
+    document.body.appendChild(closingParent);
+    const closingView = createEditorView({ doc, parent: closingParent });
+    closingView.dispatch({
+      effects: [
+        foldEffect.of({ from: 0, to: 5 }),
+        foldEffect.of({ from: 18, to: 23 }),
+      ],
+    });
+    const persisted = serializeFoldState(closingView);
+    closingView.destroy();
+
+    const reopeningParent = document.createElement('div');
+    document.body.appendChild(reopeningParent);
+    const reopenedView = createEditorView({
+      doc,
+      parent: reopeningParent,
+      restoreFoldJSON: persisted,
+    });
+
+    expect(readFoldedRanges(reopenedView)).toEqual([
+      { from: 0, to: 5 },
+      { from: 18, to: 23 },
+    ]);
+  });
+
+  it('a note with no persisted fold entry opens with no folds (default, unfolded)', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const view = createEditorView({ doc: 'line0\nline1\nline2', parent });
+
+    expect(readFoldedRanges(view)).toEqual([]);
+  });
+
+  it('restoreFoldJSON is silently ignored when the persisted doc no longer matches the current content — no stale fold positions are restored onto changed content', () => {
+    const closingParent = document.createElement('div');
+    document.body.appendChild(closingParent);
+    const closingView = createEditorView({
+      doc: 'line0\nline1\nline2\nline3',
+      parent: closingParent,
+    });
+    closingView.dispatch({ effects: [foldEffect.of({ from: 6, to: 11 })] });
+    const persisted = serializeFoldState(closingView);
+    closingView.destroy();
+
+    // Content changed externally (e.g. a task toggle, or an edit made in a
+    // prior session) between capture and this reopen — the persisted
+    // positions no longer necessarily correspond to the same section.
+    const reopeningParent = document.createElement('div');
+    document.body.appendChild(reopeningParent);
+    const reopenedView = createEditorView({
+      doc: 'a completely different line0\nline1\nline2\nline3',
+      parent: reopeningParent,
+      restoreFoldJSON: persisted,
+    });
+
+    expect(readFoldedRanges(reopenedView)).toEqual([]);
+  });
+
+  it('two notes maintain independent fold state — restoring one never leaks folds into the other', () => {
+    const docA = 'lineA0\nlineA1\nlineA2';
+    const docB = 'lineB0\nlineB1\nlineB2';
+
+    const closingParentA = document.createElement('div');
+    document.body.appendChild(closingParentA);
+    const closingViewA = createEditorView({ doc: docA, parent: closingParentA });
+    closingViewA.dispatch({ effects: [foldEffect.of({ from: 0, to: 6 })] });
+    const persistedA = serializeFoldState(closingViewA);
+    closingViewA.destroy();
+
+    // Note B was never folded — nothing to persist for it.
+    const parentB = document.createElement('div');
+    document.body.appendChild(parentB);
+    const reopenedB = createEditorView({
+      doc: docB,
+      parent: parentB,
+      restoreFoldJSON: undefined,
+    });
+
+    const parentA = document.createElement('div');
+    document.body.appendChild(parentA);
+    const reopenedA = createEditorView({
+      doc: docA,
+      parent: parentA,
+      restoreFoldJSON: persistedA,
+    });
+
+    expect(readFoldedRanges(reopenedA)).toEqual([{ from: 0, to: 6 }]);
+    expect(readFoldedRanges(reopenedB)).toEqual([]);
   });
 });

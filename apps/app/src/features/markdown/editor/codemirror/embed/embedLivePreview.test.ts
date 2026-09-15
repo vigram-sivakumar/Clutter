@@ -78,6 +78,7 @@ function mountView(
       history(),
       markdownLanguageExtension(),
       embedLivePreview({
+        hostPageId: 'test-host-page',
         resolveEmbedImage: () => resolveEmbedImage,
         onImageClick: () => onImageClick,
         onOpenImageMenu: () => onOpenImageMenu,
@@ -117,6 +118,7 @@ function mountFullView(
       autocompletion({ override: [embedCompletionSource(() => getEmbedSuggestions)] }),
       embedAutocomplete(),
       embedLivePreview({
+        hostPageId: 'test-host-page',
         resolveEmbedImage: () => resolveEmbedImage,
         onImageClick: () => undefined,
         onOpenImageMenu: () => undefined,
@@ -259,6 +261,7 @@ describe('embedLivePreview — rendering (cursor already outside — "at rest")'
     const state = EditorState.create({
       doc: `x ${HERO}`,
       extensions: [markdownLanguageExtension(), embedLivePreview({
+      hostPageId: 'test-host-page',
       resolveEmbedImage: () => undefined,
       onImageClick: () => undefined,
       onOpenImageMenu: () => undefined,
@@ -554,6 +557,7 @@ describe('embedLivePreview — remove', () => {
     const state = EditorState.create({
       doc,
       extensions: [history(), markdownLanguageExtension(), embedLivePreview({
+      hostPageId: 'test-host-page',
       resolveEmbedImage: () => resolverFor({}),
       onImageClick: () => undefined,
       onOpenImageMenu: () => undefined,

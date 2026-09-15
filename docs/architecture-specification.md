@@ -644,7 +644,7 @@ Own transient navigation UI state: active page/folder, open pages, expanded fold
 None — this is already a minimal, self-contained subsystem (unchanged from today). This remains true after [ADR-027](./adr/027-navigation-history.md): navigation history is stored as `ActiveView` snapshots (already a `Workspace`-owned type) and validated only mechanically (stack push/pop/peek), never by checking `Vault` existence — that check, which would require a real dependency, is deliberately kept in `NavigationRouter` instead.
 
 ### Lifecycle
-Constructed once at the Composition Root, lives for the app session. In-memory only — does not persist across restarts (this is intentional, not a gap, per the target document).
+Constructed once at the Composition Root, lives for the app session. In-memory only — does not persist across restarts (this is intentional, not a gap, per the target document). This covers `Workspace`'s own tracked fields only (active view, open tabs, folder/section collapse, sidebar state, navigation history) — it does not describe editor fold state, which [ADR-033](./adr/033-fold-state-persistence.md)'s `FoldStateStore` persists separately, through `.clutter/workspace.json`, outside `Workspace` itself (fold state is editor content state, not navigation state).
 
 ### Invariants
 - Exactly one of `activePageId`/`activeFolderId` is set at a time (opening a page clears the active folder and vice versa).
@@ -662,7 +662,7 @@ Owns navigation UI state. Must never own persisted product data or write logic.
 `refresh()` is a general-purpose "external state changed, re-evaluate" notification, distinct from every other method here — it fires `notify()` without Workspace itself mutating any owned field. Per ADR-006's amendment, it may be called only when both hold: (1) the changed state has no other observable owner reachable from the UI (persisted-page state notifies through `Vault`; editor content notifies through `DocumentSession` — `refresh()` is never a substitute for wiring to an owner that already exists), and (2) the change concerns a target Workspace already tracks (the active page/folder, or another currently open page) — not a domain event unrelated to what Workspace tracks. `refresh()` must never become a default "make the UI update" convenience.
 
 ### Extension points
-Persisting workspace state (the currently-dead `.clutter/workspace.json`) would be a new `- WorkspaceSnapshot` serializer reading/writing through `VaultFileSystem` — decide deliberately if/when this becomes a product requirement; don't half-build it speculatively.
+Persisting the rest of `Workspace`'s own tracked state (open tabs, sidebar visibility, navigation history) would be a new, separate serializer reading/writing through `VaultFileSystem` — decide deliberately if/when this becomes a product requirement; don't half-build it speculatively. `.clutter/workspace.json` (the file this extension point originally named) is no longer entirely dead: [ADR-033](./adr/033-fold-state-persistence.md)'s `FoldStateStore` is its first real reader/writer, scoped narrowly to fold state and deliberately not generalized into a `WorkspaceSnapshot` covering every field above — see that ADR for why, and for the shape a future extension here should follow (a sibling top-level key or a sibling store, not a rewrite of `FoldStateStore`).
 
 ### Testing strategy
 Unit tests for the mutual-exclusivity invariant and subscriber notification.

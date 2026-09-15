@@ -6,6 +6,7 @@ import {
   docTextMatches,
   hasEstablishedEditingPosition,
   serializeEditorHistory,
+  serializeFoldState,
   syncMarkdownIntoView,
 } from './codemirror/createEditorView';
 import {
@@ -140,6 +141,7 @@ export const MarkdownEditor = forwardRef<
     pageId,
     markdown,
     focusOnOpen,
+    foldStateStore,
     onEdit,
     onFlush,
     resolveWikiLink,
@@ -243,6 +245,14 @@ export const MarkdownEditor = forwardRef<
   resolvePageEmbedRef.current = resolvePageEmbed;
   const onOpenPageRef = useRef(onOpenPage);
   onOpenPageRef.current = onOpenPage;
+
+  // Same freshness pattern — ADR-033's amendment: a resolved note embed's
+  // own nested view restores/persists CM6 fold state keyed by the
+  // *embedded* page's own pageId, through this same store (never a second
+  // mechanism). `foldStateStore` itself doesn't change mid-session, but
+  // the ref keeps this consistent with every other injected accessor here.
+  const foldStateStoreRef = useRef(foldStateStore);
+  foldStateStoreRef.current = foldStateStore;
 
   // Same freshness pattern, for standard Image's own live-preview local-
   // path resolution accessor below.
@@ -764,6 +774,12 @@ export const MarkdownEditor = forwardRef<
       // unconditionally, cache hit or miss.
       restoreHistoryJSON: cachedSession?.historyJSON,
       restoreScrollEffect: cachedSession?.scrollEffect,
+      // ADR-033: durable, cross-restart fold-range restoration — a
+      // separate source (FoldStateStore) from restoreHistoryJSON's
+      // session-lifetime cachedSession above, independently gated inside
+      // createEditorView (see that option's own doc comment for why the
+      // two are never merged into one restore-or-not decision).
+      restoreFoldJSON: foldStateStore?.get(pageId),
       // The full rendering/interaction extension list is built by the one
       // shared factory (`buildEditorExtensions.ts`) a note embed's own
       // nested, permanently read-only `EditorView` also calls (from
@@ -803,6 +819,8 @@ export const MarkdownEditor = forwardRef<
         // cycle discovered one level of embedding deep. See
         // `noteEmbedAncestry.ts`'s own doc comment.
         ancestry: { ancestryPageIds: new Set([pageId]), depth: 0 },
+        getFoldStateStore: () => foldStateStoreRef.current,
+        hostPageId: pageId,
       }),
       onDocChange: (nextMarkdown) => onEditRef.current?.(nextMarkdown),
       onBlur: () => onFlushRef.current?.(),
@@ -917,6 +935,13 @@ export const MarkdownEditor = forwardRef<
         scrollEffect: view.scrollSnapshot(),
         domScrollTop: lastKnownScrollTopRef.current,
       });
+      // ADR-033: captured at the same unmount moment as the session
+      // cache above, but written to the independent, durable
+      // FoldStateStore instead — survives an app restart, not just this
+      // note-switch. Optional-chained: a test call site that omits
+      // foldStateStore simply doesn't persist folds, matching the
+      // pre-ADR-033 baseline exactly.
+      foldStateStore?.set(pageId, serializeFoldState(view));
       view.destroy();
       viewRef.current = null;
     };

@@ -704,6 +704,29 @@ export const imageUiStateField = StateField.define<RangeSet<ImageUiValue>>({
  * pre-existing call site (none of which pass it) keeps compiling and
  * behaving identically unchanged.
  */
+/**
+ * Whether `pos` currently has a *live* entry in this session's
+ * `imageUiStateField` — distinct from `getImageUiState`'s own return
+ * value, which always resolves to *some* `ImageUiState` (a default on
+ * miss) and therefore can't itself distinguish "explicitly set" from
+ * "never touched this session." Added for `embedLivePreview.ts`'s
+ * ADR-033-amendment embed-collapse restore: a persisted `collapsed` value
+ * must only ever seed a fresh render that has no live entry yet — once a
+ * live entry exists (e.g. the user just toggled collapse earlier this
+ * session), that live value is always authoritative and must never be
+ * second-guessed by a stale persisted one.
+ */
+export function hasImageUiStateEntry(state: EditorState, pos: number): boolean {
+  let found = false;
+  state.field(imageUiStateField, false)?.between(pos, pos, (from) => {
+    if (from === pos) {
+      found = true;
+      return false;
+    }
+  });
+  return found;
+}
+
 export function getImageUiState(state: EditorState, pos: number, to?: number): ImageUiState {
   let found: ImageUiState | null = null;
   state

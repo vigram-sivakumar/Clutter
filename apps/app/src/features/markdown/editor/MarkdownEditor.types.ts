@@ -14,6 +14,7 @@ import type { GetTagSuggestions } from './codemirror/tag/tagSuggestion';
 import type { ResolveWikiLink } from './codemirror/wikilink/wikiLinkResolution';
 import type { GetWikiLinkSuggestions } from './codemirror/wikilink/wikiLinkSuggestion';
 import type { ResolvePageEmbed } from '../render/blocks/pageEmbedResolution';
+import type { FoldStateStore } from '@core/application/editor/FoldStateStore';
 
 export interface MarkdownEditorProps {
   /**
@@ -30,6 +31,18 @@ export interface MarkdownEditorProps {
    */
   readonly pageId: string;
   readonly markdown: string;
+  /**
+   * ADR-033: per-`pageId` CM6 fold-range persistence, surviving app
+   * restart (unlike `editorHistoryCache.ts`'s session-lifetime cache).
+   * Supplied by `PageHost.tsx` as `application.foldStateStore`, per
+   * ARCHITECTURE_RULES.md rule 6 — this component never constructs its
+   * own. Optional so existing tests that don't exercise fold persistence
+   * are unaffected; when omitted, folds simply aren't restored or
+   * persisted for that render (the same "no cache" fallback
+   * `editorHistoryCache` already has, just via an absent prop instead of
+   * an absent map entry).
+   */
+  readonly foldStateStore?: FoldStateStore;
   /**
    * Whether note-open policy (computed by `PageHost.tsx`, mirroring the
    * same "empty title -> title gets focus, otherwise the body is ready to

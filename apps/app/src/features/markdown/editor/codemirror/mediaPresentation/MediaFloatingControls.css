@@ -75,7 +75,6 @@
 
   cursor: pointer;
   transition:
-    opacity 150ms ease,
     background 150ms ease,
     color 150ms ease;
 }

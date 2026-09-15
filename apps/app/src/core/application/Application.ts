@@ -21,6 +21,7 @@ import { FolderOperations } from './folder/FolderOperations';
 import { ResourceOperations } from './resource/ResourceOperations';
 import { TaskOperations } from './task/TaskOperations';
 import { TagOperations } from './tags/TagOperations';
+import { FoldStateStore } from './editor/FoldStateStore';
 import {
   TAG_METADATA_RELATIVE_PATH,
   EMPTY_TAG_METADATA_FILE_CONTENTS,
@@ -90,6 +91,16 @@ export class Application {
   public readonly workspace: Workspace;
   public readonly documentRegistry: DocumentRegistry;
   public readonly saveCoordinator: SaveCoordinator;
+  /**
+   * ADR-033: per-pageId CM6 fold-range persistence through
+   * `.clutter/workspace.json`, loaded once in `bootstrap()` below. Not
+   * Gate-backed, for the same reason TagOperations isn't (ARCHITECTURE_RULES.md
+   * rule 2 — `.clutter/*` is application infrastructure, not Vault domain
+   * content) and not owned by `Workspace` (fold state is editor content
+   * state, not navigation state — see ADR-033's Decision for the full
+   * rationale).
+   */
+  public readonly foldStateStore: FoldStateStore;
   public pageOperations!: PageOperations;
   public folderOperations!: FolderOperations;
   public resourceOperations!: ResourceOperations;
@@ -152,6 +163,13 @@ export class Application {
     // ensureClutterDirectory for .clutter) — never a blanket startup pass.
     const scanner = new VaultScanner(fileSystem);
     const scanResult = await scanner.scan(rootPath);
+
+    // ADR-033: per-note CM6 fold ranges are read here, once — the same
+    // "read a small .clutter/*.json config at boot, tolerate absence"
+    // shape the tags-metadata read below already establishes. Malformed
+    // content is caught and discarded inside FoldStateStore.load() itself
+    // (never thrown), so a corrupted workspace.json can never block boot.
+    const foldStateStore = await FoldStateStore.load(fileSystem, rootPath);
 
     // Tag presentation metadata (icon today, color later) is read directly
     // here, once — not through VaultScanner (this isn't Page/Folder
@@ -238,7 +256,8 @@ export class Application {
       vault,
       fileSystem,
       selfWriteRegistry,
-      runningInTauri ? localCoverImageUrlResolver : browserCoverImageUrlResolver
+      runningInTauri ? localCoverImageUrlResolver : browserCoverImageUrlResolver,
+      foldStateStore
     );
 
     application.rootPath = rootPath;
@@ -262,7 +281,12 @@ export class Application {
     vault: Vault,
     fileSystem: VaultFileSystem,
     selfWriteRegistry: SelfWriteRegistry,
-    coverImageUrlResolver: CoverImageUrlResolver = localCoverImageUrlResolver
+    coverImageUrlResolver: CoverImageUrlResolver = localCoverImageUrlResolver,
+    // Defaults to an empty, non-persisting store for the many existing
+    // tests that construct Application directly without exercising fold
+    // state (ADR-033) — real boot always passes a loaded store from
+    // bootstrap() below.
+    foldStateStore: FoldStateStore = FoldStateStore.empty(fileSystem, '')
   ) {
     this.vault = vault;
     // Constructed once, here, per ARCHITECTURE_RULES.md rule 6 — UI reads
@@ -272,6 +296,7 @@ export class Application {
     this.fileSystem = fileSystem;
     this.coverImageUrlResolver = coverImageUrlResolver;
     this.selfWriteRegistry = selfWriteRegistry;
+    this.foldStateStore = foldStateStore;
     this.workspace = new Workspace();
     this.documentRegistry = new DocumentRegistry();
     this.saveCoordinator = new SaveCoordinator();

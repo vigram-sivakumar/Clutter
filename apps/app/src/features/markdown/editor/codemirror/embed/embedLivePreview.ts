@@ -16,7 +16,7 @@ import {
   type CurrentImageSource,
   type GetCurrentImageSource,
 } from '../image/ImageWidget';
-import { getImageUiState, imageUiStateField } from '../image/imageUiState';
+import { getImageUiState, hasImageUiStateEntry, imageUiStateField } from '../image/imageUiState';
 import { resolveEmbedAliasFields } from '../mediaPresentation/mediaPresentationUpdate';
 import { resolveImagePresentation, resolvePdfPresentation } from '../mediaPresentation/mediaPresentationModel';
 import { getEmbedMarkerRanges, scanEmbed } from './embedScanner';
@@ -27,7 +27,7 @@ import { UnknownEmbedWidget } from '../mediaPresentation/UnknownEmbedWidget';
 import { PdfEmbedWidget, type OnOpenPdfMenu, type OnPdfEmbedClick } from '../pdf/PdfEmbedWidget';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
 import { createPdfDocumentCache, type PdfDocumentCache } from '../pdf/pdfDocumentCache';
-import { NoteEmbedWidget, type OnOpenNoteEmbedMenu } from './NoteEmbedWidget';
+import { NoteEmbedWidget, type OnOpenNoteEmbedMenu, type FoldStatePersistence } from './NoteEmbedWidget';
 import type { ResolvePageEmbed } from '../../../render/blocks/pageEmbedResolution';
 import {
   checkNoteEmbedAncestry,
@@ -207,6 +207,33 @@ export interface EmbedLivePreviewOptions {
   /** Defaults to `ROOT_ANCESTRY` — the top-level editor's own starting point (see `buildEditorExtensions.ts`'s doc comment on this same field). */
   readonly ancestry?: NoteEmbedAncestry;
   readonly maxEmbedDepth?: number;
+  /**
+   * ADR-033's amendment — a resolved note embed's own nested view restores/
+   * persists CM6 fold state keyed by the *embedded* page's own `pageId`
+   * (never the host note's), through this same store. Same injected-getter/
+   * freshness convention as `onOpenPage`/`onOpenNoteEmbedMenu` above.
+   * Threaded one level deeper into a further-nested embed's own recursive
+   * `buildEditorExtensions()` call below, the same way `ancestry` already
+   * is, so fold persistence works at every embed depth, each level keyed
+   * by its own `pageId`.
+   */
+  readonly getFoldStateStore?: () => FoldStatePersistence | undefined;
+  /**
+   * ADR-033's second amendment — whichever document's own Markdown is
+   * *currently being rendered* by this `embedLivePreview()` instance
+   * (i.e. this document's own stable `pageId`, the same one
+   * `getFoldStateStore().get`/`set` above already key that document's own
+   * top-level CM6 fold state by). Required (not optional, unlike the
+   * resolvers above) because there is no safe default — an omitted or
+   * wrong value would silently associate a resolved note embed's outer
+   * "collapse this whole card" state with the wrong document, or with no
+   * document at all. A resolved note embed's own recursive
+   * `buildEditorExtensions()` call (below) passes its own
+   * `resolution.pageId` as the *next* level's `hostPageId`, the same
+   * one-level-deeper threading `ancestry` already uses — the embedded
+   * page becomes the "host" for whatever's nested inside *it*.
+   */
+  readonly hostPageId: string;
 }
 
 function buildDecorations(
@@ -230,6 +257,8 @@ function buildDecorations(
     resolveImageSrc: getResolveImageSrc,
     ancestry = ROOT_ANCESTRY,
     maxEmbedDepth = DEFAULT_MAX_EMBED_DEPTH,
+    getFoldStateStore,
+    hostPageId,
   } = options;
   const ranges: Range<Decoration>[] = [];
   const atomicRanges: Range<Decoration>[] = [];
@@ -414,12 +443,34 @@ function buildDecorations(
               const ancestryCheck = checkNoteEmbedAncestry(ancestry, pageResolution.pageId, maxEmbedDepth);
 
               if (ancestryCheck.ok) {
+                // ADR-033's second amendment: the outer "collapse this
+                // whole card" flag is seeded from the persisted store only
+                // when this exact position has no *live* entry yet this
+                // session (`hasImageUiStateEntry`) — once a live entry
+                // exists (the user already toggled it this session, or a
+                // prior transaction otherwise wrote one), that live value
+                // is always authoritative and must never be second-guessed
+                // by a possibly-stale persisted one. Never applied to
+                // `revealed`/`broken`/`pendingFirstLeave` — those have no
+                // cross-restart persistence at all; only `collapsed` does.
+                const embedUi = hasImageUiStateEntry(view.state, node.from)
+                  ? baseUi
+                  : {
+                      ...baseUi,
+                      collapsed:
+                        getFoldStateStore?.()?.getEmbedCollapse(hostPageId, pageResolution.pageId) ??
+                        baseUi.collapsed,
+                    };
                 // The nested view's own extensions are built through the
                 // exact same shared factory the top-level editor uses
                 // (`buildEditorExtensions.ts`), `readOnly: true` and the
                 // extended ancestry threaded through so a further-nested
                 // embed inside *this* note is protected identically —
                 // never a duplicated rendering/cycle-check mechanism.
+                // `hostPageId: pageResolution.pageId` — this resolved
+                // embed's own page becomes the "host" for whatever's
+                // nested *inside* it, the same one-level-deeper threading
+                // `ancestry` already uses (ADR-033's second amendment).
                 const noteExtensions = buildEditorExtensions({
                   resolveWikiLink: getResolveWikiLink ?? (() => undefined),
                   resolveEmbedImage: getResolveEmbedImage,
@@ -440,16 +491,20 @@ function buildDecorations(
                   readOnly: true,
                   ancestry: ancestryCheck.ancestry,
                   maxEmbedDepth,
+                  getFoldStateStore,
+                  hostPageId: pageResolution.pageId,
                 });
                 const widget = new NoteEmbedWidget(
                   pageResolution,
                   match.path,
                   noteExtensions,
-                  baseUi,
+                  embedUi,
                   node.from,
                   node.to,
                   getOnOpenPage ?? (() => undefined),
-                  getOnOpenNoteEmbedMenu ?? (() => undefined)
+                  getOnOpenNoteEmbedMenu ?? (() => undefined),
+                  getFoldStateStore ?? (() => undefined),
+                  hostPageId
                 );
                 // Same reveal contract Image/PDF already establish: revealed
                 // keeps the raw `![[Note]]` text in place and inserts the
@@ -487,7 +542,9 @@ function buildDecorations(
                 node.from,
                 node.to,
                 getOnOpenPage ?? (() => undefined),
-                getOnOpenNoteEmbedMenu ?? (() => undefined)
+                getOnOpenNoteEmbedMenu ?? (() => undefined),
+                getFoldStateStore ?? (() => undefined),
+                hostPageId
               );
               if (baseUi.revealed) {
                 ranges.push(...markerRanges);

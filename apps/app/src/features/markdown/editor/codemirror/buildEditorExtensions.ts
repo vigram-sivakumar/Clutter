@@ -54,7 +54,7 @@ import type { ResolveEmbedPdf } from './pdf/embedPdfResolution';
 import type { ResolvePageEmbed } from '../../render/blocks/pageEmbedResolution';
 import type { GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './embed/embedSuggestion';
 import { ROOT_ANCESTRY, type NoteEmbedAncestry } from './embed/noteEmbedAncestry';
-import type { OnOpenNoteEmbedMenu } from './embed/NoteEmbedWidget';
+import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbedWidget';
 
 /**
  * Every getter here follows the same "read fresh per rebuild/per click"
@@ -146,6 +146,21 @@ export interface BuildEditorExtensionsOptions {
    */
   readonly ancestry?: NoteEmbedAncestry;
   readonly maxEmbedDepth?: number;
+  /**
+   * ADR-033's amendment — forwarded to `embedLivePreview()` so a resolved
+   * note embed's own nested view can restore/persist CM6 fold state keyed
+   * by the *embedded* page's own `pageId`. See `EmbedLivePreviewOptions`'s
+   * own doc comment for the full threading chain (`MarkdownEditor.tsx` →
+   * here → `embedLivePreview.ts` → `NoteEmbedWidget`, one level deeper at
+   * each further-nested embed).
+   */
+  readonly getFoldStateStore?: () => FoldStatePersistence | undefined;
+  /**
+   * ADR-033's second amendment — required, forwarded straight to
+   * `embedLivePreview()`; see that file's own `EmbedLivePreviewOptions.
+   * hostPageId` doc comment for why there is no safe default.
+   */
+  readonly hostPageId: string;
 }
 
 export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Extension[] {
@@ -172,6 +187,8 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     readOnly,
     ancestry = ROOT_ANCESTRY,
     maxEmbedDepth,
+    getFoldStateStore,
+    hostPageId,
   } = options;
 
   const rendering: Extension[] = [
@@ -201,6 +218,8 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
       resolveImageSrc,
       ancestry,
       maxEmbedDepth,
+      getFoldStateStore,
+      hostPageId,
     }),
     listMarkerDecoration(),
     listMarkerCaretAssoc(),

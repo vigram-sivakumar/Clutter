@@ -149,7 +149,7 @@
      (`ImageWidget.ts`) and broken-PDF (`PdfEmbedWidget.ts`) cards via
      `invalidEmbedCard.ts`'s common `renderInvalidEmbedCard` builder, so
      their layout/spacing stay identical by construction. */
-  gap: var(--space-6);
+  gap: var(--md-marker-text-gap);
 }
 
 /* 24x24 wrapper, 16x16 icon centered inside it — matches
@@ -161,8 +161,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: var(--icon-wrapper-md);
-  height: var(--icon-wrapper-md);
+  width: var(--md-marker-width);
+  height: var(--md-marker-height);
 }
 
 .cm-editor .cm-invalid-embed__icon {

@@ -4,10 +4,13 @@ import { createRef } from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorView } from '@codemirror/view';
+import { foldEffect, foldState } from '@codemirror/language';
 
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor';
 import { __clearAllCachedEditorHistoryForTests } from './codemirror/editorHistoryCache';
 import type { ResolveEmbedImage } from './codemirror/embed/embedImageResolution';
+import { FoldStateStore } from '@core/application/editor/FoldStateStore';
+import { InMemoryVaultFileSystem } from '@core/vault/testing/InMemoryVaultFileSystem';
 
 // Many tests below reuse the same `pageId="test-page"` (and often the same
 // markdown text) across independent `it()` blocks. Since a restorable
@@ -960,5 +963,170 @@ describe('MarkdownEditor: broken image fallback', () => {
     fireEvent.click(deleteButton);
 
     expect(document.querySelector('.cm-invalid-embed__content')).toBeNull();
+  });
+});
+
+/**
+ * Regression coverage for ADR-033's full wiring: MarkdownEditor's mount
+ * effect reading `foldStateStore.get(pageId)` into `restoreFoldJSON`, and
+ * its unmount cleanup writing `foldStateStore.set(pageId, ...)` — the
+ * integration point between `createEditorView.test.ts`'s CM6-level
+ * coverage and `FoldStateStore.test.ts`'s storage-level coverage.
+ */
+describe('MarkdownEditor: fold-state persistence (ADR-033)', () => {
+  function foldedRangesIn(container: HTMLElement): Array<{ from: number; to: number }> {
+    const dom = container.querySelector<HTMLElement>('.cm-editor')!;
+    const view = EditorView.findFromDOM(dom)!;
+    const ranges: Array<{ from: number; to: number }> = [];
+    view.state.field(foldState).between(0, view.state.doc.length, (from, to) => {
+      ranges.push({ from, to });
+    });
+    return ranges;
+  }
+
+  function foldFirstRegion(container: HTMLElement, from: number, to: number): void {
+    const dom = container.querySelector<HTMLElement>('.cm-editor')!;
+    const view = EditorView.findFromDOM(dom)!;
+    view.dispatch({ effects: [foldEffect.of({ from, to })] });
+  }
+
+  /** Lets FoldStateStore's fire-and-forget persistence write complete. */
+  async function flushMicrotasks(): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  it('fold -> unmount/remount (editor destroy/recreate, same pageId) -> fold is restored', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const foldStateStore = await FoldStateStore.load(fileSystem, '/vault');
+    const markdown = '# Section A\ncontent\n# Section B\nmore content';
+
+    const first = render(
+      <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
+    );
+    foldFirstRegion(first.container, 0, 11);
+    first.unmount();
+    await flushMicrotasks();
+
+    const second = render(
+      <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
+    );
+
+    expect(foldedRangesIn(second.container)).toEqual([{ from: 0, to: 11 }]);
+  });
+
+  it('fold -> persist -> simulate app restart (fresh FoldStateStore.load over the same filesystem) -> reopen note -> fold is restored', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const beforeRestart = await FoldStateStore.load(fileSystem, '/vault');
+    const markdown = '# Section A\ncontent';
+
+    const first = render(
+      <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={beforeRestart} />
+    );
+    foldFirstRegion(first.container, 0, 11);
+    first.unmount();
+    await flushMicrotasks();
+
+    // A genuinely fresh store, loaded from whatever was written to disk —
+    // the same call Application.bootstrap() makes on a real app restart.
+    const afterRestart = await FoldStateStore.load(fileSystem, '/vault');
+    const reopened = render(
+      <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={afterRestart} />
+    );
+
+    expect(foldedRangesIn(reopened.container)).toEqual([{ from: 0, to: 11 }]);
+  });
+
+  it('multiple folded regions restore correctly', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const foldStateStore = await FoldStateStore.load(fileSystem, '/vault');
+    const markdown = '# Section A\ncontent\n# Section B\nmore content';
+
+    const first = render(
+      <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
+    );
+    const dom = first.container.querySelector<HTMLElement>('.cm-editor')!;
+    const view = EditorView.findFromDOM(dom)!;
+    view.dispatch({
+      effects: [foldEffect.of({ from: 0, to: 11 }), foldEffect.of({ from: 20, to: 31 })],
+    });
+    first.unmount();
+    await flushMicrotasks();
+
+    const second = render(
+      <MarkdownEditor pageId="note-a" markdown={markdown} foldStateStore={foldStateStore} />
+    );
+
+    expect(foldedRangesIn(second.container)).toEqual([
+      { from: 0, to: 11 },
+      { from: 20, to: 31 },
+    ]);
+  });
+
+  it('different notes maintain independent fold states', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const foldStateStore = await FoldStateStore.load(fileSystem, '/vault');
+    const markdownA = '# Note A heading\ncontent A';
+    const markdownB = '# Note B heading\ncontent B';
+
+    const noteA = render(
+      <MarkdownEditor pageId="note-a" markdown={markdownA} foldStateStore={foldStateStore} />
+    );
+    foldFirstRegion(noteA.container, 0, 16);
+    noteA.unmount();
+    await flushMicrotasks();
+
+    // Note B is opened and closed without ever being folded.
+    const noteB = render(
+      <MarkdownEditor pageId="note-b" markdown={markdownB} foldStateStore={foldStateStore} />
+    );
+    noteB.unmount();
+    await flushMicrotasks();
+
+    const reopenedA = render(
+      <MarkdownEditor pageId="note-a" markdown={markdownA} foldStateStore={foldStateStore} />
+    );
+    const reopenedB = render(
+      <MarkdownEditor pageId="note-b" markdown={markdownB} foldStateStore={foldStateStore} />
+    );
+
+    expect(foldedRangesIn(reopenedA.container)).toEqual([{ from: 0, to: 16 }]);
+    expect(foldedRangesIn(reopenedB.container)).toEqual([]);
+  });
+
+  it('a note with no persisted fold state starts unfolded', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const foldStateStore = await FoldStateStore.load(fileSystem, '/vault');
+
+    const { container } = render(
+      <MarkdownEditor
+        pageId="never-folded"
+        markdown="# Heading\ncontent"
+        foldStateStore={foldStateStore}
+      />
+    );
+
+    expect(foldedRangesIn(container)).toEqual([]);
+  });
+
+  it('changed document content does not incorrectly restore a stale fold position', async () => {
+    const fileSystem = new InMemoryVaultFileSystem();
+    const foldStateStore = await FoldStateStore.load(fileSystem, '/vault');
+    const originalMarkdown = '# Section A\ncontent';
+
+    const first = render(
+      <MarkdownEditor pageId="note-a" markdown={originalMarkdown} foldStateStore={foldStateStore} />
+    );
+    foldFirstRegion(first.container, 0, 11);
+    first.unmount();
+    await flushMicrotasks();
+
+    // Content changed externally (e.g. a task toggle, or an edit made
+    // while this note was closed) before it was reopened.
+    const changedMarkdown = 'Something entirely different now\ncontent';
+    const second = render(
+      <MarkdownEditor pageId="note-a" markdown={changedMarkdown} foldStateStore={foldStateStore} />
+    );
+
+    expect(foldedRangesIn(second.container)).toEqual([]);
   });
 });

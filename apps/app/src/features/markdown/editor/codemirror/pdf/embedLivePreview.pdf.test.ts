@@ -144,6 +144,7 @@ function mountView(
       history(),
       markdownLanguageExtension(),
       embedLivePreview({
+        hostPageId: 'test-host-page',
         resolveEmbedImage: () => resolveEmbedImage,
         onImageClick: () => undefined,
         onOpenImageMenu: () => undefined,
@@ -174,6 +175,7 @@ function mountFullView(
       autocompletion({ override: [embedCompletionSource(() => getEmbedSuggestions)] }),
       embedAutocomplete(),
       embedLivePreview({
+        hostPageId: 'test-host-page',
         resolveEmbedImage: () => resolveEmbedImage,
         onImageClick: () => undefined,
         onOpenImageMenu: () => undefined,

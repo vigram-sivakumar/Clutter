@@ -68,9 +68,11 @@
      Source of truth for markdown indentation rendering (see
      design-system/markdownIndent.ts). */
   --md-base-space: 24px;
-  --md-indent: var(--md-base-space);
+
+  --md-indent: 28px; /* calc(var(--md-base-space) + var(--md-marker-text-gap)); */
   --md-marker-height: var(--md-base-space);
   --md-marker-width: var(--md-base-space);
+  --md-marker-text-gap: var(--space-4);
   --md-link-underline-offset: 20%;
   --md-badge-radius: var(--radius-sm);
   --md-badge-padding: 0.15em 0.4em;
@@ -137,6 +139,7 @@
   --lh-cm-content: 1.5;
 
   --lh-body: 24px;
+  --lh-body-small: 24px;
 
   --lh-label: 20px;
   --lh-label-small: 16px;

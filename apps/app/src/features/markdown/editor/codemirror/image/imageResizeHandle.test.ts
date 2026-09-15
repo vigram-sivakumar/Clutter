@@ -82,6 +82,7 @@ function mountAssetEmbed(doc: string, resolve: ResolveEmbedImage): EditorView {
       history(),
       markdownLanguageExtension(),
       embedLivePreview({
+        hostPageId: 'test-host-page',
         resolveEmbedImage: () => resolve,
         onImageClick: () => () => {},
         onOpenImageMenu: () => () => {},

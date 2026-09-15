@@ -702,6 +702,79 @@ describe("a note embed's own extra content indent applies only when it's nested 
   });
 });
 
+describe('hover presentation stays separate from collapsed/expanded title typography (regression: hover jitter)', () => {
+  // jsdom applies no real CSS — same rule-text convention the padding-left
+  // tripwire above already establishes. The font-size transition on the
+  // outer `.cm-media-block.cm-note-embed` container was dead weight (that
+  // element never itself carries a `font-size` declaration — only
+  // `.cm-note-embed__title` does, for its own collapsed/expanded sizing)
+  // and, because `:hover` re-triggers a style recalc on this element (it's
+  // the anchor for `:hover::before`/`:hover .cm-note-embed__controls`/
+  // `:hover .cm-fold-toggle`), declaring `transition: font-size` here made
+  // every hover pay for a font-size re-evaluation it never needed —
+  // observed as icon/title jitter. Only the title's own transition, scoped
+  // to itself, should exist.
+  it('the outer .cm-media-block.cm-note-embed rule never transitions font-size', () => {
+    const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8');
+    const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    const outerMatch = cssWithoutComments.match(/\.cm-media-block\.cm-note-embed\s*\{([^}]*)\}/);
+    expect(outerMatch, '.cm-media-block.cm-note-embed rule not found').not.toBeNull();
+    expect(outerMatch![1]).not.toMatch(/transition\s*:[^;]*font-size/);
+  });
+
+  it("only .cm-note-embed__title transitions font-size, for its own collapsed/expanded sizing", () => {
+    const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8');
+    const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    const titleMatch = cssWithoutComments.match(/(?:^|\s)\.cm-note-embed__title\s*\{([^}]*)\}/);
+    expect(titleMatch, '.cm-note-embed__title rule not found').not.toBeNull();
+    expect(titleMatch![1]).toMatch(/transition\s*:[^;]*font-size/);
+  });
+
+  // `.cm-note-embed__controls` fades in a *group* of three buttons on
+  // hover — animating `opacity` on an element with overlapping/stacked
+  // descendants forces the browser to composite that whole subtree as one
+  // layer for the transition's duration. That layer sits directly against
+  // `.cm-note-embed__title`'s right edge (only the header's own `gap`
+  // between them); recompositing that shared boundary every animation
+  // frame is the same "layer squeezed against unpromoted content" jitter
+  // `::before` had, just relocated to the controls row. Dropping the
+  // transition (an instant show/hide) removes the per-frame boundary
+  // recomposite entirely, the same fix that resolved `::before`'s jitter.
+  it('.cm-note-embed__controls never transitions opacity (instant reveal, no group-opacity layer churn against the title)', () => {
+    const css = readFileSync(join(__dirname, 'NoteEmbedWidget.css'), 'utf8');
+    const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    const controlsMatch = cssWithoutComments.match(/\.cm-note-embed__controls\s*\{([^}]*)\}/);
+    expect(controlsMatch, '.cm-note-embed__controls rule not found').not.toBeNull();
+    expect(controlsMatch![1]).not.toMatch(/transition\s*:/);
+  });
+
+  // Each individual button inside the controls row never has its own
+  // `opacity` value changed by any rule — only `background`/`color` do,
+  // on the button's own `:hover`. A `transition: opacity` declared here
+  // regardless made each button independently eligible for its own nested
+  // layer promotion inside the already-promoted `.cm-note-embed__controls`
+  // group layer — dead weight stacked on top of the group-opacity jitter,
+  // the same category of unused-transition bug the outer container's own
+  // `font-size` transition was.
+  it('.cm-media-control/.cm-invalid-embed__control never transition opacity — only background/color actually change on hover', () => {
+    const css = readFileSync(
+      join(__dirname, '../mediaPresentation/MediaFloatingControls.css'),
+      'utf8'
+    );
+    const cssWithoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    const controlMatch = cssWithoutComments.match(
+      /\.cm-media-control,\s*\n\.cm-invalid-embed__control\s*\{([^}]*)\}/
+    );
+    expect(controlMatch, '.cm-media-control, .cm-invalid-embed__control rule not found').not.toBeNull();
+    expect(controlMatch![1]).not.toMatch(/transition\s*:[\s\S]*?opacity/);
+    expect(controlMatch![1]).toMatch(/transition\s*:[\s\S]*?background/);
+  });
+});
+
 /**
  * Phase 2: embedded-note collapse. Deliberately independent of CM6's own
  * fold state (`codemirror/fold/foldToggleDecoration.ts`) — a note embed's

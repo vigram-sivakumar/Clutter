@@ -26,11 +26,13 @@ function readMarkdownIndent(): number {
   }
 
   const root = document.documentElement;
-  const computed = getComputedStyle(root).getPropertyValue('--md-indent').trim();
+  const computed = getComputedStyle(root)
+    .getPropertyValue('--md-indent')
+    .trim();
 
-  // Parse "24px" -> 24, or fall back to 24 if parsing fails.
+  // Parse "28px" -> 28, or fall back to 28 if parsing fails.
   const match = computed.match(/^([\d.]+)px$/);
-  cachedIndentLevelPx = match ? parseFloat(match[1]!) : 24;
+  cachedIndentLevelPx = match ? parseFloat(match[1]!) : 28;
 
   return cachedIndentLevelPx;
 }

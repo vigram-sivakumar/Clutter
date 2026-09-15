@@ -419,8 +419,13 @@
  */
 .cm-editor .cm-quote-line {
   position: relative;
-  padding-left: calc(var(--quote-depth, 0) * var(--md-marker-width));
-  text-indent: calc(-1 * var(--quote-depth, 0) * var(--md-marker-width));
+  padding-left: calc(
+    var(--quote-depth, 0) * (var(--md-marker-width) + var(--md-marker-text-gap))
+  );
+  text-indent: calc(
+    -1 * var(--quote-depth, 0) *
+      (var(--md-marker-width) + var(--md-marker-text-gap))
+  );
 }
 
 .cm-editor .cm-quote-line::before {
@@ -429,6 +434,7 @@
   inset-inline-start: var(--space-0);
   top: 0;
   bottom: 0;
+  left: 4px;
   width: 4px;
   background: var(--foreground-primary);
   border-radius: var(--radius-sm);
@@ -463,6 +469,7 @@
 .cm-editor .cm-quote-marker {
   display: inline-block;
   width: var(--md-marker-width);
+  margin-right: var(--md-marker-text-gap);
   text-align: end;
   text-indent: 0;
 }
@@ -812,8 +819,8 @@
  */
 .cm-editor .cm-code-block-copy {
   position: absolute;
-  top: var(--space-4);
-  right: calc(var(--space-4) + var(--height-sm) + var(--space-4));
+  top: var(--space-6);
+  right: calc(var(--space-6) + var(--height-sm) + 2px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
@@ -847,10 +854,9 @@
  */
 .cm-editor .cm-code-block-format {
   position: absolute;
-  top: var(--space-4);
+  top: var(--space-6);
   right: calc(
-    var(--space-4) + var(--height-sm) + var(--space-4) + var(--height-sm) +
-      var(--space-4)
+    var(--space-6) + var(--height-sm) + 2px + var(--height-sm) + 2px
   );
   opacity: 0;
   pointer-events: none;
@@ -900,8 +906,8 @@
  */
 .cm-editor .cm-code-block-actions {
   position: absolute;
-  top: var(--space-4);
-  right: var(--space-4);
+  top: var(--space-6);
+  right: var(--space-6);
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
@@ -953,6 +959,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-inline-end: var(--space-4);
 }
 
 /*
@@ -990,8 +997,9 @@
 .cm-editor .cm-bullet-list-marker {
   display: inline-block;
   width: var(--md-marker-width);
-  /* text-align: center; */
   text-indent: 0;
+  transform: scale(1.2);
+  padding-left: 6px;
 }
 
 /*
@@ -1040,8 +1048,8 @@
 .cm-editor .cm-ordered-list-marker {
   display: inline-block;
   min-width: var(--md-marker-width);
-  /* text-align: right; */
   text-indent: 0;
+  padding-left: 4px;
 }
 
 /*
@@ -1083,11 +1091,12 @@
 .cm-editor .cm-task-checkbox {
   display: inline-flex;
   align-items: center;
-  justify-content: left;
-  width: 24px;
-  height: 24px;
+  justify-content: center;
+  width: var(--md-marker-width);
+  height: var(--md-marker-height);
   padding: 0;
   margin: 0;
+  margin-right: calc(var(--md-marker-text-gap) - 5px);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -1221,6 +1230,7 @@
 .cm-editor .cm-bullet-list-marker--glyph {
   position: relative;
   color: transparent;
+  margin-right: var(--md-marker-text-gap);
 }
 
 /*
@@ -1239,22 +1249,19 @@
   display: flex;
   align-items: center;
   color: var(--md-marker-foreground);
+  padding-left: 6px;
 }
 
 .cm-editor .cm-bullet-list-marker--dot::before {
-  font-size: 1.5em;
-  /* left: 3px; */
-  bottom: 3px;
-  line-height: 0;
+  font-weight: 900;
+  bottom: 2px;
 }
 
 .cm-editor .cm-bullet-list-marker--plus::before {
-  /* left: 3px; */
-  bottom: 1.5px;
+  bottom: 2px;
 }
 
 .cm-editor .cm-bullet-list-marker--dash::before {
-  /* left: 3.5px; */
   bottom: 2px;
 }
 
@@ -1650,7 +1657,7 @@
 .cm-editor .tok-wikilink {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--md-marker-text-gap);
   vertical-align: bottom;
   color: var(--md-link-foreground);
   cursor: pointer;
@@ -1710,8 +1717,8 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  width: var(--icon-wrapper-sm);
-  height: var(--icon-wrapper-sm);
+  width: var(--md-marker-width);
+  height: var(--md-marker-height);
 }
 
 /* Emoji icon-wraps keep the SAME `1em`×`1em` layout box as the SVG icon-wrap

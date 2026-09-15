@@ -54,6 +54,22 @@ export const TAG_METADATA_RELATIVE_PATH = '.clutter/tags.json';
 export const EMPTY_TAG_METADATA_FILE_CONTENTS = '{"tags":{}}';
 
 /**
+ * Relative path of the persisted workspace-state file (ADR-033: fold state
+ * is its first real reader/writer — see FoldStateStore). Reused by
+ * application bootstrap (initial load) and FoldStateStore (the only writer)
+ * so the two don't each carry their own copy of this literal, the same
+ * pattern TAG_METADATA_RELATIVE_PATH already establishes.
+ */
+export const WORKSPACE_STATE_RELATIVE_PATH = '.clutter/workspace.json';
+
+/**
+ * The file's shape when no workspace state has been persisted yet — mirrors
+ * EMPTY_TAG_METADATA_FILE_CONTENTS's role exactly, one literal for every
+ * reader (bootstrap's fallback, FoldStateStore's missing-file fallback).
+ */
+export const EMPTY_WORKSPACE_STATE_FILE_CONTENTS = '{}';
+
+/**
  * Relative path of the resource archive-provenance file — the VaultResource
  * counterpart to TAG_METADATA_RELATIVE_PATH, owned end-to-end by
  * ResourceArchiveMetadataStore (the only reader/writer), the same way
@@ -94,8 +110,8 @@ export const RESERVED_RESOURCES: readonly ReservedResource[] = [
   },
   {
     type: 'file',
-    path: '.clutter/workspace.json',
-    contents: '{}',
+    path: WORKSPACE_STATE_RELATIVE_PATH,
+    contents: EMPTY_WORKSPACE_STATE_FILE_CONTENTS,
   },
   {
     type: 'file',
