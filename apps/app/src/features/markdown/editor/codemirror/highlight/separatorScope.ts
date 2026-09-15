@@ -1,5 +1,5 @@
 import { syntaxTree } from '@codemirror/language';
-import type { EditorState, Line } from '@codemirror/state';
+import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { firstNonWhitespaceOffset, resolveLineIndentContext } from '../indent/markdownIndentContext';
@@ -87,6 +87,61 @@ function sameNode(a: SyntaxNode, b: SyntaxNode): boolean {
 }
 
 /**
+ * Whether `pos`'s own physical line carries `ancestorNode`'s *own* marker
+ * syntax directly — a `>` for a `Blockquote`, or this exact line's own
+ * `ListMark` for a `BulletList`/`OrderedList` (reusing
+ * `resolveLineIndentContext`'s existing `'list'` line-kind, which is
+ * already scoped to precisely the marker's own physical line — see that
+ * function's own Phase 3 fold-service usage for the same distinction).
+ * Deliberately imprecise about *which* list/quote in a chain of nested
+ * ones a marker line belongs to (any list ancestor in `pos`'s chain
+ * passed here is accepted) — harmless, since a marker line is by
+ * definition genuinely part of whichever grouping construct actually
+ * contains it structurally.
+ */
+function isOwnMarkerLine(state: EditorState, pos: number, ancestorNode: SyntaxNode): boolean {
+  const line = state.doc.lineAt(pos);
+  if (ancestorNode.name === 'Blockquote') {
+    return line.text.trimStart().startsWith('>');
+  }
+  return resolveLineIndentContext(state, line).kind === 'list';
+}
+
+/**
+ * Whether `pos`'s line is *genuinely* part of `ancestorNode`'s own visual
+ * grouping, as opposed to merely sharing that node in the raw parse tree
+ * because of CommonMark's lazy-continuation rule — a plain, non-indented,
+ * non-blank-line-separated line immediately following a list item
+ * structurally nests inside that item's own paragraph even though it
+ * reads as unrelated top-level content (see this file's own module-level
+ * rationale, and `indentedParagraphFoldService.ts`'s doc comments, for the
+ * same CommonMark quirk encountered independently there).
+ *
+ * Three ways a line counts as genuinely grouped:
+ * 1. It's blank — required so a *loose* list's own internal blank lines
+ *    (zero indentation, no marker) stay grouped at 6px, exactly as the
+ *    existing loose-list test already asserts; a blank line can never be
+ *    the lazy-continuation case this function exists to reject, since
+ *    lazy continuation requires actual text.
+ * 2. It's the ancestor's own marker line ({@link isOwnMarkerLine}).
+ * 3. It's indented strictly deeper than the ancestor node's own starting
+ *    column — genuine nested/continuation content, not a lazy
+ *    continuation sitting at (or above) the ancestor's own column.
+ */
+function isGenuinelyGrouped(state: EditorState, pos: number, ancestorNode: SyntaxNode): boolean {
+  const line = state.doc.lineAt(pos);
+  if (line.text.trim() === '') {
+    return true;
+  }
+  if (isOwnMarkerLine(state, pos, ancestorNode)) {
+    return true;
+  }
+  const lineIndent = firstNonWhitespaceOffset(line.text);
+  const ancestorColumn = ancestorNode.from - state.doc.lineAt(ancestorNode.from).from;
+  return lineIndent > ancestorColumn;
+}
+
+/**
  * Node names that make up the "unordered list" visual family — every
  * marker variant (`-`/`+`/`*`) parses as a plain `BulletList` node (the
  * Lezer grammar carries no marker-specific node name), so this is
@@ -129,7 +184,13 @@ function unorderedListFamilyMembership(state: EditorState, pos: number): SyntaxN
   const node = syntaxTree(state).resolveInner(pos, 1);
   for (let ancestor: SyntaxNode | null = node; ancestor; ancestor = ancestor.parent) {
     if (UNORDERED_LIST_FAMILY_NODE_NAMES.has(ancestor.name)) {
-      return ancestor;
+      // A lazy-continuation line (see isGenuinelyGrouped's own doc
+      // comment) structurally resolves inside the ancestor's own last
+      // item without being a real member of it visually — excluded here
+      // the same way resolveBoundaryHeight's own rule 1 excludes it, so
+      // this family rule can't grant 6px for a boundary rule 1 already
+      // correctly declined.
+      return isGenuinelyGrouped(state, pos, ancestor) ? ancestor : null;
     }
   }
 
@@ -217,7 +278,14 @@ function headingEntryHeight(state: EditorState, pos: number): SeparatorHeight | 
  *   any nesting depth — a parent item and its own nested list share the
  *   *outer* list as their nearest common ancestor, which is what keeps a
  *   nested list visually grouped with its parent rather than jumping to
- *   12px) → 6 (List/Blockquote) or 0 (Table/FencedCode).
+ *   12px) → 6 (List/Blockquote) or 0 (Table/FencedCode) — **except** a
+ *   shared List/Blockquote ancestor that `pos`'s line only reaches via
+ *   CommonMark's lazy-continuation rule (a plain, non-indented,
+ *   non-blank-line-separated line immediately following a list item
+ *   structurally nests inside that item's own trailing paragraph even
+ *   though it reads as unrelated top-level content) is *not* treated as
+ *   genuine grouping — see {@link isGenuinelyGrouped} — and the search
+ *   continues outward instead of stopping here.
  * - One position inside a construct the other isn't in at all (crossing
  *   the construct's own boundary in either direction) → no common
  *   ancestor found → 12, which is exactly "spacing before/after the
@@ -281,7 +349,16 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
 
   for (const node of chain) {
     if (prevChain.some((candidate) => sameNode(candidate, node))) {
-      return ATOMIC_NODE_NAMES.has(node.name) ? 0 : 6;
+      if (ATOMIC_NODE_NAMES.has(node.name)) {
+        return 0;
+      }
+      if (isGenuinelyGrouped(state, pos, node)) {
+        return 6;
+      }
+      // Shares this ancestor only via CommonMark's lazy-continuation quirk
+      // (see isGenuinelyGrouped's own doc comment) — not a genuine grouping
+      // relationship, so keep searching outward for a different shared
+      // ancestor rather than granting 6px here.
     }
   }
 

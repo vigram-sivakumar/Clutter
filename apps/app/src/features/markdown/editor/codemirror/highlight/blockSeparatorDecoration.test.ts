@@ -96,6 +96,42 @@ describe('blockSeparatorDecoration — lists', () => {
     expect(separatorHeights(view)).toEqual([6, 6, 6]);
     view.destroy();
   });
+
+  it('gives 12px after a bullet list when the immediately-following, non-indented line lazily continues into the list in the raw parse tree but is not genuinely part of it — the reported bug', () => {
+    const view = mountView('- Item 1\n- Item 2\n- Item 3\nBelow');
+    expect(separatorHeights(view)).toEqual([6, 6, 12]);
+    view.destroy();
+  });
+
+  it('gives 12px after an ordered list under the same no-blank-line lazy-continuation condition', () => {
+    const view = mountView('1. Item 1\n2. Item 2\n3. Item 3\nBelow');
+    expect(separatorHeights(view)).toEqual([6, 6, 12]);
+    view.destroy();
+  });
+
+  it('gives 12px after a task list under the same no-blank-line lazy-continuation condition', () => {
+    const view = mountView('- [ ] Task 1\n- [x] Task 2\nBelow');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+
+  it('a genuinely indented continuation line after the last list item still stays grouped at 6px — only non-indented, non-genuine continuations are affected', () => {
+    const view = mountView('- Item 1\n- Item 2\n  Indented continuation');
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
+
+  it('gives 6px between consecutive task-list items, regardless of checked state', () => {
+    const view = mountView('- [ ] Task 1\n- [x] Task 2\n- [ ] Task 3');
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
+
+  it('gives 6px between task-list items across different bullet markers, same as plain bullet items', () => {
+    const view = mountView('- [ ] Task 1\n+ [ ] Task 2\n* [ ] Task 3');
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
 });
 
 describe('blockSeparatorDecoration — unordered-list marker family', () => {
@@ -183,9 +219,9 @@ describe('blockSeparatorDecoration — unordered-list marker family', () => {
     view.destroy();
   });
 
-  it('a paragraph lazily continuing a list item (no blank line) is unaffected — this is rule 1 (shared instance), not the family rule', () => {
+  it('a paragraph lazily continuing a list item (no blank line) gets 12px on both sides — it is not genuinely grouped with the list, so rule 1 must not grant it 6px, and it is not a real list item either, so the family rule must not bridge across it', () => {
     const view = mountView('- A\nParagraph\n+ B');
-    expect(separatorHeights(view)).toEqual([6, 6]);
+    expect(separatorHeights(view)).toEqual([12, 12]);
     view.destroy();
   });
 
