@@ -7,7 +7,7 @@ import {
   indentWithTab,
   undoDepth,
 } from '@codemirror/commands';
-import { codeFolding, foldKeymap, indentUnit } from '@codemirror/language';
+import { codeFolding, foldEffect, foldState, indentUnit } from '@codemirror/language';
 import {
   Annotation,
   EditorState,
@@ -26,8 +26,11 @@ import {
 
 import { editorTheme } from './editorTheme';
 import { foldAwareArrowKeymap } from './fold/foldAwareArrowKeymap';
+import { foldAwareMoveLineKeymap } from './fold/foldAwareMoveLineKeymap';
+import { foldSemanticsKeymap } from './fold/foldSemanticsKeymap';
 import { foldToggleDecoration } from './fold/foldToggleDecoration';
 import { indentedParagraphFoldService } from './fold/indentedParagraphFoldService';
+import { listItemFoldService } from './fold/listItemFoldService';
 import { INDENT_UNIT_STRING } from './indent/markdownIndentContext';
 // `headingMarkerDecoration()` is wired for real now, via `MarkdownEditor.tsx`'s
 // own extension list, not here. `markdownHighlighting()`/`markdownHighlightStyle`
@@ -111,6 +114,20 @@ export interface CreateEditorViewOptions {
    */
   readonly readOnly?: boolean;
   /**
+   * Whether CM6 fold state/commands/UI (`codeFolding()`,
+   * `foldToggleDecoration()`, `foldKeymap`, `foldAwareArrowKeymap`) are
+   * installed — deliberately independent of `readOnly` (ADR-033's
+   * amendment): folding is non-mutating (CM6's fold commands never change
+   * document text; `blockReadOnlyEdits`/`EditorView.editable.of(false)`
+   * are gated purely on `readOnly` and completely unaffected by this
+   * option), so a view can be both permanently read-only AND independently
+   * foldable — a note embed's nested view (`NoteEmbedWidget.ts`) is the
+   * first caller to do both at once. Defaults to `!readOnly`, preserving
+   * every existing call site's exact prior behavior (the top-level editor,
+   * `readOnly: false`, keeps folding; nothing else changes for it).
+   */
+  readonly enableFolding?: boolean;
+  /**
    * A previous `serializeEditorHistory()` snapshot for this exact
    * document (typically retrieved from `editorHistoryCache.ts` by the
    * page id, right before this view is constructed for a page the user
@@ -142,6 +159,21 @@ export interface CreateEditorViewOptions {
    * than a case worth trying to partially honor.
    */
   readonly restoreScrollEffect?: StateEffect<unknown>;
+  /**
+   * A previous `serializeFoldState()` snapshot for this exact document
+   * (ADR-033) — typically `application.foldStateStore.get(pageId)`,
+   * retrieved right before this view is constructed. Validated with the
+   * same `docTextMatches` gate `restoreHistoryJSON` uses, but applied
+   * independently of it (a separate `view.dispatch` right after
+   * construction, not merged into the same `EditorState.fromJSON` call):
+   * `restoreHistoryJSON` comes from the session-lifetime
+   * `editorHistoryCache` (reset every app restart) while this comes from
+   * `FoldStateStore` (durable across restarts) — two sources with
+   * genuinely different lifetimes and independent staleness outcomes, so
+   * one being stale must never suppress restoring the other. See
+   * ADR-033's Alternatives Considered for the full reasoning.
+   */
+  readonly restoreFoldJSON?: unknown;
 }
 
 /**
@@ -170,7 +202,9 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     onBlur,
     restoreHistoryJSON,
     restoreScrollEffect,
+    restoreFoldJSON,
     readOnly = false,
+    enableFolding = !readOnly,
   } = options;
 
   const updateListener = EditorView.updateListener.of((update) => {
@@ -276,19 +310,19 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // file's own doc comment for why it's a physical-line scan, not a
       // syntax-tree-boundary one.
       //
-      // Omitted entirely (not merely hidden) for a read-only view —
-      // `readOnly` has exactly one consumer, a note embed's own nested
-      // `EditorView` (this option's own doc comment) — never the top-level
-      // editor. A note embed already has its own presentation/boundaries
-      // (header, wavy start/end dividers, `NoteEmbedWidget.ts`); a fold
-      // toggle and collapsible headings inside it would add UI noise and
-      // indentation for a passage that should always read as one
-      // continuous, fully-expanded piece of content, not a second,
-      // independently-foldable outline nested inside the first. Omitting
-      // the extensions means there is no fold *state* to expand either —
-      // genuinely unfoldable, not just visually hiding a control a keyboard
-      // shortcut (`foldKeymap`, below) could still reach.
-      ...(readOnly ? [] : [codeFolding(), indentedParagraphFoldService(), foldToggleDecoration()]),
+      // Gated on `enableFolding`, independent of `readOnly` (ADR-033's
+      // amendment) — a note embed's nested view (`NoteEmbedWidget.ts`)
+      // passes `readOnly: true, enableFolding: true` together: folding
+      // (CM6's own fold commands, never document-mutating) is compatible
+      // with permanent read-only-ness, unlike every other capability
+      // `readOnly` still excludes (editing keymaps, autocomplete). Omitted
+      // entirely (not merely hidden) only when `enableFolding` is false —
+      // meaning there is no fold *state* to expand either in that case,
+      // genuinely unfoldable, not just visually hiding a control a
+      // keyboard shortcut (`foldKeymap`, below) could still reach.
+      ...(enableFolding
+        ? [codeFolding(), indentedParagraphFoldService(), listItemFoldService(), foldToggleDecoration()]
+        : []),
       ...extensions,
       // Lowest-priority keymap (added last), so any higher-precedence
       // binding in `extensions` above still wins when it applies. Without
@@ -303,11 +337,22 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // ahead of defaultKeymap per CM6's own documented precedence
       // convention, but it only fires for that one empty-pair case;
       // defaultKeymap's deleteCharBackward still handles every other
-      // Backspace press exactly as before. foldKeymap adds
-      // Ctrl-Shift-[/Ctrl-Shift-] (fold/unfold), which nothing else binds
-      // — omitted for the same `readOnly` reason `codeFolding()`/
-      // `foldToggleDecoration()` are above: no fold commands left to bind a
-      // shortcut to inside a note embed's own nested view.
+      // Backspace press exactly as before.
+      //
+      // foldSemanticsKeymap (codemirror/fold/foldSemanticsKeymap.ts) —
+      // Clutter's own Ctrl-Shift-[/Ctrl-Shift-]/Ctrl-Alt-[/Ctrl-Alt-]
+      // (fold/unfold/fold-all/unfold-all), replacing `@codemirror/language`'s
+      // own `foldKeymap` entirely rather than sitting alongside it: the
+      // native commands call `foldable()` directly, which can still fall
+      // through to the generic, lazy-continuation-corrupted native answer
+      // for a list/task item the moment `listItemFoldService`'s own
+      // registered `foldService` declines — see that file's own doc
+      // comment. `foldSemanticsKeymap`'s commands go through
+      // `foldSemantics.ts`'s single authority instead, the same one
+      // `foldToggleDecoration.ts` already used exclusively, so the toggle
+      // and every keyboard fold command now agree by construction. Gated
+      // on `enableFolding`, same as every other fold extension here — no
+      // fold commands to bind when folding itself is disabled.
       //
       // foldAwareArrowKeymap (codemirror/fold/foldAwareArrowKeymap.ts) —
       // ahead of defaultKeymap for the same reason closeBracketsKeymap is:
@@ -317,15 +362,25 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // @codemirror/language's own default auto-unfold-on-entry), and
       // explicitly declines (returns `false`) for every other keypress,
       // letting defaultKeymap's own cursorCharLeft/cursorCharRight handle
-      // it completely unmodified. Same `readOnly` omission as the other
-      // fold extensions — nothing to skip over inside a note embed's own
-      // nested view, which never has fold state at all.
+      // it completely unmodified. Same `enableFolding` gate as the other
+      // fold extensions — nothing to skip over when there's no fold state.
+      //
+      // foldAwareMoveLineKeymap (codemirror/fold/foldAwareMoveLineKeymap.ts)
+      // — same "override ahead of defaultKeymap, decline for every
+      // non-fold-adjacent case" shape as foldAwareArrowKeymap, for
+      // Alt-ArrowUp/Alt-ArrowDown (Option-Arrow on macOS) instead:
+      // `@codemirror/commands`' own `moveLineUp`/`moveLineDown` swap the
+      // current line with whichever physical line is adjacent, blind to
+      // fold state, which corrupts (rather than relocates) a fold whose
+      // hidden content sits on that adjacent line — see that file's own
+      // doc comment for the confirmed transaction trace.
       keymap.of([
         indentWithTab,
         ...closeBracketsKeymap,
         ...historyKeymap,
-        ...(readOnly ? [] : foldKeymap),
-        ...(readOnly ? [] : foldAwareArrowKeymap),
+        ...(enableFolding ? foldSemanticsKeymap : []),
+        ...(enableFolding ? foldAwareArrowKeymap : []),
+        ...(enableFolding ? foldAwareMoveLineKeymap : []),
         ...defaultKeymap,
       ]),
   ];
@@ -349,7 +404,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     restoredState ??
     EditorState.create({ doc, selection: freshSelection, extensions: allExtensions });
 
-  return new EditorView({
+  const view = new EditorView({
     state,
     parent,
     // Gated on `restoredState` (not merely on `restoreScrollEffect` being
@@ -360,6 +415,33 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     // avoid (see `restoreScrollEffect`'s own doc comment).
     scrollTo: restoredState ? restoreScrollEffect : undefined,
   });
+
+  // ADR-033: fold restoration is independently gated from history/scroll
+  // above — restoreFoldJSON comes from a different-lifetime source
+  // (FoldStateStore, durable across restarts) than restoreHistoryJSON
+  // (editorHistoryCache, session-lifetime only), so one being stale must
+  // never suppress restoring the other. Applied as a dispatched effect
+  // rather than folded into the fromJSON call above, for the same reason.
+  if (restoreFoldJSON && docTextMatches(restoreFoldJSON, doc)) {
+    const ranges = (restoreFoldJSON as { fold?: unknown }).fold;
+
+    if (Array.isArray(ranges) && ranges.length % 2 === 0) {
+      const effects: StateEffect<unknown>[] = [];
+      for (let i = 0; i < ranges.length; i += 2) {
+        const from = ranges[i];
+        const to = ranges[i + 1];
+        if (typeof from === 'number' && typeof to === 'number') {
+          effects.push(foldEffect.of({ from, to }));
+        }
+      }
+
+      if (effects.length > 0) {
+        view.dispatch({ effects });
+      }
+    }
+  }
+
+  return view;
 }
 
 /**
@@ -405,6 +487,22 @@ export function docTextMatches(serialized: unknown, doc: string): boolean {
  */
 export function serializeEditorHistory(view: EditorView): unknown {
   return view.state.toJSON({ history: historyField });
+}
+
+/**
+ * Captures `view`'s current fold ranges (ADR-033) as a JSON-serializable
+ * `{doc, fold}` snapshot — the counterpart to `restoreFoldJSON` above.
+ * `foldState`'s own `StateField` spec already defines `toJSON`
+ * (`node_modules/@codemirror/language`'s own source, confirmed directly),
+ * producing the flat `[from, to, from, to, ...]` shape `restoreFoldJSON`
+ * expects — no custom serialization needed, unlike `historyField`.
+ * Intended for `application.foldStateStore.set(pageId, ...)`, called from
+ * `MarkdownEditor.tsx`'s unmount cleanup alongside (but independently of)
+ * `serializeEditorHistory`.
+ */
+export function serializeFoldState(view: EditorView): { doc: string; fold: number[] } {
+  const json = view.state.toJSON({ fold: foldState }) as { doc: string; fold: number[] };
+  return { doc: json.doc, fold: json.fold };
 }
 
 /**

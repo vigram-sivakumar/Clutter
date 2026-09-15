@@ -247,3 +247,99 @@ describe('foldToggleDecoration — Phase 3: indentation-based paragraph folding'
     expect(toggleTextsByOwner(view)).toEqual(['- Item']);
   });
 });
+
+/**
+ * Regression coverage for the root-cause bug found via live verification:
+ * `foldable()`'s native `ListItem`/`Task` boundary can be inflated by
+ * CommonMark lazy continuation past a list/task item's genuine
+ * descendants, both offering a fold toggle where there is nothing to fold
+ * (no descendant at all) and, when there IS a genuine descendant, folding
+ * far more than that descendant. `listItemFoldService.test.ts` covers the
+ * range-computation function directly; these tests confirm the same fix
+ * at the actual toggle-affordance/click level, through the real
+ * `foldToggleDecoration()`/`createEditorView()` pipeline.
+ */
+describe('foldToggleDecoration — list/task fold affordance and range correctness (lazy-continuation root-cause fix)', () => {
+  it('a task with no nested content gets no fold toggle at all', () => {
+    const view = mount('- [ ] Parent\nSibling paragraph');
+    expect(toggleTextsByOwner(view)).toEqual([]);
+  });
+
+  it('an ordered item immediately followed by a same-level sibling (no blank line) gets no fold toggle', () => {
+    const view = mount('1. Parent\nSibling');
+    expect(toggleTextsByOwner(view)).toEqual([]);
+  });
+
+  it('a task with a nested paragraph followed by an unrelated sibling gets exactly one toggle, and clicking it folds only the nested paragraph — the sibling remains visible', () => {
+    const view = mount('- [ ] Parent\n    Child paragraph\nSibling paragraph');
+    expect(toggleTextsByOwner(view)).toEqual(['- [ ] Parent']);
+
+    const toggle = view.dom.querySelector<HTMLButtonElement>('.cm-fold-toggle')!;
+    toggle.click();
+
+    expect(view.dom.textContent).not.toContain('Child paragraph');
+    expect(view.dom.textContent).toContain('Sibling paragraph');
+  });
+
+  it('reproduces the exact reported document shape: folding the task hides only its own nested line, every subsequent block stays visible', () => {
+    const view = mount(
+      [
+        '- [ ] Hey',
+        '    Date mention here',
+        '[[Date mention]]',
+        '[[Links]]',
+        '~~strikethrough text~~',
+        '1. Date mention',
+        '[[Horizontal divider]]',
+        'This is an emoji line',
+      ].join('\n')
+    );
+
+    const toggle = view.dom.querySelector<HTMLButtonElement>('.cm-fold-toggle')!;
+    expect(toggle).not.toBeNull();
+    toggle.click();
+
+    expect(view.dom.textContent).not.toContain('Date mention here');
+    expect(view.dom.textContent).toContain('[[Date mention]]');
+    expect(view.dom.textContent).toContain('[[Links]]');
+    expect(view.dom.textContent).toContain('strikethrough text');
+    expect(view.dom.textContent).toContain('Date mention'); // the "1. Date mention" line
+    expect(view.dom.textContent).toContain('[[Horizontal divider]]');
+    expect(view.dom.textContent).toContain('This is an emoji line');
+  });
+
+  it('an ordered item with genuinely nested content folds its own descendants, stopping before the next ordered sibling', () => {
+    const view = mount('1. Parent\n    Nested paragraph\n    - Nested item\n2. Another item');
+    const toggle = view.dom.querySelector<HTMLButtonElement>('.cm-fold-toggle')!;
+    toggle.click();
+
+    expect(view.dom.textContent).not.toContain('Nested paragraph');
+    expect(view.dom.textContent).not.toContain('Nested item');
+    expect(view.dom.textContent).toContain('Another item');
+  });
+
+  it('a 3-level nested unordered list: folding Parent hides Child + Grandchild but not Sibling; folding Child hides only Grandchild', () => {
+    const view = mount('- Parent\n    - Child\n        - Grandchild\nSibling');
+    const owners = toggleTextsByOwner(view);
+    expect(owners).toContain('- Parent');
+    expect(owners.some((text) => text.includes('- Child'))).toBe(true);
+
+    const parentToggle = Array.from(view.dom.querySelectorAll<HTMLButtonElement>('.cm-fold-toggle')).find(
+      (el) => el.closest('.cm-line')?.textContent === '- Parent'
+    )!;
+    parentToggle.click();
+
+    expect(view.dom.textContent).not.toContain('Child');
+    expect(view.dom.textContent).not.toContain('Grandchild');
+    expect(view.dom.textContent).toContain('Sibling');
+  });
+
+  it('existing list folding behavior is unaffected: a plain nested bullet list with a leaf sibling still folds correctly', () => {
+    const view = mount('- Parent\n    - Nested\n- Leaf');
+    const toggle = view.dom.querySelector<HTMLButtonElement>('.cm-fold-toggle')!;
+    toggle.click();
+
+    expect(view.dom.textContent).not.toContain('Nested');
+    expect(view.dom.textContent).toContain('Leaf');
+  });
+});
