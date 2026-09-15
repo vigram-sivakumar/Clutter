@@ -419,6 +419,119 @@ describe('blockSeparatorDecoration — heading hierarchy', () => {
   });
 });
 
+describe('blockSeparatorDecoration — list item body content before a genuine next sibling', () => {
+  // The reported bug: a list item's own extra body content (anything
+  // that isn't itself a nested List/Blockquote — a continuation
+  // paragraph, an embedded note, a nested heading, fenced code, a
+  // table, ...) stays grouped tightly (6px) with the item it belongs
+  // to, exactly as before. But the boundary from the *end* of that body
+  // content to the *next sibling item's own marker line* now correctly
+  // resolves to normal (12px) spacing, matching every other "list
+  // boundary ending, following content not indented" case — instead of
+  // inheriting 6px purely because the next line happens to carry a list
+  // marker. A nested List/Blockquote is exempt from this (stays 6px
+  // throughout, unchanged): it is itself list/quote flow, not a lazy-
+  // continuation leaf, so exiting it back to a sibling item is a normal
+  // list-internal dedent, not a "leaving the item's content" boundary.
+
+  it('task item -> embedded note -> next task item (the exact reported regression)', () => {
+    const view = mountView('- [ ] Task list item\n    ![[Note]]\n- [ ] Next task');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+
+  it('plain "-" bullet item -> embedded note -> next bullet item', () => {
+    const view = mountView('- Item\n  ![[Note]]\n- Item 2');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+
+  it('"*" bullet item -> continuation paragraph -> next bullet item', () => {
+    const view = mountView('* Item\n  Second line\n* Item 2');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+
+  it('"+" bullet item -> continuation paragraph -> next bullet item', () => {
+    const view = mountView('+ Item\n  Second line\n+ Item 2');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+
+  it('ordered list item -> embedded note -> next ordered item', () => {
+    const view = mountView('1. Item\n   ![[Note]]\n2. Item 2');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+
+  it('a heading nested inside a list item -> next sibling item also gets 12px (only a nested List/Blockquote is exempt)', () => {
+    const view = mountView('- Item\n  # Heading\n- Item 2');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+
+  it('a nested List is exempt — dedenting from a nested list back to the parent list stays 6px throughout, unordered', () => {
+    const view = mountView('- Parent item\n  - Nested item 1\n  - Nested item 2\n- Parent item 2');
+    expect(separatorHeights(view)).toEqual([6, 6, 6]);
+    view.destroy();
+  });
+
+  it('a nested List is exempt — ordered list dedent stays 6px throughout', () => {
+    const view = mountView('1. Parent\n   1. Nested\n   2. Nested 2\n2. Parent 2');
+    expect(separatorHeights(view)).toEqual([6, 6, 6]);
+    view.destroy();
+  });
+
+  it('a nested List is exempt — task list dedent stays 6px throughout', () => {
+    const view = mountView('- [ ] Parent\n  - [ ] Nested\n  - [ ] Nested 2\n- [ ] Parent 2');
+    expect(separatorHeights(view)).toEqual([6, 6, 6]);
+    view.destroy();
+  });
+
+  it('an item with multiple body block types (paragraph, nested list, embed) still gets 12px only at the genuine exit to the next sibling', () => {
+    const view = mountView('- Item\n  Paragraph\n  - Nested\n  ![[Note]]\n- Item 2');
+    // "Item"->"Paragraph": 6 (genuine body content). "Paragraph"->"- Nested":
+    // 12 (the nested list's own marker line is reached by stepping off a
+    // plain paragraph line, not off a blank/marker line, so it does not
+    // inherit rule 2's grouping either — same rule, no special-casing for
+    // "the next thing happens to itself be a list"). "- Nested"->embed:
+    // 6 (embed is still this item's own genuine body content). embed->
+    // "Item 2": 12 (the reported bug's exit case).
+    expect(separatorHeights(view)).toEqual([6, 12, 6, 12]);
+    view.destroy();
+  });
+
+  it('does not affect a loose list (blank-line-separated items) even when one item has embed body content — internal blank-line grouping is unchanged', () => {
+    const view = mountView('- Item 1\n\n- Item 2\n  ![[Note]]\n\n- Item 3');
+    expect(separatorHeights(view)).toEqual([6, 6, 6, 6, 6]);
+    view.destroy();
+  });
+
+  it('plain adjacent single-line list items are unaffected — the baseline "tight checklist" case stays 6px throughout', () => {
+    const view = mountView('- [ ] Task 1\n- [x] Task 2\n- [ ] Task 3');
+    expect(separatorHeights(view)).toEqual([6, 6]);
+    view.destroy();
+  });
+
+  it('the unordered-list marker-family bridge across a blank line is unaffected by this rule', () => {
+    const view = mountView('- A\n\n+ B\n\n* C');
+    expect(separatorHeights(view)).toEqual([6, 6, 6, 6]);
+    view.destroy();
+  });
+
+  it('a blockquote containing a list is unaffected — dedenting out of the nested list back to quote text stays 6px', () => {
+    const view = mountView('> Quote\n> - Item 1\n> - Item 2\n> Back to quote text');
+    expect(separatorHeights(view)).toEqual([6, 6, 6]);
+    view.destroy();
+  });
+
+  it('mixed families: a bullet item with embed body content directly followed (no blank line) by an ordered-list item gets normal 12px, same as the existing bullet->ordered rule', () => {
+    const view = mountView('- Item\n  ![[Note]]\n1. Item 2');
+    expect(separatorHeights(view)).toEqual([6, 12]);
+    view.destroy();
+  });
+});
+
 describe('blockSeparatorDecoration — general', () => {
   it('does not affect the stored document text', () => {
     const text = 'before ![alt](https://example.com/a.png) after\n\n```\ncode\n```\n\n- Item 1\n- Item 2';

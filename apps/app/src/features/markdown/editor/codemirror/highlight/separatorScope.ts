@@ -123,18 +123,39 @@ function isOwnMarkerLine(state: EditorState, pos: number, ancestorNode: SyntaxNo
  *    existing loose-list test already asserts; a blank line can never be
  *    the lazy-continuation case this function exists to reject, since
  *    lazy continuation requires actual text.
- * 2. It's the ancestor's own marker line ({@link isOwnMarkerLine}).
+ * 2. It's the ancestor's own marker line ({@link isOwnMarkerLine}) —
+ *    **and** the physical line immediately before it (`prevPos`'s line)
+ *    is itself either blank or *also* one of the ancestor's own marker
+ *    lines. Without this second condition, a marker line always reported
+ *    "genuinely grouped" regardless of what came before it — correct when
+ *    the previous line is plain list/quote structure (a sibling item, a
+ *    nested list's own last marker line), but wrong when the previous
+ *    line is itself only reachable via the lazy-continuation quirk (a
+ *    list item's *own* extra, non-list/quote block content: a
+ *    continuation paragraph, an embedded note, a heading, fenced code —
+ *    anything that isn't itself `BulletList`/`OrderedList`/`Blockquote`
+ *    structure). That extra content is still the item's own genuine body
+ *    (rule 3 below correctly keeps *it* at 6px, grouped with the item it
+ *    belongs to) — but it is not itself list/quote *flow*, so a marker
+ *    line reached only by stepping off of it is exiting that flow, not
+ *    continuing it, and must not inherit rule 2's "always grouped"
+ *    verdict. This is what makes `- [ ] Task\n    ![[Note]]\n- [ ] Next`
+ *    resolve the embed→"Next" boundary to normal (12px) spacing while a
+ *    nested list's own dedent (`- Parent\n  - Nested\n- Parent 2`, where
+ *    the line before "Parent 2" *is* itself a marker line) correctly
+ *    stays at 6px — one rule, not a construct-specific special case.
  * 3. It's indented strictly deeper than the ancestor node's own starting
  *    column — genuine nested/continuation content, not a lazy
  *    continuation sitting at (or above) the ancestor's own column.
  */
-function isGenuinelyGrouped(state: EditorState, pos: number, ancestorNode: SyntaxNode): boolean {
+function isGenuinelyGrouped(state: EditorState, prevPos: number, pos: number, ancestorNode: SyntaxNode): boolean {
   const line = state.doc.lineAt(pos);
   if (line.text.trim() === '') {
     return true;
   }
   if (isOwnMarkerLine(state, pos, ancestorNode)) {
-    return true;
+    const prevLine = state.doc.lineAt(prevPos);
+    return prevLine.text.trim() === '' || isOwnMarkerLine(state, prevPos, ancestorNode);
   }
   const ancestorColumn = ancestorNode.from - state.doc.lineAt(ancestorNode.from).from;
   return isIndentedPastColumn(line, ancestorColumn);
@@ -274,8 +295,14 @@ function unorderedListFamilyMembership(state: EditorState, pos: number): SyntaxN
       // item without being a real member of it visually — excluded here
       // the same way resolveBoundaryHeight's own rule 1 excludes it, so
       // this family rule can't grant 6px for a boundary rule 1 already
-      // correctly declined.
-      return isGenuinelyGrouped(state, pos, ancestor) ? ancestor : null;
+      // correctly declined. `pos` is passed as its own `prevPos` here —
+      // this is a single-position "does pos belong here at all" question
+      // with no other side to compare against, so isGenuinelyGrouped's
+      // marker-line rule 2 must fall back to evaluating `pos` against
+      // itself, which trivially satisfies its own new flow-continuity
+      // check (a marker line always "follows" itself) and leaves this
+      // call's original single-position semantics unchanged.
+      return isGenuinelyGrouped(state, pos, pos, ancestor) ? ancestor : null;
     }
   }
 
@@ -307,6 +334,11 @@ function unorderedListFamilyMembership(state: EditorState, pos: number): SyntaxN
  * line, which stay one node and never reach this function at all); this
  * function only ever matters for the cross-instance case that check
  * cannot see, because `sameNode` compares node identity, not name.
+ * `resolveBoundaryHeight` itself is what guarantees "never reach this
+ * function" for a same-instance pair — it only calls this once its own
+ * shared-ancestor search has come up completely empty, never merely
+ * declined (see its own doc comment) — so this function is never asked
+ * to arbitrate a pair its caller already has a real answer for.
  */
 function unorderedListFamilyHeight(state: EditorState, prevPos: number, pos: number): SeparatorHeight | null {
   const prevFamily = unorderedListFamilyMembership(state, prevPos);
@@ -438,12 +470,25 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
   const prevChain = scopeChain(state, prevPos);
   const chain = scopeChain(state, pos);
 
+  // Tracks whether *any* shared List/Blockquote/Table/FencedCode ancestor
+  // was found at all, independent of whether it was actually granted 6/0
+  // or declined by isGenuinelyGrouped — {@link unorderedListFamilyHeight}
+  // is only ever consulted below when this stays false, per its own doc
+  // comment ("this function only ever matters for the cross-instance case
+  // [rule 1] cannot see"). A pair that *does* share an ancestor, even one
+  // rule 1 goes on to decline (the lazy-continuation case), has already
+  // had its real answer determined by rule 1 — falling through to the
+  // family rule for such a pair would let it independently re-derive 6px
+  // for the exact same-instance pair rule 1 just declined on purpose.
+  let sharedAncestorFound = false;
+
   for (const node of chain) {
     if (prevChain.some((candidate) => sameNode(candidate, node))) {
+      sharedAncestorFound = true;
       if (ATOMIC_NODE_NAMES.has(node.name)) {
         return 0;
       }
-      if (isGenuinelyGrouped(state, pos, node)) {
+      if (isGenuinelyGrouped(state, prevPos, pos, node)) {
         if (node.name === 'Blockquote' && isContiguousBlockquoteParagraph(state, prevPos, pos)) {
           return 0;
         }
@@ -456,7 +501,7 @@ export function resolveBoundaryHeight(state: EditorState, prevPos: number, pos: 
     }
   }
 
-  const familyHeight = unorderedListFamilyHeight(state, prevPos, pos);
+  const familyHeight = sharedAncestorFound ? null : unorderedListFamilyHeight(state, prevPos, pos);
   if (familyHeight !== null) {
     return familyHeight;
   }
