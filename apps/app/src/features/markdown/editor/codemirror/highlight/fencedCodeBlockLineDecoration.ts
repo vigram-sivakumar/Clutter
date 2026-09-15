@@ -99,11 +99,14 @@ function firstNonWhitespaceOffset(text: string): number {
  * The nearest enclosing `FencedCode` ancestor of `probePos`, or `null` if
  * `probePos` isn't inside one at all — the single shared "which fenced
  * block owns this position" query. Exported for
- * `highlight/blockSeparatorDecoration.ts`'s own use (placing a leading
- * separator's anchor so it never lands exactly on a `FencedCode` node's
- * own `.from`, which collides with `fencedCodeBlockWrapper.ts`'s
- * `EditorView.blockWrappers` range for that same node — see that file's
- * own doc comment) — reused rather than re-walked a third time alongside
+ * `highlight/blockSeparatorDecoration.ts`'s own use (identifying a
+ * physical line that is a `FencedCode` node's own unindented entry line,
+ * so the leading separator immediately before it can be placed via a
+ * `Decoration.replace` over the connecting newline rather than a
+ * zero-width `Decoration.widget` point at that same position — see that
+ * file's own doc comment for why the point form collides with
+ * `fencedCodeBlockWrapper.ts`'s `EditorView.blockWrappers` range for that
+ * exact position) — reused rather than re-walked a third time alongside
  * this file's own `buildFencedCodeLineDecorations` and
  * `separatorScope.ts`'s more general `ATOMIC_NODE_NAMES` chain walk.
  */
