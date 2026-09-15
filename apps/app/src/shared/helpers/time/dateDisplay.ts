@@ -40,8 +40,15 @@ import type { ISODate } from './types';
  *   week/year — the day identity is never dropped in this mode, and the
  *   year is never omitted either. A title has the room a `@date` token
  *   or a sidebar row doesn't.
+ * - `'shortWeekday'` — identical to `'full'` in every respect (format,
+ *   always-shown year, day identity never dropped) except that a genuine
+ *   weekday day-identity (the `'weekday'`/`'other'` classification —
+ *   never `Today`/`Tomorrow`/`Yesterday`, which stay full words in every
+ *   mode) is abbreviated — `"Sat, 22 August 2026"` rather than
+ *   `"Saturday, 22 August 2026"`. For the Date-autocomplete popup
+ *   (`dateCompletionRenderer.ts`), which has less room than a page title.
  */
-export type DateDisplayMode = 'compact' | 'condensed' | 'full';
+export type DateDisplayMode = 'compact' | 'condensed' | 'full' | 'shortWeekday';
 
 const MONTH_LABELS = [
   'January',
@@ -84,6 +91,9 @@ const WEEKDAY_LABELS = [
   'Saturday',
 ] as const;
 
+/** Only used by `'shortWeekday'` mode's genuine-weekday day identity. */
+const WEEKDAY_LABELS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
@@ -109,8 +119,14 @@ interface DateRelation {
    * out) — `'full'` mode treats both identically via `dayIdentityLabel`.
    */
   readonly kind: 'today' | 'tomorrow' | 'yesterday' | 'weekday' | 'other';
-  /** The date's weekday name — always populated, regardless of `kind`. */
-  readonly weekdayLabel: string;
+  /**
+   * The date's weekday index (`Date.getDay()`, 0 = Sunday) — always
+   * populated, regardless of `kind`. Kept as an index rather than a
+   * pre-resolved label so `dayIdentityLabel` can pick the full or short
+   * weekday name per `mode` at format time, without `classify` itself
+   * needing to know which mode is in play.
+   */
+  readonly weekdayIndex: number;
   readonly day: number;
   readonly month: number;
   readonly year: number;
@@ -130,18 +146,18 @@ function classify(isoDate: ISODate, referenceDate: Date): DateRelation {
   const day = date.getDate();
   const month = date.getMonth() + 1;
   const year = date.getFullYear();
-  const weekdayLabel = WEEKDAY_LABELS[date.getDay()]!;
+  const weekdayIndex = date.getDay();
 
   const diffDays = Math.round((date.getTime() - today.getTime()) / MS_PER_DAY);
 
   if (diffDays === 0) {
-    return { kind: 'today', weekdayLabel, day, month, year };
+    return { kind: 'today', weekdayIndex, day, month, year };
   }
   if (diffDays === 1) {
-    return { kind: 'tomorrow', weekdayLabel, day, month, year };
+    return { kind: 'tomorrow', weekdayIndex, day, month, year };
   }
   if (diffDays === -1) {
-    return { kind: 'yesterday', weekdayLabel, day, month, year };
+    return { kind: 'yesterday', weekdayIndex, day, month, year };
   }
 
   const weekStart = new Date(today);
@@ -150,16 +166,18 @@ function classify(isoDate: ISODate, referenceDate: Date): DateRelation {
   weekEnd.setDate(weekStart.getDate() + 6);
 
   const kind = date.getTime() >= weekStart.getTime() && date.getTime() <= weekEnd.getTime() ? 'weekday' : 'other';
-  return { kind, weekdayLabel, day, month, year };
+  return { kind, weekdayIndex, day, month, year };
 }
 
 /**
- * The "day identity" both presentation modes share: Today/Tomorrow/
- * Yesterday when applicable, otherwise the date's weekday name — defined
- * for every date, not only one within the current week. `'compact'` mode
- * only *uses* this for `kind !== 'other'`; `'full'` mode always uses it.
+ * The "day identity" every presentation mode shares: Today/Tomorrow/
+ * Yesterday when applicable, otherwise the date's weekday name (full, or
+ * short for `'shortWeekday'` mode — see this module's own doc comment) —
+ * defined for every date, not only one within the current week.
+ * `'compact'`/`'condensed'` only *use* this for `kind !== 'other'`;
+ * `'full'`/`'shortWeekday'` always use it.
  */
-function dayIdentityLabel(relation: DateRelation): string {
+function dayIdentityLabel(relation: DateRelation, mode: DateDisplayMode): string {
   switch (relation.kind) {
     case 'today':
       return 'Today';
@@ -168,8 +186,10 @@ function dayIdentityLabel(relation: DateRelation): string {
     case 'yesterday':
       return 'Yesterday';
     case 'weekday':
-    case 'other':
-      return relation.weekdayLabel;
+    case 'other': {
+      const weekdayLabels = mode === 'shortWeekday' ? WEEKDAY_LABELS_SHORT : WEEKDAY_LABELS;
+      return weekdayLabels[relation.weekdayIndex]!;
+    }
   }
 }
 
@@ -189,12 +209,12 @@ export function formatDateDisplay(
   const monthLabel = monthLabels[relation.month - 1]!;
   const fullDate = `${relation.day} ${monthLabel} ${relation.year}`;
 
-  if (mode === 'full') {
-    return `${dayIdentityLabel(relation)}, ${fullDate}`;
+  if (mode === 'full' || mode === 'shortWeekday') {
+    return `${dayIdentityLabel(relation, mode)}, ${fullDate}`;
   }
 
   if (relation.kind !== 'other') {
-    return dayIdentityLabel(relation);
+    return dayIdentityLabel(relation, mode);
   }
 
   if (mode === 'condensed' && relation.year === referenceDate.getFullYear()) {

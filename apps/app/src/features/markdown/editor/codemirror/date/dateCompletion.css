@@ -20,9 +20,3 @@
   letter-spacing: var(--ls-label);
   color: var(--foreground-primary);
 }
-
-.date-completion__iso {
-  color: var(--foreground-tertiary);
-  font: var(--text-caption);
-  margin-inline-start: auto;
-}

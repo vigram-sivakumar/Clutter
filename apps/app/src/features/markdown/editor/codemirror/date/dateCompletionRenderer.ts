@@ -2,6 +2,8 @@ import type { Completion } from '@codemirror/autocomplete';
 import type { EditorState } from '@codemirror/state';
 import type { EditorView } from '@codemirror/view';
 
+import { formatDateDisplay } from '@shared/helpers/time/dateDisplay';
+
 import type { DateSuggestion } from './dateSuggestion';
 
 import './dateCompletion.css';
@@ -34,6 +36,21 @@ function isDateCompletion(completion: Completion): completion is DateCompletion 
  * that file's own comment). Returns `null` for any completion that isn't
  * its own kind (see `DateCompletion`'s doc comment for why that check is
  * required now that multiple sources share one `addToOptions` array).
+ *
+ * Shows only the human-readable date, formatted with `formatDateDisplay`'s
+ * `'shortWeekday'` mode — the same Daily-Note-title format
+ * (`toResourcePageModel.ts`, `DateWidget.ts`'s own doc comment) but with
+ * an abbreviated weekday (`Sat` rather than `Saturday`), since this popup
+ * row has less room than a page title — rather than `dateSuggestion.label`
+ * directly. A raw `YYYY-MM-DD` used to be shown alongside the label for
+ * date identification, but that's redundant once the label itself always
+ * spells out the full calendar date: unlike `label` (bare "Today"/
+ * "Tomorrow" for the relative-keyword suggestions, with no date attached
+ * at all), `formatDateDisplay('shortWeekday')` always includes the
+ * day/month/year, so there's no information the ISO value added that this
+ * doesn't already show. `isoDate` itself is untouched — still the only
+ * value that ever reaches the document (`dateCompletionSource.ts`'s
+ * `apply()`).
  */
 export function renderDateCompletion(
   completion: Completion,
@@ -49,13 +66,8 @@ export function renderDateCompletion(
 
   const label = document.createElement('span');
   label.className = 'date-completion__label';
-  label.textContent = completion.dateSuggestion.label;
+  label.textContent = formatDateDisplay(completion.dateSuggestion.isoDate, 'shortWeekday');
   row.appendChild(label);
-
-  const iso = document.createElement('span');
-  iso.className = 'date-completion__iso';
-  iso.textContent = completion.dateSuggestion.isoDate;
-  row.appendChild(iso);
 
   return row;
 }

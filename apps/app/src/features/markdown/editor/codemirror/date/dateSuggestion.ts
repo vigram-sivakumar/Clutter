@@ -3,14 +3,23 @@ import { toISODate } from '@shared/helpers/time/helpers/toISODate';
 import { resolveDateQuery } from './dateQueryResolver';
 
 /**
- * A candidate offered by Date's own completion source. Display label and
- * canonical insertion value are two separate fields on purpose — the
- * label is what the popup row shows ("Tomorrow"); `isoDate` is the only
- * thing that ever reaches the buffer on acceptance
+ * A candidate offered by Date's own completion source. `isoDate` is the
+ * only thing that ever reaches the buffer on acceptance
  * (`dateCompletionSource.ts`'s `apply()`), always as `@${isoDate}`. Never
  * a display-vs-canonical split by *kind* the way WikiLink's create/page
  * suggestions differ — every Date suggestion behaves identically once
  * accepted.
+ *
+ * `label` is no longer what the popup row itself visibly shows —
+ * `dateCompletionRenderer.ts` derives the visible text from `isoDate` via
+ * `formatDateDisplay(isoDate, 'full')` (the same call Daily Note titles
+ * use) instead, since that always spells out the full calendar date,
+ * making a separately-shown ISO value redundant. `label` remains CM6's
+ * own `Completion.label` (`dateCompletionSource.ts`) — an internal
+ * identifier existing consumers, including this file's own tests, key off
+ * to find a specific suggestion among the returned options; `render`
+ * fully replaces the DOM CM6 would otherwise build from it, so it never
+ * reaches the screen.
  */
 export interface DateSuggestion {
   readonly label: string;

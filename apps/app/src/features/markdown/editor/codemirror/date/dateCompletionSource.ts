@@ -6,6 +6,13 @@ import { getDateSuggestions, type DateSuggestion } from './dateSuggestion';
 
 function toCompletion(suggestion: DateSuggestion): Completion {
   const completion: DateCompletion = {
+    // CM6's own internal identifier for this option — deliberately left
+    // as `suggestion.label`, not the reformatted display text
+    // `renderDateCompletion` shows: this is what existing consumers
+    // (tests included) key off to find a specific suggestion among the
+    // returned options, and it never reaches the visible popup itself —
+    // `render` (`renderDateCompletion`) fully replaces the DOM CM6 would
+    // otherwise build from this field.
     label: suggestion.label,
     dateSuggestion: suggestion,
     apply(view, _completion, from, to) {

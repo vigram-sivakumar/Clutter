@@ -57,6 +57,50 @@ describe('formatDateDisplay', () => {
     });
   });
 
+  describe("mode: 'shortWeekday' (Date-autocomplete popup — same as 'full' but with an abbreviated weekday)", () => {
+    it('today — the relative word, not a weekday abbreviation', () => {
+      expect(formatDateDisplay('2026-08-20', 'shortWeekday', REFERENCE)).toBe('Today, 20 August 2026');
+    });
+
+    it('tomorrow — the relative word, not a weekday abbreviation', () => {
+      expect(formatDateDisplay('2026-08-21', 'shortWeekday', REFERENCE)).toBe('Tomorrow, 21 August 2026');
+    });
+
+    it('yesterday — the relative word, not a weekday abbreviation', () => {
+      expect(formatDateDisplay('2026-08-19', 'shortWeekday', REFERENCE)).toBe('Yesterday, 19 August 2026');
+    });
+
+    it('another day within the current week uses the abbreviated weekday (Saturday -> Sat)', () => {
+      expect(formatDateDisplay('2026-08-22', 'shortWeekday', REFERENCE)).toBe('Sat, 22 August 2026');
+    });
+
+    it('a date outside the current week/year still gets its abbreviated weekday — never dropped', () => {
+      expect(formatDateDisplay('2027-08-12', 'shortWeekday', REFERENCE)).toBe('Thu, 12 August 2027');
+    });
+
+    it('always includes the year, exactly like \'full\'', () => {
+      expect(formatDateDisplay('2026-01-05', 'shortWeekday', REFERENCE)).toBe('Mon, 5 January 2026');
+    });
+
+    it("matches 'full' byte-for-byte except for the weekday spelling itself", () => {
+      for (const isoDate of ['2026-08-20', '2026-08-21', '2026-08-19', '2026-08-22', '2027-08-12']) {
+        const full = formatDateDisplay(isoDate, 'full', REFERENCE);
+        const shortWeekday = formatDateDisplay(isoDate, 'shortWeekday', REFERENCE);
+        // Today/Tomorrow/Yesterday are identical in both modes; only a
+        // genuine weekday name ever differs (full spelling vs. 3-letter
+        // abbreviation), and only in the part before the comma.
+        const [fullDay, fullRest] = full.split(', ');
+        const [shortDay, shortRest] = shortWeekday.split(', ');
+        expect(shortRest).toBe(fullRest);
+        if (['Today', 'Tomorrow', 'Yesterday'].includes(fullDay!)) {
+          expect(shortDay).toBe(fullDay);
+        } else {
+          expect(shortDay).toBe(fullDay!.slice(0, 3));
+        }
+      }
+    });
+  });
+
   describe("mode: 'compact' (@date / task due dates — space-constrained)", () => {
     it('today', () => {
       expect(formatDateDisplay('2026-08-20', 'compact', REFERENCE)).toBe('Today');
