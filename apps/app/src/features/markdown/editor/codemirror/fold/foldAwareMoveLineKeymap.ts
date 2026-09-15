@@ -1,8 +1,9 @@
 import { foldEffect } from '@codemirror/language';
-import { EditorSelection, type ChangeSpec } from '@codemirror/state';
+import { EditorSelection, type ChangeSpec, type EditorState } from '@codemirror/state';
 import type { Command, KeyBinding } from '@codemirror/view';
 
 import { findFold } from './foldSemantics';
+import { imageUiStateField, setImageUiState, type ImageUiState } from '../image/imageUiState';
 
 /**
  * Fold-preserving replacement for `@codemirror/commands`' own
@@ -58,13 +59,44 @@ import { findFold } from './foldSemantics';
  *
  * **Deliberately narrow, declining (returning `false`, falling through to
  * native `moveLineUp`/`moveLineDown`) for every case that isn't a genuine
- * fold-adjacency** — same discipline `foldAwareArrowKeymap.ts` already
- * established: multiple selection ranges, no fold adjacent to the move,
- * or the document boundary. Native behavior for every other case (the
- * overwhelming majority of line moves, which never touch a fold) is
- * completely unaffected — this command's own fold-aware branch is the
- * only new code path, and only fires when a fold would otherwise be
- * corrupted.
+ * fold-adjacency (or, see below, an embed-UI-state adjacency)** — same
+ * discipline `foldAwareArrowKeymap.ts` already established: multiple
+ * selection ranges, no fold/embed-state adjacent to the move, or the
+ * document boundary. Native behavior for every other case (the
+ * overwhelming majority of line moves, which never touch either) is
+ * completely unaffected.
+ *
+ * **A second, independent state to preserve: a note embed's own outer
+ * collapse (`image/imageUiState.ts`'s `ImageUiState.collapsed`, live in
+ * `imageUiStateField`).** Confirmed live (not just for `foldState`): a
+ * collapsed `![[Page]]` card, moved past via `Alt-ArrowUp`, came back
+ * *expanded*. Root cause is the exact same `RangeSet.map`-through-
+ * delete/reinsert identity loss this file's own top comment documents for
+ * `foldState` — `imageUiStateField`'s own `update()` maps its `RangeSet`
+ * through `tr.changes` the identical way — made worse by that field's own
+ * "freshly created" detection block: once the old entry is lost, the
+ * reinserted embed text looks exactly like a brand-new occurrence with no
+ * prior state, so it gets reset to `DEFAULT_IMAGE_UI_STATE` (`collapsed:
+ * false`) rather than merely losing its entry silently.
+ *
+ * **`ImageUiState.collapsed` is deliberately kept a wholly separate
+ * mechanism from `foldState` — this file coordinates preserving both
+ * without merging them.** `ownFold`/`neighborFold` (CM6 folds) and
+ * `blockEmbeds`/`neighborEmbeds` (embed UI state, below) are captured and
+ * reapplied independently, via each mechanism's own effect type
+ * (`foldEffect` vs. `setImageUiState`) and each mechanism's own read API
+ * (`findFold` vs. a direct `imageUiStateField` `RangeSet` query) — the
+ * only thing shared is this command's own capture → build transaction →
+ * recompute new positions → reapply pattern, not the state itself. Unlike
+ * a fold, an embed's own live state never changes what the *moving unit*
+ * is (an embed occupies exactly its own line, never hides adjacent
+ * content the way a fold does), so it needs no `block`/`neighbor`
+ * boundary-widening step of its own — only capture-before/restore-after,
+ * riding along within whatever boundaries the fold logic already decided.
+ * This is also what makes "the embed itself is the line being moved" fall
+ * out for free: it's just another entry inside `block`, captured into
+ * `blockEmbeds` and restored at `block`'s own new position, with no
+ * special case analogous to `ownFold`'s needed.
  */
 
 interface LineBlock {
@@ -74,6 +106,38 @@ interface LineBlock {
 
 function lineBlockOf(text: { lineAt(pos: number): { from: number; to: number } }, from: number, to: number): LineBlock {
   return { from: text.lineAt(from).from, to: text.lineAt(to).to };
+}
+
+interface CapturedEmbedState {
+  readonly relFrom: number;
+  readonly relTo: number;
+  readonly state: ImageUiState;
+}
+
+/**
+ * Every `imageUiStateField` entry *fully contained* in `[blockFrom,
+ * blockTo)`, captured as an offset relative to `blockFrom` — not absolute
+ * positions, since those positions are about to be invalidated by the
+ * very transaction this command is building (see this file's own top
+ * comment for why `ChangeSet.mapPos` can't be used to carry them across
+ * instead). A partially-overlapping entry (which shouldn't occur in
+ * practice — an embed occupies exactly one physical line, and `blockFrom`/
+ * `blockTo` are always whole-line boundaries) is deliberately excluded
+ * rather than guessed at.
+ */
+function captureEmbedUiState(state: EditorState, blockFrom: number, blockTo: number): readonly CapturedEmbedState[] {
+  const field = state.field(imageUiStateField, false);
+  if (!field) {
+    return [];
+  }
+  const captured: CapturedEmbedState[] = [];
+  field.between(blockFrom, blockTo, (from, to, value) => {
+    if (from < blockFrom || to > blockTo) {
+      return;
+    }
+    captured.push({ relFrom: from - blockFrom, relTo: to - blockFrom, state: value.state });
+  });
+  return captured;
 }
 
 function moveFoldAware(forward: boolean): Command {
@@ -117,18 +181,28 @@ function moveFoldAware(forward: boolean): Command {
     // own owner, whose fold reaches beyond it."
     const neighborFold = findFold(state, adjacentLine.from, adjacentLine.to);
 
-    // Nothing fold-related on either side — an ordinary move with no fold
-    // anywhere near it. Decline; native `moveLineUp`/`moveLineDown`
-    // handles this identically to today, unmodified.
-    if (!ownFold && !neighborFold) {
-      return false;
-    }
-
     const neighbor: LineBlock = neighborFold
       ? forward
         ? { from: adjacentLine.from, to: state.doc.lineAt(Math.min(neighborFold.to, state.doc.length)).to }
         : { from: state.doc.lineAt(neighborFold.from).from, to: state.doc.lineAt(Math.min(neighborFold.to, state.doc.length)).to }
       : { from: adjacentLine.from, to: adjacentLine.to };
+
+    // Every embed's own outer-collapse (or any other non-default
+    // ImageUiState) entry fully inside `block`/`neighbor`, captured now —
+    // before either span is touched by a transaction — so it can be
+    // restored at its own recomputed position below. See this file's own
+    // top comment for why this rides along inside whatever boundaries the
+    // fold logic above already decided, rather than widening them itself.
+    const blockEmbeds = captureEmbedUiState(state, block.from, block.to);
+    const neighborEmbeds = captureEmbedUiState(state, neighbor.from, neighbor.to);
+
+    // Nothing fold- or embed-state-related on either side — an ordinary
+    // move with no state to preserve anywhere near it. Decline; native
+    // `moveLineUp`/`moveLineDown` handles this identically to today,
+    // unmodified.
+    if (!ownFold && !neighborFold && blockEmbeds.length === 0 && neighborEmbeds.length === 0) {
+      return false;
+    }
 
     // Guard against a pathological overlap (shouldn't occur given the
     // adjacency check above, but never construct a transaction against
@@ -195,6 +269,22 @@ function moveFoldAware(forward: boolean): Command {
       const relativeFrom = neighborFold.from - neighbor.from;
       const relativeTo = neighborFold.to - neighbor.from;
       effects.push(foldEffect.of({ from: newNeighborFrom + relativeFrom, to: newNeighborFrom + relativeTo }));
+    }
+    // Embed UI state (outer collapse, and anything else the field tracks)
+    // captured above, restored at each entry's own recomputed position —
+    // independent of, and via a completely different effect type than,
+    // the fold restoration immediately above. `newBlockFrom`/
+    // `newNeighborFrom` + each entry's own `relFrom`/`relTo` gives the
+    // exact post-change position the embed's own text now occupies (the
+    // same "new base + relative offset" shape `neighborFold` uses above),
+    // computed by the same plain arithmetic against this command's own
+    // transaction — never `ChangeSet.mapPos`, for the identical reason
+    // given in this file's own top comment.
+    for (const embed of blockEmbeds) {
+      effects.push(setImageUiState.of({ pos: newBlockFrom + embed.relFrom, to: newBlockFrom + embed.relTo, state: embed.state }));
+    }
+    for (const embed of neighborEmbeds) {
+      effects.push(setImageUiState.of({ pos: newNeighborFrom + embed.relFrom, to: newNeighborFrom + embed.relTo, state: embed.state }));
     }
 
     view.dispatch(
