@@ -102,6 +102,39 @@ export function firstNonWhitespaceOffset(text: string): number {
 }
 
 /**
+ * **The single shared ownership invariant** for "is `line` a genuine,
+ * structurally-nested descendant of a construct whose own marker/start
+ * sits at `ownerColumn`, or does it merely share that construct's raw
+ * parse-tree node because of CommonMark's lazy-continuation rule" — the
+ * one comparison two independent call sites used to each reimplement:
+ * `codemirror/fold/listItemFoldService.ts`'s `computeListItemFold` (a list
+ * item's genuine fold boundary) and `codemirror/highlight/separatorScope.ts`'s
+ * `isGenuinelyGrouped` (block-spacing grouping). Both now delegate here
+ * instead of independently deriving the same `>` comparison, so a future
+ * correction to the invariant itself (e.g. a tab-width edge case) can't be
+ * applied to one and silently missed in the other.
+ *
+ * Deliberately **not** a "does this line belong to that item" oracle on
+ * its own — it only answers the pure geometry question for a line that
+ * already has real content on it. Blank-line handling (a fold scan bridges
+ * over them; separator grouping treats them as grouped outright) and
+ * marker-line identification (`isOwnMarkerLine`/`resolveLineIndentContext`
+ * itself) are call-site-specific policy, not part of this shared
+ * invariant, and stay in each caller's own code.
+ *
+ * `ownerColumn` is a plain character count (this file's own stated
+ * indentation model — never `countColumn`/`tabSize`-aware), matching
+ * `firstNonWhitespaceOffset`'s own units exactly, so a caller can derive
+ * it from a marker line's own leading-whitespace run (`computeListItemFold`)
+ * or from an ancestor node's own document position relative to its own
+ * line start (`separatorScope.ts`) — either derivation lands in this
+ * function's expected units unchanged.
+ */
+export function isIndentedPastColumn(line: Line, ownerColumn: number): boolean {
+  return firstNonWhitespaceOffset(line.text) > ownerColumn;
+}
+
+/**
  * Resolves what `line` structurally *is*, for indentation purposes, from
  * the current syntax tree alone — never from how the line's own
  * whitespace got there. Probes at the line's first non-whitespace

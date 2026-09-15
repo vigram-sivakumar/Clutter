@@ -2,6 +2,8 @@ import { syntaxTree } from '@codemirror/language';
 import { countColumn, type EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
+import { computeListItemFold } from '../fold/listItemFoldService';
+
 /**
  * One `{from, to, insert}` digit-run rewrite, in whatever document's
  * coordinates the caller is currently working in. Deliberately the same
@@ -88,7 +90,18 @@ export function isRiskyRenumberRewrite(
       if (marker.from !== from || marker.to - 1 !== to) {
         return;
       }
-      const multiLine = state.doc.lineAt(node.to).number > state.doc.lineAt(node.from).number;
+      // **Never `state.doc.lineAt(node.to)` directly** — the raw
+      // `ListItem` node's own `.to` can be inflated past its genuine
+      // content by CommonMark lazy continuation (an unrelated,
+      // zero-indent sibling line with no blank line before it), the exact
+      // boundary problem `listItemFoldService.ts` exists to correct.
+      // `computeListItemFold` re-derives the item's real boundary via the
+      // same physical-line indentation scan folding already uses,
+      // returning `null` when there is no genuine descendant past the
+      // marker's own line — that's a real single-line item for this
+      // check's own purposes, not a multi-line one merely because a
+      // sibling happened to glue itself onto the same raw node.
+      const multiLine = computeListItemFold(state, state.doc.lineAt(node.from)) !== null;
       if (!multiLine) {
         return;
       }

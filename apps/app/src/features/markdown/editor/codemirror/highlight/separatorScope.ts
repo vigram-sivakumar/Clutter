@@ -2,7 +2,7 @@ import { syntaxTree } from '@codemirror/language';
 import type { EditorState } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { firstNonWhitespaceOffset, resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { firstNonWhitespaceOffset, isIndentedPastColumn, resolveLineIndentContext } from '../indent/markdownIndentContext';
 
 /**
  * Node names that group their own content tightly (6px) rather than at
@@ -136,9 +136,8 @@ function isGenuinelyGrouped(state: EditorState, pos: number, ancestorNode: Synta
   if (isOwnMarkerLine(state, pos, ancestorNode)) {
     return true;
   }
-  const lineIndent = firstNonWhitespaceOffset(line.text);
   const ancestorColumn = ancestorNode.from - state.doc.lineAt(ancestorNode.from).from;
-  return lineIndent > ancestorColumn;
+  return isIndentedPastColumn(line, ancestorColumn);
 }
 
 /**

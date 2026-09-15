@@ -2,7 +2,7 @@ import { foldService, syntaxTree } from '@codemirror/language';
 import type { EditorState, Extension, Line } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
-import { firstNonWhitespaceOffset, resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { firstNonWhitespaceOffset, isIndentedPastColumn, resolveLineIndentContext } from '../indent/markdownIndentContext';
 
 /**
  * List/task-item fold-range correction — the native `foldNodeProp` branch
@@ -118,7 +118,7 @@ export function computeListItemFold(state: EditorState, line: Line): { from: num
       // itself disqualifying and never itself counted as the boundary.
       continue;
     }
-    if (firstNonWhitespaceOffset(candidate.text) > ownIndent) {
+    if (isIndentedPastColumn(candidate, ownIndent)) {
       lastDescendantLineNumber = n;
       continue;
     }

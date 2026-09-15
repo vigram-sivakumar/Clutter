@@ -863,6 +863,36 @@ describe('deleteCompleteListItemSelection: non-collapsed selection spanning whol
     expect(declined).toBe(false);
   });
 
+  /**
+   * Regression coverage for the 2026-09-15 ownership consolidation:
+   * `exactListItemSelectionRun` used to compare a selection's own `to`
+   * against the raw `ListItem` node's `.to` directly — the same
+   * lazy-continuation boundary problem already found and fixed for
+   * folding. `1. A`'s raw node span, absorbing the following unindented
+   * "Unrelated sibling text" (no blank line, no block-interrupting marker
+   * of its own) via CommonMark lazy continuation, used to make a selection
+   * from `1. A`'s own start through the *end of that absorbed line*
+   * satisfy `cur.to === to`, wrongly treating this as an exact whole-item
+   * selection and deleting the unrelated sibling text right along with the
+   * intended item. Now declines: the item's *corrected* end is `1. A`'s
+   * own line end, which the selection's `to` (end of the absorbed
+   * sibling's own line) does not match, and `2. B`'s own `.from` doesn't
+   * match it either (there's a real line break in between).
+   */
+  it('LAZY-CONTINUATION REGRESSION: a selection reaching exactly to the end of an unrelated, lazy-continued sibling line declines, never swallows it', () => {
+    const doc = '1. A\nUnrelated sibling text\n2. B';
+    const from = doc.indexOf('1. A');
+    const to = doc.indexOf('Unrelated sibling text') + 'Unrelated sibling text'.length;
+    const state = EditorState.create({
+      doc,
+      selection: EditorSelection.range(from, to),
+      extensions: [markdownLanguageExtension()],
+    });
+    ensureSyntaxTree(state, doc.length, 5000);
+    const declined = deleteCompleteListItemSelection({ state, dispatch: () => {} });
+    expect(declined).toBe(false);
+  });
+
   it('collapsed selection never triggers this command (that is deleteBulletMarkerSeparator\'s own scope)', () => {
     const doc = '1. A\n2. B\n3. C';
     const pos = doc.indexOf('2. B');

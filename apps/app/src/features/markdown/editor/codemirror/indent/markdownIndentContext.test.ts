@@ -4,7 +4,7 @@ import { EditorState } from '@codemirror/state';
 import { syntaxTree } from '@codemirror/language';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { computeIndentChange, resolveLineIndentContext } from './markdownIndentContext';
+import { computeIndentChange, isIndentedPastColumn, resolveLineIndentContext } from './markdownIndentContext';
 
 function stateFor(doc: string): EditorState {
   return EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
@@ -145,5 +145,37 @@ describe('computeIndentChange', () => {
     const state = stateFor('paragraph');
     const line = state.doc.lineAt(0);
     expect(computeIndentChange(line, { kind: 'paragraph' }, -1)).toBeNull();
+  });
+});
+
+/**
+ * `isIndentedPastColumn` — the single shared ownership-invariant primitive
+ * both `fold/listItemFoldService.ts`'s `computeListItemFold` and
+ * `highlight/separatorScope.ts`'s `isGenuinelyGrouped` now delegate to,
+ * instead of each independently re-deriving the same `>` comparison
+ * (2026-09-15 consolidation). Exercised directly here, against plain
+ * `Line`-shaped input, so a future change to the comparison itself is
+ * guaranteed to affect both consumers identically — there is no second
+ * copy of this logic left to drift out of sync.
+ */
+describe('isIndentedPastColumn', () => {
+  it('a line indented strictly past the owner column is genuinely descendant', () => {
+    const state = stateFor('    nested');
+    expect(isIndentedPastColumn(state.doc.lineAt(0), 0)).toBe(true);
+  });
+
+  it('a line at exactly the owner column is not past it — a sibling, not a descendant', () => {
+    const state = stateFor('  sibling');
+    expect(isIndentedPastColumn(state.doc.lineAt(0), 2)).toBe(false);
+  });
+
+  it('a line indented less than the owner column is not past it', () => {
+    const state = stateFor('unindented');
+    expect(isIndentedPastColumn(state.doc.lineAt(0), 4)).toBe(false);
+  });
+
+  it('one column past the owner column is already enough', () => {
+    const state = stateFor('     one-past');
+    expect(isIndentedPastColumn(state.doc.lineAt(0), 4)).toBe(true);
   });
 });

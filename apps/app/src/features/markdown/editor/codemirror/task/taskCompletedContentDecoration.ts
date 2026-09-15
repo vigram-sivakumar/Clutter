@@ -20,13 +20,9 @@ import { computeListItemFold } from '../fold/listItemFoldService';
  * formatting composition at the token level" — extended to editor/task
  * state, not just syntax-tree-derived `tok-*` formatting).
  *
- * **Why a real decoration is needed at all, when widget-family participants
- * (WikiLink/Tag/Date) already compose `TASK_COMPLETED_CLASS` onto
- * themselves directly** (`isNodeOnCompletedTask` in `taskEngagement.ts`,
- * consumed by `inlineLivePreviewParticipants.ts`'s `widgetReplaceRenderer`
- * and `wikiLinkLivePreview.ts`): plain, unclassed text (`- [x] Task`) has
- * no rendered element of its own to compose the class onto — it's a bare
- * text node. This mark gives it one, satisfying the same "every
+ * **Why a real decoration is needed at all**: plain, unclassed text
+ * (`- [x] Task`) has no rendered element of its own to compose the class
+ * onto — it's a bare text node. This mark gives it one, satisfying the same "every
  * text-painting element carries its own active state directly" rule for
  * the one case that isn't already a widget or ordinary content mark.
  * Ordinary marks (`tok-strong`/`tok-emphasis`/`tok-highlight`) do **not**

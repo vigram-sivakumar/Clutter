@@ -17,6 +17,7 @@ import {
 import { keymap } from '@codemirror/view';
 
 import { resolveLineIndentContext } from '../indent/markdownIndentContext';
+import { computeListItemFold } from '../fold/listItemFoldService';
 import { classifyMarkerText, firstSameLineListMark } from '../list/listMarkerDecoration';
 import { insertOrderedListMarkerSeparator } from '../list/orderedListMarkerCreation';
 import {
@@ -1433,10 +1434,13 @@ function listItemStartingAt(state: EditorState, pos: number): SyntaxNode | null 
  * Anything else — a selection ending mid-item, mid-nested-content, or
  * spanning into a different list/construct entirely — returns `null`,
  * which is what keeps this from ever touching a partial-content
- * selection: `cur.to`/`next.from` are real tree boundaries, not derived
- * from character counting, so a selection that merely *looks* like it
- * covers whole items but actually clips into one can never accidentally
- * satisfy either check.
+ * selection: `next.from` is a real tree boundary, and an item's own end
+ * (check 1) is `correctedListItemEnd`'s *corrected* boundary, not the raw
+ * node's own `.to` — see that function's own doc comment for why the raw
+ * boundary can't be trusted here either — so a selection that merely
+ * *looks* like it covers whole items but actually clips into one, or
+ * accidentally reaches exactly as far as a lazy-continuation-absorbed
+ * sibling's own end, can never satisfy either check.
  *
  * A gap in the walk (the next node after `from`'s own item isn't a
  * sibling `ListItem` — e.g. the selection would have to cross into a
@@ -1448,6 +1452,22 @@ function listItemStartingAt(state: EditorState, pos: number): SyntaxNode | null 
  * `nextSibling` chain, so this is a structural guarantee, not merely an
  * untested assumption).
  */
+/**
+ * `item`'s genuine content end — never its raw `.to` directly. A
+ * `ListItem`/`Task` node's own `.to` can extend past its real, visible
+ * content via CommonMark lazy continuation (an unrelated, zero-indent
+ * sibling line with no blank line before it, silently absorbed as more of
+ * the same node), the identical boundary problem `listItemFoldService.ts`
+ * exists to correct for folding. `computeListItemFold` re-derives the
+ * true boundary via the same physical-line indentation scan; `null` means
+ * no genuine descendant past the marker's own line, so that line's own
+ * end is the item's real content end either way.
+ */
+function correctedListItemEnd(state: EditorState, item: SyntaxNode): number {
+  const markerLine = state.doc.lineAt(item.from);
+  return computeListItemFold(state, markerLine)?.to ?? markerLine.to;
+}
+
 function exactListItemSelectionRun(
   state: EditorState,
   from: number,
@@ -1465,7 +1485,7 @@ function exactListItemSelectionRun(
   const items: SyntaxNode[] = [firstItem];
   let cur = firstItem;
   for (;;) {
-    if (cur.to === to) {
+    if (correctedListItemEnd(state, cur) === to) {
       return { items, listParentName };
     }
     const next = cur.nextSibling;
@@ -1475,9 +1495,10 @@ function exactListItemSelectionRun(
     // `to` isn't a boundary at `cur` yet — only worth continuing the walk
     // if `next` is a sibling `ListItem` that `to` still reaches *past*
     // (`next.from < to`); otherwise `to` either lands strictly inside
-    // `cur`'s own range (checked and rejected above) or strictly inside
-    // `next`'s (caught on the following iteration's own `cur.to === to`
-    // check, since a boundary a further sibling ahead is `>= next.to`).
+    // `cur`'s own corrected range (checked and rejected above) or
+    // strictly inside `next`'s (caught on the following iteration's own
+    // `correctedListItemEnd(state, cur) === to` check, since a boundary a
+    // further sibling ahead is `>= next`'s own corrected end).
     if (!next || next.name !== 'ListItem' || next.from > to) {
       return null;
     }

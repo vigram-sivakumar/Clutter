@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
-import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { taskCompletedContentDecoration } from './taskCompletedContentDecoration';
-import { isNodeOnCompletedTask, TASK_COMPLETED_CLASS } from './taskEngagement';
+import { TASK_COMPLETED_CLASS } from './taskEngagement';
 import { embedLivePreview } from '../embed/embedLivePreview';
 import type { ResolveEmbedImage } from '../embed/embedImageResolution';
 import type { ResolveEmbedPdf } from '../pdf/embedPdfResolution';
@@ -31,8 +30,7 @@ import type { PageEmbedResolution, ResolvePageEmbed } from '../../../render/bloc
  * plain CSS specificity can't resolve. `inlineLivePreviewRegion.test.ts`
  * (Tag/Date) and `wikilink/wikiLinkLivePreview.test.ts` (WikiLink) now
  * assert the negative — those widgets never carry the class directly —
- * while this file covers the one real source: the ancestor mark, and the
- * shared `isNodeOnCompletedTask` state source it consumes.
+ * while this file covers the one real source: the ancestor mark.
  */
 function mountView(doc: string): EditorView {
   const parent = document.createElement('div');
@@ -204,51 +202,5 @@ describe('taskCompletedContentDecoration — embed adjacency', () => {
     const embedWidget = view.dom.querySelector('.cm-note-embed');
     expect(embedWidget).not.toBeNull();
     expect(view.dom.querySelector(`.${TASK_COMPLETED_CLASS}`)).toBeNull();
-  });
-});
-
-/**
- * Direct unit coverage for `isNodeOnCompletedTask` itself — the pure
- * (tree + document-text, no DOM) state source both widget renderers and
- * this file's own decoration consume. Exercised against the syntax tree
- * alone, mirroring `inlineLivePreviewParticipants.test.ts`'s
- * `collectActiveInlineClasses` coverage.
- */
-function nodeAt(doc: string, nodeName: string) {
-  const state = EditorState.create({ doc, extensions: [markdownLanguageExtension()] });
-  const tree = ensureSyntaxTree(state, doc.length) ?? syntaxTree(state);
-  let found: ReturnType<typeof tree.resolve> | null = null;
-  tree.iterate({
-    enter: (node) => {
-      if (!found && node.name === nodeName) {
-        found = node.node;
-      }
-    },
-  });
-  if (!found) {
-    throw new Error(`no ${nodeName} node found in ${JSON.stringify(doc)}`);
-  }
-  return { node: found as NonNullable<typeof found>, state };
-}
-
-describe('isNodeOnCompletedTask', () => {
-  it('true for a node inside a checked task', () => {
-    const { node, state } = nodeAt('- [x] **bold**', 'EmphasisMark');
-    expect(isNodeOnCompletedTask(node, state)).toBe(true);
-  });
-
-  it('false for a node inside an unchecked task', () => {
-    const { node, state } = nodeAt('- [ ] **bold**', 'EmphasisMark');
-    expect(isNodeOnCompletedTask(node, state)).toBe(false);
-  });
-
-  it('false for a node with no enclosing Task at all', () => {
-    const { node, state } = nodeAt('plain **bold** text', 'EmphasisMark');
-    expect(isNodeOnCompletedTask(node, state)).toBe(false);
-  });
-
-  it('true arbitrarily deep under ordinary delimited-mark constructs', () => {
-    const { node, state } = nodeAt('- [x] ~~**x**~~', 'StrikethroughMark');
-    expect(isNodeOnCompletedTask(node, state)).toBe(true);
   });
 });

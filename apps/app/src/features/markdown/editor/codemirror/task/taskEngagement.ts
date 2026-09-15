@@ -1,5 +1,5 @@
 import type { EditorState } from '@codemirror/state';
-import type { SyntaxNode, SyntaxNodeRef } from '@lezer/common';
+import type { SyntaxNode } from '@lezer/common';
 
 import {
   findAtRestTokenAt,
@@ -73,54 +73,10 @@ export function taskMarkerOfListItem(listItem: SyntaxNode): SyntaxNode | null {
 /**
  * The CSS class a completed task's rendered inline content composes onto
  * itself — the `cm-*` (editor/task state), not `tok-*` (Markdown syntax
- * identity), naming convention, matching `cm-task-checkbox`. One shared
- * constant so `taskCompletedContentDecoration.ts` (which paints it) and
- * every widget-family renderer that composes it directly (see
- * `isNodeOnCompletedTask` below) never risk drifting to two different
- * literal strings.
+ * identity), naming convention, matching `cm-task-checkbox`. Applied
+ * solely by `taskCompletedContentDecoration.ts`'s own ancestor
+ * `Decoration.mark` — see that file's own doc comment for why a second,
+ * direct composition onto the widget family's own root elements (removed
+ * 2026-09-13) was actively wrong, not merely redundant.
  */
 export const TASK_COMPLETED_CLASS = 'cm-task-completed';
-
-/**
- * Whether `node` sits inside a *checked* task's rendered content —
- * derived entirely from the syntax tree and document text, never from
- * rendered DOM state. This is possible because of a source fact worth
- * being explicit about: `@lezer/markdown`'s own `TaskList` extension
- * parses a task's entire remaining line content as `Task`'s own inline
- * children (`Task[TaskMarker, ...cx.parser.parseInline(...)]`, confirmed
- * directly against the installed `@lezer/markdown` source) — so a
- * WikiLink/Tag/Date/Strikethrough/etc. sitting on a task line is a real
- * syntax-tree *descendant* of that line's `Task` node, not merely
- * co-located with it on the same rendered line. Task-completion is
- * therefore exactly as tree-derivable as the inline-formatting ancestry
- * `collectActiveInlineClasses` (`inlineLivePreviewParticipants.ts`) already
- * walks — it just needs one more thing besides the tree: the `TaskMarker`
- * child's own raw text (`state.sliceDoc`), to distinguish `[x]` from `[ ]`,
- * which is why this function takes `state` and `collectActiveInlineClasses`
- * deliberately doesn't (see that function's own doc comment on staying
- * tree-only) — composed at each call site, never merged into one function,
- * since they are independent state sources per
- * docs/editor-architecture-decisions.md's "Inline formatting composition
- * at the token level".
- *
- * Walks every ancestor (not stopping at the first non-`Task` one, unlike
- * `collectActiveInlineClasses`'s `isDelimitedMarkConstruct` walk) because
- * a task's inline content can sit arbitrarily deep under ordinary
- * delimited-mark constructs (`- [x] ~~**[[Note]]**~~`) before reaching
- * `Task` itself — the walk simply keeps going until it finds `Task` or
- * runs out of ancestors (not on any task line at all).
- */
-export function isNodeOnCompletedTask(node: SyntaxNodeRef, state: EditorState): boolean {
-  let ancestor: SyntaxNode | null = node.node.parent;
-  while (ancestor) {
-    if (ancestor.name === 'Task') {
-      const marker = ancestor.firstChild;
-      if (!marker || !isTaskMarkerNode(marker.name)) {
-        return false;
-      }
-      return isTaskMarkerChecked(state.sliceDoc(marker.from, marker.to));
-    }
-    ancestor = ancestor.parent;
-  }
-  return false;
-}
