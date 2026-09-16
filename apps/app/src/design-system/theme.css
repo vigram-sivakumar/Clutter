@@ -76,8 +76,16 @@ html.theme-transitioning [data-themeable] *::after {
 
   --md-hr-line: var(--border-strong);
 
-  --folder-card-surface: var(--surface-secondary);
-  --folder-card-surface-hover: rgb(var(--state-base) / 5%);
+  --md-embed-surface: var(--neutral-850);
+  --fenced-code-surface: var(--neutral-850);
+  /* The shared inset border for every "card" surface built on
+     `--shadow-inset-thin-strong` — note embed, PDF embed, and fenced code
+     all draw their own outline from this one token instead of each
+     hardcoding `--shadow-inset-thin-strong` directly, so a future change
+     to how a card is outlined (a different width/opacity, or a per-theme
+     split like `--md-inline-code-inset` already has) is one edit here,
+     not three. */
+  --md-card-inset-border: var(--shadow-inset-thin);
 
   /* Interactive states */
   --state-base: 255 255 255;
@@ -202,6 +210,10 @@ html.theme-transitioning [data-themeable] *::after {
   --md-pdf-resize-handle: rgba(52, 52, 51, 0.5);
 
   --md-hr-line: var(--border-strong);
+
+  --md-embed-surface: var(--neutral-50);
+  --fenced-code-surface: var(--neutral-50);
+  --md-card-inset-border: var(--shadow-inset-thin);
 
   /* Interactive states */
   --state-base: 0 0 0;

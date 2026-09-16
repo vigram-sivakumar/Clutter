@@ -93,7 +93,15 @@
   gap: var(--space-6);
   padding: var(--space-6);
   border-radius: var(--radius-md);
-  background: var(--surface-secondary);
+  background: var(--md-embed-surface);
+}
+
+.cm-note-embed__content .cm-invalid-embed__row {
+  background: color-mix(
+    in srgb,
+    var(--md-embed-surface) 98%,
+    rgb(var(--state-base)) 2%
+  );
 }
 
 /* At rest, occupies zero width in the row — not merely invisible via

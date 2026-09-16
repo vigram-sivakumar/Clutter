@@ -53,7 +53,11 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--surface-secondary);
-  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+  /* `--md-card-inset-border` (design-system/theme.css) — the same shared
+     inset-outline token `.cm-note-embed` and `.cm-code-block` now draw
+     from, rather than each hardcoding `--shadow-inset-thin-strong`
+     directly. */
+  box-shadow: var(--md-card-inset-border), var(--shadow-md);
 }
 
 /* Alignment (resize milestone) — a direct margin rule centers/right-aligns

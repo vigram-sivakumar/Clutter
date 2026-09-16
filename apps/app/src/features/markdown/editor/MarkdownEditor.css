@@ -542,9 +542,48 @@
     Roboto Mono,
     monospace;
   font-size: var(--text-label);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   line-height: 24px;
-  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-md);
+  /* Moved here from `.cm-code-block-line` (2026-09-16): the per-line
+     background painted flush to this wrapper's own edges, with no gap,
+     which meant every line's own paint sat *on top of* this element's
+     `box-shadow` (children paint above their parent's background/shadow
+     in normal stacking order) — the inset half of the shadow below was
+     being fully occluded along every straight edge, visible only in the
+     outer drop-shadow half (which casts outside the box, so nothing
+     covered it). Same `.cm-note-embed` card (`NoteEmbedWidget.css`)
+     already puts its own background and box-shadow on one element for
+     exactly this reason — this makes fenced code match that, instead of
+     splitting the two across a transparent wrapper and opaque children.
+     `--fenced-code-surface` (2026-09-16, `design-system/theme.css`) is a
+     dedicated card-surface token — same resolved color as
+     `--md-embed-surface` today, but free to diverge later — rather than
+     reusing `--syntax-code-background` (that token's own job is the
+     *editor's* code-token color scheme, unrelated to this card's own
+     surface). `--md-card-inset-border` is the shared border token every
+     card surface (this, `.cm-note-embed`, `.cm-pdf-embed-container`) now
+     draws its inset outline from — see that token's own doc comment in
+     `theme.css`.
+
+     **`color-mix(..., 55%, transparent)`, not the raw token, and this is
+     load-bearing, not cosmetic.** Tried the raw opaque `--fenced-code-surface`
+     first; confirmed live it made text selection inside a fenced code
+     block completely invisible. Root cause: unlike `.cm-note-embed`
+     (whose content is a *separate, nested* `EditorView` with its own
+     independent `.cm-scroller`/selection layer), this wrapper is a plain
+     descendant of the *top-level* editor's own `.cm-content`, which sits
+     in the same stacking context as CM6's `.cm-selectionLayer` — confirmed
+     via the live DOM chain: `.cm-selectionLayer` carries `z-index: -2`,
+     a sibling of `.cm-content` under `.cm-scroller`, so *everything*
+     inside `.cm-content` (this wrapper included, regardless of which of
+     its descendants carries the paint) paints in front of it. A fully
+     opaque background there blocks 100% of that layer; this 55% mix — the
+     same technique `.cm-code-block-line` used before this rule split —
+     lets 45% of it still blend through, restoring visible selection
+     without touching the selection layer's own z-index or CM6 wiring at
+     all. */
+  background: color-mix(in srgb, var(--fenced-code-surface) 55%, transparent);
+  box-shadow: var(--md-card-inset-border), var(--shadow-md);
   /* Line-number gutter (2026-09-11) — one native CSS counter per block,
      reset here so every block numbers its own lines starting at 1,
      independent of any other block or the document's own line numbers.
@@ -575,42 +614,36 @@
 }
 
 /*
- * The visual card's per-line background — via `Decoration.line` classes,
- * the same native mechanism `.cm-quote-line`/`.cm-table-row`/`.cm-hr-line`
+ * The visual card's per-line layout — via `Decoration.line` classes, the
+ * same native mechanism `.cm-quote-line`/`.cm-table-row`/`.cm-hr-line`
  * already use for their own line-level presentation. `position: relative`
  * scopes the language label and Copy button (both `position: absolute`,
  * below) to the *first* line's own box — they're only ever inserted on
  * that line, so every line having `position: relative` (not just `--first`)
  * is harmless and keeps this rule uniform.
  *
- * Border/radius live on `.cm-code-block` (above), not here — `--first`/
- * `--last` below only ever place the correct padding/gutter treatment
- * within an already-correctly-grouped block (the `blockWrappers` structural
- * grouping already keeps two independent, back-to-back `FencedCode` blocks,
- * no blank line between them, in two separate DOM subtrees).
+ * Border/radius/background live on `.cm-code-block` (above), not here —
+ * `--first`/`--last` below only ever place the correct padding/gutter
+ * treatment within an already-correctly-grouped block (the `blockWrappers`
+ * structural grouping already keeps two independent, back-to-back
+ * `FencedCode` blocks, no blank line between them, in two separate DOM
+ * subtrees).
  */
 .cm-editor .cm-code-block-line {
   position: relative;
-  /* Semi-transparent, matching CM6's own `.cm-activeLine` pattern
-     (`#cceeff44`/`#99eeff33`, an alpha-channel color) so it coexists with
-     the selection layer's intentional `z-index: -1` — see
-     docs/editor-architecture-decisions.md's selection-visibility
-     investigation. Opaque `var(--syntax-code-background)` painted above
-     the negative-z-index selection layer; this uses the same color,
-     mixed down to partial opacity via color-mix(), instead of a new
-     rendering mechanism. `--syntax-code-background` already resolves
-     differently per theme (dark: `--surface-secondary`; light:
-     `--surface-tertiary`, since `--surface-secondary` resolves to the exact
-     same value as `--surface-root` in light mode (`#f9f8f7`), making the
-     card indistinguishable from the page background at any alpha —
-     confirmed via direct computed-style comparison, not assumed), so this
-     one rule covers both themes with no separate light-mode override
-     needed (see `syntax-tokens.css`'s own token definition for that split). */
-  background: color-mix(
-    in srgb,
-    var(--syntax-code-background) 55%,
-    transparent
-  );
+  /* Explicitly `transparent`, not merely unset (2026-09-16) — this used to
+     carry its own `color-mix(...)` background (see `.cm-code-block`'s own
+     doc comment above for why that moved). Left painting a background
+     here, flush to `.cm-code-block`'s own edges with no gap, would sit
+     directly on top of that wrapper's `box-shadow` in normal paint order
+     (a child always paints above its parent's own background/shadow),
+     occluding the inset half of the shadow along every straight edge —
+     the exact bug this rule split now fixes. Confirmed live after this
+     move that text selection inside a fenced code block is still clearly
+     visible (drawSelection()'s own layer keeps rendering correctly against
+     the wrapper's relocated background) — re-check this if the selection
+     layer's own stacking assumptions ever change. */
+  background: transparent;
   padding-inline: var(--space-12);
   /* Line-number gutter (2026-09-11) — reserves a column, sized to this
      block's own largest number (`--code-gutter-digits`, set per-block on
@@ -855,9 +888,7 @@
 .cm-editor .cm-code-block-format {
   position: absolute;
   top: var(--space-6);
-  right: calc(
-    var(--space-6) + var(--height-sm) + 2px + var(--height-sm) + 2px
-  );
+  right: calc(var(--space-6) + var(--height-sm) + 2px + var(--height-sm) + 2px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
