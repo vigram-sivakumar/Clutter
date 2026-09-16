@@ -105,12 +105,33 @@ function fencedCodeLineMark(
  * and shared. Computed from `owner.from`/`owner.to`'s own line numbers —
  * no new syntax-tree walk, since `owner` is already the per-line
  * `nearestFencedCode` result this function's caller resolves anyway.
+ *
+ * **Memoized per `owner` within one `buildFencedCodeLineDecorations` call
+ * (2026-09-16, post-migration audit finding), not recomputed per line.**
+ * Every line of an N-line block shares the identical value (it's a
+ * property of the block, not the line), so the naive per-line call did
+ * N redundant `doc.lineAt()` pairs where the pre-migration wrapper did
+ * exactly one per block. `cache` is a plain local `Map`, created fresh by
+ * the caller for each build pass — never module-level/global state, so a
+ * later document with a different line count can never read a stale
+ * value left over from an earlier pass. Keyed by `${owner.from}:${owner.to}`,
+ * the same range-based identity this file already treats as "the same
+ * block" everywhere else (`isLast`'s own comment above explains why:
+ * separate `resolveInner` calls aren't guaranteed to return the same
+ * `SyntaxNode` object for the same underlying node).
  */
-function gutterDigitsFor(view: EditorView, owner: SyntaxNode): number {
+export function gutterDigitsFor(view: EditorView, owner: SyntaxNode, cache: Map<string, number>): number {
+  const key = `${owner.from}:${owner.to}`;
+  const cached = cache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
   const firstLine = view.state.doc.lineAt(owner.from).number;
   const lastLine = view.state.doc.lineAt(owner.to).number;
   const contentLineCount = Math.max(1, lastLine - firstLine + 1 - 2);
-  return String(contentLineCount).length;
+  const digits = String(contentLineCount).length;
+  cache.set(key, digits);
+  return digits;
 }
 
 function firstNonWhitespaceOffset(text: string): number {
@@ -140,6 +161,9 @@ export function nearestFencedCode(state: EditorState, probePos: number): SyntaxN
 function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const seenLines = new Set<number>();
+  // Scoped to this one build pass only — see `gutterDigitsFor`'s own doc
+  // comment for why this must never be hoisted to module scope.
+  const gutterDigitsCache = new Map<string, number>();
 
   const caretPos = view.state.selection.main.head;
   const caretLine = view.state.doc.lineAt(caretPos);
@@ -193,7 +217,7 @@ function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
           builder.add(
             line.from,
             line.from,
-            fencedCodeLineMark(isFirst, isLast, isActive, gutterDigitsFor(view, owner))
+            fencedCodeLineMark(isFirst, isLast, isActive, gutterDigitsFor(view, owner, gutterDigitsCache))
           );
         }
       }

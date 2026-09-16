@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { codeFolding, forceParsing } from '@codemirror/language';
 import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { foldToggleDecoration } from '../fold/foldToggleDecoration';
-import { fencedCodeBlockLineDecoration } from './fencedCodeBlockLineDecoration';
+import {
+  fencedCodeBlockLineDecoration,
+  gutterDigitsFor,
+  nearestFencedCode,
+} from './fencedCodeBlockLineDecoration';
 import { blockSeparatorDecoration } from './blockSeparatorDecoration';
 
 function mountView(doc: string, extraExtensions: readonly Extension[] = []): EditorView {
@@ -236,5 +240,88 @@ describe('fencedCodeBlockLineDecoration — composed with folding: the visible l
       'middle',
       'last',
     ]);
+  });
+});
+
+/**
+ * `--code-gutter-digits` — regression coverage for the memoization fix
+ * (post-migration audit finding, 2026-09-16): the naive per-line
+ * implementation recomputed `doc.lineAt(owner.from)`/`doc.lineAt(owner.to)`
+ * for every line of a block, where the pre-wrapper-removal `BlockWrapper`
+ * computed it exactly once per block. `gutterDigitsFor`'s own cache (a
+ * plain `Map`, scoped to one `buildFencedCodeLineDecorations` call) fixes
+ * this without a second syntax-tree walk and without any module-level
+ * state — verified two ways below: the *value* is still correct on every
+ * line (memoization must never serve a stale/wrong answer), and the
+ * *underlying `doc.lineAt` call count* is actually reduced, not just
+ * assumed reduced from reading the code.
+ */
+function gutterDigitsOf(view: EditorView, lineIndex: number): string | null {
+  const line = Array.from(view.dom.querySelectorAll('.cm-code-block-line'))[lineIndex] as
+    | HTMLElement
+    | undefined;
+  return line?.style.getPropertyValue('--code-gutter-digits').trim() || null;
+}
+
+describe('fencedCodeBlockLineDecoration — --code-gutter-digits memoization', () => {
+  it('every line of a multi-line block carries the identical, correct digit count', () => {
+    // 11 content lines -> 2 digits ("11"), same value expected on every
+    // owned line (fence lines included, per the wrapper's own pre-migration
+    // contract: the CSS property is set uniformly, only the numbering
+    // itself excludes --first/--last).
+    const lines = ['```ts', ...Array.from({ length: 11 }, (_, i) => `const x${i} = ${i};`), '```'];
+    const view = mountView(lines.join('\n'));
+
+    const codeBlockLines = view.dom.querySelectorAll('.cm-code-block-line');
+    expect(codeBlockLines).toHaveLength(13);
+    codeBlockLines.forEach((_, i) => {
+      expect(gutterDigitsOf(view, i)).toBe('2');
+    });
+  });
+
+  it('two independent, back-to-back blocks each compute their own correct, independent digit count', () => {
+    const view = mountView(
+      ['```js', 'one();', '```', '```css', ...Array.from({ length: 10 }, () => 'x{}'), '```'].join(
+        '\n'
+      )
+    );
+
+    const codeBlockLines = Array.from(view.dom.querySelectorAll('.cm-code-block-line'));
+    // Block 1: 1 content line -> 1 digit. Block 2: 10 content lines -> 2 digits.
+    expect(codeBlockLines.slice(0, 3).map((_, i) => gutterDigitsOf(view, i))).toEqual([
+      '1',
+      '1',
+      '1',
+    ]);
+    expect(codeBlockLines.slice(3).map((_, i) => gutterDigitsOf(view, i + 3))).toEqual(
+      Array(12).fill('2')
+    );
+  });
+
+  it('memoizes: a second gutterDigitsFor call for the same owner never touches doc.lineAt again', () => {
+    // Unit-tests the memoization function directly (exported for exactly
+    // this reason) against a real, resolved SyntaxNode from a mounted
+    // view's own syntax tree — avoids the fragility of spying across a
+    // `view.dispatch()` boundary, where CM6's immutable `Text` gives the
+    // post-dispatch state a *different* `doc` instance than the one any
+    // pre-dispatch spy was attached to.
+    const view = mountView('```ts\nconst x = 1\nconst y = 2\n```');
+    const owner = nearestFencedCode(view.state, 6)!; // inside "const x = 1"
+    expect(owner).not.toBeNull();
+    expect(owner.name).toBe('FencedCode');
+
+    const cache = new Map<string, number>();
+    const lineAtSpy = vi.spyOn(view.state.doc, 'lineAt');
+
+    const first = gutterDigitsFor(view, owner, cache);
+    expect(lineAtSpy.mock.calls.length).toBe(2); // owner.from + owner.to, uncached
+    expect(first).toBe(1); // 2 content lines -> contentLineCount 2 -> "2".length === 1
+
+    lineAtSpy.mockClear();
+    const second = gutterDigitsFor(view, owner, cache);
+    expect(lineAtSpy.mock.calls.length).toBe(0); // cache hit — no doc.lineAt calls at all
+    expect(second).toBe(first); // memoization must never serve a different value
+
+    lineAtSpy.mockRestore();
   });
 });

@@ -62,6 +62,30 @@ export function fencedCodeFenceAutoClose(): Extension {
   });
 }
 
+/**
+ * **Deliberately its own local copy — not `fencedCodeBlockLineDecoration.ts`'s
+ * exported `nearestFencedCode` — verified by direct empirical comparison,
+ * not assumed from the shared name alone (2026-09-16 audit finding).** The
+ * two differ in exactly one place: this one resolves with
+ * `resolveInner(pos, -1)` ("prefer the node ending here"); the shared one
+ * uses `resolveInner(pos, 1)` ("prefer the node starting here"). That
+ * single-character difference is not cosmetic — probed directly against a
+ * mounted `EditorState` at this function's own real call shape (`pos`
+ * immediately after a just-typed, still-unclosed `` ``` ``, nothing after
+ * it — e.g. `resolveInner(3, ·)` against the doc `` ``` ``):
+ * `resolveInner(pos, 1)` resolves to plain `Document`, with no `FencedCode`
+ * anywhere in its ancestor chain at all, while `resolveInner(pos, -1)`
+ * correctly resolves to `CodeMark > FencedCode > Document`. Using the
+ * shared, `side: 1` implementation here would silently break auto-close
+ * for its single most common trigger — typing the third backtick of a
+ * brand-new, still-empty fence — which is exactly the case this whole
+ * feature exists to handle. The shared function's own `side: 1` is
+ * correct for *its* callers (all of which probe a position expected to
+ * have real content *following* it — a line start, or just after an
+ * existing opening mark), not for this one, which deliberately probes the
+ * boundary immediately *after* content that may have nothing following it
+ * yet. Do not consolidate these two without re-verifying this exact case.
+ */
 function nearestFencedCode(state: EditorState, pos: number): SyntaxNode | null {
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1);
   for (; node; node = node.parent) {
