@@ -3,16 +3,23 @@ import type { Extension } from '@codemirror/state';
 import { EditorView, layer, RectangleMarker } from '@codemirror/view';
 
 import { docRelativeBase, fencedCodeVisualBounds } from '../fencedCode/fencedCodeBlockGeometry';
+import { findFold } from '../fold/foldSemantics';
 
 /**
- * The fenced-code card's *background only* — one `RectangleMarker` per
- * visible `FencedCode` node, rendered through CM6's public `layer()`
- * mechanism rather than `Decoration.line`. Everything else the card
- * needs (gutter/padding reservation, line numbers, active-line tint,
- * `--first`/`--last` border/radius) stays exactly where it already was,
- * on `.cm-code-block-line` in `fencedCodeBlockLineDecoration.ts` — this
- * file's only job is the flat color fill, previously
- * `color-mix(..., 55%, transparent)` on that same class.
+ * The fenced-code card's *surface* — background fill and the block-level
+ * shadow — one `RectangleMarker` per visible `FencedCode` node, rendered
+ * through CM6's public `layer()` mechanism rather than `Decoration.line`.
+ * Everything else the card needs (gutter/padding reservation, line
+ * numbers, active-line tint, `--first`/`--last` border/radius) stays
+ * exactly where it already was, on `.cm-code-block-line` in
+ * `fencedCodeBlockLineDecoration.ts` — those are per-line concerns, while
+ * fill and shadow are properties of the block as a whole, which is
+ * exactly what this one rectangle already models geometrically. The
+ * shadow moved here (from `.cm-code-block-line--last`/`--first:has(...)`)
+ * because the marker's own height already tracks fold state via
+ * `fencedCodeVisualBounds` — no separate shadow rule keyed to "which line
+ * is currently last" is needed once the shadow lives on the shape that's
+ * already sized correctly for both states.
  *
  * **Why a layer, not a `Decoration.line` background — confirmed, not
  * assumed.** CM6's own author (Marijn Haverbeke, CodeMirror forum,
@@ -97,7 +104,18 @@ function buildMarkers(view: EditorView): RectangleMarker[] {
         seen.add(node.from);
 
         const { top, bottom } = fencedCodeVisualBounds(view, node);
-        markers.push(new RectangleMarker(MARKER_CLASS, left, top, width, bottom - top));
+        // The block's own surface shadow lives here, not on
+        // `.cm-code-block-line`'s CSS — `findFold` (this codebase's one
+        // fold-state authority, `fold/foldSemantics.ts`) is the same
+        // read of `foldedRanges(state)` `foldToggleDecoration.ts` already
+        // uses per line, applied once per block instead: a fold's range
+        // is always a subrange of its own `FencedCode` node's `[from,
+        // to)`, so checking overlap against the node's own full range
+        // unambiguously answers "is *this* block folded," with no second
+        // fold-state mechanism and no `.cm-foldPlaceholder` DOM probe.
+        const folded = findFold(view.state, node.from, node.to) !== null;
+        const className = folded ? `${MARKER_CLASS} ${MARKER_CLASS}--folded` : MARKER_CLASS;
+        markers.push(new RectangleMarker(className, left, top, width, bottom - top));
       },
     });
   }

@@ -180,6 +180,32 @@ describe('fencedCodeBackgroundLayer', () => {
     expect(markerRects(view)[1]!.style.height).toBe(beforeSecond);
   });
 
+  it('the marker carries no --folded modifier while expanded, gains it on fold, and loses it again on unfold', async () => {
+    const view = await mountView('```ts\nconst x = 1\nconst y = 2\n```');
+    expect(markerRects(view)[0]!.classList.contains('cm-fenced-code-bg--folded')).toBe(false);
+
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flushMeasure();
+    expect(markerRects(view)[0]!.classList.contains('cm-fenced-code-bg--folded')).toBe(true);
+
+    const collapsedToggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flushMeasure();
+    expect(markerRects(view)[0]!.classList.contains('cm-fenced-code-bg--folded')).toBe(false);
+  });
+
+  it('folding one of two adjacent blocks only marks the folded one --folded', async () => {
+    const view = await mountView('```js\none();\ntwo();\n```\n```css\nthree{}\nfour{}\n```');
+
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await flushMeasure();
+
+    expect(markerRects(view)[0]!.classList.contains('cm-fenced-code-bg--folded')).toBe(true);
+    expect(markerRects(view)[1]!.classList.contains('cm-fenced-code-bg--folded')).toBe(false);
+  });
+
   it('removes the rectangle when its fenced block is deleted, and adds a new one when a block is typed', async () => {
     const view = await mountView('```js\none();\n```');
     expect(markerRects(view)).toHaveLength(1);

@@ -590,6 +590,25 @@
   background: var(--fenced-code-surface);
   border-radius: var(--md-embed-radius);
   pointer-events: none;
+  box-shadow: var(--shadow-md);
+}
+
+/*
+ * Collapsed state: `fencedCodeBackgroundLayer.ts`'s own `buildMarkers`
+ * adds this modifier class using `findFold` (the codebase's one
+ * fold-state authority, `fold/foldSemantics.ts`) as the sole source of
+ * truth — never a DOM probe for `.cm-foldPlaceholder` (a `:has()` on this
+ * marker element can't see it anyway: the placeholder is a sibling
+ * inside `.cm-code-block-line`, not a descendant of this layer's own
+ * rectangle). The marker's own height already shrinks to the single
+ * remaining visible line for a folded block
+ * (`fencedCodeVisualBounds`/`fencedCodeBlockGeometry.ts`), so this only
+ * swaps which shadow applies to that already-correctly-sized shape.
+ */
+.cm-editor .cm-fenced-code-bg--folded {
+  box-shadow:
+    var(--shadow-inset-thin-strong),
+    var(--shadow-sm);
 }
 
 .cm-editor .cm-code-block-line {
@@ -627,26 +646,19 @@
   border-top: 0.5px solid var(--border-default);
   border-start-start-radius: var(--md-embed-radius);
   border-start-end-radius: var(--md-embed-radius);
-  /* No box-shadow here (corrected 2026-09-17, reported live: a visible
-     dark band directly below the opening-fence line on every multi-line
-     block). `--shadow-md` is a purely downward-cast shadow (positive
-     y-offset, no upward component) — on `--first` specifically, that
-     means the shadow's entire visible extent falls *below* this line, not
-     above the card, since there's nothing above line 1 for an "elevated
-     card" shadow to read against in the first place. Its only actual
-     effect here was bleeding into line 2's own translucent background
-     (the same root cause as the original per-line striping bug, just
-     narrowed to one seam instead of every seam). `--last` (below) doesn't
-     have this problem — nothing sits below it but the page — so it keeps
-     the shadow; a single-line block still gets it too, since that line
-     carries both `--first` and `--last` classes at once. */
+  /* The block-level surface shadow (`--shadow-md` expanded,
+     `--shadow-inset-thin-strong`+`--shadow-sm` folded) lives on
+     `.cm-fenced-code-bg`/`.cm-fenced-code-bg--folded` in
+     `fencedCodeBackgroundLayer.ts` now, not here — see that rule's own
+     doc comment for why keying it to the *marker's* own already-correct
+     geometry replaced the old two-line-classes-in-a-box-shadow-relay
+     approach this comment used to describe. */
 }
 
 .cm-editor .cm-code-block-line--last {
   border-bottom: 0.5px solid var(--border-default);
   border-end-start-radius: var(--md-embed-radius);
   border-end-end-radius: var(--md-embed-radius);
-  box-shadow: var(--shadow-md);
 }
 
 /*
@@ -654,16 +666,18 @@
  * hidden entirely — CM6 renders the fold as an inline `.cm-foldPlaceholder`
  * widget appended within the still-visible opening-fence line, so
  * `--first` becomes the *only* rendered line for this block, with no
- * `--last` line to supply the bottom edge/radius the two rules above
- * otherwise split across two lines. `:has()` detects that condition
- * directly (the placeholder is a real descendant of this same line) rather
- * than needing a class toggled from the fold-toggle's own click handler.
+ * `--last` line to supply the bottom edge/radius the rule above otherwise
+ * splits across two lines. `:has()` detects that condition directly (the
+ * placeholder is a real descendant of this same line) rather than needing
+ * a class toggled from the fold-toggle's own click handler. (The
+ * background layer's own folded-shadow modifier, above, can't use this
+ * same `:has()` trick — its marker element is a sibling of this line, not
+ * an ancestor of the placeholder — which is why it instead reads
+ * `findFold` directly in `buildMarkers()`.)
  */
 .cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) {
-  border-bottom: 0.5px solid var(--border-default);
   border-end-start-radius: var(--radius-sm);
   border-end-end-radius: var(--radius-sm);
-  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-sm);
 }
 
 /*
