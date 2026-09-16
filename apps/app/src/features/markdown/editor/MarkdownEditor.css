@@ -622,7 +622,19 @@
   border-top: 0.5px solid var(--border-default);
   border-start-start-radius: var(--radius-sm);
   border-start-end-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  /* No box-shadow here (corrected 2026-09-17, reported live: a visible
+     dark band directly below the opening-fence line on every multi-line
+     block). `--shadow-md` is a purely downward-cast shadow (positive
+     y-offset, no upward component) — on `--first` specifically, that
+     means the shadow's entire visible extent falls *below* this line, not
+     above the card, since there's nothing above line 1 for an "elevated
+     card" shadow to read against in the first place. Its only actual
+     effect here was bleeding into line 2's own translucent background
+     (the same root cause as the original per-line striping bug, just
+     narrowed to one seam instead of every seam). `--last` (below) doesn't
+     have this problem — nothing sits below it but the page — so it keeps
+     the shadow; a single-line block still gets it too, since that line
+     carries both `--first` and `--last` classes at once. */
 }
 
 .cm-editor .cm-code-block-line--last {
