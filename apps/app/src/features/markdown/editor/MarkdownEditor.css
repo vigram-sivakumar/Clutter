@@ -588,6 +588,7 @@
  */
 .cm-editor .cm-fenced-code-bg {
   background: var(--fenced-code-surface);
+  border-radius: var(--md-embed-radius);
   pointer-events: none;
 }
 
@@ -624,8 +625,8 @@
 
 .cm-editor .cm-code-block-line--first {
   border-top: 0.5px solid var(--border-default);
-  border-start-start-radius: var(--radius-sm);
-  border-start-end-radius: var(--radius-sm);
+  border-start-start-radius: var(--md-embed-radius);
+  border-start-end-radius: var(--md-embed-radius);
   /* No box-shadow here (corrected 2026-09-17, reported live: a visible
      dark band directly below the opening-fence line on every multi-line
      block). `--shadow-md` is a purely downward-cast shadow (positive
@@ -643,8 +644,8 @@
 
 .cm-editor .cm-code-block-line--last {
   border-bottom: 0.5px solid var(--border-default);
-  border-end-start-radius: var(--radius-sm);
-  border-end-end-radius: var(--radius-sm);
+  border-end-start-radius: var(--md-embed-radius);
+  border-end-end-radius: var(--md-embed-radius);
   box-shadow: var(--shadow-md);
 }
 
@@ -662,7 +663,7 @@
   border-bottom: 0.5px solid var(--border-default);
   border-end-start-radius: var(--radius-sm);
   border-end-end-radius: var(--radius-sm);
-  box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
+  box-shadow: var(--shadow-inset-thin-strong), var(--shadow-sm);
 }
 
 /*
@@ -816,24 +817,24 @@
  * `.cm-code-block-line`'s own `position: relative` above. Sits one
  * button-width in from the edge, immediately left of Actions.
  *
- * **Persistently visible while expanded; hover/focus-reveal only while
- * folded (2026-09-16 product decision, wrapper-removal migration).**
- * Previously hidden at rest and revealed by `.cm-code-block:hover` — a
- * shared multi-line ancestor the wrapper-free architecture no longer has.
- * Rather than add mouse-position-tracking machinery to preserve
- * "hover anywhere in the block," the product decision was to make Copy/
- * Actions always-on chrome while expanded (this rule) and gate them behind
- * hover only in the one state where exactly one line is visible at all —
- * folded (the rule below, scoped by `:has(.cm-foldPlaceholder)`), where
- * "hover that line" and "hover the block" are the same thing by
- * construction, needing no ancestor-spanning mechanism at all.
+ * **Hidden by default, in both expanded and collapsed state — revealed by
+ * the same shared `.cm-fenced-code-hovering` class the fold toggle above
+ * uses (2026-09-17, superseding the previous "persistently visible while
+ * expanded" decision).** `fencedCodeHoverMouseHandlers.ts` applies that
+ * class to Copy/Actions/the fold toggle together, from one hover
+ * detection against the owning `FencedCode` node's full range — not
+ * three independent mechanisms, and not a per-state (expanded vs.
+ * collapsed) special case: for a collapsed block, "hover the one
+ * remaining visible line" and "hover the block" are already the same
+ * event by construction, so the identical class covers both without
+ * distinguishing them.
  */
 .cm-editor .cm-code-block-copy {
   position: absolute;
   top: var(--space-6);
   right: calc(var(--space-6) + var(--height-sm) + 2px);
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
@@ -844,48 +845,39 @@
 /*
  * "More actions" control (`fencedCodeActionsButtonDecoration.ts`,
  * `FencedCodeActionsButtonWidget`) — same `.cm-media-control` chrome,
- * same persistent-while-expanded/hover-while-folded treatment as Copy
- * above. Sits at the card's actual top-right corner (`right: var(--space-6)`,
- * no added offset) — Copy sits one button-width further left. Every
- * fenced block gets this button, regardless of language: Format code,
- * Change Language, Download code, and Remove all live inside its menu
- * (`FencedCodeActionsMenu.tsx`) — Format moved there from its own
- * dedicated button in this same migration, since a third always-visible
- * control was judged unnecessary chrome once Copy/Actions no longer need
- * hover to reveal them.
+ * same shared-hover-class treatment as Copy above. Sits at the card's
+ * actual top-right corner (`right: var(--space-6)`, no added offset) —
+ * Copy sits one button-width further left. Every fenced block gets this
+ * button, regardless of language: Format code, Change Language, Download
+ * code, and Remove all live inside its menu (`FencedCodeActionsMenu.tsx`).
  */
 .cm-editor .cm-code-block-actions {
   position: absolute;
   top: var(--space-6);
   right: var(--space-6);
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 0;
+  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
 /*
- * Folded state: exactly one line is rendered at all (see this file's own
- * `.cm-code-block-line--first:has(.cm-foldPlaceholder)` border/shadow
- * rule above for why) — Copy/Actions default back to hidden here and
- * reveal on hovering/focusing *that* line, which is the entire visible
- * block by construction, or while Actions' own menu is open
+ * Reveal, uniform across expanded and collapsed: the shared hover class
+ * (see both rules above); keyboard focus landing anywhere on the opening
+ * line (Tab reaches these controls one at a time, always via that line,
+ * so `:focus-within` scoped to it — not `:has(.cm-foldPlaceholder)`,
+ * unconditional — covers keyboard access without needing hover at all);
+ * or, for Actions specifically, its own menu being open
  * (`--menu-open`/`--active`, toggled by `MarkdownEditor.tsx`'s
  * `setFencedCodeMenuButtonOpen` — needed because `FencedCodeActionsMenu`'s
- * `Overlay` is a portal outside this line's own DOM subtree, so
- * `:focus-within` alone doesn't survive focus moving into it).
+ * `Overlay` is a portal outside this line's own DOM subtree, so neither
+ * `:focus-within` nor the hover class survives focus moving into it).
  */
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-copy,
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-actions {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):hover .cm-code-block-copy,
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):focus-within .cm-code-block-copy,
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-copy.cm-code-block-copy--menu-open,
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):hover .cm-code-block-actions,
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):focus-within .cm-code-block-actions,
-.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-actions.cm-media-control--active {
+.cm-editor .cm-code-block-copy.cm-fenced-code-hovering,
+.cm-editor .cm-code-block-line--first:focus-within .cm-code-block-copy,
+.cm-editor .cm-code-block-copy.cm-code-block-copy--menu-open,
+.cm-editor .cm-code-block-actions.cm-fenced-code-hovering,
+.cm-editor .cm-code-block-line--first:focus-within .cm-code-block-actions,
+.cm-editor .cm-code-block-actions.cm-media-control--active {
   opacity: 1;
   pointer-events: auto;
 }
@@ -942,6 +934,7 @@
   height: var(--marker-size);
   aspect-ratio: 1;
   font-size: var(--text-label);
+  text-decoration: none;
 }
 
 /*
@@ -1701,6 +1694,7 @@
 .tok-wikilink__emoji {
   transform: scale(0.9);
   line-height: 1lh;
+  text-decoration-color: transparent !important;
 }
 
 .tok-wikilink__icon {
@@ -1724,7 +1718,7 @@
 .cm-editor .tok-link {
   color: var(--md-link-foreground);
   text-decoration: underline;
-  text-decoration-thickness: 0.05em;
+  text-decoration-thickness: 0.5px;
   text-decoration-color: var(--md-link-underline);
   text-underline-offset: var(--md-link-underline-offset);
   cursor: pointer;
@@ -1734,6 +1728,9 @@
 }
 
 .cm-editor .tok-tag {
+  font-size: 0.85em;
+  font-weight: var(--fw-medium);
+
   color: var(--md-tag-foreground);
   background-color: var(--md-tag-surface);
   border-radius: var(--md-badge-radius);
@@ -1854,20 +1851,25 @@
   opacity: 1;
 }
 /*
- * A fenced code block's own fold toggle is persistently visible, never
- * hover-gated (2026-09-16, wrapper-removal migration) — `foldToggleDecoration.ts`
- * marks it `persistent` (`FoldToggleWidget.ts`'s `cm-fold-toggle--persistent`
- * class) whenever the owning line is a `FencedCode` node's own opening
- * line. This replaces a previous `.cm-code-block:hover .cm-fold-toggle`
- * rule that relied on `fencedCodeBlockWrapper.ts`'s `.cm-code-block` being
- * a real DOM ancestor spanning every line of the block; wrapper-free, there
- * is no such ancestor to hover, and the product decision (matching Copy/
- * Actions above) was to make the toggle always-on rather than invent
- * mouse-position-tracking to preserve "hover anywhere in the block."
- * `.cm-line:hover` above still covers headings/lists, which keep the
- * original hover-to-reveal behavior, unchanged.
+ * A fenced code block's own fold toggle reveals on hovering *any* line of
+ * the block, not only its opening line where the toggle itself lives
+ * (2026-09-17, superseding the previous "always visible" behavior from
+ * the wrapper-removal migration). `.cm-line:hover` above only ever
+ * reveals a toggle on hovering its own exact line — sufficient for
+ * headings/lists (unaffected, still covered by that rule alone), not for
+ * fenced code, which needs the *whole block* (every owned line) to count.
+ *
+ * `.cm-fenced-code-hovering` is the *shared* hover-reveal class —
+ * `fencedCodeHoverMouseHandlers.ts` (`codemirror/fencedCode/`) applies it
+ * identically to this toggle, Copy, and Actions (see those rules below)
+ * from one `EditorView.domEventHandlers`/`posAtCoords` resolution against
+ * the owning `FencedCode` node's own full range, not three independent
+ * detectors — never a wrapper, never a `.cm-line` class, and never CSS
+ * alone (no combinator lets an *earlier* sibling react to a *later*
+ * sibling's hover without a shared ancestor to scope a `:has()` query
+ * against, which a wrapper would be).
  */
-.cm-fold-toggle.cm-fold-toggle--persistent {
+.cm-fold-toggle.cm-fenced-code-hovering {
   opacity: 1;
 }
 /* Collapsed lines keep their toggle visible unconditionally — it's the

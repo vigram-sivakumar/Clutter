@@ -1,6 +1,8 @@
 import { foldState, syntaxTree } from '@codemirror/language';
 import type { Extension } from '@codemirror/state';
-import { BlockType, EditorView, layer, RectangleMarker, type BlockInfo } from '@codemirror/view';
+import { EditorView, layer, RectangleMarker } from '@codemirror/view';
+
+import { docRelativeBase, fencedCodeVisualBounds } from '../fencedCode/fencedCodeBlockGeometry';
 
 /**
  * The fenced-code card's *background only* — one `RectangleMarker` per
@@ -57,9 +59,11 @@ import { BlockType, EditorView, layer, RectangleMarker, type BlockInfo } from '@
  * naive `.top` read from it is the *widget's* top, not the line's —
  * reproduced directly (a 12px overshoot above the opening-fence line,
  * exactly matching a leading separator's own height) before `textBlock()`
- * (below) was added to resolve past it via the documented `BlockInfo.type`
- * array contract. With that fix, the rectangle's `top` is the first owned
- * line's own real `.top`, and its height is
+ * (`fencedCode/fencedCodeBlockGeometry.ts` — extracted there once
+ * `fencedCodeHoverMouseHandlers.ts` needed the identical geometry for a
+ * different purpose) was added to resolve past it via the documented
+ * `BlockInfo.type` array contract. With that fix, the rectangle's `top`
+ * is the first owned line's own real `.top`, and its height is
  * `lastLineBlock.bottom - firstLineBlock.top` exactly, not padded or
  * extended by any margin of our own. A folded block's hidden lines
  * contribute zero height to this computation (CM6's heightmap already
@@ -68,40 +72,6 @@ import { BlockType, EditorView, layer, RectangleMarker, type BlockInfo } from '@
  */
 
 const MARKER_CLASS = 'cm-fenced-code-bg';
-
-/**
- * `RectangleMarker` coordinates are document-relative — confirmed against
- * the installed source's own private `getBase(view)` helper (used
- * internally by `RectangleMarker.forRange`, not exported): the
- * `scrollDOM`'s own screen rect, adjusted for its current scroll offset.
- * Reimplemented here rather than assumed.
- */
-function docRelativeLeftBase(view: EditorView): number {
-  const rect = view.scrollDOM.getBoundingClientRect();
-  return rect.left - view.scrollDOM.scrollLeft;
-}
-
-/**
- * `view.lineBlockAt(pos)` can return a *composite* block, not the line's
- * own real bounds — confirmed live, not assumed: a leading block-level
- * separator widget (`blockSeparatorDecoration.ts`'s own `side: -1` block
- * decoration, anchored at the same position a following line starts at)
- * gets merged by CM6's own height-map into one combined `BlockInfo` whose
- * `.top` is the *widget's* top, 12px above the real fence line's own top
- * — reproduced directly via `lineBlockAt`, whose `.type` was an array of
- * sub-blocks (one `BlockType.WidgetBefore`, one `BlockType.Text`) rather
- * than a single `Text` block, exactly matching the documented contract:
- * "When querying lines, this may be an array of all the blocks that make
- * up the line." Resolving to the `Text` sub-block's own bounds is the
- * sanctioned way to get the real line geometry, not a workaround —
- * `BlockType`/`BlockInfo.type` are both public API.
- */
-function textBlock(block: BlockInfo): BlockInfo {
-  if (!Array.isArray(block.type)) {
-    return block;
-  }
-  return block.type.find((sub) => sub.type === BlockType.Text) ?? block;
-}
 
 function buildMarkers(view: EditorView): RectangleMarker[] {
   const markers: RectangleMarker[] = [];
@@ -113,7 +83,7 @@ function buildMarkers(view: EditorView): RectangleMarker[] {
   // carries no horizontal padding of its own, so its own content rect
   // already is that width, with no extra inset to guess at.
   const contentRect = view.contentDOM.getBoundingClientRect();
-  const left = contentRect.left - docRelativeLeftBase(view);
+  const left = contentRect.left - docRelativeBase(view).left;
   const width = contentRect.width;
 
   for (const { from, to } of view.visibleRanges) {
@@ -126,33 +96,8 @@ function buildMarkers(view: EditorView): RectangleMarker[] {
         }
         seen.add(node.from);
 
-        // Same phantom-line guard `fencedCodeBlockLineDecoration.ts`'s own
-        // `--last` computation already established: `node.to` can coincide
-        // with the synthetic empty line CM6 adds after a trailing newline,
-        // which has no `FencedCode` owner of its own.
-        const lastRealPos = node.to > node.from ? node.to - 1 : node.to;
-
-        // `lineBlockAt` already accounts for folded ranges — a folded
-        // block's own hidden lines contribute zero height to the block
-        // info CM6 hands back, so a collapsed block's rectangle shrinks
-        // to its one remaining visible line automatically. `textBlock`
-        // resolves past any leading/trailing block-level widget merged
-        // into the same `BlockInfo` (e.g. a separator immediately before
-        // the opening fence) to the real line's own bounds — without it,
-        // the rectangle's top edge extended into the separator above it,
-        // exceeding the first line's own boundary.
-        const topBlock = textBlock(view.lineBlockAt(node.from));
-        const bottomBlock = textBlock(view.lineBlockAt(lastRealPos));
-
-        markers.push(
-          new RectangleMarker(
-            MARKER_CLASS,
-            left,
-            topBlock.top,
-            width,
-            bottomBlock.bottom - topBlock.top
-          )
-        );
+        const { top, bottom } = fencedCodeVisualBounds(view, node);
+        markers.push(new RectangleMarker(MARKER_CLASS, left, top, width, bottom - top));
       },
     });
   }

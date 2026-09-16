@@ -506,11 +506,11 @@ export const MarkdownEditor = forwardRef<
     actionsButton?.classList.toggle('cm-media-control--active', open);
     actionsButton?.setAttribute('aria-expanded', String(open));
     // Keeps Copy visible too (not just Actions) for the duration the menu
-    // is open, while the block is folded (Copy is unconditionally visible
-    // otherwise — see `MarkdownEditor.css`'s own doc comment) —
+    // is open — Copy/Actions are both hidden by default now (shared-hover
+    // reveal, see `MarkdownEditor.css`'s own doc comment), and
     // `FencedCodeActionsMenu`'s `Overlay` is a portal outside this line's
-    // own DOM subtree, so `:hover`/`:focus-within` alone doesn't survive
-    // the pointer/focus moving into it.
+    // own DOM subtree, so neither the hover class nor `:focus-within`
+    // survives the pointer/focus moving into it.
     line
       ?.querySelector('.cm-code-block-copy')
       ?.classList.toggle('cm-code-block-copy--menu-open', open);

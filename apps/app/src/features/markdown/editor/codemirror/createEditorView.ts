@@ -25,6 +25,7 @@ import {
 } from '@codemirror/view';
 
 import { editorTheme } from './editorTheme';
+import { fencedCodeHoverMouseHandlers } from './fencedCode/fencedCodeHoverMouseHandlers';
 import { foldAwareArrowKeymap } from './fold/foldAwareArrowKeymap';
 import { foldAwareMoveLineKeymap } from './fold/foldAwareMoveLineKeymap';
 import { foldSemanticsKeymap } from './fold/foldSemanticsKeymap';
@@ -321,7 +322,13 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // genuinely unfoldable, not just visually hiding a control a
       // keyboard shortcut (`foldKeymap`, below) could still reach.
       ...(enableFolding
-        ? [codeFolding(), indentedParagraphFoldService(), listItemFoldService(), foldToggleDecoration()]
+        ? [
+            codeFolding(),
+            indentedParagraphFoldService(),
+            listItemFoldService(),
+            foldToggleDecoration(),
+            fencedCodeHoverMouseHandlers(),
+          ]
         : []),
       ...extensions,
       // Lowest-priority keymap (added last), so any higher-precedence

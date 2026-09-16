@@ -2,7 +2,6 @@ import { foldState, syntaxTree } from '@codemirror/language';
 import type { Extension, Range } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type PluginValue, type ViewUpdate } from '@codemirror/view';
 
-import { nearestFencedCode } from '../highlight/fencedCodeBlockLineDecoration';
 import { findFold, getFoldRange, resolveHeadingFoldClass } from './foldSemantics';
 import { FoldToggleWidget } from './FoldToggleWidget';
 
@@ -50,17 +49,9 @@ function buildFoldToggleDecorations(view: EditorView): DecorationSet {
       continue;
     }
     const headingFoldClass = resolveHeadingFoldClass(view.state, line.from);
-    const fencedCodeOwner = nearestFencedCode(view.state, line.from);
-    const isFencedCodeOwner = fencedCodeOwner !== null && fencedCodeOwner.from === line.from;
     ranges.push(
       Decoration.widget({
-        widget: new FoldToggleWidget(
-          from,
-          !!folded,
-          resolveFoldToggleRange,
-          headingFoldClass,
-          isFencedCodeOwner
-        ),
+        widget: new FoldToggleWidget(from, !!folded, resolveFoldToggleRange, headingFoldClass),
         side: -1,
       }).range(from)
     );
