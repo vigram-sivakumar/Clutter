@@ -21,7 +21,7 @@ import { blockSeparatorDecoration } from './blockSeparatorDecoration';
  * absorbed as a spurious extra `.cm-code-block` containing nothing but the
  * separator, immediately followed by the *real* wrapper for the actual
  * fence content. See `blockSeparatorDecoration.ts`'s own
- * `separatorRangeReplacing` doc comment for the exact mechanism and fix.
+ * `separatorPointAfterPreviousLine` doc comment for the exact mechanism and fix.
  *
  * Deliberately mounts through `createEditorView` (the real production
  * factory) with the real fenced-code + separator + fold extensions
@@ -165,8 +165,8 @@ describe('fencedCodeBlockWrapper + blockSeparatorDecoration — no extra .cm-cod
  * explicitly not including `to`) — which frees exactly that one
  * character for every boundary uniformly, including this one. No
  * adjacent-block special case exists anywhere in `blockSeparatorDecoration.ts`
- * — the same `separatorRangeReplacing` path used for every other fenced-code
- * entry now works here too, unconditionally.
+ * — the same `separatorPointAfterPreviousLine` path used for every other
+ * fenced-code entry now works here too, unconditionally.
  */
 describe('fencedCodeBlockWrapper + blockSeparatorDecoration — directly adjacent fenced blocks (no blank line)', () => {
   it('two adjacent fenced blocks: exactly two wrappers, with a genuine 12px separator between them', () => {
