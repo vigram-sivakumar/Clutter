@@ -95,22 +95,7 @@ function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
 }
 
-/**
- * The nearest enclosing `FencedCode` ancestor of `probePos`, or `null` if
- * `probePos` isn't inside one at all — the single shared "which fenced
- * block owns this position" query. Exported for
- * `highlight/blockSeparatorDecoration.ts`'s own use (identifying a
- * physical line that is a `FencedCode` node's own unindented entry line,
- * so the leading separator immediately before it can be placed via a
- * `Decoration.replace` over the connecting newline rather than a
- * zero-width `Decoration.widget` point at that same position — see that
- * file's own doc comment for why the point form collides with
- * `fencedCodeBlockWrapper.ts`'s `EditorView.blockWrappers` range for that
- * exact position) — reused rather than re-walked a third time alongside
- * this file's own `buildFencedCodeLineDecorations` and
- * `separatorScope.ts`'s more general `ATOMIC_NODE_NAMES` chain walk.
- */
-export function nearestFencedCode(state: EditorState, probePos: number): SyntaxNode | null {
+function nearestFencedCode(state: EditorState, probePos: number): SyntaxNode | null {
   let node: SyntaxNode | null = syntaxTree(state).resolveInner(probePos, 1);
   for (; node; node = node.parent) {
     if (node.name === 'FencedCode') {
