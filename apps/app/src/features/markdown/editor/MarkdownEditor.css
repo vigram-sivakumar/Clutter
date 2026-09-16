@@ -546,18 +546,31 @@
  * blockquote/table already reference elsewhere in this file reproduces the
  * identical visual weight without fighting the token's own spread-only shape.
  *
- * **The outer drop-shadow (`--shadow-md`, offset+blur, not spread) applies
- * to every line uniformly and still composes into one continuous card.**
- * Unlike the inset border, an *outer* shadow paints outside its own box —
- * a line's own bottom-edge shadow bleeding down into the next line's own
- * (opaque) box is painted over by that next line, since later DOM siblings
- * paint on top of earlier ones in normal stacking order with no z-index
- * involved. Net visible result: a real top-edge shadow above the first
- * line, a real bottom-edge shadow below the last, continuous side shadows
- * down both edges (nothing occludes those), and no visible artifact at
- * internal line boundaries — confirmed live, not just reasoned from the
- * CSS spec, since sibling paint-order occlusion isn't something jsdom
- * computes.
+ * **The outer drop-shadow (`--shadow-md`) lives only on `--first`/`--last`
+ * — never on the base rule, corrected 2026-09-17 after a real, reported
+ * visual bug.** The original version of this rule applied `--shadow-md`
+ * uniformly to every line, reasoned (wrongly, as it turned out) to
+ * compose into one continuous card because a later DOM sibling paints
+ * over an earlier one's shadow bleed. That occlusion argument silently
+ * assumed an *opaque* next sibling — this card's own background is
+ * deliberately semi-transparent (`color-mix(..., 55%, transparent)`,
+ * required so CM6's selection layer stays visible underneath, see below),
+ * so each line's own downward-cast shadow only ever got 55% occluded by
+ * the next line, never fully — confirmed directly via `getComputedStyle`:
+ * every line's `box-shadow` was identical (`0 8px 16px -4px rgba(...)`),
+ * and the leftover, partially-visible shadow at every single line
+ * boundary composited into a real, visible horizontal banding/striping
+ * pattern down the whole block. Restricting the shadow to `--first`
+ * (top edge) and `--last` (bottom edge) only — the two rules below —
+ * removes every internal seam entirely: a middle line now casts no
+ * shadow at all, so there is nothing for a translucent neighbor to
+ * partially reveal.
+ *
+ * **The inset border does not have this problem and stays on every
+ * line**, `border-left`/`border-right` are real, opaque-colored 0.5px
+ * lines — a solid border never blends with what's beneath it the way a
+ * translucent background over a soft blurred shadow does, so no analogous
+ * banding risk exists there.
  *
  * **`counter-reset` needs no shared ancestor.** CSS counters propagate
  * through *document order* among the elements that declare them, not
@@ -583,7 +596,6 @@
   background: color-mix(in srgb, var(--fenced-code-surface) 55%, transparent);
   border-left: 0.5px solid var(--border-default);
   border-right: 0.5px solid var(--border-default);
-  box-shadow: var(--shadow-md);
   padding-inline: var(--space-12);
   /* Line-number gutter (2026-09-11) — reserves a column, sized to this
      block's own largest number (`--code-gutter-digits`, now set per-line —
@@ -610,12 +622,14 @@
   border-top: 0.5px solid var(--border-default);
   border-start-start-radius: var(--radius-sm);
   border-start-end-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .cm-editor .cm-code-block-line--last {
   border-bottom: 0.5px solid var(--border-default);
   border-end-start-radius: var(--radius-sm);
   border-end-end-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
 }
 
 /*
