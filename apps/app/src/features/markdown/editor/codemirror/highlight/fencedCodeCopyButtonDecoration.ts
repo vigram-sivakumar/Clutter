@@ -74,15 +74,24 @@ function nearestFencedCodeFrom(view: EditorView, fencedCodeFrom: number): Syntax
 
 function buildDecorations(view: EditorView): DecorationSet {
   const ranges: { pos: number; widget: FencedCodeCopyButtonWidget }[] = [];
+  // A fold splits `view.visibleRanges` into multiple entries, and a
+  // `FencedCode` node that starts before the fold spans both of them —
+  // `syntaxTree(...).iterate()` re-enters the same node once per
+  // overlapping range, so without this guard a folded block got two Copy
+  // buttons instead of one (confirmed live). Same guard
+  // `fencedCodeBackgroundLayer.ts`'s own `buildMarkers` already has for
+  // the identical reason.
+  const seen = new Set<number>();
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
       to,
       enter: (node) => {
-        if (node.name !== 'FencedCode') {
+        if (node.name !== 'FencedCode' || seen.has(node.from)) {
           return;
         }
+        seen.add(node.from);
 
         const openMark = node.node.firstChild;
         if (!openMark || openMark.name !== 'CodeMark') {

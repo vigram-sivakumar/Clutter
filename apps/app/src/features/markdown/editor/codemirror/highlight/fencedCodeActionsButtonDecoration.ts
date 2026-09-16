@@ -28,15 +28,21 @@ function buildDecorations(
   getOnOpenFencedCodeMenu: () => OnOpenFencedCodeMenu | undefined
 ): DecorationSet {
   const ranges: { pos: number; widget: FencedCodeActionsButtonWidget }[] = [];
+  // See `fencedCodeCopyButtonDecoration.ts`'s identical guard: a fold
+  // splits `view.visibleRanges`, and a `FencedCode` node starting before
+  // the fold otherwise gets visited (and so decorated) once per
+  // overlapping range.
+  const seen = new Set<number>();
 
   for (const { from, to } of view.visibleRanges) {
     syntaxTree(view.state).iterate({
       from,
       to,
       enter: (node) => {
-        if (node.name !== 'FencedCode') {
+        if (node.name !== 'FencedCode' || seen.has(node.from)) {
           return;
         }
+        seen.add(node.from);
 
         const openMark = node.node.firstChild;
         if (!openMark || openMark.name !== 'CodeMark') {

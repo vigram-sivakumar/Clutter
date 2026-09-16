@@ -1,18 +1,21 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
+import { codeFolding } from '@codemirror/language';
+import type { Extension } from '@codemirror/state';
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { foldToggleDecoration } from '../fold/foldToggleDecoration';
 import { fencedCodeActionsButtonDecoration } from './fencedCodeActionsButtonDecoration';
 import type { OnOpenFencedCodeMenu } from '../fencedCode/FencedCodeActionsButtonWidget';
 
-function mountView(doc: string, onOpen?: OnOpenFencedCodeMenu): EditorView {
+function mountView(doc: string, onOpen?: OnOpenFencedCodeMenu, extraExtensions: Extension[] = []): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), fencedCodeActionsButtonDecoration(() => onOpen)],
+    extensions: [markdownLanguageExtension(), fencedCodeActionsButtonDecoration(() => onOpen), ...extraExtensions],
   });
   return new EditorView({ state, parent });
 }
@@ -74,5 +77,16 @@ describe('fencedCodeActionsButtonDecoration', () => {
 
   it('does not throw for an unclosed fence while typing', () => {
     expect(() => mountView(['```js', 'const x = 1;'].join('\n'))).not.toThrow();
+  });
+
+  it('folding a block does not duplicate its Actions button — a fold splits view.visibleRanges, and the FencedCode node must only be visited once across them', () => {
+    const doc = ['```ts', 'const x = 1', 'const y = 2', '```'].join('\n');
+    const view = mountView(doc, undefined, [codeFolding(), foldToggleDecoration()]);
+    expect(view.dom.querySelectorAll('.cm-code-block-actions')).toHaveLength(1);
+
+    const toggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
+    toggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(view.dom.querySelectorAll('.cm-code-block-actions')).toHaveLength(1);
   });
 });
