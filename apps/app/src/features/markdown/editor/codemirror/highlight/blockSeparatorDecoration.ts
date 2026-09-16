@@ -4,6 +4,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemir
 import type { SyntaxNode } from '@lezer/common';
 
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
+import { nearestFencedCode } from './fencedCodeBlockLineDecoration';
 import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './separatorScope';
 
 /**
@@ -50,6 +51,53 @@ function separatorRange(height: SeparatorHeight, pos: number, side: -1 | 1): Ran
   return Decoration.widget({ widget: new SeparatorWidget(height), block: true, side }).range(pos);
 }
 
+/**
+ * The same separator widget, placed via `Decoration.replace` over
+ * `[from, to)` instead of `Decoration.widget`'s zero-width point form —
+ * see {@link buildLineBoundarySeparators}'s own doc comment for exactly
+ * when and why this variant is needed (a leading separator immediately
+ * before a `FencedCode` node's own unindented entry line).
+ *
+ * **Why replace, not a point widget, for this one boundary**: CM6's
+ * `TileBuilder.updateBlockWrappers` (confirmed against the installed
+ * `@codemirror/view` source) activates a `BlockWrapper` — the real DOM
+ * parent `fencedCodeBlockWrapper.ts` gives a `FencedCode` node — the
+ * moment its own builder-position counter reaches the wrapper's `.from`,
+ * inclusively. A zero-width `Decoration.widget` placed at exactly that
+ * position consumes no document characters, so the counter is still
+ * sitting on `.from` when the widget is emitted — the wrapper is already
+ * "active," and the widget is appended as its first child instead of
+ * rendering as an ordinary top-level sibling before it. A `Decoration.replace`
+ * over the connecting newline has real width, so `addBlockWidget`'s own
+ * `this.pos += widget.length` genuinely advances the counter by one
+ * *through* the widget: while it's being placed, the counter is still one
+ * position *before* the wrapper's `.from` (not active yet, so the widget
+ * renders as a plain sibling); afterward it lands exactly on `.from` for
+ * the *first* time, when the real fence content opens its own single
+ * wrapper. Nothing here reads or changes `fencedCodeBlockWrapper.ts`'s own
+ * range computation — this only changes how the separator's own
+ * decoration is shaped for the one boundary where their positions
+ * otherwise coincide.
+ *
+ * **`inclusiveEnd: false`, explicit, load-bearing.** `Decoration.replace`
+ * defaults `inclusiveEnd` to `block`'s own value when unspecified
+ * (confirmed in the installed source's `getInclusive`) — so a `block: true`
+ * replace is inclusive-at-both-ends by default. Left at that default, CM6's
+ * `RangeSet.spans` traversal silently drops an immediately-following
+ * zero-width point decoration positioned at this decoration's own `to` —
+ * which is exactly where `fencedCodeBlockLineDecoration.ts` places the
+ * `Decoration.line()` carrying the fence's own `--first` class. Setting
+ * `inclusiveEnd: false` avoids that drop; it has no bearing on the
+ * wrapper-activation fix above, which depends only on `this.pos`'s plain
+ * integer position, never on a decoration's side/inclusivity.
+ */
+function separatorRangeReplacing(height: SeparatorHeight, from: number, to: number): Range<Decoration> | null {
+  if (height === 0) {
+    return null;
+  }
+  return Decoration.replace({ widget: new SeparatorWidget(height), block: true, inclusiveEnd: false }).range(from, to);
+}
+
 function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
 }
@@ -83,6 +131,21 @@ function nearestParticipant(state: EditorState, probePos: number): SyntaxNode | 
  * that a future pass may want to address (e.g. incremental re-resolution
  * around the changed range instead of a full rebuild) rather than
  * something already solved here.
+ *
+ * **Line `n` opening a `FencedCode` node's own unindented span is placed
+ * via `separatorRangeReplacing`, not the ordinary point-widget form.**
+ * `fencedCodeBlockWrapper.ts` gives every `FencedCode` node a real DOM
+ * wrapper for its own `[from, to)` range; when line `n`'s own `.from`
+ * equals that node's `.from` (no leading indentation), the ordinary
+ * zero-width widget used everywhere else in this function would land
+ * exactly on the wrapper's own boundary and get absorbed into it as a
+ * spurious extra child — see `separatorRangeReplacing`'s own doc comment
+ * for the exact mechanism and the fix. `nearestFencedCode` (this module's
+ * only fenced-code import — a pure, read-only syntax-tree query owned by
+ * `fencedCodeBlockLineDecoration.ts`) is consulted only to decide *which
+ * decoration shape this file's own separator should use*; nothing about
+ * `fencedCodeBlockWrapper.ts`'s range computation, or any other
+ * fenced-code file, is read or changed.
  */
 function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
   const ranges: Range<Decoration>[] = [];
@@ -91,7 +154,12 @@ function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
     const prevProbe = lineProbePos(state, n - 1);
     const probe = lineProbePos(state, n);
     const height = resolveBoundaryHeight(state, prevProbe, probe);
-    const separator = separatorRange(height, state.doc.line(n).from, -1);
+    const line = state.doc.line(n);
+    const fencedCodeEntry = nearestFencedCode(state, line.from);
+    const separator =
+      fencedCodeEntry && fencedCodeEntry.from === line.from
+        ? separatorRangeReplacing(height, state.doc.line(n - 1).to, line.from)
+        : separatorRange(height, line.from, -1);
     if (separator) {
       ranges.push(separator);
     }

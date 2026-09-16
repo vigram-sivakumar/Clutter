@@ -109,7 +109,35 @@ function buildFencedCodeBlockWrappers(view: EditorView): Range<BlockWrapper>[] {
         if (node.name !== 'FencedCode') {
           return;
         }
-        ranges.push(fencedCodeBlockWrapperFor(view, node).range(node.from, node.to));
+        // `node.to - 1`, not `node.to`: `BlockWrapper`'s own type
+        // declaration documents its range as `[from, to)` — explicitly
+        // *not* including `to` — but the installed `@codemirror/view`
+        // source's actual coverage check (`TileBuilder.updateBlockWrappers`,
+        // `cur.to >= this.pos`) treats `to` *inclusively*, contradicting
+        // that documented contract. Since a `FencedCode` node's own `.to`
+        // always lands exactly at the end of its closing fence line (the
+        // same position `Line.to` reports for that line, which never
+        // includes the line's own trailing newline), using `node.to`
+        // directly as the wrapper's `to` makes the wrapper's *actual*
+        // coverage extend one position *past* its own content, onto the
+        // connecting newline character shared with whatever follows —
+        // never this block's own content, just an artifact of the
+        // implementation's inclusive check. `node.to - 1` gives the
+        // wrapper the range its own documentation already promises.
+        // Verified directly this never excludes real content: for every
+        // `FencedCode` shape tested (normal, empty, unclosed, tilde-
+        // fenced, at document end with and without a trailing newline,
+        // and directly adjacent to another fenced block) `node.to - 1`
+        // is always strictly greater than `node.from` and always still
+        // within the closing fence line's own `[from, to)` span — line
+        // membership is decided by each line's own *start* position
+        // (`TileBuilder.getBlockPos`, called once per line), which is
+        // never affected by shrinking the wrapper's own end by a single
+        // trailing character. This has no effect on `fencedCodeBlockLineDecoration.ts`'s
+        // `--first`/`--last` computation, which reads the real `node.to`
+        // directly and is entirely independent of this wrapper's own
+        // range.
+        ranges.push(fencedCodeBlockWrapperFor(view, node).range(node.from, node.to - 1));
       },
     });
   }
