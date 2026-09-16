@@ -11,6 +11,7 @@ import { formatShortcutsKeymap } from './format/formatShortcutsKeymap';
 import { blockquoteLineDecoration } from './highlight/blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './highlight/blockquoteMarkerDecoration';
 import { blockSeparatorDecoration } from './highlight/blockSeparatorDecoration';
+import { fencedCodeBackgroundLayer } from './highlight/fencedCodeBackgroundLayer';
 import { fencedCodeBlockLineDecoration } from './highlight/fencedCodeBlockLineDecoration';
 import { fencedCodeActionsButtonDecoration } from './highlight/fencedCodeActionsButtonDecoration';
 import { fencedCodeCopyButtonDecoration } from './highlight/fencedCodeCopyButtonDecoration';
@@ -227,6 +228,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     blockquoteMarkerDecoration(),
     blockquoteLineDecoration(),
     headingMarkerDecoration(),
+    fencedCodeBackgroundLayer(),
     fencedCodeBlockLineDecoration(),
     fencedCodeMarkerDecoration(),
     fencedCodeLanguageLabelDecoration(),

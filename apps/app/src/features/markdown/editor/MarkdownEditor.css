@@ -524,14 +524,17 @@
  * arithmetic) that existed only to route around it. `FencedCode` is now an
  * ordinary construct with no bespoke boundary handling anywhere.
  *
- * The entire visual card (background, inset border, outer drop-shadow,
- * radius, line-number gutter's `counter-reset` scope) now lives on
- * `.cm-code-block-line` (every owned line) plus `--first`/`--last`
- * modifiers — the same `Decoration.line`-only shape blockquote/table/
- * horizontal-rule already use safely, and the literal shape this codebase
- * used *before* the wrapper was introduced (this migration is a return to
- * that shape, not a new invention), with three specific techniques worth
- * recording:
+ * **Background moved off this class entirely (2026-09-17) onto
+ * `fencedCodeBackgroundLayer.ts`'s own CM6 `layer()`** — see that file's
+ * doc comment for the full reasoning, confirmed against CodeMirror's own
+ * author: a `Decoration.line` background cannot be both opaque and
+ * compatible with `drawSelection()`'s selection highlight; the only two
+ * sanctioned options are a translucent background (this codebase's
+ * previous approach, and the source of two real striping bugs) or a
+ * `layer()`-rendered background positioned behind the selection layer
+ * (what this class now relies on for its own fill color). Everything
+ * else the card needs — inset border, outer drop-shadow, radius, gutter/
+ * counter scope — stays here, on `Decoration.line`, unchanged.
  *
  * **Inset border via real `border` properties, not `--md-card-inset-border`'s
  * own box-shadow token.** That token is `inset 0 0 0 0.5px <color>` — a
@@ -547,30 +550,15 @@
  * identical visual weight without fighting the token's own spread-only shape.
  *
  * **The outer drop-shadow (`--shadow-md`) lives only on `--first`/`--last`
- * — never on the base rule, corrected 2026-09-17 after a real, reported
- * visual bug.** The original version of this rule applied `--shadow-md`
- * uniformly to every line, reasoned (wrongly, as it turned out) to
- * compose into one continuous card because a later DOM sibling paints
- * over an earlier one's shadow bleed. That occlusion argument silently
- * assumed an *opaque* next sibling — this card's own background is
- * deliberately semi-transparent (`color-mix(..., 55%, transparent)`,
- * required so CM6's selection layer stays visible underneath, see below),
- * so each line's own downward-cast shadow only ever got 55% occluded by
- * the next line, never fully — confirmed directly via `getComputedStyle`:
- * every line's `box-shadow` was identical (`0 8px 16px -4px rgba(...)`),
- * and the leftover, partially-visible shadow at every single line
- * boundary composited into a real, visible horizontal banding/striping
- * pattern down the whole block. Restricting the shadow to `--first`
- * (top edge) and `--last` (bottom edge) only — the two rules below —
- * removes every internal seam entirely: a middle line now casts no
- * shadow at all, so there is nothing for a translucent neighbor to
- * partially reveal.
- *
- * **The inset border does not have this problem and stays on every
- * line**, `border-left`/`border-right` are real, opaque-colored 0.5px
- * lines — a solid border never blends with what's beneath it the way a
- * translucent background over a soft blurred shadow does, so no analogous
- * banding risk exists there.
+ * — never on the base rule** (corrected 2026-09-17, before the background
+ * itself moved to the layer, after a real, reported visual bug: applying
+ * `--shadow-md` uniformly to every line let a downward-cast shadow bleed
+ * into the next line's own translucent background, compositing into a
+ * visible band). Restricting it to `--first`/`--last` still applies now
+ * that the background is opaque and lives on a separate layer — this file
+ * doesn't need to revisit that decision just because the reason it was
+ * made (translucency) is gone; a middle line still shouldn't cast a
+ * shadow onto its own neighbor regardless of what's underneath it.
  *
  * **`counter-reset` needs no shared ancestor.** CSS counters propagate
  * through *document order* among the elements that declare them, not
@@ -586,6 +574,23 @@
  * CSS custom properties need no ancestor to exist at all, only to be set
  * on the element(s) that read them.
  */
+
+/*
+ * The fenced-code card's background fill — `fencedCodeBackgroundLayer.ts`'s
+ * `RectangleMarker`s, one per visible `FencedCode` block, not one per line.
+ * Fully opaque: unlike the translucent background this replaces, there is
+ * no selection-visibility tradeoff to make here, since this layer is
+ * positioned (by `layer()`'s own ordering, not a z-index declared anywhere
+ * in this file) behind `drawSelection()`'s selection highlight rather than
+ * in front of it. `pointer-events: none` since this is decorative fill
+ * only — CM6's own `.cm-layer` base rule doesn't set this by default (only
+ * `user-select: none`), so it's set explicitly rather than assumed.
+ */
+.cm-editor .cm-fenced-code-bg {
+  background: var(--fenced-code-surface);
+  pointer-events: none;
+}
+
 .cm-editor .cm-code-block-line {
   position: relative;
   font-family:
@@ -593,7 +598,6 @@
     monospace;
   font-size: var(--text-label);
   line-height: 24px;
-  background: color-mix(in srgb, var(--fenced-code-surface) 55%, transparent);
   border-left: 0.5px solid var(--border-default);
   border-right: 0.5px solid var(--border-default);
   padding-inline: var(--space-12);
