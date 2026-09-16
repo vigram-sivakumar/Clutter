@@ -11,40 +11,33 @@ import {
 import type { SyntaxNode } from '@lezer/common';
 
 /**
- * The visual code-block *card's* per-line background — via `Decoration.line`
- * classes on `.cm-line`, the same native mechanism `blockquoteLineDecoration.ts`/
- * `tableDecoration.ts`/`horizontalRuleDecoration.ts` already use for their own
- * line-level presentation (confirmed as a legitimate, precedented Clutter
- * pattern by this feature's own architecture investigation — decorating
- * `.cm-line` was never the problem; `margin` specifically was).
+ * The visual code-block *card* — background, inset border, outer
+ * drop-shadow, radius, and gutter/counter scope, entirely via
+ * `Decoration.line` classes on `.cm-line`, the same native mechanism
+ * `blockquoteLineDecoration.ts`/`tableDecoration.ts`/`horizontalRuleDecoration.ts`
+ * already use for their own line-level presentation (confirmed as a
+ * legitimate, precedented Clutter pattern by this feature's own
+ * architecture investigation — decorating `.cm-line` was never the
+ * problem; `margin` specifically was).
  *
- * **Deliberately reinstated 2026-09-10, narrower than its own first
- * version: this file owns per-line presentation only, never structural
- * grouping, and (as of the border/radius move onto `.cm-code-block`) never
- * the card's border/radius either.** `highlight/fencedCodeBlockWrapper.ts`'s
- * `EditorView.blockWrappers` already gives every `FencedCode` node its own
- * real `<div class="cm-code-block">` parent, so two independent, back-to-back
- * blocks (no blank line between them) are already two separate DOM subtrees
- * *before* this file runs — the `--first`/`--last` computation below only
- * needs to place the correct padding/gutter treatment on the correct line
- * *within* an already-correctly-grouped block, not additionally prevent two
- * different blocks' lines from reading as one merged run (an earlier version
- * of this file, predating the wrapper, had to solve that problem itself; it
- * no longer needs to).
+ * **Owns the complete visual card again as of the 2026-09-16 wrapper-removal
+ * migration — structural grouping is `fencedCodeBlockWrapper.ts`'s only
+ * remaining job, and even that is being phased out (see
+ * `docs/editor-architecture-decisions.md`).** Two independent, back-to-back
+ * blocks (no blank line between them) are two separate DOM subtrees without
+ * any wrapper's help: `--first`/`--last` are derived from each block's own
+ * `FencedCode` node `.from`/`.to` directly (never DOM adjacency), so nothing
+ * about this file's own correctness depends on whether a wrapper exists.
  *
- * Every owned line still gets the shared `cm-code-block-line` class
- * (background, horizontal `padding-inline` — safe per `.cm-hr-line`'s own
- * existing vertical-padding precedent, and confirmed directly this session:
- * `padding` does not reproduce the `margin` cursor/navigation corruption on
- * either `.cm-line` or `.cm-code-block`).
- * The line containing the owning node's own `.from` additionally gets
- * `cm-code-block-line--first`; the line containing the node's own `.to`
- * gets `cm-code-block-line--last`. A single-line-body block's one line
- * carries both modifiers at once. Border/radius are no longer painted via
- * these modifiers at all — `.cm-code-block` (the block-level wrapper,
- * `fencedCodeBlockWrapper.ts`) owns the complete visual border treatment
- * unconditionally now, so `--first`/`--last` here only ever drive the
- * remaining per-line concerns below (padding, gutter-number exclusion).
+ * Every owned line gets the shared `cm-code-block-line` class (background,
+ * left/right border, outer shadow, horizontal `padding-inline`); the line
+ * containing the owning node's own `.from` additionally gets
+ * `cm-code-block-line--first` (top border/radius, `counter-reset`); the
+ * line containing the node's own `.to` gets `cm-code-block-line--last`
+ * (bottom border/radius). A single-line-body block's one line carries both
+ * modifiers at once. See `MarkdownEditor.css`'s own doc comment on
+ * `.cm-code-block-line` for exactly how the per-line border/shadow
+ * composition reproduces one continuous card with no shared ancestor.
  *
  * **`cm-code-block-line--active` (2026-09-11, code-content-only 2026-09-12):**
  * the one *code-content* line containing `state.selection.main.head` —
@@ -64,8 +57,9 @@ import type { SyntaxNode } from '@lezer/common';
  * per-caret-position recompute.
  *
  * **No `margin` anywhere in this file** — the external gap between
- * adjacent cards is `fencedCodeBlockWrapper.ts`'s `.cm-code-block`'s own
- * `padding-block`, never a property here.
+ * adjacent cards is `blockSeparatorDecoration.ts`'s own generic
+ * block-widget spacing mechanism (12/6/0px, the same authority every other
+ * construct pair in this document goes through), never a property here.
  *
  * Line-ownership algorithm (which lines belong to a `FencedCode` at all) is
  * a direct reuse of `blockquoteLineDecoration.ts`'s own approach: iterate
@@ -77,7 +71,12 @@ import type { SyntaxNode } from '@lezer/common';
  * excluding lines genuinely outside it; only the first/last *modifier*
  * classes are derived from the owning node's own boundary positions.
  */
-function fencedCodeLineMark(isFirst: boolean, isLast: boolean, isActive: boolean): Decoration {
+function fencedCodeLineMark(
+  isFirst: boolean,
+  isLast: boolean,
+  isActive: boolean,
+  gutterDigits: number
+): Decoration {
   const classes = ['cm-code-block-line'];
   if (isFirst) {
     classes.push('cm-code-block-line--first');
@@ -88,7 +87,30 @@ function fencedCodeLineMark(isFirst: boolean, isLast: boolean, isActive: boolean
   if (isActive) {
     classes.push('cm-code-block-line--active');
   }
-  return Decoration.line({ attributes: { class: classes.join(' ') } });
+  return Decoration.line({
+    attributes: { class: classes.join(' '), style: `--code-gutter-digits: ${gutterDigits};` },
+  });
+}
+
+/**
+ * Per-line replacement for `fencedCodeBlockWrapper.ts`'s own per-instance
+ * `--code-gutter-digits` (a `BlockWrapper` attribute, set once per block on
+ * a shared DOM ancestor). Wrapper-free architecture has no such ancestor
+ * for the property to live on or inherit down from, but CSS custom
+ * properties need no ancestor to begin with — setting the identical value
+ * as an inline `style` on every owned line (not just the first) achieves
+ * the same per-block-scoped gutter width with no cross-line coordination:
+ * each line independently derives it from its own `owner` node (already
+ * resolved below for `--first`/`--last`), not from a value computed once
+ * and shared. Computed from `owner.from`/`owner.to`'s own line numbers —
+ * no new syntax-tree walk, since `owner` is already the per-line
+ * `nearestFencedCode` result this function's caller resolves anyway.
+ */
+function gutterDigitsFor(view: EditorView, owner: SyntaxNode): number {
+  const firstLine = view.state.doc.lineAt(owner.from).number;
+  const lastLine = view.state.doc.lineAt(owner.to).number;
+  const contentLineCount = Math.max(1, lastLine - firstLine + 1 - 2);
+  return String(contentLineCount).length;
 }
 
 function firstNonWhitespaceOffset(text: string): number {
@@ -168,7 +190,11 @@ function buildFencedCodeLineDecorations(view: EditorView): DecorationSet {
             caretOwner !== null &&
             owner.from === caretOwner.from &&
             owner.to === caretOwner.to;
-          builder.add(line.from, line.from, fencedCodeLineMark(isFirst, isLast, isActive));
+          builder.add(
+            line.from,
+            line.from,
+            fencedCodeLineMark(isFirst, isLast, isActive, gutterDigitsFor(view, owner))
+          );
         }
       }
 

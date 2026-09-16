@@ -169,8 +169,18 @@ describe('Fenced code "More actions" — Change Language', () => {
 });
 
 describe('Fenced code "More actions" — Change Language is a view swap, not a nested submenu/overlay', () => {
-  it('the initial Actions menu shows Change Language, Download code, and Remove, with no language list yet', () => {
+  it('the initial Actions menu shows Change Language, Format code, Download code, and Remove, with no language list yet', () => {
     render(<MarkdownEditor pageId="test-page" markdown={['```js', 'const x = 1;', '```'].join('\n')} />);
+    openFencedCodeMenu();
+
+    const labels = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).map(
+      (el) => el.textContent
+    );
+    expect(labels).toEqual(['Change Language', 'Format code', 'Download code', 'Remove']);
+  });
+
+  it('Format code is omitted for a language codeFormatting.ts has no Prettier parser for (Python)', () => {
+    render(<MarkdownEditor pageId="test-page" markdown={['```py', 'x = 1', '```'].join('\n')} />);
     openFencedCodeMenu();
 
     const labels = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).map(

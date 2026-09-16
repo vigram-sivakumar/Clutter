@@ -512,167 +512,140 @@
 }
 
 /*
- * Fenced code — structural wrapper (`fencedCodeBlockWrapper.ts`,
- * `EditorView.blockWrappers`) vs. visual card (`fencedCodeBlockLineDecoration.ts`,
- * `Decoration.line`). **Split corrected 2026-09-10 (second correction the
- * same day) after direct interactive testing: `margin` broke CM6
- * cursor/navigation even on this wrapper, not only on `.cm-line` — so
- * `margin` is banned from the entire fenced-code layout path, on any
- * element, and the wrapper carries `padding-block` instead** (real,
- * uncollapsed spacing — unlike margin, sibling `padding` never collapses,
- * so two adjacent wrappers' own `--space-12` sums to a real, visible gap).
- * The visual card's background moved back onto `.cm-code-block-line` —
- * decorating `.cm-line` was never actually the problem (blockquote/table/
- * horizontal-rule below all do it safely); only `margin`, on *either*
- * element, was. Border/radius, however, now live here on `.cm-code-block`
- * itself (below) rather than per-line: a single wrapper element that's
- * always rendered — regardless of how many child lines are currently
- * visible — needs no per-line `--first`/`--last` composition to keep its
- * border/radius intact when the block is folded down to one visible line.
+ * Fenced code — wrapper-free architecture (2026-09-16 migration; see
+ * `docs/editor-architecture-decisions.md`'s Architecture-B investigation
+ * and migration entries). `fencedCodeBlockWrapper.ts`/`EditorView.blockWrappers`
+ * has been deleted outright, in three phases: Phase 1 made every one of the
+ * wrapper's remaining responsibilities work correctly with `.cm-code-block`
+ * carrying **zero** visual-affecting CSS, proving nothing actually depended
+ * on the wrapper DOM element existing; Phase 2 deleted the extension/file;
+ * Phase 3 removed the separator/tiling workarounds (`blockSeparatorDecoration.ts`'s
+ * own `nearestFencedCode`-driven special case, the `node.to - 1` wrapper
+ * arithmetic) that existed only to route around it. `FencedCode` is now an
+ * ordinary construct with no bespoke boundary handling anywhere.
  *
- * `.cm-code-block` is a real DOM element CM6 itself creates via the native
- * `EditorView.blockWrappers` API (confirmed against the installed
- * `@codemirror/view@6.43.9` source), wrapping every `.cm-line` a
- * `FencedCode` node owns as actual DOM children — besides the external gap
- * between adjacent cards (`padding-block`), it now also owns the block's
- * complete border treatment.
+ * The entire visual card (background, inset border, outer drop-shadow,
+ * radius, line-number gutter's `counter-reset` scope) now lives on
+ * `.cm-code-block-line` (every owned line) plus `--first`/`--last`
+ * modifiers — the same `Decoration.line`-only shape blockquote/table/
+ * horizontal-rule already use safely, and the literal shape this codebase
+ * used *before* the wrapper was introduced (this migration is a return to
+ * that shape, not a new invention), with three specific techniques worth
+ * recording:
+ *
+ * **Inset border via real `border` properties, not `--md-card-inset-border`'s
+ * own box-shadow token.** That token is `inset 0 0 0 0.5px <color>` — a
+ * uniform *spread*, deliberately not directional — which is exactly right
+ * for a single element but cannot be split into "only this side" the way a
+ * plain `border-left`/`border-top` can; applying it per-line uniformly
+ * would draw a visible 0.5px seam between every pair of adjacent code
+ * lines (an inset shadow paints inside its own element's box, so unlike an
+ * *outer* shadow it is never occluded by the next sibling). `border-left`/
+ * `border-right` (every line) plus `border-top`/`border-bottom` (`--first`/
+ * `--last` only) using the same plain `--border-default` color token
+ * blockquote/table already reference elsewhere in this file reproduces the
+ * identical visual weight without fighting the token's own spread-only shape.
+ *
+ * **The outer drop-shadow (`--shadow-md`, offset+blur, not spread) applies
+ * to every line uniformly and still composes into one continuous card.**
+ * Unlike the inset border, an *outer* shadow paints outside its own box —
+ * a line's own bottom-edge shadow bleeding down into the next line's own
+ * (opaque) box is painted over by that next line, since later DOM siblings
+ * paint on top of earlier ones in normal stacking order with no z-index
+ * involved. Net visible result: a real top-edge shadow above the first
+ * line, a real bottom-edge shadow below the last, continuous side shadows
+ * down both edges (nothing occludes those), and no visible artifact at
+ * internal line boundaries — confirmed live, not just reasoned from the
+ * CSS spec, since sibling paint-order occlusion isn't something jsdom
+ * computes.
+ *
+ * **`counter-reset` needs no shared ancestor.** CSS counters propagate
+ * through *document order* among the elements that declare them, not
+ * through DOM nesting — a `counter-reset` on `.cm-code-block-line--first`
+ * is visible to every later sibling's `counter-increment` until the *next*
+ * `counter-reset`, which the following block's own `--first` line already
+ * supplies. No wrapper is needed for this to work correctly, including for
+ * two directly adjacent (zero-blank-line) fenced blocks.
+ *
+ * `--code-gutter-digits` is set as an inline `style` on every owned line
+ * individually now (`fencedCodeBlockLineDecoration.ts`'s own
+ * `gutterDigitsFor`), not inherited down from one wrapper-level attribute —
+ * CSS custom properties need no ancestor to exist at all, only to be set
+ * on the element(s) that read them.
  */
-.cm-editor .cm-code-block {
+.cm-editor .cm-code-block-line {
+  position: relative;
   font-family:
     Roboto Mono,
     monospace;
   font-size: var(--text-label);
-  border-radius: var(--radius-sm);
   line-height: 24px;
-  /* Moved here from `.cm-code-block-line` (2026-09-16): the per-line
-     background painted flush to this wrapper's own edges, with no gap,
-     which meant every line's own paint sat *on top of* this element's
-     `box-shadow` (children paint above their parent's background/shadow
-     in normal stacking order) — the inset half of the shadow below was
-     being fully occluded along every straight edge, visible only in the
-     outer drop-shadow half (which casts outside the box, so nothing
-     covered it). Same `.cm-note-embed` card (`NoteEmbedWidget.css`)
-     already puts its own background and box-shadow on one element for
-     exactly this reason — this makes fenced code match that, instead of
-     splitting the two across a transparent wrapper and opaque children.
-     `--fenced-code-surface` (2026-09-16, `design-system/theme.css`) is a
-     dedicated card-surface token — same resolved color as
-     `--md-embed-surface` today, but free to diverge later — rather than
-     reusing `--syntax-code-background` (that token's own job is the
-     *editor's* code-token color scheme, unrelated to this card's own
-     surface). `--md-card-inset-border` is the shared border token every
-     card surface (this, `.cm-note-embed`, `.cm-pdf-embed-container`) now
-     draws its inset outline from — see that token's own doc comment in
-     `theme.css`.
-
-     **`color-mix(..., 55%, transparent)`, not the raw token, and this is
-     load-bearing, not cosmetic.** Tried the raw opaque `--fenced-code-surface`
-     first; confirmed live it made text selection inside a fenced code
-     block completely invisible. Root cause: unlike `.cm-note-embed`
-     (whose content is a *separate, nested* `EditorView` with its own
-     independent `.cm-scroller`/selection layer), this wrapper is a plain
-     descendant of the *top-level* editor's own `.cm-content`, which sits
-     in the same stacking context as CM6's `.cm-selectionLayer` — confirmed
-     via the live DOM chain: `.cm-selectionLayer` carries `z-index: -2`,
-     a sibling of `.cm-content` under `.cm-scroller`, so *everything*
-     inside `.cm-content` (this wrapper included, regardless of which of
-     its descendants carries the paint) paints in front of it. A fully
-     opaque background there blocks 100% of that layer; this 55% mix — the
-     same technique `.cm-code-block-line` used before this rule split —
-     lets 45% of it still blend through, restoring visible selection
-     without touching the selection layer's own z-index or CM6 wiring at
-     all. */
   background: color-mix(in srgb, var(--fenced-code-surface) 55%, transparent);
-  box-shadow: var(--md-card-inset-border), var(--shadow-md);
-  /* Line-number gutter (2026-09-11) — one native CSS counter per block,
-     reset here so every block numbers its own lines starting at 1,
-     independent of any other block or the document's own line numbers.
-     `--code-gutter-digits` is set per-instance on this exact element by
-     `fencedCodeBlockWrapper.ts` (this block's own line count's digit
-     width) and inherits down to every child `.cm-code-block-line` below,
-     sizing the reserved gutter column to fit this block's own largest
-     number without guessing a fixed width that's wrong for either a
-     3-line or a 300-line block. */
-  counter-reset: cm-code-block-line;
-  /* No max-height/overflow here — reverted 2026-09-12. A `max-height` +
-     `overflow-y: auto` cap was briefly added and committed, then reverted
-     the same day after live testing surfaced a real cursor-placement bug:
-     clicking a visually-scrolled line resolved to the wrong document
-     position. Root cause is architectural, not a CSS mistake — see
-     `docs/editor-architecture-decisions.md`'s "Fenced code max-height" entry
-     for the full investigation (CM6's `posAtCoords` computes document
-     position from a single linear pixel offset relative to `.cm-content`'s
-     own top, with no concept of a second, independent scroll offset nested
-     inside it). Do not reintroduce `overflow-y`/`overflow-x`/`max-height`
-     on this element, or on any `.cm-code-block-line`, without first reading
-     that entry — an inner scroll container here will reproduce the same
-     bug regardless of which element it's applied to, since the problem is
-     CM6's coordinate model, not this specific rule. */
+  border-left: 0.5px solid var(--border-default);
+  border-right: 0.5px solid var(--border-default);
+  box-shadow: var(--shadow-md);
+  padding-inline: var(--space-12);
+  /* Line-number gutter (2026-09-11) — reserves a column, sized to this
+     block's own largest number (`--code-gutter-digits`, now set per-line —
+     see this rule-group's own doc comment above), plus the same
+     `--space-12` gap the rest of this card's padding already uses on both
+     sides, so the gutter reads as one more `--space-12`-based inset rather
+     than a bespoke width. Overrides only the start side of the
+     `padding-inline` shorthand above — declared after it in this same
+     rule, so source order (not specificity) is what makes it win.
+     `padding`, never `margin`, per this codebase's permanent fenced-code
+     layout rule. */
+  padding-inline-start: calc(
+    var(--code-gutter-digits, 2) * 1ch + var(--space-12) * 2
+  );
+  /* No max-height/overflow here — reverted 2026-09-12, root cause
+     architectural (CM6's `posAtCoords` has no concept of a second,
+     independent scroll offset). See `docs/editor-architecture-decisions.md`'s
+     "Fenced code max-height" entry before ever reintroducing
+     `overflow-y`/`overflow-x`/`max-height` on any element in this layout
+     path. */
 }
-.cm-editor .cm-code-block:has(.cm-foldPlaceholder) {
+
+.cm-editor .cm-code-block-line--first {
+  border-top: 0.5px solid var(--border-default);
+  border-start-start-radius: var(--radius-sm);
+  border-start-end-radius: var(--radius-sm);
+}
+
+.cm-editor .cm-code-block-line--last {
+  border-bottom: 0.5px solid var(--border-default);
+  border-end-start-radius: var(--radius-sm);
+  border-end-end-radius: var(--radius-sm);
+}
+
+/*
+ * Folded state: the block's closing fence line (and every content line) is
+ * hidden entirely — CM6 renders the fold as an inline `.cm-foldPlaceholder`
+ * widget appended within the still-visible opening-fence line, so
+ * `--first` becomes the *only* rendered line for this block, with no
+ * `--last` line to supply the bottom edge/radius the two rules above
+ * otherwise split across two lines. `:has()` detects that condition
+ * directly (the placeholder is a real descendant of this same line) rather
+ * than needing a class toggled from the fold-toggle's own click handler.
+ */
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) {
+  border-bottom: 0.5px solid var(--border-default);
+  border-end-start-radius: var(--radius-sm);
+  border-end-end-radius: var(--radius-sm);
   box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
 }
 
 /*
- * The visual card's per-line layout — via `Decoration.line` classes, the
- * same native mechanism `.cm-quote-line`/`.cm-table-row`/`.cm-hr-line`
- * already use for their own line-level presentation. `position: relative`
- * scopes the language label and Copy button (both `position: absolute`,
- * below) to the *first* line's own box — they're only ever inserted on
- * that line, so every line having `position: relative` (not just `--first`)
- * is harmless and keeps this rule uniform.
- *
- * Border/radius/background live on `.cm-code-block` (above), not here —
- * `--first`/`--last` below only ever place the correct padding/gutter
- * treatment within an already-correctly-grouped block (the `blockWrappers`
- * structural grouping already keeps two independent, back-to-back
- * `FencedCode` blocks, no blank line between them, in two separate DOM
- * subtrees).
- */
-.cm-editor .cm-code-block-line {
-  position: relative;
-  /* Explicitly `transparent`, not merely unset (2026-09-16) — this used to
-     carry its own `color-mix(...)` background (see `.cm-code-block`'s own
-     doc comment above for why that moved). Left painting a background
-     here, flush to `.cm-code-block`'s own edges with no gap, would sit
-     directly on top of that wrapper's `box-shadow` in normal paint order
-     (a child always paints above its parent's own background/shadow),
-     occluding the inset half of the shadow along every straight edge —
-     the exact bug this rule split now fixes. Confirmed live after this
-     move that text selection inside a fenced code block is still clearly
-     visible (drawSelection()'s own layer keeps rendering correctly against
-     the wrapper's relocated background) — re-check this if the selection
-     layer's own stacking assumptions ever change. */
-  background: transparent;
-  padding-inline: var(--space-12);
-  /* Line-number gutter (2026-09-11) — reserves a column, sized to this
-     block's own largest number (`--code-gutter-digits`, set per-block on
-     the `.cm-code-block` wrapper above and inherited down to here), plus
-     the same `--space-12` gap the rest of this card's padding already
-     uses on both sides, so the gutter reads as one more `--space-12`-based
-     inset rather than a bespoke width. Overrides only the start side of
-     the `padding-inline` shorthand above — declared after it in this same
-     rule, so source order (not specificity) is what makes it win.
-     `padding`, never `margin`, per this codebase's permanent fenced-code
-     layout rule (see this file's own doc comment above). */
-  padding-inline-start: calc(
-    var(--code-gutter-digits, 2) * 1ch + var(--space-12) * 2
-  );
-}
-
-/*
  * The line number itself — a `::before` pseudo-element, not a per-line
- * decoration widget (see `fencedCodeBlockWrapper.ts`'s own doc comment for
- * why: `counter()` already gives per-block-reset, blank-line-inclusive,
- * one-per-logical-line numbering for free, with zero JS per line).
- * Positioned inside the padding the previous rule's own gutter reservation
- * carves out — `position: absolute` here never affects layout/flow the way
- * `margin` would, and `.cm-code-block-line`'s own `position: relative`
- * (declared above) is what scopes it to this exact line's box, the same
- * mechanism the language label and Copy button already rely on.
- * `user-select`/`pointer-events: none` keep the number out of clipboard
- * copies and click-to-position hit-testing, matching how a real gutter's
- * numbers behave in every editor these reference screenshots came from.
+ * decoration widget (`counter()` already gives per-block-reset,
+ * blank-line-inclusive, one-per-logical-line numbering for free, with zero
+ * JS per line). Positioned inside the padding the previous rule's own
+ * gutter reservation carves out — `position: absolute` here never affects
+ * layout/flow the way `margin` would, and `.cm-code-block-line`'s own
+ * `position: relative` (declared above) is what scopes it to this exact
+ * line's box, the same mechanism the language label and Copy button
+ * already rely on. `user-select`/`pointer-events: none` keep the number
+ * out of clipboard copies and click-to-position hit-testing.
  *
  * **Scoped to `:not(--first):not(--last)` — the block's own fence-marker
  * lines are deliberately never numbered.** `--first`/`--last` mark the
@@ -682,17 +655,26 @@
  * tracks, but not *code* lines a user would ever count as "line 1" of
  * their snippet. Excluding them from both `counter-increment` and this
  * `::before` keeps the visible numbering starting at 1 on the first real
- * content line, matching the reference screenshots (which number actual
- * code, with no fence syntax to account for) — while the gutter's own
- * reserved padding (previous rule) still applies to every line, first/last
- * included, so the card's left edge stays flush across the label row, the
- * numbered body, and the closing row.
+ * content line — while the gutter's own reserved padding (previous rule)
+ * still applies to every line, first/last included, so the card's left
+ * edge stays flush across the label row, the numbered body, and the
+ * closing row.
  */
 .cm-editor
   .cm-code-block-line:not(.cm-code-block-line--first):not(
     .cm-code-block-line--last
   ) {
   counter-increment: cm-code-block-line;
+}
+
+/*
+ * `counter-reset` lives here, on `--first` specifically, not on a shared
+ * block-level ancestor — see this rule-group's own top-of-section doc
+ * comment for why that's sufficient (CSS counters propagate through
+ * document order among flat siblings, not through DOM nesting).
+ */
+.cm-editor .cm-code-block-line--first {
+  counter-reset: cm-code-block-line;
 }
 
 .cm-editor
@@ -720,22 +702,7 @@
  * background token: this rule paints the *entire* line box, which already
  * includes the gutter's reserved `padding-inline-start` region above (the
  * gutter isn't a separate element), so the highlight extends continuously
- * from the line number through the code content in one paint, matching
- * this feature's reference screenshots.
- *
- * **A real, now-fixed bug, recorded here since it's non-obvious:** this
- * rule originally tied in specificity with the (since-removed) light-theme
- * background override that used to sit below it (`[data-theme='light']
- * .cm-editor .cm-code-block-line`, three simple selectors each), so which
- * one won was decided by source order alone — the override came later in
- * the file and silently won, making the active-line highlight invisible in
- * light mode only (confirmed via `getComputedStyle`, not assumed). Fixing
- * `--syntax-code-background` to already vary per theme (see that rule
- * above) removed the override entirely, which also removes the specificity
- * tie: this rule's two combined classes (`.cm-code-block-line.cm-code-block-line--active`,
- * three selector components) now unconditionally outrank the plain
- * `.cm-code-block-line` background rule (two components) in both themes,
- * with no separate `[data-theme='light']` copy needed.
+ * from the line number through the code content in one paint.
  */
 .cm-editor .cm-code-block-line.cm-code-block-line--active {
   background: var(--syntax-active-line);
@@ -770,19 +737,17 @@
 }
 
 /*
- * Reserves room for Copy, Format (when present), and Actions in the
- * block's first line (`:has()` matching Copy's own class — the widest
- * case, all three present, is what the row needs room for; no separate
- * lookup per button needed) so a long raw fence/info string doesn't
- * render underneath them once engaged and hovered at the same time. Kept
- * unconditional (not gated on `:hover`) so the buttons' reveal-on-hover
- * below never shifts surrounding text. All three sit side by side inside
- * the same `--space-96` inset (Format, Copy, Actions — left to right, see
- * below), not stacked, so the reserved width doesn't need to grow per
- * button.
+ * Reserves room for Copy and Actions (now the only two persistent controls
+ * — Format moved into the Actions menu in the wrapper-removal migration,
+ * see this file's own doc comment on `.cm-code-block-copy` above) in the
+ * block's first line so a long raw fence/info string doesn't render
+ * underneath them. Kept unconditional so nothing shifts when they toggle
+ * visibility in the folded state. Both sit side by side inside the same
+ * inset (Copy, then Actions — left to right, see both rules above), not
+ * stacked, so the reserved width doesn't need to grow per button.
  */
 .cm-editor .cm-code-block-line:has(.cm-code-block-copy) {
-  padding-inline-end: var(--space-96);
+  padding-inline-end: var(--space-64);
 }
 
 /*
@@ -818,52 +783,28 @@
  * (`Decoration.widget`, positioned right after the language text/opening
  * fence on the document's own first physical line) into the card's visual
  * top-right area, via `position: absolute` scoped to the owning
- * `.cm-code-block-line`'s own `position: relative` above. Sits between
- * Format (further left) and Actions (rightmost, closest to the corner) —
- * one button-width in from the edge.
+ * `.cm-code-block-line`'s own `position: relative` above. Sits one
+ * button-width in from the edge, immediately left of Actions.
  *
- * **Hidden at rest, revealed on hover/focus (2026-09-10)** — `opacity`/
- * `pointer-events` only, no new element and no new container: the
- * existing `.cm-code-block` wrapper (`fencedCodeBlockWrapper.ts`,
- * `EditorView.blockWrappers`) already contains every line of this block,
- * so `.cm-code-block:hover`/`:focus-within` reaching down to the button
- * via an ordinary descendant selector needs nothing new. `:focus-within`
- * (not just `:hover`) keeps the button visible while it — or anything
- * else inside the block — has focus, so it doesn't vanish mid-interaction
- * (e.g. right after a click, before the pointer has moved) even though
- * the resting state stays fully hidden. `pointer-events: none` at rest
- * keeps the invisible button from intercepting clicks meant for the code
- * beneath it; it doesn't block keyboard `Tab` focus, so a keyboard user
- * can still reach and activate it, which is what triggers `:focus-within`
- * for them in the first place.
- *
- * **Also stays visible while Actions' menu is open** —
- * `.cm-code-block-copy--menu-open`, toggled directly on this button by
- * `MarkdownEditor.tsx`'s `setFencedCodeMenuButtonOpen` (a class on the
- * button itself, not a `[data-menu-open]` attribute on the `.cm-code-block`
- * wrapper — that was tried first and found unreliable live, since the
- * wrapper is a `blockWrappers`-managed element `fencedCodeBlockWrapper.ts`
- * can recompute on view updates, unlike this button's own more stable,
- * `eq()`-guarded widget lifecycle). Needed because `FencedCodeActionsMenu`'s
- * `Overlay` is a portal rendered outside this wrapper's own DOM subtree —
- * once focus moves into it, `:focus-within` here no longer holds, so
- * without this the row would collapse to just the Actions button (the one
- * control with its own `--active` state) the moment its menu opened.
+ * **Persistently visible while expanded; hover/focus-reveal only while
+ * folded (2026-09-16 product decision, wrapper-removal migration).**
+ * Previously hidden at rest and revealed by `.cm-code-block:hover` — a
+ * shared multi-line ancestor the wrapper-free architecture no longer has.
+ * Rather than add mouse-position-tracking machinery to preserve
+ * "hover anywhere in the block," the product decision was to make Copy/
+ * Actions always-on chrome while expanded (this rule) and gate them behind
+ * hover only in the one state where exactly one line is visible at all —
+ * folded (the rule below, scoped by `:has(.cm-foldPlaceholder)`), where
+ * "hover that line" and "hover the block" are the same thing by
+ * construction, needing no ancestor-spanning mechanism at all.
  */
 .cm-editor .cm-code-block-copy {
   position: absolute;
   top: var(--space-6);
   right: calc(var(--space-6) + var(--height-sm) + 2px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-
-.cm-editor .cm-code-block:hover .cm-code-block-copy,
-.cm-editor .cm-code-block:focus-within .cm-code-block-copy,
-.cm-editor .cm-code-block-copy.cm-code-block-copy--menu-open {
   opacity: 1;
   pointer-events: auto;
+  transition: opacity 120ms ease;
 }
 
 .cm-editor .cm-code-block-copy--copied {
@@ -871,82 +812,50 @@
 }
 
 /*
- * Format control (`fencedCodeFormatButtonDecoration.ts`,
- * `FencedCodeFormatButtonWidget`) — same `.cm-media-control` chrome,
- * same absolute-positioned/hover-reveal treatment as Copy above, sits
- * one button-width further from the edge (`--height-sm`, the fixed
- * width `.cm-media-control` itself sets, plus one more `--space-4` gap)
- * so the two sit side by side instead of overlapping — leftmost of the
- * three controls (Copy, then Actions, sit progressively closer to the
- * corner). Only ever present for a block whose language
- * `codeFormatting.ts` recognizes as formattable — there is no "disabled"
- * variant, an unsupported language
- * simply has no Format button at all (`fencedCodeFormatButtonDecoration.ts`
- * never emits the decoration for it), so no separate hidden/disabled
- * state needs styling here.
- */
-.cm-editor .cm-code-block-format {
-  position: absolute;
-  top: var(--space-6);
-  right: calc(var(--space-6) + var(--height-sm) + 2px + var(--height-sm) + 2px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-
-.cm-editor .cm-code-block:hover .cm-code-block-format,
-.cm-editor .cm-code-block:focus-within .cm-code-block-format,
-.cm-editor .cm-code-block-format.cm-code-block-format--menu-open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/*
- * Brief error indicator when Prettier rejects the block's current content
- * (invalid/incomplete code for its declared language) — same timed
- * icon-swap-then-revert shape as `.cm-code-block-copy--copied` above, just
- * the `--error` semantic status token (`theme.css`) instead of
- * `--foreground-primary`, so a failed format attempt is visibly distinct
- * from a successful one rather than indistinguishable silence.
- */
-.cm-editor .cm-code-block-format--error {
-  color: var(--error);
-}
-
-/*
  * "More actions" control (`fencedCodeActionsButtonDecoration.ts`,
- * `FencedCodeActionsButtonWidget`) — same `.cm-media-control` chrome, same
- * absolute-positioned/hover-reveal treatment as Copy/Format. Sits at the
- * card's actual top-right corner (`right: var(--space-4)`, no added
- * offset) — the rightmost of the three, with Copy and then Format
- * stepping one button-width further left each (Format, Copy, Actions —
- * left to right; see both rules above). Unconditional, like Copy — every
- * fenced block gets this button, regardless of language, since Remove
- * applies to all of them.
- *
- * `--active` (shared with every other "More actions" trigger in this
- * editor, `MediaFloatingControls.css`'s `.cm-media-control--active`) is
- * toggled by `MarkdownEditor.tsx`'s `setFencedCodeMenuButtonOpen` while
- * its portal menu is open, and — since `:hover`/`:focus-within` alone
- * wouldn't otherwise keep it visible once focus moves into that portal —
- * also forces the button visible for that duration, the same
- * `[data-menu-open]`-style reasoning `NoteEmbedWidget.ts`'s own more-
- * actions button already establishes (here as a direct rule on the
- * `--active` class itself, since this button has no wrapping
- * `[data-menu-open]`-bearing container of its own to key off).
+ * `FencedCodeActionsButtonWidget`) — same `.cm-media-control` chrome,
+ * same persistent-while-expanded/hover-while-folded treatment as Copy
+ * above. Sits at the card's actual top-right corner (`right: var(--space-6)`,
+ * no added offset) — Copy sits one button-width further left. Every
+ * fenced block gets this button, regardless of language: Format code,
+ * Change Language, Download code, and Remove all live inside its menu
+ * (`FencedCodeActionsMenu.tsx`) — Format moved there from its own
+ * dedicated button in this same migration, since a third always-visible
+ * control was judged unnecessary chrome once Copy/Actions no longer need
+ * hover to reveal them.
  */
 .cm-editor .cm-code-block-actions {
   position: absolute;
   top: var(--space-6);
   right: var(--space-6);
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: auto;
   transition: opacity 120ms ease;
 }
 
-.cm-editor .cm-code-block:hover .cm-code-block-actions,
-.cm-editor .cm-code-block:focus-within .cm-code-block-actions,
-.cm-editor .cm-code-block-actions.cm-media-control--active {
+/*
+ * Folded state: exactly one line is rendered at all (see this file's own
+ * `.cm-code-block-line--first:has(.cm-foldPlaceholder)` border/shadow
+ * rule above for why) — Copy/Actions default back to hidden here and
+ * reveal on hovering/focusing *that* line, which is the entire visible
+ * block by construction, or while Actions' own menu is open
+ * (`--menu-open`/`--active`, toggled by `MarkdownEditor.tsx`'s
+ * `setFencedCodeMenuButtonOpen` — needed because `FencedCodeActionsMenu`'s
+ * `Overlay` is a portal outside this line's own DOM subtree, so
+ * `:focus-within` alone doesn't survive focus moving into it).
+ */
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-copy,
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-actions {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):hover .cm-code-block-copy,
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):focus-within .cm-code-block-copy,
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-copy.cm-code-block-copy--menu-open,
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):hover .cm-code-block-actions,
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder):focus-within .cm-code-block-actions,
+.cm-editor .cm-code-block-line--first:has(.cm-foldPlaceholder) .cm-code-block-actions.cm-media-control--active {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1915,21 +1824,20 @@
   opacity: 1;
 }
 /*
- * A fenced code block's own toggle lives only on its opening line (per
- * `foldToggleDecoration.ts`'s own placement — one toggle per owning
- * line, never one per line inside the block), but the block itself is
- * a single visual unit spanning every line down to the closing fence
- * (`fencedCodeBlockWrapper.ts`'s `.cm-code-block`, a real DOM ancestor
- * of every line CM6 renders for it). Hovering *any* of those lines
- * should reveal that one toggle, not only its own opening line — the
- * exact same "hover the whole block, reveal its own chrome" contract
- * `.cm-code-block:hover .cm-code-block-copy` (above) already
- * establishes for Copy/Format/Actions, extended to this toggle rather
- * than reinventing a second hover-scoping mechanism. `.cm-line:hover`
- * above still covers headings/lists/paragraphs, which have no such
- * multi-line wrapper to hover instead.
+ * A fenced code block's own fold toggle is persistently visible, never
+ * hover-gated (2026-09-16, wrapper-removal migration) — `foldToggleDecoration.ts`
+ * marks it `persistent` (`FoldToggleWidget.ts`'s `cm-fold-toggle--persistent`
+ * class) whenever the owning line is a `FencedCode` node's own opening
+ * line. This replaces a previous `.cm-code-block:hover .cm-fold-toggle`
+ * rule that relied on `fencedCodeBlockWrapper.ts`'s `.cm-code-block` being
+ * a real DOM ancestor spanning every line of the block; wrapper-free, there
+ * is no such ancestor to hover, and the product decision (matching Copy/
+ * Actions above) was to make the toggle always-on rather than invent
+ * mouse-position-tracking to preserve "hover anywhere in the block."
+ * `.cm-line:hover` above still covers headings/lists, which keep the
+ * original hover-to-reveal behavior, unchanged.
  */
-.cm-code-block:hover .cm-fold-toggle {
+.cm-fold-toggle.cm-fold-toggle--persistent {
   opacity: 1;
 }
 /* Collapsed lines keep their toggle visible unconditionally — it's the

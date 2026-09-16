@@ -66,19 +66,39 @@ export class FoldToggleWidget extends WidgetType {
     // `foldToggleDecoration.ts`'s `resolveHeadingFoldClass` doc comment
     // for the full gate. Appended alongside (never in place of)
     // `.cm-fold-toggle` in `toDOM`, and never applied to `.cm-line`.
-    private readonly headingFoldClass: string | null = null
+    private readonly headingFoldClass: string | null = null,
+    // Fenced code's own toggle (wrapper-free architecture, 2026-09-16):
+    // with no shared multi-line ancestor left to hang a
+    // `.cm-code-block:hover` reveal off, the product decision was to make
+    // this toggle unconditionally visible rather than invent mouse-position
+    // tracking to preserve "hover anywhere in the block" — see
+    // `docs/editor-architecture-decisions.md`'s wrapper-removal entry.
+    // Generic (not fenced-code-specific in name) since any future fold
+    // owner might want the same persistent-visibility treatment.
+    private readonly persistent: boolean = false
   ) {
     super();
   }
 
   override eq(other: FoldToggleWidget): boolean {
-    return this.folded === other.folded && this.headingFoldClass === other.headingFoldClass;
+    return (
+      this.folded === other.folded &&
+      this.headingFoldClass === other.headingFoldClass &&
+      this.persistent === other.persistent
+    );
   }
 
   override toDOM(view: EditorView): HTMLElement {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = this.headingFoldClass ? `cm-fold-toggle ${this.headingFoldClass}` : 'cm-fold-toggle';
+    const classes = ['cm-fold-toggle'];
+    if (this.headingFoldClass) {
+      classes.push(this.headingFoldClass);
+    }
+    if (this.persistent) {
+      classes.push('cm-fold-toggle--persistent');
+    }
+    button.className = classes.join(' ');
     button.dataset.folded = String(this.folded);
     button.setAttribute('aria-label', this.folded ? 'Expand' : 'Collapse');
     button.title = this.folded ? 'Expand' : 'Collapse';

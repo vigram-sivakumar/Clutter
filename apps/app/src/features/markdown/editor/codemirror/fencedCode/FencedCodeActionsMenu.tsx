@@ -26,6 +26,8 @@ export interface FencedCodeActionsMenuProps {
   readonly currentRawInfo?: string;
   /** Rewrites only the block's info string to `languageName` (one of `fencedCodeLanguageDescriptions`' own canonical `name`s, lowercased) — never touches the code content. See `fencedCodeInfoRange.ts`'s own doc comment for the exact range this replaces. */
   readonly onChangeLanguage?: (languageName: string) => void;
+  /** Formats the block's `CodeText` via Prettier — `undefined` (not merely a no-op handler) when the block's language isn't formattable, so the menu item itself isn't rendered at all, matching the removed standalone Format button's own "no button for an unsupported language" contract. Moved here from a dedicated persistent button in the wrapper-removal migration (2026-09-16) — see `MarkdownEditor.css`'s own doc comment on `.cm-code-block-copy`. */
+  readonly onFormat?: () => void;
   /** Exports the block's own `CodeText` (never the fences or the info string) to a user-chosen destination via the native Save dialog. See `downloadTextFile.ts`'s own doc comment for the download mechanism and `fencedCodeFileExtension.ts` for the language → extension mapping. */
   readonly onDownload?: () => void;
   /** Deletes the entire fenced code block — opening marker, all content, closing marker. See `fencedCodeRemovalRange.ts`'s own doc comment for the exact range/blank-line rule. Plain CM6 undo restores it. */
@@ -118,6 +120,7 @@ export function FencedCodeActionsMenu({
   onClose,
   currentRawInfo,
   onChangeLanguage,
+  onFormat,
   onDownload,
   onRemove,
 }: FencedCodeActionsMenuProps) {
@@ -221,6 +224,18 @@ export function FencedCodeActionsMenu({
             >
               Change Language
             </MenuItem>
+            {onFormat && (
+              <MenuItem
+                leading={<AppIcon icon="brush" />}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onFormat();
+                  onClose();
+                }}
+              >
+                Format code
+              </MenuItem>
+            )}
             <MenuItem
               leading={<AppIcon icon="download" />}
               onClick={(event) => {

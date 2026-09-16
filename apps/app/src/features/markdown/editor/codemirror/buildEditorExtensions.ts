@@ -12,10 +12,8 @@ import { blockquoteLineDecoration } from './highlight/blockquoteLineDecoration';
 import { blockquoteMarkerDecoration } from './highlight/blockquoteMarkerDecoration';
 import { blockSeparatorDecoration } from './highlight/blockSeparatorDecoration';
 import { fencedCodeBlockLineDecoration } from './highlight/fencedCodeBlockLineDecoration';
-import { fencedCodeBlockWrapper } from './highlight/fencedCodeBlockWrapper';
 import { fencedCodeActionsButtonDecoration } from './highlight/fencedCodeActionsButtonDecoration';
 import { fencedCodeCopyButtonDecoration } from './highlight/fencedCodeCopyButtonDecoration';
-import { fencedCodeFormatButtonDecoration } from './highlight/fencedCodeFormatButtonDecoration';
 import type { OnOpenFencedCodeMenu } from './fencedCode/FencedCodeActionsButtonWidget';
 import { fencedCodeLanguageLabelDecoration } from './highlight/fencedCodeLanguageLabelDecoration';
 import { fencedCodeMarkerDecoration } from './highlight/fencedCodeMarkerDecoration';
@@ -105,7 +103,7 @@ export interface BuildEditorExtensionsOptions {
   readonly onOpenPage?: () => ((pageId: string) => void) | undefined;
   /** A note embed's own "More actions" trigger (Turn into WikiLink/Remove) — see `NoteEmbedMoreActions.tsx`'s doc comment. Unused when `resolvePageEmbed` is omitted. */
   readonly onOpenNoteEmbedMenu?: () => OnOpenNoteEmbedMenu | undefined;
-  /** A fenced code block's own "More actions" trigger (currently Remove only) — see `FencedCodeActionsMenu.tsx`'s doc comment. Omitted (never wired) for a read-only nested view, same as `fencedCodeFormatButtonDecoration` below — both mutate the document, neither has meaning once editing is blocked. */
+  /** A fenced code block's own "More actions" trigger (Format code, Change Language, Download, Remove) — see `FencedCodeActionsMenu.tsx`'s doc comment. Omitted (never wired) for a read-only nested view — every one of those actions mutates the document, none has meaning once editing is blocked. */
   readonly onOpenFencedCodeMenu?: () => OnOpenFencedCodeMenu | undefined;
   readonly resolveImageSrc: () => ResolveImageSrc | undefined;
   readonly resolveTag: () => ResolveTag | undefined;
@@ -229,7 +227,6 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     blockquoteMarkerDecoration(),
     blockquoteLineDecoration(),
     headingMarkerDecoration(),
-    fencedCodeBlockWrapper(),
     fencedCodeBlockLineDecoration(),
     fencedCodeMarkerDecoration(),
     fencedCodeLanguageLabelDecoration(),
@@ -261,17 +258,12 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     orderedListStructuralNormalization(),
     fencedCodeFenceAutoClose(),
     ...rendering,
-    // Mutates the document (replaces a code block's body on click) — kept
-    // out of the shared `rendering` array above so a note embed's
-    // read-only nested view never carries it, matching every other
-    // mutating capability in this second return block.
-    fencedCodeFormatButtonDecoration(),
-    // The trigger itself only opens a menu, but its one current menu item
-    // (Remove) mutates the document — kept out of `rendering` for the
-    // same reason as Format directly above (full exclusion, not
-    // option-gating the callback the way `onOpenNoteEmbedMenu` is — this
-    // file already established that pattern for Format, so this follows
-    // suit rather than introducing a second convention).
+    // The trigger itself only opens a menu, but every one of its current
+    // menu items (Format code, Change Language, Download, Remove) mutates
+    // the document except Download — kept out of `rendering` entirely
+    // (full exclusion, not option-gating the callback the way
+    // `onOpenNoteEmbedMenu` is) so a note embed's read-only nested view
+    // never carries it.
     fencedCodeActionsButtonDecoration(() => onOpenFencedCodeMenu?.()),
     formatShortcutsKeymap(),
     taskCheckboxMouseHandlers(() => onTaskCheckboxToggled?.()),

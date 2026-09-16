@@ -7,7 +7,7 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { foldToggleDecoration } from '../fold/foldToggleDecoration';
 import { fencedCodeBlockLineDecoration } from './fencedCodeBlockLineDecoration';
-import { fencedCodeBlockWrapper } from './fencedCodeBlockWrapper';
+import { blockSeparatorDecoration } from './blockSeparatorDecoration';
 
 function mountView(doc: string, extraExtensions: readonly Extension[] = []): EditorView {
   const parent = document.createElement('div');
@@ -16,7 +16,9 @@ function mountView(doc: string, extraExtensions: readonly Extension[] = []): Edi
     doc,
     extensions: [
       markdownLanguageExtension(),
-      fencedCodeBlockWrapper(),
+      // Wrapper-free architecture (2026-09-16) — `fencedCodeBlockWrapper.ts`
+      // no longer exists; this decoration's own correctness (line
+      // ownership, --first/--last, card visuals) never depended on it.
       fencedCodeBlockLineDecoration(),
       ...extraExtensions,
     ],
@@ -40,7 +42,7 @@ function edgeMarks(view: EditorView): EdgeMark[] {
   });
 }
 
-describe('fencedCodeBlockLineDecoration (composed with fencedCodeBlockWrapper)', () => {
+describe('fencedCodeBlockLineDecoration (wrapper-free architecture)', () => {
   it('applies the visual-card class to every line, and no others', () => {
     const view = mountView(
       ['before', '```js', 'const a = 1;', 'const b = 2;', '```', 'after'].join('\n')
@@ -60,15 +62,19 @@ describe('fencedCodeBlockLineDecoration (composed with fencedCodeBlockWrapper)',
     expect(edgeMarks(view)).toEqual(['first', 'middle', 'last', 'first', 'middle', 'last']);
   });
 
-  it('every visually-carded line is a real DOM child of its own .cm-code-block wrapper, never a sibling', () => {
+  it('two directly adjacent fenced blocks (no blank line) render as flat, independent .cm-line siblings — no wrapper element of any kind', () => {
     const view = mountView(['```js', 'one', '```', '```py', 'two', '```'].join('\n'));
-    const wrappers = view.dom.querySelectorAll('.cm-code-block');
-    expect(wrappers).toHaveLength(2);
-
-    wrappers.forEach((wrapper) => {
-      const cardLines = wrapper.querySelectorAll(':scope > .cm-code-block-line');
-      expect(cardLines).toHaveLength(3);
-    });
+    // Wrapper-free architecture (2026-09-16): `fencedCodeBlockWrapper.ts` no
+    // longer exists, so every `.cm-code-block-line` is a direct child of
+    // `.cm-content` in plain document order — the same guarantee the
+    // now-deleted wrapper used to provide structurally, proven here by
+    // absence rather than by DOM nesting.
+    expect(view.dom.querySelectorAll('.cm-code-block')).toHaveLength(0);
+    const cardLines = view.contentDOM.querySelectorAll(':scope > .cm-code-block-line');
+    expect(cardLines).toHaveLength(6);
+    expect(Array.from(view.contentDOM.children).every((el) => el.classList.contains('cm-line'))).toBe(
+      true
+    );
   });
 
   it('includes a genuinely blank interior line as part of the card', () => {
@@ -171,11 +177,10 @@ describe('fencedCodeBlockLineDecoration — active line', () => {
  * foldToggleDecoration.ts`), the opening fence line is the *only* line CM6
  * still renders for that block, so it correctly keeps just `--first` (never
  * gaining `--last`, since it isn't the block's structural last line) —
- * `.cm-code-block`'s own border/radius (`MarkdownEditor.css`) are painted
- * unconditionally on the always-present wrapper, independent of how many
- * child lines are currently visible, so no per-line `--last` workaround is
- * needed to keep the card's border/radius intact while collapsed. This
- * composes `fencedCodeBlockLineDecoration()` with the real `codeFolding()` +
+ * `MarkdownEditor.css`'s own `.cm-code-block-line--first:has(.cm-foldPlaceholder)`
+ * rule is what completes the card's bottom border/radius on that one
+ * remaining line in the wrapper-free architecture (see that rule's own doc
+ * comment). This composes `fencedCodeBlockLineDecoration()` with the real `codeFolding()` +
  * `foldToggleDecoration()` extensions (not a hand-rolled fold effect) so the
  * test exercises the exact same path a real click does.
  */
@@ -201,5 +206,35 @@ describe('fencedCodeBlockLineDecoration — composed with folding: the visible l
     const collapsedToggle = view.dom.querySelector('.cm-fold-toggle') as HTMLButtonElement;
     collapsedToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(edgeMarks(view)).toEqual(['first', 'middle', 'middle', 'last']);
+  });
+
+  /**
+   * Regression coverage migrated from the now-deleted
+   * `fencedCodeBlockWrapperSeparatorInteraction.test.ts` (which tested
+   * dodging `fencedCodeBlockWrapper.ts`'s own coverage-check bug — moot
+   * once that file was deleted entirely, 2026-09-16). The underlying
+   * user-facing regression it guarded — a fenced block's own fold toggle
+   * silently disappearing whenever anything preceded it on a different
+   * line, because a leading separator widget merged `viewportLineBlocks`
+   * — is still worth a standing test, composed with the real
+   * `blockSeparatorDecoration()` extension exactly as production does,
+   * not just `foldToggleDecoration()` alone.
+   */
+  it('a fenced code block preceded by a paragraph still gets a visible fold toggle on its own opening line', () => {
+    const view = mountView('some paragraph\n\n```ts\nconst x = 1\nconst y = 2\n```', [
+      codeFolding(),
+      foldToggleDecoration(),
+      blockSeparatorDecoration(),
+    ]);
+    forceParsing(view);
+
+    const toggle = view.dom.querySelector('.cm-fold-toggle');
+    expect(toggle).not.toBeNull();
+    expect(edgeMarks(view).filter((mark) => mark !== 'plain')).toEqual([
+      'first',
+      'middle',
+      'middle',
+      'last',
+    ]);
   });
 });

@@ -5,11 +5,11 @@ import { EditorView } from '@codemirror/view';
 import { syntaxTree } from '@codemirror/language';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { fencedCodeBlockWrapper } from '../highlight/fencedCodeBlockWrapper';
+import { fencedCodeBlockLineDecoration } from '../highlight/fencedCodeBlockLineDecoration';
 import { fencedCodeCopyButtonDecoration } from '../highlight/fencedCodeCopyButtonDecoration';
 import { fencedCodeActionsButtonDecoration } from '../highlight/fencedCodeActionsButtonDecoration';
 import {
-  resolveFencedCodeBlockWrapper,
+  resolveFencedCodeOpeningLine,
   resolveFencedCodeInfoRange,
   resolveFencedCodeText,
 } from './fencedCodeInfoRange';
@@ -21,7 +21,11 @@ function mountView(doc: string): EditorView {
     doc,
     extensions: [
       markdownLanguageExtension(),
-      fencedCodeBlockWrapper(),
+      // Wrapper-free architecture (2026-09-16): `.cm-code-block-line` is the
+      // real closest-ancestor target now, not `fencedCodeBlockWrapper.ts`'s
+      // `.cm-code-block` — this decoration is what actually puts that class
+      // on the opening-fence line.
+      fencedCodeBlockLineDecoration(),
       fencedCodeCopyButtonDecoration(),
       // getOnOpenFencedCodeMenu is never invoked by this test — only its
       // widget's DOM identity/teardown behavior across an edit matters
@@ -96,12 +100,12 @@ describe('resolveFencedCodeText', () => {
   });
 });
 
-describe('resolveFencedCodeBlockWrapper — regression: Actions/Copy buttons reachable across a Change Language edit', () => {
-  it('re-resolves the live wrapper by position after the info string changes length, even though the previously-observed Actions button element is torn down', () => {
+describe('resolveFencedCodeOpeningLine — regression: Actions/Copy buttons reachable across a Change Language edit', () => {
+  it('re-resolves the live opening-fence line by position after the info string changes length, even though the previously-observed Actions button element is torn down', () => {
     const view = mountView(jsFence);
     const from = fencedCodeFrom(view);
 
-    const beforeWrapper = resolveFencedCodeBlockWrapper(view, from);
+    const beforeWrapper = resolveFencedCodeOpeningLine(view, from);
     const beforeActionsButton = beforeWrapper?.querySelector<HTMLElement>('.cm-code-block-actions');
     expect(beforeActionsButton).not.toBeNull();
     expect(beforeActionsButton!.isConnected).toBe(true);
@@ -126,7 +130,7 @@ describe('resolveFencedCodeBlockWrapper — regression: Actions/Copy buttons rea
     // Re-resolving fresh from the stable FencedCode.from — never trusting
     // the earlier captured element — must still find the live wrapper and
     // its live Actions/Copy buttons.
-    const afterWrapper = resolveFencedCodeBlockWrapper(view, from);
+    const afterWrapper = resolveFencedCodeOpeningLine(view, from);
     const afterActionsButton = afterWrapper?.querySelector<HTMLElement>('.cm-code-block-actions');
     const afterCopyButton = afterWrapper?.querySelector<HTMLElement>('.cm-code-block-copy');
     expect(afterWrapper).not.toBeNull();
@@ -138,6 +142,6 @@ describe('resolveFencedCodeBlockWrapper — regression: Actions/Copy buttons rea
 
   it('returns null when the given position no longer starts a FencedCode block', () => {
     const view = mountView(jsFence);
-    expect(resolveFencedCodeBlockWrapper(view, 9999)).toBeNull();
+    expect(resolveFencedCodeOpeningLine(view, 9999)).toBeNull();
   });
 });

@@ -27,9 +27,11 @@ import { computeFencedCodeRemovalRange } from './codemirror/fencedCode/fencedCod
 import {
   resolveFencedCodeInfoRange,
   resolveFencedCodeText,
-  resolveFencedCodeBlockWrapper,
+  resolveFencedCodeTextRange,
+  resolveFencedCodeOpeningLine,
 } from './codemirror/fencedCode/fencedCodeInfoRange';
 import { resolveFileExtension } from './codemirror/fencedCode/fencedCodeFileExtension';
+import { formatCode, resolveFormatterParser } from './codemirror/fencedCode/codeFormatting';
 import { getImageUiState, presentationOnlyEdit, setImageUiState, type ImageDisplayMode } from './codemirror/image/imageUiState';
 import { getImagePresentation, computeImagePresentationUpdate } from './codemirror/mediaPresentation/mediaPresentationUpdate';
 import { copyTextToClipboard } from '@shared/helpers/copyTextToClipboard';
@@ -469,11 +471,12 @@ export const MarkdownEditor = forwardRef<
   };
 
   // A fenced code block's own floating "More actions" control — same
-  // bridged-anchor/toggle pattern as noteEmbedMenu above. Offers Change
-  // Language (submenu, `handleChangeFencedCodeLanguage` below) and Remove
-  // (`handleRemoveFencedCode` below); see `FencedCodeActionsMenu.tsx`'s
-  // own doc comment for why Copy/Format stay their own dedicated buttons
-  // instead of living in this menu.
+  // bridged-anchor/toggle pattern as noteEmbedMenu above. Offers Format
+  // code (`handleFormatFencedCode` below, gated on formattability), Change
+  // Language (submenu, `handleChangeFencedCodeLanguage` below), Download,
+  // and Remove (`handleRemoveFencedCode` below). Copy stays its own
+  // dedicated, persistent button — high-frequency enough to warrant
+  // always-visible chrome, per `MarkdownEditor.css`'s own doc comment.
   const [fencedCodeMenu, setFencedCodeMenu] = useState<{
     anchor: FencedCodeActionsMenuAnchor;
     nodeFrom: number;
@@ -481,38 +484,36 @@ export const MarkdownEditor = forwardRef<
     currentRawInfo: string;
   } | null>(null);
 
-  // Re-resolves the wrapper and its Actions/Copy/Format buttons fresh
-  // from `fencedCodeFrom` (via `resolveFencedCodeBlockWrapper`'s
+  // Re-resolves the opening-fence line and its Actions/Copy buttons fresh
+  // from `fencedCodeFrom` (via `resolveFencedCodeOpeningLine`'s
   // `view.domAtPos`) on every call — never a DOM node captured earlier.
   // This is the fix for a real bug (not speculative hardening): the
-  // button widgets all render at the same computed position
+  // button widgets both render at the same computed position
   // (`CodeInfo.to`), so any edit to the info string — exactly what
   // "Change Language" does — moves that position, and CM6 tears down
   // and rebuilds the widget DOM there rather than migrating it, even
   // when `WidgetType.eq()` says the widget is unchanged. A previous
   // version of this function took the already-clicked button element
-  // directly and walked up via `.closest('.cm-code-block')`; confirmed
-  // live (via a temporary trace) that the anchor captured when the menu
-  // opened had `isConnected: false` immediately after a language change,
-  // so that cleanup silently found nothing and Copy stayed stuck visible
-  // forever. See `resolveFencedCodeBlockWrapper`'s own doc comment for
+  // directly and walked up via `.closest(...)`; confirmed live (via a
+  // temporary trace) that the anchor captured when the menu opened had
+  // `isConnected: false` immediately after a language change, so that
+  // cleanup silently found nothing and Copy stayed stuck visible
+  // forever. See `resolveFencedCodeOpeningLine`'s own doc comment for
   // the full trace.
   function setFencedCodeMenuButtonOpen(view: EditorView, fencedCodeFrom: number, open: boolean) {
-    const wrapper = resolveFencedCodeBlockWrapper(view, fencedCodeFrom);
-    const actionsButton = wrapper?.querySelector<HTMLElement>('.cm-code-block-actions');
+    const line = resolveFencedCodeOpeningLine(view, fencedCodeFrom);
+    const actionsButton = line?.querySelector<HTMLElement>('.cm-code-block-actions');
     actionsButton?.classList.toggle('cm-media-control--active', open);
     actionsButton?.setAttribute('aria-expanded', String(open));
-    // Keeps Copy/Format visible too (not just Actions) for the duration
-    // the menu is open — `FencedCodeActionsMenu`'s `Overlay` is a portal
-    // outside `.cm-code-block`'s own DOM subtree, so
-    // `:hover`/`:focus-within` alone doesn't survive the pointer/focus
-    // moving into it.
-    wrapper
+    // Keeps Copy visible too (not just Actions) for the duration the menu
+    // is open, while the block is folded (Copy is unconditionally visible
+    // otherwise — see `MarkdownEditor.css`'s own doc comment) —
+    // `FencedCodeActionsMenu`'s `Overlay` is a portal outside this line's
+    // own DOM subtree, so `:hover`/`:focus-within` alone doesn't survive
+    // the pointer/focus moving into it.
+    line
       ?.querySelector('.cm-code-block-copy')
       ?.classList.toggle('cm-code-block-copy--menu-open', open);
-    wrapper
-      ?.querySelector('.cm-code-block-format')
-      ?.classList.toggle('cm-code-block-format--menu-open', open);
   }
 
   const onOpenFencedCodeMenuRef = useRef<OnOpenFencedCodeMenu>(({ anchor, nodeFrom, nodeTo }) => {
@@ -621,6 +622,61 @@ export const MarkdownEditor = forwardRef<
       const currentView = viewRef.current;
       return currentView ? resolveFencedCodeText(currentView.state, nodeFrom) : '';
     }, `code${extension}`);
+  };
+
+  // "Format code" — moved from its own dedicated, persistent button
+  // (`FencedCodeFormatButtonWidget`) into this menu as part of the
+  // wrapper-removal migration (2026-09-16): with Copy/Actions no longer
+  // needing hover to reveal them, a third always-visible control was
+  // judged unnecessary chrome; Format is secondary/occasional enough to
+  // fit the menu's own existing category (Change Language, Download,
+  // Remove). Re-resolves `CodeText` fresh at click time — the same
+  // "never trust a captured range" contract every fenced-code control
+  // follows — since the menu itself may have stayed open across an edit.
+  // A genuine parse/syntax error in the code (invalid/incomplete content
+  // for the declared language) leaves the document untouched, same as
+  // before — the standalone button's own visible error-icon feedback has
+  // no equivalent surface once this is a menu item; disclosed here as a
+  // known simplification rather than left silent.
+  const handleFormatFencedCode = () => {
+    const view = viewRef.current;
+    if (!fencedCodeMenu || !view) {
+      return;
+    }
+    const nodeFrom = fencedCodeMenu.nodeFrom;
+    const info = resolveFencedCodeInfoRange(view.state, nodeFrom);
+    const parserName = resolveFormatterParser(info?.rawInfo ?? '');
+    const range = resolveFencedCodeTextRange(view.state, nodeFrom);
+    if (!parserName || !range) {
+      return;
+    }
+    const code = view.state.sliceDoc(range.from, range.to);
+    formatCode(parserName, code).then(
+      (formatted) => {
+        const currentView = viewRef.current;
+        if (!currentView || formatted === code) {
+          return;
+        }
+        // Re-resolved fresh, not the `range` captured above, in case the
+        // document changed during the async format — only replace when
+        // the block still holds exactly the text that was sent for
+        // formatting, matching the previous button's own staleness guard.
+        const currentRange = resolveFencedCodeTextRange(currentView.state, nodeFrom);
+        if (!currentRange || currentView.state.sliceDoc(currentRange.from, currentRange.to) !== code) {
+          return;
+        }
+        currentView.dispatch({
+          changes: { from: currentRange.from, to: currentRange.to, insert: formatted },
+        });
+      },
+      () => {
+        // Parse/syntax error — document left untouched, matching the
+        // previous button's own non-destructive failure behavior. Its
+        // visible error-icon feedback has no equivalent surface now that
+        // this is a menu item rather than a persistent button — a
+        // disclosed simplification, not an oversight.
+      }
+    );
   };
 
   const handleSelectImageDisplayMode = (mode: ImageDisplayMode) => {
@@ -1019,6 +1075,11 @@ export const MarkdownEditor = forwardRef<
         onClose={closeFencedCodeMenu}
         currentRawInfo={fencedCodeMenu?.currentRawInfo}
         onChangeLanguage={handleChangeFencedCodeLanguage}
+        onFormat={
+          fencedCodeMenu && resolveFormatterParser(fencedCodeMenu.currentRawInfo)
+            ? handleFormatFencedCode
+            : undefined
+        }
         onDownload={handleDownloadFencedCode}
         onRemove={handleRemoveFencedCode}
       />

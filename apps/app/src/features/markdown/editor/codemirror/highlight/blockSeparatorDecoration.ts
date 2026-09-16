@@ -4,7 +4,6 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemir
 import type { SyntaxNode } from '@lezer/common';
 
 import { BLOCK_SPACING_PARTICIPANTS } from './blockSpacingParticipants';
-import { nearestFencedCode } from './fencedCodeBlockLineDecoration';
 import { lineProbePos, resolveBoundaryHeight, type SeparatorHeight } from './separatorScope';
 
 /**
@@ -51,72 +50,6 @@ function separatorRange(height: SeparatorHeight, pos: number, side: -1 | 1): Ran
   return Decoration.widget({ widget: new SeparatorWidget(height), block: true, side }).range(pos);
 }
 
-/**
- * The same separator widget, placed as a zero-width point at the
- * connecting newline's own position (`prevLine.to`, one before the
- * fenced block's own `.from`) with `side: 1` — see
- * {@link buildLineBoundarySeparators}'s own doc comment for exactly when
- * and why this variant is needed (a leading separator immediately before
- * a `FencedCode` node's own unindented entry line).
- *
- * **Why `side: 1` at `prevLine.to`, not `Decoration.replace` (the
- * previous approach) and not `Decoration.widget` at `line.from`.** Both
- * rejected alternatives were verified empirically (a jsdom harness
- * comparing `view.viewportLineBlocks` against an unmodified control,
- * across paragraph→fenced, fenced→fenced, paragraph→paragraph→fenced,
- * fenced→paragraph→fenced, and fenced at the document's start/end) before
- * this one was chosen:
- * - `Decoration.replace` over the newline (this file's own previous
- *   fix for the `BlockWrapper`-collision bug, see the architecture
- *   decisions log's dated entry) has *real width* — CM6's `TileBuilder` treats a
- *   replaced range as consuming the newline character entirely, which
- *   merges the surrounding real lines into one composite
- *   `EditorView.viewportLineBlocks` entry. That's harmless for
- *   `BlockWrapper` activation (the bug it fixed) but corrupts
- *   `foldToggleDecoration.ts`'s *unrelated* per-line iteration over
- *   `viewportLineBlocks`, silently hiding a fenced block's own toggle
- *   whenever anything precedes it on a different line — confirmed via
- *   live-browser inspection, then reproduced and root-caused in the
- *   jsdom harness (merged in 5 of the 6 boundary shapes, matching the
- *   live symptom exactly).
- * - A zero-width `Decoration.widget` at `line.from` (the fenced block's
- *   own start) does keep `viewportLineBlocks` unmerged, but reproduces
- *   the *original* `BlockWrapper`-collision bug this file exists to fix:
- *   CM6's `TileBuilder.updateBlockWrappers` activates the wrapper the
- *   moment its position counter reaches `.from`, inclusively, so a
- *   zero-width point sitting exactly there gets absorbed as the
- *   wrapper's own first child instead of rendering as a sibling before
- *   it (confirmed in the same harness: `separatorsInsideWrappers` was
- *   nonzero again, and the adjacent-fenced-blocks case even produced an
- *   extra phantom wrapper).
- * - A zero-width `Decoration.widget` at `prevLine.to` with `side: -1`
- *   avoids both of the above, but reintroduces a *third*, previously
- *   rejected regression: a synthetic empty `.cm-line` between the
- *   separator and the fenced block (confirmed: `totalRenderedLines`
- *   exceeded `doc.lines` by one in every case) — the same DOM artifact
- *   an earlier pass in this investigation was explicitly told never to
- *   compensate for with CSS.
- *
- * `side: 1` is the one setting that avoids all three: the widget is
- * zero-width (so unlike `Decoration.replace`, `TileBuilder` never treats
- * it as consuming the newline — `viewportLineBlocks` stays exactly as
- * unmerged as an editor with no separator at all, confirmed identical to
- * an unmodified control in every boundary shape tested), and biased to
- * the *far* side of its own anchor position (so unlike `side: -1`, CM6
- * never manufactures a synthetic line to give it somewhere to render,
- * and unlike a point at `line.from`, it never falls inside the wrapper's
- * own inclusive activation check — it renders while the position counter
- * is still one before the wrapper's `.from`, the same "not active yet"
- * window the previous `Decoration.replace` fix relied on, without any of
- * that fix's side effects).
- */
-function separatorPointAfterPreviousLine(height: SeparatorHeight, prevLineTo: number): Range<Decoration> | null {
-  if (height === 0) {
-    return null;
-  }
-  return Decoration.widget({ widget: new SeparatorWidget(height), block: true, side: 1 }).range(prevLineTo);
-}
-
 function firstNonWhitespaceOffset(text: string): number {
   return text.length - text.trimStart().length;
 }
@@ -151,22 +84,17 @@ function nearestParticipant(state: EditorState, probePos: number): SyntaxNode | 
  * around the changed range instead of a full rebuild) rather than
  * something already solved here.
  *
- * **Line `n` opening a `FencedCode` node's own unindented span is placed
- * via `separatorPointAfterPreviousLine`, not this function's ordinary
- * point-widget form.** `fencedCodeBlockWrapper.ts` gives every
- * `FencedCode` node a real DOM wrapper for its own `[from, to)` range;
- * when line `n`'s own `.from` equals that node's `.from` (no leading
- * indentation), the ordinary `side: -1` widget at `line.from` used
- * everywhere else in this function would land exactly on the wrapper's
- * own boundary and get absorbed into it as a spurious extra child — see
- * `separatorPointAfterPreviousLine`'s own doc comment for the exact
- * mechanism and the fix (and for why a `side: -1` point at `prevLine.to`,
- * tried first, isn't the fix either). `nearestFencedCode` (this module's
- * only fenced-code import — a pure, read-only syntax-tree query owned by
- * `fencedCodeBlockLineDecoration.ts`) is consulted only to decide *which
- * decoration shape this file's own separator should use*; nothing about
- * `fencedCodeBlockWrapper.ts`'s range computation, or any other
- * fenced-code file, is read or changed.
+ * **A `FencedCode` node's own opening line needed no special-casing here
+ * even before the 2026-09-16 wrapper-removal migration finished — the
+ * remaining special-casing (a distinct zero-width-widget decoration shape
+ * for exactly that line) existed solely to dodge `fencedCodeBlockWrapper.ts`'s
+ * `EditorView.blockWrappers` absorbing a `side: -1` widget landing on its
+ * own inclusive `.from` boundary. With that wrapper deleted entirely,
+ * there is no such boundary to collide with — every line boundary in the
+ * document, fenced-code entry included, uses this function's one ordinary
+ * `separatorRange(height, line.from, -1)` path uniformly, with zero
+ * per-construct branching.** See `docs/editor-architecture-decisions.md`'s
+ * wrapper-removal entry for the fuller before/after account.
  */
 function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
   const ranges: Range<Decoration>[] = [];
@@ -176,11 +104,7 @@ function buildLineBoundarySeparators(state: EditorState): Range<Decoration>[] {
     const probe = lineProbePos(state, n);
     const height = resolveBoundaryHeight(state, prevProbe, probe);
     const line = state.doc.line(n);
-    const fencedCodeEntry = nearestFencedCode(state, line.from);
-    const separator =
-      fencedCodeEntry && fencedCodeEntry.from === line.from
-        ? separatorPointAfterPreviousLine(height, state.doc.line(n - 1).to)
-        : separatorRange(height, line.from, -1);
+    const separator = separatorRange(height, line.from, -1);
     if (separator) {
       ranges.push(separator);
     }
@@ -248,10 +172,10 @@ function buildSeparators(state: EditorState): Range<Decoration>[] {
  * function — CM6 throws `RangeError: Block decorations may not be
  * specified via plugins` for either of those (confirmed directly against
  * the installed `@codemirror/view`). Block-level decorations must be
- * transaction-synchronized, unlike `EditorView.blockWrappers` (which does
- * accept a view function, per `fencedCodeBlockWrapper.ts`'s own doc
- * comment) — the two mechanisms are not interchangeable in what's
- * allowed to produce them.
+ * transaction-synchronized, unlike `EditorView.blockWrappers` (confirmed
+ * against the installed `@codemirror/view` source: its facet input does
+ * accept a view function) — the two mechanisms are not interchangeable in
+ * what's allowed to produce them.
  */
 const blockSeparatorField = StateField.define<DecorationSet>({
   create(state) {

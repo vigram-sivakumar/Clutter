@@ -84,32 +84,58 @@ export function resolveFencedCodeText(state: EditorState, fencedCodeFrom: number
 }
 
 /**
- * Re-resolves a fenced code block's live `.cm-code-block` wrapper element
- * fresh from the DOM, given only its stable `FencedCode.from` — never a
- * captured DOM node.
+ * Re-resolves a fenced code block's own `CodeText` *range* (not its text) —
+ * the same node `resolveFencedCodeText` reads, exposed as a range for
+ * "Format code" (`MarkdownEditor.tsx`'s `handleFormatFencedCode`), which
+ * needs to dispatch a replace against it, the same shape
+ * `fencedCodeFormatButtonDecoration.ts`'s own (now-removed) widget used
+ * via its `getCodeRange` closure. Returns `null` for a `FencedCode` node
+ * with no `CodeText` child — same "no content to format" signal Format's
+ * own formattability gate already handles by not offering the action.
+ */
+export function resolveFencedCodeTextRange(
+  state: EditorState,
+  fencedCodeFrom: number
+): { from: number; to: number } | null {
+  const node = resolveFencedCodeNode(state, fencedCodeFrom);
+  const codeText = node?.getChild('CodeText');
+  return codeText ? { from: codeText.from, to: codeText.to } : null;
+}
+
+/**
+ * Re-resolves a fenced code block's live opening-fence line element fresh
+ * from the DOM, given only its stable `FencedCode.from` — never a captured
+ * DOM node.
  *
  * **Why this exists — a real bug, not speculative hardening.** The
- * Actions/Copy/Format button widgets all render at the same computed
- * position (`CodeInfo.to`/the opening `CodeMark`'s own end). Any edit to
- * the info string itself — exactly what "Change Language" does — moves
- * that position, and CM6 does not migrate the existing widget DOM nodes
- * to the new position; it tears down and rebuilds them, even when
+ * Actions/Copy button widgets both render at the same computed position
+ * (`CodeInfo.to`/the opening `CodeMark`'s own end). Any edit to the info
+ * string itself — exactly what "Change Language" does — moves that
+ * position, and CM6 does not migrate the existing widget DOM nodes to the
+ * new position; it tears down and rebuilds them, even when
  * `WidgetType.eq()` says the widget is unchanged. Confirmed live via a
  * temporary trace: `MarkdownEditor.tsx`'s `fencedCodeMenu.anchor.current`
  * (the Actions button captured in React state when its menu opened)
  * measured `isConnected: false` immediately after a language change —
  * the button the menu was anchored to had already been replaced. Cleanup
- * code that then called `.closest('.cm-code-block')` on that stale node
- * silently found nothing (or the wrong, detached subtree) and skipped
- * clearing `--menu-open`/`--active` on the real, live buttons, leaving
- * Copy permanently visible.
+ * code that then called `.closest(...)` on that stale node silently found
+ * nothing (or the wrong, detached subtree) and skipped clearing
+ * `--menu-open`/`--active` on the real, live buttons, leaving Copy
+ * permanently visible.
+ *
+ * **Retargeted from `.closest('.cm-code-block')` to `.closest('.cm-code-block-line')`
+ * (2026-09-16, wrapper-removal migration)** — `fencedCodeBlockWrapper.ts`'s
+ * `.cm-code-block` no longer carries any visual/hover-scoping role (see
+ * `docs/editor-architecture-decisions.md`), and both buttons this resolves
+ * for have only ever lived on the opening-fence *line* regardless, so the
+ * line element itself is the correct, narrower closest-ancestor target.
  *
  * `view.domAtPos(pos)` — CM6's own position→live-DOM-node lookup — is
  * what makes this reliable across that rebuild: it's resolved fresh, at
  * call time, against whatever the view's *current* DOM actually is, not
  * against anything captured earlier.
  */
-export function resolveFencedCodeBlockWrapper(
+export function resolveFencedCodeOpeningLine(
   view: EditorView,
   fencedCodeFrom: number
 ): HTMLElement | null {
@@ -119,5 +145,5 @@ export function resolveFencedCodeBlockWrapper(
   }
   const { node } = view.domAtPos(info.to);
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-  return el?.closest<HTMLElement>('.cm-code-block') ?? null;
+  return el?.closest<HTMLElement>('.cm-code-block-line') ?? null;
 }
