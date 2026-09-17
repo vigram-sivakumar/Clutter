@@ -23,7 +23,7 @@ describe('tableWidgetField — basic table', () => {
   it('renders a real <table> element, hiding every pipe delimiter', () => {
     const view = mountView(`${BASIC_TABLE}\n\nOther`);
 
-    expect(view.dom.querySelectorAll('table.cm-table-widget')).toHaveLength(1);
+    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
     expect(view.dom.textContent).not.toContain('|');
     for (const value of ['a', 'b', '1', '2']) {
       expect(view.dom.textContent).toContain(value);
@@ -123,7 +123,7 @@ describe('tableWidgetField — Setext/Table precedence (no false-positive table 
     const text = 'Setext Heading\n---\n\nOther';
     const view = mountView(text);
 
-    expect(view.dom.querySelectorAll('table.cm-table-widget')).toHaveLength(0);
+    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(0);
     expect(view.dom.textContent).toContain('Setext Heading');
   });
 
@@ -131,7 +131,7 @@ describe('tableWidgetField — Setext/Table precedence (no false-positive table 
     const text = 'A | B\n---\n\nOther';
     const view = mountView(text);
 
-    expect(view.dom.querySelectorAll('table.cm-table-widget')).toHaveLength(0);
+    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(0);
     expect(view.dom.textContent).toContain('|');
   });
 
@@ -139,7 +139,7 @@ describe('tableWidgetField — Setext/Table precedence (no false-positive table 
     const text = 'A|B\n-|-\n\nOther';
     const view = mountView(text);
 
-    expect(view.dom.querySelectorAll('table.cm-table-widget')).toHaveLength(1);
+    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
     expect(view.dom.textContent).not.toContain('|');
   });
 
@@ -162,7 +162,7 @@ describe('tableWidgetField — nested/adjacent tables', () => {
     const text = '| a |\n| - |\n| 1 |\n\n| x | y |\n| - | - |\n| 9 | 8 |\n\nOther';
     const view = mountView(text);
 
-    const tables = view.dom.querySelectorAll('table.cm-table-widget');
+    const tables = view.dom.querySelectorAll('.cm-table-widget');
     expect(tables).toHaveLength(2);
     expect(tables[0]?.querySelectorAll('td')).toHaveLength(1);
     expect(tables[1]?.querySelectorAll('td')).toHaveLength(2);
@@ -178,7 +178,7 @@ describe('tableWidgetField — nested/adjacent tables', () => {
     const text = '| a |\n| - |\n| 1 |\nplain paragraph\n\nOther';
     const view = mountView(text);
 
-    expect(view.dom.querySelectorAll('table.cm-table-widget')).toHaveLength(1);
+    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
     expect(view.dom.querySelectorAll('tbody tr')).toHaveLength(2); // "1" row, "plain paragraph" row
     expect(view.dom.textContent).toContain('plain paragraph');
   });
@@ -223,6 +223,6 @@ describe('tableWidgetField — controller.remapActiveAnchor wiring (M2)', () => 
   it('rendering still works correctly with no controller supplied at all (backward-compatible default)', () => {
     const view = mountView(BASIC_TABLE);
 
-    expect(view.dom.querySelectorAll('table.cm-table-widget')).toHaveLength(1);
+    expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
   });
 });

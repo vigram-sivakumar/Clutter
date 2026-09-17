@@ -25,6 +25,29 @@ export interface TableCellData {
  * which instead hosts `controller.nestedView.dom` — the single reusable
  * nested `EditorView` (M2) — directly (M5).
  *
+ * **DOM structure (M5 DOM-structure fix)** — five layers, each with one
+ * job, none of them M6's (no drag handles, row/column buttons, selection,
+ * resizing, or clipboard behavior anywhere in this widget):
+ *
+ * ```
+ * div.cm-table-widget[contenteditable=false]   — the CM6 block-widget boundary (toDOM()'s own return value)
+ *   div.cm-table-wrapper                        — outer table layout / future table-level styling surface
+ *     table                                     — the actual 2D table layout
+ *       th/td                                   — cell geometry only, no content of their own
+ *         div.cm-table-cell-wrapper             — the cell-level rendering/editing boundary
+ *           (renderInlineMarkdown HTML, or the active cell's nested .cm-editor)
+ * ```
+ *
+ * `.cm-table-cell-wrapper` is the one stable mount point every cell's
+ * content actually lives in — static `renderInlineMarkdown` HTML for an
+ * inactive cell, or the nested editor's own `.cm-editor` DOM for the
+ * active one — never directly as a `<th>`/`<td>` child. This mirrors the
+ * general shape real table-editing surfaces (Obsidian's own
+ * `.table-cell-wrapper`, confirmed by direct DOM comparison) already use
+ * for the same reason: a stable, single-purpose mount point one level
+ * below the table-semantic cell element, not because `<td>` itself is
+ * insufficient.
+ *
  * `controller` is `undefined` for a read-only table (a note embed) — every
  * cell then renders static-only, with no click handler at all: the same
  * "omit the capability entirely" gate `buildEditorExtensions.ts`'s
@@ -85,9 +108,40 @@ export class TableWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
+    // M5 "preserve focus across rebuilds" fix — captured *before* touching
+    // any DOM below, while the nested view's current DOM position (inside
+    // whichever `<td>` the *previous* toDOM() call built) is still the
+    // live, attached one. Deliberately `nestedView.root.activeElement ===
+    // nestedView.contentDOM` — the same check `EditorView.hasFocus` itself
+    // uses for element identity — rather than `hasFocus` directly:
+    // `hasFocus` additionally requires `document.hasFocus()` (whether the
+    // whole *window* has OS-level focus), which would wrongly skip
+    // restoring here if the user had briefly alt-tabbed away mid-edit
+    // (`activeElement` is still correct in that case; only `hasFocus`
+    // goes false). Confirmed by direct live-browser investigation that
+    // `buildRow`'s active-cell branch (below) moving this same DOM node
+    // into a freshly built, still-detached `<table>` blurs it the instant
+    // that move happens, with nothing to undo that on its own. Only ever
+    // true when this rebuild is itself the direct result of an edit typed
+    // *inside* the active cell (root transactions from anywhere else
+    // don't leave the nested editor focused in the first place) — so this
+    // is never a blind "refocus on every rebuild": a rebuild triggered by
+    // an edit elsewhere, or by nothing being active at all, always finds
+    // `wasFocused` false and touches focus not at all, per this fix's own
+    // "if the root editor was focused, do not steal focus" requirement.
+    const nestedView = this.controller?.nestedView;
+    const wasFocused = !!nestedView && nestedView.root.activeElement === nestedView.contentDOM;
+
+    const widget = document.createElement('div');
+    widget.className = 'cm-table-widget';
+    widget.contentEditable = 'false';
+
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'cm-table-wrapper';
+    widget.appendChild(tableWrapper);
+
     const table = document.createElement('table');
-    table.className = 'cm-table-widget';
-    table.contentEditable = 'false';
+    tableWrapper.appendChild(table);
 
     const thead = document.createElement('thead');
     thead.appendChild(this.buildRow(view, this.headerCells, 'th'));
@@ -99,7 +153,29 @@ export class TableWidget extends WidgetType {
     }
     table.appendChild(tbody);
 
-    return table;
+    if (wasFocused) {
+      // Deferred to a microtask, not called synchronously here — `table`
+      // (and the nested view's DOM now inside it) is not yet attached to
+      // the live document at this point in `toDOM()`; CM6 inserts the
+      // returned element into the document synchronously immediately
+      // after this method returns, within the same `dispatch()` call, so
+      // by the time a microtask runs (strictly after the current
+      // synchronous execution, still before the next paint), the
+      // attachment has already happened and the element is genuinely
+      // focusable again. Re-checks `this.controller?.nestedView ===
+      // nestedView` and `.isConnected` at fire time — defensive against a
+      // second, unrelated activation/deactivation landing between this
+      // rebuild and the microtask actually running (e.g. a very fast
+      // second click), which must win over this stale restore rather than
+      // being clobbered by it.
+      queueMicrotask(() => {
+        if (this.controller?.nestedView === nestedView && nestedView.dom.isConnected) {
+          nestedView.focus();
+        }
+      });
+    }
+
+    return widget;
   }
 
   private buildRow(view: EditorView, cells: readonly TableCellData[], cellTag: 'th' | 'td'): HTMLTableRowElement {
@@ -111,21 +187,37 @@ export class TableWidget extends WidgetType {
         element.classList.add(ALIGN_CLASS[alignment]);
       }
 
+      const wrapper = document.createElement('div');
+      wrapper.className = 'cm-table-cell-wrapper';
+      element.appendChild(wrapper);
+
       const isActive = this.controller && this.activeFrom === cell.from && this.activeTo === cell.to;
       if (isActive && this.controller!.nestedView) {
-        element.appendChild(this.controller!.nestedView.dom);
+        wrapper.appendChild(this.controller!.nestedView.dom);
       } else {
-        element.innerHTML = renderInlineMarkdown(cell.text);
+        wrapper.innerHTML = renderInlineMarkdown(cell.text);
         if (this.controller) {
           const controller = this.controller;
-          element.addEventListener('mousedown', (event) => {
+          wrapper.addEventListener('mousedown', (event) => {
             event.preventDefault();
-            // `cell.from`/`cell.to` are re-resolved fresh into this exact
-            // `toDOM()` call's own closure at click time — never a range
-            // captured earlier and reused across a rebuild (ADR-034's own
-            // "stale click-handler closures" bug this guards against;
+            // Stops this click from also reaching root CM6's own
+            // mousedown handling (`contentDOM`'s own listener, further up
+            // this same DOM tree — the table widget is rendered *inside*
+            // root's content) — confirmed by direct live-browser
+            // investigation to be a real, independent bug otherwise: without
+            // this, `preventDefault()` alone blocks the browser's native
+            // default action but not root CM6's own JS-level listener,
+            // which still ran, placing root's *own* selection/focus at the
+            // clicked position (visible as a second, simultaneous caret) and
+            // winning the focus race against this cell's own activation.
+            event.stopPropagation();
+            // `cell.from`/`cell.to` are captured in this exact `toDOM()`
+            // call's own closure, always rebuilt fresh alongside the rest
+            // of this cell's rendering — never a range surviving past the
+            // rebuild that would invalidate it (ADR-034's own "stale
+            // click-handler closures" bug this guards against;
             // `TableActiveCellController.activate()`'s own doc comment).
-            controller.activate(view, element, cell.from, cell.to, cell.to);
+            controller.activate(view, wrapper, cell.from, cell.to, cell.to);
           });
         }
       }

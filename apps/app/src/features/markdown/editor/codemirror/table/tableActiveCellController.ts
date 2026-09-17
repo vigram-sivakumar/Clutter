@@ -153,6 +153,26 @@ export class TableActiveCellController {
       });
     }
 
+    // Explicit focus (M5 fix) — `container.appendChild`/`createEditorView`
+    // mounting the nested view's DOM does not itself move browser focus;
+    // confirmed by direct live-browser investigation that without this,
+    // focus silently stayed on the root editor after a click, so the very
+    // next keystroke was processed by root (at whatever position root's
+    // own — separately triggered, see `tableWidget.ts`'s click-handler
+    // `stopPropagation` fix — click handling had left its selection),
+    // producing a stray edit outside the clicked cell instead of inside
+    // it. `EditorView.focus()` is CM6's own documented API for this
+    // (`@codemirror/view`'s own `EditorView.prototype.focus` doc
+    // comment: "Put focus on the editor"). Must run before the
+    // `tableActiveCellChanged` dispatch below: that dispatch synchronously
+    // triggers `tableWidgetField`'s rebuild, which may reattach this same
+    // `nestedViewInstance.dom` into a freshly built `<td>`
+    // (`TableWidget.toDOM()`, M5's "preserve focus across rebuilds" fix) —
+    // that logic decides whether to restore focus based on whether the
+    // view `hasFocus` *at the start of that rebuild*, so focus must
+    // already be established here, first.
+    this.nestedViewInstance.focus();
+
     // Tells tableWidgetField's StateField to rebuild even though nothing
     // in rootView's own document changed — see tableActiveCellChanged's
     // own doc comment. A no-op transaction (no changes, not added to

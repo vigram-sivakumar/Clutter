@@ -15,6 +15,17 @@ import { tableCellNavigation } from './tableCellNavigation';
  * plain `EditorView` directly rather than the full `MarkdownEditor.tsx`
  * React component — same "test the CM6 extension, not the component"
  * convention `NoteEmbedWidget`'s own tests already use.
+ *
+ * jsdom's focus model is a simplified approximation of a real browser's —
+ * it tracks `document.activeElement` for explicit `.focus()` calls (so
+ * `TableActiveCellController.activate()`'s own `nestedView.focus()`, Fix
+ * 2, is verifiable here), but does not reliably reproduce the specific
+ * failure this milestone's own live investigation found (moving a
+ * focused, live DOM node into a still-detached subtree blurs it in a real
+ * browser). Tests below cover everything jsdom's model can faithfully
+ * assert; the rebuild-focus-restoration fix itself (Fix 3) is verified
+ * live in a real browser instead — see this session's own manual
+ * checklist.
  */
 
 const REQUIRED: Omit<BuildEditorExtensionsOptions, 'readOnly' | 'hostPageId' | 'getTableActiveCellController'> = {
@@ -57,91 +68,202 @@ function mount(doc: string, readOnly: boolean, controller?: TableActiveCellContr
   return view;
 }
 
+/** The stable per-cell mount point (M5 DOM-structure fix) — this is where a real click actually lands (it visually fills the `<th>`/`<td>`), and where the cell's own `mousedown` listener is attached; dispatching on the `<th>`/`<td>` itself wouldn't bubble down to it. */
+function wrapperOf(cell: Element): Element {
+  const wrapper = cell.querySelector(':scope > .cm-table-cell-wrapper');
+  if (!wrapper) {
+    throw new Error('cell has no .cm-table-cell-wrapper: ' + cell.outerHTML);
+  }
+  return wrapper;
+}
+
 function clickCell(cell: Element): void {
-  cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  wrapperOf(cell).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+}
+
+function findCell(view: EditorView, text: string): Element {
+  const cell = Array.from(view.dom.querySelectorAll('th, td')).find((el) => el.textContent === text);
+  if (!cell) {
+    throw new Error(`no cell with text "${text}"`);
+  }
+  return cell;
 }
 
 const TABLE = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
 
-describe('table live wiring — read-only (note embed) table', () => {
-  it('renders as a real <table>, but clicking a cell does nothing — no activation, no nested editor', () => {
+describe('table live wiring — DOM structure', () => {
+  it('the widget is a div.cm-table-widget[contenteditable=false] wrapping a div.cm-table-wrapper wrapping the real <table>', () => {
     const view = mount(TABLE, true);
 
-    const table = view.dom.querySelector('table.cm-table-widget');
+    const widget = view.dom.querySelector(':scope .cm-table-widget');
+    expect(widget?.tagName).toBe('DIV');
+    expect((widget as HTMLElement)?.contentEditable).toBe('false');
+
+    const wrapper = widget?.querySelector(':scope > .cm-table-wrapper');
+    expect(wrapper?.tagName).toBe('DIV');
+
+    const table = wrapper?.querySelector(':scope > table');
     expect(table).not.toBeNull();
-    const dataCell = view.dom.querySelector('tbody td');
-    expect(dataCell?.textContent).toBe('Vik');
+    expect(table?.className).toBe(''); // the <table> itself carries no class — cm-table-widget is the outer div now
+  });
 
-    clickCell(dataCell!);
+  it('every header and data cell wraps its content in one .cm-table-cell-wrapper, both structural elements otherwise empty of content', () => {
+    const view = mount(TABLE, true);
 
-    // No nested EditorView's own .cm-editor was mounted anywhere inside the table.
-    expect(view.dom.querySelector('table.cm-table-widget .cm-editor')).toBeNull();
-    expect(view.dom.querySelector('tbody td')?.textContent).toBe('Vik');
+    const cells = view.dom.querySelectorAll('th, td');
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of Array.from(cells)) {
+      expect(cell.children).toHaveLength(1);
+      expect(cell.children[0]?.classList.contains('cm-table-cell-wrapper')).toBe(true);
+    }
+    expect(findCell(view, 'Vik').querySelector('.cm-table-cell-wrapper')?.textContent).toBe('Vik');
+  });
+});
+
+describe('table live wiring — read-only (note embed) table', () => {
+  it('renders as a real <table> with the same wrapper structure, but clicking a cell does nothing — no activation, no nested editor', () => {
+    const view = mount(TABLE, true);
+
+    const table = view.dom.querySelector('.cm-table-widget');
+    expect(table).not.toBeNull();
+    const dataCell = findCell(view, 'Vik');
+
+    clickCell(dataCell);
+
+    expect(view.dom.querySelector('.cm-table-widget .cm-editor')).toBeNull();
+    expect(findCell(view, 'Vik').querySelector('.cm-table-cell-wrapper')?.textContent).toBe('Vik');
   });
 });
 
 describe('table live wiring — editable top-level table', () => {
-  it('clicking an inactive cell activates it: mounts the nested editor in that cell, with the caret placed there', () => {
+  it('clicking an inactive cell activates it: mounts the nested editor inside that cell\'s own wrapper, with the caret placed there', () => {
     const controller = new TableActiveCellController();
     const view = mount(TABLE, false, controller);
     controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
 
-    const dataCell = Array.from(view.dom.querySelectorAll('tbody td')).find((td) => td.textContent === 'Vik')!;
-    clickCell(dataCell);
+    clickCell(findCell(view, 'Vik'));
 
     expect(controller.nestedView).not.toBeNull();
     expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
-    // Re-queried, not the pre-click `dataCell` reference — activating
-    // rebuilds tableWidgetField's decorations (the tableActiveCellChanged
-    // marker effect), which replaces the whole <table> DOM subtree with a
-    // fresh one; the old `dataCell` element is now detached.
-    const activeCell = Array.from(view.dom.querySelectorAll('tbody td')).find((td) => td.contains(controller.nestedView!.dom));
-    expect(activeCell).toBeDefined();
+    // Re-queried, not a pre-click reference — activating rebuilds
+    // tableWidgetField's decorations (the tableActiveCellChanged marker
+    // effect), which replaces the whole <table> DOM subtree with a fresh
+    // one; any element reference from before the click is now detached.
+    const activeWrapper = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper')).find((w) => w.contains(controller.nestedView!.dom));
+    expect(activeWrapper).toBeDefined();
+    // The nested editor's .cm-editor is a direct child of .cm-table-cell-wrapper
+    // (never of <td> directly), and the full ancestor chain matches the
+    // widget's own documented structure: widget > .cm-table-wrapper > table > td > .cm-table-cell-wrapper > .cm-editor.
+    expect(controller.nestedView!.dom.parentElement).toBe(activeWrapper);
+    expect(activeWrapper!.parentElement?.tagName).toBe('TD');
+    expect(activeWrapper!.closest('.cm-table-widget > .cm-table-wrapper > table')).not.toBeNull();
   });
 
-  it('typing in the activated cell forwards into the root document, visible in the re-rendered static cell after deactivation', () => {
+  it('clicking a cell focuses the nested editor, and the root editor does not retain focus', async () => {
+    // Asserted via document.activeElement — jsdom faithfully reproduces
+    // the real-browser behavior this milestone's own investigation found
+    // (moving a focused node into a still-detached subtree blurs it), so
+    // even this very first activation needs Fix 3's own microtask-deferred
+    // restore to settle before focus reflects the final, correct state:
+    // activate() itself synchronously triggers one rebuild (the
+    // tableActiveCellChanged dispatch), which momentarily blurs the just-
+    // mounted nested editor exactly like any later typing-triggered
+    // rebuild would.
+    const controller = new TableActiveCellController();
+    const view = mount(TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+    view.focus(); // establish a baseline: root genuinely focused first
+    expect(document.activeElement).toBe(view.contentDOM);
+
+    clickCell(findCell(view, 'Vik'));
+    await Promise.resolve(); // flush the queueMicrotask-deferred focus restore
+
+    expect(document.activeElement).toBe(controller.nestedView!.contentDOM);
+    expect(document.activeElement).not.toBe(view.contentDOM);
+  });
+
+  it('focus is restored to the nested editor after the table-widget rebuild a cell edit itself triggers', async () => {
     const controller = new TableActiveCellController();
     const view = mount(TABLE, false, controller);
     controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
 
-    const dataCell = Array.from(view.dom.querySelectorAll('tbody td')).find((td) => td.textContent === 'Vik')!;
-    clickCell(dataCell);
-    controller.nestedView!.dispatch({ changes: { from: 3, to: 3, insert: 'tor' } });
+    clickCell(findCell(view, 'Vik'));
+    await Promise.resolve();
+    const nested = controller.nestedView!;
+    expect(document.activeElement).toBe(nested.contentDOM);
 
+    // Typing forwards to root, which rebuilds tableWidgetField's
+    // decorations and moves this same nested editor's DOM into a fresh
+    // <table> — the exact rebuild that blurred it before Fix 3.
+    nested.dispatch({ changes: { from: 3, to: 3, insert: 'tor' } });
+    expect(document.activeElement).not.toBe(nested.contentDOM); // blurred mid-rebuild, before the microtask runs
+
+    await Promise.resolve();
+
+    expect(controller.nestedView).toBe(nested); // still the one reusable instance
+    expect(document.activeElement).toBe(nested.contentDOM); // focus restored
+  });
+
+  it('editing outside the table (in the root document) never activates a cell or moves focus into the table', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(`Some text.\n\n${TABLE}`, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    view.focus();
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'X' } });
+
+    expect(controller.nestedView).toBeNull();
+    expect(controller.activeAnchor).toBeNull();
+    expect(document.activeElement).toBe(view.contentDOM);
+    expect(document.activeElement?.closest('.cm-table-widget')).toBeNull();
+  });
+
+  it('multiple consecutive keystrokes all land in the same active cell, forwarded correctly into the root document', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(findCell(view, 'Vik'));
+    const nested = controller.nestedView!;
+    nested.dispatch({ changes: { from: 3, to: 3, insert: 't' } });
+    nested.dispatch({ changes: { from: 4, to: 4, insert: 'o' } });
+    nested.dispatch({ changes: { from: 5, to: 5, insert: 'r' } });
+
+    expect(controller.nestedView).toBe(nested); // same instance throughout
+    expect(nested.state.doc.toString()).toBe('Viktor');
     expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Viktor | Designer |');
   });
 
-  it('Tab from the active cell activates the next cell live, moving the nested editor into its <td>', () => {
+  it('Tab from the active cell activates the next cell live, moving the nested editor into its own wrapper', () => {
     const controller = new TableActiveCellController();
     const view = mount(TABLE, false, controller);
     controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
 
-    const nameCell = Array.from(view.dom.querySelectorAll('thead th')).find((th) => th.textContent === 'Name')!;
-    clickCell(nameCell);
+    clickCell(findCell(view, 'Name'));
     expect(controller.nestedView!.state.doc.toString()).toBe('Name');
 
     controller.nestedView!.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
 
     expect(controller.nestedView!.state.doc.toString()).toBe('Role');
-    const roleCell = Array.from(view.dom.querySelectorAll('thead th')).find((th) => th.textContent?.includes('Role'))!;
-    expect(roleCell.contains(controller.nestedView!.dom)).toBe(true);
+    const roleWrapper = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper')).find((w) => w.contains(controller.nestedView!.dom));
+    expect(roleWrapper).toBeDefined();
   });
 
-  it('clicking a second, different cell moves the same nested editor instance (never a second one)', () => {
+  it('clicking a second, different cell moves the same nested editor instance into the new cell\'s wrapper (never a second instance)', () => {
     const controller = new TableActiveCellController();
     const view = mount(TABLE, false, controller);
     controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
 
-    const cells = () => Array.from(view.dom.querySelectorAll('th, td'));
-    clickCell(cells().find((c) => c.textContent === 'Name')!);
+    clickCell(findCell(view, 'Name'));
     const firstInstance = controller.nestedView;
 
-    // Re-query — the whole <table> was rebuilt when activation changed.
-    clickCell(cells().find((c) => c.textContent === 'Designer')!);
+    clickCell(findCell(view, 'Designer'));
 
     expect(controller.nestedView).toBe(firstInstance);
     expect(controller.nestedView!.state.doc.toString()).toBe('Designer');
     // Exactly one nested .cm-editor descendant — the same reused instance, not a second one.
-    expect(view.dom.querySelectorAll('table.cm-table-widget .cm-editor')).toHaveLength(1);
+    expect(view.dom.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+    const activeWrapper = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper')).find((w) => w.contains(controller.nestedView!.dom));
+    expect(activeWrapper?.textContent).toContain('Designer');
   });
 });
