@@ -1,0 +1,71 @@
+/*
+ * Real HTML `<table>` projection styling (Architecture E, ADR-034 — see
+ * `tableWidget.ts`'s own doc comment for the DOM structure this keys off:
+ * `.cm-table-widget` > `.cm-table-wrapper` > `table` > `th`/`td` >
+ * `.cm-table-cell-wrapper`). Purely visual — a bordered grid so the
+ * rendered table reads as a table, not a bug in this document. No
+ * layout/interaction behavior lives here; that's `tableWidget.ts`'s own
+ * job.
+ *
+ * `border` throughout, never `margin`, per this codebase's permanent
+ * CM6 rule (`CLAUDE.md`) — margin on a CM6-managed line/block element has
+ * twice corrupted cursor/navigation bookkeeping. `.cm-table-wrapper`
+ * itself is this widget's own private DOM (not a `.cm-line` or a
+ * `blockWrappers` wrapper), so the rule doesn't strictly apply to it, but
+ * inter-block spacing above/below the table is already handled by the
+ * shared `blockSeparatorDecoration.ts` system (blank-line-driven, applies
+ * to every block boundary generically) — this file doesn't duplicate
+ * that with its own margin.
+ */
+
+.cm-editor .cm-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.cm-editor .cm-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-label);
+}
+
+.cm-editor .cm-table-wrapper th,
+.cm-editor .cm-table-wrapper td {
+  border-bottom: 1px solid var(--border-default);
+  border-right: 1px solid var(--border-default);
+  padding: var(--space-8) var(--space-12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.cm-editor .cm-table-wrapper th:last-child,
+.cm-editor .cm-table-wrapper td:last-child {
+  border-right: none;
+}
+
+.cm-editor .cm-table-wrapper tr:last-child td {
+  border-bottom: none;
+}
+
+.cm-editor .cm-table-wrapper thead th {
+  background: var(--surface-secondary);
+  font-weight: var(--fw-medium);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.cm-editor .cm-table-wrapper .cm-table-cell-wrapper {
+  min-width: 2ch;
+}
+
+.cm-editor .cm-table-wrapper .cm-table-cell-wrapper .cm-editor {
+  outline: none;
+}
+
+.cm-editor .cm-table-widget-align-center {
+  text-align: center;
+}
+
+.cm-editor .cm-table-widget-align-right {
+  text-align: right;
+}

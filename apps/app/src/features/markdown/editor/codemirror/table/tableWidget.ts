@@ -1,5 +1,6 @@
 import { WidgetType, type EditorView } from '@codemirror/view';
 
+import './tableWidget.css';
 import type { TableColumnAlignment } from './tableAlignment';
 import type { TableActiveCellController } from './tableActiveCellController';
 import { renderInlineMarkdown } from './renderInlineMarkdown';
