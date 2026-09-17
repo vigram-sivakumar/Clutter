@@ -198,12 +198,15 @@ describe('tableWidgetField — controller.remapActiveAnchor wiring (M2)', () => 
     const view = mountView(BASIC_TABLE, controller);
     controller.activate(view, document.createElement('div'), 2, 3, 2); // "a"
 
-    view.dispatch({ changes: { from: 0, to: 0, insert: 'XX' } });
+    // A whole extra line inserted before the table (not touching its own
+    // header row), so table structure stays intact — the M3 structural-
+    // loss path has its own dedicated tests below.
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'XX\n' } });
 
-    // Anchor shifted by the 2-character insert at the very start — proof
+    // Anchor shifted by the 3-character insert at the very start — proof
     // remapActiveAnchor actually ran as part of this same transaction,
     // not merely that activate() itself still holds its original values.
-    expect(controller.activeAnchor).toEqual({ from: 4, to: 5 });
+    expect(controller.activeAnchor).toEqual({ from: 5, to: 6 });
   });
 
   it('never calls remapActiveAnchor for a selection-only transaction (no doc change to remap through)', () => {

@@ -3,6 +3,7 @@ import { Annotation, type ChangeSpec, type Transaction } from '@codemirror/state
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 
 import { createEditorView } from '../createEditorView';
+import { resolveLogicalCell } from './tableGeometry';
 
 /**
  * Tags a root transaction as forwarded from the active cell's own nested
@@ -168,15 +169,40 @@ export class TableActiveCellController {
    * prototype's own reproduction was a structural row-insert that,
    * remapped only from an `updateListener`, mounted the editor into the
    * wrong (newly inserted) row.
+   *
+   * **Structural-change safety (M3, docs/table-implementation-plan.md):**
+   * a plain `ChangeSet.mapPos` remap is correct for an ordinary edit
+   * anywhere else in the document (including a row inserted above/below
+   * this cell — mapPos already shifts the anchor correctly, same as any
+   * other text insertion), but is not enough on its own when the edit
+   * removes the structure the anchor depends on — the active row deleted
+   * entirely, or the active cell's whole table deleted. In both cases the
+   * naive mapped position can land inside a *different*, structurally
+   * unrelated cell that merely happens to now occupy that offset —
+   * exactly the "silent mis-association" bug class ADR-034 warns is
+   * systemic, not a one-off. Guarded here by re-resolving the mapped
+   * position through `resolveLogicalCell` (`tableGeometry.ts`, retained/
+   * rendering-mechanism-agnostic by design): if the position no longer
+   * resolves into *any* table cell at all, the structure is gone and this
+   * deactivates cleanly rather than risk mounting into the wrong one. A
+   * cell whose own *content* was cleared (e.g. select-all-and-delete
+   * inside it) still resolves here — its row/table nodes are untouched,
+   * only the interior text changed — so this never deactivates a merely-
+   * emptied cell.
    */
   remapActiveAnchor(tr: Transaction): void {
     if (!this.anchor || !tr.docChanged) {
       return;
     }
-    this.anchor = {
-      from: tr.changes.mapPos(this.anchor.from, -1),
-      to: tr.changes.mapPos(this.anchor.to, 1),
-    };
+    const from = tr.changes.mapPos(this.anchor.from, -1);
+    const to = tr.changes.mapPos(this.anchor.to, 1);
+
+    if (!resolveLogicalCell(tr.state, from)) {
+      this.deactivate();
+      return;
+    }
+
+    this.anchor = { from, to };
   }
 
   /**

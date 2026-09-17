@@ -186,10 +186,14 @@ describe('TableActiveCellController — remapActiveAnchor ordering', () => {
     const container = makeContainer();
     controller.activate(root, container, 6, 7, 6); // "b" at [6,7)
 
-    const tr = root.state.update({ changes: { from: 0, to: 0, insert: 'XX' } });
+    // A whole extra line inserted before the table (not touching its own
+    // header row) — table structure stays intact, so this exercises
+    // "ordinary edit elsewhere shifts the anchor," not the M3 structural-
+    // loss path (which has its own dedicated tests below).
+    const tr = root.state.update({ changes: { from: 0, to: 0, insert: 'XX\n' } });
     controller.remapActiveAnchor(tr);
 
-    expect(controller.activeAnchor).toEqual({ from: 8, to: 9 });
+    expect(controller.activeAnchor).toEqual({ from: 9, to: 10 });
   });
 
   it('does nothing when no cell is active', () => {
@@ -199,6 +203,96 @@ describe('TableActiveCellController — remapActiveAnchor ordering', () => {
     const tr = root.state.update({ changes: { from: 0, to: 0, insert: 'XX' } });
     expect(() => controller.remapActiveAnchor(tr)).not.toThrow();
     expect(controller.activeAnchor).toBeNull();
+  });
+});
+
+describe('TableActiveCellController — structural-change safety (M3)', () => {
+  it('a row inserted above the active row correctly re-associates the anchor to the shifted position (still a valid cell)', () => {
+    const text = '| a | b |\n| - | - |\n| 1 | 2 |';
+    const root = mountRootView(text);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const cellTwoFrom = text.lastIndexOf('2');
+    controller.activate(root, container, cellTwoFrom, cellTwoFrom + 1, cellTwoFrom);
+
+    // Insert a whole new data row right after the alignment row, before
+    // the active row — an ordinary structural edit that leaves the table
+    // (and the active row itself) fully intact, just shifted.
+    const insertPos = text.indexOf('| 1 |');
+    const tr = root.state.update({ changes: { from: insertPos, to: insertPos, insert: '| x | y |\n' } });
+    controller.remapActiveAnchor(tr);
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(tr.state.sliceDoc(controller.activeAnchor!.from, controller.activeAnchor!.to)).toBe('2');
+  });
+
+  it('deleting the active row entirely deactivates cleanly instead of mounting into a wrong cell', () => {
+    const text = '| a | b |\n| - | - |\n| 1 | 2 |';
+    const root = mountRootView(text);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const cellTwoFrom = text.lastIndexOf('2');
+    controller.activate(root, container, cellTwoFrom, cellTwoFrom + 1, cellTwoFrom);
+    expect(controller.nestedView).not.toBeNull();
+
+    // Delete the active row's own line, including its leading newline —
+    // the row (and the active cell inside it) is gone entirely.
+    const rowStart = text.lastIndexOf('\n');
+    const tr = root.state.update({ changes: { from: rowStart, to: text.length, insert: '' } });
+    controller.remapActiveAnchor(tr);
+
+    expect(controller.activeAnchor).toBeNull();
+    expect(container.contains(controller.nestedView!.dom)).toBe(false);
+  });
+
+  it("deleting the active cell's whole table deactivates cleanly instead of mounting into a wrong cell", () => {
+    const text = '| a | b |\n| - | - |\n| 1 | 2 |\n\nOther paragraph';
+    const root = mountRootView(text);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const cellTwoFrom = text.lastIndexOf('2');
+    controller.activate(root, container, cellTwoFrom, cellTwoFrom + 1, cellTwoFrom);
+    expect(controller.nestedView).not.toBeNull();
+
+    // Delete the whole table (everything up to, not including, the blank line).
+    const tableEnd = text.indexOf('\n\n');
+    const tr = root.state.update({ changes: { from: 0, to: tableEnd, insert: '' } });
+    controller.remapActiveAnchor(tr);
+
+    expect(controller.activeAnchor).toBeNull();
+    expect(container.contains(controller.nestedView!.dom)).toBe(false);
+  });
+
+  it('deleting a different, inactive table leaves the truly active cell (in another table) untouched, correctly re-associated', () => {
+    const text = '| a |\n| - |\n| 1 |\n\n| x | y |\n| - | - |\n| 9 | 8 |';
+    const root = mountRootView(text);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const cellEightFrom = text.lastIndexOf('8');
+    controller.activate(root, container, cellEightFrom, cellEightFrom + 1, cellEightFrom);
+
+    // Delete the first table entirely (inactive — the active cell is in the second table).
+    const firstTableEnd = text.indexOf('\n\n');
+    const tr = root.state.update({ changes: { from: 0, to: firstTableEnd, insert: '' } });
+    controller.remapActiveAnchor(tr);
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(tr.state.sliceDoc(controller.activeAnchor!.from, controller.activeAnchor!.to)).toBe('8');
+  });
+
+  it('emptying the active cell\'s own content (select-all-and-delete) stays active — content loss is not structural loss', () => {
+    const text = '| a | b |\n| - | - |\n| 1 | 2 |';
+    const root = mountRootView(text);
+    const controller = new TableActiveCellController();
+    const container = makeContainer();
+    const cellTwoFrom = text.lastIndexOf('2');
+    controller.activate(root, container, cellTwoFrom, cellTwoFrom + 1, cellTwoFrom);
+
+    // Delete only the cell's own content — the delimiters around it survive.
+    const tr = root.state.update({ changes: { from: cellTwoFrom, to: cellTwoFrom + 1, insert: '' } });
+    controller.remapActiveAnchor(tr);
+
+    expect(controller.activeAnchor).toEqual({ from: cellTwoFrom, to: cellTwoFrom });
   });
 });
 
