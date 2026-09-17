@@ -4,13 +4,16 @@ import type { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
 /**
- * Shared table syntax-tree/geometry primitives, extracted from
- * `tableDeletionGuard.ts` (Step 1) so `tableArrowKeymap.ts` (Step 2) reuses
- * the exact same tree-walking rather than re-deriving a parallel notion of
- * "which cell/row is this position in" — see docs/editor-architecture-
- * decisions.md's table-investigation entries for the fuller rationale
- * behind delimiter-position-based (not `TableCell`-node-based) addressing.
- * Purely read-only queries over the syntax tree; no state of their own.
+ * Shared table syntax-tree/geometry primitives — rendering-mechanism-
+ * agnostic by design (per ADR-034, retained across the table rewrite; see
+ * docs/table-implementation-plan.md). Originally extracted so the old CSS-
+ * table implementation's caret keymaps/guards (deleted 2026-09-17 as ADR-034
+ * migration prep) could all reuse one tree-walking notion of "which cell/row
+ * is this position in" rather than re-deriving it independently — see
+ * docs/editor-architecture-decisions.md's table-investigation entries for
+ * the fuller rationale behind delimiter-position-based (not
+ * `TableCell`-node-based) addressing. Purely read-only queries over the
+ * syntax tree; no state of their own.
  */
 
 export function findEnclosingTable(state: EditorState, pos: number): SyntaxNode | null {
@@ -21,7 +24,26 @@ export function findEnclosingTable(state: EditorState, pos: number): SyntaxNode 
   return node;
 }
 
-/** The `TableHeader`/`TableRow`/alignment-row (`TableDelimiter` as a direct child of `Table`) containing `pos`, mirroring `tableDecoration.ts`'s own `decorateTable` traversal of a table's direct children. */
+export interface TableInfo {
+  readonly node: SyntaxNode;
+  readonly from: number;
+  readonly to: number;
+}
+
+/** Every `Table` node in the document, in document order — the rendering-mechanism-agnostic enumeration `tableWidgetField.ts` (Architecture E, docs/table-implementation-plan.md) needs to build one block decoration per table. Same tree-walk pattern as every other whole-document scan in this codebase (e.g. `blockSeparatorDecoration.ts`'s `syntaxTree(state).iterate(...)`), just collecting `Table` nodes instead of computing per-node decorations. */
+export function findAllTables(state: EditorState): TableInfo[] {
+  const tables: TableInfo[] = [];
+  syntaxTree(state).iterate({
+    enter: (node) => {
+      if (node.name === 'Table') {
+        tables.push({ node: node.node, from: node.from, to: node.to });
+      }
+    },
+  });
+  return tables;
+}
+
+/** The `TableHeader`/`TableRow`/alignment-row (`TableDelimiter` as a direct child of `Table`) containing `pos`, walking a table's direct children the same way any table renderer needs to. */
 export function findEnclosingRow(table: SyntaxNode, pos: number): SyntaxNode | null {
   const header = table.firstChild;
   if (!header || header.name !== 'TableHeader') {
@@ -207,11 +229,12 @@ export interface LogicalCell {
  * far) is built on. This is deliberately syntax-tree-only: it never reads
  * a pixel position, a rendered layout, or anything from `EditorView` —
  * only `EditorState` and the parse tree. That's what keeps table
- * interaction semantics stable across a rendering change: today the table
- * is unrendered raw Markdown (no CSS-table layout wired in yet); once
- * `tableDecoration()` is wired in, or replaced by any future rendering
- * approach, this function's contract — and everything built on it — does
- * not need to change, because it was never coupled to how the table
+ * interaction semantics stable across a rendering change: the old CSS-table
+ * rendering that once consumed this was deleted per ADR-034 (2026-09-17),
+ * and a table is currently unrendered raw Markdown pending the Architecture
+ * E rewrite (docs/table-implementation-plan.md); whatever rendering
+ * approach lands, this function's contract — and everything built on it —
+ * does not need to change, because it was never coupled to how the table
  * *looks* in the first place.
  *
  * Returns `null` when `pos` isn't inside a table at all, or isn't
