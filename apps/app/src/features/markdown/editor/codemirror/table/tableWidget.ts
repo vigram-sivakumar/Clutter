@@ -11,11 +11,25 @@ const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>>
   right: 'cm-table-widget-align-right',
 };
 
-/** One cell's raw text plus its trimmed source range (`tableWidgetField.ts`'s own `rowCells` — excludes the padding spaces around the text, matching `tableCellNavigation.ts`'s `trimmedCellRange` contract for the same cell). */
+/**
+ * One cell's raw text plus its trimmed source range (`from`/`to` —
+ * `tableWidgetField.ts`'s own `rowCells` — excludes the padding spaces
+ * around the text, matching `tableCellNavigation.ts`'s `trimmedCellRange`
+ * contract for the same cell) and its untrimmed range (`rawFrom`/`rawTo`
+ * — the full delimiter-to-delimiter gap, padding included).
+ *
+ * `rawFrom`/`rawTo` exist specifically for the active-cell *containment*
+ * check in `buildRow()` below, not for rendering — see that check's own
+ * doc comment for the bug this avoids (a controller anchor that has grown
+ * to include a just-typed trailing space no longer exactly equals this
+ * cell's own freshly re-trimmed `to`).
+ */
 export interface TableCellData {
   readonly text: string;
   readonly from: number;
   readonly to: number;
+  readonly rawFrom: number;
+  readonly rawTo: number;
 }
 
 /**
@@ -192,14 +206,50 @@ export class TableWidget extends WidgetType {
       wrapper.className = 'cm-table-cell-wrapper';
       element.appendChild(wrapper);
 
-      const isActive = this.controller && this.activeFrom === cell.from && this.activeTo === cell.to;
+      // Containment against the cell's own *untrimmed* [rawFrom, rawTo]
+      // gap, not exact equality against its trimmed [from, to] — found
+      // via direct live-browser investigation: typing a trailing space
+      // (or any whitespace) at the end of the active cell's content grows
+      // `activeTo` (the controller's own `ChangeSet.mapPos`-tracked
+      // anchor, unaware of trimming) past this cell's freshly re-trimmed
+      // `to` (which excludes that same trailing space again), so exact
+      // equality would fail here even though nothing structural changed
+      // — the nested editor would then match no cell at all, rendering
+      // as if deactivated (with the DOM node never re-attached anywhere)
+      // while the controller still genuinely considers a cell active.
+      // `rawFrom`/`rawTo` (`tableWidgetField.ts`'s own `rowCells`) is the
+      // stable identity every position inside this cell's real delimiter
+      // gap maps to, regardless of how much of it is "trimmed content"
+      // right now.
+      const isActive =
+        !!this.controller &&
+        this.activeFrom !== null &&
+        this.activeTo !== null &&
+        cell.rawFrom <= this.activeFrom &&
+        this.activeTo <= cell.rawTo;
       if (isActive && this.controller!.nestedView) {
         wrapper.appendChild(this.controller!.nestedView.dom);
       } else {
         wrapper.innerHTML = renderInlineMarkdown(cell.text);
         if (this.controller) {
           const controller = this.controller;
-          wrapper.addEventListener('mousedown', (event) => {
+          // Listens on `element` (the <th>/<td> itself), not `wrapper` —
+          // `wrapper`'s own height is driven by its content, which for an
+          // empty (or short, single-line) cell can be much shorter than
+          // the row it sits in once a *sibling* cell in that row wraps to
+          // multiple lines (table row height = tallest cell). Confirmed
+          // directly (elementFromPoint at the visual center of a short
+          // cell in a tall row): the click lands on `element`, never
+          // reaching `wrapper`'s own listener — a CSS-only fix
+          // (`height: 100%` on the wrapper) does not reliably resolve
+          // against a table row's auto-derived height in the same way it
+          // would against an ordinary block parent with an explicit
+          // height, so this is fixed at the hit-target level instead:
+          // `element` always spans the row's full rendered height by
+          // definition (that's what "row height" means in table layout),
+          // so listening there makes every pixel of the visible cell
+          // clickable regardless of how tall its own content is.
+          element.addEventListener('mousedown', (event) => {
             event.preventDefault();
             // Stops this click from also reaching root CM6's own
             // mousedown handling (`contentDOM`'s own listener, further up
@@ -218,6 +268,9 @@ export class TableWidget extends WidgetType {
             // rebuild that would invalidate it (ADR-034's own "stale
             // click-handler closures" bug this guards against;
             // `TableActiveCellController.activate()`'s own doc comment).
+            // `wrapper`, not `element`, is still the mount container — the
+            // nested editor lives inside the wrapper, only click detection
+            // moved to the td/th.
             controller.activate(view, wrapper, cell.from, cell.to, cell.to);
           });
         }

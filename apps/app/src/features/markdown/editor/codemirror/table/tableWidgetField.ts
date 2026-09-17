@@ -55,6 +55,20 @@ import { TableWidget, type TableCellData } from './tableWidget';
  * point at the *end* of the gap instead of the start. Only a truly
  * zero-length segment (delimiters immediately adjacent, no padding at
  * all) already avoided this on its own (`leading = trailing = 0`).
+ *
+ * **Also returns each segment's own untrimmed `rawFrom`/`rawTo`**
+ * (`TableCellData.rawFrom`/`.rawTo`) alongside the trimmed `from`/`to` —
+ * required for `TableWidget`'s own active-cell *containment* check
+ * (confirmed as a real, separately-discovered bug: typing a *trailing*
+ * space inside the active cell grows `TableActiveCellController`'s own
+ * anchor, via plain `ChangeSet.mapPos`, to include that space, but this
+ * function's own trim then immediately excludes that same trailing space
+ * from the freshly-recomputed `to` — an exact-equality match between
+ * the controller's anchor and this cell's trimmed bounds then fails on
+ * the very next rebuild, even though nothing structural changed, making
+ * the cell appear to have no active match at all). `TableWidget` checks
+ * whether the anchor falls *within* `[rawFrom, rawTo]`, not whether it
+ * exactly equals `[from, to]`.
  */
 function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
   const delimiters: SyntaxNode[] = [];
@@ -84,11 +98,11 @@ function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
     const raw = state.sliceDoc(rawFrom, rawTo);
     const trimmed = raw.trim();
     if (trimmed === '') {
-      return { text: '', from: rawFrom, to: rawFrom };
+      return { text: '', from: rawFrom, to: rawFrom, rawFrom, rawTo };
     }
     const leading = raw.length - raw.trimStart().length;
     const trailing = raw.length - raw.trimEnd().length;
-    return { text: trimmed, from: rawFrom + leading, to: rawTo - trailing };
+    return { text: trimmed, from: rawFrom + leading, to: rawTo - trailing, rawFrom, rawTo };
   });
 }
 

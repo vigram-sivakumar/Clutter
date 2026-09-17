@@ -385,3 +385,73 @@ describe('table live wiring — empty-cell click/caret (rowCells() whitespace-on
     expect(view.state.selection.main.from).toBe(0);
   });
 });
+
+describe('table live wiring — trailing-whitespace active-cell mismatch (rawFrom/rawTo containment fix)', () => {
+  const EMPTY_CELL_TABLE = '| Name | Role |\n| --- | --- |\n|  |  |';
+
+  function emptyDataCell(view: EditorView): Element {
+    const td = view.dom.querySelectorAll('tbody td')[0];
+    if (!td) {
+      throw new Error('no first data cell found');
+    }
+    return td;
+  }
+
+  it('stays active after typing a trailing space — the cell still hosts the nested editor, not static text', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(emptyDataCell(view));
+    const nested = controller.nestedView!;
+    nested.dispatch({ changes: { from: 0, to: 0, insert: 'Hello' } });
+    nested.dispatch({ changes: { from: 5, to: 5, insert: ' ' } });
+
+    // Before the fix: the controller's own anchor grows to include the
+    // trailing space (via plain ChangeSet.mapPos), but rowCells()'s trim
+    // immediately excludes that same trailing space from the cell's own
+    // freshly-recomputed `to` — an exact-equality match between the two
+    // then fails, and the widget renders this cell as if nothing were
+    // active, orphaning the nested editor's DOM.
+    const activeWrapper = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper')).find((w) => w.contains(nested.dom));
+    expect(activeWrapper).toBeDefined();
+    expect(controller.nestedView).toBe(nested);
+  });
+
+  it('a second cell (already containing trailing whitespace) is never mistaken for the active one', () => {
+    // Regression guard for the fix's own containment check: two cells
+    // both starting at a `rawFrom` that could coincidentally satisfy a
+    // looser check must not both appear "active" — only the one actually
+    // tracked by the controller's anchor should.
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(emptyDataCell(view));
+    const nested = controller.nestedView!;
+    nested.dispatch({ changes: { from: 0, to: 0, insert: 'x ' } });
+
+    const wrappers = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper'));
+    const wrappersHostingNested = wrappers.filter((w) => w.contains(nested.dom));
+    expect(wrappersHostingNested).toHaveLength(1);
+  });
+
+  it('typing a long, multi-word sentence (many trailing-whitespace moments) keeps the same cell active throughout, never creating extra rows', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(emptyDataCell(view));
+    const nested = controller.nestedView!;
+    const sentence = 'Hello world this is a test';
+    for (let i = 0; i < sentence.length; i++) {
+      nested.dispatch({ changes: { from: i, to: i, insert: sentence[i]! } });
+    }
+
+    expect(controller.nestedView).toBe(nested);
+    expect(nested.state.doc.toString()).toBe(sentence);
+    expect(view.dom.querySelectorAll('tbody tr')).toHaveLength(1);
+    const activeWrapper = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper')).find((w) => w.contains(nested.dom));
+    expect(activeWrapper).toBeDefined();
+  });
+});

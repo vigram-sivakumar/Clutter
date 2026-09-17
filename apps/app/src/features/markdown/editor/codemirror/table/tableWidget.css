@@ -58,14 +58,18 @@
 
 .cm-editor .cm-table-wrapper .cm-table-cell-wrapper {
   min-width: 2ch;
-  /* An empty cell's wrapper has no content of its own (no text, no
-   * nested editor yet) and collapses to zero height — confirmed via
-   * direct browser inspection (elementFromPoint at the cell's own
-   * visual center returns the <td>, never this wrapper) that a
-   * zero-height empty element receives no hit-testing at all, so its
-   * own mousedown listener (tableWidget.ts) can never fire for a real
-   * click anywhere in an empty cell. min-height keeps it clickable
-   * across the cell's full visual area even with no content. */
+  /* A visual floor only — an empty cell's wrapper has no content of its
+   * own and would otherwise collapse to zero height. This does NOT make
+   * the wrapper clickable across a taller row (a sibling cell wrapping
+   * to multiple lines still leaves the rest of that row's visual area
+   * outside this fixed-height wrapper) — `height: 100%` was tried and
+   * confirmed NOT to reliably resolve against a table row's auto-derived
+   * height the way it would against an ordinary block parent with an
+   * explicit height. Hit-testing across the row's full height is instead
+   * handled at the `<th>`/`<td>` level directly (`tableWidget.ts`'s own
+   * click handler is attached to `element`, not `wrapper`, for exactly
+   * this reason) — this rule is purely cosmetic now.
+   */
   min-height: 1.2em;
 }
 
