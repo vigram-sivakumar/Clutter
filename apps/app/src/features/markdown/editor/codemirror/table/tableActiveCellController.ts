@@ -1,5 +1,5 @@
 import { redo, undo } from '@codemirror/commands';
-import { Annotation, type ChangeSpec, type Extension, type Transaction } from '@codemirror/state';
+import { Annotation, StateEffect, type ChangeSpec, type Extension, type Transaction } from '@codemirror/state';
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 
 import { createEditorView } from '../createEditorView';
@@ -23,6 +23,20 @@ export const tableCellForward = Annotation.define<boolean>();
  * corrupting whatever the root actually holds rather than syncing to it.
  */
 const cellContentReset = Annotation.define<boolean>();
+
+/**
+ * Dispatched on the root view at the end of `activate()` — a pure
+ * activation change (click, Tab/Shift-Tab, Arrow) carries no document
+ * change of its own, so without this marker `tableWidgetField`'s
+ * `StateField.update()` (which only rebuilds `if (tr.docChanged)`, M1)
+ * would never see that a different cell is now active and would keep
+ * rendering the nested editor mounted in the *previous* cell's `<td>`
+ * (M5, docs/table-implementation-plan.md). Same "changeless marker
+ * effect signals a StateField to rebuild" pattern `imageUiState.ts`'s own
+ * `presentationOnlyEdit`/`setImageUiState` already establish — not a new
+ * mechanism.
+ */
+export const tableActiveCellChanged = StateEffect.define<null>();
 
 export interface CellRange {
   readonly from: number;
@@ -138,6 +152,13 @@ export class TableActiveCellController {
         annotations: [cellContentReset.of(true)],
       });
     }
+
+    // Tells tableWidgetField's StateField to rebuild even though nothing
+    // in rootView's own document changed — see tableActiveCellChanged's
+    // own doc comment. A no-op transaction (no changes, not added to
+    // history) wherever tableWidgetField isn't installed (every M1–M4
+    // test `EditorView` above included).
+    rootView.dispatch({ effects: tableActiveCellChanged.of(null) });
   }
 
   /**
@@ -244,10 +265,39 @@ export class TableActiveCellController {
     });
   }
 
-  /** Root editor unmount cleanup (§13, wired in a later milestone) — destroys the nested view for good, unlike `deactivate()`. */
+  /** Root editor unmount cleanup (§13) — destroys the nested view for good, unlike `deactivate()`. Wired from `MarkdownEditor.tsx`'s own unmount cleanup (M5). */
   destroy(): void {
     this.nestedViewInstance?.destroy();
     this.nestedViewInstance = null;
     this.anchor = null;
   }
+}
+
+/**
+ * Root-view `updateListener` extension that calls
+ * `controller.reconcileNestedFromRoot()` after every doc-changing root
+ * transaction that did **not** originate from this same controller's own
+ * `forwardToRoot` (§C, M5, docs/table-implementation-plan.md) — physical
+ * `Ctrl+Z`/`Ctrl+Shift+Z` (via the nested editor's own Mod-z/Mod-y keymap
+ * calling `undo(rootView)`/`redo(rootView)` directly), or any other edit
+ * made elsewhere while this cell is active. `reconcileNestedFromRoot`
+ * itself is safe to call from an `updateListener` (unlike
+ * `remapActiveAnchor`, which must run synchronously inside the
+ * `StateField`'s own `update()` — see that method's own doc comment) —
+ * this is deliberately a *separate* extension from `tableWidgetDecoration`,
+ * not folded into it, since a `StateField.update()` must stay a pure
+ * function with no transaction dispatches of its own, which
+ * `reconcileNestedFromRoot`'s nested-view dispatch would violate if called
+ * from there.
+ */
+export function tableActiveCellReconciliation(controller: TableActiveCellController): Extension {
+  return EditorView.updateListener.of((update) => {
+    if (!update.docChanged) {
+      return;
+    }
+    if (update.transactions.some((tr) => tr.annotation(tableCellForward))) {
+      return;
+    }
+    controller.reconcileNestedFromRoot(update.view);
+  });
 }

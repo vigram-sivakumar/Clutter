@@ -27,13 +27,6 @@ import { urlMouseHandlers } from './link/urlMouseHandlers';
 import { urlPasteChoiceField } from './link/urlPaste/urlPasteChoiceState';
 import { urlPasteAnchorDecoration } from './link/urlPaste/urlPasteAnchorDecoration';
 import type { OnOpenUrlPasteMenu } from './link/urlPaste/UrlPasteAnchorWidget';
-import { tableArrowKeymap } from './table/tableArrowKeymap';
-import { tableDeletionGuard } from './table/tableDeletionGuard';
-import { tableArrowDownKeymap } from './table/tableArrowDownKeymap';
-import { tableDecoration } from './table/tableDecoration';
-import { tableVerticalKeymap } from './table/tableVerticalKeymap';
-import { tableEnterKeymap } from './table/tableEnterKeymap';
-import { tableTabKeymap } from './table/tableTabKeymap';
 import { listMarkerCaretAssoc, listMarkerDecoration } from './list/listMarkerDecoration';
 import { taskCheckboxDecoration } from './task/taskCheckboxDecoration';
 import { taskCheckboxMouseHandlers } from './task/taskCheckboxMouseHandlers';
@@ -64,6 +57,8 @@ import type { ResolvePageEmbed } from '../../render/blocks/pageEmbedResolution';
 import type { GetEmbedHeadingSuggestions, GetEmbedSuggestions } from './embed/embedSuggestion';
 import { ROOT_ANCESTRY, type NoteEmbedAncestry } from './embed/noteEmbedAncestry';
 import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbedWidget';
+import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
+import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
  * Every getter here follows the same "read fresh per rebuild/per click"
@@ -172,6 +167,22 @@ export interface BuildEditorExtensionsOptions {
    * hostPageId` doc comment for why there is no safe default.
    */
   readonly hostPageId: string;
+  /**
+   * The table active-cell controller (Architecture E, ADR-034 —
+   * docs/table-implementation-plan.md, M5) — `undefined` for the
+   * top-level editor's very first render before its controller ref is
+   * populated, and *always* omitted for a note embed's own read-only
+   * nested view. Consulted only when `readOnly` is `false`: a read-only
+   * table still renders as a real `<table>` (`tableWidgetDecoration()` is
+   * in the always-included `rendering` array below, unconditionally),
+   * but never gets a controller to activate a cell with, so it never
+   * gets a click handler either — the same "omit the capability
+   * entirely" gate every other editing-only extension in this factory
+   * already uses, extended here rather than a second gating mechanism
+   * (§9/Cross-check's own "never a nested `EditorView` for a read-only
+   * embed" requirement).
+   */
+  readonly getTableActiveCellController?: () => TableActiveCellController | undefined;
 }
 
 export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Extension[] {
@@ -201,7 +212,16 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     maxEmbedDepth,
     getFoldStateStore,
     hostPageId,
+    getTableActiveCellController,
   } = options;
+
+  // `undefined` for a read-only table (a note embed) regardless of what
+  // `getTableActiveCellController` itself would return — the `!readOnly`
+  // gate is enforced here, once, rather than trusting every call site to
+  // pass the option correctly. `tableWidgetDecoration()` still renders a
+  // real `<table>` either way (below, unconditional); only activation
+  // capability is withheld.
+  const tableActiveCellController = readOnly ? undefined : getTableActiveCellController?.();
 
   const rendering: Extension[] = [
     markdownLanguageExtension(),
@@ -249,12 +269,13 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     horizontalRuleDecoration(),
     blockSeparatorDecoration(),
     leadingIndentDecoration(),
-    tableDecoration(),
     wikiLinkMouseHandlers(resolveWikiLink),
     tagMouseHandlers(resolveTag),
     dateMouseHandlers(resolveDate),
     linkMouseHandlers(),
     urlMouseHandlers(),
+    tableWidgetDecoration(tableActiveCellController),
+    ...(tableActiveCellController ? [tableActiveCellReconciliation(tableActiveCellController)] : []),
   ];
 
   if (readOnly) {
@@ -273,33 +294,6 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
     fencedCodeFenceAutoClose(),
-    // Backspace/Delete protection for hidden table structure (`|`
-    // delimiters, row-separating newlines) — editable-only, same reasoning
-    // as every other keymap guard here: there is nothing to protect once
-    // editing itself is blocked in a read-only nested view.
-    tableDeletionGuard(),
-    // Left/Right one-press cell-boundary crossing (Step 2). Grouped here
-    // with tableDeletionGuard rather than in `rendering`: `tableGeometry.ts`'s
-    // shared `resolveTableRowAtCursor` bails on `state.readOnly` (correct
-    // for Step 1's "nothing to protect" reasoning), so registering this
-    // guard for a read-only nested note-embed view would always defer to
-    // native anyway — kept editable-only for consistency rather than
-    // registering a guard that can never actually fire there.
-    tableArrowKeymap(),
-    // Enter creates a new empty row instead of splitting the cell's text
-    // (Step 3) — editable-only, same reasoning as the two guards above.
-    tableEnterKeymap(),
-    // Tab/Shift-Tab row-major cell navigation (Step 4) — editable-only,
-    // same reasoning as the guards above.
-    tableTabKeymap(),
-    // ArrowDown past the table's last row exits into a new paragraph when
-    // nothing already follows the table (Step 5) — editable-only, same
-    // reasoning as the guards above.
-    tableArrowDownKeymap(),
-    // Up/Down inside a table preserve the table's own column and skip the
-    // alignment row (Step 5 continuation) — editable-only, same reasoning
-    // as the guards above.
-    tableVerticalKeymap(),
     ...rendering,
     // The trigger itself only opens a menu, but every one of its current
     // menu items (Format code, Change Language, Download, Remove) mutates

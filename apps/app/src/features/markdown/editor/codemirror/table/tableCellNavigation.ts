@@ -204,13 +204,19 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
       return false; // Something (blank or not) already exists below the table — defer to native.
     }
 
+    // Deactivate BEFORE dispatching — tableWidgetField's StateField.update()
+    // runs synchronously inside this same dispatch call and must already
+    // see no active cell, or it would rebuild this transaction's
+    // decorations still showing the (about-to-be-abandoned) cell as
+    // active (M5's own "activation must be visible to the same rebuild"
+    // requirement, mirrored from remapActiveAnchor's own ordering rule).
+    controller.deactivate();
     const insertPos = current.table.to;
     rootView.dispatch({
       changes: { from: insertPos, to: insertPos, insert: '\n' },
       selection: { anchor: insertPos + 1 },
       scrollIntoView: true,
     });
-    controller.deactivate();
     return true;
   };
 

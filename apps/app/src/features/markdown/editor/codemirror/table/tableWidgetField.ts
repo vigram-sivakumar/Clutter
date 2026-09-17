@@ -4,18 +4,18 @@ import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
-import type { TableActiveCellController } from './tableActiveCellController';
+import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, getNavigableRows, isAlignmentRow, type TableInfo } from './tableGeometry';
-import { TableWidget } from './tableWidget';
+import { TableWidget, type TableCellData } from './tableWidget';
 
 /**
- * Every cell's raw text in `row`, left to right — deliberately **not**
- * `getRowCellBounds` (which only pairs up consecutive `TableDelimiter`
- * children, by design: built for Tab/Arrow navigation between
- * delimiter-bounded gaps, not for recovering a row's full cell count).
- * That leaves two GFM-legal shapes unrepresented, both required here
- * because `TableWidget` needs every row's *entire* content, not just its
- * navigable columns:
+ * Every cell's raw text + trimmed source range in `row`, left to right —
+ * deliberately **not** `getRowCellBounds` (which only pairs up
+ * consecutive `TableDelimiter` children, by design: built for Tab/Arrow
+ * navigation between delimiter-bounded gaps, not for recovering a row's
+ * full cell count). That leaves two GFM-legal shapes unrepresented, both
+ * required here because `TableWidget` needs every row's *entire* content,
+ * not just its navigable columns:
  *
  * - **No leading/trailing pipe** (`A|B|C`, confirmed empirically: only
  *   the interior `|` becomes a `TableDelimiter`) — `getRowCellBounds`
@@ -31,34 +31,48 @@ import { TableWidget } from './tableWidget';
  * a leading/trailing segment is only counted as a cell when real row
  * content precedes/follows the first/last delimiter — exactly how GFM's
  * own "leading and trailing pipes are optional" rule reads.
+ *
+ * **Trims each segment's own leading/trailing whitespace into `from`/`to`,
+ * not just `text`** (M5, docs/table-implementation-plan.md) — the same
+ * "editable content excludes the padding spaces around it" contract
+ * `tableCellNavigation.ts`'s own `trimmedCellRange` establishes for
+ * keyboard-driven activation, needed here too so a *click*-activated cell
+ * mounts the nested editor over the same range, not one that includes
+ * `"| Name |"`'s literal padding (`" Name "`).
  */
-function rowCellTexts(state: EditorState, row: SyntaxNode): string[] {
+function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
   const delimiters: SyntaxNode[] = [];
   for (let child = row.firstChild; child; child = child.nextSibling) {
     if (child.name === 'TableDelimiter') {
       delimiters.push(child);
     }
   }
+  const segments: Array<{ readonly from: number; readonly to: number }> = [];
   if (delimiters.length === 0) {
-    return [state.sliceDoc(row.from, row.to).trim()];
+    segments.push({ from: row.from, to: row.to });
+  } else {
+    const first = delimiters[0]!;
+    if (first.from > row.from) {
+      segments.push({ from: row.from, to: first.from });
+    }
+    for (let i = 0; i < delimiters.length - 1; i++) {
+      segments.push({ from: delimiters[i]!.to, to: delimiters[i + 1]!.from });
+    }
+    const last = delimiters[delimiters.length - 1]!;
+    if (last.to < row.to) {
+      segments.push({ from: last.to, to: row.to });
+    }
   }
 
-  const cells: string[] = [];
-  const first = delimiters[0]!;
-  if (first.from > row.from) {
-    cells.push(state.sliceDoc(row.from, first.from).trim());
-  }
-  for (let i = 0; i < delimiters.length - 1; i++) {
-    cells.push(state.sliceDoc(delimiters[i]!.to, delimiters[i + 1]!.from).trim());
-  }
-  const last = delimiters[delimiters.length - 1]!;
-  if (last.to < row.to) {
-    cells.push(state.sliceDoc(last.to, row.to).trim());
-  }
-  return cells;
+  return segments.map(({ from: rawFrom, to: rawTo }) => {
+    const raw = state.sliceDoc(rawFrom, rawTo);
+    const leading = raw.length - raw.trimStart().length;
+    const trailing = raw.length - raw.trimEnd().length;
+    return { text: raw.trim(), from: rawFrom + leading, to: rawTo - trailing };
+  });
 }
 
-function buildTableWidgetRange(state: EditorState, table: TableInfo): Range<Decoration> | null {
+function buildTableWidgetRange(state: EditorState, table: TableInfo, controller: TableActiveCellController | undefined): Range<Decoration> | null {
   const navigableRows = getNavigableRows(table.node);
   const header = navigableRows[0];
   if (!header) {
@@ -68,17 +82,27 @@ function buildTableWidgetRange(state: EditorState, table: TableInfo): Range<Deco
   const alignRow = header.nextSibling;
   const alignments: TableColumnAlignment[] = alignRow && isAlignmentRow(alignRow) ? parseTableAlignment(state.sliceDoc(alignRow.from, alignRow.to)) : [];
 
-  const headerCells = rowCellTexts(state, header);
-  const bodyRows = navigableRows.slice(1).map((row) => rowCellTexts(state, row));
+  const headerCells = rowCells(state, header);
+  const bodyRows = navigableRows.slice(1).map((row) => rowCells(state, row));
 
-  const widget = new TableWidget(headerCells, alignments, bodyRows, state.sliceDoc(table.from, table.to));
+  const activeAnchor = controller?.activeAnchor ?? null;
+  const widget = new TableWidget(
+    headerCells,
+    alignments,
+    bodyRows,
+    state.sliceDoc(table.from, table.to),
+    table.from,
+    controller,
+    activeAnchor?.from ?? null,
+    activeAnchor?.to ?? null
+  );
   return Decoration.replace({ widget, block: true }).range(table.from, table.to);
 }
 
-function buildTableDecorations(state: EditorState): DecorationSet {
+function buildTableDecorations(state: EditorState, controller: TableActiveCellController | undefined): DecorationSet {
   const ranges: Range<Decoration>[] = [];
   for (const table of findAllTables(state)) {
-    const range = buildTableWidgetRange(state, table);
+    const range = buildTableWidgetRange(state, table, controller);
     if (range) {
       ranges.push(range);
     }
@@ -98,26 +122,32 @@ function buildTableDecorations(state: EditorState): DecorationSet {
  * synchronously here, before decorations rebuild — the ordering
  * `TableActiveCellController.remapActiveAnchor`'s own doc comment
  * requires (M2's "StateField/updateListener ordering hazard" fix).
- * Decoration output itself is still render-only in this milestone (M2) —
- * `TableWidget` doesn't yet consume `controller.activeAnchor` to render
- * an active cell differently; that's later wiring. A factory, not a
- * module-level singleton, because `TableActiveCellController` is scoped
- * one-per-root-`EditorView` (§D) — each root editor needs its own field
- * instance closing over its own controller.
+ * `undefined` for a read-only table (a note embed, M5's own gating) —
+ * every cell then renders static-only, with no click handler at all,
+ * the same "omit the capability entirely" gate the deleted keymap files
+ * used to apply themselves.
  *
- * Not yet wired into `buildEditorExtensions.ts`; exercised only by this
- * field's own tests until a later milestone wires it into the
- * always-included `rendering` array.
+ * Rebuilds on **either** a doc change **or** `controller`'s own
+ * `tableActiveCellChanged` marker effect (M5) — a pure activation change
+ * (click, Tab, Arrow) carries no document change of its own, so without
+ * also checking for that effect this field would never notice a
+ * different cell became active and would keep rendering the nested
+ * editor mounted in the *previous* cell's `<td>` — see
+ * `tableActiveCellChanged`'s own doc comment.
+ *
+ * A factory, not a module-level singleton, because `TableActiveCellController`
+ * is scoped one-per-root-`EditorView` (§D) — each root editor needs its
+ * own field instance closing over its own controller.
  */
 export function tableWidgetDecoration(controller?: TableActiveCellController): Extension {
   return StateField.define<DecorationSet>({
     create(state) {
-      return buildTableDecorations(state);
+      return buildTableDecorations(state, controller);
     },
     update(value, tr) {
       controller?.remapActiveAnchor(tr);
-      if (tr.docChanged) {
-        return buildTableDecorations(tr.state);
+      if (tr.docChanged || tr.effects.some((e) => e.is(tableActiveCellChanged))) {
+        return buildTableDecorations(tr.state, controller);
       }
       return value;
     },

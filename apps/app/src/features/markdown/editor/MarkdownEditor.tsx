@@ -15,6 +15,8 @@ import {
   setCachedEditorSession,
 } from './codemirror/editorHistoryCache';
 import { buildEditorExtensions } from './codemirror/buildEditorExtensions';
+import { TableActiveCellController } from './codemirror/table/tableActiveCellController';
+import { tableCellNavigation } from './codemirror/table/tableCellNavigation';
 import { computeEmbedRemovalRange } from './codemirror/mediaPresentation/embedRemovalRange';
 import { ImageOptionsMenu } from './codemirror/image/ImageOptionsMenu';
 import type { OnImageClick, OnOpenImageMenu } from './codemirror/image/ImageWidget';
@@ -179,6 +181,15 @@ export const MarkdownEditor = forwardRef<
 ) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
+  /**
+   * The table active-cell controller (Architecture E, ADR-034 —
+   * docs/table-implementation-plan.md, M5) — one instance per root
+   * `EditorView` (§D), constructed alongside `view` in the mount effect
+   * below and destroyed alongside it in that same effect's cleanup.
+   * `null` before the first mount effect run, exactly like `viewRef`
+   * itself.
+   */
+  const tableActiveCellControllerRef = useRef<TableActiveCellController | null>(null);
   // The scroll ancestor's last known scrollTop, tracked continuously via
   // a `scroll` listener (see the mount effect below) rather than read
   // live at unmount. Necessary, not merely defensive — confirmed directly
@@ -883,6 +894,20 @@ export const MarkdownEditor = forwardRef<
 
     const cachedSession = getCachedEditorSession(pageId);
 
+    // Constructed before `createEditorView()` (below) so
+    // `getTableActiveCellController`'s getter can already return it —
+    // `tableCellNavigation`'s own root-view getter (`() => viewRef.current!`)
+    // is the same late-bound-ref pattern every other injected callback in
+    // this component already uses (e.g. `resolveWikiLinkRef.current`):
+    // `viewRef.current` isn't set until a few lines below, but nothing
+    // calls this getter until a real user interaction happens well after
+    // mount completes.
+    const tableActiveCellController = new TableActiveCellController();
+    tableActiveCellController.setNestedExtensions([
+      tableCellNavigation(() => viewRef.current!, tableActiveCellController),
+    ]);
+    tableActiveCellControllerRef.current = tableActiveCellController;
+
     const view = createEditorView({
       doc: markdown,
       parent: container,
@@ -938,6 +963,7 @@ export const MarkdownEditor = forwardRef<
         resolveDate: () => resolveDateRef.current,
         onTaskCheckboxToggled: () => onFlushRef.current?.(),
         readOnly: false,
+        getTableActiveCellController: () => tableActiveCellControllerRef.current ?? undefined,
         // Seeds this page's own id into the top-level ancestry so a note
         // that embeds itself directly (`![[ThisPage]]`) is caught on
         // first encounter, exactly like any other cycle — not just a
@@ -1067,6 +1093,13 @@ export const MarkdownEditor = forwardRef<
       // foldStateStore simply doesn't persist folds, matching the
       // pre-ADR-033 baseline exactly.
       foldStateStore?.set(pageId, serializeFoldState(view));
+      // Destroys the table active-cell controller's own nested EditorView
+      // (M5, docs/table-implementation-plan.md, §13) — root `view.destroy()`
+      // below has no awareness of it (it's a second, independent
+      // `EditorView`, not a child of `view`'s own DOM tree in the CM6
+      // sense), so leaving this out would leak it on every page switch.
+      tableActiveCellControllerRef.current?.destroy();
+      tableActiveCellControllerRef.current = null;
       view.destroy();
       viewRef.current = null;
     };
