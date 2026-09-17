@@ -267,3 +267,121 @@ describe('table live wiring — editable top-level table', () => {
     expect(activeWrapper?.textContent).toContain('Designer');
   });
 });
+
+describe('table live wiring — empty-cell click/caret (rowCells() whitespace-only inversion fix)', () => {
+  const EMPTY_CELL_TABLE = '| Name | Role |\n| --- | --- |\n| Vik |  |';
+
+  function emptyDataCell(view: EditorView): Element {
+    const td = view.dom.querySelectorAll('tbody td')[1];
+    if (!td) {
+      throw new Error('no second data cell found');
+    }
+    return td;
+  }
+
+  it('clicking an empty cell activates it — mounts the nested editor inside that cell\'s own wrapper', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(emptyDataCell(view));
+
+    expect(controller.nestedView).not.toBeNull();
+    const activeWrapper = Array.from(view.dom.querySelectorAll('.cm-table-cell-wrapper')).find((w) => w.contains(controller.nestedView!.dom));
+    expect(activeWrapper).toBeDefined();
+    expect(activeWrapper!.parentElement?.tagName).toBe('TD');
+  });
+
+  it('the nested editor\'s content is empty for an empty cell', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(emptyDataCell(view));
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('');
+  });
+
+  it('the nested selection starts at 0 (a genuine {from: 0, to: 0}, not an inverted range)', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(emptyDataCell(view));
+
+    const selection = controller.nestedView!.state.selection.main;
+    expect(selection.from).toBe(0);
+    expect(selection.to).toBe(0);
+    expect(selection.head).toBe(0);
+    // The root-document anchor itself must not be inverted either
+    // (from <= to) — this is the actual stored bug: `rowCells()` used to
+    // produce `{from: rawTo, to: rawFrom}` for a whitespace-only segment.
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.activeAnchor!.from).toBe(controller.activeAnchor!.to);
+  });
+
+  it('activation focuses the nested editor', async () => {
+    // Awaits one microtask tick — the same queueMicrotask-deferred focus
+    // restore from the earlier M5 rebuild-focus fix (tableWidget.ts's
+    // toDOM()) applies here too: activate() itself triggers one
+    // synchronous rebuild (its own tableActiveCellChanged dispatch),
+    // which momentarily blurs the just-focused nested editor before the
+    // microtask restores it.
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+    view.focus();
+    expect(document.activeElement).toBe(view.contentDOM);
+
+    clickCell(emptyDataCell(view));
+    await Promise.resolve();
+
+    expect(document.activeElement).toBe(controller.nestedView!.contentDOM);
+    expect(document.activeElement).not.toBe(view.contentDOM);
+  });
+
+  it('typing the first character inserts it into the empty cell, at the correct position in the root document', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(emptyDataCell(view));
+    controller.nestedView!.dispatch({ changes: { from: 0, to: 0, insert: 'x' } });
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('x');
+    // The empty cell's own range collapses to its start (right after the
+    // opening delimiter, before any of its own padding) — inserting there
+    // lands immediately after "|", ahead of the original padding, not
+    // "wrapped" by a space on each side. Still correctly recovered as
+    // this cell's whole content once re-parsed (renderInlineMarkdown trims).
+    expect(view.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vik |x  |');
+  });
+
+  it('does not create a second EditorView — the same reusable instance activates the empty cell', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+
+    clickCell(findCell(view, 'Vik'));
+    const firstInstance = controller.nestedView;
+
+    clickCell(emptyDataCell(view));
+
+    expect(controller.nestedView).toBe(firstInstance);
+    expect(view.dom.querySelectorAll('.cm-table-widget .cm-editor')).toHaveLength(1);
+  });
+
+  it('does not activate at the root editor\'s own position — root selection is untouched by clicking the empty cell', () => {
+    const controller = new TableActiveCellController();
+    const view = mount(EMPTY_CELL_TABLE, false, controller);
+    controller.setNestedExtensions([tableCellNavigation(() => view, controller)]);
+    view.dispatch({ selection: { anchor: 0 } });
+
+    clickCell(emptyDataCell(view));
+
+    // The click activates a cell (a root-level position tracked by the
+    // controller), not the root EditorView's own text selection — that
+    // stays wherever it was before the click.
+    expect(view.state.selection.main.from).toBe(0);
+  });
+});

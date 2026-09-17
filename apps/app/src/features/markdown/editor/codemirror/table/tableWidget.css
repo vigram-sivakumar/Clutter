@@ -24,7 +24,8 @@
   border-radius: var(--radius-sm);
 }
 
-.cm-editor .cm-table-wrapper table {
+.cm-editor .cm-table-wrapper table,
+.cm-editor .cm-table-wrapper .cm-line {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-label);
@@ -52,10 +53,20 @@
   background: var(--surface-secondary);
   font-weight: var(--fw-medium);
   border-bottom: 1px solid var(--border-strong);
+  color: var(--foreground-tertiary);
 }
 
 .cm-editor .cm-table-wrapper .cm-table-cell-wrapper {
   min-width: 2ch;
+  /* An empty cell's wrapper has no content of its own (no text, no
+   * nested editor yet) and collapses to zero height — confirmed via
+   * direct browser inspection (elementFromPoint at the cell's own
+   * visual center returns the <td>, never this wrapper) that a
+   * zero-height empty element receives no hit-testing at all, so its
+   * own mousedown listener (tableWidget.ts) can never fire for a real
+   * click anywhere in an empty cell. min-height keeps it clickable
+   * across the cell's full visual area even with no content. */
+  min-height: 1.2em;
 }
 
 .cm-editor .cm-table-wrapper .cm-table-cell-wrapper .cm-editor {

@@ -39,6 +39,22 @@ import { TableWidget, type TableCellData } from './tableWidget';
  * keyboard-driven activation, needed here too so a *click*-activated cell
  * mounts the nested editor over the same range, not one that includes
  * `"| Name |"`'s literal padding (`" Name "`).
+ *
+ * **A whitespace-only (but non-zero-length) segment collapses to a
+ * zero-width range at its own start, not `{from: rawTo, to: rawFrom}`.**
+ * The naive `{from: rawFrom + leading, to: rawTo - trailing}` inverts
+ * (`from > to`) for exactly this case — confirmed directly: for a
+ * single-space gap (`rawTo === rawFrom + 1`), `leading`/`trailing` are
+ * both `1` (trimming a whitespace-only string removes the whole thing on
+ * both ends), giving `from = rawTo`, `to = rawFrom`. `state.sliceDoc`
+ * silently tolerates this (`ChangeDesc`'s own `clip()` clamps `to` up to
+ * `from`, so the resulting `text` still reads as `''`, masking the bug in
+ * isolation), but the *stored* inverted range itself is real and
+ * corrupts anything built on it later — `TableActiveCellController`'s own
+ * `anchor.from` (used as `forwardToRoot`'s insertion offset) would then
+ * point at the *end* of the gap instead of the start. Only a truly
+ * zero-length segment (delimiters immediately adjacent, no padding at
+ * all) already avoided this on its own (`leading = trailing = 0`).
  */
 function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
   const delimiters: SyntaxNode[] = [];
@@ -66,9 +82,13 @@ function rowCells(state: EditorState, row: SyntaxNode): TableCellData[] {
 
   return segments.map(({ from: rawFrom, to: rawTo }) => {
     const raw = state.sliceDoc(rawFrom, rawTo);
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      return { text: '', from: rawFrom, to: rawFrom };
+    }
     const leading = raw.length - raw.trimStart().length;
     const trailing = raw.length - raw.trimEnd().length;
-    return { text: raw.trim(), from: rawFrom + leading, to: rawTo - trailing };
+    return { text: trimmed, from: rawFrom + leading, to: rawTo - trailing };
   });
 }
 
