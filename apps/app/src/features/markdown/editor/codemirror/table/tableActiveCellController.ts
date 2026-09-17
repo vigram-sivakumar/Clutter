@@ -1,5 +1,5 @@
 import { redo, undo } from '@codemirror/commands';
-import { Annotation, type ChangeSpec, type Transaction } from '@codemirror/state';
+import { Annotation, type ChangeSpec, type Extension, type Transaction } from '@codemirror/state';
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 
 import { createEditorView } from '../createEditorView';
@@ -37,15 +37,31 @@ export interface CellRange {
  * done — this milestone doesn't wire a controller into
  * `MarkdownEditor.tsx`/`buildEditorExtensions.ts`).
  *
- * Not yet wired into the live editing path. Exercised only by this file's
- * own tests, the same "direct unit tests against a test `EditorView`"
- * style the ADR-034 prototype itself was verified with — no click
- * handler, no `tableCellNavigation` keymap (M4) reaches this yet.
+ * Not yet wired into the live editing path (`buildEditorExtensions.ts`/
+ * `MarkdownEditor.tsx` — M5). Exercised only by this file's own tests and
+ * `tableCellNavigation.test.ts`'s (M4), the same "direct unit tests
+ * against a test `EditorView`" style the ADR-034 prototype itself was
+ * verified with — no click handler reaches this yet.
  */
 export class TableActiveCellController {
   private nestedViewInstance: EditorView | null = null;
   private anchor: CellRange | null = null;
   private forwarding = false;
+  private nestedExtensions: readonly Extension[] = [];
+
+  /**
+   * Extra extensions installed on the nested `EditorView` the next time it
+   * is lazily created — the seam `tableCellNavigation()` (M4,
+   * docs/table-implementation-plan.md) hooks into, since a navigation
+   * keymap needs a reference to this same controller instance, which
+   * doesn't exist yet at this controller's own construction time. A
+   * setter rather than a constructor parameter for exactly that reason;
+   * a no-op once the nested view already exists (call before the first
+   * `activate()`).
+   */
+  setNestedExtensions(extensions: readonly Extension[]): void {
+    this.nestedExtensions = extensions;
+  }
 
   /** The one reusable nested `EditorView`, once at least one cell has been activated — `null` before that. */
   get nestedView(): EditorView | null {
@@ -108,6 +124,7 @@ export class TableActiveCellController {
             },
           ]),
           EditorView.updateListener.of((update) => this.forwardToRoot(rootView, update)),
+          ...this.nestedExtensions,
         ],
       });
       this.nestedViewInstance.dispatch({ selection: { anchor: caret } });
