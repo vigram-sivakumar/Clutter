@@ -175,6 +175,19 @@ export interface CreateEditorViewOptions {
    * ADR-033's Alternatives Considered for the full reasoning.
    */
   readonly restoreFoldJSON?: unknown;
+  /**
+   * Whether `history()`/`historyKeymap` are installed — defaults to
+   * `true`, preserving both existing callers' exact prior behavior
+   * (neither previously had a way to opt out; `history()` was added
+   * unconditionally below). The table active-cell nested `EditorView`
+   * (Architecture E, ADR-034 — docs/table-implementation-plan.md, M2) is
+   * the first caller to pass `false`: root CM6 must remain the sole
+   * undo/redo history owner, so the nested editor has no independent
+   * history field at all — not merely one that's never invoked — and its
+   * own keymap instead delegates `Mod-z`/`Mod-y` straight to `undo`/`redo`
+   * on the root view (`TableActiveCellController`).
+   */
+  readonly enableHistory?: boolean;
 }
 
 /**
@@ -206,6 +219,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
     restoreFoldJSON,
     readOnly = false,
     enableFolding = !readOnly,
+    enableHistory = true,
   } = options;
 
   const updateListener = EditorView.updateListener.of((update) => {
@@ -266,7 +280,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       // styling (MarkdownEditor.css) is what's visible now.
       drawSelection(),
       EditorView.lineWrapping,
-      history(),
+      ...(enableHistory ? [history()] : []),
       EditorState.allowMultipleSelections.of(true),
       // Purely visual/pointer standard CM6 extensions — no keymap, no
       // change to Backspace/Enter/Delete/Tab/Arrow handling. highlightSpecialChars()
@@ -384,7 +398,7 @@ export function createEditorView(options: CreateEditorViewOptions): EditorView {
       keymap.of([
         indentWithTab,
         ...closeBracketsKeymap,
-        ...historyKeymap,
+        ...(enableHistory ? historyKeymap : []),
         ...(enableFolding ? foldSemanticsKeymap : []),
         ...(enableFolding ? foldAwareArrowKeymap : []),
         ...(enableFolding ? foldAwareMoveLineKeymap : []),

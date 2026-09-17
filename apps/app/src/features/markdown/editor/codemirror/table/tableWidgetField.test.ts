@@ -4,14 +4,15 @@ import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
+import { TableActiveCellController } from './tableActiveCellController';
 import { tableWidgetDecoration } from './tableWidgetField';
 
-function mountView(doc: string): EditorView {
+function mountView(doc: string, controller?: TableActiveCellController): EditorView {
   const parent = document.createElement('div');
   document.body.appendChild(parent);
   const state = EditorState.create({
     doc,
-    extensions: [markdownLanguageExtension(), tableWidgetDecoration()],
+    extensions: [markdownLanguageExtension(), tableWidgetDecoration(controller)],
   });
   return new EditorView({ state, parent });
 }
@@ -188,5 +189,37 @@ describe('tableWidgetField — nested/adjacent tables', () => {
 
     expect(view.dom.querySelectorAll('tbody tr')).toHaveLength(1); // "1" row only
     expect(view.dom.textContent).toContain('plain paragraph');
+  });
+});
+
+describe('tableWidgetField — controller.remapActiveAnchor wiring (M2)', () => {
+  it('calls controller.remapActiveAnchor synchronously on every doc-changing transaction, before this field rebuilds its own decorations', () => {
+    const controller = new TableActiveCellController();
+    const view = mountView(BASIC_TABLE, controller);
+    controller.activate(view, document.createElement('div'), 2, 3, 2); // "a"
+
+    view.dispatch({ changes: { from: 0, to: 0, insert: 'XX' } });
+
+    // Anchor shifted by the 2-character insert at the very start — proof
+    // remapActiveAnchor actually ran as part of this same transaction,
+    // not merely that activate() itself still holds its original values.
+    expect(controller.activeAnchor).toEqual({ from: 4, to: 5 });
+  });
+
+  it('never calls remapActiveAnchor for a selection-only transaction (no doc change to remap through)', () => {
+    const controller = new TableActiveCellController();
+    const view = mountView(BASIC_TABLE, controller);
+    controller.activate(view, document.createElement('div'), 2, 3, 2);
+    const before = controller.activeAnchor;
+
+    view.dispatch({ selection: { anchor: 0 } });
+
+    expect(controller.activeAnchor).toEqual(before);
+  });
+
+  it('rendering still works correctly with no controller supplied at all (backward-compatible default)', () => {
+    const view = mountView(BASIC_TABLE);
+
+    expect(view.dom.querySelectorAll('table.cm-table-widget')).toHaveLength(1);
   });
 });

@@ -4,6 +4,7 @@ import { Decoration, EditorView, type DecorationSet } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
+import type { TableActiveCellController } from './tableActiveCellController';
 import { findAllTables, getNavigableRows, isAlignmentRow, type TableInfo } from './tableGeometry';
 import { TableWidget } from './tableWidget';
 
@@ -93,25 +94,33 @@ function buildTableDecorations(state: EditorState): DecorationSet {
  * Confirmed early per the ADR-034 prototype's own noted risk
  * (docs/table-implementation-plan.md, M1).
  *
- * Render-only in this milestone (M1) — every table in the document
- * becomes one `Decoration.replace({block:true})` `TableWidget`, every
- * cell rendered as static formatted HTML. Not yet wired into
- * `buildEditorExtensions.ts`; exercised only by this field's own tests
- * until M5 wires it into the always-included `rendering` array.
+ * `controller`, when supplied, has its `remapActiveAnchor(tr)` called
+ * synchronously here, before decorations rebuild — the ordering
+ * `TableActiveCellController.remapActiveAnchor`'s own doc comment
+ * requires (M2's "StateField/updateListener ordering hazard" fix).
+ * Decoration output itself is still render-only in this milestone (M2) —
+ * `TableWidget` doesn't yet consume `controller.activeAnchor` to render
+ * an active cell differently; that's later wiring. A factory, not a
+ * module-level singleton, because `TableActiveCellController` is scoped
+ * one-per-root-`EditorView` (§D) — each root editor needs its own field
+ * instance closing over its own controller.
+ *
+ * Not yet wired into `buildEditorExtensions.ts`; exercised only by this
+ * field's own tests until a later milestone wires it into the
+ * always-included `rendering` array.
  */
-export const tableWidgetField: StateField<DecorationSet> = StateField.define<DecorationSet>({
-  create(state) {
-    return buildTableDecorations(state);
-  },
-  update(value, tr) {
-    if (tr.docChanged) {
-      return buildTableDecorations(tr.state);
-    }
-    return value;
-  },
-  provide: (field) => EditorView.decorations.from(field),
-});
-
-export function tableWidgetDecoration(): Extension {
-  return tableWidgetField;
+export function tableWidgetDecoration(controller?: TableActiveCellController): Extension {
+  return StateField.define<DecorationSet>({
+    create(state) {
+      return buildTableDecorations(state);
+    },
+    update(value, tr) {
+      controller?.remapActiveAnchor(tr);
+      if (tr.docChanged) {
+        return buildTableDecorations(tr.state);
+      }
+      return value;
+    },
+    provide: (field) => EditorView.decorations.from(field),
+  });
 }
