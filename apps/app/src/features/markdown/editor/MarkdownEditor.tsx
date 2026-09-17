@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import type { EditorView } from '@codemirror/view';
 
 import {
@@ -22,6 +23,9 @@ import { PdfEmbedMoreActions, type PdfEmbedMoreActionsAnchor } from './codemirro
 import { NoteEmbedMoreActions, type NoteEmbedMoreActionsAnchor } from './codemirror/embed/NoteEmbedMoreActions';
 import type { OnOpenNoteEmbedMenu } from './codemirror/embed/NoteEmbedWidget';
 import { FencedCodeActionsMenu, type FencedCodeActionsMenuAnchor } from './codemirror/fencedCode/FencedCodeActionsMenu';
+import { UrlPasteMenu, type UrlPasteMenuAnchor } from './codemirror/link/urlPaste/UrlPasteMenu';
+import type { OnOpenUrlPasteMenu } from './codemirror/link/urlPaste/UrlPasteAnchorWidget';
+import { clearUrlPasteEntry, findUrlPasteEntryById } from './codemirror/link/urlPaste/urlPasteChoiceState';
 import type { OnOpenFencedCodeMenu } from './codemirror/fencedCode/FencedCodeActionsButtonWidget';
 import { computeFencedCodeRemovalRange } from './codemirror/fencedCode/fencedCodeRemovalRange';
 import {
@@ -550,6 +554,70 @@ export const MarkdownEditor = forwardRef<
     setFencedCodeMenu(null);
   };
 
+  // The transient "Paste as" menu for a just-pasted bare HTTPS URL.
+  // `urlPasteMenuReturnFocusRef` is kept in sync with the live view's own
+  // `contentDOM` (not the transient anchor widget, which is removed the
+  // instant a choice is made) so `Overlay`'s focus-restore returns focus
+  // to the editor, not a detached node.
+  const [urlPasteMenu, setUrlPasteMenu] = useState<{ anchor: UrlPasteMenuAnchor; id: number } | null>(null);
+  const urlPasteMenuReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  const onOpenUrlPasteMenuRef = useRef<OnOpenUrlPasteMenu>(({ anchor, id }) => {
+    urlPasteMenuReturnFocusRef.current = viewRef.current?.contentDOM ?? null;
+    setUrlPasteMenu({ anchor: { current: anchor }, id });
+  });
+
+  // "Markdown link" chosen — a single, ordinary, undo-eligible CM6
+  // transaction: replace the raw URL with `[](url)` and place the caret
+  // between the brackets so the user can type the title immediately.
+  // Synchronous, no network, no async state of any kind.
+  const handleChooseMarkdownLink = () => {
+    const view = viewRef.current;
+    if (urlPasteMenu && view) {
+      const entry = findUrlPasteEntryById(view.state, urlPasteMenu.id);
+      if (entry) {
+        view.dispatch({
+          changes: { from: entry.from, to: entry.to, insert: `[](${entry.url})` },
+          selection: { anchor: entry.from + 1 },
+          effects: clearUrlPasteEntry.of(entry.id),
+        });
+      }
+    }
+    setUrlPasteMenu(null);
+  };
+
+  // "URL" explicitly chosen — a single, ordinary, undo-eligible CM6
+  // transaction: append exactly one space after the URL and place the
+  // caret right after it, so the user can keep typing. Synchronous, no
+  // network. Distinct from plain dismissal below: this is a deliberate
+  // choice that still edits the document.
+  const handleChooseUrl = () => {
+    const view = viewRef.current;
+    if (urlPasteMenu && view) {
+      const entry = findUrlPasteEntryById(view.state, urlPasteMenu.id);
+      if (entry) {
+        view.dispatch({
+          changes: { from: entry.to, insert: ' ' },
+          selection: { anchor: entry.to + 1 },
+          effects: clearUrlPasteEntry.of(entry.id),
+        });
+      }
+    }
+    setUrlPasteMenu(null);
+  };
+
+  // The menu was dismissed without an explicit choice (Escape/
+  // click-outside) — the raw URL is left completely unchanged; only the
+  // tracking entry is removed so the menu never reappears for this
+  // occurrence.
+  const handleDismissUrlPaste = () => {
+    const view = viewRef.current;
+    if (urlPasteMenu && view) {
+      view.dispatch({ effects: clearUrlPasteEntry.of(urlPasteMenu.id) });
+    }
+    setUrlPasteMenu(null);
+  };
+
   // "Remove" — deletes the entire fenced code block (opening marker,
   // content, closing marker); see `fencedCodeRemovalRange.ts`'s own doc
   // comment for the exact range/blank-line rule. Plain CM6 undo restores
@@ -863,6 +931,7 @@ export const MarkdownEditor = forwardRef<
         onOpenPage: () => onOpenPageRef.current,
         onOpenNoteEmbedMenu: () => onOpenNoteEmbedMenuRef.current,
         onOpenFencedCodeMenu: () => onOpenFencedCodeMenuRef.current,
+        onOpenUrlPasteMenu: () => onOpenUrlPasteMenuRef.current,
         resolveImageSrc: () => resolveImageSrcRef.current,
         resolveTag: () => resolveTagRef.current,
         getTagSuggestions: () => getTagSuggestionsRef.current,
@@ -1082,6 +1151,13 @@ export const MarkdownEditor = forwardRef<
         }
         onDownload={handleDownloadFencedCode}
         onRemove={handleRemoveFencedCode}
+      />
+      <UrlPasteMenu
+        anchor={urlPasteMenu?.anchor ?? null}
+        onChooseMarkdownLink={handleChooseMarkdownLink}
+        onChooseUrl={handleChooseUrl}
+        onDismiss={handleDismissUrlPaste}
+        returnFocusRef={urlPasteMenuReturnFocusRef as RefObject<HTMLElement>}
       />
     </>
   );

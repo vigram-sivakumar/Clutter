@@ -590,7 +590,7 @@
   background: var(--fenced-code-surface);
   border-radius: var(--md-embed-radius);
   pointer-events: none;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-inset-thin), var(--shadow-md);
 }
 
 /*
@@ -606,9 +606,7 @@
  * swaps which shadow applies to that already-correctly-sized shape.
  */
 .cm-editor .cm-fenced-code-bg--folded {
-  box-shadow:
-    var(--shadow-inset-thin-strong),
-    var(--shadow-sm);
+  box-shadow: var(--shadow-inset-thin), var(--shadow-sm);
 }
 
 .cm-editor .cm-code-block-line {
@@ -618,8 +616,6 @@
     monospace;
   font-size: var(--text-label);
   line-height: 24px;
-  border-left: 0.5px solid var(--border-default);
-  border-right: 0.5px solid var(--border-default);
   padding-inline: var(--space-12);
   /* Line-number gutter (2026-09-11) — reserves a column, sized to this
      block's own largest number (`--code-gutter-digits`, now set per-line —
@@ -643,7 +639,6 @@
 }
 
 .cm-editor .cm-code-block-line--first {
-  border-top: 0.5px solid var(--border-default);
   border-start-start-radius: var(--md-embed-radius);
   border-start-end-radius: var(--md-embed-radius);
   /* The block-level surface shadow (`--shadow-md` expanded,
@@ -656,7 +651,6 @@
 }
 
 .cm-editor .cm-code-block-line--last {
-  border-bottom: 0.5px solid var(--border-default);
   border-end-start-radius: var(--md-embed-radius);
   border-end-end-radius: var(--md-embed-radius);
 }
@@ -1582,11 +1576,13 @@
  */
 .cm-editor .cm-table-row {
   display: table-row;
+  font-size: var(--text-body-small);
+  line-height: var(--lh-body-small);
 }
 
 .cm-editor .cm-table-cell {
   display: table-cell;
-  padding: var(--space-6) var(--space-12);
+  padding: var(--space-6) var(--space-6);
   border: 1px solid var(--border-strong);
 }
 

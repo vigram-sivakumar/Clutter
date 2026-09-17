@@ -31,3 +31,4 @@ These record why the target architecture (`docs/architecture-target.md`, frozen 
 | [025](./025-fallback-page-on-delete.md) | Fallback Page — deleting the active page must never leave the app without one | Accepted |
 | [030](./030-lazy-reserved-resource-materialization.md) | Reserved/system resources are lazily materialized — generalizing ADR-019 beyond Daily Notes | Accepted |
 | [033](./033-fold-state-persistence.md) | Fold-state persistence — `.clutter/workspace.json`'s first real reader/writer | Accepted |
+| [034](./034-table-architecture-html-projection-active-cell-editor.md) | Table rendering — real HTML `<table>` projection + one reusable active-cell CodeMirror 6 editor | Accepted |

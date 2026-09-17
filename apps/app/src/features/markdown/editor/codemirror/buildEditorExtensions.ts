@@ -24,6 +24,16 @@ import { inlineLivePreviewRegion } from './highlight/inlineLivePreviewRegion';
 import { leadingIndentDecoration } from './highlight/leadingIndentDecoration';
 import { linkMouseHandlers } from './link/linkMouseHandlers';
 import { urlMouseHandlers } from './link/urlMouseHandlers';
+import { urlPasteChoiceField } from './link/urlPaste/urlPasteChoiceState';
+import { urlPasteAnchorDecoration } from './link/urlPaste/urlPasteAnchorDecoration';
+import type { OnOpenUrlPasteMenu } from './link/urlPaste/UrlPasteAnchorWidget';
+import { tableArrowKeymap } from './table/tableArrowKeymap';
+import { tableDeletionGuard } from './table/tableDeletionGuard';
+import { tableArrowDownKeymap } from './table/tableArrowDownKeymap';
+import { tableDecoration } from './table/tableDecoration';
+import { tableVerticalKeymap } from './table/tableVerticalKeymap';
+import { tableEnterKeymap } from './table/tableEnterKeymap';
+import { tableTabKeymap } from './table/tableTabKeymap';
 import { listMarkerCaretAssoc, listMarkerDecoration } from './list/listMarkerDecoration';
 import { taskCheckboxDecoration } from './task/taskCheckboxDecoration';
 import { taskCheckboxMouseHandlers } from './task/taskCheckboxMouseHandlers';
@@ -106,6 +116,8 @@ export interface BuildEditorExtensionsOptions {
   readonly onOpenNoteEmbedMenu?: () => OnOpenNoteEmbedMenu | undefined;
   /** A fenced code block's own "More actions" trigger (Format code, Change Language, Download, Remove) — see `FencedCodeActionsMenu.tsx`'s doc comment. Omitted (never wired) for a read-only nested view — every one of those actions mutates the document, none has meaning once editing is blocked. */
   readonly onOpenFencedCodeMenu?: () => OnOpenFencedCodeMenu | undefined;
+  /** Opens the "Paste as" menu for a just-pasted plain HTTPS URL (Markdown link / URL) — see `UrlPasteMenu.tsx`'s doc comment. Omitted for a read-only nested view — pasting has no meaning once editing is blocked. */
+  readonly onOpenUrlPasteMenu?: () => OnOpenUrlPasteMenu | undefined;
   readonly resolveImageSrc: () => ResolveImageSrc | undefined;
   readonly resolveTag: () => ResolveTag | undefined;
   readonly getTagSuggestions?: () => GetTagSuggestions | undefined;
@@ -178,6 +190,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     onOpenPage,
     onOpenNoteEmbedMenu,
     onOpenFencedCodeMenu,
+    onOpenUrlPasteMenu,
     resolveImageSrc,
     resolveTag,
     getTagSuggestions,
@@ -236,6 +249,7 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     horizontalRuleDecoration(),
     blockSeparatorDecoration(),
     leadingIndentDecoration(),
+    tableDecoration(),
     wikiLinkMouseHandlers(resolveWikiLink),
     tagMouseHandlers(resolveTag),
     dateMouseHandlers(resolveDate),
@@ -259,6 +273,33 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     markdownIndentKeymap(),
     orderedListStructuralNormalization(),
     fencedCodeFenceAutoClose(),
+    // Backspace/Delete protection for hidden table structure (`|`
+    // delimiters, row-separating newlines) — editable-only, same reasoning
+    // as every other keymap guard here: there is nothing to protect once
+    // editing itself is blocked in a read-only nested view.
+    tableDeletionGuard(),
+    // Left/Right one-press cell-boundary crossing (Step 2). Grouped here
+    // with tableDeletionGuard rather than in `rendering`: `tableGeometry.ts`'s
+    // shared `resolveTableRowAtCursor` bails on `state.readOnly` (correct
+    // for Step 1's "nothing to protect" reasoning), so registering this
+    // guard for a read-only nested note-embed view would always defer to
+    // native anyway — kept editable-only for consistency rather than
+    // registering a guard that can never actually fire there.
+    tableArrowKeymap(),
+    // Enter creates a new empty row instead of splitting the cell's text
+    // (Step 3) — editable-only, same reasoning as the two guards above.
+    tableEnterKeymap(),
+    // Tab/Shift-Tab row-major cell navigation (Step 4) — editable-only,
+    // same reasoning as the guards above.
+    tableTabKeymap(),
+    // ArrowDown past the table's last row exits into a new paragraph when
+    // nothing already follows the table (Step 5) — editable-only, same
+    // reasoning as the guards above.
+    tableArrowDownKeymap(),
+    // Up/Down inside a table preserve the table's own column and skip the
+    // alignment row (Step 5 continuation) — editable-only, same reasoning
+    // as the guards above.
+    tableVerticalKeymap(),
     ...rendering,
     // The trigger itself only opens a menu, but every one of its current
     // menu items (Format code, Change Language, Download, Remove) mutates
@@ -267,6 +308,13 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     // `onOpenNoteEmbedMenu` is) so a note embed's read-only nested view
     // never carries it.
     fencedCodeActionsButtonDecoration(() => onOpenFencedCodeMenu?.()),
+    // "Paste as" menu for a bare pasted HTTPS URL: paste detection/
+    // tracking (the state field) and the transient menu anchor. Editable-
+    // only, same reasoning as fencedCodeActionsButtonDecoration above —
+    // pasting has no meaning in a permanently read-only nested note-embed
+    // view.
+    urlPasteChoiceField,
+    urlPasteAnchorDecoration(() => onOpenUrlPasteMenu?.()),
     formatShortcutsKeymap(),
     taskCheckboxMouseHandlers(() => onTaskCheckboxToggled?.()),
     wikiLinkAutocomplete(),

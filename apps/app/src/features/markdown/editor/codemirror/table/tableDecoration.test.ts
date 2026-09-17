@@ -8,6 +8,7 @@ import { inlineLivePreviewRegion } from '../highlight/inlineLivePreviewRegion';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { wikiLinkLivePreview } from '../wikilink/wikiLinkLivePreview';
 import { tableDecoration } from './tableDecoration';
+import { tableEnterKeymap } from './tableEnterKeymap';
 
 const noResolvers = { resolveTag: () => undefined, resolveDate: () => undefined };
 
@@ -153,33 +154,32 @@ describe('tableDecoration — column alignment', () => {
   });
 });
 
-describe('tableDecoration — per-row engagement', () => {
-  it('cursor in one data row reveals only that row\'s raw "|" — other rows stay rendered', () => {
+describe('tableDecoration — pipes stay hidden regardless of cursor position (frozen UX: always a rendered table)', () => {
+  it('cursor inside a data row does not reveal that row\'s own "|"', () => {
     const text = '| a | b |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |';
     const thirdRowStart = text.indexOf('| 3');
     const view = mountView(text, thirdRowStart + 2); // inside "3"
 
-    // The engaged row's own pipes are visible.
-    expect(view.dom.textContent).toContain('| 3 | 4 |');
-    // Every other row is still grid-decorated (no pipes of its own visible).
+    expect(view.dom.textContent).not.toContain('|');
     const rows = view.dom.querySelectorAll('.cm-table-row');
     expect(rows).toHaveLength(4); // header, alignment, row1, row2 — all still table-rows
   });
 
-  it('engaging the header row reveals only its own pipes, not the data rows\'', () => {
+  it('cursor inside the header row does not reveal any row\'s "|"', () => {
     const text = '| a | b |\n| - | - |\n| 1 | 2 |';
     const view = mountView(text, 2); // inside "a", the header row
 
-    expect(view.dom.textContent).toContain('| a | b |');
-    expect(view.dom.textContent).not.toContain('| 1 | 2 |');
+    expect(view.dom.textContent).not.toContain('|');
+    expect(view.dom.textContent).toContain('a');
+    expect(view.dom.textContent).toContain('1');
   });
 
-  it('re-collapses once the selection leaves the row', () => {
+  it('stays collapsed identically whether the selection is inside the table or has moved away', () => {
     const text = '| a | b |\n| - | - |\n| 1 | 2 |\n\nOther';
     const dataRowStart = text.indexOf('| 1');
     const view = mountView(text, dataRowStart + 2); // inside "1"
 
-    expect(view.dom.textContent).toContain('| 1 | 2 |');
+    expect(view.dom.textContent).not.toContain('|');
 
     view.dispatch({ selection: { anchor: text.indexOf('Other') } });
 
@@ -206,12 +206,13 @@ describe('tableDecoration — alignment/separator row', () => {
     expect(alignRow?.classList.contains('cm-table-row')).toBe(true);
   });
 
-  it('reveals its raw text when the cursor is on the alignment row itself', () => {
+  it('stays hidden even when the cursor is on the alignment row itself — it is structural syntax, never user data', () => {
     const text = '| a | b |\n| :--- | ---: |\n| 1 | 2 |';
     const alignRowStart = text.indexOf(':---');
     const view = mountView(text, alignRowStart);
 
-    expect(view.dom.textContent).toContain('| :--- | ---: |');
+    expect(view.dom.textContent).not.toContain('-');
+    expect(view.dom.textContent).not.toContain(':');
   });
 });
 
@@ -360,13 +361,14 @@ describe('tableDecoration — nested/adjacent tables', () => {
     }
   });
 
-  it('engaging a row in the second table does not reveal any row in the first table', () => {
+  it('cursor in the second table\'s row does not reveal pipes in either table', () => {
     const text = '| a |\n| - |\n| 1 |\n\n| x |\n| - |\n| 9 |';
     const secondTableDataRow = text.lastIndexOf('| 9');
     const view = mountView(text, secondTableDataRow + 2);
 
-    expect(view.dom.textContent).toContain('| 9 |');
-    expect(view.dom.textContent).not.toContain('| 1 |');
+    expect(view.dom.textContent).not.toContain('|');
+    expect(view.dom.textContent).toContain('9');
+    expect(view.dom.textContent).toContain('1');
   });
 
   it('a non-pipe line directly after a table (no blank line) is absorbed as a one-cell TableRow, not left as a separate paragraph', () => {
@@ -388,5 +390,147 @@ describe('tableDecoration — nested/adjacent tables', () => {
 
     expect(view.dom.querySelectorAll('.cm-table-row')).toHaveLength(3); // header, alignment, "1" row only
     expect(view.dom.textContent).toContain('plain paragraph');
+  });
+});
+
+describe('tableDecoration — a row created by tableEnterKeymap renders immediately, in the same update', () => {
+  /** Real production stack (decoration + the Enter guard together), not tableDecoration() in isolation — the reported bug only shows up when a keymap-driven transaction creates a new row, not when a document is mounted with one already in it. */
+  function mountEditableView(doc: string, anchor: number): EditorView {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const state = EditorState.create({
+      doc,
+      selection: { anchor },
+      extensions: [markdownLanguageExtension(), tableDecoration(), tableEnterKeymap()],
+    });
+    return new EditorView({ state, parent });
+  }
+
+  function dispatchEnter(view: EditorView): void {
+    view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+  }
+
+  it('Enter in a data cell — the new row is a rendered table row with real, styled cells immediately, no further input needed', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
+    const view = mountEditableView(doc, doc.indexOf('Vik') + 1);
+
+    dispatchEnter(view);
+
+    expect(view.state.doc.toString()).toBe(doc + '\n| | |');
+    const rows = view.dom.querySelectorAll('.cm-table-row');
+    expect(rows).toHaveLength(4); // header, alignment, "Vik" row, the new row
+    // 3 cell-bearing rows x 2 columns = 6. The bug: the new row's two empty
+    // columns got no `.cm-table-cell` at all until typed into (would be 4).
+    expect(view.dom.querySelectorAll('.cm-table-cell')).toHaveLength(6);
+    expect(view.dom.textContent).not.toContain('|');
+  });
+
+  it('Enter in a header cell — the inserted row is a rendered table row with real, styled cells immediately', () => {
+    const doc = '| Name | Role |\n| --- | --- |\n| Vik | Designer |';
+    const view = mountEditableView(doc, doc.indexOf('Name') + 1);
+
+    dispatchEnter(view);
+
+    const rows = view.dom.querySelectorAll('.cm-table-row');
+    expect(rows).toHaveLength(4);
+    expect(view.dom.querySelectorAll('.cm-table-cell')).toHaveLength(6); // 3 rows x 2 columns
+    expect(view.dom.textContent).not.toContain('|');
+  });
+
+  it('Enter with an empty current cell — the inserted row is a rendered table row with real, styled cells immediately', () => {
+    const doc = '| A | |\n| --- | --- |\n| 1 | |';
+    const emptyCellPos = doc.lastIndexOf('| |') + 2;
+    const view = mountEditableView(doc, emptyCellPos);
+
+    dispatchEnter(view);
+
+    expect(view.state.doc.toString()).toBe(doc + '\n| | |');
+    const rows = view.dom.querySelectorAll('.cm-table-row');
+    expect(rows).toHaveLength(4);
+    // 3 rows x 2 columns = 6 `.cm-table-cell` boxes total — every column
+    // gets one now, whether or not it has a `TableCell` node behind it.
+    expect(view.dom.querySelectorAll('.cm-table-cell')).toHaveLength(6);
+    expect(view.dom.textContent).not.toContain('|');
+  });
+
+  it('existing table rendering is unaffected — same row/cell counts as before this fix', () => {
+    const doc = '| a | b |\n| - | - |\n| 1 | 2 |';
+    const view = mountEditableView(doc, 0);
+
+    expect(view.dom.querySelectorAll('.cm-table-row')).toHaveLength(3);
+    expect(view.dom.querySelectorAll('.cm-table-cell')).toHaveLength(4);
+    expect(view.dom.textContent).not.toContain('|');
+  });
+});
+
+describe('tableDecoration — empty logical cells render as real table cells (no TableCell node required)', () => {
+  it('1. a directly-authored fully-empty row ("| | |") renders every column as a styled cell', () => {
+    const text = '| a | b |\n| - | - |\n| | |\n\nOther';
+    const view = mountView(text, text.indexOf('Other'));
+
+    const rows = Array.from(view.dom.querySelectorAll('.cm-table-row'));
+    const dataRow = rows[2]; // header, alignment, then the empty data row
+    expect(dataRow?.querySelectorAll('.cm-table-cell')).toHaveLength(2);
+    expect(view.dom.textContent).not.toContain('|');
+  });
+
+  it('2. an Enter-created empty row renders every column as a styled cell in the same transaction', () => {
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const doc = '| a | b |\n| - | - |\n| 1 | 2 |';
+    const state = EditorState.create({
+      doc,
+      selection: { anchor: doc.indexOf('1') },
+      extensions: [markdownLanguageExtension(), tableDecoration(), tableEnterKeymap()],
+    });
+    const view = new EditorView({ state, parent });
+
+    view.contentDOM.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+    expect(view.state.doc.toString()).toBe(doc + '\n| | |');
+    const rows = Array.from(view.dom.querySelectorAll('.cm-table-row'));
+    const newRow = rows[3];
+    expect(newRow?.querySelectorAll('.cm-table-cell')).toHaveLength(2);
+  });
+
+  it('3. a partially-empty row still decorates the populated cell and the empty cell as a styled cell, each spanning its own full delimiter-bounded gap', () => {
+    const text = '| a | b |\n| - | - |\n| Tom | |\n\nOther';
+    const view = mountView(text, text.indexOf('Other'));
+
+    const rows = Array.from(view.dom.querySelectorAll('.cm-table-row'));
+    const dataRow = rows[2];
+    const cells = dataRow?.querySelectorAll('.cm-table-cell') ?? [];
+    expect(cells).toHaveLength(2);
+    // Every column's mark spans the *whole* gap between its two delimiters
+    // (`| Tom |` → " Tom ", padding included) — not just a populated
+    // cell's own trimmed content — per the caret-anchoring fix below: see
+    // this file's own `decorateRow` doc comment (anonymous-table-cell
+    // rationale).
+    expect(cells[0]?.textContent).toBe(' Tom ');
+    // The empty cell's decoration spans its whole delimiter-bounded gap
+    // (there's no trimmed "content" range for an empty cell) — here that's
+    // exactly the one literal space between the two pipes.
+    expect(cells[1]?.textContent).toBe(' ');
+  });
+
+  it('4. populated cells now include their own leading/trailing padding in the same mark as their content (the caret-anchoring fix) — same class, same cell count, no regression', () => {
+    const text = '| a | b |\n| - | - |\n| 1 | 2 |\n\nOther';
+    const view = mountView(text, text.indexOf('Other'));
+
+    const cells = Array.from(view.dom.querySelectorAll('.cm-table-cell'));
+    expect(cells.map((c) => c.textContent)).toEqual([' a ', ' b ', ' 1 ', ' 2 ']);
+    expect(cells.every((c) => c.classList.contains('cm-table-cell'))).toBe(true);
+  });
+
+  it('5. alignment applies identically to an empty cell as to a populated one in the same column', () => {
+    const text = '| a | b |\n| :--- | ---: |\n| 1 | |\n\nOther';
+    const view = mountView(text, text.indexOf('Other'));
+
+    const rows = Array.from(view.dom.querySelectorAll('.cm-table-row'));
+    const dataRow = rows[2];
+    const cells = dataRow?.querySelectorAll('.cm-table-cell') ?? [];
+    expect(cells).toHaveLength(2);
+    expect(cells[0]?.classList.contains('cm-table-align-left')).toBe(true);
+    expect(cells[1]?.classList.contains('cm-table-align-right')).toBe(true); // empty cell, same alignment as its column's header
   });
 });

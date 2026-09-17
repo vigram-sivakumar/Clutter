@@ -6,10 +6,9 @@ import type { SyntaxNode } from '@lezer/common';
 import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment';
 
 /**
- * Live Preview rendering for GFM tables (Phase 1 of the table milestone —
- * see docs/editor-feature-matrix.md), deliberately built as CSS-table
- * styling over the existing decorated document text (Option B of the
- * investigation this milestone approved), **not** a multi-line
+ * Live Preview rendering for GFM tables, built as CSS-table styling over
+ * the existing decorated document text (Option B of the investigation
+ * this milestone approved), **not** a multi-line
  * `Decoration.replace({block: true})` widget. Every table cell stays the
  * exact same real, directly-editable CM6 text every other Live Preview
  * construct in this codebase already is — no foreign editable island, no
@@ -20,16 +19,29 @@ import { parseTableAlignment, type TableColumnAlignment } from './tableAlignment
  * synthesized by the browser (CSS2.1 table box generation) — no wrapping
  * DOM element required.
  *
- * Row/cell CSS-table *layout* classes are applied **unconditionally**,
- * whether or not the row is engaged — only the pipe-hiding and
- * alignment-row-collapsing decorations toggle off. This deliberately
- * mirrors `listLineIndent.ts`'s own established precedent ("Deliberately
- * unconditional — not gated on isTokenEngaged ... clicking into the raw
- * text to edit it would visibly shift the whole line's layout"): keeping
- * the grid layout constant while only the marker-hiding toggles is what
- * lets the engaged row directly reveal its raw `|`/`-` text in place,
- * without the surrounding table ever re-flowing or fragmenting into
- * separate anonymous tables.
+ * **Pipes and the alignment/delimiter row are hidden unconditionally —
+ * never revealed, regardless of cursor/selection.** This supersedes an
+ * earlier per-row "engaged row reveals its own raw Markdown" model (the
+ * same reveal-on-engagement contract `liveMarkDecoration.ts` uses for
+ * list/blockquote markers). That model was deliberately rejected for
+ * tables: the frozen table UX requires a rendered table to always remain
+ * a rendered table — clicking or moving the cursor into a cell must never
+ * expose `|` syntax or the delimiter row, so the user interacts with it
+ * as a table/grid, never as exposed Markdown. Structural safety
+ * (Backspace/Delete never deleting a hidden `|` or the delimiter row,
+ * Left/Right/Tab/Up/Down cell-boundary navigation) is handled entirely
+ * separately, by the table keymap guards (`tableDeletionGuard.ts`,
+ * `tableArrowKeymap.ts`, `tableTabKeymap.ts`, `tableEnterKeymap.ts`,
+ * `tableArrowDownKeymap.ts`, `tableVerticalKeymap.ts`) via
+ * `tableGeometry.ts`'s syntax-tree-only cell/row resolution — this file
+ * has no interaction logic of its own, purely rendering.
+ *
+ * Row/cell CSS-table *layout* classes are applied unconditionally (they
+ * always were, even under the old model) — only the pipe-hiding and
+ * alignment-row-collapsing decorations are new to being unconditional.
+ * Keeping the grid layout constant regardless of cursor position is what
+ * keeps the whole table's columns aligned as one grid and never
+ * re-flowing or fragmenting into separate anonymous tables.
  */
 
 const tableRowLine = Decoration.line({ class: 'cm-table-row' });
@@ -41,7 +53,7 @@ const tableHeaderLine = Decoration.line({ class: 'cm-table-row cm-table-header' 
 // (header alone, body rows alone), each independently auto-sizing its own
 // columns. Keeping every row — including this one — in the same
 // contiguous `table-row` run is what keeps the whole table's columns
-// aligned as one grid regardless of which row is currently engaged.
+// aligned as one grid.
 const tableAlignRowLine = Decoration.line({ class: 'cm-table-row cm-table-align-row' });
 const hiddenMark = Decoration.replace({});
 
@@ -61,7 +73,7 @@ const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>>
  * `inlineLivePreviewParticipants.ts`'s `delimitedInlineRenderer` and
  * docs/editor-architecture-decisions.md's "Shared DecorationSet vs
  * independent CM6 extensions" section. Confirmed empirically necessary:
- * without these flags plus `Prec.highest` on the extension below, `|
+ * without these flags plus `Prec.lowest` on the extension below, `|
  * **Bold** |` produced `<span class="tok-strong"><span
  * class="cm-table-cell">Bold</span></span>` (inverted nesting — the cell
  * class lost its own outer wrapper) and `| [[Page]] |` dropped
@@ -69,23 +81,6 @@ const ALIGN_CLASS: Readonly<Record<Exclude<TableColumnAlignment, null>, string>>
  */
 function cellClass(alignment: TableColumnAlignment): string {
   return alignment ? `cm-table-cell ${ALIGN_CLASS[alignment]}` : 'cm-table-cell';
-}
-
-/**
- * A row is engaged — reveals its own raw Markdown — iff the current
- * selection touches its own physical line, exactly the same
- * `isPhysicalLineEngaged` rule already used for `ListMark`/`QuoteMark`
- * (`liveMarkDecoration.ts`). Tables have no lazy-continuation concept
- * (unlike lists/blockquotes — `TableParser.nextLine` simply stops adding
- * rows the instant a line fails to parse as one), so every row already
- * maps 1:1 to exactly one physical line with no ambiguity to resolve.
- */
-function isRowEngaged(state: EditorState, rowFrom: number): boolean {
-  const rowLine = state.doc.lineAt(rowFrom).number;
-  const selection = state.selection.main;
-  const fromLine = state.doc.lineAt(selection.from).number;
-  const toLine = state.doc.lineAt(selection.to).number;
-  return rowLine === fromLine || rowLine === toLine;
 }
 
 interface DecoItem {
@@ -96,31 +91,63 @@ interface DecoItem {
 
 /**
  * Decorates one `TableHeader`/`TableRow` node: the line itself always
- * gets the grid-layout class; each `TableCell` always gets its alignment
- * class; `TableDelimiter` marks (the `|` characters) only collapse when
- * the row is not engaged. Column index is tracked by counting
- * `TableDelimiter` siblings crossed, not by counting `TableCell` siblings
- * — an empty cell (`| a | | c |`) produces no `TableCell` node at all
- * (confirmed against `@lezer/markdown`'s own `parseRow`: a cell is only
- * emitted when it has at least one non-space character), so counting
- * cells would silently misalign every column after the first empty one.
+ * gets the grid-layout class; every column always gets a `.cm-table-cell`
+ * box with its alignment class, whether or not it has content; every
+ * `TableDelimiter` (the `|` characters) always collapses. Column index is
+ * tracked by counting `TableDelimiter` siblings crossed, not by counting
+ * `TableCell` siblings — an empty cell (`| a | | c |`) produces no
+ * `TableCell` node at all (confirmed against `@lezer/markdown`'s own
+ * `parseRow`: a cell is only emitted when it has at least one non-space
+ * character), so counting cells would silently misalign every column
+ * after the first empty one.
+ *
+ * **Every column's `.cm-table-cell` mark spans the *entire* gap between
+ * its two bounding delimiters — `[prevDelimiterTo, nextDelimiter.from)` —
+ * never just a populated `TableCell` node's own trimmed range.** This is
+ * deliberately independent of whether the column has a `TableCell` child
+ * at all (an empty cell never does, per the paragraph above): both cases
+ * go through this one same gap-based decoration, with no populated/empty
+ * branch. This was **not** always true — an earlier version of this
+ * function decorated only the *trimmed* `TableCell` range for a populated
+ * column, leaving its own leading/trailing padding space(s) as plain,
+ * undecorated text sitting directly inside the row's `display: table-row`
+ * line, outside any `display: table-cell` element. Per CSS2.1's own table
+ * box generation rules, a `display: table-row` box's children that are
+ * *not* proper table children (here: that stray padding text, plus the
+ * hidden delimiter's own `Decoration.replace` span and its
+ * `cm-widgetBuffer` neighbors) get wrapped in an anonymous `table-cell`
+ * box of their own — a real, separate, unstyled (no border, no padding)
+ * table cell sitting *between* two real ones. Confirmed empirically via
+ * `EditorView.domAtPos`/the real decorated DOM: the exact document
+ * position at a populated cell's own content end (e.g. right after
+ * "Name") resolved into that anonymous cell's own plain-text child, not
+ * into `Name`'s own `.cm-table-cell` span — which is what made the
+ * caret appear to disappear or land on an invisible sliver at exactly
+ * that boundary once `tableArrowKeymap.ts`'s Left/Right started landing
+ * there deliberately. Folding the padding into the same mark as the
+ * content — matching the empty-cell gap decoration this file already
+ * used — removes the anonymous-cell case entirely: every character
+ * between two delimiters now belongs to exactly one real, bordered/padded
+ * `.cm-table-cell`, so a boundary position resolves into that cell's own
+ * DOM text, never a stray gap box. `inclusiveStart`/`inclusiveEnd` are
+ * unrelated to this fix (they govern whether a character *typed* at the
+ * mark's own edge joins it, not which existing characters the mark
+ * already covers) and are unchanged.
  */
-function decorateRow(row: SyntaxNode, alignment: readonly TableColumnAlignment[], engaged: boolean, isHeader: boolean, items: DecoItem[]): void {
+function decorateRow(row: SyntaxNode, alignment: readonly TableColumnAlignment[], isHeader: boolean, items: DecoItem[]): void {
   items.push({ from: row.from, to: row.from, deco: isHeader ? tableHeaderLine : tableRowLine });
 
   let columnIndex = -1;
+  let prevDelimiterTo: number | null = null;
+
   for (let child = row.firstChild; child; child = child.nextSibling) {
-    if (child.name === 'TableDelimiter') {
-      columnIndex++;
-      if (!engaged && child.to > child.from) {
-        items.push({ from: child.from, to: child.to, deco: hiddenMark });
-      }
-      continue;
+    if (child.name !== 'TableDelimiter') {
+      continue; // A TableCell's own (trimmed) range is absorbed into the full column-gap mark below — no separate decoration for it.
     }
-    if (child.name === 'TableCell' && child.to > child.from) {
+    if (prevDelimiterTo !== null && child.from > prevDelimiterTo) {
       items.push({
-        from: child.from,
-        to: child.to,
+        from: prevDelimiterTo,
+        to: child.from,
         deco: Decoration.mark({
           class: cellClass(alignment[columnIndex] ?? null),
           inclusiveStart: true,
@@ -128,20 +155,25 @@ function decorateRow(row: SyntaxNode, alignment: readonly TableColumnAlignment[]
         }),
       });
     }
+    columnIndex++;
+    if (child.to > child.from) {
+      items.push({ from: child.from, to: child.to, deco: hiddenMark });
+    }
+    prevDelimiterTo = child.to;
   }
 }
 
 /**
  * Decorates the alignment/separator row (`| :--- | ---: |`) — always gets
  * the grid-layout line class (so its collapsed height still participates
- * in the table's visual rhythm as a thin divider, styled in CSS), and its
- * raw text collapses to nothing only when not engaged, revealing the
- * genuine Markdown the instant the cursor visits that line — identical
- * reveal-on-engagement contract as every other marker in this codebase.
+ * in the table's visual rhythm as a thin divider, styled in CSS via
+ * `.cm-table-align-row { font-size: 0; line-height: 0 }`), and its raw
+ * text always collapses to nothing — this row is structural syntax, never
+ * user-editable data, so it never has anything to reveal.
  */
-function decorateAlignRow(alignRow: SyntaxNode, engaged: boolean, items: DecoItem[]): void {
+function decorateAlignRow(alignRow: SyntaxNode, items: DecoItem[]): void {
   items.push({ from: alignRow.from, to: alignRow.from, deco: tableAlignRowLine });
-  if (!engaged && alignRow.to > alignRow.from) {
+  if (alignRow.to > alignRow.from) {
     items.push({ from: alignRow.from, to: alignRow.to, deco: hiddenMark });
   }
 }
@@ -155,24 +187,25 @@ function decorateTable(table: SyntaxNode, state: EditorState, items: DecoItem[])
   const alignRow = header.nextSibling;
   const alignment = alignRow && alignRow.name === 'TableDelimiter' ? parseTableAlignment(state.sliceDoc(alignRow.from, alignRow.to)) : [];
 
-  decorateRow(header, alignment, isRowEngaged(state, header.from), true, items);
+  decorateRow(header, alignment, true, items);
 
   if (alignRow && alignRow.name === 'TableDelimiter') {
-    decorateAlignRow(alignRow, isRowEngaged(state, alignRow.from), items);
+    decorateAlignRow(alignRow, items);
   }
 
   for (let row = alignRow?.nextSibling; row; row = row.nextSibling) {
     if (row.name === 'TableRow') {
-      decorateRow(row, alignment, isRowEngaged(state, row.from), false, items);
+      decorateRow(row, alignment, false, items);
     }
   }
 }
 
 function buildTableDecorations(view: EditorView): DecorationSet {
   const items: DecoItem[] = [];
+  const tree = syntaxTree(view.state);
 
   for (const { from, to } of view.visibleRanges) {
-    syntaxTree(view.state).iterate({
+    tree.iterate({
       from,
       to,
       enter: (node) => {
@@ -215,6 +248,11 @@ interface TableDecorationPlugin extends PluginValue {
  * regardless of registration order — verified against `| **Bold** |`,
  * `| ==highlight== |`, and `| [[Page]] |` all producing `cm-table-cell` as
  * the outermost span.
+ *
+ * `update` only rebuilds on `docChanged`/`viewportChanged` — not
+ * `selectionSet` — now that hiding no longer depends on the selection at
+ * all; rebuilding on every selection change would be pure wasted work
+ * under the always-hidden model.
  */
 export function tableDecoration(): Extension {
   const plugin = ViewPlugin.fromClass<TableDecorationPlugin>(
@@ -226,7 +264,7 @@ export function tableDecoration(): Extension {
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+        if (update.docChanged || update.viewportChanged) {
           this.decorations = buildTableDecorations(update.view);
         }
       }

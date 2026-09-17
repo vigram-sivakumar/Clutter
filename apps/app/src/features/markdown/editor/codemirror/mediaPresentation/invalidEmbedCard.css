@@ -92,7 +92,7 @@
   width: 100%;
   gap: var(--space-6);
   padding: var(--space-6);
-  border-radius: var(--radius-md);
+  border-radius: var(--md-embed-radius);
   background: var(--md-embed-surface);
 }
 

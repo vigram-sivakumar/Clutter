@@ -38,7 +38,7 @@ Provide OS-level file I/O and change notification, with zero knowledge of vaults
 ```
 
 ### Internal collaborators
-`- LocalFileSystem` (Tauri fs plugin adapter), `- LocalFileSystemWatcher` (Tauri event listener + `invoke('start_vault_watcher'|'stop_vault_watcher')`), `- SelfWriteRegistry`, `- SelfWriteAwareFileSystem`, `- SelfWriteAwareWatcher`, and the Rust module (`vault_watcher.rs`) behind the two invoked commands.
+`- LocalFileSystem` (Tauri fs plugin adapter), `- LocalFileSystemWatcher` (Tauri event listener + `invoke('start_vault_watcher'|'stop_vault_watcher')`), `- SelfWriteRegistry`, `- SelfWriteAwareFileSystem`, `- SelfWriteAwareWatcher`, the Rust module (`vault_watcher.rs`) behind the two invoked commands.
 
 ### Lifecycle
 Constructed once by the Composition Root during `bootstrap()`. `start()` is called once the Vault exists (watcher events are meaningless before there's a model to reconcile into). `stop()` is called on `Application.close()`. No other lifecycle states.

@@ -77,6 +77,7 @@
   --md-link-underline-offset: 20%;
   --md-badge-radius: var(--radius-sm);
   --md-badge-padding: 0.15em 0.4em;
+  --md-embed-radius: var(--radius-md);
 
   /* Editor width */
   --editor-width: calc(100% - 80px);

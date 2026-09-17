@@ -544,7 +544,7 @@ export class NoteEmbedWidget extends WidgetType {
     // nothing to mark; CSS hides this one too whenever the card is
     // collapsed (`.cm-note-embed--collapsed`, below), since there is no
     // content between the header and it to mark the end of.
-    const endDivider = this.buildDivider('End of embeded note');
+    const endDivider = this.buildDivider('End of note');
 
     container.append(header, content, endDivider);
 
