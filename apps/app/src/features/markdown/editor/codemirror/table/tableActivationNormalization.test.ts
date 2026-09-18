@@ -2,7 +2,7 @@ import { EditorSelection, EditorState, type Transaction } from '@codemirror/stat
 import { describe, expect, it } from 'vitest';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { findAllTables } from './tableGeometry';
+import { findAllTables, findEnclosingTable } from './tableGeometry';
 import { planTableActivationNormalization, tableActivationNormalization } from './tableActivationNormalization';
 
 /**
@@ -46,7 +46,11 @@ function typeAtEnd(state: EditorState, text: string): EditorState {
 const CANONICAL_HEADER = '| Name | Age |';
 const CANONICAL_SEPARATOR = '| ---- | --- |';
 const CANONICAL_BLANK_ROW = '|      |     |';
-const CANONICAL_TABLE = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n${CANONICAL_BLANK_ROW}`;
+// Every test below activates a table sitting at the very end of the
+// document, so a trailing "\n" is always created too — a real, editable
+// blank line for the root cursor to land on below the table (the whole
+// point of this file's own cursor-safety block further down).
+const CANONICAL_TABLE = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n${CANONICAL_BLANK_ROW}\n`;
 
 describe('tableActivationNormalization — trigger point: activates on the first separator cell\'s own closing pipe', () => {
   it('does not activate while the first cell has no closing pipe yet', () => {
@@ -81,19 +85,95 @@ describe('tableActivationNormalization — trigger point: activates on the first
     expect(findAllTables(state)).toHaveLength(1);
   });
 
-  it('places the cursor in the first cell of the freshly-inserted empty row', () => {
+  it('places the cursor on a real editable line below the table, never inside it', () => {
     let state = makeState('| Name | Age |\n');
     state = typeAtEnd(state, '| --- |');
 
-    const lines = state.doc.toString().split('\n');
-    const lastLine = lines[lines.length - 1]!;
-    expect(lastLine).toBe(CANONICAL_BLANK_ROW);
-    const lastLineStart = state.doc.length - lastLine.length;
-    // "|      |     |" — first cell's content-start position sits right
-    // after its own single leading padding space, i.e. local offset 2
-    // ("|" then one space).
-    expect(state.selection.main.head).toBe(lastLineStart + 2);
+    expect(state.doc.toString()).toBe(CANONICAL_TABLE);
+    // The freshly-created blank line below the table (this document had
+    // nothing after the table, so one was created) — the very last,
+    // empty line.
+    expect(state.selection.main.head).toBe(state.doc.length);
     expect(state.selection.main.empty).toBe(true);
+    expect(findEnclosingTable(state, state.selection.main.head)).toBeNull();
+  });
+});
+
+describe('tableActivationNormalization — cursor safety: the root selection must never land inside the table\'s own range', () => {
+  it('the invariant, directly: selection never resolves inside findEnclosingTable\'s own range after activation', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| --- |');
+
+    const table = findAllTables(state)[0]!;
+    const head = state.selection.main.head;
+    expect(head < table.from || head >= table.to).toBe(true);
+    expect(findEnclosingTable(state, head)).toBeNull();
+  });
+
+  it('creates a new blank line below the table when nothing already follows it', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| --- |');
+
+    // Exactly one blank trailing line was added — not two, not zero.
+    expect(state.doc.toString()).toBe(CANONICAL_TABLE);
+    expect(state.doc.toString().endsWith(`${CANONICAL_BLANK_ROW}\n`)).toBe(true);
+  });
+
+  it('reuses an already-existing following blank line instead of creating a redundant extra one', () => {
+    // A genuine blank line already separates where the table will
+    // activate from more content below — GFM's own table-block rule (a
+    // blank line always ends the table, unlike a bare non-pipe line
+    // directly after it, which is instead lazily absorbed as a one-cell
+    // row) means this blank line is real, pre-existing, table-external
+    // content, not something this fix needs to create.
+    const state = makeState('| Name | Age |\n| -\n\nSomething else.');
+    const closePos = state.doc.line(2).to; // end of the still-unclosed "| -"
+    const activated = dispatchEdit(state, { from: closePos, to: closePos, insert: '|' }); // "| -" → "| -|"
+
+    expect(activated.doc.toString()).toBe(
+      '| Name | Age |\n| ---- | --- |\n|      |     |\n\nSomething else.'
+    );
+    // Cursor lands at the start of the pre-existing blank line (line 4)
+    // — not a second, redundant blank line created after it.
+    const blankLine = activated.doc.line(4);
+    expect(blankLine.text).toBe('');
+    expect(activated.selection.main.head).toBe(blankLine.from);
+    expect(findEnclosingTable(activated, activated.selection.main.head)).toBeNull();
+  });
+
+  it('Enter at the reported bug position cannot insert a line inside or before the table', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| --- |'); // activates; selection now below the table
+    const beforeEnter = state.doc.toString();
+
+    // A plain Enter at the current (post-activation) selection — the
+    // exact interaction the bug report singles out.
+    state = dispatchEdit(state, { from: state.selection.main.head, to: state.selection.main.head, insert: '\n' });
+
+    // The table's own three lines are completely unchanged; only a new
+    // blank line was added *after* everything, where the cursor already
+    // safely was.
+    expect(state.doc.toString()).toBe(beforeEnter + '\n');
+    expect(findAllTables(state)).toHaveLength(1);
+    const table = findAllTables(state)[0]!;
+    expect(state.doc.sliceString(table.from, table.to)).toBe(CANONICAL_TABLE.trimEnd());
+  });
+
+  it('typing at the reported bug position cannot create stray text around the table', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| --- |');
+
+    state = typeAtEnd(state, 'Hello world');
+
+    // The typed text landed entirely on the safe line below the table's
+    // own three lines, which are byte-for-byte unchanged — an exact
+    // string match here proves no character was spliced into them (a
+    // weaker "does the table's own .to-bounded slice still match" check
+    // would be a false negative: GFM's own lazy-continuation rule grows
+    // a Table node's `.to` to absorb an immediately-following non-blank
+    // line with no blank line between them — exactly what "Hello world"
+    // now is, entirely correctly, and unrelated to this invariant).
+    expect(state.doc.toString()).toBe(CANONICAL_TABLE + 'Hello world');
   });
 });
 
@@ -114,7 +194,7 @@ describe('tableActivationNormalization — activation is independent of the head
     state = typeAtEnd(state, '| -|');
 
     expect(findAllTables(state)).toHaveLength(1);
-    expect(state.doc.toString()).toBe('| Name |\n| ---- |\n|      |');
+    expect(state.doc.toString()).toBe('| Name |\n| ---- |\n|      |\n');
   });
 });
 
@@ -130,7 +210,7 @@ describe('tableActivationNormalization — alignment colons are preserved on the
     // Column 1: ":" + dashCount(6-2-1=3) = ":---" (total width 6,
     // matching "Name"). Column 2 was never typed at all — synthesized
     // plainly from the header, no colon.
-    expect(result.doc.toString()).toBe('| Name | Age |\n| :--- | --- |\n|      |     |');
+    expect(result.doc.toString()).toBe('| Name | Age |\n| :--- | --- |\n|      |     |\n');
   });
 });
 
@@ -192,7 +272,7 @@ describe('tableActivationNormalization — only fires once per table, not on eve
     // table is already active): the colon is simply inserted as raw
     // text, widening column 1 by one character rather than being
     // reconciled back down to the header-matched width.
-    expect(state.doc.toString()).toBe('| Name | Age |\n| :---- | --- |\n|      |     |');
+    expect(state.doc.toString()).toBe('| Name | Age |\n| :---- | --- |\n|      |     |\n');
     expect(findAllTables(state)).toHaveLength(1);
   });
 });

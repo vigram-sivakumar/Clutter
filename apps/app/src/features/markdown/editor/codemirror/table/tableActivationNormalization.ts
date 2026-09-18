@@ -4,7 +4,7 @@ import type { SyntaxNode } from '@lezer/common';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { splitPipeRowCells } from './tableAlignment';
-import { buildWidthMatchedRowText, findEnclosingTable, widthMatchedRowCellOffset } from './tableGeometry';
+import { buildWidthMatchedRowText, findEnclosingTable } from './tableGeometry';
 
 /**
  * The transaction-level counterpart to `orderedListStructuralNormalization.ts`,
@@ -266,8 +266,9 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
   }
 
   const edits: TableActivationEdit[] = [];
+  let seedEditIndex: number | null = null;
   let seedInsertPos: number | null = null;
-  let seedWidths: number[] | null = null;
+  let seedRowTextLength: number | null = null;
 
   for (const candidate of candidates) {
     const widths = computeColumnWidths(candidate.headerLineText);
@@ -277,13 +278,11 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
     }
 
     if (!candidate.hasExistingDataRow && widths.length > 0) {
-      edits.push({
-        from: candidate.delimLineTo,
-        to: candidate.delimLineTo,
-        insert: '\n' + buildWidthMatchedRowText(widths),
-      });
+      const rowText = buildWidthMatchedRowText(widths);
+      edits.push({ from: candidate.delimLineTo, to: candidate.delimLineTo, insert: '\n' + rowText });
+      seedEditIndex = edits.length - 1;
       seedInsertPos = candidate.delimLineTo;
-      seedWidths = widths;
+      seedRowTextLength = rowText.length;
     }
   }
 
@@ -292,18 +291,50 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
   }
 
   let cursorPos: number | null = null;
-  if (seedInsertPos !== null && seedWidths !== null) {
-    // Every edit strictly before the seeded row's own (pre-edits) insertion
-    // point shifts where that insertion actually lands in the final
-    // document — this table's own delimiter-row rewrite included, since
-    // `delimLineFrom <= delimLineTo === seedInsertPos` always holds.
-    // Edits at-or-after `seedInsertPos` (this row-seed edit itself, or a
-    // later candidate's edits) never affect it, so a plain sum over
-    // "from < seedInsertPos" is exact.
+  if (seedEditIndex !== null && seedInsertPos !== null && seedRowTextLength !== null) {
+    // The root CM6 editor must never be left with a selection inside the
+    // table's own range: `tableWidgetField.ts` replaces the *entire*
+    // table (header through last row) with one opaque block widget
+    // (`Decoration.replace(...).range(table.from, table.to)`), so a
+    // position inside it has no real text to render a cursor against —
+    // CM6 instead shows a stray full-height caret pinned to the widget's
+    // own edge, and Enter/typing there silently edits the *hidden*
+    // Markdown underneath it (confirmed directly: the previous version
+    // of this cursor placement — inside the freshly-seeded row's first
+    // cell, intended for a nested-cell auto-focus that was never wired
+    // up — left `selection.main.head` strictly inside `findEnclosingTable`'s
+    // own reported range). The fix lands the cursor on a genuine,
+    // editable line *below* the table instead — auto-focusing into the
+    // first cell is explicitly deferred, not attempted here.
+    //
+    // Every edit strictly before the seeded row's own (pre-edits)
+    // insertion point shifts where that insertion actually lands in the
+    // final document — this table's own delimiter-row rewrite included,
+    // since `delimLineFrom <= delimLineTo === seedInsertPos` always
+    // holds. Edits at-or-after `seedInsertPos` (this row-seed edit
+    // itself, or a later candidate's edits) never affect it, so a plain
+    // sum over "from < seedInsertPos" is exact.
     const delta = edits
       .filter((edit) => edit.from < seedInsertPos!)
       .reduce((sum, edit) => sum + (edit.insert.length - (edit.to - edit.from)), 0);
-    cursorPos = seedInsertPos + delta + 1 + widthMatchedRowCellOffset(seedWidths, 0);
+    // Position right after the seeded row's own text (before whatever
+    // newline — pre-existing or about to be created below — follows it).
+    const seedRowEnd = seedInsertPos + delta + 1 + seedRowTextLength;
+
+    const seedEdit = edits[seedEditIndex]!;
+    if (seedInsertPos === provisional.doc.length) {
+      // The table (now including the seeded row) sits at the very end of
+      // the document — no line exists below it yet. Create one by
+      // extending this same edit's own insert, rather than adding a
+      // second edit whose position would need separately tracking.
+      edits[seedEditIndex] = { ...seedEdit, insert: seedEdit.insert + '\n' };
+    }
+    // Either a newline just got appended above, or one already existed
+    // right after the delimiter row's own pre-edit position (whatever
+    // followed it in `provisional` is still there, now shifted past the
+    // seeded row) — in both cases the real editable line starts exactly
+    // one position past the seeded row's own end.
+    cursorPos = seedRowEnd + 1;
   }
 
   return { edits, cursorPos };
