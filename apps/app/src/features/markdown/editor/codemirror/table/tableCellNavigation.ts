@@ -2,7 +2,7 @@ import { Prec, type EditorState, type Extension } from '@codemirror/state';
 import { keymap, type Command, type EditorView, type KeyBinding } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
-import type { TableActiveCellController } from './tableActiveCellController';
+import { tableActiveCellChanged, type TableActiveCellController } from './tableActiveCellController';
 import {
   buildEmptyRowText,
   emptyRowCellOffset,
@@ -136,7 +136,24 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
   const tabCommand: Command = () => moveByFlatOffset(getRootView(), 1);
   const shiftTabCommand: Command = () => moveByFlatOffset(getRootView(), -1);
 
-  function moveToSameColumn(rowOffset: 1 | -1): boolean {
+  /**
+   * ArrowUp/ArrowDown: same-column vertical movement within the table when
+   * a row exists in that direction; otherwise exits — reusing the *exact
+   * same* `exitAbove`/`exitBelow` helpers `moveOrExit` (Left/Right) already
+   * uses below, not a separate, narrower exit path of their own. This
+   * merges what used to be two independently-maintained exit
+   * implementations: `arrowUpCommand` previously had no exit case at all
+   * (`resolveCellAt` returning `null` from the header just declined,
+   * silently doing nothing), and `arrowDownCommand`'s own inline exit only
+   * fired when the table sat at the absolute end of the document with
+   * *nothing at all* following it — since table activation always leaves a
+   * genuine blank line below (a prior task's own fix), that condition was
+   * almost never true in practice, so ArrowDown from the last row
+   * effectively never exited either. `exitBelow` already handles both
+   * "a line already follows" and "nothing follows, create one" — the
+   * fuller behavior this needs, not a special case to reintroduce here.
+   */
+  function moveOrExitVertical(rowOffset: 1 | -1): boolean {
     const rootView = getRootView();
     const anchor = controller.activeAnchor;
     if (!anchor) {
@@ -147,19 +164,20 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
       return false;
     }
     const target = resolveCellAt(current.table, current.rowIndex + rowOffset, current.columnIndex);
-    if (!target) {
-      return false; // No row above/below to preserve a column into — declines (Up from the header; Down from the last row has its own exit case below).
-    }
-    const container = activeContainer(controller);
-    if (!container) {
+    if (target) {
+      const container = activeContainer(controller);
+      if (!container) {
+        return true;
+      }
+      const range = trimmedCellRange(rootView.state, target.bounds);
+      controller.activate(rootView, container, range.from, range.to, range.from);
       return true;
     }
-    const range = trimmedCellRange(rootView.state, target.bounds);
-    controller.activate(rootView, container, range.from, range.to, range.from);
-    return true;
+    return rowOffset === 1 ? exitBelow(rootView, current.table) : exitAbove(rootView, current.table);
   }
 
-  const arrowUpCommand: Command = () => moveToSameColumn(-1);
+  const arrowUpCommand: Command = () => moveOrExitVertical(-1);
+  const arrowDownCommand: Command = () => moveOrExitVertical(1);
 
   /**
    * ArrowLeft/ArrowRight: only intercepted at the nested editor's own
@@ -224,6 +242,33 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
    * table couldn't exist at all without content, even just a blank line,
    * somewhere above it once `table.from > 0`). Declines when the table
    * sits at the very start of the document — nothing above to exit to.
+   *
+   * Two things this dispatch must do that a plain `{selection: ...}` alone
+   * does not, both confirmed missing via direct live-browser investigation
+   * (root selection landed correctly, yet the table visibly broke anyway):
+   *
+   * 1. **`effects: tableActiveCellChanged.of(null)`** — `tableWidgetField`'s
+   *    own `StateField.update()` only rebuilds the table's decorations
+   *    `if (tr.docChanged || tr.effects.some(is(tableActiveCellChanged)))`
+   *    (that field's own doc comment). A pure selection-move transaction
+   *    is neither, so without this the table's rendered DOM is never
+   *    rebuilt at all: the just-vacated cell's wrapper — whose only child,
+   *    the nested editor's DOM, `controller.deactivate()` just
+   *    `.remove()`d — is left permanently empty (the header cell's own
+   *    text visibly vanishing) until some *unrelated* later edit happens
+   *    to force a rebuild. `activate()` dispatches this exact effect as
+   *    its own last step for the mirror-image reason (that method's own
+   *    doc comment); deactivating needs it just as much.
+   * 2. **`rootView.focus()`** — `controller.deactivate()` only removes the
+   *    nested editor's DOM node from its parent, it never itself moves
+   *    browser focus anywhere — the exact inverse of `activate()`'s own
+   *    explicit `nestedView.focus()` call. Without this, keyboard focus
+   *    stays on the now-detached nested editor (invisible, off the live
+   *    DOM tree, but never blurred), silently absorbing every subsequent
+   *    keystroke into a cell the user can no longer see or reach — root's
+   *    own `dispatch({selection: ...})` moves *where root's selection is*,
+   *    never *where the keyboard itself is pointed*; the two are
+   *    independent facts in CM6.
    */
   function exitAbove(rootView: EditorView, table: SyntaxNode): boolean {
     if (table.from === 0) {
@@ -231,17 +276,32 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     }
     const exitLine = rootView.state.doc.lineAt(table.from - 1);
     controller.deactivate();
-    rootView.dispatch({ selection: { anchor: exitLine.to }, scrollIntoView: true });
+    rootView.dispatch({
+      selection: { anchor: exitLine.to },
+      effects: tableActiveCellChanged.of(null),
+      scrollIntoView: true,
+    });
+    rootView.focus();
     return true;
   }
 
   /**
-   * ArrowRight's own table-boundary exit: reuses `arrowDownCommand`'s own
-   * established "table at EOF → create the missing trailing line" shape,
-   * extended to also land on an already-existing following line rather
-   * than declining — ArrowRight exiting the table must always succeed
-   * from the last cell, unlike ArrowDown's own narrower "only when
-   * genuinely nothing follows" carve-out.
+   * The shared "exit below" landing: an already-existing following line
+   * (blank or not), or — only when the table genuinely sits at the very
+   * end of the document — a newly-created blank one. Both ArrowRight (the
+   * table's last cell) and ArrowDown (the table's last row) exit through
+   * here, via `moveOrExit`/`moveOrExitVertical` below; exiting must always
+   * succeed from either direction, never decline just because something
+   * already follows the table.
+   *
+   * `effects: tableActiveCellChanged.of(null)` and `rootView.focus()` —
+   * see `exitAbove`'s own doc comment for why both are required, not
+   * optional: without the effect, a pure selection-move branch (the "lands
+   * on an already-existing line" case just below) never triggers
+   * `tableWidgetField`'s own decoration rebuild, leaving the just-vacated
+   * cell's DOM permanently blank; without the explicit focus call,
+   * `controller.deactivate()` alone never moves browser focus off the now
+   * DOM-detached nested editor.
    */
   function exitBelow(rootView: EditorView, table: SyntaxNode): boolean {
     const { state } = rootView;
@@ -249,7 +309,11 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     controller.deactivate();
     if (tableEndLine < state.doc.lines) {
       const nextLine = state.doc.line(tableEndLine + 1);
-      rootView.dispatch({ selection: { anchor: nextLine.from }, scrollIntoView: true });
+      rootView.dispatch({
+        selection: { anchor: nextLine.from },
+        effects: tableActiveCellChanged.of(null),
+        scrollIntoView: true,
+      });
     } else {
       const insertPos = table.to;
       rootView.dispatch({
@@ -258,70 +322,12 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
         scrollIntoView: true,
       });
     }
+    rootView.focus();
     return true;
   }
 
   const arrowLeftCommand: Command = (nestedView) => moveOrExit(nestedView, -1);
   const arrowRightCommand: Command = (nestedView) => moveOrExit(nestedView, 1);
-
-  /**
-   * ArrowDown: same-column vertical movement, plus one narrow structural
-   * exception ported from the deleted `tableArrowDownKeymap.ts` — from
-   * the table's own last row, when the document genuinely has nothing
-   * after the table at all, inserts a blank line after it and
-   * deactivates (there is no cell below to move into; the destination is
-   * now ordinary root-document text outside any table, so the active
-   * cell relationship itself ends here rather than the nested editor
-   * moving to a non-existent cell).
-   */
-  const arrowDownCommand: Command = () => {
-    const rootView = getRootView();
-    const anchor = controller.activeAnchor;
-    if (!anchor) {
-      return false;
-    }
-    const current = resolveLogicalCell(rootView.state, anchor.from);
-    if (!current) {
-      return false;
-    }
-    const target = resolveCellAt(current.table, current.rowIndex + 1, current.columnIndex);
-    if (target) {
-      const container = activeContainer(controller);
-      if (!container) {
-        return true;
-      }
-      const range = trimmedCellRange(rootView.state, target.bounds);
-      controller.activate(rootView, container, range.from, range.to, range.from);
-      return true;
-    }
-
-    const navigableRows = getNavigableRows(current.table);
-    const lastRow = navigableRows[navigableRows.length - 1];
-    if (!lastRow || current.row.from !== lastRow.from) {
-      return false; // Unreachable given resolveCellAt already returned null for rowIndex+1, kept as an explicit guard for parity with the ported logic.
-    }
-
-    const { state } = rootView;
-    const tableEndLine = state.doc.lineAt(current.table.to).number;
-    if (tableEndLine < state.doc.lines) {
-      return false; // Something (blank or not) already exists below the table — defer to native.
-    }
-
-    // Deactivate BEFORE dispatching — tableWidgetField's StateField.update()
-    // runs synchronously inside this same dispatch call and must already
-    // see no active cell, or it would rebuild this transaction's
-    // decorations still showing the (about-to-be-abandoned) cell as
-    // active (M5's own "activation must be visible to the same rebuild"
-    // requirement, mirrored from remapActiveAnchor's own ordering rule).
-    controller.deactivate();
-    const insertPos = current.table.to;
-    rootView.dispatch({
-      changes: { from: insertPos, to: insertPos, insert: '\n' },
-      selection: { anchor: insertPos + 1 },
-      scrollIntoView: true,
-    });
-    return true;
-  };
 
   /**
    * Enter: creates a new, empty row — same column count as the table's

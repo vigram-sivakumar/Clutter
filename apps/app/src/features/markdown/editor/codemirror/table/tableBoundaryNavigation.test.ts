@@ -173,3 +173,53 @@ describe('tableBoundaryNavigation — invariant: the root selection never resolv
     expect(view.state.doc.toString()).toBe(doc);
   });
 });
+
+describe('tableBoundaryNavigation + tableCellNavigation — exiting re-renders the table\'s rendered DOM immediately (no stale blank cell)', () => {
+  // Regression for a real bug found via live-browser testing: the root
+  // selection could land correctly on exit while the table's own rendered
+  // widget DOM stayed stale — the just-vacated cell's wrapper (whose only
+  // child, the nested editor's DOM, `controller.deactivate()` had just
+  // removed) stayed visibly blank until some *unrelated* later edit
+  // happened to force tableWidgetField's own decoration rebuild. These
+  // checks read the actual rendered `.cm-table-widget` text immediately
+  // after the exit dispatch, with no follow-up edit — exactly the
+  // "cursor exits fine, but the header text disappears" symptom reported.
+  it('ArrowUp-exit from the header leaves the header\'s own text correctly rendered, not blank', () => {
+    const doc = 'Above.\n' + TABLE;
+    const { view, controller } = mountRootView(doc, 'Above.'.length);
+    dispatchKey(view, 'ArrowDown'); // enter the header's first cell ("Name")
+    expect(controller.nestedView).not.toBeNull();
+
+    dispatchKey(controller.nestedView!, 'ArrowUp'); // exit back above
+
+    expect(controller.activeAnchor).toBeNull();
+    const widgetText = view.dom.querySelector('.cm-table-widget')?.textContent;
+    expect(widgetText).toContain('Name');
+    expect(widgetText).toContain('Role');
+  });
+
+  it('ArrowDown-exit from the last row leaves that row\'s own text correctly rendered, not blank', () => {
+    const doc = TABLE + '\n';
+    const { view, controller } = mountRootView(doc, doc.length);
+    dispatchKey(view, 'ArrowUp'); // enter the last row's first cell ("Vik")
+    expect(controller.nestedView).not.toBeNull();
+
+    dispatchKey(controller.nestedView!, 'ArrowDown'); // exit below
+
+    expect(controller.activeAnchor).toBeNull();
+    const widgetText = view.dom.querySelector('.cm-table-widget')?.textContent;
+    expect(widgetText).toContain('Vik');
+    expect(widgetText).toContain('Designer');
+  });
+
+  it('exiting returns keyboard focus to the root editor (not left on the now-detached nested editor)', () => {
+    const doc = 'Above.\n' + TABLE;
+    const { view, controller } = mountRootView(doc, 'Above.'.length);
+    dispatchKey(view, 'ArrowDown');
+    expect(controller.nestedView).not.toBeNull();
+
+    dispatchKey(controller.nestedView!, 'ArrowUp');
+
+    expect(view.hasFocus).toBe(true);
+  });
+});

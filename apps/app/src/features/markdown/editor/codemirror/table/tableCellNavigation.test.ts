@@ -212,7 +212,12 @@ describe('tableCellNavigation — ArrowUp/ArrowDown (column preservation, ragged
   });
 });
 
-describe('tableCellNavigation — ArrowDown exits the table at its last row (header/last-row special case)', () => {
+describe('tableCellNavigation — ArrowDown exits the table from its last row', () => {
+  // Corrected expectations (previously: declined whenever *anything*
+  // already followed the table, effectively never exiting in practice —
+  // this fix's own reported bug — since table activation always leaves a
+  // real blank line below). ArrowDown from the last row now always exits,
+  // reusing the same `exitBelow` helper ArrowRight already used correctly.
   it('at the last row with nothing below the table, inserts a blank line after it, moves root selection there, and deactivates', () => {
     const root = mountRootView(TABLE);
     const { controller } = activateCellContaining(root, 'Designer');
@@ -224,25 +229,82 @@ describe('tableCellNavigation — ArrowDown exits the table at its last row (hea
     expect(controller.activeAnchor).toBeNull();
   });
 
-  it('does not create another line when a non-empty paragraph already exists below the table', () => {
-    const doc = TABLE + '\n\nalready here';
+  it('lands on the immediately-following line (the blank separator) rather than skipping ahead to further real content beyond it', () => {
+    // TABLE + '\n\n' + 'Something.' → line 4 is a genuine blank separator
+    // line, line 5 is "Something." — GFM's own table-block rule (only a
+    // *blank* line ends a table; a bare non-pipe line directly below it
+    // with no blank line between them is instead lazily absorbed into the
+    // table as a one-cell row) means this blank separator is required for
+    // "Something." to be real, table-external content at all. `exitBelow`
+    // lands on the *nearest* following line, not the nearest non-blank one.
+    const doc = TABLE + '\n\nSomething.';
     const root = mountRootView(doc);
     const { controller } = activateCellContaining(root, 'Designer');
 
     dispatchKey(controller.nestedView!, 'ArrowDown');
 
     expect(root.state.doc.toString()).toBe(doc);
-    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.activeAnchor).toBeNull();
+    const belowLine = root.state.doc.line(4);
+    expect(belowLine.text).toBe('');
+    expect(root.state.selection.main.head).toBe(belowLine.from);
   });
 
-  it('does not create another line when an empty paragraph already exists below the table', () => {
-    const doc = TABLE + '\n\n';
+  it('lands on an already-existing empty line below the table instead of creating a redundant one', () => {
+    const doc = TABLE + '\n';
     const root = mountRootView(doc);
     const { controller } = activateCellContaining(root, 'Designer');
 
     dispatchKey(controller.nestedView!, 'ArrowDown');
 
     expect(root.state.doc.toString()).toBe(doc);
+    expect(controller.activeAnchor).toBeNull();
+    expect(root.state.selection.main.head).toBe(doc.length);
+  });
+});
+
+describe('tableCellNavigation — ArrowUp exits the table from its first row (header)', () => {
+  it('exits to the end of the line above the table', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+
+    dispatchKey(controller.nestedView!, 'ArrowUp');
+
+    expect(controller.activeAnchor).toBeNull();
+    const aboveLine = root.state.doc.line(1);
+    expect(root.state.selection.main.head).toBe(aboveLine.to);
+    expect(root.state.doc.toString()).toBe('Above.\n' + TABLE);
+  });
+
+  it('declines when the table sits at the very start of the document (nothing above to exit to)', () => {
+    const root = mountRootView(TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+
+    dispatchKey(controller.nestedView!, 'ArrowUp');
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(root.state.doc.toString()).toBe(TABLE);
+  });
+
+  it('ArrowUp from a non-header row still moves up within the table (not an exit)', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Vik');
+
+    dispatchKey(controller.nestedView!, 'ArrowUp');
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+  });
+
+  it('the root selection never resolves inside the table after an ArrowUp exit', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+
+    dispatchKey(controller.nestedView!, 'ArrowUp');
+
+    const table = findEnclosingTable(root.state, 'Above.\n'.length)!;
+    const head = root.state.selection.main.head;
+    expect(head < table.from || head >= table.to).toBe(true);
   });
 });
 
