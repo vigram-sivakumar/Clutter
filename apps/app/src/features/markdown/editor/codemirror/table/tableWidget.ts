@@ -158,6 +158,50 @@ export class TableWidget extends WidgetType {
     // same `tableFrom` identity `eq()` above already keys off.
     widget.dataset.tableFrom = String(this.tableFrom);
 
+    // Suppresses root CM6's own default mousedown handling (coordinate-
+    // to-position mapping against this block-replace widget's rendered
+    // bounds) for every click that does **not** land inside a real
+    // `<td>`/`<th>` — the table's own border, `.cm-table-wrapper`'s
+    // padding-right gutter (reserved for future column controls),
+    // inter-row/inter-cell gaps, or any other part of this widget's own
+    // rendered box. Without this, `ignoreEvent()` returning `false`
+    // (below) lets CM6 process an unhandled click here exactly like any
+    // other document click — snapping the root selection to whichever
+    // side of the widget's `[tableFrom, tableTo)` replaced range is
+    // nearest, which can leave `selection.main.head` resolving *inside*
+    // that hidden range (confirmed directly: `findEnclosingTable` then
+    // returns this table for that position) — the one invariant this
+    // widget must never violate. `target.closest('td, th')` is
+    // deliberately the *only* test: it is true for every genuine cell
+    // click, active or inactive alike — an inactive cell's own
+    // `element.addEventListener('mousedown', ...)` below already
+    // `stopPropagation()`s before this listener would even run, and an
+    // *active* cell's nested editor (mounted with no click handler of
+    // its own — its own separate `EditorView` owns click-to-caret
+    // placement internally) still lives inside a `<td>`, so this check
+    // lets both cases fall through untouched, exactly matching "clicking
+    // inside a real cell keeps working normally." Every other click is
+    // fully suppressed — `preventDefault()` blocks the browser's own
+    // default action, `stopPropagation()` stops root CM6's own
+    // `contentDOM` mousedown listener further up this same DOM tree from
+    // also running (the same pairing the per-cell handler below already
+    // uses, and for the identical reason) — and nothing else happens: no
+    // dispatch, no selection change, no activation. Deliberately not a
+    // click-to-exit feature (no boundary/side classification, no line
+    // creation) — keyboard Up/Down/Left/Right (`tableBoundaryNavigation.ts`/
+    // `tableCellNavigation.ts`) remains the only way to enter or exit a
+    // table, unchanged by this listener.
+    if (this.controller) {
+      widget.addEventListener('mousedown', (event) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('td, th')) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+      });
+    }
+
     const tableWrapper = document.createElement('div');
     tableWrapper.className = 'cm-table-wrapper';
     widget.appendChild(tableWrapper);
