@@ -59,6 +59,7 @@ import { ROOT_ANCESTRY, type NoteEmbedAncestry } from './embed/noteEmbedAncestry
 import type { OnOpenNoteEmbedMenu, FoldStatePersistence } from './embed/NoteEmbedWidget';
 import { tableActiveCellReconciliation, type TableActiveCellController } from './table/tableActiveCellController';
 import { tableActivationNormalization } from './table/tableActivationNormalization';
+import { tableBoundaryNavigation } from './table/tableBoundaryNavigation';
 import { tableWidgetDecoration } from './table/tableWidgetField';
 
 /**
@@ -276,7 +277,9 @@ export function buildEditorExtensions(options: BuildEditorExtensionsOptions): Ex
     linkMouseHandlers(),
     urlMouseHandlers(),
     tableWidgetDecoration(tableActiveCellController),
-    ...(tableActiveCellController ? [tableActiveCellReconciliation(tableActiveCellController)] : []),
+    ...(tableActiveCellController
+      ? [tableActiveCellReconciliation(tableActiveCellController), tableBoundaryNavigation(tableActiveCellController)]
+      : []),
   ];
 
   if (readOnly) {

@@ -150,6 +150,13 @@ export class TableWidget extends WidgetType {
     const widget = document.createElement('div');
     widget.className = 'cm-table-widget';
     widget.contentEditable = 'false';
+    // The one lookup handle `tableBoundaryNavigation.ts` needs: keyboard-
+    // driven entry (ArrowUp/ArrowDown from a root line adjacent to the
+    // table) has no click event to read a target cell's wrapper element
+    // from, unlike `buildRow()`'s own mousedown handler below — it must
+    // instead query for this exact table's rendered DOM by position, the
+    // same `tableFrom` identity `eq()` above already keys off.
+    widget.dataset.tableFrom = String(this.tableFrom);
 
     const tableWrapper = document.createElement('div');
     tableWrapper.className = 'cm-table-wrapper';

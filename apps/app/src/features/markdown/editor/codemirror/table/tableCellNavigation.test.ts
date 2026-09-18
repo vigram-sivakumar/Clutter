@@ -7,7 +7,7 @@ import { EditorView } from '@codemirror/view';
 import { markdownLanguageExtension } from '../markdownLanguage';
 import { TableActiveCellController } from './tableActiveCellController';
 import { tableCellNavigation } from './tableCellNavigation';
-import { endOfCellContent, resolveLogicalCell, startOfCellContent, type CellBounds } from './tableGeometry';
+import { endOfCellContent, findEnclosingTable, resolveLogicalCell, startOfCellContent, type CellBounds } from './tableGeometry';
 
 /** Mirrors tableCellNavigation.ts's own `trimmedCellRange` — a cell's real editable content range, excluding the padding spaces around it. */
 function trimmed(state: EditorState, bounds: CellBounds): { readonly from: number; readonly to: number } {
@@ -307,5 +307,169 @@ describe('tableCellNavigation — Enter creates a new row and activates the same
     expect(root.state.doc.toString()).toBe('| Name | Role |\n| --- | --- |\n| Vikram | Designer |\n| | |');
     undo(root);
     expect(root.state.doc.toString()).toBe(NAMED_TABLE);
+  });
+});
+
+describe('tableCellNavigation — ArrowRight/ArrowLeft cell-to-cell movement', () => {
+  // Flattened, row-major order for TABLE: Name → Role → Vik → Designer —
+  // the same order Tab/Shift-Tab already traverse.
+  it('ArrowRight at the end of a cell moves to the next cell in the same row, landing at its content start', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+    controller.nestedView!.dispatch({ selection: { anchor: 'Name'.length } });
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('Role');
+    expect(controller.nestedView!.state.selection.main.head).toBe(0);
+  });
+
+  it('ArrowLeft at the start of a cell moves to the previous cell in the same row, landing at its content end', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Role');
+    controller.nestedView!.dispatch({ selection: { anchor: 0 } });
+
+    dispatchKey(controller.nestedView!, 'ArrowLeft');
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+    expect(controller.nestedView!.state.selection.main.head).toBe('Name'.length);
+  });
+
+  it('ArrowRight at the end of the last cell of a row crosses into the first cell of the next row', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Role');
+    controller.nestedView!.dispatch({ selection: { anchor: 'Role'.length } });
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('Vik');
+    expect(controller.nestedView!.state.selection.main.head).toBe(0);
+  });
+
+  it('ArrowLeft at the start of the first cell of a row crosses back into the last cell of the previous row', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Vik');
+    controller.nestedView!.dispatch({ selection: { anchor: 0 } });
+
+    dispatchKey(controller.nestedView!, 'ArrowLeft');
+
+    expect(controller.nestedView!.state.doc.toString()).toBe('Role');
+    expect(controller.nestedView!.state.selection.main.head).toBe('Role'.length);
+  });
+
+  it('ArrowRight/ArrowLeft not at the cell boundary leave ordinary in-cell caret movement untouched', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Vik');
+    controller.nestedView!.dispatch({ selection: { anchor: 1 } }); // between "V" and "ik"
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+    expect(controller.nestedView!.state.doc.toString()).toBe('Vik'); // same cell
+    expect(controller.nestedView!.state.selection.main.head).toBe(2); // ordinary one-char move
+
+    controller.nestedView!.dispatch({ selection: { anchor: 2 } });
+    dispatchKey(controller.nestedView!, 'ArrowLeft');
+    expect(controller.nestedView!.state.doc.toString()).toBe('Vik'); // still the same cell
+    expect(controller.nestedView!.state.selection.main.head).toBe(1);
+  });
+
+  it('cell-to-cell movement never leaves the root selection resolving inside the table', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+    controller.nestedView!.dispatch({ selection: { anchor: 'Name'.length } });
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+
+    const table = findEnclosingTable(root.state, 'Above.\n'.length)!;
+    const head = root.state.selection.main.head;
+    expect(head < table.from || head >= table.to).toBe(true);
+  });
+});
+
+describe('tableCellNavigation — ArrowLeft/ArrowRight (table boundary exit)', () => {
+  it('ArrowLeft at the very start of the first cell (row 0, col 0) exits the table to the end of the line above', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+    controller.nestedView!.dispatch({ selection: { anchor: 0 } });
+
+    dispatchKey(controller.nestedView!, 'ArrowLeft');
+
+    expect(controller.activeAnchor).toBeNull();
+    const aboveLine = root.state.doc.line(1);
+    expect(root.state.selection.main.head).toBe(aboveLine.to);
+    expect(root.state.selection.main.empty).toBe(true);
+    expect(root.state.doc.toString()).toBe('Above.\n' + TABLE);
+  });
+
+  it('ArrowLeft not at the start of the cell does not exit the table (ordinary caret movement instead)', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+    controller.nestedView!.dispatch({ selection: { anchor: 2 } });
+
+    dispatchKey(controller.nestedView!, 'ArrowLeft');
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView!.state.doc.toString()).toBe('Name');
+    expect(controller.nestedView!.state.selection.main.head).toBe(1);
+  });
+
+  it('ArrowLeft at the first cell declines when the table sits at the very start of the document (nothing above to exit to)', () => {
+    const root = mountRootView(TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+    controller.nestedView!.dispatch({ selection: { anchor: 0 } });
+
+    dispatchKey(controller.nestedView!, 'ArrowLeft');
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView!.state.doc.toString()).toBe('Name'); // stayed put — no previous cell, no line above
+  });
+
+  it('ArrowRight at the very end of the last cell exits the table, creating a line below when nothing already follows', () => {
+    const root = mountRootView(TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+    controller.nestedView!.dispatch({ selection: { anchor: 'Designer'.length } });
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+
+    expect(controller.activeAnchor).toBeNull();
+    expect(root.state.doc.toString()).toBe(TABLE + '\n');
+    expect(root.state.selection.main.head).toBe(root.state.doc.length);
+    expect(root.state.selection.main.empty).toBe(true);
+  });
+
+  it('ArrowRight at the last cell lands on an already-existing following line instead of creating a redundant one', () => {
+    const root = mountRootView(TABLE + '\n\nAfter.');
+    const { controller } = activateCellContaining(root, 'Designer');
+    controller.nestedView!.dispatch({ selection: { anchor: 'Designer'.length } });
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+
+    expect(controller.activeAnchor).toBeNull();
+    expect(root.state.doc.toString()).toBe(TABLE + '\n\nAfter.');
+    const blankLine = root.state.doc.line(4);
+    expect(blankLine.text).toBe('');
+    expect(root.state.selection.main.head).toBe(blankLine.from);
+  });
+
+  it('ArrowRight not at the end of the cell does not exit the table (ordinary caret movement instead)', () => {
+    const root = mountRootView(TABLE);
+    const { controller } = activateCellContaining(root, 'Designer');
+    controller.nestedView!.dispatch({ selection: { anchor: 3 } });
+
+    dispatchKey(controller.nestedView!, 'ArrowRight');
+
+    expect(controller.activeAnchor).not.toBeNull();
+    expect(controller.nestedView!.state.doc.toString()).toBe('Designer');
+    expect(controller.nestedView!.state.selection.main.head).toBe(4);
+  });
+
+  it('the root selection never resolves inside the table after either exit', () => {
+    const root = mountRootView('Above.\n' + TABLE);
+    const { controller } = activateCellContaining(root, 'Name');
+    controller.nestedView!.dispatch({ selection: { anchor: 0 } });
+    dispatchKey(controller.nestedView!, 'ArrowLeft');
+
+    const table = findEnclosingTable(root.state, 'Above.\n'.length)!;
+    const head = root.state.selection.main.head;
+    expect(head < table.from || head >= table.to).toBe(true);
   });
 });

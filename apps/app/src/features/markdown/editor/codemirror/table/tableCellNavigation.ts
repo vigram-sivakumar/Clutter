@@ -162,6 +162,109 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
   const arrowUpCommand: Command = () => moveToSameColumn(-1);
 
   /**
+   * ArrowLeft/ArrowRight: only intercepted at the nested editor's own
+   * genuine start (`head === 0`, ArrowLeft) or end (`head === doc.length`,
+   * ArrowRight) with a collapsed selection — anywhere else, an ordinary
+   * per-character caret move within the cell's own text, left to CM6's
+   * default (declines). At the boundary, reuses the *exact same*
+   * flattened, row-major cell list `moveByFlatOffset` (Tab/Shift-Tab)
+   * already builds via `flattenNavigableCells`/`currentFlatIndex` — so
+   * Left/Right move cell-to-cell exactly like Shift-Tab/Tab do, "treat
+   * the table as a 2D navigable block" read literally as one flat
+   * traversal order, not a per-row-only hop that would need its own
+   * separate "no cell to the left in this row, but a previous row
+   * exists" rule. The one place Left/Right genuinely differ from Tab/
+   * Shift-Tab: at the table's own outer boundary (no previous/next cell
+   * at all — only ever true at the table's first or last cell overall),
+   * where Tab/Shift-Tab merely consume the key, Left/Right instead exit
+   * the table entirely — the behavior this pair of commands exists for.
+   *
+   * Landing position on an ordinary cell-to-cell move mirrors normal
+   * text-field continuity, not Tab's own "always content end" convention:
+   * Right lands at the destination's content *start* (continuing
+   * forward), Left at its content *end* (continuing backward).
+   */
+  function moveOrExit(nestedView: EditorView, offset: 1 | -1): boolean {
+    const sel = nestedView.state.selection.main;
+    const atBoundary = offset === 1 ? sel.head === nestedView.state.doc.length : sel.head === 0;
+    if (!sel.empty || !atBoundary) {
+      return false;
+    }
+    const rootView = getRootView();
+    const anchor = controller.activeAnchor;
+    if (!anchor) {
+      return false;
+    }
+    const current = resolveLogicalCell(rootView.state, anchor.from);
+    if (!current) {
+      return false;
+    }
+    const cells = flattenNavigableCells(current.table);
+    const index = currentFlatIndex(cells, current.row, current.columnIndex);
+    if (index === -1) {
+      return false;
+    }
+    const next = cells[index + offset];
+    if (next) {
+      const container = activeContainer(controller);
+      if (!container) {
+        return true;
+      }
+      const range = trimmedCellRange(rootView.state, next.bounds);
+      const cursorPos = offset === 1 ? range.from : range.to;
+      controller.activate(rootView, container, range.from, range.to, cursorPos);
+      return true;
+    }
+    return offset === 1 ? exitBelow(rootView, current.table) : exitAbove(rootView, current.table);
+  }
+
+  /**
+   * ArrowLeft's own table-boundary exit: the line immediately before the
+   * table's own first line — always a real, pre-existing editor line (the
+   * table couldn't exist at all without content, even just a blank line,
+   * somewhere above it once `table.from > 0`). Declines when the table
+   * sits at the very start of the document — nothing above to exit to.
+   */
+  function exitAbove(rootView: EditorView, table: SyntaxNode): boolean {
+    if (table.from === 0) {
+      return false;
+    }
+    const exitLine = rootView.state.doc.lineAt(table.from - 1);
+    controller.deactivate();
+    rootView.dispatch({ selection: { anchor: exitLine.to }, scrollIntoView: true });
+    return true;
+  }
+
+  /**
+   * ArrowRight's own table-boundary exit: reuses `arrowDownCommand`'s own
+   * established "table at EOF → create the missing trailing line" shape,
+   * extended to also land on an already-existing following line rather
+   * than declining — ArrowRight exiting the table must always succeed
+   * from the last cell, unlike ArrowDown's own narrower "only when
+   * genuinely nothing follows" carve-out.
+   */
+  function exitBelow(rootView: EditorView, table: SyntaxNode): boolean {
+    const { state } = rootView;
+    const tableEndLine = state.doc.lineAt(table.to).number;
+    controller.deactivate();
+    if (tableEndLine < state.doc.lines) {
+      const nextLine = state.doc.line(tableEndLine + 1);
+      rootView.dispatch({ selection: { anchor: nextLine.from }, scrollIntoView: true });
+    } else {
+      const insertPos = table.to;
+      rootView.dispatch({
+        changes: { from: insertPos, to: insertPos, insert: '\n' },
+        selection: { anchor: insertPos + 1 },
+        scrollIntoView: true,
+      });
+    }
+    return true;
+  }
+
+  const arrowLeftCommand: Command = (nestedView) => moveOrExit(nestedView, -1);
+  const arrowRightCommand: Command = (nestedView) => moveOrExit(nestedView, 1);
+
+  /**
    * ArrowDown: same-column vertical movement, plus one narrow structural
    * exception ported from the deleted `tableArrowDownKeymap.ts` — from
    * the table's own last row, when the document genuinely has nothing
@@ -273,6 +376,8 @@ export function tableCellNavigation(getRootView: () => EditorView, controller: T
     { key: 'Enter', run: enterCommand },
     { key: 'ArrowUp', run: arrowUpCommand },
     { key: 'ArrowDown', run: arrowDownCommand },
+    { key: 'ArrowLeft', run: arrowLeftCommand },
+    { key: 'ArrowRight', run: arrowRightCommand },
   ];
 
   return Prec.highest(keymap.of(bindings));
