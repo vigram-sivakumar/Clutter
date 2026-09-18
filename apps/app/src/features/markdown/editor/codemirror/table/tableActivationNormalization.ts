@@ -1,71 +1,71 @@
-import { ensureSyntaxTree } from '@codemirror/language';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorState, type ChangeSet, type Extension, type TransactionSpec } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
 
 import { markdownLanguageExtension } from '../markdownLanguage';
-import { splitDelimiterRowCells } from './tableAlignment';
-import {
-  buildWidthMatchedRowText,
-  findEnclosingTable,
-  getNavigableRows,
-  insertRowAfterPosition,
-  isAlignmentRow,
-  widthMatchedRowCellOffset,
-} from './tableGeometry';
-import { rowCells } from './tableWidgetField';
+import { splitPipeRowCells } from './tableAlignment';
+import { buildWidthMatchedRowText, findEnclosingTable, widthMatchedRowCellOffset } from './tableGeometry';
 
 /**
  * The transaction-level counterpart to `orderedListStructuralNormalization.ts`,
- * for exactly one bug class: GFM's own delimiter-row grammar
- * (`@lezer/markdown`'s `delimiterLine` regex — confirmed directly against
- * the installed source) makes leading/trailing pipes on a table row
- * **optional**, so `| Name | Age |` / `| --- | ---` is already a fully
- * valid, spec-compliant `Table` node — Lezer recognizes it, and
- * `tableWidgetField.ts` correctly renders it — the instant the second
- * column's dash run is typed, with no trailing `" |"` and no body row at
- * all. That is not a parser bug; it is exactly what "trailing pipes are
- * optional" means. The bug is narrower: Clutter has no mechanism that
- * then canonicalizes the *persisted* source into a genuinely finished
- * shape once a table exists — the same "lenient reader, strict writer"
- * contract every other construct in this codebase already keeps
- * (`docs/editor-architecture-decisions.md`'s locked note) has never been
- * established for tables. This module is that mechanism, for exactly two
- * things, no more:
+ * for keeping a table's persisted Markdown source complete the moment the
+ * user has committed to typing one — never merely because Lezer's `Table`
+ * node happens to already recognize the row.
  *
- * 1. **Delimiter-row completion** — the row is rewritten to
- *    `"| c1 | c2 | ... |"`, each column's dash count normalized to match
- *    its own header cell's width — "the established table formatting
- *    rules" (`computeColumnWidths`'s own doc comment) — while any
- *    alignment colon actually typed (`:left`, `right:`, `:center:`) is
- *    preserved. Width normalization here *supersedes* this module's own
- *    earlier, narrower decision to preserve exactly whatever dash count
- *    was typed — that covered *whether* to touch width at all; the
- *    header-matching rule is the follow-up decision on what the
- *    normalized width actually is.
- * 2. **First-row seeding** — only when the table has *zero* navigable
- *    body rows yet (a brand-new table, exactly the reported scenario),
- *    one blank row is appended — each of its cells padded out to that
- *    same header-matched column width via `buildWidthMatchedRowText`, so
- *    the seeded row lines up under the header/separator exactly — and the
- *    selection is placed in its first cell, mirroring
- *    `tableCellNavigation.ts`'s own `enterCommand` shape (Enter-in-the-
- *    header already does the analogous construction on an explicit
- *    keypress, just with `buildEmptyRowText`'s uniform single-space
- *    cells, correct for that call site — not this one, which needs each
- *    column's own already-established width). A paste of an already-
- *    complete table (real data rows already present) is left untouched.
+ * **Why not just watch for a new `Table` node (this module's own earlier
+ * design).** GFM's own delimiter-row grammar (`@lezer/markdown`'s
+ * `delimiterLine` regex, confirmed directly against the installed source)
+ * makes leading/trailing pipes optional and only requires the delimiter
+ * row's *own* cell count to match the header's — so `Table` recognition
+ * fires well into typing the *last* column's own cell, long after the
+ * *first* cell (the one the user actually just finished) closed. Worse,
+ * for a header with more than one column, a delimiter row with *fewer*
+ * cells than the header (exactly the moment right after the first cell's
+ * own closing `|` — the trigger this module now targets) **never**
+ * parses as a `Table` node at all (confirmed empirically: Lezer leaves
+ * both lines as one plain `Paragraph`, no `TableHeader`/`TableDelimiter`
+ * classification whatsoever) — so a `Table`-node-based trigger could
+ * never fire at the moment this task requires even in principle. Per
+ * this task's own instruction not to lean on `Table`-node recognition,
+ * and per this finding that the tree offers *no* structure to read at
+ * the moment that matters, detection here is necessarily a plain textual
+ * scan over the two lines involved — the "cleanest place" the tree
+ * inspection this task asked for actually turned up.
  *
- * **Trigger, precisely**: a table "becomes active" the instant its own
- * alignment/delimiter row transitions from *not enclosed by any `Table`
- * node* to *enclosed by one* — checked by mapping the delimiter row's
- * position backward through `tr.changes` and testing
- * `findEnclosingTable` against `tr.startState` (existing,
- * `tableGeometry.ts`-owned query, not a bespoke walk). This fires exactly
- * once per table: editing inside an *already*-active table (another
- * header keystroke, an alignment-colon change on the delimiter row
- * itself) finds the delimiter row already enclosed beforehand and is
- * left alone — this module has no opinion about any table once it has
- * already activated.
+ * **Trigger, precisely**: on the line the user just edited, does the text
+ * *from the start of the line* already form one complete delimiter cell
+ * — `\|?\s*:?-+:?\s*\|` (an optional leading pipe, one valid GFM
+ * alignment/dash cell, then a *required* closing pipe)? If so, and the
+ * line directly above looks like a plausible table header (non-blank,
+ * contains a `|`), and this exact line wasn't already part of a
+ * recognized `Table` before this edit (the same `findEnclosingTable`
+ * re-trigger guard this module's earlier design already established —
+ * still correct and still needed for the case where the table *has*
+ * since become a genuine multi-column `Table` and the user is now
+ * editing inside it, e.g. adding an alignment colon), this line has just
+ * become the table's own delimiter row. Deliberately independent of how
+ * many columns the header actually declares or how many the user has
+ * typed so far in *this* row — completing column 1's own cell is enough,
+ * matching this task's own worked example (a 2-column header activated
+ * from a 1-cell `"| - |"` delimiter row).
+ *
+ * **On activation**: the delimiter row is rewritten to
+ * `"| c1 | c2 | ... |"`, one cell per header column — not per column
+ * actually typed so far — each dash count normalized to match its own
+ * header cell's width ("the established table formatting rules",
+ * `computeColumnWidths`'s own doc comment), any alignment colon the user
+ * did type preserved. If the line immediately below doesn't already look
+ * like a real data row, one blank row is appended, each cell padded to
+ * that same header-matched width (`buildWidthMatchedRowText`), and the
+ * selection lands in its first cell — mirroring `tableCellNavigation.ts`'s
+ * own `enterCommand` shape, just width-matched rather than uniform
+ * single-space (correct for that call site, not this one).
+ *
+ * A `FencedCode`/`CodeBlock` guard excludes the one case textual
+ * scanning alone can't tell apart from a real table: a `"| - |"`-shaped
+ * line typed inside a code block. Deliberately does not attempt
+ * blockquote/list-nested tables — no other construct in this codebase
+ * supports tables in those contexts either.
  *
  * Same CM6 mechanism, same composition guarantee, as
  * `orderedListStructuralNormalization.ts`'s own doc comment already
@@ -92,6 +92,26 @@ export interface TableActivationPlan {
 
 const EMPTY_PLAN: TableActivationPlan = { edits: [], cursorPos: null };
 
+/** One complete GFM delimiter cell, from the very start of the line: an optional leading pipe, a valid `:?-+:?` alignment/dash cell, then a *required* closing pipe — exactly "the user has finished typing the first separator cell" (this module's own trigger condition), independent of anything after that closing pipe. */
+const FIRST_CELL_COMPLETE = /^\s*\|?\s*:?-+:?\s*\|/;
+
+/** Non-blank and contains a `|` — the minimal textual signal a line is plausibly meant as a table row (header or data), used both to recognize a candidate header line and to detect an already-present data row below a freshly-completing delimiter row. Deliberately not column-count-aware (this module's whole point is to activate before any column-count match exists). */
+function isPlausibleTableLine(text: string): boolean {
+  return text.trim().length > 0 && text.includes('|');
+}
+
+const EXCLUDED_BLOCK_NODES = new Set(['FencedCode', 'CodeBlock']);
+
+/** Whether `pos` sits inside a fenced/indented code block — the one context plain textual line-scanning can't otherwise tell apart from a real table candidate. */
+function isInsideExcludedBlock(state: EditorState, pos: number): boolean {
+  for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1); node; node = node.parent) {
+    if (EXCLUDED_BLOCK_NODES.has(node.name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Each column's target **total gap width** — padding included, the same
  * unit `padCellContent`/`buildWidthMatchedRowText` already work in — "the
@@ -101,14 +121,14 @@ const EMPTY_PLAN: TableActivationPlan = { edits: [], cursorPos: null };
  * convention this codebase's own Markdown formatting already follows
  * elsewhere (a column's rendered width is set by its widest cell — for a
  * table that has only just activated, with no data rows yet, that's the
- * header). Supersedes this module's own earlier, narrower "preserve
- * exactly the dash count the user typed, never invent a width" decision
- * (see this file's own git history / `docs/editor-architecture-decisions.md`)
- * — that decision covered *whether* to normalize width at all; this is
- * the follow-up product decision on *what* the normalized width should be.
+ * header). Reads the header line's own raw text via `splitPipeRowCells`
+ * (plain string-splitting) rather than the tree-based `rowCells` —
+ * deliberately: at the exact moment this module needs to read it, Lezer
+ * has not yet classified anything as a `TableHeader` node at all (see
+ * this module's own header comment).
  */
-function computeColumnWidths(state: EditorState, header: SyntaxNode): number[] {
-  return rowCells(state, header).map((cell) => Math.max(1, cell.text.length) + 2);
+function computeColumnWidths(headerLineText: string): number[] {
+  return splitPipeRowCells(headerLineText).map((cell) => Math.max(1, cell.length) + 2);
 }
 
 /**
@@ -121,57 +141,101 @@ function computeColumnWidths(state: EditorState, header: SyntaxNode): number[] {
  * - colonCount)`), so total cell width still equals `widths[i]` in the
  * common case; only clamped wider when `width` is too small to fit even
  * one dash alongside the colons actually present (an edge case no
- * realistic header width triggers).
+ * realistic header width triggers). One cell is emitted **per header
+ * column**, not per column the delimiter row happens to have typed so
+ * far — a delimiter row with fewer cells than the header (this module's
+ * entire reason to exist) has its missing trailing columns synthesized
+ * from scratch (`raw ?? ''`, no colons, header-matched dash count).
  */
 function canonicalDelimiterRowText(delimiterRowText: string, widths: readonly number[]): string {
-  const rawCells = splitDelimiterRowCells(delimiterRowText);
-  const cells = rawCells.map((raw, i) => {
+  const rawCells = splitPipeRowCells(delimiterRowText);
+  const cells = widths.map((width, i) => {
+    const raw = rawCells[i] ?? '';
     const left = raw.startsWith(':');
     const right = raw.endsWith(':');
     const colonCount = (left ? 1 : 0) + (right ? 1 : 0);
-    const dashCount = Math.max(1, (widths[i] ?? 3) - 2 - colonCount);
+    const dashCount = Math.max(1, width - 2 - colonCount);
     return (left ? ':' : '') + '-'.repeat(dashCount) + (right ? ':' : '');
   });
   return '| ' + cells.join(' | ') + ' |';
 }
 
+interface ActivationCandidate {
+  readonly delimLineFrom: number;
+  readonly delimLineTo: number;
+  readonly delimLineText: string;
+  readonly headerLineText: string;
+  readonly hasExistingDataRow: boolean;
+}
+
 /**
- * Every `Table` in `provisional` whose delimiter row did not already sit
- * inside a recognized `Table` in `startState` — see this module's own doc
- * comment for exactly why this, and not a whole-node identity comparison,
- * is the correct "did this table just come into existence" test.
+ * Every line this transaction just edited that has, as of `provisional`
+ * (post-edit), just completed its own first delimiter cell, sitting
+ * directly below a plausible header line.
  *
- * Discovery walks `changes`' own edited boundaries (`iterChanges`'s
- * `fromA`/`toA`, already in `startState`'s coordinate space — no
- * backward-mapping through `changes` is ever needed, matching
- * `orderedListStructuralNormalization.ts`'s own `collectStructuralCandidates`
- * pattern) rather than scanning every `Table` `findAllTables(provisional)`
- * returns: a position already inside an old `Table` (`findEnclosingTable(
- * startState, oldPos)`) is by definition not a new activation, so it's
- * skipped before ever mapping anything forward — the only forward
- * mapping this function performs (`changes.mapPos(oldPos, bias)`, the
- * direction `ChangeSet.mapPos` actually supports) is for genuinely
- * candidate positions.
+ * A change's own *edited range*, not just its two boundary points, is
+ * what must be scanned: for a single-point insert spanning several new
+ * lines (a paste, most notably into an otherwise-empty document, or
+ * anywhere the pasted delimiter line isn't the paste's own first or last
+ * line), `changes.mapPos` of the collapsed `fromA === toA` boundary can
+ * only ever land at the *very start or very end* of the newly-inserted
+ * text — `provisional.doc.lineAt` of either edge lands on the pasted
+ * content's first or last line, never a delimiter line sitting somewhere
+ * in the *middle* of a multi-line paste (confirmed directly: a one-shot
+ * paste of a 3-line table from an empty document was silently missed
+ * entirely under a boundary-only scan). Walking every line between the
+ * mapped start and end of the *edited range* fixes this uniformly for
+ * both a single keystroke (one line, same behavior as before) and a
+ * multi-line paste (every candidate line actually gets examined).
+ *
+ * The re-trigger guard — was this change already inside a recognized
+ * `Table` before it happened — checks `fromA`/`toA` directly, in
+ * `startState`'s own coordinates (no backward-mapping through `changes`
+ * ever needed, matching `orderedListStructuralNormalization.ts`'s own
+ * `collectStructuralCandidates` pattern): if *either* edited boundary
+ * already sat inside an existing `Table`, this edit is happening inside
+ * an already-active table (another header keystroke, an alignment-colon
+ * change on the delimiter row itself) and the whole edited range is
+ * skipped, not just the touched line — this module has no opinion about
+ * any table once it has already activated.
  */
-function findNewlyActivatedTables(startState: EditorState, provisional: EditorState, changes: ChangeSet): SyntaxNode[] {
-  const found: SyntaxNode[] = [];
+function findActivationCandidates(
+  startState: EditorState,
+  provisional: EditorState,
+  changes: ChangeSet
+): ActivationCandidate[] {
+  const found: ActivationCandidate[] = [];
   const seen = new Set<number>();
 
   changes.iterChanges((fromA, toA) => {
-    for (const oldPos of fromA === toA ? [fromA] : [fromA, toA]) {
-      if (findEnclosingTable(startState, oldPos)) continue;
-      for (const bias of [-1, 1] as const) {
-        const table = findEnclosingTable(provisional, changes.mapPos(oldPos, bias));
-        if (!table || seen.has(table.from)) continue;
+    if (findEnclosingTable(startState, fromA) || findEnclosingTable(startState, toA)) {
+      return;
+    }
 
-        const header = table.firstChild;
-        if (!header || header.name !== 'TableHeader') continue;
-        const delimiterRow = header.nextSibling;
-        if (!delimiterRow || !isAlignmentRow(delimiterRow)) continue;
+    const newFrom = changes.mapPos(fromA, -1);
+    const newTo = changes.mapPos(toA, 1);
+    const firstLineNumber = provisional.doc.lineAt(newFrom).number;
+    const lastLineNumber = provisional.doc.lineAt(newTo).number;
 
-        seen.add(table.from);
-        found.push(table);
-      }
+    for (let lineNumber = firstLineNumber; lineNumber <= lastLineNumber; lineNumber++) {
+      const delimLine = provisional.doc.line(lineNumber);
+      if (seen.has(delimLine.from)) continue;
+      if (!FIRST_CELL_COMPLETE.test(delimLine.text)) continue;
+      if (delimLine.number <= 1) continue;
+
+      const headerLine = provisional.doc.line(delimLine.number - 1);
+      if (!isPlausibleTableLine(headerLine.text)) continue;
+      if (isInsideExcludedBlock(provisional, headerLine.from)) continue;
+
+      seen.add(delimLine.from);
+      const nextLine = delimLine.number < provisional.doc.lines ? provisional.doc.line(delimLine.number + 1) : null;
+      found.push({
+        delimLineFrom: delimLine.from,
+        delimLineTo: delimLine.to,
+        delimLineText: delimLine.text,
+        headerLineText: headerLine.text,
+        hasExistingDataRow: nextLine !== null && isPlausibleTableLine(nextLine.text),
+      });
     }
   });
 
@@ -196,8 +260,8 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
   });
   ensureSyntaxTree(provisional, provisional.doc.length, 5000);
 
-  const tables = findNewlyActivatedTables(state, provisional, changes);
-  if (tables.length === 0) {
+  const candidates = findActivationCandidates(state, provisional, changes);
+  if (candidates.length === 0) {
     return EMPTY_PLAN;
   }
 
@@ -205,26 +269,21 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
   let seedInsertPos: number | null = null;
   let seedWidths: number[] | null = null;
 
-  for (const table of tables) {
-    const header = table.firstChild;
-    if (!header || header.name !== 'TableHeader') continue;
-    const delimiterRow = header.nextSibling;
-    if (!delimiterRow || !isAlignmentRow(delimiterRow)) continue;
-
-    const widths = computeColumnWidths(provisional, header);
-    const currentText = provisional.sliceDoc(delimiterRow.from, delimiterRow.to);
-    const canonicalText = canonicalDelimiterRowText(currentText, widths);
-    if (currentText !== canonicalText) {
-      edits.push({ from: delimiterRow.from, to: delimiterRow.to, insert: canonicalText });
+  for (const candidate of candidates) {
+    const widths = computeColumnWidths(candidate.headerLineText);
+    const canonicalText = canonicalDelimiterRowText(candidate.delimLineText, widths);
+    if (candidate.delimLineText !== canonicalText) {
+      edits.push({ from: candidate.delimLineFrom, to: candidate.delimLineTo, insert: canonicalText });
     }
 
-    if (getNavigableRows(table).length <= 1) {
-      const insertPos = insertRowAfterPosition(header);
-      if (insertPos !== null && widths.length > 0) {
-        edits.push({ from: insertPos, to: insertPos, insert: '\n' + buildWidthMatchedRowText(widths) });
-        seedInsertPos = insertPos;
-        seedWidths = widths;
-      }
+    if (!candidate.hasExistingDataRow && widths.length > 0) {
+      edits.push({
+        from: candidate.delimLineTo,
+        to: candidate.delimLineTo,
+        insert: '\n' + buildWidthMatchedRowText(widths),
+      });
+      seedInsertPos = candidate.delimLineTo;
+      seedWidths = widths;
     }
   }
 
@@ -237,10 +296,10 @@ export function planTableActivationNormalization(state: EditorState, changes: Ch
     // Every edit strictly before the seeded row's own (pre-edits) insertion
     // point shifts where that insertion actually lands in the final
     // document — this table's own delimiter-row rewrite included, since
-    // `delimiterRow.from < seedInsertPos` always holds (`seedInsertPos` is
-    // that same row's own `.to`). Edits at-or-after `seedInsertPos`
-    // (this row-seed edit itself, or a later table's edits) never affect
-    // it, so a plain sum over "from < seedInsertPos" is exact.
+    // `delimLineFrom <= delimLineTo === seedInsertPos` always holds.
+    // Edits at-or-after `seedInsertPos` (this row-seed edit itself, or a
+    // later candidate's edits) never affect it, so a plain sum over
+    // "from < seedInsertPos" is exact.
     const delta = edits
       .filter((edit) => edit.from < seedInsertPos!)
       .reduce((sum, edit) => sum + (edit.insert.length - (edit.to - edit.from)), 0);

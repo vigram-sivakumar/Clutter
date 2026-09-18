@@ -18,25 +18,31 @@
 export type TableColumnAlignment = 'left' | 'center' | 'right' | null;
 
 /**
- * Every column's own raw, trimmed cell text from a delimiter row's raw
- * line text (`"---"`, `":--"`, `"--:"`, `":-:"`, …) — the one place this
- * "strip optional leading/trailing pipe, then split on the rest" scan
- * lives, shared by `parseTableAlignment` (classify each cell) and
- * `tableActivationNormalization.ts` (rebuild the row's own canonical
- * text, preserving each cell's content verbatim). Deliberately plain
- * string-splitting, not tree-based: the alignment row parses as one
- * opaque `TableDelimiter` leaf with no per-column children at all (see
- * this module's own header comment), so there is no tree structure to
- * walk — `rowCells` (built for the header/data rows, which *do* have real
- * `TableDelimiter` children between cells) does not apply here.
+ * Every column's own raw, trimmed cell text from *any* pipe-delimited
+ * table row's raw line text (`"---"`/`":--"`/`"--:"`/`":-:"` for a
+ * delimiter row; `"Name"`/`"Age"` for a header row) — plain string-
+ * splitting ("strip optional leading/trailing pipe, then split on the
+ * rest"), not tree-based, so it works identically whether or not Lezer
+ * has classified the surrounding lines as a `Table` yet at all. Shared by
+ * `parseTableAlignment` (classify each delimiter cell), by
+ * `tableActivationNormalization.ts` (rebuild a delimiter row's own
+ * canonical text, preserving each cell's content verbatim), and — its
+ * only header-row consumer — `tableActivationNormalization.ts`'s own
+ * pre-tree-recognition detection path, which has no `TableHeader` node to
+ * read `rowCells` from yet (the very transition it exists to detect).
+ * Where a real tree *does* already exist, `rowCells` (tableWidgetField.ts)
+ * is the tree-based equivalent for the header/data rows specifically
+ * (which have real `TableDelimiter` children between cells, unlike the
+ * alignment row's own single opaque `TableDelimiter` leaf — see this
+ * module's own header comment) and remains the correct choice there.
  */
-export function splitDelimiterRowCells(delimiterRowText: string): string[] {
-  const trimmed = delimiterRowText.trim().replace(/^\|/, '').replace(/\|$/, '');
+export function splitPipeRowCells(rowText: string): string[] {
+  const trimmed = rowText.trim().replace(/^\|/, '').replace(/\|$/, '');
   return trimmed.split('|').map((segment) => segment.trim());
 }
 
 export function parseTableAlignment(delimiterRowText: string): TableColumnAlignment[] {
-  return splitDelimiterRowCells(delimiterRowText).map((cell) => {
+  return splitPipeRowCells(delimiterRowText).map((cell) => {
     const left = cell.startsWith(':');
     const right = cell.endsWith(':');
     if (left && right) {

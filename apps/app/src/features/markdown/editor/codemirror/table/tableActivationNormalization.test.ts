@@ -29,7 +29,7 @@ function dispatchEdit(state: EditorState, spec: { from: number; to: number; inse
   return (dispatched as Transaction).state;
 }
 
-/** Types `text` one character at a time at the document's end, exactly reproducing a real human keystroke sequence (the reported repro) rather than a single bulk insert. */
+/** Types `text` one character at a time at the document's end, exactly reproducing a real human keystroke sequence rather than a single bulk insert. */
 function typeAtEnd(state: EditorState, text: string): EditorState {
   let s = state;
   for (const ch of text) {
@@ -41,35 +41,41 @@ function typeAtEnd(state: EditorState, text: string): EditorState {
 // Header "Name" (4 chars) / "Age" (3 chars) → canonical target widths are
 // fixed throughout this file: column 1 always normalizes to 4 dashes
 // (matching "Name"), column 2 to 3 dashes (matching "Age") — "the
-// established table formatting rules" (computeColumnWidths's own doc
-// comment), regardless of what separator width was actually typed.
+// established table formatting rules", regardless of how many columns
+// the delimiter row had actually typed at the moment of activation.
 const CANONICAL_HEADER = '| Name | Age |';
 const CANONICAL_SEPARATOR = '| ---- | --- |';
 const CANONICAL_BLANK_ROW = '|      |     |';
 const CANONICAL_TABLE = `${CANONICAL_HEADER}\n${CANONICAL_SEPARATOR}\n${CANONICAL_BLANK_ROW}`;
 
-describe('tableActivationNormalization — trigger point', () => {
-  it('does not touch the source while the delimiter row is still an invalid/mismatched column count', () => {
-    // Header has 2 columns; only one delimiter cell typed so far — GFM's
-    // own column-count check means this never parses as a Table yet.
+describe('tableActivationNormalization — trigger point: activates on the first separator cell\'s own closing pipe', () => {
+  it('does not activate while the first cell has no closing pipe yet', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| -');
+    expect(state.doc.toString()).toBe('| Name | Age |\n| -');
+    expect(findAllTables(state)).toHaveLength(0);
+  });
+
+  it('does not activate for a longer dash run with no closing pipe yet', () => {
     let state = makeState('| Name | Age |\n');
     state = typeAtEnd(state, '| ---');
     expect(state.doc.toString()).toBe('| Name | Age |\n| ---');
     expect(findAllTables(state)).toHaveLength(0);
   });
 
-  it('normalizes the instant the delimiter row becomes a syntactically valid Table (reported repro: incomplete second separator, no trailing pipe, no body row)', () => {
+  it('activates the instant the first cell\'s own closing pipe is typed — before any second column content exists at all', () => {
     let state = makeState('| Name | Age |\n');
-    // Reproduces the bug report keystroke-by-keystroke. Precisely, per
-    // GFM's own trailing-pipe-optional delimiter grammar, the row already
-    // becomes a valid 2-column Table at "| --- | -" — the *first* dash of
-    // the second column, one keystroke earlier than the report's own
-    // "soon as the second `---` is typed" phrasing suggests (confirmed by
-    // the dedicated trigger-point test below). Typing stops there: any
-    // further keystroke would land wherever the cursor relocated to after
-    // activation (the new row this fix seeds) rather than back in column
-    // 2 — a caret/focus consequence explicitly out of this task's scope.
-    state = typeAtEnd(state, '| --- | -');
+    // Exactly the task's own worked example: a 2-column header, but the
+    // delimiter row so far has only ever had ONE cell typed.
+    state = typeAtEnd(state, '| - |');
+
+    expect(state.doc.toString()).toBe(CANONICAL_TABLE);
+    expect(findAllTables(state)).toHaveLength(1);
+  });
+
+  it('reproduces the original bug report precisely: activates at "| --- |", one full cell earlier than a Table-node-based trigger ever could', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| --- |');
 
     expect(state.doc.toString()).toBe(CANONICAL_TABLE);
     expect(findAllTables(state)).toHaveLength(1);
@@ -77,7 +83,7 @@ describe('tableActivationNormalization — trigger point', () => {
 
   it('places the cursor in the first cell of the freshly-inserted empty row', () => {
     let state = makeState('| Name | Age |\n');
-    state = typeAtEnd(state, '| --- | -');
+    state = typeAtEnd(state, '| --- |');
 
     const lines = state.doc.toString().split('\n');
     const lastLine = lines[lines.length - 1]!;
@@ -91,53 +97,19 @@ describe('tableActivationNormalization — trigger point', () => {
   });
 });
 
-describe('tableActivationNormalization — separator width follows the header-matched formatting rule, not what was typed', () => {
-  // Single-shot insertion (the same path a paste or programmatic insert
-  // takes) — deliberately not `typeAtEnd`'s keystroke-by-keystroke
-  // simulation here: for a separator wider than one dash, GFM's own
-  // trailing-pipe-optional grammar means activation already fires at the
-  // *first* dash of the final column (see the dedicated trigger-point
-  // test below), so simulating further individual keystrokes after that
-  // point would be typing into wherever the now-relocated cursor sits,
-  // not into the old cell — a caret/focus consequence, not a
-  // normalization-correctness question, and explicitly out of this
-  // task's scope. This block only asserts the eventual, steady-state
-  // document is canonical regardless of what width was typed.
+describe('tableActivationNormalization — activation is independent of the header\'s own column count', () => {
   it.each(['-', '--', '---', '----', '------'])(
-    'normalizes activation from a %s-wide separator to the header-matched canonical width',
+    'activates from a %s-wide first cell alone, normalizing every column (including ones never typed) to the header-matched width',
     (dashes) => {
-      const state = makeState('| Name | Age |\n');
-      const result = dispatchEdit(state, {
-        from: state.doc.length,
-        to: state.doc.length,
-        insert: `| ${dashes} | ${dashes}`,
-      });
+      let state = makeState('| Name | Age |\n');
+      state = typeAtEnd(state, `| ${dashes} |`);
 
-      expect(findAllTables(result)).toHaveLength(1);
-      expect(result.doc.toString()).toBe(CANONICAL_TABLE);
+      expect(findAllTables(state)).toHaveLength(1);
+      expect(state.doc.toString()).toBe(CANONICAL_TABLE);
     }
   );
 
-  it('activates at the first dash of the final column, and still normalizes to the header-matched width regardless of the single dash actually typed', () => {
-    // Documents the actual trigger point precisely: with the first column
-    // already a valid multi-dash cell, one single dash in the second
-    // column is already enough for both `delimiterLine` and the
-    // column-count check to pass — and the eventual output is the same
-    // canonical width the table would reach from any other input.
-    let state = makeState('| Name | Age |\n');
-    state = typeAtEnd(state, '| ---- | ');
-    expect(findAllTables(state)).toHaveLength(0);
-
-    state = typeAtEnd(state, '-');
-    expect(findAllTables(state)).toHaveLength(1);
-    expect(state.doc.toString()).toBe(CANONICAL_TABLE);
-  });
-
-  it('activates a single-column table from a single "| - |" separator, normalized to its own header width', () => {
-    // A single-column delimiter row needs its own closing pipe to form
-    // even one complete `delimiterLine` group at all (there is no second
-    // column to supply the "trailing pipe optional" fallback this file's
-    // 2-column tests otherwise rely on) — activation here fires at "| -|".
+  it('activates a single-column table the same way, from its own single "| - |" cell', () => {
     let state = makeState('| Name |\n');
     state = typeAtEnd(state, '| -|');
 
@@ -146,19 +118,19 @@ describe('tableActivationNormalization — separator width follows the header-ma
   });
 });
 
-describe('tableActivationNormalization — alignment colons are preserved; dash count is not', () => {
-  it("keeps each column's own alignment markers while normalizing dash count to the header-matched width", () => {
+describe('tableActivationNormalization — alignment colons are preserved on the columns actually typed', () => {
+  it('keeps the first column\'s own alignment marker while synthesizing the untyped second column from the header', () => {
     const state = makeState('| Name | Age |\n');
     const result = dispatchEdit(state, {
       from: state.doc.length,
       to: state.doc.length,
-      insert: '| :---- | --:',
+      insert: '| :---- |',
     });
 
-    // Column 1: ":" + dashCount(4-1=3) = ":---" (still total width 6,
-    // matching "Name"). Column 2: dashCount(3-1=2) + ":" = "--:"
-    // (unchanged here only because it already happened to match).
-    expect(result.doc.toString()).toBe('| Name | Age |\n| :--- | --: |\n|      |     |');
+    // Column 1: ":" + dashCount(6-2-1=3) = ":---" (total width 6,
+    // matching "Name"). Column 2 was never typed at all — synthesized
+    // plainly from the header, no colon.
+    expect(result.doc.toString()).toBe('| Name | Age |\n| :--- | --- |\n|      |     |');
   });
 });
 
@@ -194,11 +166,7 @@ describe('tableActivationNormalization — already-complete input is left alone'
 describe('tableActivationNormalization — only fires once per table, not on every subsequent edit', () => {
   it('does not re-trigger (or move the cursor) when editing inside an already-active table', () => {
     let state = makeState('| Name | Age |\n');
-    // Stops exactly at the activation trigger point (see this file's own
-    // "trigger point" block) — typing further via a blind end-of-doc
-    // append would land in the freshly-seeded row the cursor relocates
-    // to, not back in the original delimiter row.
-    state = typeAtEnd(state, '| --- | -'); // activates once
+    state = typeAtEnd(state, '| --- |'); // activates once
     const afterActivation = state.doc.toString();
     expect(afterActivation).toBe(CANONICAL_TABLE);
 
@@ -207,9 +175,35 @@ describe('tableActivationNormalization — only fires once per table, not on eve
     state = dispatchEdit(state, { from: headerEnd, to: headerEnd, insert: 'X' });
 
     expect(state.doc.toString()).toBe(afterActivation.replace('Name', 'NameX'));
-    // No second blank row appeared, and the (now header-mismatched, but
-    // untouched-post-activation) separator width was not re-normalized.
     expect(findAllTables(state)).toHaveLength(1);
+  });
+
+  it('does not re-trigger when adding an alignment colon to an already-active delimiter row', () => {
+    let state = makeState('| Name | Age |\n');
+    state = typeAtEnd(state, '| --- |');
+    expect(state.doc.toString()).toBe(CANONICAL_TABLE);
+
+    // Insert ":" right before the first column's own dash run.
+    const delimLineStart = state.doc.line(2).from;
+    const colonPos = delimLineStart + 2; // "| " then the dash run starts
+    state = dispatchEdit(state, { from: colonPos, to: colonPos, insert: ':' });
+
+    // Un-renormalized (correctly — this module has no opinion once a
+    // table is already active): the colon is simply inserted as raw
+    // text, widening column 1 by one character rather than being
+    // reconciled back down to the header-matched width.
+    expect(state.doc.toString()).toBe('| Name | Age |\n| :---- | --- |\n|      |     |');
+    expect(findAllTables(state)).toHaveLength(1);
+  });
+});
+
+describe('tableActivationNormalization — code fences are not mistaken for tables', () => {
+  it('does not activate a "| - |"-shaped line inside a fenced code block', () => {
+    let state = makeState('```\n| Name | Age |\n');
+    state = typeAtEnd(state, '| - |\n```');
+
+    expect(state.doc.toString()).toBe('```\n| Name | Age |\n| - |\n```');
+    expect(findAllTables(state)).toHaveLength(0);
   });
 });
 
@@ -220,5 +214,12 @@ describe('planTableActivationNormalization — pure function', () => {
     const plan = planTableActivationNormalization(state, changes);
     expect(plan.edits).toEqual([]);
     expect(plan.cursorPos).toBeNull();
+  });
+
+  it('finds a delimiter-line candidate in the middle of a multi-line single-shot paste into an empty document', () => {
+    const state = makeState('');
+    const changes = state.changes({ from: 0, to: 0, insert: '| Name | Age |\n| - |\n' });
+    const plan = planTableActivationNormalization(state, changes);
+    expect(plan.edits.length).toBeGreaterThan(0);
   });
 });
