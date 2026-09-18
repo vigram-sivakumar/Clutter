@@ -10,6 +10,7 @@ import { dottedHorizontalRuleSyntax } from './hr/dottedHorizontalRuleSyntax';
 import { labeledHorizontalRuleSyntax } from './hr/labeledHorizontalRuleSyntax';
 import { wavyHorizontalRuleSyntax } from './hr/wavyHorizontalRuleSyntax';
 import { listMarkerParagraphInterrupt } from './list/listMarkerParagraphInterrupt';
+import { tableLazyAbsorptionGuard } from './table/tableLazyAbsorptionGuard';
 import { tagSyntax } from './tag/tagSyntax';
 import { taskCompletionMetadataSyntax } from './task/taskCompletionMetadataSyntax';
 import { wikiLinkSyntax } from './wikilink/wikiLinkSyntax';
@@ -60,6 +61,7 @@ export const markdownGrammarExtensions: MarkdownExtension = [
   Strikethrough,
   TaskList,
   Table,
+  tableLazyAbsorptionGuard,
   wikiLinkSyntax,
   embedSyntax,
   imageSpacedDestinationSyntax,

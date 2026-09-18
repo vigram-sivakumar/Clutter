@@ -121,11 +121,9 @@ describe('tableActivationNormalization — cursor safety: the root selection mus
 
   it('reuses an already-existing following blank line instead of creating a redundant extra one', () => {
     // A genuine blank line already separates where the table will
-    // activate from more content below — GFM's own table-block rule (a
-    // blank line always ends the table, unlike a bare non-pipe line
-    // directly after it, which is instead lazily absorbed as a one-cell
-    // row) means this blank line is real, pre-existing, table-external
-    // content, not something this fix needs to create.
+    // activate from more content below — a blank line always ends the
+    // table's own leaf, so this blank line is real, pre-existing,
+    // table-external content, not something this fix needs to create.
     const state = makeState('| Name | Age |\n| -\n\nSomething else.');
     const closePos = state.doc.line(2).to; // end of the still-unclosed "| -"
     const activated = dispatchEdit(state, { from: closePos, to: closePos, insert: '|' }); // "| -" → "| -|"
@@ -167,12 +165,14 @@ describe('tableActivationNormalization — cursor safety: the root selection mus
 
     // The typed text landed entirely on the safe line below the table's
     // own three lines, which are byte-for-byte unchanged — an exact
-    // string match here proves no character was spliced into them (a
-    // weaker "does the table's own .to-bounded slice still match" check
-    // would be a false negative: GFM's own lazy-continuation rule grows
-    // a Table node's `.to` to absorb an immediately-following non-blank
-    // line with no blank line between them — exactly what "Hello world"
-    // now is, entirely correctly, and unrelated to this invariant).
+    // string match here proves no character was spliced into them. (Prior
+    // to tableLazyAbsorptionGuard.ts, a weaker "does the table's own
+    // .to-bounded slice still match" check would have been a false
+    // negative: @lezer/markdown's own Table extension used to grow a
+    // Table node's `.to` to absorb an immediately-following non-blank,
+    // non-pipe line like "Hello world" — that's now fixed, so "Hello
+    // world" is ordinary paragraph text below the table, unrelated to
+    // this invariant either way.)
     expect(state.doc.toString()).toBe(CANONICAL_TABLE + 'Hello world');
   });
 });

@@ -171,15 +171,16 @@ describe('tableWidgetField — nested/adjacent tables', () => {
     }
   });
 
-  it('a non-pipe line directly after a table (no blank line) is absorbed as a one-cell TableRow, not left as a separate paragraph', () => {
-    // Confirmed empirically (carried over from tableDecoration.test.ts):
-    // a table leaf block only ends at a blank line or EOF, not at the
-    // first line lacking a "|" — GFM's own spec-mandated behavior.
+  it('a non-pipe line directly after a table (no blank line) stays an ordinary paragraph, not a ragged TableRow', () => {
+    // Fixed by tableLazyAbsorptionGuard.ts: @lezer/markdown's own Table
+    // extension otherwise absorbs any following line — pipe or not — as
+    // another TableRow, which diverges from real GFM/GitHub rendering.
+    // See that file's doc comment for the full root-cause investigation.
     const text = '| a |\n| - |\n| 1 |\nplain paragraph\n\nOther';
     const view = mountView(text);
 
     expect(view.dom.querySelectorAll('.cm-table-widget')).toHaveLength(1);
-    expect(view.dom.querySelectorAll('tbody tr')).toHaveLength(2); // "1" row, "plain paragraph" row
+    expect(view.dom.querySelectorAll('tbody tr')).toHaveLength(1); // "1" row only — "plain paragraph" is not part of the table
     expect(view.dom.textContent).toContain('plain paragraph');
   });
 
